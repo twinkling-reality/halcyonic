@@ -43,6 +43,8 @@ export const SETTING_NAMES = [
   'HALCYONIC_COMPANION_MODEL',
   'HALCYONIC_COMPANION_OLLAMA_URL',
   'HALCYONIC_NETWORK_HOST',
+  // The browser's folder only: its hash is always the repository's pin (pins.ts), never a setting.
+  'HALCYONIC_BROWSER',
 ] as const;
 export type SettingName = (typeof SETTING_NAMES)[number];
 

@@ -326,6 +326,14 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   start (AppKit's `NSApplication` init registers with LaunchServices), and a copy that failed once kept failing; folders
   named `browser`, `current`, `chs` and others ran. Contents, modes, flags and extended attributes were the same. The
   host's copy lives at `<data dir>/browser/current`.
+- **The pin covers the whole folder (AUDIT M1, 2026-10-31):** the browser loads code from more than its binary
+  (`libEGL`, `libGLESv2`, `libvk_swiftshader`, `libvulkan`, `v8_context_snapshot.arm64.bin`, `resources/`), so the pin
+  is the digest of a manifest of the whole folder: one line per entry, sorted by relative path, with its kind, its mode
+  and, for a file, its SHA-256 (`preview/browser-manifest.txt`, 19 entries, no link). For `chromium_headless_shell-1248`
+  the digest is 0966bb448b30d115b303849668c4ebf1f00cf739bc728e4b747c1a502ee00ef2, the same for Playwright's cache, the
+  lane's copy and the host's copy after `pnpm mac-setup browser` (modes kept). Checking it takes about 78 ms on this Mac,
+  at every check and play start. A refusal names the first entry that differs, is extra or is missing; any link refuses
+  the folder. Tests: a changed library, a changed mode, an extra file, a missing file and a link.
 - **The check and the play end to end on the shell:** the check's opt-in suite passed 19 of 19 against today's browser
   (the person's Chrome, at 496699ac) and 19 of 19 against chrome-headless-shell through the launcher; what it found
   (drawn, the laptop step, the twins) was the same. The play's opt-in test passed through the launcher, with the

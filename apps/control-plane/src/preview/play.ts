@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type ChromeRun, launchChrome } from './chrome.ts';
@@ -57,23 +57,110 @@ export function browserBinary(folder: string): string {
 }
 
 /**
- * Why the browser copy may not run now, or null: every file of chrome-headless-shell must be there,
- * and its binary must hash to what was recorded when it was copied in.
+ * The whole browser folder as a manifest (AUDIT M1): one line per entry, sorted by its relative path,
+ * with its kind (`d` folder, `f` plain file), its mode and, for a plain file, its SHA-256. A link, or
+ * anything but a plain file or folder, is never followed: it is returned by its path instead, and
+ * refuses the folder (the pinned build holds none). Null when the folder is not there.
  */
-export function browserProblem(folder: string, sha256: string): string | null {
+export function browserManifest(
+  folder: string,
+): string[] | { readonly link: string } | { readonly other: string } | null {
+  const lines: string[] = [];
+  const walk = (relative: string): { link: string } | { other: string } | null => {
+    for (const name of readdirSync(join(folder, relative)).sort()) {
+      const path = relative === '' ? name : `${relative}/${name}`;
+      const stats = lstatSync(join(folder, path));
+      const mode = (stats.mode & 0o777).toString(8);
+      if (stats.isSymbolicLink()) return { link: path };
+      if (stats.isDirectory()) {
+        lines.push(`d ${mode} ${path}`);
+        const stop = walk(path);
+        if (stop !== null) return stop;
+      } else if (stats.isFile()) {
+        const sha256 = createHash('sha256')
+          .update(readFileSync(join(folder, path)))
+          .digest('hex');
+        lines.push(`f ${mode} ${path} ${sha256}`);
+      } else {
+        return { other: path };
+      }
+    }
+    return null;
+  };
+  try {
+    if (!lstatSync(folder).isDirectory()) return null;
+    const stop = walk('');
+    if (stop !== null) return stop;
+  } catch {
+    return null;
+  }
+  return lines.sort(byPath);
+}
+
+/** The pin over a manifest: the SHA-256 of its lines. */
+export function manifestDigest(lines: readonly string[]): string {
+  return createHash('sha256').update(lines.join('\n')).digest('hex');
+}
+
+/** The manifest of the pinned build (chrome-headless-shell 156.0.8078.4 for mac-arm64), as the repository keeps it. */
+export const PINNED_BROWSER_MANIFEST: readonly string[] = readFileSync(
+  new URL('./browser-manifest.txt', import.meta.url),
+  'utf8',
+)
+  .split('\n')
+  .filter((line) => line !== '');
+
+/** The path of a manifest line. */
+function pathOf(line: string): string {
+  return line.split(' ')[2] ?? '';
+}
+
+function byPath(a: string, b: string): number {
+  return pathOf(a) < pathOf(b) ? -1 : pathOf(a) > pathOf(b) ? 1 : 0;
+}
+
+/** The first entry, by path, that differs between two manifests, in words. */
+function firstDifference(actual: readonly string[], expected: readonly string[]): string {
+  const have = new Map(actual.map((line) => [pathOf(line), line]));
+  const want = new Map(expected.map((line) => [pathOf(line), line]));
+  for (const path of [...new Set([...have.keys(), ...want.keys()])].sort()) {
+    if (!have.has(path)) return `${path} is missing`;
+    if (!want.has(path)) return `${path} is extra`;
+    if (have.get(path) !== want.get(path)) return `${path} has changed`;
+  }
+  return 'its entries are in another order';
+}
+
+/**
+ * Why the browser copy may not run now, or null: every file chrome-headless-shell is named by must be
+ * there, nothing in the folder may be a link or anything but a plain file or folder, and the digest
+ * of its manifest must be the pin. When the expected manifest is known (the repository keeps the
+ * pinned build's), the refusal names the first entry that differs, is extra or is missing.
+ */
+export function browserProblem(
+  folder: string,
+  sha256: string,
+  expected: readonly string[] | null = manifestDigest(PINNED_BROWSER_MANIFEST) === sha256
+    ? PINNED_BROWSER_MANIFEST
+    : null,
+): string | null {
   if (!existsSync(browserBinary(folder))) return `There is no browser at ${folder}.`;
   if (BROWSER_FILES.some((file) => !existsSync(join(folder, file))))
     return `The browser at ${folder} is not chrome-headless-shell.`;
-  const actual = createHash('sha256')
-    .update(readFileSync(browserBinary(folder)))
-    .digest('hex');
-  if (actual !== sha256) return `The browser at ${folder} has changed since it was set up.`;
-  return null;
+  const manifest = browserManifest(folder);
+  if (manifest === null) return `There is no browser at ${folder}.`;
+  if ('link' in manifest) return `The browser at ${folder} holds a link, ${manifest.link}.`;
+  if ('other' in manifest)
+    return `The browser at ${folder} holds ${manifest.other}, which is not a plain file or folder.`;
+  if (manifestDigest(manifest) === sha256) return null;
+  if (expected !== null && manifestDigest(expected) === sha256)
+    return `The browser at ${folder} has changed since it was set up: ${firstDifference(manifest, expected)}.`;
+  return `The browser at ${folder} has changed since it was set up.`;
 }
 
 /**
  * Puts the browser copy in Halcyonic's data folder from `source`, the chrome-headless-shell folder the
- * owner named, unless a copy whose binary hashes to `sha256` is there already, and returns its path.
+ * owner named, unless a copy whose manifest's digest is `sha256` is there already, and returns its path.
  * The source itself is never run. Throws, leaving no copy, when the source is not that browser.
  */
 export async function installBrowser(
@@ -91,8 +178,8 @@ export async function installBrowser(
   const problem = browserProblem(source, sha256);
   if (problem !== null) throw new Error(problem);
   await mkdir(join(dataDir, 'browser'), { recursive: true, mode: 0o700 });
-  // Links inside the folder are copied as they are, never followed.
-  await cp(source, copy, { recursive: true, verbatimSymlinks: true, preserveTimestamps: true });
+  // The source holds no link (checked above), so the copy is of plain files and folders only.
+  await cp(source, copy, { recursive: true, preserveTimestamps: true });
   const copied = browserProblem(copy, sha256);
   if (copied !== null) {
     await rm(join(dataDir, 'browser'), { recursive: true, force: true });

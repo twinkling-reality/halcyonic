@@ -13,12 +13,15 @@ export interface Pins {
   readonly codex: PinnedFile;
   readonly whisperModel: PinnedFile;
   readonly whisperVadModel: PinnedFile;
+  /** The check's and the play's browser: chrome-headless-shell's binary, as the host copies it (S1). */
+  readonly browser: PinnedFile;
 }
 
 /**
  * The binaries and models Halcyonic was checked with on an Apple silicon Mac, as the runbook
  * installs them under the data directory: OpenCode 2.0.18 (opencode-capabilities.md), Codex 0.157.0
- * (codex-capabilities.md) and the voice models (voice-transcription.md).
+ * (codex-capabilities.md), the voice models (voice-transcription.md) and the check's and play's browser
+ * (iwsdk-starter.md).
  */
 export const APPLE_SILICON_PINS: Pins = {
   opencode: {
@@ -36,6 +39,14 @@ export const APPLE_SILICON_PINS: Pins = {
   whisperVadModel: {
     path: 'speech/models/ggml-silero-v6.2.0.bin',
     sha256: '2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987',
+  },
+  // chrome-headless-shell 156.0.8078.4 for mac-arm64, as Playwright's chromium_headless_shell-1248 holds it
+  // (validation/iwsdk-starter.md, S1). Not one file's hash: the digest of the manifest of the whole folder,
+  // every entry's kind, mode and path and every file's SHA-256 (AUDIT M1), kept in
+  // preview/browser-manifest.txt. The host's copy lives at <data>/browser/current.
+  browser: {
+    path: 'browser/current',
+    sha256: '0966bb448b30d115b303849668c4ebf1f00cf739bc728e4b747c1a502ee00ef2',
   },
 };
 

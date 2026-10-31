@@ -72,6 +72,40 @@ describe('the settings file', () => {
     );
   });
 
+  test("holds the browser's folder, never its hash: the hash is always the repository's pin", () => {
+    const dataDir = join(base, 'browser-setting', 'data');
+    writeHostSettings(dataDir, {
+      HALCYONIC_BROWSER: '/Users/someone/Library/Caches/ms-playwright/x',
+    });
+    assert.equal(
+      readHostSettings(dataDir).HALCYONIC_BROWSER,
+      '/Users/someone/Library/Caches/ms-playwright/x',
+    );
+    writeFileSync(
+      join(dataDir, SETTINGS_FILE),
+      JSON.stringify({ format: 1, HALCYONIC_BROWSER_SHA256: 'a'.repeat(64) }),
+      { mode: 0o600 },
+    );
+    assert.throws(() => readHostSettings(dataDir), /can't set HALCYONIC_BROWSER_SHA256/);
+  });
+
+  test("holds the browser's folder, never its hash: the hash is always the repository's pin", () => {
+    const dataDir = join(base, 'browser-setting', 'data');
+    writeHostSettings(dataDir, {
+      HALCYONIC_BROWSER: '/Users/someone/Library/Caches/ms-playwright/x',
+    });
+    assert.equal(
+      readHostSettings(dataDir).HALCYONIC_BROWSER,
+      '/Users/someone/Library/Caches/ms-playwright/x',
+    );
+    writeFileSync(
+      join(dataDir, SETTINGS_FILE),
+      JSON.stringify({ format: 1, HALCYONIC_BROWSER_SHA256: 'a'.repeat(64) }),
+      { mode: 0o600 },
+    );
+    assert.throws(() => readHostSettings(dataDir), /can't set HALCYONIC_BROWSER_SHA256/);
+  });
+
   test('is refused when other users can read or change it, or it is a link', () => {
     const settings = { format: 1, HALCYONIC_NETWORK_HOST: '0.0.0.0' };
     for (const mode of [0o644, 0o640, 0o602, 0o660]) {

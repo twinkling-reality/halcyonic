@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { isCloudName } from './companion/ollama.ts';
 import { assessFolder, type FolderContext } from './folder-safety.ts';
 import { OwnWordsError } from './logger.ts';
+import { type Pins, pinsForThisMac } from './pins.ts';
 
 export const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
 export type LogLevel = (typeof LOG_LEVELS)[number];
@@ -92,9 +93,9 @@ export interface ControlPlaneConfig {
   readonly gitBinary: string | null;
   /**
    * The chrome-headless-shell folder the check of a new app and a game played on the Mac both run
-   * (ADR 0037, S1), and its binary's SHA-256, or null: checks then type check and build but cannot
+   * (ADR 0037, S1), and its binary's SHA-256 (always the repository's pin), or null: checks then type check and build but cannot
    * pass, and no game is played. Halcyonic copies it into its data folder and runs only the copy,
-   * after checking its files and hash, never this folder and never the person's own Chrome.
+   * after checking its whole folder against the pin (a manifest of every entry), never this folder and never the person's own Chrome.
    */
   readonly browser: { readonly folder: string; readonly sha256: string } | null;
   /** Null, and voice off, unless the owner set all three HALCYONIC_WHISPER_ variables. */
@@ -138,7 +139,14 @@ export function loopbackListener(env: NodeJS.ProcessEnv = process.env): {
   return { host, port: parseInteger('HALCYONIC_PORT', env.HALCYONIC_PORT, DEFAULT_PORT, 0, 65535) };
 }
 
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneConfig {
+/**
+ * `pins` are the checked files of this Mac (pins.ts); the browser's hash is always taken from them,
+ * so nothing a setting or the environment says can widen what runs.
+ */
+export function loadConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  pins: Pins | null = pinsForThisMac(),
+): ControlPlaneConfig {
   const { host, port } = loopbackListener(env);
   return {
     host,
@@ -173,7 +181,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     opencodeConfigHome: parseOpenCodeConfigHome(env.HALCYONIC_OPENCODE_CONFIG_HOME),
     codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
     gitBinary: parseExecutable('HALCYONIC_GIT_BIN', env.HALCYONIC_GIT_BIN),
-    browser: parseBrowser(env),
+    browser: parseBrowser(env, pins),
     speech: parseSpeech(env),
     companion: parseCompanion(env),
     exitOnStdinEnd: parseSwitch('HALCYONIC_EXIT_ON_STDIN_END', env.HALCYONIC_EXIT_ON_STDIN_END),
@@ -216,6 +224,7 @@ function parseSwitch(name: string, raw: string | undefined): boolean {
 
 function parseBrowser(
   env: NodeJS.ProcessEnv,
+  pins: Pins | null,
 ): { readonly folder: string; readonly sha256: string } | null {
   for (const old of [
     'HALCYONIC_CHECK_CHROME',
@@ -224,14 +233,25 @@ function parseBrowser(
   ]) {
     if (env[old] !== undefined && env[old] !== '')
       throw new ConfigError(
-        `${old} is no longer used: checks and plays run a copy of chrome-headless-shell. Set HALCYONIC_BROWSER to its folder and HALCYONIC_BROWSER_SHA256 to its binary's hash instead.`,
+        `${old} is no longer used: checks and plays run a copy of chrome-headless-shell. Run pnpm mac-setup browser instead.`,
       );
   }
   const folder = env.HALCYONIC_BROWSER ?? '';
   const sha256 = env.HALCYONIC_BROWSER_SHA256 ?? '';
-  if (folder === '' && sha256 === '') return null;
-  if (folder === '' || sha256 === '')
-    throw new ConfigError('Set both HALCYONIC_BROWSER and HALCYONIC_BROWSER_SHA256, or neither.');
+  if (folder === '') {
+    if (sha256 !== '')
+      throw new ConfigError('HALCYONIC_BROWSER_SHA256 is set without HALCYONIC_BROWSER.');
+    return null;
+  }
+  const pin = pins?.browser.sha256 ?? null;
+  if (pin === null)
+    throw new ConfigError(
+      'HALCYONIC_BROWSER is set, but there is no checked browser for this Mac, so none is run.',
+    );
+  if (sha256 !== '' && sha256 !== pin)
+    throw new ConfigError(
+      `HALCYONIC_BROWSER_SHA256 must be the checked browser's hash, ${pin}, or unset.`,
+    );
   if (!isAbsolute(folder))
     throw new ConfigError(`HALCYONIC_BROWSER must be an absolute path, got "${folder}".`);
   let isDirectory = false;
@@ -241,9 +261,7 @@ function parseBrowser(
     throw new ConfigError(`HALCYONIC_BROWSER ${folder} does not exist.`);
   }
   if (!isDirectory) throw new ConfigError(`HALCYONIC_BROWSER ${folder} is not a folder.`);
-  if (!/^[0-9a-f]{64}$/.test(sha256))
-    throw new ConfigError('HALCYONIC_BROWSER_SHA256 must be 64 lowercase hexadecimal digits.');
-  return { folder, sha256 };
+  return { folder, sha256: pin };
 }
 
 function parseExecutable(name: string, raw: string | undefined): string | null {

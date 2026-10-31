@@ -21,6 +21,7 @@ import { loopbackProof, PROOF_CHALLENGE_HEADER, PROOF_HEADER } from '../http/sec
 import type { Pins } from '../pins.ts';
 import { audioOutputFor } from '../preview/audio-output.ts';
 import { launcherProblem } from '../preview/launcher.ts';
+import { BROWSER_FILES, browserManifest, manifestDigest } from '../preview/play.ts';
 import {
   readHostSettings,
   SETTINGS_FILE,
@@ -41,10 +42,29 @@ const CONTENT = {
   codex: 'codex 0.157.0, for tests\n',
   whisperModel: 'speech model, for tests\n',
   whisperVadModel: 'voice activity model, for tests\n',
+  browser: 'chrome-headless-shell, for tests\n',
 };
 
 function sha256(text: string): string {
   return createHash('sha256').update(text).digest('hex');
+}
+
+/** A chrome-headless-shell folder: every file it is named by, its binary holding `binary`. */
+function writeShell(folder: string, binary: string): string {
+  fs.mkdirSync(folder, { recursive: true });
+  for (const file of BROWSER_FILES)
+    fs.writeFileSync(join(folder, file), file === 'chrome-headless-shell' ? binary : file);
+  return folder;
+}
+
+/** The whole-folder hash of a stand-in browser holding `binary`, as the pin is (AUDIT M1). */
+function shellHash(binary: string): string {
+  const folder = fs.mkdtempSync(join(tmpdir(), 'halcyonic-shell-pin-'));
+  try {
+    return manifestDigest(browserManifest(writeShell(join(folder, 'shell'), binary)) as string[]);
+  } finally {
+    fs.rmSync(folder, { recursive: true, force: true });
+  }
 }
 
 const PINS: Pins = {
@@ -52,6 +72,7 @@ const PINS: Pins = {
   codex: { path: 'runtimes/codex/bin/codex', sha256: sha256(CONTENT.codex) },
   whisperModel: { path: 'speech/models/model.bin', sha256: sha256(CONTENT.whisperModel) },
   whisperVadModel: { path: 'speech/models/vad.bin', sha256: sha256(CONTENT.whisperVadModel) },
+  browser: { path: 'browser/current', sha256: shellHash(CONTENT.browser) },
 };
 
 const OLLAMA_MODELS = [
@@ -1040,12 +1061,11 @@ describe("the browser's launcher (S1)", {
     machine.env = {
       ...machine.env,
       HALCYONIC_BROWSER: browser,
-      HALCYONIC_BROWSER_SHA256: 'a'.repeat(64),
     };
     machine.lines.length = 0;
     await machine.run();
     assert.equal(status(machine, "New apps' browser"), 'To do');
-    assert.match(text(machine), /pnpm mac-setup launcher/);
+    assert.match(text(machine), /pnpm mac-setup browser/);
     machine.lines.length = 0;
     assert.equal(await machine.run('launcher'), 0);
     assert.equal(launcherProblem(machine.dataDir), null);
@@ -1054,5 +1074,84 @@ describe("the browser's launcher (S1)", {
     machine.lines.length = 0;
     await machine.run();
     assert.equal(status(machine, "New apps' browser"), 'Ready');
+  });
+});
+
+describe('the browser set up in one command (pnpm mac-setup browser)', {
+  skip: process.platform !== 'darwin' || !fs.existsSync('/usr/bin/clang'),
+}, () => {
+  const shell = writeShell;
+  const cache = (machine: Mac) => join(machine.home, 'Library', 'Caches', 'ms-playwright');
+
+  test("it finds the pinned browser in Playwright's cache, copies it, records only its folder and builds the launcher; pnpm dev then needs no variables", async (t) => {
+    const machine = mac(t);
+    shell(
+      join(cache(machine), 'chromium_headless_shell-1200', 'chrome-headless-shell-mac-arm64'),
+      'another build\n',
+    );
+    const pinned = shell(
+      join(cache(machine), 'chromium_headless_shell-1248', 'chrome-headless-shell-mac-arm64'),
+      CONTENT.browser,
+    );
+    // A link to the pinned folder is passed over: the search follows none.
+    fs.mkdirSync(join(cache(machine), 'chromium_headless_shell-1300'));
+    fs.symlinkSync(
+      pinned,
+      join(cache(machine), 'chromium_headless_shell-1300', 'chrome-headless-shell-mac-arm64'),
+    );
+    assert.equal(await machine.run('browser'), 0, text(machine));
+    assert.deepEqual(machine.settings().HALCYONIC_BROWSER, pinned);
+    assert.equal(
+      Object.hasOwn(machine.settings(), 'HALCYONIC_BROWSER_SHA256'),
+      false,
+      'never the hash',
+    );
+    assert.equal(
+      fs.readFileSync(join(machine.dataDir, 'browser', 'current', 'chrome-headless-shell'), 'utf8'),
+      CONTENT.browser,
+    );
+    assert.equal(launcherProblem(machine.dataDir), null);
+    assert.notEqual(audioOutputFor(machine.dataDir), null);
+    assert.doesNotMatch(text(machine), /—/);
+    // The start reads the folder from the settings and the hash from the pin.
+    const config = loadConfig(
+      withSettings({ HALCYONIC_DATA_DIR: machine.dataDir }, machine.settings()),
+      PINS,
+    );
+    assert.deepEqual(config.browser, { folder: pinned, sha256: PINS.browser.sha256 });
+    machine.lines.length = 0;
+    await machine.run();
+    assert.equal(status(machine, "New apps' browser"), 'Ready');
+  });
+
+  test('with no pinned browser it says where it looked and what is needed, and records and copies nothing', async (t) => {
+    const machine = mac(t);
+    shell(
+      join(cache(machine), 'chromium_headless_shell-1200', 'chrome-headless-shell-mac-arm64'),
+      'another build\n',
+    );
+    assert.equal(await machine.run('browser'), 1);
+    assert.match(
+      text(machine),
+      new RegExp(cache(machine).replace(machine.home, '~').replace(/[.]/g, '\\.')),
+    );
+    assert.match(text(machine), /chrome-headless-shell 156\.0\.8078\.4/);
+    assert.equal(machine.settings().HALCYONIC_BROWSER, undefined);
+    assert.equal(fs.existsSync(join(machine.dataDir, 'browser')), false);
+    // A folder named outright is held to the same pin.
+    const other = shell(join(machine.root, 'elsewhere'), 'another build\n');
+    machine.lines.length = 0;
+    assert.equal(await machine.run('browser', other), 1);
+    assert.equal(machine.settings().HALCYONIC_BROWSER, undefined);
+    // The pinned build with one file more is not it.
+    const extra = shell(join(machine.root, 'extra'), CONTENT.browser);
+    fs.writeFileSync(join(extra, 'libvk_swiftshader.dylib'), 'added');
+    machine.lines.length = 0;
+    assert.equal(await machine.run('browser', extra), 1);
+    assert.equal(machine.settings().HALCYONIC_BROWSER, undefined);
+    const named = shell(join(machine.root, 'named'), CONTENT.browser);
+    machine.lines.length = 0;
+    assert.equal(await machine.run('browser', named), 0, text(machine));
+    assert.equal(machine.settings().HALCYONIC_BROWSER, named);
   });
 });

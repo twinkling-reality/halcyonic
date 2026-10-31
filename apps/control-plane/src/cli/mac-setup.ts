@@ -22,9 +22,11 @@
 import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
+  type Dirent,
   existsSync,
   lstatSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   renameSync,
@@ -69,6 +71,7 @@ import {
   launcherProblem,
   programProblem,
 } from '../preview/launcher.ts';
+import { browserProblem, installBrowser } from '../preview/play.ts';
 import { ANTHROPIC_KEY_FILE, CODEX_HOME_FOLDER } from '../runtimes.ts';
 import {
   type HostSettings,
@@ -190,6 +193,8 @@ export async function runMacSetup(args: readonly string[], io: MacSetupIo): Prom
       return argument === 'on' || argument === 'off' ? setup.pairing(argument) : usage(io);
     case 'launcher':
       return argument === undefined ? setup.launcher() : usage(io);
+    case 'browser':
+      return setup.browser(argument);
     default:
       return usage(io);
   }
@@ -206,6 +211,7 @@ function usage(io: MacSetupIo): number {
     '  pnpm mac-setup voice                record the checked voice files',
     "  pnpm mac-setup companion <name|off> let Create's companion ask an Ollama model on this Mac",
     '  pnpm mac-setup pairing on|off       let headsets pair over Wi-Fi, or stop it',
+    "  pnpm mac-setup browser [folder]     set up new apps' browser once: find it, copy it, build its launcher",
     "  pnpm mac-setup launcher             build what starts new apps' browser without this app's permissions",
     'Add --with-token to ask the running Halcyonic what it uses: the check then reads its access',
     'token, and sends it only after Halcyonic proves it holds it.',
@@ -590,10 +596,15 @@ class MacSetup {
     const about =
       "A new app's check, and a game played on this Mac, run in a browser that starts through Halcyonic's launcher, so it has none of the macOS permissions given to the app that started Halcyonic.";
     const problem = launcherProblem(this.#dataDir) ?? programProblem(this.#dataDir, AUDIO_OUTPUT);
-    if (problem === null)
-      return { title, status: 'ready', lines: ['The launcher is built.', about] };
     if (!present(env.HALCYONIC_BROWSER))
-      return { title, status: 'optional', lines: ['No browser for new apps is set.', about] };
+      return {
+        title,
+        status: 'optional',
+        lines: ['No browser for new apps is set up.', about],
+        next: ['pnpm mac-setup browser'],
+      };
+    if (problem === null)
+      return { title, status: 'ready', lines: ['The browser and its launcher are set up.', about] };
     return {
       title,
       status: 'todo',
@@ -601,8 +612,68 @@ class MacSetup {
         `${problem} Until it is built, checks run without it and games are not played on this Mac.`,
         about,
       ],
-      next: ['pnpm mac-setup launcher'],
+      next: ['pnpm mac-setup browser'],
     };
+  }
+
+  /**
+   * Sets up new apps' browser once: finds the checked chrome-headless-shell in Playwright's cache
+   * (or in `folder`), reading only and following no link, copies it into the data folder, records
+   * its folder in the settings (never its hash, which is always the repository's pin) and builds
+   * the launcher and the sound helper. Nothing is downloaded, and nothing is recorded or copied
+   * unless the binary matches the pin.
+   */
+  async browser(folder: string | undefined): Promise<number> {
+    const io = this.#io;
+    if (process.platform !== 'darwin') {
+      io.print("New apps' browser is for macOS only.");
+      return 1;
+    }
+    const pin = io.pins?.browser ?? null;
+    if (pin === null) {
+      io.print('There is no checked browser for this Mac, so none is set up.');
+      return 1;
+    }
+    const settings = this.#settingsOrPrint();
+    if (settings === null) return 1;
+    const searched = join(io.home, 'Library', 'Caches', 'ms-playwright');
+    const candidates =
+      folder === undefined ? playwrightShells(searched) : [resolve(expandHome(folder, io.home))];
+    let found: string | null = null;
+    for (const candidate of candidates) {
+      if (isPinnedShell(candidate, pin.sha256)) {
+        found = candidate;
+        break;
+      }
+    }
+    if (found === null) {
+      io.print(
+        folder === undefined
+          ? `There is no checked browser in ${this.#tilde(searched)}.`
+          : `${this.#tilde(candidates[0] ?? folder)} doesn't hold the checked browser.`,
+      );
+      io.print(
+        'Halcyonic needs chrome-headless-shell 156.0.8078.4 for Apple silicon, the build Playwright keeps in a folder named chromium_headless_shell-1248. Install it with Playwright yourself, then run pnpm mac-setup browser again. Nothing was set up.',
+      );
+      return 1;
+    }
+    try {
+      await installBrowser(found, pin.sha256, this.#dataDir);
+    } catch {
+      io.print(
+        "The browser couldn't be copied into Halcyonic's data folder. Nothing was recorded.",
+      );
+      return 1;
+    }
+    const next = { ...settings, HALCYONIC_BROWSER: found };
+    this.#save(next);
+    io.print(
+      `The browser is set up from ${this.#tilde(found)}, copied into ${this.#tilde(join(this.#dataDir, 'browser', 'current'))}. pnpm dev needs no variables for it.`,
+    );
+    const built = await this.launcher();
+    if (built !== 0) return built;
+    await this.#afterChange(next);
+    return 0;
   }
 
   /** Builds the launcher from its tracked source with Apple's compiler (S1). */
@@ -1390,7 +1461,7 @@ class MacSetup {
   #settings(): { values: HostSettings } | { error: string } {
     try {
       const values = readHostSettings(this.#dataDir);
-      loadConfig(withSettings(this.#io.env, values));
+      loadConfig(withSettings(this.#io.env, values), this.#io.pins);
       return { values };
     } catch (error) {
       if (error instanceof ConfigError) return { error: error.message };
@@ -1425,7 +1496,7 @@ class MacSetup {
       for (const [name, value] of Object.entries(settings)) {
         if (value !== undefined) kept[name as SettingName] = value;
       }
-      loadConfig(withSettings(io.env, kept));
+      loadConfig(withSettings(io.env, kept), io.pins);
     } catch (error) {
       if (!(error instanceof ConfigError)) throw error;
       io.print(`Halcyonic won't start with its settings yet: ${error.message}`);
@@ -1738,6 +1809,31 @@ function codexHomeProblem(home: string): string | null {
     return `${join(home, 'auth.json')} is a Codex sign-in. Halcyonic runs Codex only on models this Mac serves, without one: move it away, then try again.`;
   }
   return null;
+}
+
+/** The chrome-headless-shell folders Playwright's cache holds, as plain folders only; links are passed over. */
+function playwrightShells(cache: string): string[] {
+  const stats = lstatOrNull(cache);
+  if (stats === null || !stats.isDirectory()) return [];
+  let entries: Dirent[];
+  try {
+    entries = readdirSync(cache, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith('chromium_headless_shell-'))
+    .map((entry) => join(cache, entry.name, 'chrome-headless-shell-mac-arm64'))
+    .sort()
+    .reverse();
+}
+
+/**
+ * Whether `folder` is a plain folder whose whole contents, every file and folder, hash to the pin,
+ * with nothing in it a link (browserProblem). Nothing is followed through a link.
+ */
+function isPinnedShell(folder: string, sha256: string): boolean {
+  return lstatOrNull(folder)?.isDirectory() === true && browserProblem(folder, sha256) === null;
 }
 
 function lstatOrNull(path: string): Stats | null {

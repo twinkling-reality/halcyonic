@@ -129,6 +129,18 @@ The check lists it as "New apps' browser": Optional with no browser set, To do w
 is missing or changed, Ready once built. Tested in `mac-setup.test.ts` and `launcher.test.ts` on this Mac, with Apple
 clang 21.0.0 on macOS 26.7; without Apple's command line tools the command says to run `xcode-select --install`.
 
+## New apps' browser in one command (2026-10-31)
+
+`pnpm mac-setup browser` lists `~/Library/Caches/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-mac-arm64`
+as plain folders (a link is passed over) and compares the digest of each one's manifest, every entry's kind, mode and
+relative path and every file's SHA-256, with any link refusing it, against the browser pin in `pins.ts` before it copies or records anything (AUDIT M1). A match is copied into
+`<data dir>/browser/current` (checked again after the copy, a 0700 folder), its folder alone is written to the
+settings file as `HALCYONIC_BROWSER`, and the launcher and the sound helper are built. The settings file refuses
+`HALCYONIC_BROWSER_SHA256`; the start takes the hash from the pin, and refuses one in the environment that is not the pin.
+With no match it names the folder it looked in and the build it needs, and sets up nothing. Tested in
+`mac-setup.test.ts` with a stand-in cache (a matching build, another build, and a link to the match, passed over), in
+`config.test.ts` and in `settings.test.ts`; on this Mac Playwright's `chromium_headless_shell-1248` holds the pinned build.
+
 ## Not verified
 
 - **A person new to Halcyonic** following the runbook's "First run on a Mac" without help. Words

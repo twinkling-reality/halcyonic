@@ -269,6 +269,23 @@ directly inside one), `location_missing` (not there, or the folder moved), `loca
 folder's name is taken; choose it as an existing folder instead), and `location_required` (a start
 in a project without a folder).
 
+### New apps' browser
+
+A new app's check, and a game played on the Mac, run in a copy of chrome-headless-shell 156.0.8078.4, the build
+Playwright keeps in `~/Library/Caches/ms-playwright/chromium_headless_shell-1248/`. Set it up once:
+
+```bash
+pnpm mac-setup browser
+```
+
+It looks in Playwright's cache (or in a folder you name after `browser`), reading only and following no link, and takes
+the copy only if the whole folder, every file and folder in it with no link, matches the hash the repository pins
+(`apps/control-plane/src/pins.ts`). It then copies it
+into `~/.halcyonic/browser/current`, records its folder in the settings file (never a hash), and builds the launcher and
+the sound helper. After that `pnpm dev` needs no variable for it; at every start the copy is checked against the pin
+again. If the cache has no such build, the command says where it looked; install it with Playwright yourself and run
+the command again. Nothing is downloaded by Halcyonic.
+
 ### The VR starter's controller models
 
 A project made from the IWSDK starter shows its controllers' and hands' models only if the Mac has them. Put each file that
