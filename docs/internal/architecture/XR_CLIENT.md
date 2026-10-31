@@ -2542,7 +2542,15 @@ exists. Passthrough remains independent of whether optional characters are prese
 - **Authority and limits.** The shelf column keeps its exact offered frame until Changed. Only a
   current drawn, offered movement, room-read or Apply can act. `AgentShelfDraft` bounds candidates
   to 0.4–2 m horizontally from the placement-time eyes and 0.15–0.9 m below them, rejects non-finite
-  values, and invalidates its generation before Apply or Cancel. The Unity owner also checks the
+  values, and invalidates its generation before Apply or Cancel. The first preview comes from
+  `AgentShelfSearch`, the one search the headset and the Editor's measured renders share: after the
+  person's confirmed pose, the designed home (just right of the console's right edge, its near edge
+  1.5 degrees outside the frame, at the console's distance, its top just under the console's lower
+  edge), then outward on the right in 5 degree steps (at each turn the console's depth, then nearer,
+  then farther; at each depth the home's height, then lower, then higher), then the left side
+  mirrored, the 40 degree turn last on each side (ART, 2026-10-31). Never nearer than 1.2 m (ART's
+  rule for characters; only the person's own moves reach the draft's 0.4 m). Each candidate is kept
+  or refused by the same field and console predicates, with no fallback when all are refused. The Unity owner also checks the
   entire shelf/label/banner envelope against the current head-relative measured field, with the
   existing lens-edge margin, before preview movement and again before Apply. The actual visible
   console frame or global dock must also clear the whole candidate envelope by a degree; a rejected

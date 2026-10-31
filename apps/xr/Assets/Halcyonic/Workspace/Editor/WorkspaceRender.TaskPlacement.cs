@@ -214,7 +214,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 var kept = placement.Preferred; var keptSelection = stage.ShelfPage.Title;
                 Open(prior.WorkstreamId); Press(Footer.Close);
                 if (!SamePose(kept, placement.Preferred) || stage.ShelfPage.Title != keptSelection || !workspace.Presentation.AgentsEnabled)
-                    failures.Add("Cancel while another task was previewed changed the prior pose/selection/enabled state");
+                    failures.Add("Cancel while another task was previewed changed the prior pose/selection/enabled state (pose kept " + SamePose(kept, placement.Preferred)
+                        + ", selection " + keptSelection + " -> " + stage.ShelfPage.Title + ", enabled " + workspace.Presentation.AgentsEnabled + ")");
                 Open(prior.WorkstreamId);
                 var stale = menu.Plane.Shown.Single().View.Frame;
                 PlacementPump(session, new WelcomeMessage { Journal = journal, Head = 2, ServerTime = Time }); Draw();

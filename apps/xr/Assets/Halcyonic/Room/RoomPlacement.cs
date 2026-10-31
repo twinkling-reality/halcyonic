@@ -87,18 +87,11 @@ namespace Halcyonic.XR.Room
                 if (Draft.Candidate != null) return true;
             }
             // Only this explicit placement action offers a preview. It never publishes a pose or
-            // requests scene access; the first candidate that clears the current workspace is shown.
-            foreach (var drop in new[] { 0.45f, 0.6f, 0.75f, 0.9f })
-            foreach (var distance in new[] { 1.2f, 1.5f, 1.8f, 2f })
-            foreach (var turn in new[] { 0f, -20f, 20f, -35f, 35f })
-            {
-                var direction = Quaternion.Euler(0f, turn, 0f) * forward;
-                var candidate = new Pose(head.transform.position + direction * distance - Vector3.up * drop,
-                    Quaternion.LookRotation(direction, Vector3.up));
-                Draft.Begin(ToDraft(candidate), eyes);
-                if (Draft.Candidate != null) return true;
-            }
-            return false;
+            // requests scene access; the first candidate in ART's order from the designed home beside the
+            // console's right foot that AllowsShelf keeps (the field and the current workspace's clearance)
+            // is shown. The Editor's measured search runs the same AgentShelfSearch, so the two never drift.
+            return AgentShelfSearch.Begin(Draft, eyes, Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg, out _,
+                GetComponent<WorkspaceDirector>()?.ShelfConsole(head.transform.position));
         }
         public void MovePreview(string direction)
         {
