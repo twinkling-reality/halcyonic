@@ -205,9 +205,11 @@ namespace Halcyonic.XR.UI
             // The rectangle as laid out, in the curve's frame: x across the flat plane, y up its axis.
             float left = float.MaxValue, right = float.MinValue, bottom = float.MaxValue, top = float.MinValue;
             var toCurve = Quaternion.Inverse(curve.Facing);
-            foreach (var x in new[] { -0.5f, 0.5f })
-            foreach (var y in new[] { -0.5f, 0.5f })
+            // Its four corners, counted rather than listed, so a frame allocates nothing (ADR 0027).
+            for (var corner = 0; corner < 4; corner++)
             {
+                var x = corner % 2 == 0 ? -0.5f : 0.5f;
+                var y = corner < 2 ? -0.5f : 0.5f;
                 var laid = toCurve * (transform.TransformPoint(new Vector3(size.x * x, size.y * y, 0f)) - curve.Eyes);
                 left = Mathf.Min(left, laid.x); right = Mathf.Max(right, laid.x);
                 bottom = Mathf.Min(bottom, laid.y); top = Mathf.Max(top, laid.y);

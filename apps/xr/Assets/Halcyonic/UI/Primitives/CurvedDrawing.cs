@@ -124,8 +124,9 @@ namespace Halcyonic.XR.UI
         private static bool Within(Transform transform, IReadOnlyList<Transform>? bodies)
         {
             if (bodies == null) return false;
-            foreach (var body in bodies)
-                if (body != null && transform.IsChildOf(body)) return true;
+            // By index: a foreach over the interface would box its enumerator on every call, every frame (ADR 0027).
+            for (var index = 0; index < bodies.Count; index++)
+                if (bodies[index] != null && transform.IsChildOf(bodies[index])) return true;
             return false;
         }
     }
