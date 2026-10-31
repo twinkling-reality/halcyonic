@@ -37,6 +37,7 @@ namespace Halcyonic.XR.UI
         private KitWell well = null!;
         private readonly List<TextMeshPro> meta = new List<TextMeshPro>();
         private readonly List<TextMeshPro> lines = new List<TextMeshPro>();
+        private readonly List<TextMeshPro> riskSegments = new List<TextMeshPro>();
         private readonly Dictionary<KitMomentAction, KitButton> buttons = new Dictionary<KitMomentAction, KitButton>();
         private readonly List<(KitMomentAction Action, KitButton Button)> shown = new List<(KitMomentAction, KitButton)>();
         private readonly List<string> cut = new List<string>();
@@ -116,7 +117,7 @@ namespace Halcyonic.XR.UI
                     new[] { prose.transform },
                     new[] { fact.transform },
                     new[] { well.transform },
-                    lines.Select(line => line.transform).ToArray(),
+                    lines.Select(line => line.transform).Concat(riskSegments.Select(segment => segment.transform)).ToArray(),
                     shown.Select(each => each.Button.transform).ToArray(),
                 };
                 return parts.Select(group => (IReadOnlyList<Transform>)group.Where(part => part.gameObject.activeSelf).ToList()).Where(group => group.Count > 0).ToList();
@@ -223,6 +224,7 @@ namespace Halcyonic.XR.UI
         {
             foreach (var button in buttons.Values) button.Hide();
             foreach (var line in lines) line.gameObject.SetActive(false);
+            foreach (var segment in riskSegments) segment.gameObject.SetActive(false);
             foreach (var label in meta) label.gameObject.SetActive(false);
             shown.Clear();
             cut.Clear();
@@ -381,9 +383,43 @@ namespace Halcyonic.XR.UI
             }
             else well.Hide();
 
-            // The risk line: what answering may do, Halcyonic's words.
+            // The risk line: what answering may do, Halcyonic's words. A line of " · " segments flows as its segments, wrapping only
+            // between them, so a phrase such as "Your Access" never splits (ART's A3b review; a no-break space cannot reach the label).
+            var segmentsUsed = 0;
             for (var i = 0; i < moment.Lines.Count; i++)
             {
+                if (moment.Lines[i].Contains(" · "))
+                {
+                    y -= Dp(i == 0 ? SpatialKit.RiskGapDp : SpatialKit.MarkGapDp);
+                    var parts = moment.Lines[i].Split(new[] { " · " }, System.StringSplitOptions.None);
+                    var x = left;
+                    var lineTop = y;
+                    var rowHeight = 0f;
+                    for (var p = 0; p < parts.Length; p++)
+                    {
+                        while (riskSegments.Count <= segmentsUsed)
+                            riskSegments.Add(KitType.Create(body, "Risk segment " + riskSegments.Count, KitRole.Body, KitType.Secondary, KitType.Order.Words, room: true));
+                        var segment = riskSegments[segmentsUsed++];
+                        segment.gameObject.SetActive(true);
+                        segment.textWrappingMode = TextWrappingModes.NoWrap;
+                        KitType.Size(segment, KitRole.Body);
+                        GlazeText.SetLiteral(segment, parts[p] + (p < parts.Length - 1 ? " · " : ""));
+                        var wide = segment.GetPreferredValues(segment.text).x;
+                        if (x + wide > width / 2f - pad + 1e-5f && x > left)
+                        {
+                            x = left;
+                            lineTop -= rowHeight;
+                            rowHeight = 0f;
+                        }
+                        var (laid, laidWidth, laidHeight) = KitType.Lay(segment, width / 2f - pad - x, 1);
+                        if (laid != 1 || segment.isTextTruncated) cut.Add("risk " + i + " segment " + p);
+                        segment.transform.localPosition = new Vector3(x, lineTop, -0.0005f);
+                        x += laidWidth;
+                        rowHeight = Mathf.Max(rowHeight, laidHeight);
+                    }
+                    y = lineTop - rowHeight;
+                    continue;
+                }
                 var line = LineAt(i);
                 line.gameObject.SetActive(true);
                 KitType.Size(line, KitRole.Body);

@@ -47,6 +47,19 @@ namespace Halcyonic.XR.UI
 
         private bool sounded;
 
+        /// <summary>
+        /// A moment's cue by the tone its glass is lit in: a question's, a pass's or a failure's, each named; no other tone, and
+        /// no tone at all, sounds (AUDIT's A3C-S1: a later accent never sounds like a failure).
+        /// </summary>
+        public static KitSound? CueOf(GlazeColor? tone)
+        {
+            if (tone is not GlazeColor lit) return null;
+            if (lit.Equals(SpatialKit.Attention)) return KitSound.Question;
+            if (lit.Equals(SpatialKit.Passed)) return KitSound.Passed;
+            if (lit.Equals(SpatialKit.Failure)) return KitSound.Failed;
+            return null;
+        }
+
         public static KitMomentChoreography For(KitMomentCard card)
         {
             var choreography = card.GetComponent<KitMomentChoreography>();
@@ -73,7 +86,7 @@ namespace Halcyonic.XR.UI
             card.Pop(1f);
             sounded = false;
             var tone = card.Carrier.Glass?.Tone;
-            Cue = tone == null ? (KitSound?)null : tone.Value.Equals(SpatialKit.Attention) ? KitSound.Question : tone.Value.Equals(SpatialKit.Passed) ? KitSound.Passed : KitSound.Failed;
+            Cue = CueOf(tone);
             bodyAt = card.Body.localPosition;
             parts = card.Parts;
             placed.Clear();

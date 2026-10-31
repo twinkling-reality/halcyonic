@@ -147,6 +147,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 var info = card.Well.Words.textInfo;
                 Require(!info.characterInfo.Take(info.characterCount).Any(character => character.isVisible && character.character == '\u2026'), "the well cuts its command sideways with an ellipsis");
             }
+            // A risk line of " · " segments flows by its segments, each on one line, never laid as one wrapping line (ART's A3b review).
+            var risks = card.GetComponentsInChildren<TextMeshPro>(false).Where(label => label.name.StartsWith("Risk ", StringComparison.Ordinal)).ToList();
+            Require(!risks.Any(label => !label.name.StartsWith("Risk segment", StringComparison.Ordinal) && (label.text ?? "").Contains(" · ")),
+                "a risk line of segments is laid as one wrapping line");
+            foreach (var segment in risks.Where(label => label.name.StartsWith("Risk segment", StringComparison.Ordinal)))
+            {
+                segment.ForceMeshUpdate(true);
+                Require(segment.textInfo.lineCount == 1, "the risk segment \"" + segment.text + "\" splits across lines");
+            }
             // Where a moment offers a next step, one primary carries it (a failure's Read Output among them).
             Require(!card.Actions.Any(action => KitMomentCard.IsPrimary(action, moment.Tone)) || card.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) == 1, "the next step is not the one primary");
             // The count: only what stands before the shown moment, on the earlier edge, and what came after a waiting question.

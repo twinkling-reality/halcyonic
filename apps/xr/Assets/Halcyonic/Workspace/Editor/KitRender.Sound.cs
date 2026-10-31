@@ -51,6 +51,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
             }
+            // A moment's cue by its tone: each named, and no other tone sounds (AUDIT's A3C-S1).
+            Require(KitMomentChoreography.CueOf(SpatialKit.Attention) == KitSound.Question && KitMomentChoreography.CueOf(SpatialKit.Passed) == KitSound.Passed
+                && KitMomentChoreography.CueOf(SpatialKit.Failure) == KitSound.Failed, "a moment's tone does not sound its own cue");
+            Require(KitMomentChoreography.CueOf(SpatialKit.Accent) == null && KitMomentChoreography.CueOf(null) == null, "a tone with no cue of its own sounds one");
             var host = new GameObject("Room sound check");
             try
             {
