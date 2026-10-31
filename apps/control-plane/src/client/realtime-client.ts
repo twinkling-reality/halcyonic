@@ -85,7 +85,7 @@ export class RealtimeClient {
   /** Resolves with the first message, already received or future, that matches. */
   waitFor(
     predicate: (message: ServerMessage) => boolean,
-    timeoutMs = 5000,
+    timeoutMs = 15_000,
   ): Promise<ServerMessage> {
     const existing = this.messages.find(predicate);
     if (existing !== undefined) return Promise.resolve(existing);
