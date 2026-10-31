@@ -1,19 +1,21 @@
 import assert from 'node:assert/strict';
-import { type ChildProcess, spawn } from 'node:child_process';
+import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { describe, type TestContext, test } from 'node:test';
-import type {
-  CommandEnvelope,
-  CommandId,
-  ExecutionId,
-  ProjectId,
-  ProjectsResponse,
-  RuntimeId,
-  WorkstreamId,
+import {
+  type CommandEnvelope,
+  type CommandId,
+  type ExecutionId,
+  PREVIEW_PORT_LAST,
+  type ProjectId,
+  type ProjectsResponse,
+  type RuntimeId,
+  type WorkstreamId,
 } from '@halcyonic/contracts';
 import { MOCK_MODELS, MockRuntimeAdapter, type Scenario } from '@halcyonic/integration-mock';
 import {
@@ -26,13 +28,14 @@ import { RealtimeClient } from './client/realtime-client.ts';
 import { controlPlaneDraft, NO_CAUSE } from './core/drafts.ts';
 import { fetchWithProof } from './http/security.ts';
 import { createHostLocations } from './locations.ts';
+import { FileObserver } from './observer/file-observer.ts';
 import type { CheckResult } from './preview/check.ts';
 import { type ChromeRun, DevToolsPipe } from './preview/chrome.ts';
 import type { ServeArgs } from './preview/preview.ts';
 import { writeWav } from './speech/wav.ts';
 import type { EngineResult, SpeechEngine } from './speech/whisper.ts';
 import { HostStarters } from './starters.ts';
-import { startTestServer } from './testing/harness.ts';
+import { capturingLogger, startTestServer } from './testing/harness.ts';
 
 /** Synthetic scenarios with short step delays for fast realtime WebSocket tests. */
 const FAST_SCENARIOS = new Map<string, Scenario>([
@@ -66,9 +69,89 @@ const FAST_SCENARIOS = new Map<string, Scenario>([
         },
         { after_ms: 5, emit: { type: 'runtime.turn.completed', payload: {} } },
       ],
+      instructions: [
+        {
+          text: 'fast_continue',
+          steps: [
+            {
+              after_ms: 5,
+              emit: {
+                type: 'runtime.agent_message',
+                payload: { text: 'Synthetic mock agent: continuing work.' },
+              },
+            },
+            { after_ms: 5, emit: { type: 'runtime.turn.completed', payload: {} } },
+          ],
+        },
+      ],
     },
   ],
 ]);
+
+function psLines(): Promise<string[]> {
+  return new Promise((resolve) =>
+    execFile('/bin/ps', ['-axo', 'command='], (error, stdout) =>
+      resolve(error ? [] : stdout.split('\n')),
+    ),
+  );
+}
+
+/**
+ * Waits while a sibling test worker is running `preview.test.ts` (which binds all 20
+ * loopback preview ports `47930..47949` and tests port collisions) and until `PREVIEW_PORT_LAST`
+ * is free on 127.0.0.1.
+ */
+async function waitForPreviewPort(initialSettle = false): Promise<void> {
+  if (initialSettle) {
+    const initial = await psLines();
+    const workers = initial.filter((line) => line.includes('test-isolation=process'));
+    if (workers.length > 1) {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+  }
+  for (let attempt = 0; attempt < 240; attempt += 1) {
+    const lines = await psLines();
+    const previewTestRunning = lines.some(
+      (line) => line.includes('test-isolation=process') && line.includes('preview/preview.test.ts'),
+    );
+    if (!previewTestRunning) {
+      const free = await new Promise<boolean>((resolve) => {
+        const probe = createServer();
+        probe.once('error', () => resolve(false));
+        probe.listen({ port: PREVIEW_PORT_LAST, host: '127.0.0.1', exclusive: true }, () =>
+          probe.close(() => resolve(true)),
+        );
+      });
+      if (free) return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+async function runPreviewCommand(
+  client: RealtimeClient,
+  makeCommand: (command_type: CommandEnvelope['command_type'], payload: unknown) => CommandEnvelope,
+  command_type: 'project.preview.start' | 'project.check',
+  payload: unknown,
+) {
+  for (let attempt = 0; ; attempt += 1) {
+    await waitForPreviewPort();
+    const cmd = makeCommand(command_type, payload);
+    client.command(cmd);
+    const outcome = await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        (m.event.event_type === 'command.completed' || m.event.event_type === 'command.failed') &&
+        m.event.payload.command_id === cmd.command_id,
+    );
+    if (outcome.type === 'event' && outcome.event.event_type === 'command.failed' && attempt < 5) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      continue;
+    }
+    assert.equal(outcome.type === 'event' && outcome.event.event_type, 'command.completed');
+    return outcome;
+  }
+}
 
 const PASSED_CHECK: CheckResult = {
   tsc: { exit: 0, seconds: 0.4 },
@@ -151,6 +234,7 @@ function setUpStarterFolders(baseDir: string): {
 
 describe('the end-to-end journey over the realtime protocol (synthetic)', () => {
   test('drives say, build from starter, watch, failed check + FX1 once, passed check, preview, unconfined play refusal, voice change, and stale check replacement', async (t: TestContext) => {
+    await waitForPreviewPort(true);
     const tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-journey-')));
     t.after(() => rmSync(tempDir, { recursive: true, force: true }));
     const { root, trackedDir, installedDir } = setUpStarterFolders(tempDir);
@@ -179,25 +263,51 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     });
     const startedInstructions: string[] = [];
     const sentInstructions: string[] = [];
+    let projectDir: string | null = null;
     let holdStart = true;
     let releaseStart: () => void = () => {};
     const startGate = new Promise<void>((resolve) => {
       releaseStart = resolve;
     });
+    let holdCheck3 = false;
+    let releaseCheck3: () => void = () => {};
+    const check3Gate = new Promise<void>((resolve) => {
+      releaseCheck3 = resolve;
+    });
+    let notifyCheck3Entered: () => void = () => {};
+    const check3Entered = new Promise<void>((resolve) => {
+      notifyCheck3Entered = resolve;
+    });
+
+    const fileObserver = new FileObserver({ protect: [trackedDir, installedDir] });
 
     const adapter: RuntimeAdapter = {
-      descriptor: innerMock.descriptor,
+      descriptor: { ...innerMock.descriptor, uses_project_location: true },
       ...(innerMock.listModels === undefined ? {} : { listModels: innerMock.listModels }),
       validateStartOptions: (options, modelRef) =>
         innerMock.validateStartOptions(options, modelRef),
       async startExecution(request: StartExecutionRequest) {
         startedInstructions.push(request.instruction);
+        projectDir = request.directory;
+        if (request.directory !== null) {
+          await fileObserver.baseline(request.execution.execution_id, request.directory);
+        }
         if (holdStart) await startGate;
+        if (request.directory !== null) {
+          writeFileSync(join(request.directory, 'src', 'index.ts'), '// turn 1 mole game\n');
+        }
+        await waitForPreviewPort();
         return innerMock.startExecution(request);
       },
       async sendInstruction(request) {
         sentInstructions.push(request.text);
-        return innerMock.sendInstruction(request);
+        if (projectDir !== null && sentInstructions.length === 2) {
+          writeFileSync(join(projectDir, 'src', 'index.ts'), '// turn 3 fixed mole game\n');
+        } else if (projectDir !== null && sentInstructions.length === 3) {
+          writeFileSync(join(projectDir, 'src', 'index.ts'), '// turn 4 scoreboard\n');
+        }
+        await waitForPreviewPort();
+        return innerMock.sendInstruction({ ...request, text: 'fast_continue' });
       },
       ...(innerMock.respondToApproval === undefined
         ? {}
@@ -212,6 +322,7 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     };
 
     const checkResults: CheckResult[] = [FAILED_TSC_CHECK, PASSED_CHECK, PASSED_CHECK];
+    let runCheckCalls = 0;
     const children: ChildProcess[] = [];
     const server = await startTestServer({
       adapters: () => [adapter],
@@ -227,7 +338,15 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
         launcher: () => '/fake/bin/halcyonic-disclaim',
         starters: { trackedDir, installedDir },
         confinesCodex: true,
+        play: {
+          viewerPorts: [47950, 47959],
+        },
         runCheck: async (options) => {
+          runCheckCalls += 1;
+          if (runCheckCalls === 3 && holdCheck3) {
+            notifyCheck3Entered();
+            await check3Gate;
+          }
           const next = checkResults.shift() ?? PASSED_CHECK;
           mkdirSync(join(options.cache, 'dist'), { recursive: true });
           writeFileSync(
@@ -249,10 +368,19 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
         },
       },
     });
+    fileObserver.attach({
+      publisher: server.controlPlane.publisher,
+      recorder: server.controlPlane.recorder,
+      projection: server.controlPlane.projection,
+      clock: server.controlPlane.clock,
+      logger: capturingLogger().logger,
+    });
     const client = await RealtimeClient.connect(server.wsUrl, server.token);
     t.after(async () => {
       holdStart = false;
       releaseStart();
+      holdCheck3 = false;
+      releaseCheck3();
       client.close();
       await server.stop();
       for (const child of children) child.kill('SIGKILL');
@@ -430,14 +558,25 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
       'observed',
     );
 
-    // 4a. Check 1 fails tsc -> preview is refused -> voice instruction carries FX1 once, journal keeps only person's words.
-    const check1Cmd = makeCommand('project.check', { project_id: projectId });
-    client.command(check1Cmd);
+    // 4a. Turn 1 changed src/index.ts -> execution.files.observed triggers automatic internal check 1 (A1),
+    // which fails tsc -> preview is refused -> voice instruction carries FX1 once.
+    const check1Accepted = await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.event_type === 'command.accepted' &&
+        m.event.payload.command.command_type === 'project.check' &&
+        m.event.payload.received_via === 'internal',
+    );
+    const check1CmdId =
+      check1Accepted.type === 'event' && check1Accepted.event.event_type === 'command.accepted'
+        ? check1Accepted.event.payload.command.command_id
+        : '';
+    assert.ok(check1CmdId !== '');
     const check1Done = await client.waitFor(
       (m) =>
         m.type === 'event' &&
         m.event.event_type === 'command.completed' &&
-        m.event.payload.command_id === check1Cmd.command_id,
+        m.event.payload.command_id === check1CmdId,
     );
     assert.equal(
       check1Done.type === 'event' &&
@@ -478,17 +617,30 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
         m.event.event_type === 'command.completed' &&
         m.event.payload.command_id === instruct1.command_id,
     );
-    await client.waitFor(
+    const turn2Done = await client.waitFor(
       (m) =>
         m.type === 'event' &&
         m.event.execution_id === executionId &&
         m.event.event_type === 'runtime.turn.completed' &&
         m.position > (check1Done.type === 'event' ? check1Done.position : 0),
     );
+    await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.execution_id === executionId &&
+        m.event.event_type === 'execution.files.observed' &&
+        m.position > (turn2Done.type === 'event' ? turn2Done.position : 0),
+    );
     assert.ok(sentInstructions[0]?.startsWith("Make the moles blue.\n\n[The Mac's own check"));
     assert.ok(sentInstructions[0]?.includes('| ./src/index.ts(4,7): error TS2322'));
+    assert.equal(
+      runCheckCalls,
+      1,
+      'a turn with no file changes must not start an automatic check (A1)',
+    );
 
     // FX1 is given only once per failed check: a second instruction before a new check does not repeat it.
+    // Turn 3 changes src/index.ts -> triggers automatic internal check 2 (A1), which passes.
     const heardChange2 = await transcribe();
     const instruct2 = makeCommand('execution.send_instruction', {
       execution_id: executionId,
@@ -515,14 +667,25 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     assert.equal(fx1Events.length, 1, 'FX1 must be recorded once for check 1');
     assert.equal(fx1Events[0]?.payload.check_id, check1Id);
 
-    // 4b & 5. Check 2 passes -> preview serves built copy -> Play on my laptop is refused because mock is not confined.
-    const check2Cmd = makeCommand('project.check', { project_id: projectId });
-    client.command(check2Cmd);
+    // 4b & 5. Automatic Check 2 (A1) passes -> preview serves built copy -> Play on my laptop is refused because mock is not confined.
+    const check2Accepted = await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.event_type === 'command.accepted' &&
+        m.event.payload.command.command_type === 'project.check' &&
+        m.event.payload.received_via === 'internal' &&
+        m.event.payload.command.command_id !== check1CmdId,
+    );
+    const check2CmdId =
+      check2Accepted.type === 'event' && check2Accepted.event.event_type === 'command.accepted'
+        ? check2Accepted.event.payload.command.command_id
+        : '';
+    assert.ok(check2CmdId !== '');
     const check2Done = await client.waitFor(
       (m) =>
         m.type === 'event' &&
         m.event.event_type === 'command.completed' &&
-        m.event.payload.command_id === check2Cmd.command_id,
+        m.event.payload.command_id === check2CmdId,
     );
     const check2Pos = check2Done.type === 'event' ? check2Done.position : 0;
     const check2Id =
@@ -532,15 +695,13 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
         ? check2Done.event.payload.result.check_id
         : '';
     assert.ok(check2Id !== '');
+    const currentView = await readProjectView();
+    assert.equal(currentView?.check?.check_id, check2Id);
+    assert.equal(currentView?.check?.files, 'current');
 
-    const previewStart = makeCommand('project.preview.start', { project_id: projectId });
-    client.command(previewStart);
-    const previewStartDone = await client.waitFor(
-      (m) =>
-        m.type === 'event' &&
-        m.event.event_type === 'command.completed' &&
-        m.event.payload.command_id === previewStart.command_id,
-    );
+    const previewStartDone = await runPreviewCommand(client, makeCommand, 'project.preview.start', {
+      project_id: projectId,
+    });
     const previewPort =
       previewStartDone.type === 'event' &&
       previewStartDone.event.event_type === 'command.completed' &&
@@ -569,7 +730,9 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
       /Not every agent run in this project was confined/,
     );
 
-    // 7 & 8. Voice change turn after passing check -> old check and preview remain until a new check stops the preview.
+    // 7 & 8. Voice change turn modifies src/index.ts -> check 2 becomes files: 'changed' (T2), refusing
+    // preview.start and open_on_mac while automatic check 3 (A1) is in flight, and stopping the old preview.
+    holdCheck3 = true;
     const heardChange3 = await transcribe();
     assert.equal(heardChange3, 'Add a scoreboard.');
     const instruct3 = makeCommand('execution.send_instruction', {
@@ -592,18 +755,66 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     );
     assert.ok((turn4Done.type === 'event' ? turn4Done.position : 0) > check2Pos);
 
+    await check3Entered;
     const staleView = await readProjectView();
     assert.equal(staleView?.check?.check_id, check2Id);
-    assert.equal(staleView?.preview?.check_id, check2Id);
+    assert.equal(
+      staleView?.check?.files,
+      'changed',
+      'a check whose project files changed in a later turn must report files: changed (T2)',
+    );
 
-    const check3Cmd = makeCommand('project.check', { project_id: projectId });
-    client.command(check3Cmd);
+    const stalePreviewCmd = makeCommand('project.preview.start', { project_id: projectId });
+    client.command(stalePreviewCmd);
+    const stalePreviewAck = await client.waitFor(
+      (m) => m.type === 'command_ack' && m.command_id === stalePreviewCmd.command_id,
+    );
+    assert.equal(stalePreviewAck.type === 'command_ack' && stalePreviewAck.disposition, 'rejected');
+    assert.match(
+      stalePreviewAck.type === 'command_ack'
+        ? (stalePreviewAck.command?.rejection?.message ?? '')
+        : '',
+      /files changed since its last check/,
+    );
+
+    const stalePlayCmd = makeCommand('project.open_on_mac', { project_id: projectId });
+    client.command(stalePlayCmd);
+    const stalePlayAck = await client.waitFor(
+      (m) => m.type === 'command_ack' && m.command_id === stalePlayCmd.command_id,
+    );
+    assert.equal(stalePlayAck.type === 'command_ack' && stalePlayAck.disposition, 'rejected');
+    assert.match(
+      stalePlayAck.type === 'command_ack' ? (stalePlayAck.command?.rejection?.message ?? '') : '',
+      /files changed since its last check/,
+    );
+
+    const check3Accepted = await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.event_type === 'command.accepted' &&
+        m.event.payload.command.command_type === 'project.check' &&
+        m.event.payload.received_via === 'internal' &&
+        m.event.payload.command.command_id !== check1CmdId &&
+        m.event.payload.command.command_id !== check2CmdId,
+    );
+    const check3CmdId =
+      check3Accepted.type === 'event' && check3Accepted.event.event_type === 'command.accepted'
+        ? check3Accepted.event.payload.command.command_id
+        : '';
+    assert.ok(check3CmdId !== '');
+
+    holdCheck3 = false;
+    releaseCheck3();
     await client.waitFor(
       (m) =>
         m.type === 'event' &&
         m.event.event_type === 'command.completed' &&
-        m.event.payload.command_id === check3Cmd.command_id,
+        m.event.payload.command_id === check3CmdId,
     );
+    const freshView = await readProjectView();
+    assert.notEqual(freshView?.check?.check_id, check2Id);
+    assert.equal(freshView?.check?.files, 'current');
+
     const previewStopped = client.messages.find(
       (m) =>
         m.type === 'event' &&
@@ -664,6 +875,7 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
           },
           viewerWaitMs: 60_000,
           viewerGraceMs: 50,
+          viewerPorts: [47960, 47969],
         },
         runCheck: async (options) => {
           mkdirSync(join(options.cache, 'dist'), { recursive: true });
@@ -769,14 +981,7 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
       } as never);
     }
 
-    const checkCmd = makeCommand('project.check', { project_id: projectId });
-    client.command(checkCmd);
-    await client.waitFor(
-      (m) =>
-        m.type === 'event' &&
-        m.event.event_type === 'command.completed' &&
-        m.event.payload.command_id === checkCmd.command_id,
-    );
+    await runPreviewCommand(client, makeCommand, 'project.check', { project_id: projectId });
 
     // Without a running preview of the passed check, Play on my laptop is refused.
     const openWithoutPreview = makeCommand('project.open_on_mac', { project_id: projectId });
@@ -796,14 +1001,9 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     );
 
     // Once the preview serves the latest passed check, Play on my laptop is admitted and starts.
-    const previewStart = makeCommand('project.preview.start', { project_id: projectId });
-    client.command(previewStart);
-    await client.waitFor(
-      (m) =>
-        m.type === 'event' &&
-        m.event.event_type === 'command.completed' &&
-        m.event.payload.command_id === previewStart.command_id,
-    );
+    await runPreviewCommand(client, makeCommand, 'project.preview.start', {
+      project_id: projectId,
+    });
 
     const openPlay = makeCommand('project.open_on_mac', { project_id: projectId });
     client.command(openPlay);
@@ -817,14 +1017,7 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     assert.equal(playRuns.links.length, 1);
 
     // A new check stops the running play (newer_check) and preview (new_check).
-    const check2Cmd = makeCommand('project.check', { project_id: projectId });
-    client.command(check2Cmd);
-    await client.waitFor(
-      (m) =>
-        m.type === 'event' &&
-        m.event.event_type === 'command.completed' &&
-        m.event.payload.command_id === check2Cmd.command_id,
-    );
+    await runPreviewCommand(client, makeCommand, 'project.check', { project_id: projectId });
     assert.equal(playRuns.stopped, 1);
     const macPlayStopped = client.messages.find(
       (m) => m.type === 'event' && m.event.event_type === 'project.mac_play.stopped',
