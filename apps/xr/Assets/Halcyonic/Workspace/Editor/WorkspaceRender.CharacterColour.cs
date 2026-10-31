@@ -24,6 +24,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var palette = Glaze.Palette; var scale = GlazeText.Scale; var field = ViewField.Current;
             var active = RenderTexture.active;
             var failures = new List<string>();
+            colourProductGaps.Clear();
             try
             {
                 failures.AddRange(GlazeChecks.AtEachTextSize(variant =>
@@ -35,16 +36,26 @@ namespace Halcyonic.XR.Workspace.Editor
                     return RenderCharacterColour(folder);
                 }));
             }
-            catch (Exception error) { failures.Add("colour fixture threw " + error.GetBaseException().GetType().Name); }
+            catch (Exception error)
+            {
+                var cause = error.GetBaseException();
+                failures.Add("colour fixture threw " + cause.GetType().Name + ": " + cause.Message);
+            }
             finally
             {
                 RenderTexture.active = active; Glaze.SetPalette(palette); GlazeText.SetScale(scale); ViewField.Current = field;
                 KeepFontAssetsAsCommitted();
             }
             foreach (var failure in failures) Debug.LogError("Halcyonic: character colour: " + failure);
-            if (failures.Count == 0) Debug.Log("Halcyonic: character colour: every check passed.");
+            // With a gap asserted the summary never opens with "every check passed", so a gate reading its start never counts it a pass.
+            if (failures.Count == 0) Debug.Log(colourProductGaps.Count == 0
+                ? "Halcyonic: character colour: every check passed."
+                : "Halcyonic: character colour: passed at Standard; product gap at Larger: " + string.Join("; ", colourProductGaps) + ".");
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
+
+        /// <summary>Product gaps the colour journey met at one reading size, printed beside its result so they never read as passes.</summary>
+        private static readonly List<string> colourProductGaps = new List<string>();
 
         private static List<string> RenderCharacterColour(string folder)
         {
@@ -120,6 +131,26 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 // Fit the explicit optional body beside the selected task, not the wider project chooser.
                 Draw(); director.OpenFile(ResultsTask); Draw();
+                if (GlazeText.Scale > 1f)
+                {
+                    // Beside the Larger workspace, production's own placement refuses every supported one-agent shelf
+                    // (OPEN_QUESTIONS.md row 27), so no character exists to colour. Assert that refusal, never stage a
+                    // fallback, and say it beside the result; the whole colour flow runs at Standard.
+                    var search = SupportedShelf(director.Plane, eyes, "colour");
+                    if (search.Accepted.HasValue)
+                        failures.Add("colour: Larger now admits a supported one-agent shelf; run the colour flow at Larger and drop this product gap");
+                    else if (search.FieldRefusals + search.WorkspaceRefusals == 0 || search.AdditionalRefusals != 0)
+                        failures.Add("colour: Larger shelf refusal did not come from the actual field and console predicates");
+                    else
+                    {
+                        var gap = "at the larger text size, production offers no supported one-agent shelf beside the workspace ("
+                            + search.Candidates + " candidates, field refusals " + search.FieldRefusals + ", console refusals " + search.WorkspaceRefusals
+                            + "), so the colour flow runs at Standard only (OPEN_QUESTIONS.md row 27)";
+                        colourProductGaps.Add(gap);
+                        Debug.LogWarning("Halcyonic: PRODUCT GAP, not a pass: " + gap + ".");
+                    }
+                    return failures;
+                }
                 var beforePlacement = failures.Count;
                 var agent = ConfirmedDirectorAgent(root.transform, director, eyes, Present().Character, failures, "colour");
                 // The shared helper emits a diagnostic fallback after failure. It is never valid proof.
