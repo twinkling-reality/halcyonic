@@ -45,6 +45,7 @@ const KEY_SHAPES = new RegExp(
     '(?:AKIA|ASIA)[0-9A-Z]{16}', // AWS access key ids
     'AIza[0-9A-Za-z_-]{35}', // Google's API keys
     'srkx_[A-Za-z0-9_-]{8,}', // Seorak's integration credential
+    '(?:omc|ppc)_[A-Za-z0-9_-]{43}', // Omnorium's (Phat Porcupine's) catalog credential
     'hlcd_[A-Za-z0-9_-]{16,}', // a Halcyonic device credential
     'eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}', // a JSON Web Token
   ]
