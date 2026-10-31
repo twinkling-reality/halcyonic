@@ -472,6 +472,13 @@ export function confinedProfile(scope: ConfinedScope): string {
       : [
           `(deny file-read* file-test-existence ${each('subpath', hidden)})`,
           `(allow file-read* file-test-existence ${each('subpath', own)})`,
+          // Each folder between a hidden one and an own folder in it may be found and its metadata read, never
+          // listed or read, so the own folder's path resolves (Codex canonicalizes its home at start; CX1).
+          ...(between(hidden, own).length === 0
+            ? []
+            : [
+                `(allow file-read-metadata file-test-existence ${each('literal', between(hidden, own))})`,
+              ]),
         ]),
     // Closed by default already; said again so no later allowance can reopen them: opening another
     // app through LaunchServices, the pasteboard, and Apple events to other apps.
@@ -480,6 +487,27 @@ export function confinedProfile(scope: ConfinedScope): string {
     '(deny appleevent-send)',
     '',
   ].join('\n');
+}
+
+/**
+ * The folders from each hidden folder down to each own folder inside it, the hidden folder included
+ * and the own folder not, leaving out any that is itself inside an own folder, resolved and sorted.
+ */
+function between(hidden: readonly string[], own: readonly string[]): string[] {
+  const inside = (path: string, folder: string) =>
+    path === folder || path.startsWith(folder.endsWith('/') ? folder : `${folder}/`);
+  const mine = own.map(resolved);
+  const found = new Set<string>();
+  for (const top of hidden.map(resolved)) {
+    for (const folder of mine) {
+      if (folder === top || !inside(folder, top)) continue;
+      for (let path = dirname(folder); inside(path, top); path = dirname(path)) {
+        if (!mine.some((other) => inside(path, other))) found.add(path);
+        if (path === top) break;
+      }
+    }
+  }
+  return [...found].sort();
 }
 
 /**

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 import { promisify } from 'node:util';
 import {
@@ -181,6 +181,119 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
         await inside(['/bin/cat', join(scope.readable[0] as string, 'shared.txt')]),
         'shared',
       );
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('lets the folders between a hidden one and its own be found, never listed or read (CX1)', () => {
+    const { root, scope, cleanup } = scene();
+    try {
+      const profile = confinedProfile(scope);
+      const ours = profile.slice(profile.indexOf("; Halcyonic's confinement"));
+      const found = ours
+        .split('\n')
+        .find((l) => l.startsWith('(allow file-read-metadata file-test-existence'));
+      assert.equal(
+        found,
+        `(allow file-read-metadata file-test-existence ${[
+          'data',
+          'data/codex-confined',
+          'data/starters',
+        ]
+          .map((name) => `(literal "${join(root, name)}")`)
+          .join(' ')})`,
+      );
+      const hidden = ours.indexOf('(deny file-read* file-test-existence (subpath');
+      assert.ok(ours.indexOf(found) > hidden, 'found after the hidden folder is refused');
+      // Nothing of the data folder is opened wider: no subpath of it or of codex-confined, no reading of data.
+      for (const allowed of ours.split('\n').filter((l) => l.startsWith('(allow'))) {
+        for (const path of [join(root, 'data'), join(root, 'data/codex-confined')])
+          assert.ok(!allowed.includes(`(subpath "${path}")`), allowed);
+      }
+      assert.doesNotMatch(found, /file-read-data|file-read\*|subpath/);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('on this Mac, its own folders resolve inside it, and the data folder is still never listed or read (CX1)', {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const { root, scope, openHome, cleanup } = scene();
+    try {
+      const file = join(scope.temp, 'profile.sb');
+      writeFileSync(file, confinedProfile(scope));
+      writeFileSync(join(openHome, 'config.toml'), 'open');
+      const inside = (command: string[]) =>
+        run(SANDBOX_EXEC, ['-f', file, ...command]).then(
+          ({ stdout }) => ({ code: 0, out: stdout }),
+          (error: { code?: number; stdout?: string; stderr?: string }) => ({
+            code: typeof error.code === 'number' ? error.code : 1,
+            out: `${error.stdout ?? ''}${error.stderr ?? ''}`,
+          }),
+        );
+      // What Codex does first with its home: resolve it through every folder above it (canonicalize).
+      assert.equal((await inside(['/bin/realpath', scope.codexHome])).out.trim(), scope.codexHome);
+      assert.equal((await inside(['/bin/realpath', scope.temp])).out.trim(), scope.temp);
+      assert.equal(
+        (await inside(['/bin/realpath', scope.readable[0] as string])).out.trim(),
+        scope.readable[0],
+      );
+      // Tried with the denial in place, on markers of our own: nothing in the data folder is listed, read or found.
+      const refused = /Operation not permitted/;
+      assert.match((await inside(['/bin/ls', join(root, 'data')])).out, refused);
+      assert.match((await inside(['/bin/ls', join(root, 'data/codex-confined')])).out, refused);
+      assert.match((await inside(['/bin/cat', join(root, 'data/secret.txt')])).out, refused);
+      assert.match((await inside(['/usr/bin/stat', join(root, 'data/secret.txt')])).out, refused);
+      assert.notEqual((await inside(['/bin/test', '-e', join(root, 'data/secret.txt')])).code, 0);
+      assert.notEqual((await inside(['/bin/test', '-e', openHome])).code, 0);
+      assert.match((await inside(['/bin/cat', join(openHome, 'config.toml')])).out, refused);
+      // Nor the person's home folder or their own Codex settings.
+      assert.match((await inside(['/bin/ls', homedir()])).out, refused);
+      if (existsSync(join(homedir(), '.codex')))
+        assert.match((await inside(['/bin/ls', join(homedir(), '.codex')])).out, refused);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('on this Mac, the pinned Codex app-server starts inside it with its home in the data folder (CX1)', {
+    skip:
+      process.platform !== 'darwin' || process.env.HALCYONIC_TEST_CODEX_BIN === undefined
+        ? 'set HALCYONIC_TEST_CODEX_BIN to the pinned Codex binary'
+        : false,
+  }, async () => {
+    const binary = process.env.HALCYONIC_TEST_CODEX_BIN as string;
+    const { scope, cleanup } = scene();
+    try {
+      const confined = { ...scope, runtimeFolder: dirname(realpathSync(binary)) };
+      const file = join(scope.temp, 'profile.sb');
+      writeFileSync(file, confinedProfile(confined));
+      // Closed input: the server starts, reads its home and settings, then ends as its client went away.
+      const ended = await new Promise<{ code: number | null; err: string }>((resolve) => {
+        const child = spawn(SANDBOX_EXEC, ['-f', file, binary, 'app-server'], {
+          cwd: scope.project,
+          env: {
+            HOME: homedir(),
+            PATH: '/usr/bin:/bin',
+            CODEX_HOME: scope.codexHome,
+            TMPDIR: scope.temp,
+          },
+          stdio: ['ignore', 'ignore', 'pipe'],
+        });
+        let err = '';
+        child.stderr.on('data', (chunk: Buffer) => {
+          err += chunk.toString();
+        });
+        const timer = setTimeout(() => child.kill('SIGTERM'), 15_000);
+        child.on('close', (code) => {
+          clearTimeout(timer);
+          resolve({ code, err });
+        });
+      });
+      assert.doesNotMatch(ended.err, /canonicalize/, ended.err);
+      assert.equal(ended.code, 0, ended.err);
     } finally {
       cleanup();
     }

@@ -129,3 +129,16 @@ confined server. A check's `reads_confined` is true only when every execution in
 true. It is no longer inferred from the host's settings and the runtime's kind, so an execution recorded before this
 change, or one on the open server, makes it false; a project made before it reads not confined.
 
+
+## Amendment, 2026-10-31: the folders above the confined home can be found (CX1)
+
+Refusing the data folder outright (M1.8c-1) also refused finding the folders between it and the confinement's own
+folders in it, and Codex resolves its home through every folder above it when it starts: the confined server exited
+before answering initialize ("failed to canonicalize CODEX_HOME ... Operation not permitted"), so no starter project's
+agent could start. The kernel's sandbox log named the refused operation: `file-test-existence` on the data folder.
+The profile now allows, after the hidden folders are refused and the own folders allowed again, only
+`file-read-metadata` and `file-test-existence` on each folder from a hidden folder down to an own folder inside it,
+as literal paths: the data folder, `codex-confined` and `starters`. A confined agent can now learn that those three
+folders exist and read their metadata (size, mode, owner and times); it still cannot list them, read anything in
+them, or find any other file or folder in the data folder, and nothing else is widened. Tested on this Mac with the
+real profile and the pinned Codex 0.157.0 ([codex-capabilities.md](../validation/codex-capabilities.md)).
