@@ -1585,15 +1585,18 @@ check.
 ### The kid flow's core (M1.8e-core, 2026-10-31)
 
 The headset side of making and playing a game, core only: the screens wait for DESIGN's layout (M1.8d).
-A project's view carries, each only when there is one, its latest `Check` (the check's id and findings as
-recorded), its running `Preview` (the check it serves and the loopback port) and its `MacPlay` (the check
-whose game plays on the computer), so a headset that connects after a check still has it; `ClientProjection`
+A project's view carries, each only when there is one, its latest `Check` (the check's id, `RecordedAt`,
+journal `Position`, `Files` as `Current`, `Changed` or `Unknown`, and findings as recorded), its running
+`Preview` (the check it serves, the loopback port and that check's `Files`) and its `MacPlay` (the check
+whose game plays on the computer and that check's `Files`), so a headset that connects after a check still has it; `ClientProjection`
 applies them like every view, deriving nothing from events. `CommandFactory` builds `MakeVrVersion`
 (original, root, new folder name), `CheckProject`, `StartPreview`, `StopPreview` and `OpenOnMac`.
-`ProjectPlayFacts` reads the view: `LatestCheck`, `PreviewOfLatestCheck`, `IsPlaying`, `BrowserPermissions`
+`ProjectPlayFacts` reads the view: `LatestCheck`, `CurrentCheck` (non-null only while `Check.Files == Current`),
+`PreviewOfLatestCheck` (non-null only while the preview serves the latest check and both read `Current`),
+`IsPlaying`, `BrowserPermissions`
 (`OwnPermissions`, `AppPermissions`, or `Unknown` when the check recorded nothing, never read as either) and
 `PlayOnLaptopFor`, which offers Play on Laptop only on the host's own admission facts in its order (no check,
-not passed, not ready on a laptop, not confined, no preview of that check, already playing) and says
+`FilesChanged`, `FilesUnknown`, not passed, not ready on a laptop, not confined, no preview of that check, already playing; T2) and says
 `Unavailable` when the host refused the last attempt as `capability_unsupported` (no browser or launcher set
 up there), never an error. `reads_confined` false stays false. The host may still refuse an offered Play on
 Laptop, and nothing of the play's viewer (its link, code or session) ever reaches the client: the viewer

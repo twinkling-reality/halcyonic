@@ -8995,12 +8995,40 @@
           "type": "object",
           "required": [
             "check_id",
+            "recorded_at",
+            "position",
+            "files",
             "findings"
           ],
           "properties": {
             "check_id": {
               "type": "string",
               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "recorded_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "position": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "files": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "unknown"
+                },
+                {
+                  "type": "string",
+                  "const": "current"
+                },
+                {
+                  "type": "string",
+                  "const": "changed"
+                }
+              ]
             },
             "findings": {
               "$ref": "#/$defs/CheckFindings"
@@ -9012,7 +9040,8 @@
           "type": "object",
           "required": [
             "check_id",
-            "port"
+            "port",
+            "files"
           ],
           "properties": {
             "check_id": {
@@ -9023,6 +9052,22 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 65535
+            },
+            "files": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "unknown"
+                },
+                {
+                  "type": "string",
+                  "const": "current"
+                },
+                {
+                  "type": "string",
+                  "const": "changed"
+                }
+              ]
             }
           },
           "additionalProperties": false
@@ -9030,12 +9075,29 @@
         "mac_play": {
           "type": "object",
           "required": [
-            "check_id"
+            "check_id",
+            "files"
           ],
           "properties": {
             "check_id": {
               "type": "string",
               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "files": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "unknown"
+                },
+                {
+                  "type": "string",
+                  "const": "current"
+                },
+                {
+                  "type": "string",
+                  "const": "changed"
+                }
+              ]
             }
           },
           "additionalProperties": false

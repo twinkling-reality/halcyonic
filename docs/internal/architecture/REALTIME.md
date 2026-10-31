@@ -88,13 +88,19 @@ client                                   server
 - **Events carry their effects.** Each `event` message includes `changes`: the current state of
   every project, workstream, execution and command the event changed. Clients replace their copies
   wholesale and never re-implement the projection.
-- **A project's view holds its check, preview and play (M1.8e).** A project's view carries, each
-  only when there is one, `check` (its latest check: `check_id` and the findings as recorded),
-  `preview` (the check its running preview serves and the loopback port) and `mac_play` (the check
-  whose game plays on the Mac now). They are the facts `project.check.recorded`,
-  `project.preview.started` and `project.mac_play.started` carried, and they leave the view when
-  their stop does, so a headset that connects after a check still shows it. An absent member means
-  there is none, never false. Nothing of a play's viewer (its link, code or session) is in the view.
+- **A project's view holds its check, preview and play (M1.8e, T2).** A project's view carries, each
+  only when there is one, `check` (its latest check: `check_id`, `recorded_at`, the journal
+  `position` at which it was recorded, `files`, and the findings as recorded), `preview` (the check
+  its running preview serves, the loopback port and that check's `files`) and `mac_play` (the check
+  whose game plays on the Mac now and that check's `files`). `files` is `'current'` when recorded
+  while no turn is running in the project, `'changed'` once a turn's file reading or a restore
+  changed files in the project's folder or the project was moved to another folder, and `'unknown'`
+  while a turn is running or when a turn ended without a complete file reading, an incomplete
+  restore stopped, or an execution's state became unknown. A check whose `files` is `'changed'` or
+  `'unknown'` is stale or unknown, never treated as a passed check of the current files. They leave
+  the view when their stop does, so a headset that connects after a check still shows it. An absent
+  member means there is none, never false. Nothing of a play's viewer (its link, code or session)
+  is in the view.
 - **Acknowledgements.** `command_ack` reports `accepted`, `rejected`, `duplicate` or `conflict`.
   Because events are recorded while the command is handled, a client may receive the command's
   events before its acknowledgement; correlate by `command_id`.

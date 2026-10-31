@@ -187,7 +187,28 @@ export function admitCommand(
       if (preview !== undefined)
         return reject(scope, 'invalid_state', 'The project already has a preview running.');
       const check = projection.latestCheck(projectId);
-      if (check === undefined || !check.findings.passed) {
+      if (check === undefined) {
+        return reject(
+          scope,
+          'invalid_state',
+          'Only the copy of a passed check is served. Check the project first.',
+        );
+      }
+      if (check.files === 'changed') {
+        return reject(
+          scope,
+          'invalid_state',
+          "The project's files changed since its last check. Check the project again first.",
+        );
+      }
+      if (check.files !== 'current') {
+        return reject(
+          scope,
+          'invalid_state',
+          "The project's files may have changed since its last check. Check the project again first.",
+        );
+      }
+      if (!check.findings.passed) {
         return reject(
           scope,
           'invalid_state',
@@ -202,11 +223,29 @@ export function admitCommand(
       if (projection.project(projectId) === undefined)
         return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
       const scope = { ...NO_SCOPE, project_id: projectId };
-      // Only the checked copy a person could already play: passed, ready on a laptop, every agent
-      // run confined, and served by the preview right now (ADR 0037).
+      // Only the checked copy a person could already play: current, passed, ready on a laptop, every
+      // agent run confined, and served by the preview right now (ADR 0037, T2).
       const check = projection.latestCheck(projectId);
       const findings = check?.findings;
-      if (check === undefined || findings === undefined || !findings.passed)
+      if (check === undefined || findings === undefined)
+        return reject(
+          scope,
+          'invalid_state',
+          'Only a passed check can be played. Check the game first.',
+        );
+      if (check.files === 'changed')
+        return reject(
+          scope,
+          'invalid_state',
+          "The game's files changed since its last check. Check the game again first.",
+        );
+      if (check.files !== 'current')
+        return reject(
+          scope,
+          'invalid_state',
+          "The game's files may have changed since its last check. Check the game again first.",
+        );
+      if (!findings.passed)
         return reject(
           scope,
           'invalid_state',
@@ -224,7 +263,8 @@ export function admitCommand(
           'invalid_state',
           'Not every agent run in this project was confined, so it is not played here.',
         );
-      if (projection.preview(projectId)?.check_id !== check.check_id)
+      const preview = projection.preview(projectId);
+      if (preview?.check_id !== check.check_id || preview.files !== 'current')
         return reject(scope, 'invalid_state', 'Start the preview of the latest check first.');
       if (projection.macPlay(projectId) !== undefined)
         return reject(scope, 'invalid_state', 'This game is already playing on the Mac.');

@@ -3,6 +3,7 @@ import { describe, test } from 'node:test';
 import type {
   CommandEnvelope,
   CommandId,
+  ExecutionId,
   RuntimeCapabilities,
   RuntimeDescriptor,
   RuntimeId,
@@ -659,7 +660,11 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
     projection.apply(
       b.controlPlane('project.preview.started', scope, { check_id: checkId, port: 47930 }),
     );
-    assert.deepEqual(projection.preview(scope.project_id), { check_id: checkId, port: 47930 });
+    assert.deepEqual(projection.preview(scope.project_id), {
+      check_id: checkId,
+      port: 47930,
+      files: 'current',
+    });
     assert.equal(admitted('project.preview.start'), false, 'one already runs');
     assert.equal(admitted('project.preview.stop'), true);
     projection.apply(
@@ -736,6 +741,114 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
       }),
     );
     assert.equal(opens(), true);
+  });
+
+  test('once a turn changes files or leaves them unknown, neither the preview nor Play on the Mac is admitted until the new files are checked (T2)', () => {
+    const { b, projection, scope, command, checkId } = setupStarter(true);
+    const workstream = b.workstream(scope.project_id);
+    const executionId = b.id() as ExecutionId;
+    const execScope = {
+      project_id: scope.project_id,
+      workstream_id: workstream.workstreamId,
+      execution_id: executionId,
+    };
+    const runtimeScope = {
+      projectId: scope.project_id,
+      workstreamId: workstream.workstreamId,
+      executionId,
+    };
+    projection.apply(workstream.event);
+    projection.apply(
+      b.controlPlane('execution.created', execScope, {
+        runtime: b.runtime,
+        instruction: 'Build it.',
+        directory: '/Users/someone/dev/garden',
+      }),
+    );
+    projection.apply(
+      b.runtimeEvent(runtimeScope, 'runtime.execution.started', {
+        native_id: 's1',
+        confined: true,
+      }),
+    );
+    const laptopReady = {
+      ...findings(true),
+      laptop: {
+        layer: 'starter',
+        targets: 1,
+        mouse: 'reached',
+        key: 'reached',
+        screen_changed: true,
+        ready: true,
+      },
+      ready: true,
+    } as never;
+    projection.apply(
+      b.controlPlane('project.check.recorded', scope, {
+        check_id: checkId,
+        findings: laptopReady,
+      }),
+    );
+    projection.apply(
+      b.controlPlane('project.preview.started', scope, { check_id: checkId, port: 47930 }),
+    );
+    assert.equal(
+      admitCommand(command('project.open_on_mac'), projection, catalog()).admitted,
+      true,
+    );
+
+    // Turn ends, before file reading arrives: files are unknown, so Play is refused.
+    projection.apply(b.runtimeEvent(runtimeScope, 'runtime.turn.started', { turn_id: 't1' }));
+    projection.apply(b.runtimeEvent(runtimeScope, 'runtime.turn.completed', { turn_id: 't1' }));
+    const unknownOpen = admitCommand(command('project.open_on_mac'), projection, catalog());
+    assert.equal(unknownOpen.admitted, false);
+    assert.match(unknownOpen.admitted ? '' : unknownOpen.rejection.message, /may have changed/);
+
+    // File reading reports a changed file: files are changed (stale), so Play and a new preview start are refused.
+    const empty = { files: [], total: 0 };
+    projection.apply(
+      b.controlPlane('execution.files.observed', execScope, {
+        turn_id: 't1',
+        created: empty,
+        changed: {
+          files: [{ path: 'src/game.ts', lines_before: 10, lines_after: 14, bytes: 420 }],
+          total: 1,
+        },
+        deleted: empty,
+        not_read: 0,
+        skipped: null,
+      }),
+    );
+    const staleOpen = admitCommand(command('project.open_on_mac'), projection, catalog());
+    assert.equal(staleOpen.admitted, false);
+    assert.match(staleOpen.admitted ? '' : staleOpen.rejection.message, /files changed/);
+
+    projection.apply(
+      b.controlPlane('project.preview.stopped', scope, { check_id: checkId, reason: 'asked' }),
+    );
+    const stalePreview = admitCommand(command('project.preview.start'), projection, catalog());
+    assert.equal(stalePreview.admitted, false);
+    assert.match(stalePreview.admitted ? '' : stalePreview.rejection.message, /files changed/);
+
+    // A fresh passed check of the changed files makes both admissible again.
+    const freshId = b.id() as never;
+    projection.apply(
+      b.controlPlane('project.check.recorded', scope, {
+        check_id: freshId,
+        findings: laptopReady,
+      }),
+    );
+    assert.equal(
+      admitCommand(command('project.preview.start'), projection, catalog()).admitted,
+      true,
+    );
+    projection.apply(
+      b.controlPlane('project.preview.started', scope, { check_id: freshId, port: 47930 }),
+    );
+    assert.equal(
+      admitCommand(command('project.open_on_mac'), projection, catalog()).admitted,
+      true,
+    );
   });
 });
 
