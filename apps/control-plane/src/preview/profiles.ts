@@ -56,7 +56,31 @@ export interface ChromeScope {
   readonly folder: string;
   /** The preview's port on loopback, the only place Chrome may connect to. */
   readonly port: number;
+  /** The browser's own folder, read whole: the copy in the data folder, under the home folder. */
+  readonly browser: string;
+  /** Whether it may reach the system's audio services, so a game's sound is heard (the play's, never the check's). */
+  readonly sound?: boolean;
 }
+
+/**
+ * The only system services and drivers the browser may reach (S1): its own processes' rendezvous,
+ * and the GPU and Metal's compiler to draw. Found on macOS 26.7 by refusing everything and allowing
+ * one at a time, then removing each that was not needed; never LaunchServices, the privacy service,
+ * the window server or the pasteboard (docs/internal/validation/iwsdk-starter.md).
+ */
+export const BROWSER_SERVICES: readonly string[] = [
+  '(allow mach-lookup (global-name-regex #"^(org\\.chromium\\.Chromium|com\\.google\\.(Chrome|chrome\\.for\\.testing))\\.MachPortRendezvousServer\\.[0-9]+$"))',
+  '(allow mach-lookup (global-name "com.apple.MTLCompilerService"))',
+  '(allow iokit-open (iokit-user-client-class "AGXDeviceUserClient"))',
+  '(allow iokit-open (iokit-user-client-class "IOSurfaceRootUserClient"))',
+];
+
+/** The audio services sound out needs; the microphone stays refused by the play's own rules. */
+export const SOUND_SERVICES: readonly string[] = [
+  '(allow mach-lookup (global-name "com.apple.audio.audiohald"))',
+  '(allow mach-lookup (global-name "com.apple.audio.AudioComponentRegistrar"))',
+  '(allow mach-lookup (global-name "com.apple.audio.AudioSession"))',
+];
 
 /**
  * The Seatbelt profile headless Chrome runs inside for the check (ADR 0037, AUDIT X1 to X1c): an
@@ -85,6 +109,12 @@ export function chromeProfile(scope: ChromeScope): string {
     '(deny lsopen)',
     '(deny network-inbound)',
     `(allow network-inbound (local ip "localhost:*") (local unix-socket ${folder}))`,
+    `(allow file-read* ${subpaths([scope.browser])})`,
+    `(allow file-read-metadata ${ancestors([scope.browser])})`,
+    '(deny mach-lookup)',
+    '(deny iokit-open)',
+    ...BROWSER_SERVICES,
+    ...(scope.sound === true ? SOUND_SERVICES : []),
     '',
   ].join('\n');
 }

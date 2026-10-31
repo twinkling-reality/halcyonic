@@ -33,7 +33,9 @@ import { DeviceAccess } from './network/devices.ts';
 import { Pairing } from './network/pairing.ts';
 import { createNetworkServer } from './network/server.ts';
 import { matchesPin, pinsForThisMac } from './pins.ts';
-import { installPlayBrowser } from './preview/play.ts';
+import { audioOutputFor, outputInTree } from './preview/audio-output.ts';
+import { launcherFor } from './preview/launcher.ts';
+import { installBrowser } from './preview/play.ts';
 import {
   createRuntimeAdapters,
   heldSecrets,
@@ -74,23 +76,27 @@ async function main(): Promise<void> {
   const speech = config.speech === null ? null : await WhisperEngine.open(config.speech);
 
   const app = await createHttpServer({ logLevel: config.logLevel, token: access.token });
-  // The browser a checked game plays in on the Mac (P-A): its copy in the data folder, or none.
-  let playBrowser: { app: string; sha256: string } | null = null;
-  if (config.playBrowser !== null && process.platform === 'darwin') {
+  // The browser checks and plays run (ADR 0037, S1): its copy in the data folder, or none.
+  let browser: { folder: string; sha256: string } | null = null;
+  if (config.browser !== null && process.platform === 'darwin') {
     try {
-      const app = await installPlayBrowser(
-        config.playBrowser.app,
-        config.playBrowser.sha256,
+      const folder = await installBrowser(
+        config.browser.folder,
+        config.browser.sha256,
         config.dataDir,
       );
-      playBrowser = { app, sha256: config.playBrowser.sha256 };
+      browser = { folder, sha256: config.browser.sha256 };
     } catch {
       // The reason names the browser's path, so it is not logged.
       app.log.warn(
-        'games are not played on this Mac: its browser is missing or not the one set up',
+        'checks cannot pass and games are not played: the browser is missing or not the one set up',
       );
     }
   }
+  if (browser !== null && launcherFor(config.dataDir) === null)
+    app.log.warn(
+      "checks run without their launcher, so with this app's macOS permissions, and games are not played: run pnpm mac-setup launcher",
+    );
   // Whether each agent binary is the copy Halcyonic was checked with, whoever named it (ADR 0024).
   const agentBinaries = await checkAgentBinaries(config);
   for (const adapter of adapters) {
@@ -169,7 +175,9 @@ async function main(): Promise<void> {
             dataDir: config.dataDir,
             home: homedir(),
             node: process.execPath,
-            chrome: config.checkChrome,
+            browser,
+            // Read before every launch: one missing or changed since it was built is not used.
+            launcher: () => launcherFor(config.dataDir),
             starters: {
               trackedDir: fileURLToPath(new URL('../../../starters', import.meta.url)),
               installedDir: join(config.dataDir, 'starters'),
@@ -177,7 +185,8 @@ async function main(): Promise<void> {
             // Codex confines a starter project's agent here (ADR 0041), when Codex is set up.
             confinesCodex: config.codexBinary !== null,
             play: {
-              browser: playBrowser,
+              // The game's sound, as CoreAudio records it for the browser's own processes (S1).
+              audible: (pid) => outputInTree(audioOutputFor(config.dataDir), pid),
               // The viewer's one-time link opens in the Mac's default browser: the page there is
               // Halcyonic's viewer only; the game itself runs in the contained browser.
               openViewer: (link) => {

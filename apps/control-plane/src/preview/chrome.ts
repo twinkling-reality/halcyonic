@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
 import { chromeProfile, SANDBOX_EXEC } from './profiles.ts';
 
@@ -178,18 +178,36 @@ export async function launchChrome(options: {
   /** The profile and switches to run with instead of the check's (Play on my laptop's, P-A). */
   readonly profileText?: string;
   readonly args?: readonly string[];
+  /**
+   * The launcher that starts Seatbelt, and so the browser, as its own responsible process, without
+   * the app's macOS permissions (S1); null or absent starts it directly, as before.
+   */
+  readonly launcher?: string | null;
 }): Promise<ChromeRun> {
   const { chrome, home, folder, port } = options;
+  const launcher = options.launcher ?? null;
   for (const sub of ['home', 'tmp'])
     await mkdir(join(folder, sub), { recursive: true, mode: 0o700 });
   const profile = join(folder, 'chrome.sb');
-  await writeFile(profile, options.profileText ?? chromeProfile({ home, folder, port }), {
-    mode: 0o600,
-  });
-  const child: ChildProcess = spawn(
+  await writeFile(
+    profile,
+    options.profileText ?? chromeProfile({ home, folder, port, browser: dirname(chrome) }),
+    { mode: 0o600 },
+  );
+  const command = [
     SANDBOX_EXEC,
-    ['-f', profile, chrome, ...(options.args ?? chromeArguments(folder, port))],
+    '-f',
+    profile,
+    chrome,
+    ...(options.args ?? chromeArguments(folder, port)),
+  ];
+  const child: ChildProcess = spawn(
+    launcher ?? SANDBOX_EXEC,
+    launcher === null ? command.slice(1) : command,
     {
+      // Through the launcher, the browser is a grandchild: its own process group lets a forced stop
+      // reach it as well.
+      detached: launcher !== null,
       env: {
         HOME: join(folder, 'home'),
         TMPDIR: join(folder, 'tmp'),
@@ -205,7 +223,16 @@ export async function launchChrome(options: {
   const stop = async () => {
     if (child.exitCode !== null || child.signalCode !== null) return;
     child.kill('SIGTERM');
-    const forced = setTimeout(() => child.kill('SIGKILL'), 3000);
+    const forced = setTimeout(() => {
+      if (launcher === null || child.pid === undefined) child.kill('SIGKILL');
+      else {
+        try {
+          process.kill(-child.pid, 'SIGKILL');
+        } catch {
+          child.kill('SIGKILL');
+        }
+      }
+    }, 3000);
     await exited;
     clearTimeout(forced);
   };

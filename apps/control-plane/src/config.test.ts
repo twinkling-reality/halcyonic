@@ -116,36 +116,35 @@ describe('configuration', () => {
     }
   });
 
-  test("the check's Chrome is none unless set, and must be an existing absolute file", () => {
-    assert.equal(loadConfig({}).checkChrome, null);
-    const chrome = join(base, 'Google Chrome');
-    writeFileSync(chrome, '#!/bin/sh\n');
-    assert.equal(loadConfig({ HALCYONIC_CHECK_CHROME: chrome }).checkChrome, chrome);
-    for (const path of ['chrome', join(base, 'missing'), base]) {
-      assert.throws(() => loadConfig({ HALCYONIC_CHECK_CHROME: path }), ConfigError, path);
-    }
-  });
-
-  test('playing on the Mac is off unless both an existing app and its hash are set', () => {
-    assert.equal(loadConfig({}).playBrowser, null);
-    const app = join(base, 'Google Chrome for Testing.app');
-    mkdirSync(app, { recursive: true });
+  test('the browser for checks and plays is none unless both a folder and its hash are set; the old settings are refused', () => {
+    assert.equal(loadConfig({}).browser, null);
+    const folder = join(base, 'chrome-headless-shell-mac-arm64');
+    mkdirSync(folder, { recursive: true });
     const sha256 = 'a'.repeat(64);
     assert.deepEqual(
-      loadConfig({ HALCYONIC_PLAY_BROWSER: app, HALCYONIC_PLAY_BROWSER_SHA256: sha256 })
-        .playBrowser,
-      { app, sha256 },
+      loadConfig({ HALCYONIC_BROWSER: folder, HALCYONIC_BROWSER_SHA256: sha256 }).browser,
+      { folder, sha256 },
     );
+    const file = join(base, 'a-file');
+    writeFileSync(file, '');
     for (const env of [
-      { HALCYONIC_PLAY_BROWSER: app },
-      { HALCYONIC_PLAY_BROWSER_SHA256: sha256 },
-      { HALCYONIC_PLAY_BROWSER: 'Chrome.app', HALCYONIC_PLAY_BROWSER_SHA256: sha256 },
-      { HALCYONIC_PLAY_BROWSER: join(base, 'missing.app'), HALCYONIC_PLAY_BROWSER_SHA256: sha256 },
-      { HALCYONIC_PLAY_BROWSER: base, HALCYONIC_PLAY_BROWSER_SHA256: sha256 },
-      { HALCYONIC_PLAY_BROWSER: app, HALCYONIC_PLAY_BROWSER_SHA256: 'A'.repeat(64) },
+      { HALCYONIC_BROWSER: folder },
+      { HALCYONIC_BROWSER_SHA256: sha256 },
+      { HALCYONIC_BROWSER: 'chrome-headless-shell', HALCYONIC_BROWSER_SHA256: sha256 },
+      { HALCYONIC_BROWSER: join(base, 'missing'), HALCYONIC_BROWSER_SHA256: sha256 },
+      { HALCYONIC_BROWSER: file, HALCYONIC_BROWSER_SHA256: sha256 },
+      { HALCYONIC_BROWSER: folder, HALCYONIC_BROWSER_SHA256: 'A'.repeat(64) },
+      // The person's Chrome and Chrome for Testing are no longer used: say so rather than ignore them.
+      { HALCYONIC_CHECK_CHROME: file },
+      { HALCYONIC_PLAY_BROWSER: folder, HALCYONIC_PLAY_BROWSER_SHA256: sha256 },
     ]) {
       assert.throws(() => loadConfig(env), ConfigError, JSON.stringify(env));
     }
+    assert.throws(
+      () => loadConfig({ HALCYONIC_CHECK_CHROME: file }),
+      /HALCYONIC_BROWSER/,
+      'the message names what to set instead',
+    );
   });
 
   test('undo is off unless a git is set, which must be an existing absolute file', () => {

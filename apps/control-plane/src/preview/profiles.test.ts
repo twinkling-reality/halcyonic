@@ -61,7 +61,42 @@ describe("the preview's Seatbelt profiles (ADR 0037)", () => {
     const { scope, cleanup } = scene();
     try {
       const folder = join(scope.cache, 'chrome');
-      const profile = chromeProfile({ home: scope.home, folder, port: 47882 });
+      const browser = join(scope.home, 'browser');
+      const profile = chromeProfile({ home: scope.home, folder, port: 47882, browser });
+      // Its own browser is read; every system service and driver is refused but those it draws with.
+      assert.match(profile, new RegExp(`\\(allow file-read\\* \\(subpath "${browser}"\\)\\)`));
+      assert.match(profile, /\n\(deny mach-lookup\)\n\(deny iokit-open\)\n/);
+      const allowed = profile
+        .split('\n')
+        .filter((line) => /^\(allow (mach-lookup|iokit-open)/.test(line));
+      assert.deepEqual(allowed, [
+        '(allow mach-lookup (global-name-regex #"^(org\\.chromium\\.Chromium|com\\.google\\.(Chrome|chrome\\.for\\.testing))\\.MachPortRendezvousServer\\.[0-9]+$"))',
+        '(allow mach-lookup (global-name "com.apple.MTLCompilerService"))',
+        '(allow iokit-open (iokit-user-client-class "AGXDeviceUserClient"))',
+        '(allow iokit-open (iokit-user-client-class "IOSurfaceRootUserClient"))',
+      ]);
+      const withSound = chromeProfile({
+        home: scope.home,
+        folder,
+        port: 47882,
+        browser,
+        sound: true,
+      });
+      assert.deepEqual(
+        withSound
+          .split('\n')
+          .filter((line) => /^\(allow mach-lookup \(global-name "com\.apple\.audio/.test(line)),
+        [
+          '(allow mach-lookup (global-name "com.apple.audio.audiohald"))',
+          '(allow mach-lookup (global-name "com.apple.audio.AudioComponentRegistrar"))',
+          '(allow mach-lookup (global-name "com.apple.audio.AudioSession"))',
+        ],
+      );
+      for (const text of [profile, withSound])
+        assert.doesNotMatch(
+          text,
+          /launchservicesd|tccd|windowserver|pasteboard|CARenderServer|coreservicesd/,
+        );
       assert.match(
         profile,
         /\(deny network-outbound\)\n\(allow network-outbound \(remote ip "localhost:47882"\)\)\n/,
@@ -72,7 +107,10 @@ describe("the preview's Seatbelt profiles (ADR 0037)", () => {
         /\n\(deny network-inbound\)\n\(allow network-inbound \(local ip "localhost:\*"\) \(local unix-socket \(subpath "[^"]+\/chrome"\)\)\)\n/,
       );
       assert.match(profile, /\(deny process-exec \(regex #"\/GoogleUpdater\\\.app\/"\)\)/);
-      assert.throws(() => chromeProfile({ home: scope.home, folder, port: 0 }), /not a port/);
+      assert.throws(
+        () => chromeProfile({ home: scope.home, folder, port: 0, browser }),
+        /not a port/,
+      );
     } finally {
       cleanup();
     }

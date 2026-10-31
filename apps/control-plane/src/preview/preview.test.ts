@@ -75,14 +75,25 @@ interface PlaneOptions {
   readonly serve?: (args: ServeArgs) => ChildProcess;
   /** Holds every check after the first until it resolves. */
   readonly hold?: Promise<void>;
-  /** Play on my laptop: a stand-in browser launch, or none set up. */
+  /** Play on my laptop: a stand-in browser launch. */
   readonly play?: HostPreviewsDeps['play'];
+  /** The browser copy, standing in, its own check passing; null for none set up. */
+  readonly browser?: HostPreviewsDeps['browser'];
+  /** The launcher, checked now: by default one in place (S1). */
+  readonly launcher?: string | null;
 }
 
 /** A control plane with checks on, a starter project in it, and the check and server standing in. */
 function plane(
   t: TestContext,
-  { result = PASSED, serve = serving, hold, play }: PlaneOptions = {},
+  {
+    result = PASSED,
+    serve = serving,
+    hold,
+    play,
+    browser = { folder: '/fake/chrome-headless-shell', sha256: 'a'.repeat(64) },
+    launcher = '/fake/bin/halcyonic-disclaim',
+  }: PlaneOptions = {},
 ) {
   const dataDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-previews-')));
   t.after(() => rmSync(dataDir, { recursive: true, force: true }));
@@ -94,7 +105,9 @@ function plane(
       dataDir,
       home: '/Users/someone',
       node: process.execPath,
-      chrome: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      browser,
+      browserProblem: () => null,
+      launcher: () => launcher,
       starters: { trackedDir: '/repo/starters', installedDir: join(dataDir, 'starters') },
       confinesCodex: true,
       ...(play === undefined ? {} : { play }),
@@ -217,8 +230,6 @@ describe('a checked game played on the Mac (Play on my laptop, P-A)', () => {
     return {
       runs,
       play: {
-        browser: { app: '/fake/Google Chrome for Testing.app', sha256: 'a'.repeat(64) },
-        browserProblem: () => null,
         launch,
         viewerWaitMs: 60_000,
         viewerGraceMs: 50,
@@ -297,15 +308,45 @@ describe('a checked game played on the Mac (Play on my laptop, P-A)', () => {
     assert.equal(controlPlane.projection.macPlay(projectId), undefined);
   });
 
-  test('without a browser set up for it, a game is not played and the command says so', async (t) => {
-    const { controlPlane, submit, done } = plane(t, { play: { browser: null } });
-    for (const type of ['project.check', 'project.preview.start'] as const) {
-      const { command } = submit(type);
-      await done(command.command_id);
+  test('without a browser set up for it, or without its launcher, a game is not played and the command says so', async (t) => {
+    for (const options of [{ browser: null }, { launcher: null }]) {
+      const { controlPlane, submit, done } = plane(t, options);
+      for (const type of ['project.check', 'project.preview.start'] as const) {
+        const { command } = submit(type);
+        await done(command.command_id);
+      }
+      const { outcome } = submit('project.open_on_mac');
+      assert.equal(
+        outcome.command?.rejection?.code,
+        'capability_unsupported',
+        JSON.stringify(options),
+      );
+      await controlPlane.close();
     }
-    const { outcome } = submit('project.open_on_mac');
-    assert.equal(outcome.command?.rejection?.code, 'capability_unsupported');
-    await controlPlane.close();
+  });
+});
+
+describe("whether a check's browser had none of the app's macOS permissions (S1)", () => {
+  test('through the launcher it is recorded true; without it the check still runs, recorded false; with no browser, not at all', async (t) => {
+    const recorded = async (options: PlaneOptions) => {
+      const { controlPlane, submit, done, checked } = plane(t, options);
+      await done(submit('project.check').command.command_id);
+      const findings = controlPlane.projection.latestCheck(
+        '01a19000-0000-7000-8000-000000000001' as ProjectId,
+      )?.findings;
+      return { findings, options: checked[0] };
+    };
+    const through = await recorded({});
+    assert.equal(through.findings?.own_permissions, true);
+    assert.equal(through.options?.launcher, '/fake/bin/halcyonic-disclaim');
+    assert.equal(through.options?.chrome, '/fake/chrome-headless-shell/chrome-headless-shell');
+    const without = await recorded({ launcher: null });
+    assert.equal(without.findings?.own_permissions, false, 'recorded as run without it');
+    assert.equal(without.options?.launcher, null);
+    assert.equal(without.findings?.passed, true, 'the check ran as before');
+    const none = await recorded({ browser: null });
+    assert.equal(none.options?.chrome, null);
+    assert.equal(Object.hasOwn(none.findings ?? {}, 'own_permissions'), false, 'no browser ran');
   });
 });
 

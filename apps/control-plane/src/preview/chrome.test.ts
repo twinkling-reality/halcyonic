@@ -1,7 +1,19 @@
 import assert from 'node:assert/strict';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { describe, test } from 'node:test';
-import { chromeArguments, DevToolsPipe } from './chrome.ts';
+import { chromeArguments, DevToolsPipe, launchChrome } from './chrome.ts';
+import { SANDBOX_EXEC } from './profiles.ts';
 
 /** A pipe pair standing for Chrome's fd 3 (commands in) and fd 4 (answers and events out). */
 function pair() {
@@ -103,5 +115,58 @@ describe("the check's DevTools pipe (AUDIT M18A-S1)", () => {
     assert.ok(args.includes('--headless=new'));
     assert.ok(args.includes('--proxy-bypass-list=127.0.0.1:47882'));
     assert.ok(args.includes('--user-data-dir=/scratch/chrome/profile'));
+  });
+});
+
+describe('the browser starts through its launcher, inside its own profile (S1)', {
+  skip: process.platform !== 'darwin',
+}, () => {
+  test('the launcher is given the profile, the browser and its switches, and a stop ends the launcher and the browser', async (t) => {
+    const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-launch-')));
+    t.after(() => rmSync(base, { recursive: true, force: true }));
+    // A stand-in browser in its own folder, which its profile lets it read: it answers DevTools on fds 3 and 4.
+    const browser = join(base, 'browser');
+    mkdirSync(browser);
+    const binary = join(browser, 'chrome-headless-shell');
+    writeFileSync(
+      binary,
+      `#!${process.execPath}
+const fs = require('node:fs');
+const out = fs.createWriteStream(null, { fd: 4 });
+let pending = '';
+fs.createReadStream(null, { fd: 3, encoding: 'utf8' }).on('data', (chunk) => {
+  pending += chunk;
+  for (let end = pending.indexOf('\\0'); end !== -1; end = pending.indexOf('\\0')) {
+    const { id, method } = JSON.parse(pending.slice(0, end));
+    pending = pending.slice(end + 1);
+    const result = method === 'Target.getTargets' ? { targetInfos: [{ targetId: 't', type: 'page' }] } : { sessionId: 's' };
+    out.write(JSON.stringify({ id, result }) + '\\0');
+  }
+});
+setInterval(() => {}, 1000);
+`,
+    );
+    chmodSync(binary, 0o755);
+    // A stand-in launcher, outside the profile as the real one is: it records what it is given, then runs it.
+    const launcher = join(base, 'launcher');
+    writeFileSync(
+      launcher,
+      `#!/bin/sh\nprintf '%s\\n' "$@" > "${join(base, 'given')}"\nexec "$@"\n`,
+    );
+    chmodSync(launcher, 0o755);
+    const folder = join(base, 'run');
+    const run = await launchChrome({ chrome: binary, launcher, home: base, folder, port: 47882 });
+    assert.equal(run.session, 's');
+    const given = readFileSync(join(base, 'given'), 'utf8').trim().split('\n');
+    assert.deepEqual(given.slice(0, 4), [SANDBOX_EXEC, '-f', join(folder, 'chrome.sb'), binary]);
+    assert.deepEqual(given.slice(4), chromeArguments(folder, 47882));
+    const profile = readFileSync(join(folder, 'chrome.sb'), 'utf8');
+    assert.ok(
+      profile.includes(`(allow file-read* (subpath "${browser}"))`),
+      'it reads its own folder',
+    );
+    assert.match(profile, /\n\(deny mach-lookup\)\n/);
+    await run.stop();
+    assert.throws(() => process.kill(run.pid, 0), 'the launcher has ended');
   });
 });

@@ -119,6 +119,16 @@ Ollama, which listed `qwen3.5:9b` among ten models:
   model Ollama doesn't have (the setup shows `ollama pull` for the person), an Ollama address that
   is not http on loopback with a port, and a companion sharing the agents' model.
 
+## The browser's launcher (S1, 2026-10-31)
+
+`pnpm mac-setup launcher` builds `apps/control-plane/native/disclaim.c` and `native/audio-output.c` (linked with
+CoreAudio) with `/usr/bin/clang` (`-Wall -Wextra -Werror -O2`) into `<data dir>/bin/halcyonic-disclaim` and
+`halcyonic-audio-output`, mode 0500 in a 0700 folder, and records each one's SHA-256 beside it; the control plane uses
+each only while it is a plain file of the user's that no one else can change and hashes as recorded.
+The check lists it as "New apps' browser": Optional with no browser set, To do while a browser is set and the launcher
+is missing or changed, Ready once built. Tested in `mac-setup.test.ts` and `launcher.test.ts` on this Mac, with Apple
+clang 21.0.0 on macOS 26.7; without Apple's command line tools the command says to run `xcode-select --install`.
+
 ## Not verified
 
 - **A person new to Halcyonic** following the runbook's "First run on a Mac" without help. Words

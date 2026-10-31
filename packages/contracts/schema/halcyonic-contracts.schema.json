@@ -9283,6 +9283,9 @@
         },
         "ready": {
           "type": "boolean"
+        },
+        "own_permissions": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

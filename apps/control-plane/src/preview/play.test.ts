@@ -18,11 +18,10 @@ import { PassThrough } from 'node:stream';
 import { after, describe, test } from 'node:test';
 import { type ChromeRun, DevToolsPipe } from './chrome.ts';
 import {
-  audibleIn,
+  BROWSER_FILES,
   browserProblem,
   HostPlays,
-  installPlayBrowser,
-  PLAY_BUNDLE_ID,
+  installBrowser,
   playArguments,
   playInput,
   playPreferences,
@@ -34,15 +33,18 @@ const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-play-')));
 after(() => rmSync(base, { recursive: true, force: true }));
 
 describe('the contained browser a game plays in on the Mac (Play on my laptop, P-A)', () => {
-  const app = '/Users/someone/.halcyonic/play/browser/Google Chrome for Testing.app';
+  const app = '/Users/someone/.halcyonic/browser/chrome-headless-shell';
 
   test("its profile is the check's, reads its own browser, and refuses the microphone and camera", () => {
     const folder = join(base, 'profile-test');
-    const profile = playProfile({ home: '/Users/someone', folder, port: 47930, app });
+    const profile = playProfile({ home: '/Users/someone', folder, port: 47930, browser: app });
     assert.match(profile, /\(deny network-outbound\)/);
     assert.match(profile, /\(allow network-outbound \(remote ip "localhost:47930"\)\)/);
     assert.ok(profile.includes(`(allow file-read* (subpath "${app}"))`));
     assert.ok(profile.includes(`(allow file-read-metadata (path-ancestors "${app}"))`));
+    // The check's services, and sound out: the audio services, never the microphone's.
+    assert.match(profile, /\(deny mach-lookup\)\n\(deny iokit-open\)\n/);
+    assert.ok(profile.includes('(allow mach-lookup (global-name "com.apple.audio.audiohald"))'));
     // Refused last, so nothing before can reopen them.
     const lines = profile.trim().split('\n');
     assert.deepEqual(lines.slice(-2), ['(deny device-microphone)', '(deny device-camera)']);
@@ -95,46 +97,43 @@ describe('the contained browser a game plays in on the Mac (Play on my laptop, P
     assert.equal(preferences.download.default_directory, join(base, 'p', 'downloads'));
   });
 
-  test('only the recorded Chrome for Testing runs: its bundle id and its binary hash, at every start', () => {
-    const copy = join(base, 'Google Chrome for Testing.app');
-    mkdirSync(join(copy, 'Contents', 'MacOS'), { recursive: true });
-    const plist = (id: string) =>
-      `<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>${id}</string></dict></plist>`;
-    writeFileSync(join(copy, 'Contents', 'Info.plist'), plist(PLAY_BUNDLE_ID));
-    writeFileSync(join(copy, 'Contents', 'MacOS', 'Google Chrome for Testing'), 'binary');
+  /** A folder with every file chrome-headless-shell is made of, its binary holding `binary`. */
+  const shellFolder = (path: string, binary: string) => {
+    mkdirSync(path, { recursive: true });
+    for (const file of BROWSER_FILES)
+      writeFileSync(join(path, file), file === 'chrome-headless-shell' ? binary : file);
+    return path;
+  };
+
+  test('only the recorded chrome-headless-shell runs: all of its files, and its binary hash, at every start', () => {
+    const copy = shellFolder(join(base, 'shell'), 'binary');
     const right = createHash('sha256').update('binary').digest('hex');
     assert.equal(browserProblem(copy, right), null);
     assert.match(browserProblem(copy, 'f'.repeat(64)) ?? '', /changed/);
-    writeFileSync(join(copy, 'Contents', 'Info.plist'), plist('com.google.Chrome'));
-    assert.match(browserProblem(copy, right) ?? '', /not Chrome for Testing/);
-    assert.match(browserProblem(join(base, 'missing.app'), right) ?? '', /no browser/);
+    rmSync(join(copy, 'headless_lib_data.pak'));
+    assert.match(browserProblem(copy, right) ?? '', /not chrome-headless-shell/);
+    assert.match(browserProblem(join(base, 'missing'), right) ?? '', /no browser/);
   });
 
   test('the browser is copied into the data folder, links as links, once; the source is never what runs', async () => {
-    const source = join(base, 'source', 'Google Chrome for Testing.app');
-    mkdirSync(join(source, 'Contents', 'MacOS'), { recursive: true });
-    writeFileSync(
-      join(source, 'Contents', 'Info.plist'),
-      `<plist><dict><key>CFBundleIdentifier</key><string>${PLAY_BUNDLE_ID}</string></dict></plist>`,
-    );
-    writeFileSync(join(source, 'Contents', 'MacOS', 'Google Chrome for Testing'), 'build one');
-    symlinkSync('MacOS', join(source, 'Contents', 'Current'));
-    const sha = createHash('sha256').update('build one').digest('hex');
-    const dataDir = join(base, 'data-install');
-    const copy = await installPlayBrowser(source, sha, dataDir);
-    assert.equal(copy, join(dataDir, 'play-browser', 'Google Chrome for Testing.app'));
-    assert.equal(browserProblem(copy, sha), null);
-    assert.ok(lstatSync(join(copy, 'Contents', 'Current')).isSymbolicLink());
-    // Once there, the copy is kept as it is: a changed source is not copied over it.
-    writeFileSync(join(source, 'Contents', 'MacOS', 'Google Chrome for Testing'), 'build two');
-    assert.equal(await installPlayBrowser(source, sha, dataDir), copy);
-    assert.equal(
-      readFileSync(join(copy, 'Contents', 'MacOS', 'Google Chrome for Testing'), 'utf8'),
+    const source = shellFolder(
+      join(base, 'source', 'chrome-headless-shell-mac-arm64'),
       'build one',
     );
+    symlinkSync('libEGL.dylib', join(source, 'libEGL-link.dylib'));
+    const sha = createHash('sha256').update('build one').digest('hex');
+    const dataDir = join(base, 'data-install');
+    const copy = await installBrowser(source, sha, dataDir);
+    assert.equal(copy, join(dataDir, 'browser', 'current'));
+    assert.equal(browserProblem(copy, sha), null);
+    assert.ok(lstatSync(join(copy, 'libEGL-link.dylib')).isSymbolicLink());
+    // Once there, the copy is kept as it is: a changed source is not copied over it.
+    writeFileSync(join(source, 'chrome-headless-shell'), 'build two');
+    assert.equal(await installBrowser(source, sha, dataDir), copy);
+    assert.equal(readFileSync(join(copy, 'chrome-headless-shell'), 'utf8'), 'build one');
     // A copy that changed is replaced only by a source that hashes as recorded; otherwise none is left.
-    writeFileSync(join(copy, 'Contents', 'MacOS', 'Google Chrome for Testing'), 'tampered');
-    await assert.rejects(installPlayBrowser(source, sha, dataDir), /changed/);
+    writeFileSync(join(copy, 'chrome-headless-shell'), 'tampered');
+    await assert.rejects(installBrowser(source, sha, dataDir), /changed/);
     assert.ok(!existsSync(copy));
   });
 });
@@ -176,35 +175,6 @@ describe("the viewer's input: only a mouse or a key for the game's page (P-A)", 
       null,
     ])
       assert.equal(playInput(message), null, JSON.stringify(message));
-  });
-});
-
-describe("a game's sound, read from the computer's own record of what plays audio (P-B)", () => {
-  const ASSERTIONS = [
-    'Listed by owning process:',
-    '   pid 420(coreaudiod): [0x0001] 00:01:28 PreventUserIdleSystemSleep named: "com.apple.audio.context.preventuseridlesleep"',
-    '   pid 9001(Google Chrome for Testing Helper): [0x0002] 00:00:02 NoIdleSleepAssertion named: "Playing audio"',
-    '   pid 7000(Google Chrome for Testing): [0x0003] 00:00:01 NoIdleSleepAssertion named: "Playing audio"',
-  ].join('\n');
-  const PROCESSES = ['  9000     1', '  9001  9000', '  9002  9001', '  7000     1'].join('\n');
-
-  test("only a process of the play's own browser playing audio counts, its own pid or one it started", () => {
-    assert.equal(audibleIn(ASSERTIONS, PROCESSES, 9000), true, 'its helper plays audio');
-    assert.equal(
-      audibleIn(ASSERTIONS, PROCESSES, 9002),
-      false,
-      "a helper's parent is not its child",
-    );
-    assert.equal(audibleIn(ASSERTIONS, PROCESSES, 7000), true);
-    assert.equal(
-      audibleIn(ASSERTIONS, PROCESSES, 1234),
-      false,
-      'another browser playing audio is not this game',
-    );
-    assert.equal(
-      audibleIn(ASSERTIONS.replace(/Playing audio/g, 'Something else'), PROCESSES, 9000),
-      false,
-    );
   });
 });
 
@@ -263,8 +233,9 @@ describe('the host runs, streams, feeds and stops a play (P-A)', () => {
     const plays = new HostPlays({
       dataDir,
       home: '/Users/someone',
-      browser: { app: '/fake/Google Chrome for Testing.app', sha256: 'a'.repeat(64) },
+      browser: { folder: '/fake/chrome-headless-shell', sha256: 'a'.repeat(64) },
       browserProblem: () => null,
+      launcher: () => '/fake/bin/halcyonic-disclaim',
       launch: async (options) => {
         launched.push(options as unknown as Record<string, unknown>);
         return chrome.run;
@@ -277,6 +248,17 @@ describe('the host runs, streams, feeds and stops a play (P-A)', () => {
     });
     return { plays, dataDir, chrome, launched, ended };
   };
+
+  test('it starts the browser through the launcher, and without one starts nothing', async () => {
+    const { plays, launched } = host();
+    await plays.start('p1', 'c1', 47930);
+    assert.equal(launched[0]?.launcher, '/fake/bin/halcyonic-disclaim');
+    assert.equal(launched[0]?.chrome, '/fake/chrome-headless-shell/chrome-headless-shell');
+    await plays.close();
+    const without = host({ launcher: () => null });
+    await assert.rejects(without.plays.start('p1', 'c1', 47930), /launcher/);
+    assert.equal(without.launched.length, 0);
+  });
 
   test('a browser that fails its check starts nothing', async () => {
     const { plays, launched } = host({
@@ -309,6 +291,19 @@ describe('the host runs, streams, feeds and stops a play (P-A)', () => {
       ),
     );
     assert.ok(chrome.sent.some((m) => m.method === 'Page.startScreencast'));
+    // Before the page opens, the browser refuses the preview's origin every permission a game could
+    // ask for, the microphone and camera first, whatever its own settings say (S1).
+    const denied = chrome.sent.filter((m) => m.method === 'Browser.setPermission');
+    for (const m of denied) {
+      assert.equal(m.params.setting, 'denied');
+      assert.equal(m.params.origin, 'http://127.0.0.1:47930');
+    }
+    const names = denied.map((m) => (m.params.permission as { name: string }).name);
+    assert.deepEqual(names.slice(0, 2), ['microphone', 'camera']);
+    assert.ok(names.includes('geolocation') && names.includes('notifications'));
+    const navigate = chrome.sent.findIndex((m) => m.method === 'Page.navigate');
+    const lastDenied = chrome.sent.findLastIndex((m) => m.method === 'Browser.setPermission');
+    assert.ok(lastDenied !== -1 && lastDenied < navigate, 'refused before the page opens');
     const frames: string[] = [];
     const off = plays.watch('p1', (frame) => frames.push(frame));
     chrome.frame('ZnJhbWU=');
@@ -544,6 +539,7 @@ describe('the host runs, streams, feeds and stops a play (P-A)', () => {
       home: '/Users/someone',
       browser: null,
       browserProblem: () => null,
+      launcher: () => null,
       onEnded: () => undefined,
     });
     assert.equal(await plays.sweep(), 1);
