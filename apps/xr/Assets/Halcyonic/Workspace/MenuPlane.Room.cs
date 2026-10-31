@@ -65,6 +65,27 @@ namespace Halcyonic.XR.Workspace
             (room, RoomScreen, RoomBar, ScreenPose, BarPose) = (null, null, null, null, null);
         }
 
+        /// <summary>
+        /// The room's screen and its bar, four corners each, as <see cref="Stand"/> stood them; null while no screen shows. A
+        /// shelf keeps clear of them as of the console (LARGER-SHELF, 2026-10-31: the room's screen was left out before).
+        /// </summary>
+        private Vector3[]? RoomCorners()
+        {
+            if (room == null || !room.gameObject.activeInHierarchy || !(ScreenPose is RoomPose screen) || !(BarPose is RoomPose bar)) return null;
+            var corners = new Vector3[8];
+            Corners(screen, corners, 0);
+            Corners(bar, corners, 4);
+            return corners;
+        }
+
+        private static void Corners(RoomPose pose, Vector3[] corners, int from)
+        {
+            var centre = new Vector3(pose.Centre.X, pose.Centre.Y, pose.Centre.Z);
+            var facing = PlaneLayout.Facing(new PanelDirection(pose.Bearing, pose.Pitch, true, false));
+            for (var corner = 0; corner < 4; corner++)
+                corners[from + corner] = centre + facing * new Vector3((corner % 2 == 0 ? -0.5f : 0.5f) * pose.Width, (corner < 2 ? -0.5f : 0.5f) * pose.Height, 0f);
+        }
+
         private static float Reach(RoomPose pose, Vector3 eyes) => Vector3.Distance(new Vector3(pose.Centre.X, pose.Centre.Y, pose.Centre.Z), eyes);
 
         private void Stand(Transform view, RoomPose pose, float scale)
