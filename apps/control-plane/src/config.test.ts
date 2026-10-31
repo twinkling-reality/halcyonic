@@ -116,34 +116,51 @@ describe('configuration', () => {
     }
   });
 
-  test('the browser for checks and plays is none unless both a folder and its hash are set; the old settings are refused', () => {
-    assert.equal(loadConfig({}).browser, null);
+  test("the browser for checks and plays is none unless its folder is set, and its hash is always the repository's pin", () => {
+    const pin = 'b'.repeat(64);
+    const pins = {
+      opencode: { path: 'o', sha256: '1'.repeat(64) },
+      codex: { path: 'c', sha256: '2'.repeat(64) },
+      whisperModel: { path: 'w', sha256: '3'.repeat(64) },
+      whisperVadModel: { path: 'v', sha256: '4'.repeat(64) },
+      browser: { path: 'browser/current/chrome-headless-shell', sha256: pin },
+    };
+    assert.equal(loadConfig({}, pins).browser, null);
     const folder = join(base, 'chrome-headless-shell-mac-arm64');
     mkdirSync(folder, { recursive: true });
-    const sha256 = 'a'.repeat(64);
+    assert.deepEqual(loadConfig({ HALCYONIC_BROWSER: folder }, pins).browser, {
+      folder,
+      sha256: pin,
+    });
+    // The pin in the environment is accepted; any other hash refuses the start, naming the pin.
     assert.deepEqual(
-      loadConfig({ HALCYONIC_BROWSER: folder, HALCYONIC_BROWSER_SHA256: sha256 }).browser,
-      { folder, sha256 },
+      loadConfig({ HALCYONIC_BROWSER: folder, HALCYONIC_BROWSER_SHA256: pin }, pins).browser,
+      { folder, sha256: pin },
     );
+    assert.throws(
+      () =>
+        loadConfig({ HALCYONIC_BROWSER: folder, HALCYONIC_BROWSER_SHA256: 'a'.repeat(64) }, pins),
+      new RegExp(pin),
+    );
+    // A Mac with no tracked browser pin runs no browser it was given.
+    assert.throws(() => loadConfig({ HALCYONIC_BROWSER: folder }, null), /no checked browser/);
     const file = join(base, 'a-file');
     writeFileSync(file, '');
     for (const env of [
-      { HALCYONIC_BROWSER: folder },
-      { HALCYONIC_BROWSER_SHA256: sha256 },
-      { HALCYONIC_BROWSER: 'chrome-headless-shell', HALCYONIC_BROWSER_SHA256: sha256 },
-      { HALCYONIC_BROWSER: join(base, 'missing'), HALCYONIC_BROWSER_SHA256: sha256 },
-      { HALCYONIC_BROWSER: file, HALCYONIC_BROWSER_SHA256: sha256 },
-      { HALCYONIC_BROWSER: folder, HALCYONIC_BROWSER_SHA256: 'A'.repeat(64) },
+      { HALCYONIC_BROWSER_SHA256: pin },
+      { HALCYONIC_BROWSER: 'chrome-headless-shell' },
+      { HALCYONIC_BROWSER: join(base, 'missing') },
+      { HALCYONIC_BROWSER: file },
       // The person's Chrome and Chrome for Testing are no longer used: say so rather than ignore them.
       { HALCYONIC_CHECK_CHROME: file },
-      { HALCYONIC_PLAY_BROWSER: folder, HALCYONIC_PLAY_BROWSER_SHA256: sha256 },
+      { HALCYONIC_PLAY_BROWSER: folder, HALCYONIC_PLAY_BROWSER_SHA256: pin },
     ]) {
-      assert.throws(() => loadConfig(env), ConfigError, JSON.stringify(env));
+      assert.throws(() => loadConfig(env, pins), ConfigError, JSON.stringify(env));
     }
     assert.throws(
-      () => loadConfig({ HALCYONIC_CHECK_CHROME: file }),
-      /HALCYONIC_BROWSER/,
-      'the message names what to set instead',
+      () => loadConfig({ HALCYONIC_CHECK_CHROME: file }, pins),
+      /mac-setup browser/,
+      'the message says what to run instead',
     );
   });
 

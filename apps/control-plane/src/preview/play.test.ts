@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import {
+  chmodSync,
   existsSync,
-  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -16,12 +15,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { after, describe, test } from 'node:test';
+import { APPLE_SILICON_PINS } from '../pins.ts';
 import { type ChromeRun, DevToolsPipe } from './chrome.ts';
 import {
   BROWSER_FILES,
+  browserManifest,
   browserProblem,
   HostPlays,
   installBrowser,
+  manifestDigest,
+  PINNED_BROWSER_MANIFEST,
   playArguments,
   playInput,
   playPreferences,
@@ -105,36 +108,95 @@ describe('the contained browser a game plays in on the Mac (Play on my laptop, P
     return path;
   };
 
-  test('only the recorded chrome-headless-shell runs: all of its files, and its binary hash, at every start', () => {
+  test('only the pinned chrome-headless-shell runs: a manifest of every entry, and a refusal names the first that differs', () => {
     const copy = shellFolder(join(base, 'shell'), 'binary');
-    const right = createHash('sha256').update('binary').digest('hex');
-    assert.equal(browserProblem(copy, right), null);
-    assert.match(browserProblem(copy, 'f'.repeat(64)) ?? '', /changed/);
+    mkdirSync(join(copy, 'resources', 'accessibility'), { recursive: true });
+    writeFileSync(join(copy, 'resources', 'accessibility', 'helper.js'), 'helper');
+    writeFileSync(join(copy, 'libvk_swiftshader.dylib'), 'vulkan');
+    const manifest = browserManifest(copy);
+    assert.ok(Array.isArray(manifest));
+    const pin = manifestDigest(manifest);
+    // Each entry: its kind, its mode, its path, and a plain file's SHA-256.
+    assert.ok(manifest.includes('d 755 resources'), manifest.join('\n'));
+    assert.ok(manifest.some((line) => /^f 644 libvk_swiftshader\.dylib [0-9a-f]{64}$/.test(line)));
+    assert.equal(browserProblem(copy, pin, manifest), null);
+    assert.match(browserProblem(copy, 'f'.repeat(64), manifest) ?? '', /changed/);
+    // A library the browser loads, though not one it is named by, changed: named.
+    writeFileSync(join(copy, 'libvk_swiftshader.dylib'), 'vulkan, changed');
+    assert.match(browserProblem(copy, pin, manifest) ?? '', /libvk_swiftshader\.dylib has changed/);
+    writeFileSync(join(copy, 'libvk_swiftshader.dylib'), 'vulkan');
+    assert.equal(browserProblem(copy, pin, manifest), null);
+    // Its mode changed: named.
+    chmodSync(join(copy, 'libvk_swiftshader.dylib'), 0o755);
+    assert.match(browserProblem(copy, pin, manifest) ?? '', /libvk_swiftshader\.dylib has changed/);
+    chmodSync(join(copy, 'libvk_swiftshader.dylib'), 0o644);
+    // A file added anywhere in it: named.
+    writeFileSync(join(copy, 'resources', 'extra.js'), 'extra');
+    assert.match(browserProblem(copy, pin, manifest) ?? '', /resources\/extra\.js is extra/);
+    rmSync(join(copy, 'resources', 'extra.js'));
+    // A file missing: named.
+    rmSync(join(copy, 'resources', 'accessibility', 'helper.js'));
+    assert.match(
+      browserProblem(copy, pin, manifest) ?? '',
+      /resources\/accessibility\/helper\.js is missing/,
+    );
+    writeFileSync(join(copy, 'resources', 'accessibility', 'helper.js'), 'helper');
+    assert.equal(browserProblem(copy, pin, manifest), null);
+    // A link anywhere in it, even to a file inside it: refused and named, never followed (the pinned build has none).
+    symlinkSync('libEGL.dylib', join(copy, 'resources', 'link.dylib'));
+    assert.deepEqual(browserManifest(copy), { link: 'resources/link.dylib' });
+    assert.match(browserProblem(copy, pin, manifest) ?? '', /link, resources\/link\.dylib/);
+    rmSync(join(copy, 'resources', 'link.dylib'));
+    // Without the expected manifest, a difference is still refused, only not named.
+    writeFileSync(join(copy, 'resources', 'extra.js'), 'extra');
+    assert.match(browserProblem(copy, pin) ?? '', /has changed since it was set up/);
+    rmSync(join(copy, 'resources', 'extra.js'));
     rmSync(join(copy, 'headless_lib_data.pak'));
-    assert.match(browserProblem(copy, right) ?? '', /not chrome-headless-shell/);
-    assert.match(browserProblem(join(base, 'missing'), right) ?? '', /no browser/);
+    assert.match(browserProblem(copy, pin, manifest) ?? '', /not chrome-headless-shell/);
+    assert.match(browserProblem(join(base, 'missing'), pin) ?? '', /no browser/);
   });
 
-  test('the browser is copied into the data folder, links as links, once; the source is never what runs', async () => {
+  test("the repository's manifest of the pinned build is the one its pin names", () => {
+    assert.equal(manifestDigest(PINNED_BROWSER_MANIFEST), APPLE_SILICON_PINS.browser.sha256);
+    assert.ok(
+      PINNED_BROWSER_MANIFEST.some((line) => line.startsWith('f 755 chrome-headless-shell ')),
+    );
+    assert.ok(
+      !PINNED_BROWSER_MANIFEST.some((line) => line.startsWith('l ')),
+      'the pinned build holds no link',
+    );
+  });
+
+  test('the browser is copied into the data folder only from a source that matches, once; the source is never what runs', async () => {
     const source = shellFolder(
       join(base, 'source', 'chrome-headless-shell-mac-arm64'),
       'build one',
     );
-    symlinkSync('libEGL.dylib', join(source, 'libEGL-link.dylib'));
-    const sha = createHash('sha256').update('build one').digest('hex');
+    writeFileSync(join(source, 'libvulkan.dylib'), 'vulkan');
+    const sha = manifestDigest(browserManifest(source) as string[]);
     const dataDir = join(base, 'data-install');
     const copy = await installBrowser(source, sha, dataDir);
     assert.equal(copy, join(dataDir, 'browser', 'current'));
     assert.equal(browserProblem(copy, sha), null);
-    assert.ok(lstatSync(join(copy, 'libEGL-link.dylib')).isSymbolicLink());
+    assert.deepEqual(
+      browserManifest(copy),
+      browserManifest(source),
+      'the copy is the source, entry for entry',
+    );
     // Once there, the copy is kept as it is: a changed source is not copied over it.
     writeFileSync(join(source, 'chrome-headless-shell'), 'build two');
     assert.equal(await installBrowser(source, sha, dataDir), copy);
     assert.equal(readFileSync(join(copy, 'chrome-headless-shell'), 'utf8'), 'build one');
     // A copy that changed is replaced only by a source that hashes as recorded; otherwise none is left.
-    writeFileSync(join(copy, 'chrome-headless-shell'), 'tampered');
+    writeFileSync(join(copy, 'libvulkan.dylib'), 'tampered');
     await assert.rejects(installBrowser(source, sha, dataDir), /changed/);
     assert.ok(!existsSync(copy));
+    // A source holding a link is never copied.
+    const linked = shellFolder(join(base, 'source-linked'), 'build one');
+    writeFileSync(join(linked, 'libvulkan.dylib'), 'vulkan');
+    symlinkSync('libvulkan.dylib', join(linked, 'libvulkan-link.dylib'));
+    await assert.rejects(installBrowser(linked, sha, join(base, 'data-linked')), /link/);
+    assert.ok(!existsSync(join(base, 'data-linked', 'browser', 'current')));
   });
 });
 
