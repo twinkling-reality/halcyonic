@@ -12,7 +12,9 @@ namespace Halcyonic.Client
         public const string Move = "shelf-move";
         public const string ReadRoom = "shelf-room";
         public const string Subject = "Place Agents";
-        private static readonly string[] Directions = { "Left", "Right", "Closer", "Farther", "Up", "Down", "Turn Left", "Turn Right" };
+        /// <summary>The turn rows' words, which are also the direction RoomPlacement.MovePreview turns by: one source for both.</summary>
+        public const string TurnLeft = "Turn Left", TurnRight = "Turn Right";
+        private static readonly string[] Directions = { "Left", "Right", "Closer", "Farther", "Up", "Down", TurnLeft, TurnRight };
         private readonly IMenuHost host;
         private readonly AgentShelfDraft draft;
         private readonly Action<string> move;

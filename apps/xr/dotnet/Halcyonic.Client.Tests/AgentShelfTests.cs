@@ -52,6 +52,27 @@ public class AgentShelfTests
             Assert.That(draft.Candidate!.Value.Position, Is.EqualTo(original));
         }
     }
+    /// <summary>
+    /// The turn rows hand RoomPlacement.MovePreview the very direction it turns by (AgentShelfColumn.TurnLeft and TurnRight), so a change
+    /// of their words can never leave the preview unturnable again (the 17c-2 rename did, 2026-10-31).
+    /// </summary>
+    [Test]
+    public void TheTurnRowsHandMovePreviewTheDirectionItTurnsBy()
+    {
+        var host = new FakeMenuHost { Height = MenuPage.Words(1) + 2 * MenuPage.Target() + 2 * MenuPage.TargetGap, MeasureTitle = (_, _) => 2 };
+        var draft = Draft(); var moved = new List<string>();
+        var column = new AgentShelfColumn(host, draft, moved.Add, () => { }, draft.Cancel, () => { });
+        for (var page = 0; page < 5; page++)
+        {
+            var frame = column.Frame!;
+            column.Drawn(frame, null);
+            foreach (var turn in frame.Lines.Where(line => line.Action == AgentShelfColumn.Move && (line.Words == AgentShelfColumn.TurnLeft || line.Words == AgentShelfColumn.TurnRight)).ToList())
+                column.Act(AgentShelfColumn.Move, turn.Key);
+            if (page < 4) column.Act(Footer.NextPage, null);
+        }
+        Assert.That(moved, Is.EquivalentTo(new[] { AgentShelfColumn.TurnLeft, AgentShelfColumn.TurnRight }));
+    }
+
     [TestCase(TextSize.Standard)]
     [TestCase(TextSize.Larger)]
     public void EveryPlacementControlIsOfferedAcrossMeasuredPagesAndUndrawnOrUnseenControlsCannotAct(TextSize size)
