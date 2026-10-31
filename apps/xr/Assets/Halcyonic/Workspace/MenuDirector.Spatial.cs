@@ -243,5 +243,49 @@ namespace Halcyonic.XR.Workspace
             for (var step = 0; step < 40; step++) { var middle = (activityLow + activityHigh) / 2f; if (Fits(middle, minimumComposer)) activityLow = middle; else activityHigh = middle; }
             return composer ? minimumComposer : activityLow;
         }
+
+        public bool InspectMoment(string workstreamId) => !Away && setup.Presentation.InspectMoment(workstreamId);
+
+        public bool CloseMoment() => !Away && setup.Presentation.CloseMoment(State);
+
+        public bool ShowProjectScreen(string projectId, bool barOpen = false) =>
+            !Away && State?.Projects.ContainsKey(projectId) == true && setup.Presentation.ShowProjectScreen(projectId, barOpen);
+
+        public bool SetProjectScreenBarOpen(bool open) => !Away && setup.Presentation.SetScreenBarOpen(open);
+
+        public bool CloseProjectScreen() => !Away && setup.Presentation.CloseProjectScreen();
+
+        private void UpdateProgressiveSpatial(UnityEngine.Vector3 eyes, UnityEngine.Vector3 looking)
+        {
+            if (setup.SpatialWorkspace && !Away && setup.Presentation.ActiveScreen(State, Connected || Demonstration) is KitScreenModel screenModel)
+            {
+                var bearing = UnityEngine.Mathf.Atan2(looking.x, looking.z) * UnityEngine.Mathf.Rad2Deg + moved.Yaw;
+                plane.ShowScreen(screenModel, eyes, bearing, setup.Presentation.ScreenProjectId);
+            }
+            else if (plane.RoomScreen != null)
+            {
+                plane.HideScreen();
+            }
+
+            var allowMoments = setup.SpatialWorkspace
+                && !Away
+                && navigator.BesideTask == null
+                && (setup.Presentation.InspectedWorkstreamId != null
+                    || (setup.Presentation.ContextualMomentsEnabled
+                        && (setup.Presentation.Minimized || setup.Presentation.ScreenProjectId != null)));
+            if (allowMoments
+                && setup.Presentation.ActiveMoment(State, task => setup.CharacterOf(task) != null) is var (workstreamId, slot)
+                && setup.CharacterOf(workstreamId) is CharacterTarget momentTarget)
+            {
+                var body = WorkspaceLayout.InView(momentTarget, eyes);
+                var lookBearing = UnityEngine.Mathf.Atan2(looking.x, looking.z) * UnityEngine.Mathf.Rad2Deg;
+                plane.ShowMoment(slot, eyes, lookBearing, momentTarget.RestPosition, body.HalfWidth, workstreamId);
+                plane.Moment?.Pop(1f);
+            }
+            else if (plane.Moment != null)
+            {
+                plane.HideMoment();
+            }
+        }
     }
 }

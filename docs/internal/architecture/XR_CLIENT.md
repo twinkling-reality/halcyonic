@@ -3759,3 +3759,24 @@ footprint that clears the current front field, placed character bodies/labels an
 pitch or an unsafe proposed anchor leaves the existing workspace still; no repeated move/settle/input
 revocation loop pretends to solve an unsatisfiable pose. The owner may return to an eligible view or
 adjust placement explicitly. These are candidate safety bounds, not completed wearer acceptance.
+
+### Progressive spatial modes (ADR 0040, 2026-10-31)
+
+`WorkspacePresentationState` coordinates the progressive spatial transitions between ambient avatar
+presence, contextual moment cards and the on-demand project screen:
+
+- **Ambient presence (`KeepAgentsWhenMinimized`)**: When enabled by `WorkspaceDirector`, global
+  console minimization keeps placed agent avatars visible and interactive on their shelf while
+  withdrawing console keyboard, voice and armed confirmation authority. Explicit `SetAgentsEnabled(false)`
+  still hides the shelf.
+- **Contextual moment cards (`ContextualMomentsEnabled`, `InspectMoment`, `CloseMoment`, `ActiveMoment`, `MomentSlotOf`)**:
+  While no task console (`BesideTask`) is open, `MenuDirector.UpdateProgressiveSpatial` projects a
+  single-surface `KitMomentCard` beside a placed character (`MenuPlane.ShowMoment`) when its workstream
+  reaches `AttentionLevel.ActionRequired` (while the console is minimized or a project screen is active)
+  or when explicitly inspected via `InspectMoment`. `CloseMoment` dismisses the current waiting signature
+  until a new approval or question arrives, and answering or opening the full task console (`OpenFile`)
+  collapses the moment card back to the avatar or transitions to the task console.
+- **On-demand project screen (`ShowProjectScreen`, `SetScreenBarOpen`, `CloseProjectScreen`, `ActiveScreen`, `ScreenOf`)**:
+  Summoning a project screen stands `KitScreen` and `KitScreenBar` in the room (`MenuPlane.ShowScreen`)
+  with the project's current runtime, status words, latest host or agent check and neutral monogram
+  fallback when no verified snapshot exists, and removes both when closed (`MenuPlane.HideScreen`).

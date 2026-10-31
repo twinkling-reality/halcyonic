@@ -15,6 +15,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The screen's bar beneath it, while a screen is shown.</summary>
         public KitScreenBar? RoomBar { get; private set; }
 
+        /// <summary>The project id whose screen is currently shown, or null.</summary>
+        public string? ScreenProjectId { get; private set; }
+
         /// <summary>Where <see cref="RoomLayout"/> stood the screen and its bar, in the room's metres.</summary>
         public RoomPose? ScreenPose { get; private set; }
 
@@ -25,7 +28,7 @@ namespace Halcyonic.XR.Workspace
         /// <see cref="SpatialKit.ScreenDegrees"/> at <see cref="RoomLayout.ScreenDistance"/>, with its bar beneath at the
         /// bar's own height, as wide as the screen and tilted to face the eyes. The kit draws both; this only stands them.
         /// </summary>
-        public void ShowScreen(KitScreenModel model, Vector3 eyes, float bearing)
+        public void ShowScreen(KitScreenModel model, Vector3 eyes, float bearing, string? projectId = null)
         {
             if (room == null)
             {
@@ -50,7 +53,7 @@ namespace Halcyonic.XR.Workspace
             }
             Stand(RoomScreen.transform, screen, Reach(screen, eyes));
             Stand(RoomBar.transform, bar, Reach(bar, eyes));
-            (ScreenPose, BarPose) = (screen, bar);
+            (ScreenProjectId, ScreenPose, BarPose) = (projectId, screen, bar);
         }
 
         /// <summary>Takes the screen and its bar away.</summary>
@@ -62,7 +65,7 @@ namespace Halcyonic.XR.Workspace
                 if (Application.isPlaying) Destroy(room.gameObject);
                 else DestroyImmediate(room.gameObject);
             }
-            (room, RoomScreen, RoomBar, ScreenPose, BarPose) = (null, null, null, null, null);
+            (room, RoomScreen, RoomBar, ScreenProjectId, ScreenPose, BarPose) = (null, null, null, null, null, null);
         }
 
         /// <summary>

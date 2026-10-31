@@ -119,7 +119,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var characters = new List<(CharacterView View, CharacterTarget Target)>();
                 var targets = new List<CharacterTarget>();
                 var directed = tasks.Single(task => task.Title == "Add rate limiting to the sign-in endpoint").WorkstreamId;
-                var presentation = new WorkspacePresentationState();
+                var presentation = new WorkspacePresentationState(keepAgentsWhenMinimized: true);
                 Transform? shelf = null;
                 var comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard };
                 var client = new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" };
@@ -338,7 +338,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (TasksColumn.Bar(MenuPlace.Tasks, state).ClosedLine != TasksText.Waiting(1)) failures.Add(name + ": the workspace attention does not say a task waits.");
                 Shot("1 projects", lightLine: false);
                 MinimizeForDirectorRender(director, failures, name);
-                if (characters.Any(each => each.View.gameObject.activeInHierarchy)) failures.Add(name + ": Minimize left an optional agent visible.");
+                if (withShelf && characters.Any(each => !each.View.gameObject.activeInHierarchy)) failures.Add(name + ": Minimize hid the placed ambient agent shelf.");
                 Shot("1 minimized", lightLine: false);
                 RestoreDockForDirectorRender(director, 730, failures, name);
                 if (navigator.Place != MenuPlace.Projects) failures.Add(name + ": Restore changed the judge's retained Projects selection.");
