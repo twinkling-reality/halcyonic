@@ -8,16 +8,15 @@ namespace Halcyonic.Client
 {
     /// <summary>
     /// Where the console stands from the eyes, as the shelf's designed home is placed beside it: its frame's left and right
-    /// edges and lower edge in degrees (yaw in Unity's convention, 0 along +Z; elevation up from level), and its distance.
+    /// edges and lower edge in degrees (yaw in Unity's convention, 0 along +Z; elevation up from level).
     /// </summary>
     public readonly struct ConsoleExtent
     {
-        public ConsoleExtent(float leftYaw, float rightYaw, float bottomElevation, float distance)
-        { LeftYaw = leftYaw; RightYaw = rightYaw; BottomElevation = bottomElevation; Distance = distance; }
+        public ConsoleExtent(float leftYaw, float rightYaw, float bottomElevation)
+        { LeftYaw = leftYaw; RightYaw = rightYaw; BottomElevation = bottomElevation; }
         public float LeftYaw { get; }
         public float RightYaw { get; }
         public float BottomElevation { get; }
-        public float Distance { get; }
 
         /// <summary>
         /// This console as wide as the widest it can take, about the same middle: <paramref name="shownWidth"/> and
@@ -28,15 +27,15 @@ namespace Halcyonic.Client
         {
             if (!(shownWidth > 0f) || !(widestWidth > shownWidth)) return this;
             var extra = (float)((Math.Atan(widestWidth / 2f) - Math.Atan(shownWidth / 2f)) * 180.0 / Math.PI);
-            return new ConsoleExtent(LeftYaw - extra, RightYaw + extra, BottomElevation, Distance);
+            return new ConsoleExtent(LeftYaw - extra, RightYaw + extra, BottomElevation);
         }
     }
 
     /// <summary>
     /// The one search for an agent shelf's first preview, shared by the headset's placement and the Editor's measured
     /// search so the two can never drift. In ART's order (LARGER-SHELF-CALL addendum, 2026-10-31): first the designed home,
-    /// just right of the console's right edge (its near edge <see cref="HomeGapDegrees"/> outside the frame), at the
-    /// console's distance, its top just under the console's lower edge; then outward on the right, the smallest turn first
+    /// just right of the console's right edge (its near edge <see cref="HomeGapDegrees"/> outside the frame), at
+    /// <see cref="HomeDistance"/>, its top just under the console's lower edge; then outward on the right, the smallest turn first
     /// in <see cref="TurnStepDegrees"/> steps; at each turn the home's distance, then nearer, then farther; at each distance
     /// the home's height, then lower, then higher; then the left side mirrored, beside the console's left edge; the far
     /// <see cref="MaximumTurnDegrees"/> turn last on each side. Never nearer than <see cref="MinimumDistance"/>, though the
@@ -47,6 +46,12 @@ namespace Halcyonic.Client
     {
         /// <summary>The nearest the automatic search ever offers a shelf, in metres from the eyes (ART's rule for characters).</summary>
         public const float MinimumDistance = 1.2f;
+
+        /// <summary>
+        /// The home's depth beside a console: where a grounded figure (0.22 m) stands at its designed 6.6 degrees, never the
+        /// console's touch distance (ART's addendum (2), 2026-10-31).
+        /// </summary>
+        public const float HomeDistance = 1.9f;
 
         /// <summary>The farthest, the draft's own bound.</summary>
         public const float MaximumDistance = 2f;
@@ -76,15 +81,26 @@ namespace Halcyonic.Client
         /// Every candidate in ART's order. Without a console (none drawn), the home is straight ahead at 1.5 m and 0.45 m down,
         /// the right side first as with one.
         /// </summary>
-        public static IEnumerable<AgentShelfPose> Candidates(Vector3 eyes, float facingYaw, ConsoleExtent? console = null)
+        /// <param name="halfDegreesAt">
+        /// The shelf's whole envelope, its label included, from its middle to its side as the eyes see it at a distance in metres,
+        /// as the host measures it; the home's near edge is its edge, never nearer than the bare shelf's. Null for the bare shelf.
+        /// </param>
+        public static IEnumerable<AgentShelfPose> Candidates(Vector3 eyes, float facingYaw, ConsoleExtent? console = null, Func<float, float>? halfDegreesAt = null)
         {
-            var distance = Clamp(console?.Distance ?? 1.5f, MinimumDistance, MaximumDistance);
+            var distance = console != null ? Clamp(HomeDistance, MinimumDistance, MaximumDistance) : 1.5f;
             var half = Degrees((float)Math.Atan(AgentShelfDraft.Width(1) / 2f / distance));
+            // The whole envelope's near edge, its label included, where the host measures it (LARGER-SHELF L1, 2026-10-31).
+            if (console != null && halfDegreesAt != null) half = Math.Max(half, halfDegreesAt(distance));
             var drop = console is ConsoleExtent below
                 ? Clamp(-(distance * (float)Math.Tan(Radians(below.BottomElevation))) + HomeDropBelowConsole, MinimumDrop, MaximumDrop)
                 : 0.45f;
-            var rightHome = console is ConsoleExtent right ? right.RightYaw + HomeGapDegrees + half : facingYaw;
-            var leftHome = console is ConsoleExtent left ? left.LeftYaw - HomeGapDegrees - half : facingYaw;
+            // Its near edge HomeGapDegrees outside the frame as the plane's own clearance measures it (WorkspacePlacement): both
+            // half-widths widened by how far below eye level the shelf stands, so a plane laid again still clears its character.
+            var widening = 1f / Math.Max((float)Math.Cos(Math.Atan2(drop, distance)), 0.3f);
+            var middle = console is ConsoleExtent c ? (c.LeftYaw + c.RightYaw) / 2f : facingYaw;
+            var reach = console is ConsoleExtent d ? ((d.RightYaw - d.LeftYaw) / 2f + half) * widening + HomeGapDegrees : 0f;
+            var rightHome = middle + reach;
+            var leftHome = middle - reach;
             foreach (var yaw in Side(rightHome, facingYaw, +1).Concat(Side(leftHome, facingYaw, -1)))
             foreach (var at in Nearer(distance, Distances))
             foreach (var down in Lower(drop, Drops))
@@ -95,10 +111,10 @@ namespace Halcyonic.Client
         /// Begins the draft on the first candidate it keeps. Returns false, with no candidate, when it refuses every one;
         /// <paramref name="tried"/> counts the candidates offered.
         /// </summary>
-        public static bool Begin(AgentShelfDraft draft, Vector3 eyes, float facingYaw, out int tried, ConsoleExtent? console = null)
+        public static bool Begin(AgentShelfDraft draft, Vector3 eyes, float facingYaw, out int tried, ConsoleExtent? console = null, Func<float, float>? halfDegreesAt = null)
         {
             tried = 0;
-            foreach (var candidate in Candidates(eyes, facingYaw, console))
+            foreach (var candidate in Candidates(eyes, facingYaw, console, halfDegreesAt))
             {
                 tried++;
                 draft.Begin(candidate, eyes);

@@ -40,7 +40,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 finally { KeepFontAssetsAsCommitted(); }
                 foreach (var failure in found) Debug.LogError("Halcyonic: room screen: " + failure);
-                if (found.Count == 0) Debug.Log("Halcyonic: room screen: every check passed; " + folder);
+                // With a gap asserted the summary never opens with "every check passed", so a gate reading its start never counts it a pass.
+                if (found.Count == 0) Debug.Log(roomProductGaps.Count == 0 ? "Halcyonic: room screen: every check passed; " + folder
+                    : "Halcyonic: room screen: passed with a product gap at Larger: " + string.Join("; ", roomProductGaps) + "; " + folder);
+                roomProductGaps.Clear();
                 return found;
             });
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
@@ -65,6 +68,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var screen = plane.RoomScreen!;
                 var bar = plane.RoomBar!;
                 failures.AddRange(RoomScreenState(name, eyes, screen, bar, model, open));
+                failures.AddRange(RoomShelf(name, eyes, plane, bearing));
 
                 // The witnesses: each must be caught by the same checks.
                 var scale = bar.transform.localScale;
@@ -102,6 +106,60 @@ namespace Halcyonic.XR.Workspace.Editor
                 texture.Release();
                 UnityEngine.Object.DestroyImmediate(texture);
             }
+            return failures;
+        }
+
+        /// <summary>
+        /// The agents' shelf keeps clear of the room's screen and its bar as of the console (LARGER-SHELF, 2026-10-31): one
+        /// standing in front of the screen is refused, and the shared search, judged by the field and that clearance, still
+        /// finds a spot beside them.
+        /// </summary>
+        /// <summary>Product gaps the room screen journey met at one reading size, printed beside its result so they never read as passes.</summary>
+        private static readonly List<string> roomProductGaps = new List<string>();
+
+        private static List<string> RoomShelf(string name, Vector3 eyes, MenuPlane plane, float bearing)
+        {
+            var failures = new List<string>();
+            var corners = new Vector3[8];
+            var width = AgentShelfDraft.Width(1);
+            var ahead = Quaternion.Euler(0f, bearing, 0f) * Vector3.forward;
+            CharacterStage.WriteShelfCorners(new Pose(eyes + ahead * AgentShelfSearch.HomeDistance - Vector3.up * 0.3f, Quaternion.Euler(0f, bearing, 0f)), width, eyes, corners);
+            if (plane.ClearsShelf(corners, eyes)) failures.Add(name + ": a shelf standing in front of the screen was not refused");
+
+            var measured = ViewField.Current ?? MenuPage.Quest3S;
+            var lens = new ViewField(measured.Left - ViewField.EdgeMarginDegrees, measured.Right - ViewField.EdgeMarginDegrees,
+                measured.Up - ViewField.EdgeMarginDegrees, measured.Down - ViewField.EdgeMarginDegrees);
+            int outside = 0, covered = 0;
+            bool Fits(AgentShelfPose candidate)
+            {
+                CharacterStage.WriteShelfCorners(new Pose(new Vector3(candidate.Position.X, candidate.Position.Y, candidate.Position.Z), Quaternion.Euler(0f, candidate.Yaw, 0f)), width, eyes, corners);
+                var inField = corners.All(corner =>
+                {
+                    var offset = corner - eyes;
+                    return lens.Shows(Mathf.DeltaAngle(bearing, Mathf.Atan2(offset.x, offset.z) * Mathf.Rad2Deg),
+                        Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg);
+                });
+                var clear = plane.ClearsShelf(corners, eyes);
+                if (!inField) outside++;
+                if (!clear) covered++;
+                return inField && clear;
+            }
+            var draft = new AgentShelfDraft { Allows = Fits };
+            var at = new System.Numerics.Vector3(eyes.x, eyes.y, eyes.z);
+            if (!AgentShelfSearch.Begin(draft, at, bearing, out var tried, plane.ConsoleExtentFrom(eyes), distance => Halcyonic.XR.Room.RoomPlacement.ShelfHalfDegrees(width, eyes, distance))
+                || !(draft.Candidate is AgentShelfPose found))
+            {
+                var refusal = tried + " tried, " + outside + " outside the field, " + covered + " not clear of the screen";
+                // At Larger the room's screen keeps its Standard width until ART's LARGER-SHELF call (b) narrows it, so a shelf may find
+                // no spot beside it (OPEN_QUESTIONS.md row 27): asserted as that product gap, refused by the real predicates only.
+                if (GlazeText.Scale <= 1f) failures.Add(name + ": no shelf spot clears the screen and its bar inside the field, " + refusal);
+                else if (outside + covered < tried) failures.Add(name + ": at Larger the shelf's refusal did not come from the field and the screen's clearance, " + refusal);
+                else roomProductGaps.Add(name + " offers no shelf spot beside the screen at the larger text size (" + refusal + "; OPEN_QUESTIONS.md row 27)");
+            }
+            else
+                Debug.Log("Halcyonic: room screen: " + name + " shelf's first spot " + Mathf.DeltaAngle(bearing, found.Yaw).ToString("0.0", CultureInfo.InvariantCulture)
+                    + " degrees from the screen's bearing at " + new Vector2(found.Position.X - eyes.x, found.Position.Z - eyes.z).magnitude.ToString("0.00", CultureInfo.InvariantCulture)
+                    + " m, " + (eyes.y - found.Position.Y).ToString("0.00", CultureInfo.InvariantCulture) + " m down, after " + tried + " tried.");
             return failures;
         }
 

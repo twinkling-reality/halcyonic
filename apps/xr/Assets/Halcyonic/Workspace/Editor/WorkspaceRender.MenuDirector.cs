@@ -1650,7 +1650,8 @@ namespace Halcyonic.XR.Workspace.Editor
             // The production placement's own search, in ART's order from the designed home beside the console, 1.2–2 m away
             // (AgentShelfSearch, which RoomPlacement.BeginPreview runs), facing forward, with this fixture's predicates.
             var searchClock = System.Diagnostics.Stopwatch.StartNew();
-            if (AgentShelfSearch.Begin(draft, new System.Numerics.Vector3(eyes.x, eyes.y, eyes.z), 0f, out attempts, plane.ConsoleExtentFrom(eyes)))
+            if (AgentShelfSearch.Begin(draft, new System.Numerics.Vector3(eyes.x, eyes.y, eyes.z), 0f, out attempts, plane.ConsoleExtentFrom(eyes),
+                    distance => Halcyonic.XR.Room.RoomPlacement.ShelfHalfDegrees(AgentShelfDraft.Width(1), eyes, distance)))
                 draft.Apply(proposed =>
                 {
                     accepted = new Pose(new Vector3(proposed.Position.X, proposed.Position.Y, proposed.Position.Z), Quaternion.Euler(0f, proposed.Yaw, 0f));

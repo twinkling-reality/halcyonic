@@ -791,13 +791,17 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>
         /// Where the visible console stands from <paramref name="viewer"/>, for the shelf's designed home beside it
-        /// (AgentShelfSearch): its frame's left and right edges and lower edge in degrees, and its distance; null when no
-        /// console is drawn. Measured from the same corners <see cref="ClearsShelf"/> keeps the shelf clear of, widened to the
-        /// file column when that is wider than what shows.
+        /// (AgentShelfSearch): its frame's left and right edges and lower edge in degrees; null when no console or room screen
+        /// is drawn. Measured from the same corners <see cref="ClearsShelf"/> keeps the shelf clear of, the room's screen and
+        /// bar included, widened to the file column when that is wider than what shows.
         /// </summary>
         public ConsoleExtent? ConsoleExtentFrom(Vector3 viewer)
         {
-            if (!gameObject.activeInHierarchy || !(VisibleCorners() is Vector3[] corners) || corners.Length == 0) return null;
+            if (!gameObject.activeInHierarchy) return null;
+            var visible = VisibleCorners();
+            var screen = RoomCorners();
+            var corners = visible != null && screen != null ? visible.Concat(screen).ToArray() : visible ?? screen;
+            if (corners == null || corners.Length == 0) return null;
             float left = float.PositiveInfinity, right = float.NegativeInfinity, bottom = float.PositiveInfinity;
             foreach (var corner in corners)
             {
@@ -806,8 +810,7 @@ namespace Halcyonic.XR.Workspace
                 left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw);
                 bottom = Mathf.Min(bottom, Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg);
             }
-            var middle = PlaneLayout.PointOf(eyes, Direction, 0f, 0f) - viewer;
-            var shown = new ConsoleExtent(left, right, bottom, new Vector2(middle.x, middle.z).magnitude);
+            var shown = new ConsoleExtent(left, right, bottom);
             // The widest console the workspace can take: as shown, or the file column alone where a file opening puts the menu
             // aside for a wider one, so a shelf placed beside the menu is never covered once a file opens (X18, 2026-10-31).
             return Composition is PlaneComposition composition
@@ -815,7 +818,10 @@ namespace Halcyonic.XR.Workspace
                 : shown;
         }
 
-        /// <summary>Conservatively rejects shelf overlap with the visible frame/dock and any workspace retained under a local overlay.</summary>
+        /// <summary>
+        /// Conservatively rejects shelf overlap with the visible frame/dock, any workspace retained under a local overlay, and
+        /// the room's screen and its bar while they show.
+        /// </summary>
         public bool ClearsShelf(IReadOnlyList<Vector3> worldCorners, Vector3 viewer)
         {
             if (!gameObject.activeInHierarchy || worldCorners.Count == 0) return true;
@@ -841,7 +847,7 @@ namespace Halcyonic.XR.Workspace
                 var apart = across > 0f && down > 0f ? Mathf.Sqrt(across * across + down * down) : Mathf.Max(across, down);
                 return apart >= WorkspacePlacement.ClearanceDegrees;
             }
-            return Clear(VisibleCorners()) && Clear(retainedWorkspace);
+            return Clear(VisibleCorners()) && Clear(retainedWorkspace) && Clear(RoomCorners());
         }
 
         private PanelDirection PlaceWorkspace(IReadOnlyList<CharacterTarget> all, Vector3 looking, float? surfaceHeight, PanelSize size)

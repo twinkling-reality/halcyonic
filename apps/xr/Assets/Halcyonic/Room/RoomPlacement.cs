@@ -90,8 +90,25 @@ namespace Halcyonic.XR.Room
             // requests scene access; the first candidate in ART's order from the designed home beside the
             // console's right foot that AllowsShelf keeps (the field and the current workspace's clearance)
             // is shown. The Editor's measured search runs the same AgentShelfSearch, so the two never drift.
+            var width = GetComponent<CharacterStage>()?.ShelfWidth ?? AgentShelfDraft.Width(1);
             return AgentShelfSearch.Begin(Draft, eyes, Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg, out _,
-                GetComponent<WorkspaceDirector>()?.ShelfConsole(head.transform.position));
+                GetComponent<WorkspaceDirector>()?.ShelfConsole(head.transform.position),
+                distance => ShelfHalfDegrees(width, head.transform.position, distance));
+        }
+
+        /// <summary>
+        /// The shelf's whole envelope, its label included, from its middle to its side as the eyes at <paramref name="viewer"/> see
+        /// it <paramref name="distance"/> metres ahead, from the stage's own measurement (<see cref="CharacterStage.WriteShelfCorners"/>):
+        /// the home's near edge stands beside the console by it (LARGER-SHELF L1, 2026-10-31: at 1.9 m the label, which keeps its
+        /// size by angle, is wider than the bare shelf).
+        /// </summary>
+        public static float ShelfHalfDegrees(float width, Vector3 viewer, float distance)
+        {
+            var corners = new Vector3[8];
+            CharacterStage.WriteShelfCorners(new Pose(viewer + Vector3.forward * distance + Vector3.down * 0.45f, Quaternion.identity), width, viewer, corners);
+            var half = 0f;
+            foreach (var corner in corners) half = Mathf.Max(half, Mathf.Abs(Mathf.Atan2(corner.x - viewer.x, corner.z - viewer.z) * Mathf.Rad2Deg));
+            return half;
         }
         public void MovePreview(string direction)
         {
