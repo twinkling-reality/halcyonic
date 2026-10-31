@@ -88,6 +88,13 @@ client                                   server
 - **Events carry their effects.** Each `event` message includes `changes`: the current state of
   every project, workstream, execution and command the event changed. Clients replace their copies
   wholesale and never re-implement the projection.
+- **A project's view holds its check, preview and play (M1.8e).** A project's view carries, each
+  only when there is one, `check` (its latest check: `check_id` and the findings as recorded),
+  `preview` (the check its running preview serves and the loopback port) and `mac_play` (the check
+  whose game plays on the Mac now). They are the facts `project.check.recorded`,
+  `project.preview.started` and `project.mac_play.started` carried, and they leave the view when
+  their stop does, so a headset that connects after a check still shows it. An absent member means
+  there is none, never false. Nothing of a play's viewer (its link, code or session) is in the view.
 - **Acknowledgements.** `command_ack` reports `accepted`, `rejected`, `duplicate` or `conflict`.
   Because events are recorded while the command is handled, a client may receive the command's
   events before its acknowledgement; correlate by `command_id`.

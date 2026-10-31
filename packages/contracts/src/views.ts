@@ -8,6 +8,7 @@ import {
 } from './commands.ts';
 import { ApprovalSubject } from './events.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
+import { CheckFindings, CheckId } from './previews.ts';
 import {
   ErrorInfo,
   ExecutionId,
@@ -65,6 +66,25 @@ export const Attention = Type.Object(
 );
 export type Attention = Static<typeof Attention>;
 
+/** A project's latest check, as `project.check.recorded` recorded it (M1.8e). */
+export const ProjectCheckView = Type.Object({ check_id: CheckId, findings: CheckFindings }, strict);
+export type ProjectCheckView = Static<typeof ProjectCheckView>;
+
+/** The preview running now, as `project.preview.started` said: the check it serves, on a loopback port. */
+export const ProjectPreviewView = Type.Object(
+  { check_id: CheckId, port: Type.Integer({ minimum: 1, maximum: 65535 }) },
+  strict,
+);
+export type ProjectPreviewView = Static<typeof ProjectPreviewView>;
+
+/** The check whose game plays on the Mac now, as `project.mac_play.started` said. */
+export const ProjectMacPlayView = Type.Object({ check_id: CheckId }, strict);
+export type ProjectMacPlayView = Static<typeof ProjectMacPlayView>;
+
+/**
+ * `check`, `preview` and `mac_play` hold the facts their events carried, so a client that connects
+ * after them still has them; each is absent when there is none, which never reads as false.
+ */
 export const ProjectView = Type.Object(
   {
     project_id: ProjectId,
@@ -75,6 +95,9 @@ export const ProjectView = Type.Object(
     starter: Nullable(StarterId),
     created_at: Timestamp,
     updated_at: Timestamp,
+    check: Type.Optional(ProjectCheckView),
+    preview: Type.Optional(ProjectPreviewView),
+    mac_play: Type.Optional(ProjectMacPlayView),
   },
   strict,
 );

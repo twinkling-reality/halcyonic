@@ -420,6 +420,177 @@ namespace Halcyonic.Contracts
         public bool Created { get; set; }
     }
 
+    public sealed class CheckStep
+    {
+        [JsonProperty("exit", Required = Required.AllowNull)]
+        public long? Exit { get; set; }
+
+        [JsonProperty("seconds", Required = Required.Always)]
+        public double Seconds { get; set; }
+    }
+
+    public sealed class CheckPagePicturesItem
+    {
+        [JsonProperty("at_ms", Required = Required.Always)]
+        public long AtMs { get; set; }
+
+        [JsonProperty("sha256", Required = Required.Always)]
+        public string Sha256 { get; set; } = default!;
+    }
+
+    public sealed class CheckPage
+    {
+        [JsonProperty("exceptions", Required = Required.Always)]
+        public List<string> Exceptions { get; set; } = new List<string>();
+
+        [JsonProperty("exception_count", Required = Required.Always)]
+        public long ExceptionCount { get; set; }
+
+        [JsonProperty("console_errors", Required = Required.Always)]
+        public long ConsoleErrors { get; set; }
+
+        [JsonProperty("canvases", Required = Required.Always)]
+        public long Canvases { get; set; }
+
+        [JsonProperty("edges_at_3s", Required = Required.AllowNull)]
+        public long? EdgesAt3s { get; set; }
+
+        [JsonProperty("edges_at_10s", Required = Required.AllowNull)]
+        public long? EdgesAt10s { get; set; }
+
+        [JsonProperty("drawn", Required = Required.Always)]
+        public bool Drawn { get; set; }
+
+        [JsonProperty("pictures", Required = Required.Always)]
+        public List<CheckPagePicturesItem> Pictures { get; set; } = new List<CheckPagePicturesItem>();
+    }
+
+    public sealed class CheckLaptop
+    {
+        [JsonProperty("layer", Required = Required.Always)]
+        public JToken Layer { get; set; } = default!;
+
+        [JsonProperty("targets", Required = Required.Always)]
+        public long Targets { get; set; }
+
+        [JsonProperty("mouse", Required = Required.Always)]
+        public JToken Mouse { get; set; } = default!;
+
+        [JsonProperty("key", Required = Required.Always)]
+        public JToken Key { get; set; } = default!;
+
+        [JsonProperty("screen_changed", Required = Required.AllowNull)]
+        public bool? ScreenChanged { get; set; }
+
+        [JsonProperty("response_seen", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? ResponseSeen { get; set; }
+
+        [JsonProperty("response_unknown", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public JToken? ResponseUnknown { get; set; }
+
+        [JsonProperty("exceptions_during", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public long? ExceptionsDuring { get; set; }
+
+        [JsonProperty("ready", Required = Required.Always)]
+        public bool Ready { get; set; }
+    }
+
+    public sealed class CheckVr
+    {
+        [JsonProperty("offered", Required = Required.Always)]
+        public JToken Offered { get; set; } = default!;
+
+        [JsonProperty("how", Required = Required.AllowNull)]
+        public JToken? How { get; set; }
+
+        [JsonProperty("exceptions", Required = Required.Always)]
+        public long Exceptions { get; set; }
+
+        [JsonProperty("ready", Required = Required.Always)]
+        public bool Ready { get; set; }
+    }
+
+    public sealed class CheckNotesItemsItem
+    {
+        [JsonProperty("kind", Required = Required.Always)]
+        public JToken Kind { get; set; } = default!;
+
+        [JsonProperty("file", Required = Required.AllowNull)]
+        public string? File { get; set; }
+
+        [JsonProperty("line", Required = Required.Always)]
+        public long Line { get; set; }
+    }
+
+    public sealed class CheckNotes
+    {
+        [JsonProperty("scanned", Required = Required.Always)]
+        public JToken Scanned { get; set; } = default!;
+
+        [JsonProperty("items", Required = Required.Always)]
+        public List<CheckNotesItemsItem> Items { get; set; } = new List<CheckNotesItemsItem>();
+    }
+
+    public sealed class CheckFindings
+    {
+        [JsonProperty("tsc", Required = Required.Always)]
+        public CheckStep Tsc { get; set; } = default!;
+
+        [JsonProperty("build", Required = Required.Always)]
+        public CheckStep Build { get; set; } = default!;
+
+        [JsonProperty("page", Required = Required.AllowNull)]
+        public CheckPage? Page { get; set; }
+
+        [JsonProperty("unknown", Required = Required.AllowNull)]
+        public string? Unknown { get; set; }
+
+        [JsonProperty("passed", Required = Required.Always)]
+        public bool Passed { get; set; }
+
+        [JsonProperty("reads_confined", Required = Required.Always)]
+        public bool ReadsConfined { get; set; }
+
+        [JsonProperty("laptop", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public CheckLaptop? Laptop { get; set; }
+
+        [JsonProperty("vr", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public CheckVr? Vr { get; set; }
+
+        [JsonProperty("notes", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public CheckNotes? Notes { get; set; }
+
+        [JsonProperty("ready", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Ready { get; set; }
+
+        [JsonProperty("own_permissions", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? OwnPermissions { get; set; }
+    }
+
+    public sealed class ProjectViewCheck
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("findings", Required = Required.Always)]
+        public CheckFindings Findings { get; set; } = default!;
+    }
+
+    public sealed class ProjectViewPreview
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("port", Required = Required.Always)]
+        public long Port { get; set; }
+    }
+
+    public sealed class ProjectViewMacPlay
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+    }
+
     public sealed class ProjectView
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -439,6 +610,15 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("updated_at", Required = Required.Always)]
         public string UpdatedAt { get; set; } = default!;
+
+        [JsonProperty("check", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public ProjectViewCheck? Check { get; set; }
+
+        [JsonProperty("preview", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public ProjectViewPreview? Preview { get; set; }
+
+        [JsonProperty("mac_play", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public ProjectViewMacPlay? MacPlay { get; set; }
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
@@ -1471,153 +1651,6 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("failure", Required = Required.Always)]
         public ErrorInfo Failure { get; set; } = default!;
-    }
-
-    public sealed class CheckStep
-    {
-        [JsonProperty("exit", Required = Required.AllowNull)]
-        public long? Exit { get; set; }
-
-        [JsonProperty("seconds", Required = Required.Always)]
-        public double Seconds { get; set; }
-    }
-
-    public sealed class CheckPagePicturesItem
-    {
-        [JsonProperty("at_ms", Required = Required.Always)]
-        public long AtMs { get; set; }
-
-        [JsonProperty("sha256", Required = Required.Always)]
-        public string Sha256 { get; set; } = default!;
-    }
-
-    public sealed class CheckPage
-    {
-        [JsonProperty("exceptions", Required = Required.Always)]
-        public List<string> Exceptions { get; set; } = new List<string>();
-
-        [JsonProperty("exception_count", Required = Required.Always)]
-        public long ExceptionCount { get; set; }
-
-        [JsonProperty("console_errors", Required = Required.Always)]
-        public long ConsoleErrors { get; set; }
-
-        [JsonProperty("canvases", Required = Required.Always)]
-        public long Canvases { get; set; }
-
-        [JsonProperty("edges_at_3s", Required = Required.AllowNull)]
-        public long? EdgesAt3s { get; set; }
-
-        [JsonProperty("edges_at_10s", Required = Required.AllowNull)]
-        public long? EdgesAt10s { get; set; }
-
-        [JsonProperty("drawn", Required = Required.Always)]
-        public bool Drawn { get; set; }
-
-        [JsonProperty("pictures", Required = Required.Always)]
-        public List<CheckPagePicturesItem> Pictures { get; set; } = new List<CheckPagePicturesItem>();
-    }
-
-    public sealed class CheckLaptop
-    {
-        [JsonProperty("layer", Required = Required.Always)]
-        public JToken Layer { get; set; } = default!;
-
-        [JsonProperty("targets", Required = Required.Always)]
-        public long Targets { get; set; }
-
-        [JsonProperty("mouse", Required = Required.Always)]
-        public JToken Mouse { get; set; } = default!;
-
-        [JsonProperty("key", Required = Required.Always)]
-        public JToken Key { get; set; } = default!;
-
-        [JsonProperty("screen_changed", Required = Required.AllowNull)]
-        public bool? ScreenChanged { get; set; }
-
-        [JsonProperty("response_seen", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public bool? ResponseSeen { get; set; }
-
-        [JsonProperty("response_unknown", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public JToken? ResponseUnknown { get; set; }
-
-        [JsonProperty("exceptions_during", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public long? ExceptionsDuring { get; set; }
-
-        [JsonProperty("ready", Required = Required.Always)]
-        public bool Ready { get; set; }
-    }
-
-    public sealed class CheckVr
-    {
-        [JsonProperty("offered", Required = Required.Always)]
-        public JToken Offered { get; set; } = default!;
-
-        [JsonProperty("how", Required = Required.AllowNull)]
-        public JToken? How { get; set; }
-
-        [JsonProperty("exceptions", Required = Required.Always)]
-        public long Exceptions { get; set; }
-
-        [JsonProperty("ready", Required = Required.Always)]
-        public bool Ready { get; set; }
-    }
-
-    public sealed class CheckNotesItemsItem
-    {
-        [JsonProperty("kind", Required = Required.Always)]
-        public JToken Kind { get; set; } = default!;
-
-        [JsonProperty("file", Required = Required.AllowNull)]
-        public string? File { get; set; }
-
-        [JsonProperty("line", Required = Required.Always)]
-        public long Line { get; set; }
-    }
-
-    public sealed class CheckNotes
-    {
-        [JsonProperty("scanned", Required = Required.Always)]
-        public JToken Scanned { get; set; } = default!;
-
-        [JsonProperty("items", Required = Required.Always)]
-        public List<CheckNotesItemsItem> Items { get; set; } = new List<CheckNotesItemsItem>();
-    }
-
-    public sealed class CheckFindings
-    {
-        [JsonProperty("tsc", Required = Required.Always)]
-        public CheckStep Tsc { get; set; } = default!;
-
-        [JsonProperty("build", Required = Required.Always)]
-        public CheckStep Build { get; set; } = default!;
-
-        [JsonProperty("page", Required = Required.AllowNull)]
-        public CheckPage? Page { get; set; }
-
-        [JsonProperty("unknown", Required = Required.AllowNull)]
-        public string? Unknown { get; set; }
-
-        [JsonProperty("passed", Required = Required.Always)]
-        public bool Passed { get; set; }
-
-        [JsonProperty("reads_confined", Required = Required.Always)]
-        public bool ReadsConfined { get; set; }
-
-        [JsonProperty("laptop", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public CheckLaptop? Laptop { get; set; }
-
-        [JsonProperty("vr", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public CheckVr? Vr { get; set; }
-
-        [JsonProperty("notes", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public CheckNotes? Notes { get; set; }
-
-        [JsonProperty("ready", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public bool? Ready { get; set; }
-
-        [JsonProperty("own_permissions", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public bool? OwnPermissions { get; set; }
     }
 
     public sealed class ProjectCheckRecordedPayload

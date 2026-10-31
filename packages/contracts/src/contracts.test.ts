@@ -23,6 +23,7 @@ import {
   EvaluationResult,
   fitQuestion,
   MESSAGE_NESTING_LIMIT,
+  ProjectView,
   parseClientMessage,
   parseCommandEnvelope,
   parseEventEnvelope,
@@ -515,8 +516,8 @@ describe('the C# bindings', () => {
     );
     assert.equal(
       generated.match(/Required = Required\.Default/g)?.length,
-      14,
-      "the optional members are a location's label, a completed tool's turn, two declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), why a twin read was unknown (M1.8g-b), whether an execution's start recorded it confined (S2), and whether a check's browser had permissions of its own (S1)",
+      17,
+      "the optional members are a location's label, a completed tool's turn, two declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), why a twin read was unknown (M1.8g-b), whether an execution's start recorded it confined (S2), whether a check's browser had permissions of its own (S1), and a project's check, preview and play (M1.8e)",
     );
     for (const member of [
       'Laptop',
@@ -528,6 +529,9 @@ describe('the C# bindings', () => {
       'ResponseUnknown',
       'Confined',
       'OwnPermissions',
+      'Check',
+      'Preview',
+      'MacPlay',
     ])
       assert.match(generated, new RegExp(`public \\w+\\? ${member} \\{ get; set; \\}`), member);
     assert.match(
@@ -826,6 +830,42 @@ describe("whether a check's browser had permissions of its own (S1)", () => {
     assert.equal(validate({ ...findings, own_permissions: false }).ok, true);
     assert.equal(validate({ ...findings, own_permissions: null }).ok, false);
     assert.equal(validate({ ...findings, own_permissions: 'yes' }).ok, false);
+  });
+});
+
+describe("a project's view with its check, preview and play (M1.8e)", () => {
+  const validate = compileValidator(ProjectView);
+  const project = {
+    project_id: '01a19000-0000-7000-8000-000000000001',
+    name: 'Garden',
+    location: null,
+    starter: null,
+    created_at: '2026-10-31T05:00:00.000Z',
+    updated_at: '2026-10-31T05:00:00.000Z',
+  };
+  const checkId = '01a19000-0000-7000-8000-0000000000c1';
+  const findings = {
+    tsc: { exit: 0, seconds: 1 },
+    build: { exit: 0, seconds: 2 },
+    page: null,
+    unknown: null,
+    passed: false,
+    reads_confined: false,
+  };
+  test('each member is optional, absent when there is none, never null, and holds only what its event carried', () => {
+    assert.equal(validate(project).ok, true);
+    const full = {
+      ...project,
+      check: { check_id: checkId, findings },
+      preview: { check_id: checkId, port: 47931 },
+      mac_play: { check_id: checkId },
+    };
+    assert.equal(validate(full).ok, true, JSON.stringify(validate(full)));
+    for (const member of ['check', 'preview', 'mac_play'])
+      assert.equal(validate({ ...project, [member]: null }).ok, false, member);
+    assert.equal(validate({ ...full, preview: { check_id: checkId, port: 0 } }).ok, false);
+    assert.equal(validate({ ...full, mac_play: { check_id: checkId, link: 'x' } }).ok, false);
+    assert.equal(validate({ ...full, check: { check_id: checkId } }).ok, false);
   });
 });
 

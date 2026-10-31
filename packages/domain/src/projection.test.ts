@@ -714,11 +714,92 @@ describe('a checked game playing on the Mac (P-A)', () => {
       b.controlPlane('project.mac_play.stopped', scope, { check_id: second, reason: 'closed' }),
     );
     assert.equal(projection.macPlay(project.projectId), first);
-    assert.equal(Object.hasOwn(projection.project(project.projectId) ?? {}, 'mac_play'), false);
     projection.apply(
       b.controlPlane('project.mac_play.stopped', scope, { check_id: first, reason: 'closed' }),
     );
     assert.equal(projection.macPlay(project.projectId), undefined);
+  });
+});
+
+describe("a project's view holds its latest check, its preview and its play (M1.8e)", () => {
+  test('each appears in the view and in the event changes as it is recorded, and is absent, never false, when there is none', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const project = b.project('Garden', { path: '/work/garden', name: 'garden', created: true });
+    projection.apply(project.event);
+    const scope = { project_id: project.projectId, workstream_id: null, execution_id: null };
+    const view = () => projection.project(project.projectId) ?? {};
+    for (const member of ['check', 'preview', 'mac_play'])
+      assert.equal(Object.hasOwn(view(), member), false, `${member} absent before anything`);
+    const checkId = b.id() as never;
+    const findings = {
+      tsc: { exit: 0, seconds: 1 },
+      build: { exit: 0, seconds: 2 },
+      page: null,
+      unknown: null,
+      passed: false,
+      reads_confined: false,
+    } as never;
+    const changed = (event: Parameters<typeof projection.apply>[0]) =>
+      projection.apply(event).changes.projects.map((p) => p.project_id);
+    assert.deepEqual(
+      changed(b.controlPlane('project.check.recorded', scope, { check_id: checkId, findings })),
+      [project.projectId],
+    );
+    assert.deepEqual((view() as { check?: unknown }).check, { check_id: checkId, findings });
+    // reads_confined false stays false; a member the check did not record stays absent.
+    const recorded = (view() as { check: { findings: Record<string, unknown> } }).check.findings;
+    assert.equal(recorded.reads_confined, false);
+    assert.equal(Object.hasOwn(recorded, 'own_permissions'), false);
+    assert.deepEqual(
+      changed(b.controlPlane('project.preview.started', scope, { check_id: checkId, port: 47931 })),
+      [project.projectId],
+    );
+    assert.deepEqual((view() as { preview?: unknown }).preview, { check_id: checkId, port: 47931 });
+    assert.deepEqual(
+      changed(b.controlPlane('project.mac_play.started', scope, { check_id: checkId })),
+      [project.projectId],
+    );
+    assert.deepEqual((view() as { mac_play?: unknown }).mac_play, { check_id: checkId });
+    assert.deepEqual(
+      changed(
+        b.controlPlane('project.mac_play.stopped', scope, { check_id: checkId, reason: 'closed' }),
+      ),
+      [project.projectId],
+    );
+    assert.equal(Object.hasOwn(view(), 'mac_play'), false);
+    assert.deepEqual(
+      changed(
+        b.controlPlane('project.preview.stopped', scope, { check_id: checkId, reason: 'asked' }),
+      ),
+      [project.projectId],
+    );
+    assert.equal(Object.hasOwn(view(), 'preview'), false);
+    assert.equal(Object.hasOwn(view(), 'check'), true, 'the check outlives its preview');
+    // A stop of another check's preview changes nothing, so no change is sent.
+    projection.apply(
+      b.controlPlane('project.preview.started', scope, { check_id: checkId, port: 47931 }),
+    );
+    assert.deepEqual(
+      changed(
+        b.controlPlane('project.preview.stopped', scope, {
+          check_id: b.id() as never,
+          reason: 'asked',
+        }),
+      ),
+      [],
+    );
+    // Nothing else is in the view: no viewer link, code or token, only what the events carried.
+    assert.deepEqual(Object.keys(view()).sort(), [
+      'check',
+      'created_at',
+      'location',
+      'name',
+      'preview',
+      'project_id',
+      'starter',
+      'updated_at',
+    ]);
   });
 });
 

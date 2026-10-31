@@ -355,7 +355,7 @@ export class Projection {
 
   project(projectId: string): ProjectView | undefined {
     const state = this.#projects.get(projectId as ProjectId);
-    return state === undefined ? undefined : toProjectView(state);
+    return state === undefined ? undefined : this.#projectView(state);
   }
 
   /** The project this one was made as a VR version of (M1.8c-1), or null. */
@@ -475,7 +475,7 @@ export class Projection {
   }
 
   projects(): ProjectView[] {
-    return [...this.#projects.values()].map(toProjectView);
+    return [...this.#projects.values()].map((state) => this.#projectView(state));
   }
 
   workstreams(projectId?: string): WorkstreamView[] {
@@ -790,6 +790,7 @@ export class Projection {
           findings: event.payload.findings,
           recorded_at: event.occurred_at,
         });
+        changes.projects.add(event.project_id);
         return;
       case 'project.preview.started':
         if (!this.#projects.has(event.project_id)) {
@@ -800,18 +801,23 @@ export class Projection {
           check_id: event.payload.check_id,
           port: event.payload.port,
         });
+        changes.projects.add(event.project_id);
         return;
       case 'project.preview.stopped':
         if (this.#previews.get(event.project_id)?.check_id === event.payload.check_id) {
           this.#previews.delete(event.project_id);
+          changes.projects.add(event.project_id);
         }
         return;
       case 'project.mac_play.started':
         this.#macPlays.set(event.project_id, event.payload.check_id);
+        if (this.#projects.has(event.project_id)) changes.projects.add(event.project_id);
         return;
       case 'project.mac_play.stopped':
-        if (this.#macPlays.get(event.project_id) === event.payload.check_id)
+        if (this.#macPlays.get(event.project_id) === event.payload.check_id) {
           this.#macPlays.delete(event.project_id);
+          changes.projects.add(event.project_id);
+        }
         return;
       case 'project.checkpoint.failed':
       case 'project.restored':
@@ -1199,6 +1205,23 @@ export class Projection {
     };
   }
 
+  /** The project with its latest check, its preview and its play, each only when there is one (M1.8e). */
+  #projectView(state: ProjectState): ProjectView {
+    const check = this.#checks.get(state.projectId);
+    const preview = this.#previews.get(state.projectId);
+    const play = this.#macPlays.get(state.projectId);
+    return {
+      ...toProjectView(state),
+      ...(check === undefined
+        ? {}
+        : { check: { check_id: check.check_id, findings: check.findings } }),
+      ...(preview === undefined
+        ? {}
+        : { preview: { check_id: preview.check_id, port: preview.port } }),
+      ...(play === undefined ? {} : { mac_play: { check_id: play } }),
+    };
+  }
+
   #materialize(changes: ChangeSet): EntityChanges {
     const pick = <K, S, V>(ids: Set<K>, map: Map<K, S>, view: (state: S) => V): V[] =>
       [...ids].flatMap((id) => {
@@ -1206,7 +1229,7 @@ export class Projection {
         return state === undefined ? [] : [view(state)];
       });
     return {
-      projects: pick(changes.projects, this.#projects, toProjectView),
+      projects: pick(changes.projects, this.#projects, (state) => this.#projectView(state)),
       workstreams: pick(changes.workstreams, this.#workstreams, (ws) => this.#workstreamView(ws)),
       executions: pick(changes.executions, this.#executions, this.#view),
       commands: pick(changes.commands, this.#commands, toCommandView),
