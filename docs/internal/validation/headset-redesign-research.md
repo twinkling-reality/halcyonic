@@ -260,6 +260,14 @@ from the eyes looking at it, square to that line, as the headset draws what a pe
   composition ends off square, the file's far text reads under 14 dp (its main prompt at 73
   percent), a corner falls past a Quest 3S's field, and the file's top comes within -0.3 degrees of a
   character's label. Re-centred as one plane, the same composition passes every check.
+- **Retired renders (2026-10-31).** Three of these exploratory boards were removed from
+  `DirectionsRender`: r3 (the menu and a file facing the eyes), r7 (the same, split) and r14 (New
+  project's view over a three-row quote). Their compositions stood 19.8 to 52.0 degrees below eye
+  level, a corner 44.0 degrees down against the 43.5 a Quest 3S's field less its margin reaches, so
+  `DirectionsRender.Check` failed on them on every run from 2026-10-30. They show October design
+  directions the kit and the approved panel language replace; production placement keeps the
+  workspace inside the field and its own checks hold it there. The check keeps its other boards,
+  which still check the light line and a page's glow (STYLE.md).
 - **A Quest 3S's field, as the product checks it.** `FieldChecks` turns the head to the composition
   and tips it only by `WorkspacePlacement.ReadingPitch`, at most 8 degrees; the earlier renders had
   allowed 18. So checked, the menu and a file reach 41.8 degrees below the view's middle, of the 43.5
