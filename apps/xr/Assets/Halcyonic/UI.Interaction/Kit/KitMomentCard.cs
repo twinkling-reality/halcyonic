@@ -43,8 +43,31 @@ namespace Halcyonic.XR.UI
         private readonly List<string> cut = new List<string>();
         private Transform body = null!;
         private float popAt = 1f;
+        private TextMeshPro receiptLead = null!;
+        private TextMeshPro receiptThen = null!;
+        private float eyebrowFoot;
+        private float radius;
+        private GlazeColor? lightTone;
 
         public Vector2 Size { get; private set; }
+
+        /// <summary>The glass as drawn now: <see cref="Size"/> at rest, shorter while the card shrinks to its receipt.</summary>
+        public Vector2 Drawn { get; private set; }
+
+        /// <summary>The card's height once shrunk to its receipt: its eyebrow row and the receipt line, padded.</summary>
+        public float ReceiptHeight { get; private set; }
+
+        /// <summary>The receipt: "Sent" in the primary text, then the rest secondary (the handoff's Receipt).</summary>
+        public TextMeshPro ReceiptLead => receiptLead;
+
+        public TextMeshPro ReceiptThen => receiptThen;
+
+        /// <summary>The parts of the receipt form, in reading order: the eyebrow row, then the receipt line.</summary>
+        public IReadOnlyList<IReadOnlyList<Transform>> ReceiptParts => new IReadOnlyList<Transform>[]
+        {
+            new[] { mark.transform, tone.transform, symbol.transform, eyebrow.transform, count.transform }.Where(part => part.gameObject.activeSelf).ToList(),
+            new[] { receiptLead.transform, receiptThen.transform },
+        };
 
         public KitCarrier Carrier => carrier;
 
@@ -157,6 +180,13 @@ namespace Halcyonic.XR.UI
             card.prose = KitType.Create(card.body, "Their words", KitRole.Body, KitType.Text, KitType.Order.Words, room: true);
             card.fact = KitType.Create(card.body, "Fact", KitRole.Label, KitType.Secondary, KitType.Order.Words, room: true);
             card.well = KitWell.Create(card.body, "Command");
+            card.receiptLead = KitType.Create(card.body, "Receipt", KitRole.Body, KitType.Text, KitType.Order.Words, room: true);
+            card.receiptThen = KitType.Create(card.body, "Receipt state", KitRole.Body, KitType.Secondary, KitType.Order.Words, room: true);
+            foreach (var label in new[] { card.receiptLead, card.receiptThen })
+            {
+                label.textWrappingMode = TextWrappingModes.NoWrap;
+                label.gameObject.SetActive(false);
+            }
             return card;
         }
 
@@ -226,6 +256,8 @@ namespace Halcyonic.XR.UI
             foreach (var line in lines) line.gameObject.SetActive(false);
             foreach (var segment in riskSegments) segment.gameObject.SetActive(false);
             foreach (var label in meta) label.gameObject.SetActive(false);
+            receiptLead.gameObject.SetActive(false);
+            receiptThen.gameObject.SetActive(false);
             shown.Clear();
             cut.Clear();
             if (slot.Shown is not int index)
@@ -241,6 +273,7 @@ namespace Halcyonic.XR.UI
             var left = -width / 2f + pad;
             var y = -pad;
             var toneColour = ToneOf(moment.Tone);
+            lightTone = toneColour;
 
             // The eyebrow: the mark, then who says it. A ring for the runtime's report, a disc for what the computer saw.
             var markSize = Dp(SpatialKit.MarkDp);
@@ -298,6 +331,7 @@ namespace Halcyonic.XR.UI
                 countTop = y - Dp(SpatialKit.MarkGapDp) / 2f;
                 y = countTop - KitType.LinePitch(count);
             }
+            eyebrowFoot = y;
 
             // The Title: a few words of ours, a name of theirs in its run where the words carry one.
             title.gameObject.SetActive(moment.Title != null);
@@ -475,7 +509,8 @@ namespace Halcyonic.XR.UI
 
             var height = -y;
             Size = new Vector2(width, height);
-            var radius = KitType.Units(SpatialKit.Degrees(SpatialKit.PanelRadiusDp));
+            Drawn = Size;
+            radius = KitType.Units(SpatialKit.Degrees(SpatialKit.PanelRadiusDp));
             carrier.DrawGlass(Size, radius, KitGlassMaterial.RimDp, toneColour);
             carrier.transform.localPosition = new Vector3(0f, -height / 2f, 0f);
 
@@ -500,6 +535,39 @@ namespace Halcyonic.XR.UI
             body.localPosition = new Vector3(0f, height / 2f, 0f);
             gameObject.SetActive(true);
             Pop(GlazeMotion.Still ? 1f : 0f);
+        }
+
+        /// <summary>
+        /// Lays the receipt an answer leaves (the handoff's Receipt): "Sent · Awaiting Start" or "Sent · Declined" under the eyebrow,
+        /// in Body, "Sent" in the primary text and the rest secondary; never "Started" (T1). Its opacity is the choreography's.
+        /// </summary>
+        public void ShowReceipt(bool ran)
+        {
+            float Dp(float dp) => KitType.Scaled(SpatialKit.Degrees(dp));
+            var pad = KitType.Units(SpatialKit.PaddingDegrees);
+            var left = -Size.x / 2f + pad;
+            var (lead, then) = KitMomentWords.Receipt(ran);
+            var top = eyebrowFoot - Dp(SpatialKit.TitleGapDp);
+            KitType.Size(receiptLead, KitRole.Body);
+            GlazeText.SetLiteral(receiptLead, lead);
+            var (_, leadWidth, tall) = KitType.Lay(receiptLead, Size.x - 2f * pad, 1);
+            receiptLead.transform.localPosition = new Vector3(left, top, -0.0005f);
+            KitType.Size(receiptThen, KitRole.Body);
+            GlazeText.SetLiteral(receiptThen, KitMomentWords.Dot.TrimStart() + then);
+            var gap = receiptThen.GetPreferredValues("M M").x - receiptThen.GetPreferredValues("MM").x;
+            KitType.Lay(receiptThen, Size.x - 2f * pad - leadWidth - gap, 1);
+            receiptThen.transform.localPosition = new Vector3(left + leadWidth + gap, top, -0.0005f);
+            receiptLead.gameObject.SetActive(true);
+            receiptThen.gameObject.SetActive(true);
+            ReceiptHeight = -(top - tall - pad);
+        }
+
+        /// <summary>Draws the glass <paramref name="height"/> tall from the card's top, lit in the moment's tone or not.</summary>
+        public void DrawHeight(float height, bool lit)
+        {
+            Drawn = new Vector2(Size.x, height);
+            carrier.DrawGlass(Drawn, radius, KitGlassMaterial.RimDp, lit ? lightTone : null);
+            carrier.transform.localPosition = new Vector3(0f, -height / 2f, 0f);
         }
 
         /// <summary>

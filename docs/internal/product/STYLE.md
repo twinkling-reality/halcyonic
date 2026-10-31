@@ -156,6 +156,16 @@ metadata, command, risk, answers); a pass's check draws itself 420 ms after the 
 turns to the person (its beats are its own view's). It retires by scaling to 0.2 and fading over 260 ms (accelerate) as
 the line drops back in 160. Curves: standard cubic-bezier(0.2, 0, 0, 1), decelerate (0.05, 0.7, 0.1, 1), accelerate (0.3,
 0, 0.8, 0.15). A mark's sign is "?" for a question and "!" for a failure, in the face's own type, and a check for a pass.
+An answered question (`KitMomentTimeline.Answered`; `KitMomentChoreography.Answer`): the answers not taken fade over 120 ms
+while the one taken stands; at 200 ms the card shrinks from its top to its receipt over 320 ms (standard) and is no longer
+lit, since an answered question needs no one; its parts below the eyebrow go over the shrink's first 80 ms, and any part the
+glass passes is hidden, so no words stand on the room; 80 ms into the shrink the receipt fades in over 200 ms with the Sent
+cue, through a player its owner gives; at 1600 ms the card retires as any moment does. A retirement or an arrival begun
+before then lands the receipt at once and plays from it, never the question back; from the answer on, no answer on the card
+takes a press until the card is shown again. The receipt is the card's own
+shrunk form: its eyebrow, then "Sent · Awaiting Start" or "Sent · Declined" in Body, "Sent" in n7 and the rest n6. It
+never says "Started": an accepted command is not a start. Kept still, the parts fade out over 120 ms at the card's full
+height, the receipt's size lands, and the receipt fades in over 120 ms.
 
 | Event | Duration | Curve |
 | --- | --- | --- |

@@ -98,6 +98,41 @@ namespace Halcyonic.Client
         public (double RiseDp, double Opacity) Part(int index) => part(index);
     }
 
+    /// <summary>One frame of an answered moment, from the answer: the answers' fade, the shrink to the receipt, the receipt's fade in.</summary>
+    public readonly struct KitAnsweredFrame
+    {
+        public KitAnsweredFrame(double others, double kept, double body, double shrink, double receipt, bool lit, bool retiring)
+        {
+            OthersOpacity = others;
+            KeptOpacity = kept;
+            BodyOpacity = body;
+            Shrink = shrink;
+            ReceiptOpacity = receipt;
+            Lit = lit;
+            Retiring = retiring;
+        }
+
+        /// <summary>The answers not taken.</summary>
+        public double OthersOpacity { get; }
+
+        /// <summary>The answer taken: it stays where it stood until the card shrinks.</summary>
+        public double KeptOpacity { get; }
+
+        /// <summary>The card's other parts below its eyebrow: the Title, the well, the risk line.</summary>
+        public double BodyOpacity { get; }
+
+        /// <summary>How far the card has shrunk from its full height to its receipt's, 0 to 1.</summary>
+        public double Shrink { get; }
+
+        public double ReceiptOpacity { get; }
+
+        /// <summary>The glass still lit in the moment's tone: until the card shrinks, since an answered question needs no one.</summary>
+        public bool Lit { get; }
+
+        /// <summary>From 1600 ms the card retires (<see cref="KitMomentTimeline.Retirement"/>, from that time).</summary>
+        public bool Retiring { get; }
+    }
+
     /// <summary>
     /// A moment's arrival and retirement as functions of the time since they began, and of nothing else (the art direction's
     /// choreography, 2026-10-30): the light line rises from the character at 60 ms; the card opens from it at 160 ms on the
@@ -132,6 +167,34 @@ namespace Halcyonic.Client
             if (through >= 1) return 0;
             if (through <= BloomHoldShare) return 1;
             return 1 - KitMotion.Standard((through - BloomHoldShare) / (1 - BloomHoldShare));
+        }
+
+        /// <summary>
+        /// An answered moment (the handoff's Answered): the answers not taken fade over 120 ms while the one taken stays; at 200 ms
+        /// the card shrinks to its receipt over 320 ms (standard), its parts below the eyebrow out over its first 80 ms (mine:
+        /// gone before the receipt arrives), and the receipt fades in over 200 ms, 80 ms after the shrink begins, when the Sent cue
+        /// sounds; at 1600 ms the card retires.
+        /// </summary>
+        public const double OthersFadeMs = 120, ShrinkAtMs = 200, ShrinkMs = 320, BodyOutMs = 80, ReceiptAfterMs = 80, ReceiptMs = 200;
+
+        public const double SentAtMs = ShrinkAtMs + ReceiptAfterMs, AnsweredRetireAtMs = 1600;
+
+        /// <summary>The answered moment at <paramref name="ms"/> after the answer. Keep Still: the parts fade out over 120 ms, the receipt's size lands, the receipt fades in over 120 ms.</summary>
+        public static KitAnsweredFrame Answered(double ms, bool still)
+        {
+            var retiring = ms >= AnsweredRetireAtMs;
+            if (still)
+            {
+                // The parts fade out at full height; then the receipt's size lands and the receipt fades in.
+                var gone = 1 - KitMotion.Through(ms, 0, KitMotion.StillFadeMs);
+                var landed = ms >= KitMotion.StillFadeMs;
+                return new KitAnsweredFrame(gone, gone, gone, landed ? 1 : 0, KitMotion.Through(ms, KitMotion.StillFadeMs, KitMotion.StillFadeMs), !landed, retiring);
+            }
+            var others = 1 - KitMotion.Standard(KitMotion.Through(ms, 0, OthersFadeMs));
+            var body = 1 - KitMotion.Standard(KitMotion.Through(ms, ShrinkAtMs, BodyOutMs));
+            var shrink = KitMotion.Standard(KitMotion.Through(ms, ShrinkAtMs, ShrinkMs));
+            var receipt = KitMotion.Standard(KitMotion.Through(ms, SentAtMs, ReceiptMs));
+            return new KitAnsweredFrame(others, body, body, shrink, receipt, ms < ShrinkAtMs, retiring);
         }
 
         /// <summary>The arrival at <paramref name="ms"/> after it began.</summary>
