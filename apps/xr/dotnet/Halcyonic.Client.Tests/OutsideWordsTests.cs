@@ -123,11 +123,11 @@ public class OutsideWordsTests
         });
         var entries = log.For("e1");
 
-        Assert.That(entries[0].Words.Runs[0].Text, Is.EqualTo("Used "), "Halcyonic's word first, upright");
+        Assert.That(entries[0].Words.Runs[0].Text, Is.EqualTo("Tool · "), "Halcyonic's word first, upright");
         // The tool's name and its title, with only a colon between, lean as one run (a separator doesn't make a line Halcyonic's).
         Assert.That(entries[0].Words.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true }));
         Assert.That(entries[0].Words.Runs[1].Text, Does.StartWith(LabelText.Name(spoof)));
-        Assert.That(entries[1].Words.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true }), "Succeeded: then the tool, last");
+        Assert.That(entries[1].Words.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true, false }), "Succeeded · then the tool, then Reported");
     }
 
     [TestCaseSource(nameof(Spoofs))]

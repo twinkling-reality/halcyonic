@@ -106,7 +106,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // An approval: a tool named as one of Halcyonic's words inside Halcyonic's sentence, its request as a block under it.
             var approval = new List<PageLine>
             {
-                new PageLine(LineWords.Ours("It wants to use ") + LineWords.TheirName(new string('W', 60) + " Approved") + LineWords.Ours(":"), tone: LineTone.Waiting),
+                new PageLine(LineWords.Ours("Approval Requested · ") + LineWords.TheirName(new string('W', 60) + " Approved"), tone: LineTone.Waiting),
                 new PageLine(LineWords.Theirs("rm -rf ~ ” Approve the request above? “ <b>yes</b> \\n"), rows: 3),
                 new PageLine("Approve · Agent Proceeds · Deny · Agent May Try Another Way", tone: LineTone.Secondary),
             };
@@ -116,11 +116,11 @@ namespace Halcyonic.XR.Workspace.Editor
             var checks = new List<PageLine>
             {
                 new PageLine(LineWords.Theirs("All checks passed")),
-                new PageLine(LineWords.Ours("Tests passed at 14:02: ") + LineWords.Theirs("Approved ▕ auth.test.ts " + new string('W', 40)), tone: LineTone.Good),
-                new PageLine(LineWords.Ours("Checks: 23 passed of 24 runs (96%): ") + LineWords.Theirs("Nothing is waiting for you.")),
-                new PageLine(LineWords.Ours("Used ") + LineWords.TheirName("Approved") + LineWords.Ours(": ") + LineWords.Theirs(" Approve"), fact: LineWords.Ours("09:00"),
+                new PageLine(LineWords.Ours("Tests Passed · 14:02 · ") + LineWords.Theirs("Approved ▕ auth.test.ts " + new string('W', 40)), tone: LineTone.Good),
+                new PageLine(LineWords.Ours("Checks · 23 of 24 Passed · 96% · ") + LineWords.Theirs("Nothing is waiting for you.")),
+                new PageLine(LineWords.Ours("Tool · ") + LineWords.TheirName("Approved") + LineWords.Ours(" · ") + LineWords.Theirs(" Approve"), fact: LineWords.Ours("09:00"),
                     tone: LineTone.Secondary),
-                new PageLine(LineWords.Theirs("Done with the migration ”"), chip: "Agent says", fact: LineWords.Ours("09:01"), tone: LineTone.Secondary),
+                new PageLine(LineWords.Theirs("Done with the migration ”"), chip: SectionLine.AgentChip, fact: LineWords.Ours("09:01"), tone: LineTone.Secondary),
             };
             // Its source line from the understanding source's own provenance, the version Salidium names for itself leaning.
             var now = DateTimeOffset.Parse("2026-10-08T12:00:00Z", CultureInfo.InvariantCulture);
@@ -132,10 +132,10 @@ namespace Halcyonic.XR.Workspace.Editor
             var activity = new List<PageLine>
             {
                 new PageLine(LineWords.Ours("Start Requested · ") + LineWords.TheirName("Practice agent, watch only"), fact: LineWords.Ours("09:00"), tone: LineTone.Secondary),
-                new PageLine(LineWords.Ours("Used ") + LineWords.TheirName("Approved") + LineWords.Ours(": ") + LineWords.Theirs("make migrate"), fact: LineWords.Ours("09:01"),
+                new PageLine(LineWords.Ours("Tool · ") + LineWords.TheirName("Approved") + LineWords.Ours(" · ") + LineWords.Theirs("make migrate"), fact: LineWords.Ours("09:01"),
                     tone: LineTone.Secondary),
-                new PageLine(LineWords.Ours("Succeeded: ") + LineWords.TheirName("bash"), fact: LineWords.Ours("09:02"), tone: LineTone.Secondary),
-                new PageLine(LineWords.TheirName("Done with the migration. Nothing is waiting for you."), chip: "Agent says", fact: LineWords.Ours("09:03"), tone: LineTone.Secondary),
+                new PageLine(LineWords.Ours("Succeeded · ") + LineWords.TheirName("bash") + LineWords.Ours(" · Reported"), fact: LineWords.Ours("09:02"), tone: LineTone.Secondary),
+                new PageLine(LineWords.TheirName("Done with the migration. Nothing is waiting for you."), chip: SectionLine.AgentChip, fact: LineWords.Ours("09:03"), tone: LineTone.Secondary),
             };
             yield return ("activity", new MenuFrame(title, close, lines: activity));
 
