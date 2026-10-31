@@ -1112,7 +1112,7 @@ describe('the browser set up in one command (pnpm mac-setup browser)', {
     );
     assert.equal(launcherProblem(machine.dataDir), null);
     assert.notEqual(audioOutputFor(machine.dataDir), null);
-    assert.doesNotMatch(text(machine), /—/);
+    assert.doesNotMatch(text(machine), /\u2014/);
     // The start reads the folder from the settings and the hash from the pin.
     const config = loadConfig(
       withSettings({ HALCYONIC_DATA_DIR: machine.dataDir }, machine.settings()),
