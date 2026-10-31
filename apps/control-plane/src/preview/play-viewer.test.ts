@@ -333,10 +333,11 @@ describe('the viewer of a play on the Mac: a server of its own, its one play onl
       });
     const taken = createServer();
     const next = createServer();
+    // Below the system's temporary ports (49152 and up), which other tests' connections take at any time.
     let port = 0;
-    for (let attempt = 0; attempt < 20 && port === 0; attempt += 1) {
-      await listen(taken, 0);
-      const held = (taken.address() as { port: number }).port;
+    for (let attempt = 0; attempt < 50 && port === 0; attempt += 1) {
+      const held = 41_000 + Math.floor(Math.random() * 6000);
+      if (!(await listen(taken, held))) continue;
       if (await listen(next, held + 1)) port = held;
       else await new Promise((resolve) => taken.close(resolve));
     }
