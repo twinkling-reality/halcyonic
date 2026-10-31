@@ -18,6 +18,7 @@ import { PassThrough } from 'node:stream';
 import { after, describe, test } from 'node:test';
 import { type ChromeRun, DevToolsPipe } from './chrome.ts';
 import {
+  audibleIn,
   browserProblem,
   HostPlays,
   installPlayBrowser,
@@ -178,6 +179,35 @@ describe("the viewer's input: only a mouse or a key for the game's page (P-A)", 
   });
 });
 
+describe("a game's sound, read from the computer's own record of what plays audio (P-B)", () => {
+  const ASSERTIONS = [
+    'Listed by owning process:',
+    '   pid 420(coreaudiod): [0x0001] 00:01:28 PreventUserIdleSystemSleep named: "com.apple.audio.context.preventuseridlesleep"',
+    '   pid 9001(Google Chrome for Testing Helper): [0x0002] 00:00:02 NoIdleSleepAssertion named: "Playing audio"',
+    '   pid 7000(Google Chrome for Testing): [0x0003] 00:00:01 NoIdleSleepAssertion named: "Playing audio"',
+  ].join('\n');
+  const PROCESSES = ['  9000     1', '  9001  9000', '  9002  9001', '  7000     1'].join('\n');
+
+  test("only a process of the play's own browser playing audio counts, its own pid or one it started", () => {
+    assert.equal(audibleIn(ASSERTIONS, PROCESSES, 9000), true, 'its helper plays audio');
+    assert.equal(
+      audibleIn(ASSERTIONS, PROCESSES, 9002),
+      false,
+      "a helper's parent is not its child",
+    );
+    assert.equal(audibleIn(ASSERTIONS, PROCESSES, 7000), true);
+    assert.equal(
+      audibleIn(ASSERTIONS, PROCESSES, 1234),
+      false,
+      'another browser playing audio is not this game',
+    );
+    assert.equal(
+      audibleIn(ASSERTIONS.replace(/Playing audio/g, 'Something else'), PROCESSES, 9000),
+      false,
+    );
+  });
+});
+
 describe('a play left by a crash is found and stopped at start (P-A)', () => {
   test('records are read by project, and only those whose pid and folder still match are said to run', () => {
     const data = join(base, 'data');
@@ -241,6 +271,8 @@ describe('the host runs, streams, feeds and stops a play (P-A)', () => {
       },
       onEnded: (project, check, reason) => ended.push([project, check, reason]),
       viewerWaitMs: 60_000,
+      viewerGraceMs: 20,
+      audible: async () => false,
       ...overrides,
     });
     return { plays, dataDir, chrome, launched, ended };
@@ -382,6 +414,106 @@ describe('the host runs, streams, feeds and stops a play (P-A)', () => {
     await closing.plays.start('p1', 'c1', 47930);
     await closing.plays.close();
     assert.deepEqual(closing.ended, [['p1', 'c1', 'host_stopped']]);
+  });
+
+  test('a viewer that drops and comes back within the grace keeps the game, as a reload does; past the grace the game ends', async () => {
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const { plays, ended } = host({ viewerGraceMs: 300 });
+    await plays.start('p1', 'c1', 47930);
+    const first = plays.watch('p1', () => undefined);
+    first();
+    await sleep(100);
+    const second = plays.watch('p1', () => undefined);
+    await sleep(400);
+    assert.deepEqual(ended, [], 'the viewer came back within the grace');
+    second();
+    await sleep(100);
+    assert.deepEqual(ended, [], 'still within the grace');
+    await sleep(400);
+    assert.deepEqual(ended, [['p1', 'c1', 'closed']]);
+  });
+
+  test('a drag: moves while a button is held carry it, and stop carrying it once it is released', async () => {
+    const { plays, chrome } = host();
+    await plays.start('p1', 'c1', 47930);
+    const off = plays.watch('p1', () => undefined);
+    await plays.input('p1', { type: 'mouse', action: 'down', x: 10, y: 10, button: 'left' });
+    await plays.input('p1', { type: 'mouse', action: 'move', x: 20, y: 10 });
+    await plays.input('p1', { type: 'mouse', action: 'up', x: 20, y: 10, button: 'left' });
+    await plays.input('p1', { type: 'mouse', action: 'move', x: 30, y: 10 });
+    const moves = chrome.sent
+      .filter((m) => m.method === 'Input.dispatchMouseEvent' && m.params.type === 'mouseMoved')
+      .map((m) => [m.params.button, m.params.buttons]);
+    assert.deepEqual(moves, [
+      ['left', 1],
+      ['none', 0],
+    ]);
+    off();
+    await plays.close();
+  });
+
+  test("the game's sound is said as the computer shows it: none after a while, playing, then paused; unknown says nothing", async () => {
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    let heard: boolean | null = false;
+    const { plays } = host({
+      audible: async () => heard,
+      soundPollMs: 20,
+      soundSilentMs: 150,
+    });
+    await plays.start('p1', 'c1', 47930);
+    const off = plays.watch('p1', () => undefined);
+    assert.equal(plays.sound('p1'), undefined, 'too soon to say');
+    await sleep(300);
+    assert.equal(plays.sound('p1'), 'none');
+    heard = true;
+    await sleep(100);
+    assert.equal(plays.sound('p1'), 'playing');
+    heard = false;
+    await sleep(100);
+    assert.equal(plays.sound('p1'), 'quiet');
+    off();
+    await plays.close();
+
+    const unknown = host({ audible: async () => null, soundPollMs: 20, soundSilentMs: 50 });
+    await unknown.plays.start('p1', 'c1', 47930);
+    const offUnknown = unknown.plays.watch('p1', () => undefined);
+    await sleep(200);
+    assert.equal(
+      unknown.plays.sound('p1'),
+      undefined,
+      'never "No Sound" when the computer could not say',
+    );
+    offUnknown();
+    await unknown.plays.close();
+  });
+
+  test('a viewer is told why its game ended before its stream closes', async () => {
+    const { plays } = host();
+    const { link } = await plays.start('p1', 'c1', 47930);
+    const port = Number(new URL(link).port);
+    const signedIn = await fetch(link, {
+      redirect: 'manual',
+      headers: { 'sec-fetch-site': 'none' },
+    });
+    const cookie = (signedIn.headers.get('set-cookie') ?? '').split(';')[0] ?? '';
+    const socket = new WebSocket(`ws://127.0.0.1:${port}/stream`, {
+      headers: { cookie, origin: `http://127.0.0.1:${port}` },
+    } as never);
+    const texts: string[] = [];
+    socket.addEventListener('message', (event) => {
+      if (typeof event.data === 'string') texts.push(event.data);
+    });
+    const closed = new Promise((resolve) => socket.addEventListener('close', resolve));
+    await new Promise((resolve, reject) => {
+      socket.addEventListener('open', resolve, { once: true });
+      socket.addEventListener('error', reject, { once: true });
+    });
+    await plays.stop('p1', 'preview_stopped');
+    await closed;
+    assert.deepEqual(
+      texts.map((text) => JSON.parse(text)).filter((m) => m.type === 'ended'),
+      [{ type: 'ended', reason: 'preview_stopped' }],
+    );
   });
 
   test('at start, a play a crash left is stopped only when its pid still runs a command naming its folder', async () => {

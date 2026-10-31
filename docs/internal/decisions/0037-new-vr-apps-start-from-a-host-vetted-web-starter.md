@@ -200,3 +200,13 @@ nothing but the preview's port; a person could already open that preview in a br
 containment. The `review_required` commands (`project.restore`, an approval, an interrupt) change files or a running
 agent's work in a way that closing a window does not undo.
 
+## Amendment, 2026-10-31: the viewer page (P-B)
+
+The viewer's page is Halcyonic's own: the game's frames, a press to start taking keys, and labels in the product's
+voice for its state (Ready, Live, Reconnecting) and for its end (Game Closed, Game Ended · Preview Stopped and the
+others). A reload does not end the game: the host keeps a play for 5 s after its last stream closes, and the page,
+with its cookie, comes back within that time. The page says when a game makes no sound (No Sound · Silent Game) and
+when it plays sound (Sound On), from the computer's own record of which processes play audio rather than from
+anything the page reports, and says nothing about sound when the computer cannot tell. While a button is held the
+host gives the page's moves that button, so a drag reaches the game as a drag.
+

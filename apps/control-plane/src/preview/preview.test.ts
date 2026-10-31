@@ -220,6 +220,7 @@ describe('a checked game played on the Mac (Play on my laptop, P-A)', () => {
         browserProblem: () => null,
         launch,
         viewerWaitMs: 60_000,
+        viewerGraceMs: 50,
       },
     };
   };

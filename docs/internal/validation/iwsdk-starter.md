@@ -271,7 +271,18 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   never granted.
 - **LaunchServices:** macOS had registered the lane's copy when it was cloned, before any probe; it was removed with
   `lsregister -u` and counted at zero after.
-- **Not tried:** the host's play with the real browser end to end (an opt-in test comes with the viewer, P-B).
+- **End to end (P-B, opt-in `play-browser.test.ts`, 2026-10-31):** the host's play with this browser copied into a
+  data folder, a game page on a scratch server, and a second contained headless copy standing for the person's
+  browser, opening the viewer's link as `open` hands it over. The link's code left the address after the 303 and the
+  page could not read its cookie; the game's `getUserMedia` was refused with `NotAllowedError` under the play's
+  settings; the viewer said No Sound · Silent Game, then Sound On while a 3 s tone at gain 0.01 played on this Mac's
+  speakers (read from the browser's "Playing audio" record); a key and a drag with its button held reached the game; a
+  reload came back within the 5 s grace and the game played on; the used link answered that it had been used; the
+  game ended as closed once its viewer had gone. No browser process was left. The first run failed: the screencast
+  was started before the new page committed ("Not attached to an active page"); the host now tries again for up to
+  10 s.
+- **Not tried:** the person's own default browser opening the link (the stand-in is a second copy of Chrome for
+  Testing driven over DevTools, whose navigation sends `Sec-Fetch-Site: none` as a link opened from outside does).
 
 ## Consequences
 

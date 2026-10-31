@@ -242,15 +242,111 @@ describe('the viewer of a play on the Mac: a server of its own, its one play onl
     await assert.rejects(get(viewer.port, '/'));
   });
 
+  test("its page, script and styles are Halcyonic's own, served only to its session, with their types", async () => {
+    const viewer = await PlayViewer.open(standIn().play, { ports: await freePorts() });
+    try {
+      for (const path of ['/', '/viewer.js', '/viewer.css'])
+        assert.equal(
+          (await get(viewer.port, path, { 'sec-fetch-site': 'same-origin' })).status,
+          403,
+          path,
+        );
+      const cookie = await signIn(viewer);
+      const own = { cookie, 'sec-fetch-site': 'same-origin' };
+      const page = await get(viewer.port, '/', own);
+      assert.match(String(page.headers['content-type']), /^text\/html/);
+      assert.deepEqual(
+        [...page.body.matchAll(/(?:src|href)="([^"]+)"/g)].map((match) => match[1]),
+        ['/viewer.css', '/viewer.js'],
+        'the page loads nothing but its own two files',
+      );
+      const script = await get(viewer.port, '/viewer.js', own);
+      assert.equal(script.status, 200);
+      assert.match(String(script.headers['content-type']), /^text\/javascript/);
+      assert.match(script.body, /new WebSocket\(`ws:\/\/\$\{location\.host\}\/stream`\)/);
+      const styles = await get(viewer.port, '/viewer.css', own);
+      assert.equal(styles.status, 200);
+      assert.match(String(styles.headers['content-type']), /^text\/css/);
+      assert.equal((await get(viewer.port, '/other.js', own)).status, 404);
+    } finally {
+      await viewer.close();
+    }
+  });
+
+  test('what it announces reaches every stream, and the latest of each kind greets a stream that comes back', async () => {
+    const viewer = await PlayViewer.open(standIn().play, { ports: await freePorts() });
+    try {
+      const cookie = await signIn(viewer);
+      const origin = `http://127.0.0.1:${viewer.port}`;
+      const texts = (socket: WebSocket) => {
+        const seen: unknown[] = [];
+        socket.addEventListener('message', (event) => {
+          if (typeof event.data === 'string') seen.push(JSON.parse(event.data));
+        });
+        return seen;
+      };
+      const first = await connect(viewer.port, { cookie, origin });
+      const firstSeen = texts(first);
+      viewer.announce({ type: 'sound', state: 'none' });
+      viewer.announce({ type: 'sound', state: 'playing' });
+      await until(() => firstSeen.length === 2, 'both announcements');
+      first.close();
+      const again = await connect(viewer.port, { cookie, origin });
+      const againSeen = texts(again);
+      await until(() => againSeen.length === 1, 'the latest sound state');
+      assert.deepEqual(againSeen, [{ type: 'sound', state: 'playing' }]);
+      again.close();
+    } finally {
+      await viewer.close();
+    }
+  });
+
+  test('ending, it tells every stream why, then closes', async () => {
+    const viewer = await PlayViewer.open(standIn().play, { ports: await freePorts() });
+    const cookie = await signIn(viewer);
+    const socket = await connect(viewer.port, {
+      cookie,
+      origin: `http://127.0.0.1:${viewer.port}`,
+    });
+    const seen: unknown[] = [];
+    socket.addEventListener('message', (event) => {
+      if (typeof event.data === 'string') seen.push(JSON.parse(event.data));
+    });
+    const closed = new Promise((resolve) => socket.addEventListener('close', resolve));
+    try {
+      await viewer.end({ type: 'ended', reason: 'newer_check' });
+      await closed;
+      assert.deepEqual(seen, [{ type: 'ended', reason: 'newer_check' }]);
+      await assert.rejects(get(viewer.port, '/'));
+    } finally {
+      await viewer.close();
+    }
+  });
+
   test('it takes the next port of its range when one is in use, and refuses when none is free', async () => {
-    const [port] = await freePorts();
+    // A port held here, and the next one held too until just before the viewer opens, so no other
+    // test's connection can take it in between.
+    const listen = (server: ReturnType<typeof createServer>, at: number) =>
+      new Promise<boolean>((resolve) => {
+        server.once('error', () => resolve(false));
+        server.listen(at, '127.0.0.1', () => resolve(true));
+      });
     const taken = createServer();
-    await new Promise<void>((resolve) => taken.listen(port, '127.0.0.1', resolve));
+    const next = createServer();
+    let port = 0;
+    for (let attempt = 0; attempt < 20 && port === 0; attempt += 1) {
+      await listen(taken, 0);
+      const held = (taken.address() as { port: number }).port;
+      if (await listen(next, held + 1)) port = held;
+      else await new Promise((resolve) => taken.close(resolve));
+    }
+    assert.notEqual(port, 0, 'two free ports in a row');
     try {
       await assert.rejects(
         PlayViewer.open(standIn().play, { ports: [port, port] }),
         /every viewer port is in use/,
       );
+      await new Promise((resolve) => next.close(resolve));
       const viewer = await PlayViewer.open(standIn().play, { ports: [port, port + 1] });
       assert.equal(viewer.port, port + 1);
       await viewer.close();

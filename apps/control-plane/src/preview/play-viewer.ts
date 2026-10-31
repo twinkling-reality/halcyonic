@@ -1,6 +1,8 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
+import type { WebSocket } from 'ws';
 
 /**
  * The viewer of one play on the Mac (P-A): a small server of its own on 127.0.0.1, apart from the
@@ -38,12 +40,24 @@ export interface ViewerOptions {
   readonly ports?: readonly [number, number];
   readonly codeMs?: number;
   readonly now?: () => number;
-  /** The viewer page's HTML. */
-  readonly page?: string;
 }
 
-/** Until the viewer page is built (P-B): a page with nothing on it. */
-const BLANK_PAGE = '<!doctype html><meta charset="utf-8"><title>Play</title>';
+/** A message for the viewer page: the game's sound, or why it ended. */
+export interface ViewerMessage {
+  readonly type: 'sound' | 'ended';
+  readonly [field: string]: unknown;
+}
+
+/** The viewer page: Halcyonic's own three files, read once, the only things it serves. */
+const ASSETS: Readonly<Record<string, { readonly type: string; readonly body: string }>> = {
+  '/': { type: 'text/html; charset=utf-8', body: asset('index.html') },
+  '/viewer.js': { type: 'text/javascript; charset=utf-8', body: asset('viewer.js') },
+  '/viewer.css': { type: 'text/css; charset=utf-8', body: asset('viewer.css') },
+};
+
+function asset(name: string): string {
+  return readFileSync(new URL(`./viewer/${name}`, import.meta.url), 'utf8');
+}
 
 export class PlayViewer {
   readonly port: number;
@@ -52,6 +66,9 @@ export class PlayViewer {
   readonly #session: string;
   readonly #expires: number;
   readonly #now: () => number;
+  readonly #sockets = new Set<WebSocket>();
+  /** The latest message of each kind, for a stream that connects after it, as after a reload. */
+  readonly #latest = new Map<string, string>();
   #used = false;
 
   private constructor(
@@ -84,7 +101,7 @@ export class PlayViewer {
         now() + (options.codeMs ?? VIEWER_CODE_MS),
         now,
       );
-      await viewer.#routes(play, options.page ?? BLANK_PAGE);
+      await viewer.#routes(play);
       try {
         await app.listen({ host: '127.0.0.1', port });
         return viewer;
@@ -109,12 +126,45 @@ export class PlayViewer {
     return `halcyonic_play_${this.port}`;
   }
 
+  /** Sends `message` to every stream now, and to any that connects later in place of an older one of its kind. */
+  announce(message: ViewerMessage): void {
+    const text = JSON.stringify(message);
+    this.#latest.set(message.type, text);
+    for (const socket of this.#sockets) socket.send(text);
+  }
+
+  /**
+   * Tells every stream `message`, closes each, then stops the server. A viewer that does not answer
+   * the close within a second is cut off, so a stop never waits on it.
+   */
+  async end(message: ViewerMessage): Promise<void> {
+    const text = JSON.stringify(message);
+    const closed = Promise.all(
+      [...this.#sockets].map(
+        (socket) =>
+          new Promise<void>((resolve) => {
+            socket.once('close', () => resolve());
+            socket.send(text, () => socket.close(1000));
+          }),
+      ),
+    );
+    let timer: NodeJS.Timeout | undefined;
+    await Promise.race([
+      closed,
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, 1000);
+      }),
+    ]);
+    clearTimeout(timer);
+    await this.close();
+  }
+
   /** Stops the server and every connection to it. */
   async close(): Promise<void> {
     await this.#app.close();
   }
 
-  async #routes(play: ViewerPlay, page: string): Promise<void> {
+  async #routes(play: ViewerPlay): Promise<void> {
     const app = this.#app;
     await app.register(websocket, { options: { maxPayload: MAX_MESSAGE_BYTES } });
     app.addHook('onRequest', async (request, reply) => {
@@ -127,14 +177,19 @@ export class PlayViewer {
       const refusal = this.#refusal(request);
       if (refusal !== null) return reply.code(403).type('text/plain').send(refusal);
     });
-    app.get('/', async (request, reply) => {
-      const code = (request.query as { code?: unknown }).code;
-      if (code !== undefined) return this.#exchange(code, reply);
-      if (!this.#hasSession(request))
-        return reply.code(403).type('text/plain').send('Open the game again from Halcyonic.');
-      return reply.type('text/html; charset=utf-8').send(page);
-    });
+    for (const [path, { type, body }] of Object.entries(ASSETS)) {
+      app.get(path, async (request, reply) => {
+        const code = (request.query as { code?: unknown }).code;
+        if (path === '/' && code !== undefined) return this.#exchange(code, reply);
+        if (!this.#hasSession(request))
+          return reply.code(403).type('text/plain').send('Open the game again from Halcyonic.');
+        return reply.type(type).send(body);
+      });
+    }
     app.get('/stream', { websocket: true }, (socket) => {
+      this.#sockets.add(socket);
+      socket.on('close', () => this.#sockets.delete(socket));
+      for (const text of this.#latest.values()) socket.send(text);
       const off = play.watch((frame) => {
         if (socket.bufferedAmount < MAX_BUFFERED_BYTES) socket.send(Buffer.from(frame, 'base64'));
       });

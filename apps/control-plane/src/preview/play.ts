@@ -1,10 +1,10 @@
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type ChromeRun, launchChrome } from './chrome.ts';
-import { PlayViewer } from './play-viewer.ts';
+import { PlayViewer, type ViewerMessage } from './play-viewer.ts';
 import { chromeProfile } from './profiles.ts';
 
 /**
@@ -181,7 +181,11 @@ const shortText = (s: unknown, max: number): s is string =>
  * press or release with a known button on the page, or a key down or up with a short key and code,
  * is accepted, with no other field; nothing else the viewer sends ever reaches the browser.
  */
-export function playInput(message: unknown): PlayInput | null {
+/**
+ * The page's input call for a viewer message, or null. `held` is the buttons the viewer holds down
+ * now (left 1, right 2, middle 4), so a move during a drag carries them as a real drag's does.
+ */
+export function playInput(message: unknown, held = 0): PlayInput | null {
   if (!isRecord(message)) return null;
   if (message.type === 'mouse') {
     if (!exactly(message, ['type', 'action', 'x', 'y', 'button'])) return null;
@@ -189,9 +193,10 @@ export function playInput(message: unknown): PlayInput | null {
     if (type === undefined || !onPage(message.x, WIDTH) || !onPage(message.y, HEIGHT)) return null;
     if (message.action === 'move') {
       if (message.button !== undefined) return null;
+      const pressed = Object.keys(BUTTONS).find((name) => (held & (BUTTONS[name] ?? 0)) !== 0);
       return {
         method: 'Input.dispatchMouseEvent',
-        params: { type, x: message.x, y: message.y, button: 'none', buttons: 0 },
+        params: { type, x: message.x, y: message.y, button: pressed ?? 'none', buttons: held },
       };
     }
     const button = typeof message.button === 'string' ? BUTTONS[message.button] : undefined;
@@ -276,7 +281,17 @@ export interface HostPlaysDeps {
   readonly viewerWaitMs?: number;
   /** For tests: the ports a play's viewer may take. */
   readonly viewerPorts?: readonly [number, number];
+  /** How long a play outlives its last viewer, so a reload comes back to it. */
+  readonly viewerGraceMs?: number;
+  /** Whether the browser `pid` started plays audio now; null when the computer cannot say. */
+  readonly audible?: (pid: number) => Promise<boolean | null>;
+  /** How often the play's sound is read, and how long without any before it is said to have none. */
+  readonly soundPollMs?: number;
+  readonly soundSilentMs?: number;
 }
+
+/** What the computer shows of a game's sound: playing now, played and stopped, or none so far. */
+export type PlaySound = 'playing' | 'quiet' | 'none';
 
 interface RunningPlay {
   readonly checkId: string;
@@ -284,6 +299,10 @@ interface RunningPlay {
   readonly watchers: Set<(frame: string) => void>;
   timer: NodeJS.Timeout | null;
   viewer: PlayViewer | null;
+  /** The buttons the viewer holds down now. */
+  held: number;
+  sound: PlaySound | undefined;
+  soundTimer: NodeJS.Timeout | null;
 }
 
 /**
@@ -301,6 +320,11 @@ export class HostPlays {
 
   constructor(deps: HostPlaysDeps) {
     this.#deps = deps;
+  }
+
+  /** What the computer shows of the game's sound, or undefined: too soon, or it cannot say. */
+  sound(project: string): PlaySound | undefined {
+    return this.#plays.get(project)?.sound;
   }
 
   /** The check whose game plays now, or undefined. */
@@ -351,7 +375,16 @@ export class HostPlays {
       await run.stop();
       throw new Error('The host is closing.');
     }
-    const play: RunningPlay = { checkId, run, watchers: new Set(), timer: null, viewer: null };
+    const play: RunningPlay = {
+      checkId,
+      run,
+      watchers: new Set(),
+      timer: null,
+      viewer: null,
+      held: 0,
+      sound: undefined,
+      soundTimer: null,
+    };
     this.#plays.set(project, play);
     try {
       // Kept beside the folder, never in the journal: a crash's leftover is found by it.
@@ -377,11 +410,21 @@ export class HostPlays {
         session,
       );
       await devtools.send('Page.navigate', { url: `http://127.0.0.1:${port}/` }, session);
-      await devtools.send(
-        'Page.startScreencast',
-        { format: 'jpeg', quality: 80, maxWidth: WIDTH, maxHeight: HEIGHT, everyNthFrame: 1 },
-        session,
-      );
+      // Until the new page commits there is no page to screencast: try again, for up to 10 s.
+      for (let attempt = 1; ; attempt += 1) {
+        try {
+          await devtools.send(
+            'Page.startScreencast',
+            { format: 'jpeg', quality: 80, maxWidth: WIDTH, maxHeight: HEIGHT, everyNthFrame: 1 },
+            session,
+          );
+          break;
+        } catch (error) {
+          if (attempt >= 100 || !String(error).includes('Not attached to an active page'))
+            throw error;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
       // The viewer reaches only this play: its frames and its input, nothing of the host.
       play.viewer = await PlayViewer.open(
         {
@@ -396,6 +439,7 @@ export class HostPlays {
         throw new Error('The play stopped as it started.');
       }
       this.#awaitViewer(project, play);
+      this.#listen(project, play);
       return { link: play.viewer.link };
     } catch (error) {
       await this.stop(project, 'failed');
@@ -412,16 +456,27 @@ export class HostPlays {
     play.timer = null;
     return () => {
       play.watchers.delete(listener);
-      if (play.watchers.size === 0 && this.#plays.get(project) === play)
-        void this.stop(project, 'closed');
+      if (play.watchers.size > 0 || this.#plays.get(project) !== play || play.timer !== null)
+        return;
+      // A reload closes the stream and opens another: the game waits a moment for it.
+      play.timer = setTimeout(() => {
+        if (this.#plays.get(project) === play && play.watchers.size === 0)
+          void this.stop(project, 'closed');
+      }, this.#deps.viewerGraceMs ?? 5000);
+      play.timer.unref();
     };
   }
 
   /** Sends one viewer message to the page if it is a mouse or key input; true only when sent. */
   async input(project: string, message: unknown): Promise<boolean> {
     const play = this.#plays.get(project);
-    const call = playInput(message);
-    if (play === undefined || call === null) return false;
+    if (play === undefined) return false;
+    const call = playInput(message, play.held);
+    if (call === null) return false;
+    const { type, button } = call.params as { type?: unknown; button?: unknown };
+    const bit = typeof button === 'string' ? (BUTTONS[button] ?? 0) : 0;
+    if (type === 'mousePressed') play.held |= bit;
+    if (type === 'mouseReleased') play.held &= ~bit;
     await play.run.devtools.send(call.method, call.params, play.run.session);
     return true;
   }
@@ -431,8 +486,9 @@ export class HostPlays {
     if (play === undefined) return;
     this.#plays.delete(project);
     if (play.timer !== null) clearTimeout(play.timer);
+    if (play.soundTimer !== null) clearInterval(play.soundTimer);
     play.watchers.clear();
-    await play.viewer?.close();
+    await play.viewer?.end({ type: 'ended', reason });
     await play.run.stop();
     await rm(join(this.#deps.dataDir, 'play', `${project}.json`), { force: true });
     this.#deps.onEnded(project, play.checkId, reason);
@@ -466,6 +522,41 @@ export class HostPlays {
     return stopped;
   }
 
+  /**
+   * Reads the game's sound from the computer's own record of which processes play audio, never
+   * from the page: playing while the browser holds that record; none once a while has passed with
+   * nothing; paused after it played. When the computer cannot say, nothing is said.
+   */
+  #listen(project: string, play: RunningPlay): void {
+    const started = Date.now();
+    const silent = this.#deps.soundSilentMs ?? 10_000;
+    const audible = this.#deps.audible ?? audibleNow;
+    let reading = false;
+    play.soundTimer = setInterval(() => {
+      if (reading) return;
+      reading = true;
+      void audible(play.run.pid)
+        .then((heard) => {
+          if (this.#plays.get(project) !== play || heard === null) return;
+          const next: PlaySound | undefined = heard
+            ? 'playing'
+            : play.sound === 'playing' || play.sound === 'quiet'
+              ? 'quiet'
+              : Date.now() - started >= silent
+                ? 'none'
+                : undefined;
+          if (next === undefined || next === play.sound) return;
+          play.sound = next;
+          play.viewer?.announce({ type: 'sound', state: next } satisfies ViewerMessage);
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          reading = false;
+        });
+    }, this.#deps.soundPollMs ?? 2000);
+    play.soundTimer.unref();
+  }
+
   #awaitViewer(project: string, play: RunningPlay): void {
     play.timer = setTimeout(() => {
       if (this.#plays.get(project) === play && play.watchers.size === 0)
@@ -473,6 +564,45 @@ export class HostPlays {
     }, this.#deps.viewerWaitMs ?? 60_000);
     play.timer.unref();
   }
+}
+
+/**
+ * Whether `pid`, or a process it started, holds the computer's "Playing audio" record, read from
+ * `pmset -g assertions` and the process table `ps -A -o pid=,ppid=`.
+ */
+export function audibleIn(assertions: string, processes: string, pid: number): boolean {
+  const children = new Map<number, number[]>();
+  for (const line of processes.split('\n')) {
+    const [child, parent] = line.trim().split(/\s+/).map(Number);
+    if (child === undefined || parent === undefined || Number.isNaN(child)) continue;
+    children.set(parent, [...(children.get(parent) ?? []), child]);
+  }
+  const tree = new Set<number>([pid]);
+  const queue = [pid];
+  for (let next = queue.pop(); next !== undefined; next = queue.pop())
+    for (const child of children.get(next) ?? [])
+      if (!tree.has(child)) {
+        tree.add(child);
+        queue.push(child);
+      }
+  for (const match of assertions.matchAll(/pid (\d+)\([^\n]*named: "Playing audio"/g))
+    if (tree.has(Number(match[1]))) return true;
+  return false;
+}
+
+async function audibleNow(pid: number): Promise<boolean | null> {
+  const read = (file: string, args: string[]) =>
+    new Promise<string | null>((resolve) =>
+      execFile(file, args, { encoding: 'utf8', timeout: 5000 }, (error, out) =>
+        resolve(error === null ? out : null),
+      ),
+    );
+  const [assertions, processes] = await Promise.all([
+    read('/usr/bin/pmset', ['-g', 'assertions']),
+    read('/bin/ps', ['-A', '-o', 'pid=,ppid=']),
+  ]);
+  if (assertions === null || processes === null) return null;
+  return audibleIn(assertions, processes, pid);
 }
 
 /** The command line a pid runs, or null when it runs nothing. */
