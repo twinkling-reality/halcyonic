@@ -235,7 +235,7 @@ launch/return, process recreation and current-frame action behavior need separat
 - **`CharacterIdentity`** derives a character's body shape, hue, tone and motion phase from its
   workstream id alone (FNV-1a over the UTF-8 id, then MurmurHash3's finalizer), so a workstream
   looks the same in every session and version. The eight hues keep at least 25 degrees from the
-  state colors: amber for waiting for you, red for failed, green for a finished round.
+  state colors: amber for waiting for you, red for failed, green for a passed check.
 - **`CharacterLineup`** chooses which workstreams have a character and where each stands: needs
   you first, then failed, unknown or failing tests, then active work, then the most recently
   changed. Characters that need attention stand nearest the middle of the person's view; every

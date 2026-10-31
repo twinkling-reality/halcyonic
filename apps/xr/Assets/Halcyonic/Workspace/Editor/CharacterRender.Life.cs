@@ -39,6 +39,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     GlazeMotion.Still = false;
                     result.AddRange(LastKnownHoldsAndUnknownMoves());
                     result.AddRange(HopOnlyWithThisRoundsObservedCheck());
+                    result.AddRange(GreenOnlyWithThisRoundsObservedCheck());
                     result.AddRange(PutAwaySaysItFirst());
                     result.AddRange(ArrivalGrowsAndSaysStarting());
                     result.AddRange(KeepStillHoldsTheBody());
@@ -159,6 +160,36 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var lift = HopOf(CharacterActivity.Working, after, shown, start);
                 if (lift >= hop) failures.Add(name + ": it hopped (" + lift.ToString("0.0000", CultureInfo.InvariantCulture) + "), as only the observed passed check may");
+            }
+            return failures;
+        }
+
+        /// <summary>The green light of a passed check (AUDIT F1): never for a round that only ended, and there with this round's check.</summary>
+        private static IEnumerable<string> GreenOnlyWithThisRoundsObservedCheck()
+        {
+            var failures = new List<string>();
+            var check = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: true, Round.AddMinutes(3));
+            var ready = KitMoment.Ready("Tower Toss", TimeSpan.FromMinutes(3), check, tryRoute: true);
+            foreach (var (name, shown, start, lit) in new (string, KitMoment?, DateTimeOffset?, bool)[]
+            {
+                ("round ended alone", null, Round, false),
+                ("a ready from no known round", ready, null, false),
+                ("the passed check observed this round", ready, Round, true),
+            })
+            {
+                var (view, root) = Made("green " + name);
+                try
+                {
+                    view.RoundStartedAt = start;
+                    view.Show(Presentation(CharacterActivity.Working));
+                    Run(view, 0.5f);
+                    view.Show(Presentation(CharacterActivity.TurnFinished), shown);
+                    Run(view, 1.5f);
+                    var halo = view.PoseForRender.Halo;
+                    if (lit && halo < 0.1f) failures.Add(name + ": no green light with the computer's own passed check (" + halo.ToString("0.00", CultureInfo.InvariantCulture) + ")");
+                    if (!lit && halo > 0.01f) failures.Add(name + ": a light glows (" + halo.ToString("0.00", CultureInfo.InvariantCulture) + ") with no passed check of this round");
+                }
+                finally { UnityEngine.Object.DestroyImmediate(root); }
             }
             return failures;
         }

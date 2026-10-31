@@ -238,8 +238,9 @@ namespace Halcyonic.Client
                 case CharacterActivity.Verifying:
                     return CharacterHalo.Verifying;
                 case CharacterActivity.TurnFinished:
-                    // A finished turn that needs attention finished with failing tests.
-                    return presentation.Attention == AttentionLevel.Notice ? CharacterHalo.Failed : CharacterHalo.Finished;
+                    // A finished turn that needs attention finished with failing tests. One without says nothing about the
+                    // work, so it has no light: the green comes only with the computer's own passed check, the Ready moment.
+                    return presentation.Attention == AttentionLevel.Notice ? CharacterHalo.Failed : CharacterHalo.None;
                 default:
                     return CharacterHalo.None;
             }
