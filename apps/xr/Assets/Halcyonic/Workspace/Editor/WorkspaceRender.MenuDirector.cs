@@ -1070,12 +1070,27 @@ namespace Halcyonic.XR.Workspace.Editor
             Vector3 MovePoint() => plane.Chrome.Targets.First(button => button.Label.text == WorkspaceText.MoveWorkspace).transform.position;
             Vector3 Turned(Vector3 point, float right, float down) => eyes + Quaternion.Euler(down, right, 0f) * (point - eyes);
             var held = MovePoint();
+            // The drags aside go to the right, unless a character stands there within the step, as an agent shelf at its designed
+            // home beside the console does: then a step toward it is refused (ADR 0026), and they go left, away from it (X18, 2026-10-31).
+            var bodies = targets.Where(target => target != null && target.gameObject.activeInHierarchy).Select(target => WorkspaceLayout.InView(target, eyes)).ToList();
+            var side = plane.Composition is PlaneComposition laidFirst && !WorkspacePlacement.Clears(MenuDrag.Turned(placed, (4f, 0f)), bodies, laidFirst.Size) ? -1f : 1f;
+            if (side < 0f)
+            {
+                director.HoldSubjectForRender(held);
+                if (!director.Dragging) failures.Add(name + ": held to drag it toward the character beside it, the file's subject took no hold of the plane.");
+                director.DragSubjectForRender(Turned(held, 4f, 0f));
+                if (!plane.Direction.Equals(placed)) failures.Add(name + ": dragged toward the character beside it, the plane moved " + GlazeChecks.Degrees(Mathf.DeltaAngle(placed.Yaw, plane.Direction.Yaw)) + " degrees in front of it.");
+                director.LetGoForRender();
+                director.ResetPosition();
+                director.DrawNow();
+                held = MovePoint();
+            }
             director.HoldSubjectForRender(held);
             if (!director.Dragging) failures.Add(name + ": holding the file's subject did not take hold of the plane.");
-            director.DragSubjectForRender(Turned(held, 4f, 0f));
-            if (Mathf.Abs(Mathf.DeltaAngle(placed.Yaw, plane.Direction.Yaw) - 4f) > 0.05f)
+            director.DragSubjectForRender(Turned(held, side * 4f, 0f));
+            if (Mathf.Abs(Mathf.DeltaAngle(placed.Yaw, plane.Direction.Yaw) - side * 4f) > 0.05f)
             {
-                failures.Add(name + ": the plane turned " + GlazeChecks.Degrees(Mathf.DeltaAngle(placed.Yaw, plane.Direction.Yaw)) + " degrees with a hand that moved 4.");
+                failures.Add(name + ": the plane turned " + GlazeChecks.Degrees(Mathf.DeltaAngle(placed.Yaw, plane.Direction.Yaw)) + " degrees with a hand that moved " + GlazeChecks.Degrees(side * 4f) + ".");
             }
             // Mid-drag the director takes no press and starts no hold, even where the navigator would.
             director.Navigator.Drawn(MenuColumn.File, plane.Showing(MenuColumn.File), null);
@@ -1085,8 +1100,8 @@ namespace Halcyonic.XR.Workspace.Editor
             var talk = new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true);
             director.HoldPromptForRender(MenuColumn.File, talk, plane.Showing(MenuColumn.File), null);
             if (begun > 0) failures.Add(name + ": a held prompt started the voice mid-drag.");
-            failures.AddRange(DragAllocatesNothing(name, director, step => Turned(held, 4f + (step % 2) * 0.5f, 0f)));
-            director.DragSubjectForRender(Turned(held, 4f, 0f));
+            failures.AddRange(DragAllocatesNothing(name, director, step => Turned(held, side * (4f + (step % 2) * 0.5f), 0f)));
+            director.DragSubjectForRender(Turned(held, side * 4f, 0f));
             director.LetGoForRender();
             director.DrawNow();
             if (director.Dragging) failures.Add(name + ": let go, the plane still followed the hand.");
@@ -1136,10 +1151,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 var before = plane.Direction.Yaw;
                 director.HoldSubjectForRender(held);
                 if (!director.Dragging) failures.Add(name + ": held to sweep it aside, the file's subject took no hold of the plane.");
-                for (var step = 1; step <= 100; step++) director.DragSubjectForRender(Turned(held, step * 1f, 0f));
+                for (var step = 1; step <= 100; step++) director.DragSubjectForRender(Turned(held, side * step * 1f, 0f));
                 if (Mathf.Abs(Mathf.DeltaAngle(before, plane.Direction.Yaw)) < 1f) failures.Add(name + ": swept aside, the plane stayed where it was.");
                 var off = Mathf.Abs(Mathf.DeltaAngle(stage, plane.Direction.Yaw));
-                if (off > field.Right - ViewField.EdgeMarginDegrees + 0.01f)
+                if (off > (side > 0f ? field.Right : field.Left) - ViewField.EdgeMarginDegrees + 0.01f)
                 {
                     failures.Add(name + ": swept aside, the plane's centre stands " + GlazeChecks.Degrees(off) + " degrees from the stage's, out of the field turned to it.");
                 }
@@ -1158,9 +1173,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     held = MovePoint();
                     director.HoldSubjectForRender(held);
                     if (!director.Dragging) failures.Add(name + ": held with no field measured, the file's subject took no hold of the plane.");
-                    for (var step = 1; step <= 170; step++) director.DragSubjectForRender(Turned(held, step * 1f, 0f));
+                    for (var step = 1; step <= 170; step++) director.DragSubjectForRender(Turned(held, side * step * 1f, 0f));
                     var off = Mathf.Abs(Mathf.DeltaAngle(centre, plane.Direction.Yaw));
-                    if (off > MenuPage.Quest3S.Right - ViewField.EdgeMarginDegrees + 0.01f)
+                    if (off > (side > 0f ? MenuPage.Quest3S.Right : MenuPage.Quest3S.Left) - ViewField.EdgeMarginDegrees + 0.01f)
                     {
                         failures.Add(name + ": swept aside with no field measured, the plane's centre stands " + GlazeChecks.Degrees(off) + " degrees from the stage's, past a Quest 3S's field.");
                     }
@@ -1214,7 +1229,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var off = plane.Direction.Above ? -1f : 1f;
                     director.HoldSubjectForRender(held);
                     if (!director.Dragging) failures.Add(name + ": held at the standard text, the file's subject took no hold of the plane.");
-                    for (var step = 1; step <= 100; step++) director.DragSubjectForRender(aside ? Turned(held, step * 1f, 0f) : Turned(held, 0f, off * step * 0.5f));
+                    for (var step = 1; step <= 100; step++) director.DragSubjectForRender(aside ? Turned(held, side * step * 1f, 0f) : Turned(held, 0f, off * step * 0.5f));
                     director.LetGoForRender();
                     director.DrawNow();
                     var dragged = plane.Moved;
@@ -1375,7 +1390,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.ResetPosition();
                 director.DrawNow();
                 director.HoldSubjectForRender(MovePoint());
-                for (var step = 1; step <= 8; step++) director.DragSubjectForRender(Turned(MovePoint(), 1f, 0f));
+                for (var step = 1; step <= 8; step++) director.DragSubjectForRender(Turned(MovePoint(), side * 1f, 0f));
                 director.LetGoForRender();
                 director.DrawNow();
                 if (!director.MovedByHand) failures.Add(name + ": dragged before the stage was " + what + ", the plane kept no drag.");
