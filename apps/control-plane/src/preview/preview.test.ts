@@ -10,6 +10,7 @@ import {
   type CommandEnvelope,
   type CommandId,
   PREVIEW_PORT_FIRST,
+  PREVIEW_PORT_LAST,
   type ProjectId,
 } from '@halcyonic/contracts';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
@@ -464,7 +465,10 @@ describe("the host's checks and previews (ADR 0037)", () => {
     assert.equal(served[0]?.env.HALCYONIC_PREVIEW_ROOT, served[0]?.dist);
     assert.ok(served[0]?.dist.startsWith(join(dataDir, 'checks', projectId)));
     assert.ok(!Object.values(served[0]?.env ?? {}).includes('/Users/someone/dev/garden'));
-    assert.equal(controlPlane.projection.preview(projectId)?.port, PREVIEW_PORT_FIRST);
+    // The first port of the range the system does not already hold: another process may hold 47930.
+    const port = controlPlane.projection.preview(projectId)?.port ?? 0;
+    assert.ok(port >= PREVIEW_PORT_FIRST && port <= PREVIEW_PORT_LAST, String(port));
+    assert.equal((started?.result as { port?: number } | undefined)?.port, port);
     assert.ok(existsSync(join(dataDir, 'previews', `${projectId}.json`)));
     await done(submit('project.preview.stop').command.command_id);
     assert.equal(controlPlane.projection.preview(projectId), undefined);
@@ -536,11 +540,14 @@ describe("the host's checks and previews (ADR 0037)", () => {
   test('a port another process answers fails the start, even with the same bytes, and the server is stopped', async (t) => {
     const other = createServer((_, res) => res.end(body));
     let body = '';
-    await new Promise<void>((resolve) => other.listen(PREVIEW_PORT_FIRST, '127.0.0.1', resolve));
     t.after(() => other.close());
     const { controlPlane, submit, done, types, projectId, children, checked } = plane(t, {
-      // Alive but never serving, as Vite is for a moment before strictPort makes it exit.
-      serve: () => spawn('/bin/sleep', ['30'], { stdio: 'ignore' }),
+      // Another process takes the port after the host found it free, and answers there; the
+      // server itself is alive but never serving, as Vite is for a moment before strictPort exits.
+      serve: (args) => {
+        other.listen(Number(args.env.HALCYONIC_PREVIEW_PORT), '127.0.0.1');
+        return spawn('/bin/sleep', ['30'], { stdio: 'ignore' });
+      },
     });
     await done(submit('project.check').command.command_id);
     body = `<title>${checked[0]?.cache}</title>`;
@@ -549,6 +556,47 @@ describe("the host's checks and previews (ADR 0037)", () => {
     assert.equal(controlPlane.projection.preview(projectId), undefined);
     assert.ok(!types().some((type) => type.startsWith('project.preview.')));
     assert.equal(alive(children), 0);
+  });
+
+  test('a port the system already holds is skipped: the preview takes the next free one, and the holder is left alone', async (t) => {
+    const holder = createServer((_, res) => res.end('another program'));
+    // Held here, or already by another process: either way the host must not take it.
+    await new Promise<void>((resolve) => {
+      holder.once('error', () => resolve());
+      holder.listen(PREVIEW_PORT_FIRST, '127.0.0.1', () => resolve());
+    });
+    t.after(() => holder.close());
+    const { controlPlane, submit, done, projectId } = plane(t);
+    await done(submit('project.check').command.command_id);
+    const started = await done(submit('project.preview.start').command.command_id);
+    assert.equal(started?.status, 'completed', JSON.stringify(started));
+    const port = controlPlane.projection.preview(projectId)?.port ?? 0;
+    assert.ok(port > PREVIEW_PORT_FIRST && port <= PREVIEW_PORT_LAST, String(port));
+    if (holder.listening) {
+      const answer = await fetch(`http://127.0.0.1:${PREVIEW_PORT_FIRST}/`);
+      assert.equal(await answer.text(), 'another program');
+    }
+  });
+
+  test('with every port of the range held, a start fails, nothing is spawned and nothing is recorded', async (t) => {
+    const { submit, done, types, children } = plane(t);
+    await done(submit('project.check').command.command_id);
+    const holders: ReturnType<typeof createServer>[] = [];
+    t.after(() => {
+      for (const holder of holders) if (holder.listening) holder.close();
+    });
+    for (let port = PREVIEW_PORT_FIRST; port <= PREVIEW_PORT_LAST; port += 1) {
+      const holder = createServer();
+      await new Promise<void>((resolve) => {
+        holder.once('error', () => resolve());
+        holder.listen(port, '127.0.0.1', () => resolve());
+      });
+      holders.push(holder);
+    }
+    const started = await done(submit('project.preview.start').command.command_id);
+    assert.equal(started?.status, 'failed');
+    assert.equal(children.length, 0);
+    assert.ok(!types().some((type) => type.startsWith('project.preview.')));
   });
 
   test('two starts at once: one preview, on one port, and close() leaves no server running', async (t) => {

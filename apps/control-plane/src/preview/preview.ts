@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { join } from 'node:path';
 import {
   type CheckFindings,
@@ -168,7 +169,7 @@ export class HostPreviews {
       const checkId = this.#deps.ids.next() as CheckId;
       const installed = join(this.#deps.starters.installedDir, project.starter);
       const profiles = join(installed, 'input-profiles');
-      port = this.#takePort();
+      port = await this.#takePort();
       const result = await (this.#deps.runCheck ?? runCheck)({
         node: this.#deps.node,
         chrome: this.#deps.chrome,
@@ -214,7 +215,7 @@ export class HostPreviews {
     this.#starting.add(projectId);
     let port: number | null = null;
     try {
-      port = this.#takePort();
+      port = await this.#takePort();
       return await this.#start(projectId, port, causedBy(command.command_id));
     } catch (error) {
       // Nothing started, so nothing holds the port.
@@ -459,13 +460,19 @@ export class HostPreviews {
       .every((execution) => projection.executionConfined(execution.execution_id));
   }
 
-  /** Takes a port of the range no check or preview of this host holds; synchronous, so never shared. */
-  #takePort(): number {
+  /**
+   * Takes the first port of the range that no check or preview of this host holds and that the
+   * system lets it listen on now. Each port is reserved before it is tried, synchronously, so two
+   * takes never share one; one another process holds is passed over. Another process can still
+   * take the port between this try and the server's own listen; the start then fails, since it
+   * records a preview only once its own server answers there.
+   */
+  async #takePort(): Promise<number> {
     for (let port = PREVIEW_PORT_FIRST; port <= PREVIEW_PORT_LAST; port += 1) {
-      if (!this.#ports.has(port)) {
-        this.#ports.add(port);
-        return port;
-      }
+      if (this.#ports.has(port)) continue;
+      this.#ports.add(port);
+      if (await listenable(port)) return port;
+      this.#ports.delete(port);
     }
     throw new Error('every preview port is in use');
   }
@@ -504,6 +511,17 @@ const PLAY_END: Record<PreviewStopReason, PlayEnd> = {
   server_exited: 'preview_stopped',
   host_restarted: 'host_stopped',
 };
+
+/** Whether a server can listen on 127.0.0.1:`port` now: it listens, then closes at once. */
+function listenable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = createServer();
+    probe.once('error', () => resolve(false));
+    probe.listen({ port, host: '127.0.0.1', exclusive: true }, () =>
+      probe.close(() => resolve(true)),
+    );
+  });
+}
 
 function scope(projectId: ProjectId) {
   return { project_id: projectId, workstream_id: null, execution_id: null } as const;
