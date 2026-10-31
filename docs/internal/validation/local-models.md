@@ -537,6 +537,37 @@ tokens a second; the cause was not found.
 | Memory held, loaded | 22.1 GiB | 17.2 GiB | 17.8 GiB |
 | Memory at the long prompt, peak and held after | 26.6 and 23.2 GiB | 24.5 and 20.1 GiB | 19.2 and 18.5 GiB |
 
+## Muse Glimmer, a checked model; the default unchanged (2026-10-31)
+
+- **Changed:** `pnpm mac-setup` lists `muse-glimmer:30b-mlx` as a checked model after `qwen3.6:35b-a3b-nvfp4`, which
+  stays first and stays the model it suggests to download; `qwen3.8:27b-nvfp4` follows. A checked model the Mac
+  already has still wins over one to download. Whether Muse Glimmer becomes the default is the owner's decision,
+  because of its card's age statement below.
+- **Muse Glimmer's licence:** Apache 2.0, from a model card under the `meta-models` organisation, shown as Meta Inc.,
+  its verification not seen: <https://huggingface.co/meta-models/Muse-Glimmer-30B> (read 2026-10-31 in a browser,
+  reading only: nothing downloaded or opened as a file, no sign-in, no terms accepted). The card names Meta
+  Superintelligence Lab as the authors, an August 2026 release and the Apache 2.0 licence, and its licence tag reads
+  `apache-2.0`. Ollama's library page for `muse-glimmer` says the same; the `30b-mlx` tag carries no licence layer,
+  so `ollama show` reports none. Halcyonic only runs it on the Mac, never redistributes it.
+- **Its card's use limits:** out of scope is use that breaks applicable laws or regulations (trade compliance
+  included) or that the Apache 2.0 terms prohibit; audio is not supported. The card also says the model is not meant
+  to be downloaded or used by anyone under 18, and that whoever deploys it in a system people under 18 may use is
+  responsible for assessing and reducing the risks of that use and for complying with the law. Halcyonic is made for
+  kids' games, so that limit is the owner's decision, not settled by this record. The card links a usage policy
+  file (`USAGE_POLICY.md`), which was not read.
+- **qwen3.6's card, read the same way:** <https://huggingface.co/Qwen/Qwen3.6-35B-A3B>, under the `Qwen`
+  organisation, its verification not seen, tags its licence `apache-2.0`. Its text, searched for an age, minors,
+  prohibited or out-of-scope use and restrictions, states none. Ollama's `qwen3.6:35b-a3b-nvfp4` is a quantised
+  build of that model.
+- **Runs of a kid's game through the control plane** (MAKE's showcase trial SH, 2026-10-29, and its rehearsal K1,
+  2026-10-31; the same sentence, Codex 0.157.0 on the starter, the host's check): Muse Glimmer clean in 3 of 3 (each
+  in one turn of 401 to 503 s; K1's check passed and ready, its press seen against the no-input twins, VR offered);
+  `qwen3.6:35b-a3b-nvfp4` clean in 1 of 4 (in K1 its code did not parse, and its fix-up turn reached the 15-minute
+  limit). Few runs: a direction, not a rate.
+- **Muse Glimmer's known behaviour:** after a denied command it asks again, twelve times in 155 s in the flows
+  above, where `qwen3.6` asked twice. Its output is slower (21 to 26 tokens a second, against 48 to 59), and it holds
+  about 18 GiB loaded; with it loaded during K1, memory free fell to 26%.
+
 ## Consequences
 
 - OpenCode runs local models through Halcyonic with no change to how the control plane is used:

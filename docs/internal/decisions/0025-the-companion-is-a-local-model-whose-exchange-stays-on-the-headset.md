@@ -23,7 +23,9 @@ default ([AGENTS.md](../../../AGENTS.md), [SECURITY.md](../architecture/SECURITY
 conversational model must never turn vague speech into permission for an irreversible action").
 
 Measured on this Mac on 2026-10-02 ([companion-model.md](../validation/companion-model.md)), with
-Ollama 0.34.4 and the agents' local default model `qwen3.6:35b-a3b-nvfp4`:
+Ollama 0.34.4 and the agents' local default model `qwen3.6:35b-a3b-nvfp4`
+(2026-10-31: the default local model is unchanged; `muse-glimmer:30b-mlx` is a checked choice, see
+[local-models.md](../validation/local-models.md#muse-glimmer-a-checked-model-the-default-unchanged-2026-10-31)):
 
 - Ollama refuses structured output for that model with HTTP 501 ("structured output is
   unavailable"): its MLX engine cannot constrain the reply. The shape can only be asked for in the

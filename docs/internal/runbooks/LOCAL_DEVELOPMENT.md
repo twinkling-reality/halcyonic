@@ -75,6 +75,10 @@ which only you can read or change, and Halcyonic reads it when it starts
    pnpm mac-setup local-model qwen3.6:35b-a3b-nvfp4
    ```
 
+   `muse-glimmer:30b-mlx` (19.1 GB) is also checked: it built a kid's game cleanly where qwen3.6 more often did not,
+   but its card says it is not meant for anyone under 18, so it is not the default until the owner decides
+   ([local-models.md](../validation/local-models.md#muse-glimmer-a-checked-model-the-default-unchanged-2026-10-31)).
+
    OpenCode then starts on that model when none is chosen; your own OpenCode settings are left as
    they are. Whatever its settings, every task Halcyonic starts on OpenCode has Code Mode, web fetch,
    web search and subagents turned off, runs inside a sandbox of Halcyonic's own (it connects only to

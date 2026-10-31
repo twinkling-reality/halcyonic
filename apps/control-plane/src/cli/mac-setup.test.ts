@@ -437,6 +437,40 @@ describe('pnpm mac-setup', () => {
     assert.match(text(machine), /pnpm mac-setup local-model qwen3\.6:35b-a3b-nvfp4/);
   });
 
+  test('muse-glimmer:30b-mlx is a checked model, not the default: qwen3.6 stays first (GL1, the owner decides)', async (t) => {
+    const machine = mac(t);
+    const glimmer = {
+      name: 'muse-glimmer:30b-mlx',
+      size: 19_100_000_000,
+      capabilities: ['completion', 'vision', 'tools', 'thinking'],
+    };
+    machine.routes.set('ollama /api/tags', {
+      status: 200,
+      body: { models: [...OLLAMA_MODELS, glimmer] },
+    });
+    // With the agent apps set up, the check suggests the model to give them: the default, while the Mac has it.
+    machine.install('opencode');
+    machine.install('codex');
+    assert.equal(await machine.run('agent-apps'), 0);
+    await machine.run();
+    assert.match(text(machine), /pnpm mac-setup local-model qwen3\.6:35b-a3b-nvfp4/);
+    assert.match(
+      text(machine),
+      /Halcyonic was checked with qwen3\.6:35b-a3b-nvfp4 \(23\.6 GB\), muse-glimmer:30b-mlx \(19\.1 GB\) and qwen3\.8:27b-nvfp4 \(18\.2 GB\)/,
+    );
+    // A Mac that has only Muse Glimmer of the checked models is offered it.
+    machine.routes.set('ollama /api/tags', {
+      status: 200,
+      body: { models: [glimmer, ...OLLAMA_MODELS.filter((m) => !m.name.startsWith('qwen3.6'))] },
+    });
+    await machine.run();
+    assert.match(text(machine), /pnpm mac-setup local-model muse-glimmer:30b-mlx/);
+    // With no model that can do agent work, the one to download is the default.
+    machine.routes.set('ollama /api/tags', { status: 200, body: { models: [] } });
+    await machine.run();
+    assert.match(text(machine), /ollama pull qwen3\.6:35b-a3b-nvfp4/);
+  });
+
   test("the check names Halcyonic's own OpenCode settings and its model, whatever permissions they hold", async (t) => {
     const machine = mac(t);
     machine.install('opencode');
