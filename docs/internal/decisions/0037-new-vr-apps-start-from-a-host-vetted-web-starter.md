@@ -284,3 +284,12 @@ When checks are set up on the host and a turn in a starter project ends with fil
 with at least one file created, changed or deleted), the control plane submits `project.check` on its own
 (`received_via: 'internal'`), one check at a time per project, journaled like a client's check, waiting if a check or
 another task in the project is still running (A1). A turn that changed no files does not start a check.
+
+## Amendment, 2026-10-31: keeping the game in `src/index.ts` without scratch scripts (SC1)
+
+In the first kid-flow rehearsal (K1), one local model wrote Python patch scripts and `.txt` files into `src/` and left
+eight of them behind, and another split the game into an unexported side file in `src/` that failed `tsc --noEmit`
+(`is not a module`). The template's `AGENTS.md` now directs the agent to keep the game's systems and setup in
+`src/index.ts` (importing `./palette`, `./look`, `./decor`, `./motion` and `./play-input`), to edit `src/index.ts`
+directly rather than writing `.py`, `.txt`, `.sh` or `.patch` scripts, to delete any temporary helper file, and to run
+`npx tsc --noEmit` before ending each turn.
