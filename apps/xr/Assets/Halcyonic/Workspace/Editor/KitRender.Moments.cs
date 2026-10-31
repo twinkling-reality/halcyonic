@@ -57,31 +57,27 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static bool SameColour(Color a, Color b) => Mathf.Approximately(a.r, b.r) && Mathf.Approximately(a.g, b.g) && Mathf.Approximately(a.b, b.b);
 
-        /// <summary>The one primary at rest is filled with light, n7, its word in n0; never the accent (ADR 0040 as amended 2026-10-30).</summary>
+        /// <summary>The one primary at rest is ART8's blue capsule, its word white; never a state's tone (ADR 0040 as amended 2026-10-31).</summary>
         private static bool PrimaryIsLight(KitButton button) =>
-            SameColour(button.Plate.Fill, KitType.Colour(SpatialKit.Text)) && SameColour(button.Words.color, KitType.Colour(SpatialKit.OnFill));
+            SameColour(button.Plate.Fill, KitType.Colour(SpatialKit.PrimaryFill)) && SameColour(button.Words.color, KitType.Colour(SpatialKit.OnFill));
 
         private static GlazeColor Stored(Color colour) =>
             new GlazeColor((byte)Mathf.RoundToInt(colour.r * 255f), (byte)Mathf.RoundToInt(colour.g * 255f), (byte)Mathf.RoundToInt(colour.b * 255f));
 
         /// <summary>
         /// A pointed primary is told from its rest at 3:1 or more on its face (AUDIT's A1C-S1; the art direction's ring): painted
-        /// pointed, a ring stands outside its n7 capsule, at least 3:1 against the face it stands on; painted at rest again, the
+        /// pointed, a ring stands outside its blue capsule, at least 3:1 against the face it stands on; painted at rest again, the
         /// ring is gone and it is as it was.
         /// </summary>
         private static bool PrimaryPointedShows(KitButton button)
         {
             button.PaintForRender(pointed: true, pressed: false);
             var ring = button.Ring;
-            var shows = ring.gameObject.activeSelf && SameColour(button.Plate.Fill, KitType.Colour(SpatialKit.Text))
+            var shows = ring.gameObject.activeSelf && SameColour(button.Plate.Fill, KitType.Colour(SpatialKit.PrimaryFill))
                 && new[] { SpatialKit.Carrier, SpatialKit.FaceTop, SpatialKit.FaceBottom }.All(face => GlazeColor.Contrast(Stored(ring.Fill), face) >= 3);
             button.PaintForRender(pointed: false, pressed: false);
             return shows && !button.Ring.gameObject.activeSelf && PrimaryIsLight(button);
         }
-
-        /// <summary>A word answer at rest is its word alone: no fill, no ring, its word in n6 (the art direction's answers).</summary>
-        private static bool WordIsBare(KitButton button) =>
-            button.Plate.Fill.a < 0.01f && (button.Plate.Edge.a < 0.01f || button.Plate.EdgeWidth <= 0f) && SameColour(button.Words.color, KitType.Secondary);
 
         /// <summary>
         /// A label in one of the room's faces keeps that face's role's line pitch (<see cref="KitType.RoomLeading"/>); each
@@ -179,11 +175,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(!card.Shown.Any(each => each.Action == KitMomentAction.YesRunIt) && card.Shown.Any(each => each.Action == KitMomentAction.No),
                     "a command shown cut can be approved");
             Require(card.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) <= 1, "more than one primary action");
-            Require(card.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryIsLight(each.Button)), "the primary is not filled with light, its word in n0");
+            Require(card.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryIsLight(each.Button)), "the primary is not the blue capsule with its white word");
             Require(card.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryPointedShows(each.Button)), "a pointed primary is not told from its rest at 3:1");
             Require(card.Shown.All(each => each.Button.Plate.CornerRadius >= each.Button.Size.y / 2f - 1e-5f), "an answer is not a capsule");
-            Require(card.Shown.Where(each => each.Button.Role != KitButtonRole.Primary).All(each => each.Button.Role == KitButtonRole.Word && WordIsBare(each.Button)),
-                "an answer other than the primary has a shape at rest");
+            // Every other answer is ART8's grey pill at rest, never a bare word (the owner, 2026-10-31).
+            Require(card.Shown.Where(each => each.Button.Role != KitButtonRole.Primary).All(each => SameColour(each.Button.Plate.Fill, KitType.Colour(SpatialKit.Control))),
+                "an answer other than the primary is not a grey pill at rest");
             // No locked answer in the card's top 40 percent (the art direction's rule, with the bloom that peaks there).
             foreach (var (action, button) in card.Shown.Where(each => !each.Button.Available))
             {

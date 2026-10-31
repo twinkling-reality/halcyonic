@@ -11,9 +11,9 @@ using UnityEngine.TextCore.LowLevel;
 namespace Halcyonic.XR.UI.Editor
 {
     /// <summary>
-    /// Builds the room's six static faces (the owner's yes, 2026-10-30; ART's cuts): Archivo Expanded Regular for display and
-    /// SemiBold for titles, Inter Regular for reading, Medium for labels and SemiBold for strong words, JetBrains Mono for
-    /// commands and code. Each is a static SDF atlas of the glyphs the kit draws, its
+    /// Builds the room's six static faces (the owner's yes, 2026-10-30; ART's cuts; ART8's one family, 2026-10-31): Inter
+    /// SemiBold for display, titles and strong words, each its own asset so a role is still found by its face, Inter Regular
+    /// for reading and Medium for labels, JetBrains Mono for commands and code. Each is a static SDF atlas of the glyphs the kit draws, its
     /// licence shipped beside the app byte for byte, Liberation Sans its fallback for anything outside the atlas.
     /// </summary>
     public static class KitFontAtlas
@@ -24,8 +24,8 @@ namespace Halcyonic.XR.UI.Editor
         /// <summary>Every face: its asset name, its source file, its licence and the licence's shipped copy.</summary>
         public static readonly (string Name, string Font, string License, string Shipped)[] Faces =
         {
-            ("KitDisplay", "Assets/Halcyonic/UI/Fonts/Archivo/ArchivoExpanded-Regular.ttf", "Assets/Halcyonic/UI/Fonts/Archivo/OFL.txt", Licenses + "Archivo-OFL.txt"),
-            ("KitTitle", "Assets/Halcyonic/UI/Fonts/Archivo/ArchivoExpanded-SemiBold.ttf", "Assets/Halcyonic/UI/Fonts/Archivo/OFL.txt", Licenses + "Archivo-OFL.txt"),
+            ("KitDisplay", "Assets/Halcyonic/UI/Fonts/Inter/Inter-SemiBold.ttf", "Assets/Halcyonic/UI/Fonts/Inter/OFL.txt", Licenses + "Inter-OFL.txt"),
+            ("KitTitle", "Assets/Halcyonic/UI/Fonts/Inter/Inter-SemiBold.ttf", "Assets/Halcyonic/UI/Fonts/Inter/OFL.txt", Licenses + "Inter-OFL.txt"),
             ("KitReading", "Assets/Halcyonic/UI/Fonts/Inter/Inter-Regular.ttf", "Assets/Halcyonic/UI/Fonts/Inter/OFL.txt", Licenses + "Inter-OFL.txt"),
             ("KitReadingStrong", "Assets/Halcyonic/UI/Fonts/Inter/Inter-SemiBold.ttf", "Assets/Halcyonic/UI/Fonts/Inter/OFL.txt", Licenses + "Inter-OFL.txt"),
             ("KitLabel", "Assets/Halcyonic/UI/Fonts/Inter/Inter-Medium.ttf", "Assets/Halcyonic/UI/Fonts/Inter/OFL.txt", Licenses + "Inter-OFL.txt"),
@@ -84,23 +84,34 @@ namespace Halcyonic.XR.UI.Editor
             atlas.material.name = name + " Material";
             atlas.fallbackFontAssetTable = new List<TMP_FontAsset> { TMP_Settings.defaultFontAsset };
             var path = AssetPath(name);
+            var existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
+            if (existing != null)
+            {
+                // A face built before is rebuilt in place, so it keeps its asset and its .meta: its old atlas and material
+                // leave it and the new ones join it. Copying a building file over it left the face half loaded (2026-10-31).
+                foreach (var part in AssetDatabase.LoadAllAssetRepresentationsAtPath(path))
+                {
+                    AssetDatabase.RemoveObjectFromAsset(part);
+                    UnityEngine.Object.DestroyImmediate(part, true);
+                }
+                EditorUtility.CopySerialized(atlas, existing);
+                existing.name = name;
+                AssetDatabase.AddObjectToAsset(atlas.atlasTexture, existing);
+                AssetDatabase.AddObjectToAsset(atlas.material, existing);
+                EditorUtility.SetDirty(existing);
+                AssetDatabase.SaveAssets();
+                existing.ReadFontAssetDefinition();
+                UnityEngine.Object.DestroyImmediate(atlas);
+                return;
+            }
             var building = Resources + name + " building.asset";
             AssetDatabase.DeleteAsset(building);
             AssetDatabase.CreateAsset(atlas, building);
             AssetDatabase.AddObjectToAsset(atlas.atlasTexture, atlas);
             AssetDatabase.AddObjectToAsset(atlas.material, atlas);
             AssetDatabase.SaveAssets();
-            if (AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path) == null)
-            {
-                var error = AssetDatabase.MoveAsset(building, path);
-                if (!string.IsNullOrEmpty(error)) throw new IOException(error);
-            }
-            else
-            {
-                File.Copy(building, path, overwrite: true);
-                AssetDatabase.DeleteAsset(building);
-                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
-            }
+            var error = AssetDatabase.MoveAsset(building, path);
+            if (!string.IsNullOrEmpty(error)) throw new IOException(error);
         }
     }
 }

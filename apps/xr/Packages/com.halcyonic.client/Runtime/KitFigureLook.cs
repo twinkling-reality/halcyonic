@@ -36,6 +36,25 @@ namespace Halcyonic.Client
         /// <summary>The passed look's happy eyes stand this long after the computer's passed check, then the eyes come back.</summary>
         public const double HappyMs = 1200;
 
+        /// <summary>
+        /// The figure's own neutral tones (the art direction's n7, n5 and n4 of 2026-10-30), held here so the kit's word
+        /// colours can change without changing a figure's eyes.
+        /// </summary>
+        public static GlazeColor NeutralTone => GlazeColor.Hex(0xDADDE0);
+
+        public static GlazeColor QuietTone => GlazeColor.Hex(0xA0A5AC);
+
+        public static GlazeColor LostTone => GlazeColor.Hex(0x767B82);
+
+        /// <summary>The figure's state tones (the art direction's 2026-10-30): live, needs you, passed, failed, its own as the neutrals are.</summary>
+        public static GlazeColor LiveTone => GlazeColor.Hex(0x59CFF1);
+
+        public static GlazeColor NeedsTone => GlazeColor.Hex(0xFABA59);
+
+        public static GlazeColor PassedTone => GlazeColor.Hex(0x69D98D);
+
+        public static GlazeColor FailedTone => GlazeColor.Hex(0xF7857D);
+
         /// <summary>Unreachable: the body at half its lightness and 30 percent of its saturation.</summary>
         public const double UnreachableLightness = 0.5, UnreachableSaturation = 0.3;
 
@@ -115,20 +134,20 @@ namespace Halcyonic.Client
         /// </summary>
         public static KitFigureLook Of(WorkState state, bool passedCheckObserved)
         {
-            var live = SpatialKit.Accent;
+            var live = LiveTone;
             var sunk3Dp = -DpToM(3);
             return state switch
             {
-                WorkState.NotStarted => Quiet(SpatialKit.TextTertiary, 0.30, pool: null, 0, floatSpeed: 0.6, riseM: 0),
+                WorkState.NotStarted => Quiet(QuietTone, 0.30, pool: null, 0, floatSpeed: 0.6, riseM: 0),
                 WorkState.Starting => Lit(live, 0, wanders: false),
                 WorkState.Working => Lit(live, 0, wanders: true),
                 WorkState.CheckingItsWork => Lit(live, 0.15, wanders: false),
-                WorkState.WaitingForYou => new KitFigureLook(SpatialKit.Attention, 0, 0, 0, false, GlowLevel, SpatialKit.Attention, PoolLevel, true, 1, 1, true, false, 1, 0.008, 8, 0),
-                WorkState.FinishedThisRound when passedCheckObserved => new KitFigureLook(SpatialKit.Passed, 0, 0, 0, true, GlowLevel, SpatialKit.Passed, PoolLevel, false, 1, 1, true, false, 1, 0, 0, 0),
-                WorkState.FinishedThisRound => Quiet(SpatialKit.Text, 0.25, SpatialKit.Text, RoundEndedPoolLevel, floatSpeed: 0.6, riseM: -0.003),
-                WorkState.ChecksFailed or WorkState.CouldNotFinish => new KitFigureLook(SpatialKit.Failure, 0.35, 0, 0, false, GlowLevel, SpatialKit.Failure, PoolLevel, false, 1, 1, true, false, 0.5, sunk3Dp, 0, 8),
-                WorkState.Stopped => Quiet(SpatialKit.TextTertiary, 1, pool: null, 0, floatSpeed: 0.6, riseM: -0.006),
-                WorkState.CantTellYet => new KitFigureLook(SpatialKit.TextTertiary, 0.10, 0.30, 11, false, GlowLevel, null, 0, false, 1, 1, true, false, 1, 0, 4, 0),
+                WorkState.WaitingForYou => new KitFigureLook(NeedsTone, 0, 0, 0, false, GlowLevel, NeedsTone, PoolLevel, true, 1, 1, true, false, 1, 0.008, 8, 0),
+                WorkState.FinishedThisRound when passedCheckObserved => new KitFigureLook(PassedTone, 0, 0, 0, true, GlowLevel, PassedTone, PoolLevel, false, 1, 1, true, false, 1, 0, 0, 0),
+                WorkState.FinishedThisRound => Quiet(NeutralTone, 0.25, NeutralTone, RoundEndedPoolLevel, floatSpeed: 0.6, riseM: -0.003),
+                WorkState.ChecksFailed or WorkState.CouldNotFinish => new KitFigureLook(FailedTone, 0.35, 0, 0, false, GlowLevel, FailedTone, PoolLevel, false, 1, 1, true, false, 0.5, sunk3Dp, 0, 8),
+                WorkState.Stopped => Quiet(QuietTone, 1, pool: null, 0, floatSpeed: 0.6, riseM: -0.006),
+                WorkState.CantTellYet => new KitFigureLook(QuietTone, 0.10, 0.30, 11, false, GlowLevel, null, 0, false, 1, 1, true, false, 1, 0, 4, 0),
                 _ => throw new ArgumentOutOfRangeException(nameof(state), state, "a state the figure has no look for"),
             };
         }
@@ -138,7 +157,7 @@ namespace Halcyonic.Client
         /// body dimmed, and no motion at all (Last Known). A deliberate state, never a vanish.
         /// </summary>
         public static KitFigureLook Unreachable(KitFigureLook lastKnown) =>
-            new KitFigureLook(SpatialKit.Hairline, lastKnown.Lids, lastKnown.RightEyeShorter, lastKnown.RightEyeRollDegrees, false, UnreachableGlowLevel,
+            new KitFigureLook(LostTone, lastKnown.Lids, lastKnown.RightEyeShorter, lastKnown.RightEyeRollDegrees, false, UnreachableGlowLevel,
                 null, 0, false, UnreachableLightness, UnreachableSaturation, false, false, 0, lastKnown.RiseM, lastKnown.HeadRollDegrees, lastKnown.HeadPitchDegrees);
 
         /// <summary>A figure's top feature by its task's place in order: identity by form, never by colour.</summary>

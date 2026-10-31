@@ -76,7 +76,7 @@ namespace Halcyonic.Client
         /// <summary>A picked project's name across its screen while no picture stands: the largest type, once a room.</summary>
         public const float DisplayDp = 48f;
 
-        /// <summary>A moment's and the reader's title, Projects, the lost plate: the room's Title, in Archivo Expanded SemiBold.</summary>
+        /// <summary>A moment's and the reader's title, Projects, the lost plate: the room's Title, in Inter SemiBold.</summary>
         public const float TitleDp = 28f;
 
         /// <summary>From one line of reading prose to the next, in ems: room to read a long report.</summary>
@@ -174,16 +174,16 @@ namespace Halcyonic.Client
         public static GlazeColor Side => Well;
 
         /// <summary>n2: a chip, a secondary control, and the lift under what is chosen.</summary>
-        public static GlazeColor Raised => GlazeColor.Hex(0x2B2F35);
+        public static GlazeColor Raised => GlazeColor.Hex(0x46494D);
 
         /// <summary>n0: the person's own words sunk into the slate, code, a screen's edge.</summary>
-        public static GlazeColor Well => GlazeColor.Hex(0x1B1E22);
+        public static GlazeColor Well => GlazeColor.Hex(0x2A2D30);
 
         /// <summary>
         /// The switch's thumb, raised above its n0 track: ART's n3, a step over the kit's <see cref="Control"/> so it stands off
         /// the track at 1.5:1. It carries only primary and secondary words.
         /// </summary>
-        public static GlazeColor Thumb => GlazeColor.Hex(0x3A3F45);
+        public static GlazeColor Thumb => GlazeColor.Hex(0x45484C);
 
         /// <summary>
         /// A quiet control's outline, an unavailable control's, and the trail's line: drawn opaque so it blends the same
@@ -195,40 +195,53 @@ namespace Halcyonic.Client
         public static GlazeColor EdgeLight => TextTertiary;
 
         /// <summary>n7: primary words.</summary>
-        public static GlazeColor Text => GlazeColor.Hex(0xDADDE0);
+        public static GlazeColor Text => GlazeColor.Hex(0xFFFFFF);
 
         /// <summary>n6: secondary words.</summary>
-        public static GlazeColor TextSecondary => GlazeColor.Hex(0xBABEC4);
+        public static GlazeColor TextSecondary => GlazeColor.Hex(0xE1E2E3);
 
-        // The room's ramp (ADR 0040; ART's quiet glass, 2026-10-30): eight opaque steps on one cool hue by role, one accent,
-        // and colour only where it means something. n3 is the kit's, a step under ART's #3A3F45 so every word holds 4.5 on a control.
+        // The room's ramp (ADR 0040 as amended; ART8's window glass, 2026-10-31, at the floor-safe value: ART8's grey at 0.6 so
+        // white words hold 6.5:1 on its lit top): opaque steps of one neutral grey by role, white words, one blue for the one
+        // primary, and colour only where it means something. Secondary and small words are white at 82 and 78 percent, never less.
 
         /// <summary>n1: every surface in the room that carries words.</summary>
-        public static GlazeColor Carrier => GlazeColor.Hex(0x21252A);
+        public static GlazeColor Carrier => GlazeColor.Hex(0x424549);
 
         /// <summary>n3: a button's fill; what the pointer rests on. OKLCH 0.35, the lightest step on which every word holds 4.5.</summary>
-        public static GlazeColor Control => GlazeColor.Hex(0x363B41);
+        public static GlazeColor Control => GlazeColor.Hex(0x4B4E52);
 
         /// <summary>n4: a locked answer's ring, a hairline and the dotted gutter of code still only reported: at least 3:1 on every surface a locked control sits on (3.16 on n2, 3.61 on n1).</summary>
-        public static GlazeColor Hairline => GlazeColor.Hex(0x767B82);
+        public static GlazeColor Hairline => GlazeColor.Hex(0x97999B);
 
         /// <summary>n5: a time, a count.</summary>
-        public static GlazeColor TextTertiary => GlazeColor.Hex(0xA0A5AC);
+        public static GlazeColor TextTertiary => GlazeColor.Hex(0xDBDCDC);
 
-        /// <summary>Live: an agent running, and the one accent; never a button's fill (the one primary is an n7 capsule).</summary>
-        public static GlazeColor Accent => GlazeColor.Hex(0x59CFF1);
+        /// <summary>Live: an agent running, a mark and its words, lifted from #59CFF1 to hold 4.5:1 on every grey step (mine, 2026-10-31); never a button's fill.</summary>
+        public static GlazeColor Accent => GlazeColor.Hex(0x7ADCF7);
 
         /// <summary>The primary capsule's word, on its n7 fill: n0.</summary>
-        public static GlazeColor OnFill => Well;
+        public static GlazeColor OnFill => GlazeColor.Hex(0xFFFFFF);
+
+        /// <summary>
+        /// The one primary's fill (ART8's blue capsule, deepened from #0A84FF so its white words hold 5.14:1; the floor-safe
+        /// value the lead kept, 2026-10-31). Never a state: the state tones stay marks.
+        /// </summary>
+        public static GlazeColor PrimaryFill => GlazeColor.Hex(0x006ADB);
+
+        /// <summary>The primary pressed: its blue deepened (mine), its white words stronger.</summary>
+        public static GlazeColor PrimaryPressed => GlazeColor.Hex(0x0058B8);
+
+        /// <summary>The primary's inner top line: white at 35 percent over its fill.</summary>
+        public static GlazeColor PrimaryLine => Over(GlazeColor.Hex(0xFFFFFF), 0.35, PrimaryFill);
 
         // The answers (the art direction's handoff, 2026-10-30): washes and rings over the opaque face, drawn as the prototype's
         // own sRGB composite over n1, opaque, since Unity's linear blend would lift them (a 16 percent white wash takes n7 to 3.3:1).
 
-        /// <summary>A pointed word answer's capsule: white at 10 percent over n1.</summary>
-        public static GlazeColor WordPointed => Over(GlazeColor.Hex(0xFFFFFF), 0.10, Carrier);
+        /// <summary>A secondary pill pointed (ART8's grey capsule brightened): white at 14 percent over n1, drawn opaque.</summary>
+        public static GlazeColor WordPointed => Over(GlazeColor.Hex(0xFFFFFF), 0.14, Carrier);
 
-        /// <summary>A pressed word answer's capsule: white at 16 percent over n1.</summary>
-        public static GlazeColor WordPressed => Over(GlazeColor.Hex(0xFFFFFF), 0.16, Carrier);
+        /// <summary>A secondary pill pressed: white at 20 percent over n1.</summary>
+        public static GlazeColor WordPressed => Over(GlazeColor.Hex(0xFFFFFF), 0.20, Carrier);
 
         /// <summary>A pointed word answer's 2 dp ring: n7 at 22 percent over n1.</summary>
         public static GlazeColor WordRing => Over(Text, 0.22, Carrier);
@@ -264,15 +277,27 @@ namespace Halcyonic.Client
         private static GlazeColor Over(GlazeColor top, double alpha, GlazeColor under) => top.Over(under, alpha);
 
         /// <summary>The face's light from above: its top, with <see cref="Carrier"/> at 36 percent and <see cref="FaceBottom"/> below.</summary>
-        public static GlazeColor FaceTop => GlazeColor.Hex(0x262A30);
+        public static GlazeColor FaceTop => GlazeColor.Hex(0x494C50);
 
-        public static GlazeColor FaceBottom => GlazeColor.Hex(0x1E2226);
+        public static GlazeColor FaceBottom => GlazeColor.Hex(0x3B3E42);
 
         /// <summary>Needs the person: a question, an approval.</summary>
         public static GlazeColor Attention => GlazeColor.Hex(0xFABA59);
 
-        /// <summary>Failed.</summary>
-        public static GlazeColor Failure => GlazeColor.Hex(0xF7857D);
+        /// <summary>Failed: lifted from #F7857D so its words hold 4.5:1 on the window's grey (mine, 2026-10-31).</summary>
+        public static GlazeColor Failure => GlazeColor.Hex(0xFFAAA3);
+
+        /// <summary>
+        /// A question's mark sign, the "?": <see cref="Attention"/> lifted in its own hue (OKLCH lightness 0.83 to 0.85) so it
+        /// holds 4.5:1 on the face's lit top beside the mark, where the tone measured 4.43 (a technical floor, 2026-10-31).
+        /// </summary>
+        public static GlazeColor AttentionSign => GlazeColor.Hex(0xFFC164);
+
+        /// <summary>
+        /// A failure's mark sign, the "!": <see cref="Failure"/> lifted in its own hue (OKLCH lightness 0.82 to 0.85) so it holds
+        /// 4.5:1 on the face's lit top beside the mark, where the tone measured 4.18 (a technical floor, 2026-10-31).
+        /// </summary>
+        public static GlazeColor FailureSign => GlazeColor.Hex(0xFFBBB4);
 
         /// <summary>Passed, and lines added in a checkpoint diff.</summary>
         public static GlazeColor Passed => GlazeColor.Hex(0x69D98D);

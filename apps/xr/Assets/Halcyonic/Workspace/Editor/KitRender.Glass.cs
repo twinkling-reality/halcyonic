@@ -10,12 +10,12 @@ using UnityEngine;
 namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
-    /// The room's quiet glass (the art direction's handoff, 2026-10-30, section 1; <see cref="KitGlassMaterial"/>): panels at
-    /// rest and in each state tone at the bloom's peak, at each rim width, over the art direction's dark room, lit room and
-    /// white wall. Each layer is read back from the eye buffer and set against the prototype's own composite: the face and
-    /// the bloom must land within 6/255 over every room, the rim over the lit room, the edge over the dark room (where it
-    /// must also keep 3:1), the shadow over the lit room and the glow over the dark room; every other room is reported. The
-    /// panels' words are synthetic and name the state their light shows.
+    /// The room's window glass (ART8, 2026-10-31, at the floor-safe value; <see cref="KitGlassMaterial"/>): panels at rest and
+    /// in each state tone at the bloom's peak, at each inset, over the art direction's dark room, lit room and white wall. Each
+    /// layer is read back from the eye buffer and set against the prototype's own composite: the face with its top light and
+    /// the bloom must land within 6/255 over every room, out to where the quiet glass's rim stood (no part lets the room
+    /// through), and the shadow over the lit room; every other room is reported. The panels' words are synthetic and name
+    /// the state their light shows.
     /// </summary>
     public static partial class KitRender
     {
@@ -45,7 +45,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static Shot GlassShot(string state, Transform root, Vector3 eyes)
         {
-            var shot = new Shot { Caption = "The quiet glass at rest and in each state, over a dark room, a lit room and a white wall, synthetic words" };
+            var shot = new Shot { Caption = "The window glass at rest and in each state, over a dark room, a lit room and a white wall, synthetic words" };
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
             var view = new GameObject("Glass").transform;
             view.SetParent(root, false);
@@ -102,7 +102,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 UnityEngine.Object.DestroyImmediate(witness.gameObject);
             }
             Debug.Log("Halcyonic: spatial kit: glass fill: " + string.Join(", ", GlassParts.Select(part =>
-                part.Part + " " + KitGlassMaterial.Overdraw(part.Width, part.Height).ToString("0.00") + "x its area")) + "; the glow can be dropped first.");
+                part.Part + " " + KitGlassMaterial.Overdraw(part.Width, part.Height).ToString("0.00") + "x its area")) + ".");
 
             shot.AfterEye = (camera, eye, found) =>
             {
@@ -124,53 +124,26 @@ namespace Halcyonic.XR.Workspace.Editor
                     var (w, h) = (GlassWidthDp, GlassHeightDp);
                     Vector3 At(float x, float y) => carrier.transform.TransformPoint(new Vector3(x * unit, y * unit, 0f));
                     var name = carrier.name;
-                    // The face, opaque: the same over every room, with the bloom where a tone stands.
-                    var faceHeight = h - 2f * rim;
+                    // The face, opaque over the whole panel and the same over every room: the grey, its soft top light, the bloom
+                    // where a tone stands; toward the right, clear of the words at the top left and of the inner edge.
+                    var x = w / 2f - rim - 8f;
+                    var across = x / (w / 2.0);
                     foreach (var tf in new[] { 0.10, 0.36, 0.90 })
                     {
-                        var (face, _) = KitGlassMaterial.At(KitGlassMaterial.Face, tf);
-                        var expected = tone is GlazeColor shown
-                            ? KitGlassMaterial.Prototype(KitGlassMaterial.Channels(shown), KitGlassMaterial.BloomAt(tf), KitGlassMaterial.ToColour(face))
-                            : face;
-                        // Toward the right of the face, clear of its words at the top left.
-                        Sample(tone != null ? "bloom" : "face", room, At(w / 2f - rim - 8f, (float)(faceHeight / 2f - tf * faceHeight)), expected, true, name + " face at " + tf.ToString("0.00"));
+                        var face = KitGlassMaterial.LitFace(tf, across);
+                        var expected = tone is GlazeColor shown ? KitGlassMaterial.Prototype(KitGlassMaterial.Channels(shown), KitGlassMaterial.BloomAt(tf), KitGlassMaterial.ToColour(face)) : face;
+                        Sample(tone != null ? "bloom" : "face", room, At(x, (float)(h / 2f - tf * h)), expected, true, name + " face at " + tf.ToString("0.00"));
                     }
-                    // The rim, 6 dp in from the edge (inside the rim, clear of the edge light), and the edge 1 dp in.
-                    var edgeStops = tone is GlazeColor lit ? KitGlassMaterial.StateEdge(lit) : KitGlassMaterial.Edge;
-                    foreach (var (x, y, where) in new[] { (0f, h / 2f - rim * 0.6f, "top"), (w / 2f - rim * 0.6f, 0f, "side"), (0f, -h / 2f + rim * 0.6f, "bottom") })
+                    // Where the quiet glass's rim stood the face goes on: opaque, the same grey, never the room.
+                    foreach (var (rx, ry, where) in new[] { (0f, -h / 2f + rim * 0.6f, "foot"), (w / 2f - rim * 0.6f, 0f, "side") })
                     {
-                        var t = (h / 2.0 - y) / h;
-                        var (colour, alpha) = KitGlassMaterial.At(KitGlassMaterial.Rim, t);
-                        var rimExpected = KitGlassMaterial.Prototype(colour, alpha, ground);
-                        Sample("rim", room, At(x, y), rimExpected, ground.Equals(KitGlassMaterial.LitRoom), name + " rim " + where);
-                        // The rim lets the room through and tints it no colour (ART, 2026-10-30): its blue less red within 5/255 of the prototype's.
-                        var rimScreenAt = camera.WorldToScreenPoint(At(x, y));
-                        var rimDrawn = eye[Mathf.RoundToInt(rimScreenAt.y) * Width + Mathf.RoundToInt(rimScreenAt.x)];
-                        var cast = (rimDrawn.b - rimDrawn.r) - (rimExpected[2] - rimExpected[0]) * 255;
-                        if (Math.Abs(cast) > 5) found.Add(name + " rim " + where + " casts a tint, its blue less red " + cast.ToString("0.0") + "/255 from the prototype's");
+                        var t = (h / 2.0 - ry) / h;
+                        var lit = KitGlassMaterial.LitFace(t, rx / (w / 2.0));
+                        var rimExpected = tone is GlazeColor bloomTone ? KitGlassMaterial.Prototype(KitGlassMaterial.Channels(bloomTone), KitGlassMaterial.BloomAt(t), KitGlassMaterial.ToColour(lit)) : lit;
+                        Sample("face", room, At(rx, ry), rimExpected, true, name + " face at the former rim's " + where);
                     }
-                    // The foot too: there the edge is at its faintest over the dark room (3.2:1 as built), which the mutation run showed.
-                    foreach (var (x, y, where) in new[] { (0f, h / 2f - 1f, "top"), (w / 2f - 1f, 0f, "side"), (0f, -h / 2f + 1f, "foot") })
-                    {
-                        var t = (h / 2.0 - y) / h;
-                        var ring = KitGlassMaterial.Over(KitGlassMaterial.At(edgeStops, t), KitGlassMaterial.At(KitGlassMaterial.Rim, t));
-                        Sample(tone != null ? "state edge" : "edge", room, At(x, y), KitGlassMaterial.Prototype(ring.Colour, ring.Alpha, ground), ground.Equals(KitGlassMaterial.DarkRoom), name + " edge " + where);
-                        if (!ground.Equals(KitGlassMaterial.DarkRoom)) continue;
-                        // The boundary in the dark: the edge as drawn against the room, at 3:1 for non-text.
-                        var screen = camera.WorldToScreenPoint(At(x, y));
-                        var pixel = eye[Mathf.RoundToInt(screen.y) * Width + Mathf.RoundToInt(screen.x)];
-                        var contrast = GlazeColor.Contrast(new GlazeColor(pixel.r, pixel.g, pixel.b), ground);
-                        if (contrast < 3) found.Add(name + " edge " + where + " stands only " + contrast.ToString("0.00") + " to 1 against the dark room");
-                        // The edge stays a line of its own over the rim beside it (the art direction's rule: 1.4:1 or more in the dark).
-                        var rimAt = where == "top" ? At(0f, h / 2f - rim * 0.6f) : where == "foot" ? At(0f, -h / 2f + rim * 0.6f) : At(w / 2f - rim * 0.6f, 0f);
-                        var rimScreen = camera.WorldToScreenPoint(rimAt);
-                        var rimPixel = eye[Mathf.RoundToInt(rimScreen.y) * Width + Mathf.RoundToInt(rimScreen.x)];
-                        var overRim = GlazeColor.Contrast(new GlazeColor(pixel.r, pixel.g, pixel.b), new GlazeColor(rimPixel.r, rimPixel.g, rimPixel.b));
-                        if (overRim < 1.4) found.Add(name + " edge " + where + " stands only " + overRim.ToString("0.00") + " to 1 above its rim in the dark room");
-                    }
-                    // Outside: the shadow under the foot, the glow beside the edge.
-                    Sample("shadow", room, At(0f, -h / 2f - 10f), KitGlassMaterial.PrototypeOutside(0, -h / 2.0 - 10, w, h, GlassRadiusDp, ground), ground.Equals(KitGlassMaterial.LitRoom), name + " shadow");
-                    Sample("glow", room, At(w / 2f + 5f, h / 4f), KitGlassMaterial.PrototypeOutside(w / 2.0 + 5, h / 4.0, w, h, GlassRadiusDp, ground), ground.Equals(KitGlassMaterial.DarkRoom), name + " glow");
+                    // Outside: the shadow under the foot, matched over the lit room.
+                    Sample("shadow", room, At(0f, -h / 2f - 20f), KitGlassMaterial.PrototypeOutside(0, -h / 2.0 - 20, w, h, GlassRadiusDp, ground, glow: false), ground.Equals(KitGlassMaterial.LitRoom), name + " shadow");
                 }
                 foreach (var layer in worst.Keys.Select(key => key.Layer).Distinct())
                     Debug.Log("Halcyonic: spatial kit: glass " + layer + " from the prototype, worst: " + string.Join(", ", GlassRooms.Where(room => worst.ContainsKey((layer, room.Name)))

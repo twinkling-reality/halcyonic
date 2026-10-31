@@ -182,27 +182,26 @@ public class SpatialKitTests
     }
 
     [Test]
-    public void TheRampIsQuietGlass()
+    public void TheRampIsTheWindowsGrey()
     {
-        // ART's handoff (2026-10-30): eight neutral steps on one cool hue and four state tones. n3 is the kit's own: ART's
-        // #3A3F45 leaves tertiary words at 4.29 and failed words at 4.35 on a control, so the kit takes OKLCH 0.35; ART's
-        // value raises the switch's thumb, which carries only primary and secondary words.
+        // ART8's window (2026-10-31) at the floor-safe value the lead kept: one neutral grey by role under white words at 100,
+        // 82 and 78 percent, the bright state tones (live and failed lifted to hold 4.5 on every grey), a blue for the primary.
         var ramp = new[] { SpatialKit.Well, SpatialKit.Carrier, SpatialKit.Raised, SpatialKit.Control, SpatialKit.Hairline, SpatialKit.TextTertiary, SpatialKit.TextSecondary, SpatialKit.Text };
-        Assert.That(ramp, Is.EqualTo(new uint[] { 0x1B1E22, 0x21252A, 0x2B2F35, 0x363B41, 0x767B82, 0xA0A5AC, 0xBABEC4, 0xDADDE0 }.Select(GlazeColor.Hex)));
+        Assert.That(ramp, Is.EqualTo(new uint[] { 0x2A2D30, 0x424549, 0x46494D, 0x4B4E52, 0x97999B, 0xDBDCDC, 0xE1E2E3, 0xFFFFFF }.Select(GlazeColor.Hex)));
         Assert.That(new[] { SpatialKit.Accent, SpatialKit.Attention, SpatialKit.Failure, SpatialKit.Passed },
-            Is.EqualTo(new uint[] { 0x59CFF1, 0xFABA59, 0xF7857D, 0x69D98D }.Select(GlazeColor.Hex)), "live, needs, failed, passed");
-        Assert.That(SpatialKit.OnFill, Is.EqualTo(SpatialKit.Well), "words on the primary capsule are n0");
-        Assert.That(SpatialKit.Thumb, Is.EqualTo(GlazeColor.Hex(0x3A3F45)), "ART's n3 raises the switch's thumb");
-        Assert.That((SpatialKit.FaceTop, SpatialKit.FaceBottom), Is.EqualTo((GlazeColor.Hex(0x262A30), GlazeColor.Hex(0x1E2226))), "the face's light from above");
+            Is.EqualTo(new uint[] { 0x7ADCF7, 0xFABA59, 0xFFAAA3, 0x69D98D }.Select(GlazeColor.Hex)), "live, needs, failed, passed");
+        Assert.That((SpatialKit.OnFill, SpatialKit.PrimaryFill), Is.EqualTo((GlazeColor.Hex(0xFFFFFF), GlazeColor.Hex(0x006ADB))), "white words on the blue primary");
+        Assert.That((SpatialKit.FaceTop, SpatialKit.FaceBottom), Is.EqualTo((GlazeColor.Hex(0x494C50), GlazeColor.Hex(0x3B3E42))), "the window's grey, lit from above");
+        Assert.That(GlazeColor.Contrast(SpatialKit.Thumb, SpatialKit.Well), Is.GreaterThanOrEqualTo(1.5), "the switch's thumb stands off its track");
     }
 
     [Test]
     public void ThePrimaryCapsuleCarriesItsWord()
     {
-        // The one primary in view is an n7 capsule with its word in n0, pressed to n6.
-        Assert.That(GlazeColor.Contrast(SpatialKit.OnFill, SpatialKit.Text), Is.GreaterThanOrEqualTo(12), "at rest (ART measured 12.3)");
-        Assert.That(GlazeColor.Contrast(SpatialKit.OnFill, SpatialKit.TextSecondary), Is.GreaterThanOrEqualTo(7), "pressed");
-        Assert.That(GlazeColor.Contrast(SpatialKit.Text, SpatialKit.Carrier), Is.GreaterThanOrEqualTo(7), "the capsule stands off its face as its word does");
+        // The one primary in view is ART8's blue capsule, deepened so its white word holds the floor, pressed deeper still.
+        Assert.That(GlazeColor.Contrast(SpatialKit.OnFill, SpatialKit.PrimaryFill), Is.GreaterThanOrEqualTo(5), "at rest");
+        Assert.That(GlazeColor.Contrast(SpatialKit.OnFill, SpatialKit.PrimaryPressed), Is.GreaterThanOrEqualTo(6), "pressed");
+        Assert.That(GlazeColor.Contrast(SpatialKit.PrimaryLine, SpatialKit.PrimaryFill), Is.GreaterThanOrEqualTo(1.4), "its top line shows");
     }
 
     [Test]
@@ -220,16 +219,42 @@ public class SpatialKitTests
     }
 
     [Test]
+    public void AMarksSignHoldsItsFloorOnTheLitTopBesideTheMark()
+    {
+        // A question's "?" and a failure's "!" stand at a moment's top left, where the face's top light still reaches: the
+        // face lit as at three quarters of its half width from the middle. Each sign is its tone lifted in its own hue, never
+        // another colour (a technical floor, 2026-10-31: the render measured 4.43 and 4.18 to 1 with the tones themselves).
+        var lit = KitGlassMaterial.LitFace(0, 0.75);
+        var ground = new GlazeColor((byte)Math.Round(lit[0] * 255), (byte)Math.Round(lit[1] * 255), (byte)Math.Round(lit[2] * 255));
+        foreach (var (sign, tone) in new[] { (SpatialKit.AttentionSign, SpatialKit.Attention), (SpatialKit.FailureSign, SpatialKit.Failure) })
+        {
+            Assert.That(GlazeColor.Contrast(sign, ground), Is.GreaterThanOrEqualTo(4.5), $"{sign} on the lit top {ground}");
+            Assert.That(sign.Luminance, Is.GreaterThan(tone.Luminance), $"{sign} is {tone} lifted");
+            Assert.That(Math.Abs(Hue(sign) - Hue(tone)), Is.LessThanOrEqualTo(2), $"{sign} keeps {tone}'s hue");
+        }
+        foreach (var disc in new[] { SpatialKit.Attention, SpatialKit.Failure, SpatialKit.Passed })
+            Assert.That(GlazeColor.Contrast(SpatialKit.Well, disc), Is.GreaterThanOrEqualTo(7), $"n0 on the {disc} disc");
+    }
+
+    /// <summary>A colour's hue on the sRGB colour wheel, in degrees.</summary>
+    private static double Hue(GlazeColor colour)
+    {
+        double r = colour.R, g = colour.G, b = colour.B;
+        double max = Math.Max(r, Math.Max(g, b)), min = Math.Min(r, Math.Min(g, b)), d = max - min;
+        if (d == 0) return 0;
+        var hue = max == r ? (g - b) / d : max == g ? 2 + (b - r) / d : 4 + (r - g) / d;
+        return (hue * 60 + 360) % 360;
+    }
+
+    [Test]
     public void TheAnswersPointedAndPressedStatesHoldTheirWords()
     {
-        // The handoff's composites over n1: a pointed word answer #373B3F, pressed #45484C; drawn opaque, as the prototype blends.
-        Assert.That(GlazeColor.Contrast(SpatialKit.WordPointed, GlazeColor.Hex(0x373B3F)), Is.LessThan(1.02), "pointed as the handoff gives it");
-        Assert.That(GlazeColor.Contrast(SpatialKit.WordPressed, GlazeColor.Hex(0x45484C)), Is.LessThan(1.02), "pressed as the handoff gives it");
-        foreach (var fill in new[] { SpatialKit.WordPointed, SpatialKit.WordPressed })
+        // A secondary pill brightens when pointed and further when pressed, drawn opaque as the prototype blends white over n1.
+        Assert.That(SpatialKit.WordPointed, Is.EqualTo(GlazeColor.Hex(0xFFFFFF).Over(SpatialKit.Carrier, 0.14)), "pointed");
+        Assert.That(SpatialKit.WordPressed, Is.EqualTo(GlazeColor.Hex(0xFFFFFF).Over(SpatialKit.Carrier, 0.20)), "pressed");
+        Assert.That(SpatialKit.WordPointed.Luminance, Is.GreaterThan(SpatialKit.Control.Luminance), "pointed brightens the resting pill");
+        foreach (var fill in new[] { SpatialKit.Control, SpatialKit.WordPointed, SpatialKit.WordPressed })
             Assert.That(GlazeColor.Contrast(SpatialKit.Text, fill), Is.GreaterThanOrEqualTo(4.5), $"n7 on {fill}");
-        // Why opaque: the same 16 percent wash blended in linear light, as Unity blends alpha, takes n7 under its floor.
-        var linear = KitGlassMaterial.ToColour(KitGlassMaterial.Drawn(new double[] { 1, 1, 1 }, 0.16, SpatialKit.Carrier));
-        Assert.That(GlazeColor.Contrast(SpatialKit.Text, linear), Is.LessThan(4.5), $"n7 on the linear wash {linear}");
         // A pointed primary is told from its rest by its outer ring at 3:1 or more on every face it stands on (AUDIT's A1C-S1).
         foreach (var face in new[] { SpatialKit.Carrier, SpatialKit.FaceTop, SpatialKit.FaceBottom, SpatialKit.Raised })
             Assert.That(GlazeColor.Contrast(SpatialKit.PrimaryRing, face), Is.GreaterThanOrEqualTo(3), $"the pointed ring on {face}");
@@ -239,10 +264,8 @@ public class SpatialKitTests
     [Test]
     public void ALockedCapsulesWordReadsOverItsReadingFill()
     {
-        // The handoff's fill (n7 at 14 percent over n1, #3B3F43) under its n5 word reads 4.25:1, under the floor; the word lifts to
-        // n6 while the fill stands under it (DESIGN, 2026-10-31; told to ART).
-        Assert.That(GlazeColor.Contrast(SpatialKit.LockedProgress, GlazeColor.Hex(0x3B3F43)), Is.LessThan(1.02), "the handoff's composite");
-        Assert.That(GlazeColor.Contrast(SpatialKit.TextTertiary, SpatialKit.LockedProgress), Is.LessThan(4.5), "why the word lifts");
+        // The reading fill (n7 at 14 percent over n1, drawn opaque) under the locked capsule's word keeps the floor.
+        Assert.That(SpatialKit.LockedProgress, Is.EqualTo(SpatialKit.Text.Over(SpatialKit.Carrier, 0.14)), "the fill's composite");
         Assert.That(GlazeColor.Contrast(SpatialKit.TextSecondary, SpatialKit.LockedProgress), Is.GreaterThanOrEqualTo(4.5), "n6 over the fill");
     }
 
@@ -273,15 +296,13 @@ public class SpatialKitTests
     [Test]
     public void ButtonsKeepTheirWordsInEveryState()
     {
-        // A secondary button presses to the control step; the one primary is an n7 capsule that presses to n6 (ART's handoff,
-        // 2026-10-30; cyan is only for live work): the words a button carries keep their contrast pointed and pressed, and
-        // the quieter words never stand on a button.
-        foreach (var fill in new[] { SpatialKit.Raised, SpatialKit.Control })
-            Assert.That(GlazeColor.Contrast(SpatialKit.Text, fill), Is.GreaterThanOrEqualTo(7), $"a button's words on {fill}");
-        foreach (var fill in new[] { SpatialKit.Text, SpatialKit.TextSecondary })
-            Assert.That(GlazeColor.Contrast(SpatialKit.OnFill, fill), Is.GreaterThanOrEqualTo(7), $"the primary's word on {fill}");
-        Assert.That(SpatialKit.TextSecondary.Luminance, Is.LessThan(SpatialKit.Text.Luminance), "pressed deepens");
-        Assert.That(GlazeColor.Contrast(SpatialKit.OnFill, SpatialKit.Text), Is.GreaterThanOrEqualTo(3), "a pointed primary's n0 band against its resting fill");
+        // ART8: a grey secondary pill that brightens pointed and pressed, a blue primary that deepens pressed; the words a
+        // button carries keep the floor in every state, and the quieter words never stand on a button.
+        foreach (var fill in new[] { SpatialKit.Raised, SpatialKit.Control, SpatialKit.WordPointed, SpatialKit.WordPressed })
+            Assert.That(GlazeColor.Contrast(SpatialKit.Text, fill), Is.GreaterThanOrEqualTo(4.5), $"a button's words on {fill}");
+        foreach (var fill in new[] { SpatialKit.PrimaryFill, SpatialKit.PrimaryPressed })
+            Assert.That(GlazeColor.Contrast(SpatialKit.OnFill, fill), Is.GreaterThanOrEqualTo(4.5), $"the primary's word on {fill}");
+        Assert.That(SpatialKit.PrimaryPressed.Luminance, Is.LessThan(SpatialKit.PrimaryFill.Luminance), "pressed deepens");
     }
 
     [Test]
