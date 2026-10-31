@@ -95,9 +95,16 @@ const WHISPER_BINARY = 'speech/whisper.cpp-1.9.4/bin/whisper-cli';
 /** The folder `allow` makes and allows when given none. */
 export const DEFAULT_PROJECTS_FOLDER = 'HalcyonicProjects';
 
-/** The Ollama models Halcyonic was run with end to end, on a Mac with 64 GB (local-models.md). */
+/**
+ * The Ollama models Halcyonic was run with end to end, on a Mac with 64 GB (local-models.md), the
+ * default first. Muse Glimmer is checked, not the default: Apache 2.0 by a card under the
+ * meta-models organisation, shown as Meta Inc., its verification not seen, which also says the
+ * model is not meant for anyone under 18, so the default is the owner's decision; it was clean in
+ * 3 of 3 runs of a kid's game where qwen3.6 was clean in 1 of 4.
+ */
 const CHECKED_MODELS = [
   { name: 'qwen3.6:35b-a3b-nvfp4', bytes: 23.6e9 },
+  { name: 'muse-glimmer:30b-mlx', bytes: 19.1e9 },
   { name: 'qwen3.8:27b-nvfp4', bytes: 18.2e9 },
 ] as const;
 
@@ -523,7 +530,7 @@ class MacSetup {
       }
     }
     lines.push(
-      'Halcyonic was checked with qwen3.6:35b-a3b-nvfp4 (23.6 GB) and qwen3.8:27b-nvfp4 (18.2 GB), on a Mac with 64 GB of memory.',
+      'Halcyonic was checked with qwen3.6:35b-a3b-nvfp4 (23.6 GB), muse-glimmer:30b-mlx (19.1 GB) and qwen3.8:27b-nvfp4 (18.2 GB), on a Mac with 64 GB of memory.',
     );
     if (usable.length > 0) return { title, status: 'ready', lines };
     const suggestion = this.#suggestedModel(null);
