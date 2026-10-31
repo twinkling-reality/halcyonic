@@ -147,6 +147,14 @@ describe('the contained browser a game plays in on the Mac (Play on my laptop, P
     assert.deepEqual(browserManifest(copy), { link: 'resources/link.dylib' });
     assert.match(browserProblem(copy, pin, manifest) ?? '', /link, resources\/link\.dylib/);
     rmSync(join(copy, 'resources', 'link.dylib'));
+    // A name the manifest's lines could not hold apart (a newline, any control character, a space): refused.
+    for (const name of ['two\nlines.js', 'tab\there.js', 'a space.js']) {
+      writeFileSync(join(copy, 'resources', name), 'x');
+      assert.deepEqual(browserManifest(copy), { other: `resources/${name}` }, JSON.stringify(name));
+      assert.match(browserProblem(copy, pin, manifest) ?? '', /not a plain file or folder/);
+      rmSync(join(copy, 'resources', name));
+    }
+    assert.equal(browserProblem(copy, pin, manifest), null);
     // Without the expected manifest, a difference is still refused, only not named.
     writeFileSync(join(copy, 'resources', 'extra.js'), 'extra');
     assert.match(browserProblem(copy, pin) ?? '', /has changed since it was set up/);
