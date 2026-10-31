@@ -650,11 +650,13 @@ describe('pnpm quest:device, against a stand-in adb', () => {
 
     before(async () => {
       server = await startTestServer();
-      // The checked copy, served in this process on the first free port of the preview range.
+      // The checked copy, served in this process on the last free port of the preview range: the
+      // host's tests take ports from the first up, so this narrows the race with them; it does not
+      // end it, since the tool run here checks the contract's range itself.
       for (
-        let port = PREVIEW_PORT_FIRST;
-        port <= PREVIEW_PORT_LAST && previewPort === 0;
-        port += 1
+        let port = PREVIEW_PORT_LAST;
+        port >= PREVIEW_PORT_FIRST && previewPort === 0;
+        port -= 1
       ) {
         const candidate = createServer((request, response) => {
           // As the host's preview server is to: no service worker script.
