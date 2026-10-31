@@ -1,4 +1,10 @@
-import type { Snapshot } from '@halcyonic/contracts';
+import {
+  COMMAND_SCHEMA_VERSION,
+  type CommandId,
+  type ProjectId,
+  type Snapshot,
+  type Timestamp,
+} from '@halcyonic/contracts';
 import { Projection } from '@halcyonic/domain';
 import type { Clock, RuntimeAdapter, Scheduler } from '@halcyonic/runtime-core';
 import { Checkpointer } from '../checkpoints/checkpointer.ts';
@@ -89,13 +95,18 @@ export class ControlPlane {
   readonly clock: Clock;
   /** How a runtime's or a provider's text loses credentials before a device sees it. */
   readonly redaction: Redaction;
+  readonly #ids: IdGenerator;
   readonly #logger: Logger;
   readonly #snapshotFinishedCommands: number;
+  readonly #autoCheckNeeded = new Set<ProjectId>();
+  #autoCheckScheduled = false;
+  #closed = false;
 
   constructor(options: ControlPlaneOptions) {
     this.journal = options.journal;
     this.clock = options.clock;
     this.locations = options.locations ?? createHostLocations([]);
+    this.#ids = options.ids;
     this.#logger = options.logger;
     this.redaction = redaction(options.secrets);
     this.#snapshotFinishedCommands = options.snapshotFinishedCommands ?? 50;
@@ -166,6 +177,82 @@ export class ControlPlane {
       previews: this.previews,
     });
     this.#rebuild();
+    if (this.previews !== null) this.#attachAutoCheck();
+  }
+
+  /**
+   * Checks a starter project on its own after a turn that changed files in its folder (A1): one
+   * check at a time per project, journaled as an internal command, waiting if a check or another
+   * task in the project is still busy.
+   */
+  #attachAutoCheck(): void {
+    this.publisher.subscribe(({ event }) => {
+      if (this.#closed) return;
+      if (event.event_type === 'execution.files.observed') {
+        const { created, changed, deleted } = event.payload;
+        if (created.total === 0 && changed.total === 0 && deleted.total === 0) return;
+        const project = this.projection.project(event.project_id);
+        if (project?.starter == null || project.location === null) return;
+        this.#autoCheckNeeded.add(event.project_id);
+        this.#scheduleAutoChecks();
+        return;
+      }
+      if (
+        event.event_type === 'command.accepted' &&
+        event.payload.command.command_type === 'project.check' &&
+        event.project_id !== null
+      ) {
+        this.#autoCheckNeeded.delete(event.project_id);
+        return;
+      }
+      if (
+        (event.event_type === 'command.completed' ||
+          event.event_type === 'command.failed' ||
+          event.event_type === 'runtime.turn.completed' ||
+          event.event_type === 'runtime.turn.failed' ||
+          event.event_type === 'runtime.turn.interrupted' ||
+          event.event_type === 'execution.state_unknown' ||
+          event.event_type === 'runtime.connection.lost') &&
+        event.project_id !== null &&
+        this.#autoCheckNeeded.has(event.project_id)
+      ) {
+        this.#scheduleAutoChecks();
+      }
+    });
+  }
+
+  #scheduleAutoChecks(): void {
+    if (this.#autoCheckScheduled || this.#closed) return;
+    this.#autoCheckScheduled = true;
+    queueMicrotask(() => {
+      this.#autoCheckScheduled = false;
+      this.#drainAutoChecks();
+    });
+  }
+
+  #drainAutoChecks(): void {
+    if (this.#closed || this.previews === null) return;
+    for (const projectId of [...this.#autoCheckNeeded]) {
+      const project = this.projection.project(projectId);
+      if (project?.starter == null || project.location === null) {
+        this.#autoCheckNeeded.delete(projectId);
+        continue;
+      }
+      if (this.projection.projectBusy(projectId) !== null) continue;
+      this.#autoCheckNeeded.delete(projectId);
+      this.commands.submit(
+        {
+          schema_version: COMMAND_SCHEMA_VERSION,
+          command_id: this.#ids.next() as CommandId,
+          issued_at: this.clock.now().toISOString() as Timestamp,
+          client: { name: 'halcyonic-control-plane', version: null, device_label: null },
+          command_type: 'project.check',
+          payload: { project_id: projectId },
+        },
+        'internal',
+        null,
+      );
+    }
   }
 
   #rebuild(): void {
@@ -217,6 +304,8 @@ export class ControlPlane {
   }
 
   async close(): Promise<void> {
+    this.#closed = true;
+    this.#autoCheckNeeded.clear();
     await this.previews?.close();
     await this.registry.closeAll(this.#logger);
     this.journal.close();

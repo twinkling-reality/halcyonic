@@ -762,10 +762,40 @@ describe("the host's checks and previews (ADR 0037)", () => {
     assert.equal(controlPlane.projection.preview(projectId)?.files, 'changed');
     assert.equal(submit('project.open_on_mac').outcome.command?.rejection?.code, 'invalid_state');
     await done(submit('project.preview.stop').command.command_id);
+
+    await until(
+      () =>
+        controlPlane.projection.latestCheck(projectId)?.files === 'current' &&
+        controlPlane.projection.projectBusy(projectId) === null,
+      'the check after the change to finish',
+    );
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.files.observed',
+        scope,
+        {
+          turn_id: 'u1b',
+          created: { files: [], total: 0 },
+          changed: {
+            files: [{ path: 'src/game.ts', bytes: 540, lines_before: 12, lines_after: 13 }],
+            total: 1,
+          },
+          deleted: { files: [], total: 0 },
+          not_read: 0,
+          skipped: null,
+        },
+        now,
+        NO_CAUSE,
+      ),
+    );
     assert.equal(submit('project.preview.start').outcome.command?.rejection?.code, 'invalid_state');
 
-    await done(submit('project.check').command.command_id);
-    assert.equal(controlPlane.projection.latestCheck(projectId)?.files, 'current');
+    await until(
+      () =>
+        controlPlane.projection.latestCheck(projectId)?.files === 'current' &&
+        controlPlane.projection.projectBusy(projectId) === null,
+      'the check to finish before starting a preview',
+    );
     assert.equal(
       (await done(submit('project.preview.start').command.command_id))?.status,
       'completed',
@@ -819,5 +849,207 @@ describe("the host's checks and previews (ADR 0037)", () => {
       ),
     );
     assert.equal(controlPlane.previews?.failedCheckOutput(projectId), null);
+  });
+
+  test('after a turn that changed files in a starter project, the host checks the project on its own, journaled as an internal command; a turn with no file changes does not (A1)', async (t) => {
+    const { controlPlane, journal, projectId, checked } = plane(t);
+    const now = '2026-10-29T10:03:00.000Z' as never;
+    const workstreamId = '01a19000-0000-7000-8000-0000000000c2' as never;
+    const executionId = '01a19000-0000-7000-8000-0000000000d2' as never;
+    const scope = { project_id: projectId, workstream_id: workstreamId, execution_id: executionId };
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'workstream.created',
+        { ...scope, execution_id: null },
+        { title: 'Build it', objective: null },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.created',
+        scope,
+        {
+          runtime: { runtime_id: 'codex', kind: 'codex', display_name: 'Codex', synthetic: false },
+          instruction: 'Add a lantern.',
+          directory: '/Users/someone/dev/garden',
+        } as never,
+        now,
+        NO_CAUSE,
+      ),
+    );
+    for (const [sequence, eventType, payload] of [
+      [1, 'runtime.execution.started', { native_id: 'a1', confined: true }],
+      [2, 'runtime.turn.started', { turn_id: 'u1' }],
+      [3, 'runtime.turn.completed', { turn_id: 'u1' }],
+    ] as const)
+      controlPlane.recorder.record({
+        ...controlPlaneDraft('execution.created', scope, {} as never, now, NO_CAUSE),
+        event_type: eventType,
+        source: { kind: 'runtime', runtime_id: 'codex' },
+        source_native_id: `a1:${sequence}`,
+        sequence,
+        payload,
+      } as never);
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.files.observed',
+        scope,
+        {
+          turn_id: 'u1',
+          created: { files: [], total: 0 },
+          changed: {
+            files: [{ path: 'src/game.ts', bytes: 512, lines_before: 10, lines_after: 12 }],
+            total: 1,
+          },
+          deleted: { files: [], total: 0 },
+          not_read: 0,
+          skipped: null,
+        },
+        now,
+        NO_CAUSE,
+      ),
+    );
+
+    await until(
+      () =>
+        checked.length === 1 &&
+        controlPlane.projection.latestCheck(projectId)?.files === 'current' &&
+        controlPlane.projection.projectBusy(projectId) === null,
+      'the host to check the project after the turn changed files',
+    );
+    const accepted = journal
+      .read({ after: 0, limit: 1000 })
+      .map((stored) => stored.event)
+      .find(
+        (event) =>
+          event.event_type === 'command.accepted' &&
+          event.payload.command.command_type === 'project.check',
+      );
+    assert.equal(
+      (accepted?.payload as { received_via?: string } | undefined)?.received_via,
+      'internal',
+    );
+
+    // A turn that changed no files does not start a check.
+    for (const [sequence, eventType, payload] of [
+      [4, 'runtime.turn.started', { turn_id: 'u2' }],
+      [5, 'runtime.turn.completed', { turn_id: 'u2' }],
+    ] as const)
+      controlPlane.recorder.record({
+        ...controlPlaneDraft('execution.created', scope, {} as never, now, NO_CAUSE),
+        event_type: eventType,
+        source: { kind: 'runtime', runtime_id: 'codex' },
+        source_native_id: `a1:${sequence}`,
+        sequence,
+        payload,
+      } as never);
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.files.observed',
+        scope,
+        {
+          turn_id: 'u2',
+          created: { files: [], total: 0 },
+          changed: { files: [], total: 0 },
+          deleted: { files: [], total: 0 },
+          not_read: 0,
+          skipped: null,
+        },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    assert.equal(checked.length, 1);
+  });
+
+  test('while a check of the project is already running, file-changing turns wait and coalesce into one follow-up check once idle (A1)', async (t) => {
+    let release = () => {};
+    const hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { controlPlane, submit, done, projectId, checked } = plane(t, { hold });
+    await done(submit('project.check').command.command_id);
+    assert.equal(checked.length, 1);
+
+    // Start a second check that holds in runCheck.
+    const runningCheck = submit('project.check');
+    await until(() => checked.length === 2, 'the held check to start');
+
+    const now = '2026-10-29T10:04:00.000Z' as never;
+    const workstreamId = '01a19000-0000-7000-8000-0000000000c3' as never;
+    const executionId = '01a19000-0000-7000-8000-0000000000d3' as never;
+    const scope = { project_id: projectId, workstream_id: workstreamId, execution_id: executionId };
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'workstream.created',
+        { ...scope, execution_id: null },
+        { title: 'Refine it', objective: null },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.created',
+        scope,
+        {
+          runtime: { runtime_id: 'codex', kind: 'codex', display_name: 'Codex', synthetic: false },
+          instruction: 'Adjust lighting.',
+          directory: '/Users/someone/dev/garden',
+        } as never,
+        now,
+        NO_CAUSE,
+      ),
+    );
+    for (const [sequence, eventType, payload] of [
+      [1, 'runtime.execution.started', { native_id: 'a2', confined: true }],
+      [2, 'runtime.turn.started', { turn_id: 'u1' }],
+      [3, 'runtime.turn.completed', { turn_id: 'u1' }],
+    ] as const)
+      controlPlane.recorder.record({
+        ...controlPlaneDraft('execution.created', scope, {} as never, now, NO_CAUSE),
+        event_type: eventType,
+        source: { kind: 'runtime', runtime_id: 'codex' },
+        source_native_id: `a2:${sequence}`,
+        sequence,
+        payload,
+      } as never);
+    for (const turnId of ['u1', 'u2']) {
+      controlPlane.recorder.record(
+        controlPlaneDraft(
+          'execution.files.observed',
+          scope,
+          {
+            turn_id: turnId,
+            created: { files: [], total: 0 },
+            changed: {
+              files: [{ path: 'src/game.ts', bytes: 600, lines_before: 10, lines_after: 12 }],
+              total: 1,
+            },
+            deleted: { files: [], total: 0 },
+            not_read: 0,
+            skipped: null,
+          },
+          now,
+          NO_CAUSE,
+        ),
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(checked.length, 2, 'no second check starts while one is running');
+
+    release();
+    await done(runningCheck.command.command_id);
+    await until(
+      () =>
+        checked.length === 3 &&
+        controlPlane.projection.latestCheck(projectId)?.files === 'current' &&
+        controlPlane.projection.projectBusy(projectId) === null,
+      'the single follow-up check to finish after the held check ends',
+    );
+    assert.equal(checked.length, 3);
   });
 });

@@ -77,6 +77,10 @@ client ── command ──> CommandService ── admit (domain) ──> Recor
 4. Adapters report what happens as normalized observations, which become `runtime.*` events.
 5. `Recorder` is the only write path. It validates each event, appends it, applies it to the
    in-memory projection and publishes the changed entities, as one synchronous step.
+6. When checks are set up on the host and a turn in a starter project ends with file changes
+   (`execution.files.observed` with at least one file created, changed or deleted), the control
+   plane submits `project.check` on its own (`received_via: 'internal'`), one check at a time per
+   project, waiting if a check or another task in the project is still running (A1).
 
 ## Process model
 
