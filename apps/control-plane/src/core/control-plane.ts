@@ -17,6 +17,7 @@ import { FileObserver } from '../observer/file-observer.ts';
 import { HostPreviews, type HostPreviewsDeps } from '../preview/preview.ts';
 import type { HostStarters } from '../starters.ts';
 import { type CatalogLinks, CommandService } from './command-service.ts';
+import type { OllamaUnloader } from './ollama-unload.ts';
 import { EventPublisher } from './publisher.ts';
 import { Recorder } from './recorder.ts';
 import { type HeldSecret, type Redaction, redaction } from './redaction.ts';
@@ -66,6 +67,11 @@ export interface ControlPlaneOptions {
    * credential shapes still go from error text.
    */
   readonly secrets?: () => Iterable<HeldSecret>;
+  /**
+   * Unloads a local Ollama model that Halcyonic loaded once no active execution in Halcyonic uses
+   * it (UL1); none by default, so tests do not touch loopback Ollama unless they pass one.
+   */
+  readonly ollamaUnload?: OllamaUnloader;
 }
 
 /**
@@ -91,6 +97,8 @@ export class ControlPlane {
   readonly files: FileObserver | null;
   /** The host's checks and previews of starter projects, or null when off. */
   readonly previews: HostPreviews | null;
+  /** Unloads a local Ollama model that Halcyonic loaded once no execution uses it (UL1), or null. */
+  readonly ollamaUnload: OllamaUnloader | null;
   readonly locations: HostLocations;
   readonly clock: Clock;
   /** How a runtime's or a provider's text loses credentials before a device sees it. */
@@ -159,6 +167,8 @@ export class ControlPlane {
       clock: options.clock,
       logger: options.logger,
     });
+    this.ollamaUnload = options.ollamaUnload ?? null;
+    this.ollamaUnload?.attach(this.publisher, this.projection);
     this.commands = new CommandService({
       projection: this.projection,
       recorder: this.recorder,
@@ -175,6 +185,7 @@ export class ControlPlane {
       files: this.files,
       catalogLinks: options.catalogLinks ?? null,
       previews: this.previews,
+      ollamaUnload: this.ollamaUnload,
     });
     this.#rebuild();
     if (this.previews !== null) this.#attachAutoCheck();
@@ -308,6 +319,7 @@ export class ControlPlane {
     this.#autoCheckNeeded.clear();
     await this.previews?.close();
     await this.registry.closeAll(this.#logger);
+    await this.ollamaUnload?.close();
     this.journal.close();
   }
 }

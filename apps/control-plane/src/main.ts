@@ -17,6 +17,7 @@ import {
   type NetworkListenerConfig,
 } from './config.ts';
 import { ControlPlane } from './core/control-plane.ts';
+import { OllamaUnloader } from './core/ollama-unload.ts';
 import { registerDeviceRoutes } from './http/device-routes.ts';
 import { registerRealtime } from './http/realtime.ts';
 import { registerRoutes } from './http/routes.ts';
@@ -39,6 +40,7 @@ import { installBrowser } from './preview/play.ts';
 import {
   createRuntimeAdapters,
   heldSecrets,
+  OLLAMA_PORT,
   ripgrepOnPath,
   stopStaleRuntimeServers,
 } from './runtimes.ts';
@@ -205,6 +207,7 @@ async function main(): Promise<void> {
       access.token,
       adapters,
     ),
+    ollamaUnload: new OllamaUnloader({ url: `http://127.0.0.1:${OLLAMA_PORT}` }),
   });
   starterOf = (directory) =>
     controlPlane.projection
