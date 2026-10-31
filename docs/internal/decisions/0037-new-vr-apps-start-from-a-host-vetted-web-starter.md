@@ -246,3 +246,14 @@ blind. Each failed check is given once: `execution.check_output_given` records w
 lines and bytes, never the text, and is recorded only once the runtime confirmed the start or the instruction. The
 journal keeps the person's words alone; nothing of the check's output is logged. A check that passed, or failed only
 in the page, gives nothing; a failed step whose output cannot be read is given as "Its output could not be read."
+
+## Amendment, 2026-10-31: the starter asks for motion and leaves the game in view (GQ1a)
+
+The welcome card's words, and the laptop help, go after 6 seconds of game time or at once when VR starts; on a
+headset's page the card stays only as its Enter VR button, in VR as Exit to Browser, and on a laptop nothing of it is
+left. Game time follows the check's stepped clock, so the no-input loads and the pressed loads drop the words at the
+same frame: a press is still seen only when the game itself answers it, never because the card went. A press or a
+key does not hide the card, and `play-input.ts` is unchanged, so the check's layer comparison holds for every game
+made before. `src/motion.ts` gives `bob`, `wiggle`, `spin`, `pop` and `ease`, pure functions of the time a system is
+given, and AGENTS.md asks for motion from them, a pop on a hit, a big score, and no scratch files left in `src/`.
+The game's ground, light and colours come with ART's values (GQ1b).

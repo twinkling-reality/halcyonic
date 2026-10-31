@@ -61,8 +61,8 @@
     transform-translate-y: 1px;
   }
 </style>
-<Panel class="panel-root">
-  <div class="panel-content">
+<Panel id="card" class="panel-root">
+  <div id="card-words" class="panel-content">
     <div class="heading">Hello, Immersive Web!</div>
     <Divider></Divider>
     <div class="sub-heading">
