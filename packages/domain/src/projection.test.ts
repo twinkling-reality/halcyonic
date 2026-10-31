@@ -721,6 +721,41 @@ describe('a checked game playing on the Mac (P-A)', () => {
   });
 });
 
+describe("a failed check's output given to an agent, once per check (FX1)", () => {
+  test('the project remembers which check it was given for, and an unknown project is noted', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const project = b.project('Garden', { path: '/work/garden', name: 'garden', created: true });
+    projection.apply(project.event);
+    const scope = {
+      project_id: project.projectId,
+      workstream_id: b.id() as never,
+      execution_id: b.id() as never,
+    };
+    const first = b.id() as never;
+    const second = b.id() as never;
+    const given = (check_id: never, at = scope) =>
+      b.controlPlane('execution.check_output_given', at, {
+        check_id,
+        parts: ['typecheck', 'build'],
+        lines: 3,
+        bytes: 180,
+      });
+    assert.equal(projection.checkOutputGiven(project.projectId), undefined);
+    projection.apply(given(first));
+    assert.equal(projection.checkOutputGiven(project.projectId), first);
+    projection.apply(given(second));
+    assert.equal(projection.checkOutputGiven(project.projectId), second);
+    const unknown = { ...scope, project_id: b.id() as ProjectId };
+    const { notes } = projection.apply(given(first, unknown as never));
+    assert.deepEqual(
+      notes.map((entry) => entry.code),
+      ['unknown_entity'],
+    );
+    assert.equal(projection.checkOutputGiven(project.projectId), second);
+  });
+});
+
 describe("a project's view holds its latest check, its preview and its play (M1.8e)", () => {
   test('each appears in the view and in the event changes as it is recorded, and is absent, never false, when there is none', () => {
     const b = new EventBuilder();

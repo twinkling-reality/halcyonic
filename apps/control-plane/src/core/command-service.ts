@@ -1,6 +1,7 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import type {
   CatalogRepositoryRef,
+  CheckId,
   CommandEnvelope,
   CommandFailure,
   CommandOf,
@@ -38,6 +39,7 @@ import type { IdGenerator } from '../ids.ts';
 import type { HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
 import type { FileObserver } from '../observer/file-observer.ts';
+import type { CheckOutput } from '../preview/check-output.ts';
 import type { HostPreviews } from '../preview/preview.ts';
 import { type HostStarters, VR_STARTER, vrVersionInstruction } from '../starters.ts';
 import {
@@ -764,24 +766,28 @@ export class CommandService {
           runtime.runtime_id,
           this.#deps.redaction,
         );
+        // A failed check's first lines go after the person's words, once per check (FX1).
+        const checked = this.#checkOutputFor(project_id);
         const run = () =>
           this.#perform(
             command,
             () =>
               start.call(adapter, {
                 execution,
-                instruction: command.payload.instruction,
+                instruction: withCheckOutput(command.payload.instruction, checked),
                 options: command.payload.options,
                 model_ref: command.payload.model_ref,
                 directory,
                 emit,
               }),
             {
-              succeeded: () =>
+              succeeded: () => {
+                this.#recordCheckOutput(scope, checked, cause);
                 this.#complete(command, scope, {
                   kind: 'execution_created',
                   execution_id: execution.execution_id,
-                }),
+                });
+              },
               failed: (failure) => this.#recordStartFailure(command, scope, failure),
             },
           );
@@ -823,9 +829,17 @@ export class CommandService {
       case 'execution.interrupt': {
         const { adapter } = this.#runtimeFor(admission);
         const execution = toExecutionContext(admission.scope);
-        const action = actionFor(command, adapter, execution);
+        // A failed check's first lines go after the person's words, once per check (FX1).
+        const checked =
+          command.command_type === 'execution.send_instruction'
+            ? this.#checkOutputFor(execution.project_id)
+            : null;
+        const action = actionFor(command, adapter, execution, checked);
         const outcome: ActionOutcome = {
-          succeeded: () => this.#complete(command, admission.scope, null),
+          succeeded: () => {
+            this.#recordCheckOutput(execution, checked, cause);
+            this.#complete(command, admission.scope, null);
+          },
           failed: (failure) => this.#fail(command, admission.scope, failure),
         };
         if (action === undefined) {
@@ -1001,6 +1015,40 @@ export class CommandService {
     return scope;
   }
 
+  /**
+   * The project's failed check's first lines for the next instruction to an agent in it, unless an
+   * agent was already given that check's (FX1); null otherwise, or when they cannot be read.
+   */
+  #checkOutputFor(projectId: ProjectId): Checked | null {
+    let found: Checked | null;
+    try {
+      found = this.#deps.previews?.failedCheckOutput(projectId) ?? null;
+    } catch {
+      return null;
+    }
+    if (found === null) return null;
+    return this.#deps.projection.checkOutputGiven(projectId) === found.checkId ? null : found;
+  }
+
+  /** Records that the runtime was given a failed check's lines: which, and how many; never the text. */
+  #recordCheckOutput(scope: ExecutionContext, checked: Checked | null, cause: Cause): void {
+    if (checked === null) return;
+    this.#deps.recorder.record(
+      controlPlaneDraft(
+        'execution.check_output_given',
+        scope,
+        {
+          check_id: checked.checkId,
+          parts: [...checked.output.parts],
+          lines: checked.output.lines,
+          bytes: checked.output.bytes,
+        },
+        this.#now(),
+        cause,
+      ),
+    );
+  }
+
   #complete(command: CommandEnvelope, scope: CommandScope, result: CommandResult | null): void {
     this.#deps.recorder.record(
       controlPlaneDraft(
@@ -1121,11 +1169,13 @@ function actionFor(
   command: CommandEnvelope,
   adapter: RuntimeAdapter,
   execution: ExecutionContext,
+  checked: Checked | null,
 ): (() => Promise<void>) | undefined {
   switch (command.command_type) {
     case 'execution.send_instruction': {
       const send = adapter.sendInstruction;
-      return send && (() => send.call(adapter, { execution, text: command.payload.text }));
+      const text = withCheckOutput(command.payload.text, checked);
+      return send && (() => send.call(adapter, { execution, text }));
     }
     case 'execution.respond_to_approval': {
       const respond = adapter.respondToApproval;
@@ -1159,6 +1209,17 @@ function actionFor(
     default:
       return undefined;
   }
+}
+
+/** A failed check's lines for an agent (FX1), and the check they came from. */
+interface Checked {
+  readonly checkId: CheckId;
+  readonly output: CheckOutput;
+}
+
+/** The person's words, then, apart, the Mac's own check when there is one to give. */
+function withCheckOutput(words: string, checked: Checked | null): string {
+  return checked === null ? words : `${words}\n\n${checked.output.text}`;
 }
 
 function toExecutionContext(scope: CommandScope): ExecutionContext {

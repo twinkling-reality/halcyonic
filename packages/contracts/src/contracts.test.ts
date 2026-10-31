@@ -464,12 +464,13 @@ describe('the language-neutral schema document', () => {
     const text = renderSchemaDocument();
     assert.ok(text.includes('"$ref": "#/$defs/CommandEnvelope"'));
     // Repetition is checked directly; the bound only guards the document's growth (raised from
-    // 400,000 for M1.8b's check findings, which repeat nothing).
+    // 400,000 for M1.8b's check findings, which repeat nothing, and from 420,000 for FX1's
+    // execution.check_output_given, whose event envelope repeats as every event's does).
     assert.deepEqual(
       inlinedDefinitions(buildSchemaDocument() as { $defs: Record<string, unknown> }),
       [],
     );
-    assert.ok(text.length < 420_000, `document is ${text.length} bytes`);
+    assert.ok(text.length < 430_000, `document is ${text.length} bytes`);
   });
 });
 

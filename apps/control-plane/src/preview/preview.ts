@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { closeSync, constants, existsSync, openSync, readSync } from 'node:fs';
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
@@ -19,6 +19,7 @@ import type { Recorder } from '../core/recorder.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { Logger } from '../logger.ts';
 import { type CheckOptions, type CheckResult, runCheck, servesCopy } from './check.ts';
+import { type CheckOutput, checkOutput } from './check-output.ts';
 import {
   browserBinary,
   browserProblem,
@@ -517,6 +518,26 @@ export class HostPreviews {
     throw new Error('every preview port is in use');
   }
 
+  /**
+   * The first lines of the project's latest check where its type check or build failed, from the
+   * check's own folder, for the agent with the person's next instruction (FX1); null otherwise.
+   */
+  failedCheckOutput(projectId: ProjectId): { checkId: CheckId; output: CheckOutput } | null {
+    const check = this.#deps.projection.latestCheck(projectId);
+    const folder = this.#deps.projection.project(projectId)?.location?.path;
+    if (check === undefined || folder === undefined || check.findings.passed) return null;
+    const cache = this.#cache(projectId, check.check_id);
+    const output = checkOutput({
+      typecheck: { exit: check.findings.tsc.exit, log: readStart(join(cache, 'tsc.log')) },
+      build: { exit: check.findings.build.exit, log: readStart(join(cache, 'build.log')) },
+      projectFolder: folder,
+      cacheFolder: cache,
+      dataDir: this.#deps.dataDir,
+      home: this.#deps.home,
+    });
+    return output === null ? null : { checkId: check.check_id, output };
+  }
+
   #cache(projectId: ProjectId, checkId: CheckId): string {
     return join(this.#deps.dataDir, 'checks', projectId, checkId);
   }
@@ -610,5 +631,20 @@ async function stopRecorded(pid: number, checkId: string): Promise<void> {
     process.kill(pid, 'SIGTERM');
   } catch {
     // Gone already.
+  }
+}
+
+/** The first 64 KB of a file the host wrote, never through a link; null when it cannot be read. */
+function readStart(path: string): string | null {
+  let fd: number | undefined;
+  try {
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const buffer = Buffer.alloc(64 * 1024);
+    const read = readSync(fd, buffer, 0, buffer.length, 0);
+    return buffer.subarray(0, read).toString('utf8');
+  } catch {
+    return null;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
   }
 }
