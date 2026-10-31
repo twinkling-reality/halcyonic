@@ -1147,13 +1147,21 @@ namespace Halcyonic.XR.Workspace
             GetComponentsInChildren(false, curvedTargets);
             foreach (var target in curvedTargets)
             {
-                if (!target.IsRectangle || curvedBodies.Exists(body => body != null && target.transform.IsChildOf(body))) continue;
+                if (!target.IsRectangle || OnCurvedBody(target.transform)) continue;
                 if (on == null) { target.DrawOn(null, null); continue; }
                 // A target laid out a little in front of the plane or behind it is drawn that much nearer or farther round the eyes.
                 var depth = (Quaternion.Inverse(on.Facing) * (target.transform.position - on.Eyes)).z - on.Curve.Radius;
                 target.DrawOn(on, TargetCurve(on, on.Curve.Radius + depth));
             }
             targetsCurved = on != null;
+        }
+
+        /// <summary>Whether <paramref name="part"/> belongs to a body the curve stands whole; a loop, so a frame allocates nothing (ADR 0027).</summary>
+        private bool OnCurvedBody(Transform part)
+        {
+            for (var index = 0; index < curvedBodies.Count; index++)
+                if (curvedBodies[index] != null && part.IsChildOf(curvedBodies[index])) return true;
+            return false;
         }
 
         /// <summary>A vertical cylinder about the curve's axis, <paramref name="radius"/> from it, hit from inside at the wall ahead.</summary>
