@@ -12,8 +12,8 @@ namespace Halcyonic.Client
     /// </summary>
     public static class GalleryText
     {
-        /// <summary>The catalog's source as people see it, one name until the owner settles it.</summary>
-        public const string Source = "Phat Porcupine";
+        /// <summary>The catalog's source as people see it on the headset.</summary>
+        public const string Source = "Omnorium";
 
         /// <summary>Over every project a sample catalog holds, so none is taken for a real one.</summary>
         public const string SampleProjects = "Sample Projects";

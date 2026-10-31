@@ -486,7 +486,7 @@ in `KitMomentWords`; the gallery's title, newcomer line, shelves and finder are 
 
 The words of the gallery's core (`GalleryText`, [ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)),
 agreed with DESIGN on 2026-10-29 and put in the owner's voice standard on 2026-10-30. How the room lays them out is in
-"The room of projects". A project's state in the person's catalog is reported by Phat Porcupine, so its line never
+"The room of projects". A project's state in the person's catalog is reported by Omnorium (formerly Phat Porcupine), so its line never
 repeats a task's own words ("Needs You", "Checks Failed") and is marked Reported with the catalog's name: a reported
 state is never read as one Halcyonic observed. Names, owners, groups and pull request titles from the catalog lean, as
 words from outside do; these lines are Halcyonic's own.
@@ -517,16 +517,16 @@ it in a group.
 | Where a catalog project is, as far as Halcyonic knows | Not Linked · Possible Match · {a folder the computer matched by a rule, leaning} (Inferred, never a link) |
 | How old the catalog is, on the gallery's header line | Checked · Today 14:50; Checked · 27 Oct 09:05; Refresh Failed · Last · Today 14:50; Refresh Failed; Not Checked (a refresh that could not run, never a failed result) |
 | Over a sample or simulated catalog, kept apart from real projects | Sample Projects |
-| No catalog: not set up | Phat Porcupine · Not Set Up · Set Up on Computer |
-| No catalog: not running | Phat Porcupine · Not Running |
-| No catalog: still gathering | Phat Porcupine · Gathering · Refresh |
-| No catalog: credential refused | Phat Porcupine · Access Refused · Set Up Again |
-| No catalog: a version Halcyonic can't read | Phat Porcupine · Version Unsupported |
+| No catalog: not set up | Omnorium · Not Set Up · Set Up on Computer |
+| No catalog: not running | Omnorium · Not Running |
+| No catalog: still gathering | Omnorium · Gathering · Refresh |
+| No catalog: credential refused | Omnorium · Access Refused · Set Up Again |
+| No catalog: a version Halcyonic can't read | Omnorium · Version Unsupported |
 | No catalog: any other reason | Projects Unreadable · Refresh |
 | This headset's own read failed | Projects Unreadable · {why, as Help me understand says it; that sentence moves with the menu's words} |
 | No catalog in a recording (the demonstration, the judge build, a recorded run) | Not in Recording |
 
-The lines without a catalog that name Phat Porcupine appear only where a real control plane
+The lines without a catalog that name Omnorium appear only where a real control plane
 answered, never over sample projects or in a recording, so neither the judge build nor the
-competition video shows "Phat Porcupine" or "GitHub". "Phat Porcupine" is one
-constant (`GalleryText.Source`) until the owner settles the name.
+competition video shows "Omnorium" or "GitHub". "Omnorium" is one
+constant (`GalleryText.Source`), settled by the owner on 2026-10-31.

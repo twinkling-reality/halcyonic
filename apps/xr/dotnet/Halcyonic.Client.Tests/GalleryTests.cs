@@ -314,17 +314,17 @@ public class GalleryTests
         var cases = new (CatalogResponse Response, string Note)[]
         {
             (new UnavailableCatalog { Reason = new ErrorInfo { Code = "not_running", Message = "x" } },
-                "Phat Porcupine · Not Running"),
+                "Omnorium · Not Running"),
             (new UnavailableCatalog { Reason = new ErrorInfo { Code = "not_configured", Message = "x" } },
-                "Phat Porcupine · Not Set Up · Set Up on Computer"),
+                "Omnorium · Not Set Up · Set Up on Computer"),
             (new UnavailableCatalog { Reason = new ErrorInfo { Code = "not_ready", Message = "x" } },
-                "Phat Porcupine · Gathering · Refresh"),
+                "Omnorium · Gathering · Refresh"),
             (new UnavailableCatalog { Reason = new ErrorInfo { Code = "something_new", Message = "x" } },
                 "Projects Unreadable · Refresh"),
             (new UnauthorizedCatalog { Reason = new ErrorInfo { Code = "unauthorized", Message = "x" } },
-                "Phat Porcupine · Access Refused · Set Up Again"),
+                "Omnorium · Access Refused · Set Up Again"),
             (new IncompatibleCatalog { Reason = new ErrorInfo { Code = "unsupported_contract", Message = "x" } },
-                "Phat Porcupine · Version Unsupported"),
+                "Omnorium · Version Unsupported"),
         };
         foreach (var (response, note) in cases)
         {
