@@ -4,16 +4,16 @@ using System;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// The room's one panel material, the art direction's quiet glass (handoff 2026-10-30, section 1): an opaque face lit
-    /// from above that carries every word, a see-through rim round it that carries none, a light along the outer edge, a
-    /// faint glow, two soft shadows, and on a moment its state edge and the bloom of its arrival.
+    /// The room's one panel material, ART8's window glass (2026-10-31, at the floor-safe value the lead kept): one opaque face
+    /// over the whole panel, a grey gradient lightest at its top with a soft radial light there, one edge on its outer rim (a
+    /// top line of white at 30 percent and a ring of white at 6), and one soft shadow (ART8B); on a moment its state edge and the bloom of its arrival. No part is
+    /// see-through and nothing glows round it. The rim of the quiet glass is gone: its width stays as the words' inset.
     /// </summary>
     /// <remarks>
     /// The prototype composites in sRGB, as a browser does; Unity blends alpha in linear light, where the same alpha comes
-    /// out lighter. Layers over the opaque face are mixed in sRGB inside the shader, so they match exactly. Layers over the
-    /// room cannot match every room: each is solved for one reference room (<see cref="Solve"/>), the rim for the lit room
-    /// and the edge light for the dark room (handoff 7.3), and the render check reports how far the others drift. Every
-    /// value here is in dp at the eye (16 to the degree) or sRGB, and the shader repeats these formulas.
+    /// out lighter. Everything on the opaque face is mixed in sRGB inside the shader, so it matches exactly. Only the shadow
+    /// lies over the room: it is fitted for the lit room (<see cref="ShadowLinear"/>), and the render check reports how far
+    /// the others drift. Every value here is in dp at the eye (16 to the degree) or sRGB, and the shader repeats these formulas.
     /// </remarks>
     public static class KitGlassMaterial
     {
@@ -24,7 +24,7 @@ namespace Halcyonic.Client
 
         public static GlazeColor WhiteWall => GlazeColor.Hex(0xEEEEEE);
 
-        /// <summary>The see-through rim round a panel (the screen, a moment, the reader, the bar): no words stand on it.</summary>
+        /// <summary>How far a panel's words keep from its edge (the screen, a moment, the reader, the bar), in dp: the quiet glass's rim, now face.</summary>
         public const float RimDp = 10f;
 
         /// <summary>The rim round a tile and the character's tag.</summary>
@@ -33,28 +33,33 @@ namespace Halcyonic.Client
         /// <summary>The rim round the lost plate and the earlier moments' edge.</summary>
         public const float PlateRimDp = 8f;
 
-        /// <summary>The light along the outer edge, over the rim.</summary>
-        public const float EdgeDp = 2f;
-
-        /// <summary>The glow round the edge: a Gaussian of this blur, n7 at <see cref="GlowAlpha"/>. The first thing dropped for frame time.</summary>
+        /// <summary>The glow round the edge of the quiet glass: none in ART8's window. Kept at 0 so nothing lights the room round a panel.</summary>
         public const float GlowBlurDp = 18f;
 
-        public const double GlowAlpha = 0.10;
+        public const double GlowAlpha = 0;
 
-        /// <summary>The light from above just inside the face's top edge: white at <see cref="HighlightAlpha"/>.</summary>
+        /// <summary>The top line just inside the face's top edge: white at <see cref="HighlightAlpha"/>.</summary>
         public const float HighlightDp = 1f;
 
-        public const double HighlightAlpha = 0.06;
+        public const double HighlightAlpha = 0.30;
 
-        /// <summary>The far shadow: this far down, this blur, black at this alpha.</summary>
-        public const float ShadowDropDp = 12f, ShadowBlurDp = 34f;
+        /// <summary>The ring on the face's outer edge, all round, and only there (ART8B: no second frame inside it): 1 dp of white at this alpha.</summary>
+        public const float InnerEdgeDp = 1f;
 
-        public const double ShadowAlpha = 0.34;
+        public const double InnerEdgeAlpha = 0.06;
 
-        /// <summary>The near shadow, tight under the panel.</summary>
-        public const float ContactDropDp = 2f, ContactBlurDp = 6f;
+        /// <summary>The soft light at the face's top: white at this alpha at the top's middle, gone by <see cref="TopLightReach"/> of the height.</summary>
+        public const double TopLightAlpha = 0.10, TopLightReach = 0.60;
 
-        public const double ContactAlpha = 0.22;
+        /// <summary>The shadow: this far down, this blur, black at this alpha (ART8B's 0 18 40, 24 percent).</summary>
+        public const float ShadowDropDp = 18f, ShadowBlurDp = 40f;
+
+        public const double ShadowAlpha = 0.24;
+
+        /// <summary>The near shadow of the quiet glass: none in ART8's window.</summary>
+        public const float ContactDropDp = 0f, ContactBlurDp = 1f;
+
+        public const double ContactAlpha = 0;
 
         /// <summary>
         /// A moment's bloom at its peak: its tone over the face's top, fading out by <see cref="BloomReach"/> of the face's height.
@@ -108,25 +113,18 @@ namespace Halcyonic.Client
             internal static Stop Of(double at, double[] colour, double alpha) => new Stop(at, colour, alpha);
         }
 
-        /// <summary>The face: lit from above, n1 at 36 percent of its height. Opaque.</summary>
-        public static Stop[] Face { get; } = { new Stop(0, SpatialKit.FaceTop, 1), new Stop(0.36, SpatialKit.Carrier, 1), new Stop(1, SpatialKit.FaceBottom, 1) };
-
-        /// <summary>The rim, over the panel's whole height: n7 at 20 percent at the top, 7 at 28 percent, n1 at 42 at the bottom.</summary>
-        public static Stop[] Rim { get; } = { new Stop(0, SpatialKit.Text, 0.20), new Stop(0.28, SpatialKit.Text, 0.07), new Stop(1, SpatialKit.Carrier, 0.42) };
-
-        /// <summary>The edge light at rest: n7 at 78 percent at the top, 46 at 26 percent, 40 below.</summary>
-        public static Stop[] Edge { get; } = { new Stop(0, SpatialKit.Text, 0.78), new Stop(0.26, SpatialKit.Text, 0.46), new Stop(1, SpatialKit.Text, 0.40) };
+        /// <summary>The face: ART8's grey from its top to its foot, n1 at the middle. Opaque over the whole panel.</summary>
+        public static Stop[] Face { get; } = { new Stop(0, SpatialKit.FaceTop, 1), new Stop(0.5, SpatialKit.Carrier, 1), new Stop(1, SpatialKit.FaceBottom, 1) };
 
         /// <summary>
-        /// A moment's state edge: the edge's top in its tone, through the tone mixed 60 percent in OKLab with n7 at 40, to
-        /// the neutral edge by 62 percent. The words of the moment say the same state; the light never stands alone.
+        /// The face as the prototype draws it at <paramref name="t"/> of its height from the top, <paramref name="across"/> of
+        /// its half width from its middle (0 to 1): the gradient, then the soft top light, both mixed in sRGB.
         /// </summary>
-        public static Stop[] StateEdge(GlazeColor tone)
+        public static double[] LitFace(double t, double across = 0)
         {
-            var toneStop = new Stop(0, tone, 1);
-            var neutral = new Stop(0, SpatialKit.Text, 0.40);
-            var (mixed, alpha) = MixOklab(toneStop.Colour, 1, neutral.Colour, 0.40, 0.60);
-            return new[] { toneStop, Stop.Of(0.30, mixed, alpha), Stop.Of(0.62, neutral.Colour, 0.40), Stop.Of(1, neutral.Colour, 0.40) };
+            var (face, _) = At(Face, t);
+            var reach = Math.Sqrt(across * across * 0.25 + Math.Pow(t / TopLightReach, 2));
+            return Prototype(new double[] { 1, 1, 1 }, TopLightAlpha * Math.Max(0, 1 - reach), ToColour(face));
         }
 
         /// <summary>
@@ -181,7 +179,7 @@ namespace Halcyonic.Client
             return Drawn((linear, linearAlpha), ground);
         }
 
-        /// <summary>A solved layer (<see cref="Solve"/>) as Unity draws it over <paramref name="ground"/>, back in sRGB.</summary>
+        /// <summary>A layer already in linear light as Unity draws it over <paramref name="ground"/>, back in sRGB.</summary>
         public static double[] Drawn((double[] Linear, double Alpha) layer, GlazeColor ground)
         {
             var g = Channels(ground);
@@ -189,35 +187,6 @@ namespace Halcyonic.Client
             for (var c = 0; c < 3; c++) blended[c] = Encode(layer.Alpha * layer.Linear[c] + (1 - layer.Alpha) * Decode(g[c]));
             return blended;
         }
-
-        /// <summary>
-        /// The layer Unity must draw, in linear light, so that its blend over <paramref name="ground"/> lands where the
-        /// prototype's sRGB blend of <paramref name="colour"/> at <paramref name="alpha"/> does: the alpha is the least-squares
-        /// fit across the three channels for the colour as authored; with <paramref name="nudge"/> the colour is then nudged
-        /// per channel so the blend lands exactly. A nudge toward a warm room tints the layer cool over every other room, so
-        /// the rim, which the room shows through, takes none (<see cref="RimNudge"/>). Over any other ground the layer drifts;
-        /// the render check reports how far.
-        /// </summary>
-        public static (double[] Linear, double Alpha) Solve(double[] colour, double alpha, GlazeColor ground, bool nudge = true)
-        {
-            var g = Channels(ground);
-            var target = Prototype(colour, alpha, ground);
-            double along = 0, length = 0;
-            for (var c = 0; c < 3; c++)
-            {
-                var span = Decode(colour[c]) - Decode(g[c]);
-                along += (Decode(target[c]) - Decode(g[c])) * span;
-                length += span * span;
-            }
-            var fitted = length < 1e-12 ? alpha : Math.Max(0, Math.Min(1, along / length));
-            var linear = new double[3];
-            for (var c = 0; c < 3; c++)
-                linear[c] = !nudge || fitted <= 1e-6 ? Decode(colour[c]) : Math.Max(0, Math.Min(1, (Decode(target[c]) - (1 - fitted) * Decode(g[c])) / fitted));
-            return (linear, fitted);
-        }
-
-        /// <summary>Whether the rim's colour is nudged toward its reference room: no, so it keeps no cast over any other (ART, 2026-10-30).</summary>
-        public const bool RimNudge = false;
 
         /// <summary>
         /// A shadow's alpha in linear light for its prototype <paramref name="alpha"/>: black over the lit room, fitted as
@@ -301,43 +270,5 @@ namespace Halcyonic.Client
         }
 
         private static byte ToByte(double c) => (byte)Math.Round(Math.Max(0, Math.Min(1, c)) * 255);
-
-        /// <summary>CSS color-mix in OKLab: <paramref name="share"/> of the first, premultiplied, as a browser mixes two colours with alpha.</summary>
-        private static (double[] Colour, double Alpha) MixOklab(double[] first, double firstAlpha, double[] second, double secondAlpha, double share)
-        {
-            var a = ToOklab(first);
-            var b = ToOklab(second);
-            var alpha = firstAlpha * share + secondAlpha * (1 - share);
-            var mixed = new double[3];
-            for (var c = 0; c < 3; c++) mixed[c] = (a[c] * firstAlpha * share + b[c] * secondAlpha * (1 - share)) / alpha;
-            return (FromOklab(mixed), alpha);
-        }
-
-        private static double[] ToOklab(double[] srgb)
-        {
-            var (r, g, b) = (Decode(srgb[0]), Decode(srgb[1]), Decode(srgb[2]));
-            var l = Math.Pow(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b, 1 / 3.0);
-            var m = Math.Pow(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b, 1 / 3.0);
-            var s = Math.Pow(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b, 1 / 3.0);
-            return new[]
-            {
-                0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
-                1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
-                0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
-            };
-        }
-
-        private static double[] FromOklab(double[] lab)
-        {
-            var l = Math.Pow(lab[0] + 0.3963377774 * lab[1] + 0.2158037573 * lab[2], 3);
-            var m = Math.Pow(lab[0] - 0.1055613458 * lab[1] - 0.0638541728 * lab[2], 3);
-            var s = Math.Pow(lab[0] - 0.0894841775 * lab[1] - 1.2914855480 * lab[2], 3);
-            return new[]
-            {
-                Encode(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
-                Encode(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
-                Encode(-0.0041960863 * l - 0.5034933500 * m + 1.1301676265 * s),
-            };
-        }
     }
 }

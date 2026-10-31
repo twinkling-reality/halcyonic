@@ -9,8 +9,8 @@ namespace Halcyonic.XR.UI
 {
     /// <summary>
     /// The spatial kit's type roles (<see cref="SpatialKit"/>). On the room's parts (<see cref="KitType.Create"/> with
-    /// <c>room</c>) each takes one of ART's six static faces (2026-10-30) and its own line pitch: Display in Archivo Expanded
-    /// Regular; Title in Archivo Expanded SemiBold; Body in Inter Regular, Strong in Inter SemiBold, Label in Inter Medium,
+    /// <c>room</c>) each takes one of ART's six static faces (2026-10-30) and its own line pitch: Display, Title and Strong in
+    /// Inter SemiBold (ART8's one family, 2026-10-31, each its own face), Body in Inter Regular, Label in Inter Medium,
     /// Mono in JetBrains Mono Regular. Identity and Heading are the instrument candidate's only. The instrument candidate (the workspace's spine,
     /// slate and rail, the overview, the presence) keeps the instrument face and Liberation Sans until the room replaces it.
     /// </summary>
@@ -31,13 +31,13 @@ namespace Halcyonic.XR.UI
         /// <summary>A fact beside a subject on the room's small surfaces (ADR 0040): 15 dp in Inter Medium.</summary>
         Label,
 
-        /// <summary>A picked project's name across its screen (ADR 0040): 48 dp in Archivo Expanded Regular, once a room.</summary>
+        /// <summary>A picked project's name across its screen (ADR 0040): 48 dp in Inter SemiBold, once a room.</summary>
         Display,
 
         /// <summary>Code, paths and commands, which are the runtime's: 16 dp in JetBrains Mono.</summary>
         Mono,
 
-        /// <summary>A moment's and the reader's title, Projects, the lost plate: 28 dp in Archivo Expanded SemiBold.</summary>
+        /// <summary>A moment's and the reader's title, Projects, the lost plate: 28 dp in Inter SemiBold.</summary>
         Title,
     }
 

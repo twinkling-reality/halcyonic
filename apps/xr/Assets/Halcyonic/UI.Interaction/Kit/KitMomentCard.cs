@@ -240,6 +240,14 @@ namespace Halcyonic.XR.UI
             _ => null,
         };
 
+        /// <summary>A sign's colour inside its ring: its tone lifted in its own hue, so it holds 4.5:1 on the face's lit top.</summary>
+        internal static GlazeColor? SignOf(KitMomentTone tone) => tone switch
+        {
+            KitMomentTone.Attention => SpatialKit.AttentionSign,
+            KitMomentTone.Failure => SpatialKit.FailureSign,
+            _ => (GlazeColor?)null,
+        };
+
         /// <summary>
         /// Whether <paramref name="action"/> is the one primary on a moment of <paramref name="tone"/>: the next sensible step
         /// (the handoff's answers): Run, Read Command or Try Build; Read Output only after a failure (ART's A3b review), so a
@@ -289,7 +297,7 @@ namespace Halcyonic.XR.UI
                 tone.fontSize = GlazeTokens.FontSize(iconEm);
                 tone.rectTransform.sizeDelta = new Vector2(iconEm, iconEm);
                 GlazeIcons.Show(tone, shownGlyph);
-                tone.color = disc ? KitType.Colour(SpatialKit.OnFill) : markColour;
+                tone.color = disc ? KitType.Colour(SpatialKit.Well) : markColour;
                 tone.transform.localPosition = new Vector3(left + markSize / 2f, y - markSize / 2f, -0.0006f);
             }
             var shownSymbol = ToneSymbol(moment.Tone);
@@ -301,7 +309,7 @@ namespace Halcyonic.XR.UI
                 symbol.rectTransform.sizeDelta = new Vector2(markSize, markSize);
                 symbol.ForceMeshUpdate(true);
                 if (symbol.isTextTruncated) cut.Add("mark sign");
-                symbol.color = disc ? KitType.Colour(SpatialKit.OnFill) : markColour;
+                symbol.color = disc ? KitType.Colour(SpatialKit.Well) : KitType.Colour(SignOf(moment.Tone) ?? toneColour ?? SpatialKit.TextSecondary);
                 symbol.transform.localPosition = new Vector3(left + markSize / 2f, y - markSize / 2f, -0.0006f);
             }
             var eyebrowLeft = left + markSize + Dp(SpatialKit.MarkGapDp);

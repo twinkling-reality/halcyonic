@@ -35,31 +35,37 @@ below are the accepted storyboard's; the client core will hold them (`SpatialKit
 | Compact | Beside the other app, on the existing route | About 20 by 10 |
 
 **Colour.** Opaque carriers only; words never sit on the room. Contrast is measured as a WCAG ratio. The ramp is the
-art direction's ("Quiet glass, living light", the owner's yes on 2026-10-30): eight neutral steps on one cool hue.
+approved window glass (2026-10-31, at the floor-safe value: 0.6 of the reference's grey so white words hold 6.5:1 on
+its lit top): eight neutral steps on one grey, white words, one blue for the one primary, and colour only where it
+carries meaning. The figure (`KitFigureLook`) keeps its own neutral and state tones (`#DADDE0`, `#A0A5AC`, `#767B82`,
+`#59CFF1`, `#FABA59`, `#69D98D`, `#F7857D`) so word colours change without changing a figure's eyes.
 
 | Step | Value | For |
 | --- | --- | --- |
-| n0 | #1B1E22 | A well (a command, code), the empty screen; the primary capsule's word, and its band when pointed (12.3 on n7) |
-| n1 | #21252A | Every face with words, lit from above: #262A30 at its top, #1E2226 at its foot |
-| n2 | #2B2F35 | Raised: a chip, the stacked edge, a poster's centre |
-| n3 | #363B41 | A button's pressed fill. The kit's step: the art direction's #3A3F45 leaves tertiary words at 4.29 and red at 4.35 on it, so the kit takes OKLCH 0.35. #3A3F45 raises the switch's thumb, which carries only primary and secondary words |
-| n4 | #767B82 | A locked answer's ring, a hairline, the dotted gutter. The kit's step: the art direction's #6D7279 leaves a locked ring at 2.98 on a face's lit top and 2.78 on n2, so the kit lifts it on the same hue |
-| n5 | #A0A5AC | Tertiary words: a time, a count, Reported |
-| n6 | #BABEC4 | Secondary words; every answer word at rest; the primary pressed |
-| n7 | #DADDE0 | Primary words; the one primary's fill: the primary is light, not colour |
-| Live | #59CFF1 | An agent running; the one accent, never a button's fill |
-| Needs | #FABA59 | Needs you: a question, an approval |
-| Failed | #F7857D | Failed, failing checks included |
+| n0 | #2A2D30 | A well (a command, code), the empty screen |
+| n1 | #424549 | Every face with words, lit from above: #494C50 at its top, #3B3E42 at its foot |
+| n2 | #46494D | Raised: a chip, the stacked edge, a poster's centre |
+| n3 | #4B4E52 | A secondary capsule's resting fill; #45484C raises the switch's thumb, which carries only primary and secondary words |
+| n4 | #97999B | A locked answer's ring, a hairline, the dotted gutter (3.17 on n2, 3.37 on n1) |
+| n5 | #DBDCDC | Tertiary words: a time, a count, Reported (white at 78 percent) |
+| n6 | #E1E2E3 | Secondary words (white at 82 percent) |
+| n7 | #FFFFFF | Primary words, and the primary capsule's word (`OnFill`) |
+| Primary | #006ADB | The one primary capsule's fill (5.14 under n7), pressed #0058B8 (6.80), with a top line of white at 35 percent |
+| Live | #7ADCF7 | An agent running; the one accent, lifted from #59CFF1 to hold 4.5:1 on every grey step, never a button's fill |
+| Needs | #FABA59 | Needs you: a question, an approval; #FFC164 (`AttentionSign`) for a question's "?" sign inside its ring |
+| Failed | #FFAAA3 | Failed, failing checks included, lifted from #F7857D for the grey ramp; #FFBBB4 (`FailureSign`) for a failure's "!" sign inside its ring |
 | Passed | #69D98D | Passed, checked by your computer; added lines from a checkpoint diff, on the band #1B3324 |
 
-Measured on n1: n7 11.3, n6 8.3, n5 6.2, live 8.5, needs 9.0, failed 6.3, passed 8.7; every word at least 4.56 on n3
-and 5.8 across the face's light; n0 on n7 12.3 and on n6 9.0; n4 at least 3.16 on every surface a locked ring sits on, n1 3.61 (a boundary, WCAG's 3:1 for
-non-text); the thumb against its n0 track 1.57; n1 against a bright wall 11.6. No step is darker than #1A1A1A, the
-darkest the display separates. State colour only on the character's own light and the moment that carries it; every
-state a glyph and words as well as a tone.
+Measured on n1: n7 9.6, n6 7.4, n5 7.0, live 6.2, needs 5.6, failed 5.3, passed 5.5; every word at least 6.1 on n3
+and 4.74 across the face's lit top (n7 6.52); a question's "?" sign (`#FFC164`) 4.52 and a failure's "!" sign (`#FFBBB4`)
+4.50 on the lit top beside the mark, each lifted in its own hue; n7 on the primary 5.14 and on the pressed primary 6.80;
+n4 at least 3.17 on every surface a locked ring sits on, n1 3.37 (a boundary, WCAG's 3:1 for non-text); the thumb against
+its n0 track 1.51. No step is darker than #1A1A1A, the darkest the display separates. State colour only on the character's
+own light and the moment that carries it; every state a glyph and words as well as a tone.
 
-**Type.** Six static cuts, all SIL OFL 1.1 (`NOTICE`, [the fonts note](../validation/fonts-2026-10-30.md)), built by
-`KitFontAtlas` into static atlases with Liberation Sans as their fallback. `KitType` gives each role its face and
+**Type.** Six static faces, all SIL OFL 1.1 (`NOTICE`, [the fonts note](../validation/fonts-2026-10-30.md)), built by
+`KitFontAtlas` into static atlases (each role its own asset so a role is still found by its face) with Liberation Sans as
+their fallback. `KitType` gives each role its face and
 tracking, and its own line pitch, on the room's parts only: a label made with `room` (the screen, its bar, a moment card, and the reader, gallery
 and tag as they land) takes its face and keeps it as it is sized again. The instrument candidate (the workspace's spine,
 slate and rail, the overview, the presence) keeps Rajdhani Medium and Liberation Sans until the room replaces it, as the
@@ -68,8 +74,8 @@ its run, so who said it is still known to every check. Larger multiplies by 1.15
 
 | Role | Face | dp | Degrees | Tracking | Line | For |
 | --- | --- | --- | --- | --- | --- | --- |
-| Display | Archivo Expanded Regular | 48 | 3.0 | -1% | 1.06 | A project's name on its empty screen; a tile's initials at 34 |
-| Title | Archivo Expanded SemiBold | 28 | 1.75 | -0.5% | 1.18 | A moment's subject and the reader's title, the screen's chip, Projects, the lost plate |
+| Display | Inter SemiBold | 48 | 3.0 | -1% | 1.06 | A project's name on its empty screen; a tile's initials at 34 |
+| Title | Inter SemiBold | 28 | 1.75 | -0.5% | 1.18 | A moment's subject and the reader's title, the screen's chip, Projects, the lost plate |
 | Body | Inter Regular | 18 | 1.125 | 0 | 1.40 | Everything read; answer words |
 | Strong | Inter SemiBold | 18 | 1.125 | 0 | 1.30 | Names; the primary capsule's word |
 | Label | Inter Medium | 15 | 0.9375 | +0.5% | 1.30 | Metadata lines, eyebrows, tile lines |
@@ -78,48 +84,45 @@ its run, so who said it is still known to every check. Larger multiplies by 1.15
 The screen's two-letter mark is in Display's face at its own size. Identity (30 dp) and Heading (22 dp) are the instrument
 candidate's only, in its own face and a 1.2 line pitch; no part of the room uses them.
 
-**Material.** The room's panels are one quiet glass (`KitGlassMaterial` in the client core, `KitGlass` and the
-`Halcyonic/Kit Glass` shader in the Unity layer; `KitCarrier.DrawGlass` draws a carrier in it): an opaque face lit from
-above (#262A30, n1 at 36 percent, #1E2226) that carries every word; a see-through rim round it, 10 dp on a panel, 8 on
-the lost plate and the earlier edge, 6 on a tile and the tag, that carries no word, ring or line; a 2 dp light along the
-outer edge; a faint 18 dp glow; a 1 dp highlight inside the face's top; two soft shadows; and on a moment its state edge
-and the bloom of its arrival, both said in the moment's words too and never standing for progress. One pass, no
-textures, no blur; the glow is the first thing dropped for frame time. The quad reaches 51 dp past the panel's sides,
-39 above and 63 below, so the glass fills 1.34 times the screen's area and more on smaller panels; the kit render
-reports each part's cost.
+**Material.** The room's panels are one window glass (`KitGlassMaterial` in the client core, `KitGlass` and the
+`Halcyonic/Kit Glass` shader in the Unity layer; `KitCarrier.DrawGlass` draws a carrier in it): one opaque face over the
+whole panel (`#494C50`, n1 at the middle, `#3B3E42`) with a soft radial top light of white at 10 percent reaching 60 percent
+of the height, carrying every word (inset 10 dp on a panel, 8 on the lost plate and the earlier edge, 6 on a tile and the
+tag, where the quiet glass's rim stood; no part is see-through and nothing glows round it); a 1 dp ring of white at 6
+percent on the outer edge and a 1 dp top line of white at 30 percent; one soft shadow (18 dp down, 40 dp blur, black at
+24 percent); and on a moment the bloom of its arrival, said in the moment's words too and never standing for progress.
+One pass, no textures, no blur. The quad reaches 60 dp past the panel's sides, 42 above and 78 below, so the glass fills
+about 1.6 times the screen's area and more on smaller panels; the kit render reports each part's cost.
 
-The prototype blends in sRGB and Unity in linear light, so a layer over the room lands exactly on one room only: the rim
-is solved for the lit room (#B9AE9E) and the edge for the dark room (#1E1C1A), where it keeps 3:1. Over the other rooms
-the glass drifts as measured: the rim up to 37/255 lighter over the dark room, the edge up to 13 off over the lit room and
-24 over the white wall. In the dark room the edge stays a line of its own over the rim beside it, at least 1.4:1 (2.36 at
-worst, where the prototype holds 3.1). Layers over the face mix in sRGB inside the shader and match exactly. The bloom peaks at 11
-percent, not the art direction's 14, so tertiary words keep 4.5:1 on the face's lit top (at 14 they fall to 4.26).
+Everything on the opaque face mixes in sRGB inside the shader and matches the prototype over every room. Only the shadow
+lies over the room: it is fitted for linear light over the lit room (`#B9AE9E`), and the render check reports how far the
+other rooms drift. The bloom peaks at 11 percent, not 14, so tertiary words keep 4.5:1 on the face's lit top.
 
-**Answers.** One style everywhere an answer stands (`KitButton`): every answer 60 dp tall and at least 60 wide, 12 apart.
-The one primary is a capsule of light, n7 with its word in Body Strong n0, 28 dp in at either side; pointed, 2.5 percent
-larger with a 3 dp ring outside it, n7 at 45 percent over n1 drawn as that composite (#74787C: 3.26 to 3.51 to 1 on the
-faces it stands on); pressed, n6 at 97 percent. Every other answer is its word (`KitButtonRole.Word`): no shape at rest,
-Body Strong n6, 18 dp in; pointed, a capsule of white at 10 percent over n1 (#373B3F) with a 2 dp ring of n7 at 22
-percent and the word in n7; pressed, white at 16 percent (#45484C). These washes and rings stand over the opaque face, so
-they are drawn as the prototype's own composites, opaque: blended in linear light the 16 percent wash would take n7 to
-3.3 to 1. A locked answer keeps a 2 dp n4 ring round its n5 word, its reason being its word. The bar's other buttons keep
-their raised and outlined looks until the bar is rebuilt.
+**Answers.** One style everywhere an answer stands (`KitButton`): every answer a capsule 60 dp tall and at least 60 wide,
+12 apart. The one primary is the blue capsule (`#006ADB` with a line of white at 35 percent over its fill, its word in
+Body Strong n7, 28 dp in at either side; pointed, 3 percent larger with a 3 dp ring outside it, n7 at 45 percent over n1
+drawn opaque, at least 3:1 on every face it stands on; pressed, `#0058B8` at 97 percent). Every other answer is a grey
+capsule (`KitButtonRole.Word`, `Secondary`: n3 `#4B4E52` at rest, Body Strong n7, 18 dp in; pointed, 3 percent larger,
+white at 14 percent over n1 with a 2 dp ring of n7 at 22 percent; pressed, white at 20 percent over n1 at 97 percent),
+drawn opaque as the prototype's composites. `KitButtonRole.Round` is a round 60 dp grey button carrying its glyph alone at
+its centre, its word staying its name. A locked answer keeps a 2 dp n4 ring round its n5 word, its reason being its word.
+The bar's other buttons keep their raised and outlined looks until the bar is rebuilt.
 
-**The moment card.** 368 dp of quiet glass (rim 10, the moment's tone on its edge, said in its words), in reading order:
-the eyebrow (a 20 dp mark, a ring for the runtime's report and a disc for what the computer saw, its glyph in the tone
-where one stands, then who says it in Label n6); the Title 10 dp below, in Title, at most two lines; the metadata line in
+**The moment card.** 368 dp of window glass (inset 10, the moment's tone blooming on arrival, said in its words), in reading order:
+the eyebrow (a 20 dp mark, a ring for the runtime's report and a disc for what the computer saw, its glyph in `#FFC164` for
+"?" or `#FFBBB4` for "!" inside a ring and n0 on a disc, then who says it in Label n6); the Title 10 dp below, in Title, at most two lines; the metadata line in
 Label n6, its segments joined by " · ", a path or a name of theirs in their monospace; or the runtime's own prose in Body;
 a command of theirs in a well 14 dp below (`KitWell`: Mono n7 on n0, radius 12, padding 12 by 14, cut after two lines with
 the last fading and "Cut · {n} More Lines" in Label n5 beneath); the risk line 12 dp below in Body n6; the answers 16 dp
-below, the primary at full width, then the words in a row. The earlier moments stand as one edge of the same glass, 28 dp
-narrower, rising 36 dp above the card, rim 8; their count stands at the eyebrow's end in Label n5 (on the edge, that high above a tall
+below, the primary at full width, then the grey capsules in a row. The earlier moments stand as one edge of the same glass, 28 dp
+narrower, rising 36 dp above the card, inset 8; their count stands at the eyebrow's end in Label n5 (on the edge, that high above a tall
 card, Label read under the 14 dp floor). No locked answer stands in the card's
 top 40 percent, where the bloom peaks. The render names any part that does not read whole.
 
 **The reading surface.** A command of theirs is read whole before it can run (`KitReader`, `KitReading`): 704 by 528 dp of
-the same glass (44 by 33 degrees from the eyes), its question's tone on the edge; the head as the card's (the mark, a ring
-with the question's "?", then the eyebrow in Body, since at the reader's far corner Label would read under the floor, then
-the Title) with Fold as a word at its top right; the well inset 14 dp, from 96 dp below the top to 84 above the bottom, n0,
+the same glass (44 by 33 degrees from the eyes); the head as the card's (the mark, a ring
+with the question's "?" in `#FFC164`, then the eyebrow in Body, since at the reader's far corner Label would read under the floor, then
+the Title) with Fold at its top right; the well inset 14 dp, from 96 dp below the top to 84 above the bottom, n0,
 radius 12, padded 14 by 18, showing the command in their monospace by rows (comments n5, the rest n7). A line wraps only at
 its spaces; a token alone longer than a row breaks inside, after a "/", "?", "&", "=", ",", ";" or ":" where one fits and
 otherwise where the row ends, never after a "-", so never between "--" and its name. A wrapped row hangs two characters in,
@@ -129,8 +132,8 @@ through to its last row like any other. The rows run to the well's foot. At an e
 stands half-shown under a 24 dp fade, from 0.95 of the well at its edge to 0.12, its letters fading toward the edge, and it
 does not count as read. "End of Command · " and what answering may do, in Label n6, is the content's last part, scrolled
 into view after the command's last row like any other row, so nothing reflows when the end arrives. Its foot stands fixed from the first frame, 12 dp above the bottom: Run's 240 dp slot, then Decline and Reply,
-12 apart. The slot is the locked "Read to End", filled from its left in #3B3F43 as far as the command has been read, with
-its word in n6 while the fill stands under it (n5 over the fill reads 4.25:1), and becomes Run only once the last row of
+12 apart. The slot is the locked "Read to End", filled from its left in n7 at 14 percent over n1 (`#5C5F63`) as far as the command has been read, with
+its word in n6 while the fill stands under it, and becomes Run only once the last row of
 the last line has been shown; scrolling back never locks it again. The unlock sounds the Moment cue where its owner gives
 the reader a player.
 

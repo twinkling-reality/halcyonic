@@ -6,14 +6,14 @@ using UnityEngine.Rendering;
 namespace Halcyonic.XR.UI
 {
     /// <summary>
-    /// One panel of the room in the art direction's quiet glass (<see cref="KitGlassMaterial"/>; shader Halcyonic/Kit Glass):
-    /// an opaque face that carries the panel's words, a see-through rim that carries none, the light along its edge, a faint
-    /// glow, two soft shadows, and on a moment its state edge and bloom. It draws on one quad that reaches past the panel by
-    /// the far shadow's blur, so its fill costs <see cref="Overdraw"/> times the panel's area; the glow can be turned off
-    /// first if a frame runs long. Flat only: it does not bend onto the instrument's curve.
+    /// One panel of the room in ART8's window glass (<see cref="KitGlassMaterial"/>; shader Halcyonic/Kit Glass): an opaque
+    /// grey face over the whole panel that carries its words, lit softly from the top, with an inner edge and a top line of
+    /// white, one deep soft shadow, and on a moment its bloom. It draws on one quad that reaches past the panel by the
+    /// shadow's blur, so its fill costs <see cref="Overdraw"/> times the panel's area. Flat only: it does not bend onto the
+    /// instrument's curve.
     /// </summary>
     /// <remarks>
-    /// The state light (the edge in the tone, the bloom) is drawn only where the panel's words say the same state, and it
+    /// The state light (the bloom) is drawn only where the panel's words say the same state, and it
     /// never stands for progress: a moment's arrival lights it once, and nothing here animates it on its own.
     /// </remarks>
     public sealed class KitGlass : MonoBehaviour
@@ -23,7 +23,6 @@ namespace Halcyonic.XR.UI
         private static readonly int PanelId = Shader.PropertyToID("_Panel");
         private static readonly int QuadId = Shader.PropertyToID("_Quad");
         private static readonly int ToneId = Shader.PropertyToID("_Tone");
-        private static readonly int ToneMidId = Shader.PropertyToID("_ToneMid");
         private static readonly int LightId = Shader.PropertyToID("_Light");
 
         private static Material? material;
@@ -33,26 +32,27 @@ namespace Halcyonic.XR.UI
         private MaterialPropertyBlock block = null!;
         private float opacity = 1f;
 
-        /// <summary>The panel's outer size and corner radius, in its parent's units: the rim is inside them.</summary>
+        /// <summary>The panel's outer size and corner radius, in its parent's units.</summary>
         public Vector2 Size { get; private set; }
 
         public float Radius { get; private set; }
 
-        /// <summary>The rim's width in dp: <see cref="KitGlassMaterial.RimDp"/>, or the small and plate rims.</summary>
+        /// <summary>The words' inset from the edge in dp: <see cref="KitGlassMaterial.RimDp"/>, or the small and plate insets.</summary>
         public float RimDp { get; private set; }
 
-        /// <summary>The tone lighting the edge and blooming the face, or none at rest.</summary>
+        /// <summary>The tone blooming the face, or none at rest.</summary>
         public GlazeColor? Tone { get; private set; }
 
         /// <summary>How far the bloom stands, 0 to 1 of its peak.</summary>
         public float Bloom { get; private set; }
 
+        /// <summary>Whether its caller asked for the quiet glass's glow: ART8's window has none, so it draws nothing.</summary>
         public bool Glow { get; private set; } = true;
 
         /// <summary>The quad's area over the panel's: what the shadow and the glow cost in fill.</summary>
         public double Overdraw { get; private set; }
 
-        /// <summary>The face's size inside the rim, in the parent's units: where words may stand.</summary>
+        /// <summary>The face's size inside the words' inset, in the parent's units: where words may stand.</summary>
         public Vector2 FaceSize => Size - 2f * Units(RimDp) * Vector2.one;
 
         /// <summary>One dp, in units of the distance from the eyes.</summary>
@@ -101,17 +101,7 @@ namespace Halcyonic.XR.UI
             transform.localPosition = new Vector3(0f, (top - bottom) / 2f * unit, transform.localPosition.z);
             block.SetVector(PanelId, new Vector4(width, height, radius / unit, rimDp));
             block.SetVector(QuadId, new Vector4(-width / 2f - side, -height / 2f - bottom, quadSize.x, quadSize.y));
-            if (tone is GlazeColor shown)
-            {
-                var edge = KitGlassMaterial.StateEdge(shown);
-                block.SetVector(ToneId, new Vector4(shown.R / 255f, shown.G / 255f, shown.B / 255f, 1f));
-                block.SetVector(ToneMidId, new Vector4((float)edge[1].Colour[0], (float)edge[1].Colour[1], (float)edge[1].Colour[2], (float)edge[1].Alpha));
-            }
-            else
-            {
-                block.SetVector(ToneId, Vector4.zero);
-                block.SetVector(ToneMidId, Vector4.zero);
-            }
+            block.SetVector(ToneId, tone is GlazeColor shown ? new Vector4(shown.R / 255f, shown.G / 255f, shown.B / 255f, 1f) : Vector4.zero);
             block.SetVector(LightId, new Vector4(Bloom, glow ? 1f : 0f, opacity, 0f));
             glassRenderer.SetPropertyBlock(block);
             gameObject.SetActive(true);
@@ -152,20 +142,12 @@ namespace Halcyonic.XR.UI
                 // A copy carrying KitGlassMaterial's values, so the client core stays their one source.
                 material = new Material(loaded) { name = "Kit glass" };
                 Vector4 Srgb(GlazeColor c) => new Vector4(c.R / 255f, c.G / 255f, c.B / 255f, 0f);
-                material.SetVector("_N7", Srgb(SpatialKit.Text));
                 material.SetVector("_N1", Srgb(SpatialKit.Carrier));
                 material.SetVector("_FaceTop", Srgb(SpatialKit.FaceTop));
                 material.SetVector("_FaceBottom", Srgb(SpatialKit.FaceBottom));
-                var rim = KitGlassMaterial.Rim;
-                material.SetVector("_RimStops", new Vector4((float)rim[0].Alpha, (float)rim[1].Alpha, (float)rim[2].Alpha, (float)rim[1].At));
-                var edge = KitGlassMaterial.Edge;
-                material.SetVector("_EdgeStops", new Vector4((float)edge[0].Alpha, (float)edge[1].Alpha, (float)edge[2].Alpha, (float)edge[1].At));
-                material.SetVector("_LitRoom", Srgb(KitGlassMaterial.LitRoom));
-                material.SetVector("_DarkRoom", Srgb(KitGlassMaterial.DarkRoom));
+                material.SetVector("_Window", new Vector4((float)KitGlassMaterial.InnerEdgeAlpha, (float)KitGlassMaterial.TopLightAlpha, (float)KitGlassMaterial.TopLightReach, KitGlassMaterial.InnerEdgeDp));
                 material.SetVector("_Shadow", new Vector4(KitGlassMaterial.ShadowDropDp, KitGlassMaterial.ShadowBlurDp, (float)KitGlassMaterial.ShadowAlpha, (float)KitGlassMaterial.ShadowExponent));
-                material.SetVector("_Contact", new Vector4(KitGlassMaterial.ContactDropDp, KitGlassMaterial.ContactBlurDp, (float)KitGlassMaterial.ContactAlpha, 0f));
-                material.SetVector("_Glow", new Vector4(KitGlassMaterial.GlowBlurDp, (float)KitGlassMaterial.GlowAlpha, (float)KitGlassMaterial.GlowScale, (float)KitGlassMaterial.GlowPower));
-                material.SetVector("_Lights", new Vector4(KitGlassMaterial.EdgeDp, KitGlassMaterial.HighlightDp, (float)KitGlassMaterial.HighlightAlpha, (float)KitGlassMaterial.BloomReach));
+                material.SetVector("_Lights", new Vector4(0f, KitGlassMaterial.HighlightDp, (float)KitGlassMaterial.HighlightAlpha, (float)KitGlassMaterial.BloomReach));
                 material.SetFloat("_BloomPeak", (float)KitGlassMaterial.BloomPeak);
                 return material;
             }

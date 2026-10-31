@@ -18,6 +18,9 @@ namespace Halcyonic.XR.UI
         /// <summary>A local action that changes only what shows, such as Hide composer: its outline alone at rest.</summary>
         Quiet,
 
+        /// <summary>A round grey button of one target's size carrying its glyph alone, such as close or fold (ART8); its word stays its name.</summary>
+        Round,
+
         /// <summary>
         /// An answer that is its word alone (the art direction's handoff): no shape at rest, Body Strong in n6; pointed, a soft
         /// capsule with a quiet ring and the word in n7; pressed, a deeper capsule.
@@ -75,7 +78,7 @@ namespace Halcyonic.XR.UI
         public Surface ProgressFill => progress;
 
         /// <summary>The answers, the primary and a word, are capsules (the art direction's "one style everywhere").</summary>
-        private bool Capsule => role == KitButtonRole.Primary || role == KitButtonRole.Word;
+        private bool Capsule => role is KitButtonRole.Primary or KitButtonRole.Word or KitButtonRole.Secondary or KitButtonRole.Round;
 
         private float Pad => KitType.Units(role switch
         {
@@ -162,7 +165,8 @@ namespace Halcyonic.XR.UI
             Spent = false;
             KitType.Size(words, KitRole.Strong);
             GlazeText.SetLiteral(words, text);
-            size = new Vector2(Mathf.Max(width, Height), Height);
+            // A round button is one target across, its glyph alone at its centre; its word stays its name.
+            size = role == KitButtonRole.Round ? new Vector2(Height, Height) : new Vector2(Mathf.Max(width, Height), Height);
             var iconEm = KitType.Units(SpatialKit.IconDegrees * GlazeText.Scale);
             var iconRoom = glyph.HasValue ? iconEm + KitType.Scaled(GapDegrees) : 0f;
             var (_, wordsWidth, _) = KitType.Lay(words, size.x - 2f * Pad - iconRoom, 1);
@@ -176,6 +180,8 @@ namespace Halcyonic.XR.UI
                 icon.transform.localPosition = new Vector3(left + iconEm / 2f, 0f, -0.0005f);
             }
             words.transform.localPosition = new Vector3(left + iconRoom, 0f, -0.0005f);
+            words.gameObject.SetActive(role != KitButtonRole.Round);
+            if (role == KitButtonRole.Round && glyph.HasValue) icon.transform.localPosition = new Vector3(0f, 0f, -0.0005f);
             press.Resize(size);
             transform.localPosition = new Vector3(centre.x, centre.y, -KitType.Units(0.05f));
             if (changed) press.Unsettle();
@@ -226,27 +232,25 @@ namespace Halcyonic.XR.UI
                 switch (role)
                 {
                     case KitButtonRole.Primary:
-                        // The one primary is filled with light (ADR 0040 as amended 2026-10-30): n7, pressed to n6 and 97 percent,
-                        // its word in n0; pointed, 2.5 percent larger with a 3 dp ring outside it, 3:1 or more on every face (AUDIT's
-                        // A1C-S1). The accent is only for live work.
-                        fill = KitType.Colour(pressed ? SpatialKit.TextSecondary : SpatialKit.Text);
-                        edge = fill;
+                        // The one primary is ART8's blue capsule (ADR 0040 as amended 2026-10-31), deepened so its white word holds
+                        // the floor, pressed deeper, with a light line round it standing in for its inner top line (mine); pointed,
+                        // 3 percent larger with a 3 dp ring outside it, 3:1 or more on every face (AUDIT's A1C-S1).
+                        fill = KitType.Colour(pressed ? SpatialKit.PrimaryPressed : SpatialKit.PrimaryFill);
+                        edge = KitType.Colour(SpatialKit.PrimaryLine);
                         text = KitType.Colour(SpatialKit.OnFill);
                         ringShown = hovered && !pressed;
-                        scale = pressed ? 0.97f : hovered ? 1.025f : 1f;
+                        scale = pressed ? 0.97f : hovered ? 1.03f : 1f;
                         break;
                     case KitButtonRole.Word:
-                        fill = pressed ? KitType.Colour(SpatialKit.WordPressed) : hovered ? KitType.Colour(SpatialKit.WordPointed) : Color.clear;
-                        edge = hovered || pressed ? KitType.Colour(SpatialKit.WordRing) : Color.clear;
-                        edgeWidth = answerRing;
-                        text = hovered || pressed ? KitType.Text : KitType.Secondary;
-                        scale = pressed ? 0.97f : 1f;
-                        break;
                     case KitButtonRole.Secondary:
-                        // Its raised fill is its boundary; only a pointed one is framed.
-                        fill = KitType.Colour(pressed ? SpatialKit.Control : SpatialKit.Raised);
-                        edge = hovered ? Color.white : fill;
+                    case KitButtonRole.Round:
+                        // ART8's grey capsule: every answer is a shape, never a bare word (the owner, 2026-10-31); it brightens
+                        // pointed and further pressed, with a quiet ring when pointed.
+                        fill = KitType.Colour(pressed ? SpatialKit.WordPressed : hovered ? SpatialKit.WordPointed : SpatialKit.Control);
+                        edge = hovered || pressed ? KitType.Colour(SpatialKit.WordRing) : fill;
+                        edgeWidth = answerRing;
                         text = KitType.Text;
+                        scale = pressed ? 0.97f : hovered ? 1.03f : 1f;
                         break;
                     default:
                         fill = pressed ? KitType.Colour(SpatialKit.Raised) : Color.clear;

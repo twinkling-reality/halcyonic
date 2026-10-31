@@ -169,7 +169,7 @@ namespace Halcyonic.XR.UI
                 KitType.Size(symbol, KitRole.Strong);
                 GlazeText.SetLiteral(symbol, sign);
                 symbol.rectTransform.sizeDelta = new Vector2(markSize, markSize);
-                symbol.color = disc ? KitType.Colour(SpatialKit.OnFill) : markColour;
+                symbol.color = disc ? KitType.Colour(SpatialKit.Well) : KitType.Colour(KitMomentCard.SignOf(moment.Tone) ?? toneColour ?? SpatialKit.TextSecondary);
                 symbol.transform.localPosition = new Vector3(left + markSize / 2f, top - markSize / 2f, -0.0006f);
             }
             var eyebrowLeft = left + markSize + Scaled(SpatialKit.MarkGapDp);

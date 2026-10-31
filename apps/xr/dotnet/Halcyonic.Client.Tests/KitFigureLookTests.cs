@@ -56,15 +56,15 @@ public class KitFigureLookTests
     public void ThePassedLookOnlyWithTheComputersOwnPassedCheck()
     {
         var passed = KitFigureLook.Of(WorkState.FinishedThisRound, passedCheckObserved: true);
-        Assert.That((passed.Eyes, passed.Pool, passed.Happy, passed.Lids), Is.EqualTo((SpatialKit.Passed, (GlazeColor?)SpatialKit.Passed, true, 0.0)));
+        Assert.That((passed.Eyes, passed.Pool, passed.Happy, passed.Lids), Is.EqualTo((KitFigureLook.PassedTone, (GlazeColor?)KitFigureLook.PassedTone, true, 0.0)));
         var ended = KitFigureLook.Of(WorkState.FinishedThisRound, passedCheckObserved: false);
-        Assert.That(ended.Eyes, Is.Not.EqualTo(SpatialKit.Passed), "Round Ended alone is neutral");
+        Assert.That(ended.Eyes, Is.Not.EqualTo(KitFigureLook.PassedTone), "Round Ended alone is neutral");
         Assert.That(ended.Happy, Is.False);
         foreach (var state in States.Where(state => state != WorkState.FinishedThisRound))
         {
             // The check changes nothing else: Checking is the agent's report and never the passed look.
             Assert.That(KitFigureLook.Of(state, true), Is.EqualTo(KitFigureLook.Of(state, false)), state + " looks different with a passed check");
-            Assert.That(KitFigureLook.Of(state, true).Eyes, Is.Not.EqualTo(SpatialKit.Passed), state + " shows the passed eyes");
+            Assert.That(KitFigureLook.Of(state, true).Eyes, Is.Not.EqualTo(KitFigureLook.PassedTone), state + " shows the passed eyes");
             Assert.That(KitFigureLook.Of(state, true).Happy, Is.False, state + " shows happy eyes");
         }
     }
@@ -81,7 +81,7 @@ public class KitFigureLookTests
                 Assert.That(lost.FloatSpeed, Is.Zero);
                 Assert.That(lost.Pool, Is.Null, state + ": a pool while the computer is unreachable");
                 Assert.That(lost.PoolLevelShown, Is.Zero);
-                Assert.That((lost.Eyes, lost.Glow), Is.EqualTo((SpatialKit.Hairline, KitFigureLook.UnreachableGlowLevel)), state + ": eyes n4, glow low");
+                Assert.That((lost.Eyes, lost.Glow), Is.EqualTo((KitFigureLook.LostTone, KitFigureLook.UnreachableGlowLevel)), state + ": eyes n4, glow low");
                 Assert.That((lost.Lightness, lost.Saturation), Is.EqualTo((0.5, 0.3)), state + ": the body dimmed");
                 Assert.That((lost.Lids, lost.RiseM, lost.HeadRollDegrees), Is.EqualTo((last.Lids, last.RiseM, last.HeadRollDegrees)), state + ": the last pose held");
                 Assert.That(lost.Happy, Is.False);
