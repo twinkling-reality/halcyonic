@@ -165,6 +165,32 @@ public class CharacterLifeTests
         Assert.That(life.Look.Moves, Is.False);
     }
 
+    [TestCase(WorkState.Working)]
+    [TestCase(WorkState.CantTellYet)]
+    [TestCase(WorkState.FinishedThisRound)]
+    public void FirstShownWhileTheControlPlaneIsLostItHoldsTheJournalsStateNeverNotStarted(WorkState state)
+    {
+        var life = new CharacterLife("ws_a", KitFigureFeature.Crest);
+        life.Show(state, passedCheckThisRound: state == WorkState.FinishedThisRound, controlPlaneReachable: false);
+        Run(life, 1);
+        Assert.That(life.State, Is.EqualTo(state), "the state the journal last held, never one of its own");
+        Assert.That(life.Look, Is.EqualTo(KitFigureLook.Unreachable(KitFigureLook.Of(state, state == WorkState.FinishedThisRound))));
+        life.TakeSounds();
+        var lifts = new List<double>();
+        var happy = new List<bool>();
+        for (var t = 0.0; t < 3; t += Frame)
+        {
+            life.Show(state, passedCheckThisRound: state == WorkState.FinishedThisRound, controlPlaneReachable: true);
+            lifts.Add(life.Step(Frame).HopM);
+            happy.Add(life.Look.Happy);
+        }
+        Assert.That(lifts, Has.All.EqualTo(0.0), "a reconnect is not news");
+        Assert.That(happy, Has.All.False);
+        Assert.That(life.TakeSounds(), Does.Not.Contain(CharacterSound.Hop));
+        Assert.That(life.Look.Eyes, Is.EqualTo(KitFigureLook.Of(state, state == WorkState.FinishedThisRound).Eyes), "the state's own eyes once reachable");
+        Assert.That(life.Look.Moves, Is.EqualTo(KitFigureLook.Of(state, false).Moves));
+    }
+
     [Test]
     public void AnAgentAppLostIsUnknownAndKeepsItsCalmMotion()
     {

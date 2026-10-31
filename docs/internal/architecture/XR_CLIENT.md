@@ -2528,7 +2528,8 @@ size and the pool's breath, seeded by its Workstream so the same task moves the 
   Nothing sets `RoundStartedAt` yet and no live path makes the Ready moment, so the passed look does
   not show in the headset until both exist. Last Known comes only from the control plane lost (the
   presentation's `Stale`): the figure holds every value; a lost agent app is Status Unknown and
-  keeps moving. Nothing follows progress.
+  keeps moving. First shown while lost, `CharacterLife` itself holds the journal's state as Last
+  Known, never a Not Started of its own. Nothing follows progress.
 - Kept still (ADR 0027 item 6) floats, blinks, accents, wander, hops, meetings and turns stop; the
   eyes rest at their middle.
 - It leaves only in words: `PutAway` shows "Put Away" on its tag 1.2 s, nods, then folds and the tag

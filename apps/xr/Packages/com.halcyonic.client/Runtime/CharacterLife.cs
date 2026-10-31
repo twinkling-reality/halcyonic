@@ -240,13 +240,16 @@ namespace Halcyonic.Client
         /// <summary>
         /// Takes the journal's facts: its <paramref name="state"/>, the computer's own passed check observed for this round, and
         /// whether the control plane is reachable. Only the passed check arriving while shown and reachable brings the happy eyes
-        /// and the hop, never a first show or a reconnect.
+        /// and the hop, never a first show or a reconnect. A first show while the control plane is lost holds the given state as
+        /// Last Known.
         /// </summary>
         public void Show(WorkState state, bool passedCheckThisRound, bool controlPlaneReachable)
         {
             var passedNow = state == WorkState.FinishedThisRound && passedCheckThisRound;
             if (!controlPlaneReachable)
             {
+                // First shown while lost: it holds the state the journal last held, never a Not Started of its own.
+                if (!shown) Show(state, passedCheckThisRound, controlPlaneReachable: true);
                 if (reachable) frozen = false;
                 reachable = false;
                 afterLoss = true;
