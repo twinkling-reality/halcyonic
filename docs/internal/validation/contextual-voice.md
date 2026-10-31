@@ -28,7 +28,7 @@ evidence of documented behavior, not independent usability or reliability measur
   requirement for open-ended requests executed through tools, rather than a voice phrase catalogue.
   It does not establish a Halcyonic integration or permission to install, configure or run OpenClaw.
 
-## Historical source snapshot — 2026-10-12, before the workspace loop
+## Historical source snapshot (2026-10-12, before the workspace loop)
 
 `MenuVoice` binds one recording to the column that started it. Its captured delivery callback
 checks the recording generation and column identity. Leaving the column or losing focus drops
@@ -43,7 +43,7 @@ agent loop exists at this review. Its prompt explicitly says it cannot read, run
 and its transport submits no tools. Renaming or widening that ask/propose reply would not supply
 the missing execution loop.
 
-## Current implementation — 2026-10-15
+## Current implementation (2026-10-15)
 
 The historical snapshot above describes the earlier implementation, not the current product.
 The integrated journaled coordinator now consumes local model-selected tools within one selected

@@ -1247,7 +1247,7 @@ public class AnswerWordsTests
         foreach (var text in words)
         {
             Assert.That(text, Does.Not.Contain("!"));
-            Assert.That(text, Does.Not.Contain("—"));
+            Assert.That(text, Does.Not.Contain("\u2014"));
             Assert.That(text.Split(". ").Length, Is.LessThanOrEqualTo(2), "at most two short sentences");
         }
     }

@@ -512,7 +512,7 @@ all four original names, then passed with the renamed initializers. The same che
 the combined gate so this lifecycle failure cannot be hidden by successful geometry checks.
 
 
-### Independent reading objects and ordinary input — 2026-10-16
+### Independent reading objects and ordinary input (2026-10-16)
 
 The replacement composition was exercised through the actual Unity director, frame views, fonts,
 input targets and opaque backings in `ActivityComposerCheck`, at Standard and Larger text with

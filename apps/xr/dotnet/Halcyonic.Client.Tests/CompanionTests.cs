@@ -378,7 +378,7 @@ public class CompanionWordsTests
         };
         foreach (var words in all)
         {
-            Assert.That(words, Does.Not.Contain("—"), words);
+            Assert.That(words, Does.Not.Contain("\u2014"), words);
             Assert.That(words, Does.Not.Contain("!"), words);
             foreach (var brand in new[] { "Mac", "Ollama", "qwen", "OpenCode", "Codex", "Claude" })
                 Assert.That(words, Does.Not.Contain(brand), words);
@@ -764,7 +764,7 @@ public class TaskWarningsTests
         foreach (var note in new[] { TaskWarnings.WebAddress, TaskWarnings.Command })
         {
             Assert.That(note.All(character => character >= ' ' && character <= '~'), Is.True, "the review's own words are ASCII");
-            Assert.That(note, Does.Not.Contain("—"));
+            Assert.That(note, Does.Not.Contain("\u2014"));
         }
         var plain = new NewWorkReview("Race Times", "Race Times", "Codex", "a model", "on your computer", "ollama/m", "Make a page of race times.");
         Assert.That(plain.Items.Last().Label, Is.EqualTo("First Task · "));

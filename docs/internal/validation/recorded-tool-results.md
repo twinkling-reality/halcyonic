@@ -56,7 +56,7 @@ Main workspace presentation has its own client/render evidence. Actual Quest rea
 pause/return, pairing lifetime and full live edit→build→installed-app correspondence remain device
 or workflow acceptance gates; these checks do not claim them.
 
-## Explicit workspace reader reopening — 2026-10-15
+## Explicit workspace reader reopening (2026-10-15)
 
 The workspace now reuses a retained results reader on explicit Read results navigation only
 when its copied connection/journal/project/task/execution/runtime and API match. It preserves
@@ -79,7 +79,7 @@ identical in order and content. The legacy Results renderer applies a global des
 check to project identity titles below section labels; the spatial renderer already checks
 these as separate semantic groups. No hierarchy assertion was removed or weakened here.
 
-## Retained task selection — 2026-10-16
+## Retained task selection (2026-10-16)
 
 Selecting task A, then B, then A restores A's compatible in-memory results or workspace-request
 view. Explicit Back to task changes that preference. A forgotten owning file closes its visible

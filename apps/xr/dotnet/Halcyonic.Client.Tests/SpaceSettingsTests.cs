@@ -269,7 +269,7 @@ public class SpaceSettingsTests
                         var now = row.Read();
                         foreach (var words in new[] { row.Group, row.Name, now.Value, now.Now, now.Next, now.Does, now.Prompt, now.Reason ?? "" })
                         {
-                            Assert.That(words, Does.Not.Contain("—").And.Not.Contain("Mac"), row.Key);
+                            Assert.That(words, Does.Not.Contain("\u2014").And.Not.Contain("Mac"), row.Key);
                         }
                     }
                 }

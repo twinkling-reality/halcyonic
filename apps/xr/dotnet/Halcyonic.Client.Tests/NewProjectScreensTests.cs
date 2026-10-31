@@ -307,7 +307,7 @@ public class NewProjectScreensTests
                      EntryText.AnswerQuestions, EntryText.StartQuestions, EntryText.TypeMyOwn, CompanionText.ChooseOne, CompanionText.SuggestedShort, CompanionText.YourOwnWords,
                  })
         {
-            Assert.That(words, Does.Not.Contain("—").And.Not.Contain("!"), words);
+            Assert.That(words, Does.Not.Contain("\u2014").And.Not.Contain("!"), words);
             foreach (var brand in new[] { "Mac", "Ollama", "qwen", "OpenCode", "Codex", "Claude" })
                 Assert.That(words, Does.Not.Contain(brand), words);
         }
