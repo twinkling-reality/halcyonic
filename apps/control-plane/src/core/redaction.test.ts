@@ -69,6 +69,14 @@ describe('error text before it is journaled', () => {
       ['xoxb-1234567890-abcdefghij leaked', `${REDACTED} leaked`],
       ['glpat-AbCdEfGhIjKlMnOpQrSt was refused', `${REDACTED} was refused`],
       ['credential srkx_9f8e7d6c5b4a was refused', `credential ${REDACTED} was refused`],
+      [
+        'catalog omc_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa was refused',
+        `catalog ${REDACTED} was refused`,
+      ],
+      [
+        'catalog ppc_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa was refused',
+        `catalog ${REDACTED} was refused`,
+      ],
       ['device hlcd_AbCdEfGh0123456789IjKl is unknown', `device ${REDACTED} is unknown`],
       ['jwt eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0.SflKxwRJSMeKKF2QT4fwpM ok', `jwt ${REDACTED} ok`],
       ['random Zx9Yw8Vu7Ts6Rq5Po4Nm3Lk2Ji1Hg0Fe9Dc8 end', `random ${REDACTED} end`],
@@ -241,6 +249,8 @@ describe('error text before it is journaled', () => {
       'sk-ant-api03-AbCdEf0123456789',
       '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b',
       'glpat-AbCdEfGhIjKlMnOpQrSt',
+      'omc_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      'ppc_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     ];
     for (const value of credentials) assert.ok(looksLikeCredential(value), value);
     const plain = [
