@@ -45,7 +45,7 @@ namespace Halcyonic.XR.Workspace
         private readonly List<CharacterTarget> standing = new List<CharacterTarget>();
         private ControlPlaneConnection connection = null!;
         private CharacterStage? stage;
-        public WorkspacePresentationState Presentation { get; } = new WorkspacePresentationState();
+        public WorkspacePresentationState Presentation { get; } = new WorkspacePresentationState(keepAgentsWhenMinimized: true) { ContextualMomentsEnabled = true };
         public event Action<CharacterStage>? AgentStageCreated;
         private CommandFactory commands = null!;
         private PeekLabel peek = null!;
@@ -253,13 +253,18 @@ namespace Halcyonic.XR.Workspace
         public ConsoleExtent? ShelfConsole(Vector3 viewer) => menu != null ? menu.Plane.ConsoleExtentFrom(viewer) : null;
         public bool ReportLocal(string reason) => menu != null && !Presentation.Minimized && menu.ReportLocal(reason);
         public bool OpenLocal(IMenuColumn column) => menu != null && !Presentation.Minimized && menu.OpenLocal(column);
+        public bool InspectMoment(string workstreamId) => menu != null && menu.InspectMoment(workstreamId);
+        public bool CloseMoment() => menu != null && menu.CloseMoment();
+        public bool ShowProjectScreen(string projectId, bool barOpen = false) => menu != null && menu.ShowProjectScreen(projectId, barOpen);
+        public bool SetProjectScreenBarOpen(bool open) => menu != null && menu.SetProjectScreenBarOpen(open);
+        public bool CloseProjectScreen() => menu != null && menu.CloseProjectScreen();
         public IMenuHost? MenuHost => menu;
         private bool AgentVisible([NotNullWhen(true)] CharacterTarget? target) => Presentation.AgentsVisible && stage != null && stage.Visible
             && target != null && target.gameObject.activeInHierarchy;
         private void OnPresentationChanged()
         {
             overview = null;
-            if (Presentation.Minimized || !Presentation.AgentsVisible)
+            if (!Presentation.AgentsVisible)
             {
                 pointed = null;
                 facing = null;

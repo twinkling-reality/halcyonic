@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Halcyonic.Client;
+using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
 using Halcyonic.XR.UI.Editor;
 using TMPro;
@@ -99,6 +100,43 @@ namespace Halcyonic.XR.Workspace.Editor
                 plane.HideScreen();
                 if (plane.RoomScreen != null || plane.RoomBar != null || plane.ScreenPose != null)
                     failures.Add(name + ": the screen stayed after it was taken away");
+
+                var directorRoot = new GameObject("Room screen director witness");
+                directorRoot.transform.SetParent(root.transform, false);
+                var work = Work.Running();
+                var presentation = new WorkspacePresentationState(keepAgentsWhenMinimized: true);
+                var comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard };
+                var commands = new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" });
+                var look = Quaternion.Euler(0f, bearing, 0f) * Vector3.forward;
+                var director = MenuDirector.Create(directorRoot.transform, new MenuDirector.Setup
+                {
+                    Presentation = presentation,
+                    SpatialWorkspace = true,
+                    Commands = commands,
+                    Overview = () => WorkOverview.Of(work.State, new StageVisibility(), _ => true),
+                    Comfort = comfort,
+                    File = (host, _) => new FileColumn(host, () => work.Present(), commands, () => null, _ => null, () => ""),
+                    State = () => work.State,
+                    StageNow = () => new MenuDirector.Stage(eyes, look, new List<CharacterTarget>(), null, false),
+                    Bar = place => TasksColumn.Bar(place, work.State),
+                });
+                director.DrawNow();
+                if (director.Plane.RoomScreen != null)
+                    failures.Add(name + ": the director showed a project screen before it was summoned");
+                director.ShowProjectScreen(work.Workstream.ProjectId, open);
+                director.DrawNow();
+                if (director.Plane.RoomScreen == null || director.Plane.RoomBar == null || director.Plane.ScreenProjectId != work.Workstream.ProjectId)
+                    failures.Add(name + ": the director did not show the summoned project screen");
+                else if (open == director.Plane.RoomBar.Handle.gameObject.activeSelf)
+                    failures.Add(name + ": the director's project screen bar did not match the requested open state");
+                director.SetProjectScreenBarOpen(!open);
+                director.DrawNow();
+                if (director.Plane.RoomBar == null || (!open) == director.Plane.RoomBar.Handle.gameObject.activeSelf)
+                    failures.Add(name + ": the director did not toggle the project screen bar");
+                director.CloseProjectScreen();
+                director.DrawNow();
+                if (director.Plane.RoomScreen != null || director.Plane.RoomBar != null || director.Plane.ScreenProjectId != null)
+                    failures.Add(name + ": the director kept the project screen after it was closed");
             }
             finally
             {
@@ -299,6 +337,48 @@ namespace Halcyonic.XR.Workspace.Editor
                 UnityEngine.Object.DestroyImmediate(image);
                 plane.HideMoment();
                 if (plane.Moment != null || plane.MomentPose != null) failures.Add(name + ": the moment stayed after it was taken away");
+
+                var directorRoot = new GameObject("Room moment director witness");
+                directorRoot.transform.SetParent(root.transform, false);
+                var waitingWork = Work.Approval("npm install matter-js", "shell");
+                var presentation = new WorkspacePresentationState(keepAgentsWhenMinimized: true) { ContextualMomentsEnabled = true };
+                var comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard };
+                var commands = new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" });
+                var targets = new List<CharacterTarget> { target };
+                var director = MenuDirector.Create(directorRoot.transform, new MenuDirector.Setup
+                {
+                    Presentation = presentation,
+                    SpatialWorkspace = true,
+                    Commands = commands,
+                    Overview = () => WorkOverview.Of(waitingWork.State, new StageVisibility(), _ => true),
+                    Comfort = comfort,
+                    File = (host, _) => new FileColumn(host, () => waitingWork.Present(), commands, () => null, _ => null, () => ""),
+                    State = () => waitingWork.State,
+                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward,
+                        presentation.AgentsVisible ? targets : new List<CharacterTarget>(), null, false),
+                    CharacterOf = task => presentation.AgentsVisible && task == target.WorkstreamId ? target : null,
+                    Bar = place => TasksColumn.Bar(place, waitingWork.State),
+                });
+                presentation.SetAgentsEnabled(true);
+                director.DrawNow();
+                director.MinimizeWorkspace();
+                director.DrawNow();
+                if (!presentation.AgentsVisible || !view.gameObject.activeInHierarchy)
+                    failures.Add(name + ": minimizing the console hid the ambient character");
+                if (director.Plane.Moment == null || director.Plane.MomentWorkstreamId != waitingWork.Workstream.WorkstreamId)
+                    failures.Add(name + ": the contextual moment card did not appear beside the ambient character for a task needing attention");
+                director.CloseMoment();
+                director.DrawNow();
+                if (director.Plane.Moment != null)
+                    failures.Add(name + ": closing the contextual moment left the card in the room");
+                director.InspectMoment(waitingWork.Workstream.WorkstreamId);
+                director.DrawNow();
+                if (director.Plane.Moment == null || director.Plane.MomentWorkstreamId != waitingWork.Workstream.WorkstreamId)
+                    failures.Add(name + ": inspecting the character did not reopen its moment card");
+                director.OpenFile(waitingWork.Workstream.WorkstreamId);
+                director.DrawNow();
+                if (director.Plane.Moment != null || director.Plane.Showing(MenuColumn.File) == null)
+                    failures.Add(name + ": opening the task console from an inspected moment did not replace the moment card with the task console");
             }
             finally
             {

@@ -12,6 +12,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The task's moment beside its character or task mark (ADR 0040, rule 4), while one is shown.</summary>
         public KitMomentCard? Moment { get; private set; }
 
+        /// <summary>The workstream id whose moment is currently shown, or null.</summary>
+        public string? MomentWorkstreamId { get; private set; }
+
         /// <summary>Where <see cref="RoomLayout.MomentSlot"/> stood the moment, in the room's metres.</summary>
         public RoomPose? MomentPose { get; private set; }
 
@@ -25,7 +28,7 @@ namespace Halcyonic.XR.Workspace
         /// <paramref name="lookBearing"/>, <see cref="SpatialKit.MomentDegrees"/> wide, as high as the card's words need,
         /// scaled by its true distance. The kit draws and pops the card; this only stands it.
         /// </summary>
-        public void ShowMoment(KitMomentSlot slot, Vector3 eyes, float lookBearing, Vector3 anchor, float anchorHalfDegrees)
+        public void ShowMoment(KitMomentSlot slot, Vector3 eyes, float lookBearing, Vector3 anchor, float anchorHalfDegrees, string? workstreamId = null)
         {
             if (momentHolder == null)
             {
@@ -39,7 +42,7 @@ namespace Halcyonic.XR.Workspace
             Moment.Show(slot);
             if (!Moment.gameObject.activeSelf)
             {
-                (MomentPose, MomentGrowsTowardAnchor) = (null, false);
+                (MomentWorkstreamId, MomentPose, MomentGrowsTowardAnchor) = (null, null, false);
                 return;
             }
             // Measured whole: the card lays out in units of its distance and grows from its corner by its own scale.
@@ -55,6 +58,7 @@ namespace Halcyonic.XR.Workspace
             Moment.transform.localPosition = -momentHolder.InverseTransformPoint(Moment.Carrier.Face.transform.position);
             Stand(momentHolder, pose, pose.Width / Moment.Size.x);
             MomentGrowsTowardAnchor = Mathf.DeltaAngle(pose.Bearing, anchorBearing) < 0f == Moment.GrowsFromLeft;
+            MomentWorkstreamId = workstreamId;
             MomentPose = pose;
             Moment.Pop(popped);
         }
@@ -68,7 +72,7 @@ namespace Halcyonic.XR.Workspace
                 if (Application.isPlaying) Destroy(momentHolder.gameObject);
                 else DestroyImmediate(momentHolder.gameObject);
             }
-            (momentHolder, Moment, MomentPose, MomentGrowsTowardAnchor) = (null, null, null, false);
+            (momentHolder, Moment, MomentWorkstreamId, MomentPose, MomentGrowsTowardAnchor) = (null, null, null, null, false);
         }
     }
 }

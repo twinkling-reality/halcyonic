@@ -789,6 +789,7 @@ namespace Halcyonic.XR.Workspace
             ShareCharacterIdentity(identityIsVisible ? character?.View : null);
             // Passive redraws preserve the exact hand placement; the active drag owns changes to it.
             moved = plane.Moved;
+            UpdateProgressiveSpatial(eyes, looking);
         }
 
         /// <summary>
@@ -1295,6 +1296,7 @@ namespace Halcyonic.XR.Workspace
         public void OpenFile(string workstreamId)
         {
             memory.Session(setup.Session());
+            if (setup.Presentation.InspectedWorkstreamId == workstreamId) setup.Presentation.CloseMoment(State);
             if (setup.Presentation.Minimized) setup.Presentation.Restore();
             if (memory.FileFor(State?.Journal?.JournalId, workstreamId, () => setup.File(Bound(), workstreamId)) is IMenuColumn file)
             {
