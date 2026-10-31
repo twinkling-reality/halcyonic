@@ -361,17 +361,20 @@ describe('Codex startup time', () => {
   });
 
   test('one startup time covers the version check, confirming the process and initialize', async (t) => {
-    // The version takes 2 of the 3 s; initialize gets only what is left, not 3 s more. Stopping
-    // the stand-in then takes up to its 1 s grace.
+    // The version takes 4 of the 8 s; initialize gets only what is left, not 8 s more. The 4 s
+    // left let a loaded Mac stall the version step (the landing gate saw over a second) and still
+    // start the stand-in, which never answers within the 20 s it sleeps.
     const started = Date.now();
-    await assert.rejects(slowToExec(t, 8, 2)(3000), (error: unknown) => {
+    await assert.rejects(slowToExec(t, 20, 4)(8000), (error: unknown) => {
       assert.ok(actionError('runtime_unavailable')(error));
       assert.match((error as Error).message, /did not answer initialize in time/);
       return true;
     });
     const elapsed = Date.now() - started;
-    assert.ok(elapsed >= 2000, `refused after ${elapsed} ms, before the version was read`);
-    assert.ok(elapsed < 3000 + 2000, `refused after ${elapsed} ms`);
+    assert.ok(elapsed >= 4000, `refused after ${elapsed} ms, before the version was read`);
+    // One deadline refuses at 8 s, then stopping the stand-in takes its 1 s grace. A fresh 8 s for
+    // initialize could not refuse before 4 + 8 s, however loaded the Mac.
+    assert.ok(elapsed < 4000 + 8000, `refused after ${elapsed} ms`);
   });
 });
 
