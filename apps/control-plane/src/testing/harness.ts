@@ -31,6 +31,7 @@ import {
   DEFAULT_NETWORK_LIMITS,
   type NetworkLimits,
 } from '../network/server.ts';
+import { spokenNames } from '../speech/tidy.ts';
 import { Transcriptions } from '../speech/transcriptions.ts';
 import type { SpeechEngine } from '../speech/whisper.ts';
 import type { TlsTarget } from './tls-client.ts';
@@ -179,7 +180,12 @@ export async function startTestServer(options: TestServerOptions = {}) {
     ...(options.modelListTimeoutMs !== undefined && {
       modelListTimeoutMs: options.modelListTimeoutMs,
     }),
-    transcriptions: new Transcriptions({ engine: options.speech ?? null, clock: harness.time }),
+    transcriptions: new Transcriptions({
+      engine: options.speech ?? null,
+      clock: harness.time,
+      names: () =>
+        spokenNames(harness.controlPlane.projection.projects().map((project) => project.name)),
+    }),
     companion: new Companion({
       config: options.companion?.config ?? null,
       clock: harness.time,

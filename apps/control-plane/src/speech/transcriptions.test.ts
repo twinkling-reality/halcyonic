@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { Principal } from '@halcyonic/contracts';
 import { createVirtualTime } from '@halcyonic/runtime-core';
+import { spokenNames } from './tidy.ts';
 import { CLIPS_PER_MINUTE, type TranscriptionAnswer, Transcriptions } from './transcriptions.ts';
 import { writeWav } from './wav.ts';
 import type { EngineResult, SpeechEngine } from './whisper.ts';
@@ -46,11 +47,22 @@ class ScriptedEngine implements SpeechEngine {
   }
 }
 
-function setUp(results: EngineResult[] = []) {
+function setUp(results: EngineResult[] = [], names?: () => readonly string[]) {
   const time = createVirtualTime(new Date('2026-10-01T09:00:00.000Z'));
   const engine = new ScriptedEngine(results);
-  return { time, engine, transcriptions: new Transcriptions({ engine, clock: time }) };
+  return {
+    time,
+    engine,
+    transcriptions: new Transcriptions({
+      engine,
+      clock: time,
+      ...(names === undefined ? {} : { names }),
+    }),
+  };
 }
+
+const textOf = (answer: TranscriptionAnswer) =>
+  answer.kind === 'answered' && answer.body.outcome === 'heard' ? answer.body.text : answer;
 
 const refusal = (answer: TranscriptionAnswer) =>
   answer.kind === 'refused' ? { status: answer.status, code: answer.code } : null;
@@ -85,6 +97,49 @@ describe('turning a clip into a draft', () => {
       body: { outcome: 'nothing_heard', engine: ENGINE },
       seconds: 1,
     });
+  });
+
+  test('a draft is tidied with the names known when it is heard; nothing heard stays nothing heard', async () => {
+    let projects = ['Space Garden'];
+    const { transcriptions } = setUp(
+      [
+        { kind: 'text', text: 'Um, open space garden.' },
+        { kind: 'text', text: 'Uh, open pond with codex.' },
+        { kind: 'text', text: '' },
+      ],
+      () => spokenNames(projects),
+    );
+    assert.equal(textOf(await transcriptions.transcribe(LOCAL, clip)), 'Open Space Garden.');
+    projects = ['Pond'];
+    assert.equal(textOf(await transcriptions.transcribe(LOCAL, clip)), 'Open Pond with Codex.');
+    assert.deepEqual(await transcriptions.transcribe(LOCAL, clip), {
+      kind: 'answered',
+      body: { outcome: 'nothing_heard', engine: ENGINE },
+      seconds: 1,
+    });
+  });
+
+  test("without a names source, Halcyonic's own names are still spelled as written", async () => {
+    const { transcriptions } = setUp([{ kind: 'text', text: 'Um, ask opencode.' }]);
+    assert.equal(textOf(await transcriptions.transcribe(LOCAL, clip)), 'Ask OpenCode.');
+  });
+
+  test('the words are shown as heard when tidying fails, leaves nothing or outgrows a draft', async () => {
+    const longest = 'claudecode '.repeat(372).trim();
+    assert.ok(longest.length <= 4096);
+    const failing = setUp([{ kind: 'text', text: 'um, open space garden' }], () => {
+      throw new Error('the projection is closed');
+    });
+    assert.equal(
+      textOf(await failing.transcriptions.transcribe(LOCAL, clip)),
+      'um, open space garden',
+    );
+    const { transcriptions } = setUp([
+      { kind: 'text', text: 'Um.' },
+      { kind: 'text', text: longest },
+    ]);
+    assert.equal(textOf(await transcriptions.transcribe(LOCAL, clip)), 'Um.');
+    assert.equal(textOf(await transcriptions.transcribe(LOCAL, clip)), longest);
   });
 
   test("the engine's failure, or a transcript too long for a draft, is a failed transcription", async () => {

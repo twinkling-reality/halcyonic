@@ -2,6 +2,7 @@
 
 - Status: Accepted on 2026-10-01 by the owner, with whisper.cpp as the engine.
 - Date: 2026-09-30
+- Amended on 2026-10-31 by the owner: what was heard is tidied before it becomes the draft (below).
 
 ## Context
 
@@ -102,3 +103,25 @@ bodies only, at most 1 MiB, and logs no instruction or agent text ([SECURITY.md]
   real room despite voice activity detection, if
   voice is wanted in the release build (store review of `RECORD_AUDIO` and a privacy policy), or
   if people want to speak beyond about 30 s.
+
+## Amendment of 2026-10-31: the draft is tidied
+
+The owner, asked whether Halcyonic should tidy spoken words before showing them: "Yes, tidy it".
+Between the engine's text and the draft, the control plane (`apps/control-plane/src/speech/tidy.ts`)
+drops hesitation sounds (um, umm, uhm, uh, uhh, erm, hmm, whole words only; not "mm", which is
+also a unit) with the pauses around them, says a stuttered short word once ("the the", from a
+closed list of words nobody means twice), and spells Halcyonic's own words (the engine's prompt)
+and every project's name as written where the same letters were heard as whole words, in any case.
+A name's words written apart ("Claude Code") match heard with a space, a hyphen or nothing between
+them; a word written joined ("OpenCode", "ToDo") matches only heard joined or hyphenated, never
+across a space, so "open code review" and "to do this" stay as said. There is no fuzzy or
+sounds-alike matching, and words that may be meant twice ("very very", "that that", "in in",
+"no, no") or only look like hesitation ("uh-oh", "er", "ah") stay.
+
+A one-word project name is applied too, even a common word: a project called "Garden" spells every
+heard "garden" as "Garden". The person chose the name, the owner asked for project names spelled
+right, and the draft is shown and editable before anything is sent.
+
+The draft stays the person's words, marked as heard, through the same confirmation as before. If
+tidying fails, leaves nothing (a clip of only "Um.") or outgrows a draft, the words are shown as
+heard. Nothing of the words is logged, kept or journaled, as before.

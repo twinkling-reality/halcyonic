@@ -6,6 +6,7 @@ import {
 } from '@halcyonic/contracts';
 import type { Clock } from '@halcyonic/runtime-core';
 import { WindowCounter } from '../network/limits.ts';
+import { spokenNames, tidySpeech } from './tidy.ts';
 import { readClip } from './wav.ts';
 import { LANGUAGE, type SpeechEngine } from './whisper.ts';
 
@@ -30,16 +31,24 @@ export type TranscriptionAnswer =
 /**
  * Turns a clip of speech into a draft on this Mac (ADR 0021), within bounds: one clip at a time
  * for each principal, six a minute that reach the engine, and one transcription at a time on the
- * Mac. Nothing is journaled or kept, and the caller logs no text.
+ * Mac. What was heard is tidied before it becomes the draft, and shown as heard if tidying fails.
+ * Nothing is journaled or kept, and the caller logs no text.
  */
 export class Transcriptions {
   readonly #engine: SpeechEngine | null;
+  readonly #names: () => readonly string[];
   readonly #perMinute: WindowCounter;
   readonly #inFlight = new Set<string>();
   #busy = false;
 
-  constructor(options: { readonly engine: SpeechEngine | null; readonly clock: Clock }) {
+  /** `names`: the names a draft is spelled with, read per clip; else Halcyonic's own words. */
+  constructor(options: {
+    readonly engine: SpeechEngine | null;
+    readonly clock: Clock;
+    readonly names?: () => readonly string[];
+  }) {
     this.#engine = options.engine;
+    this.#names = options.names ?? (() => spokenNames([]));
     this.#perMinute = new WindowCounter(options.clock, CLIPS_PER_MINUTE, 60_000);
   }
 
@@ -76,10 +85,18 @@ export class Transcriptions {
     try {
       const result = await engine.transcribe(clip.wav);
       if (result.kind === 'failed') return refused(502, 'transcription_failed', result.message);
-      const answer: TranscriptionResponseType =
+      const heard = (text: string): TranscriptionResponseType => ({
+        outcome: 'heard',
+        text,
+        language: LANGUAGE,
+        engine: engine.engine,
+      });
+      let answer: TranscriptionResponseType =
         result.text === ''
           ? { outcome: 'nothing_heard', engine: engine.engine }
-          : { outcome: 'heard', text: result.text, language: LANGUAGE, engine: engine.engine };
+          : heard(this.#tidy(result.text));
+      // A name spelled longer than heard may outgrow a draft; the words as heard may not.
+      if (!validateResponse(answer).ok && result.text !== '') answer = heard(result.text);
       if (!validateResponse(answer).ok) {
         return refused(502, 'transcription_failed', 'The transcript is too long for a draft.');
       }
@@ -87,6 +104,15 @@ export class Transcriptions {
     } finally {
       this.#busy = false;
       this.#inFlight.delete(key);
+    }
+  }
+
+  /** What was heard, tidied; as heard when tidying fails or leaves nothing. */
+  #tidy(text: string): string {
+    try {
+      return tidySpeech(text, this.#names()) || text;
+    } catch {
+      return text;
     }
   }
 
