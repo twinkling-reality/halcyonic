@@ -83,50 +83,48 @@ interface Serving {
   readonly cache?: string | null;
 }
 
-/** A server on the first free port of the preview range, in this process, answering `body`. */
+/** The gate's range for a stand-in's `port`: that port alone. */
+const only = (port: number) => ({ first: port, last: port });
+
+/** Binds `server` on a port the system picks, never one of the preview range the host hands out. */
+function bindEphemeral(server: Server): Promise<number> {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (address === null || typeof address === 'string') reject(new Error('no port'));
+      else resolve(address.port);
+    });
+  });
+}
+
+/** A server on a port of its own, in this process, answering `body`. */
 async function listen(
   t: TestContext,
   body = COPY,
   { workers = 'refused', cache = 'no-store' }: Serving = {},
 ): Promise<number> {
-  for (let port = PREVIEW_PORT_FIRST; port <= PREVIEW_PORT_LAST; port += 1) {
-    const server: Server = createServer((request, response) => {
-      const refuses =
-        workers === 'refused' || (workers === 'refused_at_root' && request.url === '/');
-      if (refuses && request.headers['service-worker'] === 'script') {
-        response.statusCode = 404;
-        response.end();
-        return;
-      }
-      if (cache !== null) response.setHeader('cache-control', cache);
-      response.end(body);
-    });
-    const bound = await new Promise<boolean>((resolve) => {
-      server.once('error', () => resolve(false));
-      server.listen(port, '127.0.0.1', () => resolve(true));
-    });
-    if (bound) {
-      t.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
-      return port;
+  const server: Server = createServer((request, response) => {
+    const refuses = workers === 'refused' || (workers === 'refused_at_root' && request.url === '/');
+    if (refuses && request.headers['service-worker'] === 'script') {
+      response.statusCode = 404;
+      response.end();
+      return;
     }
-  }
-  throw new Error('every preview port is in use on this Mac');
+    if (cache !== null) response.setHeader('cache-control', cache);
+    response.end(body);
+  });
+  const port = await bindEphemeral(server);
+  t.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
+  return port;
 }
 
-/** A port of the preview range that nothing holds: bound and closed again. */
+/** A port that nothing holds: bound and closed again. */
 async function freePort(): Promise<number> {
-  for (let port = PREVIEW_PORT_FIRST; port <= PREVIEW_PORT_LAST; port += 1) {
-    const server = createServer();
-    const bound = await new Promise<boolean>((resolve) => {
-      server.once('error', () => resolve(false));
-      server.listen(port, '127.0.0.1', () => resolve(true));
-    });
-    if (bound) {
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-      return port;
-    }
-  }
-  throw new Error('every preview port is in use on this Mac');
+  const server = createServer();
+  const port = await bindEphemeral(server);
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+  return port;
 }
 
 interface Folder {
@@ -164,9 +162,14 @@ async function refused(gate: Promise<Awaited<ReturnType<typeof confinedPreview>>
 }
 
 describe('opening a preview on the headset: only a checked copy whose agent reads were confined', () => {
+  test("the stand-in pages never take a port of the preview range, which the host's tests use", async (t) => {
+    for (const port of [await listen(t), await freePort()])
+      assert.ok(port < PREVIEW_PORT_FIRST || port > PREVIEW_PORT_LAST, `port ${port}`);
+  });
+
   test('a passed, confined check served by the host opens at 127.0.0.1, never localhost', async (t) => {
     const port = await listen(t);
-    const gate = await confinedPreview(PROJECT, journal({ port }), dataDir(t, port));
+    const gate = await confinedPreview(PROJECT, journal({ port }), dataDir(t, port), only(port));
     assert.deepEqual(gate, {
       ok: true,
       port,
@@ -178,7 +181,7 @@ describe('opening a preview on the headset: only a checked copy whose agent read
   test('a project with no preview running is refused', async (t) => {
     const port = await listen(t);
     await refused(
-      confinedPreview(PROJECT, journal({ port, noPreview: true }), dataDir(t, port)),
+      confinedPreview(PROJECT, journal({ port, noPreview: true }), dataDir(t, port), only(port)),
       /no preview runs/,
     );
   });
@@ -186,7 +189,7 @@ describe('opening a preview on the headset: only a checked copy whose agent read
   test('a preview the journal shows stopped is refused', async (t) => {
     const port = await listen(t);
     await refused(
-      confinedPreview(PROJECT, journal({ port, stopped: true }), dataDir(t, port)),
+      confinedPreview(PROJECT, journal({ port, stopped: true }), dataDir(t, port), only(port)),
       /no preview runs/,
     );
   });
@@ -194,7 +197,12 @@ describe('opening a preview on the headset: only a checked copy whose agent read
   test('a preview of another check than the latest is refused', async (t) => {
     const port = await listen(t);
     await refused(
-      confinedPreview(PROJECT, journal({ port, laterCheck: OTHER_CHECK }), dataDir(t, port)),
+      confinedPreview(
+        PROJECT,
+        journal({ port, laterCheck: OTHER_CHECK }),
+        dataDir(t, port),
+        only(port),
+      ),
       /not the latest check/,
     );
   });
@@ -202,7 +210,12 @@ describe('opening a preview on the headset: only a checked copy whose agent read
   test('a check that did not pass is refused', async (t) => {
     const port = await listen(t);
     await refused(
-      confinedPreview(PROJECT, journal({ port, findings: { passed: false } }), dataDir(t, port)),
+      confinedPreview(
+        PROJECT,
+        journal({ port, findings: { passed: false } }),
+        dataDir(t, port),
+        only(port),
+      ),
       /did not pass/,
     );
   });
@@ -214,6 +227,7 @@ describe('opening a preview on the headset: only a checked copy whose agent read
         PROJECT,
         journal({ port, findings: { reads_confined: false } }),
         dataDir(t, port),
+        only(port),
       ),
       /reads were not confined/,
     );
@@ -224,23 +238,37 @@ describe('opening a preview on the headset: only a checked copy whose agent read
     await refused(confinedPreview(PROJECT, journal({ port }), dataDir(t, port)), /outside/);
   });
 
+  test('a port outside the range the gate is given is refused, even one that serves the copy', async (t) => {
+    const port = await listen(t);
+    await refused(
+      confinedPreview(PROJECT, journal({ port }), dataDir(t, port), {
+        first: port - 2,
+        last: port - 1,
+      }),
+      /outside/,
+    );
+  });
+
   test('a project id that is not one is refused before any file is read', async (t) => {
     const port = await listen(t);
     await refused(
-      confinedPreview('../previews', journal({ port }), dataDir(t, port)),
+      confinedPreview('../previews', journal({ port }), dataDir(t, port), only(port)),
       /project id/,
     );
   });
 
   test('a port nothing listens on is refused', async (t) => {
     const port = await freePort();
-    await refused(confinedPreview(PROJECT, journal({ port }), dataDir(t, port)), /nothing listens/);
+    await refused(
+      confinedPreview(PROJECT, journal({ port }), dataDir(t, port), only(port)),
+      /nothing listens/,
+    );
   });
 
   test("a port another process listens on than the one the host's record names is refused", async (t) => {
     const port = await listen(t);
     await refused(
-      confinedPreview(PROJECT, journal({ port }), dataDir(t, port, { pid: 1 })),
+      confinedPreview(PROJECT, journal({ port }), dataDir(t, port, { pid: 1 }), only(port)),
       /not the host's preview server/,
     );
   });
@@ -248,7 +276,12 @@ describe('opening a preview on the headset: only a checked copy whose agent read
   test('a host record of another check is refused', async (t) => {
     const port = await listen(t);
     await refused(
-      confinedPreview(PROJECT, journal({ port }), dataDir(t, port, { recordCheck: OTHER_CHECK })),
+      confinedPreview(
+        PROJECT,
+        journal({ port }),
+        dataDir(t, port, { recordCheck: OTHER_CHECK }),
+        only(port),
+      ),
       /record/,
     );
   });
@@ -256,41 +289,53 @@ describe('opening a preview on the headset: only a checked copy whose agent read
   test('no host record of the preview is refused', async (t) => {
     const port = await listen(t);
     await refused(
-      confinedPreview(PROJECT, journal({ port }), dataDir(t, port, { noRecord: true })),
+      confinedPreview(PROJECT, journal({ port }), dataDir(t, port, { noRecord: true }), only(port)),
       /record/,
     );
   });
 
   test('a preview server that would serve a service worker script is refused', async (t) => {
     const port = await listen(t, COPY, { workers: 'served' });
-    await refused(confinedPreview(PROJECT, journal({ port }), dataDir(t, port)), /service worker/);
+    await refused(
+      confinedPreview(PROJECT, journal({ port }), dataDir(t, port), only(port)),
+      /service worker/,
+    );
   });
 
   test('a preview server that refuses a service worker script only at / is refused', async (t) => {
     const port = await listen(t, COPY, { workers: 'refused_at_root' });
-    await refused(confinedPreview(PROJECT, journal({ port }), dataDir(t, port)), /service worker/);
+    await refused(
+      confinedPreview(PROJECT, journal({ port }), dataDir(t, port), only(port)),
+      /service worker/,
+    );
   });
 
   test('a page served without Cache-Control is refused', async (t) => {
     const port = await listen(t, COPY, { cache: null });
-    await refused(confinedPreview(PROJECT, journal({ port }), dataDir(t, port)), /no-store/);
+    await refused(
+      confinedPreview(PROJECT, journal({ port }), dataDir(t, port), only(port)),
+      /no-store/,
+    );
   });
 
   test('a page whose Cache-Control lets the headset keep it is refused', async (t) => {
     const port = await listen(t, COPY, { cache: 'max-age=0, must-revalidate' });
-    await refused(confinedPreview(PROJECT, journal({ port }), dataDir(t, port)), /no-store/);
+    await refused(
+      confinedPreview(PROJECT, journal({ port }), dataDir(t, port), only(port)),
+      /no-store/,
+    );
   });
 
   test('no-store among other directives opens', async (t) => {
     const port = await listen(t, COPY, { cache: 'private, No-Store, max-age=0' });
-    const gate = await confinedPreview(PROJECT, journal({ port }), dataDir(t, port));
+    const gate = await confinedPreview(PROJECT, journal({ port }), dataDir(t, port), only(port));
     assert.equal(gate.ok, true, JSON.stringify(gate));
   });
 
   test('a page that is not the checked copy is refused', async (t) => {
     const port = await listen(t, '<title>something else</title>');
     await refused(
-      confinedPreview(PROJECT, journal({ port }), dataDir(t, port)),
+      confinedPreview(PROJECT, journal({ port }), dataDir(t, port), only(port)),
       /does not serve the checked copy/,
     );
   });
