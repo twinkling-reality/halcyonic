@@ -269,3 +269,18 @@ curves in `src/motion.ts` (pop, hide, bob, wiggle, bonk), still pure functions o
 check's stepped clock holds them. AGENTS.md asks for the island, the palette and the curves. Unverified on a headset:
 whether no tone mapping clips the sun-lit tops (then the sun goes to 2.1), and whether the clear coat drops frames on
 the Quest (then clear coat 0 and roughness 0.35).
+
+## Amendment, 2026-10-31: a check's file state on the view and automatic checks after a change turn (T2, A1)
+
+A project's view carries, on `check`, `recorded_at`, the journal `position` at which it was recorded, and `files`
+(`'current'`, `'changed'` or `'unknown'`), and on `preview` and `mac_play`, the `files` of the check each serves (T2).
+A check recorded while no turn runs in the project starts `'current'`; once a turn's file reading or a restore changes
+files in the folder, or the project moves to another folder, it becomes `'changed'`; while a turn runs, or when a turn
+ends without a complete file reading, a restore stops incomplete, or an execution's state becomes unknown, it becomes
+`'unknown'`. Neither `project.preview.start` nor `project.open_on_mac` is admitted, and `failedCheckOutput` gives no
+compiler output, unless the latest check's `files` is `'current'`.
+
+When checks are set up on the host and a turn in a starter project ends with file changes (`execution.files.observed`
+with at least one file created, changed or deleted), the control plane submits `project.check` on its own
+(`received_via: 'internal'`), one check at a time per project, journaled like a client's check, waiting if a check or
+another task in the project is still running (A1). A turn that changed no files does not start a check.

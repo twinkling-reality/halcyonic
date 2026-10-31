@@ -97,7 +97,10 @@ client                                   server
   changed files in the project's folder or the project was moved to another folder, and `'unknown'`
   while a turn is running or when a turn ended without a complete file reading, an incomplete
   restore stopped, or an execution's state became unknown. A check whose `files` is `'changed'` or
-  `'unknown'` is stale or unknown, never treated as a passed check of the current files. They leave
+  `'unknown'` is stale or unknown, never treated as a passed check of the current files. After a
+  turn that changed files in a starter project (`execution.files.observed` with files created,
+  changed or deleted), the host submits `project.check` on its own (`received_via: 'internal'`),
+  one check at a time per project, journaled like a client's check (A1). They leave
   the view when their stop does, so a headset that connects after a check still shows it. An absent
   member means there is none, never false. Nothing of a play's viewer (its link, code or session)
   is in the view.
