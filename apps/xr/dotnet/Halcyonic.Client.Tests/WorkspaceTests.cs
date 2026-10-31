@@ -38,11 +38,11 @@ public class ActivityLogTests
         Assert.That(texts, Does.Contain("Approval Sent"), "a client's name is never shown as a person's");
         Assert.That(texts, Has.None.Contains("halcyonic"));
         Assert.That(texts, Does.Contain("Approved"));
-        Assert.That(texts, Does.Contain("Succeeded · bash"));
+        Assert.That(texts, Does.Contain("Succeeded · bash · Reported"));
         // Halcyonic's words first and upright, the agent app's names leaning last (settled 2026-10-08).
         var entries = log.For(ExecutionOf(events, "Move sessions to their own table"));
         Assert.That(entries[0].Words.ToString(), Is.EqualTo("Start Requested · [Mock runtime (development fixture)]"));
-        Assert.That(entries.Single(entry => entry.Text == "Succeeded · bash").Words.ToString(), Is.EqualTo("Succeeded · [bash]"));
+        Assert.That(entries.Single(entry => entry.Text == "Succeeded · bash · Reported").Words.ToString(), Is.EqualTo("Succeeded · [bash] · Reported"));
         // The tool and its request with only a colon between are outside text whole (a separator doesn't make a line Halcyonic's).
         Assert.That(entries.First(entry => entry.Kind == ActivityKind.Approval).Words.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true }));
         Assert.That(entries.Where(entry => entry.Kind == ActivityKind.Turn).All(entry => !entry.Words.AnyTheirs), Is.True, "a round is Halcyonic's own words");
@@ -230,11 +230,11 @@ public class ActivityLogTests
             var entries = log.For(ExecutionOf(events, title)).Where(entry => entry.Kind == ActivityKind.Tool).ToList();
             bool Finished(ActivityEntry entry) =>
                 entry.Text.StartsWith("Succeeded · ", StringComparison.Ordinal) || entry.Text.StartsWith("Failed · ", StringComparison.Ordinal);
-            // The tool's name: after Halcyonic's "Used " to its title's colon, or after "Succeeded: ".
+            // The tool's name: after Halcyonic's "Tool · " to its title's " · ", or after "Succeeded · ".
             string Tool(ActivityEntry entry) => entry.Words.Runs.First(run => run.Theirs).Text.Split(new[] { " · " }, StringSplitOptions.None)[0];
             var started = entries.Where(entry => !Finished(entry)).Select(Tool).ToList();
             var finished = entries.Where(Finished).Select(Tool).ToList();
-            Assert.That(entries.Where(entry => !Finished(entry)).All(entry => entry.Text.StartsWith("Used ", StringComparison.Ordinal)), Is.True, title);
+            Assert.That(entries.Where(entry => !Finished(entry)).All(entry => entry.Text.StartsWith("Tool · ", StringComparison.Ordinal)), Is.True, title);
             Assert.That(finished, Is.EqualTo(started), title);
         }
     }

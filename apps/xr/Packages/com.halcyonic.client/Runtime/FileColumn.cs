@@ -600,7 +600,7 @@ namespace Halcyonic.Client
             var session = question.InputSession;
             Rebuild();
             if (!CurrentInput(forDraft, prompt, session)) return;
-            MenuKeyboard.Open(host, question.Input, "Your answer", text =>
+            MenuKeyboard.Open(host, question.Input, "Your Answer", text =>
             {
                 if (!CurrentInput(forDraft, prompt, session)) return;
                 question.ChangeInput(text);

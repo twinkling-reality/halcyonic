@@ -148,18 +148,18 @@ namespace Halcyonic.Client
                 case RuntimeToolStartedEvent tool:
                     toolNames[ToolKey(e, tool.Payload.ToolCallId)] = tool.Payload.ToolName;
                     // Halcyonic's word first, so a tool named "Approved" never reads as Halcyonic's own entry (settled 2026-10-08).
-                    var used = Ours("Used ") + LineWords.TheirName(tool.Payload.ToolName);
+                    var used = Ours("Tool · ") + LineWords.TheirName(tool.Payload.ToolName);
                     return Said(ActivityKind.Tool, LineWords.Theirs(tool.Payload.Title) is { IsEmpty: false } title ? used + Ours(" · ") + title : used);
                 case RuntimeToolCompletedEvent toolDone:
                     var succeeded = toolDone.Payload.Outcome == ToolOutcome.Succeeded;
                     return Said(ActivityKind.Tool, toolNames.TryGetValue(ToolKey(e, toolDone.Payload.ToolCallId), out var known)
-                        ? Ours(succeeded ? "Succeeded · " : "Failed · ") + LineWords.TheirName(known)
-                        : Ours(succeeded ? "Tool Succeeded" : "Tool Failed"));
+                        ? Ours(succeeded ? "Succeeded · " : "Failed · ") + LineWords.TheirName(known) + Ours(" · Reported")
+                        : Ours(succeeded ? "Tool Succeeded · Reported" : "Tool Failed · Reported"));
                 case RuntimeTestRunStartedEvent tests:
                     return Said(ActivityKind.TestRun, LineWords.Theirs(tests.Payload.Label) is { IsEmpty: false } label ? Ours("Tests Started · ") + label : Ours("Tests Started"));
                 case RuntimeTestRunCompletedEvent testsDone:
                     var ran = Ours("Tests " + TestWord(testsDone.Payload.Outcome));
-                    return Said(ActivityKind.TestRun, LineWords.Theirs(testsDone.Payload.Summary) is { IsEmpty: false } summary ? ran + Ours(" · ") + summary : ran);
+                    return Said(ActivityKind.TestRun, (LineWords.Theirs(testsDone.Payload.Summary) is { IsEmpty: false } summary ? ran + Ours(" · ") + summary : ran) + Ours(" · Reported"));
                 case RuntimeApprovalRequestedEvent approval:
                     return Said(ActivityKind.Approval, approval.Payload.Subject is ToolUseSubject subject
                         ? Ours("Approval Requested · ") + LineWords.TheirName(subject.ToolName) + Ours(" · ") + LineWords.Theirs(subject.Summary)

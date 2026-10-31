@@ -636,8 +636,8 @@ public class DemonstrationSessionTests
         var lines = activity.For(execution.ExecutionId).Select(entry => entry.Text).ToList();
         Assert.That(lines, Has.Some.EqualTo("Approval Sent"));
         Assert.That(lines, Has.Some.EqualTo("Approved"));
-        Assert.That(lines, Has.Some.EqualTo("Used shell · make migrate"));
-        Assert.That(lines, Has.Some.EqualTo("Tests Failed · 1 failed, 23 passed"));
+        Assert.That(lines, Has.Some.EqualTo("Tool · shell · make migrate"));
+        Assert.That(lines, Has.Some.EqualTo("Tests Failed · 1 failed, 23 passed · Reported"));
         Assert.That(execution.LastTestRun!.Outcome, Is.EqualTo(TestOutcome.Failed));
 
         workspace = WorkspacePresenter.Present(Demonstration.DirectedWorkstream(session), session.State, activity, session.Status.IsLive, submissions);
