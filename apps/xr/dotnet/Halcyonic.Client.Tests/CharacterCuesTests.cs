@@ -88,7 +88,8 @@ public class CharacterCuesTests
         Assert.That(cues.Flowing, Is.False);
         Assert.That(cues.Ring, Is.False);
         Assert.That(cues.FacesPerson, Is.False);
-        Assert.That(cues.Halo, Is.EqualTo(CharacterHalo.Finished));
+        // A round ending is not a passed check: no light; the green comes only with the computer's own passed check (AUDIT F1).
+        Assert.That(cues.Halo, Is.EqualTo(CharacterHalo.None));
     }
 
     [Test]
