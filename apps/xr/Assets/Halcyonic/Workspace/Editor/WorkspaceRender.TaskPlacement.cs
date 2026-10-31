@@ -179,6 +179,24 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!previewObject.gameObject.activeInHierarchy) failures.Add("the real CharacterStage shelf preview was not visible");
                 if (placement.Preview == null || placement.Preferred != null || workspace.Presentation.AgentsEnabled || stage.ShelfPage.Title != originalSelection)
                     failures.Add("opening the real placement row changed placement/selection/enabled state before Apply");
+                if (placement.Preview is Pose unturned)
+                {
+                    // Turn Left through the column's own row, as a person presses it: the preview turns by its 5 degree step
+                    // (the turn rows' words are the direction RoomPlacement turns by; a rename once left them unturnable).
+                    var turned = false;
+                    for (var shelfPage = 0; shelfPage < 5; shelfPage++)
+                    {
+                        Draw(); var shelfShown = menu.Plane.Shown.Single(); var shelfFrame = shelfShown.View.Frame;
+                        var turnRow = shelfFrame?.Lines.FirstOrDefault(line => line.Action == AgentShelfColumn.Move && line.Key == AgentShelfColumn.TurnLeft);
+                        if (turnRow != null) { turned = menu.PressForRender(shelfShown.Kind, AgentShelfColumn.Move, turnRow.Key, shelfFrame, null); break; }
+                        if (!menu.PressForRender(shelfShown.Kind, Footer.NextPage, null, shelfFrame, null)) break;
+                    }
+                    Draw();
+                    if (!turned) failures.Add("the placement's Turn Left row was not offered, or refused its press");
+                    else if (placement.Preview is not Pose turnedPose
+                        || Mathf.Abs(Mathf.DeltaAngle(unturned.rotation.eulerAngles.y, turnedPose.rotation.eulerAngles.y) + 5f) > 0.5f)
+                        failures.Add("Turn Left did not turn the shelf preview 5 degrees left");
+                }
                 Press(Footer.Close);
                 if (previewObject.gameObject.activeInHierarchy || placement.Preview != null || placement.Preferred != null || workspace.Presentation.AgentsEnabled || stage.ShelfPage.Title != originalSelection)
                     failures.Add("initial Cancel did not preserve the previous empty shelf and selection");

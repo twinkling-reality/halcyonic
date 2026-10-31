@@ -114,7 +114,7 @@ namespace Halcyonic.XR.Room
                 "Down" => Vector3.down * 0.05f,
                 _ => Vector3.zero,
             };
-            Draft.Move(ToVector(delta), direction == "Turn left" ? -5f : direction == "Turn right" ? 5f : 0f);
+            Draft.Move(ToVector(delta), direction == AgentShelfColumn.TurnLeft ? -5f : direction == AgentShelfColumn.TurnRight ? 5f : 0f);
         }
         public void StopRoomSuggestion() => run++;
         private bool AllowsShelf(AgentShelfPose candidate)
