@@ -101,4 +101,38 @@ public class ClientProjectionTests
         Assert.That(state.RuntimeOf(execution)!.Capabilities.RespondToApproval, Is.True);
         Assert.That(state.CurrentExecution(state.Workstreams["w2"]), Is.Null);
     }
+
+    [Test]
+    public void AProjectsCheckPreviewAndPlayArriveWithItsViewAndStayAbsentWhenNone()
+    {
+        // A headset that connects after a check gets it in the snapshot, as the host recorded it.
+        var project = HalcyonicJson.Deserialize<ProjectView>(
+            "{\"project_id\":\"" + Samples.ProjectId + "\",\"name\":\"Garden\",\"location\":null,\"starter\":\"iwsdk-vr\","
+            + "\"created_at\":\"2026-10-31T05:00:00.000Z\",\"updated_at\":\"2026-10-31T05:00:00.000Z\","
+            + "\"check\":{\"check_id\":\"c1\",\"findings\":{\"tsc\":{\"exit\":0,\"seconds\":1},\"build\":{\"exit\":0,\"seconds\":2},"
+            + "\"page\":null,\"unknown\":null,\"passed\":true,\"reads_confined\":false}},"
+            + "\"preview\":{\"check_id\":\"c1\",\"port\":47931}}");
+        var state = new ClientProjection();
+        var snapshot = Samples.Snapshot(5);
+        snapshot.Projects[0] = project;
+        state.ApplySnapshot(snapshot, new StateChanges());
+        var held = state.Projects[Samples.ProjectId];
+        Assert.That(held.Check!.CheckId, Is.EqualTo("c1"));
+        Assert.That(held.Check.Findings.ReadsConfined, Is.False);
+        Assert.That(held.Check.Findings.OwnPermissions, Is.Null, "absent stays absent");
+        Assert.That(held.Check.Findings.Laptop, Is.Null);
+        Assert.That(held.Preview!.Port, Is.EqualTo(47931));
+        Assert.That(held.MacPlay, Is.Null);
+
+        // An event's changes replace the view wholesale: the preview stopped, so it is gone.
+        var stopped = HalcyonicJson.Deserialize<ProjectView>(HalcyonicJson.Serialize(project));
+        stopped.Preview = null;
+        var message = Samples.Event(6);
+        message.Changes.Projects.Add(stopped);
+        var changes = new StateChanges();
+        Assert.That(state.ApplyEvent(message, changes), Is.True);
+        Assert.That(changes.Projects, Does.Contain(Samples.ProjectId));
+        Assert.That(state.Projects[Samples.ProjectId].Preview, Is.Null);
+        Assert.That(state.Projects[Samples.ProjectId].Check!.CheckId, Is.EqualTo("c1"));
+    }
 }

@@ -56,6 +56,41 @@ namespace Halcyonic.Client
         public ProjectUnlinkCatalogCommand UnlinkCatalog(string projectId) =>
             Stamp(new ProjectUnlinkCatalogCommand { Payload = new ProjectUnlinkCatalogPayload { ProjectId = projectId } });
 
+        /// <summary>
+        /// Makes a VR version of a game (M1.8c-1): a new starter project in <paramref name="folderName"/>
+        /// under <paramref name="root"/>, whose agent reads the original's folder and changes nothing
+        /// of it. The host refuses it when the original has no folder.
+        /// </summary>
+        public ProjectMakeVrVersionCommand MakeVrVersion(string originalProjectId, string root, string folderName) =>
+            Stamp(new ProjectMakeVrVersionCommand
+            {
+                Payload = new ProjectMakeVrVersionPayload
+                {
+                    OriginalProjectId = originalProjectId,
+                    Root = root,
+                    FolderName = folderName,
+                },
+            });
+
+        /// <summary>Checks a project made from a starter: type check, build, and the built copy tried (ADR 0037).</summary>
+        public ProjectCheckCommand CheckProject(string projectId) =>
+            Stamp(new ProjectCheckCommand { Payload = new ProjectCheckPayload { ProjectId = projectId } });
+
+        /// <summary>Serves the built copy of the project's latest passed check on the host's loopback.</summary>
+        public ProjectPreviewStartCommand StartPreview(string projectId) =>
+            Stamp(new ProjectPreviewStartCommand { Payload = new ProjectPreviewStartPayload { ProjectId = projectId } });
+
+        public ProjectPreviewStopCommand StopPreview(string projectId) =>
+            Stamp(new ProjectPreviewStopCommand { Payload = new ProjectPreviewStopPayload { ProjectId = projectId } });
+
+        /// <summary>
+        /// Plays the checked game on the computer, in the host's contained browser, shown by a viewer
+        /// the host opens there (P-A). Offer it only as <see cref="ProjectPlayFacts.PlayOnLaptopFor"/>
+        /// says; the host may still refuse it. Nothing of the viewer comes back to the client.
+        /// </summary>
+        public ProjectOpenOnMacCommand OpenOnMac(string projectId) =>
+            Stamp(new ProjectOpenOnMacCommand { Payload = new ProjectOpenOnMacPayload { ProjectId = projectId } });
+
         public WorkstreamCreateCommand CreateWorkstream(string projectId, string title, string? objective) =>
             Stamp(new WorkstreamCreateCommand
             {

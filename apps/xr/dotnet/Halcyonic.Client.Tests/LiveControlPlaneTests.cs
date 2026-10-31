@@ -262,6 +262,55 @@ public class LiveControlPlaneTests
     }
 
     [Test]
+    public async Task TheHostRefusesTheKidFlowOnItsOwnFactsAndTheClientReadsThemSo()
+    {
+        var controlPlane = await StartControlPlaneAsync();
+        Connect(controlPlane);
+        await Until(s => s.Status.IsLive, "the session is live");
+        var project = (ProjectCreatedResult)await RunAsync(commands.CreateProject("Garden"));
+        await Until(s => s.State.Projects.ContainsKey(project.ProjectId), "the project is held");
+        var view = session!.State.Projects[project.ProjectId];
+        Assert.That(view.Check, Is.Null);
+        Assert.That(view.Preview, Is.Null);
+        Assert.That(view.MacPlay, Is.Null);
+        Assert.That(ProjectPlayFacts.PlayOnLaptopFor(view), Is.EqualTo(PlayOnLaptop.NoCheck));
+
+        // No browser is set up here for playing on the computer: the host says unavailable, and so does the client.
+        var open = await session.SubmitAsync(commands.OpenOnMac(project.ProjectId));
+        Assert.That(open.Disposition, Is.EqualTo(CommandAckDisposition.Rejected));
+        Assert.That(open.Command!.Rejection!.Code, Is.EqualTo(RejectionCode.CapabilityUnsupported));
+        Assert.That(open.Command.Result, Is.Null, "nothing of a viewer comes back");
+        Assert.That(ProjectPlayFacts.PlayOnLaptopFor(view, open.Command), Is.EqualTo(PlayOnLaptop.Unavailable));
+
+        // A project with no folder has nothing to make a VR version from.
+        var vr = await session.SubmitAsync(commands.MakeVrVersion(project.ProjectId, dataDir, "garden-vr"));
+        Assert.That(vr.Disposition, Is.EqualTo(CommandAckDisposition.Rejected));
+        Assert.That(vr.Command!.Rejection!.Code, Is.EqualTo(MakeVrVersionRefusal));
+
+        // Not made from a starter: no check; with no passed check, no preview to start or stop.
+        foreach (var command in new CommandEnvelope[]
+        {
+            commands.CheckProject(project.ProjectId),
+            commands.StartPreview(project.ProjectId),
+            commands.StopPreview(project.ProjectId),
+        })
+        {
+            var ack = await session.SubmitAsync(command);
+            Assert.That(ack.Disposition, Is.EqualTo(CommandAckDisposition.Rejected), command.CommandType);
+            Assert.That(ack.Command!.Rejection!.Code, Is.EqualTo(ChecksRefusal), command.CommandType);
+        }
+        Assert.That(session.State.Projects[project.ProjectId].Check, Is.Null, "a refused check records nothing");
+        AssertEveryServerMessageRoundTrips();
+    }
+
+    /// <summary>Checks and previews run on macOS only: elsewhere they are not set up at all.</summary>
+    private static RejectionCode ChecksRefusal =>
+        OperatingSystem.IsMacOS() ? RejectionCode.InvalidState : RejectionCode.CapabilityUnsupported;
+
+    /// <summary>The project has no folder, which the host's own admission says first.</summary>
+    private static RejectionCode MakeVrVersionRefusal => RejectionCode.LocationRequired;
+
+    [Test]
     public async Task AnswersAQuestionTheAgentAsked()
     {
         var controlPlane = await StartControlPlaneAsync();
