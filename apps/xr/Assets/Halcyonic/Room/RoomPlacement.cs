@@ -66,9 +66,12 @@ namespace Halcyonic.XR.Room
 
         private bool focused = true;
         private int run;
+        private int placementRun;
         private bool accessDeclined;
         private bool askedAgain;
         private readonly Vector3[] shelfCorners = new Vector3[8];
+        private readonly StagePlacementSession surfaceSession = new StagePlacementSession();
+        private OVRSpatialAnchor? pendingRestoredAnchor;
         public AgentShelfDraft Draft { get; } = new AgentShelfDraft();
         public Pose? Preview => Draft.Candidate is AgentShelfPose candidate ? ToPose(candidate) : (Pose?)null;
         public bool BeginPreview()
@@ -80,6 +83,7 @@ namespace Halcyonic.XR.Room
             forward.Normalize();
             Draft.Allows = AllowsShelf;
             run++;
+            ClearPendingSuggestion();
             var eyes = ToVector(head.transform.position);
             if (Preferred is Pose existing)
             {
@@ -113,6 +117,7 @@ namespace Halcyonic.XR.Room
         public void MovePreview(string direction)
         {
             if (FocusGuard.InputSuspended || Draft.Candidate is not AgentShelfPose candidate) return;
+            ClearPendingSuggestion();
             var yaw = Quaternion.Euler(0f, candidate.Yaw, 0f);
             var delta = direction switch
             {
@@ -126,7 +131,20 @@ namespace Halcyonic.XR.Room
             };
             Draft.Move(ToVector(delta), direction == AgentShelfColumn.TurnLeft ? -5f : direction == AgentShelfColumn.TurnRight ? 5f : 0f);
         }
-        public void StopRoomSuggestion() => run++;
+        public void StopRoomSuggestion()
+        {
+            run++;
+            ClearPendingSuggestion();
+        }
+        private void ClearPendingSuggestion()
+        {
+            surfaceSession.ClearSuggestion();
+            if (pendingRestoredAnchor != null)
+            {
+                Destroy(pendingRestoredAnchor.gameObject);
+                pendingRestoredAnchor = null;
+            }
+        }
         private bool AllowsShelf(AgentShelfPose candidate)
         {
             var head = Camera.main;
@@ -146,20 +164,47 @@ namespace Halcyonic.XR.Room
             var workspace = GetComponent<WorkspaceDirector>();
             return workspace != null && workspace.ClearsShelf(shelfCorners, head.transform.position);
         }
-        public void CancelPreview() { run++; Draft.Cancel(); }
+        public void CancelPreview()
+        {
+            run++;
+            ClearPendingSuggestion();
+            Draft.Cancel();
+        }
         public bool ApplyPreview()
         {
             if (FocusGuard.InputSuspended) { CancelPreview(); return false; }
             run++;
-            var applied = Draft.Apply(candidate =>
+            var pendingAnchor = pendingRestoredAnchor;
+            pendingRestoredAnchor = null;
+            if (!surfaceSession.TryApply(Draft, Status, memory, out var applied))
+            {
+                if (pendingAnchor != null) Destroy(pendingAnchor.gameObject);
+                CancelPreview();
+                return false;
+            }
+            var pose = ToPose(applied.Pose);
+            if (applied.Kind == StageSuggestionKind.RestoredSurface && pendingAnchor != null)
             {
                 DropAnchor();
-                Publish(ToPose(candidate), "the person applied a manual shelf preview");
-                SetStatus(Status.With(placement: StagePlacement.OnShelfThisSession, clearSurface: true));
+                Adopt(pendingAnchor, StagePlacement.BackOnSurface, applied.Surface);
+                SaveMemory();
+                Publish(pose, "it restored the placement saved for this room");
+                SetStatus(applied.Status);
                 return true;
-            });
-            if (!applied) CancelPreview();
-            return applied;
+            }
+            if (pendingAnchor != null) Destroy(pendingAnchor.gameObject);
+            DropAnchor();
+            if (applied.Kind == StageSuggestionKind.NewSurface && applied.Surface is SurfaceKind surface)
+            {
+                var placementAttempt = ++placementRun;
+                Publish(pose, "the person applied a room surface suggestion");
+                SetStatus(applied.Status);
+                _ = AnchorSurfaceAsync(pose, surface, applied.RoomId, placementAttempt);
+                return true;
+            }
+            Publish(pose, "the person applied a manual shelf preview");
+            SetStatus(applied.Status);
+            return true;
         }
         public void FindRoomSurface()
         {
@@ -223,6 +268,7 @@ namespace Halcyonic.XR.Room
             root = new GameObject("Halcyonic room");
             passthrough = new RoomPassthrough(new PassthroughView(root), Log, Debug.isDebugBuild);
             OVRManager.BoundaryVisibilityChanged += BoundaryChanged;
+            Draft.Changed += ClearPendingSuggestion;
             memory = PlacementMemory.Load(PlayerPrefs.GetString(MemoryKey, ""));
             accessDeclined = PlayerPrefs.GetInt(DeclinedKey, 0) == 1;
             var preferred = PlayerPrefs.GetString(SpaceKey, nameof(RoomSpace.Room)) == nameof(RoomSpace.Virtual) ? RoomSpace.Virtual : RoomSpace.Room;
@@ -238,6 +284,9 @@ namespace Halcyonic.XR.Room
         private void OnDestroy()
         {
             run++;
+            placementRun++;
+            Draft.Changed -= ClearPendingSuggestion;
+            ClearPendingSuggestion();
             passthrough.Stop();
             OVRManager.BoundaryVisibilityChanged -= BoundaryChanged;
             if (root != null) Destroy(root);
@@ -293,6 +342,7 @@ namespace Halcyonic.XR.Room
         private void Apply()
         {
             ++run;
+            ++placementRun;
             if (Status.Preferred == RoomSpace.Room) passthrough.Start(Time.unscaledTime);
             else passthrough.Stop();
             SetStatus(Status.With(passthrough: passthrough.State));
@@ -309,6 +359,8 @@ namespace Halcyonic.XR.Room
 
         private bool Current(int attempt) => attempt == run && this != null;
 
+        private bool CurrentPlacement(int attempt) => attempt == placementRun && this != null;
+
         private async Task PlaceAsync(int attempt)
         {
             var generation = Draft.Generation;
@@ -324,14 +376,20 @@ namespace Halcyonic.XR.Room
                     if (!Current(attempt)) return;
                     if (!access) RememberDeclined(true);
                 }
-                if (!access) { SetStatus(Status.With(scan: RoomScan.NoAccess)); return; }
+                if (!access)
+                {
+                    SetStatus(Status.With(scan: RoomScan.NoAccess));
+                    await RestoreAsync(RoomRead.Without(RoomScan.NoAccess, "no access"), ViewerNow(), generation, attempt);
+                    return;
+                }
                 SetStatus(Status.With(scan: RoomScan.Reading));
                 mruk ??= RoomReader.Ensure(root.transform);
                 var read = await RoomReader.ReadAsync(mruk, Head.position);
                 if (!Current(attempt) || generation != Draft.Generation) return;
                 SetStatus(Status.With(scan: read.Scan));
-                if (read.Surfaces == null || read.Obstacles == null) return;
                 var viewer = ViewerNow();
+                if (await RestoreAsync(read, viewer, generation, attempt) || !Current(attempt) || generation != Draft.Generation) return;
+                if (read.Surfaces == null || read.Obstacles == null) return;
                 var width = GetComponent<CharacterStage>()?.ShelfWidth ?? AgentShelfDraft.Width(1);
                 var spot = StageSurfaces.Choose(read.Surfaces, read.Obstacles, viewer, candidate =>
                 {
@@ -341,7 +399,9 @@ namespace Halcyonic.XR.Room
                 });
                 if (spot == null) { SetStatus(Status.With(placement: StagePlacement.NoSurface)); return; }
                 // A fully fitting suggestion still needs the person's Apply.
-                if (!Draft.Suggest(generation, ToDraft(PoseOf(spot, viewer)))) SetStatus(Status.With(placement: StagePlacement.NoSurface));
+                ClearPendingSuggestion();
+                if (!surfaceSession.SuggestSurface(Draft, generation, ToDraft(PoseOf(spot, viewer)), spot.Surface.Kind, read.RoomId))
+                    SetStatus(Status.With(placement: StagePlacement.NoSurface));
             }
             catch (Exception error)
             {
@@ -351,25 +411,60 @@ namespace Halcyonic.XR.Room
             }
         }
 
-        /// <summary>
-        /// Restores the placement saved for this room, or without a room the most recent one. Returns
-        /// whether the stage now stands where the person left it. An anchor the headset no longer
-        /// holds is forgotten; one that does not localize, or no longer suits the seat, is replaced
-        /// when a new place is saved for the room.
-        /// </summary>
-        private async Task<bool> RestoreAsync(RoomRead read, Viewer viewer, int attempt)
+        private async Task AnchorSurfaceAsync(Pose pose, SurfaceKind kind, string? roomId, int attempt)
         {
-            var saved = read.RoomId != null ? memory.AnchorFor(read.RoomId) : memory.MostRecentAnchor;
+            var (created, saved, detail) = await StageAnchors.CreateAsync(root.transform, pose, CreateSeconds);
+            if (!CurrentPlacement(attempt))
+            {
+                if (created != null) Destroy(created.gameObject);
+                return;
+            }
+            var next = surfaceSession.RecordCreatedAnchor(
+                Status,
+                memory,
+                kind,
+                roomId,
+                created != null ? created.Uuid.ToString("N") : null,
+                saved,
+                out var dropped);
+            if (created == null)
+            {
+                Log("the placement holds for this session only: no anchor, because " + detail);
+                SetStatus(next);
+                return;
+            }
+            if (!saved)
+            {
+                Adopt(created, StagePlacement.OnSurfaceThisSession, kind);
+                Log("the placement is anchored for this session only: the anchor was " + detail);
+                SetStatus(next);
+                return;
+            }
+            Adopt(created, StagePlacement.OnSurface, kind);
+            SaveMemory();
+            Erase(dropped);
+            SetStatus(next);
+        }
+
+        /// <summary>
+        /// Restores the placement saved for this room, or without a room the most recent one, as the preview
+        /// candidate for <paramref name="generation"/>. Returns whether the preview now holds that saved pose,
+        /// awaiting the person's Apply. An anchor the headset no longer holds is forgotten; one that does not
+        /// localize, or no longer suits the seat or clears the workspace, is replaced when a new place is saved.
+        /// </summary>
+        private async Task<bool> RestoreAsync(RoomRead read, Viewer viewer, int generation, int attempt)
+        {
+            var saved = surfaceSession.SavedAnchorToTry(memory, read.RoomId);
             if (saved == null || !Guid.TryParseExact(saved, "N", out var uuid)) return false;
             var (restored, found, detail) = await StageAnchors.RestoreAsync(root.transform, uuid, RestoreSeconds);
-            if (!Current(attempt))
+            if (!Current(attempt) || generation != Draft.Generation)
             {
                 if (restored != null) Destroy(restored.gameObject);
                 return false;
             }
             if (!found)
             {
-                memory.Forget(saved);
+                surfaceSession.RecordMissingAnchor(memory, saved);
                 SaveMemory();
             }
             if (restored == null)
@@ -378,19 +473,29 @@ namespace Halcyonic.XR.Room
                 return false;
             }
             var pose = StageAnchors.PoseOf(restored);
-            if (!StageSurfaces.StillSuits(ToRoom(pose.position), viewer, read.Surfaces, read.Obstacles))
+            var width = GetComponent<CharacterStage>()?.ShelfWidth ?? AgentShelfDraft.Width(1);
+            if (!StagePlacementSession.RestoredShelfSuits(
+                ToRoom(pose.position),
+                pose.rotation.eulerAngles.y,
+                width,
+                AgentShelfDraft.Depth,
+                viewer,
+                read.Surfaces,
+                read.Obstacles))
             {
                 Log("the saved placement no longer suits where the person sits, so it is chosen again");
                 Destroy(restored.gameObject);
                 return false;
             }
-            DropAnchor();
-            var kind = SurfaceUnder(pose.position, read, viewer);
-            Adopt(restored, StagePlacement.BackOnSurface, kind);
-            if (read.RoomId != null) memory.Touch(read.RoomId);
-            SaveMemory();
-            Publish(pose, "it restored the placement saved for this room");
-            SetStatus(Status.With(placement: StagePlacement.BackOnSurface, surface: kind, clearSurface: kind == null));
+            var kind = SurfaceUnder(pose, width, read);
+            ClearPendingSuggestion();
+            if (!surfaceSession.SuggestRestored(Draft, generation, ToDraft(pose), kind, read.RoomId, saved))
+            {
+                Log("the saved placement no longer clears the current view or workspace, so it is chosen again");
+                Destroy(restored.gameObject);
+                return false;
+            }
+            pendingRestoredAnchor = restored;
             return true;
         }
 
@@ -477,6 +582,7 @@ namespace Halcyonic.XR.Room
         /// <summary>Returns the stage to its own placement in front of the person.</summary>
         private void Clear(string reason)
         {
+            placementRun++;
             if (!Preferred.HasValue) return;
             Preferred = null;
             Log("the optional shelf is tucked away, because " + reason);
@@ -485,6 +591,7 @@ namespace Halcyonic.XR.Room
 
         private void DropAnchor()
         {
+            placementRun++;
             if (anchor != null) Destroy(anchor.gameObject);
             anchor = null;
             published = null;
@@ -671,21 +778,14 @@ namespace Halcyonic.XR.Room
         }
 
         /// <summary>What a kept placement stands on, when the room's layout is known.</summary>
-        private static SurfaceKind? SurfaceUnder(Vector3 position, RoomRead read, Viewer viewer)
-        {
-            if (read.Surfaces == null) return null;
-            SurfaceKind? found = null;
-            foreach (var surface in read.Surfaces)
-            {
-                if (Mathf.Abs(surface.Height - position.y) > 0.05f) continue;
-                if (StageSurfaces.LineupFits(surface, Array.Empty<RoomObstacle>(), viewer, new PlanPoint(position.x, position.z), 0f))
-                {
-                    if (surface.Kind == SurfaceKind.Desk) return SurfaceKind.Desk;
-                    found = surface.Kind;
-                }
-            }
-            return found;
-        }
+        private static SurfaceKind? SurfaceUnder(Pose pose, float width, RoomRead read) =>
+            StagePlacementSession.ShelfSurfaceUnder(
+                ToRoom(pose.position),
+                pose.rotation.eulerAngles.y,
+                width,
+                AgentShelfDraft.Depth,
+                read.Surfaces,
+                read.Obstacles);
 
         private static string Describe(float turn) =>
             Mathf.Abs(turn) < 0.5f ? "straight ahead" : $"{Mathf.Abs(turn):0} degrees {(turn > 0f ? "right" : "left")}";

@@ -2637,24 +2637,35 @@ exists. Passthrough remains independent of whether optional characters are prese
   results use the independent workspace notice route rather than requiring a stage banner. Three/six-agent
   group layouts remain rejected feasibility diagnostics, not available display modes.
 - **Room suggestion.** Find a room surface is an explicit action inside the placement preview.
-  Only this action starts scene access and MRUK reading. The existing conservative
-  `StageSurfaces.Choose` ranks candidates only after `ShelfFits` checks the entire
+  Only this action starts scene access and MRUK reading. When an anchor was saved for the room in
+  `PlacementMemory` (or the most recent saved anchor when room access is not available), `RestoreAsync`
+  first checks whether `StageAnchors.RestoreAsync` localizes it and `StagePlacementSession.RestoredShelfSuits`
+  (checking rectangular shelf fit via `StageSurfaces.ShelfFits` when surfaces were read) plus
+  `AllowsShelf` keep it; if so, `StagePlacementSession.SuggestRestored` updates the preview to that
+  pose with `StagePlacementSession.ShelfSurfaceUnder`, and Apply adopts the restored anchor
+  (`StagePlacement.BackOnSurface`). Otherwise, the existing
+  conservative `StageSurfaces.Choose` ranks candidates only after `ShelfFits` checks the entire
   actual shelf rectangle against concave surface edges and obstacles, including an obstacle
   wholly inside its footprint, and the current field contains its envelope. It continues searching
-  when the nearest candidate cannot fit the actual shelf. A result updates only the preview, still
-  requiring Apply. Permission
-  denial or no fitting surface leaves manual placement available. This flow does not automatically
-  restore or create durable anchors; the existing anchor/memory primitives are retained, with no
-  new claim of cross-session recovery.
+  when the nearest candidate cannot fit the actual shelf. A result updates only the preview via
+  `StagePlacementSession.SuggestSurface`, still requiring Apply. Applying an unmoved surface suggestion
+  publishes `StagePlacement.OnSurfaceThisSession` with the surface kind, creates and saves an
+  `OVRSpatialAnchor` (`StageAnchors.CreateAsync`) under its own committed-placement generation
+  (`placementRun`, unaffected by subsequent preview scans), records it in `PlacementMemory`
+  (`StagePlacement.OnSurface`), and erases any displaced room anchor; moving the preview away from the
+  suggestion (via directional step or `AgentShelfDrag.Follow` through `Draft.Changed`) clears the
+  pending suggestion and applies it as a manual session shelf (`StagePlacement.OnShelfThisSession`).
+  Permission denial or no fitting surface leaves manual placement available.
 - **Missing placement.** `Preferred == null` tucks agents and their targets away. There is no arc
   fallback or fictional room-for-window arrangement. The normal workspace remains usable with
   agents Off or unavailable. Room status names the recovery route rather than saying that agents
   float in front of the person.
-- **Validation.** C# regressions cover preview authority, Apply/Cancel, generation invalidation,
-  bounded moves, measured paging at both text sizes, whole-shelf surface and obstacle checks, and
-  the truthful Off/Placed settings route. `StageRender.AgentShelfCheck` checks actual animated body
-  contact and saves editor pictures. Headset placement comfort, direct grab handling, relocalization
-  and frame cost require separate device evidence; no earlier arc renders prove this shelf.
+- **Validation.** C# regressions (`AgentShelfTests`, `StagePlacementTests`, `RoomPlacementTests`) cover
+  preview authority, Apply/Cancel, generation invalidation, surface-suggestion and restored-anchor
+  status/memory transitions, bounded moves, measured paging at both text sizes, whole-shelf surface
+  and obstacle checks, and the truthful Off/Placed settings route. `StageRender.AgentShelfCheck` checks
+  actual animated body contact and saves editor pictures. Headset placement comfort, direct grab handling,
+  relocalization and frame cost require separate device evidence; no earlier arc renders prove this shelf.
 
 ### Sound
 
