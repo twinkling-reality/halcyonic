@@ -114,13 +114,13 @@ namespace Halcyonic.XR.UI
             composer.rare = KitButton.Create(go.transform, "Rare action", KitButtonRole.Secondary);
             composer.rare.Pressed += () => composer.RarePressed?.Invoke();
             composer.rare.Hide();
-            composer.environmentButton = KitButton.Create(go.transform, "Environment", KitButtonRole.Word);
+            composer.environmentButton = KitButton.Create(go.transform, "Environment", KitButtonRole.Quiet);
             composer.environmentButton.Pressed += () => composer.EnvironmentPressed?.Invoke();
             composer.environmentButton.Hide();
-            composer.projectButton = KitButton.Create(go.transform, "Project", KitButtonRole.Word);
+            composer.projectButton = KitButton.Create(go.transform, "Project", KitButtonRole.Quiet);
             composer.projectButton.Pressed += () => composer.ProjectPressed?.Invoke();
             composer.projectButton.Hide();
-            composer.agentButton = KitButton.Create(go.transform, "Agent", KitButtonRole.Word);
+            composer.agentButton = KitButton.Create(go.transform, "Agent", KitButtonRole.Quiet);
             composer.agentButton.Pressed += () => composer.AgentPressed?.Invoke();
             composer.agentButton.Hide();
             return composer;
@@ -221,79 +221,124 @@ namespace Halcyonic.XR.UI
                 y += reasonHeight + KitType.Scaled(0.35f);
             }
 
-            // The footer: Hold to talk and Send instruction at the right, Send rightmost; bound, Close and the rare action
-            // at the left, in the order the file's footer stands them.
+            // The footer: rows span the full width of the well above them, with equal column widths where they fit.
             var gap = KitType.Units(SpatialKit.TargetGapDegrees);
-            var row = -y - KitButton.Height / 2f;
-            // Close and the rare action stand at the row's left, or when unbound, the context selector pills (Environment,
-            // Project, Agent); where they would not keep a target's gap from Hold to talk and Send, they take a row of their
-            // own above them, the same order read row by row.
-            var leftControls = new[] { (close, closeControl), (rare, rareControl) }.Where(each => each.Item2 != null).ToList();
+            var leftControls = new[] { (Button: close, Control: closeControl), (Button: rare, Control: rareControl) }
+                .Where(each => each.Control != null).ToList();
+            foreach (var (button, control) in new[] { (close, closeControl), (rare, rareControl) })
+            {
+                if (control == null) button.Hide();
+            }
+
+            var envWords = !string.IsNullOrEmpty(EnvironmentChoice) && !EnvironmentChoice!.StartsWith("Host:", StringComparison.OrdinalIgnoreCase)
+                ? "Host: " + EnvironmentChoice
+                : EnvironmentChoice;
+            var envGlyph = string.Equals(EnvironmentChoice, "Sandbox", StringComparison.OrdinalIgnoreCase)
+                ? GlazeIcon.Locked
+                : GlazeIcon.ScriptFile;
+            var agentWords = !string.IsNullOrEmpty(AgentChoice) && AgentChoice!.IndexOf("agent", StringComparison.OrdinalIgnoreCase) < 0
+                ? "Agent: " + AgentChoice
+                : AgentChoice;
             var selectorCandidates = new (KitButton Button, string? Choice, GlazeIcon? Glyph)[]
             {
-                (environmentButton, EnvironmentChoice, null),
+                (environmentButton, envWords, envGlyph),
                 (projectButton, ProjectChoice, GlazeIcon.Folder),
-                (agentButton, AgentChoice, null),
+                (agentButton, agentWords, GlazeIcon.CodeFile),
             };
-            var selectors = new System.Collections.Generic.List<(KitButton Button, string Words, GlazeIcon? Glyph)>();
+            var selectors = new System.Collections.Generic.List<(KitButton Button, string Words, GlazeIcon? Glyph, bool Available)>();
             foreach (var (button, choice, glyph) in selectorCandidates)
             {
                 if (!withWell || leftControls.Count > 0 || string.IsNullOrEmpty(choice)) button.Hide();
-                else selectors.Add((button, choice!, glyph));
+                else selectors.Add((button, choice!, glyph, true));
             }
-            var leftWidth = leftControls.Count > 0
-                ? leftControls.Sum(each => each.Item1.Measure(each.Item2!.Words, each.Item2.Icon ?? GlazeIcon.Close) + gap)
-                : selectors.Sum(each => each.Button.Measure(each.Words, each.Glyph) + gap);
-            var rightWidth = (sendControl != null || !bound ? send.Measure(sendControl?.Words ?? SendInstruction, GlazeIcon.SendAnswer) + gap : 0f)
-                + (voiceOffered ? talk.Measure(talkControl?.Words ?? VoiceText.HoldToTalk, GlazeIcon.HoldToTalk) + gap : 0f);
-            var leftRow = row;
+
             SelectorRowHeight = 0f;
-            if ((leftControls.Count > 0 || selectors.Count > 0) && leftWidth + rightWidth - gap > width + 1e-5f)
+            if (selectors.Count > 0)
             {
-                row -= KitButton.Height + gap;
+                var selectorRow = -y - KitButton.Height / 2f;
+                LayRow(selectors, selectorRow, width, gap);
                 y += KitButton.Height + gap;
-                if (selectors.Count > 0) SelectorRowHeight = KitButton.Height + gap;
+                SelectorRowHeight = KitButton.Height + gap;
             }
-            var right = width;
-            send.gameObject.SetActive(sendControl != null || !bound);
-            if (send.gameObject.activeSelf)
-            {
-                var sendWords = sendControl != null ? sendControl.Words
-                    : Answering ? WorkspaceText.Label(WorkspaceAction.Answer) : SendInstruction;
-                var sendWidth = send.Measure(sendWords, GlazeIcon.SendAnswer);
-                send.Available = sendable;
-                send.Show(sendWords, GlazeIcon.SendAnswer, new Vector2(right - sendWidth / 2f, row), sendWidth);
-                right -= sendWidth + gap;
-            }
-            talk.gameObject.SetActive(voiceOffered);
+
+            var rightItems = new System.Collections.Generic.List<(KitButton Button, string Words, GlazeIcon? Glyph, bool Available)>();
             if (voiceOffered)
             {
                 var talkWords = talkControl?.Words ?? VoiceText.HoldToTalk;
-                var talkWidth = talk.Measure(talkWords, GlazeIcon.HoldToTalk);
-                talk.Available = talkControl == null || talkControl.Available;
-                talk.Show(talkWords, GlazeIcon.HoldToTalk, new Vector2(right - talkWidth / 2f, row), talkWidth);
-                right -= talkWidth + gap;
+                rightItems.Add((talk, talkWords, GlazeIcon.HoldToTalk, talkControl == null || talkControl.Available));
             }
-            var left = 0f;
-            foreach (var (button, control) in new[] { (close, closeControl), (rare, rareControl) })
+            else
             {
-                if (control == null) { button.Hide(); continue; }
-                var glyph = control.Icon ?? GlazeIcon.Close;
-                var buttonWidth = button.Measure(control.Words, glyph);
-                button.Available = control.Available;
-                button.Show(control.Words, glyph, new Vector2(left + buttonWidth / 2f, leftRow), buttonWidth);
-                left += buttonWidth + gap;
+                talk.Hide();
             }
-            foreach (var (button, choice, glyph) in selectors)
+            if (sendControl != null || !bound)
             {
-                var buttonWidth = button.Measure(choice, glyph);
-                button.Available = true;
-                button.Show(choice, glyph, new Vector2(left + buttonWidth / 2f, leftRow), buttonWidth);
-                left += buttonWidth + gap;
+                var sendWords = sendControl != null ? sendControl.Words
+                    : Answering ? WorkspaceText.Label(WorkspaceAction.Answer) : SendInstruction;
+                rightItems.Add((send, sendWords, GlazeIcon.SendAnswer, sendable));
+            }
+            else
+            {
+                send.Hide();
+            }
+
+            var leftItems = leftControls
+                .Select(each => (each.Button, each.Control!.Words, (GlazeIcon?)(each.Control.Icon ?? GlazeIcon.Close), each.Control.Available))
+                .ToList();
+
+            var leftWidth = leftItems.Sum(each => each.Button.Measure(each.Words, each.Item3) + gap);
+            var rightWidth = rightItems.Sum(each => each.Button.Measure(each.Words, each.Glyph) + gap);
+            if (leftItems.Count > 0 && rightItems.Count > 0 && leftWidth + rightWidth - gap > width + 1e-5f)
+            {
+                var upperRow = -y - KitButton.Height / 2f;
+                LayRow(leftItems, upperRow, width, gap);
+                y += KitButton.Height + gap;
+                var lowerRow = -y - KitButton.Height / 2f;
+                LayRow(rightItems, lowerRow, width, gap);
+            }
+            else
+            {
+                var combined = leftItems.Concat(rightItems).ToList();
+                var actionRow = -y - KitButton.Height / 2f;
+                LayRow(combined, actionRow, width, gap);
             }
             y += KitButton.Height;
             size = new Vector2(width, y);
             return y;
+        }
+
+        private static void LayRow(System.Collections.Generic.IReadOnlyList<(KitButton Button, string Words, GlazeIcon? Glyph, bool Available)> items,
+            float rowY, float width, float gap)
+        {
+            if (items.Count == 0) return;
+            var measured = new float[items.Count];
+            var totalMeasured = 0f;
+            for (var i = 0; i < items.Count; i++)
+            {
+                measured[i] = items[i].Button.Measure(items[i].Words, items[i].Glyph);
+                totalMeasured += measured[i];
+            }
+            var available = Mathf.Max(0f, width - (items.Count - 1) * gap);
+            var cellWidth = available / items.Count;
+            var equalFits = true;
+            for (var i = 0; i < items.Count; i++)
+            {
+                if (measured[i] > cellWidth + 1e-4f)
+                {
+                    equalFits = false;
+                    break;
+                }
+            }
+            var extraEach = Mathf.Max(0f, (available - totalMeasured) / items.Count);
+            var x = 0f;
+            for (var i = 0; i < items.Count; i++)
+            {
+                var (button, buttonWords, glyph, isAvailable) = items[i];
+                var buttonWidth = equalFits ? cellWidth : measured[i] + extraEach;
+                button.Available = isAvailable;
+                button.Show(buttonWords, glyph, new Vector2(x + buttonWidth / 2f, rowY), buttonWidth);
+                x += buttonWidth + gap;
+            }
         }
     }
 }

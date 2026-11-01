@@ -121,7 +121,8 @@ namespace Halcyonic.XR.UI
             var inset = KitType.Units(SpatialKit.SwitchInsetDegrees);
             var cell = KitType.Units(SpatialKit.SwitchCellDegrees);
             var cellWidth = size.x - 2f * inset;
-            track.Draw(size, cell / 2f + inset, KitType.Colour(SpatialKit.Well));
+            var radius = KitType.Units(SpatialKit.ControlRadiusDegrees);
+            track.Draw(size, radius + inset, KitType.Colour(SpatialKit.Well), KitType.Colour(SpatialKit.Edge), KitType.Units(SpatialKit.HairlineDegrees));
             workspaceTarget.transform.localPosition = new Vector3(0f, CellCentre(0f), -KitType.Units(0.05f));
             compactTarget.transform.localPosition = new Vector3(0f, CellCentre(1f), -KitType.Units(0.05f));
             workspaceTarget.Resize(new Vector2(cellWidth, cell));
@@ -201,12 +202,11 @@ namespace Halcyonic.XR.UI
             var stretch = Mathf.Sin(Mathf.PI * (moving >= 1f ? 0f : Glaze.EaseInOut(moving))) * 0.6f * travel;
             var thumbSize = new Vector2(cellWidth, cell + stretch);
             var centre = CellCentre(position);
-            var accent = Glaze.Tone(GlazeTone.Accent);
-            shadow.Draw(thumbSize, cell / 2f, new Color(0f, 0f, 0f, 0.42f));
+            var radius = KitType.Units(SpatialKit.ControlRadiusDegrees);
+            shadow.Draw(thumbSize, radius, new Color(0f, 0f, 0f, 0.42f));
             shadow.transform.localPosition = new Vector3(0f, centre - KitType.Units(0.14f), -0.0002f);
-            // Raised by its fill and shadow; its accent edge says which position is confirmed. No light of its own:
-            // the instrument carries one.
-            thumb.Draw(thumbSize, cell / 2f, KitType.Colour(SpatialKit.Thumb), KitType.Mix(SpatialKit.Thumb, accent.Strong, 0.7f), KitType.Units(0.08f));
+            // Raised by its fill and shadow; a quiet neutral edge frames the confirmed position.
+            thumb.Draw(thumbSize, radius, KitType.Colour(SpatialKit.Thumb), KitType.Mix(SpatialKit.Thumb, SpatialKit.Text, 0.24f), KitType.Units(SpatialKit.HairlineDegrees));
             thumb.Selection = SurfaceSelection.Lit;
             thumb.transform.localPosition = new Vector3(0f, centre, -0.0003f);
             // The pointed position: its frame inside the track. The current one needs none: its thumb is lit already.
@@ -216,7 +216,7 @@ namespace Halcyonic.XR.UI
             hoverFrame.gameObject.SetActive(pointedAt >= 0f);
             if (pointedAt >= 0f)
             {
-                hoverFrame.Draw(new Vector2(cellWidth, cell), cell / 2f, Color.clear, KitType.Mix(SpatialKit.Well, GlazeColor.Hex(0xFFFFFF), 0.55f), KitType.Units(0.08f));
+                hoverFrame.Draw(new Vector2(cellWidth, cell), radius, Color.clear, KitType.Mix(SpatialKit.Well, GlazeColor.Hex(0xFFFFFF), 0.55f), KitType.Units(0.08f));
                 hoverFrame.Selection = SurfaceSelection.Pointed;
                 hoverFrame.transform.localPosition = new Vector3(0f, CellCentre(pointedAt), -0.0001f);
             }
@@ -229,7 +229,7 @@ namespace Halcyonic.XR.UI
             var edge = KitType.Units(0.1f);
             workspaceMark.Draw(new Vector2(markWidth, markWidth * 0.72f), KitType.Units(0.2f), Color.clear, workspaceLabel.color, edge);
             workspaceMarkBar.Draw(new Vector2(markWidth - 2f * edge, edge * 1.4f), edge * 0.7f, workspaceLabel.color);
-            compactMark.Draw(new Vector2(markWidth, markWidth * 0.34f), markWidth * 0.17f, compactLabel.color);
+            compactMark.Draw(new Vector2(markWidth * 0.76f, markWidth * 0.46f), KitType.Units(0.16f), Color.clear, compactLabel.color, edge);
         }
     }
 }

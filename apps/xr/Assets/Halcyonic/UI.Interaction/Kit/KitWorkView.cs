@@ -370,7 +370,7 @@ namespace Halcyonic.XR.UI
             composer.Answering = model.Ask != null;
             var hasSelectors = binding == null && (!string.IsNullOrEmpty(model.Environment) || !string.IsNullOrEmpty(model.Agent));
             composer.EnvironmentChoice = hasSelectors ? model.Environment : null;
-            composer.ProjectChoice = hasSelectors && !string.IsNullOrEmpty(model.ProjectName) ? model.ProjectName : null;
+            composer.ProjectChoice = null;
             composer.AgentChoice = hasSelectors ? model.Agent : null;
             if (binding != null && model.Ask?.Lines.Count > 0)
             {
