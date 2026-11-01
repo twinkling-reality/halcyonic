@@ -17,7 +17,8 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
 [ADR 0040](../decisions/0040-the-headset-is-a-room-of-projects.md) makes the headset a room: a gallery of projects as
 home, one screen per picked project with its bar beneath, moments from the task's character, reading that unfolds on
 demand. Built so far, as kit components checked in Editor renders: the colours, type and motion below, a picked
-project's screen and its bar (placed in the room 2 m away), and the moment card; the rest are not yet. The sections after this one describe what the headset draws today (the plane, the
+project's screen and its bar (placed in the room 2 m away), the moment card, the reading surface, and the character
+figure (`KitFigure`); the rest are not yet. The sections after this one describe what the headset draws today (the plane, the
 curve, the 2026-10-15 and 2026-10-16 candidates); each is rewritten as the build unit that replaces it lands. Values
 below are the accepted storyboard's; the client core will hold them (`SpatialKit`), and renders check them.
 
@@ -197,6 +198,34 @@ height, the receipt's size lands, and the receipt fades in over 120 ms.
 | A tile grows into the screen; a part moves | 600 ms | Material 3 standard |
 | Pointing at a tile | At once | It grows 5 percent and its edge lights, with one light controller tick |
 | The character idles | 3.2 s a breath | A few millimetres; one hop at ready |
+
+**The character figure.** One floating porcelain ovoid companion (`KitFigureLook` in the client core, `KitFigure` and
+`KitFigureMeshes` in the Unity layer, drawn through `Halcyonic/Kit Pearl` and `Halcyonic/Kit Figure Light` with GPU
+instancing and `MaterialPropertyBlock`): an inverted-teardrop torso (`0.132 m` wide by `0.156 m` tall) wider at the
+rounded shoulders and tapering to a clean lower point, with a curved upper saddle collar line (`0.010 m` higher at the
+shoulders than front and back), a dark recessed interior collar bowl (`#141C26`, strictly inside the outer saddle crest)
+carrying an emissive inner collar ring, and a luminous waist belt with a 25 percent porcelain halo (solid, or 14 dashes
+when the status is unknown, dimmed to 25 percent when stopped and 18 percent when unreachable); two detached tapered
+capsule-wing arms (`0.032 m` wide by `0.111 m` tall, `0.011 m` air gap from the torso, banked `13.5` degrees and yawed
+`35.5` degrees to contour along the torso's conical V-taper); and a floating rounded-conical dome head (`0.140 m` wide by
+`0.098 m` tall, `0.012 m` floating collar gap above the torso saddle) with a physically recessed gloss-black front oval
+visor (`#030406`, chamfer lip `#C9D2DC`, smooth convex downward lower arc) and two tilted oval LED eyes (`7` degrees
+inward tilt, `7` horizontal scanline bands, or upward happy arcs when the computer's own check passed in this round).
+The porcelain shell shades from `#3D4552` on its hidden underside through `#DCE3EC` to `#F8FAFD` under the studio key
+light with an 11 percent Fresnel/subsurface identity sheen. All six companion slots share this single aerodynamic
+silhouette and differentiate by six signature identity hues (`SpatialKit.FigureFamily`: `#4F7FF2`, `#3BE6D4`, `#9B75EB`,
+`#F75CA8`, `#CA52D6`, `#393DF2`) and by state tone (`Running` `#59CFF1`, `Needs You` `#FABA59`, `Passed` `#69D98D` only
+when `passedCheckObserved` is true, `Failed` `#F7857D`, `Not Started` `#A0A5AC` eyes with `#B9C0C8` belt and ground ring
+at `0.52` opacity, `Unknown` `#A0A5AC` asymmetric eyes with `15.5` degree head tilt and `#B9C0C8` 14-dash belt and ground
+ring at `0.48` opacity, `Stopped` shut-line eyes with `#7A828E` belt at 25 percent and ground ring at `0.22` opacity,
+`Last Known` `#767B82` dimmed with `Moves == false`). Beneath the figure (`0.095 m` below the lower torso tip on a
+`0.184 m` floor quad, matching `0.48` prototype units) sits a 3-layer spatial ground projection: (1) a tight
+ambient-occlusion contact shadow (`#05070A`, `r = 0.095` prototype units) coupled to `RiseM`, (2) a structured concentric
+ground ring (`r = 0.150` inner ring with 55 percent white front-arc highlight, `r = 0.198` broken outer ring with 4
+cardinal micro-ticks at `0, 90, 180, 270` degrees and a center origin pip), and (3) a compact specular floor reflection
+strictly inside the inner ring (`r <= 0.135`, alpha capped at `0.28`, zero smudge outside the outer ring). The ground
+projection is shown for all reachable states and hidden in `Last Known` (`ShowPool == false`). Near detail stays within
+`2,400` triangles (`2,178` open, `2,202` happy) and far detail within `600` (`502`).
 
 ## Design acceptance status — 2026-10-15
 

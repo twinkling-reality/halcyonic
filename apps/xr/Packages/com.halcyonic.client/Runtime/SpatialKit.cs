@@ -311,6 +311,35 @@ namespace Halcyonic.Client
         /// <summary>The band under a line a checkpoint diff shows added.</summary>
         public static GlazeColor AddedBand => GlazeColor.Hex(0x1B3324);
 
+        /// <summary>The character's porcelain shell base (#DCE3EC, rising to #F8FAFD under the studio key light).</summary>
+        public static GlazeColor Pearl => GlazeColor.Hex(0xDCE3EC);
+
+        /// <summary>The character's recessed gloss-black front oval visor (#030406).</summary>
+        public static GlazeColor Visor => GlazeColor.Hex(0x030406);
+
+        /// <summary>The chamfered bezel lip around the character's recessed front oval visor (#C9D2DC).</summary>
+        public static GlazeColor VisorLip => GlazeColor.Hex(0xC9D2DC);
+
+        /// <summary>The concave inner collar well inside the upper torso saddle (#141C26).</summary>
+        public static GlazeColor CollarWell => GlazeColor.Hex(0x141C26);
+
+        /// <summary>The recessed waist seam groove around the torso (#0B0E13).</summary>
+        public static GlazeColor BeltGroove => GlazeColor.Hex(0x0B0E13);
+
+        /// <summary>The cool slate underside bounce of the character's porcelain shell (#3D4552).</summary>
+        public static GlazeColor GroundLight => GlazeColor.Hex(0x3D4552);
+
+        /// <summary>The six ROBOT6 companion identity hues across the character family.</summary>
+        public static GlazeColor FigureFamily(KitFigureFeature feature) => feature switch
+        {
+            KitFigureFeature.Antenna => GlazeColor.Hex(0x4F7FF2),
+            KitFigureFeature.Fins => GlazeColor.Hex(0x3BE6D4),
+            KitFigureFeature.Crest => GlazeColor.Hex(0x9B75EB),
+            KitFigureFeature.Loop => GlazeColor.Hex(0xF75CA8),
+            KitFigureFeature.Twin => GlazeColor.Hex(0xCA52D6),
+            _ => GlazeColor.Hex(0x393DF2),
+        };
+
         /// <summary>
         /// A project's identity field: its screen's face while no picture stands, in the project's own hue (0 to 360) at a
         /// low chroma and the carrier's darkness, so it reads as whose screen it is and never as a meaning.
