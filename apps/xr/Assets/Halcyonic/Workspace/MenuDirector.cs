@@ -285,6 +285,9 @@ namespace Halcyonic.XR.Workspace
             director.plane.SubjectHeld += director.OnSubjectHeld;
             director.plane.SubjectDragged += director.OnSubjectDragged;
             director.plane.SubjectLetGo += director.OnSubjectLetGo;
+            director.plane.ScreenActed += director.OnScreenActed;
+            director.plane.ScreenBarToggled += director.OnScreenBarToggled;
+            director.plane.MomentActed += director.OnMomentActed;
             if (setup.Voice is HoldToTalk talk)
             {
                 var voice = new MenuVoice(() => talk.Busy, talk.Begin, () => talk.End(true), talk.Drop);
@@ -1293,7 +1296,9 @@ namespace Halcyonic.XR.Workspace
 
         }
 
-        public void OpenFile(string workstreamId)
+        public void OpenFile(string workstreamId) => OpenFile(workstreamId, null);
+
+        public void OpenFile(string workstreamId, FileSection? section)
         {
             memory.Session(setup.Session());
             if (setup.Presentation.InspectedWorkstreamId == workstreamId) setup.Presentation.CloseMoment(State);
@@ -1303,12 +1308,29 @@ namespace Halcyonic.XR.Workspace
                 BindView(file);
                 if (file is FileColumn taskFile)
                 {
-                    if (RestoreSelectedSurface(taskFile, workstreamId)) return;
-                    taskFile.Surface = WorkspaceSurface.Task;
+                    var restored = RestoreSelectedSurface(taskFile, workstreamId);
+                    if (section is FileSection targetSection)
+                    {
+                        taskFile.Surface = WorkspaceSurface.Task;
+                        taskFile.ShowSection(targetSection);
+                    }
+                    else if (restored)
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        taskFile.Surface = WorkspaceSurface.Task;
+                    }
                 }
-                if (ReferenceEquals(navigator.Beside, file) && navigator.TryExpandTask(workstreamId)) return;
+                if (ReferenceEquals(navigator.Beside, file) && navigator.TryExpandTask(workstreamId))
+                {
+                    dirty = true;
+                    return;
+                }
                 navigator.ShowBeside(file, workstreamId);
                 KeepViews();
+                dirty = true;
             }
         }
 

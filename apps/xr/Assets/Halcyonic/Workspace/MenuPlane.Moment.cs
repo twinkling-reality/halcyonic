@@ -1,4 +1,6 @@
 #nullable enable
+using System;
+using System.Collections.Generic;
 using Halcyonic.Client;
 using Halcyonic.XR.UI;
 using UnityEngine;
@@ -8,6 +10,7 @@ namespace Halcyonic.XR.Workspace
     public sealed partial class MenuPlane
     {
         private Transform? momentHolder;
+        private readonly Dictionary<KitButton, Action> momentHandlers = new Dictionary<KitButton, Action>();
 
         /// <summary>The task's moment beside its character or task mark (ADR 0040, rule 4), while one is shown.</summary>
         public KitMomentCard? Moment { get; private set; }
@@ -20,6 +23,9 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>Whether the card's growing lower corner is on the side of what it comes out of.</summary>
         public bool MomentGrowsTowardAnchor { get; private set; }
+
+        /// <summary>Raised when a button on <see cref="Moment"/> is pressed, with the action and current <see cref="MomentWorkstreamId"/>.</summary>
+        public event Action<KitMomentAction, string?>? MomentActed;
 
         /// <summary>
         /// Shows <paramref name="slot"/>'s moment in the one slot beside <paramref name="anchor"/>: the task's character
@@ -42,6 +48,7 @@ namespace Halcyonic.XR.Workspace
             Moment.Show(slot);
             if (!Moment.gameObject.activeSelf)
             {
+                UnwireMoment();
                 (MomentWorkstreamId, MomentPose, MomentGrowsTowardAnchor) = (null, null, false);
                 return;
             }
@@ -61,11 +68,36 @@ namespace Halcyonic.XR.Workspace
             MomentWorkstreamId = workstreamId;
             MomentPose = pose;
             Moment.Pop(popped);
+            WireMoment();
+        }
+
+        private void UnwireMoment()
+        {
+            foreach (var pair in momentHandlers)
+            {
+                if (pair.Key != null) pair.Key.Pressed -= pair.Value;
+            }
+            momentHandlers.Clear();
+        }
+
+        private void WireMoment()
+        {
+            UnwireMoment();
+            if (Moment == null) return;
+            foreach (var (action, button) in Moment.Shown)
+            {
+                if (button == null) continue;
+                var captured = action;
+                Action handler = () => MomentActed?.Invoke(captured, MomentWorkstreamId);
+                momentHandlers[button] = handler;
+                button.Pressed += handler;
+            }
         }
 
         /// <summary>Takes the moment away.</summary>
         public void HideMoment()
         {
+            UnwireMoment();
             if (momentHolder != null)
             {
                 momentHolder.gameObject.SetActive(false);

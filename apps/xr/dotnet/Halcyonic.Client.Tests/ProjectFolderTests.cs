@@ -134,6 +134,39 @@ public class ProjectFolderTests
         var move = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your computer", "ref", "Objective", folder: "shop in Projects", folderBefore: "none");
         Assert.That(move.Items.Select(item => item.Text).Take(3), Is.EqualTo(new[] { "Project · Project", "Folder Now · none", "Folder Next · shop in Projects" }));
     }
+
+    [Test]
+    public void AStarterFolderPreservesStarterIdAndEmitsNewFromStarterChoice()
+    {
+        var root = Root("Projects", LocationRootStatus.Available, "recipes");
+        var starter = ProjectFolder.NewStarter(root, "VR Starter Project")!;
+        Assert.That(starter, Is.Not.Null);
+        Assert.That((starter.IsNew, starter.StarterId, starter.FolderName), Is.EqualTo((true, "iwsdk-vr", "vr-starter-project")));
+        Assert.That(starter.Describe(), Is.EqualTo("New VR Starter · vr-starter-project in Projects"));
+
+        var renamed = starter.WithFolderName("galaxy-vr")!;
+        Assert.That(renamed, Is.Not.Null);
+        Assert.That((renamed.IsNew, renamed.StarterId, renamed.FolderName), Is.EqualTo((true, "iwsdk-vr", "galaxy-vr")));
+
+        var contract = (NewFromStarterChoice)renamed.ToContract();
+        Assert.That((contract.Root, contract.FolderName, contract.StarterId), Is.EqualTo((root.Path, "galaxy-vr", "iwsdk-vr")));
+
+        var listing = new LocationsResponse { Roots = new List<LocationRoot> { root } };
+        var restored = ProjectFolder.Restore(renamed.RootPath, renamed.RootName, renamed.FolderName, renamed.IsNew, renamed.StarterId)!;
+        Assert.That(restored.Current(listing).StarterId, Is.EqualTo("iwsdk-vr"));
+
+        var withStarters = ProjectFolder.Options(listing, includeStarters: true);
+        Assert.That(withStarters.Select(option => option.Kind), Is.EqualTo(new[]
+        {
+            FolderOptionKind.NewFolder,
+            FolderOptionKind.NewStarterFolder,
+            FolderOptionKind.Root,
+            FolderOptionKind.Folder,
+        }));
+        var starterOption = withStarters.Single(option => option.Kind == FolderOptionKind.NewStarterFolder);
+        Assert.That((starterOption.Label, starterOption.Detail, starterOption.SuggestedName),
+            Is.EqualTo(("New VR Starter · Projects", root.Path, "VR Starter Project")));
+    }
 }
 
 public class FolderRefusalTests

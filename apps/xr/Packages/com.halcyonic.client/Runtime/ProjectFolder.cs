@@ -18,18 +18,21 @@ namespace Halcyonic.Client
     /// </summary>
     public sealed class ProjectFolder
     {
+        public const string DefaultStarterId = "iwsdk-vr";
+
         /// <summary>The host's rule for a new folder's name: one plain segment.</summary>
         public const string NewNamePattern = "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$";
 
         private static readonly Regex NewName = new Regex(NewNamePattern, RegexOptions.CultureInvariant);
 
-        private ProjectFolder(string rootPath, string rootName, string? folderName, bool isNew, bool placeGone = false)
+        private ProjectFolder(string rootPath, string rootName, string? folderName, bool isNew, bool placeGone = false, string? starterId = null)
         {
             RootPath = rootPath;
             RootName = rootName;
             FolderName = folderName;
             IsNew = isNew;
             PlaceGone = placeGone;
+            StarterId = isNew && !string.IsNullOrWhiteSpace(starterId) ? starterId : null;
         }
 
         /// <summary>The root's path exactly as the host listed it, sent back unchanged.</summary>
@@ -60,8 +63,8 @@ namespace Halcyonic.Client
         {
             var root = listing.Roots.FirstOrDefault(each => string.Equals(each.Path, RootPath, StringComparison.Ordinal));
             return root == null || root.Status != LocationRootStatus.Available
-                ? new ProjectFolder(RootPath, RootName, FolderName, IsNew, placeGone: true)
-                : new ProjectFolder(RootPath, LabelOf(root), FolderName, IsNew);
+                ? new ProjectFolder(RootPath, RootName, FolderName, IsNew, placeGone: true, starterId: StarterId)
+                : new ProjectFolder(RootPath, LabelOf(root), FolderName, IsNew, starterId: StarterId);
         }
 
         /// <summary>The folder inside the root, or null for the root itself.</summary>
@@ -69,6 +72,9 @@ namespace Halcyonic.Client
 
         /// <summary>The host makes the folder when the project is created.</summary>
         public bool IsNew { get; }
+
+        /// <summary>The starter template id when creating a new project from a starter, or null for a plain folder.</summary>
+        public string? StarterId { get; }
 
         /// <summary>A folder the host listed in a root, or the root itself when <paramref name="folder"/> is null.</summary>
         public static ProjectFolder Existing(LocationRoot root, LocationFolder? folder) =>
@@ -88,18 +94,38 @@ namespace Halcyonic.Client
             return IsValidNewName(trimmed) ? new ProjectFolder(root.Path, LabelOf(root), trimmed, true) : null;
         }
 
+        /// <summary>
+        /// A new starter project folder to create in <paramref name="root"/> from <paramref name="starterId"/>,
+        /// normalizing display names into a valid folder name when needed, or null when blank.
+        /// </summary>
+        public static ProjectFolder? NewStarter(LocationRoot root, string name, string starterId = DefaultStarterId)
+        {
+            if (root == null || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(starterId)) return null;
+            var trimmed = name.Trim();
+            var folder = IsValidNewName(trimmed) ? trimmed : SuggestName(trimmed);
+            return IsValidNewName(folder) ? new ProjectFolder(root.Path, LabelOf(root), folder, true, starterId: starterId.Trim()) : null;
+        }
+
+        /// <summary>Returns a new folder choice with <paramref name="name"/> while preserving <see cref="StarterId"/>, or null when invalid.</summary>
+        public ProjectFolder? WithFolderName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return null;
+            var trimmed = name.Trim();
+            return IsValidNewName(trimmed) ? new ProjectFolder(RootPath, RootName, trimmed, true, placeGone: PlaceGone, starterId: StarterId) : null;
+        }
+
         public static bool IsValidNewName(string name) => name != null && NewName.IsMatch(name);
 
         /// <summary>
         /// A choice the device kept across an app restart (<see cref="CreationDraft"/>), or null when it
         /// cannot be one: the host checks the root and the name again when it is sent, as it does any.
         /// </summary>
-        public static ProjectFolder? Restore(string? rootPath, string? rootName, string? folderName, bool isNew)
+        public static ProjectFolder? Restore(string? rootPath, string? rootName, string? folderName, bool isNew, string? starterId = null)
         {
             if (string.IsNullOrEmpty(rootPath) || rootName == null) return null;
             if (isNew && (folderName == null || !IsValidNewName(folderName))) return null;
             if (folderName != null && folderName.Length == 0) return null;
-            return new ProjectFolder(rootPath!, rootName, folderName, isNew);
+            return new ProjectFolder(rootPath!, rootName, folderName, isNew, starterId: starterId);
         }
 
         /// <summary>
@@ -131,9 +157,12 @@ namespace Halcyonic.Client
             path != null && (FolderName == null ? RootPath.TrimEnd('/') : RootPath.TrimEnd('/') + "/" + FolderName) == path.TrimEnd('/');
 
         /// <summary>What the command carries: the root and the folder's name exactly as listed.</summary>
-        public ProjectLocationChoice ToContract() => IsNew
-            ? new NewFolderChoice { Root = RootPath, FolderName = FolderName }
-            : new ExistingFolderChoice { Root = RootPath, FolderName = FolderName };
+        public ProjectLocationChoice ToContract() =>
+            IsNew && !string.IsNullOrEmpty(StarterId)
+                ? new NewFromStarterChoice { Root = RootPath, FolderName = FolderName!, StarterId = StarterId! }
+                : IsNew
+                    ? new NewFolderChoice { Root = RootPath, FolderName = FolderName! }
+                    : new ExistingFolderChoice { Root = RootPath, FolderName = FolderName };
 
         /// <summary>
         /// The choice in words, by the one rule: for example "a new folder, greeting-card, in Projects",
@@ -151,6 +180,7 @@ namespace Halcyonic.Client
             if (FolderName == null) return Ours("Directly in ") + root;
             var folder = name(FolderName);
             // " in " between a folder and its place, never a bare separator, which would join two names into one of theirs.
+            if (IsNew && !string.IsNullOrEmpty(StarterId)) return Ours("New VR Starter · ") + folder + Ours(" in ") + root;
             if (IsNew) return Ours("New Folder · ") + folder + Ours(" in ") + root;
             return folder + Ours(PlaceGone ? " · " : " in ") + root;
         }
@@ -161,6 +191,7 @@ namespace Halcyonic.Client
             var root = PlaceGone ? PlaceUnlisted : name(RootName);
             if (FolderName == null) return "Directly in " + root;
             var folder = name(FolderName);
+            if (IsNew && !string.IsNullOrEmpty(StarterId)) return "New VR Starter · " + folder + " in " + root;
             if (IsNew) return "New Folder · " + folder + " in " + root;
             // A gone place reads as its own segment: "shop · Place Unlisted".
             return folder + (PlaceGone ? " · " : " in ") + root;
@@ -176,12 +207,15 @@ namespace Halcyonic.Client
         /// <summary>A new folder's words in a place: in the folder list, and over its name as it is given.</summary>
         public static string NewFolderLabel(LocationRoot root) => "New Folder · " + LabelText.Name(LabelOf(root));
 
+        /// <summary>A new VR starter folder's words in a place.</summary>
+        public static string NewStarterFolderLabel(LocationRoot root) => "New VR Starter · " + LabelText.Name(LabelOf(root));
+
         /// <remarks>
         /// Each option's words are runs (lane V's treatment): Halcyonic's upright, a place's or a folder's
         /// name leaning. A name that looks like another option's words, a folder named "New folder in
         /// Projects" or two folders alike, carries the look-alike mark Projects shows.
         /// </remarks>
-        public static IReadOnlyList<FolderOption> Options(LocationsResponse listing)
+        public static IReadOnlyList<FolderOption> Options(LocationsResponse listing, bool includeStarters = false)
         {
             var options = new List<FolderOption>();
             LineWords Ours(string words) => LineWords.Ours(words);
@@ -194,6 +228,11 @@ namespace Halcyonic.Client
                     continue;
                 }
                 options.Add(new FolderOption(root, null, FolderOptionKind.NewFolder, NewFolderRuns(root), Ours("New Empty Folder")));
+                if (includeStarters)
+                {
+                    options.Add(new FolderOption(root, null, FolderOptionKind.NewStarterFolder, NewStarterFolderRuns(root),
+                        LineWords.TheirName(root.Path), suggestedName: "VR Starter Project"));
+                }
                 options.Add(new FolderOption(root, null, FolderOptionKind.Root, Ours("Directly in ") + name, Ours("Files Directly in ") + name));
                 foreach (var folder in root.Folders)
                 {
@@ -208,7 +247,8 @@ namespace Halcyonic.Client
                 if (option.Kind != FolderOptionKind.Folder && option.Kind != FolderOptionKind.MissingRoot) continue;
                 if (likeness.Where((each, at) => at != index).Contains(likeness[index], StringComparer.Ordinal))
                 {
-                    options[index] = new FolderOption(option.Root, option.Folder, option.Kind, option.LabelRuns, Ours(ConnectText.LooksLikeAnother + " · ") + option.DetailRuns);
+                    options[index] = new FolderOption(option.Root, option.Folder, option.Kind, option.LabelRuns,
+                        Ours(ConnectText.LooksLikeAnother + " · ") + option.DetailRuns, option.SuggestedName);
                 }
             }
             return options;
@@ -216,12 +256,18 @@ namespace Halcyonic.Client
 
         /// <summary>A new folder's words in a place as runs: "New folder in " upright, the place's name leaning, last.</summary>
         public static LineWords NewFolderRuns(LocationRoot root) => LineWords.Ours("New Folder · ") + LineWords.TheirName(LabelOf(root));
+
+        /// <summary>A new VR starter folder's words in a place as runs.</summary>
+        public static LineWords NewStarterFolderRuns(LocationRoot root) => LineWords.Ours("New VR Starter · ") + LineWords.TheirName(LabelOf(root));
     }
 
     public enum FolderOptionKind
     {
         /// <summary>Make a new folder in the root.</summary>
         NewFolder,
+
+        /// <summary>Make a new VR starter project folder in the root.</summary>
+        NewStarterFolder,
 
         /// <summary>The root itself.</summary>
         Root,
@@ -236,7 +282,8 @@ namespace Halcyonic.Client
     /// <summary>One row of Where its files live: words by the one rule, and what choosing it means.</summary>
     public sealed class FolderOption
     {
-        public FolderOption(LocationRoot root, LocationFolder? folder, FolderOptionKind kind, LineWords label, LineWords detail)
+        public FolderOption(LocationRoot root, LocationFolder? folder, FolderOptionKind kind, LineWords label, LineWords detail,
+            string? suggestedName = null)
         {
             Root = root;
             Folder = folder;
@@ -245,6 +292,7 @@ namespace Halcyonic.Client
             DetailRuns = detail;
             Label = label.Text;
             Detail = detail.Text;
+            SuggestedName = suggestedName;
         }
 
         /// <summary>Its words as runs, a name from the file system leaning.</summary>
@@ -261,7 +309,11 @@ namespace Halcyonic.Client
 
         public string Label { get; }
 
+        public string Title => Label;
+
         public string Detail { get; }
+
+        public string? SuggestedName { get; }
 
         public bool Choosable => Kind != FolderOptionKind.MissingRoot;
     }

@@ -105,5 +105,41 @@ namespace Halcyonic.Client
             if (IsPlaying(project)) return PlayOnLaptop.Playing;
             return PlayOnLaptop.Offered;
         }
+
+        /// <summary>
+        /// Derives the sibling VR-version root path and folder name for an existing project with a bound
+        /// location (for example, "/Users/person/Projects/tower-toss" -> root "/Users/person/Projects",
+        /// folderName "tower-toss-vr"). Returns false when the project has no bound location or root.
+        /// </summary>
+        public static bool TryVrVersionTarget(ProjectView? project, out string root, out string folderName)
+        {
+            root = "";
+            folderName = "";
+            var rawPath = project?.Location?.Path?.Trim();
+            if (project == null || string.IsNullOrEmpty(rawPath)) return false;
+            var trimmed = rawPath!.TrimEnd('/', '\\');
+            var slash = trimmed.LastIndexOfAny(new[] { '/', '\\' });
+            if (slash <= 0) return false;
+            root = trimmed.Substring(0, slash);
+            var leaf = trimmed.Substring(slash + 1);
+            var baseName = !string.IsNullOrWhiteSpace(project.Location!.Name)
+                ? project.Location.Name
+                : !string.IsNullOrWhiteSpace(leaf)
+                    ? leaf
+                    : project.Name;
+            var stem = ProjectFolder.SuggestName(baseName);
+            if (stem.EndsWith("-vr", System.StringComparison.OrdinalIgnoreCase))
+            {
+                folderName = stem;
+            }
+            else
+            {
+                const int maxStem = 64 - 3;
+                if (stem.Length > maxStem) stem = stem.Substring(0, maxStem).TrimEnd('-', '.', '_');
+                if (stem.Length == 0) stem = "project";
+                folderName = stem + "-vr";
+            }
+            return ProjectFolder.IsValidNewName(folderName);
+        }
     }
 }

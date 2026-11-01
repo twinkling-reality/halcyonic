@@ -328,6 +328,9 @@ namespace Halcyonic.Client
 
             var isVr = project.Starter != null;
             var tryRoute = ProjectPlayFacts.PlayOnLaptopFor(project) == PlayOnLaptop.Offered;
+            var newestChangeAt = project.Check != null && project.Check.Files != ProjectViewCheckFiles.Current
+                ? DateTimeOffset.MaxValue
+                : (DateTimeOffset?)null;
             return new KitScreenModel(
                 project.Name,
                 runtime,
@@ -338,8 +341,63 @@ namespace Halcyonic.Client
                 pictureTakenAt: null,
                 barOpen,
                 working,
-                newestChangeAt: null);
+                newestChangeAt: newestChangeAt);
         }
+
+        /// <summary>Returns the primary workstream for <paramref name="projectId"/> in <paramref name="state"/>, ordered by priority, or null.</summary>
+        public static WorkstreamView? PrimaryWorkstreamOf(string projectId, ClientProjection? state) =>
+            state == null ? null : OrderWorkstreams(state.Workstreams.Values.Where(item => item.ProjectId == projectId)).FirstOrDefault();
+
+        /// <summary>
+        /// Maps a room screen inspection action (<see cref="KitScreenAction.Steps"/>, <see cref="KitScreenAction.Why"/>,
+        /// <see cref="KitScreenAction.HowItWent"/>) to the corresponding task <see cref="FileSection"/>, or null for
+        /// non-section actions.
+        /// </summary>
+        public static FileSection? SectionForScreenAction(KitScreenAction action) => action switch
+        {
+            KitScreenAction.Steps => FileSection.Activity,
+            KitScreenAction.Why => FileSection.Changes,
+            KitScreenAction.HowItWent => FileSection.Checks,
+            _ => null,
+        };
+
+        /// <summary>
+        /// Builds the control-plane command for a direct room screen action (<see cref="KitScreenAction.MakeAVrVersion"/>
+        /// or <see cref="KitScreenAction.TryIt"/>) when the project state supports it, or null when the action opens
+        /// a workspace flow instead.
+        /// </summary>
+        public static CommandEnvelope? CommandForScreenAction(ProjectView? project, KitScreenAction action, CommandFactory commands)
+        {
+            if (project == null || commands == null) return null;
+            switch (action)
+            {
+                case KitScreenAction.MakeAVrVersion:
+                    if (project.Starter != null) return null;
+                    return ProjectPlayFacts.TryVrVersionTarget(project, out var root, out var folderName)
+                        ? commands.MakeVrVersion(project.ProjectId, root, folderName)
+                        : null;
+                case KitScreenAction.TryIt:
+                    return ProjectPlayFacts.PlayOnLaptopFor(project) == PlayOnLaptop.Offered
+                        ? commands.OpenOnMac(project.ProjectId)
+                        : null;
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>
+        /// Maps a tethered moment card action (<see cref="KitMomentAction"/>) to the task <see cref="FileSection"/>
+        /// that handles or inspects it in the full task console, or null when the action triggers project preview/try
+        /// directly (<see cref="KitMomentAction.TryIt"/>).
+        /// </summary>
+        public static FileSection? SectionForMomentAction(KitMomentAction action) => action switch
+        {
+            KitMomentAction.YesRunIt or KitMomentAction.ReadIt or KitMomentAction.No or KitMomentAction.SaySomethingElse => FileSection.Waiting,
+            KitMomentAction.SeeWhatChanged => FileSection.Changes,
+            KitMomentAction.SeeTheOutput => FileSection.Checks,
+            KitMomentAction.Stop => FileSection.Activity,
+            _ => null,
+        };
 
         private string? CurrentWaitingSignature(ClientProjection? state)
         {

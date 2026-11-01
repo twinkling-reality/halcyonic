@@ -3788,3 +3788,21 @@ presence, contextual moment cards and the on-demand project screen:
   Summoning a project screen stands `KitScreen` and `KitScreenBar` in the room (`MenuPlane.ShowScreen`)
   with the project's current runtime, status words, latest host or agent check and neutral monogram
   fallback when no verified snapshot exists, and removes both when closed (`MenuPlane.HideScreen`).
+  When a recorded host check's `files` state is not `current` (`changed` or `unknown`), `ScreenOf`
+  marks the check stale (`NewestChangeAt = DateTimeOffset.MaxValue`) so `Try Build` (`CanTry`) is
+  never offered over unchecked files. Pressing the folded `KitScreenBar` handle opens the command
+  bar (`ScreenBarToggled`), and pressing bar actions (`ScreenActed`) routes `Make VR Version`
+  (`ProjectPlayFacts.TryVrVersionTarget` -> `project.make_vr_version` into a sibling `<name>-vr`
+  folder, or `OpenNewProject` when unbound), `Try Build` (`project.open_on_mac` when
+  `PlayOnLaptop.Offered`), `Request Change` (`OpenFile` on `Activity` or `OpenNewProject`), and the
+  evidence doors (`Steps` -> `Activity`, `Why` -> `Changes` for Salidium, `HowItWent` -> `Checks`
+  for Seorak). Pressing a tethered `KitMomentCard` button (`MomentActed`) opens the workstream's
+  `FileColumn` at the corresponding section (`Waiting`, `Changes`, `Checks`, `Activity`) or triggers
+  `Try Build`.
+- **Starter VR project creation on the spot (`ProjectFolder.NewStarter`, `FolderOptionKind.NewStarterFolder`)**:
+  When creating a new project (`idea.ExistingProjectId == null`), `NewProjectScreens.RecapFolder`
+  offers a `New VR Starter` folder option (`StarterId = "iwsdk-vr"`) in each available root alongside
+  `New Folder`. `ProjectFolder.WithFolderName`, `Current`, `Restore` and `CreationDraft` preserve
+  `StarterId`, and `ToContract()` emits `NewFromStarterChoice` (`kind: "new_from_starter"`) so a
+  developer or newcomer in VR can scaffold a starter VR project from an idea and rename its folder
+  before confirming the build review.

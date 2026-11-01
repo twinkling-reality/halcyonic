@@ -414,7 +414,14 @@ namespace Halcyonic.Client
             Answers = answers.ToList(),
             Folder = Folder == null
                 ? null
-                : new KeptFolder { RootPath = Folder.RootPath, RootName = Folder.RootName, FolderName = Folder.FolderName, IsNew = Folder.IsNew },
+                : new KeptFolder
+                {
+                    RootPath = Folder.RootPath,
+                    RootName = Folder.RootName,
+                    FolderName = Folder.FolderName,
+                    IsNew = Folder.IsNew,
+                    StarterId = Folder.StarterId,
+                },
             Companion = Companion == null
                 ? null
                 : new KeptExchange
@@ -465,7 +472,7 @@ namespace Halcyonic.Client
             // A project already made has its folder; another choice would move it.
             if (kept.MadeProjectId == null && kept.Folder is KeptFolder folder)
             {
-                idea.Folder = ProjectFolder.Restore(folder.RootPath, folder.RootName, folder.FolderName, folder.IsNew);
+                idea.Folder = ProjectFolder.Restore(folder.RootPath, folder.RootName, folder.FolderName, folder.IsNew, folder.StarterId);
             }
             if (kept.Companion is KeptExchange exchange && projectId == null)
             {

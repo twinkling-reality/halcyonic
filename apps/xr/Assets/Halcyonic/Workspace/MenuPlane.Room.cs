@@ -1,4 +1,6 @@
 #nullable enable
+using System;
+using System.Collections.Generic;
 using Halcyonic.Client;
 using Halcyonic.XR.UI;
 using UnityEngine;
@@ -8,6 +10,8 @@ namespace Halcyonic.XR.Workspace
     public sealed partial class MenuPlane
     {
         private Transform? room;
+        private readonly Dictionary<KitButton, Action> roomBarHandlers = new Dictionary<KitButton, Action>();
+        private KitPress? wiredHandlePress;
 
         /// <summary>A picked project's screen in the room (ADR 0040, rule 2), while one is shown.</summary>
         public KitScreen? RoomScreen { get; private set; }
@@ -22,6 +26,12 @@ namespace Halcyonic.XR.Workspace
         public RoomPose? ScreenPose { get; private set; }
 
         public RoomPose? BarPose { get; private set; }
+
+        /// <summary>Raised when a button on <see cref="RoomBar"/> is pressed, with the action and current <see cref="ScreenProjectId"/>.</summary>
+        public event Action<KitScreenAction, string?>? ScreenActed;
+
+        /// <summary>Raised when the folded <see cref="RoomBar"/> handle is pressed to open the command bar.</summary>
+        public event Action? ScreenBarToggled;
 
         /// <summary>
         /// Shows a picked project's screen on <paramref name="bearing"/> from <paramref name="eyes"/>, as wide as the kit's
@@ -54,11 +64,49 @@ namespace Halcyonic.XR.Workspace
             Stand(RoomScreen.transform, screen, Reach(screen, eyes));
             Stand(RoomBar.transform, bar, Reach(bar, eyes));
             (ScreenProjectId, ScreenPose, BarPose) = (projectId, screen, bar);
+            WireRoomBar();
         }
+
+        private void UnwireRoomBar()
+        {
+            foreach (var pair in roomBarHandlers)
+            {
+                if (pair.Key != null) pair.Key.Pressed -= pair.Value;
+            }
+            roomBarHandlers.Clear();
+            if (wiredHandlePress != null)
+            {
+                wiredHandlePress.Pressed -= OnRoomBarHandlePressed;
+                wiredHandlePress = null;
+            }
+        }
+
+        private void WireRoomBar()
+        {
+            UnwireRoomBar();
+            if (RoomBar == null) return;
+            foreach (var (action, button) in RoomBar.Shown)
+            {
+                if (button == null) continue;
+                var captured = action;
+                Action handler = () => ScreenActed?.Invoke(captured, ScreenProjectId);
+                roomBarHandlers[button] = handler;
+                button.Pressed += handler;
+            }
+            var handle = RoomBar.transform.Find("Handle")?.GetComponent<KitPress>();
+            if (handle != null)
+            {
+                wiredHandlePress = handle;
+                wiredHandlePress.Pressed += OnRoomBarHandlePressed;
+            }
+        }
+
+        private void OnRoomBarHandlePressed() => ScreenBarToggled?.Invoke();
 
         /// <summary>Takes the screen and its bar away.</summary>
         public void HideScreen()
         {
+            UnwireRoomBar();
             if (room != null)
             {
                 room.gameObject.SetActive(false);

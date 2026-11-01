@@ -682,7 +682,7 @@ namespace Halcyonic.Client
         /// <param name="notice">A line for this page only, such as why a new folder's name was refused.</param>
         /// <param name="words">Words can be given here, by the keyboard or Hold to talk; where neither is offered, no new folder is offered, since it could not be named.</param>
         public static MenuFrame RecapFolder(ProjectIdea idea, bool startReached, LocationsResponse? locations, string? problem, string? notice,
-            bool words = true)
+            bool words = true, bool includeStarters = false)
         {
             var lines = new List<PageLine>();
             var main = new Prompt(Done, EntryText.Done, GlazeIcon.Next, main: true);
@@ -710,14 +710,15 @@ namespace Halcyonic.Client
                     var cut = locations.Roots.Any(root => root.FoldersTruncated);
                     lines.Add(new PageLine(cut ? EntryText.FolderLine + " " + EntryText.FoldersCut : EntryText.FolderLine, tone: LineTone.Secondary, rows: 2));
                 }
-                var options = ProjectFolder.Options(locations);
+                var options = ProjectFolder.Options(locations, includeStarters: includeStarters && idea.ExistingProjectId == null);
                 var current = idea.Folder;
                 for (var index = 0; index < options.Count; index++)
                 {
                     var option = options[index];
-                    if (!words && option.Kind == FolderOptionKind.NewFolder) continue;
+                    if (!words && (option.Kind == FolderOptionKind.NewFolder || option.Kind == FolderOptionKind.NewStarterFolder)) continue;
                     var chosen = current != null && current.RootPath == option.Root.Path
-                        && (option.Kind == FolderOptionKind.NewFolder ? current.IsNew
+                        && (option.Kind == FolderOptionKind.NewFolder ? current.IsNew && string.IsNullOrEmpty(current.StarterId)
+                            : option.Kind == FolderOptionKind.NewStarterFolder ? current.IsNew && !string.IsNullOrEmpty(current.StarterId)
                             : !current.IsNew && (option.Kind == FolderOptionKind.Root ? current.FolderName == null
                                 : option.Kind == FolderOptionKind.Folder && current.FolderName == option.Folder!.Name));
                     // A folder's or a place's name leans beside Halcyonic's folder icon; Halcyonic's options stand upright.
