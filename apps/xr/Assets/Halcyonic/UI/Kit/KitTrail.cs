@@ -224,20 +224,30 @@ namespace Halcyonic.XR.UI
             private static (LineWords Head, LineWords? Evidence) Split(LineWords words)
             {
                 var runs = words.Runs;
+                if (runs.Count == 3 && !runs[0].Theirs && runs[1].Theirs && !runs[2].Theirs
+                    && runs[2].Text.Trim(' ', ':', '\u00B7') == "Reported")
+                {
+                    var lead = runs[0].Text.TrimEnd(' ', ':', '\u00B7');
+                    if (lead.Length > 0)
+                        return (LineWords.Ours(lead + " (Reported)"), LineWords.Theirs(runs[1].Text));
+                }
                 if (runs.Count < 2 || !runs[runs.Count - 1].Theirs || runs[runs.Count - 2].Theirs) return (words, null);
                 var head = LineWords.None;
                 for (var index = 0; index < runs.Count - 1; index++)
                 {
                     var run = runs[index];
-                    var text = index == runs.Count - 2 ? run.Text.TrimEnd(' ').TrimEnd(':').TrimEnd(' ') : run.Text;
+                    var text = index == runs.Count - 2 ? run.Text.TrimEnd(' ', ':', '\u00B7') : run.Text;
                     if (text.Length == 0) continue;
                     head = head + (run.Theirs ? LineWords.Theirs(text) : LineWords.Ours(text));
                 }
                 if (head.IsEmpty) return (words, null);
                 var theirs = runs[runs.Count - 1].Text;
-                var colon = theirs.IndexOf(": ", System.StringComparison.Ordinal);
-                if (runs[runs.Count - 2].Text.EndsWith(" ", System.StringComparison.Ordinal) && colon > 0 && colon + 2 < theirs.Length)
-                    return (head + LineWords.Ours(" ") + LineWords.Theirs(theirs.Substring(0, colon)), LineWords.Theirs(theirs.Substring(colon + 2)));
+                var sep = theirs.IndexOf(": ", System.StringComparison.Ordinal) >= 0 ? ": "
+                    : theirs.IndexOf(" · ", System.StringComparison.Ordinal) >= 0 ? " · "
+                    : null;
+                var at = sep != null ? theirs.IndexOf(sep, System.StringComparison.Ordinal) : -1;
+                if (runs[runs.Count - 2].Text.EndsWith(" ", System.StringComparison.Ordinal) && sep != null && at > 0 && at + sep.Length < theirs.Length)
+                    return (head + LineWords.Ours(" ") + LineWords.Theirs(theirs.Substring(0, at)), LineWords.Theirs(theirs.Substring(at + sep.Length)));
                 return (head, LineWords.Theirs(theirs));
             }
 
