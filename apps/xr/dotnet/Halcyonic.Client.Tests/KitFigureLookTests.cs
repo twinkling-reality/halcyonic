@@ -111,4 +111,26 @@ public class KitFigureLookTests
         Assert.That(KitFigureLook.FeatureFor(6), Is.EqualTo(KitFigureFeature.Antenna));
         Assert.That(KitFigureLook.FeatureFor(-1), Is.EqualTo(KitFigureFeature.Brim));
     }
+
+    [Test]
+    public void SixFamilyIdentityHuesAndPorcelainTokens()
+    {
+        var hues = Enum.GetValues<KitFigureFeature>().Select(SpatialKit.FigureFamily).ToList();
+        Assert.That(hues.Distinct().Count(), Is.EqualTo(6), "six distinct ROBOT6 family identity hues");
+        Assert.That(hues, Is.EqualTo(new[]
+        {
+            GlazeColor.Hex(0x4F7FF2),
+            GlazeColor.Hex(0x3BE6D4),
+            GlazeColor.Hex(0x9B75EB),
+            GlazeColor.Hex(0xF75CA8),
+            GlazeColor.Hex(0xCA52D6),
+            GlazeColor.Hex(0x393DF2),
+        }));
+        Assert.That(SpatialKit.Pearl, Is.EqualTo(GlazeColor.Hex(0xDCE3EC)));
+        Assert.That(SpatialKit.Visor, Is.EqualTo(GlazeColor.Hex(0x030406)));
+        Assert.That(SpatialKit.VisorLip, Is.EqualTo(GlazeColor.Hex(0xC9D2DC)));
+        Assert.That(SpatialKit.CollarWell, Is.EqualTo(GlazeColor.Hex(0x141C26)));
+        Assert.That(SpatialKit.BeltGroove, Is.EqualTo(GlazeColor.Hex(0x0B0E13)));
+        Assert.That(SpatialKit.GroundLight, Is.EqualTo(GlazeColor.Hex(0x3D4552)));
+    }
 }

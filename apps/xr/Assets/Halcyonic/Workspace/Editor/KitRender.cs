@@ -54,19 +54,28 @@ namespace Halcyonic.XR.Workspace.Editor
             var failures = new List<string>();
             var previousField = ViewField.Current;
             var previousStill = GlazeMotion.Still;
+            var only = Environment.GetEnvironmentVariable("HALCYONIC_KIT_ONLY");
+            var narrowed = !string.IsNullOrWhiteSpace(only);
             try
             {
-                failures.AddRange(ThumbMotion());
-                failures.AddRange(SoundCheck());
+                if (!narrowed)
+                {
+                    failures.AddRange(ThumbMotion());
+                    failures.AddRange(SoundCheck());
+                }
                 failures.AddRange(GlazeChecks.AtEachTextSize(variant =>
                 {
                     var size = variant.Length == 0 ? "Standard" : variant;
                     var found = new List<string>();
-                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" }.Concat(States).Concat(ScreenStates).Concat(MomentStates).Concat(FontStates).Concat(GlassStates).Concat(ChoreographyStates).Concat(ReaderStates).Concat(ReceiptStates))
+                    var shown = 0;
+                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" }.Concat(States).Concat(ScreenStates).Concat(MomentStates).Concat(FontStates).Concat(GlassStates).Concat(ChoreographyStates).Concat(ReaderStates).Concat(ReceiptStates).Concat(FigureStates))
                     {
+                        if (narrowed && !state.Contains(only!, StringComparison.OrdinalIgnoreCase)) continue;
+                        shown++;
                         try { found.AddRange(RenderState(state, size)); }
                         catch (Exception error) { found.Add(state + " threw " + error); }
                     }
+                    if (shown == 0) found.Add("HALCYONIC_KIT_ONLY=" + only + " matched no state");
                     return found;
                 }));
             }
@@ -78,8 +87,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 KeepFontsAsCommitted();
             }
             foreach (var failure in failures) Debug.LogError("Halcyonic: spatial kit: " + failure);
-            if (failures.Count == 0) Debug.Log("Halcyonic: spatial kit: every check passed.");
-            if (exitWhenDone) EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+            if (failures.Count == 0 && narrowed)
+                Debug.LogWarning("Halcyonic: spatial kit: narrowed by HALCYONIC_KIT_ONLY=" + only + " (iteration only; exits 2 so a narrowed run is never a full gate pass).");
+            else if (failures.Count == 0) Debug.Log("Halcyonic: spatial kit: every check passed.");
+            if (exitWhenDone) EditorApplication.Exit(failures.Count > 0 ? 1 : narrowed ? 2 : 0);
         }
 
         /// <summary>What one state's render needs: its root, where the head turns, and what to check.</summary>
@@ -172,6 +183,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     _ when ChoreographyStates.Contains(state) => ChoreographyShot(state, root.transform, eyes),
                     _ when ReaderStates.Contains(state) => ReaderShot(state, root.transform, eyes),
                     _ when ReceiptStates.Contains(state) => ReceiptShot(state, root.transform, eyes),
+                    _ when FigureStates.Contains(state) => FigureShot(state, root.transform, eyes),
                     _ => ControlKit(root.transform, eyes),
                 };
                 failures.AddRange(shot.Failures.Select(failure => name + ": " + failure));
