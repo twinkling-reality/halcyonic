@@ -471,6 +471,32 @@ namespace Halcyonic.XR.Workspace.Editor
             if (instruction.PartRows > plane.Kit.ComposerRows)
                 failures.Add(name + ": the instruction is measured in " + instruction.PartRows + " rows, more than the kit's " + plane.Kit.ComposerRows);
             var (execution, words, spoken, part) = (instruction.ExecutionId!, instruction.Words, instruction.Spoken, instruction.Part);
+            var composer = plane.Kit.View.Composer;
+            if (!composer.EnvironmentButton.gameObject.activeInHierarchy || !composer.AgentButton.gameObject.activeInHierarchy)
+            {
+                failures.Add(name + ": the composer did not show both context selector pills while composing");
+            }
+            else
+            {
+                var initialEnv = composer.EnvironmentButton.Words.text;
+                composer.EnvironmentButton.Press.SettleForRender();
+                composer.EnvironmentButton.Press.PressForRender(965);
+                KitDraw(director);
+                if (composer.EnvironmentButton.Words.text == initialEnv)
+                    failures.Add(name + ": pressing the environment selector pill did not toggle Host: This Mac / Host: Sandbox");
+                if (instruction.Words != words)
+                    failures.Add(name + ": toggling the environment selector pill lost the unsent instruction draft");
+                composer.EnvironmentButton.Press.SettleForRender();
+                composer.EnvironmentButton.Press.PressForRender(966);
+                KitDraw(director);
+                if (composer.EnvironmentButton.Words.text != initialEnv)
+                    failures.Add(name + ": pressing the environment selector pill a second time did not restore " + initialEnv);
+                composer.AgentButton.Press.SettleForRender();
+                composer.AgentButton.Press.PressForRender(967);
+                KitDraw(director);
+                if (instruction.Words != words)
+                    failures.Add(name + ": cycling the agent selector pill lost the unsent instruction draft");
+            }
             var longer = string.Join(" ", Enumerable.Repeat("Add a regression test for the rate limit, then run the whole suite.", 12));
             instruction.Restore(execution, longer, false, 0);
             file.Reflow();

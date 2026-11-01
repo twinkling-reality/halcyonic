@@ -12,6 +12,7 @@ namespace Halcyonic.Client
     {
         private bool changing;
         private readonly HashSet<string> dismissedMomentSignatures = new HashSet<string>(StringComparer.Ordinal);
+        private readonly Dictionary<string, IReadOnlyList<RuntimeModel>> runtimeModels = new Dictionary<string, IReadOnlyList<RuntimeModel>>(StringComparer.Ordinal);
         private string? inspectedWaitingSignature;
 
         public WorkspacePresentationState(bool keepAgentsWhenMinimized = false)
@@ -56,6 +57,12 @@ namespace Halcyonic.Client
 
         /// <summary>The runtime selected through the composer's environment or agent selector pill, if any.</summary>
         public string? SelectedRuntimeId { get; private set; }
+
+        /// <summary>The model reference selected for a <see cref="ModelChoice.Listed"/> runtime through the composer's agent selector pill, if any.</summary>
+        public string? SelectedModelRef { get; private set; }
+
+        /// <summary>The execution environment override (<c>true</c> for Sandbox, <c>false</c> for This Mac) chosen through the composer's environment pill, if any.</summary>
+        public bool? SelectedSandbox { get; private set; }
 
         /// <summary>Revokes retained input and command authority before any presentation disappears.</summary>
         public event Action? Suspending;
@@ -178,17 +185,132 @@ namespace Halcyonic.Client
             finally { changing = false; }
         }
 
-        public bool SelectRuntime(string? runtimeId)
+        public bool SelectRuntime(string? runtimeId, string? modelRef = null)
         {
-            if (SelectedRuntimeId == runtimeId || changing) return false;
+            var normalizedModel = string.IsNullOrWhiteSpace(modelRef) ? null : modelRef;
+            if (SelectedRuntimeId == runtimeId && SelectedModelRef == normalizedModel || changing) return false;
             changing = true;
             try
             {
                 SelectedRuntimeId = runtimeId;
+                SelectedModelRef = normalizedModel;
                 Changed?.Invoke();
                 return true;
             }
             finally { changing = false; }
+        }
+
+        public bool SelectModel(string? modelRef)
+        {
+            var normalizedModel = string.IsNullOrWhiteSpace(modelRef) ? null : modelRef;
+            if (SelectedModelRef == normalizedModel || changing) return false;
+            changing = true;
+            try
+            {
+                SelectedModelRef = normalizedModel;
+                Changed?.Invoke();
+                return true;
+            }
+            finally { changing = false; }
+        }
+
+        /// <summary>
+        /// Stores the listed models for <paramref name="runtimeId"/> with local Mac models (<see cref="NewWorkDraft.RunsHere"/>)
+        /// ordered before remote models, matching <see cref="NewWorkDraft"/>.
+        /// </summary>
+        public void SetRuntimeModels(string runtimeId, IReadOnlyList<RuntimeModel>? models)
+        {
+            if (string.IsNullOrEmpty(runtimeId)) return;
+            if (models == null || models.Count == 0)
+            {
+                runtimeModels.Remove(runtimeId);
+                return;
+            }
+            var ordered = new List<RuntimeModel>(models.Count);
+            foreach (var model in models)
+            {
+                if (model != null && NewWorkDraft.RunsHere(model)) ordered.Add(model);
+            }
+            foreach (var model in models)
+            {
+                if (model != null && !NewWorkDraft.RunsHere(model)) ordered.Add(model);
+            }
+            runtimeModels[runtimeId] = ordered;
+        }
+
+        /// <summary>Stores the models returned by <paramref name="response"/> when available.</summary>
+        public void SetRuntimeModels(RuntimeModelsResponse? response)
+        {
+            if (response == null || string.IsNullOrEmpty(response.RuntimeId)) return;
+            if (response.Result is AvailableModels available)
+            {
+                SetRuntimeModels(response.RuntimeId, available.Models);
+                if (SelectedRuntimeId == response.RuntimeId)
+                {
+                    Changed?.Invoke();
+                }
+            }
+        }
+
+        /// <summary>The ordered models cached for <paramref name="runtimeId"/>, or empty when none are cached.</summary>
+        public IReadOnlyList<RuntimeModel> ModelsForRuntime(string? runtimeId) =>
+            runtimeId != null && runtimeModels.TryGetValue(runtimeId, out var models)
+                ? models
+                : Array.Empty<RuntimeModel>();
+
+        /// <summary>The effective sandbox state for <paramref name="runtime"/>, considering <see cref="SelectedSandbox"/>.</summary>
+        public bool EffectiveSandbox(RuntimeDescriptor? runtime) =>
+            SelectedSandbox ?? (runtime?.ApprovalMayLeaveSandbox == false);
+
+        /// <summary>
+        /// Returns the display name or reference of the currently selected model for <paramref name="runtime"/>,
+        /// or null when no specific model is selected.
+        /// </summary>
+        public string? SelectedModelDisplay(RuntimeDescriptor? runtime, ExecutionView? execution = null)
+        {
+            if (runtime == null || runtime.ModelChoice != ModelChoice.Listed) return null;
+            var modelRef = SelectedRuntimeId == runtime.RuntimeId
+                ? SelectedModelRef
+                : execution != null && execution.Runtime.RuntimeId == runtime.RuntimeId
+                    ? execution.ModelRef
+                    : null;
+            if (string.IsNullOrWhiteSpace(modelRef)) return null;
+            var models = ModelsForRuntime(runtime.RuntimeId);
+            var matched = models.FirstOrDefault(item => item.ModelRef == modelRef);
+            return matched?.DisplayName ?? modelRef;
+        }
+
+        /// <summary>
+        /// Toggles the active execution environment between This Mac (<c>false</c>) and Sandbox (<c>true</c>),
+        /// selecting a matching runtime from <paramref name="runtimes"/> when one declares that environment.
+        /// </summary>
+        public (string? RuntimeId, bool Sandbox) CycleEnvironment(
+            IReadOnlyList<RuntimeDescriptor>? runtimes,
+            string? currentRuntimeId = null,
+            bool? currentSandbox = null)
+        {
+            var effectiveRuntimeId = currentRuntimeId ?? SelectedRuntimeId;
+            var currentRuntime = runtimes?.FirstOrDefault(item => item != null && item.RuntimeId == effectiveRuntimeId);
+            var targetSandbox = !(currentSandbox ?? EffectiveSandbox(currentRuntime));
+            var nextRuntime = SelectRuntimeForEnvironment(runtimes, effectiveRuntimeId, targetSandbox);
+            var chosenRuntimeId = nextRuntime?.RuntimeId ?? effectiveRuntimeId;
+            var chosenModelRef = chosenRuntimeId == SelectedRuntimeId ? SelectedModelRef : null;
+            if (!changing)
+            {
+                changing = true;
+                try
+                {
+                    SelectedSandbox = targetSandbox;
+                    if (chosenRuntimeId != null)
+                    {
+                        SelectedRuntimeId = chosenRuntimeId;
+                        SelectedModelRef = chosenModelRef;
+                    }
+                    Changed?.Invoke();
+                }
+                finally { changing = false; }
+            }
+            return (chosenRuntimeId, targetSandbox);
         }
 
         /// <summary>
@@ -227,6 +349,79 @@ namespace Halcyonic.Client
                 ? eligible.FindIndex(item => item.RuntimeId == currentRuntimeId)
                 : -1;
             return index < 0 ? eligible[0] : eligible[(index + 1) % eligible.Count];
+        }
+
+        /// <summary>
+        /// Cycles across available runtimes with <c>StartExecution</c> and any listed models provided by
+        /// <paramref name="modelsForRuntime"/> (including Codex, OpenCode, Claude Agent, and local Meta/Ollama models).
+        /// </summary>
+        public static (RuntimeDescriptor Runtime, RuntimeModel? Model)? NextAgent(
+            IReadOnlyList<RuntimeDescriptor>? runtimes,
+            string? currentRuntimeId,
+            string? currentModelRef = null,
+            Func<string, IReadOnlyList<RuntimeModel>>? modelsForRuntime = null)
+        {
+            if (runtimes == null || runtimes.Count == 0) return null;
+            var choices = new List<(RuntimeDescriptor Runtime, RuntimeModel? Model)>();
+            foreach (var runtime in runtimes)
+            {
+                if (runtime == null || !runtime.Capabilities.StartExecution) continue;
+                choices.Add((runtime, null));
+                if (runtime.ModelChoice == ModelChoice.Listed && modelsForRuntime != null)
+                {
+                    var models = modelsForRuntime(runtime.RuntimeId);
+                    if (models != null)
+                    {
+                        foreach (var model in models)
+                        {
+                            if (model != null) choices.Add((runtime, model));
+                        }
+                    }
+                }
+            }
+            if (choices.Count == 0) return null;
+            var normalizedModel = string.IsNullOrWhiteSpace(currentModelRef) ? null : currentModelRef;
+            var index = -1;
+            if (currentRuntimeId != null)
+            {
+                index = choices.FindIndex(item =>
+                    item.Runtime.RuntimeId == currentRuntimeId
+                    && item.Model?.ModelRef == normalizedModel);
+                if (index < 0)
+                {
+                    index = choices.FindIndex(item => item.Runtime.RuntimeId == currentRuntimeId);
+                }
+            }
+            return index < 0 ? choices[0] : choices[(index + 1) % choices.Count];
+        }
+
+        /// <summary>
+        /// Advances the selected runtime and model to the next choice in <see cref="NextAgent"/> and notifies listeners.
+        /// </summary>
+        public (RuntimeDescriptor Runtime, RuntimeModel? Model)? CycleAgent(
+            IReadOnlyList<RuntimeDescriptor>? runtimes,
+            string? currentRuntimeId = null,
+            string? currentModelRef = null)
+        {
+            var effectiveRuntimeId = currentRuntimeId ?? SelectedRuntimeId;
+            var effectiveModelRef = currentModelRef ?? (effectiveRuntimeId == SelectedRuntimeId ? SelectedModelRef : null);
+            var next = NextAgent(runtimes, effectiveRuntimeId, effectiveModelRef, ModelsForRuntime);
+            if (next is var (runtime, model) && !changing)
+            {
+                changing = true;
+                try
+                {
+                    SelectedRuntimeId = runtime.RuntimeId;
+                    SelectedModelRef = model?.ModelRef;
+                    if (runtime.ApprovalMayLeaveSandbox.HasValue)
+                    {
+                        SelectedSandbox = !runtime.ApprovalMayLeaveSandbox.Value;
+                    }
+                    Changed?.Invoke();
+                }
+                finally { changing = false; }
+            }
+            return next;
         }
 
         /// <summary>
@@ -495,6 +690,9 @@ namespace Halcyonic.Client
             PendingVrConversionSourceProjectId = null;
             PendingVrConversionSequence = null;
             SelectedRuntimeId = null;
+            SelectedModelRef = null;
+            SelectedSandbox = null;
+            runtimeModels.Clear();
         }
 
         /// <summary>
@@ -561,18 +759,23 @@ namespace Halcyonic.Client
                         ShowProjectScreen(newVrProject.ProjectId, ScreenBarOpen);
                     }
                     var runtime = (SelectedRuntimeId != null
-                            ? state.Runtimes.FirstOrDefault(item => item.RuntimeId == SelectedRuntimeId && item.Capabilities.StartExecution && item.ModelChoice != ModelChoice.Listed)
+                            ? state.Runtimes.FirstOrDefault(item =>
+                                item.RuntimeId == SelectedRuntimeId
+                                && item.Capabilities.StartExecution
+                                && (item.ModelChoice != ModelChoice.Listed || !string.IsNullOrWhiteSpace(SelectedModelRef)))
                             : null)
                         ?? state.Runtimes.FirstOrDefault(item => item.Capabilities.StartExecution && item.ModelChoice != ModelChoice.Listed && !item.Synthetic)
                         ?? state.Runtimes.FirstOrDefault(item => item.Capabilities.StartExecution && item.ModelChoice != ModelChoice.Listed);
                     if (runtime != null)
                     {
+                        var modelRef = runtime.ModelChoice == ModelChoice.Listed ? SelectedModelRef : null;
                         PendingVrConversionSequence = BuildSequence.ForPrompt(
                             newVrProject.ProjectId,
                             madeFrom.Instruction,
                             runtime,
                             commands,
-                            out var firstCommand);
+                            out var firstCommand,
+                            modelRef);
                         return firstCommand;
                     }
                 }

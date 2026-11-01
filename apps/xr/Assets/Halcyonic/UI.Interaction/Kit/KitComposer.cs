@@ -234,9 +234,12 @@ namespace Halcyonic.XR.UI
                 ? "Host: " + EnvironmentChoice
                 : EnvironmentChoice;
             var envGlyph = string.Equals(EnvironmentChoice, "Sandbox", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(EnvironmentChoice, "Host: Sandbox", StringComparison.OrdinalIgnoreCase)
                 ? GlazeIcon.Locked
                 : GlazeIcon.ScriptFile;
-            var agentWords = !string.IsNullOrEmpty(AgentChoice) && AgentChoice!.IndexOf("agent", StringComparison.OrdinalIgnoreCase) < 0
+            var agentWords = !string.IsNullOrEmpty(AgentChoice)
+                && (AgentChoice!.IndexOf("agent", StringComparison.OrdinalIgnoreCase) < 0
+                    || string.Equals(AgentChoice, "Claude Agent", StringComparison.OrdinalIgnoreCase))
                 ? "Agent: " + AgentChoice
                 : AgentChoice;
             var selectorCandidates = new (KitButton Button, string? Choice, GlazeIcon? Glyph)[]
@@ -248,7 +251,7 @@ namespace Halcyonic.XR.UI
             var selectors = new System.Collections.Generic.List<(KitButton Button, string Words, GlazeIcon? Glyph, bool Available)>();
             foreach (var (button, choice, glyph) in selectorCandidates)
             {
-                if (!withWell || leftControls.Count > 0 || string.IsNullOrEmpty(choice)) button.Hide();
+                if (!withWell || string.IsNullOrEmpty(choice)) button.Hide();
                 else selectors.Add((button, choice!, glyph, true));
             }
 

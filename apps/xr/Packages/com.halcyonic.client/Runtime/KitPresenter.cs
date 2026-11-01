@@ -118,11 +118,54 @@ namespace Halcyonic.Client
             _ => null,
         };
 
+        /// <summary>
+        /// The execution environment words for <paramref name="runtime"/> with an explicit <paramref name="sandboxOverride"/>
+        /// (<c>true</c> for "Sandbox", <c>false</c> for "This Mac"), falling back to <see cref="EnvironmentOf(RuntimeDescriptor)"/>.
+        /// </summary>
+        public static string? EnvironmentOf(RuntimeDescriptor? runtime, bool? sandboxOverride) => sandboxOverride switch
+        {
+            true => KitMomentWords.Sandbox(KitSandbox.StaysInside),
+            false => KitMomentWords.Sandbox(KitSandbox.MayLeave),
+            _ => EnvironmentOf(runtime),
+        };
+
+        /// <summary>Normalizes a model display name or reference into a single-line model label without provider prefix or Ollama suffix.</summary>
+        public static string? ShortModelName(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+            var clean = WorkspaceText.OneLine(raw!);
+            if (clean.Length == 0) return null;
+            const string ollamaSuffix = " (Ollama)";
+            if (clean.EndsWith(ollamaSuffix, System.StringComparison.OrdinalIgnoreCase))
+            {
+                clean = clean.Substring(0, clean.Length - ollamaSuffix.Length).Trim();
+            }
+            var slash = clean.IndexOf('/');
+            if (slash >= 0 && slash + 1 < clean.Length)
+            {
+                clean = clean.Substring(slash + 1).Trim();
+            }
+            return clean.Length > 0 ? clean : null;
+        }
+
         /// <summary>The plain one-line display name of <paramref name="runtime"/> or <paramref name="execution"/>'s runtime, or null.</summary>
         public static string? AgentOf(RuntimeDescriptor? runtime, ExecutionView? execution = null) =>
-            (runtime?.DisplayName ?? execution?.Runtime.DisplayName) is string raw && WorkspaceText.OneLine(raw) is { Length: > 0 } name
+            AgentOf(runtime, execution, modelDisplay: null);
+
+        /// <summary>
+        /// The display label for the selected agent or model: returns the normalized <paramref name="modelDisplay"/>
+        /// when a specific model is selected (for example <c>muse-glimmer:30b-mlx</c>), else the runtime's one-line display name.
+        /// </summary>
+        public static string? AgentOf(RuntimeDescriptor? runtime, ExecutionView? execution, string? modelDisplay)
+        {
+            if (ShortModelName(modelDisplay) is string selectedModel)
+            {
+                return selectedModel;
+            }
+            return (runtime?.DisplayName ?? execution?.Runtime.DisplayName) is string raw && WorkspaceText.OneLine(raw) is { Length: > 0 } name
                 ? name
                 : null;
+        }
 
         /// <summary>The plain one-line display name of <paramref name="workspace"/>'s runtime, or null.</summary>
         public static string? AgentOf(WorkspacePresentation workspace) => AgentOf(workspace.Runtime, workspace.Execution);

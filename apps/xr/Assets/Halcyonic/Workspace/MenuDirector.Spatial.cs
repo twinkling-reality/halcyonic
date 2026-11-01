@@ -91,9 +91,12 @@ namespace Halcyonic.XR.Workspace
             };
             var name = selected != null && State?.Projects.TryGetValue(selected, out var project) == true ? project.Name : "";
             var runtime = CurrentKitRuntime(now);
+            var sandbox = setup.Presentation.SelectedSandbox;
+            var modelDisplay = setup.Presentation.SelectedModelDisplay(runtime, now.Execution);
             return KitFileBinding.Of(frame, file.Steering.Armed, now, file.Screen.Instruction.Open ? file.Screen.Instruction.Words : "",
                 setup.Session()?.Status ?? ConnectionStatus.Stopped, name, spine, new KitRowModel("workspace", LineWords.Ours("Workspace"), GlazeIcon.Move),
-                environment: KitPresenter.EnvironmentOf(runtime), agent: KitPresenter.AgentOf(runtime, now.Execution));
+                environment: KitPresenter.EnvironmentOf(runtime, sandbox),
+                agent: KitPresenter.AgentOf(runtime, now.Execution, modelDisplay));
         }
 
         private RuntimeDescriptor? CurrentKitRuntime(WorkspacePresentation? now = null)
@@ -190,13 +193,9 @@ namespace Halcyonic.XR.Workspace
 
         private void OnKitEnvironmentPressed()
         {
-            if (!KitStanding() || State?.Runtimes is not IReadOnlyList<RuntimeDescriptor> runtimes) return;
+            if (!KitStanding()) return;
             var current = CurrentKitRuntime();
-            var targetSandbox = current?.ApprovalMayLeaveSandbox != false;
-            if (WorkspacePresentationState.SelectRuntimeForEnvironment(runtimes, current?.RuntimeId, targetSandbox) is RuntimeDescriptor next)
-            {
-                setup.Presentation.SelectRuntime(next.RuntimeId);
-            }
+            setup.Presentation.CycleEnvironment(State?.Runtimes, current?.RuntimeId);
         }
 
         private void OnKitProjectPressed()
@@ -210,9 +209,17 @@ namespace Halcyonic.XR.Workspace
         {
             if (!KitStanding() || State?.Runtimes is not IReadOnlyList<RuntimeDescriptor> runtimes) return;
             var current = CurrentKitRuntime();
-            if (WorkspacePresentationState.NextRuntime(runtimes, current?.RuntimeId) is RuntimeDescriptor next)
+            var execution = (navigator.Beside as FileColumn)?.Now?.Execution;
+            var currentModelRef = setup.Presentation.SelectedModelRef
+                ?? (execution != null && execution.Runtime.RuntimeId == current?.RuntimeId ? execution.ModelRef : null);
+            if (setup.Presentation.CycleAgent(runtimes, current?.RuntimeId, currentModelRef) is var (runtime, _)
+                && runtime.ModelChoice == ModelChoice.Listed
+                && setup.Presentation.ModelsForRuntime(runtime.RuntimeId).Count == 0
+                && pendingRuntimeModelsRead == null
+                && Connected && !Demonstration
+                && setup.Api?.Invoke() is ControlPlaneApi api)
             {
-                setup.Presentation.SelectRuntime(next.RuntimeId);
+                pendingRuntimeModelsRead = api.GetRuntimeModelsAsync(runtime.RuntimeId);
             }
         }
 
@@ -314,15 +321,27 @@ namespace Halcyonic.XR.Workspace
         public bool CloseProjectScreen() => !Away && setup.Presentation.CloseProjectScreen();
 
         private System.Threading.Tasks.Task<CommandAckMessage>? pendingVrConversionAck;
+        private System.Threading.Tasks.Task<RuntimeModelsResponse>? pendingRuntimeModelsRead;
 
         private void ResetSpatialFlows()
         {
             pendingVrConversionAck = null;
+            pendingRuntimeModelsRead = null;
             setup.Presentation.ResetPendingCommands();
         }
 
         private void AdvanceSpatialFlows()
         {
+            if (pendingRuntimeModelsRead is System.Threading.Tasks.Task<RuntimeModelsResponse> modelsTask && modelsTask.IsCompleted)
+            {
+                pendingRuntimeModelsRead = null;
+                if (modelsTask.Status == System.Threading.Tasks.TaskStatus.RanToCompletion)
+                {
+                    setup.Presentation.SetRuntimeModels(modelsTask.Result);
+                    dirty = true;
+                }
+            }
+
             if (setup.Presentation.PendingVrConversionSequence is BuildSequence activeSequence
                 && pendingVrConversionAck is System.Threading.Tasks.Task<CommandAckMessage> ack
                 && ack.IsCompleted)

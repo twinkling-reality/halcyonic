@@ -189,6 +189,85 @@ public class KitFileBindingTests
     }
 
     [Test]
+    public void TheComposerCyclesEnvironmentAndAgentWhilePreservingTheUnsentDraft()
+    {
+        var workspace = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = Steering();
+        var screen = new FileScreen { Section = FileSection.Activity, Speak = true };
+        const string draftWords = "Add a regression test for the rate limit.";
+        screen.Instruction.Restore(workspace.Execution!.ExecutionId, draftWords, false, 0);
+        var frame = Screen(workspace, steering, screen);
+
+        var codex = new RuntimeDescriptor
+        {
+            RuntimeId = "codex",
+            Kind = "codex",
+            DisplayName = "Codex",
+            ApprovalMayLeaveSandbox = false,
+            Capabilities = new RuntimeCapabilities { StartExecution = true },
+        };
+        var openCode = new RuntimeDescriptor
+        {
+            RuntimeId = "opencode",
+            Kind = "opencode",
+            DisplayName = "OpenCode",
+            ModelChoice = ModelChoice.Listed,
+            Capabilities = new RuntimeCapabilities { StartExecution = true },
+        };
+        var claude = new RuntimeDescriptor
+        {
+            RuntimeId = "claude",
+            Kind = "claude-code",
+            DisplayName = "Claude Agent",
+            ApprovalMayLeaveSandbox = true,
+            Capabilities = new RuntimeCapabilities { StartExecution = true },
+        };
+        var runtimes = new[] { codex, openCode, claude };
+        var presentation = new WorkspacePresentationState();
+        presentation.SetRuntimeModels("opencode", new[]
+        {
+            new RuntimeModel
+            {
+                ModelRef = "ollama/muse-glimmer:30b-mlx",
+                DisplayName = "muse-glimmer:30b-mlx (Ollama)",
+                Served = ModelServed.ThisMac,
+                ToolCalling = ModelToolCalling.Declared,
+            },
+        });
+
+        KitFileBinding Rebind()
+        {
+            var current = runtimes.FirstOrDefault(r => r.RuntimeId == presentation.SelectedRuntimeId) ?? workspace.Runtime;
+            return KitFileBinding.Of(
+                frame,
+                steering.Armed,
+                workspace,
+                screen.Instruction.Words,
+                Live,
+                "Storefront",
+                Spine,
+                environment: KitPresenter.EnvironmentOf(current, presentation.SelectedSandbox),
+                agent: KitPresenter.AgentOf(current, workspace.Execution, presentation.SelectedModelDisplay(current, workspace.Execution)))!;
+        }
+
+        presentation.SelectRuntime("claude");
+        var initial = Rebind();
+        Assert.That((initial.Model.Environment, initial.Model.Agent, initial.Model.Draft), Is.EqualTo(("This Mac", "Claude Agent", draftWords)));
+
+        presentation.CycleEnvironment(runtimes);
+        var sandboxed = Rebind();
+        Assert.That((sandboxed.Model.Environment, sandboxed.Model.Agent, sandboxed.Model.Draft), Is.EqualTo(("Sandbox", "Codex", draftWords)));
+
+        presentation.CycleAgent(runtimes);
+        var openCodeBound = Rebind();
+        Assert.That((openCodeBound.Model.Agent, openCodeBound.Model.Draft), Is.EqualTo(("OpenCode", draftWords)));
+
+        presentation.CycleAgent(runtimes);
+        var glimmerBound = Rebind();
+        Assert.That((glimmerBound.Model.Agent, glimmerBound.Model.Draft), Is.EqualTo(("muse-glimmer:30b-mlx", draftWords)));
+    }
+
+    [Test]
     public void SendSaysWhyNoInstructionCanBeSentInProductionsWords()
     {
         var workspace = Running(new WaitingWork());

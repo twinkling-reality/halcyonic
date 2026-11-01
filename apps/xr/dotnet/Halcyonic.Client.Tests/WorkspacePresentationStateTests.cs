@@ -603,4 +603,116 @@ public class WorkspacePresentationStateTests
         presentation.ResetPendingCommands();
         Assert.That(presentation.SelectedRuntimeId, Is.Null);
     }
+
+    [Test]
+    public void CycleEnvironmentAndCycleAgentTraverseCodexClaudeOpenCodeAndLocalOllamaModels()
+    {
+        var claude = new RuntimeDescriptor
+        {
+            RuntimeId = "claude",
+            Kind = "claude-code",
+            DisplayName = "Claude Agent",
+            Synthetic = false,
+            ApprovalMayLeaveSandbox = true,
+            ModelChoice = ModelChoice.None,
+            Capabilities = new RuntimeCapabilities { StartExecution = true },
+        };
+        var codex = new RuntimeDescriptor
+        {
+            RuntimeId = "codex",
+            Kind = "codex",
+            DisplayName = "Codex",
+            Synthetic = false,
+            ApprovalMayLeaveSandbox = false,
+            ModelChoice = ModelChoice.None,
+            Capabilities = new RuntimeCapabilities { StartExecution = true },
+        };
+        var openCode = new RuntimeDescriptor
+        {
+            RuntimeId = "opencode",
+            Kind = "opencode",
+            DisplayName = "OpenCode",
+            Synthetic = false,
+            ApprovalMayLeaveSandbox = null,
+            ModelChoice = ModelChoice.Listed,
+            Capabilities = new RuntimeCapabilities { StartExecution = true },
+        };
+        var runtimes = new[] { codex, openCode, claude };
+
+        var presentation = new WorkspacePresentationState();
+        presentation.SetRuntimeModels(new RuntimeModelsResponse
+        {
+            RuntimeId = "opencode",
+            Result = new AvailableModels
+            {
+                Models = new List<RuntimeModel>
+                {
+                    new()
+                    {
+                        ModelRef = "anthropic/claude-sonnet-4-5",
+                        DisplayName = "Claude Sonnet 4.5 (Anthropic)",
+                        Served = ModelServed.Remote,
+                        ToolCalling = ModelToolCalling.Declared,
+                    },
+                    new()
+                    {
+                        ModelRef = "ollama/muse-glimmer:30b-mlx",
+                        DisplayName = "muse-glimmer:30b-mlx (Ollama)",
+                        Served = ModelServed.ThisMac,
+                        ToolCalling = ModelToolCalling.Declared,
+                    },
+                    new()
+                    {
+                        ModelRef = "ollama/llama3.3:70b",
+                        DisplayName = "llama3.3:70b (Ollama)",
+                        Served = ModelServed.ThisMac,
+                        ToolCalling = ModelToolCalling.Declared,
+                    },
+                },
+            },
+        });
+
+        // Local Mac models are ordered before remote models.
+        var cachedModels = presentation.ModelsForRuntime("opencode");
+        Assert.That(new[] { cachedModels[0].ModelRef, cachedModels[1].ModelRef, cachedModels[2].ModelRef }, Is.EqualTo(new[]
+        {
+            "ollama/muse-glimmer:30b-mlx",
+            "ollama/llama3.3:70b",
+            "anthropic/claude-sonnet-4-5",
+        }));
+
+        // Cycling Environment toggles This Mac <-> Sandbox and selects matching runtimes.
+        var env1 = presentation.CycleEnvironment(runtimes, "claude");
+        Assert.That(env1, Is.EqualTo(("codex", true)));
+        Assert.That(KitPresenter.EnvironmentOf(codex, presentation.SelectedSandbox), Is.EqualTo("Sandbox"));
+
+        var env2 = presentation.CycleEnvironment(runtimes, presentation.SelectedRuntimeId);
+        Assert.That(env2, Is.EqualTo(("claude", false)));
+        Assert.That(KitPresenter.EnvironmentOf(claude, presentation.SelectedSandbox), Is.EqualTo("This Mac"));
+
+        // Cycling Agent steps through Codex -> OpenCode -> muse-glimmer:30b-mlx -> llama3.3:70b -> remote -> Claude Agent -> Codex.
+        presentation.SelectRuntime("codex");
+        var step1 = presentation.CycleAgent(runtimes);
+        Assert.That((step1?.Runtime.RuntimeId, step1?.Model?.ModelRef), Is.EqualTo(("opencode", (string?)null)));
+        Assert.That(KitPresenter.AgentOf(step1?.Runtime, null, presentation.SelectedModelDisplay(step1?.Runtime)), Is.EqualTo("OpenCode"));
+
+        var step2 = presentation.CycleAgent(runtimes);
+        Assert.That((step2?.Runtime.RuntimeId, step2?.Model?.ModelRef), Is.EqualTo(("opencode", "ollama/muse-glimmer:30b-mlx")));
+        Assert.That(KitPresenter.AgentOf(step2?.Runtime, null, presentation.SelectedModelDisplay(step2?.Runtime)), Is.EqualTo("muse-glimmer:30b-mlx"));
+
+        var step3 = presentation.CycleAgent(runtimes);
+        Assert.That((step3?.Runtime.RuntimeId, step3?.Model?.ModelRef), Is.EqualTo(("opencode", "ollama/llama3.3:70b")));
+        Assert.That(KitPresenter.AgentOf(step3?.Runtime, null, presentation.SelectedModelDisplay(step3?.Runtime)), Is.EqualTo("llama3.3:70b"));
+
+        var step4 = presentation.CycleAgent(runtimes);
+        Assert.That((step4?.Runtime.RuntimeId, step4?.Model?.ModelRef), Is.EqualTo(("opencode", "anthropic/claude-sonnet-4-5")));
+
+        var step5 = presentation.CycleAgent(runtimes);
+        Assert.That((step5?.Runtime.RuntimeId, step5?.Model?.ModelRef), Is.EqualTo(("claude", (string?)null)));
+        Assert.That(KitPresenter.AgentOf(step5?.Runtime, null, presentation.SelectedModelDisplay(step5?.Runtime)), Is.EqualTo("Claude Agent"));
+
+        var step6 = presentation.CycleAgent(runtimes);
+        Assert.That((step6?.Runtime.RuntimeId, step6?.Model?.ModelRef), Is.EqualTo(("codex", (string?)null)));
+        Assert.That(KitPresenter.AgentOf(step6?.Runtime, null, presentation.SelectedModelDisplay(step6?.Runtime)), Is.EqualTo("Codex"));
+    }
 }
