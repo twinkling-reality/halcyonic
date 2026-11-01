@@ -208,6 +208,9 @@ namespace Halcyonic.Client
 
         [JsonProperty("is_new")]
         public bool IsNew { get; set; }
+
+        [JsonProperty("starter_id")]
+        public string? StarterId { get; set; }
     }
 
     /// <summary>An exchange with the companion as kept: how it began and every turn, in the contract's shape.</summary>

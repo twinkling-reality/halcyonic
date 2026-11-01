@@ -224,6 +224,17 @@ namespace Halcyonic.Client
             Changed?.Invoke();
         }
 
+        /// <summary>Switches the open task file to <paramref name="section"/> on its first page, cancelling any armed confirmation.</summary>
+        public void ShowSection(FileSection section)
+        {
+            if (Screen.Instruction.Open) Screen.Instruction.Close();
+            instructionVoiceValid = false;
+            Steering.Cancel();
+            Screen.Section = section;
+            Screen.Page = 0;
+            Rebuild();
+        }
+
         /// <summary>Whether the page drawn offers Stop, so a refusal of words says to press it only where it can be.</summary>
         private bool StopOnPage => Frame?.Footer[PromptSlot.Rare]?.Id == FileScreens.Stop || Frame?.Lines.Any(line => line.Action == FileScreens.Stop) == true;
 

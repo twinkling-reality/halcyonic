@@ -337,4 +337,89 @@ public class WorkspacePresentationStateTests
         Assert.That(presentation.CloseMoment(state), Is.True);
         Assert.That(presentation.ActiveMoment(state), Is.Null);
     }
+
+    [Test]
+    public void ScreenOfDisablesCanTryWhenHostCheckFilesAreStaleAndRoutesScreenAndMomentActions()
+    {
+        var staleCheckJson = new JObject
+        {
+            ["check_id"] = "01a19000-0000-7000-8000-0000000000c9",
+            ["recorded_at"] = Samples.Time,
+            ["position"] = 1,
+            ["files"] = "changed",
+            ["findings"] = new JObject
+            {
+                ["tsc"] = new JObject { ["exit"] = 0, ["seconds"] = 1 },
+                ["build"] = new JObject { ["exit"] = 0, ["seconds"] = 2 },
+                ["page"] = null,
+                ["unknown"] = null,
+                ["passed"] = true,
+                ["reads_confined"] = true,
+                ["laptop"] = new JObject
+                {
+                    ["layer"] = "starter",
+                    ["targets"] = 1,
+                    ["mouse"] = "reached",
+                    ["key"] = "reached",
+                    ["screen_changed"] = true,
+                    ["response_seen"] = null,
+                    ["ready"] = true,
+                },
+            },
+        };
+        var staleProjectJson = new JObject
+        {
+            ["project_id"] = Samples.ProjectId,
+            ["name"] = "Recipe Tracker",
+            ["location"] = new JObject { ["path"] = "/Users/person/Projects/recipe-tracker", ["name"] = "recipe-tracker", ["created"] = true },
+            ["starter"] = null,
+            ["created_at"] = Samples.Time,
+            ["updated_at"] = Samples.Time,
+            ["check"] = staleCheckJson,
+            ["preview"] = new JObject { ["check_id"] = "01a19000-0000-7000-8000-0000000000c9", ["port"] = 47939, ["files"] = "current" },
+        };
+        var staleProject = HalcyonicJson.Deserialize<ProjectView>(staleProjectJson.ToString(), strict: true);
+        var execution = Samples.Execution("ex-stale", "ws-stale", ExecutionStatus.Completed, synthetic: false);
+        var workstream = Samples.Workstream("ws-stale", WorkstreamStatus.Completed, "ex-stale");
+        var state = ProjectionWith(workstream, execution, staleProject);
+
+        var staleScreen = WorkspacePresentationState.ScreenOf(staleProject, state, barOpen: true);
+        Assert.That(staleScreen.NewestChangeAt, Is.EqualTo(System.DateTimeOffset.MaxValue), "files != current marks the host check stale");
+        Assert.That(staleScreen.CanTry, Is.False, "stale check files must never offer Try Build");
+
+        Assert.That(ProjectPlayFacts.TryVrVersionTarget(staleProject, out var root, out var vrFolder), Is.True);
+        Assert.That((root, vrFolder), Is.EqualTo(("/Users/person/Projects", "recipe-tracker-vr")));
+
+        var commands = new CommandFactory(Samples.Client);
+        var makeVr = (ProjectMakeVrVersionCommand)WorkspacePresentationState.CommandForScreenAction(staleProject, KitScreenAction.MakeAVrVersion, commands)!;
+        Assert.That((makeVr.Payload.OriginalProjectId, makeVr.Payload.Root, makeVr.Payload.FolderName),
+            Is.EqualTo((Samples.ProjectId, "/Users/person/Projects", "recipe-tracker-vr")));
+        Assert.That(WorkspacePresentationState.CommandForScreenAction(staleProject, KitScreenAction.TryIt, commands), Is.Null,
+            "TryIt must not dispatch CheckProject when check files are stale");
+
+        var currentCheckJson = (JObject)staleCheckJson.DeepClone();
+        currentCheckJson["files"] = "current";
+        var readyProjectJson = (JObject)staleProjectJson.DeepClone();
+        readyProjectJson["check"] = currentCheckJson;
+        var readyProject = HalcyonicJson.Deserialize<ProjectView>(readyProjectJson.ToString(), strict: true);
+        var openOnMac = (ProjectOpenOnMacCommand)WorkspacePresentationState.CommandForScreenAction(readyProject, KitScreenAction.TryIt, commands)!;
+        Assert.That(openOnMac.Payload.ProjectId, Is.EqualTo(Samples.ProjectId));
+
+        var noPreviewProjectJson = (JObject)readyProjectJson.DeepClone();
+        noPreviewProjectJson["preview"] = null;
+        var noPreviewProject = HalcyonicJson.Deserialize<ProjectView>(noPreviewProjectJson.ToString(), strict: true);
+        Assert.That(WorkspacePresentationState.CommandForScreenAction(noPreviewProject, KitScreenAction.TryIt, commands), Is.Null,
+            "TryIt must not dispatch StartPreview when no preview is running");
+
+        Assert.That(WorkspacePresentationState.SectionForScreenAction(KitScreenAction.Steps), Is.EqualTo(FileSection.Activity));
+        Assert.That(WorkspacePresentationState.SectionForScreenAction(KitScreenAction.Why), Is.EqualTo(FileSection.Changes));
+        Assert.That(WorkspacePresentationState.SectionForScreenAction(KitScreenAction.HowItWent), Is.EqualTo(FileSection.Checks));
+
+        Assert.That(WorkspacePresentationState.SectionForMomentAction(KitMomentAction.YesRunIt), Is.EqualTo(FileSection.Waiting));
+        Assert.That(WorkspacePresentationState.SectionForMomentAction(KitMomentAction.ReadIt), Is.EqualTo(FileSection.Waiting));
+        Assert.That(WorkspacePresentationState.SectionForMomentAction(KitMomentAction.SeeWhatChanged), Is.EqualTo(FileSection.Changes));
+        Assert.That(WorkspacePresentationState.SectionForMomentAction(KitMomentAction.SeeTheOutput), Is.EqualTo(FileSection.Checks));
+        Assert.That(WorkspacePresentationState.SectionForMomentAction(KitMomentAction.Stop), Is.EqualTo(FileSection.Activity));
+        Assert.That(WorkspacePresentationState.SectionForMomentAction(KitMomentAction.TryIt), Is.Null);
+    }
 }

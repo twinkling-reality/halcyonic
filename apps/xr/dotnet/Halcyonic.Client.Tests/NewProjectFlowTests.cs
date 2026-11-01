@@ -1812,7 +1812,7 @@ public class NewProjectFlowTests
             pages.Add(flow.Frame!);
         }
         var folders = pages.SelectMany(page => page.Lines).Where(line => line.Action == NewProjectScreens.ChooseFolder).Select(line => line.Key).ToList();
-        Assert.That(folders, Has.Count.EqualTo(14).And.Unique, "every folder once through a whole turn round");
+        Assert.That(folders, Has.Count.EqualTo(15).And.Unique, "every folder once through a whole turn round");
     }
 
     [Test]
@@ -1934,10 +1934,107 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.ChooseWhere, null);
         Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder)).Wait();
         var shown = FitsEveryPage(flow, host, "where its files live");
-        Assert.That(shown.Count(line => line.Action == NewProjectScreens.ChooseFolder), Is.EqualTo(14), "a new folder, the place itself and 12 folders, each once");
+        Assert.That(shown.Count(line => line.Action == NewProjectScreens.ChooseFolder), Is.EqualTo(15), "a new folder, a starter VR folder, the place itself and 12 folders, each once");
         Press(flow, NewProjectScreens.ChooseFolder, shown.Single(line => line.Words == "folder-12").Key);
         Press(flow, NewProjectScreens.Done, null);
         Assert.That(flow.Idea!.Folder!.Describe(), Is.EqualTo("folder-12 in Projects"), "a folder on a later page is chosen like any other");
+    }
+
+    [Test]
+    public async Task ChoosingANewStarterFolderAndRenamingItSendsNewFromStarterChoice()
+    {
+        var root = new LocationRoot
+        {
+            Path = "/Users/person/Projects",
+            Name = "Projects",
+            Label = "Projects",
+            Status = LocationRootStatus.Available,
+            FoldersTruncated = false,
+            Folders = new List<LocationFolder>(),
+        };
+        var routes = new Routes();
+        routes.Answers["GET /api/locations"] = () => HalcyonicJson.Serialize(new LocationsResponse { Roots = new List<LocationRoot> { root } });
+        var host = new Host { Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes) };
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+        Press(flow, NewProjectScreens.ChooseWhere, null);
+        await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
+        var starterLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New VR Starter · Projects");
+        Press(flow, NewProjectScreens.ChooseFolder, starterLine.Key);
+        Assert.That(flow.Idea!.Folder, Is.Not.Null);
+        Assert.That(flow.Idea.Folder!.StarterId, Is.EqualTo("iwsdk-vr"));
+
+        host.Typed.Enqueue("galaxy-vr");
+        Press(flow, NewProjectScreens.TypeWords, null);
+        Press(flow, NewProjectScreens.Done, null);
+        Assert.That((flow.Idea.Folder.FolderName, flow.Idea.Folder.StarterId), Is.EqualTo(("galaxy-vr", "iwsdk-vr")));
+
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        ReadToTheEnd(flow, host);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
+        var create = (ProjectCreateCommand)host.Sent.Single();
+        var location = (NewFromStarterChoice)create.Payload.Location!;
+        Assert.That((location.Root, location.FolderName, location.StarterId), Is.EqualTo((root.Path, "galaxy-vr", "iwsdk-vr")));
+    }
+
+    [Test]
+    public async Task SwitchingFromNewStarterFolderToNewFolderInTheSameRootClearsStarterIdAndSendsNewFolderChoice()
+    {
+        var root = new LocationRoot
+        {
+            Path = "/Users/person/Projects",
+            Name = "Projects",
+            Label = "Projects",
+            Status = LocationRootStatus.Available,
+            FoldersTruncated = false,
+            Folders = new List<LocationFolder>(),
+        };
+        var routes = new Routes();
+        routes.Answers["GET /api/locations"] = () => HalcyonicJson.Serialize(new LocationsResponse { Roots = new List<LocationRoot> { root } });
+        var host = new Host { Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes) };
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+        Press(flow, NewProjectScreens.ChooseWhere, null);
+        await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
+        var starterLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New VR Starter · Projects");
+        Press(flow, NewProjectScreens.ChooseFolder, starterLine.Key);
+        Press(flow, NewProjectScreens.Done, null);
+        Assert.That(flow.Idea!.Folder!.StarterId, Is.EqualTo("iwsdk-vr"));
+
+        // Switch to plain New Folder in the same root and press Done without typing: StarterId must clear.
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+        Press(flow, NewProjectScreens.ChooseWhere, null);
+        await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
+        var plainLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New Folder · Projects");
+        Press(flow, NewProjectScreens.ChooseFolder, plainLine.Key);
+        Press(flow, NewProjectScreens.Done, null);
+        Assert.That(flow.Idea.Folder!.StarterId, Is.Null, "switching to New Folder without typing clears StarterId");
+
+        // Switch back to New VR Starter, then to New Folder and type a custom folder name: StarterId must also clear.
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+        Press(flow, NewProjectScreens.ChooseWhere, null);
+        await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
+        starterLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New VR Starter · Projects");
+        Press(flow, NewProjectScreens.ChooseFolder, starterLine.Key);
+        Press(flow, NewProjectScreens.Done, null);
+        Assert.That(flow.Idea.Folder!.StarterId, Is.EqualTo("iwsdk-vr"));
+
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+        Press(flow, NewProjectScreens.ChooseWhere, null);
+        await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
+        plainLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New Folder · Projects");
+        Press(flow, NewProjectScreens.ChooseFolder, plainLine.Key);
+        host.Typed.Enqueue("plain-folder");
+        Press(flow, NewProjectScreens.TypeWords, null);
+        Press(flow, NewProjectScreens.Done, null);
+        Assert.That((flow.Idea.Folder.FolderName, flow.Idea.Folder.StarterId), Is.EqualTo(("plain-folder", (string?)null)));
+
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        ReadToTheEnd(flow, host);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
+        var create = (ProjectCreateCommand)host.Sent.Single();
+        var location = (NewFolderChoice)create.Payload.Location!;
+        Assert.That((location.Root, location.FolderName), Is.EqualTo((root.Path, "plain-folder")));
     }
 
     [Test]

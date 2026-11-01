@@ -270,6 +270,69 @@ namespace Halcyonic.XR.Workspace
 
         public bool CloseProjectScreen() => !Away && setup.Presentation.CloseProjectScreen();
 
+        private void OnScreenBarToggled()
+        {
+            if (Away || drag != null || plane.Repositioning || plane.Sliding) return;
+            SetProjectScreenBarOpen(true);
+        }
+
+        private void OnScreenActed(KitScreenAction action, string? projectId)
+        {
+            if (Away || drag != null || plane.Repositioning || plane.Sliding) return;
+            var activeProjectId = projectId ?? setup.Presentation.ScreenProjectId;
+            if (activeProjectId == null || State?.Projects.TryGetValue(activeProjectId, out var project) != true) return;
+            var primaryWork = WorkspacePresentationState.PrimaryWorkstreamOf(project.ProjectId, State);
+            if (WorkspacePresentationState.SectionForScreenAction(action) is FileSection section)
+            {
+                if (primaryWork != null) OpenFile(primaryWork.WorkstreamId, section);
+                else OpenNewProject(project.ProjectId, project.Name);
+                return;
+            }
+            if (action == KitScreenAction.ChangeIt)
+            {
+                if (primaryWork != null) OpenFile(primaryWork.WorkstreamId, FileSection.Activity);
+                else OpenNewProject(project.ProjectId, project.Name);
+                return;
+            }
+            if (WorkspacePresentationState.CommandForScreenAction(project, action, setup.Commands) is CommandEnvelope command)
+            {
+                if (Connected && !Demonstration)
+                {
+                    _ = setup.Submit(setup.Session(), command);
+                    dirty = true;
+                }
+                return;
+            }
+            if (action == KitScreenAction.MakeAVrVersion)
+            {
+                OpenNewProject(project.ProjectId, project.Name);
+            }
+        }
+
+        private void OnMomentActed(KitMomentAction action, string? workstreamId)
+        {
+            if (Away || drag != null || plane.Repositioning || plane.Sliding) return;
+            var activeWorkstreamId = workstreamId ?? plane.MomentWorkstreamId;
+            if (activeWorkstreamId == null || State?.Workstreams.TryGetValue(activeWorkstreamId, out var workstream) != true) return;
+            if (action == KitMomentAction.TryIt)
+            {
+                if (State.Projects.TryGetValue(workstream.ProjectId, out var project)
+                    && WorkspacePresentationState.CommandForScreenAction(project, KitScreenAction.TryIt, setup.Commands) is CommandEnvelope command
+                    && Connected && !Demonstration)
+                {
+                    _ = setup.Submit(setup.Session(), command);
+                    dirty = true;
+                    return;
+                }
+                OpenFile(workstream.WorkstreamId, FileSection.Checks);
+                return;
+            }
+            if (WorkspacePresentationState.SectionForMomentAction(action) is FileSection section)
+            {
+                OpenFile(workstream.WorkstreamId, section);
+            }
+        }
+
         private void UpdateProgressiveSpatial(UnityEngine.Vector3 eyes, UnityEngine.Vector3 looking)
         {
             if (setup.SpatialWorkspace && !Away && setup.Presentation.ActiveScreen(State, Connected || Demonstration) is KitScreenModel screenModel)

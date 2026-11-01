@@ -72,6 +72,7 @@ namespace Halcyonic.Client
         private RecapFact? fact;
         private WordsFor wordsFor;
         private LocationRoot? wordsRoot;
+        private string? wordsStarterId;
         private string? written;
         private bool writtenHeard;
         private bool confirmingStartOver;
@@ -429,7 +430,8 @@ namespace Halcyonic.Client
                     return recapPage switch
                     {
                         RecapPage.Task => NewProjectScreens.RecapTask(current, reached, Voice, Said(step), host.KeyboardOffered),
-                        RecapPage.Folder => NewProjectScreens.RecapFolder(current, reached, locations, locationsProblem, Said(step), WordsOffered),
+                        RecapPage.Folder => NewProjectScreens.RecapFolder(current, reached, locations, locationsProblem, Said(step), WordsOffered,
+                            includeStarters: current.ExistingProjectId == null),
                         RecapPage.Options => NewProjectScreens.RecapOptions(current, reached, draft, host.State?.Runtimes ?? new List<RuntimeDescriptor>(),
                             showModels, Live),
                         RecapPage.Words => NewProjectScreens.Words(current, reached, wordsFor, written, writtenHeard, Voice, Said(step), wordsRoot, host.KeyboardOffered),
@@ -1348,10 +1350,11 @@ namespace Halcyonic.Client
         // ---------------------------------------------------------------------------------------------
         // The recap's pages: words, folders, agent apps and models.
 
-        private void OpenWords(WordsFor what, LocationRoot? root)
+        private void OpenWords(WordsFor what, LocationRoot? root, string? starterId = null)
         {
             wordsFor = what;
             wordsRoot = root;
+            wordsStarterId = starterId;
             written = null;
             writtenHeard = false;
             Show(NewProjectStep.Recap, page: RecapPage.Words);
@@ -1376,15 +1379,28 @@ namespace Halcyonic.Client
         private void KeepWords(ProjectIdea current)
         {
             if (step != NewProjectStep.Recap) return;
-            if (recapPage == RecapPage.Words && written != null)
+            if (recapPage == RecapPage.Words)
             {
-                var kept = wordsFor switch
+                if (wordsFor == WordsFor.FolderName)
                 {
-                    WordsFor.Name => current.Rename(written),
-                    WordsFor.FirstTask => current.Rewrite(written),
-                    _ => wordsRoot != null && ProjectFolder.New(wordsRoot, written) is ProjectFolder made && Chose(current, made),
-                };
-                if (!kept) return;
+                    var folderName = written ?? (current.Folder is ProjectFolder existing && existing.IsNew && existing.RootPath == wordsRoot?.Path ? existing.FolderName : null);
+                    if (folderName != null)
+                    {
+                        var made = wordsRoot != null
+                            ? (wordsStarterId != null ? ProjectFolder.NewStarter(wordsRoot, folderName, wordsStarterId) : ProjectFolder.New(wordsRoot, folderName))
+                            : null;
+                        if (made == null || !Chose(current, made)) return;
+                    }
+                }
+                else if (written != null)
+                {
+                    var kept = wordsFor switch
+                    {
+                        WordsFor.Name => current.Rename(written),
+                        _ => current.Rewrite(written),
+                    };
+                    if (!kept) return;
+                }
             }
             written = null;
             writtenHeard = false;
@@ -1400,11 +1416,22 @@ namespace Halcyonic.Client
         /// <summary>The folder row pressed, by what it chooses: a list read again since offers none that isn't still there.</summary>
         private void ChooseOption(ProjectIdea current, string key)
         {
-            var option = ProjectFolder.Options(locations!).FirstOrDefault(each => NewProjectScreens.FolderKey(each) == key);
+            var option = ProjectFolder.Options(locations!, includeStarters: current.ExistingProjectId == null)
+                .FirstOrDefault(each => NewProjectScreens.FolderKey(each) == key);
             if (option == null || !option.Choosable) return;
             if (option.Kind == FolderOptionKind.NewFolder)
             {
                 OpenWords(WordsFor.FolderName, option.Root);
+                return;
+            }
+            if (option.Kind == FolderOptionKind.NewStarterFolder)
+            {
+                var suggested = current.Name.Length > 0 ? ProjectFolder.SuggestName(current.Name) : (option.SuggestedName ?? "VR Starter Project");
+                if (ProjectFolder.NewStarter(option.Root, suggested) is ProjectFolder starter)
+                {
+                    current.ChooseFolder(starter);
+                }
+                if (WordsOffered) OpenWords(WordsFor.FolderName, option.Root, ProjectFolder.DefaultStarterId);
                 return;
             }
             current.ChooseFolder(ProjectFolder.Existing(option.Root, option.Folder));
