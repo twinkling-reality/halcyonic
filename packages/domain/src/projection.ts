@@ -248,10 +248,11 @@ export class Projection {
     this.#position = stored.position;
     const changes = new ChangeSet();
     const notes: ProjectionNote[] = [];
-    const beforeTurn = this.#executions.get(stored.event.execution_id as ExecutionId)?.activeTurn;
-    const hadActive = Boolean(
-      this.#executions.get(stored.event.execution_id as ExecutionId)?.activeTurn,
-    );
+    const beforeTurn =
+      stored.event.execution_id === null
+        ? undefined
+        : this.#executions.get(stored.event.execution_id)?.activeTurn;
+    const hadActive = Boolean(beforeTurn);
     this.#dispatch(stored.event, changes, notes);
     const event = stored.event;
     if (
@@ -289,12 +290,7 @@ export class Projection {
         runtime_id: event.source.runtime_id,
         epistemic: 'observed',
         native_type: event.provenance.native_type,
-        title:
-          started?.title == null
-            ? null
-            : Array.from(started.title).length <= 180
-              ? started.title
-              : Array.from(started.title).slice(0, 179).join('') + '…',
+        title: boundTitle(started?.title),
         kind: result.kind,
         completion: result.completion,
         exit_code: result.kind === 'command' ? result.exit_code : null,
@@ -499,27 +495,43 @@ export class Projection {
   }
 
   projects(): ProjectView[] {
-    return [...this.#projects.values()].map((state) => this.#projectView(state));
+    return Array.from(this.#projects.values(), this.#projectView);
   }
 
   workstreams(projectId?: string): WorkstreamView[] {
-    const all = [...this.#workstreams.values()];
-    const selected = projectId === undefined ? all : all.filter((ws) => ws.projectId === projectId);
-    return selected.map((ws) => this.#workstreamView(ws));
+    if (projectId === undefined) {
+      return Array.from(this.#workstreams.values(), this.#workstreamView);
+    }
+    const views: WorkstreamView[] = [];
+    for (const ws of this.#workstreams.values()) {
+      if (ws.projectId === projectId) views.push(this.#workstreamView(ws));
+    }
+    return views;
   }
 
   executions(): ExecutionView[] {
-    return [...this.#executions.values()].map(this.#view);
+    return Array.from(this.#executions.values(), this.#view);
   }
 
   /** Commands still awaiting an outcome, plus the most recent `finishedLimit` finished ones. */
   commands(finishedLimit: number): CommandView[] {
-    const all = [...this.#commands.values()];
-    const finished = all.filter((command) => command.status !== 'accepted');
-    const recentFinished = new Set(finished.slice(Math.max(0, finished.length - finishedLimit)));
-    return all
-      .filter((command) => command.status === 'accepted' || recentFinished.has(command))
-      .map(toCommandView);
+    if (this.#commands.size <= finishedLimit) {
+      return Array.from(this.#commands.values(), toCommandView);
+    }
+    let finishedTotal = 0;
+    for (const command of this.#commands.values()) {
+      if (command.status !== 'accepted') finishedTotal += 1;
+    }
+    let skipFinished = Math.max(0, finishedTotal - finishedLimit);
+    const views: CommandView[] = [];
+    for (const command of this.#commands.values()) {
+      if (command.status !== 'accepted' && skipFinished > 0) {
+        skipFinished -= 1;
+        continue;
+      }
+      views.push(toCommandView(command));
+    }
+    return views;
   }
 
   executionFacts(executionId: string): ExecutionFacts | undefined {
@@ -1314,10 +1326,12 @@ export class Projection {
     }
   }
 
-  #workstreamView(state: WorkstreamState): WorkstreamView {
-    const executions = state.executionIds
-      .map((id) => this.#executions.get(id))
-      .filter((execution): execution is ExecutionState => execution !== undefined);
+  #workstreamView = (state: WorkstreamState): WorkstreamView => {
+    const executions: ExecutionState[] = [];
+    for (const id of state.executionIds) {
+      const execution = this.#executions.get(id);
+      if (execution !== undefined) executions.push(execution);
+    }
     const current = executions.at(-1);
     return {
       workstream_id: state.workstreamId,
@@ -1331,45 +1345,38 @@ export class Projection {
       created_at: state.createdAt,
       updated_at: state.updatedAt,
     };
-  }
+  };
 
   /** The project with its latest check, its preview and its play, each only when there is one (M1.8e, T2). */
-  #projectView(state: ProjectState): ProjectView {
+  #projectView = (state: ProjectState): ProjectView => {
+    const view: ProjectView = toProjectView(state);
     const check = this.latestCheck(state.projectId);
+    if (check !== undefined) {
+      view.check = {
+        check_id: check.check_id,
+        recorded_at: check.recorded_at,
+        position: check.position,
+        files: check.files,
+        findings: check.findings,
+      };
+    }
     const preview = this.preview(state.projectId);
+    if (preview !== undefined) {
+      view.preview = {
+        check_id: preview.check_id,
+        port: preview.port,
+        files: preview.files,
+      };
+    }
     const play = this.#macPlays.get(state.projectId);
-    return {
-      ...toProjectView(state),
-      ...(check === undefined
-        ? {}
-        : {
-            check: {
-              check_id: check.check_id,
-              recorded_at: check.recorded_at,
-              position: check.position,
-              files: check.files,
-              findings: check.findings,
-            },
-          }),
-      ...(preview === undefined
-        ? {}
-        : {
-            preview: {
-              check_id: preview.check_id,
-              port: preview.port,
-              files: preview.files,
-            },
-          }),
-      ...(play === undefined
-        ? {}
-        : {
-            mac_play: {
-              check_id: play,
-              files: this.#filesOfCheck(state.projectId, play),
-            },
-          }),
-    };
-  }
+    if (play !== undefined) {
+      view.mac_play = {
+        check_id: play,
+        files: this.#filesOfCheck(state.projectId, play),
+      };
+    }
+    return view;
+  };
 
   #filesOfCheck(projectId: ProjectId, checkId: CheckId): CheckFilesState {
     const state = this.#checksById.get(projectId)?.get(checkId);
@@ -1402,18 +1409,29 @@ export class Projection {
   }
 
   #materialize(changes: ChangeSet): EntityChanges {
-    const pick = <K, S, V>(ids: Set<K>, map: Map<K, S>, view: (state: S) => V): V[] =>
-      [...ids].flatMap((id) => {
-        const state = map.get(id);
-        return state === undefined ? [] : [view(state)];
-      });
     return {
-      projects: pick(changes.projects, this.#projects, (state) => this.#projectView(state)),
-      workstreams: pick(changes.workstreams, this.#workstreams, (ws) => this.#workstreamView(ws)),
-      executions: pick(changes.executions, this.#executions, this.#view),
-      commands: pick(changes.commands, this.#commands, toCommandView),
+      projects: pickViews(changes.projects, this.#projects, this.#projectView),
+      workstreams: pickViews(changes.workstreams, this.#workstreams, this.#workstreamView),
+      executions: pickViews(changes.executions, this.#executions, this.#view),
+      commands: pickViews(changes.commands, this.#commands, toCommandView),
     };
   }
+}
+
+function boundTitle(title: string | null | undefined): string | null {
+  if (title == null || title.length <= 180) return title ?? null;
+  const chars = Array.from(title);
+  return chars.length <= 180 ? title : `${chars.slice(0, 179).join('')}…`;
+}
+
+function pickViews<K, S, V>(ids: Set<K>, map: Map<K, S>, view: (state: S) => V): V[] {
+  if (ids.size === 0) return [];
+  const out: V[] = [];
+  for (const id of ids) {
+    const state = map.get(id);
+    if (state !== undefined) out.push(view(state));
+  }
+  return out;
 }
 
 function note(code: ProjectionNote['code'], event: EventEnvelope, message: string): ProjectionNote {

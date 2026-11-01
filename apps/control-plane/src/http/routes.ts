@@ -106,7 +106,7 @@ export function registerRoutes(
 ): void {
   const results = new ToolResults(controlPlane);
   for (const detail of [false, true]) {
-    const path = '/api/executions/:execution_id/results' + (detail ? '/:event_id' : '');
+    const path = `/api/executions/:execution_id/results${detail ? '/:event_id' : ''}`;
     app.get(path, async (request, reply) => {
       const params = request.params as Record<string, unknown>;
       const parsed = validateToolResultsQuery(request.query);

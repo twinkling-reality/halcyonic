@@ -86,7 +86,7 @@ test('native recorded results consume strict scoped metadata, exact text paging 
       assert.equal((await fetch(server.baseUrl + path)).status, 401);
       assert.equal(
         (
-          await fetch(server.baseUrl + path + '&extra=field', {
+          await fetch(`${server.baseUrl}${path}&extra=field`, {
             headers: { authorization: `Bearer ${server.token}` },
           })
         ).status,
