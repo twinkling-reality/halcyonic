@@ -64,18 +64,9 @@ namespace Halcyonic.XR.UI
             Radius = radius;
             if (glass != null) glass.Hide();
             face.gameObject.SetActive(true);
-            var hairline = KitType.Units(SpatialKit.HairlineDegrees);
             face.Draw(size, radius, KitType.Colour(fill));
             face.Selection = SurfaceSelection.None;
-            edgeLight.gameObject.SetActive(lit);
-            if (lit)
-            {
-                // Just inside the top's straight run, as light along a real edge.
-                var run = Mathf.Max(0f, size.x - 2f * radius);
-                var thick = hairline * (light.HasValue ? 2f : 1f);
-                edgeLight.Draw(new Vector2(run, thick), thick / 2f, light ?? KitType.Colour(SpatialKit.EdgeLight));
-                edgeLight.transform.localPosition = new Vector3(0f, size.y / 2f - hairline - thick / 2f, -0.0002f);
-            }
+            edgeLight.gameObject.SetActive(false);
         }
 
         /// <summary>

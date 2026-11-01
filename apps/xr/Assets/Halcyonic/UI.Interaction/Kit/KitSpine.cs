@@ -57,10 +57,8 @@ namespace Halcyonic.XR.UI
         {
             transform.localPosition = new Vector3(topLeft.x, topLeft.y, 0f);
             var switchSize = modeSwitch.Layout(width);
-            modeSwitch.transform.localPosition = new Vector3(width / 2f, -switchSize.y / 2f, 0f);
-            // Targets stand 12 mm apart everywhere: the switch's lower position and the first row included.
             var targetGap = KitType.Units(SpatialKit.TargetGapDegrees);
-            var y = switchSize.y + Mathf.Max(KitType.Scaled(SpatialKit.GroupGapDegrees), targetGap);
+            var y = 0f;
             var rowIndex = 0;
             var placeIndex = 0;
             var nameIndex = 0;
@@ -69,7 +67,7 @@ namespace Halcyonic.XR.UI
             foreach (var section in sections)
             {
                 // Sections are divided by space and their headings, not by rules.
-                y += KitType.Scaled(SpatialKit.GridDegrees);
+                if (y > 0f) y += KitType.Scaled(SpatialKit.GridDegrees);
                 if (section.Heading != null)
                 {
                     // A place's heading in the instrument face; a project's own name in the reading face, upright as a named identity.
@@ -111,15 +109,26 @@ namespace Halcyonic.XR.UI
             for (var index = nameIndex; index < nameHeadings.Count; index++) nameHeadings[index].gameObject.SetActive(false);
             for (var index = dividerIndex; index < dividers.Count; index++) dividers[index].gameObject.SetActive(false);
             for (var index = noteIndex; index < notes.Count; index++) notes[index].gameObject.SetActive(false);
+
+            var contentBottom = Mathf.Max(0f, y - targetGap - KitType.Scaled(0.5f));
+            var groupGap = Mathf.Max(KitType.Scaled(SpatialKit.GroupGapDegrees), targetGap);
+            var switchHeight = modeSwitch.gameObject.activeSelf ? switchSize.y : 0f;
+            var footHeight = foot != null ? footer.Show(foot, Vector2.zero, width) : 0f;
+            var bottomHeight = (foot != null ? footHeight + (switchHeight > 0f ? targetGap : 0f) : 0f) + switchHeight;
+            var needed = (contentBottom > 0f ? contentBottom + groupGap : 0f) + bottomHeight;
+            var total = Mathf.Max(needed, height);
+            var switchTop = total - switchHeight;
+            modeSwitch.transform.localPosition = new Vector3(width / 2f, -switchTop - switchSize.y / 2f, 0f);
             if (foot != null)
             {
-                // At the foot, measured first so it stands on the spine's last line.
-                var footHeight = footer.Show(foot, Vector2.zero, width);
-                footer.Show(foot, new Vector2(0f, -Mathf.Max(y, height - footHeight)), width);
-                return y + footHeight;
+                var footTop = switchTop - (switchHeight > 0f ? targetGap : 0f) - footHeight;
+                footer.Show(foot, new Vector2(0f, -footTop), width);
             }
-            footer.Hide();
-            return y - targetGap;
+            else
+            {
+                footer.Hide();
+            }
+            return needed;
         }
 
         private static T Take<T>(List<T> pool, int index, Func<T> make) where T : Component

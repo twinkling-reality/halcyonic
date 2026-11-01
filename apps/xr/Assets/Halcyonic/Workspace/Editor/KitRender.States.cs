@@ -107,8 +107,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 require(view, shot);
             }, placed: (view, _) =>
             {
-                view.Show(model, binding);
                 view.Spine.Switch.gameObject.SetActive(false);
+                view.Show(model, binding);
             }, bound: binding);
         }
 
