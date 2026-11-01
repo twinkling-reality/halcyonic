@@ -10,7 +10,7 @@
   [ADR 0034](0034-the-workspace-is-one-continuous-gentle-curve-centred-on-the-eyes.md) (the curve as the workspace),
   and [ADR 0029](0029-workspace-is-complete-without-characters-and-continues-in-a-native-panel.md) (characters off by
   default);
-  complements [ADR 0039](0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)
+  complements [ADR 0039](0039-the-projects-gallery-reads-a-catalog-from-omnorium.md)
 
 ## Context
 
@@ -42,7 +42,7 @@ words never on the room, state never by colour alone, Keep things still landing 
    - A newcomer sees Halcyonic's own Projects only ([ADR 0020](0020-a-project-works-in-one-host-approved-folder.md)):
      what they made, and Make something new as the first, equal tile.
    - Someone with many sees Needs you first, then one shelf per group from the catalog
-     ([ADR 0039](0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)), the rest counted ("+42 more"),
+     ([ADR 0039](0039-the-projects-gallery-reads-a-catalog-from-omnorium.md)), the rest counted ("+42 more"),
      with Find a project and Make something new always at the top.
    - A tile shows a picture only from the host's own check screenshot, taken in its sandboxed headless browser, with
      its time; until that check exists, and for every other project, the name, the state and a neutral mark. Halcyonic's own states carry a state dot; a catalog state carries the catalog's mark on its own tile,

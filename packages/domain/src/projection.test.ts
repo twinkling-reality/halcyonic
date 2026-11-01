@@ -1084,8 +1084,8 @@ describe('whether an execution ran confined, as its start recorded it (S2)', () 
 });
 
 describe('catalog links (ADR 0039)', () => {
-  const first = { source: 'phat-porcupine' as const, repository_id: 7, full_name: 'acme/app' };
-  const second = { source: 'phat-porcupine' as const, repository_id: 8, full_name: 'acme/app-api' };
+  const first = { source: 'omnorium' as const, repository_id: 7, full_name: 'acme/app' };
+  const second = { source: 'omnorium' as const, repository_id: 8, full_name: 'acme/app-api' };
 
   test('a project holds the catalog repository the person last linked, until they unlink it', () => {
     const b = new EventBuilder();

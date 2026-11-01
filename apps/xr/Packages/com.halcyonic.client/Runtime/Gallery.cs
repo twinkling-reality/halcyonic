@@ -95,7 +95,7 @@ namespace Halcyonic.Client
         /// </summary>
         public LineWords? ObservedLine { get; }
 
-        /// <summary>The catalog's state, as Phat Porcupine reported it, in Halcyonic's words (<see cref="GalleryText.State"/>); null without a catalog project.</summary>
+        /// <summary>The catalog's state, as Omnorium reported it, in Halcyonic's words (<see cref="GalleryText.State"/>); null without a catalog project.</summary>
         public LineWords? ReportedLine { get; }
 
         /// <summary>Its first line: the observed one where there is one, else the reported one.</summary>

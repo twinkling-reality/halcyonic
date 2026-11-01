@@ -18,7 +18,7 @@ namespace Halcyonic.Client
     /// <summary>
     /// When the gallery asks for the catalog, on the main thread: each time the person opens their projects,
     /// and when they refresh, never on a timer (AUDIT's S2): each read can make the computer read folders
-    /// and ask Phat Porcupine, and the source syncs on its own schedule, so asking more often shows nothing
+    /// and ask Omnorium, and the source syncs on its own schedule, so asking more often shows nothing
     /// newer. The last answer stays shown while a new one is read and after the gallery closes, and a
     /// failed read says why.
     /// </summary>

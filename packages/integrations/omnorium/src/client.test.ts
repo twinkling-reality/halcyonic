@@ -6,8 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, afterEach, before, describe, test } from 'node:test';
 import { CatalogResponse, compileValidator } from '@halcyonic/contracts';
-import { PhatPorcupineClient } from './client.ts';
-import { consumerToken, FakePhatPorcupine, fixture } from './testing/fake-phat-porcupine.ts';
+import { OmnoriumClient } from './client.ts';
+import { consumerToken, FakeOmnorium, fixture } from './testing/fake-omnorium.ts';
 
 const valid = compileValidator(CatalogResponse);
 
@@ -17,12 +17,12 @@ function code(answer: CatalogResponse): string {
     : `${answer.availability}:${answer.reason.code}`;
 }
 
-describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
-  let fake: FakePhatPorcupine;
-  let client: PhatPorcupineClient;
+describe("Halcyonic's client of Omnorium's catalog (ADR 0039)", () => {
+  let fake: FakeOmnorium;
+  let client: OmnoriumClient;
   before(async () => {
-    fake = await FakePhatPorcupine.start();
-    client = new PhatPorcupineClient({
+    fake = await FakeOmnorium.start();
+    client = new OmnoriumClient({
       homes: [fake.home],
       credential: () => fake.token,
       timeoutMs: 2000,
@@ -53,25 +53,25 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
   });
 
   test('reads a server listing only omnorium.catalog with an omc_ credential, and still reads phat-porcupine.catalog with a ppc_ credential', async () => {
-    const omnorium = await FakePhatPorcupine.start({
+    const omnorium = await FakeOmnorium.start({
       contracts: ['omnorium.catalog'],
       tokenPrefix: 'omc',
     });
-    const legacy = await FakePhatPorcupine.start({
+    const legacy = await FakeOmnorium.start({
       contracts: ['phat-porcupine.catalog'],
       tokenPrefix: 'ppc',
     });
     try {
       assert.match(omnorium.token, /^omc_/);
       assert.match(legacy.token, /^ppc_/);
-      const omnoriumAnswer = await new PhatPorcupineClient({
+      const omnoriumAnswer = await new OmnoriumClient({
         homes: [omnorium.home],
         credential: () => omnorium.token,
         timeoutMs: 2000,
       }).catalog();
       assert.equal(code(omnoriumAnswer), 'available');
 
-      const legacyAnswer = await new PhatPorcupineClient({
+      const legacyAnswer = await new OmnoriumClient({
         homes: [legacy.home],
         credential: () => legacy.token,
         timeoutMs: 2000,
@@ -84,10 +84,10 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
   });
 
   test('tries homes in order: moves past a missing discovery file, stops on an unsafe or invalid one, and never reads a second home once the first has a file', async () => {
-    const first = await FakePhatPorcupine.start();
-    const second = await FakePhatPorcupine.start();
-    const unsafeHome = mkdtempSync(join(tmpdir(), 'halcyonic-pp-unsafe-home-'));
-    const invalidHome = mkdtempSync(join(tmpdir(), 'halcyonic-pp-invalid-home-'));
+    const first = await FakeOmnorium.start();
+    const second = await FakeOmnorium.start();
+    const unsafeHome = mkdtempSync(join(tmpdir(), 'halcyonic-om-unsafe-home-'));
+    const invalidHome = mkdtempSync(join(tmpdir(), 'halcyonic-om-invalid-home-'));
     try {
       writeFileSync(join(unsafeHome, 'consumer.json'), '{}', { mode: 0o666 });
       chmodSync(join(unsafeHome, 'consumer.json'), 0o666);
@@ -95,7 +95,7 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
       chmodSync(join(invalidHome, 'consumer.json'), 0o600);
 
       second.requests.length = 0;
-      const fromSecond = await new PhatPorcupineClient({
+      const fromSecond = await new OmnoriumClient({
         homes: [`${first.home}-missing`, second.home],
         credential: () => second.token,
         timeoutMs: 2000,
@@ -104,7 +104,7 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
       assert.equal(second.requests.length, 2);
 
       second.requests.length = 0;
-      const stoppedOnUnsafe = await new PhatPorcupineClient({
+      const stoppedOnUnsafe = await new OmnoriumClient({
         homes: [unsafeHome, second.home],
         credential: () => second.token,
         timeoutMs: 2000,
@@ -113,7 +113,7 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
       assert.deepEqual(second.requests, [], 'does not fall through past an unsafe discovery file');
 
       second.requests.length = 0;
-      const stoppedOnInvalid = await new PhatPorcupineClient({
+      const stoppedOnInvalid = await new OmnoriumClient({
         homes: [invalidHome, second.home],
         credential: () => second.token,
         timeoutMs: 2000,
@@ -123,7 +123,7 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
 
       first.requests.length = 0;
       second.requests.length = 0;
-      const fromFirst = await new PhatPorcupineClient({
+      const fromFirst = await new OmnoriumClient({
         homes: [first.home, second.home],
         credential: () => first.token,
         timeoutMs: 2000,
@@ -154,7 +154,7 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
     assert.notEqual(fake.requests[0]?.socket, discovery.socket, 'each read opens its own');
   });
 
-  test('when Phat Porcupine closes the connection its proof came on, the credential is sent on no other', async () => {
+  test('when Omnorium closes the connection its proof came on, the credential is sent on no other', async () => {
     fake.closeAfterDiscovery = true;
     try {
       fake.requests.length = 0;
@@ -171,7 +171,7 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
   });
 
   test("a credential that can't be used says why, and nothing is asked", async () => {
-    const exposed = new PhatPorcupineClient({
+    const exposed = new OmnoriumClient({
       homes: [fake.home],
       credential: () => ({
         availability: 'unauthorized',
@@ -208,7 +208,7 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
       `Bearer ${consumerToken()}`,
       `${consumerToken()}\n`,
     ]) {
-      const other = new PhatPorcupineClient({
+      const other = new OmnoriumClient({
         homes: [fake.home],
         credential: () => credential,
         timeoutMs: 2000,
@@ -220,8 +220,8 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
     }
   });
 
-  test("each refusal is said by its code, in Halcyonic's words, never Phat Porcupine's", async () => {
-    const wrong = new PhatPorcupineClient({
+  test("each refusal is said by its code, in Halcyonic's words, never Omnorium's", async () => {
+    const wrong = new OmnoriumClient({
       homes: [fake.home],
       credential: () => consumerToken(),
       timeoutMs: 2000,
@@ -248,7 +248,7 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
       assert.ok(valid(answer).ok);
       assert.ok(
         !JSON.stringify(answer).includes('Sign in'),
-        "Phat Porcupine's own message is not passed on",
+        "Omnorium's own message is not passed on",
       );
     }
   });
@@ -267,7 +267,7 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
   });
 
   test('answers that run past the byte cap are incompatible, and no more is read', async () => {
-    const capped = new PhatPorcupineClient({
+    const capped = new OmnoriumClient({
       homes: [fake.home],
       credential: () => fake.token,
       timeoutMs: 2000,
@@ -277,7 +277,7 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
   });
 
   test('without its discovery file it is not running', async () => {
-    const missing = new PhatPorcupineClient({
+    const missing = new OmnoriumClient({
       homes: [`${fake.home}-missing`],
       credential: () => fake.token,
       timeoutMs: 2000,
@@ -288,7 +288,7 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
 
 describe('a server that redirects', () => {
   test('is never followed, so the credential never goes elsewhere (AUDIT K4)', async () => {
-    const fake = await FakePhatPorcupine.start();
+    const fake = await FakeOmnorium.start();
     const seen: (string | undefined)[] = [];
     const elsewhere = createServer((request, response) => {
       seen.push(request.headers.authorization);
@@ -302,7 +302,7 @@ describe('a server that redirects', () => {
         body: {},
         headers: { location: `http://127.0.0.1:${port}/consumer/v1/catalog` },
       };
-      const client = new PhatPorcupineClient({
+      const client = new OmnoriumClient({
         homes: [fake.home],
         credential: () => fake.token,
         timeoutMs: 2000,

@@ -33,7 +33,7 @@ import {
   type WorkstreamId,
 } from '@halcyonic/contracts';
 import { MOCK_MODELS, MockRuntimeAdapter, type Scenario } from '@halcyonic/integration-mock';
-import { FakePhatPorcupine } from '@halcyonic/integration-phat-porcupine/testing';
+import { FakeOmnorium } from '@halcyonic/integration-omnorium/testing';
 import { FakeSalidium } from '@halcyonic/integration-salidium/testing';
 import { FakeSeorak } from '@halcyonic/integration-seorak/testing';
 import {
@@ -48,7 +48,7 @@ import { registerRealtime } from './http/realtime.ts';
 import { registerRoutes } from './http/routes.ts';
 import { fetchWithProof, loadOrCreateAccessToken } from './http/security.ts';
 import { createHttpServer } from './http/server.ts';
-import { PHAT_PORCUPINE_CREDENTIAL_FILE, PhatPorcupineCatalog } from './intelligence/catalog.ts';
+import { OMNORIUM_CREDENTIAL_FILE, OmnoriumCatalog } from './intelligence/catalog.ts';
 import { seorakEvaluation } from './intelligence/evaluation.ts';
 import { salidiumUnderstanding } from './intelligence/understanding.ts';
 import { createHostLocations } from './locations.ts';
@@ -1091,8 +1091,8 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
       '[remote "origin"]\n\turl = https://github.com/fixture-person/pinwheel.git\n',
     );
 
-    // Start stand-in Omnorium (Phat Porcupine), Salidium, and Seorak servers.
-    const omnorium = await FakePhatPorcupine.start({
+    // Start stand-in Omnorium, Salidium, and Seorak servers.
+    const omnorium = await FakeOmnorium.start({
       contracts: ['omnorium.catalog'],
       tokenPrefix: 'omc',
     });
@@ -1113,13 +1113,13 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
       chmodSync(path, 0o600);
       return path;
     };
-    const catalogCredPath = saveCred(PHAT_PORCUPINE_CREDENTIAL_FILE, omnorium.token);
+    const catalogCredPath = saveCred(OMNORIUM_CREDENTIAL_FILE, omnorium.token);
     const salidiumCredPath = saveCred('salidium-credential', salidium.token);
     const seorakCredPath = saveCred('seorak-credential', seorak.token);
 
     const codexHome = join(dataDir, 'codex-home');
     const confinedCodexHomes = join(dataDir, 'codex-confined');
-    const catalog = new PhatPorcupineCatalog({
+    const catalog = new OmnoriumCatalog({
       homes: [omnorium.home],
       credentialPath: catalogCredPath,
       protect: [dataDir],
@@ -1439,7 +1439,7 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
 
     // Before GET /api/catalog has been read, project.link_catalog is rejected.
     const catalogRef = {
-      source: 'phat-porcupine' as const,
+      source: 'omnorium' as const,
       repository_id: 8100001,
       full_name: 'lantern-lab/wind-chimes',
     };

@@ -498,9 +498,9 @@ Salidium's real-wire tests run against its consumer test daemon from a built Sal
 SALIDIUM_CHECKOUT=/path/to/salidium node --test packages/integrations/salidium/src/live-salidium.test.ts
 ```
 
-## Connect Phat Porcupine
+## Connect Omnorium
 
-With Omnorium's (formerly Phat Porcupine's) Node server running on this Mac (the catalog contract v1,
+With Omnorium's Node server running on this Mac (the catalog contract v1,
 `omnorium.catalog` and `phat-porcupine.catalog`, is served only there, not by a hosted instance),
 create a consumer credential for Halcyonic in its checkout and store only the token in the data
 directory, readable only by you. `consumer:create` prints an `omc_` token and nothing else (older
@@ -508,18 +508,18 @@ directory, readable only by you. `consumer:create` prints an `omc_` token and no
 token never appears on screen:
 
 ```bash
-(umask 077 && pnpm -s -C /path/to/phat-porcupine consumer:create --label halcyonic > ~/.halcyonic/phat-porcupine-credential)
+(umask 077 && pnpm -s -C /path/to/omnorium consumer:create --label halcyonic > ~/.halcyonic/omnorium-credential)
 ```
 
 `GET /api/catalog` then answers with every project of your collection, read through and never
-journaled ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)).
+journaled ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md)).
 Halcyonic looks for `consumer.json` in `OMNORIUM_HOME`, else `PHAT_PORCUPINE_HOME`, else
 `~/.omnorium` and then `~/.phat-porcupine`. A missing or exposed credential, a stopped server or one
 still gathering your projects reads as such. `pnpm consumer:revoke halcyonic` in the checkout
 withdraws it at once. The live test reads the catalog once and prints only counts:
 
 ```bash
-PHAT_PORCUPINE_CREDENTIAL_FILE=~/.halcyonic/phat-porcupine-credential node --test packages/integrations/phat-porcupine/src/live-phat-porcupine.test.ts
+OMNORIUM_CREDENTIAL_FILE=~/.halcyonic/omnorium-credential node --test packages/integrations/omnorium/src/live-omnorium.test.ts
 ```
 
 ## Connect Seorak

@@ -13668,7 +13668,7 @@
       "properties": {
         "system": {
           "type": "string",
-          "const": "phat-porcupine"
+          "const": "omnorium"
         },
         "api_version": {
           "type": "string",
@@ -14070,7 +14070,7 @@
       "properties": {
         "source": {
           "type": "string",
-          "const": "phat-porcupine"
+          "const": "omnorium"
         },
         "repository_id": {
           "type": "integer",

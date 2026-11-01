@@ -69,7 +69,7 @@ const validateResultEventId = compileValidator(EventId);
 const COMPANION_BODY_LIMIT = 256 * 1024;
 
 /**
- * Where the person's catalog comes from (ADR 0039): Phat Porcupine on this computer, or the recorded
+ * Where the person's catalog comes from (ADR 0039): Omnorium on this computer, or the recorded
  * demonstration's stand-in. Its answer is read through and never journaled.
  */
 export interface CatalogSource {

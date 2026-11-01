@@ -16,10 +16,10 @@ import {
 } from './connection.ts';
 import { readCatalog, toCatalogResponse } from './wire.ts';
 
-export interface PhatPorcupineOptions {
+export interface OmnoriumOptions {
   /**
-   * Where Omnorium (formerly Phat Porcupine) may publish `consumer.json`, tried in order until a
-   * discovery file is found. See `defaultCatalogHomes`.
+   * Where Omnorium may publish `consumer.json`, tried in order until a discovery file is found. See
+   * `defaultCatalogHomes`.
    */
   readonly homes: readonly string[];
   /**
@@ -35,20 +35,20 @@ export interface PhatPorcupineOptions {
 }
 
 /**
- * Reads the person's catalog from Phat Porcupine's catalog contract, version 1 (ADR 0039): finds the
+ * Reads the person's catalog from Omnorium's catalog contract, version 1 (ADR 0039): finds the
  * instance through its discovery file, has it prove itself, then asks for the catalog with the
  * credential. Every answer is a `CatalogResponse`, never a thrown error, so the control plane can say
  * why there is no catalog. Keeps the last catalog with its ETag, so an unchanged one costs a 304.
  */
-export class PhatPorcupineClient {
-  readonly #options: PhatPorcupineOptions;
+export class OmnoriumClient {
+  readonly #options: OmnoriumOptions;
   #last: {
     readonly instanceId: string;
     readonly etag: string;
     readonly answer: CatalogResponse;
   } | null = null;
 
-  constructor(options: PhatPorcupineOptions) {
+  constructor(options: OmnoriumOptions) {
     this.#options = options;
   }
 
@@ -94,7 +94,7 @@ export class PhatPorcupineClient {
       return fail(
         'unavailable',
         'connection_closed',
-        'Phat Porcupine closed the connection its proof came on, so the credential was not sent.',
+        'Omnorium closed the connection its proof came on, so the credential was not sent.',
       );
     if (!isReply(reply)) return unanswered(reply);
     if (reply.status === 304 && last !== null) return last.answer;
@@ -113,7 +113,7 @@ export class PhatPorcupineClient {
 
 /**
  * An agent that opens one connection and refuses a second: the catalog request goes on the socket the
- * proof came back on, kept open between them, or nowhere. If Phat Porcupine closes it after the proof,
+ * proof came back on, kept open between them, or nowhere. If Omnorium closes it after the proof,
  * the request fails before anything is written, and `refused` says so.
  */
 class OneConnection extends Agent {

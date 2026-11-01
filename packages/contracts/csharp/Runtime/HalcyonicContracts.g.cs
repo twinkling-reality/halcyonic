@@ -1553,7 +1553,7 @@ namespace Halcyonic.Contracts
     public sealed class CatalogRepositoryRef
     {
         [JsonProperty("source", Required = Required.Always)]
-        public string Source { get; set; } = "phat-porcupine";
+        public string Source { get; set; } = "omnorium";
 
         [JsonProperty("repository_id", Required = Required.Always)]
         public long RepositoryId { get; set; }
@@ -5061,7 +5061,7 @@ namespace Halcyonic.Contracts
     public sealed class CatalogSource
     {
         [JsonProperty("system", Required = Required.Always)]
-        public string System { get; set; } = "phat-porcupine";
+        public string System { get; set; } = "omnorium";
 
         [JsonProperty("api_version", Required = Required.Always)]
         public string ApiVersion { get; set; } = "1";

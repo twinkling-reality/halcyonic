@@ -5,18 +5,18 @@ import type {
   CatalogResponse,
   LocationsResponse,
 } from '@halcyonic/contracts';
-import { defaultCatalogHomes, PhatPorcupineClient } from '@halcyonic/integration-phat-porcupine';
+import { defaultCatalogHomes, OmnoriumClient } from '@halcyonic/integration-omnorium';
 import { type FolderOrigin, matchFolders } from '../catalog-match.ts';
 import type { CatalogLinks } from '../core/command-service.ts';
 import type { CatalogSource } from '../http/routes.ts';
 
-/** The file in the control plane's data directory that holds the Phat Porcupine consumer credential. */
-export const PHAT_PORCUPINE_CREDENTIAL_FILE = 'phat-porcupine-credential';
+/** The file in the control plane's data directory that holds the Omnorium consumer credential. */
+export const OMNORIUM_CREDENTIAL_FILE = 'omnorium-credential';
 
 type Unauthorized = Extract<CatalogResponse, { availability: 'unauthorized' }>;
 
-export interface PhatPorcupineCatalogOptions {
-  /** Where Omnorium (formerly Phat Porcupine) may publish its discovery file, tried in order. */
+export interface OmnoriumCatalogOptions {
+  /** Where Omnorium may publish its discovery file, tried in order. */
   readonly homes: readonly string[];
   /** The file holding the consumer credential the person created for Halcyonic. */
   readonly credentialPath: string;
@@ -26,19 +26,19 @@ export interface PhatPorcupineCatalogOptions {
 }
 
 /**
- * The person's catalog from Phat Porcupine (ADR 0039), read through on request and never journaled.
+ * The person's catalog from Omnorium (ADR 0039), read through on request and never journaled.
  * The credential is read from its file on every request, used only when its owner alone can read it,
  * and never logged, journaled, sent to a client or put in an agent's environment. The last catalog
  * read is kept, only in memory, so a link can be checked against what the person was shown.
  */
-export class PhatPorcupineCatalog implements CatalogSource, CatalogLinks {
-  readonly #client: PhatPorcupineClient;
+export class OmnoriumCatalog implements CatalogSource, CatalogLinks {
+  readonly #client: OmnoriumClient;
   readonly #protect: readonly string[];
   #last: Extract<CatalogResponse, { availability: 'available' }> | null = null;
 
-  constructor(options: PhatPorcupineCatalogOptions) {
+  constructor(options: OmnoriumCatalogOptions) {
     this.#protect = options.protect;
-    this.#client = new PhatPorcupineClient({
+    this.#client = new OmnoriumClient({
       homes: options.homes,
       credential: () => readCredential(options.credentialPath),
       ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
@@ -86,11 +86,11 @@ export class PhatPorcupineCatalog implements CatalogSource, CatalogLinks {
   }
 }
 
-/** Omnorium (formerly Phat Porcupine) at its default homes, with the credential kept in the control plane's data directory. */
-export function phatPorcupineCatalogFor(dataDir: string): PhatPorcupineCatalog {
-  return new PhatPorcupineCatalog({
+/** Omnorium at its default homes, with the credential kept in the control plane's data directory. */
+export function omnoriumCatalogFor(dataDir: string): OmnoriumCatalog {
+  return new OmnoriumCatalog({
     homes: defaultCatalogHomes(),
-    credentialPath: join(dataDir, PHAT_PORCUPINE_CREDENTIAL_FILE),
+    credentialPath: join(dataDir, OMNORIUM_CREDENTIAL_FILE),
     protect: [dataDir],
   });
 }
@@ -112,43 +112,37 @@ function readCredential(path: string): string | Unauthorized {
     if (code === 'ENOENT')
       return unauthorized(
         'credential_missing',
-        `No Phat Porcupine credential is set up: save it as ${PHAT_PORCUPINE_CREDENTIAL_FILE} in Halcyonic's data directory with mode 600.`,
+        `No Omnorium credential is set up: save it as ${OMNORIUM_CREDENTIAL_FILE} in Halcyonic's data directory with mode 600.`,
       );
     if (code === 'ELOOP')
       return unauthorized(
         'credential_not_a_file',
-        `${PHAT_PORCUPINE_CREDENTIAL_FILE} is a link, so it is not used. Save the credential as a file.`,
+        `${OMNORIUM_CREDENTIAL_FILE} is a link, so it is not used. Save the credential as a file.`,
       );
-    return unauthorized(
-      'credential_unreadable',
-      `${PHAT_PORCUPINE_CREDENTIAL_FILE} could not be read.`,
-    );
+    return unauthorized('credential_unreadable', `${OMNORIUM_CREDENTIAL_FILE} could not be read.`);
   }
   try {
     const file = fstatSync(fd);
     if (!file.isFile())
       return unauthorized(
         'credential_not_a_file',
-        `${PHAT_PORCUPINE_CREDENTIAL_FILE} is not a file, so it is not used. Save the credential as a file.`,
+        `${OMNORIUM_CREDENTIAL_FILE} is not a file, so it is not used. Save the credential as a file.`,
       );
     if ((file.mode & 0o077) !== 0)
       return unauthorized(
         'credential_file_exposed',
-        `${PHAT_PORCUPINE_CREDENTIAL_FILE} can be read by other users, so it is not used. Run chmod 600 on it.`,
+        `${OMNORIUM_CREDENTIAL_FILE} can be read by other users, so it is not used. Run chmod 600 on it.`,
       );
     const buffer = Buffer.alloc(CREDENTIAL_MAX_BYTES + 1);
     const read = readSync(fd, buffer, 0, buffer.length, 0);
     if (read > CREDENTIAL_MAX_BYTES)
       return unauthorized(
         'credential_unreadable',
-        `${PHAT_PORCUPINE_CREDENTIAL_FILE} holds more than a credential, so it is not used.`,
+        `${OMNORIUM_CREDENTIAL_FILE} holds more than a credential, so it is not used.`,
       );
     return buffer.subarray(0, read).toString('utf8').trim();
   } catch {
-    return unauthorized(
-      'credential_unreadable',
-      `${PHAT_PORCUPINE_CREDENTIAL_FILE} could not be read.`,
-    );
+    return unauthorized('credential_unreadable', `${OMNORIUM_CREDENTIAL_FILE} could not be read.`);
   } finally {
     closeSync(fd);
   }

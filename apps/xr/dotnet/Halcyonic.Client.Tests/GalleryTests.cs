@@ -63,7 +63,7 @@ public class GalleryTests
         new(
             new AvailableCatalog
             {
-                Source = new CatalogSource { System = "phat-porcupine", ApiVersion = "1", Synthetic = synthetic, Sample = sample },
+                Source = new CatalogSource { System = "omnorium", ApiVersion = "1", Synthetic = synthetic, Sample = sample },
                 GeneratedAt = "2026-10-29T14:59:00Z",
                 Sync = new AvailableSync { RepositoriesAt = checkedAt, RepositoriesFailed = failed, ActivityAt = checkedAt, ActivityFailed = failed },
                 Groups = (groups ?? Array.Empty<CatalogGroup>()).ToList(),
@@ -409,7 +409,7 @@ public class GalleryTests
         var json = Newtonsoft.Json.Linq.JObject.Parse(HalcyonicJson.Serialize(link));
         Assert.That(json["command_type"]?.ToString(), Is.EqualTo("project.link_catalog"));
         Assert.That(json["payload"]?["catalog"]?.ToString(Newtonsoft.Json.Formatting.None), Is.EqualTo(
-            "{\"source\":\"phat-porcupine\",\"repository_id\":4100001,\"full_name\":\"harbor-labs/tide-web\"}"));
+            "{\"source\":\"omnorium\",\"repository_id\":4100001,\"full_name\":\"harbor-labs/tide-web\"}"));
         var unlink = Newtonsoft.Json.Linq.JObject.Parse(HalcyonicJson.Serialize(factory.UnlinkCatalog(Samples.ProjectId)));
         Assert.That(unlink["command_type"]?.ToString(), Is.EqualTo("project.unlink_catalog"));
         Assert.That(unlink["payload"]?["project_id"]?.ToString(), Is.EqualTo(Samples.ProjectId));

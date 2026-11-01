@@ -484,9 +484,9 @@ in `KitMomentWords`; the gallery's title, newcomer line, shelves and finder are 
 
 ## The projects gallery
 
-The words of the gallery's core (`GalleryText`, [ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)),
+The words of the gallery's core (`GalleryText`, [ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md)),
 agreed with DESIGN on 2026-10-29 and put in the owner's voice standard on 2026-10-30. How the room lays them out is in
-"The room of projects". A project's state in the person's catalog is reported by Omnorium (formerly Phat Porcupine), so its line never
+"The room of projects". A project's state in the person's catalog is reported by Omnorium, so its line never
 repeats a task's own words ("Needs You", "Checks Failed") and is marked Reported with the catalog's name: a reported
 state is never read as one Halcyonic observed. Names, owners, groups and pull request titles from the catalog lean, as
 words from outside do; these lines are Halcyonic's own.

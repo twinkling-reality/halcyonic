@@ -1549,13 +1549,13 @@ and let go, a context row's key with its owner, and the frame drawn once every c
 
 ### The projects gallery's core (2026-10-29)
 
-The projects gallery ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md))
+The projects gallery ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md))
 keeps what it shows in the client core; no Unity view draws it yet. `Gallery.Build` merges every
 Halcyonic project, from the snapshot and `WorkOverview`, with the latest catalog read: a catalog
 project the person linked to a Halcyonic project becomes one item under the person's name, at the more
 urgent of the two states (`SectionFrom` says whose, this computer's on a tie). The item keeps both lines:
 its tasks as this computer observed them (`ObservedLine`, always, for every Halcyonic project) and the
-catalog's state as Phat Porcupine reported it (`ReportedLine`); a catalog-only item has only the
+catalog's state as Omnorium reported it (`ReportedLine`); a catalog-only item has only the
 reported one, and `LineReported` says the first line is the catalog's, for the view to mark. Items are grouped as `GallerySection` says, what needs the person first, then
 what is working now, what changed recently and what is quiet; within a group a Halcyonic project with
 work comes first, since only those have a character, never an agent the catalog reports, then the
@@ -1571,7 +1571,7 @@ there is no catalog, why, by the control plane's answer, the gallery then holdin
 projects; a recorded answer says only "Your other projects aren't part of this recording.", so the
 source is named only where a real control plane answered. `CatalogFeed` asks `GET /api/catalog` (`ControlPlaneApi.ReadCatalogAsync`) each time the person
 opens their projects and on Refresh, never on a timer, since each read can make the computer read
-folders and ask Phat Porcupine; the last answer stays shown while a new one is read and after the gallery closes. `CommandFactory`'s
+folders and ask Omnorium; the last answer stays shown while a new one is read and after the gallery closes. `CommandFactory`'s
 `LinkCatalog` and `UnlinkCatalog` send the person's link. While the demonstration plays,
 `DemonstrationCatalogReads` answers from `DemonstrationFallback.CatalogAt`: the recording's sample
 catalog, invented projects the stand-in served, marked synthetic and recorded, with every time moved by

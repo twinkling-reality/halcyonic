@@ -239,7 +239,7 @@ describe('command admission', () => {
             command_type: type,
             payload: {
               project_id: projectId as never,
-              catalog: { source: 'phat-porcupine', repository_id: 7, full_name: 'acme/app' },
+              catalog: { source: 'omnorium', repository_id: 7, full_name: 'acme/app' },
             },
           }
         : { ...base, command_type: type, payload: { project_id: projectId as never } };
@@ -266,7 +266,7 @@ describe('command admission', () => {
     const projectScope = { project_id: scope.projectId, workstream_id: null, execution_id: null };
     projection.apply(
       b.controlPlane('project.catalog_linked', projectScope, {
-        catalog: { source: 'phat-porcupine', repository_id: 7, full_name: 'acme/app' },
+        catalog: { source: 'omnorium', repository_id: 7, full_name: 'acme/app' },
         previous: null,
       }),
     );

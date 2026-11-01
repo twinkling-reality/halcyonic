@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-/** One of the fixtures Halcyonic wrote from Phat Porcupine's catalog contract v1, parsed. */
+/** One of the fixtures Halcyonic wrote from Omnorium's catalog contract v1, parsed. */
 export function fixture(name: string): unknown {
   return JSON.parse(readFileSync(new URL(`../../fixtures/v1/${name}`, import.meta.url), 'utf8'));
 }
@@ -14,13 +14,13 @@ export type ConsumerTokenPrefix = 'omc' | 'ppc';
 
 export type CatalogContractName = 'omnorium.catalog' | 'phat-porcupine.catalog';
 
-export interface FakePhatPorcupineOptions {
+export interface FakeOmnoriumOptions {
   readonly tokenPrefix?: ConsumerTokenPrefix;
   readonly contracts?: readonly CatalogContractName[];
 }
 
 /**
- * A consumer credential in Omnorium's (`omc_`) or Phat Porcupine's (`ppc_`) form: prefix and 32
+ * A consumer credential in Omnorium's (`omc_`) or legacy (`ppc_`) form: prefix and 32
  * random bytes in base64url.
  */
 export function consumerToken(prefix: ConsumerTokenPrefix = 'omc'): string {
@@ -40,13 +40,13 @@ const DEFAULT_CONTRACTS: readonly CatalogContractName[] = [
 ];
 
 /**
- * A stand-in for Omnorium's (formerly Phat Porcupine's) Node server speaking catalog contract v1 on
+ * A stand-in for Omnorium's Node server speaking catalog contract v1 on
  * loopback, for tests: it publishes its discovery file in a temporary home of its own (directory
  * 0700, file 0600), proves the instance with an HMAC of each challenge, and serves a catalog to its
  * one credential. Each field below changes what it answers next, so a test can make it refuse, wait,
  * or pose as another.
  */
-export class FakePhatPorcupine {
+export class FakeOmnorium {
   readonly home: string;
   token: string;
   contracts: readonly CatalogContractName[];
@@ -68,19 +68,19 @@ export class FakePhatPorcupine {
   testGitHub = false;
   readonly #server: Server;
 
-  private constructor(home: string, server: Server, options: FakePhatPorcupineOptions = {}) {
+  private constructor(home: string, server: Server, options: FakeOmnoriumOptions = {}) {
     this.home = home;
     this.token = consumerToken(options.tokenPrefix ?? 'omc');
     this.contracts = options.contracts ?? DEFAULT_CONTRACTS;
     this.#server = server;
   }
 
-  static async start(options: FakePhatPorcupineOptions = {}): Promise<FakePhatPorcupine> {
-    const home = mkdtempSync(join(tmpdir(), 'halcyonic-phat-porcupine-'));
+  static async start(options: FakeOmnoriumOptions = {}): Promise<FakeOmnorium> {
+    const home = mkdtempSync(join(tmpdir(), 'halcyonic-omnorium-'));
     chmodSync(home, 0o700);
-    let fake: FakePhatPorcupine | null = null;
+    let fake: FakeOmnorium | null = null;
     const server = createServer((request, response) => fake?.handle(request, response));
-    fake = new FakePhatPorcupine(home, server, options);
+    fake = new FakeOmnorium(home, server, options);
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     fake.publish();
     return fake;

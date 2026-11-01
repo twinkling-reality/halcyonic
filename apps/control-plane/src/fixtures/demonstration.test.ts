@@ -586,7 +586,7 @@ describe('the XR client demonstration', () => {
         { project_ids: [], suggestions: [] },
         'never linked to the demonstration',
       );
-    assert.doesNotMatch(JSON.stringify(answer.projects), /github|porcupine|phat/i);
+    assert.doesNotMatch(JSON.stringify(answer.projects), /github|omnorium|porcupine|phat/i);
   });
 
   test('wherever the playback stands, each execution it shows has the answer the control plane gave there', () => {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { CatalogResponse, compileValidator } from '@halcyonic/contracts';
 import { isFailure } from './connection.ts';
-import { fixture } from './testing/fake-phat-porcupine.ts';
+import { fixture } from './testing/fake-omnorium.ts';
 import { readCatalog, toCatalogResponse, type WireCatalog } from './wire.ts';
 
 const valid = compileValidator(CatalogResponse);
@@ -31,12 +31,12 @@ function mapped(value: unknown) {
   return answer;
 }
 
-describe("reading Phat Porcupine's catalog v1", () => {
+describe("reading Omnorium's catalog v1", () => {
   test("becomes Halcyonic's catalog, reported, with what this computer needs and nothing else", () => {
     const answer = mapped(small());
     assert.equal(answer.provenance, 'reported');
     assert.deepEqual(answer.source, {
-      system: 'phat-porcupine',
+      system: 'omnorium',
       api_version: '1',
       synthetic: false,
       sample: false,

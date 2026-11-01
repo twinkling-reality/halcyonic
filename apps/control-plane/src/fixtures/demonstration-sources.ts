@@ -1189,7 +1189,7 @@ export function demonstrationCatalog(now: number): CatalogResponse {
   return {
     availability: 'available',
     provenance: 'reported',
-    source: { system: 'phat-porcupine', api_version: '1', synthetic: true, sample: false },
+    source: { system: 'omnorium', api_version: '1', synthetic: true, sample: false },
     generated_at: at(0),
     sync: {
       repositories_at: at(4),
@@ -1274,9 +1274,8 @@ export class DemonstrationSources {
   }
 
   /**
-   * The catalog the stand-in serves from now on, its times as at `now`. Until Halcyonic has a client
-   * for Phat Porcupine's own contract, the stand-in answers in the control plane's catalog contract,
-   * so this one source skips the client a real one goes through (ADR 0019 asks for the real flow).
+   * The catalog the stand-in serves from now on, its times as at `now`. The stand-in answers in
+   * the control plane's catalog contract with invented projects marked synthetic.
    */
   serveCatalog(now: number): void {
     this.#catalogAt = now;

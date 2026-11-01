@@ -72,7 +72,7 @@ server:
    - With multiple projects created over the realtime WebSocket (`existing_folder` and `new_folder`),
      `project.link_catalog` is refused before `GET /api/catalog` has been read (`/No catalog has
      been read yet/`).
-   - `GET /api/catalog` reads `FakePhatPorcupine` over the `omnorium.catalog` 1.0 contract with an
+   - `GET /api/catalog` reads `FakeOmnorium` over the `omnorium.catalog` 1.0 contract with an
      `omc_` credential, returning `reported` projects and folder-origin suggestions
      (`rule: 'github_origin_full_name'`).
    - `project.link_catalog` and `project.unlink_catalog` emit `project.catalog_linked` and
@@ -98,4 +98,4 @@ server:
 - Opening a checked preview in Quest Browser on an attached headset via
   `pnpm quest:device -- preview` (`quest-browser-preview.md`).
 - A live read against a running Omnorium daemon with an owner-issued credential
-  (`phat-porcupine-catalog.md`).
+  (`omnorium-catalog.md`).

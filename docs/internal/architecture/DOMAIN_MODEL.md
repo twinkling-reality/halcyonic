@@ -15,8 +15,8 @@ in `packages/domain`.
   headset's browser: its folder starts with the starter's files and a link to the starter's shared,
   read-only dependencies, and the project's view names the starter ([ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)).
   A project may be **linked** to one repository of the person's catalog, the list of every project
-  they have across their accounts that Phat Porcupine keeps
-  ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)): GitHub's numeric repository id, its stable identity, beside its `owner/name` as the client sent it, taken from the catalog's answer; checked against the catalog this computer last read, never against GitHub. Only the person links (`project.link_catalog`,
+  they have across their accounts that Omnorium keeps
+  ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md)): GitHub's numeric repository id, its stable identity, beside its `owner/name` as the client sent it, taken from the catalog's answer; checked against the catalog this computer last read, never against GitHub. Only the person links (`project.link_catalog`,
   again to replace the link) and unlinks (`project.unlink_catalog`); the catalog itself is read
   through and never part of the model. The link is kept out of the project's view: clients are to
   see it through the catalog read. The two link events still reach the person's own clients in the realtime
