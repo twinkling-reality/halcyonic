@@ -172,6 +172,38 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// Begins a two-step build sequence (<c>workstream.create</c> then <c>execution.start</c>) on an
+        /// existing project <paramref name="projectId"/> using a host-supplied prompt such as
+        /// <see cref="ProjectMadeFromPayload.Instruction"/> after a deliberate <c>project.make_vr_version</c>
+        /// action. Outputs the first command (<c>workstream.create</c>) to send.
+        /// </summary>
+        public static BuildSequence ForPrompt(
+            string projectId,
+            string instruction,
+            RuntimeDescriptor runtime,
+            CommandFactory commands,
+            out CommandEnvelope firstCommand,
+            string? modelRef = null)
+        {
+            if (string.IsNullOrEmpty(projectId)) throw new ArgumentException("A project id is required.", nameof(projectId));
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (!runtime.Capabilities.StartExecution) throw new InvalidOperationException("Choose a runtime that can start work.");
+            if (commands == null) throw new ArgumentNullException(nameof(commands));
+            var objective = (instruction ?? "").Trim();
+            if (objective.Length == 0 || objective.Length > 4000) throw new InvalidOperationException("The first task is empty or too long.");
+            var draft = new NewWorkDraft(commands)
+            {
+                ProjectId = projectId,
+                Objective = objective,
+            };
+            draft.ChooseRuntime(runtime);
+            var sequence = new BuildSequence(draft, commands, newProjectName: null, folder: null);
+            sequence.confirmed = new Confirmation(draft.Title, objective, runtime.RuntimeId, modelRef);
+            firstCommand = sequence.Send(sequence.CommandFor(sequence.steps[0].Kind));
+            return sequence;
+        }
+
+        /// <summary>
         /// The first command to send, on <paramref name="reviewed"/>, read to its end and confirmed:
         /// it must show the project's name, the model and the first task this sends, and is spent.
         /// </summary>

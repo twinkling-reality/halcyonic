@@ -15,6 +15,7 @@ namespace Halcyonic.Client
         private readonly Dictionary<string, WorkstreamView> workstreams = new Dictionary<string, WorkstreamView>();
         private readonly Dictionary<string, ExecutionView> executions = new Dictionary<string, ExecutionView>();
         private readonly Dictionary<string, CommandView> commands = new Dictionary<string, CommandView>();
+        private readonly Dictionary<string, ProjectMadeFromInfo> madeFrom = new Dictionary<string, ProjectMadeFromInfo>();
         private readonly List<RuntimeDescriptor> runtimes = new List<RuntimeDescriptor>();
         private readonly Dictionary<CommandType, PolicyCategory> policies = new Dictionary<CommandType, PolicyCategory>();
 
@@ -32,6 +33,13 @@ namespace Halcyonic.Client
 
         /// <summary>Pending commands and recently finished ones.</summary>
         public IReadOnlyDictionary<string, CommandView> Commands => commands;
+
+        /// <summary>Provenance recorded by <c>project.made_from</c> events, keyed by the new VR project's id.</summary>
+        public IReadOnlyDictionary<string, ProjectMadeFromInfo> MadeFrom => madeFrom;
+
+        /// <summary>Returns the <c>project.made_from</c> provenance for <paramref name="projectId"/>, or null when none was recorded.</summary>
+        public ProjectMadeFromInfo? MadeFromOf(string projectId) =>
+            madeFrom.TryGetValue(projectId, out var info) ? info : null;
 
         public IReadOnlyList<RuntimeDescriptor> Runtimes => runtimes;
 
@@ -74,6 +82,7 @@ namespace Halcyonic.Client
         /// <summary>Replaces the whole state.</summary>
         public void ApplySnapshot(Snapshot snapshot, StateChanges changes)
         {
+            var sameJournalForward = Journal != null && Journal.JournalId == snapshot.Journal.JournalId && snapshot.Position >= Position;
             if (Journal != null && Journal.JournalId == snapshot.Journal.JournalId && snapshot.Position < Position)
             {
                 changes.Rewound = true;
@@ -81,6 +90,19 @@ namespace Halcyonic.Client
             Journal = snapshot.Journal;
             Position = snapshot.Position;
             Replace(projects, snapshot.Projects, project => project.ProjectId);
+            if (!sameJournalForward)
+            {
+                madeFrom.Clear();
+            }
+            else if (madeFrom.Count > 0)
+            {
+                var stale = new List<string>();
+                foreach (var key in madeFrom.Keys)
+                {
+                    if (!projects.ContainsKey(key)) stale.Add(key);
+                }
+                foreach (var key in stale) madeFrom.Remove(key);
+            }
             Replace(workstreams, snapshot.Workstreams, workstream => workstream.WorkstreamId);
             Replace(executions, snapshot.Executions, execution => execution.ExecutionId);
             Replace(commands, snapshot.Commands, command => command.CommandId);
@@ -101,6 +123,16 @@ namespace Halcyonic.Client
             {
                 projects[project.ProjectId] = project;
                 changes.Projects.Add(project.ProjectId);
+            }
+            if (message.Event is ProjectMadeFromEvent madeFromEvent
+                && !string.IsNullOrEmpty(madeFromEvent.ProjectId)
+                && madeFromEvent.Payload != null)
+            {
+                madeFrom[madeFromEvent.ProjectId] = new ProjectMadeFromInfo(
+                    madeFromEvent.ProjectId,
+                    madeFromEvent.Payload.OriginalProjectId,
+                    madeFromEvent.Payload.Instruction);
+                changes.Projects.Add(madeFromEvent.ProjectId);
             }
             foreach (var workstream in message.Changes.Workstreams)
             {
@@ -160,5 +192,29 @@ namespace Halcyonic.Client
 
         public bool IsEmpty =>
             !Resynchronized && !ConnectionChanged && Events.Count == 0 && ServerErrors.Count == 0;
+    }
+
+    /// <summary>
+    /// Provenance recorded when a VR starter project is created from an existing project by
+    /// <c>project.make_vr_version</c> (<see cref="ProjectMadeFromEvent"/>).
+    /// </summary>
+    public sealed class ProjectMadeFromInfo
+    {
+        public ProjectMadeFromInfo(string projectId, string originalProjectId, string instruction)
+        {
+            ProjectId = projectId;
+            OriginalProjectId = originalProjectId;
+            Instruction = instruction;
+        }
+
+        public string ProjectId { get; }
+
+        public string OriginalProjectId { get; }
+
+        public string Instruction { get; }
+
+        public string MadeFromProjectId => OriginalProjectId;
+
+        public string MadeFromInstruction => Instruction;
     }
 }

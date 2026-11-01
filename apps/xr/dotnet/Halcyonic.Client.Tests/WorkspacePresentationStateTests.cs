@@ -283,7 +283,7 @@ public class WorkspacePresentationStateTests
         Assert.That(slot!.Shown.HasValue, Is.True);
         var moment = slot.Moments[slot.Shown!.Value];
         Assert.That(moment.Kind, Is.EqualTo(KitMomentKind.AgentSays));
-        Assert.That(moment.Prose?.Text, Is.EqualTo("Session window · How long should rate-limit windows last?"));
+        Assert.That(moment.Prose?.Text, Is.EqualTo("Session window: How long should rate-limit windows last?"));
     }
 
     [Test]
@@ -408,8 +408,23 @@ public class WorkspacePresentationStateTests
         var noPreviewProjectJson = (JObject)readyProjectJson.DeepClone();
         noPreviewProjectJson["preview"] = null;
         var noPreviewProject = HalcyonicJson.Deserialize<ProjectView>(noPreviewProjectJson.ToString(), strict: true);
-        Assert.That(WorkspacePresentationState.CommandForScreenAction(noPreviewProject, KitScreenAction.TryIt, commands), Is.Null,
-            "TryIt must not dispatch StartPreview when no preview is running");
+        var noPreviewState = ProjectionWith(workstream, execution, noPreviewProject);
+        var noPreviewScreen = WorkspacePresentationState.ScreenOf(noPreviewProject, noPreviewState, barOpen: true);
+        Assert.That(noPreviewScreen.CanTry, Is.True, "passed check with NoPreviewOfCheck offers Try Build so preview starts automatically");
+        var startPreview = (ProjectPreviewStartCommand)WorkspacePresentationState.CommandForScreenAction(noPreviewProject, KitScreenAction.TryIt, commands)!;
+        Assert.That(startPreview.Payload.ProjectId, Is.EqualTo(Samples.ProjectId));
+
+        // Once StartPreview is dispatched for TryIt and the preview starts in the projection, OpenOnMac is dispatched automatically.
+        var presentation = new WorkspacePresentationState(keepAgentsWhenMinimized: true);
+        presentation.RecordCommandDispatched(startPreview);
+        Assert.That(presentation.PendingOpenOnMacProjectId, Is.EqualTo(Samples.ProjectId));
+        Assert.That(presentation.AdvancePendingCommands(noPreviewState, commands, out _), Is.Null, "still waiting for preview to start");
+
+        var readyState = ProjectionWith(workstream, execution, readyProject);
+        var autoOpen = (ProjectOpenOnMacCommand)presentation.AdvancePendingCommands(readyState, commands, out _)!;
+        Assert.That(autoOpen.Payload.ProjectId, Is.EqualTo(Samples.ProjectId));
+        Assert.That(presentation.PendingOpenOnMacProjectId, Is.Null);
+        Assert.That(presentation.AdvancePendingCommands(readyState, commands, out _), Is.Null);
 
         Assert.That(WorkspacePresentationState.SectionForScreenAction(KitScreenAction.Steps), Is.EqualTo(FileSection.Activity));
         Assert.That(WorkspacePresentationState.SectionForScreenAction(KitScreenAction.Why), Is.EqualTo(FileSection.Changes));
@@ -421,5 +436,105 @@ public class WorkspacePresentationStateTests
         Assert.That(WorkspacePresentationState.SectionForMomentAction(KitMomentAction.SeeTheOutput), Is.EqualTo(FileSection.Checks));
         Assert.That(WorkspacePresentationState.SectionForMomentAction(KitMomentAction.Stop), Is.EqualTo(FileSection.Activity));
         Assert.That(WorkspacePresentationState.SectionForMomentAction(KitMomentAction.TryIt), Is.Null);
+    }
+
+    [Test]
+    public void MakeAVrVersionAutoSelectsNewVrProjectAndStartsConversionWorkstream()
+    {
+        var sourceProjectJson = new JObject
+        {
+            ["project_id"] = Samples.ProjectId,
+            ["name"] = "Recipe Tracker",
+            ["location"] = new JObject { ["path"] = "/Users/person/Projects/recipe-tracker", ["name"] = "recipe-tracker", ["created"] = true },
+            ["starter"] = null,
+            ["created_at"] = Samples.Time,
+            ["updated_at"] = Samples.Time,
+        };
+        var sourceProject = HalcyonicJson.Deserialize<ProjectView>(sourceProjectJson.ToString(), strict: true);
+        var state = new ClientProjection();
+        state.ApplyWelcome(Samples.Welcome(resumed: false, head: 1));
+        var snapshot = Samples.Snapshot(1, System.Array.Empty<WorkstreamView>(), System.Array.Empty<ExecutionView>());
+        snapshot.Projects = new List<ProjectView> { sourceProject };
+        state.ApplySnapshot(snapshot, new StateChanges());
+
+        var commands = new CommandFactory(Samples.Client);
+        var presentation = new WorkspacePresentationState(keepAgentsWhenMinimized: true);
+        presentation.ShowProjectScreen(Samples.ProjectId, barOpen: true);
+
+        var makeVr = (ProjectMakeVrVersionCommand)WorkspacePresentationState.CommandForScreenAction(sourceProject, KitScreenAction.MakeAVrVersion, commands)!;
+        presentation.RecordCommandDispatched(makeVr);
+        Assert.That(presentation.PendingVrConversionSourceProjectId, Is.EqualTo(Samples.ProjectId));
+        Assert.That(presentation.AdvancePendingCommands(state, commands, out var noneYet), Is.Null);
+        Assert.That(noneYet, Is.Null);
+
+        // The control plane creates the sibling VR starter project and emits project.made_from with the conversion prompt.
+        const string vrProjectId = "01a19000-0000-7000-8000-000000000099";
+        const string conversionPrompt = "Build a VR version of Recipe Tracker in recipe-tracker-vr using /Users/person/Projects/recipe-tracker as read-only reference.";
+        var vrProject = new ProjectView
+        {
+            ProjectId = vrProjectId,
+            Name = "Recipe Tracker VR",
+            Starter = "iwsdk-vr",
+            Location = new ProjectLocation { Path = "/Users/person/Projects/recipe-tracker-vr", Name = "recipe-tracker-vr", Created = true },
+            CreatedAt = "2026-10-31T05:01:00.000Z",
+            UpdatedAt = "2026-10-31T05:01:00.000Z",
+        };
+        var madeFromEvent = Samples.Event(2);
+        madeFromEvent.Changes.Projects.Add(vrProject);
+        madeFromEvent.Event = new ProjectMadeFromEvent
+        {
+            EventId = "ev-vr-made",
+            OccurredAt = "2026-10-31T05:01:00.000Z",
+            IngestedAt = "2026-10-31T05:01:00.000Z",
+            Source = new ControlPlaneSource(),
+            ProjectId = vrProjectId,
+            Payload = new ProjectMadeFromPayload
+            {
+                OriginalProjectId = Samples.ProjectId,
+                Instruction = conversionPrompt,
+            },
+        };
+        Assert.That(state.ApplyEvent(madeFromEvent, new StateChanges()), Is.True);
+
+        // Advancing selects the new VR project on the room screen and dispatches workstream.create.
+        var createWs = (WorkstreamCreateCommand)presentation.AdvancePendingCommands(state, commands, out var convertedProjectId)!;
+        Assert.That(convertedProjectId, Is.EqualTo(vrProjectId));
+        Assert.That(presentation.ScreenProjectId, Is.EqualTo(vrProjectId));
+        Assert.That(createWs.Payload.ProjectId, Is.EqualTo(vrProjectId));
+        Assert.That(createWs.Payload.Objective, Is.EqualTo(conversionPrompt));
+
+        // Once workstream.create completes in the projection, advancing dispatches execution.start with the conversion instruction.
+        const string vrWorkstreamId = "ws-vr-convert";
+        var wsCreatedEvent = Samples.Event(3);
+        wsCreatedEvent.Changes.Commands.Add(new CommandView
+        {
+            CommandId = createWs.CommandId,
+            CommandType = CommandType.WorkstreamCreate,
+            Status = CommandStatus.Completed,
+            IssuedAt = Samples.Time,
+            UpdatedAt = Samples.Time,
+            Result = new WorkstreamCreatedResult { WorkstreamId = vrWorkstreamId },
+        });
+        Assert.That(state.ApplyEvent(wsCreatedEvent, new StateChanges()), Is.True);
+
+        var startExec = (ExecutionStartCommand)presentation.AdvancePendingCommands(state, commands, out _)!;
+        Assert.That(startExec.Payload.WorkstreamId, Is.EqualTo(vrWorkstreamId));
+        Assert.That(startExec.Payload.RuntimeId, Is.EqualTo("mock"));
+        Assert.That(startExec.Payload.Instruction, Is.EqualTo(conversionPrompt));
+
+        // Once execution.start completes, the sequence finishes cleanly.
+        var execCreatedEvent = Samples.Event(4);
+        execCreatedEvent.Changes.Commands.Add(new CommandView
+        {
+            CommandId = startExec.CommandId,
+            CommandType = CommandType.ExecutionStart,
+            Status = CommandStatus.Completed,
+            IssuedAt = Samples.Time,
+            UpdatedAt = Samples.Time,
+            Result = new ExecutionCreatedResult { ExecutionId = "ex-vr-convert" },
+        });
+        Assert.That(state.ApplyEvent(execCreatedEvent, new StateChanges()), Is.True);
+        Assert.That(presentation.AdvancePendingCommands(state, commands, out _), Is.Null);
+        Assert.That(presentation.PendingVrConversionSequence, Is.Null);
     }
 }

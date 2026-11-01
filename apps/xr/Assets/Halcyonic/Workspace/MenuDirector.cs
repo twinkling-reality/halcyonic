@@ -568,6 +568,7 @@ namespace Halcyonic.XR.Workspace
             memory.TickFiles(navigator.Beside);
             // New project's kept flow ticks while it isn't beside the menu, so a build confirmed in it goes on.
             if (memory.NewProject is NewProjectFlow flow && navigator.Beside != flow) flow.Tick();
+            AdvanceSpatialFlows();
             var nowAway = Away;
             if (away && !nowAway) dirty = true;
             away = nowAway;
@@ -688,6 +689,7 @@ namespace Halcyonic.XR.Workspace
             finally { renewingViews = false; }
             if (!another) return;
             recoveredScope = null;
+            ResetSpatialFlows();
             if (placement != null) LocalClosed();
             navigator.CloseBeside();
             navigator.Renew();

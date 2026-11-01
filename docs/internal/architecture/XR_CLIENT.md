@@ -3794,9 +3794,14 @@ presence, contextual moment cards and the on-demand project screen:
   bar (`ScreenBarToggled`), and pressing bar actions (`ScreenActed`) routes `Make VR Version`
   (`ProjectPlayFacts.TryVrVersionTarget` -> `project.make_vr_version` into a sibling `<name>-vr`
   folder, or `OpenNewProject` when unbound), `Try Build` (`project.open_on_mac` when
-  `PlayOnLaptop.Offered`), `Request Change` (`OpenFile` on `Activity` or `OpenNewProject`), and the
-  evidence doors (`Steps` -> `Activity`, `Why` -> `Changes` for Salidium, `HowItWent` -> `Checks`
-  for Seorak). Pressing a tethered `KitMomentCard` button (`MomentActed`) opens the workstream's
+  `PlayOnLaptop.Offered`, or `project.preview.start` when `PlayOnLaptop.NoPreviewOfCheck` followed
+  automatically by `project.open_on_mac` once the preview starts), `Request Change` (`OpenFile` on
+  `Activity` or `OpenNewProject`), and the evidence doors (`Steps` -> `Activity`, `Why` -> `Changes`
+  for Salidium, `HowItWent` -> `Checks` for Seorak). When `project.make_vr_version` completes and
+  `ClientProjection` records `ProjectMadeFromInfo` from `project.made_from`,
+  `WorkspacePresentationState.AdvancePendingCommands` selects the new VR project and runs
+  `BuildSequence.ForPrompt` (`workstream.create` then `execution.start`) with the conversion
+  instruction. Pressing a tethered `KitMomentCard` button (`MomentActed`) opens the workstream's
   `FileColumn` at the corresponding section (`Waiting`, `Changes`, `Checks`, `Activity`) or triggers
   `Try Build`.
 - **Starter VR project creation on the spot (`ProjectFolder.NewStarter`, `FolderOptionKind.NewStarterFolder`)**:

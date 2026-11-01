@@ -136,4 +136,51 @@ public class ClientProjectionTests
         Assert.That(state.Projects[Samples.ProjectId].Preview, Is.Null);
         Assert.That(state.Projects[Samples.ProjectId].Check!.CheckId, Is.EqualTo("c1"));
     }
+
+    [Test]
+    public void ProjectMadeFromEventRecordsOriginalProjectAndInstructionAndClearsOnRewind()
+    {
+        var state = new ClientProjection();
+        state.ApplySnapshot(Samples.Snapshot(5), new StateChanges());
+        Assert.That(state.MadeFromOf("proj-vr"), Is.Null);
+
+        var vrProject = new ProjectView
+        {
+            ProjectId = "proj-vr",
+            Name = "Garden VR",
+            Starter = "iwsdk-vr",
+            CreatedAt = Samples.Time,
+            UpdatedAt = Samples.Time,
+        };
+        var message = Samples.Event(6);
+        message.Changes.Projects.Add(vrProject);
+        message.Event = new ProjectMadeFromEvent
+        {
+            EventId = "ev-made-from",
+            OccurredAt = Samples.Time,
+            IngestedAt = Samples.Time,
+            Source = new ControlPlaneSource(),
+            ProjectId = "proj-vr",
+            Payload = new ProjectMadeFromPayload
+            {
+                OriginalProjectId = Samples.ProjectId,
+                Instruction = "Build a VR version of Garden using the original project as reference.",
+            },
+        };
+
+        var changes = new StateChanges();
+        Assert.That(state.ApplyEvent(message, changes), Is.True);
+        var madeFrom = state.MadeFromOf("proj-vr");
+        Assert.That(madeFrom, Is.Not.Null);
+        Assert.That(madeFrom!.ProjectId, Is.EqualTo("proj-vr"));
+        Assert.That(madeFrom.OriginalProjectId, Is.EqualTo(Samples.ProjectId));
+        Assert.That(madeFrom.MadeFromProjectId, Is.EqualTo(Samples.ProjectId));
+        Assert.That(madeFrom.Instruction, Is.EqualTo("Build a VR version of Garden using the original project as reference."));
+        Assert.That(madeFrom.MadeFromInstruction, Is.EqualTo("Build a VR version of Garden using the original project as reference."));
+        Assert.That(changes.Projects, Does.Contain("proj-vr"));
+
+        // Rewinding to an earlier position clears the recorded provenance.
+        state.ApplySnapshot(Samples.Snapshot(3), new StateChanges());
+        Assert.That(state.MadeFromOf("proj-vr"), Is.Null);
+    }
 }
