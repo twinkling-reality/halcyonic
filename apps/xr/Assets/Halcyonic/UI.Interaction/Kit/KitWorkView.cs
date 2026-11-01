@@ -133,7 +133,7 @@ namespace Halcyonic.XR.UI
                 if (composer.gameObject.activeSelf)
                 {
                     if (composer.Field.gameObject.activeSelf) yield return composer.Field;
-                    foreach (var button in new[] { composer.Close, composer.Rare, composer.Talk, composer.Send })
+                    foreach (var button in new[] { composer.EnvironmentButton, composer.ProjectButton, composer.AgentButton, composer.Close, composer.Rare, composer.Talk, composer.Send })
                         if (button.gameObject.activeSelf) yield return button.Press;
                 }
                 foreach (var tab in Tabs) yield return tab.Press;
@@ -223,6 +223,7 @@ namespace Halcyonic.XR.UI
             // The foot's height first: the decision bar while an approval waits, else the composer. What is read takes
             // what remains, and pages rather than shrinks.
             var composerHeight = ShowFoot(model, Vector2.zero, inner);
+            if (composer.gameObject.activeSelf) most += composer.SelectorRowHeight;
             tabsHeight = LayTabs(inner);
             y += tabsHeight;
             saidHeight = LaySaid(model, inner);
@@ -367,6 +368,10 @@ namespace Halcyonic.XR.UI
             decision.Hide();
             composer.gameObject.SetActive(true);
             composer.Answering = model.Ask != null;
+            var hasSelectors = binding == null && (!string.IsNullOrEmpty(model.Environment) || !string.IsNullOrEmpty(model.Agent));
+            composer.EnvironmentChoice = hasSelectors ? model.Environment : null;
+            composer.ProjectChoice = hasSelectors && !string.IsNullOrEmpty(model.ProjectName) ? model.ProjectName : null;
+            composer.AgentChoice = hasSelectors ? model.Agent : null;
             if (binding != null && model.Ask?.Lines.Count > 0)
             {
                 // A question's page: no instruction well; its way back (or the confirmation's Cancel, or Stop) beside Close,

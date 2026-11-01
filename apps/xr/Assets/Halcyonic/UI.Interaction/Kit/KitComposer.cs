@@ -36,6 +36,9 @@ namespace Halcyonic.XR.UI
         private KitButton send = null!;
         private KitButton close = null!;
         private KitButton rare = null!;
+        private KitButton environmentButton = null!;
+        private KitButton projectButton = null!;
+        private KitButton agentButton = null!;
         private Vector2 size;
 
         public event Action? FieldPressed;
@@ -47,6 +50,10 @@ namespace Halcyonic.XR.UI
         /// <summary>The bound Stop or Discard draft, beside it.</summary>
         public event Action? RarePressed;
 
+        public event Action? EnvironmentPressed;
+        public event Action? ProjectPressed;
+        public event Action? AgentPressed;
+
         public TextMeshPro Draft => draft;
         public KitPress Field => field;
         public TextMeshPro Status => status;
@@ -57,8 +64,16 @@ namespace Halcyonic.XR.UI
         public KitButton Send => send;
         public KitButton Close => close;
         public KitButton Rare => rare;
+        public KitButton EnvironmentButton => environmentButton;
+        public KitButton ProjectButton => projectButton;
+        public KitButton AgentButton => agentButton;
         public Surface Well => well;
         public Vector2 Size => size;
+
+        /// <summary>Optional context selector choices shown as compact pills in the composer's footer strip.</summary>
+        public string? EnvironmentChoice { get; set; }
+        public string? ProjectChoice { get; set; }
+        public string? AgentChoice { get; set; }
 
         /// <summary>
         /// Whether the work waits for the person's answer to its question: the composer then asks for Your answer and
@@ -70,6 +85,9 @@ namespace Halcyonic.XR.UI
         public int DraftLines { get; private set; }
 
         public int ShownDraftLines { get; private set; }
+
+        /// <summary>The extra footer height taken by the context selector strip when it stands on its own row above Send.</summary>
+        public float SelectorRowHeight { get; private set; }
 
         public static KitComposer Create(Transform parent, string name = "Composer")
         {
@@ -96,6 +114,15 @@ namespace Halcyonic.XR.UI
             composer.rare = KitButton.Create(go.transform, "Rare action", KitButtonRole.Secondary);
             composer.rare.Pressed += () => composer.RarePressed?.Invoke();
             composer.rare.Hide();
+            composer.environmentButton = KitButton.Create(go.transform, "Environment", KitButtonRole.Quiet);
+            composer.environmentButton.Pressed += () => composer.EnvironmentPressed?.Invoke();
+            composer.environmentButton.Hide();
+            composer.projectButton = KitButton.Create(go.transform, "Project", KitButtonRole.Quiet);
+            composer.projectButton.Pressed += () => composer.ProjectPressed?.Invoke();
+            composer.projectButton.Hide();
+            composer.agentButton = KitButton.Create(go.transform, "Agent", KitButtonRole.Quiet);
+            composer.agentButton.Pressed += () => composer.AgentPressed?.Invoke();
+            composer.agentButton.Hide();
             return composer;
         }
 
@@ -198,17 +225,34 @@ namespace Halcyonic.XR.UI
             // at the left, in the order the file's footer stands them.
             var gap = KitType.Units(SpatialKit.TargetGapDegrees);
             var row = -y - KitButton.Height / 2f;
-            // Close and the rare action stand at the row's left; where they would not keep a target's gap from Hold to talk
-            // and Send, they take a row of their own above them, the same order read row by row.
+            // Close and the rare action stand at the row's left, or when unbound, the context selector pills (Environment,
+            // Project, Agent); where they would not keep a target's gap from Hold to talk and Send, they take a row of their
+            // own above them, the same order read row by row.
             var leftControls = new[] { (close, closeControl), (rare, rareControl) }.Where(each => each.Item2 != null).ToList();
-            var leftWidth = leftControls.Sum(each => each.Item1.Measure(each.Item2!.Words, each.Item2.Icon ?? GlazeIcon.Close) + gap);
+            var selectorCandidates = new (KitButton Button, string? Choice, GlazeIcon? Glyph)[]
+            {
+                (environmentButton, EnvironmentChoice, null),
+                (projectButton, ProjectChoice, GlazeIcon.Folder),
+                (agentButton, AgentChoice, null),
+            };
+            var selectors = new System.Collections.Generic.List<(KitButton Button, string Words, GlazeIcon? Glyph)>();
+            foreach (var (button, choice, glyph) in selectorCandidates)
+            {
+                if (!withWell || leftControls.Count > 0 || string.IsNullOrEmpty(choice)) button.Hide();
+                else selectors.Add((button, choice!, glyph));
+            }
+            var leftWidth = leftControls.Count > 0
+                ? leftControls.Sum(each => each.Item1.Measure(each.Item2!.Words, each.Item2.Icon ?? GlazeIcon.Close) + gap)
+                : selectors.Sum(each => each.Button.Measure(each.Words, each.Glyph) + gap);
             var rightWidth = (sendControl != null || !bound ? send.Measure(sendControl?.Words ?? SendInstruction, GlazeIcon.SendAnswer) + gap : 0f)
                 + (voiceOffered ? talk.Measure(talkControl?.Words ?? VoiceText.HoldToTalk, GlazeIcon.HoldToTalk) + gap : 0f);
             var leftRow = row;
-            if (leftControls.Count > 0 && leftWidth + rightWidth - gap > width + 1e-5f)
+            SelectorRowHeight = 0f;
+            if ((leftControls.Count > 0 || selectors.Count > 0) && leftWidth + rightWidth - gap > width + 1e-5f)
             {
                 row -= KitButton.Height + gap;
                 y += KitButton.Height + gap;
+                if (selectors.Count > 0) SelectorRowHeight = KitButton.Height + gap;
             }
             var right = width;
             send.gameObject.SetActive(sendControl != null || !bound);
@@ -238,6 +282,13 @@ namespace Halcyonic.XR.UI
                 var buttonWidth = button.Measure(control.Words, glyph);
                 button.Available = control.Available;
                 button.Show(control.Words, glyph, new Vector2(left + buttonWidth / 2f, leftRow), buttonWidth);
+                left += buttonWidth + gap;
+            }
+            foreach (var (button, choice, glyph) in selectors)
+            {
+                var buttonWidth = button.Measure(choice, glyph);
+                button.Available = true;
+                button.Show(choice, glyph, new Vector2(left + buttonWidth / 2f, leftRow), buttonWidth);
                 left += buttonWidth + gap;
             }
             y += KitButton.Height;

@@ -197,6 +197,9 @@ namespace Halcyonic.Client
 
         public KitCheckScope? Scope { get; }
 
+        /// <summary>What a question's runtime declares about its sandbox (ADR 0033); <see cref="KitSandbox.NotDeclared"/> otherwise.</summary>
+        public KitSandbox Sandbox { get; private set; }
+
         private static readonly IReadOnlyList<string> NoLines = Array.Empty<string>();
 
         private static readonly IReadOnlyList<KitMomentAction> NoActions = Array.Empty<KitMomentAction>();
@@ -239,20 +242,20 @@ namespace Halcyonic.Client
             Says(runtime), LineWords.Theirs(text), null, NoLines, KitMomentTone.Neutral, NoActions, at).Parts(LineWords.Ours(KitMomentWords.AgentNote), prose: LineWords.Theirs(text));
 
         /// <summary>
-        /// <paramref name="runtime"/> asks to run <paramref name="command"/>: ADR 0033's line in the form it declares, and Yes only
-        /// for a request shown whole.
+        /// <paramref name="runtime"/> asks to run <paramref name="command"/>: its declared <see cref="Sandbox"/> stays on the
+        /// moment, and Yes stands only for a request shown whole.
         /// </summary>
         public static KitMoment Question(string runtime, string command, KitSandbox sandbox, bool complete, DateTimeOffset? at)
         {
             // "Nothing runs until you answer" is deleted (the voice standard): the question and its locked answers carry it.
-            var lines = new List<string>();
-            if (KitMomentWords.Sandbox(sandbox) is string line) lines.Add(line);
             var actions = complete
                 ? new[] { KitMomentAction.YesRunIt, KitMomentAction.No, KitMomentAction.SaySomethingElse }
                 : new[] { KitMomentAction.No, KitMomentAction.SaySomethingElse };
-            return new KitMoment(KitMomentKind.Question, KitProvenance.Reported, KitMomentWords.AgentQuestion,
-                LineWords.Ours(KitMomentWords.RunThisCommand + KitMomentWords.Dot) + LineWords.TheirName(command), null, lines, KitMomentTone.Attention, actions, at)
+            var moment = new KitMoment(KitMomentKind.Question, KitProvenance.Reported, KitMomentWords.AgentQuestion,
+                LineWords.Ours(KitMomentWords.RunThisCommand + KitMomentWords.Dot) + LineWords.TheirName(command), null, NoLines, KitMomentTone.Attention, actions, at)
                 .Parts(LineWords.Ours(KitMomentWords.RunThisCommand), well: LabelText.Plain(command));
+            moment.Sandbox = sandbox;
+            return moment;
         }
 
         /// <summary>
@@ -446,11 +449,11 @@ namespace Halcyonic.Client
         /// <summary>"+14 −3 Lines" from a checkpoint diff.</summary>
         public static string Counts(KitCheckpointDiff diff) => "+" + Number(diff.Added) + " −" + Number(diff.Removed) + " Lines";
 
-        /// <summary>ADR 0033's line in the form the runtime declares; none where it declared nothing.</summary>
+        /// <summary>The environment selector label for a declared <see cref="KitSandbox"/>; none where it declared nothing.</summary>
         public static string? Sandbox(KitSandbox sandbox) => sandbox switch
         {
-            KitSandbox.MayLeave => "Runs on your Mac",
-            KitSandbox.StaysInside => "Runs in sandbox",
+            KitSandbox.MayLeave => "This Mac",
+            KitSandbox.StaysInside => "Sandbox",
             _ => null,
         };
 

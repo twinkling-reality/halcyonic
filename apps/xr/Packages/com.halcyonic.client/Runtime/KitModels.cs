@@ -252,8 +252,11 @@ namespace Halcyonic.Client
         public KitWorkModel(string projectName, string taskTitle, StateBadge badge, IReadOnlyList<WorkMark> marks,
             ActivityEntry? report, IReadOnlyList<KitTrailEntry> trail, string draft, bool voiceOffered, bool sendable,
             string? whyNotSend, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot,
-            KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null, KitAvatar? avatar = null, IReadOnlyList<PageLine>? said = null)
+            KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null, KitAvatar? avatar = null, IReadOnlyList<PageLine>? said = null,
+            string? environment = null, string? agent = null)
         {
+            Environment = environment;
+            Agent = agent;
             Said = said ?? new PageLine[0];
             Avatar = avatar;
             Need = need;
@@ -274,6 +277,12 @@ namespace Halcyonic.Client
         }
 
         public string ProjectName { get; }
+
+        /// <summary>The execution environment shown in the composer's context selector (such as "This Mac" or "Sandbox"), or null.</summary>
+        public string? Environment { get; }
+
+        /// <summary>The runtime or agent shown in the composer's context selector (such as "Codex"), or null.</summary>
+        public string? Agent { get; }
 
         public string TaskTitle { get; }
 
