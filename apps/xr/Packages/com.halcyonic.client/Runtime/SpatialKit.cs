@@ -330,14 +330,26 @@ namespace Halcyonic.Client
 
         // The room's parts (ADR 0040), as angles at the eye; where each stands is the placement's, never the part's.
 
-        /// <summary>A picked project's screen, across.</summary>
+        /// <summary>A picked project's screen, across, at the standard reading size.</summary>
         public const float ScreenDegrees = 56f;
+
+        /// <summary>
+        /// The screen across at the larger reading size (ART's LARGER-SHELF call (b), 2026-10-31): narrowed so a one-agent
+        /// shelf still stands beside it inside the Quest 3S field while staying above two thirds of <see cref="ScreenDegrees"/>.
+        /// </summary>
+        public const float LargerScreenDegrees = 48f;
 
         /// <summary>The screen's width over its height: a film's 16 by 9.</summary>
         public const float ScreenAspect = 16f / 9f;
 
+        /// <summary>The screen's width across when reading text is drawn <paramref name="textScale"/> times as large.</summary>
+        public static float ScreenDegreesAt(float textScale) => textScale > 1f ? LargerScreenDegrees : ScreenDegrees;
+
         /// <summary>The screen's height, from its width and aspect.</summary>
         public static float ScreenHeightDegrees => ScreenDegrees / ScreenAspect;
+
+        /// <summary>The screen's height when reading text is drawn <paramref name="textScale"/> times as large, keeping <see cref="ScreenAspect"/>.</summary>
+        public static float ScreenHeightDegreesAt(float textScale) => ScreenDegreesAt(textScale) / ScreenAspect;
 
         /// <summary>The bar beneath the screen, high: a whole target and the padding round it. Its width is the screen's.</summary>
         public const float BarDegrees = 5.4f;

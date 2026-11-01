@@ -10,9 +10,10 @@ namespace Halcyonic.XR.Workspace
 {
     public sealed partial class MenuDirector
     {
-        private readonly Dictionary<FileColumn, (float ContextHeight, bool Portrait, int TitleRows, int ProvenanceRows, bool Kit)> composerLayouts
-            = new Dictionary<FileColumn, (float, bool, int, int, bool)>();
+        private readonly Dictionary<FileColumn, (bool Separate, float ContextHeight, bool Portrait, int TitleRows, int ProvenanceRows, bool Kit)> composerLayouts
+            = new Dictionary<FileColumn, (bool, float, bool, int, int, bool)>();
         private readonly Dictionary<FileColumn, bool> composerFocus = new Dictionary<FileColumn, bool>();
+        private bool lastSeparateWorkspace;
         private void DropSpatialComposer(FileColumn file) { composerLayouts.Remove(file); composerFocus.Remove(file); }
 
         /// <summary>The last measured Activity and composer pair decision, for the renders: field, readable text bands, clearance, and the bands' least em in degrees.</summary>
@@ -22,13 +23,24 @@ namespace Halcyonic.XR.Workspace
         private ClientProjection? contextState;
         private string? contextJournal, contextConnection, contextTask, contextProject;
         private (string Id, string Name)[] contextChoices = Array.Empty<(string, string)>();
-        private bool SeparateWorkspace => setup.SpatialWorkspace && placement == null
+        // At Larger, the two-column workspace leaves no shelf candidate inside the Quest 3S field; the chooser column steps
+        // aside when a character stands on the stage or a task file offers shelf placement or character colour (LARGER-SHELF call (a)).
+        private bool ShelfYieldsChooserAtLarger => TextSize == TextSize.Larger
+            && (setup.StageNow().Characters.Any(character => character != null)
+                || navigator.Beside is FileColumn file && (file.HasShowTaskHere || !setup.Presentation.AgentsVisible && CurrentColourSource(out _)));
+        private bool SeparateWorkspace => setup.SpatialWorkspace && placement == null && !ShelfYieldsChooserAtLarger
             && (navigator.Beside is FileColumn || navigator.Beside is TaskResultsColumn || navigator.Beside is WorkspaceRequestColumn
                 || navigator.Beside == null && (navigator.Place == MenuPlace.Projects || navigator.Place == MenuPlace.Tasks));
 
         private void ConfigureSpatialComposer()
         {
-            plane.SeparateWorkspace = SeparateWorkspace;
+            var separate = SeparateWorkspace;
+            plane.SeparateWorkspace = separate;
+            if (separate != lastSeparateWorkspace)
+            {
+                lastSeparateWorkspace = separate;
+                if (navigator.Shown is ProjectsColumn projects) projects.Reflow();
+            }
             if (!setup.SpatialWorkspace || navigator.Beside is not FileColumn file) return;
             var contextHeight = plane.Context.HeightFor(State?.Projects.Count ?? 0);
             var titleRows = navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true
@@ -36,7 +48,7 @@ namespace Halcyonic.XR.Workspace
             var provenanceRows = MenuFrameView.IndependentProvenanceRows(CurrentSpatialMarks(), Glaze.Menu.FileColumnDegrees);
             // The kit lays the file out by its own rows while it draws it (D3.4): Activity's page the rail's rows, the
             // composer's the rows its well shows, always the pair; the file's views by their measured heights otherwise.
-            var geometry = (contextHeight, HasTaskPortrait, titleRows, provenanceRows, KitDraws(file));
+            var geometry = (separate, contextHeight, HasTaskPortrait, titleRows, provenanceRows, KitDraws(file));
             if (composerLayouts.TryGetValue(file, out var previous))
             {
                 if (previous != geometry) { composerLayouts[file] = geometry; file.Reflow(); }
@@ -46,10 +58,13 @@ namespace Halcyonic.XR.Workspace
             // Each retained file keeps its own callbacks and geometry lifetime. Background rebuilds
             // must never borrow another selected task's provenance or portrait allocation.
             file.ConfigureActivityComposer(
-                () => KitDraws(file) ? new RowBudget(plane.Kit.RailRows) : new HeightBudget(IndependentPageHeight(OwnerTitleRows(file), true, false, file)),
+                () => KitDraws(file) ? new RowBudget(plane.Kit.RailRows) : SeparateWorkspace ? new HeightBudget(IndependentPageHeight(OwnerTitleRows(file), true, false, file)) : null,
                 () =>
                 {
-                    if (!KitDraws(file)) return new HeightBudget(IndependentPageHeight(OwnerTitleRows(file), true, true, file));
+                    if (!KitDraws(file))
+                        return new HeightBudget(SeparateWorkspace
+                            ? IndependentPageHeight(OwnerTitleRows(file), true, true, file)
+                            : PageHeight(TitleRows(file.Now?.Character.Title ?? "", Glaze.Menu.FileColumnDegrees), besideMenu: false, focused: true));
                     composerFocus[file] = false;
                     return new RowBudget(plane.Kit.ComposerRows);
                 });
