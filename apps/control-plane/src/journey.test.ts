@@ -1,23 +1,41 @@
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { describe, type TestContext, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
+  type CatalogResponse,
   type CommandEnvelope,
   type CommandId,
+  type EvaluationResponse,
   type ExecutionId,
   PREVIEW_PORT_LAST,
   type ProjectId,
   type ProjectsResponse,
   type RuntimeId,
+  type UnderstandingResponse,
+  type UsageLimitsResponse,
   type WorkstreamId,
 } from '@halcyonic/contracts';
 import { MOCK_MODELS, MockRuntimeAdapter, type Scenario } from '@halcyonic/integration-mock';
+import { FakePhatPorcupine } from '@halcyonic/integration-phat-porcupine/testing';
+import { FakeSalidium } from '@halcyonic/integration-salidium/testing';
+import { FakeSeorak } from '@halcyonic/integration-seorak/testing';
 import {
   type RuntimeAdapter,
   type StartExecutionRequest,
@@ -26,7 +44,13 @@ import {
 } from '@halcyonic/runtime-core';
 import { RealtimeClient } from './client/realtime-client.ts';
 import { controlPlaneDraft, NO_CAUSE } from './core/drafts.ts';
-import { fetchWithProof } from './http/security.ts';
+import { registerRealtime } from './http/realtime.ts';
+import { registerRoutes } from './http/routes.ts';
+import { fetchWithProof, loadOrCreateAccessToken } from './http/security.ts';
+import { createHttpServer } from './http/server.ts';
+import { PHAT_PORCUPINE_CREDENTIAL_FILE, PhatPorcupineCatalog } from './intelligence/catalog.ts';
+import { seorakEvaluation } from './intelligence/evaluation.ts';
+import { salidiumUnderstanding } from './intelligence/understanding.ts';
 import { createHostLocations } from './locations.ts';
 import { FileObserver } from './observer/file-observer.ts';
 import type { CheckResult } from './preview/check.ts';
@@ -34,8 +58,8 @@ import { type ChromeRun, DevToolsPipe } from './preview/chrome.ts';
 import type { ServeArgs } from './preview/preview.ts';
 import { writeWav } from './speech/wav.ts';
 import type { EngineResult, SpeechEngine } from './speech/whisper.ts';
-import { HostStarters } from './starters.ts';
-import { capturingLogger, startTestServer } from './testing/harness.ts';
+import { HostStarters, vrVersionInstruction } from './starters.ts';
+import { capturingLogger, createTestControlPlane, startTestServer } from './testing/harness.ts';
 
 /** Synthetic scenarios with short step delays for fast realtime WebSocket tests. */
 const FAST_SCENARIOS = new Map<string, Scenario>([
@@ -1028,6 +1052,809 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
         macPlayStopped.event.payload.reason,
       'newer_check',
     );
+    assert.equal(client.invalid.length, 0);
+  });
+
+  test('proves multi-project Omnorium catalog linking, VR version creation from an existing non-VR project, and concurrent workstreams with Salidium and Seorak intelligence', async (t: TestContext) => {
+    await waitForPreviewPort(true);
+    const tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-journey-multi-')));
+    t.after(() => rmSync(tempDir, { recursive: true, force: true }));
+
+    const root = join(tempDir, 'projects');
+    const dataDir = join(tempDir, 'data');
+    const installedDir = join(tempDir, 'starters-installed');
+    mkdirSync(root, { recursive: true });
+    mkdirSync(dataDir, { recursive: true });
+
+    // Point HostStarters at the repository's real starters directory so make_vr_version copies all real iwsdk-vr files.
+    const realStartersDir = fileURLToPath(new URL('../../../starters', import.meta.url));
+    const realLockBytes = readFileSync(join(realStartersDir, 'iwsdk-vr', 'package-lock.json'));
+    const realLockHash = createHash('sha256').update(realLockBytes).digest('hex');
+    mkdirSync(join(installedDir, 'iwsdk-vr', 'node_modules'), { recursive: true });
+    writeFileSync(
+      join(installedDir, 'iwsdk-vr', 'installed.json'),
+      JSON.stringify({ format: 1, lockfile: realLockHash }),
+    );
+
+    // Pre-create an existing non-VR web project folder and a git repository folder matching a catalog entry.
+    const webFolder = join(root, 'wind-chimes-web');
+    mkdirSync(join(webFolder, 'src'), { recursive: true });
+    const originalPackageJson = '{"name":"wind-chimes-web","version":"1.0.0"}\n';
+    const originalAppJs = 'export const ring = () => "chime";\n';
+    writeFileSync(join(webFolder, 'package.json'), originalPackageJson);
+    writeFileSync(join(webFolder, 'src', 'app.js'), originalAppJs);
+
+    const pinwheelFolder = join(root, 'pinwheel-clone');
+    mkdirSync(join(pinwheelFolder, '.git'), { recursive: true });
+    writeFileSync(
+      join(pinwheelFolder, '.git', 'config'),
+      '[remote "origin"]\n\turl = https://github.com/fixture-person/pinwheel.git\n',
+    );
+
+    // Start stand-in Omnorium (Phat Porcupine), Salidium, and Seorak servers.
+    const omnorium = await FakePhatPorcupine.start({
+      contracts: ['omnorium.catalog'],
+      tokenPrefix: 'omc',
+    });
+    t.after(() => omnorium.close());
+    const salidium = await FakeSalidium.start();
+    t.after(() => salidium.close());
+    const seorak = await FakeSeorak.start();
+    t.after(() => seorak.close());
+    seorak.scopes.add('limits:read');
+
+    const claudeNativeId = '6f1c2a90-3b7e-4d15-9a2c-0e8b5d7f4c11';
+    seorak.capture('claude-code', claudeNativeId);
+    const confinedCodexNativeId = '019a0000-0000-7000-8000-000000000077';
+
+    const saveCred = (fileName: string, token: string) => {
+      const path = join(dataDir, fileName);
+      writeFileSync(path, `${token}\n`, { mode: 0o600 });
+      chmodSync(path, 0o600);
+      return path;
+    };
+    const catalogCredPath = saveCred(PHAT_PORCUPINE_CREDENTIAL_FILE, omnorium.token);
+    const salidiumCredPath = saveCred('salidium-credential', salidium.token);
+    const seorakCredPath = saveCred('seorak-credential', seorak.token);
+
+    const codexHome = join(dataDir, 'codex-home');
+    const confinedCodexHomes = join(dataDir, 'codex-confined');
+    const catalog = new PhatPorcupineCatalog({
+      homes: [omnorium.home],
+      credentialPath: catalogCredPath,
+      protect: [dataDir],
+      timeoutMs: 2000,
+    });
+    const understanding = salidiumUnderstanding({
+      home: salidium.home,
+      credentialPath: salidiumCredPath,
+      codexHome,
+      confinedCodexHomes,
+    });
+    const evaluation = seorakEvaluation({
+      credentialPath: seorakCredPath,
+      port: seorak.port,
+      codexHome,
+      confinedCodexHomes,
+    });
+
+    const fileObserver = new FileObserver({ protect: [realStartersDir, installedDir, dataDir] });
+
+    let releaseConcurrentTurns: () => void = () => {};
+    const concurrentTurnGate = new Promise<void>((resolve) => {
+      releaseConcurrentTurns = resolve;
+    });
+
+    const claudeAdapter: RuntimeAdapter = {
+      descriptor: {
+        runtime_id: 'claude-agent' as RuntimeId,
+        kind: 'claude-agent',
+        display_name: 'Claude Agent (synthetic journey adapter)',
+        synthetic: true,
+        capabilities: {
+          start_execution: true,
+          instruct_at_rest: true,
+          instruct_while_running: false,
+          respond_to_approval: false,
+          answer_question: false,
+          interrupt: true,
+        },
+        model_choice: 'none',
+        uses_project_location: true,
+        reports_tool_activity: true,
+        reports_tool_results: false,
+      },
+      validateStartOptions: () => ({ ok: true }),
+      async startExecution(request: StartExecutionRequest) {
+        if (request.directory !== null) {
+          await fileObserver.baseline(request.execution.execution_id, request.directory);
+        }
+        let seq = 0;
+        const emit = (type: string, payload: unknown) => {
+          seq += 1;
+          request.emit({
+            native_event_id: `${claudeNativeId}:${String(seq)}`,
+            sequence: seq,
+            occurred_at: '2026-09-26T10:00:01.000Z' as never,
+            type: type as never,
+            payload: payload as never,
+            provenance: {
+              epistemic: type === 'runtime.agent_message' ? 'reported' : 'observed',
+              native_type: `claude/${type}`,
+            },
+          });
+        };
+        emit('runtime.execution.started', { native_id: claudeNativeId });
+        emit('runtime.turn.started', { turn_id: 'claude-turn-1' });
+        emit('runtime.agent_message', {
+          text: 'Synthetic Claude agent: reviewing Wind Chimes Web.',
+        });
+        void concurrentTurnGate.then(() => {
+          emit('runtime.turn.completed', { turn_id: 'claude-turn-1' });
+        });
+        return { native_id: claudeNativeId };
+      },
+      async sendInstruction() {},
+      async interrupt() {},
+      close: async () => {},
+    };
+
+    const vrStartedInstructions: string[] = [];
+    const confinedCodexAdapter: RuntimeAdapter = {
+      descriptor: {
+        runtime_id: 'codex' as RuntimeId,
+        kind: 'codex',
+        display_name: 'Codex (synthetic confined journey adapter)',
+        synthetic: true,
+        capabilities: {
+          start_execution: true,
+          instruct_at_rest: true,
+          instruct_while_running: false,
+          respond_to_approval: false,
+          answer_question: false,
+          interrupt: true,
+        },
+        model_choice: 'none',
+        uses_project_location: true,
+        reports_tool_activity: true,
+        reports_tool_results: false,
+      },
+      validateStartOptions: () => ({ ok: true }),
+      async startExecution(request: StartExecutionRequest) {
+        vrStartedInstructions.push(request.instruction);
+        if (request.directory !== null) {
+          await fileObserver.baseline(request.execution.execution_id, request.directory);
+        }
+        // Write a confined Codex rollout in the execution's local date folder so Salidium and Seorak
+        // recognize the session as belonging to Halcyonic's own confined Codex home.
+        const startedDay = new Date('2026-09-26T10:00:00.000Z');
+        const rolloutFolder = join(
+          confinedCodexHomes,
+          '0123456789abcdef',
+          'sessions',
+          String(startedDay.getFullYear()).padStart(4, '0'),
+          String(startedDay.getMonth() + 1).padStart(2, '0'),
+          String(startedDay.getDate()).padStart(2, '0'),
+        );
+        mkdirSync(rolloutFolder, { recursive: true });
+        writeFileSync(
+          join(rolloutFolder, `rollout-2026-09-26T10-00-00-${confinedCodexNativeId}.jsonl`),
+          '{}\n',
+        );
+
+        let seq = 0;
+        const emit = (type: string, payload: unknown) => {
+          seq += 1;
+          request.emit({
+            native_event_id: `${confinedCodexNativeId}:${String(seq)}`,
+            sequence: seq,
+            occurred_at: '2026-09-26T10:00:01.000Z' as never,
+            type: type as never,
+            payload: payload as never,
+            provenance: {
+              epistemic: type === 'runtime.agent_message' ? 'reported' : 'observed',
+              native_type: `codex/${type}`,
+            },
+          });
+        };
+        emit('runtime.execution.started', { native_id: confinedCodexNativeId, confined: true });
+        emit('runtime.turn.started', { turn_id: 'codex-turn-1' });
+        emit('runtime.agent_message', {
+          text: 'Synthetic confined Codex: building VR wind chimes.',
+        });
+        void concurrentTurnGate.then(async () => {
+          if (request.directory !== null) {
+            writeFileSync(
+              join(request.directory, 'src', 'index.ts'),
+              '// VR wind chimes scene built from Wind Chimes Web\n',
+            );
+          }
+          await waitForPreviewPort();
+          emit('runtime.turn.completed', { turn_id: 'codex-turn-1' });
+        });
+        return { native_id: confinedCodexNativeId };
+      },
+      async sendInstruction() {},
+      async interrupt() {},
+      close: async () => {},
+    };
+
+    const playRuns = { started: 0, stopped: 0, links: [] as string[] };
+    const children: ChildProcess[] = [];
+    const { token } = await loadOrCreateAccessToken(dataDir);
+    const app = await createHttpServer({ logLevel: 'silent', token });
+    const harness = createTestControlPlane({
+      adapters: () => [claudeAdapter, confinedCodexAdapter],
+      locations: createHostLocations([root]),
+      starters: new HostStarters({
+        trackedDir: realStartersDir,
+        installedDir,
+        dataDir,
+      }),
+      catalogLinks: catalog,
+      previews: {
+        dataDir,
+        home: '/Users/someone',
+        node: process.execPath,
+        browser: { folder: '/fake/chrome-headless-shell', sha256: 'a'.repeat(64) },
+        browserProblem: () => null,
+        launcher: () => '/fake/bin/halcyonic-disclaim',
+        starters: { trackedDir: realStartersDir, installedDir },
+        confinesCodex: true,
+        play: {
+          launch: async (): Promise<ChromeRun> => {
+            playRuns.started += 1;
+            const toChrome = new PassThrough();
+            const fromChrome = new PassThrough();
+            toChrome.setEncoding('utf8');
+            toChrome.on('data', (chunk: string) => {
+              for (const text of chunk.split('\0').filter((part) => part !== ''))
+                fromChrome.write(
+                  `${JSON.stringify({ id: (JSON.parse(text) as { id: number }).id, result: {} })}\0`,
+                );
+            });
+            return {
+              pid: process.pid,
+              devtools: new DevToolsPipe(toChrome, fromChrome),
+              session: 'page',
+              stop: async () => {
+                playRuns.stopped += 1;
+              },
+            };
+          },
+          openViewer: (link) => {
+            playRuns.links.push(link);
+          },
+          viewerWaitMs: 60_000,
+          viewerGraceMs: 50,
+          viewerPorts: [47970, 47979],
+        },
+        runCheck: async (options) => {
+          mkdirSync(join(options.cache, 'dist'), { recursive: true });
+          writeFileSync(
+            join(options.cache, 'dist', 'index.html'),
+            `<title>${options.cache}</title>`,
+          );
+          return PASSED_CHECK;
+        },
+        serve: (args) => {
+          const child = serveCopy(args);
+          children.push(child);
+          return child;
+        },
+      },
+    });
+    fileObserver.attach({
+      publisher: harness.controlPlane.publisher,
+      recorder: harness.controlPlane.recorder,
+      projection: harness.controlPlane.projection,
+      clock: harness.controlPlane.clock,
+      logger: capturingLogger().logger,
+    });
+    registerRoutes(app, harness.controlPlane, {
+      understanding,
+      evaluation,
+      catalog,
+    });
+    registerRealtime(app, harness.controlPlane);
+    await app.listen({ host: '127.0.0.1', port: 0 });
+    const address = app.server.address();
+    if (address === null || typeof address === 'string') throw new Error('server has no port');
+    const baseUrl = `http://127.0.0.1:${String(address.port)}`;
+    const wsUrl = `ws://127.0.0.1:${String(address.port)}/realtime`;
+    t.after(async () => {
+      releaseConcurrentTurns();
+      await app.close();
+      await harness.controlPlane.close();
+      for (const child of children) child.kill('SIGKILL');
+    });
+
+    const client = await RealtimeClient.connect(wsUrl, token);
+    t.after(() => client.close());
+    client.hello(CLIENT_INFO);
+    await client.waitFor((m) => m.type === 'snapshot');
+
+    let seq = 0;
+    const makeCommand = (command_type: CommandEnvelope['command_type'], payload: unknown) => {
+      seq += 1;
+      return {
+        schema_version: 1 as const,
+        command_id: `00000000-0000-4000-a000-${String(seq).padStart(12, '0')}` as CommandId,
+        issued_at: '2026-10-31T22:00:00.000Z',
+        client: CLIENT_INFO,
+        command_type,
+        payload,
+      } as CommandEnvelope;
+    };
+
+    // 1. Multi-project creation + Omnorium catalog discovery, linking, and unlinking.
+    const createWebProj = makeCommand('project.create', {
+      name: 'Wind Chimes Web',
+      location: {
+        kind: 'existing_folder',
+        root: realpathSync.native(root),
+        folder_name: 'wind-chimes-web',
+      },
+    });
+    client.command(createWebProj);
+    const createWebDone = await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.event_type === 'command.completed' &&
+        m.event.payload.command_id === createWebProj.command_id,
+    );
+    const webProjectId = (
+      createWebDone.type === 'event' &&
+      createWebDone.event.event_type === 'command.completed' &&
+      createWebDone.event.payload.result?.kind === 'project_created'
+        ? createWebDone.event.payload.result.project_id
+        : null
+    ) as ProjectId;
+    assert.ok(webProjectId !== null);
+    assert.equal(harness.controlPlane.projection.project(webProjectId)?.starter, null);
+
+    const createNotesProj = makeCommand('project.create', {
+      name: 'Studio Notes',
+      location: {
+        kind: 'new_folder',
+        root: realpathSync.native(root),
+        folder_name: 'studio-notes',
+      },
+    });
+    client.command(createNotesProj);
+    const createNotesDone = await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.event_type === 'command.completed' &&
+        m.event.payload.command_id === createNotesProj.command_id,
+    );
+    const notesProjectId = (
+      createNotesDone.type === 'event' &&
+      createNotesDone.event.event_type === 'command.completed' &&
+      createNotesDone.event.payload.result?.kind === 'project_created'
+        ? createNotesDone.event.payload.result.project_id
+        : null
+    ) as ProjectId;
+    assert.ok(notesProjectId !== null);
+
+    // Before GET /api/catalog has been read, project.link_catalog is rejected.
+    const catalogRef = {
+      source: 'phat-porcupine' as const,
+      repository_id: 8100001,
+      full_name: 'lantern-lab/wind-chimes',
+    };
+    const linkBeforeRead = makeCommand('project.link_catalog', {
+      project_id: webProjectId,
+      catalog: catalogRef,
+    });
+    client.command(linkBeforeRead);
+    const linkBeforeReadAck = await client.waitFor(
+      (m) => m.type === 'command_ack' && m.command_id === linkBeforeRead.command_id,
+    );
+    assert.equal(
+      linkBeforeReadAck.type === 'command_ack' && linkBeforeReadAck.disposition,
+      'rejected',
+    );
+    assert.match(
+      linkBeforeReadAck.type === 'command_ack'
+        ? (linkBeforeReadAck.command?.rejection?.message ?? '')
+        : '',
+      /No catalog has been read yet/,
+    );
+
+    // Discover Omnorium catalog via GET /api/catalog.
+    const catalogRes1 = await fetchWithProof(fetch, baseUrl, token, '/api/catalog');
+    assert.equal(catalogRes1.status, 200);
+    const catalogBody1 = (await catalogRes1.json()) as CatalogResponse;
+    assert.equal(catalogBody1.availability, 'available');
+    assert.equal(catalogBody1.provenance, 'reported');
+    assert.equal(catalogBody1.projects.length, 3);
+    const windChimesEntry1 = catalogBody1.projects.find((p) => p.name === 'Wind chimes');
+    const pinwheelEntry1 = catalogBody1.projects.find((p) => p.name === 'pinwheel');
+    assert.deepEqual(windChimesEntry1?.local, { project_ids: [], suggestions: [] });
+    assert.deepEqual(pinwheelEntry1?.local, {
+      project_ids: [],
+      suggestions: [
+        {
+          root: realpathSync.native(root),
+          folder_name: 'pinwheel-clone',
+          rule: 'github_origin_full_name',
+        },
+      ],
+    });
+
+    // Link Wind Chimes Web to the Omnorium catalog entry over the realtime WebSocket.
+    const linkCmd = makeCommand('project.link_catalog', {
+      project_id: webProjectId,
+      catalog: catalogRef,
+    });
+    client.command(linkCmd);
+    await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.event_type === 'command.completed' &&
+        m.event.payload.command_id === linkCmd.command_id,
+    );
+    const linkedEvent = client.messages.find(
+      (m) =>
+        m.type === 'event' &&
+        m.event.project_id === webProjectId &&
+        m.event.event_type === 'project.catalog_linked',
+    );
+    assert.deepEqual(
+      linkedEvent?.type === 'event' &&
+        linkedEvent.event.event_type === 'project.catalog_linked' &&
+        linkedEvent.event.payload,
+      { catalog: catalogRef, previous: null },
+    );
+    assert.deepEqual(harness.controlPlane.projection.catalogLink(webProjectId), catalogRef);
+
+    const catalogRes2 = await fetchWithProof(fetch, baseUrl, token, '/api/catalog');
+    const catalogBody2 = (await catalogRes2.json()) as CatalogResponse;
+    assert.equal(catalogBody2.availability, 'available');
+    assert.deepEqual(catalogBody2.projects.find((p) => p.name === 'Wind chimes')?.local, {
+      project_ids: [webProjectId],
+      suggestions: [],
+    });
+
+    // Unlink Wind Chimes Web from the Omnorium catalog entry over the realtime WebSocket.
+    const unlinkCmd = makeCommand('project.unlink_catalog', { project_id: webProjectId });
+    client.command(unlinkCmd);
+    await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.event_type === 'command.completed' &&
+        m.event.payload.command_id === unlinkCmd.command_id,
+    );
+    const unlinkedEvent = client.messages.find(
+      (m) =>
+        m.type === 'event' &&
+        m.event.project_id === webProjectId &&
+        m.event.event_type === 'project.catalog_unlinked',
+    );
+    assert.deepEqual(
+      unlinkedEvent?.type === 'event' &&
+        unlinkedEvent.event.event_type === 'project.catalog_unlinked' &&
+        unlinkedEvent.event.payload,
+      { previous: catalogRef },
+    );
+    assert.equal(harness.controlPlane.projection.catalogLink(webProjectId), null);
+
+    const catalogRes3 = await fetchWithProof(fetch, baseUrl, token, '/api/catalog');
+    const catalogBody3 = (await catalogRes3.json()) as CatalogResponse;
+    assert.equal(catalogBody3.availability, 'available');
+    assert.deepEqual(catalogBody3.projects.find((p) => p.name === 'Wind chimes')?.local, {
+      project_ids: [],
+      suggestions: [],
+    });
+
+    // 2. VR-ify the existing non-VR project via project.make_vr_version over the realtime WebSocket.
+    const makeVrCmd = makeCommand('project.make_vr_version', {
+      original_project_id: webProjectId,
+      root: realpathSync.native(root),
+      folder_name: 'wind-chimes-vr',
+    });
+    client.command(makeVrCmd);
+    const makeVrDone = await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.event_type === 'command.completed' &&
+        m.event.payload.command_id === makeVrCmd.command_id,
+    );
+    const vrProjectId = (
+      makeVrDone.type === 'event' &&
+      makeVrDone.event.event_type === 'command.completed' &&
+      makeVrDone.event.payload.result?.kind === 'project_created'
+        ? makeVrDone.event.payload.result.project_id
+        : null
+    ) as ProjectId;
+    assert.ok(vrProjectId !== null);
+    assert.notEqual(vrProjectId, webProjectId);
+
+    // Original non-VR project folder is completely untouched.
+    assert.deepEqual(readdirSync(webFolder).sort(), ['package.json', 'src']);
+    assert.deepEqual(readdirSync(join(webFolder, 'src')).sort(), ['app.js']);
+    assert.equal(readFileSync(join(webFolder, 'package.json'), 'utf8'), originalPackageJson);
+    assert.equal(readFileSync(join(webFolder, 'src', 'app.js'), 'utf8'), originalAppJs);
+
+    // New sibling VR project has starter: 'iwsdk-vr', madeFrom: webProjectId, and all ART7/GQ1b starter files.
+    const vrFolder = join(realpathSync.native(root), 'wind-chimes-vr');
+    for (const relPath of [
+      'src/index.ts',
+      'src/palette.ts',
+      'src/look.ts',
+      'src/decor.ts',
+      'src/motion.ts',
+      'src/play-input.ts',
+      'public/scenes/main.iwsdk.scene.json',
+      'iwsdk.config.json',
+      'AGENTS.md',
+    ]) {
+      assert.equal(
+        existsSync(join(vrFolder, relPath)),
+        true,
+        `expected starter file ${relPath} in VR project folder`,
+      );
+    }
+    assert.equal(harness.controlPlane.projection.project(vrProjectId)?.starter, 'iwsdk-vr');
+    assert.equal(harness.controlPlane.projection.madeFrom(vrProjectId), webProjectId);
+    const madeFromEvent = client.messages.find(
+      (m) =>
+        m.type === 'event' &&
+        m.event.project_id === vrProjectId &&
+        m.event.event_type === 'project.made_from',
+    );
+    const expectedVrInstruction = vrVersionInstruction(
+      join(realpathSync.native(root), 'wind-chimes-web'),
+    );
+    assert.deepEqual(
+      madeFromEvent?.type === 'event' &&
+        madeFromEvent.event.event_type === 'project.made_from' &&
+        madeFromEvent.event.payload,
+      {
+        original_project_id: webProjectId,
+        instruction: expectedVrInstruction,
+      },
+    );
+
+    // 3. Concurrent multi-project workstreams + Salidium (understanding) & Seorak (evaluation + usage-limits).
+    const createWebWs = makeCommand('workstream.create', {
+      project_id: webProjectId,
+      title: 'Review web chimes',
+      objective: null,
+    });
+    client.command(createWebWs);
+    const createWebWsDone = await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.event_type === 'command.completed' &&
+        m.event.payload.command_id === createWebWs.command_id,
+    );
+    const webWsId = (
+      createWebWsDone.type === 'event' &&
+      createWebWsDone.event.event_type === 'command.completed' &&
+      createWebWsDone.event.payload.result?.kind === 'workstream_created'
+        ? createWebWsDone.event.payload.result.workstream_id
+        : null
+    ) as WorkstreamId;
+    assert.ok(webWsId !== null);
+
+    const createVrWs = makeCommand('workstream.create', {
+      project_id: vrProjectId,
+      title: 'Build VR chimes',
+      objective: null,
+    });
+    client.command(createVrWs);
+    const createVrWsDone = await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.event_type === 'command.completed' &&
+        m.event.payload.command_id === createVrWs.command_id,
+    );
+    const vrWsId = (
+      createVrWsDone.type === 'event' &&
+      createVrWsDone.event.event_type === 'command.completed' &&
+      createVrWsDone.event.payload.result?.kind === 'workstream_created'
+        ? createVrWsDone.event.payload.result.workstream_id
+        : null
+    ) as WorkstreamId;
+    assert.ok(vrWsId !== null);
+
+    const startWebExec = makeCommand('execution.start', {
+      workstream_id: webWsId,
+      runtime_id: 'claude-agent' as RuntimeId,
+      instruction: 'Inspect Wind Chimes Web.',
+      options: {},
+      model_ref: null,
+    });
+    const startVrExec = makeCommand('execution.start', {
+      workstream_id: vrWsId,
+      runtime_id: 'codex' as RuntimeId,
+      instruction: expectedVrInstruction,
+      options: {},
+      model_ref: null,
+    });
+    client.command(startWebExec);
+    client.command(startVrExec);
+
+    const startWebDone = await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.event_type === 'command.completed' &&
+        m.event.payload.command_id === startWebExec.command_id,
+    );
+    const webExecId = (
+      startWebDone.type === 'event' &&
+      startWebDone.event.event_type === 'command.completed' &&
+      startWebDone.event.payload.result?.kind === 'execution_created'
+        ? startWebDone.event.payload.result.execution_id
+        : null
+    ) as ExecutionId;
+    assert.ok(webExecId !== null);
+
+    const startVrDone = await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.event_type === 'command.completed' &&
+        m.event.payload.command_id === startVrExec.command_id,
+    );
+    const vrExecId = (
+      startVrDone.type === 'event' &&
+      startVrDone.event.event_type === 'command.completed' &&
+      startVrDone.event.payload.result?.kind === 'execution_created'
+        ? startVrDone.event.payload.result.execution_id
+        : null
+    ) as ExecutionId;
+    assert.ok(vrExecId !== null);
+    assert.equal(vrStartedInstructions[0], expectedVrInstruction);
+
+    await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.execution_id === webExecId &&
+        m.event.event_type === 'runtime.turn.started',
+    );
+    await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.execution_id === vrExecId &&
+        m.event.event_type === 'runtime.turn.started',
+    );
+
+    // Both workstreams across the two projects are running concurrently.
+    assert.equal(harness.controlPlane.projection.workstream(webWsId)?.status, 'running');
+    assert.equal(harness.controlPlane.projection.workstream(vrWsId)?.status, 'running');
+
+    // Query Salidium understanding and Seorak evaluation + usage-limits while both executions run concurrently.
+    const webUnderstandingRes = await fetchWithProof(
+      fetch,
+      baseUrl,
+      token,
+      `/api/executions/${webExecId}/understanding`,
+    );
+    assert.equal(webUnderstandingRes.status, 200);
+    const webUnderstandingBody = (await webUnderstandingRes.json()) as UnderstandingResponse;
+    assert.equal(webUnderstandingBody.execution_id, webExecId);
+    assert.equal(webUnderstandingBody.result.availability, 'available');
+    assert.equal(
+      webUnderstandingBody.result.understanding.verdict.headline,
+      '4 files changed, unverified',
+    );
+    assert.equal(webUnderstandingBody.result.understanding.verdict.epistemic, 'observed');
+    assert.equal(webUnderstandingBody.result.understanding.latest_statement?.epistemic, 'reported');
+
+    const webEvaluationRes = await fetchWithProof(
+      fetch,
+      baseUrl,
+      token,
+      `/api/executions/${webExecId}/evaluation`,
+    );
+    assert.equal(webEvaluationRes.status, 200);
+    const webEvaluationBody = (await webEvaluationRes.json()) as EvaluationResponse;
+    assert.equal(webEvaluationBody.execution_id, webExecId);
+    assert.equal(webEvaluationBody.result.availability, 'available');
+    assert.equal(webEvaluationBody.result.evaluation.outcome.measure?.commits_landed, 2);
+    assert.equal(webEvaluationBody.result.evaluation.verification.lens?.by_kind.length, 2);
+
+    const vrUnderstandingRes = await fetchWithProof(
+      fetch,
+      baseUrl,
+      token,
+      `/api/executions/${vrExecId}/understanding`,
+    );
+    assert.equal(vrUnderstandingRes.status, 200);
+    const vrUnderstandingBody = (await vrUnderstandingRes.json()) as UnderstandingResponse;
+    assert.equal(vrUnderstandingBody.execution_id, vrExecId);
+    assert.equal(vrUnderstandingBody.result.availability, 'unavailable');
+    assert.equal(vrUnderstandingBody.result.reason.code, 'runtime_not_observed');
+    assert.match(vrUnderstandingBody.result.reason.message, /Halcyonic's own Codex home/);
+
+    const vrEvaluationRes = await fetchWithProof(
+      fetch,
+      baseUrl,
+      token,
+      `/api/executions/${vrExecId}/evaluation`,
+    );
+    assert.equal(vrEvaluationRes.status, 200);
+    const vrEvaluationBody = (await vrEvaluationRes.json()) as EvaluationResponse;
+    assert.equal(vrEvaluationBody.execution_id, vrExecId);
+    assert.equal(vrEvaluationBody.result.availability, 'unavailable');
+    assert.equal(vrEvaluationBody.result.reason.code, 'runtime_not_observed');
+    assert.match(vrEvaluationBody.result.reason.message, /Halcyonic's own Codex home/);
+
+    const usageLimitsRes = await fetchWithProof(fetch, baseUrl, token, '/api/usage-limits');
+    assert.equal(usageLimitsRes.status, 200);
+    const usageLimits = (await usageLimitsRes.json()) as UsageLimitsResponse;
+    assert.equal(usageLimits.availability, 'available');
+    assert.equal(usageLimits.readings.length, 1);
+    assert.equal(usageLimits.readings[0]?.agent, 'codex');
+    assert.equal(usageLimits.readings[0]?.window, 'weekly');
+    assert.equal(usageLimits.readings[0]?.used_percent, 62);
+
+    // Release both turns: vrExecId modifies wind-chimes-vr/src/index.ts, triggering FileObserver ->
+    // automatic internal project.check (A1) -> preview.start -> open_on_mac.
+    releaseConcurrentTurns();
+
+    await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.execution_id === webExecId &&
+        m.event.event_type === 'runtime.turn.completed',
+    );
+    await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.execution_id === vrExecId &&
+        m.event.event_type === 'runtime.turn.completed',
+    );
+
+    const vrAutoCheckAccepted = await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.project_id === vrProjectId &&
+        m.event.event_type === 'command.accepted' &&
+        m.event.payload.command.command_type === 'project.check' &&
+        m.event.payload.received_via === 'internal',
+    );
+    const vrCheckCmdId =
+      vrAutoCheckAccepted.type === 'event' &&
+      vrAutoCheckAccepted.event.event_type === 'command.accepted'
+        ? vrAutoCheckAccepted.event.payload.command.command_id
+        : '';
+    assert.ok(vrCheckCmdId !== '');
+
+    const vrCheckDone = await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.event_type === 'command.completed' &&
+        m.event.payload.command_id === vrCheckCmdId,
+    );
+    assert.equal(
+      vrCheckDone.type === 'event' &&
+        vrCheckDone.event.event_type === 'command.completed' &&
+        vrCheckDone.event.payload.result?.kind === 'project_checked' &&
+        vrCheckDone.event.payload.result.passed &&
+        vrCheckDone.event.payload.result.ready,
+      true,
+    );
+
+    await runPreviewCommand(client, makeCommand, 'project.preview.start', {
+      project_id: vrProjectId,
+    });
+    const openVrPlay = makeCommand('project.open_on_mac', { project_id: vrProjectId });
+    client.command(openVrPlay);
+    await client.waitFor(
+      (m) =>
+        m.type === 'event' &&
+        m.event.event_type === 'command.completed' &&
+        m.event.payload.command_id === openVrPlay.command_id,
+    );
+    assert.equal(playRuns.started, 1);
+
+    // Original non-VR project folder remains completely untouched after all executions and checks.
+    assert.deepEqual(readdirSync(webFolder).sort(), ['package.json', 'src']);
+    assert.equal(readFileSync(join(webFolder, 'package.json'), 'utf8'), originalPackageJson);
+    assert.equal(readFileSync(join(webFolder, 'src', 'app.js'), 'utf8'), originalAppJs);
     assert.equal(client.invalid.length, 0);
   });
 });
