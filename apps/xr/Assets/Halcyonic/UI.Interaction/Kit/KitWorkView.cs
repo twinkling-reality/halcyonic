@@ -101,6 +101,9 @@ namespace Halcyonic.XR.UI
         /// <summary>The task's routes at the rail's foot, as shown, in the frame's order.</summary>
         public IEnumerable<KitRow> Routes => routes.Where(route => route.gameObject.activeSelf);
 
+        /// <summary>Whether the bound instruction composer shows the environment and agent context selector pills.</summary>
+        public bool AllowBoundSelectors { get; set; }
+
         /// <summary>The instrument's extent as laid out, in units of its distance.</summary>
         public Vector2 Size => size;
 
@@ -368,7 +371,10 @@ namespace Halcyonic.XR.UI
             decision.Hide();
             composer.gameObject.SetActive(true);
             composer.Answering = model.Ask != null;
-            var hasSelectors = binding == null && (!string.IsNullOrEmpty(model.Environment) || !string.IsNullOrEmpty(model.Agent));
+            var composingBound = binding != null && AllowBoundSelectors
+                && binding.Frame.Lines.Any(line => line.Action == null && line.Words == FileScreens.YourInstruction);
+            var hasSelectors = (binding == null || composingBound)
+                && (!string.IsNullOrEmpty(model.Environment) || !string.IsNullOrEmpty(model.Agent));
             composer.EnvironmentChoice = hasSelectors ? model.Environment : null;
             composer.ProjectChoice = null;
             composer.AgentChoice = hasSelectors ? model.Agent : null;

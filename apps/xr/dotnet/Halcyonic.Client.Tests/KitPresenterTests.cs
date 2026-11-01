@@ -179,6 +179,14 @@ public class KitPresenterTests
             Is.EqualTo("Sandbox"));
         Assert.That(KitPresenter.EnvironmentOf(new RuntimeDescriptor { RuntimeId = "r2", Kind = "opencode", DisplayName = "OpenCode", ApprovalMayLeaveSandbox = null, Capabilities = new RuntimeCapabilities() }),
             Is.Null);
+        Assert.That(KitPresenter.EnvironmentOf(null, sandboxOverride: true), Is.EqualTo("Sandbox"));
+        Assert.That(KitPresenter.EnvironmentOf(null, sandboxOverride: false), Is.EqualTo("This Mac"));
+        Assert.That(KitPresenter.AgentOf(
+            new RuntimeDescriptor { RuntimeId = "opencode", Kind = "opencode", DisplayName = "OpenCode", Capabilities = new RuntimeCapabilities() },
+            null,
+            "muse-glimmer:30b-mlx (Ollama)"),
+            Is.EqualTo("muse-glimmer:30b-mlx"));
+        Assert.That(KitPresenter.ShortModelName("ollama/llama3.3:70b"), Is.EqualTo("llama3.3:70b"));
         Assert.That(live.Badge.Text, Is.EqualTo(StateLanguage.BadgeOf(Waiting().Character).Text));
         Assert.That((live.Sendable, live.WhyNotSend), Is.EqualTo((true, (string?)null)));
         Assert.That(live.Spine, Is.SameAs(spine));

@@ -111,6 +111,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 var snapshot = new Snapshot { Journal = journal, Position = 1, Projects = projects,
                     Workstreams = new List<WorkstreamView> { work.Workstream }, Executions = new List<ExecutionView> { work.Execution },
                     Runtimes = work.State.Runtimes.ToList() };
+                if (kit)
+                {
+                    foreach (var runtime in snapshot.Runtimes) runtime.ApprovalMayLeaveSandbox ??= true;
+                }
                 if (multipleProjects)
                     snapshot.Projects.AddRange(new[] {
                         new ProjectView { ProjectId = "0192a7a0-0000-7000-8000-0000000000b2", Name = "Search service", CreatedAt = Time, UpdatedAt = Time },

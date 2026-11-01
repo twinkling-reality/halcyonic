@@ -3811,11 +3811,17 @@ presence, contextual moment cards and the on-demand project screen:
   `StarterId`, and `ToContract()` emits `NewFromStarterChoice` (`kind: "new_from_starter"`) so a
   developer or newcomer in VR can scaffold a starter VR project from an idea and rename its folder
   before confirming the build review.
-- **Composer context selectors (`KitPresenter.EnvironmentOf`, `KitPresenter.AgentOf`, `WorkspacePresentationState.SelectRuntimeForEnvironment`, `WorkspacePresentationState.NextRuntime`)**:
+- **Composer context selectors (`KitPresenter.EnvironmentOf`, `KitPresenter.AgentOf`, `WorkspacePresentationState.CycleEnvironment`, `WorkspacePresentationState.NextAgent`, `WorkspacePresentationState.CycleAgent`, `WorkspacePresentationState.SetRuntimeModels`)**:
   `KitPresenter.WorkOf` and `KitFileBinding.Of` populate `KitWorkModel.Environment` (`"This Mac"` for
-  `ApprovalMayLeaveSandbox = true`, `"Sandbox"` for `false`, `null` when undeclared) and
-  `KitWorkModel.Agent` (the runtime's plain display name). `KitWorkspaceHost` forwards settled
-  composer selector presses (`EnvironmentPressed`, `ProjectPressed`, `AgentPressed`) through
-  `MenuPlane` to `MenuDirector`, which switches to the Projects chooser on `ProjectPressed`, selects
-  a runtime matching the toggled execution environment via `SelectRuntimeForEnvironment` on
-  `EnvironmentPressed`, and cycles available runtimes via `NextRuntime` on `AgentPressed`.
+  `ApprovalMayLeaveSandbox = true` or `SelectedSandbox == false`, `"Sandbox"` for `false` or
+  `SelectedSandbox == true`, `null` when undeclared) and `KitWorkModel.Agent` (the selected model's
+  short display name via `ShortModelName` when `SelectedModelRef` or an execution model is present,
+  else the runtime's plain display name). `KitWorkspaceHost` sets `AllowBoundSelectors = true` on its
+  `KitWorkView` and forwards settled composer selector presses (`EnvironmentPressed`, `ProjectPressed`,
+  `AgentPressed`) through `MenuPlane` to `MenuDirector`, which switches to the Projects chooser on
+  `ProjectPressed`, toggles or selects an execution environment via `CycleEnvironment` on
+  `EnvironmentPressed` (storing `SelectedSandbox` when toggling within a runtime), and cycles across
+  available runtimes and their listed `RuntimeModel` entries (cached via `SetRuntimeModels` from
+  `ReadRuntimeModelsAsync`, including local Meta/Ollama models such as `muse-glimmer:30b-mlx` and
+  `llama*`) via `CycleAgent` / `NextAgent` on `AgentPressed` while preserving any unsent instruction
+  draft in `KitComposer`.

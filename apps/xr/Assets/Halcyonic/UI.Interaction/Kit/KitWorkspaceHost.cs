@@ -108,6 +108,7 @@ namespace Halcyonic.XR.UI
             go.transform.SetParent(parent, false);
             var host = go.AddComponent<KitWorkspaceHost>();
             host.view = KitWorkView.Create(go.transform);
+            host.view.AllowBoundSelectors = true;
             host.measure = KitType.Create(go.transform, "Composer measure", KitRole.Body, KitType.Text, KitType.Order.Words, leading: SpatialKit.ReadingLeading);
             host.measure.GetComponent<MeshRenderer>().enabled = false;
             var composer = host.view.Composer;
@@ -176,10 +177,10 @@ namespace Halcyonic.XR.UI
             Size = view.Size / zoom;
             TextBands = Bands(view.Size, zoom);
             RailRows = Mathf.Max(1, Mathf.FloorToInt(RailRoom(view.Size) / RowPitch()));
+            drawn = null;
             if (changed)
             {
                 shownAt = Time.unscaledTime;
-                drawn = null;
                 foreach (var press in view.Targets) press.Unsettle();
             }
         }
