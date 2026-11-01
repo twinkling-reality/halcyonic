@@ -206,4 +206,44 @@ describe('OpenCode model listing', () => {
     assert.equal(sameModel(local, { providerID: 'opencode', id: 'qwen3.6:35b-a3b-nvfp4' }), false);
     assert.equal(sameModel(local, { providerID: 'ollama', id: 'qwen3.6' }), false);
   });
+
+  test('surfaces muse-glimmer:30b-mlx and local Meta Llama models cleanly as RuntimeModel', () => {
+    const parsed = parseModels([
+      {
+        ...LISTED[0],
+        id: 'muse-glimmer:30b-mlx',
+        modelID: 'muse-glimmer:30b-mlx',
+        name: 'muse-glimmer:30b-mlx',
+        family: 'qwen3_5_moe',
+        capabilities: { tools: true, input: ['text', 'image'], output: ['text'] },
+        limit: { context: 65536, output: 16384 },
+      },
+      {
+        ...LISTED[0],
+        id: 'llama3.3:70b',
+        modelID: 'llama3.3:70b',
+        name: 'llama3.3:70b',
+        family: 'llama',
+        capabilities: { tools: true, input: ['text'], output: ['text'] },
+        limit: { context: 131072, output: 16384 },
+      },
+    ]);
+    assert.equal(parsed.length, 2);
+    assert.deepEqual(parsed.map(toRuntimeModel), [
+      {
+        model_ref: 'ollama/muse-glimmer:30b-mlx',
+        display_name: 'muse-glimmer:30b-mlx (Ollama)',
+        served: 'this_mac',
+        tool_calling: 'declared',
+        context_tokens: 65536,
+      },
+      {
+        model_ref: 'ollama/llama3.3:70b',
+        display_name: 'llama3.3:70b (Ollama)',
+        served: 'this_mac',
+        tool_calling: 'declared',
+        context_tokens: 131072,
+      },
+    ]);
+  });
 });

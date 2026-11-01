@@ -471,6 +471,39 @@ describe('pnpm mac-setup', () => {
     assert.match(text(machine), /ollama pull qwen3\.6:35b-a3b-nvfp4/);
   });
 
+  test('local-model configures muse-glimmer:30b-mlx and local Meta Llama models cleanly', async (t) => {
+    const machine = mac(t);
+    const glimmer = {
+      name: 'muse-glimmer:30b-mlx',
+      size: 19_100_000_000,
+      capabilities: ['completion', 'vision', 'tools', 'thinking'],
+    };
+    const llama = {
+      name: 'llama3.3:70b',
+      size: 42_500_000_000,
+      capabilities: ['completion', 'tools'],
+    };
+    machine.routes.set('ollama /api/tags', {
+      status: 200,
+      body: { models: [glimmer, llama] },
+    });
+    machine.install('opencode');
+    machine.install('codex');
+    assert.equal(await machine.run('agent-apps'), 0);
+
+    assert.equal(await machine.run('local-model', 'muse-glimmer:30b-mlx'), 0);
+    assert.match(
+      text(machine),
+      /Codex now has settings of its own for Halcyonic, in a folder of its own: muse-glimmer:30b-mlx on this Mac\./,
+    );
+
+    assert.equal(await machine.run('local-model', 'llama3.3:70b'), 0);
+    assert.match(
+      text(machine),
+      /Replaced Halcyonic's own Codex settings: llama3\.3:70b on this Mac\./,
+    );
+  });
+
   test("the check names Halcyonic's own OpenCode settings and its model, whatever permissions they hold", async (t) => {
     const machine = mac(t);
     machine.install('opencode');
