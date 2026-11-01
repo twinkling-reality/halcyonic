@@ -277,13 +277,19 @@ describe('sanitizing a recorded real run', () => {
     { name: 'a coding model', text: 'Tried deepseek-coder.', reason: /deepseek/ },
     { name: "the owner's other project", text: 'As Exulanica does.', reason: /exulanica/ },
     { name: 'a computer by its product name', text: 'On a MacBook Pro.', reason: /macbook/ },
-    // The owner's unreleased product, in any case (2026-10-29), and a host in lower case.
+    // The owner's catalog product, in any case (2026-10-29), and a host in lower case.
     {
-      name: "the owner's unreleased product",
+      name: "the owner's catalog product",
+      text: 'Read by Omnorium.',
+      reason: /Omnorium/i,
+    },
+    { name: 'that product in lower case', text: 'the omnorium catalog', reason: /omnorium/ },
+    {
+      name: "the owner's earlier name for that product",
       text: 'Read by Phat Porcupine.',
       reason: /porcupine/,
     },
-    { name: 'that product in lower case', text: 'the porcupine catalog', reason: /porcupine/ },
+    { name: 'that earlier name in lower case', text: 'the porcupine catalog', reason: /porcupine/ },
     { name: 'a code host in lower case', text: 'Pushed to github.', reason: /github/ },
   ];
   for (const { name, text, reason } of cases) {

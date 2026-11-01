@@ -25,7 +25,7 @@ export const RepositoryId = Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_
  */
 export const CatalogRepositoryRef = Type.Object(
   {
-    source: Type.Literal('phat-porcupine'),
+    source: Type.Literal('omnorium'),
     repository_id: RepositoryId,
     full_name: RepositoryFullName,
   },
@@ -36,16 +36,16 @@ export type CatalogRepositoryRef = Static<typeof CatalogRepositoryRef>;
 /** Where the catalog came from. */
 export const CatalogSource = Type.Object(
   {
-    system: Type.Literal('phat-porcupine'),
+    system: Type.Literal('omnorium'),
     /** The major version of the source's catalog contract it was read through. */
     api_version: Type.Literal('1'),
     /**
      * True when a stand-in Halcyonic wrote produced it from invented projects, as the recorded
-     * demonstration's sources do (ADR 0019); false for everything read from Phat Porcupine itself.
+     * demonstration's sources do (ADR 0019); false for everything read from Omnorium itself.
      */
     synthetic: Type.Boolean(),
     /**
-     * True when Phat Porcupine served its own sample data or ran against a stand-in for GitHub.
+     * True when Omnorium served its own sample data or ran against a stand-in for GitHub.
      * Clients label such a catalog as a sample and never show it among real projects.
      */
     sample: Type.Boolean(),
@@ -168,8 +168,8 @@ export const CatalogGroup = Type.Object(
 export type CatalogGroup = Static<typeof CatalogGroup>;
 
 /**
- * Every project the person has across their accounts and organisations, read through from Phat
- * Porcupine when a client asks and never journaled (ADR 0039, as ADR 0010 for Salidium and Seorak).
+ * Every project the person has across their accounts and organisations, read through from Omnorium
+ * when a client asks and never journaled (ADR 0039, as ADR 0010 for Salidium and Seorak).
  * Everything in it is `reported` by the source, never observed by this computer, and its text is
  * untrusted. Nothing but `available` carries projects, so an absent catalog never looks empty.
  */

@@ -50,8 +50,8 @@ function events(type: string): EventEnvelope[] {
     .filter((event) => event.event_type === type);
 }
 
-const app = { source: 'phat-porcupine', repository_id: 7, full_name: 'acme/app' };
-const api = { source: 'phat-porcupine', repository_id: 8, full_name: 'acme/app-api' };
+const app = { source: 'omnorium', repository_id: 7, full_name: 'acme/app' };
+const api = { source: 'omnorium', repository_id: 8, full_name: 'acme/app-api' };
 const LINK_COMMANDS = ['project.link_catalog', 'project.unlink_catalog'];
 
 describe('linking a project to a catalog repository (ADR 0039)', () => {

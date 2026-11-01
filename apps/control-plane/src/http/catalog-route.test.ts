@@ -61,7 +61,7 @@ function available(
   return {
     availability: 'available',
     provenance: 'reported',
-    source: { system: 'phat-porcupine', api_version: '1', synthetic: false, sample: false },
+    source: { system: 'omnorium', api_version: '1', synthetic: false, sample: false },
     generated_at: '2026-10-29T10:00:00Z',
     sync: {
       repositories_at: null,
@@ -176,7 +176,7 @@ describe('GET /api/catalog read through a catalog source', () => {
     assert.ok(projectId);
     const linked = await server.command('project.link_catalog', {
       project_id: projectId,
-      catalog: { source: 'phat-porcupine', repository_id: 7, full_name: 'acme/app-7' },
+      catalog: { source: 'omnorium', repository_id: 7, full_name: 'acme/app-7' },
     });
     assert.equal(linked.disposition, 'accepted');
 
@@ -230,7 +230,7 @@ describe('GET /api/catalog read through a catalog source', () => {
 
     server.answer = {
       ...available([project('c20', 20), project('c21', 21)]),
-      source: { system: 'phat-porcupine', api_version: '1', synthetic: false, sample: true },
+      source: { system: 'omnorium', api_version: '1', synthetic: false, sample: true },
     };
     const sample = await server.get();
     if (sample.body.availability !== 'available') assert.fail('available');
@@ -260,7 +260,7 @@ describe('GET /api/catalog read through a catalog source', () => {
   test('an unavailable answer keeps its code', async () => {
     server.answer = {
       availability: 'unavailable',
-      reason: { code: 'not_running', message: 'Phat Porcupine is not running.' },
+      reason: { code: 'not_running', message: 'Omnorium is not running.' },
     };
     const { body } = await server.get();
     assert.equal(body.availability === 'unavailable' && body.reason.code, 'not_running');

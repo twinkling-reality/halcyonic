@@ -25,7 +25,7 @@ public class JudgeWordsTests
     {
         "Claude", "Anthropic", "OpenAI", "Codex", "OpenCode", "GPT", "Gemini", "Llama", "Qwen", "Ollama", "Mistral",
         "Meta", "Quest", "Oculus", "Horizon", "Apple", "Mac", "macOS", "iPhone", "Android", "Google", "YouTube",
-        "GitHub", "Microsoft", "Windows", "Unity", "Salidium", "Seorak", "Stripe", "Postgres", "PostgreSQL",
+        "GitHub", "Microsoft", "Windows", "Unity", "Salidium", "Seorak", "Omnorium", "Stripe", "Postgres", "PostgreSQL",
         "Redis", "Docker", "AWS", "npm", "React",
     };
 

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, afterEach, before, describe, test } from 'node:test';
 import { connect, defaultCatalogHomes, isFailure, readDiscoveryFile } from './connection.ts';
-import { FakePhatPorcupine } from './testing/fake-phat-porcupine.ts';
+import { FakeOmnorium } from './testing/fake-omnorium.ts';
 
 /** The discovery document's single contract entry, to change in a test. */
 function entry(document: Record<string, unknown>): Record<string, unknown> {
@@ -18,7 +18,7 @@ function code(result: object): string | undefined {
   return isFailure(result) ? `${result.availability}:${result.reason.code}` : undefined;
 }
 
-describe("Omnorium's (formerly Phat Porcupine's) homes", () => {
+describe("Omnorium's homes", () => {
   test('are [OMNORIUM_HOME], else [PHAT_PORCUPINE_HOME], else [~/.omnorium, ~/.phat-porcupine]', () => {
     assert.deepEqual(defaultCatalogHomes({ OMNORIUM_HOME: '/x/new' }, '/home/a'), ['/x/new']);
     assert.deepEqual(defaultCatalogHomes({ PHAT_PORCUPINE_HOME: '/x/old' }, '/home/a'), ['/x/old']);
@@ -34,9 +34,9 @@ describe("Omnorium's (formerly Phat Porcupine's) homes", () => {
 });
 
 describe('the discovery file (AUDIT K2)', () => {
-  let fake: FakePhatPorcupine;
+  let fake: FakeOmnorium;
   before(async () => {
-    fake = await FakePhatPorcupine.start();
+    fake = await FakeOmnorium.start();
   });
   afterEach(() => {
     chmodSync(fake.discoveryPath, 0o600);
@@ -102,8 +102,8 @@ describe('the discovery file (AUDIT K2)', () => {
     assert.equal(code(await readDiscoveryFile(fake.home)), 'incompatible:unsupported_contract');
   });
 
-  test('missing means Phat Porcupine is not running', async () => {
-    const empty = mkdtempSync(join(tmpdir(), 'halcyonic-pp-empty-'));
+  test('missing means Omnorium is not running', async () => {
+    const empty = mkdtempSync(join(tmpdir(), 'halcyonic-om-empty-'));
     try {
       assert.equal(code(await readDiscoveryFile(empty)), 'unavailable:not_running');
     } finally {
@@ -112,7 +112,7 @@ describe('the discovery file (AUDIT K2)', () => {
   });
 
   test('a link, or a file another user could change, is never trusted', async () => {
-    const elsewhere = mkdtempSync(join(tmpdir(), 'halcyonic-pp-link-'));
+    const elsewhere = mkdtempSync(join(tmpdir(), 'halcyonic-om-link-'));
     try {
       writeFileSync(join(elsewhere, 'real.json'), '{}', { mode: 0o600 });
       symlinkSync(join(elsewhere, 'real.json'), join(elsewhere, 'consumer.json'));
@@ -165,9 +165,9 @@ describe('the discovery file (AUDIT K2)', () => {
 });
 
 describe('the instance proves itself before any credential (AUDIT K3)', () => {
-  let fake: FakePhatPorcupine;
+  let fake: FakeOmnorium;
   before(async () => {
-    fake = await FakePhatPorcupine.start();
+    fake = await FakeOmnorium.start();
   });
   afterEach(() => {
     fake.impersonate = null;
@@ -200,10 +200,10 @@ describe('the instance proves itself before any credential (AUDIT K3)', () => {
   });
 
   test('a stale file whose port nothing answers is unreachable', async () => {
-    const stale = await FakePhatPorcupine.start();
+    const stale = await FakeOmnorium.start();
     const port = stale.port;
     await stale.close();
-    const again = mkdtempSync(join(tmpdir(), 'halcyonic-pp-stale-'));
+    const again = mkdtempSync(join(tmpdir(), 'halcyonic-om-stale-'));
     try {
       chmodSync(again, 0o700);
       writeFileSync(

@@ -83,7 +83,7 @@ export async function readDiscoveryFile(home: string): Promise<DiscoveryFile | C
     fail(
       'unavailable',
       'discovery_unsafe',
-      "Phat Porcupine's discovery file is not one only you can change.",
+      "Omnorium's discovery file is not one only you can change.",
     );
   let text: string;
   try {
@@ -104,11 +104,7 @@ export async function readDiscoveryFile(home: string): Promise<DiscoveryFile | C
       const buffer = Buffer.alloc(DISCOVERY_MAX_BYTES + 1);
       const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
       if (bytesRead > DISCOVERY_MAX_BYTES)
-        return fail(
-          'incompatible',
-          'invalid_discovery',
-          "Phat Porcupine's discovery file is too large.",
-        );
+        return fail('incompatible', 'invalid_discovery', "Omnorium's discovery file is too large.");
       text = buffer.subarray(0, bytesRead).toString('utf8');
     } finally {
       await file.close();
@@ -119,21 +115,17 @@ export async function readDiscoveryFile(home: string): Promise<DiscoveryFile | C
       return fail(
         'unavailable',
         'not_running',
-        'Phat Porcupine is not running: it has not published its discovery file.',
+        'Omnorium is not running: it has not published its discovery file.',
       );
     if (code === 'ELOOP') return unsafe();
-    return fail(
-      'unavailable',
-      'discovery_unreadable',
-      "Phat Porcupine's discovery file cannot be read.",
-    );
+    return fail('unavailable', 'discovery_unreadable', "Omnorium's discovery file cannot be read.");
   }
   const document = readDiscoveryFileDocument(parseJson(text));
   if (document === null)
     return fail(
       'incompatible',
       'invalid_discovery',
-      "Phat Porcupine's discovery file is not version 1's.",
+      "Omnorium's discovery file is not version 1's.",
     );
   const entry =
     document.contracts.find(
@@ -146,7 +138,7 @@ export async function readDiscoveryFile(home: string): Promise<DiscoveryFile | C
     return fail(
       'incompatible',
       'unsupported_contract',
-      'This Phat Porcupine serves no catalog contract of version 1.',
+      'This Omnorium serves no catalog contract of version 1.',
     );
   const match = BASE_URL.exec(entry.baseUrl);
   const port = match ? Number(match[1]) : 0;
@@ -154,14 +146,14 @@ export async function readDiscoveryFile(home: string): Promise<DiscoveryFile | C
     return fail(
       'incompatible',
       'base_url_not_allowed',
-      'Phat Porcupine names an address other than its loopback one.',
+      'Omnorium names an address other than its loopback one.',
     );
   const secret = decodeBytes(document.secret, 32);
   if (secret === null)
     return fail(
       'incompatible',
       'invalid_discovery',
-      "Phat Porcupine's discovery file holds no secret of 32 bytes.",
+      "Omnorium's discovery file holds no secret of 32 bytes.",
     );
   return {
     instanceId: document.instanceId,
@@ -190,7 +182,7 @@ export async function connect(
   let file: DiscoveryFile | CatalogFailure = fail(
     'unavailable',
     'not_running',
-    'Phat Porcupine is not running: it has not published its discovery file.',
+    'Omnorium is not running: it has not published its discovery file.',
   );
   for (const home of typeof homes === 'string' ? [homes] : homes) {
     file = await readDiscoveryFile(home);
@@ -210,24 +202,20 @@ export async function connect(
   );
   if (!isReply(reply)) return unanswered(reply);
   if (reply.status === 400)
-    return fail(
-      'incompatible',
-      'bad_request',
-      'Phat Porcupine refused the challenge Halcyonic sent.',
-    );
+    return fail('incompatible', 'bad_request', 'Omnorium refused the challenge Halcyonic sent.');
   if (reply.status !== 200) return refusal(reply.status, reply.body);
   const answer = readDiscoveryAnswer(reply.body);
   const mismatch = () =>
     fail(
       'unavailable',
       'instance_mismatch',
-      "What answered isn't the Phat Porcupine that published the discovery file.",
+      "What answered isn't the Omnorium that published the discovery file.",
     );
   if (answer === null)
     return fail(
       'incompatible',
       'invalid_discovery',
-      "Phat Porcupine's discovery answer is not version 1's.",
+      "Omnorium's discovery answer is not version 1's.",
     );
   if (answer.instanceId !== file.instanceId) return mismatch();
   const expected = createHmac('sha256', file.secret).update(challenge).digest();
@@ -258,17 +246,17 @@ export function isReply(value: Reply | typeof TIMED_OUT | typeof TOO_LARGE | nul
 /** Why a request got no answer to read. */
 export function unanswered(value: typeof TIMED_OUT | typeof TOO_LARGE | null): CatalogFailure {
   if (value === TIMED_OUT)
-    return fail('unavailable', 'timed_out', "Phat Porcupine didn't answer in time.");
+    return fail('unavailable', 'timed_out', "Omnorium didn't answer in time.");
   if (value === TOO_LARGE)
     return fail(
       'incompatible',
       'answer_too_large',
-      "Phat Porcupine's answer is larger than version 1 allows.",
+      "Omnorium's answer is larger than version 1 allows.",
     );
   return fail(
     'unavailable',
     'unreachable',
-    "Phat Porcupine's discovery file names a port nothing answers on.",
+    "Omnorium's discovery file names a port nothing answers on.",
   );
 }
 
@@ -358,7 +346,7 @@ export function get(
 }
 
 /**
- * Why Phat Porcupine refused, by its status and code, in Halcyonic's own words: its message is the
+ * Why Omnorium refused, by its status and code, in Halcyonic's own words: its message is the
  * server's text and never passed on.
  */
 export function refusal(status: number, body: unknown): CatalogFailure {
@@ -370,40 +358,39 @@ export function refusal(status: number, body: unknown): CatalogFailure {
     return fail(
       'unauthorized',
       'unauthorized',
-      'Phat Porcupine refused the credential set up for Halcyonic.',
+      'Omnorium refused the credential set up for Halcyonic.',
     );
   if (status === 503 && code === 'not_ready')
-    return fail('unavailable', 'not_ready', 'Phat Porcupine has not gathered your projects yet.');
+    return fail('unavailable', 'not_ready', 'Omnorium has not gathered your projects yet.');
   if (status === 429)
     return fail(
       'unavailable',
       'rate_limited',
-      'Phat Porcupine asked for a pause after too many refused credentials.',
+      'Omnorium asked for a pause after too many refused credentials.',
     );
   if (status === 421)
     return fail(
       'unavailable',
       'host_not_allowed',
-      'Phat Porcupine turned away the address Halcyonic used.',
+      'Omnorium turned away the address Halcyonic used.',
     );
   if (status === 403)
     return fail(
       'unavailable',
       'origin_not_allowed',
-      "Phat Porcupine took Halcyonic's request for a web page's.",
+      "Omnorium took Halcyonic's request for a web page's.",
     );
-  if (status === 500)
-    return fail('unavailable', 'internal', 'Phat Porcupine failed while answering.');
+  if (status === 500) return fail('unavailable', 'internal', 'Omnorium failed while answering.');
   if (status === 404 || status === 405)
     return fail(
       'incompatible',
       status === 404 ? 'not_found' : 'method_not_allowed',
-      'This Phat Porcupine does not serve the catalog Halcyonic reads.',
+      'This Omnorium does not serve the catalog Halcyonic reads.',
     );
   return fail(
     'unavailable',
     'unexpected_status',
-    `Phat Porcupine answered with status ${status}, which version 1 does not use.`,
+    `Omnorium answered with status ${status}, which version 1 does not use.`,
   );
 }
 
@@ -416,7 +403,7 @@ export function checkCredential(
     return fail(
       'unauthorized',
       'credential_missing',
-      'No Phat Porcupine credential is set up for Halcyonic.',
+      'No Omnorium credential is set up for Halcyonic.',
     );
   if (
     !/^(?:omc|ppc)_[A-Za-z0-9_-]{43}$/.test(credential) ||
@@ -425,7 +412,7 @@ export function checkCredential(
     return fail(
       'unauthorized',
       'credential_malformed',
-      "The Phat Porcupine credential set up for Halcyonic isn't the right kind, so it wasn't sent.",
+      "The Omnorium credential set up for Halcyonic isn't the right kind, so it wasn't sent.",
     );
   return credential;
 }

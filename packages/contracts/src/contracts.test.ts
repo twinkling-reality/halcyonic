@@ -607,7 +607,7 @@ describe('fitting a question', () => {
 
 describe('the catalog (ADR 0039)', () => {
   const ref = {
-    source: 'phat-porcupine',
+    source: 'omnorium',
     repository_id: 4_100_001,
     full_name: 'harbor-labs/tide.web',
   };
@@ -715,7 +715,7 @@ describe('the catalog (ADR 0039)', () => {
   const answer = {
     availability: 'available',
     provenance: 'reported',
-    source: { system: 'phat-porcupine', api_version: '1', synthetic: false, sample: false },
+    source: { system: 'omnorium', api_version: '1', synthetic: false, sample: false },
     generated_at: '2026-10-29T10:01:00Z',
     sync: {
       repositories_at: '2026-10-29T09:50:00Z',
@@ -728,14 +728,14 @@ describe('the catalog (ADR 0039)', () => {
     truncated: null,
   };
 
-  test('an available catalog is reported by Phat Porcupine, never observed', () => {
+  test('an available catalog is reported by Omnorium, never observed', () => {
     assert.equal(validate(answer).ok, true);
     assert.equal(validate({ ...answer, provenance: 'observed' }).ok, false);
     assert.equal(validate({ ...answer, provenance: undefined }).ok, false);
     assert.equal(validate({ ...answer, sync: undefined }).ok, false, 'its age is always said');
   });
 
-  test('a state Halcyonic does not know yet still reads, as Phat Porcupine may add states', () => {
+  test('a state Halcyonic does not know yet still reads, as Omnorium may add states', () => {
     const later = { ...project, state: { ...project.state, state: 'deploy_failed' } };
     assert.equal(validate({ ...answer, projects: [later] }).ok, true);
     const bad = { ...project, state: { ...project.state, state: 'Not A State' } };

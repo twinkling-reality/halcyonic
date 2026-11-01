@@ -2,7 +2,7 @@ import { CatalogResponse, compileValidator } from '@halcyonic/contracts';
 import Type, { type Static } from 'typebox';
 import { type CatalogFailure, fail, type Instance } from './connection.ts';
 
-// Halcyonic's own readers of Phat Porcupine's catalog contract, version 1 (its
+// Halcyonic's own readers of Omnorium's catalog contract, version 1 (its
 // `shared/contract/consumer.ts`), tolerant as version 1 asks: fields it adds later are ignored, and a
 // state or attention kind it adds is kept as a word Halcyonic reads as unknown. Bounds are version 1's
 // (`CATALOG_BOUNDS`), which never loosen within it.
@@ -122,8 +122,8 @@ export function readCatalog(value: unknown): WireCatalog | CatalogFailure {
 }
 
 /**
- * Phat Porcupine's catalog in Halcyonic's contract (ADR 0039): reported, with its age and its sample
- * flag, the instance's included. Pull request links, accounts, the user and Phat Porcupine's own ids
+ * Omnorium's catalog in Halcyonic's contract (ADR 0039): reported, with its age and its sample
+ * flag, the instance's included. Pull request links, accounts, the user and Omnorium's own ids
  * for repositories never cross; `local` stays empty for the control plane to fill from its journal.
  * What does not fit Halcyonic's contract, such as a repository name that is not GitHub's, makes the
  * whole answer incompatible rather than passing on part of it.
@@ -134,7 +134,7 @@ export function toCatalogResponse(catalog: WireCatalog, instance: Instance): Cat
     availability: 'available',
     provenance: 'reported',
     source: {
-      system: 'phat-porcupine',
+      system: 'omnorium',
       api_version: '1',
       synthetic: false,
       sample: catalog.sample || catalog.testGitHub || instance.sample || instance.testGitHub,
@@ -199,6 +199,6 @@ function invalid(path: string | undefined): CatalogFailure {
   return fail(
     'incompatible',
     'invalid_catalog',
-    `Phat Porcupine's catalog is outside version 1 as Halcyonic reads it${path ? ` (at ${path})` : ''}.`,
+    `Omnorium's catalog is outside version 1 as Halcyonic reads it${path ? ` (at ${path})` : ''}.`,
   );
 }

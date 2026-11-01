@@ -333,9 +333,9 @@ logged or passed to launched agents:
   instance on loopback. That proof is the instance id alone, which Salidium's discovery endpoint
   gives any local process, so an account that read it once could pose as Salidium on its port
   after an unclean stop left the file behind, and receive the credential.
-- Phat Porcupine's (Omnorium's) consumer credential, in `<data dir>/phat-porcupine-credential`, reads the
+- Omnorium's consumer credential, in `<data dir>/omnorium-credential`, reads the
   person's catalog and nothing else, read from a regular file of at most 1 KiB opened without
-  following a link or waiting on a pipe ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)). It is never journaled or sent to a client.
+  following a link or waiting on a pipe ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md)). It is never journaled or sent to a client.
   The discovery file (`consumer.json` in `OMNORIUM_HOME`, else `PHAT_PORCUPINE_HOME`, else
   `~/.omnorium` and then `~/.phat-porcupine`, moving to the second only when the first has no
   discovery file and never past an unsafe, unreadable or invalid one) is read only when it is a
@@ -346,7 +346,7 @@ logged or passed to launched agents:
   connection the proof came back on, kept open between them: the client opens one connection per
   read and refuses a second, so if the server closes that connection after the proof, the credential
   is sent on no other and the gallery hears that the connection closed. It is sent only in
-  Omnorium's `omc_` or Phat Porcupine's `ppc_` form, only to 127.0.0.1 on the port the file names,
+  Omnorium's `omc_` or legacy `ppc_` form, only to 127.0.0.1 on the port the file names,
   over `node:http` with no proxy and no redirect followed, and an answer past 8 MiB is not read.
 - Seorak's integration credential, in `<data dir>/seorak-credential`, reads Seorak's content-free
   measurements with the `sessions:read` and `replay:read` scopes, and the provider usage limits
@@ -552,7 +552,7 @@ What a client sees and can do about folders on the host
   folder replaced by another between the listing and Connect is bound with no word of the change.
   Cost: one `lstat` per distinct bound path inside the roots, so a device that makes many projects
   in one folder adds one read, not one per project.
-- **The catalog's folder match** ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md), `catalog-match.ts`) reads one file in a listed
+- **The catalog's folder match** ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md), `catalog-match.ts`) reads one file in a listed
   folder, its `.git/config`, to suggest which catalog repository the folder is a clone of. It runs
   only when a client reads `GET /api/catalog` with a catalog that is the person's own, never a
   sample, reading at most 400 folders and stopping after 2 seconds. It reads only a folder whose

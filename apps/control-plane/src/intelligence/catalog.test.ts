@@ -4,19 +4,19 @@ import { chmodSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, afterEach, before, describe, test } from 'node:test';
-import { FakePhatPorcupine } from '@halcyonic/integration-phat-porcupine/testing';
-import { PHAT_PORCUPINE_CREDENTIAL_FILE, PhatPorcupineCatalog } from './catalog.ts';
+import { FakeOmnorium } from '@halcyonic/integration-omnorium/testing';
+import { OMNORIUM_CREDENTIAL_FILE, OmnoriumCatalog } from './catalog.ts';
 
-describe("the control plane's catalog from Phat Porcupine (ADR 0039)", () => {
-  let fake: FakePhatPorcupine;
+describe("the control plane's catalog from Omnorium (ADR 0039)", () => {
+  let fake: FakeOmnorium;
   let dataDir: string;
   let credentialPath: string;
-  let catalog: PhatPorcupineCatalog;
+  let catalog: OmnoriumCatalog;
   before(async () => {
-    fake = await FakePhatPorcupine.start();
+    fake = await FakeOmnorium.start();
     dataDir = mkdtempSync(join(tmpdir(), 'halcyonic-catalog-data-'));
-    credentialPath = join(dataDir, PHAT_PORCUPINE_CREDENTIAL_FILE);
-    catalog = new PhatPorcupineCatalog({
+    credentialPath = join(dataDir, OMNORIUM_CREDENTIAL_FILE);
+    catalog = new OmnoriumCatalog({
       homes: [fake.home],
       credentialPath,
       protect: [dataDir],
@@ -39,7 +39,7 @@ describe("the control plane's catalog from Phat Porcupine (ADR 0039)", () => {
     chmodSync(credentialPath, mode);
   }
 
-  test('without a credential file, it says how to set one up and asks Phat Porcupine nothing', async () => {
+  test('without a credential file, it says how to set one up and asks Omnorium nothing', async () => {
     const answer = await catalog.read();
     assert.equal(
       answer.availability === 'unauthorized' && answer.reason.code,
@@ -95,7 +95,7 @@ describe("the control plane's catalog from Phat Porcupine (ADR 0039)", () => {
     const answer = await catalog.read();
     assert.equal(answer.availability, 'available');
     assert.ok(!JSON.stringify(answer).includes(fake.token));
-    const missing = await new PhatPorcupineCatalog({
+    const missing = await new OmnoriumCatalog({
       homes: [`${fake.home}-gone`],
       credentialPath,
       protect: [dataDir],
@@ -105,14 +105,14 @@ describe("the control plane's catalog from Phat Porcupine (ADR 0039)", () => {
   });
 
   test('a link is admitted only for a repository the last catalog held, under the same name', async () => {
-    const fresh = new PhatPorcupineCatalog({
+    const fresh = new OmnoriumCatalog({
       homes: [fake.home],
       credentialPath,
       protect: [dataDir],
       timeoutMs: 2000,
     });
     const ref = {
-      source: 'phat-porcupine' as const,
+      source: 'omnorium' as const,
       repository_id: 8100001,
       full_name: 'lantern-lab/wind-chimes',
     };
@@ -132,7 +132,7 @@ describe("the control plane's catalog from Phat Porcupine (ADR 0039)", () => {
     fake.sample = true;
     fake.publish();
     save(fake.token, 0o600);
-    const sampled = new PhatPorcupineCatalog({
+    const sampled = new OmnoriumCatalog({
       homes: [fake.home],
       credentialPath,
       protect: [dataDir],
@@ -141,7 +141,7 @@ describe("the control plane's catalog from Phat Porcupine (ADR 0039)", () => {
     const answer = await sampled.read();
     assert.equal(answer.availability === 'available' && answer.source.sample, true);
     const check = sampled.check({
-      source: 'phat-porcupine',
+      source: 'omnorium',
       repository_id: 8100001,
       full_name: 'lantern-lab/wind-chimes',
     });
