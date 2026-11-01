@@ -270,6 +270,55 @@ namespace Halcyonic.XR.Workspace
 
         public bool CloseProjectScreen() => !Away && setup.Presentation.CloseProjectScreen();
 
+        private System.Threading.Tasks.Task<CommandAckMessage>? pendingVrConversionAck;
+
+        private void ResetSpatialFlows()
+        {
+            pendingVrConversionAck = null;
+            setup.Presentation.ResetPendingCommands();
+        }
+
+        private void AdvanceSpatialFlows()
+        {
+            if (setup.Presentation.PendingVrConversionSequence is BuildSequence activeSequence
+                && pendingVrConversionAck is System.Threading.Tasks.Task<CommandAckMessage> ack
+                && ack.IsCompleted)
+            {
+                pendingVrConversionAck = null;
+                if (ack.Status == System.Threading.Tasks.TaskStatus.RanToCompletion) activeSequence.Acknowledged(ack.Result);
+                else activeSequence.AcknowledgementLost(ack.Exception?.GetBaseException() ?? new InvalidOperationException("The acknowledgement was lost."));
+            }
+
+            if (!Connected || Demonstration) return;
+
+            var nextCommand = setup.Presentation.AdvancePendingCommands(State, setup.Commands, out var convertedProjectId);
+            if (convertedProjectId != null)
+            {
+                memory.SelectProject(convertedProjectId);
+                dirty = true;
+            }
+            if (nextCommand != null && setup.Session() is RealtimeSession session)
+            {
+                var submitted = setup.Submit(session, nextCommand);
+                if (setup.Presentation.PendingVrConversionSequence is BuildSequence conversion)
+                {
+                    if (submitted == null) conversion.AcknowledgementLost(new SessionUnavailableException("Not connected."));
+                    else pendingVrConversionAck = submitted;
+                }
+                dirty = true;
+            }
+            else if (nextCommand != null && setup.Presentation.PendingVrConversionSequence is BuildSequence disconnectedConversion)
+            {
+                disconnectedConversion.AcknowledgementLost(new SessionUnavailableException("Not connected."));
+            }
+            else if (convertedProjectId != null
+                && nextCommand == null
+                && State?.Projects.TryGetValue(convertedProjectId, out var newVrProject) == true)
+            {
+                OpenNewProject(newVrProject.ProjectId, newVrProject.Name);
+            }
+        }
+
         private void OnScreenBarToggled()
         {
             if (Away || drag != null || plane.Repositioning || plane.Sliding) return;
@@ -296,9 +345,10 @@ namespace Halcyonic.XR.Workspace
             }
             if (WorkspacePresentationState.CommandForScreenAction(project, action, setup.Commands) is CommandEnvelope command)
             {
-                if (Connected && !Demonstration)
+                if (Connected && !Demonstration && setup.Session() is RealtimeSession session)
                 {
-                    _ = setup.Submit(setup.Session(), command);
+                    setup.Presentation.RecordCommandDispatched(command);
+                    _ = setup.Submit(session, command);
                     dirty = true;
                 }
                 return;
@@ -318,9 +368,11 @@ namespace Halcyonic.XR.Workspace
             {
                 if (State.Projects.TryGetValue(workstream.ProjectId, out var project)
                     && WorkspacePresentationState.CommandForScreenAction(project, KitScreenAction.TryIt, setup.Commands) is CommandEnvelope command
-                    && Connected && !Demonstration)
+                    && Connected && !Demonstration
+                    && setup.Session() is RealtimeSession session)
                 {
-                    _ = setup.Submit(setup.Session(), command);
+                    setup.Presentation.RecordCommandDispatched(command);
+                    _ = setup.Submit(session, command);
                     dirty = true;
                     return;
                 }
@@ -335,6 +387,7 @@ namespace Halcyonic.XR.Workspace
 
         private void UpdateProgressiveSpatial(UnityEngine.Vector3 eyes, UnityEngine.Vector3 looking)
         {
+            AdvanceSpatialFlows();
             if (setup.SpatialWorkspace && !Away && setup.Presentation.ActiveScreen(State, Connected || Demonstration) is KitScreenModel screenModel)
             {
                 var bearing = UnityEngine.Mathf.Atan2(looking.x, looking.z) * UnityEngine.Mathf.Rad2Deg + moved.Yaw;

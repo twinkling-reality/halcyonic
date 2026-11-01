@@ -45,6 +45,15 @@ namespace Halcyonic.Client
         /// <summary>Whether the on-demand project screen's command bar is open rather than folded to its handle.</summary>
         public bool ScreenBarOpen { get; private set; }
 
+        /// <summary>The project waiting to open on the Mac once its newly started preview is ready.</summary>
+        public string? PendingOpenOnMacProjectId { get; private set; }
+
+        /// <summary>The source project waiting for its <c>project.make_vr_version</c> VR project to appear in the projection.</summary>
+        public string? PendingVrConversionSourceProjectId { get; private set; }
+
+        /// <summary>The active two-step build sequence (<c>workstream.create</c> then <c>execution.start</c>) for a newly created VR project.</summary>
+        public BuildSequence? PendingVrConversionSequence { get; private set; }
+
         /// <summary>Revokes retained input and command authority before any presentation disappears.</summary>
         public event Action? Suspending;
         public event Action? Changed;
@@ -276,7 +285,7 @@ namespace Halcyonic.Client
                     var first = question.Prompts[0];
                     var promptText = string.IsNullOrEmpty(first.Header)
                         ? first.Text
-                        : first.Header + " · " + first.Text;
+                        : first.Header + ": " + first.Text;
                     moments.Add(KitMoment.AgentSays(runtime, promptText, ParseTime(question.AskedAt)));
                 }
             }
@@ -327,7 +336,8 @@ namespace Halcyonic.Client
             }
 
             var isVr = project.Starter != null;
-            var tryRoute = ProjectPlayFacts.PlayOnLaptopFor(project) == PlayOnLaptop.Offered;
+            var play = ProjectPlayFacts.PlayOnLaptopFor(project);
+            var tryRoute = play == PlayOnLaptop.Offered || play == PlayOnLaptop.NoPreviewOfCheck;
             var newestChangeAt = project.Check != null && project.Check.Files != ProjectViewCheckFiles.Current
                 ? DateTimeOffset.MaxValue
                 : (DateTimeOffset?)null;
@@ -377,9 +387,13 @@ namespace Halcyonic.Client
                         ? commands.MakeVrVersion(project.ProjectId, root, folderName)
                         : null;
                 case KitScreenAction.TryIt:
-                    return ProjectPlayFacts.PlayOnLaptopFor(project) == PlayOnLaptop.Offered
-                        ? commands.OpenOnMac(project.ProjectId)
-                        : null;
+                    var play = ProjectPlayFacts.PlayOnLaptopFor(project);
+                    return play switch
+                    {
+                        PlayOnLaptop.Offered => commands.OpenOnMac(project.ProjectId),
+                        PlayOnLaptop.NoPreviewOfCheck => commands.StartPreview(project.ProjectId),
+                        _ => null,
+                    };
                 default:
                     return null;
             }
@@ -398,6 +412,126 @@ namespace Halcyonic.Client
             KitMomentAction.Stop => FileSection.Activity,
             _ => null,
         };
+
+        /// <summary>
+        /// Records a command dispatched from a spatial room screen or moment card so follow-up steps
+        /// (<c>project.open_on_mac</c> after <c>project.preview.start</c>, or starting the conversion
+        /// workstream after <c>project.make_vr_version</c>) can advance when the projection updates.
+        /// </summary>
+        public void RecordCommandDispatched(CommandEnvelope? command)
+        {
+            switch (command)
+            {
+                case ProjectPreviewStartCommand startPreview:
+                    PendingOpenOnMacProjectId = startPreview.Payload.ProjectId;
+                    break;
+                case ProjectOpenOnMacCommand:
+                    PendingOpenOnMacProjectId = null;
+                    break;
+                case ProjectMakeVrVersionCommand makeVr:
+                    PendingVrConversionSourceProjectId = makeVr.Payload.OriginalProjectId;
+                    PendingVrConversionSequence = null;
+                    break;
+            }
+        }
+
+        public void ResetPendingCommands()
+        {
+            PendingOpenOnMacProjectId = null;
+            PendingVrConversionSourceProjectId = null;
+            PendingVrConversionSequence = null;
+        }
+
+        /// <summary>
+        /// Advances any pending spatial follow-up flow against <paramref name="state"/>:
+        /// dispatches <c>project.open_on_mac</c> once a preview started by <see cref="KitScreenAction.TryIt"/>
+        /// reaches <see cref="PlayOnLaptop.Offered"/>, and selects + starts the conversion workstream
+        /// (<c>workstream.create</c> then <c>execution.start</c>) once a VR project created by
+        /// <see cref="KitScreenAction.MakeAVrVersion"/> appears with its <see cref="ProjectMadeFromInfo"/>.
+        /// </summary>
+        public CommandEnvelope? AdvancePendingCommands(
+            ClientProjection? state,
+            CommandFactory? commands,
+            out string? convertedProjectId)
+        {
+            convertedProjectId = null;
+            if (state == null || commands == null) return null;
+
+            if (PendingOpenOnMacProjectId is string previewProjectId)
+            {
+                if (!state.Projects.TryGetValue(previewProjectId, out var previewProject))
+                {
+                    PendingOpenOnMacProjectId = null;
+                }
+                else
+                {
+                    var play = ProjectPlayFacts.PlayOnLaptopFor(previewProject);
+                    if (play == PlayOnLaptop.Offered)
+                    {
+                        PendingOpenOnMacProjectId = null;
+                        return commands.OpenOnMac(previewProjectId);
+                    }
+                    if (play != PlayOnLaptop.NoPreviewOfCheck)
+                    {
+                        PendingOpenOnMacProjectId = null;
+                    }
+                }
+            }
+
+            if (PendingVrConversionSourceProjectId is string sourceProjectId)
+            {
+                ProjectView? newVrProject = null;
+                ProjectMadeFromInfo? madeFrom = null;
+                foreach (var candidate in state.Projects.Values
+                    .OrderByDescending(item => item.CreatedAt, StringComparer.Ordinal)
+                    .ThenBy(item => item.ProjectId, StringComparer.Ordinal))
+                {
+                    if (state.MadeFromOf(candidate.ProjectId) is ProjectMadeFromInfo info
+                        && info.OriginalProjectId == sourceProjectId
+                        && !string.IsNullOrWhiteSpace(info.Instruction)
+                        && !state.Workstreams.Values.Any(work => work.ProjectId == candidate.ProjectId))
+                    {
+                        newVrProject = candidate;
+                        madeFrom = info;
+                        break;
+                    }
+                }
+
+                if (newVrProject != null && madeFrom != null)
+                {
+                    PendingVrConversionSourceProjectId = null;
+                    convertedProjectId = newVrProject.ProjectId;
+                    if (ScreenProjectId == sourceProjectId)
+                    {
+                        ShowProjectScreen(newVrProject.ProjectId, ScreenBarOpen);
+                    }
+                    var runtime = state.Runtimes.FirstOrDefault(item => item.Capabilities.StartExecution && item.ModelChoice != ModelChoice.Listed && !item.Synthetic)
+                        ?? state.Runtimes.FirstOrDefault(item => item.Capabilities.StartExecution && item.ModelChoice != ModelChoice.Listed);
+                    if (runtime != null)
+                    {
+                        PendingVrConversionSequence = BuildSequence.ForPrompt(
+                            newVrProject.ProjectId,
+                            madeFrom.Instruction,
+                            runtime,
+                            commands,
+                            out var firstCommand);
+                        return firstCommand;
+                    }
+                }
+            }
+
+            if (PendingVrConversionSequence is BuildSequence sequence)
+            {
+                var next = sequence.Advance(state);
+                if (sequence.Started || sequence.Stopped)
+                {
+                    PendingVrConversionSequence = null;
+                }
+                if (next != null) return next;
+            }
+
+            return null;
+        }
 
         private string? CurrentWaitingSignature(ClientProjection? state)
         {
