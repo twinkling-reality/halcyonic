@@ -258,18 +258,11 @@ namespace Halcyonic.XR.UI
             || (action == KitMomentAction.SeeTheOutput && tone == KitMomentTone.Failure);
 
         /// <summary>
-        /// The glossy Aero capsule hue of <paramref name="action"/> on a moment of <paramref name="tone"/>: green for Run or Try Build,
-        /// blue for Read Command or a failure's Read Output, red for Decline, and smoked-slate neutral for secondary capsules
-        /// (Reply, Restore Checkpoint, or a passed check's Read Output).
+        /// The glossy capsule hue of <paramref name="action"/> on a moment of <paramref name="tone"/>: sapphire blue for the one
+        /// primary (<see cref="IsPrimary"/>), and cool dark-slate neutral glass for every secondary capsule.
         /// </summary>
-        public static KitPillMeaning MeaningOf(KitMomentAction action, KitMomentTone tone) => action switch
-        {
-            KitMomentAction.YesRunIt or KitMomentAction.TryIt => KitPillMeaning.Green,
-            KitMomentAction.ReadIt => KitPillMeaning.Blue,
-            KitMomentAction.SeeTheOutput when tone == KitMomentTone.Failure => KitPillMeaning.Blue,
-            KitMomentAction.No => KitPillMeaning.Red,
-            _ => KitPillMeaning.Neutral,
-        };
+        public static KitPillMeaning MeaningOf(KitMomentAction action, KitMomentTone tone) =>
+            IsPrimary(action, tone) ? KitPillMeaning.Blue : KitPillMeaning.Neutral;
 
         /// <summary>Shows <paramref name="slot"/>'s shown moment, coming out of the character where it is new.</summary>
         public void Show(KitMomentSlot slot)
@@ -329,9 +322,8 @@ namespace Halcyonic.XR.UI
             var eyebrowLeft = left + markSize + Dp(SpatialKit.MarkGapDp);
             KitType.Size(eyebrow, KitRole.Label);
             GlazeText.SetLiteral(eyebrow, moment.Source);
-            // The count of the moments behind and after it stands at the eyebrow's end: on the earlier edge, 36 dp higher, Label
-            // would read under the floor on a tall card (13.7 dp seen at the larger card's top), so the edge carries no words.
-            var counted = string.Join(" · ", new[] { slot.Earlier, slot.Newer }.Where(words => words != null));
+            // The count of the moments behind and after it stands at the eyebrow's end; the stacked edge carries no words.
+            var counted = string.Join(", ", new[] { slot.Earlier, slot.Newer }.Where(words => words != null));
             var eyebrowRoom = width / 2f - pad - eyebrowLeft;
             var countBelow = false;
             if (counted.Length > 0)
@@ -459,13 +451,14 @@ namespace Halcyonic.XR.UI
                         segment.gameObject.SetActive(true);
                         segment.textWrappingMode = TextWrappingModes.NoWrap;
                         KitType.Size(segment, KitRole.Body);
-                        GlazeText.SetLiteral(segment, parts[p] + (p < parts.Length - 1 ? " · " : ""));
+                        GlazeText.SetLiteral(segment, x > left ? " · " + parts[p] : parts[p]);
                         var wide = segment.GetPreferredValues(segment.text).x;
                         if (x + wide > width / 2f - pad + 1e-5f && x > left)
                         {
                             x = left;
                             lineTop -= rowHeight;
                             rowHeight = 0f;
+                            GlazeText.SetLiteral(segment, parts[p]);
                         }
                         var (laid, laidWidth, laidHeight) = KitType.Lay(segment, width / 2f - pad - x, 1);
                         if (laid != 1 || segment.isTextTruncated) cut.Add("risk " + i + " segment " + p);
@@ -487,8 +480,8 @@ namespace Halcyonic.XR.UI
                 y -= lineHeight;
             }
 
-            // The answers: the one primary at full width, then the words in a row, 12 mm apart. A command shown cut can only be
-            // refused (SECURITY.md): Run leaves, and Read it opens the command whole first.
+            // The answers: the one primary at full width, then the secondary capsules sharing the row's full inner width, 12 mm apart.
+            // A command shown cut can only be refused (SECURITY.md): Run leaves, and Read it opens the command whole first.
             var actions = slot.Actions;
             if (moment.Kind == KitMomentKind.Question && !ReadsWhole)
                 actions = new[] { KitMomentAction.ReadIt }.Concat(actions.Where(action => action != KitMomentAction.YesRunIt)).ToList();
@@ -500,7 +493,6 @@ namespace Halcyonic.XR.UI
                 var between = KitType.Units(SpatialKit.TargetGapDegrees);
                 bool Leads(KitMomentAction action) => IsPrimary(action, moment.Tone);
                 var primary = actions.FirstOrDefault(Leads);
-                var rowX = left;
                 var rowTop = y;
                 if (actions.Any(Leads))
                 {
@@ -512,22 +504,35 @@ namespace Halcyonic.XR.UI
                     rowTop -= target + between;
                 }
                 var rest = actions.Where(action => !actions.Any(Leads) || !action.Equals(primary)).ToList();
+                var restRows = new List<List<(KitMomentAction Action, KitButton Button, float Measured)>>();
                 foreach (var action in rest)
                 {
                     var button = ButtonFor(action);
                     button.Role = KitButtonRole.Word;
                     button.Meaning = MeaningOf(action, moment.Tone);
                     var w = button.Measure(KitMomentWords.Action(action), null);
-                    if (rowX + w > width / 2f - pad + 1e-5f && rowX > left)
-                    {
-                        rowX = left;
-                        rowTop -= target + between;
-                    }
-                    button.Show(KitMomentWords.Action(action), null, new Vector2(rowX + w / 2f, rowTop - target / 2f), w);
-                    shown.Add((action, button));
-                    rowX += w + between;
+                    if (restRows.Count == 0 || restRows[^1].Sum(b => b.Measured) + restRows[^1].Count * between + w > inner + 1e-5f)
+                        restRows.Add(new List<(KitMomentAction, KitButton, float)>());
+                    restRows[^1].Add((action, button, w));
                 }
-                y = rest.Count > 0 ? rowTop - target : rowTop + between;
+                foreach (var rowButtons in restRows)
+                {
+                    var n = rowButtons.Count;
+                    var available = inner - (n - 1) * between;
+                    var cellWidth = available / n;
+                    var allFitEqual = rowButtons.All(b => b.Measured <= cellWidth + 1e-5f);
+                    var extraEach = (available - rowButtons.Sum(b => b.Measured)) / n;
+                    var rowX = left;
+                    foreach (var (action, button, measured) in rowButtons)
+                    {
+                        var w = allFitEqual ? cellWidth : measured + Mathf.Max(0f, extraEach);
+                        button.Show(KitMomentWords.Action(action), null, new Vector2(rowX + w / 2f, rowTop - target / 2f), w);
+                        shown.Add((action, button));
+                        rowX += w + between;
+                    }
+                    rowTop -= target + between;
+                }
+                y = rowTop + between;
             }
             y -= pad;
 

@@ -184,14 +184,14 @@ public class SpatialKitTests
     [Test]
     public void TheRampIsTheWindowsGrey()
     {
-        // ART8's window (2026-10-31) at the floor-safe value the lead kept: one neutral grey by role under white words at 100,
-        // 82 and 78 percent, the bright state tones (live and failed lifted to hold 4.5 on every grey), a blue for the primary.
+        // Cool obsidian-slate window glass: steps of cool dark slate by role under white words at 100,
+        // 82 and 78 percent, the bright state tones, and sapphire blue for the one primary.
         var ramp = new[] { SpatialKit.Well, SpatialKit.Carrier, SpatialKit.Raised, SpatialKit.Control, SpatialKit.Hairline, SpatialKit.TextTertiary, SpatialKit.TextSecondary, SpatialKit.Text };
-        Assert.That(ramp, Is.EqualTo(new uint[] { 0x2A2D30, 0x424549, 0x46494D, 0x4B4E52, 0x97999B, 0xDBDCDC, 0xE1E2E3, 0xFFFFFF }.Select(GlazeColor.Hex)));
+        Assert.That(ramp, Is.EqualTo(new uint[] { 0x1C2029, 0x2B3140, 0x313848, 0x394152, 0x8F96A6, 0xDBDCDC, 0xE1E2E3, 0xFFFFFF }.Select(GlazeColor.Hex)));
         Assert.That(new[] { SpatialKit.Accent, SpatialKit.Attention, SpatialKit.Failure, SpatialKit.Passed },
             Is.EqualTo(new uint[] { 0x7ADCF7, 0xFABA59, 0xFFAAA3, 0x69D98D }.Select(GlazeColor.Hex)), "live, needs, failed, passed");
         Assert.That((SpatialKit.OnFill, SpatialKit.PrimaryFill), Is.EqualTo((GlazeColor.Hex(0xFFFFFF), GlazeColor.Hex(0x006ADB))), "white words on the blue primary");
-        Assert.That((SpatialKit.FaceTop, SpatialKit.FaceBottom), Is.EqualTo((GlazeColor.Hex(0x494C50), GlazeColor.Hex(0x3B3E42))), "the window's grey, lit from above");
+        Assert.That((SpatialKit.FaceTop, SpatialKit.FaceBottom), Is.EqualTo((GlazeColor.Hex(0x333A4A), GlazeColor.Hex(0x242936))), "the window's cool slate, lit from above");
         Assert.That(GlazeColor.Contrast(SpatialKit.Thumb, SpatialKit.Well), Is.GreaterThanOrEqualTo(1.5), "the switch's thumb stands off its track");
     }
 

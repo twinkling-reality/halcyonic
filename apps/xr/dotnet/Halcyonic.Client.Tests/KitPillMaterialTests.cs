@@ -87,7 +87,7 @@ public class KitPillMaterialTests
             else if (meaning == KitPillMeaning.Blue)
                 Assert.That(middle.B, Is.GreaterThan(Math.Max(middle.R, middle.G)), "blue pill is blue");
             else
-                Assert.That(Math.Max(middle.R, Math.Max(middle.G, middle.B)) - Math.Min(middle.R, Math.Min(middle.G, middle.B)), Is.LessThanOrEqualTo(12), "neutral pill is smoked-slate grey");
+                Assert.That(Math.Max(middle.R, Math.Max(middle.G, middle.B)) - Math.Min(middle.R, Math.Min(middle.G, middle.B)), Is.LessThanOrEqualTo(28), "neutral pill is cool dark-slate glass");
         }
     }
 }

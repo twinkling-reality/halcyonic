@@ -82,11 +82,11 @@ namespace Halcyonic.Client
 
         private static readonly KitGlassMaterial.Stop[] NeutralStops =
         {
-            new KitGlassMaterial.Stop(0.00, GlazeColor.Hex(0x5C626C), 1),
-            new KitGlassMaterial.Stop(0.30, GlazeColor.Hex(0x444850), 1),
-            new KitGlassMaterial.Stop(0.68, GlazeColor.Hex(0x42464D), 1),
-            new KitGlassMaterial.Stop(0.88, GlazeColor.Hex(0x32363D), 1),
-            new KitGlassMaterial.Stop(1.00, GlazeColor.Hex(0x4A5059), 1),
+            new KitGlassMaterial.Stop(0.00, GlazeColor.Hex(0x4C5568), 1),
+            new KitGlassMaterial.Stop(0.30, GlazeColor.Hex(0x384050), 1),
+            new KitGlassMaterial.Stop(0.68, GlazeColor.Hex(0x353D4D), 1),
+            new KitGlassMaterial.Stop(0.88, GlazeColor.Hex(0x29303E), 1),
+            new KitGlassMaterial.Stop(1.00, GlazeColor.Hex(0x3E4759), 1),
         };
 
         /// <summary>The five vertical gradient stops from top (0) to bottom (1) for <paramref name="meaning"/>.</summary>
@@ -115,7 +115,7 @@ namespace Halcyonic.Client
         {
             KitPillMeaning.Green => GlazeColor.Hex(0x09441A),
             KitPillMeaning.Red => GlazeColor.Hex(0x6C1411),
-            KitPillMeaning.Neutral => GlazeColor.Hex(0x24282E),
+            KitPillMeaning.Neutral => GlazeColor.Hex(0x1D222D),
             _ => GlazeColor.Hex(0x083870),
         };
 
@@ -124,7 +124,7 @@ namespace Halcyonic.Client
         {
             KitPillMeaning.Green => GlazeColor.Hex(0x6EF58C),
             KitPillMeaning.Red => GlazeColor.Hex(0xFF826E),
-            KitPillMeaning.Neutral => GlazeColor.Hex(0x7A8088),
+            KitPillMeaning.Neutral => GlazeColor.Hex(0x6E7A90),
             _ => GlazeColor.Hex(0x6ED7FF),
         };
 
@@ -133,7 +133,7 @@ namespace Halcyonic.Client
         {
             KitPillMeaning.Green => GlazeColor.Hex(0x0F5A24),
             KitPillMeaning.Red => GlazeColor.Hex(0x881C18),
-            KitPillMeaning.Neutral => GlazeColor.Hex(0x42464D),
+            KitPillMeaning.Neutral => GlazeColor.Hex(0x353D4D),
             _ => GlazeColor.Hex(0x0C488A),
         };
 

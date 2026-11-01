@@ -153,7 +153,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         KitPillMeaning.Green => bodyColour.G > Math.Max(bodyColour.R, bodyColour.B),
                         KitPillMeaning.Red => bodyColour.R > Math.Max(bodyColour.G, bodyColour.B),
                         KitPillMeaning.Blue => bodyColour.B > Math.Max(bodyColour.R, bodyColour.G),
-                        KitPillMeaning.Neutral => Math.Max(bodyColour.R, Math.Max(bodyColour.G, bodyColour.B)) - Math.Min(bodyColour.R, Math.Min(bodyColour.G, bodyColour.B)) <= 18,
+                        KitPillMeaning.Neutral => Math.Max(bodyColour.R, Math.Max(bodyColour.G, bodyColour.B)) - Math.Min(bodyColour.R, Math.Min(bodyColour.G, bodyColour.B)) <= 28,
                         _ => false,
                     };
                     if (!hueHolds || bodyDrift > GlassTolerance)
@@ -197,7 +197,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // Where a moment offers a next step, one primary carries it (a failure's Read Output among them).
             Require(!card.Actions.Any(action => KitMomentCard.IsPrimary(action, moment.Tone)) || card.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) == 1, "the next step is not the one primary");
             // The count: only what stands before the shown moment, on the earlier edge, and what came after a waiting question.
-            var counted = string.Join(" · ", new[] { slot.Earlier, slot.Newer }.Where(words => words != null));
+            var counted = string.Join(", ", new[] { slot.Earlier, slot.Newer }.Where(words => words != null));
             Require(card.Count.gameObject.activeSelf == (counted.Length > 0) && (counted.Length == 0 || card.Count.text == counted), "the count is not the model's earlier and newer moments");
             Require(card.Earlier.gameObject.activeSelf == (slot.Earlier != null), "the earlier edge stands without earlier moments, or is missing");
             // The actions beneath, the model's and in this order: the one primary first, at full width, then every other in the

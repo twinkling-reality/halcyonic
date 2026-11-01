@@ -94,8 +94,8 @@ candidate's only, in its own face and a 1.2 line pitch; no part of the room uses
 
 **Material.** The room's panels are one window glass (`KitGlassMaterial` in the client core, `KitGlass` and the
 `Halcyonic/Kit Glass` shader in the Unity layer; `KitCarrier.DrawGlass` draws a carrier in it): one opaque face over the
-whole panel (`#494C50`, n1 at the middle, `#3B3E42`), an optional horizontal left-edge wash in the avatar's hue
-(`SpatialKit.AvatarTint` `#163E8F`, 28 percent at the left edge, 16 at 42 percent across, 6 at 74 percent, and 0 at the
+whole panel (`#333A4A`, n1 `#2B3140` at the middle, `#242936`), an optional horizontal left-edge wash in the avatar's hue
+(`SpatialKit.AvatarTint` `#0F3380`, 28 percent at the left edge, 16 at 42 percent across, 6 at 74 percent, and 0 at the
 right edge; `KitGlassMaterial.LeftWash`), and a soft radial top light of white at 10 percent reaching 60 percent
 of the height, carrying every word (inset 10 dp on a panel, 8 on the lost plate and the earlier edge, 6 on a tile and the
 tag, where the quiet glass's rim stood; no part is see-through and nothing glows round it); a 1 dp ring of white at 6
@@ -112,13 +112,12 @@ other rooms drift. The bloom peaks at 11 percent, not 14, so tertiary words keep
 shader): every answer is a glass capsule 60 dp tall and at least 60 wide, 12 apart, rendered through the same five-stop
 vertical gradient, bottom inner bounce, continuous upper-half glass specular crown (`0.50` of the height, fading smoothly
 from top to `0.36` to `0.00` at `0.50` without a pasted oval sticker edge), 1.2 dp top rim catch-light, and 1.5 dp darker
-outer rim. An action that runs or tries a build (`Run`, `Try Build`) is a glossy green Aero capsule (`KitPillMeaning.Green`);
-declining (`Decline`) is a glossy red Aero capsule (`KitPillMeaning.Red`); the one primary where neither applies (`Read Command`,
-a failure's `Read Output`, or the screen bar's primary) is a glossy blue Aero capsule (`KitPillMeaning.Blue`); and every
-secondary capsule (`Reply`, `Restore Checkpoint`, a passed check's `Read Output`) and round 60 dp icon button
+outer rim. The one primary action on a card or the reader (`Run`, `Try Build`, `Read Command`, a failure's `Read Output`,
+or the screen bar's primary) is a sapphire-blue glass capsule (`KitPillMeaning.Blue`); every secondary capsule (`Decline`,
+`Reply`, `Restore Checkpoint`, a passed check's `Read Output`, `Stop`) and round 60 dp icon button
 (`KitButtonRole.Round`, such as the reader's close button carrying `GlazeIcon.Close` while keeping `Fold` as its name) is a
-smoked-slate neutral glass capsule (`KitPillMeaning.Neutral`: `#5C626C` to `#444850` to `#42464D` to `#32363D` to `#4A5059`,
-rim `#24282E`, bottom bounce `#7A8088` at `0.16` alpha, top specular crown from `0.22` to `0.06` to `0.00`, and top rim
+cool dark-slate neutral glass capsule (`KitPillMeaning.Neutral`: `#4C5568` to `#384050` to `#353D4D` to `#29303E` to `#3E4759`,
+rim `#1D222D`, bottom bounce `#6E7A90` at `0.16` alpha, top specular crown from `0.22` to `0.06` to `0.00`, and top rim
 catch-light at `0.28` vs `0.34` to `0.10` to `0.00` crown, `0.28` bounce, and `0.42` catch-light on the saturated hues). Every
 capsule carries its word or glyph in n7 (`28 dp` in at either side on the primary, `18 dp` on a secondary answer; pointed,
 `3` percent larger with `+5` percent sRGB lift and, on the primary, a `3 dp` ring outside it at 3:1 or more on every face;
@@ -128,15 +127,13 @@ reason being its word. The bar's other buttons keep their raised and outlined lo
 **The moment card.** 368 dp of window glass (inset 10, the avatar's left-edge tint wash across the face, and the moment's
 tone blooming on arrival, said in its words), in reading order:
 the eyebrow (a 20 dp mark, a ring for the runtime's report and a disc for what the computer saw, its glyph in `#FFC164` for
-"?" or `#FFBBB4` for "!" inside a ring and n0 on a disc, then who says it in Label n6); the Title 10 dp below, in Title, at most two lines; the metadata line in
+"?" or `#FFBBB4` for "!" inside a ring and n0 on a disc, then who says it in Label n6: `"Reported Question"`, `"Observed on Mac"`, or `"{Runtime} (Reported)"`); the Title 10 dp below, in Title, at most two lines; the metadata line in
 Label n6, its segments joined by " · ", a path or a name of theirs in their monospace; or the runtime's own prose in Body;
 a command of theirs in a well 14 dp below (`KitWell`: Mono n7 on n0, radius 12, padding 12 by 14, cut after two lines with
-the last fading and "Cut · {n} More Lines" in Label n5 beneath); the risk line 12 dp below in Body n6; the answers 16 dp
-below, the primary at full width (green for `Run` or `Try Build`, blue for `Read Command` or a failure's `Read Output`),
-then the secondary capsules in a row (red for `Decline`, neutral grey for `Reply`, `Restore Checkpoint` or a passed check's
-`Read Output`). The earlier moments stand as one edge of the same glass, 28 dp
-narrower, rising 36 dp above the card, inset 8; their count stands at the eyebrow's end in Label n5 (on the edge, that high above a tall
-card, Label read under the 14 dp floor). No locked answer stands in the card's
+the last fading and "Cut · {n} More Lines" in Label n5 beneath); the risk line 12 dp below in Body n6 (`"Runs on your Mac"` or `"Runs in sandbox"`); the answers 16 dp
+below, the one primary at full width in sapphire-blue glass (`KitPillMeaning.Blue`), then the secondary capsules sharing the
+row's full inner width equally in cool dark-slate glass (`KitPillMeaning.Neutral`). The earlier moments stand as one subtle lip of the same glass, 28 dp
+narrower, rising 10 dp above the card, inset 8; their count (`"{n} Earlier"`) stands at the eyebrow's end in Label n5. No locked answer stands in the card's
 top 40 percent, where the bloom peaks. The render names any part that does not read whole.
 
 **The reading surface.** A command of theirs is read whole before it can run (`KitReader`, `KitReading`): 704 by 528 dp of
@@ -151,9 +148,9 @@ indentation kept and a tab shown as its code point. The reading goes by rows, so
 through to its last row like any other. The rows run to the well's foot. At an edge where rows are hidden, the next row
 stands half-shown under a 24 dp fade, from 0.95 of the well at its edge to 0.12, its letters fading toward the edge, and it
 does not count as read. "End of Command · " and what answering may do, in Label n6, is the content's last part, scrolled
-into view after the command's last row like any other row, so nothing reflows when the end arrives. Its foot stands fixed from the first frame, 12 dp above the bottom: Run's 240 dp slot, then Decline (a red glossy capsule) and Reply (a neutral grey capsule),
-12 apart. The slot is the locked "Read to End", filled from its left in n7 at 14 percent over n1 (`#5C5F63`) as far as the command has been read, with
-its word in n6 while the fill stands under it, and becomes a green glossy Run capsule only once the last row of
+into view after the command's last row like any other row, so nothing reflows when the end arrives. Its foot stands fixed from the first frame, 12 dp above the bottom: Run's 240 dp slot, then Decline and Reply sharing the rest of the footer width equally as cool dark-slate glass capsules (`KitPillMeaning.Neutral`),
+12 apart. The slot is the locked "Read to End", filled from its left in n7 at 14 percent over n1 as far as the command has been read, with
+its word in n6 while the fill stands under it, and becomes a sapphire-blue glossy Run capsule (`KitPillMeaning.Blue`) only once the last row of
 the last line has been shown; scrolling back never locks it again. The unlock sounds the Moment cue where its owner gives
 the reader a player.
 

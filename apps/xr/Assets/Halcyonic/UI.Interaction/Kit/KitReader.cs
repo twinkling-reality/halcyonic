@@ -189,22 +189,24 @@ namespace Halcyonic.XR.UI
             well.Draw(new Vector2(wellWidth, wellTop - wellBottom), Dp(SpatialKit.InsetRadiusDp), KitType.Colour(SpatialKit.Well));
             well.transform.localPosition = new Vector3(0f, (wellTop + wellBottom) / 2f, 0.0001f);
 
-            // The foot, fixed from the first frame: Run's slot, then Decline and Reply, 12 apart, 12 dp above the bottom.
+            // The foot, fixed from the first frame: Run's slot, then Decline and Reply sharing the rest of the footer width, 12 apart, 12 dp above the bottom.
             var footY = -h / 2f + Dp(SpatialKit.ReaderFootDp) + KitButton.Height / 2f;
             var between = KitType.Units(SpatialKit.TargetGapDegrees);
             var slot = Dp(SpatialKit.ReaderPrimaryDp);
+            var footInner = w - 2f * pad;
+            var secondaryWidth = (footInner - slot - 2f * between) / 2f;
             var x = -w / 2f + pad;
             primary.Role = KitButtonRole.Primary;
-            primary.Meaning = KitPillMeaning.Green;
+            primary.Meaning = KitPillMeaning.Blue;
             primary.Show(KitReaderWords.ReadToEnd, null, new Vector2(x + slot / 2f, footY), slot);
             x += slot + between;
             var declineWords = KitMomentWords.Action(KitMomentAction.No);
-            var declineWidth = decline.Measure(declineWords, null);
-            decline.Meaning = KitPillMeaning.Red;
+            var declineWidth = Mathf.Max(decline.Measure(declineWords, null), secondaryWidth);
+            decline.Meaning = KitPillMeaning.Neutral;
             decline.Show(declineWords, null, new Vector2(x + declineWidth / 2f, footY), declineWidth);
             x += declineWidth + between;
             var replyWords = KitMomentWords.Action(KitMomentAction.SaySomethingElse);
-            var replyWidth = reply.Measure(replyWords, null);
+            var replyWidth = Mathf.Max(reply.Measure(replyWords, null), secondaryWidth);
             reply.Meaning = KitPillMeaning.Neutral;
             reply.Show(replyWords, null, new Vector2(x + replyWidth / 2f, footY), replyWidth);
             gameObject.SetActive(true);

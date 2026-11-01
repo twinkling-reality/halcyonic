@@ -347,7 +347,7 @@ namespace Halcyonic.Client
             }
         }
 
-        /// <summary>"Earlier · {n} More", counting only the moments before the shown one; null with none before it.</summary>
+        /// <summary>"{n} Earlier", counting only the moments before the shown one; null with none before it.</summary>
         public string? Earlier => Shown is int shown && shown > 0 ? KitMomentWords.Earlier(shown) : null;
 
         /// <summary>"{n} Newer", counting the moments after a waiting question that stays shown; null with none after it.</summary>
@@ -373,13 +373,13 @@ namespace Halcyonic.Client
         public const string Dot = " · ";
 
         /// <summary>After a runtime's name on the eyebrow: what it says is its report.</summary>
-        public const string ReportedSuffix = " · Reported";
+        public const string ReportedSuffix = " (Reported)";
 
         /// <summary>The eyebrow of what the computer itself saw or ran.</summary>
-        public const string YourComputer = "Your Computer · Observed";
+        public const string YourComputer = "Observed on Mac";
 
         /// <summary>The eyebrow of a question the agent asks: no app's name in our words, and that it is reported (WORDS.md, T2 and T7).</summary>
-        public const string AgentQuestion = "Agent · Question · Reported";
+        public const string AgentQuestion = "Reported Question";
 
         public const string SentTitle = "Sent";
 
@@ -449,8 +449,8 @@ namespace Halcyonic.Client
         /// <summary>ADR 0033's line in the form the runtime declares; none where it declared nothing.</summary>
         public static string? Sandbox(KitSandbox sandbox) => sandbox switch
         {
-            KitSandbox.MayLeave => "May Run Outside Sandbox · Your Access",
-            KitSandbox.StaysInside => "Runs Inside Sandbox",
+            KitSandbox.MayLeave => "Runs on your Mac",
+            KitSandbox.StaysInside => "Runs in sandbox",
             _ => null,
         };
 
@@ -474,7 +474,7 @@ namespace Halcyonic.Client
         /// <summary>The ready line: what the passed check covered, then the time it took where known, and no more.</summary>
         public static string Reward(TimeSpan? elapsed, KitCheckScope scope) => Covered(scope) + (elapsed is TimeSpan taken ? Dot + Time(taken) : "");
 
-        public static string Earlier(int count) => "Earlier" + Dot + Number(count) + " More";
+        public static string Earlier(int count) => Number(count) + " Earlier";
 
         public static string Newer(int count) => Number(count) + " Newer";
 
