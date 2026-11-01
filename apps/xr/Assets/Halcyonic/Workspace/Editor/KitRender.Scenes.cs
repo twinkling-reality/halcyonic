@@ -117,7 +117,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 }, SelectedProject, headingIsName: true),
             };
             return new KitWorkModel(SelectedProject, SelectedTask, Badge(CharacterActivity.Working), new WorkMark[0], report, trail,
-                Draft, voiceOffered: true, sendable: true, whyNotSend: null, spine, spineFoot: null);
+                Draft, voiceOffered: true, sendable: true, whyNotSend: null, spine, spineFoot: null,
+                environment: "This Mac", agent: "Codex");
         }
 
         /// <summary>Three projects with running, waiting and failed work, each failed or waiting task with its next action.</summary>

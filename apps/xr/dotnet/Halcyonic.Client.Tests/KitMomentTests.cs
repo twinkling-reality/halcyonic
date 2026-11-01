@@ -76,9 +76,15 @@ public class KitMomentTests
         var leaves = KitMoment.Question(Codex, "npm install matter-js", KitSandbox.MayLeave, complete: true, At);
         var stays = KitMoment.Question(Codex, "npm install matter-js", KitSandbox.StaysInside, complete: true, At);
         var silent = KitMoment.Question(Codex, "npm install matter-js", KitSandbox.NotDeclared, complete: true, At);
-        Assert.That(leaves.Lines, Is.EqualTo(new[] { "Runs on your Mac" }));
-        Assert.That(stays.Lines, Is.EqualTo(new[] { "Runs in sandbox" }));
-        Assert.That(silent.Lines, Is.Empty, "nothing claimed where nothing was declared; the question and its locked answers say nothing runs yet");
+        Assert.That(leaves.Sandbox, Is.EqualTo(KitSandbox.MayLeave));
+        Assert.That(stays.Sandbox, Is.EqualTo(KitSandbox.StaysInside));
+        Assert.That(silent.Sandbox, Is.EqualTo(KitSandbox.NotDeclared));
+        Assert.That(leaves.Lines, Is.Empty);
+        Assert.That(stays.Lines, Is.Empty);
+        Assert.That(silent.Lines, Is.Empty);
+        Assert.That(KitMomentWords.Sandbox(KitSandbox.MayLeave), Is.EqualTo("This Mac"));
+        Assert.That(KitMomentWords.Sandbox(KitSandbox.StaysInside), Is.EqualTo("Sandbox"));
+        Assert.That(KitMomentWords.Sandbox(KitSandbox.NotDeclared), Is.Null);
         Assert.That(leaves.Source, Is.EqualTo("Reported Question"), "no app's name in our words, and how it is known");
         Assert.That(leaves.Tone, Is.EqualTo(KitMomentTone.Attention));
         Assert.That(leaves.Headline.ToString(), Is.EqualTo("Run Command? · [npm install matter-js]"));
