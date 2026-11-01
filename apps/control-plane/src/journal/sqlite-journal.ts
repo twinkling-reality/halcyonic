@@ -294,7 +294,7 @@ class SqliteJournal implements EventJournal {
               options.limit,
             );
     }
-    return rows.map((row) => toStoredEvent(row as { position: number; envelope: string }));
+    return (rows as { position: number; envelope: string }[]).map(toStoredEvent);
   }
   event(eventId: string): StoredEvent | undefined {
     const row = this.#readEvent.get(eventId) as { position: number; envelope: string } | undefined;
@@ -304,8 +304,10 @@ class SqliteJournal implements EventJournal {
   *readAll(): Iterable<StoredEvent> {
     const batch = 1000;
     for (let after = 0; ; ) {
-      const rows = this.read({ after, limit: batch });
-      yield* rows;
+      const rows = this.#readAfter.all(after, batch) as { position: number; envelope: string }[];
+      for (const row of rows) {
+        yield toStoredEvent(row);
+      }
       const last = rows.at(-1);
       if (last === undefined || rows.length < batch) return;
       after = last.position;

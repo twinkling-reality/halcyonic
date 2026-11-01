@@ -15,7 +15,7 @@ const command = (text: string): ToolResult => ({
 });
 test('whole admitted field is redacted before its boundary; unknown credentials remain owner work content', () => {
   const held = 'private-held-value';
-  const source = command('x'.repeat(4090) + held + ' unknown-key');
+  const source = command(`${'x'.repeat(4090)}${held} unknown-key`);
   const result = normalizedToolResult(
     source,
     redaction(() => [{ what: 'held', value: held }]),
