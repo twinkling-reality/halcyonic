@@ -105,11 +105,13 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(reader.Fold.Role == KitButtonRole.Round && !reader.Fold.Words.gameObject.activeSelf
                 && reader.Fold.Meaning == KitPillMeaning.Neutral && reader.Fold.Pill != null,
                 "the reader's close button is not a round glass icon button");
-            Require(reader.Primary.Meaning == KitPillMeaning.Green && (reader.Primary.Pill != null) == reading.ReadWhole, "the reader's Run is not a green glossy capsule once unlocked");
-            Require(reader.Decline.Meaning == KitPillMeaning.Red && reader.Decline.Pill != null, "the reader's Decline is not a red glossy capsule");
+            Require(reader.Primary.Meaning == KitPillMeaning.Blue && (reader.Primary.Pill != null) == reading.ReadWhole, "the reader's Run is not a blue glossy capsule once unlocked");
+            Require(reader.Decline.Meaning == KitPillMeaning.Neutral && reader.Decline.Pill != null
+                && SameColour(reader.Decline.Plate.Fill, KitType.Colour(KitPillMaterial.Middle(KitPillMeaning.Neutral))),
+                "the reader's Decline is not a neutral dark-slate glass capsule");
             Require(reader.Reply.Meaning == KitPillMeaning.Neutral && reader.Reply.Pill != null
                 && SameColour(reader.Reply.Plate.Fill, KitType.Colour(KitPillMaterial.Middle(KitPillMeaning.Neutral))),
-                "the reader's Reply is not a neutral smoked-slate glass capsule");
+                "the reader's Reply is not a neutral dark-slate glass capsule");
             Require((reader.Primary.Words.text == LabelText.ForTextMeshPro(KitMomentWords.Action(KitMomentAction.YesRunIt))) == reading.ReadWhole, "the primary's word is not Run exactly when the command is read whole");
             if (!reading.ReadWhole)
                 Require(Mathf.Abs(reader.Primary.Progress - (float)furthest / reading.Rows.Count) < 1e-4f && reader.Primary.ProgressFill.gameObject.activeSelf,

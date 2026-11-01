@@ -174,16 +174,16 @@ namespace Halcyonic.Client
         public static GlazeColor Side => Well;
 
         /// <summary>n2: a chip, a secondary control, and the lift under what is chosen.</summary>
-        public static GlazeColor Raised => GlazeColor.Hex(0x46494D);
+        public static GlazeColor Raised => GlazeColor.Hex(0x313848);
 
         /// <summary>n0: the person's own words sunk into the slate, code, a screen's edge.</summary>
-        public static GlazeColor Well => GlazeColor.Hex(0x2A2D30);
+        public static GlazeColor Well => GlazeColor.Hex(0x1C2029);
 
         /// <summary>
         /// The switch's thumb, raised above its n0 track: ART's n3, a step over the kit's <see cref="Control"/> so it stands off
         /// the track at 1.5:1. It carries only primary and secondary words.
         /// </summary>
-        public static GlazeColor Thumb => GlazeColor.Hex(0x45484C);
+        public static GlazeColor Thumb => GlazeColor.Hex(0x373F50);
 
         /// <summary>
         /// A quiet control's outline, an unavailable control's, and the trail's line: drawn opaque so it blends the same
@@ -200,18 +200,18 @@ namespace Halcyonic.Client
         /// <summary>n6: secondary words.</summary>
         public static GlazeColor TextSecondary => GlazeColor.Hex(0xE1E2E3);
 
-        // The room's ramp (ADR 0040 as amended; ART8's window glass, 2026-10-31, at the floor-safe value: ART8's grey at 0.6 so
-        // white words hold 6.5:1 on its lit top): opaque steps of one neutral grey by role, white words, one blue for the one
-        // primary, and colour only where it means something. Secondary and small words are white at 82 and 78 percent, never less.
+        // The room's ramp (ADR 0040 as amended; cool obsidian-slate window glass): opaque steps of cool dark slate by role,
+        // white words, one sapphire blue for the one primary, and colour only where it means something. Secondary and small
+        // words are white at 82 and 78 percent, never less.
 
         /// <summary>n1: every surface in the room that carries words.</summary>
-        public static GlazeColor Carrier => GlazeColor.Hex(0x424549);
+        public static GlazeColor Carrier => GlazeColor.Hex(0x2B3140);
 
-        /// <summary>n3: a button's fill; what the pointer rests on. OKLCH 0.35, the lightest step on which every word holds 4.5.</summary>
-        public static GlazeColor Control => GlazeColor.Hex(0x4B4E52);
+        /// <summary>n3: a button's fill; what the pointer rests on. The lightest step on which every word holds 4.5.</summary>
+        public static GlazeColor Control => GlazeColor.Hex(0x394152);
 
-        /// <summary>n4: a locked answer's ring, a hairline and the dotted gutter of code still only reported: at least 3:1 on every surface a locked control sits on (3.16 on n2, 3.61 on n1).</summary>
-        public static GlazeColor Hairline => GlazeColor.Hex(0x97999B);
+        /// <summary>n4: a locked answer's ring, a hairline and the dotted gutter of code still only reported: at least 3:1 on every surface a locked control sits on.</summary>
+        public static GlazeColor Hairline => GlazeColor.Hex(0x8F96A6);
 
         /// <summary>n5: a time, a count.</summary>
         public static GlazeColor TextTertiary => GlazeColor.Hex(0xDBDCDC);
@@ -263,10 +263,10 @@ namespace Halcyonic.Client
         /// <summary>
         /// The moment card's anatomy, in dp at the eye (the art direction's handoff): the mark and its gap to the eyebrow; the
         /// Title 10 below the eyebrow, the well 14 below what stands above it, the risk line 12, the answers 16; a panel's
-        /// corners 24, an inset's (a well's) 12; the earlier moments' edge 28 narrower than the card and rising 36 above it.
+        /// corners 24, an inset's (a well's) 12; the earlier moments' edge 28 narrower than the card and rising 10 above it.
         /// </summary>
         public const float MarkDp = 20f, MarkGapDp = 8f, TitleGapDp = 10f, WellGapDp = 14f, RiskGapDp = 12f, AnswersGapDp = 16f,
-            PanelRadiusDp = 24f, InsetRadiusDp = 12f, EarlierNarrowerDp = 28f, EarlierRiseDp = 36f;
+            PanelRadiusDp = 24f, InsetRadiusDp = 12f, EarlierNarrowerDp = 28f, EarlierRiseDp = 10f;
 
         /// <summary>A well's padding across and down, and the gap to its cut line beneath, in dp.</summary>
         public const float WellPadXDp = 14f, WellPadYDp = 12f, CutGapDp = 6f;
@@ -276,16 +276,16 @@ namespace Halcyonic.Client
 
         private static GlazeColor Over(GlazeColor top, double alpha, GlazeColor under) => top.Over(under, alpha);
 
-        /// <summary>The face's light from above: its top, with <see cref="Carrier"/> at 36 percent and <see cref="FaceBottom"/> below.</summary>
-        public static GlazeColor FaceTop => GlazeColor.Hex(0x494C50);
+        /// <summary>The face's light from above: its top, with <see cref="Carrier"/> at the middle and <see cref="FaceBottom"/> below.</summary>
+        public static GlazeColor FaceTop => GlazeColor.Hex(0x333A4A);
 
-        public static GlazeColor FaceBottom => GlazeColor.Hex(0x3B3E42);
+        public static GlazeColor FaceBottom => GlazeColor.Hex(0x242936);
 
         /// <summary>
         /// An avatar's side tint on the glass panel beside it (2026-10-31): its blue hue deepened so the 28-to-0 percent left
         /// wash never lifts the face's luminance above its untinted top, holding every word and mark sign to 4.5:1.
         /// </summary>
-        public static GlazeColor AvatarTint => GlazeColor.Hex(0x163E8F);
+        public static GlazeColor AvatarTint => GlazeColor.Hex(0x0F3380);
 
         /// <summary>Needs the person: a question, an approval.</summary>
         public static GlazeColor Attention => GlazeColor.Hex(0xFABA59);

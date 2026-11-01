@@ -21,10 +21,10 @@ public class KitGlassMaterialTests
     public void TheFaceIsTheWindowsGreyAndOpaque()
     {
         var face = KitGlassMaterial.Face;
-        Assert.That(face.Select(stop => KitGlassMaterial.ToColour(stop.Colour)), Is.EqualTo(new uint[] { 0x494C50, 0x424549, 0x3B3E42 }.Select(GlazeColor.Hex)), "ART8's #7A7F86 to #62676E at the floor-safe 0.6");
+        Assert.That(face.Select(stop => KitGlassMaterial.ToColour(stop.Colour)), Is.EqualTo(new uint[] { 0x333A4A, 0x2B3140, 0x242936 }.Select(GlazeColor.Hex)), "cool obsidian-slate face stops");
         Assert.That(face.All(stop => stop.Alpha == 1), Is.True, "opaque at every stop: no part of a panel lets the room through");
         // The soft top light: white 10 percent at the top's middle, gone by 60 percent of the height.
-        Assert.That(KitGlassMaterial.Deviation(KitGlassMaterial.LitFace(0), KitGlassMaterial.Prototype(Hex(0xFFFFFF), 0.10, GlazeColor.Hex(0x494C50))), Is.LessThan(1e-9));
+        Assert.That(KitGlassMaterial.Deviation(KitGlassMaterial.LitFace(0), KitGlassMaterial.Prototype(Hex(0xFFFFFF), 0.10, GlazeColor.Hex(0x333A4A))), Is.LessThan(1e-9));
         Assert.That(KitGlassMaterial.Deviation(KitGlassMaterial.LitFace(0.6), KitGlassMaterial.At(face, 0.6).Colour), Is.LessThan(0.5), "no top light left, within a byte's rounding");
         Assert.That((KitGlassMaterial.HighlightAlpha, KitGlassMaterial.InnerEdgeAlpha, KitGlassMaterial.GlowAlpha), Is.EqualTo((0.30, 0.06, 0.0)), "the top line, the outer ring, and no glow (ART8B)");
     }

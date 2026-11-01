@@ -351,8 +351,8 @@ namespace Halcyonic.Client
         /// </summary>
         public static string? ApprovedCommandNote(RuntimeDescriptor? runtime) => runtime?.ApprovalMayLeaveSandbox switch
         {
-            true => "May Run Outside Sandbox · Your Access",
-            false => "Runs Inside Sandbox",
+            true => "Runs on your Mac",
+            false => "Runs in sandbox",
             _ => null,
         };
 
