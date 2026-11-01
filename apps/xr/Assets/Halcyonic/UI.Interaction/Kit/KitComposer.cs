@@ -114,13 +114,13 @@ namespace Halcyonic.XR.UI
             composer.rare = KitButton.Create(go.transform, "Rare action", KitButtonRole.Secondary);
             composer.rare.Pressed += () => composer.RarePressed?.Invoke();
             composer.rare.Hide();
-            composer.environmentButton = KitButton.Create(go.transform, "Environment", KitButtonRole.Quiet);
+            composer.environmentButton = KitButton.Create(go.transform, "Environment", KitButtonRole.Word);
             composer.environmentButton.Pressed += () => composer.EnvironmentPressed?.Invoke();
             composer.environmentButton.Hide();
-            composer.projectButton = KitButton.Create(go.transform, "Project", KitButtonRole.Quiet);
+            composer.projectButton = KitButton.Create(go.transform, "Project", KitButtonRole.Word);
             composer.projectButton.Pressed += () => composer.ProjectPressed?.Invoke();
             composer.projectButton.Hide();
-            composer.agentButton = KitButton.Create(go.transform, "Agent", KitButtonRole.Quiet);
+            composer.agentButton = KitButton.Create(go.transform, "Agent", KitButtonRole.Word);
             composer.agentButton.Pressed += () => composer.AgentPressed?.Invoke();
             composer.agentButton.Hide();
             return composer;
