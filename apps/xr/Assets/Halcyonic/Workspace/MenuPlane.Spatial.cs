@@ -46,6 +46,15 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The kit has drawn the file's frame and every control has settled: the frame's draw, as a view's Drawn is.</summary>
         public event Action<MenuColumn, MenuFrame>? KitDrawn;
 
+        /// <summary>The kit composer's environment selector pill pressed while the kit stands settled.</summary>
+        public event Action? KitEnvironmentPressed;
+
+        /// <summary>The kit composer's project selector pill pressed while the kit stands settled.</summary>
+        public event Action? KitProjectPressed;
+
+        /// <summary>The kit composer's agent selector pill pressed while the kit stands settled.</summary>
+        public event Action? KitAgentPressed;
+
         private PlanePart kitPart;
         private (MenuColumn Kind, MenuFrame Frame)? pendingKitDraw;
 
@@ -60,6 +69,9 @@ namespace Halcyonic.XR.Workspace
             Kit.HoldStarted += (kind, prompt, frame, side) => { if (TakesKit()) HoldStarted?.Invoke(kind, prompt, frame, side); };
             Kit.HoldEnded += (kind, prompt, letGo) => HoldEnded?.Invoke(kind, prompt, letGo);
             Kit.ContextRow += (key, owner) => { if (TakesKit()) KitContextPressed?.Invoke(key, owner); };
+            Kit.EnvironmentPressed += () => { if (TakesKit()) KitEnvironmentPressed?.Invoke(); };
+            Kit.ProjectPressed += () => { if (TakesKit()) KitProjectPressed?.Invoke(); };
+            Kit.AgentPressed += () => { if (TakesKit()) KitAgentPressed?.Invoke(); };
             Kit.Drawn += ForwardKitDrawn;
             // The connected switch asks for the existing routes only: Compact as a frame view's Compact, Workspace as the closed bar's Open.
             Kit.CompactPressed += (kind, frame) => { if (TakesKit() && KitShows) CompactPressed?.Invoke(kind, frame, null); };

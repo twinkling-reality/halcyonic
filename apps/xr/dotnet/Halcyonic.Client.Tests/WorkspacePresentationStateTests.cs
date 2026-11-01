@@ -537,4 +537,70 @@ public class WorkspacePresentationStateTests
         Assert.That(presentation.AdvancePendingCommands(state, commands, out _), Is.Null);
         Assert.That(presentation.PendingVrConversionSequence, Is.Null);
     }
+
+    [Test]
+    public void SelectRuntimeForEnvironmentAndNextRuntimeCycleAvailableRuntimesDeterministically()
+    {
+        var macClaude = new RuntimeDescriptor
+        {
+            RuntimeId = "claude",
+            Kind = "claude",
+            DisplayName = "Claude Code",
+            Synthetic = false,
+            ApprovalMayLeaveSandbox = true,
+            Capabilities = new RuntimeCapabilities { StartExecution = true },
+        };
+        var sandboxCodex = new RuntimeDescriptor
+        {
+            RuntimeId = "codex",
+            Kind = "codex",
+            DisplayName = "Codex",
+            Synthetic = false,
+            ApprovalMayLeaveSandbox = false,
+            Capabilities = new RuntimeCapabilities { StartExecution = true },
+        };
+        var undeclaredOpenCode = new RuntimeDescriptor
+        {
+            RuntimeId = "opencode",
+            Kind = "opencode",
+            DisplayName = "OpenCode",
+            Synthetic = false,
+            ApprovalMayLeaveSandbox = null,
+            Capabilities = new RuntimeCapabilities { StartExecution = true },
+        };
+        var disabledRuntime = new RuntimeDescriptor
+        {
+            RuntimeId = "disabled",
+            Kind = "disabled",
+            DisplayName = "Disabled",
+            Synthetic = false,
+            ApprovalMayLeaveSandbox = false,
+            Capabilities = new RuntimeCapabilities { StartExecution = false },
+        };
+        var runtimes = new[] { macClaude, sandboxCodex, undeclaredOpenCode, disabledRuntime };
+
+        // Toggling to Sandbox (sandbox: true) selects the available runtime with ApprovalMayLeaveSandbox == false.
+        var toSandbox = WorkspacePresentationState.SelectRuntimeForEnvironment(runtimes, "claude", sandbox: true);
+        Assert.That(toSandbox?.RuntimeId, Is.EqualTo("codex"));
+
+        // Toggling back to This Mac (sandbox: false) selects the available runtime with ApprovalMayLeaveSandbox == true.
+        var toMac = WorkspacePresentationState.SelectRuntimeForEnvironment(runtimes, "codex", sandbox: false);
+        Assert.That(toMac?.RuntimeId, Is.EqualTo("claude"));
+
+        // Cycling Agent (NextRuntime) steps through available StartExecution runtimes and skips disabled ones.
+        Assert.That(WorkspacePresentationState.NextRuntime(runtimes, "claude")?.RuntimeId, Is.EqualTo("codex"));
+        Assert.That(WorkspacePresentationState.NextRuntime(runtimes, "codex")?.RuntimeId, Is.EqualTo("opencode"));
+        Assert.That(WorkspacePresentationState.NextRuntime(runtimes, "opencode")?.RuntimeId, Is.EqualTo("claude"));
+        Assert.That(WorkspacePresentationState.NextRuntime(runtimes, null)?.RuntimeId, Is.EqualTo("claude"));
+
+        var presentation = new WorkspacePresentationState();
+        var changed = 0;
+        presentation.Changed += () => changed++;
+        Assert.That(presentation.SelectRuntime("codex"), Is.True);
+        Assert.That(presentation.SelectedRuntimeId, Is.EqualTo("codex"));
+        Assert.That(changed, Is.EqualTo(1));
+        Assert.That(presentation.SelectRuntime("codex"), Is.False);
+        presentation.ResetPendingCommands();
+        Assert.That(presentation.SelectedRuntimeId, Is.Null);
+    }
 }

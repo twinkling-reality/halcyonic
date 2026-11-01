@@ -110,6 +110,23 @@ namespace Halcyonic.Client
         /// </summary>
         public static KitPresenceModel PresenceOf(LineWords identity, StateBadge? state, int waiting) => new KitPresenceModel(identity, state, waiting);
 
+        /// <summary>The execution environment words for <paramref name="runtime"/> ("This Mac" or "Sandbox"), or null when undeclared.</summary>
+        public static string? EnvironmentOf(RuntimeDescriptor? runtime) => runtime?.ApprovalMayLeaveSandbox switch
+        {
+            true => KitMomentWords.Sandbox(KitSandbox.MayLeave),
+            false => KitMomentWords.Sandbox(KitSandbox.StaysInside),
+            _ => null,
+        };
+
+        /// <summary>The plain one-line display name of <paramref name="runtime"/> or <paramref name="execution"/>'s runtime, or null.</summary>
+        public static string? AgentOf(RuntimeDescriptor? runtime, ExecutionView? execution = null) =>
+            (runtime?.DisplayName ?? execution?.Runtime.DisplayName) is string raw && WorkspaceText.OneLine(raw) is { Length: > 0 } name
+                ? name
+                : null;
+
+        /// <summary>The plain one-line display name of <paramref name="workspace"/>'s runtime, or null.</summary>
+        public static string? AgentOf(WorkspacePresentation workspace) => AgentOf(workspace.Runtime, workspace.Execution);
+
         /// <summary>
         /// The focused work from the presentation: its state and marks, the agent's report, the rail, what it waits on,
         /// and Send offered only where the connection is live and production takes an instruction, else why not in
@@ -122,7 +139,8 @@ namespace Halcyonic.Client
             var sendable = whyNot == null;
             return new KitWorkModel(projectName, workspace.Character.Title, StateLanguage.BadgeOf(workspace.Character), StateLanguage.MarksOf(workspace.Character),
                 ReportOf(workspace.Activity), TrailOf(workspace.Activity), draft, voiceOffered, sendable, whyNot, spine, spineFoot,
-                NeedOf(workspace, confirming), AskOf(workspace), NoticeOf(workspace), avatar);
+                NeedOf(workspace, confirming), AskOf(workspace), NoticeOf(workspace), avatar,
+                environment: EnvironmentOf(workspace.Runtime), agent: AgentOf(workspace));
         }
     }
 }

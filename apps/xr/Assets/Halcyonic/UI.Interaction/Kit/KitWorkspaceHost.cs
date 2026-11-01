@@ -93,6 +93,15 @@ namespace Halcyonic.XR.UI
         /// <summary>The compact presence's Workspace pressed, as the closed bar's Open raises it; the thumb waits for the presentation.</summary>
         public event Action? Opened;
 
+        /// <summary>The composer's environment selector pill pressed.</summary>
+        public event Action? EnvironmentPressed;
+
+        /// <summary>The composer's project selector pill pressed.</summary>
+        public event Action? ProjectPressed;
+
+        /// <summary>The composer's agent selector pill pressed.</summary>
+        public event Action? AgentPressed;
+
         public static KitWorkspaceHost Create(Transform parent)
         {
             var go = new GameObject("Spatial kit workspace");
@@ -108,6 +117,9 @@ namespace Halcyonic.XR.UI
             composer.SendPressed += () => host.Press(host.First(KitPlace.Forward, KitPlace.Yes, KitPlace.Send));
             composer.ClosePressed += () => host.Press(KitPlace.Close);
             composer.RarePressed += () => host.Press(host.First(KitPlace.Back, KitPlace.Cancel, KitPlace.Stop, KitPlace.Discard));
+            composer.EnvironmentPressed += () => { if (host.Settled && host.Accepting()) host.EnvironmentPressed?.Invoke(); };
+            composer.ProjectPressed += () => { if (host.Settled && host.Accepting()) host.ProjectPressed?.Invoke(); };
+            composer.AgentPressed += () => { if (host.Settled && host.Accepting()) host.AgentPressed?.Invoke(); };
             composer.Talk.Pressed += host.OnTalkPressed;
             composer.Talk.Press.Target.Released += host.OnTalkReleased;
             var decision = host.view.Decision;

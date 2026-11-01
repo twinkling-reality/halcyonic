@@ -54,6 +54,9 @@ namespace Halcyonic.Client
         /// <summary>The active two-step build sequence (<c>workstream.create</c> then <c>execution.start</c>) for a newly created VR project.</summary>
         public BuildSequence? PendingVrConversionSequence { get; private set; }
 
+        /// <summary>The runtime selected through the composer's environment or agent selector pill, if any.</summary>
+        public string? SelectedRuntimeId { get; private set; }
+
         /// <summary>Revokes retained input and command authority before any presentation disappears.</summary>
         public event Action? Suspending;
         public event Action? Changed;
@@ -173,6 +176,57 @@ namespace Halcyonic.Client
                 return true;
             }
             finally { changing = false; }
+        }
+
+        public bool SelectRuntime(string? runtimeId)
+        {
+            if (SelectedRuntimeId == runtimeId || changing) return false;
+            changing = true;
+            try
+            {
+                SelectedRuntimeId = runtimeId;
+                Changed?.Invoke();
+                return true;
+            }
+            finally { changing = false; }
+        }
+
+        /// <summary>
+        /// Selects an available runtime matching the requested execution environment (<paramref name="sandbox"/>:
+        /// <c>true</c> for <c>ApprovalMayLeaveSandbox == false</c>, <c>false</c> for <c>ApprovalMayLeaveSandbox == true</c>),
+        /// preferring one different from <paramref name="currentRuntimeId"/> when available, or null when no runtime declares that environment.
+        /// </summary>
+        public static RuntimeDescriptor? SelectRuntimeForEnvironment(
+            IReadOnlyList<RuntimeDescriptor>? runtimes,
+            string? currentRuntimeId,
+            bool sandbox)
+        {
+            if (runtimes == null || runtimes.Count == 0) return null;
+            var mayLeave = !sandbox;
+            var matching = runtimes
+                .Where(item => item != null && item.Capabilities.StartExecution && item.ApprovalMayLeaveSandbox == mayLeave)
+                .ToList();
+            if (matching.Count == 0) return null;
+            return matching.FirstOrDefault(item => item.RuntimeId != currentRuntimeId && !item.Synthetic)
+                ?? matching.FirstOrDefault(item => item.RuntimeId != currentRuntimeId)
+                ?? matching[0];
+        }
+
+        /// <summary>
+        /// Cycles to the next available runtime with <c>StartExecution</c> after <paramref name="currentRuntimeId"/>,
+        /// or the first available runtime when <paramref name="currentRuntimeId"/> is absent.
+        /// </summary>
+        public static RuntimeDescriptor? NextRuntime(
+            IReadOnlyList<RuntimeDescriptor>? runtimes,
+            string? currentRuntimeId)
+        {
+            if (runtimes == null || runtimes.Count == 0) return null;
+            var eligible = runtimes.Where(item => item != null && item.Capabilities.StartExecution).ToList();
+            if (eligible.Count == 0) return null;
+            var index = currentRuntimeId != null
+                ? eligible.FindIndex(item => item.RuntimeId == currentRuntimeId)
+                : -1;
+            return index < 0 ? eligible[0] : eligible[(index + 1) % eligible.Count];
         }
 
         /// <summary>
@@ -440,6 +494,7 @@ namespace Halcyonic.Client
             PendingOpenOnMacProjectId = null;
             PendingVrConversionSourceProjectId = null;
             PendingVrConversionSequence = null;
+            SelectedRuntimeId = null;
         }
 
         /// <summary>
@@ -505,7 +560,10 @@ namespace Halcyonic.Client
                     {
                         ShowProjectScreen(newVrProject.ProjectId, ScreenBarOpen);
                     }
-                    var runtime = state.Runtimes.FirstOrDefault(item => item.Capabilities.StartExecution && item.ModelChoice != ModelChoice.Listed && !item.Synthetic)
+                    var runtime = (SelectedRuntimeId != null
+                            ? state.Runtimes.FirstOrDefault(item => item.RuntimeId == SelectedRuntimeId && item.Capabilities.StartExecution && item.ModelChoice != ModelChoice.Listed)
+                            : null)
+                        ?? state.Runtimes.FirstOrDefault(item => item.Capabilities.StartExecution && item.ModelChoice != ModelChoice.Listed && !item.Synthetic)
                         ?? state.Runtimes.FirstOrDefault(item => item.Capabilities.StartExecution && item.ModelChoice != ModelChoice.Listed);
                     if (runtime != null)
                     {

@@ -90,8 +90,20 @@ namespace Halcyonic.XR.Workspace
                 new KitSpineSection(new[] { new KitRowModel("place:" + MenuPlace.Tasks, LineWords.Ours("Tasks")) }),
             };
             var name = selected != null && State?.Projects.TryGetValue(selected, out var project) == true ? project.Name : "";
+            var runtime = CurrentKitRuntime(now);
             return KitFileBinding.Of(frame, file.Steering.Armed, now, file.Screen.Instruction.Open ? file.Screen.Instruction.Words : "",
-                setup.Session()?.Status ?? ConnectionStatus.Stopped, name, spine, new KitRowModel("workspace", LineWords.Ours("Workspace"), GlazeIcon.Move));
+                setup.Session()?.Status ?? ConnectionStatus.Stopped, name, spine, new KitRowModel("workspace", LineWords.Ours("Workspace"), GlazeIcon.Move),
+                environment: KitPresenter.EnvironmentOf(runtime), agent: KitPresenter.AgentOf(runtime, now.Execution));
+        }
+
+        private RuntimeDescriptor? CurrentKitRuntime(WorkspacePresentation? now = null)
+        {
+            if (setup.Presentation.SelectedRuntimeId is string selectedId
+                && State?.Runtimes.FirstOrDefault(item => item.RuntimeId == selectedId) is RuntimeDescriptor chosen)
+            {
+                return chosen;
+            }
+            return (now ?? (navigator.Beside as FileColumn)?.Now)?.Runtime;
         }
 
         private static int OwnerTitleRows(FileColumn owner) => owner.Now?.Character is CharacterPresentation character
@@ -171,6 +183,37 @@ namespace Halcyonic.XR.Workspace
             else if (key == "place:" + MenuPlace.Projects) OnContextPlace(MenuPlace.Projects, owner);
             else if (key == "place:" + MenuPlace.Tasks) OnContextPlace(MenuPlace.Tasks, owner);
             else if (key == "workspace") OnContextWorkspace(owner);
+        }
+
+        private bool KitStanding() => !Away && !dirty && drag == null && !plane.Repositioning && !plane.Sliding
+            && plane.KitShows && plane.Kit.Settled && plane.Kit.Accepting();
+
+        private void OnKitEnvironmentPressed()
+        {
+            if (!KitStanding() || State?.Runtimes is not IReadOnlyList<RuntimeDescriptor> runtimes) return;
+            var current = CurrentKitRuntime();
+            var targetSandbox = current?.ApprovalMayLeaveSandbox != false;
+            if (WorkspacePresentationState.SelectRuntimeForEnvironment(runtimes, current?.RuntimeId, targetSandbox) is RuntimeDescriptor next)
+            {
+                setup.Presentation.SelectRuntime(next.RuntimeId);
+            }
+        }
+
+        private void OnKitProjectPressed()
+        {
+            if (!KitStanding()) return;
+            navigator.CloseBeside();
+            Open(MenuPlace.Projects);
+        }
+
+        private void OnKitAgentPressed()
+        {
+            if (!KitStanding() || State?.Runtimes is not IReadOnlyList<RuntimeDescriptor> runtimes) return;
+            var current = CurrentKitRuntime();
+            if (WorkspacePresentationState.NextRuntime(runtimes, current?.RuntimeId) is RuntimeDescriptor next)
+            {
+                setup.Presentation.SelectRuntime(next.RuntimeId);
+            }
         }
 
         /// <summary>The kit's compact presence stands in the closed bar's place, settled, so its Workspace is the bar's Open (OrganizationStanding).</summary>

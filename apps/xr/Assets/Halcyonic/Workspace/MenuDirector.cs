@@ -276,6 +276,9 @@ namespace Halcyonic.XR.Workspace
             director.plane.Drawn += director.OnDrawn;
             director.plane.KitDrawn += director.OnKitDrawn;
             director.plane.KitContextPressed += director.OnKitContext;
+            director.plane.KitEnvironmentPressed += director.OnKitEnvironmentPressed;
+            director.plane.KitProjectPressed += director.OnKitProjectPressed;
+            director.plane.KitAgentPressed += director.OnKitAgentPressed;
             director.plane.ContextProjectPressed += director.OnContextProject;
             director.plane.ContextPlacePressed += director.OnContextPlace;
             director.plane.ContextWorkspacePressed += director.OnContextWorkspace;

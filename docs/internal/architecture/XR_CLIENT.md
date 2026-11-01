@@ -3811,3 +3811,11 @@ presence, contextual moment cards and the on-demand project screen:
   `StarterId`, and `ToContract()` emits `NewFromStarterChoice` (`kind: "new_from_starter"`) so a
   developer or newcomer in VR can scaffold a starter VR project from an idea and rename its folder
   before confirming the build review.
+- **Composer context selectors (`KitPresenter.EnvironmentOf`, `KitPresenter.AgentOf`, `WorkspacePresentationState.SelectRuntimeForEnvironment`, `WorkspacePresentationState.NextRuntime`)**:
+  `KitPresenter.WorkOf` and `KitFileBinding.Of` populate `KitWorkModel.Environment` (`"This Mac"` for
+  `ApprovalMayLeaveSandbox = true`, `"Sandbox"` for `false`, `null` when undeclared) and
+  `KitWorkModel.Agent` (the runtime's plain display name). `KitWorkspaceHost` forwards settled
+  composer selector presses (`EnvironmentPressed`, `ProjectPressed`, `AgentPressed`) through
+  `MenuPlane` to `MenuDirector`, which switches to the Projects chooser on `ProjectPressed`, selects
+  a runtime matching the toggled execution environment via `SelectRuntimeForEnvironment` on
+  `EnvironmentPressed`, and cycles available runtimes via `NextRuntime` on `AgentPressed`.
