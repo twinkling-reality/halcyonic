@@ -82,6 +82,8 @@ public class KitFileBindingTests
         var need = binding.Model.Need!;
         Assert.That((need.Asks.Text, need.Request, need.DenyOffered, need.ApproveOffered, need.Confirming), Is.EqualTo((expected.AsksRuns.Text, expected.Request, true, true, (KitConfirmation?)null)));
         Assert.That((need.DenyWords, need.ApproveWords), Is.EqualTo((frame.Footer[PromptSlot.Secondary]!.Words, frame.Footer[PromptSlot.FarRight]!.Words)));
+        Assert.That((binding.Model.Environment, binding.Model.Agent),
+            Is.EqualTo((KitPresenter.EnvironmentOf(workspace.Runtime), KitPresenter.AgentOf(workspace))));
     }
 
     [Test]
