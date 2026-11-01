@@ -811,10 +811,11 @@ namespace Halcyonic.XR.Workspace
                 bottom = Mathf.Min(bottom, Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg);
             }
             var shown = new ConsoleExtent(left, right, bottom);
-            // The widest console the workspace can take: as shown, or the file column alone where a file opening puts the menu
-            // aside for a wider one, so a shelf placed beside the menu is never covered once a file opens (X18, 2026-10-31).
+            // The widest single-column console the workspace can take: a file column at Larger in the reading band, so a shelf
+            // placed beside Projects is still a full degree clear when a Larger file opens or is dragged low (LARGER-SHELF, 2026-10-31).
+            var widestFile = PlaneComposition.Units(Glaze.Menu.FileColumnDegrees) * Comfort.LargerTextScale / Mathf.Cos(22f * Mathf.Deg2Rad);
             return Composition is PlaneComposition composition
-                ? shown.WidenedTo(composition.Width, PlaneComposition.Units(Glaze.Menu.FileColumnDegrees) * composition.Zoom)
+                ? shown.WidenedTo(composition.Width, widestFile)
                 : shown;
         }
 

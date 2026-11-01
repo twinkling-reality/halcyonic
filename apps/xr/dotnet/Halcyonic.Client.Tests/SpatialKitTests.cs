@@ -331,10 +331,46 @@ public class SpatialKitTests
     {
         Assert.That(SpatialKit.ScreenDegrees, Is.EqualTo(56f));
         Assert.That(SpatialKit.ScreenHeightDegrees, Is.EqualTo(31.5f).Within(1e-4));
+        Assert.That(SpatialKit.ScreenDegreesAt(1f), Is.EqualTo(SpatialKit.ScreenDegrees));
+        Assert.That(SpatialKit.ScreenDegreesAt(Comfort.LargerTextScale), Is.EqualTo(SpatialKit.LargerScreenDegrees));
+        Assert.That(SpatialKit.LargerScreenDegrees, Is.LessThan(SpatialKit.ScreenDegrees));
+        Assert.That(SpatialKit.LargerScreenDegrees, Is.GreaterThanOrEqualTo(SpatialKit.ScreenDegrees * 2f / 3f));
+        Assert.That(SpatialKit.ScreenDegreesAt(Comfort.LargerTextScale) / SpatialKit.ScreenHeightDegreesAt(Comfort.LargerTextScale),
+            Is.EqualTo(SpatialKit.ScreenAspect).Within(1e-4));
         Assert.That(SpatialKit.BarDegrees, Is.GreaterThanOrEqualTo(SpatialKit.TargetDegrees + 2 * SpatialKit.GridDegrees), "the bar holds a whole target with room round it");
         Assert.That(SpatialKit.ScreenDegrees, Is.LessThan(110f - 2 * 15f), "the screen leaves the field's edges to the room");
         Assert.That(SpatialKit.MomentDegrees, Is.EqualTo(23f), "the moment slot's width (ADR 0040, rule 4)");
         Assert.That(SpatialKit.StackEdgeDegrees, Is.LessThan(SpatialKit.TargetDegrees), "the stacked edge is a hint, never a target");
+    }
+
+    [Test]
+    public void LargerShelfYieldingResetsFileColumnBudgetAndFallsBackWhenActivityYields()
+    {
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = Halcyonic.Contracts.ExecutionStatus.Running; }, Halcyonic.Contracts.WorkstreamStatus.Running);
+        var host = new FileMenuHost { TextSize = TextSize.Larger, Projection = work.State };
+        var column = new FileColumn(
+            host,
+            () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct),
+            new CommandFactory(Samples.Client),
+            () => null,
+            _ => null,
+            () => "");
+        var pageBudget = new RowBudget(8);
+        var yieldActivity = false;
+        column.ConfigureActivityComposer(
+            () => yieldActivity ? null : pageBudget,
+            () => pageBudget);
+        column.HoldStarted(FileScreens.HoldToTalk);
+        column.Heard("Carry on carefully");
+
+        Assert.That(column.HasShowTaskHere, Is.False);
+        Assert.That(column.ActivityContextFrame, Is.Not.Null);
+
+        yieldActivity = true;
+        column.OfferShowTaskHere(() => true, () => { });
+        Assert.That(column.HasShowTaskHere, Is.True);
+        Assert.That(column.ActivityContextFrame, Is.Null);
     }
 
     [Test]

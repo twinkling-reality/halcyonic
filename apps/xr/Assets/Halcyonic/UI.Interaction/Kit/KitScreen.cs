@@ -74,8 +74,8 @@ namespace Halcyonic.XR.UI
         public void Show(KitScreenModel model)
         {
             // A large part's extent: twice the tangent of its half angle, so it spans its angle seen from its centre.
-            var width = 2f * KitType.Units(SpatialKit.ScreenDegrees / 2f);
-            var height = 2f * KitType.Units(SpatialKit.ScreenHeightDegrees / 2f);
+            var width = 2f * KitType.Units(SpatialKit.ScreenDegreesAt(GlazeText.Scale) / 2f);
+            var height = 2f * KitType.Units(SpatialKit.ScreenHeightDegreesAt(GlazeText.Scale) / 2f);
             Size = new Vector2(width, height);
             face.Draw(Size, KitType.Units(RadiusDegrees), SpatialKit.IdentityField(model.IdentityHue));
 

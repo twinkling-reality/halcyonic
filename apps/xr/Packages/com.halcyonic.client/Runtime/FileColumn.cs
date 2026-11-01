@@ -37,13 +37,14 @@ namespace Halcyonic.Client
         private readonly Func<IIntelligenceReader?> reader;
         private PageBudget? budget;
         private PageBudget? activityPageBudget;
-        private Func<PageBudget>? activityBudget, composerBudget;
+        private Func<PageBudget?>? activityBudget;
+        private Func<PageBudget>? composerBudget;
         private bool budgetComposer;
         private (string? Journal, string Task, string? Execution, TextSize Size, float? Room)? activityScope;
         /// <summary>Passive Activity while the ordinary composer or its review owns Frame. Drawing this grants no reading or input authority.</summary>
         public MenuFrame? ActivityContextFrame { get; private set; }
         /// <summary>Opts into separate measured Activity and ordinary composer content budgets. Call Reflow when their geometry changes.</summary>
-        public void ConfigureActivityComposer(Func<PageBudget> activity, Func<PageBudget> composer)
+        public void ConfigureActivityComposer(Func<PageBudget?> activity, Func<PageBudget> composer)
         {
             if (activity == null) throw new ArgumentNullException(nameof(activity));
             if (composer == null) throw new ArgumentNullException(nameof(composer));
@@ -133,12 +134,14 @@ namespace Halcyonic.Client
         public WorkspaceSurface Surface { get; set; } = WorkspaceSurface.Task;
         public void OfferWorkspaceRequests(Action open)
         { if (openWorkspaceRequest != null) return; openWorkspaceRequest = open; Screen.WorkspaceRequestOffered = true; Rebuild(); }
+        public bool HasShowTaskHere => showTask != null;
         /// <summary>Offers only an available local presentation action; it grants no runtime capability.</summary>
         public void OfferShowTaskHere(Func<bool> available, Action show)
         {
             if (showTask != null) return;
             canShowTask = available; showTask = show;
-            showTaskJournal = host.State?.Journal?.JournalId; showTaskId = Now?.Character.WorkstreamId; Rebuild();
+            showTaskJournal = host.State?.Journal?.JournalId; showTaskId = Now?.Character.WorkstreamId;
+            budget = null; Rebuild();
         }
         private bool CanShowTaskHere() => showTask != null && canShowTask?.Invoke() == true && host.Connected && !host.Demonstration
             && showTaskJournal != null && showTaskJournal == host.State?.Journal?.JournalId && showTaskId == Now?.Character.WorkstreamId;
@@ -148,7 +151,8 @@ namespace Halcyonic.Client
         {
             if (colourAvailable != null) return;
             colourAvailable = available; openCharacterColour = open;
-            colourJournal = host.State?.Journal?.JournalId; colourTask = Now?.Character.WorkstreamId; Rebuild();
+            colourJournal = host.State?.Journal?.JournalId; colourTask = Now?.Character.WorkstreamId;
+            budget = null; Rebuild();
         }
         private bool CanColour() => colourAvailable?.Invoke() == true && host.Connected && !host.Demonstration
             && colourJournal != null && colourJournal == host.State?.Journal?.JournalId && colourTask == Now?.Character.WorkstreamId;

@@ -41,10 +41,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 finally { KeepFontAssetsAsCommitted(); }
                 foreach (var failure in found) Debug.LogError("Halcyonic: room screen: " + failure);
-                // With a gap asserted the summary never opens with "every check passed", so a gate reading its start never counts it a pass.
-                if (found.Count == 0) Debug.Log(roomProductGaps.Count == 0 ? "Halcyonic: room screen: every check passed; " + folder
-                    : "Halcyonic: room screen: passed with a product gap at Larger: " + string.Join("; ", roomProductGaps) + "; " + folder);
-                roomProductGaps.Clear();
+                if (found.Count == 0) Debug.Log("Halcyonic: room screen: every check passed; " + folder);
                 return found;
             });
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
@@ -150,11 +147,8 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>
         /// The agents' shelf keeps clear of the room's screen and its bar as of the console (LARGER-SHELF, 2026-10-31): one
         /// standing in front of the screen is refused, and the shared search, judged by the field and that clearance, still
-        /// finds a spot beside them.
+        /// finds a spot beside them at both reading sizes.
         /// </summary>
-        /// <summary>Product gaps the room screen journey met at one reading size, printed beside its result so they never read as passes.</summary>
-        private static readonly List<string> roomProductGaps = new List<string>();
-
         private static List<string> RoomShelf(string name, Vector3 eyes, MenuPlane plane, float bearing)
         {
             var failures = new List<string>();
@@ -188,11 +182,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 || !(draft.Candidate is AgentShelfPose found))
             {
                 var refusal = tried + " tried, " + outside + " outside the field, " + covered + " not clear of the screen";
-                // At Larger the room's screen keeps its Standard width until ART's LARGER-SHELF call (b) narrows it, so a shelf may find
-                // no spot beside it (OPEN_QUESTIONS.md row 27): asserted as that product gap, refused by the real predicates only.
-                if (GlazeText.Scale <= 1f) failures.Add(name + ": no shelf spot clears the screen and its bar inside the field, " + refusal);
-                else if (outside + covered < tried) failures.Add(name + ": at Larger the shelf's refusal did not come from the field and the screen's clearance, " + refusal);
-                else roomProductGaps.Add(name + " offers no shelf spot beside the screen at the larger text size (" + refusal + "; OPEN_QUESTIONS.md row 27)");
+                failures.Add(name + ": no shelf spot clears the screen and its bar inside the field, " + refusal);
             }
             else
                 Debug.Log("Halcyonic: room screen: " + name + " shelf's first spot " + Mathf.DeltaAngle(bearing, found.Yaw).ToString("0.0", CultureInfo.InvariantCulture)
@@ -210,9 +200,10 @@ namespace Halcyonic.XR.Workspace.Editor
             Vector3 Point(Transform view, float x, float y) => view.TransformPoint(new Vector3(x, y, 0f));
 
             // The screen spans the kit's angle where it stands, and faces the eyes.
+            var expectedAcross = SpatialKit.ScreenDegreesAt(GlazeText.Scale);
             var across = Between(Point(screen.transform, -screen.Size.x / 2f, 0f) - eyes, Point(screen.transform, screen.Size.x / 2f, 0f) - eyes);
-            if (Mathf.Abs(across - SpatialKit.ScreenDegrees) > 0.1f)
-                failures.Add(name + ": the screen spans " + Degrees(across) + " degrees, not " + Degrees(SpatialKit.ScreenDegrees));
+            if (Mathf.Abs(across - expectedAcross) > 0.1f)
+                failures.Add(name + ": the screen spans " + Degrees(across) + " degrees, not " + Degrees(expectedAcross));
             var away = (screen.transform.position - eyes).normalized;
             if (Vector3.Dot(screen.transform.forward, away) < 0.9999f) failures.Add(name + ": the screen does not face the eyes");
             var distance = Flat(screen.transform.position - eyes).magnitude;

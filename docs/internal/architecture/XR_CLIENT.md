@@ -2415,7 +2415,11 @@ size in metres, facing back along its bearing. No surface the person points at s
 0.8 m or farther than 3 m (Meta's ray-cast reach); a distance outside that is refused.
 
 - **Screen.** A picked project's screen stands 2 m away on the bearing it is given, its middle at
-  eye height, as wide and as high as the kit's angles there (56 by 31.5 degrees).
+  eye height, as wide and as high as the kit's angles there: 56 by 31.5 degrees at the standard
+  reading size (`SpatialKit.ScreenDegrees`), narrowed to 48 by 27 degrees at the larger reading
+  size (`SpatialKit.LargerScreenDegrees`, `SpatialKit.ScreenDegreesAt`) so a one-agent shelf still
+  stands beside it inside the Quest 3S field while staying above two thirds of the standard width
+  (ART's LARGER-SHELF call (b), 2026-10-31).
 - **Bar.** The bar has the screen's width, so its edges are the screen's and it is never wider. It
   stands on the screen's bearing, 2 cm nearer, its top 0.75 degrees (`BarGapDegrees`) under the
   screen's bottom. About 19 degrees below eye level, it tilts up to face the eyes. Upright, the
@@ -2452,7 +2456,7 @@ plane, and `HideScreen` takes them away.
 - Until the gallery wires picking a project, only the Editor journey `RoomScreenCheck` calls it.
   At both text sizes, straight ahead and 40 degrees round, with the bar open and folded, the
   journey checks:
-  - the screen's 56 degrees and its 2 m;
+  - the screen's 56 degrees at Standard and 48 degrees at Larger, and its 2 m;
   - the bar's width, edges, gap, distance and facing;
   - every glyph at the reading floor;
   - every target at 3.75 degrees and 12 mm from the next, measured at its true distance from the
@@ -2599,8 +2603,12 @@ exists. Passthrough remains independent of whether optional characters are prese
   outward on the right in 5 degree steps (at each turn the home's depth, then nearer, then farther;
   at each depth the home's height, then lower, then higher), then the left side mirrored, the 40
   degree turn last on each side (ART, 2026-10-31). The console the home stands beside is the widest
-  the workspace can take (the file column where a file opening would put the menu aside for it),
-  and in the room it includes the picked project's screen and its bar. Never nearer than 1.2 m (ART's
+  the workspace can take (the file column at the larger reading size in the reading band where a
+  file opening or dragged low would widen its yaw span), and at the larger reading size the
+  two-column workspace yields its chooser column (`MenuDirector.ShelfYieldsChooserAtLarger`) when a
+  character stands on the stage or a task file offers shelf placement or character colour (ART's
+  LARGER-SHELF call (a), 2026-10-31); in the room it includes the picked project's screen and its
+  bar. Never nearer than 1.2 m (ART's
   rule for characters; only the person's own moves reach the draft's 0.4 m). Each candidate is kept
   or refused by the same field and console predicates, with no fallback when all are refused. The Unity owner also checks the
   entire shelf/label/banner envelope against the current head-relative measured field, with the

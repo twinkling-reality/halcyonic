@@ -39,7 +39,7 @@ namespace Halcyonic.XR.Workspace
             if (RoomBar == null) RoomBar = KitScreenBar.Create(room);
             RoomScreen.Show(model);
             var at = new System.Numerics.Vector3(eyes.x, eyes.y, eyes.z);
-            var screen = RoomLayout.Screen(at, bearing, SpatialKit.ScreenDegrees, SpatialKit.ScreenHeightDegrees);
+            var screen = RoomLayout.Screen(at, bearing, SpatialKit.ScreenDegreesAt(GlazeText.Scale), SpatialKit.ScreenHeightDegreesAt(GlazeText.Scale));
             // The kit lays out in units of the viewing distance, so each view is scaled by its own distance from the eyes.
             // The bar stands lower and so farther: laid out that much narrower, it keeps the screen's width in metres and
             // its targets and words their angles. Its height can change its row count, so it is laid out until it settles.
