@@ -18,7 +18,14 @@ import { type Cause, causedBy, controlPlaneDraft, NO_CAUSE } from '../core/draft
 import type { Recorder } from '../core/recorder.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { Logger } from '../logger.ts';
-import { type CheckOptions, type CheckResult, runCheck, servesCopy } from './check.ts';
+import { HostStarters, templateDigest } from '../starters.ts';
+import {
+  type CheckOptions,
+  type CheckResult,
+  type OwnReference,
+  runCheck,
+  servesCopy,
+} from './check.ts';
 import { type CheckOutput, checkOutput } from './check-output.ts';
 import {
   browserBinary,
@@ -28,6 +35,7 @@ import {
   type PlayEnd,
 } from './play.ts';
 import { buildProfile, SANDBOX_EXEC } from './profiles.ts';
+import { hostFilesDigest, referenceKey, StarterReferences } from './reference.ts';
 
 export interface HostPreviewsDeps {
   readonly recorder: Recorder;
@@ -103,9 +111,12 @@ export class HostPreviews {
   #closed = false;
   /** The plays on this Mac, each of the copy a running preview serves. */
   readonly plays: HostPlays;
+  /** The starters' own pictures each check compares a project's with (DRAWN). */
+  readonly #references: StarterReferences;
 
   constructor(deps: HostPreviewsDeps) {
     this.#deps = deps;
+    this.#references = new StarterReferences(join(deps.dataDir, 'checks', 'references'));
     this.plays = new HostPlays({
       dataDir: deps.dataDir,
       home: deps.home,
@@ -197,18 +208,23 @@ export class HostPreviews {
           ? browserBinary(browser.folder)
           : null;
       const launcher = this.#deps.launcher();
-      const result = await (this.#deps.runCheck ?? runCheck)({
+      const common = {
         node: this.#deps.node,
         chrome,
         launcher,
         home: this.#deps.home,
-        project: project.location.path,
         starter: installed,
         hostSource: join(this.#deps.starters.trackedDir, project.starter, 'host'),
         template: join(this.#deps.starters.trackedDir, project.starter, 'template'),
-        cache: this.#cache(projectId, checkId),
         profiles: existsSync(profiles) ? profiles : null,
+      };
+      const reference = await this.#reference(projectId, project.starter, common);
+      const result = await (this.#deps.runCheck ?? runCheck)({
+        ...common,
+        project: project.location.path,
+        cache: this.#cache(projectId, checkId),
         port,
+        reference,
       });
       const findings = this.#findings(
         projectId,
@@ -453,6 +469,61 @@ export class HostPreviews {
     );
   }
 
+  /**
+   * What the project's own picture is compared with (DRAWN): the pristine starter's picture under the
+   * key of everything that shapes it, made from the tracked template, by a check of its own in a folder
+   * of the host's, the first time it is needed. A project begun from another template is not compared;
+   * when none can be made, the check is told why and the page is not drawn.
+   */
+  async #reference(
+    projectId: ProjectId,
+    starterId: string,
+    common: Omit<CheckOptions, 'project' | 'cache' | 'port' | 'reference'>,
+  ): Promise<OwnReference> {
+    const template = templateDigest(common.template);
+    if (template === null)
+      return { kind: 'unavailable', why: "the starter's template could not be read" };
+    if (this.#deps.projection.starterTemplate(projectId) !== template)
+      return { kind: 'other_template' };
+    const browser = this.#deps.browser;
+    if (common.chrome === null || browser === null)
+      return { kind: 'unavailable', why: 'no browser is set up' };
+    const starters = new HostStarters(this.#deps.starters);
+    const lockfile = starters.lockfile(starterId);
+    const host = hostFilesDigest(common.hostSource);
+    if (lockfile === null || host === null)
+      return { kind: 'unavailable', why: "the starter's packages or host files could not be read" };
+    const key = referenceKey({ template, lockfile, host, browser: browser.sha256 });
+    const made = this.#references.get(starterId, key, async (work) => {
+      const project = join(work, 'project');
+      const applied = starters.apply(starterId, project);
+      if (!applied.ok || applied.template !== template || applied.lockfile !== lockfile)
+        return null;
+      const port = await this.#takePort();
+      try {
+        const result = await (this.#deps.runCheck ?? runCheck)({
+          ...common,
+          project,
+          cache: join(work, 'cache'),
+          port,
+          reference: { kind: 'making' },
+        });
+        // A starter that does not build, throws, or gives no picture of its own makes none.
+        const frame = result.page?.own.frame ?? null;
+        if (frame === null || result.tsc.exit !== 0 || result.build.exit !== 0) return null;
+        if (result.page?.exception_count !== 0) return null;
+        return await readFile(frame.file);
+      } finally {
+        this.#ports.delete(port);
+      }
+    });
+    // A folder that cannot be written reads as no picture, never as a failed check command.
+    const png = await made.catch(() => null);
+    return png === null
+      ? { kind: 'unavailable', why: "the starter's own picture could not be taken" }
+      : { kind: 'compared', png };
+  }
+
   /** `ownPermissions` is whether the browser started through the launcher, or null when none was started. */
   #findings(
     projectId: ProjectId,
@@ -474,6 +545,7 @@ export class HostPreviews {
               edges_at_3s: page.edges.at_3s,
               edges_at_10s: page.edges.at_10s,
               drawn: page.drawn,
+              own: { share: page.own.share, reference: page.own.reference },
               pictures: page.pictures.map(({ at_ms, sha256 }) => ({ at_ms, sha256 })),
             },
       unknown: result.unknown,

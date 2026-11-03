@@ -25,6 +25,7 @@ import {
   installedSet,
   originalFolderOf,
   originalRefusal,
+  templateDigest,
   VR_STARTER,
 } from './starters.ts';
 import { createTestControlPlane } from './testing/harness.ts';
@@ -107,6 +108,19 @@ describe('starters on the host', () => {
       state: 'differs',
       differs: ['node_modules/unpinned'],
     });
+  });
+
+  test("the template's digest is the one applying records, and the installed lockfile's is read only while it matches (DRAWN)", () => {
+    const { tracked, projects, starters } = setup('digest', { installed: 'matching' });
+    const applied = starters.apply('vr', join(projects, 'digest-app'));
+    assert.ok(applied.ok);
+    assert.equal(templateDigest(join(tracked, 'vr', 'template')), applied.template);
+    assert.equal(starters.lockfile('vr'), applied.lockfile);
+    assert.equal(setup('digest-stale', { installed: 'stale' }).starters.lockfile('vr'), null);
+    assert.equal(starters.lockfile('missing'), null);
+    // A template holding a link has no digest, as it is never applied.
+    symlinkSync(tracked, join(tracked, 'vr', 'template', 'link'));
+    assert.equal(templateDigest(join(tracked, 'vr', 'template')), null);
   });
 
   test('applying copies the template and links the shared dependencies', () => {

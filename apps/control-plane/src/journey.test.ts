@@ -189,6 +189,7 @@ const PASSED_CHECK: CheckResult = {
     canvases: 1,
     edges: { at_3s: 3200, at_10s: 3200 },
     drawn: true,
+    own: { share: 0.03, reference: 'compared', frame: null },
     pictures: [{ at_ms: 10_000, file: '/nowhere/picture-10s.png', sha256: 'a'.repeat(64) }],
   },
   unknown: null,

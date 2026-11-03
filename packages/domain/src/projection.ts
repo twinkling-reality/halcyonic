@@ -85,6 +85,8 @@ interface ProjectState {
   readonly name: string;
   location: ProjectLocation | null;
   starter: string | null;
+  /** The digest of the starter's template the project began from (DRAWN); kept out of the project's view. */
+  starterTemplate: string | null;
   /** The catalog repository the person linked (ADR 0039); kept out of the project's view. */
   catalog: CatalogRepositoryRef | null;
   /** The project this one was made as a VR version of (M1.8c-1); kept out of the project's view. */
@@ -381,6 +383,11 @@ export class Projection {
   /** The project this one was made as a VR version of (M1.8c-1), or null. */
   madeFrom(projectId: string): ProjectId | null {
     return this.#projects.get(projectId as ProjectId)?.madeFrom ?? null;
+  }
+
+  /** The digest of the starter's template the project began from (DRAWN), or null. */
+  starterTemplate(projectId: string): string | null {
+    return this.#projects.get(projectId as ProjectId)?.starterTemplate ?? null;
   }
 
   /**
@@ -765,6 +772,7 @@ export class Projection {
           name: event.payload.name,
           location: event.payload.location,
           starter: null,
+          starterTemplate: null,
           catalog: null,
           madeFrom: null,
           createdAt: event.occurred_at,
@@ -807,6 +815,7 @@ export class Projection {
           return;
         }
         project.starter = event.payload.starter_id;
+        project.starterTemplate = event.payload.template;
         project.updatedAt = event.ingested_at;
         changes.projects.add(event.project_id);
         return;

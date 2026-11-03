@@ -437,6 +437,15 @@ namespace Halcyonic.Contracts
         public double Seconds { get; set; }
     }
 
+    public sealed class CheckOwn
+    {
+        [JsonProperty("share", Required = Required.AllowNull)]
+        public double? Share { get; set; }
+
+        [JsonProperty("reference", Required = Required.Always)]
+        public JToken Reference { get; set; } = default!;
+    }
+
     public sealed class CheckPagePicturesItem
     {
         [JsonProperty("at_ms", Required = Required.Always)]
@@ -468,6 +477,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("drawn", Required = Required.Always)]
         public bool Drawn { get; set; }
+
+        [JsonProperty("own", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public CheckOwn? Own { get; set; }
 
         [JsonProperty("pictures", Required = Required.Always)]
         public List<CheckPagePicturesItem> Pictures { get; set; } = new List<CheckPagePicturesItem>();

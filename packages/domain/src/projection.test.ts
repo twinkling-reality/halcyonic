@@ -697,6 +697,38 @@ describe('a VR version and the original it was made from (M1.8c-1)', () => {
   });
 });
 
+describe('the template a starter project began from (DRAWN)', () => {
+  test('the projection knows its digest, keeps it out of the view, and has none for a project without a starter', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const game = b.project('Garden VR', {
+      path: '/work/garden-vr',
+      name: 'garden-vr',
+      created: true,
+    });
+    const plain = b.project('Notes', { path: '/work/notes', name: 'notes', created: false });
+    projection.apply(game.event);
+    projection.apply(plain.event);
+    const scope = { project_id: game.projectId, workstream_id: null, execution_id: null };
+    projection.apply(
+      b.controlPlane('project.starter_applied', scope, {
+        starter_id: 'iwsdk-vr',
+        lockfile: 'a'.repeat(64),
+        files: 12,
+        template: 'b'.repeat(64),
+      }),
+    );
+    assert.equal(projection.starterTemplate(game.projectId), 'b'.repeat(64));
+    assert.equal(projection.project(game.projectId)?.starter, 'iwsdk-vr');
+    assert.equal(projection.starterTemplate(plain.projectId), null);
+    assert.equal(projection.starterTemplate(b.id()), null);
+    assert.deepEqual(
+      Object.keys(projection.project(game.projectId) ?? {}).filter((key) => /template/.test(key)),
+      [],
+    );
+  });
+});
+
 describe('a checked game playing on the Mac (P-A)', () => {
   test('a play holds from its start until the stop of that same check, and stays out of the view', () => {
     const b = new EventBuilder();

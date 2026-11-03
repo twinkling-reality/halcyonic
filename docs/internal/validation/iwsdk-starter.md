@@ -506,6 +506,46 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   included; the page's own requests are same-origin and unaffected.
 - **Not tried:** the Quest Browser.
 
+## A page drawn of its own (DRAWN)
+
+- **Question:** the starter draws an island, a sky, clouds and decor, about 56,000 sharp edges in each picture, so
+  every project read drawn, with a game or without. What tells a page that draws something of its own from the
+  starter's own picture?
+- **Date:** 2026-11-03, the vetted set (Vite 7.3.7, three 0.181.0), the pinned chrome-headless-shell through the
+  launcher, on this Mac.
+- **Method:** the product's own `runCheck`, given the pristine starter's picture made the host's way (the template
+  applied with `HostStarters.apply` and checked with `reference: making`), on copies in a scratch folder. For each
+  case: the share of the pixels outside the card's 360 by 240 corner whose channels differ from the starter's by
+  more than 40, at frame 360 with no input under the stepped clock, beside the edges, `drawn`, `passed` and `ready`.
+  S1 and S2 are the showcase rehearsals' games as their agent left them (S1 with the lane's 4-line time fix), compared
+  with a picture made from fb3dd073's template, which they began from.
+
+| Case | Own share | Edges at 3 s / 10 s | Drawn | Passed | Ready | Seconds |
+| --- | --- | --- | --- | --- | --- | --- |
+| The starter's picture, main's template | (made) | 56,482 / 57,305 | | | | 49 |
+| The starter's picture, fb3dd073's template | (made) | 56,253 / 56,977 | | | | 50 |
+| The empty starter | 0 | 56,291 / 57,175 | no | no | no | 49 |
+| Only its card names a game | 0 | 56,367 / 57,321 | no | no | no | 47 |
+| AUDIT M18B-M1's fake page | 0 | 56,337 / 57,310 | no | no | no | 48 |
+| A 60 cm box 4 m away (the opt-in test's) | 0.897% | 57,541 / 58,274 | yes | yes | no | 49 |
+| A one-box game, its box made bigger on a press | 6.99% | 60,277 / 60,827 | yes | yes | yes | 86 |
+| The toy kit laid out on the island | 2.76% | 71,870 / 72,900 | yes | yes | no | 48 |
+| S1 Bonk the Moles | 3.55% | 69,797 / 71,324 | yes | yes | yes | 90 |
+| S2 Star Catcher | 6.72% | 65,132 / 68,034 | yes | yes | yes | 104 |
+
+- **Found:**
+  - The two starter pictures are the same bytes (SHA-256 `a095f586`), although the two templates differ in their
+    sources: the stepped clock draws the same page to the same pixel.
+  - Outside the card's corner, the empty starter, the card-only game and the fake page are identical to the
+    starter's picture: no pixel differs at all, so the threshold has no noise to clear. Their only differences are
+    inside the corner, the card's words (37,971 pixels for the card-only game).
+  - Every game differs by 9 times the threshold or more.
+  - A check whose twin step runs takes its own picture from the twin's first load. One that has nothing to press
+    takes one load of its own; the empty starter's check then took 49 s.
+- **Chosen:** `OWN_DRAWN` 0.1% of the pixels outside the corner, about 940 pixels.
+- **Not tried:** another Mac or GPU; a busy Mac, where a load that takes no picture reads unknown and the check does
+  not pass; a game that only changes the decor's counts, which reads as its own.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

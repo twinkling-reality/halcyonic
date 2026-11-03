@@ -10,12 +10,13 @@ import {
   laptopStep,
   layerState,
   pipeDriver,
+  TWIN_FRAMES,
   type TwinVerdict,
   twinLoad,
   twinStep,
   vrStep,
 } from './laptop-probe.ts';
-import { decodePng, type Pixels } from './png.ts';
+import { changedShare, decodePng, type Pixels } from './png.ts';
 import { buildProfile, SANDBOX_EXEC } from './profiles.ts';
 import { scanSource } from './scan.ts';
 
@@ -30,10 +31,39 @@ export const HOST_FILES = [
 
 /**
  * More sharp edges than this outside the welcome panel, in the picture at 3 s or at 10 s, means
- * something is drawn in view of the laptop camera: an empty starter has none, one small test box
- * about 2,700. It never means the game works: a scene of the wrong objects passes it too.
+ * something is drawn in view of the laptop camera: a white, black or blank page has none, one small
+ * test box about 2,700. The starter's own island, sky and decor have about 56,000, so a page is drawn
+ * only with pixels of its own as well (`OWN_DRAWN`). It never means the game works: a scene of the
+ * wrong objects passes it too.
  */
 export const DRAWN_EDGES = 200;
+
+/**
+ * The welcome card's corner of a laptop picture, which neither the edge count nor a project's own
+ * pixels count: the card holds the game's name and how to play, which are no game.
+ */
+export const CARD_CORNER = { width: 360, height: 240 } as const;
+
+/**
+ * More than this share of the pixels outside the card's corner must differ from the pristine
+ * starter's picture at the same frame for a page to draw something of its own (DRAWN): about 940 of
+ * 1280 by 800, a square 31 pixels a side. Calibrated in `docs/internal/validation/iwsdk-starter.md`.
+ */
+export const OWN_DRAWN = 0.001;
+
+/** How long the page's own no-input load may take by the wall clock, when the twin step made none. */
+export const OWN_LOAD_MS = 90_000;
+
+/** What a check compares the project's own picture with (DRAWN). */
+export type OwnReference =
+  /** The pristine starter's picture at the same frame, taken the same way. */
+  | { readonly kind: 'compared'; readonly png: Buffer }
+  /** The project began from another template than the tracked one: its edges alone, as before. */
+  | { readonly kind: 'other_template' }
+  /** No starter's picture could be made: never drawn. */
+  | { readonly kind: 'unavailable'; readonly why: string }
+  /** This check makes the starter's picture: the page's own is taken and compared with nothing. */
+  | { readonly kind: 'making' };
 
 /** How long the page is watched, and when the two pictures are taken. */
 export const PAGE_MS = 10_000;
@@ -71,6 +101,8 @@ export interface CheckOptions {
   readonly port: number;
   /** How long the twin step may take by the wall clock; `TWIN_STEP_MS` unless a test shortens it. */
   readonly twinStepMs?: number;
+  /** What the project's own picture is compared with (DRAWN). */
+  readonly reference: OwnReference;
 }
 
 export interface CheckStep {
@@ -92,8 +124,15 @@ export interface PageFindings {
   readonly console_errors: number;
   readonly canvases: number;
   readonly edges: { readonly at_3s: number | null; readonly at_10s: number | null };
-  /** Something is drawn in view; never that the game works. */
+  /** Something is drawn in view, and of the project's own; never that the game works. */
   readonly drawn: boolean;
+  /** The page's own picture against the starter's (DRAWN), as `CheckOwn` records it. */
+  readonly own: {
+    readonly share: number | null;
+    readonly reference: 'compared' | 'other_template' | 'unavailable';
+    /** The page's no-input picture at the last of `TWIN_FRAMES`, kept in the cache, or null. */
+    readonly frame: PagePicture | null;
+  };
   readonly pictures: readonly PagePicture[];
 }
 
@@ -136,9 +175,20 @@ export function summarizeExceptions(texts: readonly string[]): string[] {
   return [...new Set(lines)].slice(0, MAX_EXCEPTIONS);
 }
 
-/** Whether the edge counts of the two pictures say something is drawn. */
-export function drawnFrom(at3s: number | null, at10s: number | null): boolean {
-  return Math.max(at3s ?? 0, at10s ?? 0) > DRAWN_EDGES;
+/**
+ * Whether the page is drawn (DRAWN): the edge counts of the two pictures say something is drawn, and
+ * its own picture differs from the starter's in more than `OWN_DRAWN` of the pixels outside the
+ * card's corner. A project from another template is read by its edges alone; with no starter's
+ * picture to compare with, it is never drawn.
+ */
+export function drawnFrom(
+  at3s: number | null,
+  at10s: number | null,
+  own: Pick<PageFindings['own'], 'share' | 'reference'>,
+): boolean {
+  if (Math.max(at3s ?? 0, at10s ?? 0) <= DRAWN_EDGES) return false;
+  if (own.reference === 'other_template') return true;
+  return own.reference === 'compared' && own.share !== null && own.share > OWN_DRAWN;
 }
 
 /**
@@ -162,7 +212,7 @@ export function edgeCount(png: Buffer): number | null {
   let n = 0;
   for (let y = 0; y < h - 3; y += 1) {
     for (let x = 0; x < w - 3; x += 1) {
-      if (x < 360 && y < 240) continue;
+      if (x < CARD_CORNER.width && y < CARD_CORNER.height) continue;
       const i = (y * w + x) * 4;
       if (apart(i, i + 12) > 40 || apart(i, i + 12 * w) > 40) n += 1;
     }
@@ -297,8 +347,11 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
     }
     if (typeof opened === 'string')
       return { tsc, build, page: null, unknown: opened, passed: false, ...steps };
-    const { page, vr } = opened;
+    const { vr } = opened;
     let laptop = opened.laptop;
+    // The twin's first load is the page with no input under the stepped clock: its last picture is
+    // the page's own picture (DRAWN), so no load of its own is needed.
+    const kept: { still: Buffer | null } = { still: null };
     // An animated scene's change is unknown from one load: replay it under a stepped clock, with and
     // without a press, and compare the two at the same frame (M1.8g). Only the starter's own layer
     // can be ready, so nothing else is replayed.
@@ -320,7 +373,10 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
         signal.addEventListener('abort', stop, { once: true });
         try {
           if (signal.aborted) throw new Error('the twin step ran out of time');
-          return await twinLoad(run, `http://127.0.0.1:${port}/?check`, target, signal);
+          const first = loads === 1;
+          const loaded = await twinLoad(run, `http://127.0.0.1:${port}/?check`, target, signal);
+          if (first && target === null) kept.still = loaded.end;
+          return loaded;
         } finally {
           signal.removeEventListener('abort', stop);
           await run.stop();
@@ -333,12 +389,21 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
         ready: laptop.ready || verdict.seen === true,
       };
     }
+    // Only a picture to compare, or to make the reference from, is worth a load.
+    const wanted = options.reference.kind === 'compared' || options.reference.kind === 'making';
+    const frame = wanted ? (kept.still ?? (await ownPicture(options))) : null;
+    const own = await ownFrom(frame, options.reference, cache);
+    const page: PageFindings = {
+      ...opened.page,
+      own,
+      drawn: drawnFrom(opened.page.edges.at_3s, opened.page.edges.at_10s, own),
+    };
     const passed = passes(tsc, build, page);
     return {
       tsc,
       build,
       page,
-      unknown: null,
+      unknown: ownUnknown(own, options.reference),
       passed,
       notes,
       laptop,
@@ -348,6 +413,70 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
   } finally {
     await stopProcess(server);
   }
+}
+
+/**
+ * One load of the page with no input under the twin's stepped clock, in a Chrome of its own: its
+ * picture at the last of `TWIN_FRAMES` (DRAWN), or null when none could be taken in `OWN_LOAD_MS`.
+ */
+async function ownPicture(options: CheckOptions): Promise<Buffer | null> {
+  if (options.chrome === null) return null;
+  const signal = AbortSignal.timeout(OWN_LOAD_MS);
+  const run = await launchChrome({
+    chrome: options.chrome,
+    launcher: options.launcher ?? null,
+    home: options.home,
+    folder: join(options.cache, 'chrome-own'),
+    port: options.port,
+  }).catch(() => null);
+  if (run === null) return null;
+  // Past its time, the Chrome stops at once, whatever the load is waiting on.
+  const stop = () => void run.stop();
+  signal.addEventListener('abort', stop, { once: true });
+  try {
+    return (await twinLoad(run, `http://127.0.0.1:${options.port}/?check`, null, signal)).end;
+  } catch {
+    return null;
+  } finally {
+    signal.removeEventListener('abort', stop);
+    await run.stop();
+  }
+}
+
+/** The page's own picture, kept in the cache, and its share of pixels that differ from the reference's. */
+async function ownFrom(
+  frame: Buffer | null,
+  reference: OwnReference,
+  cache: string,
+): Promise<PageFindings['own']> {
+  let saved: PagePicture | null = null;
+  if (frame !== null) {
+    const file = join(cache, 'picture-own.png');
+    await writeFile(file, frame, { mode: 0o600 });
+    saved = {
+      // Its frame, in the page's own time under the stepped clock.
+      at_ms: Math.round((TWIN_FRAMES[3] * 1000) / 60),
+      file,
+      sha256: createHash('sha256').update(frame).digest('hex'),
+    };
+  }
+  return {
+    share:
+      reference.kind === 'compared' && frame !== null
+        ? changedShare(frame, reference.png, CARD_CORNER)
+        : null,
+    reference: reference.kind === 'making' ? 'unavailable' : reference.kind,
+    frame: saved,
+  };
+}
+
+/** What a check could not find out about the page's own pixels, or null. */
+function ownUnknown(own: PageFindings['own'], reference: OwnReference): string | null {
+  if (reference.kind === 'unavailable')
+    return `The starter's own picture could not be made (${reference.why}), so whether the game draws anything of its own is unknown.`;
+  if (reference.kind === 'compared' && own.share === null)
+    return "The game's own picture could not be taken, so whether it draws anything of its own is unknown.";
+  return null;
 }
 
 async function step(
@@ -472,7 +601,11 @@ async function openPage(
   port: number,
   cache: string,
   layer: CheckLaptop['layer'],
-): Promise<{ page: PageFindings; laptop: CheckLaptop; vr: CheckVr | null } | string | null> {
+): Promise<
+  | { page: Omit<PageFindings, 'drawn' | 'own'>; laptop: CheckLaptop; vr: CheckVr | null }
+  | string
+  | null
+> {
   let run: Awaited<ReturnType<typeof launchChrome>> | null = null;
   try {
     run = await launchChrome({ chrome, launcher, home, folder, port });
@@ -539,9 +672,8 @@ async function openPage(
       console_errors: consoleErrors,
       canvases: Array.isArray(found.nodeIds) ? found.nodeIds.length : 0,
       edges: { at_3s: at3s, at_10s: at10s },
-      drawn: drawnFrom(at3s, at10s),
       pictures: [early.saved, late.saved].filter((saved): saved is PagePicture => saved !== null),
-    } satisfies PageFindings;
+    } satisfies Omit<PageFindings, 'drawn' | 'own'>;
     const thrownBefore = exceptionCount;
     const stepped = await laptopStep(pipeDriver(devtools, session), layer).catch(
       (): CheckLaptop => ({
