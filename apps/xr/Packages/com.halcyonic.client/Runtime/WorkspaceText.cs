@@ -383,8 +383,8 @@ namespace Halcyonic.Client
                 notes.Add("Counts Once Agent Confirms");
             }
             return new NeedAnswer(
-                tool == null ? LineWords.Ours("Approval Requested") : RunsCommand(tool.ToolName) ? LineWords.Ours("Run Command ·")
-                    : LineWords.Ours("Use ") + LineWords.TheirName(tool.ToolName) + LineWords.Ours(" ·"),
+                tool == null ? LineWords.Ours("Approval Requested") : RunsCommand(tool.ToolName) ? LineWords.Ours("Run Command")
+                    : LineWords.Ours("Use ") + LineWords.TheirName(tool.ToolName),
                 tool == null ? null : LabelText.Exact(tool.Summary),
                 notes);
         }

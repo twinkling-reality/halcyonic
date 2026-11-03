@@ -117,8 +117,8 @@ namespace Halcyonic.Client
 
         public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
             string? folder = null, string? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null)
-            : this(project, title, LineWords.Shown(runtime), LineWords.Shown(model), LineWords.Written(modelFacts), LineWords.Shown(modelRef), objective,
-                folder == null ? null : LineWords.Shown(folder), folderBefore == null ? null : LineWords.Shown(folderBefore), titleCut, folderChoice)
+            : this(project, title, LineWords.Unspelled(runtime), LineWords.Unspelled(model), LineWords.Written(modelFacts), LineWords.Unspelled(modelRef), objective,
+                folder == null ? null : LineWords.Unspelled(folder), folderBefore == null ? null : LineWords.Unspelled(folderBefore), titleCut, folderChoice)
         {
         }
 
@@ -305,7 +305,7 @@ namespace Halcyonic.Client
             return true;
         }
 
-        private void Add(string label, string value) => Add(label, LineWords.Shown(value));
+        private void Add(string label, string value) => Add(label, LineWords.Unspelled(value));
 
         /// <summary>An item whose value is runs: outside text spelled by <see cref="Safe"/>, Halcyonic's words as written.</summary>
         private void Add(string label, LineWords value) => items.Add(new ReviewItem(label,

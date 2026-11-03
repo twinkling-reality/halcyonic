@@ -911,7 +911,7 @@ public class QuestionLedWorkspaceTests
         Assert.That(WorkspaceText.Questions(waiting), Does.Contain(WorkspaceQuestion.NeedFromYou));
         Assert.That(WorkspaceText.FirstQuestion(waiting), Is.EqualTo(WorkspaceQuestion.NeedFromYou));
         var need = WorkspaceText.NeedFromYou(waiting)!;
-        Assert.That(need.Asks, Is.EqualTo("Run Command ·"));
+        Assert.That(need.Asks, Is.EqualTo("Run Command"));
         Assert.That(need.Request, Is.EqualTo("Run the migration"));
         Assert.That(need.Notes, Has.Some.Contains("Once Agent Confirms"), "an answer counts once confirmed, not when sent");
 

@@ -603,7 +603,7 @@ public class FileColumnTests
         var work = new WaitingWork();
         var column = Column(host, () => Approving(work));
         Assert.That(column.Screen.Section, Is.EqualTo(FileSection.Waiting));
-        Assert.That(column.Frame!.Lines[0].Words, Is.EqualTo("Run Command ·"));
+        Assert.That(column.Frame!.Lines[0].Words, Is.EqualTo("Run Command"));
         var changes = 0;
         column.Changed += () => changes++;
         column.Act(MenuFrame.ChooseSection, "activity");

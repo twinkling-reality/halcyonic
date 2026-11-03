@@ -109,7 +109,7 @@ namespace Halcyonic.XR.Workspace.Editor
             if (resting)
             {
                 var (lead, then) = KitMomentWords.Receipt(ran);
-                Require(card.ReceiptLead.gameObject.activeSelf && card.ReceiptLead.text == lead && card.ReceiptThen.text == KitMomentWords.Dot.TrimStart() + then,
+                Require(card.ReceiptLead.gameObject.activeSelf && card.ReceiptLead.text == lead && card.ReceiptThen.text == KitMomentWords.Dot + then,
                     "the receipt reads \"" + card.ReceiptLead.text + " " + card.ReceiptThen.text + "\"");
                 Require(SameColour(card.ReceiptLead.color, KitType.Text) && SameColour(card.ReceiptThen.color, KitType.Secondary), "the receipt's \"Sent\" is not the primary text, or the rest not secondary");
                 Require(Mathf.Abs(card.Drawn.y - card.ReceiptHeight) < 1e-5f, "the card is not its receipt's height");

@@ -73,8 +73,8 @@ namespace Halcyonic.Client
         {
             var from = 0;
             var continued = false;
-            // Trailing spaces hang past the row's end, as a terminal's do: they are measured out.
-            bool Fits(int end) => fits!(LineWords.Shown(shown.Substring(from, end - from).TrimEnd(' ')), continued);
+            // Trailing spaces hang past the row's end, as a terminal's do: they are measured out. A probe never ends between a pair's halves.
+            bool Fits(int end) => fits!(LineWords.Shown(shown.Substring(from, (end < shown.Length && char.IsLowSurrogate(shown[end]) ? end + 1 : end) - from).TrimEnd(' ')), continued);
             while (fits != null && from < shown.Length && !Fits(shown.Length))
             {
                 // The longest part from here that fits (widths only grow as characters are added), at least one character.
