@@ -154,7 +154,8 @@ launch/return, process recreation and current-frame action behavior need separat
   resynchronized from a fresh snapshot instead of growing the queue without bound.
 - **`ClientProjection`** holds projects, workstreams, executions, recent commands and runtimes. It
   changes only by replacing state from a snapshot or from the entity changes an event carries; it
-  never derives state.
+  never derives state. It keeps pending commands and the last 50 to finish, as many finished as a
+  snapshot carries, so a long connection holds no more than a reconnect would (U6).
 - **Commands.** `SubmitAsync` sends a command and waits for its acknowledgement. It fails
   immediately, not sent, when not connected, or when the connection was welcomed to another journal
   than the one `State` shows: a reconnect opens its command channel on the welcome, before its
@@ -894,7 +895,10 @@ launch/return, process recreation and current-frame action behavior need separat
   a code every adapter shares where it has one (`WorkspaceText.WhyFailed`), in the words its refusal or
   a lost connection already uses, else by what failed alone. A snapshot carries state but no history, so after a resynchronization the history of
   the workstream being looked at is read again through **`EventHistory`** and **`ControlPlaneApi`**
-  (`GET /api/events`, paged, refused if the journal changed).
+  (`GET /api/events`, paged, refused if the journal changed). It keeps every line, up to 200, of the
+  32 executions most recently recorded or read and, of the rest, the last 3 and the last one that is
+  not a round's, which a peek shows; opening a file reads its history again, and a tool's name is
+  kept only until its completion line (U6).
 - **`ControlPlaneApi`** also reads what Salidium and Seorak say about an execution
   (`GetUnderstandingAsync`, `GetEvaluationAsync`). Each answer states its availability instead of
   failing. An evaluation spends three of Seorak's 60 requests a minute, so a client fetches it when
