@@ -32,12 +32,19 @@ export interface ReadingLimits {
   readonly bytes?: number;
   /** Files larger than this many bytes are hashed, but their lines are not counted. */
   readonly countLinesUpTo: number;
+  /**
+   * The most files' entries kept across every task's latest reading, about 350 bytes each (U6): past it,
+   * the least recently read task's reading is dropped, and its next turn says it has no earlier one
+   * unless an instruction starts that turn from rest, which reads the folder again.
+   */
+  readonly kept?: number;
 }
 
 export const DEFAULT_READING_LIMITS: ReadingLimits = {
   files: 20_000,
   bytes: 256 * 1024 * 1024,
   countLinesUpTo: 2 * 1024 * 1024,
+  kept: 100_000,
 };
 
 interface Entry {
@@ -292,7 +299,10 @@ export class FileObserver {
   readonly #limits: ReadingLimits;
   /** Folders of Halcyonic's own data: a task's folder that holds one is never read (as undo, ADR 0036). */
   readonly #protect: readonly string[];
+  /** Each task's latest reading, least recently read first (a reading is moved to the end when kept). */
   readonly #readings = new Map<string, Reading>();
+  /** How many files' entries `#readings` holds in all. */
+  #entries = 0;
   /**
    * Executions started through this control plane, whose turns it observes. Turn events of any other
    * (a recorded run replayed, a journal imported) are history, not the folder now, and are left alone.
@@ -331,13 +341,12 @@ export class FileObserver {
   #readBefore(executionId: string, directory: string): Promise<void> {
     return this.#serially(directory, async () => {
       if (await holdsHostData(directory, this.#protect)) {
-        this.#readings.delete(executionId);
+        this.#drop(executionId);
         return;
       }
       const read = await readFolder(directory, undefined, this.#limits);
-      if (read.ok && !this.#abandoned.has(executionId))
-        this.#readings.set(executionId, read.reading);
-      else this.#readings.delete(executionId);
+      if (read.ok && !this.#abandoned.has(executionId)) this.#keep(executionId, read.reading);
+      else this.#drop(executionId);
     });
   }
 
@@ -347,7 +356,7 @@ export class FileObserver {
    */
   abandon(executionId: string): void {
     this.#abandoned.add(executionId);
-    this.#readings.delete(executionId);
+    this.#drop(executionId);
   }
 
   /** What changed since the last reading, which this reading then replaces. */
@@ -358,7 +367,7 @@ export class FileObserver {
   ): Promise<FilesObserved> {
     return this.#serially(directory, async () => {
       if (await holdsHostData(directory, this.#protect)) {
-        this.#readings.delete(executionId);
+        this.#drop(executionId);
         return skipped(turnId, {
           code: 'holds_host_data',
           message: "The task's folder holds Halcyonic's own data, so the Mac does not read it.",
@@ -366,8 +375,8 @@ export class FileObserver {
       }
       const before = this.#readings.get(executionId);
       const read = await readFolder(directory, before, this.#limits);
-      if (read.ok) this.#readings.set(executionId, read.reading);
-      else this.#readings.delete(executionId);
+      if (read.ok) this.#keep(executionId, read.reading);
+      else this.#drop(executionId);
       if (!read.ok) return skipped(turnId, { code: read.code, message: read.message });
       if (before === undefined)
         return skipped(turnId, {
@@ -423,6 +432,26 @@ export class FileObserver {
           ),
         );
     });
+  }
+
+  /** Keeps a task's latest reading, then drops the least recently read others past the bound. */
+  #keep(executionId: string, reading: Reading): void {
+    this.#drop(executionId);
+    this.#readings.set(executionId, reading);
+    this.#entries += reading.size;
+    const bound = this.#limits.kept ?? Number.POSITIVE_INFINITY;
+    for (const [oldest, kept] of this.#readings) {
+      if (this.#entries <= bound || oldest === executionId) break;
+      this.#readings.delete(oldest);
+      this.#entries -= kept.size;
+    }
+  }
+
+  #drop(executionId: string): void {
+    const reading = this.#readings.get(executionId);
+    if (reading === undefined) return;
+    this.#readings.delete(executionId);
+    this.#entries -= reading.size;
   }
 
   #serially<T>(key: string, step: () => Promise<T>): Promise<T> {
