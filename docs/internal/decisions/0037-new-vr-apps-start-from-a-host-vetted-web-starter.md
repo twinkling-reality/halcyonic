@@ -326,3 +326,8 @@ island; the decor keeps to the island's sides and back, the middle 1 to 3 m in f
 and AGENTS.md says how to change its counts. Each prop is now one mesh of merged, vertex-coloured parts, the grass one
 instanced mesh and each cloud one mesh: the decorated island draws 64 calls a frame on the Mac where its parts drew 284
 (38 for the island alone before), counted in the lane's browser.
+
+A hit can celebrate (U6): `celebrate(at, time)` in `src/decor.ts` bursts confetti from it, all bursts one instanced mesh,
+and `scoreSign(label)` stands a big score sign on the raised tier, facing the player, whose board jumps when
+`show(points, time)` changes it. Both run from the time the game's system is given, through the same system as the
+scenery, and their curves are pure functions in `src/motion.ts`; AGENTS.md asks for them on a hit.

@@ -435,6 +435,22 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   reads Enter VR, and the laptop line says WASD, which does not break. A fresh project's check passed.
 - **Not tried:** the headset's 2D page, where the button shows.
 
+## A hit's juice (U6)
+
+- **Question:** can every game make a hit feel like one, and show its score big, without a timer of its own?
+- **Date:** 2026-11-03.
+- **Now:** `celebrate(at, time)` bursts 24 pieces of confetti in the palette's colours from the hit; they fly up and
+  out, slowed by the air, flutter down turning and shrink away within 1.4 s, and up to four bursts fly at once as one
+  instanced mesh. `scoreSign(label)` stands a cream board in a tangerine frame on the raised tier, the label above a
+  dark number, and the board jumps when `show(points, time)` changes it. Seen in a lab harness that bursts every 1.5 s
+  of game time: the pieces read as coloured paper from the laptop camera 4 m away, with their shadows on the grass.
+- **Found on the way:** the board's face fought its frame at 1 mm apart: the template's near plane of 1 mm leaves
+  about 2 mm of depth precision 6 m away. The face now stands 2 cm proud. Every new game's first frame came 3.4 s after
+  loading at U2 and 5.0 s now (each new kind of material is one more shader compiled before it), and the page is white
+  until then; the next unit puts the sky behind the canvas.
+- **Not tried:** the headset; the sign's text in Quest Browser's own fonts (the canvas asks for a rounded font and
+  falls back to the system's).
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

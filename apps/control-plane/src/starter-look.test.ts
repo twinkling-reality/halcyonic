@@ -226,3 +226,24 @@ describe('the card names the game and says how to play it, nothing else (U5)', (
     assert.match(agents, /nothing else on the card/);
   });
 });
+
+describe('a hit can celebrate and the score can be shown big, ready for any game (U6)', () => {
+  test('confetti is one instanced mesh driven by the same system, and a score sign stands on the tier', () => {
+    const decor = read('src/decor.ts');
+    assert.match(
+      decor,
+      /export function celebrate\(at: \{ x: number; y: number; z: number \}, time: number\): void/,
+    );
+    assert.match(decor, /export function scoreSign\(/);
+    assert.match(decor, /confettiPiece\(time - /);
+    assert.match(decor, /pulse\(time - /);
+    assert.match(decor, /texture\.colorSpace = SRGBColorSpace;/);
+  });
+
+  test('the agent is asked to celebrate a hit and show the score on the sign, with the time it is given', () => {
+    const agents = read('AGENTS.md');
+    assert.match(agents, /`celebrate\(/);
+    assert.match(agents, /`scoreSign\(/);
+    assert.match(agents, /`bonk` it/);
+  });
+});

@@ -1,6 +1,9 @@
 import {
+  BoxGeometry,
   type BufferGeometry,
+  CanvasTexture,
   CapsuleGeometry,
+  Color,
   ConeGeometry,
   CylinderGeometry,
   DoubleSide,
@@ -10,14 +13,16 @@ import {
   Mesh,
   type MeshPhysicalMaterial,
   Object3D,
+  PlaneGeometry,
   Shape,
   ShapeGeometry,
   SphereGeometry,
+  SRGBColorSpace,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { ambientMotion, contactShadow, ISLAND_CENTRE } from './look.js';
-import { ambient, flap, flight, sway } from './motion.js';
-import { type PaletteName, toyMaterial } from './palette.js';
+import { ambientMotion, contactShadow, gameIsland, ISLAND_CENTRE, TIER } from './look.js';
+import { ambient, confettiPiece, flap, flight, juice, pulse, sway } from './motion.js';
+import { type PaletteName, palette, toyMaterial } from './palette.js';
 
 /**
  * Where the decor stands, round the island's centre, as (x, z, ...): at its sides and back, with the middle, from 1 to
@@ -259,4 +264,123 @@ function butterfly(wings: readonly [PaletteName, PaletteName]): { body: Mesh; le
     return mesh;
   };
   return { body, right: wing(false), left: wing(true) };
+}
+
+/** How many bursts of confetti can fly at once; a new hit takes the oldest's place. */
+const BURSTS = 4;
+const CONFETTI_COLOURS: readonly PaletteName[] = ['berry', 'sunny', 'ocean', 'grape', 'tangerine', 'leaf'];
+let confetti: { bursts: ({ x: number; y: number; z: number; time: number } | null)[]; next: number } | null = null;
+
+/**
+ * Confetti bursting from a hit at `at`, in the world's coordinates, from the `time` the game's system was given, like
+ * the curves in `src/motion.ts`: never a timer of its own. Up to four bursts fly at once, all one draw call.
+ */
+export function celebrate(at: { x: number; y: number; z: number }, time: number): void {
+  if (confetti === null) confetti = confettiPool();
+  confetti.bursts[confetti.next] = { x: at.x, y: at.y, z: at.z, time };
+  confetti.next = (confetti.next + 1) % BURSTS;
+}
+
+function confettiPool(): NonNullable<typeof confetti> {
+  const count = BURSTS * juice.pieces;
+  // A thin box shows a face from every side, so the pieces need no double-sided shader of their own. Big enough to read
+  // as paper from the laptop camera 4 m away, with a little light of their own so a piece seen edge-on is not dark.
+  const material = toyMaterial('#FFFFFF');
+  material.emissive = new Color('#FFFFFF');
+  material.emissiveIntensity = 0.18;
+  const mesh = new InstancedMesh(new BoxGeometry(0.075, 0.006, 0.048), material, count);
+  // The pieces fly far from where the mesh began, so it is never culled by a stale bounding sphere.
+  mesh.frustumCulled = false;
+  mesh.castShadow = true;
+  const colour = new Color();
+  for (let i = 0; i < count; i++)
+    mesh.setColorAt(i, colour.set(palette[CONFETTI_COLOURS[i % CONFETTI_COLOURS.length] ?? 'sunny']));
+  const pool: NonNullable<typeof confetti> = { bursts: new Array(BURSTS).fill(null), next: 0 };
+  const place = new Object3D();
+  const move = (time: number) => {
+    for (let b = 0; b < BURSTS; b++) {
+      const burst = pool.bursts[b] ?? null;
+      for (let i = 0; i < juice.pieces; i++) {
+        const piece = burst === null ? null : confettiPiece(time - burst.time, i);
+        if (burst === null || piece === null || piece.scale === 0) place.scale.setScalar(0);
+        else {
+          place.position.set(burst.x + piece.x, burst.y + piece.y, burst.z + piece.z);
+          place.rotation.set(piece.rx, piece.ry, piece.rz);
+          place.scale.setScalar(piece.scale);
+        }
+        place.updateMatrix();
+        mesh.setMatrixAt(b * juice.pieces + i, place.matrix);
+      }
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  };
+  move(0);
+  gameIsland().add(mesh);
+  ambientMotion(move);
+  return pool;
+}
+
+/**
+ * A big score sign on the raised tier at the back, facing the player: make it once, `const score = scoreSign('Score')`,
+ * then call `score.show(points, time)` when the score changes, with the `time` the game's system was given; the board
+ * jumps each time. One label and one number, dark on cream, readable from the far side of the island.
+ */
+export function scoreSign(label = 'Score'): { show(value: number | string, time: number): void } {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 256;
+  const context = canvas.getContext('2d');
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.anisotropy = 4;
+  const draw = (value: number | string) => {
+    if (context === null) return;
+    const font = '"Arial Rounded MT Bold", ui-rounded, system-ui, sans-serif';
+    context.fillStyle = '#FFF8EC';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillStyle = palette.tangerine;
+    context.font = `700 54px ${font}`;
+    context.fillText(label, 256, 58);
+    context.fillStyle = palette.ink;
+    context.font = `900 148px ${font}`;
+    context.fillText(String(value), 256, 166);
+    texture.needsUpdate = true;
+  };
+  draw(0);
+  const sign = new Group();
+  sign.position.set(TIER.x, TIER.top, TIER.z + 0.2);
+  // Two posts, the frame and its back as one mesh; the face as another, lit like the toys but never dark.
+  const stand = prop([
+    part(new CylinderGeometry(0.035, 0.04, 0.8, 12), 'cocoa', [-0.48, 0.4, -0.03]),
+    part(new CylinderGeometry(0.035, 0.04, 0.8, 12), 'cocoa', [0.48, 0.4, -0.03]),
+  ]);
+  sign.add(stand);
+  const board = new Group();
+  board.position.y = 1.08;
+  const frame = prop([part(new BoxGeometry(1.32, 0.72, 0.06), 'tangerine', [0, 0, 0])], { roughness: 0.4 });
+  board.add(frame);
+  const faceMaterial = toyMaterial('#FFFFFF', { roughness: 0.6 });
+  faceMaterial.map = texture;
+  faceMaterial.emissive = new Color('#FFFFFF');
+  faceMaterial.emissiveMap = texture;
+  faceMaterial.emissiveIntensity = 0.5;
+  const face = new Mesh(new PlaneGeometry(1.2, 0.6), faceMaterial);
+  // 2 cm proud of the frame: the template's near plane of 1 mm leaves about 2 mm of depth precision 6 m away.
+  face.position.z = 0.05;
+  board.add(face);
+  sign.add(board);
+  sign.add(contactShadow(0.6));
+  gameIsland().add(sign);
+  let changedAt = Number.NEGATIVE_INFINITY;
+  ambientMotion((time) => {
+    board.scale.setScalar(pulse(time - changedAt));
+  });
+  return {
+    show(value, time) {
+      draw(value);
+      changedAt = time;
+    },
+  };
 }

@@ -55,6 +55,14 @@ const FLOOR = {
   tier: { radius: 1.0, height: 0.22, z: -2.15 },
 } as const;
 
+/** The raised tier at the back, in the world's coordinates: a stage for a sign or a goal; its top is at `top`. */
+export const TIER = {
+  x: ISLAND_CENTRE.x,
+  z: ISLAND_CENTRE.z + FLOOR.tier.z,
+  top: FLOOR.tier.height,
+  radius: FLOOR.tier.radius,
+} as const;
+
 /** The island's soft outline: r(θ) = 1 + 0.06 sin(3θ + 0.5) + 0.035 sin(5θ + 1.3). */
 const lobe = (theta: number) =>
   1 + FLOOR.lobes.reduce((sum, [k, a, p]) => sum + a * Math.sin(k * theta + p), 0);

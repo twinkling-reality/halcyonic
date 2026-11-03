@@ -4,14 +4,17 @@ import {
   ambient,
   bob,
   bonk,
+  confettiPiece,
   drift,
   easeInBack,
   easeOutBack,
   flap,
   flight,
   hide,
+  juice,
   motion,
   pop,
+  pulse,
   sway,
   wiggle,
 } from '../../../starters/iwsdk-vr/template/src/motion.ts';
@@ -145,5 +148,48 @@ describe("the world's own motion: small, slow and never a jump (U3)", () => {
     const a = flight(2, 1.1, reach);
     const b = flight(2 + ambient.flightPeriod, 1.1, reach);
     assert.ok(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 1e-9, 'one loop, again and again');
+  });
+});
+
+describe("a hit's juice: confetti and a score that jumps, on the game's clock (U6)", () => {
+  test('confetti bursts up and out from the hit, falls back, and is gone when its life ends', () => {
+    for (let i = 0; i < juice.pieces; i++) {
+      const start = confettiPiece(0, i);
+      assert.ok(Math.hypot(start.x, start.y, start.z) < 1e-9, `piece ${i} starts at the hit`);
+      const rising = confettiPiece(0.15, i);
+      assert.ok(rising.y > 0.05, `piece ${i} flies up`);
+      const peak = Math.max(...frames(juice.life).map((t) => confettiPiece(t, i).y));
+      assert.ok(peak > 0.15 && peak < 1.2, `piece ${i} rises a little, ${peak}`);
+      const late = confettiPiece(juice.life - 0.02, i);
+      assert.ok(late.y < peak, `piece ${i} is falling by the end`);
+      assert.ok(late.scale < 0.2, `piece ${i} has shrunk away by the end`);
+      assert.equal(confettiPiece(juice.life, i).scale, 0);
+      assert.equal(confettiPiece(-0.1, i).scale, 0);
+      assert.ok(Math.hypot(late.x, late.z) < 1.5, `piece ${i} stays near the hit`);
+    }
+  });
+
+  test('the pieces spread round the hit rather than in one line, and every burst is the same', () => {
+    const angles = Array.from({ length: juice.pieces }, (_, i) => {
+      const p = confettiPiece(0.3, i);
+      return Math.atan2(p.z, p.x);
+    });
+    const quadrants = new Set(
+      angles.map((a) => Math.floor(((a + Math.PI) / (2 * Math.PI)) * 4) % 4),
+    );
+    assert.equal(quadrants.size, 4, 'all four quarters round the hit');
+    assert.deepEqual(confettiPiece(0.42, 5), confettiPiece(0.42, 5));
+  });
+
+  test("a score's jump grows quickly, overshoots a little, and settles to exactly 1", () => {
+    assert.equal(pulse(0), 1);
+    const path = frames(0.6).map((t) => pulse(t));
+    assert.ok(
+      Math.max(...path) > 1.15 && Math.max(...path) < 1.4,
+      `a jump you see: ${Math.max(...path)}`,
+    );
+    assert.equal(pulse(juice.pulseMs / 1000), 1);
+    assert.equal(pulse(5), 1);
+    assert.equal(pulse(-1), 1);
   });
 });

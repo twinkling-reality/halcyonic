@@ -60,7 +60,10 @@ Make it fun to look at:
 - Give every game object some motion each frame from `src/motion.ts` (`pop`, `hide`, `bob`, `wiggle`), using the
   `time` your system's `update(delta, time)` is given, never a timer of its own, so the person's computer can check
   it.
-- When something is hit, `bonk` it, then `hide` it, and show the score big and easy to read.
+- When something is hit, `bonk` it, `celebrate(position, time)` from `src/decor.ts` at it, then `hide` it. Show the
+  score on a `scoreSign()`, which stands on the raised tier facing the player: make it once,
+  `const score = scoreSign('Score')`, and call `score.show(points, time)` when the score changes. Pass both the `time`
+  your system's `update(delta, time)` is given.
 - Name the game on its welcome card, `public/ui/welcome.uikitml`: its name in `card-title` and one short line on how
   to play in `card-line`, with nothing else on the card; put the same name in `index.html`'s `<title>`. The card's
   words go by themselves after a few seconds (`src/panel.ts`); leave that as it is.
