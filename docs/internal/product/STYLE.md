@@ -92,6 +92,17 @@ its run, so who said it is still known to every check. Larger multiplies by 1.15
 The screen's two-letter mark is in Display's face at its own size. Identity (30 dp) and Heading (22 dp) are the instrument
 candidate's only, in its own face and a 1.2 line pitch; no part of the room uses them.
 
+**The cadence.** Halcyonic's " · " segments ([WORDS](WORDS.md) rule 2) are laid as a flow (`KitFlow`): each segment and each
+dot its own label, set by its runs so a space at its edge stays, and placed at the previous label's pen (the last character's
+advance, spaces included), never at its ink, which ends at the last glyph and once put a dot under the next segment. A line
+breaks only between segments, the dot dropped there, so no line starts or ends with one; a segment wider than a line wraps
+inside itself where it may (the rail's notice, to five lines) and the flow goes on below it. The moment card's metadata and
+risk lines, its receipt and the rail's notice are laid so. Every state's render reads the cadence as the eyes do
+(`KitRender.SeparatorsHold`, from TextMeshPro's own glyph boxes, labels sharing a parent and a baseline read as one line): no
+line starts or ends with the dot, labels side by side never touch (half a space at least), and a dot stands no further from
+what it follows than from what follows it, nor the other way round, beyond half a space, except before outside text, whose
+ground takes one more space by design.
+
 **Material.** The room's panels are one window glass (`KitGlassMaterial` in the client core, `KitGlass` and the
 `Halcyonic/Kit Glass` shader in the Unity layer; `KitCarrier.DrawGlass` draws a carrier in it): one opaque face over the
 whole panel (`#333A4A`, n1 `#2B3140` at the middle, `#242936`), an optional horizontal left-edge wash in the avatar's hue
@@ -133,7 +144,7 @@ a command of theirs in a well 14 dp below (`KitWell`: Mono n7 on n0, radius 12, 
 the last fading and "Cut · {n} More Lines" in Label n5 beneath); any supporting line 12 dp below in Body n6 (a question carries no static `"Runs on This Mac"` text line on the card; its declared `KitSandbox` stays on `KitMoment.Sandbox`, and the environment and agent the composer's Send reaches show as chips with icons and category prefixes, `>_ Host: This Mac` or the lock glyph's `Host: Sandbox`, and `<> Agent: {Agent}` with the agent app's or the model's own name whole, in `KitComposer`'s flush full-width footer grid above the glossy `Hold to Talk` and `Send Instruction` capsules: the two chips share the grid's equal halves where each fits its half whole, and otherwise each takes the full width on its own row, so no name is cut and no chip leaves the slate (the slate grows by one row of chips at most, and a second row comes out of the reading room, which pages, so the instrument stays inside the field at Larger); the Host chip shows only for a runtime that declares its environment, and a chip no press can change, as both are while Send instructs the task's own execution, stands locked as a fact, its glyph and words in n5 with no outline (a locked quiet control keeps no shape, as a locked word answer keeps none), an outlined quiet capsule only where a press would change what runs; while `KitSpine` leads with navigation at the top and anchors `KitModeSwitch` inside a framed segmented track at its foot, and `KitCarrier` draws no top accent stripe); the answers 16 dp
 below, the one primary at full width in sapphire-blue glass (`KitPillMeaning.Blue`), then the secondary capsules sharing the
 row's full inner width equally in cool dark-slate glass (`KitPillMeaning.Neutral`). The earlier moments stand as one subtle lip of the same glass, 28 dp
-narrower, rising 10 dp above the card, inset 8; their count (`"{n} Earlier"`) stands at the eyebrow's end in Label n5. No locked answer stands in the card's
+narrower, rising 10 dp above the card, inset 8; their count (`"{n} Earlier"`, then `"{n} Newer"` after a question that waits, in the cadence: `"2 Earlier · 1 Newer"`) stands at the eyebrow's end in Label n5. No locked answer stands in the card's
 top 40 percent, where the bloom peaks. The render names any part that does not read whole.
 
 **The reading surface.** A command of theirs is read whole before it can run (`KitReader`, `KitReading`): 704 by 528 dp of

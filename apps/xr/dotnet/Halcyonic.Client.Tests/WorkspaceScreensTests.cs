@@ -256,7 +256,7 @@ public class WorkspaceScreensTests
     {
         var work = new WaitingWork();
         var model = Screen(work.Present(), new WorkspaceSteering(factory), new WorkspaceScreen { Question = WorkspaceQuestion.NeedFromYou });
-        Assert.That(Titles(model), Is.EqualTo(new[] { "Run Command ·", "Run the migration" }.Concat(WorkspaceText.NeedFromYou(work.Present())!.Notes)));
+        Assert.That(Titles(model), Is.EqualTo(new[] { "Run Command", "Run the migration" }.Concat(WorkspaceText.NeedFromYou(work.Present())!.Notes)));
         Assert.That(model.Rows[0].Tone, Is.EqualTo(GlazeTone.Attention));
         Assert.That((model.Rows[1].TitleIsData, model.Rows[1].TitleLines, model.Rows[1].Continues), Is.EqualTo((true, 3, true)));
         Assert.That(model.Rows.All(row => row.Line && !row.Pressable), Is.True, "only words; Approve and Deny are on the bar");

@@ -316,7 +316,11 @@ launch/return, process recreation and current-frame action behavior need separat
   `PageLine` of runs that is all theirs takes Halcyonic's quote mark (`GlazeIcon.Quote`,
   format_quote) in its icon column where no icon of Halcyonic's stands; `MenuFrame` and `SidePanel`
   subjects and source lines, a `SideFact`'s value and a line's fact take runs too, and their data
-  flags (`subjectIsData`, `valueIsData`, `factIsData`) mean theirs.
+  flags (`subjectIsData`, `valueIsData`, `factIsData`) mean theirs. Text given whole as a string, Halcyonic's words
+  (`Written`) or outside text a builder has already shown by a rule of its own (`Shown`), is refused, line by line, where
+  `LabelText.Plain` would change it, as Halcyonic's own runs are (AUDIT's X1, 2026-11-03); the review before Start building
+  takes names as they came as unspelled runs (`Unspelled`), which `ForTextMeshPro` refuses until the review has spelled
+  them, so raw text never reaches a label.
 - **`CommandSubmissions`** keeps this client's own view of each command it sent (sending, not
   sent, outcome unknown, acknowledged) until the control plane's record of it arrives in the
   projection. From then on only that record speaks, so a result reads as done only after the

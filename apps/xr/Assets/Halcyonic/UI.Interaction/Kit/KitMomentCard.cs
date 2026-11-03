@@ -38,6 +38,7 @@ namespace Halcyonic.XR.UI
         private readonly List<TextMeshPro> meta = new List<TextMeshPro>();
         private readonly List<TextMeshPro> lines = new List<TextMeshPro>();
         private readonly List<TextMeshPro> riskSegments = new List<TextMeshPro>();
+        private readonly List<TextMeshPro> riskDots = new List<TextMeshPro>();
         private readonly Dictionary<KitMomentAction, KitButton> buttons = new Dictionary<KitMomentAction, KitButton>();
         private readonly List<(KitMomentAction Action, KitButton Button)> shown = new List<(KitMomentAction, KitButton)>();
         private readonly List<string> cut = new List<string>();
@@ -140,7 +141,7 @@ namespace Halcyonic.XR.UI
                     new[] { prose.transform },
                     new[] { fact.transform },
                     new[] { well.transform },
-                    lines.Select(line => line.transform).Concat(riskSegments.Select(segment => segment.transform)).ToArray(),
+                    lines.Select(line => line.transform).Concat(riskSegments.Select(segment => segment.transform)).Concat(riskDots.Select(dot => dot.transform)).ToArray(),
                     shown.Select(each => each.Button.transform).ToArray(),
                 };
                 return parts.Select(group => (IReadOnlyList<Transform>)group.Where(part => part.gameObject.activeSelf).ToList()).Where(group => group.Count > 0).ToList();
@@ -204,9 +205,32 @@ namespace Halcyonic.XR.UI
             return lines[index];
         }
 
+        /// <summary>
+        /// A risk line's segment or the dot between two, from <paramref name="pool"/>: one line in Body, secondary; made hidden,
+        /// so one the flow does not show never stands empty on the card.
+        /// </summary>
+        private TextMeshPro RiskAt(List<TextMeshPro> pool, int index, string name)
+        {
+            while (pool.Count <= index)
+            {
+                var made = KitType.Create(body, name + " " + pool.Count, KitRole.Body, KitType.Secondary, KitType.Order.Words, room: true);
+                made.gameObject.SetActive(false);
+                pool.Add(made);
+            }
+            var label = pool[index];
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            KitType.Size(label, KitRole.Body);
+            return label;
+        }
+
         private TextMeshPro MetaAt(int index, KitRole role)
         {
-            while (meta.Count <= index) meta.Add(KitType.Create(body, "Meta " + meta.Count, KitRole.Label, KitType.Secondary, KitType.Order.Words, room: true));
+            while (meta.Count <= index)
+            {
+                var made = KitType.Create(body, "Meta " + meta.Count, KitRole.Label, KitType.Secondary, KitType.Order.Words, room: true);
+                made.gameObject.SetActive(false);
+                meta.Add(made);
+            }
             var label = meta[index];
             label.textWrappingMode = TextWrappingModes.NoWrap;
             KitType.Size(label, role);
@@ -270,6 +294,7 @@ namespace Halcyonic.XR.UI
             foreach (var button in buttons.Values) button.Hide();
             foreach (var line in lines) line.gameObject.SetActive(false);
             foreach (var segment in riskSegments) segment.gameObject.SetActive(false);
+            foreach (var dot in riskDots) dot.gameObject.SetActive(false);
             foreach (var label in meta) label.gameObject.SetActive(false);
             receiptLead.gameObject.SetActive(false);
             receiptThen.gameObject.SetActive(false);
@@ -322,8 +347,8 @@ namespace Halcyonic.XR.UI
             var eyebrowLeft = left + markSize + Dp(SpatialKit.MarkGapDp);
             KitType.Size(eyebrow, KitRole.Label);
             GlazeText.SetLiteral(eyebrow, moment.Source);
-            // The count of the moments behind and after it stands at the eyebrow's end; the stacked edge carries no words.
-            var counted = string.Join(", ", new[] { slot.Earlier, slot.Newer }.Where(words => words != null));
+            // The count of the moments behind and after it stands at the eyebrow's end, in the cadence; the stacked edge carries no words.
+            var counted = string.Join(KitFlow.Separator, new[] { slot.Earlier, slot.Newer }.Where(words => words != null));
             var eyebrowRoom = width / 2f - pad - eyebrowLeft;
             var countBelow = false;
             if (counted.Length > 0)
@@ -360,39 +385,16 @@ namespace Halcyonic.XR.UI
                 y -= titleHeight;
             }
 
-            // The metadata line: segments joined by " · ", theirs in their monospace, flowing onto a second line where needed.
+            // The metadata line: segments joined by " · ", theirs in their monospace, flowing onto a second line where needed, by
+            // each label's pen and never between a segment and its dot (KitFlow). Segment i is meta[2i], the dot before it meta[2i-1].
             if (moment.Meta.Count > 0)
             {
                 y -= Dp(SpatialKit.MarkGapDp);
-                var x = left;
-                var lineTop = y;
-                var lineHeight = 0f;
-                var used = 0;
-                for (var i = 0; i < moment.Meta.Count; i++)
-                {
-                    var segment = moment.Meta[i];
-                    var parts = i == 0 ? new[] { (segment, KitRole.Label) } : new[] { (LineWords.Ours(" · "), KitRole.Label), (segment, KitRole.Label) };
-                    foreach (var (words, asRole) in parts)
-                    {
-                        var role = words.AllTheirs ? KitRole.Mono : asRole;
-                        var label = MetaAt(used++, role);
-                        label.gameObject.SetActive(true);
-                        GlazeRuns.Of(label).Set(words);
-                        var wide = label.GetPreferredValues(label.text).x;
-                        if (x + wide > width / 2f - pad + 1e-5f && x > left)
-                        {
-                            x = left;
-                            lineTop -= lineHeight;
-                            lineHeight = 0f;
-                        }
-                        var (laid, laidWidth, laidHeight) = KitType.Lay(label, width / 2f - pad - x, 1);
-                        if (laid != 1 || label.isTextTruncated) cut.Add("meta " + i);
-                        label.transform.localPosition = new Vector3(x, lineTop, -0.0005f);
-                        x += laidWidth;
-                        lineHeight = Mathf.Max(lineHeight, laidHeight);
-                    }
-                }
-                y = lineTop - lineHeight;
+                var (metaHeight, metaCut) = KitFlow.Lay(moment.Meta,
+                    i => MetaAt(2 * i, moment.Meta[i].AllTheirs ? KitRole.Mono : KitRole.Label), i => MetaAt(2 * i - 1, KitRole.Label),
+                    left, y, width / 2f - pad, -0.0005f);
+                foreach (var i in metaCut) cut.Add("meta " + i);
+                y -= metaHeight;
             }
 
             // Their own words, as written: a runtime's prose.
@@ -431,42 +433,25 @@ namespace Halcyonic.XR.UI
             }
             else well.Hide();
 
-            // The risk line: what answering may do, Halcyonic's words. A line of " · " segments flows as its segments, wrapping only
-            // between them, so a phrase such as "Your Access" never splits (ART's A3b review; a no-break space cannot reach the label).
+            // The risk line: what answering may do, Halcyonic's words. A line of " · " segments flows as its segments (KitFlow), wrapping
+            // only between them, so a phrase such as "Your Access" never splits (ART's A3b review; a no-break space cannot reach the label).
             var segmentsUsed = 0;
+            var dotsUsed = 0;
             for (var i = 0; i < moment.Lines.Count; i++)
             {
-                if (moment.Lines[i].Contains(" · "))
+                if (moment.Lines[i].Contains(KitFlow.Separator))
                 {
                     y -= Dp(i == 0 ? SpatialKit.RiskGapDp : SpatialKit.MarkGapDp);
-                    var parts = moment.Lines[i].Split(new[] { " · " }, System.StringSplitOptions.None);
-                    var x = left;
-                    var lineTop = y;
-                    var rowHeight = 0f;
-                    for (var p = 0; p < parts.Length; p++)
-                    {
-                        while (riskSegments.Count <= segmentsUsed)
-                            riskSegments.Add(KitType.Create(body, "Risk segment " + riskSegments.Count, KitRole.Body, KitType.Secondary, KitType.Order.Words, room: true));
-                        var segment = riskSegments[segmentsUsed++];
-                        segment.gameObject.SetActive(true);
-                        segment.textWrappingMode = TextWrappingModes.NoWrap;
-                        KitType.Size(segment, KitRole.Body);
-                        GlazeText.SetLiteral(segment, x > left ? " · " + parts[p] : parts[p]);
-                        var wide = segment.GetPreferredValues(segment.text).x;
-                        if (x + wide > width / 2f - pad + 1e-5f && x > left)
-                        {
-                            x = left;
-                            lineTop -= rowHeight;
-                            rowHeight = 0f;
-                            GlazeText.SetLiteral(segment, parts[p]);
-                        }
-                        var (laid, laidWidth, laidHeight) = KitType.Lay(segment, width / 2f - pad - x, 1);
-                        if (laid != 1 || segment.isTextTruncated) cut.Add("risk " + i + " segment " + p);
-                        segment.transform.localPosition = new Vector3(x, lineTop, -0.0005f);
-                        x += laidWidth;
-                        rowHeight = Mathf.Max(rowHeight, laidHeight);
-                    }
-                    y = lineTop - rowHeight;
+                    var first = segmentsUsed;
+                    var firstDot = dotsUsed;
+                    var segments = KitFlow.Segments(LineWords.Ours(moment.Lines[i]));
+                    // Segment p is the line's p-th; the dot before it, from its second on, the line's (p - 1)-th.
+                    var (riskHeight, riskCut) = KitFlow.Lay(segments, p => RiskAt(riskSegments, first + p, "Risk segment"),
+                        p => RiskAt(riskDots, firstDot + p - 1, "Risk dot"), left, y, width / 2f - pad, -0.0005f);
+                    foreach (var p in riskCut) cut.Add("risk " + i + " segment " + p);
+                    segmentsUsed += segments.Count;
+                    dotsUsed += Mathf.Max(0, segments.Count - 1);
+                    y -= riskHeight;
                     continue;
                 }
                 var line = LineAt(i);
@@ -568,7 +553,8 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// Lays the receipt an answer leaves (the handoff's Receipt): "Sent · Awaiting Start" or "Sent · Declined" under the eyebrow,
-        /// in Body, "Sent" in the primary text and the rest secondary; never "Started" (T1). Its opacity is the choreography's.
+        /// in Body, "Sent" in the primary text and " · " and the rest secondary, the rest at the pen's end of "Sent" so the dot
+        /// stands a space from each side (KitFlow); never "Started" (T1). Its opacity is the choreography's.
         /// </summary>
         public void ShowReceipt(bool ran)
         {
@@ -579,13 +565,13 @@ namespace Halcyonic.XR.UI
             var top = eyebrowFoot - Dp(SpatialKit.TitleGapDp);
             KitType.Size(receiptLead, KitRole.Body);
             GlazeText.SetLiteral(receiptLead, lead);
-            var (_, leadWidth, tall) = KitType.Lay(receiptLead, Size.x - 2f * pad, 1);
+            var (_, _, tall) = KitType.Lay(receiptLead, Size.x - 2f * pad, 1);
+            var leadWidth = KitFlow.Advance(receiptLead);
             receiptLead.transform.localPosition = new Vector3(left, top, -0.0005f);
             KitType.Size(receiptThen, KitRole.Body);
-            GlazeText.SetLiteral(receiptThen, KitMomentWords.Dot.TrimStart() + then);
-            var gap = receiptThen.GetPreferredValues("M M").x - receiptThen.GetPreferredValues("MM").x;
-            KitType.Lay(receiptThen, Size.x - 2f * pad - leadWidth - gap, 1);
-            receiptThen.transform.localPosition = new Vector3(left + leadWidth + gap, top, -0.0005f);
+            GlazeRuns.Of(receiptThen).Set(LineWords.Ours(KitMomentWords.Dot + then));
+            KitType.Lay(receiptThen, Size.x - 2f * pad - leadWidth, 1);
+            receiptThen.transform.localPosition = new Vector3(left + leadWidth, top, -0.0005f);
             receiptLead.gameObject.SetActive(true);
             receiptThen.gameObject.SetActive(true);
             ReceiptHeight = -(top - tall - pad);

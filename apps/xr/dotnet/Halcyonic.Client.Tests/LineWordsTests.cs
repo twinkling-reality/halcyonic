@@ -61,7 +61,9 @@ public class LineWordsTests
         Assert.That(line.Runs.AllTheirs, Is.True);
         Assert.That(line.Icon, Is.EqualTo(GlazeIcon.Quote));
         Assert.That(line.WordsAreData, Is.True, "Outside words may end in an ellipsis.");
-        Assert.That(new PageLine(spoof).Runs.AnyTheirs, Is.False, "Halcyonic's own row, made from its words, stands upright.");
+        // Halcyonic's own row, made from its words, stands upright; words LabelText would change can't be made into one at all (AUDIT's X1).
+        if (LabelText.Plain(spoof) == spoof.Trim(' ')) Assert.That(new PageLine(spoof).Runs.AnyTheirs, Is.False, "Halcyonic's own row, made from its words, stands upright.");
+        else Assert.Throws<ArgumentException>(() => new PageLine(spoof), "raw outside text is never Halcyonic's row");
     }
 
     [Test]
@@ -127,6 +129,79 @@ public class LineWordsTests
         Assert.Throws<ArgumentException>(() => LineWords.Ours("Used‮"));
         Assert.Throws<ArgumentException>(() => LineWords.Ours("one\ntwo"));
         Assert.Throws<ArgumentException>(() => LineWords.Ours("icon "));
+    }
+
+    /// <summary>
+    /// Words a line is given whole, Halcyonic's own or outside text its builder has already shown (AUDIT's X1, 2026-11-03):
+    /// what LabelText's rule would change, line by line, is refused as Halcyonic's own runs refuse it, so a builder that
+    /// forgot the rule fails here instead of putting an override, a zero-width space or an end of text on a label.
+    /// </summary>
+    private static readonly string[] Unshown =
+    {
+        "Used \u202Ekcatta",
+        "Sent\u200B · Awaiting Start",
+        "one\ttwo",
+        "Changes Unverified\r\nOutput Shortened",
+        "\uE5CC More",
+        "Step\u2028Two",
+    };
+
+    [TestCaseSource(nameof(Unshown))]
+    public void WordsGivenWholeRefuseWhatLabelTextWouldChangeLineByLine(string words)
+    {
+        Assert.Throws<ArgumentException>(() => new PageLine(words), words);
+    }
+
+    [Test]
+    public void WordsGivenWholeRefuseAnEndOfTextOnALaterLine()
+    {
+        // Kept out of the cases above: a test runner drops a case whose name holds U+0003, so it would never run there.
+        Assert.Throws<ArgumentException>(() => new PageLine("Output Shortened\nExit Code\u0003 · 1"));
+    }
+
+    [Test]
+    public void WordsGivenWholeKeepTheirLinesAndTheSpacesAtTheirEnds()
+    {
+        Assert.That(new PageLine("Command Output · Exited\nToday 10:42\n").Runs.Text, Is.EqualTo("Command Output · Exited\nToday 10:42\n"));
+        Assert.That(new PageLine("Latest · ").Runs.Text, Is.EqualTo("Latest · "));
+        Assert.That(new PageLine("Exit Code · 1  Output").Words, Is.EqualTo("Exit Code · 1  Output"), "spaces inside a line stay as written");
+        Assert.That(RecordedResultText.Body("  indented\n\tthen a tab  \n").Text, Is.EqualTo("  indented\n‹U+0009›then a tab  \n"),
+            "recorded output, already shown line by line, keeps its indentation");
+    }
+
+    [Test]
+    public void OutsideTextNotYetSpelledNeverReachesALabel()
+    {
+        // The review's names as they came (LineWords.Unspelled): a label refuses them, alone, joined to other runs, or cut.
+        var raw = LineWords.Ours("Agent App · ") + LineWords.Unspelled("Cod\tex\u202E");
+        Assert.Throws<InvalidOperationException>(() => raw.ForTextMeshPro());
+        Assert.Throws<InvalidOperationException>(() => (LineWords.Unspelled("src") + LineWords.Theirs("games")).ForTextMeshPro(), "joined to a shown run");
+        Assert.Throws<InvalidOperationException>(() => (LineWords.Theirs("a") + LineWords.Ours(" · ") + LineWords.Unspelled("b")).ForTextMeshPro(),
+            "joined across a separator into one run of theirs");
+        Assert.Throws<InvalidOperationException>(() => raw.CutToFit(words => words.Text.Length <= 16).ForTextMeshPro(), "cut to fit");
+        Assert.That(LineWords.Unspelled("").IsEmpty, Is.True);
+        Assert.That(() => (LineWords.Ours("Agent App · ") + LineWords.Theirs("Cod\tex\u202E")).ForTextMeshPro(), Throws.Nothing, "shown by the rule, it reaches the label");
+    }
+
+    [Test]
+    public void TheReviewSpellsANameGivenWithATabALineBreakAndABidiMark()
+    {
+        // The review before Start building is given names as they came and spells every character itself (its Safe), so a
+        // name a label could never show whole still reaches the person, spelled, and never throws.
+        var review = new NewWorkReview("Tower\tToss\nTwo", "Title", "Cod\u202Eex", "qwen\t3", "On Your Computer", "ref\nid", "Make it wobble.",
+            folder: "src\tgames\u202E");
+
+        Assert.That(review.Items.Select(item => item.Text), Is.EqualTo(new[]
+        {
+            "Project · Tower\\u{9}Toss\\u{A}Two",
+            "Folder · src\\u{9}games\\u{202E}",
+            "Task Name · Title",
+            "Agent App · Cod\\u{202E}ex",
+            "Model · qwen\\u{9}3",
+            "Model Location · On Your Computer",
+            "Model ID · ref\\u{A}id",
+            "First Task · Make it wobble.",
+        }));
     }
 
     /// <summary>

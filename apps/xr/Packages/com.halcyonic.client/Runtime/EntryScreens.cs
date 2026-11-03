@@ -60,7 +60,7 @@ namespace Halcyonic.Client
             var sends = FolderSent(idea, currentFolder);
             // The review spells what Halcyonic did not write by its code points, so it is given those names as
             // they are, as runs: Halcyonic's own fallbacks upright, so a name that copies one never reads as it.
-            LineWords Raw(string name) => LineWords.Shown(name);
+            LineWords Raw(string name) => LineWords.Unspelled(name);
             LineWords NamedOrNone(string? name) => name == null ? LineWords.Ours("none") : Raw(name);
             var folder = sends?.DescribeRuns(name: Raw) ?? NamedOrNone(currentFolder?.Name);
             var before = moves ? NamedOrNone(currentFolder?.Name) : null;

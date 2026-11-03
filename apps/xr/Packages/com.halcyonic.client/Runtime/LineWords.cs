@@ -9,10 +9,11 @@ namespace Halcyonic.Client
     /// <summary>A run of a line's words: Halcyonic's own, or text from outside, as shown.</summary>
     public sealed class WordRun
     {
-        internal WordRun(string text, bool theirs)
+        internal WordRun(string text, bool theirs, bool spelled = true)
         {
             Text = text;
             Theirs = theirs;
+            Spelled = spelled;
         }
 
         /// <summary>The words as shown: Halcyonic's as written, outside text by <see cref="LabelText"/>'s rule.</summary>
@@ -20,6 +21,12 @@ namespace Halcyonic.Client
 
         /// <summary>Text from outside: it leans on a ground only Halcyonic draws, and is cut before any of Halcyonic's words.</summary>
         public bool Theirs { get; }
+
+        /// <summary>
+        /// Shown by a rule already; false only for outside text as it came (<see cref="LineWords.Unspelled"/>), which its
+        /// builder spells before anything shows it and a label refuses.
+        /// </summary>
+        internal bool Spelled { get; }
     }
 
     /// <summary>
@@ -58,15 +65,37 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// A line's words given whole as a string, upright as Halcyonic's own,
-        /// already shown by the line's builder through <see cref="LabelText"/>'s rule.
+        /// already shown by the line's builder through <see cref="LabelText"/>'s rule (<see cref="AsShown"/>).
         /// </summary>
-        internal static LineWords Written(string words) => string.IsNullOrEmpty(words) ? None : new LineWords(new[] { new WordRun(words, theirs: false) });
+        internal static LineWords Written(string words) => string.IsNullOrEmpty(words) ? None : new LineWords(new[] { new WordRun(AsShown(words, nameof(words)), theirs: false) });
 
         /// <summary>
         /// Text from outside as its caller has already shown it by a rule of its own, as the review before
-        /// Start building spells every character (<see cref="NewWorkReview"/>): nothing is changed here.
+        /// Start building spells every character (<see cref="NewWorkReview"/>): nothing is changed here, and
+        /// nothing <see cref="LabelText.Plain"/> would change is taken (<see cref="AsShown"/>).
         /// </summary>
-        internal static LineWords Shown(string text) => Of(text);
+        internal static LineWords Shown(string text) => Of(AsShown(text, nameof(text)));
+
+        /// <summary>
+        /// Outside text exactly as it came, for a builder that spells every character before anything shows it, as the
+        /// review before Start building does (<see cref="NewWorkReview"/>): a label refuses it (<see cref="ForTextMeshPro"/>),
+        /// so it never reaches one unspelled. None where it is empty.
+        /// </summary>
+        public static LineWords Unspelled(string? text) =>
+            string.IsNullOrEmpty(text) ? None : new LineWords(new[] { new WordRun(text!, theirs: true, spelled: false) });
+
+        /// <summary>
+        /// <paramref name="text"/>, refused where any of its lines holds something <see cref="LabelText.Plain"/> would change
+        /// but the spaces at its ends (AUDIT's X1, 2026-11-03), as <see cref="Ours"/> refuses: text given whole reaches a label
+        /// only once shown by the rule, so a builder that forgot it fails its tests here instead of putting a control, an
+        /// override or one of Halcyonic's icons on a label. The rule is idempotent, so every builder that applied it passes.
+        /// </summary>
+        private static string AsShown(string text, string parameter)
+        {
+            foreach (var line in text.Split('\n'))
+                if (LabelText.Plain(line) != line.Trim(' ')) throw new ArgumentException("Text given whole is shown by LabelText's rule first, line by line.", parameter);
+            return text;
+        }
 
         /// <summary>Text from outside, by <see cref="LabelText.Plain"/>'s rule: none where that leaves nothing.</summary>
         public static LineWords Theirs(string? text) => Of(LabelText.Plain(text));
@@ -120,11 +149,12 @@ namespace Halcyonic.Client
             var runs = Runs.ToList();
             foreach (var run in next.Runs)
             {
+                // A run joined with one not yet spelled is not spelled either, so a label still refuses it.
                 var last = runs[runs.Count - 1];
-                if (last.Theirs == run.Theirs) runs[runs.Count - 1] = new WordRun(last.Text + run.Text, run.Theirs);
+                if (last.Theirs == run.Theirs) runs[runs.Count - 1] = new WordRun(last.Text + run.Text, run.Theirs, last.Spelled && run.Spelled);
                 else if (run.Theirs && runs.Count >= 2 && runs[runs.Count - 2].Theirs && Separator(last.Text))
                 {
-                    runs[runs.Count - 2] = new WordRun(runs[runs.Count - 2].Text + last.Text + run.Text, theirs: true);
+                    runs[runs.Count - 2] = new WordRun(runs[runs.Count - 2].Text + last.Text + run.Text, theirs: true, runs[runs.Count - 2].Spelled && run.Spelled);
                     runs.RemoveAt(runs.Count - 1);
                 }
                 else runs.Add(run);
@@ -151,10 +181,11 @@ namespace Halcyonic.Client
         /// word does: beside Halcyonic's own space, a space (<see cref="Pad"/>), the ground's padding
         /// inside it; beside Halcyonic's punctuation, a narrow one (<see cref="NarrowPad"/>), so the mark
         /// follows the ground's edge as it follows a letter, clear of it and nearer than a word space
-        /// (lane V's rule).
+        /// (lane V's rule). Outside text not yet spelled (<see cref="Unspelled"/>) is refused: it never reaches a label.
         /// </summary>
         public (string Text, IReadOnlyList<(int Start, int End)> Theirs) ForTextMeshPro()
         {
+            if (Runs.Any(run => !run.Spelled)) throw new InvalidOperationException("Outside text reaches a label only once spelled by its builder's rule.");
             var text = new StringBuilder();
             var theirs = new List<(int, int)>();
             for (var index = 0; index < Runs.Count; index++)
@@ -217,7 +248,7 @@ namespace Halcyonic.Client
 
         /// <summary>These words with every run of outside text at most <paramref name="most"/> characters, its ellipsis included.</summary>
         private LineWords HeldTo(int most) =>
-            new LineWords(Runs.Select(run => run.Theirs ? new WordRun(WorkspaceText.Truncate(run.Text, most), theirs: true) : run).ToList());
+            new LineWords(Runs.Select(run => run.Theirs ? new WordRun(WorkspaceText.Truncate(run.Text, most), theirs: true, run.Spelled) : run).ToList());
 
         public override string ToString() => string.Concat(Runs.Select(run => run.Theirs ? "[" + run.Text + "]" : run.Text));
     }

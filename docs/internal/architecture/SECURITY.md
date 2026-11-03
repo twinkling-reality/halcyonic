@@ -746,6 +746,11 @@ So ([XR_CLIENT.md](XR_CLIENT.md), "Words"):
 - Nothing is cut short silently: a label cut short ends in an ellipsis, and no label uses
   TextMeshPro's italics or bold, which lose it. An approval is confirmed only once the whole
   request it answers has shown, in parts when it is long.
+- A builder cannot skip the rule (AUDIT's X1, 2026-11-03): words handed to a line whole, Halcyonic's
+  own or outside text a builder has already shown by a rule of its own, are refused, line by line,
+  where `LabelText.Plain` would change them, and the names the review before Start building spells
+  itself are held as unspelled runs, which a label refuses until spelled (`LineWords`). A builder that
+  forgot the rule fails its tests instead of putting raw text on a label.
 - The editor's render check puts hostile text on every workspace label and on a character's, and
   fails if one interprets any of it or cuts it short without an ellipsis. The line above the stage
   and the pairing line go through the same code but are not rendered by it.

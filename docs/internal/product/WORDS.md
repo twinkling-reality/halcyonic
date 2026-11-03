@@ -34,7 +34,9 @@ can do next.
 2. **Metadata reads in the " · " cadence.** Segments are joined by " · " without chatty
    prepositions ("Codex · 0.9 s · Observed"). Words from outside (names, paths, commands, the
    agent's text) stay exactly as written. Stages are parallel, and a sentence that only explains
-   the control beside it is deleted; a sentence that carries a truth stays, in the cadence.
+   the control beside it is deleted; a sentence that carries a truth stays, in the cadence. A
+   line that breaks does so between two segments, and the dot is dropped there: no line starts or
+   ends with one (2026-11-03).
 3. **Only what is true now, and how sure.** Sending, Sent · Awaiting Agent, Confirmed only when
    the agent confirmed, Refused, Unconfirmed, Not Sent wherever a press sent nothing. A finished round says nothing
    about whether the work is right, so nothing celebrates it.
@@ -195,6 +197,7 @@ current-request checks.
 | Review Instruction while offered instructions show and none is chosen | Choose Instruction (locked) |
 | A confirmation dropped because the request it asks about now reads differently | Not Sent · Request Changed · Reread |
 | Answers awaiting their Confirm, dropped because the question is no longer the one asked | Not Sent · Question Changed · Reread (instead of Check it again) |
+| What an approval asks, as the heading over its request | Run Command; Use {tool}; Approval Requested where it names no tool. The request stands whole on its own line beneath, so the heading ends without a separator (instead of Run Command ·, 2026-11-03) |
 
 ### The headset's access code
 
@@ -472,8 +475,8 @@ in `KitMomentWords`; the gallery's title, newcomer line, shelves and finder are 
 | The runtime's report of an edit | Eyebrow {runtime} · Reported; Title Edit Reported (New File Reported, Removal Reported); the path; Not Yet Observed | Edit Reported · src/towers.ts · Not Yet Observed |
 | The Mac's reading at the turn's end | Eyebrow Your Computer · Observed; Title Change Observed (File Made, File Removed); the path · {before} to {after} Lines · {time}; never the lines themselves | Change Observed · src/towers.ts · 41 to 54 Lines · 10:42 |
 | Lines added and removed | +{added} −{removed} Lines, only from a checkpoint diff when undo is on | +14 −3 Lines |
-| Earlier moments | Earlier · {n} More, counting only the moments before the shown one | Earlier · 4 More |
-| Moments after a waiting question | {n} Newer, counting the moments after a question that stays shown | 1 Newer |
+| Earlier moments | {n} Earlier, counting only the moments before the shown one | 4 Earlier |
+| Moments after a waiting question | {n} Newer, counting the moments after a question that stays shown, after the earlier count in the cadence | 2 Earlier · 1 Newer |
 | A check the Mac ran | Eyebrow Your Computer · Observed; Computer Check · Builds · Under Way while no exit is seen, never the agent's own "Checking"; then Build Passed or Build Failed · Builds (· Opens only where the check opened the build) | Build Passed · Builds · Opens |
 | A check the agent ran | Eyebrow {runtime} · Reported; Title Check Reported; the command in the well; its outcome as theirs | Check Reported · npm run build · exit 1 |
 | A check that ended with no outcome | Check Ran · Result Unknown | Check Ran · Result Unknown |

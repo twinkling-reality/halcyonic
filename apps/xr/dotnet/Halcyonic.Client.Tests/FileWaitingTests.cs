@@ -33,7 +33,7 @@ public class FileWaitingTests
         Assert.That(screen.Section, Is.EqualTo(FileSection.Waiting), "the file opens on what waits");
         Assert.That(frame.Lines.Select(line => (line.Words, line.Tone)).Take(2), Is.EqualTo(new[]
         {
-            ("Run Command ·", LineTone.Waiting),
+            ("Run Command", LineTone.Waiting),
             ("Run the migration", LineTone.Primary),
         }));
         Assert.That(frame.Lines[1].Rows, Is.EqualTo(2), "as much of the request as fits beside the source line; Approve shows it whole");
@@ -347,7 +347,7 @@ public class FileWaitingTests
             + " || " + frame.Source + " || " + string.Join(" | ", FileScreensTests.Slots(frame.Footer));
         var reading = Screen(workspace, new WorkspaceSteering(factory), new FileScreen { Section = FileSection.Waiting });
         var read = Screen(workspace, new WorkspaceSteering(factory), FileScreensTests.Read(FileSection.Waiting));
-        Assert.That(read.Lines[0].Words, Is.EqualTo("Run Command ·"));
+        Assert.That(read.Lines[0].Words, Is.EqualTo("Run Command"));
         Assert.That(Drawn(read), Is.EqualTo(Drawn(reading)), "Waiting is the same whether the answers are read or still being read");
         Assert.That(read.Lines.Select(line => line.Words), Has.None.Contains("Still reading").And.None.Contains("files changed"));
         Assert.That(read.Source, Is.EqualTo(FileScreens.AgentSource), "never an answer's source");

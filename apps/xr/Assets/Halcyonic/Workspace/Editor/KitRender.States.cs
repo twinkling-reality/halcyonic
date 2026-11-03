@@ -735,7 +735,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static void RequireCantTell(KitWorkView view, Shot shot)
         {
-            if (!view.Notice.gameObject.activeSelf || view.Notice.Words.text != LabelText.ForTextMeshPro(WorkspaceText.NotSure(CommandType.ExecutionRespondToApproval)))
+            if (!view.Notice.gameObject.activeSelf || ReadAsShown(view.Notice.transform) != LabelText.ForTextMeshPro(WorkspaceText.NotSure(CommandType.ExecutionRespondToApproval)) || SeparatorsHold(view.Notice.transform, "the notice").Any())
                 shot.Failures.Add("the unknown outcome is not said in WORDS.md's unknown-effect line");
             if (view.State.Shown?.State != WorkState.CantTellYet) shot.Failures.Add("the state does not say Can't tell yet");
         }

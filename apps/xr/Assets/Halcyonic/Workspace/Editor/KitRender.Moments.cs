@@ -185,9 +185,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 var info = card.Well.Words.textInfo;
                 Require(!info.characterInfo.Take(info.characterCount).Any(character => character.isVisible && character.character == '\u2026'), "the well cuts its command sideways with an ellipsis");
             }
-            // A risk line of " · " segments flows by its segments, each on one line, never laid as one wrapping line (ART's A3b review).
+            // A risk line of " · " segments flows by its segments, each on one line, never laid as one wrapping line (ART's A3b review);
+            // the dot between two segments on a line is its own label (KitFlow), never a line's.
             var risks = card.GetComponentsInChildren<TextMeshPro>(false).Where(label => label.name.StartsWith("Risk ", StringComparison.Ordinal)).ToList();
-            Require(!risks.Any(label => !label.name.StartsWith("Risk segment", StringComparison.Ordinal) && (label.text ?? "").Contains(" · ")),
+            Require(!risks.Any(label => !label.name.StartsWith("Risk segment", StringComparison.Ordinal) && label.text != KitFlow.Separator && (label.text ?? "").Contains(" · ")),
                 "a risk line of segments is laid as one wrapping line");
             foreach (var segment in risks.Where(label => label.name.StartsWith("Risk segment", StringComparison.Ordinal)))
             {
@@ -196,8 +197,9 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             // Where a moment offers a next step, one primary carries it (a failure's Read Output among them).
             Require(!card.Actions.Any(action => KitMomentCard.IsPrimary(action, moment.Tone)) || card.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) == 1, "the next step is not the one primary");
-            // The count: only what stands before the shown moment, on the earlier edge, and what came after a waiting question.
-            var counted = string.Join(", ", new[] { slot.Earlier, slot.Newer }.Where(words => words != null));
+            // The count: only what stands before the shown moment, on the earlier edge, and what came after a waiting question, in the
+            // cadence (the XR baseline's defect 9: "2 Earlier, 1 Newer" took a comma).
+            var counted = string.Join(" · ", new[] { slot.Earlier, slot.Newer }.Where(words => words != null));
             Require(card.Count.gameObject.activeSelf == (counted.Length > 0) && (counted.Length == 0 || card.Count.text == counted), "the count is not the model's earlier and newer moments");
             Require(card.Earlier.gameObject.activeSelf == (slot.Earlier != null), "the earlier edge stands without earlier moments, or is missing");
             // The actions beneath, the model's and in this order: the one primary first, at full width, then every other in the
