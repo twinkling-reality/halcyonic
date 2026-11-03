@@ -8,6 +8,7 @@ import type {
   CommandResult,
   CommandView,
   ExecutionId,
+  ExecutionStatus,
   Principal,
   ProjectId,
   ProjectLocation,
@@ -115,6 +116,14 @@ interface ActionOutcome {
  * its folder before going ahead without it.
  */
 const BASELINE_WAIT_MS = 10_000;
+
+/** What an execution that may still be working reads, until a runtime or a restart says otherwise. */
+const ACTIVE_STATUSES: ReadonlySet<ExecutionStatus> = new Set([
+  'starting',
+  'running',
+  'verifying',
+  'waiting_for_human',
+]);
 
 /**
  * A reading the runtime waits for at most `BASELINE_WAIT_MS`, so a slow one never holds work up; past
@@ -271,15 +280,25 @@ export class CommandService {
    * leaving executions "running" and commands "pending" forever.
    */
   reconcileAfterRestart(): { executions: number; commands: number } {
-    const executions = this.#deps.projection.activeExecutions();
-    for (const facts of executions) {
+    // Active ones, and ones already unknown for another reason, a lost connection or a start whose
+    // outcome is unknown: no runtime session survives a restart, and the start stops what a crash
+    // left recorded, so each is unknown because of the restart, which a project's busy rule reads
+    // as stopped. Left as it was, such a task would hold its project busy for good (U5).
+    const executions = this.#deps.projection
+      .executions()
+      .filter(
+        (view) =>
+          ACTIVE_STATUSES.has(view.status) ||
+          (view.status === 'unknown' && view.status_reason?.code !== 'control_plane_restarted'),
+      );
+    for (const view of executions) {
       this.#deps.recorder.record(
         controlPlaneDraft(
           'execution.state_unknown',
           {
-            project_id: facts.projectId,
-            workstream_id: facts.workstreamId,
-            execution_id: facts.executionId,
+            project_id: view.project_id,
+            workstream_id: view.workstream_id,
+            execution_id: view.execution_id,
           },
           {
             code: 'control_plane_restarted',

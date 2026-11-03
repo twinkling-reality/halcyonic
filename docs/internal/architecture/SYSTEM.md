@@ -98,7 +98,9 @@ event. Current state is held in memory and rebuilt from the journal at startup
 
 On startup the control plane also reconciles: every execution that was in flight, and every
 command still awaiting a runtime, is recorded as unknown, because no runtime session survives a
-restart yet.
+restart yet. So is one already unknown for another reason, a lost connection or a start whose
+outcome is unknown: it is now unknown because of the restart, which the rule for a busy project
+reads as stopped, so it no longer holds Undo, a check or the automatic check back for good (U5).
 
 ## Configuration
 

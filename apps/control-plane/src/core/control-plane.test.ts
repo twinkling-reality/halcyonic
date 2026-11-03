@@ -871,6 +871,58 @@ describe('restart', () => {
     await second.controlPlane.close();
   });
 
+  test('a task already unknown before a restart reads unknown because of it, and holds its project busy no longer (U5)', async () => {
+    const path = join(directory, 'restart-unknown.db');
+    const first = createTestControlPlane({
+      path,
+      adapters: (time) => [
+        new MockRuntimeAdapter({ scenarios: SCENARIOS, clock: time, scheduler: time }),
+        stubRuntime('stuck', () => new Promise(() => {})),
+      ],
+    });
+    // One whose runtime became unreachable, and one whose start was never confirmed.
+    const lost = await createWorkstream(first, { ...FEATURE, scenario: 'agent_disconnect' });
+    first.controlPlane.commands.submit(
+      first.commands.startExecution(lost, { ...FEATURE, scenario: 'agent_disconnect' }),
+      'internal',
+    );
+    const stuck = await createWorkstream(first);
+    first.controlPlane.commands.submit(
+      {
+        ...first.commands.startExecution(stuck, FEATURE),
+        payload: {
+          workstream_id: stuck,
+          runtime_id: 'stuck' as RuntimeId,
+          instruction: 'Go.',
+          options: {},
+          model_ref: null,
+        },
+      },
+      'internal',
+    );
+    await first.time.advance(40_000);
+    const before = first.controlPlane.snapshot().executions;
+    assert.deepEqual(before.map((execution) => execution.status_reason?.code).sort(), [
+      'runtime_connection_lost',
+      'start_outcome_unknown',
+    ]);
+    // Before the restart either may still be working, so its project is busy.
+    for (const execution of before)
+      assert.notEqual(first.controlPlane.projection.projectBusy(execution.project_id), null);
+    await first.controlPlane.close();
+
+    const second = createTestControlPlane({ path, time: first.time });
+    second.controlPlane.reconcile();
+    // No runtime session survives a restart, and the start stops what a crash left behind.
+    for (const execution of before) {
+      const after = second.controlPlane.projection.execution(execution.execution_id);
+      assert.equal(after?.status, 'unknown');
+      assert.equal(after?.status_reason?.code, 'control_plane_restarted');
+      assert.equal(second.controlPlane.projection.projectBusy(execution.project_id), null);
+    }
+    await second.controlPlane.close();
+  });
+
   test('a mock runtime started after a restart has every observation journaled', async () => {
     const path = join(directory, 'restart-mock.db');
     const first = createTestControlPlane({ path });
