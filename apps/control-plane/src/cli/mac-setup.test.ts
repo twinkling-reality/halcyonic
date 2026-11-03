@@ -801,6 +801,22 @@ describe('pnpm mac-setup', () => {
     assert.match(text(machine), /chmod 600/);
   });
 
+  test("What changed and why says Salidium follows Claude Agent's tasks, not Halcyonic's own Codex and OpenCode ones", async (t) => {
+    const machine = mac(t);
+    await machine.run();
+    assert.equal(status(machine, 'What changed and why'), 'Optional');
+    const about =
+      "Salidium tells the headset's Understand tab what a task changed and why, for tasks on Claude Agent. Halcyonic keeps its Codex and OpenCode tasks in folders of its own, which Salidium doesn't read, so their Understand tab says it doesn't follow them.";
+    assert.ok(text(machine).includes(about), 'said while not set up');
+    assert.doesNotMatch(text(machine), /for tasks on Claude Code and Codex/);
+    machine.lines.length = 0;
+    mkdirSync(machine.dataDir, { recursive: true, mode: 0o700 });
+    writeFileSync(join(machine.dataDir, 'salidium-credential'), 'x', { mode: 0o600 });
+    await machine.run();
+    assert.equal(status(machine, 'What changed and why'), 'Ready');
+    assert.ok(text(machine).includes(about), 'said once set up');
+  });
+
   test('Usage left says what the Seorak credential lacks, from what the running Halcyonic answers', async (t) => {
     const machine = mac(t);
     mkdirSync(machine.dataDir, { mode: 0o700 });
