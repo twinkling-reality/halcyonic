@@ -2,6 +2,7 @@ import type {
   CommandEnvelope,
   CommandRejection,
   ExecutionId,
+  ExecutionStatus,
   PolicyCategory,
   ProjectId,
   QuestionAnswer,
@@ -333,7 +334,7 @@ export function admitCommand(
         return reject(
           scope,
           'invalid_state',
-          `This task is ${active.status}. Stop it first, or start another task.`,
+          `This task is ${inWords(active.status)}. Stop it first, or start another task.`,
         );
       }
       const underWay = projection
@@ -638,4 +639,16 @@ function reject(
   message: string,
 ): Admission & { admitted: false } {
   return { admitted: false, rejection: { code, message }, scope };
+}
+
+/** An execution's status as a person reads it, as the headset's state words say it. */
+function inWords(status: ExecutionStatus): string {
+  switch (status) {
+    case 'verifying':
+      return 'checking its work';
+    case 'waiting_for_human':
+      return 'waiting for you';
+    default:
+      return status;
+  }
 }

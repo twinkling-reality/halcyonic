@@ -176,9 +176,9 @@ describe('command admission', () => {
     const { b, projection, scope, commands, workstream } = setup();
     const start = () =>
       admitCommand(commands.start(workstream.workstreamId), projection, catalog());
-    const refusal = (status: string) => ({
+    const refusal = (state: string) => ({
       code: 'invalid_state',
-      message: `This task is ${status}. Stop it first, or start another task.`,
+      message: `This task is ${state}. Stop it first, or start another task.`,
     });
     // Created, and its runtime has not begun a turn: starting.
     const starting = start();
@@ -191,7 +191,7 @@ describe('command admission', () => {
       b.runtimeEvent(scope, 'runtime.test_run.started', { test_run_id: 'r1', label: null }),
     );
     const verifying = start();
-    assert.deepEqual(verifying.admitted ? null : verifying.rejection, refusal('verifying'));
+    assert.deepEqual(verifying.admitted ? null : verifying.rejection, refusal('checking its work'));
     projection.apply(
       b.runtimeEvent(scope, 'runtime.approval.requested', {
         approval_id: 'a1',
@@ -200,7 +200,7 @@ describe('command admission', () => {
       }),
     );
     const waiting = start();
-    assert.deepEqual(waiting.admitted ? null : waiting.rejection, refusal('waiting_for_human'));
+    assert.deepEqual(waiting.admitted ? null : waiting.rejection, refusal('waiting for you'));
     projection.apply(b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }));
     // At rest another start is admitted, as a switch to another agent is.
     assert.equal(start().admitted, true);
