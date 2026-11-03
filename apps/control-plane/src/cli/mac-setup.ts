@@ -890,8 +890,10 @@ class MacSetup {
   #understandStep(): Step {
     const title = 'What changed and why';
     const path = join(this.#dataDir, SALIDIUM_CREDENTIAL_FILE);
+    // Salidium reads only the person's own Codex home and OpenCode store, never Halcyonic's
+    // (salidium-consumer-contract.md), so only Claude Agent's tasks can be answered.
     const about =
-      "Salidium tells the headset's Understand tab what a task changed and why, for tasks on Claude Code and Codex.";
+      "Salidium tells the headset's Understand tab what a task changed and why, for tasks on Claude Agent. Halcyonic keeps its Codex and OpenCode tasks in folders of its own, which Salidium doesn't read, so their Understand tab says it doesn't follow them.";
     const state = this.#fileState(SALIDIUM_CREDENTIAL_FILE);
     if (state === 'missing') {
       return {
