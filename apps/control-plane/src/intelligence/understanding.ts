@@ -1,8 +1,10 @@
 import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { UnderstandingFailure, UnderstandingResult } from '@halcyonic/contracts';
+import { OPENCODE_SANDBOX_FOLDER } from '@halcyonic/integration-opencode';
 import { defaultSalidiumHome, SalidiumClient } from '@halcyonic/integration-salidium';
 import { CODEX_CONFINED_FOLDER, CODEX_HOME_FOLDER, inHalcyonicsCodexHome } from './codex-home.ts';
+import { inHalcyonicsOpenCodeStore } from './opencode-store.ts';
 
 /** The file in the control plane's data directory that holds the Salidium consumer credential. */
 export const SALIDIUM_CREDENTIAL_FILE = 'salidium-credential';
@@ -29,6 +31,8 @@ export interface SalidiumUnderstandingOptions {
   readonly codexHome: string;
   /** Folder holding confined Codex homes (`<data>/codex-confined/<key>`), defaulting next to `codexHome`. */
   readonly confinedCodexHomes?: string;
+  /** The sandboxed OpenCode server's folder (`<data>/opencode-sandbox`), defaulting next to `codexHome`. */
+  readonly openCodeSandbox?: string;
 }
 
 /**
@@ -37,13 +41,15 @@ export interface SalidiumUnderstandingOptions {
  * read is refused rather than used. For Claude Code and Codex it is read before Salidium is found,
  * so a missing credential is said first; for OpenCode, only once Salidium says it observes it.
  * Sessions Salidium does not observe need no credential to say so: among them the Codex threads
- * whose rollout is in Halcyonic's own Codex home or a confined Codex home, which Salidium does not
- * read (`codex-home.ts`), and the credential is sent only to the instance that wrote the discovery
- * file.
+ * whose rollout is in Halcyonic's own Codex home or a confined Codex home (`codex-home.ts`), and the
+ * OpenCode sessions in the sandboxed server's own store (`opencode-store.ts`), none of which
+ * Salidium reads, and the credential is sent only to the instance that wrote the discovery file.
  */
 export function salidiumUnderstanding(options: SalidiumUnderstandingOptions): UnderstandingSource {
   const confinedHomes =
     options.confinedCodexHomes ?? join(dirname(options.codexHome), CODEX_CONFINED_FOLDER);
+  const openCodeSandbox =
+    options.openCodeSandbox ?? join(dirname(options.codexHome), OPENCODE_SANDBOX_FOLDER);
   return {
     async understand(runtimeKind, nativeId, startedAt) {
       if (
@@ -64,6 +70,16 @@ export function salidiumUnderstanding(options: SalidiumUnderstandingOptions): Un
           },
         };
       }
+      if (await inHalcyonicsOpenCodeStore(openCodeSandbox, runtimeKind, startedAt)) {
+        return {
+          availability: 'unavailable',
+          reason: {
+            code: 'runtime_not_observed',
+            message:
+              "Salidium, as installed, does not read Halcyonic's own OpenCode store, where this session is kept.",
+          },
+        };
+      }
       return new SalidiumClient({
         home: options.home,
         credential: () => readCredential(options.credentialPath),
@@ -79,6 +95,7 @@ export function salidiumUnderstandingFor(dataDir: string): UnderstandingSource {
     credentialPath: join(dataDir, SALIDIUM_CREDENTIAL_FILE),
     codexHome: join(dataDir, CODEX_HOME_FOLDER),
     confinedCodexHomes: join(dataDir, CODEX_CONFINED_FOLDER),
+    openCodeSandbox: join(dataDir, OPENCODE_SANDBOX_FOLDER),
   });
 }
 

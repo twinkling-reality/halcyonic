@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import type { UnderstandingResult } from '@halcyonic/contracts';
+import { FakeSalidium } from '@halcyonic/integration-salidium/testing';
 import { salidiumUnderstanding } from './understanding.ts';
 
 const base = mkdtempSync(join(tmpdir(), 'halcyonic-understanding-'));
@@ -116,6 +117,74 @@ describe('Salidium as the understanding source', () => {
       'unauthorized',
       'credential_file_exposed',
     ]);
+  });
+
+  describe("OpenCode sessions in Halcyonic's own sandboxed store", () => {
+    const SESSION = 'ses_1a285e0b7ffe4dQmV9bL2cXy0Z';
+    let salidium: FakeSalidium;
+    after(() => salidium?.close());
+
+    /** A Salidium that says it observes OpenCode, and a data directory holding its credential. */
+    async function observing(name: string) {
+      salidium ??= await FakeSalidium.start();
+      salidium.minor = 1;
+      salidium.providers = ['claude-code', 'codex', 'salidium/opencode'];
+      salidium.writeDiscovery();
+      salidium.requests.length = 0;
+      const dataDir = join(base, name);
+      mkdirSync(dataDir);
+      const credentialPath = join(dataDir, 'salidium-credential');
+      writeFileSync(credentialPath, `${salidium.token}\n`, { mode: 0o600 });
+      const source = salidiumUnderstanding({
+        home: salidium.home,
+        credentialPath,
+        codexHome: join(dataDir, 'codex-home'),
+      });
+      // Where Halcyonic's sandboxed OpenCode server keeps its sessions (ADR 0028).
+      const folder = join(dataDir, 'opencode-sandbox', 'data', 'opencode');
+      return { source, folder, store: join(folder, 'opencode.db') };
+    }
+
+    test('a session started after the store was made is not observed, and Salidium is not asked', async () => {
+      const { source, folder, store } = await observing('opencode-store');
+      mkdirSync(folder, { recursive: true });
+      writeFileSync(store, '');
+      const startedAfter = new Date(Date.now() + 60_000).toISOString();
+      const result = await source.understand('opencode', SESSION, startedAfter);
+      assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
+      assert.match(
+        result.availability === 'available' ? '' : result.reason.message,
+        /Halcyonic's own OpenCode store/,
+      );
+      assert.equal(salidium.requests.length, 0, 'neither discovery nor a lookup was asked');
+    });
+
+    test('a session from before the store, as before the sandbox, is asked about as before', async () => {
+      const { source, folder, store } = await observing('opencode-older-session');
+      mkdirSync(folder, { recursive: true });
+      writeFileSync(store, '');
+      const result = await source.understand('opencode', SESSION, STARTED);
+      assert.deepEqual(reason(result), ['not_found', 'not_observed']);
+      assert.ok(salidium.authorizedRequests().length > 0, 'Salidium was asked');
+    });
+
+    test('a link in place of the store, or no store at all, is asked about as before', async () => {
+      const linked = await observing('opencode-store-link');
+      mkdirSync(linked.folder, { recursive: true });
+      const elsewhere = join(base, 'opencode-store-link', 'elsewhere.db');
+      writeFileSync(elsewhere, '');
+      symlinkSync(elsewhere, linked.store);
+      const startedAfter = new Date(Date.now() + 60_000).toISOString();
+      assert.deepEqual(reason(await linked.source.understand('opencode', SESSION, startedAfter)), [
+        'not_found',
+        'not_observed',
+      ]);
+      const none = await observing('opencode-no-store');
+      assert.deepEqual(reason(await none.source.understand('opencode', SESSION, startedAfter)), [
+        'not_found',
+        'not_observed',
+      ]);
+    });
   });
 
   test('with a private credential file, a Salidium that is not running reads as unavailable', async () => {

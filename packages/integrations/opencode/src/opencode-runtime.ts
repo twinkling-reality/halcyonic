@@ -79,6 +79,24 @@ import { SseParser } from './sse.ts';
  */
 export const TAMPERED = 'runtime_tampered';
 
+/**
+ * The folder, beside the server's record, that holds the sandboxed server's own data, state, cache
+ * and temporary folders (ADR 0028).
+ */
+export const OPENCODE_SANDBOX_FOLDER = 'opencode-sandbox';
+
+/** The sandbox's data folder, the server's `XDG_DATA_HOME`. */
+const SANDBOX_DATA = 'data';
+
+/**
+ * Where the sandboxed server keeps its sessions, given its sandbox folder: OpenCode's store,
+ * `opencode/opencode.db` under its data folder. Programs that read the person's own OpenCode store,
+ * Salidium among them, never find these sessions there.
+ */
+export function sandboxedSessionStore(sandboxFolder: string): string {
+  return join(sandboxFolder, SANDBOX_DATA, 'opencode', 'opencode.db');
+}
+
 /** A permission rule, as OpenCode 2.0.18 takes it (schema/src/permission.ts). */
 export interface PermissionRule {
   readonly action: string;
@@ -703,13 +721,13 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       }
       return null;
     }
-    const folder = join(dirname(this.#recordFile), 'opencode-sandbox');
-    for (const name of ['data', 'state', 'cache', 'tmp']) {
+    const folder = join(dirname(this.#recordFile), OPENCODE_SANDBOX_FOLDER);
+    for (const name of [SANDBOX_DATA, 'state', 'cache', 'tmp']) {
       await mkdir(join(folder, name), { recursive: true, mode: 0o700 });
     }
     const environment: Record<string, string> = {
       ...this.#environment,
-      XDG_DATA_HOME: join(folder, 'data'),
+      XDG_DATA_HOME: join(folder, SANDBOX_DATA),
       XDG_STATE_HOME: join(folder, 'state'),
       XDG_CACHE_HOME: join(folder, 'cache'),
       TMPDIR: `${join(folder, 'tmp')}/`,
