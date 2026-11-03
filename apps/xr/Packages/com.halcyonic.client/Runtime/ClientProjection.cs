@@ -7,14 +7,21 @@ namespace Halcyonic.Client
     /// <summary>
     /// The client's copy of control plane state. It changes only by applying a snapshot or the
     /// entity changes an event carries, and never derives state itself
-    /// (docs/internal/architecture/REALTIME.md). Not thread safe; use it from one thread.
+    /// (docs/internal/architecture/REALTIME.md); past the last <see cref="FinishedCommandsKept"/>
+    /// finished commands it forgets the one that finished longest ago, as a snapshot leaves it out.
+    /// Not thread safe; use it from one thread.
     /// </summary>
     public sealed class ClientProjection
     {
+        /// <summary>The finished commands kept, as many as the control plane's snapshot carries.</summary>
+        public const int FinishedCommandsKept = 50;
+
         private readonly Dictionary<string, ProjectView> projects = new Dictionary<string, ProjectView>();
         private readonly Dictionary<string, WorkstreamView> workstreams = new Dictionary<string, WorkstreamView>();
         private readonly Dictionary<string, ExecutionView> executions = new Dictionary<string, ExecutionView>();
         private readonly Dictionary<string, CommandView> commands = new Dictionary<string, CommandView>();
+        // Finished commands, the one that finished longest ago first.
+        private readonly Queue<string> finished = new Queue<string>();
         private readonly Dictionary<string, ProjectMadeFromInfo> madeFrom = new Dictionary<string, ProjectMadeFromInfo>();
         private readonly List<RuntimeDescriptor> runtimes = new List<RuntimeDescriptor>();
         private readonly Dictionary<CommandType, PolicyCategory> policies = new Dictionary<CommandType, PolicyCategory>();
@@ -31,7 +38,10 @@ namespace Halcyonic.Client
 
         public IReadOnlyDictionary<string, ExecutionView> Executions => executions;
 
-        /// <summary>Pending commands and recently finished ones.</summary>
+        /// <summary>
+        /// Pending commands and the last <see cref="FinishedCommandsKept"/> to finish, so a command
+        /// that has just finished is still here for whatever watches it (U6).
+        /// </summary>
         public IReadOnlyDictionary<string, CommandView> Commands => commands;
 
         /// <summary>Provenance recorded by <c>project.made_from</c> events, keyed by the new VR project's id.</summary>
@@ -106,6 +116,11 @@ namespace Halcyonic.Client
             Replace(workstreams, snapshot.Workstreams, workstream => workstream.WorkstreamId);
             Replace(executions, snapshot.Executions, execution => execution.ExecutionId);
             Replace(commands, snapshot.Commands, command => command.CommandId);
+            finished.Clear();
+            foreach (var command in snapshot.Commands)
+            {
+                if (command.Status != CommandStatus.Accepted) finished.Enqueue(command.CommandId);
+            }
             runtimes.Clear();
             runtimes.AddRange(snapshot.Runtimes);
             changes.Resynchronized = true;
@@ -146,9 +161,13 @@ namespace Halcyonic.Client
             }
             foreach (var command in message.Changes.Commands)
             {
+                var finishedBefore = commands.TryGetValue(command.CommandId, out var before) && before.Status != CommandStatus.Accepted;
                 commands[command.CommandId] = command;
                 changes.Commands.Add(command.CommandId);
+                if (!finishedBefore && command.Status != CommandStatus.Accepted) finished.Enqueue(command.CommandId);
             }
+            // A long connection keeps what a snapshot would: pending commands and the last to finish (U6).
+            while (finished.Count > FinishedCommandsKept) commands.Remove(finished.Dequeue());
             changes.Events.Add(new StoredEvent { Position = message.Position, Event = message.Event });
             return true;
         }
