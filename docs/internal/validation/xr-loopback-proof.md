@@ -99,6 +99,11 @@ Still not seen on a Quest:
 - the listener that never answers;
 - the paused control plane, and so how Mono ends a read that is never answered.
 
+On 2026-11-03 the development build installed on 2026-11-01 proved it again over the tool's own mapping
+(`pnpm quest:device -- connect`, `UsbFfs tcp:47800 tcp:47800`) against the control plane from main
+`fb3dd073`: `pnpm quest:check` read the connection live, and the control plane logged one realtime client
+([quest-headset-in-the-loop.md](quest-headset-in-the-loop.md)).
+
 ## Not verified
 
 On a Quest; the check is in XR_DEVELOPMENT.md, "Token storage on a Quest":

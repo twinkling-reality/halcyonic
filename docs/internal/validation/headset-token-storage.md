@@ -115,6 +115,16 @@ Still not seen on a Quest:
 - the umask;
 - backups.
 
+## On a Quest, 2026-11-03
+
+The same Quest 3 (build `UP1A.231005.007.A1`), the development build installed on 2026-11-01 (sha256
+`4f5b9475...`, the main checkout's `Builds/Halcyonic.apk`), the control plane from main `fb3dd073`
+([quest-headset-in-the-loop.md](quest-headset-in-the-loop.md)). Nothing was written; the token already
+there was checked:
+- `files/access-token` at mode 600 and 44 bytes, no glance token, no `.tmp` left, nothing at the old place.
+- The move line of 2026-10-04 was in the log: `pnpm quest:check` read "nothing was on shared storage",
+  its reach judged from times alone, and the connection live.
+
 ## Not verified
 
 Everything on a Quest; the checks are in XR_DEVELOPMENT.md, "Token storage on a Quest":

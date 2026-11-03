@@ -70,6 +70,23 @@ describe('headset state', () => {
     );
   });
 
+  test("Meta's first-time tip is a system dialog, as on 2026-11-03 at 19:09Z", () => {
+    const tip = {
+      package: 'com.oculus.firsttimenux',
+      activity: '.FirstTimeNuxExclusiveSystemDialogActivity',
+    };
+    const text = [
+      '      topResumedActivity=ActivityRecord{aaa u0 com.oculus.firsttimenux/.FirstTimeNuxExclusiveSystemDialogActivity t5}',
+      '      topResumedActivity=ActivityRecord{ccc u0 com.oculus.vrshell/.HomeActivity t1}',
+      '  ResumedActivity: ActivityRecord{aaa u0 com.oculus.firsttimenux/.FirstTimeNuxExclusiveSystemDialogActivity t5}',
+    ].join('\n');
+    assert.deepEqual(readSystemDialogs(text), [tip]);
+    assert.match(
+      describeFront(tip, 'com.halcyonic.xr'),
+      /^One of Meta's first-time tips is open \(such as Customize your Library\)/,
+    );
+  });
+
   test("the Headset Power menu and the alert service's other screens read as plain words", () => {
     assert.match(
       describeFront(
