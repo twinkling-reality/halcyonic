@@ -339,6 +339,28 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   (drawn, the laptop step, the twins) was the same. The play's opt-in test passed through the launcher, with the
   microphone refused, No Sound · Silent Game, then Sound On from CoreAudio during the tone.
 
+## The starter seen from the headset (U1)
+
+- **Question:** does a fresh project from the starter show a headset wearer what the laptop camera, the only picture
+  the check and the agent see, shows?
+- **Date:** 2026-11-03, on main 466e5326.
+- **Method:** a scratch control plane with its own data folder, the browser set up by `pnpm mac-setup browser` and the
+  starter's set installed there from the tracked lockfile (`npm ci` with an empty npm configuration, a cache of its
+  own, `--ignore-scripts`, registry.npmjs.org only: 80 packages, every version the lockfile's). A fresh project made
+  with `project.create` from the starter, checked with `project.check`, its preview started, and frames of the running
+  preview taken 0.5 s to 8 s after loading in the check's own browser (chrome-headless-shell through the launcher, in
+  the check's profile). The wearer's view as a render: the same template with its camera at the XR origin, 1.6 m up,
+  facing -z, a 75 degree vertical field (about a Quest 3 eye's width at 16:10), built and served on the check's path.
+  A render, not the headset: one eye, no lens, no Quest Browser.
+- **Before:** the check passed (33,451 edges at 3 s and 10 s), and nothing moved: from 1 s to 4 s no pixel changed
+  between frames. The laptop camera at (-4, 1.5, -6) looked back toward the origin, 136 degrees from the wearer's
+  facing, and the island was turned toward it, so the wearer's render showed a green slope and sky only: the clouds and
+  the tier were behind, the island's front faced away.
+- **After:** the camera at (0, 1.85, 2.2) looking at (0, 0.8, -1.8), the island unturned: both pictures show the tier
+  and the clouds ahead. A fresh project's check passed: type check and build 0, no exception, 23,102 edges at 3 s and
+  10 s (the island's top fills more of the picture than its side did), VR offered.
+- **Not tried:** the headset.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

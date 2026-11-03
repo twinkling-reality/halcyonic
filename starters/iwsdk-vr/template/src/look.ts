@@ -27,12 +27,15 @@ import { groundPatch, palette, soilLip, toyMaterial } from './palette.js';
 
 /**
  * The starter's look (ART7): one warm shadowed sun with a cool fill and a rim light, a sky from `sky` to `cloud`, a few
- * toy clouds, and a floating island to play on. The island's top is at y = 0, centred at (0, 0, -1.8) where the laptop
- * camera looks, about 6 m across, and its raised tier sits at the back. Put the game's objects in `gameIsland()`, on
- * the top.
+ * toy clouds, and a floating island to play on. The island's top is at y = 0, centred at (0, 0, -1.8), about 6 m
+ * across, and its raised tier sits at the back. The player stands at the origin facing -z, toward the centre: in VR
+ * that is where the headset starts, and the laptop camera looks the same way from just behind them, so what faces one
+ * faces both. Put the game's objects in `gameIsland()`, on the top.
  */
 export const ISLAND_CENTRE = { x: 0, z: -1.8 } as const;
 export const ISLAND_RADIUS = 3.0;
+/** Where the player stands, in `gameIsland()`'s coordinates: the origin, 1.8 m in front of the centre, facing -z. */
+export const PLAYER = { x: 0, z: 1.8 } as const;
 
 const FLOOR = {
   lobes: [
@@ -227,10 +230,10 @@ export function setupLook(world: World): { island: Group } {
   world.scene.environment = null;
   // HemisphereLight uses its world position as the sky direction: keep it on the scene root at (0, 1, 0).
   world.scene.add(new HemisphereLight('#9CC8FF', '#8FC46E', 0.55));
+  // ART7 framed the island from +z, where the player stands: left unturned, its front faces the headset and the
+  // laptop camera alike, and the clouds and the tier are in front of them.
   const stage = new Group();
   stage.position.set(ISLAND_CENTRE.x, 0, ISLAND_CENTRE.z);
-  // ART7 framed the island from +z; turn it so that front faces the laptop camera at (-4, 1.5, -6).
-  stage.rotation.y = Math.atan2(-4 - ISLAND_CENTRE.x, -6 - ISLAND_CENTRE.z);
   world.scene.add(stage);
 
   const sun = new DirectionalLight('#FFE9C7', 2.45);
