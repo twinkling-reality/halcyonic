@@ -75,3 +75,12 @@ restore records its own changes (`project.restored`), and a person's edit is not
 instruction delivered into a running turn starts none and reads nothing; a turn a runtime starts on its own, without
 an instruction from Halcyonic, is still compared with the reading at the previous turn's end. Tested with a stub
 runtime through the control plane, the restore made by the real store (`observer/file-observer.test.ts`).
+
+## Amendment, 2026-11-03: the readings kept are bounded (U6)
+
+Each task's latest reading was kept for the life of the control plane, about 350 bytes a file (measured on this Mac:
+a 20,000-file folder held 6.6 MiB per task), so every task ever started in a large project stayed in memory: fifty
+tasks there would hold some 330 MiB. The control plane now keeps at most 100,000 files' entries across every task's
+latest reading (about 35 MiB), dropping the least recently read first. A task whose reading was dropped reads its folder
+again when an instruction starts its next turn from rest (OBS); a turn that starts any other way says `no_baseline`
+rather than guess. Tested with a small bound (`observer/file-observer.test.ts`).

@@ -522,6 +522,28 @@ describe('observing each turn through the control plane', () => {
     assert.equal(result.skipped?.code, 'no_baseline');
   });
 
+  test('the readings kept across tasks are bounded: past the bound the least recently read is dropped, and its turn says so (U6)', async () => {
+    const write = (name: string) => {
+      const root = folder(name);
+      writeFileSync(join(root, 'a.ts'), 'a\n');
+      writeFileSync(join(root, 'b.ts'), 'b\n');
+      return root;
+    };
+    const first = write('kept-first');
+    const second = write('kept-second');
+    // Room for three files' entries: the second task's two push the first's out.
+    const observer = new FileObserver({ limits: { files: 10, countLinesUpTo: 1024, kept: 3 } });
+    await observer.baseline('01920000-0000-7000-8000-00000000000a', first);
+    await observer.baseline('01920000-0000-7000-8000-00000000000b', second);
+    writeFileSync(join(first, 'c.ts'), 'c\n');
+    writeFileSync(join(second, 'c.ts'), 'c\n');
+    const kept = await observer.turnEnded('01920000-0000-7000-8000-00000000000b', second);
+    assert.equal(kept.skipped, null);
+    assert.deepEqual(kept.created.files, [{ path: 'c.ts', lines: 1, bytes: 2 }]);
+    const dropped = await observer.turnEnded('01920000-0000-7000-8000-00000000000a', first);
+    assert.equal(dropped.skipped?.code, 'no_baseline');
+  });
+
   test('with readings on, a folder removed after admission still fails the start: location_missing, effect none', async () => {
     const root = folder('removed');
     mkdirSync(join(root, 'app'));
