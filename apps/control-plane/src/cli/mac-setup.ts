@@ -664,14 +664,28 @@ class MacSetup {
     const about =
       "With undo on, Halcyonic keeps checkpoints of a project's folder before each task and after each turn, so a task's changes can be put back.";
     const git = env.HALCYONIC_GIT_BIN;
-    if (present(git) && existsSync(git))
-      return { title, status: 'ready', lines: [`Undo uses ${git}.`, about] };
-    return {
-      title,
-      status: 'optional',
-      lines: [present(git) ? `${git} isn't there, so undo is off.` : 'Undo is off.', about],
-      next: ['pnpm mac-setup undo'],
-    };
+    if (!present(git))
+      return {
+        title,
+        status: 'optional',
+        lines: ['Undo is off.', about],
+        next: ['pnpm mac-setup undo'],
+      };
+    if (runnableProgram(git) === null)
+      return {
+        title,
+        status: 'look',
+        lines: [
+          `${this.#tilde(git)} isn't a program this Mac can run, so undo can't use it.`,
+          about,
+        ],
+        next: ['pnpm mac-setup undo'],
+      };
+    const named =
+      git === SYSTEM_GIT
+        ? `Undo uses ${this.#tilde(git)}.`
+        : `Undo uses ${this.#tilde(git)}. It isn't the system's own git, ${SYSTEM_GIT}.`;
+    return { title, status: 'ready', lines: [named, about] };
   }
 
   /**
@@ -778,14 +792,19 @@ class MacSetup {
       io.print(
         "The VR starter isn't set up on this Mac. Install its pinned set from the public npm registry, with no install scripts and none of your own npm settings, then run this again:",
       );
+    else if (set.state === 'not_a_folder')
+      io.print(
+        `${this.#tilde(folder)} is a link or a file, not a folder of its own, so the VR starter isn't set up from it. Move it away, install the set again, then run this again:`,
+      );
     else
       io.print(
         `The VR starter's packages in ${this.#tilde(folder)} aren't the ones its lockfile pins (${set.differs.slice(0, 5).join(', ')}${set.differs.length > 5 ? ` and ${set.differs.length - 5} more` : ''}). Install them again, then run this again:`,
       );
+    const at = (path: string) => shellPath(path, io.home);
     for (const command of [
-      `mkdir -p ${this.#tilde(folder)}`,
-      `cp ${this.#tilde(join(TRACKED_STARTERS, VR_STARTER, 'package.json'))} ${this.#tilde(lock)} ${this.#tilde(folder)}/`,
-      `npm ci --prefix ${this.#tilde(folder)} --ignore-scripts --no-audit --no-fund --userconfig /dev/null --globalconfig /dev/null --cache "$(mktemp -d)" --registry https://registry.npmjs.org/`,
+      `mkdir -p ${at(folder)}`,
+      `cp ${at(join(TRACKED_STARTERS, VR_STARTER, 'package.json'))} ${at(lock)} ${at(folder)}`,
+      `npm ci --prefix ${at(folder)} --ignore-scripts --no-audit --no-fund --userconfig /dev/null --globalconfig /dev/null --cache "$(mktemp -d)" --registry https://registry.npmjs.org/`,
       'pnpm mac-setup starter',
     ])
       io.print(`     ${command}`);
@@ -814,24 +833,23 @@ class MacSetup {
       io.print(`Name git by its full path, such as ${SYSTEM_GIT}.`);
       return 1;
     }
-    let runnable = false;
-    try {
-      accessSync(git, constants.X_OK);
-      runnable = statSync(git).isFile();
-    } catch {
-      runnable = false;
-    }
-    if (!runnable) {
+    const program = runnableProgram(git);
+    if (program === null) {
       io.print(
         `${this.#tilde(git)} isn't a program this Mac can run, so undo stays off. On a Mac, ${SYSTEM_GIT} comes with Apple's command line tools: xcode-select --install.`,
       );
       return 1;
     }
-    const next = { ...settings, HALCYONIC_GIT_BIN: git };
+    // The program itself, after every link, so a link pointed elsewhere later changes nothing (AUDIT SETUP-4).
+    const next = { ...settings, HALCYONIC_GIT_BIN: program };
     this.#save(next);
     io.print(
-      `Undo is on from Halcyonic's next start, with ${this.#tilde(git)}: it keeps checkpoints of a project's folder in ${this.#tilde(join(this.#dataDir, 'checkpoints'))}, before each task and after each turn, and can put the folder back as one holds it.`,
+      `Undo is on from Halcyonic's next start, with ${this.#tilde(program)}: it keeps checkpoints of a project's folder in ${this.#tilde(join(this.#dataDir, 'checkpoints'))}, before each task and after each turn, and can put the folder back as one holds it.`,
     );
+    if (program !== SYSTEM_GIT)
+      io.print(
+        `${this.#tilde(program)} isn't the system's own git, ${SYSTEM_GIT}. Undo runs it for every checkpoint, so use it only if you trust it.`,
+      );
     await this.#afterChange(next);
     return 0;
   }
@@ -2015,6 +2033,27 @@ function expandHome(path: string, home: string): string {
 
 function quote(path: string): string {
   return /^[\w./~-]+$/.test(path) ? path : `'${path.replaceAll("'", "'\\''")}'`;
+}
+
+/**
+ * A path for a printed command that a space in it cannot split: under the home folder as
+ * "$HOME/...", else bare when plain and in single quotes when not (AUDIT SETUP-6).
+ */
+function shellPath(path: string, home: string): string {
+  const rest = path.startsWith(`${home}${sep}`) ? path.slice(home.length + 1) : null;
+  if (rest !== null && /^[^"$`\\!]*$/.test(rest)) return `"$HOME/${rest}"`;
+  return /^[\w./-]+$/.test(path) ? path : `'${path.replaceAll("'", "'\\''")}'`;
+}
+
+/** The real path of a regular file this user may run, after every link, or null (undo's git). */
+function runnableProgram(path: string): string | null {
+  try {
+    accessSync(path, constants.X_OK);
+    const real = realpathSync(path);
+    return statSync(real).isFile() ? real : null;
+  } catch {
+    return null;
+  }
 }
 
 function gigabytes(bytes: number): string {

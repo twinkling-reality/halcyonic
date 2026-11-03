@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs, {
   chmodSync,
@@ -1124,7 +1125,7 @@ describe('pnpm mac-setup', () => {
     const machine = mac(t);
     assert.equal(await machine.run('starter'), 1);
     const said = text(machine);
-    assert.match(said, /npm ci --prefix ~\/\.halcyonic\/starters\/iwsdk-vr/);
+    assert.match(said, /npm ci --prefix "\$HOME\/\.halcyonic\/starters\/iwsdk-vr"/);
     assert.match(said, /--ignore-scripts/);
     assert.match(said, /--registry https:\/\/registry\.npmjs\.org\//);
     assert.match(said, /--userconfig \/dev\/null --globalconfig \/dev\/null/);
@@ -1163,6 +1164,136 @@ describe('pnpm mac-setup', () => {
     assert.equal(await machine.run('starter'), 1);
     assert.match(text(machine), /node_modules\/three/);
     assert.equal(existsSync(join(folder, 'installed.json')), false);
+  });
+
+  test('starter writes its record as a new file of its own, never through a link at its name (AUDIT SETUP-1)', async (t) => {
+    const machine = mac(t);
+    const folder = installStarterSet(machine.dataDir);
+    const elsewhere = join(machine.root, 'elsewhere.json');
+    writeFileSync(elsewhere, 'kept\n');
+    symlinkSync(elsewhere, join(folder, 'installed.json'));
+    assert.equal(await machine.run('starter'), 0, text(machine));
+    assert.equal(readFileSync(elsewhere, 'utf8'), 'kept\n');
+    const record = fs.lstatSync(join(folder, 'installed.json'));
+    assert.ok(record.isFile());
+    assert.equal(record.mode & 0o777, 0o600);
+  });
+
+  test('starter refuses a set with anything its lockfile does not list, a link out of it, or a link for its folder (AUDIT SETUP-2)', async (t) => {
+    const cases: [string, (folder: string, root: string) => void, RegExp][] = [
+      [
+        'a package the lockfile does not name',
+        (folder) => {
+          mkdirSync(join(folder, 'node_modules', 'stranger'));
+          writeFileSync(
+            join(folder, 'node_modules', 'stranger', 'package.json'),
+            '{"version":"1.0.0"}',
+          );
+        },
+        /node_modules\/stranger/,
+      ],
+      [
+        'a package folder that is a link',
+        (folder, root) => {
+          fs.renameSync(join(folder, 'node_modules', 'three'), join(root, 'three-copy'));
+          symlinkSync(join(root, 'three-copy'), join(folder, 'node_modules', 'three'));
+        },
+        /node_modules\/three/,
+      ],
+      [
+        'a link inside a package, out of the set',
+        (folder, root) => symlinkSync(root, join(folder, 'node_modules', 'three', 'out')),
+        /node_modules\/three/,
+      ],
+      [
+        'a named pipe for a package.json',
+        (folder) => {
+          fs.rmSync(join(folder, 'node_modules', 'vite', 'package.json'));
+          execFileSync('/usr/bin/mkfifo', [join(folder, 'node_modules', 'vite', 'package.json')]);
+        },
+        /node_modules\/vite/,
+      ],
+    ];
+    for (const [name, spoil, named] of cases) {
+      const machine = mac(t);
+      const folder = installStarterSet(machine.dataDir);
+      spoil(folder, machine.root);
+      assert.equal(await machine.run('starter'), 1, name);
+      assert.match(text(machine), named, name);
+      assert.equal(existsSync(join(folder, 'installed.json')), false, name);
+    }
+    // npm's own .bin links, to files inside the set, are the set's.
+    const machine = mac(t);
+    const folder = installStarterSet(machine.dataDir);
+    mkdirSync(join(folder, 'node_modules', 'typescript', 'bin'), { recursive: true });
+    writeFileSync(join(folder, 'node_modules', 'typescript', 'bin', 'tsc'), '');
+    mkdirSync(join(folder, 'node_modules', '.bin'));
+    symlinkSync('../typescript/bin/tsc', join(folder, 'node_modules', '.bin', 'tsc'));
+    writeFileSync(join(folder, 'node_modules', '.package-lock.json'), '{}');
+    assert.equal(await machine.run('starter'), 0, text(machine));
+    // The starter's folder itself a link to a set elsewhere is refused.
+    const other = mac(t);
+    const real = installStarterSet(join(other.root, 'set-elsewhere'));
+    mkdirSync(join(other.dataDir, 'starters'), { recursive: true });
+    symlinkSync(real, join(other.dataDir, 'starters', 'iwsdk-vr'));
+    assert.equal(await other.run('starter'), 1);
+    assert.equal(existsSync(join(real, 'installed.json')), false);
+  });
+
+  test('the printed commands quote their paths, for a data folder with a space in its name (AUDIT SETUP-6)', async (t) => {
+    const machine = mac(t);
+    machine.env.HALCYONIC_DATA_DIR = join(machine.home, 'Halcyonic Data');
+    assert.equal(await machine.run('starter'), 1);
+    assert.match(text(machine), /mkdir -p "\$HOME\/Halcyonic Data\/starters\/iwsdk-vr"/);
+    assert.match(text(machine), /npm ci --prefix "\$HOME\/Halcyonic Data\/starters\/iwsdk-vr" /);
+  });
+
+  test("undo records the program a link names, by its own path, and says when it is not the system's git (AUDIT SETUP-4)", async (t) => {
+    const machine = mac(t);
+    const git = join(machine.root, 'tools', 'git-2.50');
+    mkdirSync(dirname(git), { recursive: true });
+    writeFileSync(git, '#!/bin/sh\n');
+    chmodSync(git, 0o755);
+    const link = join(machine.root, 'git');
+    symlinkSync(git, link);
+    assert.equal(await machine.run('undo', link), 0, text(machine));
+    assert.equal(machine.settings().HALCYONIC_GIT_BIN, git);
+    assert.match(text(machine), /isn't the system's own git, \/usr\/bin\/git/);
+  });
+
+  test("the check's Undo step is Ready only for a program that can run, and names it with ~ (AUDIT SETUP-5)", async (t) => {
+    const machine = mac(t);
+    /** The Undo step's lines, joined. */
+    const undo = () => {
+      const start = machine.lines.findIndex((line) => /^\d+\. Undo: /.test(line));
+      const end = machine.lines.findIndex((line, at) => at > start && /^\d+\. /.test(line));
+      return machine.lines
+        .slice(start, end === -1 ? undefined : end)
+        .map((line) => line.trim())
+        .join(' ');
+    };
+    // A folder, named in the environment (the settings file would refuse it).
+    const folderGit = join(machine.home, 'git-folder');
+    mkdirSync(folderGit);
+    machine.env.HALCYONIC_GIT_BIN = folderGit;
+    await machine.run();
+    assert.equal(status(machine, 'Undo'), 'Look at this');
+    assert.match(undo(), /~\/git-folder isn't a program this Mac can run/);
+    assert.ok(!undo().includes(machine.home), undo());
+    delete machine.env.HALCYONIC_GIT_BIN;
+    // A file that cannot run, then the same file able to.
+    const git = join(machine.home, 'bin', 'git');
+    mkdirSync(dirname(git), { recursive: true });
+    writeFileSync(git, '#!/bin/sh\n');
+    chmodSync(git, 0o644);
+    writeHostSettings(machine.dataDir, { HALCYONIC_GIT_BIN: git });
+    await machine.run();
+    assert.equal(status(machine, 'Undo'), 'Look at this');
+    assert.match(undo(), /~\/bin\/git isn't a program this Mac can run/);
+    chmodSync(git, 0o755);
+    await machine.run();
+    assert.equal(status(machine, 'Undo'), 'Ready');
+    assert.match(undo(), /Undo uses ~\/bin\/git\./);
   });
 
   test("undo records the system's git, so undo is on from the next start; off takes it away", async (t) => {

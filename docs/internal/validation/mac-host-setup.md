@@ -158,6 +158,35 @@ lockfile's): `starter` recorded it, `undo` recorded `/usr/bin/git`, and the chec
 (recorded, then Ready), one package at another version (named, nothing recorded), undo on and off, and a missing
 path, a folder, a file that cannot run and a relative path refused.
 
+## The starter's set and undo's git, made strict (AUDIT SETUP, 2026-11-03)
+
+AUDIT passed the steps above with six SHOULDs; all six are in.
+
+- **The record** (`installed.json`) is written as the settings file is: a new file of its own, mode 600, created
+  exclusively and renamed over the old, so a link at its name is never followed.
+- **The set** must be exactly what the lockfile lists. Walking `node_modules`, every entry is looked at with `lstat`
+  before anything is read: only folders and regular files, no link but npm's `.bin` links that lead to a file inside
+  the set, and no name in a `node_modules` folder or scope that the lockfile doesn't list (`.bin` and npm's own
+  `.package-lock.json` aside). A starter folder that is a link or a file is refused and named as such. A planted pipe
+  for a `package.json` is named as differing instead of hanging the command.
+- **A lockfile entry without a version** differs, even an optional one; an optional package that is there must match.
+- **Undo's git** is recorded by its real path, after every link, so a link pointed elsewhere later changes nothing;
+  `undo` says when it isn't `/usr/bin/git`.
+- **The check's Undo step** uses the same test as `undo` (a regular file this user may run, after every link) and
+  names the path with `~`. A git that can't run reads "Look at this". A folder or a missing path in the settings
+  file still stops the settings from loading, which the check's first step reports; the Undo step then reads off.
+- **The printed commands** quote their paths: under the home folder as `"$HOME/..."`, otherwise bare when plain and
+  in single quotes when not, so a data folder with a space in its name works.
+
+Run on the lane's scratch data directory with its real set (80 packages, 16,820 entries): `starter` recorded it
+(the walk 455 ms), the record a regular file with mode 600; `undo` recorded `/usr/bin/git`; the check read both
+Ready. Tested in `mac-setup.test.ts` and `starters.test.ts`: a link at the record's name (left alone, a new file
+written), a package the lockfile doesn't name, a package folder that is a link, a link inside a package out of the
+set, a pipe for a `package.json`, npm's `.bin` links inside the set (allowed), the starter folder a link (refused,
+nothing written through it), a data folder with a space (quoted commands), a link to a git (its real path recorded,
+the word about `/usr/bin/git`), the Undo step for a folder, a file that can't run and one that can, and a lockfile
+entry without a version. The final tests failed on the unit's old sources (7 of 61) and pass on the new.
+
 ## Not verified
 
 - **A person new to Halcyonic** following the runbook's "First run on a Mac" without help. Words

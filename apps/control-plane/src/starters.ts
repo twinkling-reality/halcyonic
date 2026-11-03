@@ -7,6 +7,8 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  renameSync,
+  rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -258,17 +260,25 @@ export class HostStarters {
 /** How a starter's installed set stands against its tracked lockfile (`pnpm mac-setup starter`). */
 export type InstalledSet =
   | { readonly state: 'missing' }
+  /** The starter's folder is a link, or anything but a folder of its own. */
+  | { readonly state: 'not_a_folder' }
   | { readonly state: 'differs'; readonly differs: readonly string[] }
   | { readonly state: 'matches'; readonly lockfile: string; readonly packages: number };
 
 /**
- * Whether `<installedDir>/<id>/node_modules` holds every package the tracked lockfile pins, each at
- * its pinned version as its own package.json says; an optional package (a platform's build) may be
- * absent. `lockfile` is the tracked lockfile's SHA-256.
+ * Whether `<installedDir>/<id>/node_modules` holds exactly the packages the tracked lockfile pins,
+ * each at its pinned version as its own package.json says, and nothing else (AUDIT SETUP-2): only
+ * folders and regular files, no link but npm's `.bin` links to files inside the set, and no name in
+ * a `node_modules` folder that the lockfile does not list (`.bin` and npm's `.package-lock.json`
+ * aside). An optional package (a platform's build) may be absent; a lockfile entry without a version
+ * never matches. Every entry is looked at with `lstat` before anything is read, so a planted pipe
+ * cannot hang it. `lockfile` is the tracked lockfile's SHA-256; `differs` names paths in the
+ * starter's folder.
  */
 export function installedSet(trackedDir: string, installedDir: string, id: string): InstalledSet {
   const folder = join(installedDir, id);
   try {
+    if (!lstatSync(folder).isDirectory()) return { state: 'not_a_folder' };
     if (!lstatSync(join(folder, 'node_modules')).isDirectory())
       return { state: 'differs', differs: ['node_modules'] };
   } catch {
@@ -278,22 +288,63 @@ export function installedSet(trackedDir: string, installedDir: string, id: strin
   const lock = JSON.parse(text.toString('utf8')) as {
     packages?: Record<string, { version?: unknown; optional?: unknown }>;
   };
+  const entries = Object.entries(lock.packages ?? {}).filter(([path]) => path !== '');
+  const listed = new Set(entries.map(([path]) => path));
+  const modules = realpathSync(join(folder, 'node_modules'));
   const differs: string[] = [];
+  const files = new Set<string>();
+  const found = new Set<string>();
+  /** What a folder's entries may be: a `node_modules` folder's, a scope's, npm's `.bin` or a package's. */
+  type Kind = 'modules' | 'scope' | 'bin' | 'package';
+  const walk = (relative: string, kind: Kind): void => {
+    for (const name of readdirSync(join(folder, relative)).sort()) {
+      const path = `${relative}/${name}`;
+      const stats = lstatSync(join(folder, path));
+      let inner: Kind | 'file' | null;
+      if (kind === 'bin')
+        inner =
+          stats.isFile() || (stats.isSymbolicLink() && fileInside(join(folder, path), modules))
+            ? 'file'
+            : null;
+      else if (kind === 'package')
+        inner = stats.isFile()
+          ? 'file'
+          : stats.isDirectory()
+            ? name === 'node_modules'
+              ? 'modules'
+              : 'package'
+            : null;
+      else if (kind === 'modules' && name === '.bin') inner = stats.isDirectory() ? 'bin' : null;
+      else if (kind === 'modules' && name === '.package-lock.json' && relative === 'node_modules')
+        inner = stats.isFile() ? 'file' : null;
+      else if (kind === 'modules' && name.startsWith('@'))
+        inner = stats.isDirectory() ? 'scope' : null;
+      else inner = listed.has(path) && stats.isDirectory() ? 'package' : null;
+      if (inner === null) differs.push(path);
+      else if (inner === 'file') files.add(path);
+      else {
+        if (inner === 'package' && kind !== 'package') found.add(path);
+        walk(path, inner);
+      }
+    }
+  };
+  walk('node_modules', 'modules');
   let packages = 0;
-  for (const [path, entry] of Object.entries(lock.packages ?? {})) {
-    if (path === '') continue;
+  for (const [path, entry] of entries) {
+    if (!found.has(path) && entry.optional === true && typeof entry.version === 'string') continue;
     let version: unknown;
     try {
-      version = (
-        JSON.parse(readFileSync(join(folder, path, 'package.json'), 'utf8')) as {
-          version?: unknown;
-        }
-      ).version;
+      version = files.has(`${path}/package.json`)
+        ? (
+            JSON.parse(readFileSync(join(folder, path, 'package.json'), 'utf8')) as {
+              version?: unknown;
+            }
+          ).version
+        : undefined;
     } catch {
       version = undefined;
     }
-    if (version === undefined && entry.optional === true) continue;
-    if (version === entry.version) packages += 1;
+    if (typeof entry.version === 'string' && version === entry.version) packages += 1;
     else differs.push(path);
   }
   return differs.length > 0
@@ -301,12 +352,30 @@ export function installedSet(trackedDir: string, installedDir: string, id: strin
     : { state: 'matches', lockfile: createHash('sha256').update(text).digest('hex'), packages };
 }
 
-/** Records the installed set as made from the tracked lockfile, so the starter counts as installed. */
+/** Whether the link at `path` leads to a regular file inside `root`, a real path. */
+function fileInside(path: string, root: string): boolean {
+  try {
+    const real = realpathSync(path);
+    return real.startsWith(`${root}${sep}`) && lstatSync(real).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Records the installed set as made from the tracked lockfile, so the starter counts as installed.
+ * The record is written as the settings file is: a new file of its own (mode 600) renamed over the
+ * old, so a link at its name is never followed (AUDIT SETUP-1).
+ */
 export function recordInstalled(installedDir: string, id: string, lockfile: string): void {
-  writeFileSync(
-    join(installedDir, id, 'installed.json'),
-    `${JSON.stringify({ format: 1, lockfile })}\n`,
-  );
+  const path = join(installedDir, id, 'installed.json');
+  const temporary = `${path}.${process.pid}.tmp`;
+  rmSync(temporary, { force: true });
+  writeFileSync(temporary, `${JSON.stringify({ format: 1, lockfile })}\n`, {
+    mode: 0o600,
+    flag: 'wx',
+  });
+  renameSync(temporary, path);
 }
 
 /** Every file below `root`, relative and sorted, or null when it holds a link or anything else. */
