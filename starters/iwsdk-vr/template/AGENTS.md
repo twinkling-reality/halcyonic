@@ -55,6 +55,10 @@ Make it fun to look at:
   calls a frame.
 - Make each thing the player aims at at least 30 cm across, bright, with a face or a shape you know at a glance: the
   laptop camera sees it from 4 m away.
+- Start the game's things from the toy kit in `src/decor.ts`, each about 30 cm across, one draw call, facing +z:
+  `critter('cocoa')`, a round creature with eyes, a nose and ears (a mole, a pet, a monster), `toyStar('sunny')`, a
+  star with a face, `balloon('berry')`, with its knot and string, and `basket('tangerine')`. Pass any palette name,
+  scale one with `.scale.setScalar(s)`, and make shapes of your own only for what the kit has no thing for.
 - The island comes decorated: `src/index.ts` calls `decorate(gameIsland())` from `src/decor.ts`, which puts trees,
   bushes, flowers, grass and two butterflies at its sides and back and keeps the middle clear for the game. Change
   the counts if the game needs room, for example `decorate(gameIsland(), { trees: 2, butterflies: 0 })`.
