@@ -47,9 +47,9 @@
  * and `uninstall` act on: `grant` gives it one of the permissions in GRANTABLE.
  *
  * Nothing is launched, installed, restored or opened under a system dialog that holds launches:
- * Meta's Guardian dialog, or the alert service's, such as the Headset Power menu a power-button hold
- * leaves open (2026-11-03). Every task's resumed activity is read, since such a dialog need not be
- * the top task's. A launch counts only when `am start` says ok and the log since then has no hold.
+ * Meta's Guardian dialog, the alert service's, such as the Headset Power menu a power-button hold
+ * leaves open, or a first-time tip such as "Customize your Library" (both held a launch on 2026-11-03).
+ * Every task's resumed activity is read, since such a dialog need not be the top task's. A launch counts only when `am start` says ok and the log since then has no hold.
  *
  * Besides what adb.ts lists, it runs `input keyevent KEYCODE_WAKEUP` (no other input), the
  * vrpowermanager `prox_close` and `automation_disable` broadcasts, the testing service's

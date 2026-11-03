@@ -18,9 +18,9 @@
 - **Status:** Verified on the headset: every command in `pnpm quest:device` of 2026-10-28; the adb
   servers kept apart. Not verified: the longest recording and the capture service's rate limit;
   whether the microphone is heard while nobody wears the headset; what a 5039 server does when 5038
-  is not running. Added 2026-11-03: `connect`, the forwarded `--` and the refusal to launch under a
-  system dialog ran on the headset; tested only against a stand-in adb, not yet on the headset:
-  reading a launch's hold with `logcat -e` from the headset's clock (`-t <epoch>`), and `clip`.
+  is not running. Added 2026-11-03 and run on the headset that day: `connect`, the forwarded `--`, the
+  refusal to launch under a system dialog, reading a launch's hold with `logcat -e` from the
+  headset's clock (`-t <epoch>`), and `clip`.
 
 ## Findings
 
@@ -230,11 +230,24 @@ A Quest 3 on build `UP1A.231005.007.A1` (incremental 52641960031600520) on its o
   after each capture (2026-10-29), and no line shows it before the first capture of a session, so
   the log cannot say sync is off until a capture has been made. `clip` records both eyes through
   `screenrecord` instead, with no sound and nothing to upload.
+- **A first-time tip held a launch too.** Stood facing the lit room at 19:09Z, the headset tracked
+  (passthrough of the room, no Guardian dialog), but Meta's first-time tip "Customize your Library"
+  (`com.oculus.firsttimenux/.FirstTimeNuxExclusiveSystemDialogActivity`) was in front, and the launch
+  logged the same `a Reprojected OS dialog is currently showing. Caching launch`. The tool did not
+  know the tip yet; it found the hold by the line's words, read with `logcat -e` from the headset's
+  clock, stopped the app and failed.
+- **With nothing in front (19:14Z)** the launch started, and `pnpm quest:check` passed every line on
+  the installed build: the one mapping, the private token at mode 600 and 44 bytes, nothing at the old
+  place, the move ("nothing was on shared storage"), the connection live over `adb reverse`, and no
+  cleartext or StrictMode line; the glance had not polled, so its checks were skipped. Nothing
+  listened on 8720 while the app ran (both tables read). The compositor held 72 to 73 fps after a
+  first second of 31 with 44 stale frames, and the app logged its device view field (108 by 99
+  degrees for both eyes). A 5 s `clip` came back whole: 4128 by 2208, about 67 fps, 12.9 MB.
 
 So the device tool reads every task's resumed activity and the one `ResumedActivity` for the
-Guardian's and the alert service's dialogs, reads a hold by its words since the launch, fails a
-launch `am start` does not confirm, drops the `--` pnpm forwards, and makes the mapping with
-`connect`.
+Guardian's, the alert service's and the first-time tips' dialogs, reads a hold by its words since
+the launch, fails a launch `am start` does not confirm, drops the `--` pnpm forwards, and makes the
+mapping with `connect`.
 
 ## Consequences
 

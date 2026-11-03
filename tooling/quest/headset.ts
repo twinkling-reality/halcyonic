@@ -30,6 +30,8 @@ export function readTopActivity(text: string): Activity | null {
 const GUARDIAN = 'com.oculus.guardian';
 /** Meta's alert service, whose Headset Power menu a power-button hold leaves open. */
 const ALERTS = 'com.oculus.vralertservice';
+/** Meta's first-time tips, such as "Customize your Library", which held a launch on 2026-11-03. */
+const FIRST_TIME = 'com.oculus.firsttimenux';
 
 /** Whether Meta's Guardian dialog is in front: the headset can't find its position in the room. */
 export function isGuardianDialog(front: Activity | null): boolean {
@@ -37,8 +39,8 @@ export function isGuardianDialog(front: Activity | null): boolean {
 }
 
 /**
- * `dumpsys activity activities`: every system dialog showing, the Guardian's or the alert service's,
- * in the order of the tasks, then the one `ResumedActivity` names. A Quest resumes several
+ * `dumpsys activity activities`: every system dialog showing, the Guardian's, the alert service's or
+ * a first-time tip, in the order of the tasks, then the one `ResumedActivity` names. A Quest resumes several
  * activities at once, one per task: on 2026-11-03 the Headset Power menu's task came first while
  * `ResumedActivity` named the Guardian dialog. Each kind has held a launch (2026-10-28, 2026-11-03).
  */
@@ -48,7 +50,7 @@ export function readSystemDialogs(text: string): Activity[] {
     /(?:topResumedActivity=|ResumedActivity: )ActivityRecord\{\S+ u\d+ ([\w.]+)\/([\w.$]+)/g,
   )) {
     const found = { package: match[1] ?? '', activity: match[2] ?? '' };
-    const dialog = found.package === GUARDIAN || found.package === ALERTS;
+    const dialog = [GUARDIAN, ALERTS, FIRST_TIME].includes(found.package);
     const seen = dialogs.some(
       (kept) => kept.package === found.package && kept.activity === found.activity,
     );
@@ -68,6 +70,9 @@ export function describeFront(front: Activity | null, own: string): string {
   }
   if (front.package === ALERTS) {
     return `A system alert is showing (${front.activity}), so nothing opens until someone closes it in the headset.`;
+  }
+  if (front.package === FIRST_TIME) {
+    return "One of Meta's first-time tips is open (such as Customize your Library), so nothing opens until someone closes it in the headset.";
   }
   if (front.package === GUARDIAN) return `A system dialog is in front: ${front.activity}.`;
   if (front.package === own) return `${own} is in front.`;

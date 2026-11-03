@@ -40,6 +40,8 @@ interface Headset {
   readonly launchStatus?: string;
   /** Meta's Headset Power menu is open, its task first, as on 2026-11-03 (a power-button hold left it). */
   readonly powerMenu?: boolean;
+  /** Meta's first-time tip ("Customize your Library") is open, its task first, as on 2026-11-03 at 19:09Z. */
+  readonly firstTimeTip?: boolean;
   /** Each GET_PROPERTY reading of set_proximity_close in turn, 'true', 'false' or 'missing'; the last repeats. */
   readonly proximity?: readonly string[];
   /** Meta's Guardian dialog is in front: the headset can't find its position in the room. */
@@ -97,6 +99,7 @@ else if (said === 'shell dumpsys activity activities') {
   // the power menu's task came first while ResumedActivity named the Guardian dialog.
   const GUARDIAN = 'com.oculus.guardian/com.oculus.vrguardianservice.guardiandialog.GuardianDialogActivity';
   const tops = [
+    ...(scenario.firstTimeTip ? ['com.oculus.firsttimenux/.FirstTimeNuxExclusiveSystemDialogActivity'] : []),
     ...(scenario.powerMenu ? ['com.oculus.vralertservice/.ShutdownConfirmActivity'] : []),
     ...(scenario.guardian ? [GUARDIAN] : []),
     'com.oculus.vrshell/.HomeActivity',
@@ -570,6 +573,20 @@ describe('pnpm quest:device, against a stand-in adb', () => {
         restored.calls.join('\n'),
       );
     }
+  });
+
+  test("nothing launches under Meta's first-time tip, and status names it", async () => {
+    // As on 2026-11-03 at 19:09Z: the tip held a launch ("a Reprojected OS dialog is currently showing").
+    const launched = await device({ firstTimeTip: true }, 'launch');
+    assert.equal(launched.code, 1, launched.said);
+    assert.match(launched.said, /Not launching: One of Meta's first-time tips is open/);
+    assert.ok(
+      !launched.calls.some((call) => call.startsWith('shell am start')),
+      launched.calls.join('\n'),
+    );
+    const shown = await device({ firstTimeTip: true }, 'status');
+    assert.equal(shown.code, 0, shown.said);
+    assert.match(shown.said, /^front: One of Meta's first-time tips is open/m);
   });
 
   test('status names the Headset Power menu first and the Guardian dialog behind it', async () => {

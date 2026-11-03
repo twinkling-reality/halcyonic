@@ -662,7 +662,8 @@ pnpm quest:device -- give-back
   the room" is Meta's Guardian dialog: nothing opens until the headset sees the room, so stand it
   facing the room or wear it. Meta's Headset Power menu (Sleep, Cancel, Power Options), which a
   power-button hold leaves open, held a launch too; it stayed open through a sleep and a wake, and
-  only someone in the headset closes it. `status` names each system dialog showing, as `front` and then `also`, since one
+  only someone in the headset closes it. So did one of Meta's first-time tips ("Customize your
+  Library", closed with its X). `status` names each system dialog showing, as `front` and then `also`, since one
   can show below another task. Never press anything in a system dialog.
 - `awake` keeps it awake on the desk (the proximity override); `give-back` hands the sensor back and
   stops the apps this tool started. Run it at the end, every time. While the Guardian dialog holds the
