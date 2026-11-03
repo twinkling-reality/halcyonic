@@ -314,3 +314,9 @@ stepped clock holds it; the curves are pure functions in `src/motion.ts`, beside
 the player stands on never moves. The cost, accepted: a scene that moves leaves a single load's screen change unknown, so
 a still game's press is now seen through the twin replay (M1.8g); a one-box game's check took 28 s still and 80 s moving
 at a load of 6 to 8, and both read ready.
+
+`gameIsland()` is in the world's own frame (U3b): `world.createTransformEntity(object)` with no parent moves the object
+to the level's root, so a prop added to the island's group, which sat at the island's centre, jumped 1.8 m toward the
+player when the agent made it interactive, as AGENTS.md told it to. The island's meshes stay at its centre in the scene;
+the game's objects go in a group of their own that is never moved, so an object stays where it is put either way.
+`PLAYER` is the origin and AGENTS.md gives the game's place in world coordinates.

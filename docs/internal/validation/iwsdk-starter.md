@@ -392,6 +392,21 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 - **Not tried:** the headset: whether the motion is comfortable there (it is small and slow, and the ground never moves)
   and what it costs a Quest's frame time.
 
+## A game object stays where it is put (U3b)
+
+- **Question:** does an object an agent adds to `gameIsland()` and makes interactive, as the template's AGENTS.md says,
+  stay where it was put?
+- **Date:** 2026-11-03.
+- **Found:** no. `World.createTransformEntity(object)` in `@iwsdk/core` 1.0.1 (`dist/ecs/world.js`) adds the object to
+  the level's root when no parent is given, so it left the island's group, which sat at (0, 0, -1.8): a box made that
+  way stood at the origin, where a headset wearer stands, while the contact shadow added beside it stayed at the
+  island's centre (a lab render through the check's build and preview path).
+- **Now:** `gameIsland()` is a group in the world's own frame, never moved; the island's meshes stay at its centre. The
+  same box, placed at the island's centre as the new AGENTS.md reads, stands on its contact shadow there from the
+  laptop camera and from the wearer's eye. Its check passed and read ready (the press seen through the twin replay, 85 s
+  at a load of 7); a fresh project's check passed.
+- **Not tried:** the headset.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

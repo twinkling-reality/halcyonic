@@ -61,20 +61,47 @@ describe("the starter's look faces the headset wearer (U1)", () => {
     assert.doesNotMatch(look, /\(-4, 1\.5, -6\)/);
   });
 
-  test("the player's spot is the XR origin, in the island's own coordinates", () => {
-    const centre = islandPoint('ISLAND_CENTRE');
-    const player = islandPoint('PLAYER');
-    // The island group sits at ISLAND_CENTRE, unturned, so the origin is at minus the centre in its coordinates.
-    assert.equal(player.x + centre.x, 0);
-    assert.equal(player.z + centre.z, 0);
-  });
-
   test('the agent is told where the player stands and which way things face', () => {
     const agents = read('AGENTS.md');
     assert.match(agents, /`PLAYER`/);
     assert.match(agents, /faces -z/);
     assert.match(agents, /toward \+z/);
     assert.doesNotMatch(agents, /in front of the camera/);
+  });
+});
+
+describe("a game object stays where it is put, in the world's own frame (U3b)", () => {
+  // `world.createTransformEntity(object)` with no parent moves the object to the level's root (@iwsdk/core
+  // dist/ecs/world.js): an object put in an offset island group would jump by the offset when made interactive.
+  test("the game's frame is the world's: the player at the origin, the island's centre in front", () => {
+    assert.deepEqual(islandPoint('PLAYER'), { x: 0, z: 0 });
+    const centre = islandPoint('ISLAND_CENTRE');
+    assert.ok(centre.z < -1, 'the island is in front of the player');
+  });
+
+  test('gameIsland() is a group of its own on the scene, never moved or turned; the island meshes sit at its centre', () => {
+    const look = read('src/look.ts');
+    assert.match(
+      look,
+      /const play = new Group\(\);\n\s*world\.scene\.add\(play\);\n\s*built = play;/,
+    );
+    assert.doesNotMatch(look, /play\.(position|rotation|scale|quaternion)/);
+    assert.match(look, /stage\.add\(ground\);/);
+  });
+
+  test("the decor keeps its place: it is laid out round the island's centre", () => {
+    const decor = read('src/decor.ts');
+    assert.match(decor, /decor\.position\.set\(ISLAND_CENTRE\.x, 0, ISLAND_CENTRE\.z\);/);
+  });
+
+  test('the agent works in world coordinates and is told what createTransformEntity does', () => {
+    const agents = read('AGENTS.md');
+    assert.match(agents, /world's own coordinates/);
+    assert.match(agents, /`ISLAND_CENTRE`/);
+    assert.match(
+      agents,
+      /`world\.createTransformEntity\(object\)` moves the object to the scene's root/,
+    );
   });
 });
 

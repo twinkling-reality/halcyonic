@@ -9,7 +9,7 @@ import {
   ShapeGeometry,
   SphereGeometry,
 } from 'three';
-import { ambientMotion, contactShadow } from './look.js';
+import { ambientMotion, contactShadow, ISLAND_CENTRE } from './look.js';
 import { ambient, flap, flight, sway } from './motion.js';
 import { type PaletteName, toyMaterial } from './palette.js';
 
@@ -25,7 +25,9 @@ export function decorate(
   counts: { trees?: number; bushes?: number; flowers?: number; tufts?: number; butterflies?: number } = {},
 ): Group {
   const { trees = 3, bushes = 3, flowers = 6, tufts = 26, butterflies = 2 } = counts;
+  // Laid out round the island's centre; `gameIsland()` is in the world's frame, with the player at the origin.
   const decor = new Group();
+  decor.position.set(ISLAND_CENTRE.x, 0, ISLAND_CENTRE.z);
   const shadowed = (group: Group) =>
     group.traverse((part) => {
       if (part instanceof Mesh) {
@@ -152,7 +154,7 @@ export function decorate(
       root.rotation.z = sway(time, x, z);
     });
   }
-  // Where the butterflies loop, in the island's coordinates: either side of the play area, in front of the player.
+  // Where the butterflies loop, round the island's centre: either side of the play area, in front of the player.
   const homes: { x: number; y: number; z: number; reach: number; wings: [PaletteName, PaletteName] }[] = [
     { x: -0.95, y: 0.75, z: 0.45, reach: 0.5, wings: ['sunny', 'tangerine'] },
     { x: 1.1, y: 0.95, z: -0.2, reach: 0.45, wings: ['ocean', 'grape'] },
