@@ -283,14 +283,12 @@ export function observeEvent(
       if (call !== null) state.shellCalls.delete(call);
       if (id === null || !state.tools.has(id)) return [];
       state.tools.delete(id);
-      // OpenCode completes a shell call that ran to its end, whatever its exit; one that exited
-      // non-zero failed, as Codex reports one. The exit is OpenCode's own field (`metadata.exit`,
-      // a number for a shell call), never read from the command's output.
-      const exit = isRecord(data.metadata) ? data.metadata.exit : undefined;
-      const exitedNonZero = typeof exit === 'number' && exit !== 0;
       return make('runtime.tool.completed', {
         tool_call_id: id,
-        outcome: event.type === 'session.tool.success' && !exitedNonZero ? 'succeeded' : 'failed',
+        outcome:
+          event.type === 'session.tool.success' && !shellDidNotExitZero(data.metadata)
+            ? 'succeeded'
+            : 'failed',
       });
     }
     case 'session.text.ended': {
@@ -563,6 +561,23 @@ function nativeType(type: string): string {
 
 function nonBlank(value: unknown): string | null {
   return typeof value === 'string' && /\S/.test(value) ? value : null;
+}
+
+/**
+ * Whether a tool call OpenCode completed as a success was a shell command that did not exit 0: a
+ * non-zero exit, a signal or a timeout. OpenCode 2.0.18's shell tool completes every command that
+ * ran, with `{status, truncated, exit?, signal?, timeout?}` as its metadata, and says "Exited with
+ * code N", "Killed by SIGKILL" or "Timed out before completion" in its result, so a result whose
+ * metadata names any of the three is a shell result, and it succeeded only when it exited 0 with no
+ * signal and no timeout, as Codex fails a command that did not complete. These are OpenCode's own
+ * fields, never read from the command's output. A call OpenCode moved to the background completes
+ * when it moves, with none of the three: its later end is not known here.
+ */
+function shellDidNotExitZero(metadata: unknown): boolean {
+  if (!isRecord(metadata)) return false;
+  if (!('exit' in metadata || 'signal' in metadata || 'timeout' in metadata)) return false;
+  const signalled = metadata.signal !== undefined && metadata.signal !== null;
+  return metadata.exit !== 0 || signalled || metadata.timeout === true;
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

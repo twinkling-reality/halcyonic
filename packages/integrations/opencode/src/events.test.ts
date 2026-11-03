@@ -718,7 +718,7 @@ describe('OpenCode event decoding', () => {
     assert.equal(shown('call_1'), null);
   });
 
-  test('a shell call OpenCode completes with a non-zero exit completes as failed; one with exit 0 succeeds', () => {
+  test('a shell call OpenCode completes but that did not exit 0 completes as failed; one that exited 0 succeeds', () => {
     const state = createSessionState();
     state.turn = { id: null };
     const send = (type: string, data: Record<string, unknown>) => {
@@ -753,9 +753,28 @@ describe('OpenCode event decoding', () => {
       outcome('call_2', 'shell', { status: 'completed', truncated: false, exit: 0 }),
       'succeeded',
     );
-    // A tool without an exit, such as a read, succeeds as OpenCode says.
+    // A tool whose metadata names no exit, signal or timeout, such as a read, succeeds as OpenCode says.
     assert.equal(outcome('call_3', 'read'), 'succeeded');
-    assert.equal(outcome('call_4', 'shell', { status: 'completed', exit: null }), 'succeeded');
+    assert.equal(outcome('call_4', 'read', { status: 'completed', truncated: false }), 'succeeded');
+    // OpenCode's shell tool also says "Killed by SIGKILL" and "Timed out before completion" in a
+    // success (its metadata `{status, truncated, exit?, signal?, timeout?}`): neither exited 0.
+    assert.equal(outcome('call_5', 'shell', { status: 'completed', signal: 'SIGKILL' }), 'failed');
+    assert.equal(outcome('call_6', 'shell', { status: 'completed', timeout: true }), 'failed');
+    assert.equal(
+      outcome('call_7', 'shell', { status: 'completed', exit: 0, signal: 'SIGTERM' }),
+      'failed',
+    );
+    assert.equal(
+      outcome('call_8', 'shell', { status: 'completed', exit: 0, timeout: true }),
+      'failed',
+    );
+    assert.equal(outcome('call_9', 'shell', { status: 'completed', exit: null }), 'failed');
+    assert.equal(outcome('call_10', 'shell', { status: 'completed', exit: '0' }), 'failed');
+    // No signal and no timeout are the ordinary end of a command that exited 0.
+    assert.equal(
+      outcome('call_11', 'shell', { status: 'completed', exit: 0, signal: null, timeout: false }),
+      'succeeded',
+    );
   });
 
   test('an execution error type that does not start with a letter still yields a valid code', () => {
