@@ -21,8 +21,12 @@ namespace Halcyonic.XR.UI
     /// </summary>
     public sealed class KitWorkspaceHost : MonoBehaviour
     {
-        /// <summary>Whether the selected task is drawn by the kit rather than the file's own views; off until a headset session says otherwise.</summary>
-        public static bool Enabled { get; set; }
+        /// <summary>
+        /// Whether the selected task is drawn by the kit rather than the file's own views: on in every build since
+        /// 2026-11-03 (KIT-ON), so the kit is what the headset shows; the file's own views still draw wherever the
+        /// kit's binding gives up (a side panel, an action the kit has no place for), as they always did.
+        /// </summary>
+        public static bool Enabled { get; set; } = true;
 
         /// <summary>The rows of Activity a frame takes before the kit has laid any out.</summary>
         private const int DefaultRailRows = 8;

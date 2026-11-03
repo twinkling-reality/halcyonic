@@ -1543,7 +1543,7 @@ words the kit shows too; otherwise there is no binding and the file draws the fr
 What Activity leads with, attention notes, an approval waiting on Waiting and why nothing can be sent, is
 taken by its place and tone into the kit's slate in the file's own lines, and the four sections become rows of
 the kit's spine.
-`KitWorkspaceHost` shows the bound kit in the independent workspace behind one switch, off by default, and raises
+`KitWorkspaceHost` shows the bound kit in the independent workspace behind one switch, on by default in every build since 2026-11-03 (KIT-ON), and raises
 what each control raises in the plane's own terms: the frame's action with that frame, Hold to talk's own prompt held
 and let go, a context row's key with its owner, and the frame drawn once every control has settled.
 
@@ -2349,9 +2349,20 @@ Editor counts, not device frame times.
 ### The kit in the plane (2026-10-28)
 
 The plane can draw the selected task's file with the spatial kit's `KitWorkspaceHost`. It does so
-while `KitWorkspaceHost.Enabled` is on (off by default) and the director has a binding the kit
-`Holds` whole. Otherwise the file's own views draw it as before: side panels, a frame with lines the
-kit has no place for, or words too long for the kit's composer.
+while `KitWorkspaceHost.Enabled` is on and the director has a binding the kit `Holds` whole. It is on
+by default in every build since 2026-11-03 (KIT-ON); before then only the Editor's kit renders switched it
+on, so none of the kit reached the headset. Otherwise the file's own views draw it as before: side panels,
+a frame with lines the kit has no place for, or words too long for the kit's composer.
+`WorkspaceRender.KitSpatialCheck` runs on the default, nothing in it switching the kit on: on the approval
+page it presses Approve and Deny through the kit's own controls and the pointer path the Interaction SDK
+raises, and requires each to bring its confirm step, nothing sent before Yes, a press on the frame no longer
+shown refused, Cancel back to the approval, the confirmed Deny the one command sent, and "Runs on This Mac"
+on the asked and the confirming page for a runtime that declares an approved command may leave the sandbox.
+Every shot the kit draws there is held inside the Quest 3S field less its margin at both reading sizes: every
+vertex of its surfaces where the curve puts it, and the workspace's envelope. The journeys whose subject is the
+file's own views (the spatial journey without the kit, and the Results consumer in the spatial workspace) stand
+the kit aside for their walk, since those views are now its fallback. `JudgeWordsTests` reads every word the kit
+shows for each frame of the demonstration it can hold, bound as the director binds it.
 
 Before each draw, `MenuDirector.PrepareSpatialContext` builds the binding from the active file's
 frame, its armed action, presentation, draft and connection. The kit's spine is exactly the context
@@ -2404,7 +2415,16 @@ They check, for every shot the kit draws:
 - Tasks on the spine reaching its place;
 - Compact and Workspace through the switch, a refused Compact moving nothing, and the presence's
   words and targets held to the same rules;
-- the composer's fallback to the file's views and back.
+- the composer's fallback to the file's views and back;
+- everything drawn inside the Quest 3S field less its margin;
+- Read Results pressed on the kit's rail (a route row) opening the task's results beside it, the file's
+  views drawing them, and their Close bringing the kit back;
+- the approval's Approve and Deny with their confirm steps (above), and what 40 more shows of one file
+  leave behind, logged as counts of game objects, materials, meshes and textures.
+
+Measured over every page of the demonstration, the kit holds every Activity page and every approve and
+deny confirmation; the file's own views draw nearly all Changes and Checks pages, questions, Stop's
+confirmation and every side panel (2026-11-03).
 
 ### The room of projects' placement (2026-10-29)
 

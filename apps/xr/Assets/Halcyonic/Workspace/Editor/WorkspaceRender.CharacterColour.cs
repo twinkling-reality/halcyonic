@@ -32,7 +32,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                     var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "CharacterColourRenders", variant));
                     Directory.CreateDirectory(folder);
-                    return RenderCharacterColour(folder);
+                    // The colour panel is a side panel the file's own views draw, the kit's fallback: the kit stands aside.
+                    return KitAside(() => RenderCharacterColour(folder));
                 }));
             }
             catch (Exception error)

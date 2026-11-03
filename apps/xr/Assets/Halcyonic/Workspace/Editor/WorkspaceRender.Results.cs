@@ -140,6 +140,12 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static IEnumerable<string> RenderTaskResults(string name, string folder, bool withShelf, bool desk, bool spatialWorkspace = false)
         {
+            // This consumer walks the file's own views, the kit's fallback (Results is a side panel): the kit stands aside for it.
+            return KitAside(() => RenderTaskResultsWalk(name, folder, withShelf, desk, spatialWorkspace));
+        }
+
+        private static IEnumerable<string> RenderTaskResultsWalk(string name, string folder, bool withShelf, bool desk, bool spatialWorkspace)
+        {
             var failures = new List<string>();
             var root = new GameObject("Synthetic Results consumer " + name);
             var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };

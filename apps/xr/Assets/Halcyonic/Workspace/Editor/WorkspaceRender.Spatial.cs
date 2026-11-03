@@ -86,6 +86,14 @@ namespace Halcyonic.XR.Workspace.Editor
         private static IEnumerable<string> RenderSpatialWorkspace(string folder, Work work, bool waiting, bool question = false, bool multipleProjects = false, bool curved = false,
             bool kit = false)
         {
+            // Without the kit, this journey walks the file's own views, the kit's fallback: the kit stands aside for it.
+            return kit ? RenderSpatialWorkspaceWalk(folder, work, waiting, question, multipleProjects, curved, kit).ToList()
+                : KitAside(() => RenderSpatialWorkspaceWalk(folder, work, waiting, question, multipleProjects, curved, kit));
+        }
+
+        private static IEnumerable<string> RenderSpatialWorkspaceWalk(string folder, Work work, bool waiting, bool question, bool multipleProjects, bool curved,
+            bool kit)
+        {
             var failures = new List<string>();
             var root = new GameObject("Actual spatial workspace composition witness");
             var texture = new RenderTexture(kit ? KitSize : Size, kit ? KitSize : Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
@@ -141,6 +149,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var commands = new CommandFactory(client);
                 Action<string>? done = null;
                 var sends = 0;
+                CommandEnvelope? lastSent = null;
                 var connected = true;
                 FileColumn? selectedFile = null;
                 var presentation = new WorkspacePresentationState();
@@ -155,7 +164,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     ReadLocations = _ => Task.FromResult(new LocationsResponse { Roots = new List<LocationRoot>() }),
                     KeyboardOffered = () => true, Keyboard = (_, _, accept, _) => done = accept,
                     MakeNewProject = host => new NewProjectFlow(host, commands, new KeptInMemory()),
-                    Submit = (_, command) => { sends++; return Task.FromResult(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Accepted }); },
+                    Submit = (_, command) => { sends++; lastSent = command; return Task.FromResult(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Accepted }); },
                     File = (host, _) => selectedFile = new FileColumn(host, () => work.Present(live: connected), commands, () => null, _ => null, () => ""),
                     CharacterOf = id => targets.FirstOrDefault(target => target.View.WorkstreamId == id),
                     StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, targets, null, false),
@@ -312,8 +321,90 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 Press(TasksColumn.OpenTask, work.Workstream.WorkstreamId);
                 if (!waiting) Shot("spatial-working-activity");
+                // KIT-ON: a route on the kit's rail raises its line's own action with the frame it stood on, through the pointer
+                // path. Read Results acts only on a frame its view reported drawn, so this also proves the kit's report reaches
+                // the file. The results open beside the task, where the file's own views draw them, and their Close brings the
+                // kit back to the task.
+                if (kit && !waiting)
+                {
+                    var taskFile = director.Navigator.Beside;
+                    var readResults = director.Plane.KitBinding?.Routes.FirstOrDefault(route => route.Action == FileScreens.OpenResults);
+                    Draw(); System.Threading.Thread.Sleep(450);
+                    if (readResults == null || !PressOnKit(director, readResults.Action, readResults.Key)) failures.Add("spatial: the kit's rail has no Read Results to press");
+                    else
+                    {
+                        Draw();
+                        if (director.Navigator.Beside is not TaskResultsColumn || director.Plane.KitShows)
+                            failures.Add("spatial: Read Results on the kit's rail did not open the task's results beside it");
+                        else
+                        {
+                            Shot("spatial-working-results");
+                            Press(Footer.Close);
+                            Draw();
+                            if (!ReferenceEquals(director.Navigator.Beside, taskFile) || !director.Plane.KitShows)
+                                failures.Add("spatial: the results' Close did not bring the kit back to the task");
+                        }
+                    }
+                    // The kit now redraws on the headset whenever the task's frame changes; each show lays it out again.
+                    // What 40 more shows of one file leave behind is measured and said here (U6 fixes leaks).
+                    if (director.Plane.KitShows && director.Plane.KitBinding is KitFileBinding shownFile && director.Plane.KitOwner is object kitOwner)
+                    {
+                        (int Objects, int Materials, int Meshes, int Textures) Tally() => (Resources.FindObjectsOfTypeAll<GameObject>().Length,
+                            Resources.FindObjectsOfTypeAll<Material>().Length, Resources.FindObjectsOfTypeAll<Mesh>().Length,
+                            Resources.FindObjectsOfTypeAll<Texture2D>().Length);
+                        director.Plane.Kit.Show(shownFile, MenuColumn.File, kitOwner);
+                        var before = Tally();
+                        for (var again = 0; again < 40; again++) director.Plane.Kit.Show(shownFile, MenuColumn.File, kitOwner);
+                        var after = Tally();
+                        Debug.Log("Halcyonic: kit workspace: one file shown 40 times more: game objects " + before.Objects + " to " + after.Objects
+                            + ", materials " + before.Materials + " to " + after.Materials + ", meshes " + before.Meshes + " to " + after.Meshes
+                            + ", textures " + before.Textures + " to " + after.Textures + ".");
+                        Draw();
+                    }
+                }
                 if (!waiting) { Press(FileScreens.TellIt); done?.Invoke("Add a regression test for the rate limit."); }
                 Shot(question ? "spatial-question-first-part" : waiting ? "spatial-waiting-approval" : "spatial-working-direction");
+                // KIT-ON: the kit draws the approval on the headset by default, so its Approve and Deny keep their confirm step
+                // there. Each press goes through the kit's own control and the pointer path the SDK raises; nothing is sent
+                // until Yes; a press on the frame no longer shown is refused; and where the runtime declares that an approved
+                // command may leave the sandbox, the page says so where the person decides, asked and confirming.
+                if (kit && waiting && !question)
+                {
+                    // The shot's spine witness pressed Tasks: the person opens the task again to decide.
+                    Press(TasksColumn.OpenTask, work.Workstream.WorkstreamId);
+                    Draw();
+                    var plane = director.Plane;
+                    var note = WorkspaceText.ApprovedCommandNote(work.State.Runtimes.First());
+                    bool Says(string words) => plane.Kit.View.GetComponentsInChildren<TMPro.TMP_Text>(false).Any(label => label.text == LabelText.ForTextMeshPro(words));
+                    KitControl? At(KitPlace place) => plane.KitBinding?.Controls.FirstOrDefault(control => control.Place == place);
+                    bool PressKit(KitPlace place)
+                    {
+                        Draw(); System.Threading.Thread.Sleep(450);
+                        var control = At(place);
+                        var pressed = control != null && PressOnKit(director, control.Action, control.Key);
+                        Draw();
+                        return pressed;
+                    }
+                    if (!plane.KitShows || At(KitPlace.Approve) == null || At(KitPlace.Deny) == null)
+                        failures.Add("spatial: the kit does not draw the approval's Approve and Deny on the default");
+                    if (note == null || !Says(note)) failures.Add("spatial: the approval does not say where an approved command runs (" + (note ?? "no note") + ")");
+                    var asked = plane.KitBinding?.Frame;
+                    var approve = At(KitPlace.Approve);
+                    if (!PressKit(KitPlace.Approve) || At(KitPlace.Yes) == null || At(KitPlace.Cancel) == null || sends != 0)
+                        failures.Add("spatial: the kit's Approve did not bring its confirm step, or sent before it");
+                    if (note != null && !Says(note)) failures.Add("spatial: the confirm step does not say where the approved command runs");
+                    Shot("spatial-waiting-approval-confirming");
+                    if (asked != null && approve != null && director.PressForRender(MenuColumn.File, approve.Action, approve.Key, asked, null))
+                        failures.Add("spatial: a press on the approval frame no longer shown was taken");
+                    if (!PressKit(KitPlace.Cancel) || At(KitPlace.Approve) == null || sends != 0)
+                        failures.Add("spatial: the confirm step's Cancel did not return to the approval without sending");
+                    if (!PressKit(KitPlace.Deny) || At(KitPlace.Yes) == null || sends != 0)
+                        failures.Add("spatial: the kit's Deny did not bring its confirm step, or sent before it");
+                    if (!PressKit(KitPlace.Yes) || sends != 1
+                        || lastSent is not ExecutionRespondToApprovalCommand { Payload: { Decision: ApprovalDecision.Deny } })
+                        failures.Add("spatial: the confirmed Deny did not send the person's one decline (" + sends + " sent)");
+                    Shot("spatial-waiting-approval-confirmed");
+                }
                 // With the kit, the route ends here: what follows moves through the context column and the chrome, the file's views' own.
                 if (kit) return failures;
                 if (question && selectedFile != null)

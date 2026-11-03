@@ -32,7 +32,7 @@ public class JudgeWordsTests
     [Test]
     public void NoBrandIsShownAlongAnyPathOfTheDemonstration()
     {
-        var words = WordsAJudgeCanRead();
+        var words = WordsAJudgeCanRead(out var kitFrames);
         var found = Branded(words);
         var report = string.Join("\n", found.Select(entry => entry.Key + ": " + string.Join(" | ", entry.Value.Take(4))));
         TestContext.Out.WriteLine(report);
@@ -48,13 +48,15 @@ public class JudgeWordsTests
         Assert.That(words, Has.None.EqualTo("Pairing"), "the demonstration offers no Your computer");
         Assert.That(words, Is.SupersetOf(new[] { GalleryText.SampleProjects, GalleryText.NotInThisRecording, "Star garden", "Review Requested" }),
             "the walk reached the gallery's sample catalog and the recording without one");
+        Assert.That(kitFrames, Is.GreaterThan(0), "the walk read the kit's words for the files it draws");
     }
 
     /// <summary>Every distinct string the client core gives the headset along every path of the demonstration.</summary>
-    private static HashSet<string> WordsAJudgeCanRead()
+    private static HashSet<string> WordsAJudgeCanRead(out int kitFrames)
     {
         var recording = Demonstration.Recording();
         var words = new HashSet<string>();
+        var kitHeld = 0;
         void Add(object? model)
         {
             if (model == null) return;
@@ -64,6 +66,34 @@ public class JudgeWordsTests
                 return;
             }
             Gather(JToken.FromObject(model, Serializer), words);
+        }
+
+        // The kit draws the task's file on the headset by default (KIT-ON): for every frame it can hold, every word it
+        // shows, its slate, spine and rail as the binding gives them and each control's words and reason, bound as the
+        // director binds it, the composer's chips the execution's own (KitPresenter.ChipsOf).
+        void AddKit(MenuFrame frame, WorkspaceAction? armed, WorkspacePresentation workspace, ClientProjection state, string? selected)
+        {
+            var runtime = workspace.Runtime;
+            var projects = state.Projects.Values.OrderBy(project => project.Name, StringComparer.Ordinal).ToList();
+            var rows = projects.Take(3).Select(project => new KitRowModel("project:" + project.ProjectId, LineWords.TheirName(project.Name),
+                opensMore: false, selected: project.ProjectId == selected, isName: true)).ToList();
+            if (projects.Count > 3) rows.Add(new KitRowModel("place:" + MenuPlace.Projects, LineWords.Ours("More projects")));
+            var spine = new[]
+            {
+                new KitSpineSection(rows, "Projects"),
+                new KitSpineSection(new[] { new KitRowModel("place:" + MenuPlace.Tasks, LineWords.Ours("Tasks")) }),
+            };
+            var name = selected != null && state.Projects.TryGetValue(selected, out var project) ? project.Name : "";
+            var selectors = KitPresenter.ChipsOf(workspace, new WorkspacePresentationState().ExecutionModelDisplay(runtime, workspace.Execution));
+            if (KitFileBinding.Of(frame, armed, workspace, "", new ConnectionStatus(ConnectionPhase.Live), name, spine,
+                    new KitRowModel("workspace", LineWords.Ours("Workspace"), GlazeIcon.Move), selectors: selectors) is not KitFileBinding binding) return;
+            kitHeld++;
+            Add(binding.Model);
+            foreach (var control in binding.Controls)
+            {
+                Add(control.Words);
+                Add(control.Reason);
+            }
         }
 
         // New project's companion as recorded, every turn whole, whether or not a path draws it.
@@ -199,7 +229,11 @@ public class JudgeWordsTests
                     {
                         Add(WorkspaceScreens.Screen(workspace, new WorkspaceSteering(factory), new WorkspaceScreen { Question = question, Presets = presets }));
                     }
-                    foreach (var frame in FileFrames(workspace, presets, factory, null, null)) foreach (var word in WordsOf(frame)) Add(word);
+                    foreach (var (frame, armed) in FileFrames(workspace, presets, factory, null, null))
+                    {
+                        foreach (var word in WordsOf(frame)) Add(word);
+                        AddKit(frame, armed, workspace, state, workstream.ProjectId);
+                    }
                     if (executionId == null) continue;
                     // Every answer whole, with room for every line, so no word a judge could page to escapes.
                     var understanding = recording.UnderstandingAt(executionId, index, played);
@@ -220,11 +254,16 @@ public class JudgeWordsTests
                     if (understood != null || measured != null)
                     {
                         Add(CheckedPresenter.Present(executionId, understood, false, null, measured, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc));
-                        foreach (var frame in FileFrames(workspace, presets, factory, understood, measured)) foreach (var word in WordsOf(frame)) Add(word);
+                        foreach (var (frame, armed) in FileFrames(workspace, presets, factory, understood, measured))
+                        {
+                            foreach (var word in WordsOf(frame)) Add(word);
+                            AddKit(frame, armed, workspace, state, workstream.ProjectId);
+                        }
                     }
                 }
             }
         });
+        kitFrames = kitHeld;
         return words;
     }
 
@@ -325,7 +364,7 @@ public class JudgeWordsTests
     /// answers; Tell it's recorded instructions; and the confirmation of each action it offers, its
     /// request shown whole so Yes shows. Changes and Checks read the recorded answers when there are any.
     /// </summary>
-    private static IEnumerable<MenuFrame> FileFrames(WorkspacePresentation workspace, IReadOnlyList<PresetInstruction> presets, CommandFactory factory,
+    private static IEnumerable<(MenuFrame Frame, WorkspaceAction? Armed)> FileFrames(WorkspacePresentation workspace, IReadOnlyList<PresetInstruction> presets, CommandFactory factory,
         IntelligenceRead<UnderstandingResponse>? understood, IntelligenceRead<EvaluationResponse>? measured)
     {
         var room = AnswerRoom.Unlimited;
@@ -356,7 +395,7 @@ public class JudgeWordsTests
         }
         foreach (FileSection section in Enum.GetValues(typeof(FileSection)))
         {
-            yield return FileScreens.Screen(workspace, new WorkspaceSteering(factory), Screen(section), room);
+            yield return (FileScreens.Screen(workspace, new WorkspaceSteering(factory), Screen(section), room), null);
         }
         foreach (var (section, key) in new[]
         {
@@ -364,7 +403,7 @@ public class JudgeWordsTests
             (FileSection.Changes, FileScreens.HowBuiltKey), (FileSection.Checks, FileScreens.ChecksKey),
         })
         {
-            yield return FileScreens.Screen(workspace, new WorkspaceSteering(factory), Screen(section, key), room);
+            yield return (FileScreens.Screen(workspace, new WorkspaceSteering(factory), Screen(section, key), room), null);
         }
         foreach (var action in new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt })
         {
@@ -376,7 +415,7 @@ public class JudgeWordsTests
                 screen.ReadRequest(request, 1, 1, steering);
                 screen.RequestDrawn(0, steering, DateTimeOffset.UtcNow);
             }
-            yield return FileScreens.Screen(workspace, steering, screen, room);
+            yield return (FileScreens.Screen(workspace, steering, screen, room), steering.Armed);
         }
     }
 
