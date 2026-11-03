@@ -200,3 +200,29 @@ describe('a fresh island comes decorated and costs a headset few draw calls (U4)
     assert.match(agents, /decorate\(gameIsland\(\), \{ trees: 2, butterflies: 0 \}\)/);
   });
 });
+
+describe('the card names the game and says how to play it, nothing else (U5)', () => {
+  test("a new game's card is its own: a title and a line the agent fills, never Meta's words", () => {
+    const card = read('public/ui/welcome.uikitml');
+    assert.doesNotMatch(card, /Hello, Immersive Web!|Build interactive browser/);
+    assert.match(card, /<div id="card-title" class="heading">Untitled Game<\/div>/);
+    assert.match(card, /<div id="card-line" class="sub-heading"><\/div>/);
+    // The card's words still go as one, after 6 s (GQ1a).
+    assert.match(card, /<div id="card-words" class="panel-content">/);
+    assert.match(read('index.html'), /<title>Untitled Game<\/title>/);
+  });
+
+  test('the starter is a VR app, so its button says Enter VR', () => {
+    const card = read('public/ui/welcome.uikitml');
+    assert.match(card, /<ButtonLabel class="button-label">Enter VR<\/ButtonLabel>/);
+    assert.doesNotMatch(card, /Enter XR/);
+  });
+
+  test('the agent names the game on its card and in its title, and adds nothing else there', () => {
+    const agents = read('AGENTS.md');
+    assert.match(agents, /`card-title`/);
+    assert.match(agents, /`card-line`/);
+    assert.match(agents, /`<title>`/);
+    assert.match(agents, /nothing else on the card/);
+  });
+});
