@@ -65,6 +65,7 @@ export function vrVersionInstruction(originalFolder: string): string {
     'Read every input through src/play-input.ts.',
     'Copy pictures and sounds you need from the original into public/ and name them in src/assets.ts.',
     "Keep the original's colours and feel.",
+    "Put the game's name and one line on how to play on its welcome card.",
     'Start with the main thing the player does, make it work, then add the rest one piece at a time.',
   ].join(' ');
 }

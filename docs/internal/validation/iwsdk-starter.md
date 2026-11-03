@@ -527,6 +527,17 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   temporary folder; AUDIT stopped them before they landed, since CONFINED-TMP made them false.
 - **Not tried:** a rehearsal on these words (one S3 re-run follows CONFINED-TMP).
 
+## A VR version names its game on its card
+
+- **Question:** does a VR version's game carry its own name, as AGENTS.md asks of every game?
+- **Date:** 2026-11-03, the S3 re-run: confined Codex on `muse-glimmer:30b-mlx`, with CONFINED-TMP and U9's words, on
+  the host's own instruction for a VR version of the 2D Balloon Pop.
+- **Found:** the game passed its check and read ready, and from the laptop camera it read as a balloon-popping game
+  at a glance; its welcome card still said "Untitled Game", with no line on how to play. The host's instruction for a
+  VR version (`vrVersionInstruction` in `starters.ts`) asked nothing of the card.
+- **Now:** it also says "Put the game's name and one line on how to play on its welcome card."
+- **Not tried:** a run on these words (the finals' F3 is one).
+
 ## A page drawn of its own (DRAWN)
 
 - **Question:** the starter draws an island, a sky, clouds and decor, about 56,000 sharp edges in each picture, so
