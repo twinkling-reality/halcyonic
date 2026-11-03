@@ -37,11 +37,13 @@ import { FakeOmnorium } from '@halcyonic/integration-omnorium/testing';
 import { FakeSalidium } from '@halcyonic/integration-salidium/testing';
 import { FakeSeorak } from '@halcyonic/integration-seorak/testing';
 import {
+  createVirtualTime,
   type RuntimeAdapter,
   type StartExecutionRequest,
   systemClock,
   systemScheduler,
 } from '@halcyonic/runtime-core';
+import { CheckpointStore } from './checkpoints/store.ts';
 import { RealtimeClient } from './client/realtime-client.ts';
 import { controlPlaneDraft, NO_CAUSE } from './core/drafts.ts';
 import { registerRealtime } from './http/realtime.ts';
@@ -1855,6 +1857,349 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     assert.deepEqual(readdirSync(webFolder).sort(), ['package.json', 'src']);
     assert.equal(readFileSync(join(webFolder, 'package.json'), 'utf8'), originalPackageJson);
     assert.equal(readFileSync(join(webFolder, 'src', 'app.js'), 'utf8'), originalAppJs);
+    assert.equal(client.invalid.length, 0);
+  });
+
+  test("drives a real task's path without a model: an OpenCode task's approvals, the Mac's reading of its files, Understand and Checks for Halcyonic's own store, and an undo byte for byte", async (t: TestContext) => {
+    // As the real run on 2026-11-03 went (local-models.md), with a synthetic stand-in for OpenCode.
+    const tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-journey-real-')));
+    t.after(() => rmSync(tempDir, { recursive: true, force: true }));
+    const root = join(tempDir, 'projects');
+    const folder = join(root, 'adder');
+    mkdirSync(folder, { recursive: true });
+    const original = {
+      'math.js': 'export function add(a, b) {\n  return a + b;\n}\n',
+      'math.test.js':
+        "import assert from 'node:assert/strict';\nimport { add } from './math.js';\n",
+    };
+    for (const [name, text] of Object.entries(original)) writeFileSync(join(folder, name), text);
+    const git = (...args: string[]) =>
+      new Promise<string>((resolve, reject) =>
+        execFile('/usr/bin/git', ['-C', folder, ...args], (error, stdout) =>
+          error ? reject(error) : resolve(stdout.trim()),
+        ),
+      );
+    await git('init', '-q', '-b', 'main');
+    await git('add', '-A');
+    await git(
+      '-c',
+      'user.name=Journey',
+      '-c',
+      'user.email=journey@example.invalid',
+      'commit',
+      '-qm',
+      'Start',
+    );
+    const head = await git('rev-parse', 'HEAD');
+    const hashes = () =>
+      Object.fromEntries(
+        Object.keys(original).map((name) => [
+          name,
+          createHash('sha256')
+            .update(readFileSync(join(folder, name)))
+            .digest('hex'),
+        ]),
+      );
+    const before = hashes();
+
+    // Halcyonic's sandboxed OpenCode store, made at the server's launch, before the task starts.
+    const dataDir = join(tempDir, 'data');
+    mkdirSync(join(dataDir, 'opencode-sandbox', 'data', 'opencode'), { recursive: true });
+    writeFileSync(join(dataDir, 'opencode-sandbox', 'data', 'opencode', 'opencode.db'), '');
+    const time = createVirtualTime(new Date(Date.now() + 1_000));
+
+    // A Salidium that observes OpenCode, and a Seorak: neither may be asked about this task.
+    const salidium = await FakeSalidium.start();
+    t.after(() => salidium.close());
+    salidium.minor = 1;
+    salidium.providers = ['claude-code', 'codex', 'salidium/opencode'];
+    salidium.writeDiscovery();
+    const seorak = await FakeSeorak.start();
+    t.after(() => seorak.close());
+    const credential = (name: string, token: string) => {
+      const path = join(dataDir, name);
+      writeFileSync(path, `${token}\n`, { mode: 0o600 });
+      return path;
+    };
+
+    const fileObserver = new FileObserver({ protect: [dataDir] });
+    const answers = new Map<string, (decision: 'approve' | 'deny') => void>();
+    const nativeId = 'ses_1a2b3c4d5e6fJourneyRealRun0';
+    const openCode: RuntimeAdapter = {
+      descriptor: {
+        runtime_id: 'opencode' as RuntimeId,
+        kind: 'opencode',
+        display_name: 'OpenCode (synthetic journey adapter)',
+        synthetic: true,
+        capabilities: {
+          start_execution: true,
+          instruct_at_rest: false,
+          instruct_while_running: false,
+          respond_to_approval: true,
+          answer_question: false,
+          interrupt: false,
+        },
+        model_choice: 'none',
+        uses_project_location: true,
+        reports_tool_activity: true,
+        reports_tool_results: false,
+        approval_may_leave_sandbox: false,
+      },
+      validateStartOptions: () => ({ ok: true }),
+      async startExecution(request: StartExecutionRequest) {
+        const directory = request.directory as string;
+        await fileObserver.baseline(request.execution.execution_id, directory);
+        let seq = 0;
+        const send = (type: string, payload: unknown) => {
+          seq += 1;
+          request.emit({
+            native_event_id: `${nativeId}:${String(seq)}`,
+            sequence: seq,
+            occurred_at: time.now().toISOString() as never,
+            type: type as never,
+            payload: payload as never,
+            provenance: { epistemic: 'observed', native_type: `opencode/${type}` },
+          });
+        };
+        const ask = (approvalId: string, summary: string) =>
+          new Promise<'approve' | 'deny'>((resolve) => {
+            answers.set(approvalId, resolve);
+            send('runtime.approval.requested', {
+              approval_id: approvalId,
+              subject: { kind: 'tool_use', tool_name: 'shell', summary },
+              complete: true,
+            });
+          });
+        send('runtime.execution.started', { native_id: nativeId });
+        void (async () => {
+          send('runtime.turn.started', { turn_id: 'turn-1' });
+          send('runtime.tool.started', { tool_call_id: 'edit', tool_name: 'edit', title: null });
+          writeFileSync(
+            join(directory, 'math.js'),
+            `${original['math.js']}\nexport function multiply(a, b) {\n  return a * b;\n}\n`,
+          );
+          writeFileSync(
+            join(directory, 'math.test.js'),
+            `${original['math.test.js']}// multiply\n`,
+          );
+          send('runtime.tool.completed', { tool_call_id: 'edit', outcome: 'succeeded' });
+          for (const [call, approvalId, summary] of [
+            ['test', 'per_test', "[in the task's folder] node --test"],
+            ['touch', 'per_touch', "[in the task's folder] touch ../outside.txt"],
+          ] as const) {
+            send('runtime.tool.started', { tool_call_id: call, tool_name: 'shell', title: null });
+            const decision = await ask(approvalId, summary);
+            send('runtime.approval.resolved', {
+              approval_id: approvalId,
+              decision: decision === 'approve' ? 'approved' : 'denied',
+            });
+            send('runtime.tool.completed', {
+              tool_call_id: call,
+              outcome: decision === 'approve' ? 'succeeded' : 'failed',
+            });
+            // A denial without a message ends OpenCode's turn.
+            if (decision === 'deny') send('runtime.turn.interrupted', { turn_id: 'turn-1' });
+          }
+        })();
+        return { native_id: nativeId };
+      },
+      async respondToApproval(request) {
+        answers.get(request.approval_id)?.(request.decision);
+      },
+      close: async () => {},
+    };
+
+    const server = await startTestServer({
+      time,
+      adapters: () => [openCode],
+      locations: createHostLocations([root]),
+      checkpoints: {
+        store: new CheckpointStore({
+          git: '/usr/bin/git',
+          directory: join(dataDir, 'checkpoints'),
+        }),
+      },
+      understanding: salidiumUnderstanding({
+        home: salidium.home,
+        credentialPath: credential('salidium-credential', salidium.token),
+        codexHome: join(dataDir, 'codex-home'),
+      }),
+      evaluation: seorakEvaluation({
+        credentialPath: credential('seorak-credential', seorak.token),
+        port: seorak.port,
+        codexHome: join(dataDir, 'codex-home'),
+      }),
+    });
+    t.after(() => server.stop());
+    fileObserver.attach({
+      publisher: server.controlPlane.publisher,
+      recorder: server.controlPlane.recorder,
+      projection: server.controlPlane.projection,
+      clock: server.controlPlane.clock,
+      logger: capturingLogger().logger,
+    });
+
+    const client = await RealtimeClient.connect(server.wsUrl, server.token);
+    t.after(() => client.close());
+    client.hello(CLIENT_INFO);
+    await client.waitFor((m) => m.type === 'snapshot');
+    let seq = 0;
+    const submit = async (command_type: CommandEnvelope['command_type'], payload: unknown) => {
+      seq += 1;
+      const command = {
+        schema_version: 1 as const,
+        command_id: `00000000-0000-4000-b000-${String(seq).padStart(12, '0')}` as CommandId,
+        issued_at: '2026-11-03T18:00:00.000Z',
+        client: CLIENT_INFO,
+        command_type,
+        payload,
+      } as CommandEnvelope;
+      client.command(command);
+      const ack = await client.waitFor(
+        (m) => m.type === 'command_ack' && m.command_id === command.command_id,
+      );
+      assert.ok(ack.type === 'command_ack' && ack.disposition === 'accepted', command_type);
+      return ack.command;
+    };
+    const event = (type: string) =>
+      client.waitFor((m) => m.type === 'event' && m.event.event_type === type, 30_000);
+
+    await submit('project.create', {
+      name: 'Adder',
+      location: { kind: 'existing_folder', root: realpathSync.native(root), folder_name: 'adder' },
+    });
+    const projectId = server.controlPlane.projection
+      .projects()
+      .find((project) => project.name === 'Adder')?.project_id as ProjectId;
+    await submit('workstream.create', {
+      project_id: projectId,
+      title: 'Add multiply',
+      objective: null,
+    });
+    const workstreamId = server.controlPlane.projection
+      .workstreams()
+      .find((workstream) => workstream.project_id === projectId)?.workstream_id as WorkstreamId;
+    await submit('execution.start', {
+      workstream_id: workstreamId,
+      runtime_id: 'opencode',
+      instruction: 'Add multiply and its test, run the tests, then touch ../outside.txt.',
+      options: {},
+      model_ref: null,
+    });
+    const executionId = server.controlPlane.projection.workstream(workstreamId)
+      ?.current_execution_id as ExecutionId;
+
+    // The person approves the test run and denies the write outside the folder.
+    for (const [approvalId, decision] of [
+      ['per_test', 'approve'],
+      ['per_touch', 'deny'],
+    ] as const) {
+      await client.waitFor(
+        (m) =>
+          m.type === 'event' &&
+          m.event.event_type === 'runtime.approval.requested' &&
+          m.event.payload.approval_id === approvalId,
+      );
+      await submit('execution.respond_to_approval', {
+        execution_id: executionId,
+        approval_id: approvalId,
+        decision,
+        message: null,
+      });
+    }
+    const observed = await event('execution.files.observed');
+    assert.ok(
+      observed.type === 'event' && observed.event.event_type === 'execution.files.observed',
+    );
+    assert.deepEqual(
+      observed.event.payload.changed.files.map((file) => [
+        file.path,
+        file.lines_before,
+        file.lines_after,
+      ]),
+      [
+        ['math.js', 3, 7],
+        ['math.test.js', 2, 3],
+      ],
+    );
+    const execution = server.controlPlane.projection.execution(executionId);
+    assert.equal(execution?.status, 'interrupted');
+    assert.deepEqual(execution?.pending_approvals, []);
+    const decisions = [...server.journal.readAll()]
+      .map((stored) => stored.event)
+      .filter((stored) => stored.event_type === 'runtime.approval.resolved')
+      .map((stored) => (stored.payload as { decision: string }).decision);
+    assert.deepEqual(decisions, ['approved', 'denied']);
+
+    // Understand and Checks say plainly that neither product reads this task, and ask nothing.
+    const understanding = (await (
+      await fetchWithProof(
+        fetch,
+        server.baseUrl,
+        server.token,
+        `/api/executions/${executionId}/understanding`,
+      )
+    ).json()) as UnderstandingResponse;
+    assert.equal(understanding.result.availability, 'unavailable');
+    assert.equal(
+      understanding.result.availability === 'unavailable' && understanding.result.reason.code,
+      'runtime_not_observed',
+    );
+    assert.match(
+      understanding.result.availability === 'unavailable'
+        ? understanding.result.reason.message
+        : '',
+      /Halcyonic's own OpenCode store/,
+    );
+    const evaluation = (await (
+      await fetchWithProof(
+        fetch,
+        server.baseUrl,
+        server.token,
+        `/api/executions/${executionId}/evaluation`,
+      )
+    ).json()) as EvaluationResponse;
+    assert.equal(
+      evaluation.result.availability === 'unavailable' && evaluation.result.reason.code,
+      'runtime_not_observed',
+    );
+    assert.equal(salidium.requests.length, 0, 'Salidium was asked about a task it cannot read');
+    assert.equal(seorak.requests.length, 0, 'Seorak was asked about a task it cannot read');
+
+    // Undo: the checkpoint before the task, its preview, then every file back as it was.
+    const checkpoints = (await (
+      await fetchWithProof(
+        fetch,
+        server.baseUrl,
+        server.token,
+        `/api/projects/${projectId}/checkpoints`,
+      )
+    ).json()) as {
+      result: { availability: string; checkpoints: { checkpoint_id: string; reason: string }[] };
+    };
+    const beforeTask = checkpoints.result.checkpoints.find((item) => item.reason === 'before_task');
+    assert.ok(beforeTask !== undefined, 'a checkpoint before the task');
+    const preview = (await (
+      await fetchWithProof(
+        fetch,
+        server.baseUrl,
+        server.token,
+        `/api/projects/${projectId}/checkpoints/${beforeTask.checkpoint_id}/restore-preview`,
+      )
+    ).json()) as {
+      result: {
+        preview: { changed_back: { paths: string[] }; project_head_moved: boolean | null };
+      };
+    };
+    assert.deepEqual(preview.result.preview.changed_back.paths, ['math.js', 'math.test.js']);
+    assert.equal(preview.result.preview.project_head_moved, false);
+    await submit('project.restore', {
+      project_id: projectId,
+      checkpoint_id: beforeTask.checkpoint_id,
+    });
+    await event('project.restored');
+    assert.deepEqual(hashes(), before, 'every file byte for byte as before the task');
+    assert.equal(await git('rev-parse', 'HEAD'), head);
     assert.equal(client.invalid.length, 0);
   });
 });
