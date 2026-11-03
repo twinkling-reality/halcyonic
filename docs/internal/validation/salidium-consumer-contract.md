@@ -323,3 +323,51 @@ v0 ([salidium-project-map.md](salidium-project-map.md)). Read-only verification 
 - **So:** reading those folders would give Understand real answers for tasks on local models, which
   it has none of today. It needs a change in Salidium, a second watched folder, and the owner's yes:
   the open question stays theirs. Not tried: a session watched live, its anchors and waiting states.
+
+## The comprehension brief and its delta (2026-11-03)
+
+- **Question:** can Halcyonic read the comprehension brief that Salidium's owner deployed on this Mac today,
+  `/api/sessions/:id/brief` with `?delta=`, `?query=` and `?steer=`, and does any of it change anything?
+- **Running on 47822:** Salidium 0.8.3 (the discovery document's `salidium.version`), `salidium.consumer` 1.1 at
+  `/consumer/v1`, experimental `salidium.project-map` 0.0, providers `claude-code`, `codex` and `salidium/opencode`. The
+  daemon started at 20:18:11Z from a service bundle replaced at 20:18Z (`~/.salidium/service/current/salidium.mjs`,
+  1,770,272 bytes, sha256 `c70dda0af1e081d1d99e4a299595072e4229483b748b6d55c0dc650a6bf29437`). That bundle names the
+  brief's route, its delta scopes, the view algebra and steering; the bundle it replaced (2026-11-02) names none of
+  them. Read from the discovery document and the installed files only: no request was sent and no credential read.
+- **Not committed:** the canonical checkout is at `a078498` (`v0.8.3-3`) with 24 tracked files changed and 6 new
+  paths (one a folder), none committed, among them the route (`packages/daemon/src/server/httpServer.ts`),
+  `packages/core/src/canvas/computeSessionDelta.ts` and `viewAlgebraAndSteering.ts`, the brief's schema in
+  `packages/protocol/src/events.ts`, and Salidium's ADR 0007 (dated 2026-11-02). The daemon on this Mac is 0.8.3 with
+  that work on top, not a release.
+- **Not in the consumer contract:** `packages/consumer-contract` is unchanged and nothing under `/consumer/v1` serves a
+  brief or a delta. The route is Salidium's own `GET /api/sessions/:id/brief`, and every request under `/api/` must
+  carry the daemon's own owner token (`authorized()` in `httpServer.ts`), so a consumer credential is refused there (from
+  the code, not tried). Salidium's CLI, `salidium show [session] --brief --delta=... --json`, calls the same route with
+  that token. The same `/api/sessions/:id` routes also answer `DELETE` (forget a session) and a `POST`; the brief is
+  GET only.
+- **What it answers:** `{ sessionId, brief, delta, viewAlgebra, steering }`. `brief` is a `CanvasBriefSpec`, with a
+  schema in the protocol package: an `archetype` (`verified-edit`, `failing-or-unverified-edit`, `blast-radius-edit`,
+  `read-only-exploration` or `active-mid-flight`), a `mode` (`deterministic`, or `hybrid-explained` when a move uses the
+  explainer's prose), and two to four moves (what changed and why, what it touches, what was checked, what to look at
+  next), each with its epistemic class, text and tokens, plain text and references. `delta`, null without a scope, is a
+  `SessionDeltaSummary`, a TypeScript interface with no schema: a label; each file that drifted, with its drift
+  (`invalidated`, `regressed`, `blast-expanded`, `newly-touched` or `newly-proven`), lines added and removed, whether it
+  was checked after its change and how (`test`, `static-check` or `none`), how many callers it has that were not
+  changed, its turns and its subagent; counts of each drift and of files unchanged; the checks that failed and those
+  that passed within the scope; and the callers newly exposed, from the project map. In the code, a file changed in the
+  scope and not checked after its change is `regressed` whenever any check in the scope failed or was partial, whether
+  or not that check concerns the file; Salidium's ADR 0007 says a `regressed` file is implicated in the failing check.
+  Without the project map's links a file's caller count is 0 and `blast-expanded` never appears.
+- **Scopes:** `since-last-pass` is since the latest full passing check (passed, not partial, not lint), labelled "Since
+  last passing check", and covers everything when no check has passed. `since-seq:<seq>` is since an evidence sequence
+  the caller names, labelled "Since last seen (#seq)": Salidium's own interface keeps that mark for its viewer, and the
+  daemon keeps none. Also `latest-turn`, `turn:<N>` (from 1), `subagent` (the first) and `subagent:<id>`; any other
+  value gives no delta.
+- **Steering only computes:** each `?steer=` directive (several, or joined with `;`) is read as a revert, reroute,
+  decouple or verify of a named file and compiled into a markdown steering brief marked `planned`, returned in the
+  answer. The functions import only types and one pure helper (no file, network, process or clock), and the route
+  stores nothing and sends nothing to an agent. Not called here: it needs the owner token.
+- **So:** Halcyonic neither reads nor depends on the brief as deployed; reading it would take the owner token, which is
+  Salidium's owner's own, never a consumer's. A delta Halcyonic could show would have to be published in the consumer
+  contract, for example on the report by evidence sequence, which is for Salidium's owner to decide
+  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
