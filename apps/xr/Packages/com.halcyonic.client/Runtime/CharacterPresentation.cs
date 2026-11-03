@@ -57,9 +57,14 @@ namespace Halcyonic.Client
             Recorded = recorded;
             Stale = stale;
             AttentionDetails = attentionDetails ?? attentionNotes;
-            AttentionNoteRuns = attentionNoteRuns ?? attentionNotes.Select(LineWords.Written).ToList();
-            AttentionDetailRuns = attentionDetailRuns ?? AttentionDetails.Select(LineWords.Written).ToList();
+            // Notes given as strings alone may carry outside text (an agent's tool summary, a failure): spelled first, so none
+            // reaches a label raw and none is refused (LineWords.Written takes only text shown by LabelText's rule).
+            AttentionNoteRuns = attentionNoteRuns ?? attentionNotes.Select(Spelled).ToList();
+            AttentionDetailRuns = attentionDetailRuns ?? AttentionDetails.Select(Spelled).ToList();
         }
+
+        /// <summary>A note given as a string alone, as one line of Halcyonic's words, spelled by <see cref="LabelText.Plain"/> first.</summary>
+        private static LineWords Spelled(string note) => LineWords.Written(LabelText.Plain(note));
 
         public string WorkstreamId { get; }
 

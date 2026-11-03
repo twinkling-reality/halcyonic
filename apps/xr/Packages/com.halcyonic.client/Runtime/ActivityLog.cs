@@ -19,8 +19,9 @@ namespace Halcyonic.Client
     /// <summary>One line of an execution's activity, derived from a journaled event.</summary>
     public sealed class ActivityEntry
     {
+        /// <summary>An entry given as a string: the agent's words by LabelText.Name's rule, or Halcyonic's, spelled by LabelText.Plain first.</summary>
         public ActivityEntry(long position, string occurredAt, ActivityKind kind, string text, bool reported)
-            : this(position, occurredAt, kind, reported ? LineWords.TheirName(text) : LineWords.Written(text), reported)
+            : this(position, occurredAt, kind, reported ? LineWords.TheirName(text) : LineWords.Written(LabelText.Plain(text)), reported)
         {
         }
 

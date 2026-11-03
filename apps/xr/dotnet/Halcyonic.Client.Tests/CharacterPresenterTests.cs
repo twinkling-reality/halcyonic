@@ -18,6 +18,19 @@ public class CharacterPresenterTests
     }
 
     [Test]
+    public void NotesGivenAsStringsAloneAreSpelledNeverRefused()
+    {
+        // As the untrusted-text journey does, and any caller may: outside text in a note, with a tab, line breaks, a control,
+        // a bidi override, a zero-width space and a lone surrogate. Spelled into one line, never thrown on, never shown raw.
+        var hostile = "It wants to run: make\tbuild\r\nnext \u0003\u202Edesrever\u200B " + (char)0xD800 + " tail";
+        var character = new CharacterPresentation("w1", "Title", CharacterActivity.WaitingForHuman, "Needs You", AttentionLevel.ActionRequired,
+            new[] { hostile }, 1, false, false, false);
+        Assert.That(character.AttentionNoteRuns.Single().Text, Is.EqualTo(LabelText.Plain(hostile)));
+        Assert.That(character.AttentionDetailRuns.Single().Text, Is.EqualTo(LabelText.Plain(hostile)));
+        Assert.DoesNotThrow(() => character.AttentionNoteRuns.Single().ForTextMeshPro());
+    }
+
+    [Test]
     public void EveryWorkstreamStatusHasAnActivityAndATextLabel()
     {
         var labels = new HashSet<string>();

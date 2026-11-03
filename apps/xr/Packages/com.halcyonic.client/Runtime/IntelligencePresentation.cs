@@ -82,7 +82,8 @@ namespace Halcyonic.Client
             Repeats = repeats;
             Evidence = evidence ?? (source ? Client.Evidence.Halcyonic : EvidenceOf(tag));
             Words = said?.Text ?? words ?? text;
-            Runs = said ?? LineWords.Written(Words);
+            // Words given as a string alone may carry outside text: spelled first, so none is refused or shown raw.
+            Runs = said ?? LineWords.Written(LabelText.Plain(Words));
             Chip = chip ?? ChipOf(Evidence);
             File = file;
         }
@@ -195,7 +196,7 @@ namespace Halcyonic.Client
         {
             Kind = kind;
             Provenance = provenance;
-            ProvenanceRuns = provenanceRuns ?? LineWords.Written(provenance);
+            ProvenanceRuns = provenanceRuns ?? LineWords.Written(LabelText.Plain(provenance));
             ProvenanceTone = provenanceTone;
             // A source's sentence left blank, as its contract allows, is absent: a line of no words says nothing
             // and can't be drawn.
