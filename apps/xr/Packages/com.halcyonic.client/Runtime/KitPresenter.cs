@@ -110,23 +110,15 @@ namespace Halcyonic.Client
         /// </summary>
         public static KitPresenceModel PresenceOf(LineWords identity, StateBadge? state, int waiting) => new KitPresenceModel(identity, state, waiting);
 
-        /// <summary>The execution environment words for <paramref name="runtime"/> ("This Mac" or "Sandbox"), or null when undeclared.</summary>
+        /// <summary>
+        /// The execution environment words for <paramref name="runtime"/> ("This Mac" or "Sandbox"), as it declares them
+        /// (ADR 0033), or null when it declares nothing: never an environment no runtime declared.
+        /// </summary>
         public static string? EnvironmentOf(RuntimeDescriptor? runtime) => runtime?.ApprovalMayLeaveSandbox switch
         {
             true => KitMomentWords.Sandbox(KitSandbox.MayLeave),
             false => KitMomentWords.Sandbox(KitSandbox.StaysInside),
             _ => null,
-        };
-
-        /// <summary>
-        /// The execution environment words for <paramref name="runtime"/> with an explicit <paramref name="sandboxOverride"/>
-        /// (<c>true</c> for "Sandbox", <c>false</c> for "This Mac"), falling back to <see cref="EnvironmentOf(RuntimeDescriptor)"/>.
-        /// </summary>
-        public static string? EnvironmentOf(RuntimeDescriptor? runtime, bool? sandboxOverride) => sandboxOverride switch
-        {
-            true => KitMomentWords.Sandbox(KitSandbox.StaysInside),
-            false => KitMomentWords.Sandbox(KitSandbox.MayLeave),
-            _ => EnvironmentOf(runtime),
         };
 
         /// <summary>Normalizes a model display name or reference into a single-line model label without provider prefix or Ollama suffix.</summary>

@@ -351,8 +351,8 @@ namespace Halcyonic.Client
         /// </summary>
         public static string? ApprovedCommandNote(RuntimeDescriptor? runtime) => runtime?.ApprovalMayLeaveSandbox switch
         {
-            true => "Runs on your Mac",
-            false => "Runs in sandbox",
+            true => "Runs on " + KitMomentWords.ThisMac,
+            false => "Runs in " + KitMomentWords.InSandbox,
             _ => null,
         };
 

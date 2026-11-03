@@ -26,6 +26,11 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>Whether this pass also takes the composer past the kit's rows and back (<see cref="KitActivityComposerCheck"/>).</summary>
         private static bool kitComposerWitness;
 
+        /// <summary>The kit journeys' synthetic runtime that stays inside a sandbox, the Host chip's one place to switch to.</summary>
+        private const string SandboxedRuntimeId = "render-sandboxed";
+
+        private const string SandboxedRuntimeName = "Sandboxed agent (render)";
+
         /// <summary>Whether Compact and Workspace went through the kit's own switch and the existing routes in this pass (D3.5).</summary>
         private static bool kitCompactWitnessed;
 
@@ -479,11 +484,16 @@ namespace Halcyonic.XR.Workspace.Editor
             else
             {
                 var initialEnv = composer.EnvironmentButton.Words.text;
+                if (!composer.EnvironmentButton.Available)
+                    failures.Add(name + ": the Host chip is locked though a registered runtime stays inside a sandbox");
                 composer.EnvironmentButton.Press.SettleForRender();
                 composer.EnvironmentButton.Press.PressForRender(965);
                 KitDraw(director);
                 if (composer.EnvironmentButton.Words.text == initialEnv)
                     failures.Add(name + ": pressing the environment selector pill did not toggle Host: This Mac / Host: Sandbox");
+                if (composer.EnvironmentButton.Words.text != LabelText.ForTextMeshPro(KitMomentWords.HostChip(KitMomentWords.InSandbox))
+                    || composer.AgentButton.Words.text != LabelText.ForTextMeshPro(KitMomentWords.AgentChip(SandboxedRuntimeName)))
+                    failures.Add(name + ": Host: Sandbox does not stand for the registered runtime that stays inside a sandbox");
                 if (instruction.Words != words)
                     failures.Add(name + ": toggling the environment selector pill lost the unsent instruction draft");
                 composer.EnvironmentButton.Press.SettleForRender();

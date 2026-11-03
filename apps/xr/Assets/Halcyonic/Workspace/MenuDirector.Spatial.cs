@@ -91,12 +91,14 @@ namespace Halcyonic.XR.Workspace
             };
             var name = selected != null && State?.Projects.TryGetValue(selected, out var project) == true ? project.Name : "";
             var runtime = CurrentKitRuntime(now);
-            var sandbox = setup.Presentation.SelectedSandbox;
             var modelDisplay = setup.Presentation.SelectedModelDisplay(runtime, now.Execution);
+            // The chips say what the runtime that would run declares, and Host locks where no registered runtime declares
+            // the other environment: never a sandbox that does not exist (ADR 0033; INTEGRATION, 2026-11-03).
+            var selectors = new KitSelectors(KitPresenter.EnvironmentOf(runtime), WorkspacePresentationState.EnvironmentCanChange(State?.Runtimes, runtime),
+                KitPresenter.AgentOf(runtime, now.Execution, modelDisplay));
             return KitFileBinding.Of(frame, file.Steering.Armed, now, file.Screen.Instruction.Open ? file.Screen.Instruction.Words : "",
                 setup.Session()?.Status ?? ConnectionStatus.Stopped, name, spine, new KitRowModel("workspace", LineWords.Ours("Workspace"), GlazeIcon.Move),
-                environment: KitPresenter.EnvironmentOf(runtime, sandbox),
-                agent: KitPresenter.AgentOf(runtime, now.Execution, modelDisplay));
+                selectors: selectors);
         }
 
         private RuntimeDescriptor? CurrentKitRuntime(WorkspacePresentation? now = null)

@@ -64,7 +64,12 @@ can do next.
 10. **Practice, Demo, Recorded and Last known** are said wherever they apply, beside a state and
     never inside its word.
 11. **No brands in our words.** App and model names arrive as data; Salidium and Seorak appear
-    only in a provenance line.
+    only in a provenance line. One exception, the owner's own words (2026-11-03): the composer's Host
+    chip names the Mac, "Host: This Mac" or "Host: Sandbox", and the kit names the host the same way
+    wherever it names it as a place ("Observed on This Mac", "Runs on This Mac", "Runs in Sandbox";
+    `KitMomentWords.ThisMac` and `InSandbox`). Everywhere else, the demonstration included, the host
+    is "your computer" (`HostText`), and `JudgeWordsTests` keeps every brand, "Mac" among them, off
+    the demonstration's paths.
 
 ## The word for each state
 

@@ -88,7 +88,7 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             var failures = new List<string>();
             var root = new GameObject("Actual spatial workspace composition witness");
-            var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+            var texture = new RenderTexture(kit ? KitSize : Size, kit ? KitSize : Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
             var client = new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" };
             using var session = new RealtimeSession(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "render", client));
             try
@@ -114,6 +114,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (kit)
                 {
                     foreach (var runtime in snapshot.Runtimes) runtime.ApprovalMayLeaveSandbox ??= true;
+                    // The Host chip switches only to an environment a registered runtime declares (ADR 0033): the journey
+                    // registers a synthetic runtime that stays inside a sandbox, so its toggle has somewhere real to go.
+                    snapshot.Runtimes.Add(new RuntimeDescriptor
+                    {
+                        RuntimeId = SandboxedRuntimeId, Kind = "render", DisplayName = SandboxedRuntimeName, Synthetic = true,
+                        ApprovalMayLeaveSandbox = false, Capabilities = new RuntimeCapabilities { StartExecution = true },
+                    });
                 }
                 if (multipleProjects)
                     snapshot.Projects.AddRange(new[] {

@@ -226,7 +226,7 @@ namespace Halcyonic.XR.UI
             // The foot's height first: the decision bar while an approval waits, else the composer. What is read takes
             // what remains, and pages rather than shrinks.
             var composerHeight = ShowFoot(model, Vector2.zero, inner);
-            if (composer.gameObject.activeSelf) most += composer.SelectorRowHeight;
+            if (composer.gameObject.activeSelf) most += composer.GrowsSlateBy;
             tabsHeight = LayTabs(inner);
             y += tabsHeight;
             saidHeight = LaySaid(model, inner);
@@ -376,6 +376,7 @@ namespace Halcyonic.XR.UI
             var hasSelectors = (binding == null || composingBound)
                 && (!string.IsNullOrEmpty(model.Environment) || !string.IsNullOrEmpty(model.Agent));
             composer.EnvironmentChoice = hasSelectors ? model.Environment : null;
+            composer.EnvironmentChangeable = model.EnvironmentChangeable;
             composer.ProjectChoice = null;
             composer.AgentChoice = hasSelectors ? model.Agent : null;
             if (binding != null && model.Ask?.Lines.Count > 0)

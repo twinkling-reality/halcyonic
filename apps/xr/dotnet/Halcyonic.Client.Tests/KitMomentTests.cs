@@ -20,7 +20,7 @@ public class KitMomentTests
     {
         var sent = KitMoment.Sent(Codex);
         Assert.That(sent.Provenance, Is.EqualTo(KitProvenance.Observed));
-        Assert.That(sent.Source, Is.EqualTo("Observed on Mac"), "your computer sent it; the agent app has seen nothing yet");
+        Assert.That(sent.Source, Is.EqualTo("Observed on This Mac"), "your computer sent it; the agent app has seen nothing yet");
         Assert.That(Text(sent.Headline), Is.EqualTo("Sent · Codex · Awaiting Start"));
         Assert.That(sent.Source + Text(sent.Headline), Does.Not.Contain("Started").And.Not.Contain("Starting"), "accepted is not started");
     }
@@ -41,7 +41,7 @@ public class KitMomentTests
     {
         var seen = KitMoment.ObservedChange(KitFileChange.Changed, "src/towers.ts", 41, 54, At);
         Assert.That(seen.Provenance, Is.EqualTo(KitProvenance.Observed));
-        Assert.That(seen.Source, Is.EqualTo("Observed on Mac"));
+        Assert.That(seen.Source, Is.EqualTo("Observed on This Mac"));
         Assert.That(seen.Headline.ToString(), Is.EqualTo("Change Observed · [src/towers.ts] · 41 to 54 Lines · 10:42"));
         Assert.That(seen.Diff, Is.Null, "the computer keeps no contents, so no lines are claimed");
         Assert.That(KitMoment.ObservedChange(KitFileChange.Created, "src/wobble.ts", null, 12, At).Headline.ToString(), Is.EqualTo("File Made · [src/wobble.ts] · 12 Lines · 10:42"));
@@ -106,7 +106,7 @@ public class KitMomentTests
         var host = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: false, At);
         var agent = KitMoment.AgentCheck(Codex, "npm run build", "exit 1", At);
         Assert.That(host.Provenance, Is.EqualTo(KitProvenance.Observed));
-        Assert.That(host.Source, Is.EqualTo("Observed on Mac"));
+        Assert.That(host.Source, Is.EqualTo("Observed on This Mac"));
         Assert.That(host.Tone, Is.EqualTo(KitMomentTone.Failure));
         Assert.That(agent.Provenance, Is.EqualTo(KitProvenance.Reported));
         Assert.That(agent.Source, Is.EqualTo("Codex (Reported)"));
@@ -158,7 +158,7 @@ public class KitMomentTests
     public void ASkippedReadingIsSaidNeverReadAsNoChanges()
     {
         var skipped = KitMoment.NotObserved("too many files", At);
-        Assert.That(skipped.Source, Is.EqualTo("Observed on Mac"));
+        Assert.That(skipped.Source, Is.EqualTo("Observed on This Mac"));
         Assert.That(Text(skipped.Headline), Is.EqualTo("Not Observed · too many files"));
         Assert.That(Text(skipped.Headline), Does.Not.Contain("No change").IgnoreCase);
     }

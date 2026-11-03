@@ -40,6 +40,9 @@ namespace Halcyonic.XR.Workspace.Editor
     public static partial class WorkspaceRender
     {
         private const int Size = 1024;
+
+        /// <summary>The kit's journeys render larger, so a chip's or a capsule's words can be read in the image (lead, 2026-11-03).</summary>
+        private const int KitSize = 2048;
         private const float EyeHeight = 1.2f;
 
         /// <summary>A Quest 3's resolution near the middle of its lenses.</summary>
@@ -1449,8 +1452,8 @@ namespace Halcyonic.XR.Workspace.Editor
             camera.Render();
             var previous = RenderTexture.active;
             RenderTexture.active = texture;
-            var image = new Texture2D(Size, Size, TextureFormat.RGBA32, false);
-            image.ReadPixels(new Rect(0, 0, Size, Size), 0, 0);
+            var image = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false);
+            image.ReadPixels(new Rect(0, 0, texture.width, texture.height), 0, 0);
             image.Apply();
             RenderTexture.active = previous;
             return image;

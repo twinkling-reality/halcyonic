@@ -153,11 +153,12 @@ namespace Halcyonic.Client
         /// <summary>
         /// Binds the kit to <paramref name="frame"/>, the frame <paramref name="workspace"/>'s file drew with
         /// <paramref name="armed"/> armed (<see cref="WorkspaceSteering.Armed"/>), and the person's
-        /// <paramref name="draft"/>; null where the kit can't draw the frame whole.
+        /// <paramref name="draft"/>; null where the kit can't draw the frame whole. The composer's chips are
+        /// <paramref name="selectors"/> as given, for the runtime the person chose; without them, the workspace's own runtime's.
         /// </summary>
         public static KitFileBinding? Of(MenuFrame frame, WorkspaceAction? armed, WorkspacePresentation workspace, string draft, ConnectionStatus connection,
             string projectName, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot = null, KitAvatar? avatar = null,
-            string? environment = null, string? agent = null)
+            KitSelectors? selectors = null)
         {
             if (frame.Side != null) return null;
             // The kit shows an approval's, a denial's or the answers' confirmation; any other waits for the file's own drawing.
@@ -218,7 +219,8 @@ namespace Halcyonic.Client
             var said = Said(frame, workspace);
             var model = new KitWorkModel(work.ProjectName, work.TaskTitle, work.Badge, work.Marks, work.Report, work.Trail, draft, work.VoiceOffered,
                 send != null && send.Available, send != null ? send.Reason : KitPresenter.WhyNotSendOf(connection), work.Spine, work.SpineFoot,
-                need, ask, work.Notice, work.Avatar, said, environment ?? work.Environment, agent ?? work.Agent);
+                need, ask, work.Notice, work.Avatar, said, selectors != null ? selectors.Environment : work.Environment,
+                selectors != null ? selectors.Agent : work.Agent, selectors?.EnvironmentChangeable ?? true);
             // Every line the frame shows is words the kit shows too; a line it would leave out, as an attention note,
             // a pointer to Waiting, why nothing can be sent or a notice, keeps the frame on the file's own drawing.
             var shown = ShownWords(model, workspace);

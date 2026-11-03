@@ -367,8 +367,8 @@ public class WorkspacePresenterTests
     [Test]
     public void AnApprovedCommandSaysWhereItRunsOnlyAsItsAgentAppDeclares()
     {
-        const string mayLeave = "Runs on your Mac";
-        const string staysInside = "Runs in sandbox";
+        const string mayLeave = "Runs on This Mac";
+        const string staysInside = "Runs in Sandbox";
         var workstream = Samples.Workstream("w1", WorkstreamStatus.WaitingForHuman, "e1");
         NeedAnswer Asking(bool? declared, string tool = "commandExecution", bool approvable = true)
         {

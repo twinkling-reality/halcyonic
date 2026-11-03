@@ -378,8 +378,8 @@ namespace Halcyonic.Client
         /// <summary>After a runtime's name on the eyebrow: what it says is its report.</summary>
         public const string ReportedSuffix = " (Reported)";
 
-        /// <summary>The eyebrow of what the computer itself saw or ran.</summary>
-        public const string YourComputer = "Observed on Mac";
+        /// <summary>The eyebrow of what the computer itself saw or ran, naming the host as the Host chip does (the owner, 2026-11-03).</summary>
+        public const string YourComputer = "Observed on This Mac";
 
         /// <summary>The eyebrow of a question the agent asks: no app's name in our words, and that it is reported (WORDS.md, T2 and T7).</summary>
         public const string AgentQuestion = "Reported Question";
@@ -449,13 +449,31 @@ namespace Halcyonic.Client
         /// <summary>"+14 −3 Lines" from a checkpoint diff.</summary>
         public static string Counts(KitCheckpointDiff diff) => "+" + Number(diff.Added) + " −" + Number(diff.Removed) + " Lines";
 
+        /// <summary>The host where an approved command may leave the sandbox, as the owner named the Host chip (2026-11-03).</summary>
+        public const string ThisMac = "This Mac";
+
+        /// <summary>The host where an approved command stays inside the agent app's sandbox.</summary>
+        public const string InSandbox = "Sandbox";
+
+        /// <summary>The Host chip's category, before the environment's word.</summary>
+        public const string HostPrefix = "Host: ";
+
+        /// <summary>The Agent chip's category, before the agent app's or the model's own name.</summary>
+        public const string AgentPrefix = "Agent: ";
+
         /// <summary>The environment selector label for a declared <see cref="KitSandbox"/>; none where it declared nothing.</summary>
         public static string? Sandbox(KitSandbox sandbox) => sandbox switch
         {
-            KitSandbox.MayLeave => "This Mac",
-            KitSandbox.StaysInside => "Sandbox",
+            KitSandbox.MayLeave => ThisMac,
+            KitSandbox.StaysInside => InSandbox,
             _ => null,
         };
+
+        /// <summary>"Host: This Mac" or "Host: Sandbox": the composer's Host chip for <paramref name="environment"/>.</summary>
+        public static string HostChip(string environment) => HostPrefix + environment;
+
+        /// <summary>"Agent: Codex", "Agent: Claude Agent", "Agent: qwen3.6:35b-a3b-nvfp4": the category, then their name whole.</summary>
+        public static string AgentChip(string agent) => AgentPrefix + agent;
 
         /// <summary>
         /// A check of the computer's own in one line, its Title then what it covered: "Computer Check · Builds · Opens · Under Way"
