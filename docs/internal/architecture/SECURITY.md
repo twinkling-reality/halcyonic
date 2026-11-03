@@ -558,8 +558,10 @@ What a client sees and can do about folders on the host
   only when a client reads `GET /api/catalog` with a catalog that is the person's own, never a
   sample, reading at most 400 folders and stopping after 2 seconds. It reads only a folder whose
   `.git` is a directory, never a link or a `.git` file naming another place, and a folder holding
-  Halcyonic's own data not at all. It opens `config` without following a link or waiting on a pipe,
-  checks through the handle that it is the same regular file of at most 64 KiB, and never runs git.
+  Halcyonic's own data not at all. It opens `config` without waiting on a pipe and without following
+  a link, on macOS anywhere in its path (`O_NOFOLLOW_ANY`), so the folder or its `.git` swapped for a
+  link after it was checked leads nowhere; it checks through the handle that it is the same regular
+  file of at most 64 KiB, and never runs git.
   It takes only the one `url` of `[remote "origin"]` (several, or none, is no match) and applies no
   `include`, `includeIf` or `insteadOf`. It drops any user information first, where a credential in
   a remote's URL would sit, accepts only https, ssh and scp-like forms on exactly github.com with
