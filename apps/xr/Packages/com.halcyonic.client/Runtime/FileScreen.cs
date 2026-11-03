@@ -110,6 +110,9 @@ namespace Halcyonic.Client
 
         /// <summary>Hold to talk is offered: in a development build, never in the demonstration (ADR 0021).</summary>
         public bool Speak { get; set; }
+
+        /// <summary>Send starts the task's next run on the person's choice instead of instructing it (SWITCH): its words say so.</summary>
+        public bool StartsNewRun { get; set; }
         public bool WorkspaceRequestOffered { get; set; }
         public int WorkspaceRequestRows { get; set; } = 1;
         public bool ShowTaskHereOffered { get; set; }

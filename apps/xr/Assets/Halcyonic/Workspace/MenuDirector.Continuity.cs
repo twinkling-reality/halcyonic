@@ -52,9 +52,16 @@ namespace Halcyonic.XR.Workspace
             storageFailed = !recovery.Available;
         }
 
+        /// <summary>The runtime and model the person chose in the kit's composer for a task's next run, or null with none chosen.</summary>
+        private RunChoice? RunChoiceNow() => setup.Presentation.SelectedRuntimeId is string runtimeId
+            && State?.Runtimes.FirstOrDefault(item => item.RuntimeId == runtimeId) is RuntimeDescriptor runtime
+                ? new RunChoice(runtimeId, setup.Presentation.SelectedModelRef, runtime.ModelChoice == ModelChoice.Listed)
+                : null;
+
         private void BindView(IMenuColumn column, WorkspaceContinuation? origin = null)
         {
             if (column is not FileColumn file) return;
+            file.Choice = RunChoiceNow;
             file.OfferWorkspaceRequests(() => OpenWorkspaceRequest(file));
             file.OfferCharacterColours(() => ColourTarget(file, out _, out _), () => OpenCharacterColour(file));
             if (!Demonstration) file.OfferResults(() => OpenResults(file));

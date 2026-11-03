@@ -78,6 +78,12 @@ namespace Halcyonic.Client
         private int shownPart;
         private string? instructionExecution;
 
+        /// <summary>The run an armed instruction starts on Yes, where Send starts the task's next run (SWITCH).</summary>
+        private RunChoice? armedChoice;
+
+        /// <summary>Why a start on a runtime that lists its models waits: no model chosen.</summary>
+        public const string ChooseAModel = "Not Sent · Choose a Model";
+
         public WorkspaceSteering(CommandFactory commands, Func<DateTimeOffset>? now = null, TimeSpan? confirmationWindow = null)
         {
             this.commands = commands;
@@ -219,6 +225,7 @@ namespace Halcyonic.Client
             var instruction = Instruction;
             var draft = armedDraft;
             var answers = armedAnswers;
+            var choice = armedChoice;
             Cancel();
             if (lapse != null) return SteeringOutcome.Explain(lapse);
             if (action == WorkspaceAction.Answer)
@@ -233,23 +240,35 @@ namespace Halcyonic.Client
                 if (draft.Problem != null) return SteeringOutcome.Explain(QuestionChanged);
                 return SteeringOutcome.Send(commands.AnswerQuestion(draft.ExecutionId, draft.QuestionId, draft.Build()));
             }
+            if (action == WorkspaceAction.Instruct && choice != null) return SteeringOutcome.Send(Start(workspace, choice, instruction!));
             return SteeringOutcome.Send(Build(action, workspace.Execution!.ExecutionId, approvalId, instruction));
         }
 
         /// <summary>The explicit instruction Send action, after the current draft was drawn and read.</summary>
-        public SteeringOutcome SendInstruction(FileInstruction draft, WorkspacePresentation workspace)
+        /// <remarks>
+        /// With <paramref name="newRun"/> (<see cref="KitPresenter.NewRunOf"/>), the words start the task's next run on that
+        /// runtime and model instead of instructing the execution at rest, confirmed as an instruction is.
+        /// </remarks>
+        public SteeringOutcome SendInstruction(FileInstruction draft, WorkspacePresentation workspace, RunChoice? newRun = null)
         {
             if (!draft.Open || draft.ExecutionId != workspace.Execution?.ExecutionId) return SteeringOutcome.Explain(FileScreens.InstructionChanged);
             if (WorkspaceText.NeedFromYou(workspace) != null) return SteeringOutcome.Explain("Not Sent · Answer Approval First");
             if (!draft.Read) return SteeringOutcome.Explain(draft.Words.Length == 0 ? FileScreens.InstructionEmpty : FileScreens.InstructionNotRead);
+            if (newRun != null && newRun.ModelRequired && newRun.ModelRef == null) return SteeringOutcome.Explain(ChooseAModel);
             StopTyping();
-            var result = draft.Spoken ? Spoken(draft.Words, workspace) : Typed(draft.Words, workspace);
-            if (result.Step == SteeringStep.Confirm) instructionExecution = draft.ExecutionId;
+            var result = draft.Spoken ? Spoken(draft.Words, workspace) : Typed(draft.Words, workspace, newRun);
+            if (result.Step == SteeringStep.Confirm)
+            {
+                instructionExecution = draft.ExecutionId;
+                armedChoice = newRun;
+            }
             return result;
         }
 
         /// <summary>The keyboard closed with this text; an empty text sends nothing.</summary>
-        public SteeringOutcome Typed(string? text, WorkspacePresentation workspace)
+        public SteeringOutcome Typed(string? text, WorkspacePresentation workspace) => Typed(text, workspace, null);
+
+        private SteeringOutcome Typed(string? text, WorkspacePresentation workspace, RunChoice? newRun)
         {
             Typing = false;
             var instruction = text?.Trim() ?? "";
@@ -263,8 +282,12 @@ namespace Halcyonic.Client
                 Arm(WorkspaceAction.Instruct, null, instruction);
                 return SteeringOutcome.Of(SteeringStep.Confirm);
             }
-            return SteeringOutcome.Send(commands.SendInstruction(workspace.Execution!.ExecutionId, instruction));
+            return SteeringOutcome.Send(newRun != null ? Start(workspace, newRun, instruction) : commands.SendInstruction(workspace.Execution!.ExecutionId, instruction));
         }
+
+        /// <summary>The task's next run on <paramref name="choice"/>, with the person's words as its instruction.</summary>
+        private CommandEnvelope Start(WorkspacePresentation workspace, RunChoice choice, string instruction) =>
+            commands.StartExecution(workspace.Character.WorkstreamId, choice.RuntimeId, instruction, modelRef: choice.ModelRef);
 
         /// <summary>
         /// The Mac heard this instruction in a held clip (ADR 0021). Unlike a typed one, it is always
@@ -343,6 +366,7 @@ namespace Halcyonic.Client
             armedAnswers = null;
             Armed = null;
             instructionExecution = null;
+            armedChoice = null;
             ArmedApprovalId = null;
             ArmedRequest = null;
             Instruction = null;
@@ -451,6 +475,7 @@ namespace Halcyonic.Client
             {
                 if (instructionExecution != workspace.Execution?.ExecutionId) return FileScreens.InstructionChanged;
                 if (WorkspaceText.NeedFromYou(workspace) != null) return "Not Sent · Answer Approval First";
+                if (armedChoice != null && !KitPresenter.AtRest(workspace)) return "Not Sent · Task Changed · Check and Retry";
             }
             if (!workspace.Actions.Contains(Armed!.Value)) return "Not Sent · Task Changed · Check and Retry";
             if (IsAnswer(Armed.Value)

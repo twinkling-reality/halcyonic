@@ -3854,8 +3854,8 @@ presence, contextual moment cards and the on-demand project screen:
   developer or newcomer in VR can scaffold a starter VR project from an idea and rename its folder
   before confirming the build review.
 - **Composer context selectors (`KitPresenter.ChipsOf`, `KitPresenter.EnvironmentOf`, `KitPresenter.AgentOf`, `KitSelectors`, `WorkspacePresentationState.CycleEnvironment`, `WorkspacePresentationState.EnvironmentCanChange`, `WorkspacePresentationState.NextAgent`, `WorkspacePresentationState.CycleAgent`, `WorkspacePresentationState.SetRuntimeModels`)**:
-  the chips name the runtime the composer's Send reaches. Every composer the kit draws today instructs
-  the task's existing execution (`WorkspaceSteering.SendInstruction`, which no chosen runtime reaches), so
+  the chips name the runtime the composer's Send reaches. While the task's run is active, Send instructs
+  its existing execution (`WorkspaceSteering.SendInstruction`, which no chosen runtime reaches), so
   `MenuDirector` hands `KitFileBinding.Of` `KitPresenter.ChipsOf(now, ...)`: that execution's runtime,
   its environment as it declares it (ADR 0033), its agent with the model it runs
   (`WorkspacePresentationState.ExecutionModelDisplay`), and both chips locked as facts, so a press changes
@@ -3864,8 +3864,17 @@ presence, contextual moment cards and the on-demand project screen:
   shows for a runtime that declares nothing (INTEGRATION's finding, 2026-11-03). Given no chips, the
   binding shows the workspace's own runtime's, locked: `KitSelectors` and `KitWorkModel` default to
   locked. On the owner's Mac, Codex declares that an approved command may leave the sandbox, OpenCode
-  that it stays inside one, and Claude Agent nothing. The choosing a press would do stays in
-  `WorkspacePresentationState`, for the run a later change starts on a chosen runtime: `CycleEnvironment`
+  that it stays inside one, and Claude Agent nothing. At rest (`KitPresenter.AtRest`: the execution
+  completed, failed, was interrupted or ended unknown, and no command of this client's to it is under way,
+  as CORE's admission requires for a start), Send starts the task's next run on the person's choice
+  (SWITCH, 2026-11-03): the chips are that choice, the execution's while none is chosen, Host changeable
+  where a registered runtime that can start work declares the other environment and Agent where another
+  runtime or a listed model can be chosen. `FileColumn.Choice` reads the choice at each press and rebuild,
+  `KitPresenter.NewRunOf` decides whether Send starts or instructs, Send then reads "Start New Run", and
+  `WorkspaceSteering` sends `commands.StartExecution(workstream, runtime, words, model)` at once, or after
+  Yes where the policy asks; a runtime that lists its models waits for one ("Not Sent · Choose a Model").
+  The new run does not carry the old one's conversation, and nothing says it does. The choosing is
+  `WorkspacePresentationState`'s: `CycleEnvironment`
   selects a runtime that declares the other environment (`EnvironmentCanChange`), or changes nothing and
   returns null where none is registered, and `CycleAgent` / `NextAgent` cycle across the runtimes that
   can start work and their listed `RuntimeModel` entries (cached via `SetRuntimeModels` from
@@ -3873,8 +3882,8 @@ presence, contextual moment cards and the on-demand project screen:
   preserving any unsent draft. `KitWorkspaceHost` sets `AllowBoundSelectors = true` on its `KitWorkView`
   and forwards settled composer selector presses (`EnvironmentPressed`, `ProjectPressed`, `AgentPressed`)
   through `MenuPlane` to `MenuDirector`, which switches to the Projects chooser on `ProjectPressed` and
-  takes a Host or Agent press only where the binding says that chip can change, which today it never
-  does. The chips' words are the client core's (`KitMomentWords.HostChip`, `AgentChip`): the category,
+  takes a Host or Agent press only where the binding says that chip can change, at rest, then lays the
+  file again so Send's words follow. The chips' words are the client core's (`KitMomentWords.HostChip`, `AgentChip`): the category,
   then the environment or their name whole. `KitComposer` lays the two chips on the footer's equal halves
   where each fits its half whole, else each at the full width on its own row; `KitRender`'s `28-chips-*`
   states hold every chip whole, inside the composer and on those columns, both locked, for Codex,

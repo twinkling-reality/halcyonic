@@ -271,6 +271,26 @@ namespace Halcyonic.Client
         public bool AgentChangeable { get; }
     }
 
+    /// <summary>
+    /// The runtime, and the model as its list names it, the person chose in the composer for the task's next run;
+    /// <see cref="ModelRequired"/> where that runtime lists its models, so a start without one would be refused.
+    /// </summary>
+    public sealed class RunChoice
+    {
+        public RunChoice(string runtimeId, string? modelRef, bool modelRequired)
+        {
+            RuntimeId = runtimeId;
+            ModelRef = modelRef;
+            ModelRequired = modelRequired;
+        }
+
+        public string RuntimeId { get; }
+
+        public string? ModelRef { get; }
+
+        public bool ModelRequired { get; }
+    }
+
     /// <summary>What the focused work shows: the selected task, what its agent last said, what was recorded, and the person's draft.</summary>
     public sealed class KitWorkModel
     {
