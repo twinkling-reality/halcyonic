@@ -433,3 +433,27 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
   of the data folder and of `codex-confined` (`file-read-data`), a read, `stat` or existence test of a file in the data
   folder, the open server's home and its settings, and a listing of the person's home folder and of `~/.codex`.
 - **Not verified:** a real model's turns inside the profile (the K1 rerun), other macOS versions.
+
+## A temporary folder of its own (2026-11-03)
+
+- **Question:** can a confined server's commands write a here-document, and where do their temporary files go (ADR
+  0041, amendment of 2026-11-03)?
+- **Environment:** this Mac (macOS 26.7), the pinned 0.157.0 binary, the scripted fake provider, no model; folders of
+  our own.
+- **Found:** zsh writes here-documents and here-strings under `TMPPREFIX` (`/tmp/zsh` unless set), not under `TMPDIR`.
+  Inside the profile both failed (`zsh:1: can't create temp file for here document: operation not permitted`), first
+  in a rehearsal on a local model, then end to end with the fake provider; with `TMPPREFIX` in the server's own folder
+  both work. Codex makes helper links of its own in that folder (`tmp/arg0`) when it starts.
+- **macOS's `mktemp`:** given no template, `-t` or `-d`, it makes its file in the person's temporary folder under
+  `/var/folders` whatever `TMPDIR` says, outside any profile too; `-p <folder>` or a template path uses that folder.
+  Inside the profile a bare `mktemp` is refused. Node's `os.tmpdir()` reads `TMPDIR` (end to end), and so does
+  Python's `tempfile` (outside the profile).
+- **A command can replace its own home:** under the confined profile a command moved its Codex home into its project
+  and put a link to another folder in its place, both exit 0. The home check refuses a linked home at the next launch,
+  but a removal at close that resolved the home would have followed the link. Inside a profile that refuses every write
+  but in the folder, named through `codex-confined`: `rm -rf` and `chmod -R` through the linked home were refused and
+  changed nothing, `mkdir` through it made nothing, a link inside the folder was removed and not followed, and
+  `chmod -R u+rwX` then `rm -rf` removed folders made unwritable (`000`, `555`), which `rm -rf` alone did not. With the
+  write refusal taken out of the profile, the tests of the linked home fail (a mutation run).
+- **Not verified:** a real model's turns with the change; other macOS versions; a command that outlives its server.
+  Codex stops the commands it started; one that left their session would keep the profile and could race a launch.

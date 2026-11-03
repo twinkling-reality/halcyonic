@@ -25,6 +25,7 @@ import {
   type StartExecutionResult,
   systemClock,
 } from '@halcyonic/runtime-core';
+import { makeTemp, removeTemp, tempFolder } from './confined-temp.ts';
 import {
   acceptTurnStart,
   createThreadState,
@@ -627,6 +628,15 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     halt();
     for (const thread of this.#threads.values()) this.#dropConfirmations(thread, closedError());
     await Promise.all(stopping.map((server) => server.stop()));
+    // Each confined server's temporary folder goes with it; one left behind is made anew at its
+    // project's next launch.
+    const homes = join(dirname(this.#home), CONFINED_HOMES);
+    for (const slot of slots) {
+      if (slot.confinement === null) continue;
+      const key = confinementKey(slot.confinement.project);
+      const temp = await tempFolder(homes, key).catch(() => null);
+      if (temp !== null) await removeTemp(temp);
+    }
   }
 
   // Turns --------------------------------------------------------------------------------------
@@ -878,12 +888,11 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     return slot.launching;
   }
 
-  /** For a confined server: its temporary folder and the profile file it runs inside. */
   /**
    * For a confined server: a Codex home of its own beside the open server's, never inside it, with
-   * a copy of the open home's settings; its temporary folder; and the profile file it runs inside.
-   * The open server's home is outside the profile, so nothing a confined server does can plant
-   * settings, hooks or skills where the open server loads them.
+   * a copy of the open home's settings; its temporary folder, made anew and empty at each launch;
+   * and the profile file it runs inside. The open server's home is outside the profile, so nothing
+   * a confined server does can plant settings, hooks or skills where the open server loads them.
    */
   async #confine(
     slot: Slot,
@@ -893,12 +902,18 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     if (settings === null) throw new Error('a confined server needs the confinement settings');
     const confinedHomes = join(dirname(this.#home), CONFINED_HOMES);
     await mkdir(confinedHomes, { recursive: true, mode: 0o700 });
-    const codexHome = join(confinedHomes, confinementKey(confinement.project));
+    const key = confinementKey(confinement.project);
+    const codexHome = join(confinedHomes, key);
     await prepareHome(codexHome);
     await copyFile(join(this.#home, 'config.toml'), join(codexHome, 'config.toml'));
     await chmod(join(codexHome, 'config.toml'), 0o600);
-    const temp = join(codexHome, 'tmp');
-    await mkdir(temp, { recursive: true, mode: 0o700 });
+    const temp = await tempFolder(confinedHomes, key);
+    if (!(await makeTemp(temp))) {
+      throw new RuntimeActionError(
+        'runtime_unavailable',
+        `Halcyonic could not empty this project's temporary folder for Codex, ${temp}, so Codex was not started. Remove the folder, then try again.`,
+      );
+    }
     const profile = `${slot.recordFile}.sb`;
     await mkdir(dirname(profile), { recursive: true, mode: 0o700 });
     await writeFile(
@@ -946,7 +961,14 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       environment:
         confined === null
           ? this.#environment
-          : { ...this.#environment, CODEX_HOME: confined.codexHome, TMPDIR: confined.temp },
+          : {
+              ...this.#environment,
+              CODEX_HOME: confined.codexHome,
+              TMPDIR: confined.temp,
+              // zsh writes every here-document and here-string under TMPPREFIX, /tmp/zsh unless
+              // it is set, which the profile refuses.
+              TMPPREFIX: join(confined.temp, 'zsh'),
+            },
       recordFile: slot.recordFile,
       cwd: confined?.temp ?? tmpdir(),
       startupTimeoutMs: this.#startupTimeoutMs,

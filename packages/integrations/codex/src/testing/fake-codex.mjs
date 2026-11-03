@@ -43,9 +43,13 @@
  * `slow-exit`: the server exits about a second after its input ends, as a busy Codex can, and
  * appends `{"event": "launch" | "exit", "pid", "at"}` beside FAKE_CODEX_LAUNCHES, to that file's
  * name with `.events`, when it is set (a folder a confined server may write).
+ *
+ * `temp`: at each launch, appends `{"tmpdir", "tmpprefix", "cwd", "entries"}` beside
+ * FAKE_CODEX_LAUNCHES, to that file's name with `.temp`: its TMPDIR, TMPPREFIX and working folder,
+ * and what its TMPDIR held when it started.
  */
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, rmSync } from 'node:fs';
+import { appendFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 
 const flags = new Set((process.env.FAKE_CODEX_MODE ?? '').split(',').filter(Boolean));
@@ -76,6 +80,16 @@ if (process.env.FAKE_CODEX_LAUNCHES) {
     process.env.FAKE_CODEX_LAUNCHES,
     `${JSON.stringify({ argv: process.argv.slice(2), codexHome: process.env.CODEX_HOME ?? null })}\n`,
   );
+}
+if (flags.has('temp') && process.env.FAKE_CODEX_LAUNCHES) {
+  const tmpdir = process.env.TMPDIR ?? null;
+  const launch = {
+    tmpdir,
+    tmpprefix: process.env.TMPPREFIX ?? null,
+    cwd: process.cwd(),
+    entries: tmpdir === null ? null : readdirSync(tmpdir),
+  };
+  appendFileSync(`${process.env.FAKE_CODEX_LAUNCHES}.temp`, `${JSON.stringify(launch)}\n`);
 }
 const configured = JSON.parse(process.env.FAKE_CODEX_CONFIG ?? '{}');
 // The launch's `-c key=value` overrides apply above the configuration, as Codex applies them,

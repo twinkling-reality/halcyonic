@@ -34,7 +34,7 @@ import {
 } from './codex-runtime.ts';
 import { isRecord } from './events.ts';
 import { RpcConnection } from './rpc.ts';
-import { TOOL_PREFIXES, toolFoldersFor } from './sandbox-profile.ts';
+import { confinementKey, TOOL_PREFIXES, toolFoldersFor } from './sandbox-profile.ts';
 import { APP_SERVER_ARGUMENTS, buildEnvironment, unappliedSettings } from './server.ts';
 import { readProcessIdentity } from './server-record.ts';
 import { allowOnly } from './testing/directory-policy.ts';
@@ -1633,6 +1633,83 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
     const { output } = await runAsModel(t, 'ls /private/tmp; echo listed=$?');
     assert.match(output, /Operation not permitted/);
   });
+
+  test(
+    'a command the model runs has a temporary folder of its own, for here-documents too',
+    SLOW_TEST,
+    async (t) => {
+      const { sandbox, start } = await harness(t, { runtime: confined });
+      // zsh writes every here-document and here-string under TMPPREFIX, /tmp/zsh unless it is set.
+      const script = [
+        "cat > here-document.txt <<'END'",
+        'from a here-document',
+        'END',
+        'echo heredoc=$?',
+        'cat <<< from-a-here-string > here-string.txt; echo herestring=$?',
+        'made=$(mktemp -p "$TMPDIR") && echo mktemp=$?',
+        'case "$made" in "$TMPDIR"/*) echo own=yes;; *) echo own=no;; esac',
+        `node -e 'console.log("node=" + require("os").tmpdir())'`,
+        'echo "tmpdir=$TMPDIR"',
+        // macOS's own mktemp, given no template, uses the person's temporary folder whatever TMPDIR is.
+        'mktemp > /dev/null 2>&1; echo plain=$?',
+      ].join('\n');
+      const execution = await start(`CMD_JSON:${JSON.stringify(script)}`);
+      await execution.next('runtime.turn.completed');
+      const output = commandOutput(execution);
+      assert.doesNotMatch(output, /can't create temp file/);
+      for (const step of ['heredoc=0', 'herestring=0', 'mktemp=0', 'own=yes'])
+        assert.ok(output.includes(step), `${step} in ${output}`);
+      const temp = join(sandbox.root, 'codex-confined', confinementKey(sandbox.project), 'tmp');
+      assert.ok(output.includes(`tmpdir=${temp}`), output);
+      assert.ok(output.includes(`node=${temp}`), output);
+      t.diagnostic(
+        `mktemp without a template: ${/plain=0/.test(output) ? 'made a file' : 'refused'}`,
+      );
+      assert.equal(
+        readFileSync(join(sandbox.project, 'here-document.txt'), 'utf8'),
+        'from a here-document\n',
+      );
+      assert.equal(
+        readFileSync(join(sandbox.project, 'here-string.txt'), 'utf8'),
+        'from-a-here-string\n',
+      );
+    },
+  );
+
+  test(
+    'its temporary folder starts empty at every launch and goes with the server, without following a link',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t, { runtime: confined });
+      const temp = join(sandbox.root, 'codex-confined', confinementKey(sandbox.project), 'tmp');
+      // What an earlier run left when it ended without closing, and a folder of the test's own outside.
+      await mkdir(temp, { recursive: true, mode: 0o700 });
+      await writeFile(join(temp, 'left-by-an-earlier-run.txt'), 'earlier\n');
+      const outside = join(sandbox.root, 'outside');
+      await mkdir(outside);
+      await writeFile(join(outside, 'kept.txt'), 'kept\n');
+      const script = [
+        'ls -A "$TMPDIR"; echo listed=$?',
+        `ln -s '${outside}' "$TMPDIR/outside"; echo linked=$?`,
+        // Folders a command made unwritable, as Go's module cache is, are removed too.
+        'mkdir -p "$TMPDIR/locked/inner" && touch "$TMPDIR/locked/inner/file"',
+        'chmod 555 "$TMPDIR/locked/inner" && chmod 000 "$TMPDIR/locked"; echo locked=$?',
+      ].join('\n');
+      const execution = await start(`CMD_JSON:${JSON.stringify(script)}`);
+      await execution.next('runtime.turn.completed');
+      const output = commandOutput(execution);
+      for (const step of ['listed=0', 'linked=0', 'locked=0'])
+        assert.ok(output.includes(step), `${step} in ${output}`);
+      assert.doesNotMatch(output, /left-by-an-earlier-run/);
+      await runtime.close();
+      assert.ok(!existsSync(temp), 'removed with the server');
+      assert.equal(
+        readFileSync(join(outside, 'kept.txt'), 'utf8'),
+        'kept\n',
+        'the link was not followed',
+      );
+    },
+  );
 
   test("cannot read a package manager's data or configuration", SLOW_TEST, async (t) => {
     // Databases such as PostgreSQL's live in <prefix>/var; the listing goes nowhere and changes nothing.
