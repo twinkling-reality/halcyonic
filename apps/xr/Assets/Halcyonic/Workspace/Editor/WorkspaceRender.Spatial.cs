@@ -507,6 +507,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add("spatial: the confirm step's Cancel did not return to the approval without sending");
                     if (!PressKit(KitPlace.Deny) || At(KitPlace.Yes) == null || sends != 0)
                         failures.Add("spatial: the kit's Deny did not bring its confirm step, or sent before it");
+                    // Confirm arrives locked (KitDecisionBar.ConfirmLockSeconds); a render has no clock, so it waits out the lock as a hand would.
+                    plane.Kit.View.Decision.AgeForRender(KitDecisionBar.ConfirmLockSeconds);
                     if (!PressKit(KitPlace.Yes) || sends != 1
                         || lastSent is not ExecutionRespondToApprovalCommand { Payload: { Decision: ApprovalDecision.Deny } })
                         failures.Add("spatial: the confirmed Deny did not send the person's one decline (" + sends + " sent)");

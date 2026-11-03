@@ -145,6 +145,18 @@ capsule carries its word or glyph in n7 (`28 dp` in at either side on the primar
 pressed, `-12` percent toward black at `97` percent scale). A locked answer keeps a 2 dp n4 ring round its n5 word, its
 reason being its word. Every button the kit draws is that one capsule: a quiet one (the screen bar's doors, a section tab, a composer chip) is the same capsule outlined, never a squarer box. The screen bar lays every button at one scale, the most any of them needs to hold the floor where it stands, so its words stand at one size; its lead actions and its doors share one row only where that row fits inside the bar's padding at that scale, else the lead actions stand above the doors.
 
+**The decision bar.** An approval waits in the slate's footer, in the composer's place (`KitDecisionBar`), in two fixed
+places: equal halves of the slate's width 12 mm apart, as the composer's own footer below the same slate is laid. The left
+half is the way back and the right half the way on, in every stage: asked, Deny left and Approve right; once either is
+pressed, the question on its own line above ("Approve Request?", "Deny Request?"), Cancel left and Confirm right with the
+answer's icon, so the primary never leaves the right and the hand never crosses the slate. Confirm arrives locked, in a
+locked answer's look, until the whole request and its notes have been read (until then the question line says what to read
+first), and then for 0.7 s more (`KitDecisionBar.ConfirmLockSeconds`, its arrival's length). A press while it is locked is
+refused, never queued, and once it unlocks a press already under way is still dropped by the settle (0.35 s). For a Deny, a
+second press where the first landed is a Cancel; for an Approve it reaches Confirm only after the lock and the settle. This
+replaces, for the kit, the rule that a second press where the first landed is always a Cancel and that Confirm stands where
+no control stood a moment before (the owner's fixed places, 2026-11-03); the legacy menu's footer keeps that rule.
+
 **The moment card.** 368 dp of window glass (inset 10, the avatar's left-edge tint wash across the face, and the moment's
 tone blooming on arrival, said in its words), in reading order:
 the eyebrow (a 20 dp mark, a ring for the runtime's report and a disc for what the computer saw, its glyph in `#FFC164` for
