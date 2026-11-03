@@ -101,6 +101,16 @@
   `catalog-sample-small.json` and `error-unauthorized-401.json` are unchanged, and
   `error-not-ready-503.json` (now `59c03d58...`) changed only in its message, which renames the
   product (`f085d6a`); Halcyonic never passes that message on.
+- **The whole path, on Omnorium's own answers:** an opt-in test,
+  `apps/control-plane/src/intelligence/omnorium-published.test.ts` (`OMNORIUM_CHECKOUT` names the
+  checkout; the fixtures are read there, never copied), has the stand-in instance serve each
+  published fixture and reads it as a headset's gallery does, through discovery and its proof, the
+  credential, the client, the control plane's catalog source and `GET /api/catalog`. The small
+  sample answered `available`, `reported`, marked a sample, with 38 projects, none linked and no
+  folder suggested, and `project.link_catalog` to one of its repositories was rejected, "A sample
+  catalog is never linked to your projects."; the empty collection answered `available` with no
+  projects; the 503 `unavailable` (`not_ready`) and the 401 `unauthorized`, neither passing on
+  Omnorium's message. Run on 2026-11-03, 3 of 3.
 - **To read it live**, the owner runs Omnorium in its checkout (`pnpm dev`, signed in to GitHub
   and synced; `pnpm dev:sample` serves a labelled sample, which Halcyonic shows as one and never
   links) and saves a consumer credential as the runbook says
