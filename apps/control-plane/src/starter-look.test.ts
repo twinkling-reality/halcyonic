@@ -247,3 +247,23 @@ describe('a hit can celebrate and the score can be shown big, ready for any game
     assert.match(agents, /`bonk` it/);
   });
 });
+
+describe('the page shows the sky while the game loads, never a white page (U6b)', () => {
+  test("the page's own background is ART7's sky, behind the canvas", () => {
+    const page = read('index.html');
+    assert.match(page, /html,\s*body \{[^}]*height: 100%;/);
+    assert.match(page, /background: linear-gradient\(#4FAEFF, #D8F0FF\);/);
+    assert.match(read('src/palette.ts'), /sky: '#4FAEFF'/);
+    assert.match(read('src/palette.ts'), /cloud: '#D8F0FF'/);
+  });
+
+  test("the canvas stays clear over it until the look's first frame, and then shows, once", () => {
+    // The SDK draws its canvas black before setupLook has built anything; held clear, the page's sky shows instead.
+    assert.match(read('index.html'), /#scene-container canvas \{\s*opacity: 0;\s*\}/);
+    const look = read('src/look.ts');
+    assert.match(look, /renderer\.domElement\.style\.opacity = '1';/);
+    assert.ok(
+      look.indexOf("style.opacity = '1'") < look.indexOf('world.registerSystem(AmbientSystem)'),
+    );
+  });
+});

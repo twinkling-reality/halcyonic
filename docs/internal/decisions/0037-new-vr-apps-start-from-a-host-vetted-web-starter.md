@@ -331,3 +331,7 @@ A hit can celebrate (U6): `celebrate(at, time)` in `src/decor.ts` bursts confett
 and `scoreSign(label)` stands a big score sign on the raised tier, facing the player, whose board jumps when
 `show(points, time)` changes it. Both run from the time the game's system is given, through the same system as the
 scenery, and their curves are pure functions in `src/motion.ts`; AGENTS.md asks for them on a hit.
+
+A game never opens on a blank page (U6b): `index.html` paints ART7's sky behind the canvas and keeps the canvas clear
+until the look's first frame, which `src/look.ts` shows from its own system, in step with the check's clock. Before, the
+page was white until the SDK made its canvas and black until the island's first frame, 5 s on this Mac.
