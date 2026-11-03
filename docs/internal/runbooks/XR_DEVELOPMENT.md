@@ -1482,15 +1482,13 @@ Its own socket is not bound by Meta's network security configuration, which refu
 Android's HTTP stacks only (AOSP's `NetworkSecurityPolicy`), so the build adds no exception, and a
 development build checks that the release build's glance check finds the glance in it. The Mac's adb
 server answers any local account while the headset is attached, so after each session remove the
-token and stop the server:
+token and stop the app (`pnpm quest:device -- give-back`):
 
 ```bash
 adb shell run-as com.halcyonic.xr rm -f files/access-token files/access-token.off files/access-token.tmp files/access-token.new files/glance-access-token files/glance-access-token.tmp
 ```
 
-```bash
-adb kill-server
-```
+Leave the adb server running: the device tools share the headset's own server on 5038.
 
 Its log lines, tag `Halcyonic`, codes and numbers only (`adb logcat -s Halcyonic`):
 `glance started`, `glance visible`, `glance hidden`, `glance polled ok in 42 ms, 1 waiting, 2

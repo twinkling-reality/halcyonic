@@ -16,6 +16,7 @@
  * its contents. What `device` runs besides is listed in device.ts.
  */
 import { execFile, spawn } from 'node:child_process';
+import { closeSync, openSync } from 'node:fs';
 import { connect } from 'node:net';
 import { promisify } from 'node:util';
 
@@ -104,6 +105,32 @@ export async function adbFor(ms: number, ...args: string[]): Promise<string> {
             ? failed.code
             : 'it did not run';
     throw new Error(`adb ${args.slice(0, 2).join(' ')} failed (${how})`);
+  }
+}
+
+/**
+ * As `adb`, with the file at `path` on its standard input: its bytes go from the file to adb without
+ * passing through this process, so they are never in a command line, a variable or a log. Nothing adb
+ * prints is kept, and a failure names only the subcommand and how it ended.
+ */
+export async function adbWithInput(path: string, ms: number, ...args: string[]): Promise<void> {
+  const named = await target();
+  const input = openSync(path, 'r');
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(adbPath(), [...named, ...args], {
+        stdio: [input, 'ignore', 'ignore'],
+        timeout: ms,
+      });
+      const failed = (how: string) => reject(new Error(`adb ${args[0] ?? ''} failed (${how})`));
+      child.once('error', () => failed('it did not run'));
+      child.once('exit', (code, signal) => {
+        if (code === 0) resolve();
+        else failed(code !== null ? `exit code ${code}` : `signal ${signal}`);
+      });
+    });
+  } finally {
+    closeSync(input);
   }
 }
 

@@ -23,7 +23,8 @@
   headset's clock (`-t <epoch>`), and `clip`. Added after AUDIT's review that day and run once on the
   headset's server (19:56Z): adb on `tcp:127.0.0.1`, the server's version read before the first command
   (41, as its adb's), and `connect` recording the headset's transport id (2), which `connect stop`
-  then removed.
+  then removed. Added last that day, tested only against a stand-in adb so far: `glance` and
+  `glance-token`.
 
 ## Findings
 
@@ -251,6 +252,11 @@ A Quest 3 on build `UP1A.231005.007.A1` (incremental 52641960031600520) on its o
   clip recorded under `umask 077` read `-rw------- shell shell` while it ran, and came back whole
   (5.98 s, 16.1 MB). The tool now records there with that umask, and removes by name at once what
   a failed `screenrecord` began.
+- **The glance needs a person once.** The owner's app did not hold `POST_NOTIFICATIONS` (read 19:29Z:
+  `granted=false`, with no user flag, so never asked) and had no glance token. The glance asks for the
+  permission when it opens and starts polling without waiting, so its first poll needs no hands, but
+  the prompt it raises does. `glance` therefore refuses unless the app holds it, or `--owner-answers`
+  says someone is in the headset to answer.
 
 So the device tool reads every task's resumed activity and the one `ResumedActivity` for the
 Guardian's, the alert service's and the first-time tips' dialogs, reads a hold by its words since
