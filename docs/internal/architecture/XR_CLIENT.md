@@ -2426,6 +2426,20 @@ Measured over every page of the demonstration, the kit holds every Activity page
 deny confirmation; the file's own views draw nearly all Changes and Checks pages, questions, Stop's
 confirmation and every side panel (2026-11-03).
 
+### Capture presets (development builds, 2026-11-03)
+
+`CapturePresets` lets the device tool open the installed development build straight into a named view.
+It reads the launch intent once, after the scene loads, and only in a development build
+(`Debug.isDebugBuild`, and `#if DEVELOPMENT_BUILD || UNITY_EDITOR`, so a release build's scripts do not
+carry it; `WorkspaceRender.CapturePresetsCheck` compiles the player's scripts both ways and reads each
+compile's workspace assembly). Its extras are ids and fixed words only. It changes presentation state
+alone, through the director's own routes (`OpenFile` with a section, `ShowProjectScreen`,
+`SelectRuntime`, the instruction restored without the keyboard, and the person's Approve press, which
+always arms an approval's confirm step and never sends), waits for the live snapshot to hold the id,
+and logs one fixed line. The check applies each preset to a director with a counting submit and requires
+nothing sent, an unknown id to wait, and the approval armed with nothing sent even under a
+low-consequence approval policy.
+
 ### The room of projects' placement (2026-10-29)
 
 ADR 0040's surfaces stand where `RoomLayout` (client core, no Unity) puts them. Sizes in degrees

@@ -698,6 +698,21 @@ pnpm quest:device -- give-back
   owner's own Halcyonic rewrites one of its files; never run it with a real runtime behind it.
   `--extra key=text` and `--extra-bool key=true|false` pass intent extras, letters, digits and
   `._:/-` only, since the headset's shell reads the command.
+- A development build opens straight into a named view for a capture with nobody wearing it
+  (`CapturePresets`, compiled out of every other build). One preset a fresh launch: `stop`, then
+  `launch` with its extras.
+  - `--extra halcyonic.open=task:<execution id>:<section>` opens the task's file at activity, waiting,
+    changes or checks; `--extra halcyonic.open=screen:<project id>` shows the project's screen, with
+    `--extra-bool halcyonic.bar=true` its bar open; `--extra halcyonic.open=gallery` waits for the
+    gallery's headset view (none yet).
+  - `--extra-bool halcyonic.compose=true` opens the task's instruction without the keyboard;
+    `--extra halcyonic.agent=<runtime id>` chooses a registered runtime; `--extra-bool halcyonic.arm=true`
+    arms the waiting approval so its confirming bar shows; an approval is always confirmed, so nothing
+    is sent.
+  - A preset only presents: it never approves, denies, answers, starts, previews or confirms. It waits
+    up to a minute for the live snapshot to hold the id, then `logs` holds one line, "Halcyonic: capture
+    preset applied: ..." in fixed words, or "Halcyonic: capture preset found nothing to open; staying on
+    Projects."
 - `shot` takes one second of `screenrecord` (both eyes) and keeps a frame of the left eye when ffmpeg
   is there. `clip --seconds <n>` records both eyes the same way for up to 180 s, with no sound and
   nothing uploaded, and keeps `<clip>.sha256` beside it; `give-back` collects a clip a cut-off run
