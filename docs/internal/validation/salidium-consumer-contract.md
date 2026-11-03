@@ -267,3 +267,29 @@ v0 ([salidium-project-map.md](salidium-project-map.md)). Read-only verification 
   (`session-list.json` is omitted because Halcyonic never lists all sessions).
 - **What remains:** live verification of a waiting request, the `unavailable` explanation and
   commit anchors from a live OpenCode session against the running 0.8.3 daemon.
+
+## Halcyonic's sandboxed OpenCode store (2026-11-03)
+
+- **Live:** the owner's daemon is Salidium 0.8.3 (`~/.salidium/service/current`), serving
+  `salidium.consumer` 1.1 on 127.0.0.1:47822 and listing `claude-code`, `codex` and
+  `salidium/opencode`. Read through the control plane's own Salidium source with a copy of
+  Halcyonic's credential (mode 600, removed after), a Claude Code session on this Mac answered
+  `available` in 53 ms: verdict `working` and `observed`, five files with repository paths and exact
+  line counts, `revision.at_start` present and `at_latest_turn_end` null while its turn ran,
+  explanation `none`. Unknown Claude Code, Codex and OpenCode ids answered `not_found`.
+- **Not readable:** a real OpenCode execution started through a scratch control plane
+  ([local-models.md](local-models.md), the same day) answered `not_found`, "may not have reported
+  yet", which never changes. Salidium reads `opencode/opencode.db` under its own process's
+  `XDG_DATA_HOME`, else under `~/.local/share` (`adapters/opencode/src/storeSource.ts` in its
+  checkout at `a078498`, the same function in the 0.8.3 service's bundle), and its daemon's
+  environment sets no `XDG_DATA_HOME`. On macOS Halcyonic's OpenCode runs only inside its sandbox,
+  whose data folder is `<data dir>/opencode-sandbox/data` (ADR 0028), so its sessions are in
+  `<data dir>/opencode-sandbox/data/opencode/opencode.db`.
+- **What Halcyonic does now:** an OpenCode execution that started no earlier than that store was
+  made answers `unavailable` (`runtime_not_observed`), "Salidium, as installed, does not read
+  Halcyonic's own OpenCode store, where this session is kept.", without asking Salidium and without
+  reading the credential. Only metadata is read: the store must be a regular file and each folder
+  from the sandbox's down to it a real one, never a link. A session that started before the store
+  existed, as one from before the sandbox, is asked about as before. Tested against the stand-in
+  daemon listing `salidium/opencode` (`apps/control-plane/src/intelligence/understanding.test.ts`);
+  whether Salidium should read Halcyonic's store stays an open question.
