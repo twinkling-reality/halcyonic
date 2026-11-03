@@ -2532,7 +2532,7 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     assert.equal(beside.disposition, 'rejected');
     assert.deepEqual(beside.command?.rejection, {
       code: 'invalid_state',
-      message: 'This task is waiting_for_human. Stop it first, or start another task.',
+      message: 'This task is waiting for you. Stop it first, or start another task.',
     });
     const during = projection.workstream(workstreamId);
     assert.deepEqual(during?.execution_ids, [first, second, waiting], 'no execution beside it');
