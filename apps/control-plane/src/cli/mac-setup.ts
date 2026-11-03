@@ -21,7 +21,9 @@
  */
 import { execFileSync } from 'node:child_process';
 import {
+  accessSync,
   chmodSync,
+  constants,
   type Dirent,
   existsSync,
   lstatSync,
@@ -37,8 +39,9 @@ import {
 } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { platform, totalmem, userInfo } from 'node:os';
-import { delimiter, dirname, join, resolve, sep } from 'node:path';
+import { delimiter, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
+import { fileURLToPath } from 'node:url';
 import type { DevicesResponse, LocationsResponse, Snapshot } from '@halcyonic/contracts';
 import { isCloudName } from '../companion/ollama.ts';
 import {
@@ -82,7 +85,14 @@ import {
   withSettings,
   writeHostSettings,
 } from '../settings.ts';
+import { HostStarters, installedSet, recordInstalled, VR_STARTER } from '../starters.ts';
 import { printable } from './devices.ts';
+
+/** The repository's tracked starters (ADR 0037). */
+const TRACKED_STARTERS = fileURLToPath(new URL('../../../../starters', import.meta.url));
+
+/** The git undo runs when none is named: the system's own, never one found on the PATH (ADR 0036). */
+const SYSTEM_GIT = '/usr/bin/git';
 
 export interface Firewall {
   readonly enabled: boolean;
@@ -202,6 +212,10 @@ export async function runMacSetup(args: readonly string[], io: MacSetupIo): Prom
       return argument === undefined ? setup.launcher() : usage(io);
     case 'browser':
       return setup.browser(argument);
+    case 'starter':
+      return argument === undefined ? setup.starter() : usage(io);
+    case 'undo':
+      return setup.undo(argument);
     default:
       return usage(io);
   }
@@ -220,6 +234,8 @@ function usage(io: MacSetupIo): number {
     '  pnpm mac-setup pairing on|off       let headsets pair over Wi-Fi, or stop it',
     "  pnpm mac-setup browser [folder]     set up new apps' browser once: find it, copy it, build its launcher",
     "  pnpm mac-setup launcher             build what starts new apps' browser without this app's permissions",
+    "  pnpm mac-setup starter              record the VR starter's pinned set, or say how to install it",
+    '  pnpm mac-setup undo [git|off]       let Halcyonic undo a task, with /usr/bin/git or the git you name',
     'Add --with-token to ask the running Halcyonic what it uses: the check then reads its access',
     'token, and sends it only after Halcyonic proves it holds it.',
   ]) {
@@ -286,6 +302,8 @@ class MacSetup {
     steps.push(this.#costStep(env, ollama));
     steps.push(await this.#voiceStep(env));
     steps.push(this.#launcherStep(env));
+    steps.push(this.#starterStep());
+    steps.push(this.#undoStep(env));
     steps.push(await this.#companionStep(env, ollama, running));
     steps.push(this.#usageLeftStep(running));
     steps.push(this.#understandStep());
@@ -623,6 +641,39 @@ class MacSetup {
     };
   }
 
+  #starterStep(): Step {
+    const title = 'VR starter';
+    const about =
+      'A new VR app begins from the starter: its files, and a pinned set of packages installed once on this Mac.';
+    const starters = new HostStarters({
+      trackedDir: TRACKED_STARTERS,
+      installedDir: join(this.#dataDir, 'starters'),
+    });
+    if (starters.check(VR_STARTER).ok)
+      return { title, status: 'ready', lines: ["The starter's pinned set is installed.", about] };
+    return {
+      title,
+      status: 'optional',
+      lines: ["The starter's pinned set isn't installed, so no new VR app can begin here.", about],
+      next: ['pnpm mac-setup starter'],
+    };
+  }
+
+  #undoStep(env: NodeJS.ProcessEnv): Step {
+    const title = 'Undo';
+    const about =
+      "With undo on, Halcyonic keeps checkpoints of a project's folder before each task and after each turn, so a task's changes can be put back.";
+    const git = env.HALCYONIC_GIT_BIN;
+    if (present(git) && existsSync(git))
+      return { title, status: 'ready', lines: [`Undo uses ${git}.`, about] };
+    return {
+      title,
+      status: 'optional',
+      lines: [present(git) ? `${git} isn't there, so undo is off.` : 'Undo is off.', about],
+      next: ['pnpm mac-setup undo'],
+    };
+  }
+
   /**
    * Sets up new apps' browser once: finds the checked chrome-headless-shell in Playwright's cache
    * (or in `folder`), reading only and following no link, copies it into the data folder, records
@@ -703,6 +754,86 @@ class MacSetup {
       );
       return 1;
     }
+  }
+
+  /**
+   * Records the VR starter's installed set once every package in it is the version the tracked
+   * lockfile pins (ADR 0037), or says how to install it: the person runs npm, from the public registry
+   * only, with no install scripts and no npm settings of theirs; Halcyonic downloads nothing.
+   */
+  async starter(): Promise<number> {
+    const io = this.#io;
+    const installed = join(this.#dataDir, 'starters');
+    const folder = join(installed, VR_STARTER);
+    const set = installedSet(TRACKED_STARTERS, installed, VR_STARTER);
+    if (set.state === 'matches') {
+      recordInstalled(installed, VR_STARTER, set.lockfile);
+      io.print(
+        `The VR starter is set up: ${set.packages} packages in ${this.#tilde(folder)}, each the version its lockfile pins. New VR apps can begin from it now.`,
+      );
+      return 0;
+    }
+    const lock = join(TRACKED_STARTERS, VR_STARTER, 'package-lock.json');
+    if (set.state === 'missing')
+      io.print(
+        "The VR starter isn't set up on this Mac. Install its pinned set from the public npm registry, with no install scripts and none of your own npm settings, then run this again:",
+      );
+    else
+      io.print(
+        `The VR starter's packages in ${this.#tilde(folder)} aren't the ones its lockfile pins (${set.differs.slice(0, 5).join(', ')}${set.differs.length > 5 ? ` and ${set.differs.length - 5} more` : ''}). Install them again, then run this again:`,
+      );
+    for (const command of [
+      `mkdir -p ${this.#tilde(folder)}`,
+      `cp ${this.#tilde(join(TRACKED_STARTERS, VR_STARTER, 'package.json'))} ${this.#tilde(lock)} ${this.#tilde(folder)}/`,
+      `npm ci --prefix ${this.#tilde(folder)} --ignore-scripts --no-audit --no-fund --userconfig /dev/null --globalconfig /dev/null --cache "$(mktemp -d)" --registry https://registry.npmjs.org/`,
+      'pnpm mac-setup starter',
+    ])
+      io.print(`     ${command}`);
+    return 1;
+  }
+
+  /** Turns undo on with the system's git or the one named, off with `off` (ADR 0036). */
+  async undo(argument: string | undefined): Promise<number> {
+    const io = this.#io;
+    const settings = this.#settingsOrPrint();
+    if (settings === null) return 1;
+    if (argument === 'off') {
+      const next: Record<string, string | undefined> = {
+        ...settings,
+        HALCYONIC_GIT_BIN: undefined,
+      };
+      this.#save(next);
+      io.print(
+        `Undo is off from Halcyonic's next start. The checkpoints it kept stay in ${this.#tilde(join(this.#dataDir, 'checkpoints'))}.`,
+      );
+      await this.#afterChange(next);
+      return 0;
+    }
+    const git = argument ?? SYSTEM_GIT;
+    if (!isAbsolute(git)) {
+      io.print(`Name git by its full path, such as ${SYSTEM_GIT}.`);
+      return 1;
+    }
+    let runnable = false;
+    try {
+      accessSync(git, constants.X_OK);
+      runnable = statSync(git).isFile();
+    } catch {
+      runnable = false;
+    }
+    if (!runnable) {
+      io.print(
+        `${this.#tilde(git)} isn't a program this Mac can run, so undo stays off. On a Mac, ${SYSTEM_GIT} comes with Apple's command line tools: xcode-select --install.`,
+      );
+      return 1;
+    }
+    const next = { ...settings, HALCYONIC_GIT_BIN: git };
+    this.#save(next);
+    io.print(
+      `Undo is on from Halcyonic's next start, with ${this.#tilde(git)}: it keeps checkpoints of a project's folder in ${this.#tilde(join(this.#dataDir, 'checkpoints'))}, before each task and after each turn, and can put the folder back as one holds it.`,
+    );
+    await this.#afterChange(next);
+    return 0;
   }
 
   async #voiceStep(env: NodeJS.ProcessEnv): Promise<Step> {
