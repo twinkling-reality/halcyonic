@@ -52,7 +52,11 @@ namespace Halcyonic.XR.Workspace.Editor
             "13-bound-running" => Bound(root, eyes, Running(), new FileScreen { Section = FileSection.Activity, Speak = true }, "Bound to the file: running, Stop beside Write instruction, synthetic data",
                 (view, shot) => RequireBound(view, shot, KitPlace.Stop, KitPlace.Talk, KitPlace.Field)),
             "13-bound-composing" => Bound(root, eyes, Running(ShortReport()), Composing(), "Bound to the file: the instruction, Cancel, Hold to talk and Send, a short report, synthetic data",
-                (view, shot) => RequireBound(view, shot, KitPlace.Close, KitPlace.Talk, KitPlace.Send)),
+                (view, shot) =>
+                {
+                    RequireBound(view, shot, KitPlace.Close, KitPlace.Talk, KitPlace.Send);
+                    RequireReadFirstOnSend(view, shot, FileScreens.InstructionNotRead);
+                }),
             "13-bound-nothing-yet" => Bound(root, eyes, Running(new ActivityEntry[0]), new FileScreen { Section = FileSection.Activity, Speak = true },
                 "Bound to the file: nothing recorded yet, synthetic data", RequireNothingYet),
             // The rail's own rows (the host's DefaultRailRows), turned to the page of Activity where the routes stand.
@@ -62,7 +66,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 RequireRoutesPage, rows: 8, until: frame => frame.Lines.Any(line => line.Action == FileScreens.ShowTaskHere)),
             "13-host-compact" => HostCompact(root, eyes),
             "14-question-answers" => Bound(root, eyes, SelectedWorkspace(waiting: true, Asked()), AskedScreen(Asked(), draft => draft.Choose(0, "Dark")),
-                "Bound to the file: the agent's question, its answers, one chosen, synthetic data", RequireQuestionPage, rows: 8),
+                "Bound to the file: the agent's question, its answers, one chosen, synthetic data",
+                (view, shot) =>
+                {
+                    RequireQuestionPage(view, shot);
+                    RequireReadFirstOnSend(view, shot, FileScreens.ReadTheQuestion);
+                }, rows: 8),
             "14-question-secret" => Bound(root, eyes, SelectedWorkspace(waiting: true, Secret()), AskedScreen(Secret(), draft => draft.Type(1, SecretMarker)),
                 "Bound to the file: a question asking for a secret, which Halcyonic never takes, synthetic data", RequireSecretPage, rows: 8),
             "13-bound-approval-from-activity" => Bound(root, eyes, WithActivity(ApprovalWorkspace(), SelectedEntries()), new FileScreen { Section = FileSection.Activity, Speak = true },
@@ -239,11 +248,23 @@ namespace Halcyonic.XR.Workspace.Editor
             if (view.PageLines.Any())
             {
                 var on = control.Place is KitPlace.Forward or KitPlace.Yes ? composer.Send : control.Place is KitPlace.Back or KitPlace.Cancel or KitPlace.Stop ? composer.Rare : button;
-                return on != null && on.gameObject.activeInHierarchy && on.Words.text == LabelText.ForTextMeshPro(control.Words);
+                return on != null && on.gameObject.activeInHierarchy && Says(on, control);
             }
             if (control.Place == KitPlace.Pager) return view.Earlier.gameObject.activeInHierarchy;
             if (control.Place == KitPlace.Route) return view.Routes.Any(route => route.Words.text == LabelText.ForTextMeshPro(control.Words));
-            return button != null && button.gameObject.activeInHierarchy && button.Words.text == LabelText.ForTextMeshPro(control.Words);
+            return button != null && button.gameObject.activeInHierarchy && Says(button, control);
+        }
+
+        /// <summary>Whether <paramref name="button"/> says <paramref name="control"/>'s words or, locked, its reason, which the kit may put on the control itself.</summary>
+        private static bool Says(KitButton button, KitControl control) => button.Words.text == LabelText.ForTextMeshPro(control.Words)
+            || (!button.Available && control.Reason != null && button.Words.text == LabelText.ForTextMeshPro(control.Reason));
+
+        /// <summary>A reason to read first is the locked control's own word (18), where Send stands: never a line above the footer.</summary>
+        private static void RequireReadFirstOnSend(KitWorkView view, Shot shot, string reason)
+        {
+            var send = view.Composer.Send;
+            if (!send.gameObject.activeInHierarchy || send.Available || send.Words.text != LabelText.ForTextMeshPro(reason))
+                shot.Failures.Add("the locked control does not say \"" + reason + "\" itself");
         }
 
         private static void RequireBound(KitWorkView view, Shot shot, params KitPlace[] places)

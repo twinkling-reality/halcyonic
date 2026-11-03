@@ -298,7 +298,9 @@ accept its current actions. Results navigation belongs to the full task view; th
 ordinary composer does not repeat that route. Its footer measures the offered controls at their
 actual text size. When one row cannot fit, local Hide/Discard actions occupy the upper row and
 voice/Send the lower row, with Send at the right. This preserves the target and text floors rather
-than compressing labels to fit.
+than compressing labels to fit. A reason to read first ("Read Full Instruction", "Read Full Question") is the locked
+control's own word, where Send or Next Question stands, never a line above the footer, which would read as one more button;
+any other reason keeps its line.
 
 Context is 18 degrees wide and the reading object uses the existing 36-degree file width. Each
 visible object owns an opaque reading backing. The task portrait is the actual task character at

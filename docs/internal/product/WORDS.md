@@ -169,7 +169,7 @@ A locked control's reason names what to read or do, in 1 to 3 words where it can
 | Clipped long-question context | Read Question | A hidden target or no way to reread the question |
 | An unavailable choice with a duplicated displayed name | Unavailable · Read Why; explanation title Duplicate Choices; Same Name · Not Selectable · {full conflicting words}; Back; Stop Task when offered | A selectable radio/checkbox on an ambiguous label or a Stop cue where no Stop control is offered |
 | Empty custom-answer field | Answer with a keyboard; Hold to Talk with voice only | Promising an unavailable keyboard |
-| Send Answer's reason while a long question isn't read to its end | Read Full Question | Open the question to read the rest. |
+| Send Answer's reason while a long question isn't read to its end, the locked control's own word in the kit | Read Full Question | Open the question to read the rest. |
 | Send Answer's reason while a chosen cut answer or a long typed one isn't read whole | Read Full Answer | |
 | Send Answer's reason while a page of Your Answers isn't drawn | Read All Answers | |
 | Review and editor part navigation | Next Part · 2 of 3; Previous Part; a part not yet read, Read This Part | Your answers as a plain paging row |
@@ -386,7 +386,7 @@ keyboard it says Hold to Talk. Keyboard Done and completed transcription save on
 words. The explicit action is Send Instruction. Recorded or generic instruction choices lead to
 Review Instruction, which copies a local draft; choosing or reviewing never sends. Cancel discards
 that draft locally. A spoken draft retains its additional reviewed Confirm after Send Instruction,
-including after a keyboard edit. Read Full Instruction explains an unread draft; Answer Approval
+including after a keyboard edit. Read Full Instruction explains an unread draft, as the locked Send's own word in the kit; Answer Approval
 First explains approval preemption. A changed execution says Not Sent · Task Changed.
 
 Next Choices names the preset chooser's body pager. Back to Choices acknowledges the full notice
