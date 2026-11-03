@@ -3,13 +3,16 @@ import {
   type BufferGeometry,
   CanvasTexture,
   CapsuleGeometry,
+  CatmullRomCurve3,
   Color,
   ConeGeometry,
   CylinderGeometry,
   DoubleSide,
+  ExtrudeGeometry,
   Float32BufferAttribute,
   Group,
   InstancedMesh,
+  LatheGeometry,
   Mesh,
   type MeshPhysicalMaterial,
   Object3D,
@@ -18,6 +21,10 @@ import {
   ShapeGeometry,
   SphereGeometry,
   SRGBColorSpace,
+  TorusGeometry,
+  TubeGeometry,
+  Vector2,
+  Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ambientMotion, contactShadow, gameIsland, gameTime, ISLAND_CENTRE, TIER } from './look.js';
@@ -198,7 +205,9 @@ function merge(parts: readonly Mesh[]): BufferGeometry {
     piece.setAttribute('color', new Float32BufferAttribute(new Array(count).fill([r, g, b]).flat(), 3));
     return piece;
   });
-  const merged = mergeGeometries(pieces);
+  // An extruded shape has no index; merged geometries must all have one or none.
+  const flat = pieces.some((piece) => piece.index === null);
+  const merged = mergeGeometries(flat ? pieces.map((piece) => (piece.index === null ? piece : piece.toNonIndexed())) : pieces);
   if (merged === null) throw new Error('The decor could not be merged.');
   return merged;
 }
@@ -383,4 +392,119 @@ export function scoreSign(label = 'Score'): { show(value: number | string): void
       changedAt = gameTime();
     },
   };
+}
+
+/**
+ * The toy kit (U8): friendly things to play with, each about 30 cm across in the palette's colours and one draw call,
+ * so a game's things read at a glance rather than as bare spheres and cylinders. Each faces +z, toward the player.
+ * Scale one with `.scale.setScalar(s)`, move it, and animate it whole with the curves in `src/motion.ts`.
+ */
+
+/** A round creature with big eyes, a nose and ears: a mole, a pet, a monster. Its feet are at y = 0. */
+export function critter(colour: PaletteName | string = 'cocoa'): Mesh {
+  const body = colour;
+  const belly = '#F4E3CF';
+  const parts = [
+    part(new SphereGeometry(0.16, 32, 20), body, [0, 0.17, 0], [1, 1.08, 0.94]),
+    // Well proud of the body, so the two surfaces meet at a clear angle rather than a jagged seam.
+    part(new SphereGeometry(0.095, 24, 16), belly, [0, 0.13, 0.108], [1.08, 1, 0.64]),
+    part(new SphereGeometry(0.048, 16, 12), body, [-0.105, 0.31, -0.01], [1, 1, 0.6]),
+    part(new SphereGeometry(0.048, 16, 12), body, [0.105, 0.31, -0.01], [1, 1, 0.6]),
+    part(new SphereGeometry(0.052, 20, 14), '#FFFFFF', [-0.058, 0.235, 0.118], [1, 1.12, 0.7]),
+    part(new SphereGeometry(0.052, 20, 14), '#FFFFFF', [0.058, 0.235, 0.118], [1, 1.12, 0.7]),
+    part(new SphereGeometry(0.03, 16, 12), 'ink', [-0.055, 0.232, 0.15], [1, 1.1, 0.6]),
+    part(new SphereGeometry(0.03, 16, 12), 'ink', [0.061, 0.232, 0.15], [1, 1.1, 0.6]),
+    part(new SphereGeometry(0.009, 8, 6), '#FFFFFF', [-0.047, 0.247, 0.167]),
+    part(new SphereGeometry(0.009, 8, 6), '#FFFFFF', [0.069, 0.247, 0.167]),
+    part(new SphereGeometry(0.024, 16, 12), 'berry', [0, 0.195, 0.158], [1.2, 0.9, 0.9]),
+    part(new SphereGeometry(0.05, 16, 10), body, [-0.075, 0.02, 0.06], [1, 0.45, 1.3]),
+    part(new SphereGeometry(0.05, 16, 10), body, [0.075, 0.02, 0.06], [1, 0.45, 1.3]),
+  ];
+  return prop(parts, { roughness: 0.42, clearcoat: 0.35 });
+}
+
+/** A bevelled five-pointed star with a happy face, standing upright, its centre at its origin. */
+export function toyStar(colour: PaletteName | string = 'sunny'): Mesh {
+  const outline = new Shape();
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? 0.15 : 0.068;
+    const a = Math.PI / 2 + (i * Math.PI) / 5;
+    if (i === 0) outline.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else outline.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  outline.closePath();
+  const shape = new ExtrudeGeometry(outline, {
+    depth: 0.04,
+    bevelEnabled: true,
+    bevelThickness: 0.02,
+    bevelSize: 0.016,
+    bevelSegments: 4,
+    curveSegments: 1,
+  });
+  shape.center();
+  const parts = [
+    part(shape, colour, [0, 0, 0]),
+    part(new SphereGeometry(0.014, 12, 8), 'ink', [-0.03, 0.01, 0.041], [0.8, 1.35, 0.5]),
+    part(new SphereGeometry(0.014, 12, 8), 'ink', [0.03, 0.01, 0.041], [0.8, 1.35, 0.5]),
+    part(new TorusGeometry(0.022, 0.0055, 8, 16, Math.PI), 'ink', [0, -0.018, 0.04], [1, 1, 0.5], [0, 0, Math.PI]),
+  ];
+  const star = prop(parts, { roughness: 0.28, clearcoat: 0.6 });
+  // A star glows a little in its own colour, so it reads bright even turned from the sun.
+  const material = star.material as MeshPhysicalMaterial;
+  material.emissive = new Color(palette[colour as PaletteName] ?? colour);
+  material.emissiveIntensity = 0.22;
+  return star;
+}
+
+/** A shiny balloon with its knot and a curling string below, its centre at its origin. */
+export function balloon(colour: PaletteName | string = 'berry'): Mesh {
+  const curl = new CatmullRomCurve3([
+    new Vector3(0, -0.17, 0),
+    new Vector3(0.025, -0.28, 0.01),
+    new Vector3(-0.02, -0.4, -0.01),
+    new Vector3(0.015, -0.52, 0),
+  ]);
+  const parts = [
+    part(new SphereGeometry(0.15, 32, 24), colour, [0, 0, 0], [0.92, 1.08, 0.92]),
+    part(new ConeGeometry(0.026, 0.035, 12), colour, [0, -0.168, 0], [1, 1, 1], [Math.PI, 0, 0]),
+    part(new TubeGeometry(curl, 24, 0.0035, 6), 'ink', [0, 0, 0]),
+  ];
+  return prop(parts, { roughness: 0.18, clearcoat: 0.8 });
+}
+
+/** A woven basket, open at the top, about 40 cm across; its base at y = 0. */
+export function basket(colour: PaletteName | string = 'tangerine'): Mesh {
+  const wall = [
+    new Vector2(0.001, 0.0),
+    new Vector2(0.15, 0.0),
+    new Vector2(0.2, 0.08),
+    new Vector2(0.215, 0.16),
+    new Vector2(0.195, 0.16),
+    new Vector2(0.18, 0.085),
+    new Vector2(0.135, 0.02),
+    new Vector2(0.001, 0.02),
+  ];
+  const bowl = new LatheGeometry(wall, 40);
+  // Woven bands: every other ring of the weave a shade darker.
+  const position = bowl.getAttribute('position');
+  const light = new Color(palette[colour as PaletteName] ?? colour);
+  const dark = light.clone().multiplyScalar(0.72);
+  const bands: number[] = [];
+  for (let i = 0; i < position.count; i++) {
+    const y = position.getY(i);
+    const a = Math.atan2(position.getZ(i), position.getX(i));
+    const band = Math.floor(y / 0.032) + (Math.sin(a * 20) > 0 ? 1 : 0);
+    const shade = band % 2 === 0 ? light : dark;
+    bands.push(shade.r, shade.g, shade.b);
+  }
+  bowl.setAttribute('color', new Float32BufferAttribute(bands, 3));
+  const rim = merge([part(new TorusGeometry(0.205, 0.016, 10, 48), 'cocoa', [0, 0.162, 0], [1, 1, 1], [Math.PI / 2, 0, 0])]);
+  const merged = mergeGeometries([bowl.toNonIndexed(), rim.index === null ? rim : rim.toNonIndexed()]);
+  if (merged === null) throw new Error('The basket could not be merged.');
+  const material = toyMaterial('#FFFFFF', { roughness: 0.62 });
+  material.vertexColors = true;
+  const mesh = new Mesh(merged, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
 }

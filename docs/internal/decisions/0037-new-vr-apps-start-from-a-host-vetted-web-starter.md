@@ -342,3 +342,9 @@ never finished their bonk and no confetti showed. `celebrate(at)` and the sign's
 the starter's own system, `gameTime()` in `src/look.ts` gives a handler the same time for its own motion, and AGENTS.md
 asks for it there, never `performance.now()` or `Date.now()`; it also asks for targets at least 30 cm across and no
 scratch files anywhere in the project.
+
+A toy kit (U8): the first two showcase rehearsals built moles, stars and a basket from bare spheres and cylinders, which
+read as default shapes from the laptop camera. `src/decor.ts` now makes four friendly things in any palette colour,
+each about 30 cm across, one draw call and facing the player: `critter()` (a round creature with eyes, a nose, ears,
+a belly and feet), `toyStar()` (a bevelled star with a face, glowing a little in its own colour), `balloon()` (with
+its knot and a curling string) and `basket()` (woven bands, a rim), and AGENTS.md asks a game to start from them.

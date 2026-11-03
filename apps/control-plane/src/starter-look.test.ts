@@ -295,3 +295,39 @@ describe("a hit's time is the game's own, so a press handler cannot freeze it (U
     assert.match(agents, /anywhere in the project/);
   });
 });
+
+describe("a toy kit of friendly things, so a game's things read at a glance (U8)", () => {
+  // The first two showcase rehearsals built their moles, stars and basket from bare spheres and cylinders.
+  test('the kit makes a critter, a star, a balloon and a basket, each one mesh', () => {
+    const decor = read('src/decor.ts');
+    for (const name of ['critter', 'toyStar', 'balloon', 'basket'])
+      assert.match(
+        decor,
+        new RegExp(
+          `export function ${name}\\(colour: PaletteName \\| string = '\\w+'\\): Mesh \\{`,
+        ),
+        name,
+      );
+    // A critter has eyes with pupils and a nose: never a bare sphere.
+    const critter = decor.slice(
+      decor.indexOf('export function critter'),
+      decor.indexOf('export function toyStar'),
+    );
+    assert.match(critter, /'ink'/);
+    assert.match(critter, /'berry'/);
+    // Extruded shapes have no index; the merge takes every piece to the same form.
+    assert.match(decor, /toNonIndexed\(\)/);
+  });
+
+  test('the agent is asked to start from the kit, at about 30 cm, scaled whole', () => {
+    const agents = read('AGENTS.md');
+    for (const call of [
+      "critter('cocoa')",
+      "toyStar('sunny')",
+      "balloon('berry')",
+      "basket('tangerine')",
+    ])
+      assert.ok(agents.includes(`\`${call}\``), call);
+    assert.match(agents, /toy kit/);
+  });
+});

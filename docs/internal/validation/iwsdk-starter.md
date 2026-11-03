@@ -479,6 +479,20 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   the project (the same agent left three in the project's root).
 - **Not tried:** the headset; whether a model reads the new lines (the third rehearsal runs on this starter).
 
+## A toy kit (U8)
+
+- **Question:** what do agent-built games look like from the laptop camera, and can the starter make their things
+  read at a glance?
+- **Date:** 2026-11-03.
+- **Found:** the first two showcase rehearsals (a bonk-the-mole game and a star catching game by `muse-glimmer:30b-mlx`
+  through confined Codex) passed their checks and read ready, but their moles were two brown spheres, their stars
+  orange spheres and their basket a brown cylinder: from the laptop camera about 30 pixels of plain colour each.
+- **Now:** `critter()`, `toyStar()`, `balloon()` and `basket()` in `src/decor.ts`, each about 30 cm across, merged into
+  one mesh (an extruded star has no index, so the merge now takes every piece to the same form). In a lab page with
+  the kit on the island they read as a creature, a star with a face, a balloon on its string and a basket from the
+  laptop camera; up close, a first critter's belly met its body in a jagged seam, now set further forward.
+- **Not tried:** the headset; whether a model reaches for the kit (the finals run on this starter).
+
 ## No cross-origin reads of a preview (AUDIT H1)
 
 - **Question:** does a preview's server let a page of another origin on this Mac read its files?
