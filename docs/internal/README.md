@@ -113,6 +113,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [quest-3-device.md](validation/quest-3-device.md) | The XR client on a Meta Quest 3: build, install, WebSocket under IL2CPP, milestone 2 checks |
 | [quest-headset-in-the-loop.md](validation/quest-headset-in-the-loop.md) | Checking a Quest without wearing it: state, install and restore, launch, captures, recording, logs, the adb servers kept apart, and Meta XR Operator on 8720 |
 | [quest-3-performance.md](validation/quest-3-performance.md) | What the headset interface costs to draw, measured off the device and left for the headset |
+| [control-plane-scale-2026-11-03.md](validation/control-plane-scale-2026-11-03.md) | What grows with a long history on the Mac and in the headset's client, what is now bounded, and what a task costs on the wire |
 | [iwsdk-starter.md](validation/iwsdk-starter.md) | The Immersive Web SDK starter on the Mac: what the vetted download brought, and a type check, build and serve with no network |
 | [quest-browser-preview.md](validation/quest-browser-preview.md) | Opening a checked preview in Quest Browser at 127.0.0.1: what the tool checks first, the device commands, not yet run on the headset |
 | [horizon-os-multitasking.md](validation/horizon-os-multitasking.md) | Windows over immersive apps, Virtual Display, hybrid 2D activities, background limits |
