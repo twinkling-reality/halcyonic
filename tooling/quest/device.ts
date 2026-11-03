@@ -942,6 +942,15 @@ async function clip(): Promise<void> {
  * null when it is kept or no longer on the headset. Never exits, so give-back can finish its own work.
  */
 /**
+ * The longest give-back waits for a clip a cut-off run left: screenrecord's own limit, or
+ * HALCYONIC_QUEST_LEFT_CLIP_WAIT_MS, which the tests set so a clip ending far ahead is still waited for quickly.
+ */
+function leftClipWaitMs(): number {
+  const given = process.env.HALCYONIC_QUEST_LEFT_CLIP_WAIT_MS ?? '';
+  return /^\d+$/.test(given) ? Number(given) : (CLIP_MAX_SECONDS + 2) * 1000;
+}
+
+/**
  * Forgets the recorded clip without touching the headset, for one whose pull never matches: the
  * file may stay in the shell's own folder, where no app reads it, until someone removes it by name.
  */
@@ -973,7 +982,7 @@ async function collectLeftClip(left: { remote: string; endsAt: string }): Promis
   const wait = Date.parse(left.endsAt) - Date.now();
   if (wait > 0) {
     console.log(`Waiting ${Math.ceil(wait / 1000)} s for the clip a cut-off run left to end.`);
-    await sleep(Math.min(wait, (CLIP_MAX_SECONDS + 2) * 1000));
+    await sleep(Math.min(wait, leftClipWaitMs()));
   }
   if (/No such file/.test(await adbSaid('shell', 'ls', left.remote))) {
     console.log(`The clip a cut-off run began is no longer on the headset: ${left.remote}.`);

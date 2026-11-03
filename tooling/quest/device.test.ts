@@ -422,7 +422,9 @@ describe('pnpm quest:device, against a stand-in adb', () => {
     const name = 'halcyonic.clip-20261103-190000.mp4';
     const state = join(directory, 'state-clip-cutoff.json');
     const out = join(directory, 'clips-cutoff');
-    const endsAt = new Date(Date.now() + 1500).toISOString();
+    // Two minutes ahead, which no load overtakes; the tool's wait is capped for the test, so it still runs quickly.
+    const endsAt = new Date(Date.now() + 120_000).toISOString();
+    extra = { HALCYONIC_QUEST_LEFT_CLIP_WAIT_MS: '300' };
     writeFileSync(
       state,
       JSON.stringify({
@@ -440,8 +442,10 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       '--out',
       out,
     );
+    extra = {};
     assert.equal(code, 0, said);
-    assert.match(said, /Waiting \d+ s for the clip a cut-off run left to end/);
+    const waited = Number(/Waiting (\d+) s for the clip a cut-off run left to end/.exec(said)?.[1]);
+    assert.ok(waited >= 60, said);
     assert.ok(calls.includes(`shell rm /data/local/tmp/${name}`), calls.join('\n'));
     assert.ok(existsSync(join(out, `${name}.sha256`)), said);
     assert.equal(JSON.parse(readFileSync(state, 'utf8')).clip, undefined);
