@@ -42,7 +42,7 @@ describe('adb for the device tools', () => {
     const said = (await adb('shell', 'pidof', 'com.example.app')).trim().split('\n');
     assert.deepEqual(said, [
       '-L',
-      'tcp:localhost:5038',
+      'tcp:127.0.0.1:5038',
       '-s',
       'TEST-SERIAL-1',
       'shell',
@@ -61,28 +61,57 @@ describe('adb for the device tools', () => {
     assert.throws(() => serverPort({ HALCYONIC_ADB_PORT: 'five' }), /HALCYONIC_ADB_PORT/);
   });
 
-  test('a plain connect tells whether anything listens on a port, and sends it nothing', async () => {
-    // adb starts a server of its own on the port when none answers there; the tools look first.
-    const { listens } = await import('./adb.ts');
+  test("the server's version is read with adb's own host:version query, and nothing else is sent", async () => {
+    // adb restarts a server whose version differs from its own; the tools read it first, without adb.
+    const { serverVersion } = await import('./adb.ts');
     const received: Buffer[] = [];
-    let closed: () => void = () => {};
-    const ended = new Promise<void>((resolve) => {
-      closed = resolve;
-    });
     const server = createServer((socket) => {
-      socket.on('data', (chunk: Buffer) => received.push(chunk));
-      socket.on('close', () => closed());
+      socket.on('data', (chunk: Buffer) => {
+        received.push(chunk);
+        if (Buffer.concat(received).toString() === '000chost:version') socket.end('OKAY00040029');
+      });
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const { port } = server.address() as AddressInfo;
     try {
-      assert.equal(await listens(port), true);
-      await ended;
-      assert.equal(Buffer.concat(received).length, 0);
+      assert.equal(await serverVersion(port), 41);
+      assert.equal(Buffer.concat(received).toString(), '000chost:version');
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
-    assert.equal(await listens(port), false);
+    assert.equal(await serverVersion(port), null);
+  });
+
+  test('a listener that does not answer as an adb server has no version', async () => {
+    const { serverVersion } = await import('./adb.ts');
+    // It reads what it is sent, so it sees the client close and can itself be closed.
+    const server = createServer((socket) =>
+      socket.resume().end('HTTP/1.1 400 Bad Request\r\n\r\n'),
+    );
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    try {
+      assert.equal(await serverVersion(port), null);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  test("adb's own version and the headset's transport id are read from what adb prints", async () => {
+    const { readClientVersion, readTransportId } = await import('./adb.ts');
+    assert.equal(
+      readClientVersion('Android Debug Bridge version 1.0.41\nVersion 36.0.0-13206524\n'),
+      41,
+    );
+    assert.equal(readClientVersion('adb: unknown command'), null);
+    const listed =
+      'List of devices attached\nOTHER device usb:1-2 transport_id:7\nTEST-SERIAL            device usb:1-1 product:eureka model:Quest_3 device:eureka transport_id:3\n';
+    assert.equal(readTransportId(listed, 'TEST-SERIAL'), '3');
+    assert.equal(readTransportId(listed, 'MISSING'), null);
+    assert.equal(
+      readTransportId('TEST-SERIAL unauthorized usb:1-1 transport_id:3', 'TEST-SERIAL'),
+      null,
+    );
   });
 
   test('a long command gets the time it is given, and is stopped after it', async () => {

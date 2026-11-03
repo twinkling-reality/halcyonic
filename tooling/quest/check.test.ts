@@ -44,6 +44,7 @@ if (args[0] === '-s') args = args.slice(2);
 const said = args.join(' ');
 const out = (text) => process.stdout.write(text + '\\n');
 if (said === 'devices') out('List of devices attached\\nTEST-SERIAL\\tdevice\\n');
+else if (said === 'version') out('Android Debug Bridge version 1.0.41');
 else if (said === 'get-state') out('device');
 else if (said === 'reverse --list') out('UsbFfs tcp:47800 tcp:47800');
 else if (said === 'shell pidof com.halcyonic.xr') out('1234');
@@ -76,11 +77,16 @@ describe('pnpm quest:check, against a stand-in adb', () => {
   writeFileSync(adb, `#!${process.execPath}\n${STAND_IN}`);
   chmodSync(adb, 0o755);
   let scenarios = 0;
-  // Stands for the headset's adb server, which the check connects to before it runs adb.
+  // Stands for the headset's adb server, whose version the check asks before it runs adb (41, as 0029).
   let server: Server;
   let serverPort = 0;
   before(async () => {
-    server = createServer((socket) => socket.destroy());
+    server = createServer((socket) => {
+      socket.once('data', (asked: Buffer) => {
+        if (asked.toString() === '000chost:version') socket.end('OKAY00040029');
+        else socket.destroy();
+      });
+    });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     serverPort = (server.address() as { port: number }).port;
   });

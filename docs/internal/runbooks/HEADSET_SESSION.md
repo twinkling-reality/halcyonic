@@ -639,9 +639,10 @@ within two minutes of the stop, `status` says the recording may still be going: 
 `pnpm quest:device` reads the headset and drives what a check needs without anyone wearing it
 ([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)). It goes to the
 headset's adb server on 5038 (`HALCYONIC_ADB_PORT`), names the headset (`HALCYONIC_QUEST_SERIAL`,
-else the one that server lists) and refuses the shared server on 5037. It never starts an adb
-server: when nothing listens on the port, it stops before running adb. `--package` takes only an
-Android package name. In order:
+else the one that server lists) and refuses the shared server on 5037. It never starts or restarts
+an adb server: it first asks the server on 127.0.0.1 its version, with adb's own `host:version`, and
+stops before running adb when nothing answers there or the version differs from its adb's, which adb
+would restart. `--package` takes only an Android package name. In order:
 
 ```bash
 pnpm quest:device -- status
@@ -664,7 +665,8 @@ pnpm quest:device -- give-back
   power-button hold leaves open, held a launch too; it stayed open through a sleep and a wake, and
   only someone in the headset closes it. So did one of Meta's first-time tips ("Customize your
   Library", closed with its X). `status` names each system dialog showing, as `front` and then `also`, since one
-  can show below another task. Never press anything in a system dialog.
+  can show below another task. A dialog of any other package is caught only by the launch's hold line
+  and `am start`'s status. Never press anything in a system dialog.
 - `awake` keeps it awake on the desk (the proximity override); `give-back` hands the sensor back and
   stops the apps this tool started. Run it at the end, every time. While the Guardian dialog holds the
   headset, the override reads on until the headset sleeps; `give-back` says so and does not fail for it.
@@ -682,7 +684,10 @@ pnpm quest:device -- give-back
   one named, and a check install fails if the owner's app's bytes changed.
 - `connect` makes the control plane's one mapping, the headset's 47800 to the Mac's (the `adb reverse`
   of "Connect"), recorded first so `connect stop` and `give-back` remove it. It refuses while any other
-  mapping uses 47800, however spelled, and leaves one it did not make as it is.
+  mapping uses 47800, however spelled, and leaves one it did not make as it is. Each reverse the tool
+  makes is recorded with the headset's transport id (`adb devices -l`): a USB reconnect drops every
+  reverse and gives a new id, so an older record is forgotten and removes nothing. An adb server
+  restart can give the same id again, so after one, look at `adb reverse --list` before `give-back`.
 - `launch` fails, and stops the app again, when a system dialog holds the launch or `am start` does not
   say ok. The hold is read by its words from the log since the launch, whatever its tag. A held launch
   stays cached and may start when the dialog closes, so `give-back` stops it again. Launching the

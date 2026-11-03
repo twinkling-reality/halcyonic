@@ -1,12 +1,14 @@
 /**
  * Runs adb for the device tools. adb comes with Unity's Android module; `HALCYONIC_ADB` names
- * another. Every command goes to the headset's own adb server, `-L tcp:localhost:<port>`, with the
+ * another. Every command goes to the headset's own adb server, `-L tcp:127.0.0.1:<port>`, with the
  * port from `HALCYONIC_ADB_PORT` (5038), and names the headset with `-s`: the serial from
  * `HALCYONIC_QUEST_SERIAL`, else the one headset that server lists. The shared server on 5037
  * belongs to other projects and Unity's throwaway one on 5039 never has the headset: both are
  * refused. `-L` keeps a shell that exports Unity's `ADB_SERVER_SOCKET` from sending commands to
- * 5039. adb starts a server of its own on the port when none answers there, so `requireHeadset`
- * first connects to the port and stops when nothing listens: the tools never start a server.
+ * 5039. adb starts a server of its own on the port when none answers there, and restarts one whose
+ * version differs from its own, so `requireHeadset` first asks the server its version with adb's own
+ * `host:version` request and stops unless it answers with this adb's: the tools never start or
+ * restart a server.
  *
  * `check`, `session` and `cold-start` run only `dumpsys`, `am`, `logcat`, `date`, `pidof`, `ps`,
  * `reverse --list` and `stat` (directly or through `run-as`): they read the headset and start or
@@ -47,7 +49,8 @@ export function serverPort(env: NodeJS.ProcessEnv = process.env): number {
   return port;
 }
 
-const server = () => ['-L', `tcp:localhost:${serverPort()}`];
+/** 127.0.0.1, the address `requireHeadset` asks, so the check and adb mean one listener. */
+const server = () => ['-L', `tcp:127.0.0.1:${serverPort()}`];
 
 /** The serial of the one authorized headset `adb devices` lists, or null when there are none or several. */
 export function readSerial(text: string): string | null {
@@ -146,25 +149,90 @@ export function follow(tags: readonly string[], line: (text: string) => void): (
   };
 }
 
-/** Whether anything accepts a connection on 127.0.0.1:`port`. It sends nothing and closes at once. */
-export function listens(port: number): Promise<boolean> {
+/**
+ * The adb server's version on 127.0.0.1:`port`, read with adb's own `host:version` request, or null
+ * when nothing there answers as an adb server.
+ */
+export function serverVersion(port: number): Promise<number | null> {
   return new Promise((resolve) => {
     const socket = connect({ host: '127.0.0.1', port });
-    const settle = (answer: boolean) => {
+    let answer = '';
+    const settle = (version: number | null) => {
       socket.destroy();
-      resolve(answer);
+      resolve(version);
     };
-    socket.setTimeout(5000, () => settle(false));
-    socket.once('connect', () => settle(true));
-    socket.once('error', () => settle(false));
+    socket.setTimeout(5000, () => settle(null));
+    socket.once('connect', () => socket.write('000chost:version'));
+    socket.on('data', (chunk: Buffer) => {
+      answer += chunk.toString('latin1');
+      if (answer.length < 12) return;
+      const hex = /^OKAY0004([0-9a-fA-F]{4})/.exec(answer)?.[1];
+      settle(hex === undefined ? null : Number.parseInt(hex, 16));
+    });
+    socket.once('end', () => settle(null));
+    socket.once('error', () => settle(null));
   });
+}
+
+/** `adb version`: this adb's version, numbered as its server's is (1.0.41 is 41), or null. */
+export function readClientVersion(text: string): number | null {
+  const match = /Android Debug Bridge version \d+\.\d+\.(\d+)/.exec(text);
+  return match?.[1] === undefined ? null : Number(match[1]);
+}
+
+/** This adb's version. `adb version` answers without reaching any server. */
+async function clientVersion(): Promise<number | null> {
+  try {
+    const { stdout } = await run(adbPath(), ['version'], { timeout: 20_000 });
+    return readClientVersion(stdout);
+  } catch {
+    return null;
+  }
+}
+
+/** `adb devices -l`: the transport id the server gave `serial`'s connection, or null. */
+export function readTransportId(text: string, serial: string): string | null {
+  for (const line of text.split(/\r?\n/)) {
+    const fields = line.trim().split(/\s+/);
+    if (fields[0] !== serial) continue;
+    if (fields[1] !== 'device') return null;
+    const id = fields
+      .find((field) => field.startsWith('transport_id:'))
+      ?.slice('transport_id:'.length);
+    return id !== undefined && /^\d+$/.test(id) ? id : null;
+  }
+  return null;
+}
+
+/**
+ * The transport id of the headset's connection, or null when unread. A USB reconnect drops every
+ * reverse rule and gives a new id, so a reverse recorded with another id is gone; an adb server
+ * restart drops them too and can give the same id again.
+ */
+export async function transportId(): Promise<string | null> {
+  try {
+    const named = await serial();
+    const { stdout } = await run(adbPath(), [...server(), 'devices', '-l'], { timeout: 20_000 });
+    return readTransportId(stdout, named);
+  } catch {
+    return null;
+  }
 }
 
 /** Stops with one plain line unless exactly one headset is attached and authorized. */
 export async function requireHeadset(): Promise<void> {
-  if (!(await listens(serverPort()))) {
+  const port = serverPort();
+  const spoken = await serverVersion(port);
+  if (spoken === null) {
     console.error(
-      `No adb server listens on port ${serverPort()}, the headset's: the device tools never start one, so nothing ran.`,
+      `No adb server listens on port ${port}, the headset's: the device tools never start one, so nothing ran.`,
+    );
+    process.exit(1);
+  }
+  const mine = await clientVersion();
+  if (mine !== spoken) {
+    console.error(
+      `The adb server on port ${port} speaks adb version ${spoken}, and this adb ${mine ?? 'an unknown version'}: adb would restart the headset's server, so nothing ran. Name the adb that started it with HALCYONIC_ADB.`,
     );
     process.exit(1);
   }
