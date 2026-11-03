@@ -70,7 +70,10 @@
    gate; a request that waits more than 15 s for a place to be read is refused. The gate always connects to the control
    plane's Ollama address, `127.0.0.1:11434`, never one a request names. The adapter points
    OpenCode at it with `OPENCODE_CONFIG_CONTENT`, which OpenCode loads after every other settings
-   source, so its `baseURL` wins, and which nothing else may set.
+   source, so its `baseURL` wins, and which nothing else may set. Amended 2026-11-03: the gate also
+   refuses what a web page could send, as Ollama does: 403 for another `Host` than its own address
+   and port, any `Origin` or a `Sec-Fetch-Site` other than `none`, and 415 for a show or chat not
+   sent as `application/json` ([opencode-sandbox.md](../validation/opencode-sandbox.md)).
 
 ## Alternatives considered
 
