@@ -25,7 +25,7 @@ import {
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { templateDigest } from '../starters.ts';
 import { createTestControlPlane } from '../testing/harness.ts';
-import { type CheckOptions, type CheckResult, HOST_FILES } from './check.ts';
+import { type CheckOptions, type CheckResult, HOST_FILES, summarizeExceptions } from './check.ts';
 import { type ChromeRun, DevToolsPipe } from './chrome.ts';
 import type { HostPreviewsDeps, ServeArgs } from './preview.ts';
 
@@ -103,6 +103,8 @@ interface PlaneOptions {
   };
   /** Whether the stand-in check makes the starter's own picture when asked; by default it does. */
   readonly reference?: 'made' | 'fails';
+  /** What Halcyonic holds, which nothing journaled may carry. */
+  readonly secrets?: () => readonly { readonly what: string; readonly value: string }[];
 }
 
 /** The starter's own picture the stand-in check makes (DRAWN). */
@@ -143,6 +145,7 @@ function plane(
     launcher = '/fake/bin/halcyonic-disclaim',
     starters,
     reference = 'made',
+    secrets,
   }: PlaneOptions = {},
 ) {
   const dataDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-previews-')));
@@ -151,6 +154,7 @@ function plane(
   const served: ServeArgs[] = [];
   const children: ChildProcess[] = [];
   const { controlPlane, journal } = createTestControlPlane({
+    ...(secrets === undefined ? {} : { secrets }),
     previews: {
       dataDir,
       home: '/Users/someone',
@@ -670,6 +674,78 @@ describe("the host's checks and previews (ADR 0037)", () => {
     assert.equal(controlPlane.projection.latestCheck(projectId)?.findings.passed, false);
     const { outcome } = submit('project.preview.start');
     assert.equal(outcome.disposition, 'rejected');
+  });
+
+  test("a page's exception texts are journaled without what Halcyonic holds or what looks like a key (P1b)", async (t) => {
+    // A page can throw what its build pulled in, and its words are journaled for every paired device.
+    const held = `omn_${'Zr8tYw3nQp5k'.repeat(2)}`;
+    const shaped = `sk-proj-${'a1B2c3D4'.repeat(3)}`;
+    // As long as the check keeps one, which naming the secret lengthens.
+    const long = `Uncaught Error: ${'x'.repeat(255)} ${held}`;
+    assert.equal(long.length, 300);
+    const result: CheckResult = {
+      ...PASSED,
+      page: {
+        ...(PASSED.page as NonNullable<CheckResult['page']>),
+        exception_count: 3,
+        exceptions: [`Uncaught Error: ${held}`, `Uncaught TypeError: ${shaped} was refused`, long],
+      },
+      passed: false,
+    };
+    const { controlPlane, submit, done, projectId, journal } = plane(t, {
+      result,
+      secrets: () => [{ what: 'Omnorium credential', value: held }],
+    });
+    await done(submit('project.check').command.command_id);
+
+    const exceptions = controlPlane.projection.latestCheck(projectId)?.findings.page?.exceptions;
+    assert.deepEqual(exceptions?.slice(0, 2), [
+      'Uncaught Error: [redacted: Omnorium credential]',
+      'Uncaught TypeError: [redacted] was refused',
+    ]);
+    // Longer once a secret is named, it is cut again to what a finding may hold.
+    assert.ok((exceptions?.[2]?.length ?? 0) <= 300);
+    const journaled = JSON.stringify(journal.read({ after: 0, limit: 1000 }));
+    assert.ok(!journaled.includes(held) && !journaled.includes(shaped));
+  });
+
+  test("a held secret across an exception's 300th character is taken out whole before the text is cut (P1b, AUDIT)", async (t) => {
+    // AUDIT's probe: Chrome's texts through the check's own summary, the secret where the cut falls.
+    const hex = 'a3f9c2e1b4d6078f9e2a1c3b5d7e9f0a1b2c3d4e';
+    const token = 'Qm7xT2vR9pL4kW8nZ3cY6hJ1sF5dG0bA7eU2iO9qX4t';
+    const at = (secret: string, kept: number) => {
+      const head = 'Uncaught TypeError: Failed to fetch https://tiles.example.com/v4/tiles?';
+      const pad = 300 - kept - head.length - 'key='.length;
+      const params = 'lang=en&'.repeat(Math.ceil(pad / 8)).slice(0, pad);
+      return `${head}${params}key=${secret}&format=png\n    at load (http://127.0.0.1:47930/assets/index.js:1:1)`;
+    };
+    const result: CheckResult = {
+      ...PASSED,
+      page: {
+        ...(PASSED.page as NonNullable<CheckResult['page']>),
+        exception_count: 3,
+        exceptions: summarizeExceptions([at(hex, 39), at(token, 31), at(hex, 40)]),
+      },
+      passed: false,
+    };
+    const { controlPlane, submit, done, projectId, journal } = plane(t, {
+      result,
+      secrets: () => [
+        { what: 'Maps key', value: hex },
+        { what: 'access token', value: token },
+      ],
+    });
+    await done(submit('project.check').command.command_id);
+
+    const kept = controlPlane.projection.latestCheck(projectId)?.findings.page?.exceptions ?? [];
+    assert.equal(kept.length, 3);
+    assert.ok(kept[0]?.includes('key=[redacted: Maps key]'), kept[0]);
+    // Named, and the name itself may then be what the cut falls in.
+    assert.ok(kept[1]?.includes('key=[redacted: '), kept[1]);
+    for (const text of kept) assert.ok(text.length <= 300, text);
+    const journaled = JSON.stringify(journal.read({ after: 0, limit: 1000 }));
+    assert.ok(!journaled.includes(hex.slice(0, 8)), 'nothing of the key');
+    assert.ok(!journaled.includes(token.slice(0, 8)), 'nothing of the token');
   });
 
   test('a new check stops the preview of the old one first', async (t) => {

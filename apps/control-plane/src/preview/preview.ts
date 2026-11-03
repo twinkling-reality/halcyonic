@@ -16,12 +16,15 @@ import type { Projection } from '@halcyonic/domain';
 import type { Clock } from '@halcyonic/runtime-core';
 import { type Cause, causedBy, controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import type { Recorder } from '../core/recorder.ts';
+import { fitted, type Redaction } from '../core/redaction.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { Logger } from '../logger.ts';
 import { HostStarters, templateDigest } from '../starters.ts';
 import {
   type CheckOptions,
   type CheckResult,
+  MAX_EXCEPTION_CHARS,
+  MAX_EXCEPTIONS,
   type OwnReference,
   runCheck,
   servesCopy,
@@ -43,6 +46,8 @@ export interface HostPreviewsDeps {
   readonly ids: IdGenerator;
   readonly clock: Clock;
   readonly logger: Logger;
+  /** How a page's error text loses what Halcyonic holds and what looks like a key before it is journaled. */
+  readonly redaction: Redaction;
   /** Halcyonic's data directory: checks and preview records live under it. */
   readonly dataDir: string;
   /** The person's home folder, which the check's profiles keep out of reach. */
@@ -538,7 +543,15 @@ export class HostPreviews {
         page === null
           ? null
           : {
-              exceptions: [...page.exceptions],
+              // A page can throw what its build pulled in, and every paired device reads the journal:
+              // secrets out of each whole text, then the cut, then the distinct ones (P1b).
+              exceptions: [
+                ...new Set(
+                  page.exceptions.map((text) =>
+                    fitted(this.#deps.redaction.errorText(text), MAX_EXCEPTION_CHARS),
+                  ),
+                ),
+              ].slice(0, MAX_EXCEPTIONS),
               exception_count: page.exception_count,
               console_errors: page.console_errors,
               canvases: page.canvases,

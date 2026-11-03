@@ -81,7 +81,7 @@ describe('the check of a project from a starter (ADR 0037)', () => {
     assert.ok(!drawnFrom(56_000, 56_000, own(0.5, 'unavailable')));
   });
 
-  test('reports at most five distinct exceptions, each its first two lines, clipped', () => {
+  test('reports at most five distinct exceptions, each its first two lines, whole for the control plane to redact and then cut (P1b)', () => {
     const many = Array.from(
       { length: 9 },
       (_, n) => `Uncaught TypeError ${n % 6}\n    at a (x.ts:1)\n    at b (y.ts:2)`,
@@ -89,7 +89,7 @@ describe('the check of a project from a starter (ADR 0037)', () => {
     const summary = summarizeExceptions(many);
     assert.equal(summary.length, 5);
     assert.equal(summary[0], 'Uncaught TypeError 0 at a (x.ts:1)');
-    assert.equal(summarizeExceptions([`E ${'x'.repeat(1000)}`])[0]?.length, 300);
+    assert.equal(summarizeExceptions([`E ${'x'.repeat(1000)}`])[0]?.length, 1002);
   });
 });
 

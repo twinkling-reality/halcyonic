@@ -53,7 +53,7 @@ export interface ControlPlaneOptions {
    */
   readonly previews?: Omit<
     HostPreviewsDeps,
-    'recorder' | 'projection' | 'ids' | 'clock' | 'logger'
+    'recorder' | 'projection' | 'ids' | 'clock' | 'logger' | 'redaction'
   >;
   /**
    * Whether the Mac reads each task's folder and journals what every turn changed (ADR 0038), and
@@ -155,6 +155,7 @@ export class ControlPlane {
             ids: options.ids,
             clock: options.clock,
             logger: options.logger,
+            redaction: this.redaction,
           });
     this.files =
       options.observeFiles === undefined
