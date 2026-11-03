@@ -583,12 +583,53 @@ describe('commands', () => {
     assert.equal(projection.command(ids[2])?.status, 'rejected');
     assert.deepEqual(
       projection.commands(1).map((view) => view.command_id),
-      [ids[1], ids[2]],
-      'one finished command is kept alongside the pending one',
+      [ids[0], ids[1]],
+      'the command that finished last is kept alongside the pending one',
     );
     assert.deepEqual(
       projection.pendingCommands().map((view) => view.command_id),
       [ids[1]],
+    );
+  });
+
+  test('a snapshot keeps the commands that finished last, however long they waited, in journal order (U6)', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const command = (id: string): CommandEnvelope => ({
+      schema_version: 1,
+      command_id: id as CommandId,
+      command_type: 'project.create',
+      issued_at: '2026-09-26T10:00:00.000Z',
+      client: { name: 'test', version: null, device_label: null },
+      payload: { name: 'P', location: null },
+    });
+    const scope = { project_id: null, workstream_id: null, execution_id: null };
+    const complete = (id: string) =>
+      projection.apply(
+        b.controlPlane('command.completed', scope, {
+          command_id: id as CommandId,
+          command_type: 'project.create',
+          result: null,
+        }),
+      );
+    const [waited, early, later, pending] = [b.id(), b.id(), b.id(), b.id()];
+    projection.apply(b.command(command(waited), 'accepted'));
+    for (const id of [early, later]) {
+      projection.apply(b.command(command(id), 'accepted'));
+      complete(id);
+    }
+    projection.apply(b.command(command(pending), 'accepted'));
+    complete(waited);
+
+    // The one that waited finished last, so it stays and the earliest to finish goes; the list
+    // keeps the order the commands were journaled in.
+    assert.deepEqual(
+      projection.commands(2).map((view) => view.command_id),
+      [waited, later, pending],
+    );
+    assert.deepEqual(
+      projection.commands(0).map((view) => view.command_id),
+      [pending],
     );
   });
 });

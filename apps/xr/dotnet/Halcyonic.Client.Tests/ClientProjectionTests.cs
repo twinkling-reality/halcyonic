@@ -209,6 +209,28 @@ public class ClientProjectionTests
         Assert.That(state.Commands.Keys, Is.EquivalentTo(new[] { "waits", "pending" }.Concat(Enumerable.Range(71, 49).Select(Numbered))));
     }
 
+    [Test]
+    public void AfterASnapshotTheCommandThatFinishedLongestAgoGoesFirst()
+    {
+        // A snapshot lists commands in the order they were journaled, so one that waited comes first though it
+        // finished last; it stays, and the earliest to finish goes (U6).
+        string Numbered(int index) => "c" + index.ToString("000");
+        string At(int index) => "2026-09-26T09:00:00." + index.ToString("000") + "Z";
+        var snapshot = Samples.Snapshot(1);
+        snapshot.Commands = new[] { Command("waited", CommandStatus.Completed, At(60)) }
+            .Concat(Enumerable.Range(0, 49).Select(index => Command(Numbered(index), CommandStatus.Completed, At(index))))
+            .ToList();
+        var state = new ClientProjection();
+        state.ApplySnapshot(snapshot, new StateChanges());
+
+        state.ApplyEvent(CommandEvent(2, Command("newest", CommandStatus.Completed, At(61))), new StateChanges());
+
+        Assert.That(state.Commands.Keys, Does.Contain("waited"), "it finished last but one");
+        Assert.That(state.Commands.Keys, Does.Contain("newest"));
+        Assert.That(state.Commands.Keys, Does.Not.Contain(Numbered(0)), "the earliest to finish");
+        Assert.That(state.Commands, Has.Count.EqualTo(ClientProjection.FinishedCommandsKept));
+    }
+
     private static EventMessage CommandEvent(long position, CommandView command)
     {
         var message = Samples.Event(position);
@@ -216,7 +238,7 @@ public class ClientProjectionTests
         return message;
     }
 
-    private static CommandView Command(string id, CommandStatus status) => new()
+    private static CommandView Command(string id, CommandStatus status, string updatedAt = Samples.Time) => new()
     {
         CommandId = id,
         CommandType = CommandType.ExecutionSendInstruction,
@@ -225,7 +247,7 @@ public class ClientProjectionTests
         WorkstreamId = null,
         ExecutionId = null,
         IssuedAt = Samples.Time,
-        UpdatedAt = Samples.Time,
+        UpdatedAt = updatedAt,
         Rejection = null,
         Failure = null,
         Result = null,

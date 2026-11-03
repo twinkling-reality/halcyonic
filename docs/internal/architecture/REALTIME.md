@@ -14,7 +14,7 @@ credential instead (below, and [SECURITY.md](SECURITY.md)).
 | Method and path | Returns |
 | --- | --- |
 | `GET /api/health` | `{status: 'ok'}`; no token needed, reveals nothing |
-| `GET /api/snapshot` | `Snapshot`: journal identity, position, projects, workstreams, executions, recent commands, runtimes |
+| `GET /api/snapshot` | `Snapshot`: journal identity, position, projects, workstreams, executions, commands (every pending one and the 50 whose outcomes came last, in journal order), runtimes |
 | `GET /api/projects` | Projects at the current position |
 | `GET /api/workstreams?project_id=` | Workstreams, optionally for one project |
 | `GET /api/runtimes` | Runtime descriptors with capabilities; clients show only supported actions |
