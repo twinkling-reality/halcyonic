@@ -54,23 +54,40 @@ namespace Halcyonic.Client
     /// Recent activity per execution, derived from journaled events. Live events come from
     /// <see cref="StateChanges.Events"/>; a snapshot carries current state but no history, so after
     /// a resynchronization the history of an execution being looked at is read again with
-    /// <see cref="IEventHistory"/>. Not thread safe; use it from one thread.
+    /// <see cref="IEventHistory"/>. It keeps every line, up to the capacity, of the executions most
+    /// recently recorded or read, and of the rest only the last few and the last one that is not a
+    /// round's, which a peek shows; opening a file reads its history again (U6). Not thread safe; use
+    /// it from one thread.
     /// </summary>
     public sealed class ActivityLog
     {
         private readonly int capacity;
+        private readonly int keptWhole;
+        private readonly int tail;
         private readonly Dictionary<string, List<ActivityEntry>> entries = new Dictionary<string, List<ActivityEntry>>();
         private readonly Dictionary<string, string> toolNames = new Dictionary<string, string>();
         private readonly Dictionary<string, string> runtimeNames = new Dictionary<string, string>();
+        // The executions whose lines are all kept, the least recently recorded or read first.
+        private readonly LinkedList<string> recent = new LinkedList<string>();
+        private readonly Dictionary<string, LinkedListNode<string>> recentNodes = new Dictionary<string, LinkedListNode<string>>();
 
-        public ActivityLog(int capacityPerExecution = 200)
+        public ActivityLog(int capacityPerExecution = 200, int executionsKeptWhole = 32, int linesKeptOtherwise = 3)
         {
             capacity = capacityPerExecution;
+            keptWhole = executionsKeptWhole;
+            tail = linesKeptOtherwise;
         }
 
-        /// <summary>The execution's activity, oldest first.</summary>
-        public IReadOnlyList<ActivityEntry> For(string executionId) =>
-            entries.TryGetValue(executionId, out var list) ? list : (IReadOnlyList<ActivityEntry>)new ActivityEntry[0];
+        /// <summary>The execution's activity, oldest first. Reading it keeps all of it.</summary>
+        public IReadOnlyList<ActivityEntry> For(string executionId)
+        {
+            if (!entries.TryGetValue(executionId, out var list)) return new ActivityEntry[0];
+            Touch(executionId);
+            return list;
+        }
+
+        /// <summary>Tool calls whose names wait for their completion line: started and not yet completed.</summary>
+        public int OpenToolCalls => toolNames.Count;
 
         /// <summary>Adds events in journal order, skipping ones already recorded. Returns the executions that changed.</summary>
         public ISet<string> Record(IEnumerable<StoredEvent> events)
@@ -94,7 +111,9 @@ namespace Halcyonic.Client
                 Insert(list, entry);
                 if (list.Count > capacity) list.RemoveAt(0);
                 changed.Add(executionId);
+                Touch(executionId);
             }
+            KeepWithinBound();
             return changed;
         }
 
@@ -104,6 +123,45 @@ namespace Halcyonic.Client
             entries.Clear();
             toolNames.Clear();
             runtimeNames.Clear();
+            recent.Clear();
+            recentNodes.Clear();
+        }
+
+        private void Touch(string executionId)
+        {
+            if (recentNodes.TryGetValue(executionId, out var node))
+            {
+                recent.Remove(node);
+            }
+            else
+            {
+                node = new LinkedListNode<string>(executionId);
+                recentNodes[executionId] = node;
+            }
+            recent.AddLast(node);
+        }
+
+        /// <summary>Past the executions kept whole, the least recently recorded or read keeps only its tail.</summary>
+        private void KeepWithinBound()
+        {
+            while (recent.Count > keptWhole)
+            {
+                var oldest = recent.First!.Value;
+                recent.RemoveFirst();
+                recentNodes.Remove(oldest);
+                if (entries.TryGetValue(oldest, out var list)) KeepTail(list);
+            }
+        }
+
+        /// <summary>The last lines, and before them the last one that is not a round's when they are all rounds'.</summary>
+        private void KeepTail(List<ActivityEntry> list)
+        {
+            if (list.Count <= tail) return;
+            var start = list.Count - tail;
+            var said = list.FindLastIndex(entry => entry.Kind != ActivityKind.Turn);
+            var kept = said >= 0 && said < start ? list[said] : null;
+            list.RemoveRange(0, start);
+            if (kept != null) list.Insert(0, kept);
         }
 
         private ActivityEntry? Describe(StoredEvent stored)
@@ -152,7 +210,8 @@ namespace Halcyonic.Client
                     return Said(ActivityKind.Tool, LineWords.Theirs(tool.Payload.Title) is { IsEmpty: false } title ? used + Ours(" · ") + title : used);
                 case RuntimeToolCompletedEvent toolDone:
                     var succeeded = toolDone.Payload.Outcome == ToolOutcome.Succeeded;
-                    return Said(ActivityKind.Tool, toolNames.TryGetValue(ToolKey(e, toolDone.Payload.ToolCallId), out var known)
+                    // The completion line is the name's last use, so the name goes with it (U6).
+                    return Said(ActivityKind.Tool, toolNames.Remove(ToolKey(e, toolDone.Payload.ToolCallId), out var known)
                         ? Ours(succeeded ? "Succeeded · " : "Failed · ") + LineWords.TheirName(known) + Ours(" · Reported")
                         : Ours(succeeded ? "Tool Succeeded · Reported" : "Tool Failed · Reported"));
                 case RuntimeTestRunStartedEvent tests:

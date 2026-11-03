@@ -183,4 +183,51 @@ public class ClientProjectionTests
         state.ApplySnapshot(Samples.Snapshot(3), new StateChanges());
         Assert.That(state.MadeFromOf("proj-vr"), Is.Null);
     }
+
+    [Test]
+    public void ALongConnectionKeepsPendingCommandsAndTheLast50ToFinish()
+    {
+        // As a snapshot does (U6), what finished longest ago goes first, so a command that has just finished, however
+        // long it waited, is still there for whatever watches it.
+        var state = new ClientProjection();
+        state.ApplySnapshot(Samples.Snapshot(1), new StateChanges());
+        long position = 1;
+        void Apply(string id, CommandStatus status) => state.ApplyEvent(CommandEvent(++position, Command(id, status)), new StateChanges());
+        string Numbered(int index) => "c" + index.ToString("000");
+
+        Apply("waits", CommandStatus.Accepted);
+        for (var index = 0; index < 120; index++)
+        {
+            Apply(Numbered(index), CommandStatus.Accepted);
+            Apply(Numbered(index), CommandStatus.Completed);
+        }
+        Apply("pending", CommandStatus.Accepted);
+        Assert.That(state.Commands.Keys, Is.EquivalentTo(new[] { "waits", "pending" }.Concat(Enumerable.Range(70, 50).Select(Numbered))));
+
+        Apply("waits", CommandStatus.Failed);
+        Assert.That(state.Commands["waits"].Status, Is.EqualTo(CommandStatus.Failed), "the newest to finish stays");
+        Assert.That(state.Commands.Keys, Is.EquivalentTo(new[] { "waits", "pending" }.Concat(Enumerable.Range(71, 49).Select(Numbered))));
+    }
+
+    private static EventMessage CommandEvent(long position, CommandView command)
+    {
+        var message = Samples.Event(position);
+        message.Changes.Commands.Add(command);
+        return message;
+    }
+
+    private static CommandView Command(string id, CommandStatus status) => new()
+    {
+        CommandId = id,
+        CommandType = CommandType.ExecutionSendInstruction,
+        Status = status,
+        ProjectId = Samples.ProjectId,
+        WorkstreamId = null,
+        ExecutionId = null,
+        IssuedAt = Samples.Time,
+        UpdatedAt = Samples.Time,
+        Rejection = null,
+        Failure = null,
+        Result = null,
+    };
 }
