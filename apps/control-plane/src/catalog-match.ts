@@ -2,6 +2,7 @@ import { constants } from 'node:fs';
 import { lstat, open, realpath } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import type { LocationsResponse } from '@halcyonic/contracts';
+import { NO_LINK } from './observer/file-observer.ts';
 
 /**
  * Which folders the host lists are clones of which GitHub repositories, by their own git
@@ -75,8 +76,9 @@ export async function matchFolders(
 /**
  * The `owner/name` of a folder's origin on github.com, or null (AUDIT G1): only from a `.git` that is
  * itself a directory, never a link or a `.git` file pointing elsewhere, whose `config` is a regular
- * file of at most 64 KiB, opened without following a link and without waiting on a pipe, and checked
- * again through the open handle. Git is never run.
+ * file of at most 64 KiB, opened without waiting on a pipe and without following a link, on macOS
+ * anywhere in its path (`NO_LINK`), so the folder or its `.git` swapped for a link after it was
+ * checked leads nowhere, and checked again through the open handle. Git is never run.
  */
 export async function readOrigin(folder: string): Promise<string | null> {
   try {
@@ -85,7 +87,7 @@ export async function readOrigin(folder: string): Promise<string | null> {
     const path = join(folder, '.git', 'config');
     const named = await lstat(path);
     if (!named.isFile() || named.size > CONFIG_MAX_BYTES) return null;
-    const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK | NO_LINK);
     try {
       const opened = await file.stat();
       if (!opened.isFile() || opened.ino !== named.ino || opened.dev !== named.dev) return null;

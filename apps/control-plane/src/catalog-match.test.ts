@@ -138,6 +138,15 @@ describe('reading a folder (AUDIT G1)', () => {
     mkdirSync(fifo);
     assert.equal(await readOrigin(fifo), null);
   });
+
+  test('a listed folder swapped for a link to another repository is not read through, on this Mac', {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const other = repository('other-repository', origin('https://github.com/acme/other.git'));
+    // The folder the listing named, now a link: O_NOFOLLOW alone would open the config it leads to.
+    symlinkSync(other, join(base, 'swapped'));
+    assert.equal(await readOrigin(join(base, 'swapped')), null);
+  });
 });
 
 describe('matching the listed folders', () => {
