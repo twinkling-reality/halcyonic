@@ -52,12 +52,14 @@ Any other answer refuses in plain words, and no adb command beyond finding the h
 3. Notes whether Quest Browser (`com.oculus.browser`) runs (`pidof`).
 4. Refuses when `adb reverse --list` cannot be read, or shows a reverse of the headset's port that
    is not this tool's: a rule is this tool's only when the port is in its state and the rule's line
-   is exactly `<transport> tcp:<port> tcp:<port>` (that line shape is read from adb's output, not
-   yet seen on this headset for a preview port). Otherwise records the port in the tool's state, then
+   is exactly `<transport> tcp:<port> tcp:<port>` (that line shape is read from adb's output; on
+   this headset it was `UsbFfs tcp:47800 tcp:47800` for 47800 on 2026-11-03, not yet seen for a
+   preview port). Otherwise records the port in the tool's state, then
    `adb reverse --no-rebind tcp:<port> tcp:<port>`, so it never replaces anyone's rule; if that
    fails the port is forgotten again. Android's adb page does not document `reverse`; plain
    `reverse` ran on this headset for 47800 ([xr-loopback-proof.md](xr-loopback-proof.md),
-   [quest-3-device.md](quest-3-device.md)); `--no-rebind` has not run on it yet.
+   [quest-3-device.md](quest-3-device.md)), and `--no-rebind` for 47800 on 2026-11-03
+   ([quest-headset-in-the-loop.md](quest-headset-in-the-loop.md)).
 5. `am start -W -a android.intent.action.VIEW -d http://127.0.0.1:<port>/ com.oculus.browser`.
    Android's page documents `-W`, `-a` and `-d`, and a package given as a plain argument; it
    documents no `-p` for `am start`, so the tool does not use one.

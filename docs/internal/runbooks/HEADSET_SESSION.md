@@ -183,6 +183,8 @@ export ANDROID_ADB_SERVER_PORT=5038 ADB_SERVER_SOCKET=tcp:localhost:5038
    adb reverse --list
    adb reverse tcp:47800 tcp:47800
    ```
+   `pnpm quest:device -- connect` makes the same mapping in place of the last line, and `give-back`
+   removes it at the end.
    If the install says `INSTALL_FAILED_VERSION_DOWNGRADE`, build with a suitable version code.
    Uninstalling deletes saved pairings and drafts and is not part of a routine update.
 4. On a first setup, write the token into the app's private storage with `run-as`, whole and private before it takes
@@ -637,13 +639,16 @@ within two minutes of the stop, `status` says the recording may still be going: 
 `pnpm quest:device` reads the headset and drives what a check needs without anyone wearing it
 ([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)). It goes to the
 headset's adb server on 5038 (`HALCYONIC_ADB_PORT`), names the headset (`HALCYONIC_QUEST_SERIAL`,
-else the one that server lists) and refuses the shared server on 5037. In order:
+else the one that server lists) and refuses the shared server on 5037. It never starts an adb
+server: when nothing listens on the port, it stops before running adb. `--package` takes only an
+Android package name. In order:
 
 ```bash
 pnpm quest:device -- status
 pnpm quest:device -- awake
 pnpm quest:device -- save
 pnpm quest:device -- install apps/xr/Builds/Halcyonic.apk --saved .private/quest/com.halcyonic.xr-installed-<sha>.apk
+pnpm quest:device -- connect
 pnpm quest:device -- launch
 pnpm quest:device -- shot
 pnpm quest:device -- logs --out .private/quest/halcyonic.log
@@ -654,7 +659,10 @@ pnpm quest:device -- give-back
 
 - `status` says in plain words whether it is awake and what is in front. "Can't find its position in
   the room" is Meta's Guardian dialog: nothing opens until the headset sees the room, so stand it
-  facing the room or wear it. Never press anything in a system dialog.
+  facing the room or wear it. Meta's Headset Power menu (Sleep, Cancel, Power Options), which a
+  power-button hold leaves open, held a launch too; it stayed open through a sleep and a wake, and
+  only someone in the headset closes it. `status` names each system dialog showing, as `front` and then `also`, since one
+  can show below another task. Never press anything in a system dialog.
 - `awake` keeps it awake on the desk (the proximity override); `give-back` hands the sensor back and
   stops the apps this tool started. Run it at the end, every time. While the Guardian dialog holds the
   headset, the override reads on until the headset sleeps; `give-back` says so and does not fail for it.
@@ -670,7 +678,12 @@ pnpm quest:device -- give-back
   `uninstall --package com.halcyonic.xr.check` removes it at the end. Both act on that package only.
   `install` and `restore` first read the APK's own package with `aapt2` and refuse unless it is the
   one named, and a check install fails if the owner's app's bytes changed.
-- `launch` fails, and stops the app again, when a system dialog holds the launch. Launching the
+- `connect` makes the control plane's one mapping, the headset's 47800 to the Mac's (the `adb reverse`
+  of "Connect"), recorded first so `connect stop` and `give-back` remove it. It refuses while any other
+  mapping uses 47800, however spelled, and leaves one it did not make as it is.
+- `launch` fails, and stops the app again, when a system dialog holds the launch or `am start` does not
+  say ok. The hold is read by its words from the log since the launch, whatever its tag. A held launch
+  stays cached and may start when the dialog closes, so `give-back` stops it again. Launching the
   owner's own Halcyonic rewrites one of its files; never run it with a real runtime behind it.
   `--extra key=text` and `--extra-bool key=true|false` pass intent extras, letters, digits and
   `._:/-` only, since the headset's shell reads the command.

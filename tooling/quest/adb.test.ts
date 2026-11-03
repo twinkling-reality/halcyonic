@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { type AddressInfo, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
@@ -58,6 +59,30 @@ describe('adb for the device tools', () => {
     assert.throws(() => serverPort({ HALCYONIC_ADB_PORT: '5037' }), /5037/);
     assert.throws(() => serverPort({ HALCYONIC_ADB_PORT: '5039' }), /5039/);
     assert.throws(() => serverPort({ HALCYONIC_ADB_PORT: 'five' }), /HALCYONIC_ADB_PORT/);
+  });
+
+  test('a plain connect tells whether anything listens on a port, and sends it nothing', async () => {
+    // adb starts a server of its own on the port when none answers there; the tools look first.
+    const { listens } = await import('./adb.ts');
+    const received: Buffer[] = [];
+    let closed: () => void = () => {};
+    const ended = new Promise<void>((resolve) => {
+      closed = resolve;
+    });
+    const server = createServer((socket) => {
+      socket.on('data', (chunk: Buffer) => received.push(chunk));
+      socket.on('close', () => closed());
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    try {
+      assert.equal(await listens(port), true);
+      await ended;
+      assert.equal(Buffer.concat(received).length, 0);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+    assert.equal(await listens(port), false);
   });
 
   test('without HALCYONIC_QUEST_SERIAL the one headset the server lists is used', async () => {
