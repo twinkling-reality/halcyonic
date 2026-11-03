@@ -70,6 +70,14 @@ export type ReadResult =
  */
 const SKIPPED_NAMES = new Set(['.git', 'node_modules']);
 
+/**
+ * The open flag that refuses a link: anywhere in the path where macOS can (`O_NOFOLLOW_ANY`, macOS 11;
+ * Node passes it through though its constants do not name it), so a folder above a file, swapped for a
+ * link after the folder was listed, leads nowhere (U4); elsewhere only at the path's end
+ * (`O_NOFOLLOW`). macOS refuses the two together (EINVAL), and the first already covers the end.
+ */
+export const NO_LINK = process.platform === 'darwin' ? 0x20000000 : constants.O_NOFOLLOW;
+
 /** How many bytes are read at a time. */
 const CHUNK_BYTES = 64 * 1024;
 
@@ -186,9 +194,9 @@ export async function readEntry(
 ): Promise<Entry | null | 'too_large'> {
   let handle: Awaited<ReturnType<typeof open>>;
   try {
-    handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK | NO_LINK);
   } catch (error) {
-    // A link where the file was listed.
+    // A link where the file was listed, or, on macOS, where a folder above it was.
     if ((error as NodeJS.ErrnoException).code === 'ELOOP') return null;
     throw error;
   }

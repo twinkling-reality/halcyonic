@@ -142,6 +142,20 @@ describe('reading one file, as it is when opened', () => {
     );
   });
 
+  test('a file under a folder swapped for a link after the listing is not read through, on this Mac (U4)', {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const root = folder('swap-above');
+    mkdirSync(join(base, 'elsewhere'), { recursive: true });
+    writeFileSync(join(base, 'elsewhere', 'a.txt'), 'secret\nlines\n');
+    // The folder the file was listed in, now a link: O_NOFOLLOW alone would open what it leads to.
+    symlinkSync(join(base, 'elsewhere'), join(root, 'src'));
+    assert.equal(
+      await readEntry(join(root, 'src', 'a.txt'), undefined, { files: 10, countLinesUpTo: 1024 }),
+      null,
+    );
+  });
+
   test('a link to an endless device is not read through', { timeout: 5000 }, async () => {
     const root = folder('swap-zero');
     symlinkSync('/dev/zero', join(root, 'a.txt'));
