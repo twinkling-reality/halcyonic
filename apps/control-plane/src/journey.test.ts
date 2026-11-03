@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFile, spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   chmodSync,
   existsSync,
@@ -2200,6 +2200,397 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     await event('project.restored');
     assert.deepEqual(hashes(), before, 'every file byte for byte as before the task');
     assert.equal(await git('rev-parse', 'HEAD'), head);
+    assert.equal(client.invalid.length, 0);
+  });
+
+  test('switches a task to another agent and model: a new execution at rest and while one is active, each read and undone as its own task', async (t: TestContext) => {
+    // What XR's switch builds on (SWITCH-PATH, 2026-11-03), with synthetic stand-ins for OpenCode and Codex.
+    const tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-journey-switch-')));
+    t.after(() => rmSync(tempDir, { recursive: true, force: true }));
+    const root = join(tempDir, 'projects');
+    const folder = join(root, 'garden');
+    mkdirSync(folder, { recursive: true });
+    const original = { 'notes.md': '# Garden\n', 'math.js': 'export const one = 1;\n' };
+    for (const [name, text] of Object.entries(original)) writeFileSync(join(folder, name), text);
+    const read = () =>
+      Object.fromEntries(
+        Object.keys(original).map((name) => [name, readFileSync(join(folder, name), 'utf8')]),
+      );
+
+    // Halcyonic's own sandboxed OpenCode store and Codex home, where these runtimes keep sessions.
+    const dataDir = join(tempDir, 'data');
+    mkdirSync(join(dataDir, 'opencode-sandbox', 'data', 'opencode'), { recursive: true });
+    writeFileSync(join(dataDir, 'opencode-sandbox', 'data', 'opencode', 'opencode.db'), '');
+    const codexHome = join(dataDir, 'codex-home');
+    const time = createVirtualTime(new Date(Date.now() + 1_000));
+
+    const salidium = await FakeSalidium.start();
+    t.after(() => salidium.close());
+    salidium.minor = 1;
+    salidium.providers = ['claude-code', 'codex', 'salidium/opencode'];
+    salidium.writeDiscovery();
+    const seorak = await FakeSeorak.start();
+    t.after(() => seorak.close());
+    const credential = (name: string, token: string) => {
+      const path = join(dataDir, name);
+      writeFileSync(path, `${token}\n`, { mode: 0o600 });
+      return path;
+    };
+
+    const fileObserver = new FileObserver({ protect: [dataDir] });
+    const answers = new Map<string, (decision: 'approve' | 'deny') => void>();
+    const MODEL = 'ollama/stand-in:1b';
+    /**
+     * A synthetic stand-in: each start's instruction names what its one turn does to the folder,
+     * `notes`, `math` or nothing, and `ask` makes it wait on an approval first.
+     */
+    const standIn = (kind: 'opencode' | 'codex'): RuntimeAdapter => ({
+      descriptor: {
+        runtime_id: kind as RuntimeId,
+        kind,
+        display_name: `${kind === 'opencode' ? 'OpenCode' : 'Codex'} (synthetic journey adapter)`,
+        synthetic: true,
+        capabilities: {
+          start_execution: true,
+          instruct_at_rest: false,
+          instruct_while_running: false,
+          respond_to_approval: true,
+          answer_question: false,
+          interrupt: false,
+        },
+        model_choice: kind === 'codex' ? 'listed' : 'none',
+        uses_project_location: true,
+        reports_tool_activity: true,
+        reports_tool_results: false,
+        // As each declares: OpenCode's approved commands stay in Halcyonic's sandbox, Codex's may not.
+        approval_may_leave_sandbox: kind === 'codex',
+      },
+      validateStartOptions: () => ({ ok: true }),
+      ...(kind === 'codex' && {
+        listModels: async () => [
+          {
+            model_ref: MODEL,
+            display_name: 'stand-in:1b (Ollama)',
+            served: 'this_mac' as const,
+            tool_calling: 'unknown' as const,
+            context_tokens: 65_536,
+          },
+        ],
+      }),
+      async startExecution(request: StartExecutionRequest) {
+        const directory = request.directory as string;
+        await fileObserver.baseline(request.execution.execution_id, directory);
+        const nativeId =
+          kind === 'codex' ? randomUUID() : `ses_${randomUUID().replaceAll('-', '')}`;
+        if (kind === 'codex') {
+          // Codex writes its rollout in Halcyonic's own Codex home, by the start's local date.
+          const day = time.now();
+          const dated = join(
+            codexHome,
+            'sessions',
+            String(day.getFullYear()),
+            String(day.getMonth() + 1).padStart(2, '0'),
+            String(day.getDate()).padStart(2, '0'),
+          );
+          mkdirSync(dated, { recursive: true });
+          writeFileSync(join(dated, `rollout-2026-11-03T20-00-00-${nativeId}.jsonl`), '{}\n');
+        }
+        let seq = 0;
+        const send = (type: string, payload: unknown) => {
+          seq += 1;
+          request.emit({
+            native_event_id: `${nativeId}:${String(seq)}`,
+            sequence: seq,
+            occurred_at: time.now().toISOString() as never,
+            type: type as never,
+            payload: payload as never,
+            provenance: { epistemic: 'observed', native_type: `${kind}/${type}` },
+          });
+        };
+        send('runtime.execution.started', { native_id: nativeId });
+        if (request.model_ref !== null)
+          send('runtime.model.used', { model_ref: request.model_ref });
+        void (async () => {
+          send('runtime.turn.started', { turn_id: 'turn-1' });
+          if (request.instruction.includes('ask')) {
+            const approvalId = `per_${nativeId.slice(-8)}`;
+            const decision = await new Promise<'approve' | 'deny'>((resolve) => {
+              answers.set(approvalId, resolve);
+              send('runtime.tool.started', {
+                tool_call_id: 'shell',
+                tool_name: 'shell',
+                title: null,
+              });
+              send('runtime.approval.requested', {
+                approval_id: approvalId,
+                subject: {
+                  kind: 'tool_use',
+                  tool_name: 'shell',
+                  summary: "[in the task's folder] ls",
+                },
+                complete: true,
+              });
+            });
+            send('runtime.approval.resolved', {
+              approval_id: approvalId,
+              decision: decision === 'approve' ? 'approved' : 'denied',
+            });
+            send('runtime.tool.completed', { tool_call_id: 'shell', outcome: 'failed' });
+            send('runtime.turn.interrupted', { turn_id: 'turn-1' });
+            return;
+          }
+          for (const name of ['notes', 'math'] as const) {
+            if (!request.instruction.includes(name)) continue;
+            const file = name === 'notes' ? 'notes.md' : 'math.js';
+            writeFileSync(
+              join(directory, file),
+              `${readFileSync(join(directory, file), 'utf8')}// ${kind}\n`,
+            );
+          }
+          send('runtime.turn.completed', { turn_id: 'turn-1' });
+        })();
+        return { native_id: nativeId };
+      },
+      async respondToApproval(request) {
+        answers.get(request.approval_id)?.(request.decision);
+      },
+      close: async () => {},
+    });
+
+    const server = await startTestServer({
+      time,
+      adapters: () => [standIn('opencode'), standIn('codex')],
+      locations: createHostLocations([root]),
+      checkpoints: {
+        store: new CheckpointStore({
+          git: '/usr/bin/git',
+          directory: join(dataDir, 'checkpoints'),
+        }),
+      },
+      understanding: salidiumUnderstanding({
+        home: salidium.home,
+        credentialPath: credential('salidium-credential', salidium.token),
+        codexHome,
+      }),
+      evaluation: seorakEvaluation({
+        credentialPath: credential('seorak-credential', seorak.token),
+        port: seorak.port,
+        codexHome,
+      }),
+    });
+    t.after(() => server.stop());
+    fileObserver.attach({
+      publisher: server.controlPlane.publisher,
+      recorder: server.controlPlane.recorder,
+      projection: server.controlPlane.projection,
+      clock: server.controlPlane.clock,
+      logger: capturingLogger().logger,
+    });
+
+    const client = await RealtimeClient.connect(server.wsUrl, server.token);
+    t.after(() => client.close());
+    client.hello(CLIENT_INFO);
+    await client.waitFor((m) => m.type === 'snapshot');
+    let seq = 0;
+    const submit = async (command_type: CommandEnvelope['command_type'], payload: unknown) => {
+      seq += 1;
+      const command = {
+        schema_version: 1 as const,
+        command_id: `00000000-0000-4000-c000-${String(seq).padStart(12, '0')}` as CommandId,
+        issued_at: '2026-11-03T20:00:00.000Z',
+        client: CLIENT_INFO,
+        command_type,
+        payload,
+      } as CommandEnvelope;
+      client.command(command);
+      const ack = await client.waitFor(
+        (m) => m.type === 'command_ack' && m.command_id === command.command_id,
+      );
+      assert.ok(ack.type === 'command_ack', command_type);
+      return ack;
+    };
+    const projection = server.controlPlane.projection;
+    const atRest = (executionId: ExecutionId) =>
+      client.waitFor(
+        () =>
+          ['completed', 'failed', 'interrupted'].includes(
+            projection.execution(executionId)?.status ?? '',
+          ),
+        30_000,
+      );
+    const filesOf = async (executionId: ExecutionId) => {
+      const observed = await client.waitFor(
+        (m) =>
+          m.type === 'event' &&
+          m.event.event_type === 'execution.files.observed' &&
+          m.event.execution_id === executionId,
+        30_000,
+      );
+      assert.ok(
+        observed.type === 'event' && observed.event.event_type === 'execution.files.observed',
+      );
+      return observed.event.payload.changed.files.map((file) => file.path);
+    };
+    const reads = async (executionId: ExecutionId) => {
+      const answer = async (path: string) =>
+        (await (
+          await fetchWithProof(
+            fetch,
+            server.baseUrl,
+            server.token,
+            `/api/executions/${executionId}/${path}`,
+          )
+        ).json()) as UnderstandingResponse | EvaluationResponse;
+      const said = (result: UnderstandingResponse['result'] | EvaluationResponse['result']) =>
+        result.availability === 'available'
+          ? 'available'
+          : `${result.availability} ${result.reason.code} ${result.reason.message}`;
+      return {
+        understanding: said((await answer('understanding')).result),
+        evaluation: said((await answer('evaluation')).result),
+      };
+    };
+
+    await submit('project.create', {
+      name: 'Garden',
+      location: { kind: 'existing_folder', root: realpathSync.native(root), folder_name: 'garden' },
+    });
+    const projectId = projection.projects().find((project) => project.name === 'Garden')
+      ?.project_id as ProjectId;
+    await submit('workstream.create', {
+      project_id: projectId,
+      title: 'Tend the garden',
+      objective: null,
+    });
+    const workstreamId = projection.workstreams().find((w) => w.project_id === projectId)
+      ?.workstream_id as WorkstreamId;
+    const start = async (runtime: 'opencode' | 'codex', instruction: string) => {
+      const ack = await submit('execution.start', {
+        workstream_id: workstreamId,
+        runtime_id: runtime,
+        instruction,
+        options: {},
+        model_ref: runtime === 'codex' ? MODEL : null,
+      });
+      assert.ok(ack.type === 'command_ack');
+      assert.equal(
+        ack.disposition,
+        'accepted',
+        `${runtime}: ${JSON.stringify(ack.command?.rejection)}`,
+      );
+      return projection.workstream(workstreamId)?.current_execution_id as ExecutionId;
+    };
+
+    // 1. At rest: OpenCode's task ends, then the same task goes on with Codex and another model.
+    const first = await start('opencode', 'Write in notes.');
+    await atRest(first);
+    assert.deepEqual(await filesOf(first), ['notes.md']);
+    const second = await start('codex', 'Change math.');
+    assert.notEqual(second, first, 'a new execution');
+    await atRest(second);
+    // The Mac's reading of the second turn starts from the second start: only its own change.
+    assert.deepEqual(await filesOf(second), ['math.js']);
+    const workstream = projection.workstream(workstreamId);
+    assert.deepEqual(workstream?.execution_ids, [first, second]);
+    assert.equal(workstream?.current_execution_id, second);
+    assert.equal(workstream?.status, 'completed');
+    assert.deepEqual(
+      [first, second].map((id) => {
+        const execution = projection.execution(id);
+        return [execution?.runtime.runtime_id, execution?.model_ref, execution?.status];
+      }),
+      [
+        ['opencode', null, 'completed'],
+        ['codex', MODEL, 'completed'],
+      ],
+    );
+    // Understand and Checks follow each execution's own runtime, never the task's latest.
+    const firstReads = await reads(first);
+    const secondReads = await reads(second);
+    assert.match(
+      firstReads.understanding,
+      /^unavailable runtime_not_observed .*own OpenCode store/,
+    );
+    assert.match(firstReads.evaluation, /^unavailable runtime_not_observed .*opencode runtime/);
+    assert.match(secondReads.understanding, /^unavailable runtime_not_observed .*own Codex home/);
+    assert.match(secondReads.evaluation, /^unavailable runtime_not_observed .*own Codex home/);
+
+    // 2. While one is active: a start is admitted, and both agents work in the one folder.
+    const waiting = await start('opencode', 'ask before anything');
+    await client.waitFor(
+      () => projection.execution(waiting)?.status === 'waiting_for_human',
+      30_000,
+    );
+    const beside = await start('codex', 'Look, change nothing.');
+    await atRest(beside);
+    const during = projection.workstream(workstreamId);
+    assert.equal(during?.current_execution_id, beside, 'the newest execution is the current one');
+    assert.equal(during?.status, 'completed', "the task's status is the newest execution's");
+    assert.equal(
+      projection.execution(waiting)?.status,
+      'waiting_for_human',
+      'the first still waits',
+    );
+    assert.deepEqual(
+      during?.attention.reasons.map((reason) => [reason.kind, reason.execution_id]),
+      [['approval_pending', waiting]],
+      "the earlier execution's approval stays in the task's attention",
+    );
+    const pending = projection.execution(waiting)?.pending_approvals[0];
+    assert.ok(pending !== undefined);
+    const denied = await submit('execution.respond_to_approval', {
+      execution_id: waiting,
+      approval_id: pending.approval_id,
+      decision: 'deny',
+      message: null,
+    });
+    assert.ok(
+      denied.type === 'command_ack' && denied.disposition === 'accepted',
+      'not the current one, still answered',
+    );
+    await atRest(waiting);
+
+    // 3. Undo: each start took a checkpoint, so one execution's changes come back apart from another's.
+    const checkpoints = (await (
+      await fetchWithProof(
+        fetch,
+        server.baseUrl,
+        server.token,
+        `/api/projects/${projectId}/checkpoints`,
+      )
+    ).json()) as {
+      result: {
+        checkpoints: { checkpoint_id: string; reason: string; execution_id: string | null }[];
+      };
+    };
+    const beforeTask = (executionId: ExecutionId) =>
+      checkpoints.result.checkpoints.find(
+        (item) => item.reason === 'before_task' && item.execution_id === executionId,
+      )?.checkpoint_id;
+    assert.deepEqual(
+      [first, second, waiting, beside].map((id) => beforeTask(id) !== undefined),
+      [true, true, true, true],
+      'a checkpoint before every start',
+    );
+    const restore = async (checkpointId: string | undefined) => {
+      assert.ok(checkpointId !== undefined);
+      await submit('project.restore', { project_id: projectId, checkpoint_id: checkpointId });
+      await client.waitFor(
+        (m) =>
+          m.type === 'event' &&
+          (m.event.event_type === 'project.restored' ||
+            m.event.event_type === 'project.restore_incomplete') &&
+          m.event.payload.checkpoint_id === checkpointId,
+        30_000,
+      );
+    };
+    await restore(beforeTask(second));
+    assert.deepEqual(read(), {
+      'notes.md': `${original['notes.md']}// opencode\n`,
+      'math.js': original['math.js'],
+    });
+    await restore(beforeTask(first));
+    assert.deepEqual(read(), original, 'both executions undone, byte for byte');
     assert.equal(client.invalid.length, 0);
   });
 });
