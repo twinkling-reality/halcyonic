@@ -407,6 +407,22 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   at a load of 7); a fresh project's check passed.
 - **Not tried:** the headset.
 
+## Decorated from the start, at few draw calls (U4)
+
+- **Question:** can every new game open on the decorated island without costing a headset most of its frame?
+- **Date:** 2026-11-03.
+- **Method:** draw calls counted per animation frame in the lane's own contained browser (a counter of the WebGL draw
+  calls added before the page's scripts, the lane's lab only, never the check), the median of the last 120 frames after
+  6 s, at 1,280 by 800, outside VR.
+- **Before:** the island alone drew 38 calls a frame; with `decorate()` 284, every part of every prop a draw of its own
+  and another for its shadow.
+- **Now:** each tree, bush, flower and butterfly part set is one mesh of merged parts, each vertex in its part's colour
+  (a tree's trunk now shares its crown's roughness), the grass one instanced mesh that still sways tuft by tuft, each
+  cloud one mesh: the decorated island draws 64 calls a frame and looks the same. A fresh project, decorated by
+  default: check passed, type check and build 0, no exception, 56,357 edges at 3 s and 57,571 at 10 s, VR offered; from
+  1 s, 0.35% of pixels change every half second. The one-box game on it read ready in 86 s at a load of 6 to 9.
+- **Not tried:** the headset's own frame time, in stereo, with a game on the island.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

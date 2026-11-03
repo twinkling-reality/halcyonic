@@ -7,7 +7,8 @@
 
 import { World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
-import { setupLook } from './look.js';
+import { decorate } from './decor.js';
+import { gameIsland, setupLook } from './look.js';
 import { PanelSystem } from './panel.js';
 import { setupPlayInput } from './play-input.js';
 
@@ -16,6 +17,7 @@ World.create(
   projectOptions,
 ).then((world) => {
   setupLook(world);
+  decorate(gameIsland());
   setupPlayInput(world);
   world.registerSystem(PanelSystem);
 });

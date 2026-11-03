@@ -320,3 +320,9 @@ to the level's root, so a prop added to the island's group, which sat at the isl
 player when the agent made it interactive, as AGENTS.md told it to. The island's meshes stay at its centre in the scene;
 the game's objects go in a group of their own that is never moved, so an object stays where it is put either way.
 `PLAYER` is the origin and AGENTS.md gives the game's place in world coordinates.
+
+A new game starts decorated (U4): `src/index.ts` calls `decorate(gameIsland())`, so no project opens on an empty
+island; the decor keeps to the island's sides and back, the middle 1 to 3 m in front of the player left for the game,
+and AGENTS.md says how to change its counts. Each prop is now one mesh of merged, vertex-coloured parts, the grass one
+instanced mesh and each cloud one mesh: the decorated island draws 64 calls a frame on the Mac where its parts drew 284
+(38 for the island alone before), counted in the lane's browser.

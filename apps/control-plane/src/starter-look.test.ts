@@ -152,3 +152,51 @@ describe('the world moves by itself from the first frame, by the time a system i
       );
   });
 });
+
+/** Every `[x, z, ...]` spot of decor.ts's LAYOUT, as (x, z) round the island's centre. */
+function layoutSpots(): { x: number; z: number }[] {
+  const decor = read('src/decor.ts');
+  const start = decor.indexOf('const LAYOUT = {');
+  const end = decor.indexOf('} as const;', start);
+  assert.ok(start >= 0 && end > start, 'decor.ts has its LAYOUT');
+  return [...decor.slice(start, end).matchAll(/\[(-?[\d.]+), (-?[\d.]+)/g)].map((found) => ({
+    x: Number(found[1]),
+    z: Number(found[2]),
+  }));
+}
+
+describe('a fresh island comes decorated and costs a headset few draw calls (U4)', () => {
+  test('a new game starts with the decor on', () => {
+    const index = read('src/index.ts');
+    assert.match(index, /decorate\(gameIsland\(\)\);/);
+    assert.ok(index.indexOf('setupLook(world)') < index.indexOf('decorate(gameIsland())'));
+  });
+
+  test('the decor leaves the middle of the island clear for the game, 1 to 3 m in front of the player', () => {
+    // Round the island's centre, the player stands at z = 1.8 (U3b): keep |x| < 0.8 and z from -1.2 to 1.2 free.
+    const spots = layoutSpots();
+    assert.ok(spots.length >= 20, `the layout's spots are read: ${spots.length}`);
+    for (const { x, z } of spots)
+      assert.ok(
+        Math.abs(x) >= 0.8 || z <= -1.2 || z >= 1.2,
+        `decor at (${x}, ${z}) is in the play area`,
+      );
+  });
+
+  test('each prop is one mesh of merged parts, the grass one instanced mesh, each cloud one mesh', () => {
+    const decor = read('src/decor.ts');
+    assert.match(
+      decor,
+      /import \{ mergeGeometries \} from 'three\/addons\/utils\/BufferGeometryUtils\.js';/,
+    );
+    assert.match(decor, /new InstancedMesh\(/);
+    assert.match(decor, /vertexColors = true/);
+    assert.match(read('src/look.ts'), /mergeGeometries\(/);
+  });
+
+  test('the agent is told the island comes decorated and how to change it', () => {
+    const agents = read('AGENTS.md');
+    assert.match(agents, /comes decorated/);
+    assert.match(agents, /decorate\(gameIsland\(\), \{ trees: 2, butterflies: 0 \}\)/);
+  });
+});
