@@ -156,3 +156,32 @@ The check's profile is now closed for reads by default: the system's own paths t
 agent, Node's installation outside the home folder (`toolFoldersFor`), and the project, the starter, the check's
 cache and the controller models, nothing else. The same tests now find neither (`preview/check.test.ts`, opt-in with
 an installed starter; `preview/profiles.test.ts`).
+
+## Amendment, 2026-11-03: a temporary folder for every command
+
+A rehearsal of a new app on a local model found that a confined server's commands could not write a here-document:
+zsh writes every here-document and here-string to a file under `TMPPREFIX`, `/tmp/zsh` unless it is set, and the
+profile refuses `/private/tmp` (`zsh:1: can't create temp file for here document: operation not permitted`). The
+server's temporary folder stays `tmp` in its own Codex home, and its environment now names it twice: `TMPDIR`, and
+`TMPPREFIX` as `<that folder>/zsh`; every command inherits both. Each project has a home of its own, so no two projects
+share the folder. Codex keeps helper links of its own in it too (`tmp/arg0`), made when it starts.
+
+The folder is made anew, empty and closed to others (mode 700), at every launch, and removed when the adapter closes.
+A command of the server's may write anything in its home, so it may leave a link in the folder, or move the home into
+its project and put a link in its place (tried on this Mac, on folders of our own). So only macOS's own `chmod`, `rm`
+and `mkdir` make and remove the folder, inside a second Seatbelt profile that refuses the network and every write but
+in the folder, with the folder named through `codex-confined`, which is Halcyonic's, never through the home: a path
+through such a link leads outside the folder and is refused, so making or removing it reaches nothing the server could
+not reach itself. Folders a command made unwritable, as Go's module cache is, are made writable first. A folder that
+cannot be emptied, such as one holding a file its owner made immutable, stops the launch, and the start is refused,
+naming the folder to remove. A server stopped by its watchdog rather than by close leaves its folder until its
+project's next launch.
+
+Writes to `/tmp` stay refused, since that folder is shared with the person's other programs. macOS's own `mktemp`,
+given no template, with `-t` or with `-d`, makes its file in the person's own temporary folder under `/var/folders`
+whatever `TMPDIR` says (macOS 26.7), and the profile refuses that folder too; `mktemp -p "$TMPDIR"`, a template under
+`$TMPDIR`, and tools that read `TMPDIR`, such as Node's `os.tmpdir()`, use the server's own folder. Whether confined
+commands should get a `mktemp` that reads `TMPDIR` is open ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+Tested with the pinned binary and the fake provider (`codex-runtime.e2e.test.ts`), the fake binary
+(`codex-runtime.test.ts`) and the real profile on folders of our own (`confined-temp.test.ts`)
+([codex-capabilities.md](../validation/codex-capabilities.md)).

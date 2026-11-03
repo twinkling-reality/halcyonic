@@ -14,12 +14,15 @@ import type { AddressInfo } from 'node:net';
  * - `CMD_ESC:<command>`: an `exec_command` call asking to run outside the sandbox, which needs
  *   approval under the `on-request` policy;
  * - `CMD:<command>`: a plain `exec_command` call;
+ * - `CMD_JSON:<JSON string>`: a plain `exec_command` call running the decoded string, which may
+ *   span lines;
  * - `ASK_QUESTION`: a `request_user_input` call asking {@link FAKE_QUESTION};
  * - `SLOW_TEXT`: text streamed one delta per `slowChunkMs` until the client disconnects;
  * - `STEER`: text acknowledging the steer;
  * - otherwise: `Fake reply <n>: acknowledged.`
  *
- * A command runs to the end of its line. Every request is recorded; any other path is answered 404.
+ * A `CMD:` or `CMD_ESC:` command runs to the end of its line. Every request is recorded; any
+ * other path is answered 404.
  */
 export interface FakeProvider {
   /** The `base_url` to configure for the provider, ending in `/v1`. */
@@ -289,7 +292,9 @@ function plan(input: readonly InputItem[], tools: readonly Tool[], n: number): P
   }
   const escalated = /CMD_ESC:(.+)$/m.exec(user);
   const plain = /CMD:(.+)$/m.exec(user);
-  const command = (escalated ?? plain)?.[1]?.trim();
+  const encoded = /CMD_JSON:("(?:[^"\\]|\\.)*")/.exec(user)?.[1];
+  const decoded: unknown = encoded === undefined ? undefined : JSON.parse(encoded);
+  const command = typeof decoded === 'string' ? decoded : (escalated ?? plain)?.[1]?.trim();
   if (command !== undefined) {
     if (!tools.some((tool) => tool.name === 'exec_command')) {
       return { kind: 'text', text: 'No exec_command tool was offered.' };

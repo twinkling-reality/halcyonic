@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
@@ -1775,6 +1776,55 @@ describe('a confined project (ADR 0041)', () => {
     assert.ok(existsSync(own));
     assert.ok(!existsSync(recordFile));
     assert.match(readFileSync(`${own}.sb`, 'utf8'), /\n\(deny default\)\n/);
+  });
+
+  test('its temporary folder is made anew at each launch, is its TMPDIR, TMPPREFIX and working folder, and goes with it at close', {
+    skip: process.platform !== 'darwin',
+  }, async (t) => {
+    const setup = confinedTo(t, (folder) => ({ project: folder, readable: [] }));
+    const { runtime, start, directory } = fake(t, ['temp'], setup);
+    const temp = join(dirname(setup.codexHome), 'codex-confined', confinementKey(directory), 'tmp');
+    // What an earlier run left when it ended without closing.
+    mkdirSync(temp, { recursive: true, mode: 0o700 });
+    writeFileSync(join(temp, 'left-by-an-earlier-run.txt'), 'earlier\n');
+    await start();
+    const launches = readFileSync(join(directory, 'launches.jsonl.temp'), 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as unknown);
+    assert.deepEqual(launches, [
+      { tmpdir: temp, tmpprefix: join(temp, 'zsh'), cwd: temp, entries: [] },
+    ]);
+    assert.equal(statSync(temp).mode & 0o777, 0o700);
+    await runtime.close();
+    assert.ok(!existsSync(temp), 'removed with the server');
+  });
+
+  test('starts nothing when its temporary folder cannot be emptied', {
+    skip: process.platform !== 'darwin',
+  }, async (t) => {
+    const setup = confinedTo(t, (folder) => ({ project: folder, readable: [] }));
+    const { start, directory, launched } = fake(t, [], setup);
+    const temp = join(dirname(setup.codexHome), 'codex-confined', confinementKey(directory), 'tmp');
+    mkdirSync(temp, { recursive: true, mode: 0o700 });
+    const pinned = join(temp, 'pinned.txt');
+    writeFileSync(pinned, 'pinned\n');
+    // Made immutable by its owner, which no removal of the owner's takes away.
+    execFileSync('/usr/bin/chflags', ['uchg', pinned]);
+    try {
+      await assert.rejects(
+        start(),
+        (error: unknown) =>
+          actionError('runtime_unavailable')(error) &&
+          error instanceof Error &&
+          error.message.includes(
+            `could not empty this project's temporary folder for Codex, ${temp}`,
+          ),
+      );
+      assert.deepEqual(launched(), []);
+    } finally {
+      execFileSync('/usr/bin/chflags', ['nouchg', pinned]);
+    }
   });
 
   const SECOND: ExecutionContext = {
