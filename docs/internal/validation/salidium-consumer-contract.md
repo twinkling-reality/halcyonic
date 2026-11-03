@@ -293,3 +293,11 @@ v0 ([salidium-project-map.md](salidium-project-map.md)). Read-only verification 
   existed, as one from before the sandbox, is asked about as before. Tested against the stand-in
   daemon listing `salidium/opencode` (`apps/control-plane/src/intelligence/understanding.test.ts`);
   whether Salidium should read Halcyonic's store stays an open question.
+- **Through the routes:** the opt-in `apps/control-plane/src/intelligence/live-routes.test.ts` reads
+  `GET /api/executions/:execution_id/understanding` for an execution whose synthetic stand-in runs
+  nothing, its native id a Claude Code session on this Mac. Later the same day that session
+  answered `available` from 0.8.3 with 34 files, all with repository paths and exact line counts,
+  five commits, both revision anchors present, verification runs for tests (passed, scope partial)
+  and lint (passed, scope unknown), and explanation `none`; an unknown session answered `not_found`.
+  So commit anchors and verification runs are verified live for a Claude Code session; for an
+  OpenCode one they are not, since none Halcyonic starts can be read.

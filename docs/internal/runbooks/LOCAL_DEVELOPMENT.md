@@ -513,7 +513,9 @@ token as a field instead of in prose, and `umask 077` creates the file private f
 ```
 
 `GET /api/executions/:execution_id/understanding` then answers from Salidium for executions on
-runtimes it observes (Claude Code and Codex). Every answer states its availability, so a missing
+Claude Agent, whose Claude Code sessions Salidium observes. Halcyonic keeps its Codex and OpenCode
+sessions in folders of its own, which Salidium does not read, so those executions answer
+`runtime_not_observed` without asking it. Every answer states its availability, so a missing
 credential, a stopped Salidium or an unobserved runtime reads as such rather than as an error.
 Salidium's real-wire tests run against its consumer test daemon from a built Salidium checkout:
 
