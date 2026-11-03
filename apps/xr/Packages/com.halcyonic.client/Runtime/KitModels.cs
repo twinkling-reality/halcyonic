@@ -246,6 +246,28 @@ namespace Halcyonic.Client
         public GlazeIcon? WayBackIcon { get; }
     }
 
+    /// <summary>
+    /// The composer's Host and Agent chips for the runtime that would run, as given: its environment as it declares it
+    /// (<see cref="KitPresenter.EnvironmentOf"/>; null where it declares none, so no Host chip shows),
+    /// whether pressing Host can reach a registered runtime that declares the other environment (else the chip stands
+    /// locked), and the agent's or model's words.
+    /// </summary>
+    public sealed class KitSelectors
+    {
+        public KitSelectors(string? environment, bool environmentChangeable, string? agent)
+        {
+            Environment = environment;
+            EnvironmentChangeable = environmentChangeable;
+            Agent = agent;
+        }
+
+        public string? Environment { get; }
+
+        public bool EnvironmentChangeable { get; }
+
+        public string? Agent { get; }
+    }
+
     /// <summary>What the focused work shows: the selected task, what its agent last said, what was recorded, and the person's draft.</summary>
     public sealed class KitWorkModel
     {
@@ -253,9 +275,10 @@ namespace Halcyonic.Client
             ActivityEntry? report, IReadOnlyList<KitTrailEntry> trail, string draft, bool voiceOffered, bool sendable,
             string? whyNotSend, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot,
             KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null, KitAvatar? avatar = null, IReadOnlyList<PageLine>? said = null,
-            string? environment = null, string? agent = null)
+            string? environment = null, string? agent = null, bool environmentChangeable = true)
         {
             Environment = environment;
+            EnvironmentChangeable = environmentChangeable;
             Agent = agent;
             Said = said ?? new PageLine[0];
             Avatar = avatar;
@@ -280,6 +303,9 @@ namespace Halcyonic.Client
 
         /// <summary>The execution environment shown in the composer's context selector (such as "This Mac" or "Sandbox"), or null.</summary>
         public string? Environment { get; }
+
+        /// <summary>Whether pressing the Host chip can change the environment; false stands it locked, its words still read.</summary>
+        public bool EnvironmentChangeable { get; }
 
         /// <summary>The runtime or agent shown in the composer's context selector (such as "Codex"), or null.</summary>
         public string? Agent { get; }

@@ -75,6 +75,9 @@ namespace Halcyonic.XR.UI
         public string? ProjectChoice { get; set; }
         public string? AgentChoice { get; set; }
 
+        /// <summary>Whether the Host chip can change anything; false stands it locked, its words still read (<see cref="KitWorkModel.EnvironmentChangeable"/>).</summary>
+        public bool EnvironmentChangeable { get; set; } = true;
+
         /// <summary>
         /// Whether the work waits for the person's answer to its question: the composer then asks for Your answer and
         /// sends it with Send answer, production's words for that action, read at the next <see cref="Show"/>.
@@ -88,6 +91,12 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The extra footer height taken by the context selector strip when it stands on its own row above Send.</summary>
         public float SelectorRowHeight { get; private set; }
+
+        /// <summary>
+        /// How much taller the chips make the slate: one row of them at most. A second row, where a long name puts each chip
+        /// on its own, comes out of the reading room, which pages, so the instrument never grows past the field.
+        /// </summary>
+        public float GrowsSlateBy => Mathf.Min(SelectorRowHeight, KitButton.Height + KitType.Units(SpatialKit.TargetGapDegrees));
 
         public static KitComposer Create(Transform parent, string name = "Composer")
         {
@@ -230,38 +239,38 @@ namespace Halcyonic.XR.UI
                 if (control == null) button.Hide();
             }
 
-            var envWords = !string.IsNullOrEmpty(EnvironmentChoice) && !EnvironmentChoice!.StartsWith("Host:", StringComparison.OrdinalIgnoreCase)
-                ? "Host: " + EnvironmentChoice
-                : EnvironmentChoice;
-            var envGlyph = string.Equals(EnvironmentChoice, "Sandbox", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(EnvironmentChoice, "Host: Sandbox", StringComparison.OrdinalIgnoreCase)
-                ? GlazeIcon.Locked
-                : GlazeIcon.ScriptFile;
-            var agentWords = !string.IsNullOrEmpty(AgentChoice)
-                && (AgentChoice!.IndexOf("agent", StringComparison.OrdinalIgnoreCase) < 0
-                    || string.Equals(AgentChoice, "Claude Agent", StringComparison.OrdinalIgnoreCase))
-                ? "Agent: " + AgentChoice
-                : AgentChoice;
-            var selectorCandidates = new (KitButton Button, string? Choice, GlazeIcon? Glyph)[]
+            // Each chip leads with its category, then the environment or their own name whole; the Host glyph is a lock in
+            // the sandbox. The words are the client core's, so the comparison and the label are one constant.
+            var envWords = string.IsNullOrEmpty(EnvironmentChoice) ? null : KitMomentWords.HostChip(EnvironmentChoice!);
+            var envGlyph = EnvironmentChoice == KitMomentWords.InSandbox ? GlazeIcon.Locked : GlazeIcon.ScriptFile;
+            var agentWords = string.IsNullOrEmpty(AgentChoice) ? null : KitMomentWords.AgentChip(AgentChoice!);
+            var selectorCandidates = new (KitButton Button, string? Choice, GlazeIcon? Glyph, bool Available)[]
             {
-                (environmentButton, envWords, envGlyph),
-                (projectButton, ProjectChoice, GlazeIcon.Folder),
-                (agentButton, agentWords, GlazeIcon.CodeFile),
+                (environmentButton, envWords, envGlyph, EnvironmentChangeable),
+                (projectButton, ProjectChoice, GlazeIcon.Folder, true),
+                (agentButton, agentWords, GlazeIcon.CodeFile, true),
             };
             var selectors = new System.Collections.Generic.List<(KitButton Button, string Words, GlazeIcon? Glyph, bool Available)>();
-            foreach (var (button, choice, glyph) in selectorCandidates)
+            foreach (var (button, choice, glyph, available) in selectorCandidates)
             {
                 if (!withWell || string.IsNullOrEmpty(choice)) button.Hide();
-                else selectors.Add((button, choice!, glyph, true));
+                else selectors.Add((button, choice!, glyph, available));
             }
 
+            // The chips share the footer's equal columns where each fits its column whole; else each takes the full width
+            // on its own row, one under the other, so the grid holds and no name of theirs is cut or runs off the slate.
             SelectorRowHeight = 0f;
             if (selectors.Count > 0)
             {
-                var selectorRow = -y - KitButton.Height / 2f;
-                LayRow(selectors, selectorRow, width, gap);
-                y += KitButton.Height + gap;
-                SelectorRowHeight = KitButton.Height + gap;
+                var cell = (width - (selectors.Count - 1) * gap) / selectors.Count;
+                var shared = selectors.All(each => each.Button.Measure(each.Words, each.Glyph) <= cell + 1e-4f);
+                var chipRows = shared ? new[] { selectors } : selectors.Select(each => new System.Collections.Generic.List<(KitButton, string, GlazeIcon?, bool)> { each }).ToArray();
+                foreach (var row in chipRows)
+                {
+                    LayRow(row, -y - KitButton.Height / 2f, width, gap);
+                    y += KitButton.Height + gap;
+                    SelectorRowHeight += KitButton.Height + gap;
+                }
             }
 
             var rightItems = new System.Collections.Generic.List<(KitButton Button, string Words, GlazeIcon? Glyph, bool Available)>();

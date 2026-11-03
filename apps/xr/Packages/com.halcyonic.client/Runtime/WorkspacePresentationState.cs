@@ -61,9 +61,6 @@ namespace Halcyonic.Client
         /// <summary>The model reference selected for a <see cref="ModelChoice.Listed"/> runtime through the composer's agent selector pill, if any.</summary>
         public string? SelectedModelRef { get; private set; }
 
-        /// <summary>The execution environment override (<c>true</c> for Sandbox, <c>false</c> for This Mac) chosen through the composer's environment pill, if any.</summary>
-        public bool? SelectedSandbox { get; private set; }
-
         /// <summary>Revokes retained input and command authority before any presentation disappears.</summary>
         public event Action? Suspending;
         public event Action? Changed;
@@ -258,10 +255,6 @@ namespace Halcyonic.Client
                 ? models
                 : Array.Empty<RuntimeModel>();
 
-        /// <summary>The effective sandbox state for <paramref name="runtime"/>, considering <see cref="SelectedSandbox"/>.</summary>
-        public bool EffectiveSandbox(RuntimeDescriptor? runtime) =>
-            SelectedSandbox ?? (runtime?.ApprovalMayLeaveSandbox == false);
-
         /// <summary>
         /// Returns the display name or reference of the currently selected model for <paramref name="runtime"/>,
         /// or null when no specific model is selected.
@@ -281,37 +274,35 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// Toggles the active execution environment between This Mac (<c>false</c>) and Sandbox (<c>true</c>),
-        /// selecting a matching runtime from <paramref name="runtimes"/> when one declares that environment.
+        /// Switches between This Mac and Sandbox by selecting a runtime from <paramref name="runtimes"/> that declares the
+        /// other environment (ADR 0033): the environment is what the runtime that would run declares, never a choice of its
+        /// own, since no command carries one. Returns the runtime chosen and whether it stays inside a sandbox; null, with
+        /// nothing changed, where the current runtime declares nothing or no registered runtime declares the other.
         /// </summary>
-        public (string? RuntimeId, bool Sandbox) CycleEnvironment(
-            IReadOnlyList<RuntimeDescriptor>? runtimes,
-            string? currentRuntimeId = null,
-            bool? currentSandbox = null)
+        public (string RuntimeId, bool Sandbox)? CycleEnvironment(IReadOnlyList<RuntimeDescriptor>? runtimes, string? currentRuntimeId = null)
         {
             var effectiveRuntimeId = currentRuntimeId ?? SelectedRuntimeId;
-            var currentRuntime = runtimes?.FirstOrDefault(item => item != null && item.RuntimeId == effectiveRuntimeId);
-            var targetSandbox = !(currentSandbox ?? EffectiveSandbox(currentRuntime));
-            var nextRuntime = SelectRuntimeForEnvironment(runtimes, effectiveRuntimeId, targetSandbox);
-            var chosenRuntimeId = nextRuntime?.RuntimeId ?? effectiveRuntimeId;
-            var chosenModelRef = chosenRuntimeId == SelectedRuntimeId ? SelectedModelRef : null;
-            if (!changing)
+            var current = runtimes?.FirstOrDefault(item => item != null && item.RuntimeId == effectiveRuntimeId);
+            if (current?.ApprovalMayLeaveSandbox is not bool mayLeave || changing) return null;
+            // From This Mac (may leave) to Sandbox, and back.
+            if (SelectRuntimeForEnvironment(runtimes, effectiveRuntimeId, sandbox: mayLeave) is not RuntimeDescriptor next) return null;
+            changing = true;
+            try
             {
-                changing = true;
-                try
-                {
-                    SelectedSandbox = targetSandbox;
-                    if (chosenRuntimeId != null)
-                    {
-                        SelectedRuntimeId = chosenRuntimeId;
-                        SelectedModelRef = chosenModelRef;
-                    }
-                    Changed?.Invoke();
-                }
-                finally { changing = false; }
+                SelectedRuntimeId = next.RuntimeId;
+                SelectedModelRef = null;
+                Changed?.Invoke();
             }
-            return (chosenRuntimeId, targetSandbox);
+            finally { changing = false; }
+            return (next.RuntimeId, mayLeave);
         }
+
+        /// <summary>
+        /// Whether pressing the composer's Host chip can change anything: <paramref name="current"/> declares its environment
+        /// and some registered runtime that can start work declares the other one.
+        /// </summary>
+        public static bool EnvironmentCanChange(IReadOnlyList<RuntimeDescriptor>? runtimes, RuntimeDescriptor? current) =>
+            current?.ApprovalMayLeaveSandbox is bool mayLeave && SelectRuntimeForEnvironment(runtimes, current.RuntimeId, sandbox: mayLeave) != null;
 
         /// <summary>
         /// Selects an available runtime matching the requested execution environment (<paramref name="sandbox"/>:
@@ -413,10 +404,6 @@ namespace Halcyonic.Client
                 {
                     SelectedRuntimeId = runtime.RuntimeId;
                     SelectedModelRef = model?.ModelRef;
-                    if (runtime.ApprovalMayLeaveSandbox.HasValue)
-                    {
-                        SelectedSandbox = !runtime.ApprovalMayLeaveSandbox.Value;
-                    }
                     Changed?.Invoke();
                 }
                 finally { changing = false; }
@@ -691,7 +678,6 @@ namespace Halcyonic.Client
             PendingVrConversionSequence = null;
             SelectedRuntimeId = null;
             SelectedModelRef = null;
-            SelectedSandbox = null;
             runtimeModels.Clear();
         }
 

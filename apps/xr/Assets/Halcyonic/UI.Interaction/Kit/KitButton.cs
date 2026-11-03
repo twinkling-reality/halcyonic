@@ -247,11 +247,13 @@ namespace Halcyonic.XR.UI
             var scale = 1f;
             if (!available)
             {
-                // Locked: a 2 dp n4 ring round a quiet word, its reason being its word; a word answer keeps no shape.
+                // Locked: a 2 dp n4 ring round a quiet word, its reason being its word; a word answer keeps no shape, and nor does
+                // a quiet chip, whose resting shape is that same outline: locked, it reads as a fact, not as a press that does nothing.
                 fill = Color.clear;
-                edge = role == KitButtonRole.Word ? Color.clear : KitType.Colour(SpatialKit.Edge);
+                edge = role == KitButtonRole.Word || role == KitButtonRole.Quiet ? Color.clear : KitType.Colour(SpatialKit.Edge);
                 // n5 at rest; n6 while a reading fill stands under it, where n5 would read 4.25 to 1 on #3B3F43.
-                text = Capsule ? KitType.Colour(progressShare > 0f ? SpatialKit.TextSecondary : SpatialKit.TextTertiary) : KitType.Secondary;
+                text = Capsule ? KitType.Colour(progressShare > 0f ? SpatialKit.TextSecondary : SpatialKit.TextTertiary)
+                    : role == KitButtonRole.Quiet ? KitType.Colour(SpatialKit.TextTertiary) : KitType.Secondary;
                 if (role == KitButtonRole.Primary) edgeWidth = answerRing;
             }
             else if (meaning != KitPillMeaning.None)

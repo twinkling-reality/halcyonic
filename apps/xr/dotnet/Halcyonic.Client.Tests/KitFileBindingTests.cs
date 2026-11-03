@@ -189,6 +189,35 @@ public class KitFileBindingTests
     }
 
     [Test]
+    public void TheChipsChosenWordsStandAsGivenNeverTheWorkspacesRuntimes()
+    {
+        // The person chose OpenCode, which declares no environment, for a task another runtime ran: no Host chip, never
+        // the workspace runtime's environment beside OpenCode's name.
+        var running = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var codex = new RuntimeDescriptor
+        {
+            RuntimeId = "codex",
+            Kind = "codex",
+            DisplayName = "Codex",
+            ApprovalMayLeaveSandbox = true,
+            Capabilities = new RuntimeCapabilities { StartExecution = true },
+        };
+        var workspace = new WorkspacePresentation(running.Character, running.Objective, running.Execution, codex, running.Actions,
+            running.Actions.Where(running.RequiresConfirmation).ToList(), running.Commands, running.Activity);
+        var steering = Steering();
+        var screen = new FileScreen { Section = FileSection.Activity, Speak = true };
+        screen.Instruction.Restore(workspace.Execution!.ExecutionId, "Run the tests again.", false, 0);
+        var frame = Screen(workspace, steering, screen);
+        Assert.That(KitPresenter.EnvironmentOf(workspace.Runtime), Is.EqualTo("This Mac"), "the workspace's own runtime declares an environment");
+        var chosen = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Words, Live, "Storefront", Spine,
+            selectors: new KitSelectors(null, false, "OpenCode"))!;
+        Assert.That((chosen.Model.Environment, chosen.Model.EnvironmentChangeable, chosen.Model.Agent), Is.EqualTo(((string?)null, false, "OpenCode")));
+        var unchosen = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Words, Live, "Storefront", Spine)!;
+        Assert.That((unchosen.Model.Environment, unchosen.Model.EnvironmentChangeable), Is.EqualTo((KitPresenter.EnvironmentOf(workspace.Runtime), true)),
+            "without a choice, the workspace's own runtime's");
+    }
+
+    [Test]
     public void TheComposerCyclesEnvironmentAndAgentWhilePreservingTheUnsentDraft()
     {
         var workspace = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
@@ -246,8 +275,8 @@ public class KitFileBindingTests
                 Live,
                 "Storefront",
                 Spine,
-                environment: KitPresenter.EnvironmentOf(current, presentation.SelectedSandbox),
-                agent: KitPresenter.AgentOf(current, workspace.Execution, presentation.SelectedModelDisplay(current, workspace.Execution)))!;
+                selectors: new KitSelectors(KitPresenter.EnvironmentOf(current), WorkspacePresentationState.EnvironmentCanChange(runtimes, current),
+                    KitPresenter.AgentOf(current, workspace.Execution, presentation.SelectedModelDisplay(current, workspace.Execution))))!;
         }
 
         presentation.SelectRuntime("claude");

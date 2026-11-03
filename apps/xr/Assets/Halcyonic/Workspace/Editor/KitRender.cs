@@ -68,7 +68,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var size = variant.Length == 0 ? "Standard" : variant;
                     var found = new List<string>();
                     var shown = 0;
-                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" }.Concat(States).Concat(ScreenStates).Concat(MomentStates).Concat(FontStates).Concat(GlassStates).Concat(ChoreographyStates).Concat(ReaderStates).Concat(ReceiptStates).Concat(FigureStates))
+                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" }.Concat(States).Concat(ScreenStates).Concat(MomentStates).Concat(FontStates).Concat(GlassStates).Concat(ChoreographyStates).Concat(ReaderStates).Concat(ReceiptStates).Concat(FigureStates).Concat(ChipStates))
                     {
                         if (narrowed && !state.Contains(only!, StringComparison.OrdinalIgnoreCase)) continue;
                         shown++;
@@ -184,6 +184,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     _ when ReaderStates.Contains(state) => ReaderShot(state, root.transform, eyes),
                     _ when ReceiptStates.Contains(state) => ReceiptShot(state, root.transform, eyes),
                     _ when FigureStates.Contains(state) => FigureShot(state, root.transform, eyes),
+                    _ when ChipStates.Contains(state) => ChipShot(state, root.transform, eyes),
                     _ => ControlKit(root.transform, eyes),
                 };
                 failures.AddRange(shot.Failures.Select(failure => name + ": " + failure));
@@ -358,7 +359,14 @@ namespace Halcyonic.XR.Workspace.Editor
             var shot = new Shot { Caption = caption ?? (curved ? "Focused work on one gentle curve, synthetic data" : "Focused work on one plane, the fallback, synthetic data"), Curved = curved };
             var view = KitWorkView.Create(root);
             var model = state ?? WorkModel();
-            view.Show(model);
+            // A bound view stands where its bound drawing stands, the switch hidden as its host hides it: placed by what it
+            // draws, never by the unbound drawing, whose composer would show chips the bound one does not.
+            if (bound != null)
+            {
+                view.Spine.Switch.gameObject.SetActive(false);
+                view.Show(model, bound);
+            }
+            else view.Show(model);
             shot.Elevation = CentreFor(view.Size.y);
             shot.Centre = Place(view.transform, eyes, 0f, shot.Elevation);
             placed?.Invoke(view, shot);

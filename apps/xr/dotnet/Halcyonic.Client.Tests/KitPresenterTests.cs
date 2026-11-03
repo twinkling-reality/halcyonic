@@ -179,8 +179,7 @@ public class KitPresenterTests
             Is.EqualTo("Sandbox"));
         Assert.That(KitPresenter.EnvironmentOf(new RuntimeDescriptor { RuntimeId = "r2", Kind = "opencode", DisplayName = "OpenCode", ApprovalMayLeaveSandbox = null, Capabilities = new RuntimeCapabilities() }),
             Is.Null);
-        Assert.That(KitPresenter.EnvironmentOf(null, sandboxOverride: true), Is.EqualTo("Sandbox"));
-        Assert.That(KitPresenter.EnvironmentOf(null, sandboxOverride: false), Is.EqualTo("This Mac"));
+        Assert.That(KitPresenter.EnvironmentOf(null), Is.Null, "no runtime declares anything, so no environment is shown");
         Assert.That(KitPresenter.AgentOf(
             new RuntimeDescriptor { RuntimeId = "opencode", Kind = "opencode", DisplayName = "OpenCode", Capabilities = new RuntimeCapabilities() },
             null,
