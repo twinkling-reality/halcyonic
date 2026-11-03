@@ -272,6 +272,26 @@ describe('putting a checkpoint back', () => {
 });
 
 describe('checking a folder against a checkpoint', () => {
+  test("on this Mac, a folder swapped for a link after a file's last check is never read as that file's equal (U4)", {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const id = await take();
+    // Outside, a file with the same bytes as the checkpoint's: read through the link, it would match.
+    writeFileSync(join(outside, 'a.txt'), 'one\n');
+    const swap = swapAfter('lstat', join(folder, 'src', 'a.txt'), () => {
+      renameSync(join(folder, 'src'), join(folder, 'src-was'));
+      symlinkSync(outside, join(folder, 'src'));
+    });
+    let differing: string[];
+    try {
+      ({ differing } = await store.verify(PROJECT, folder, id));
+    } finally {
+      swap.undo();
+    }
+    assert.equal(swap.done(), true, 'the swap never happened, so this proves nothing');
+    assert.ok(differing.includes('src/a.txt'), differing.join(', '));
+  });
+
   test('finds a change after the fact, and nothing when equal', async () => {
     const id = await take();
     assert.deepEqual(await store.verify(PROJECT, folder, id), { compared: 5, differing: [] });
@@ -444,13 +464,19 @@ describe("on this Mac, the store's own Seatbelt profiles (U2)", {
  * whose live binding the store's import shares (`syncBuiltinESMExports`).
  */
 function swapAfterResolving(path: string, swap: () => void) {
-  const fsp = createRequire(import.meta.url)('node:fs/promises') as {
-    realpath: (...args: unknown[]) => Promise<string>;
-  };
-  const realpath = fsp.realpath;
+  return swapAfter('realpath', path, swap);
+}
+
+/** As `swapAfterResolving`, after the store's `method` of fs/promises answers for `path`. */
+function swapAfter(method: 'realpath' | 'lstat', path: string, swap: () => void) {
+  const fsp = createRequire(import.meta.url)('node:fs/promises') as Record<
+    typeof method,
+    (...args: unknown[]) => Promise<unknown>
+  >;
+  const original = fsp[method];
   let swapped = false;
-  fsp.realpath = async (...args: unknown[]) => {
-    const answer = await realpath(...args);
+  fsp[method] = async (...args: unknown[]) => {
+    const answer = await original(...args);
     if (!swapped && String(args[0]) === path) {
       swap();
       swapped = true;
@@ -461,7 +487,7 @@ function swapAfterResolving(path: string, swap: () => void) {
   return {
     done: () => swapped,
     undo: () => {
-      fsp.realpath = realpath;
+      fsp[method] = original;
       syncBuiltinESMExports();
     },
   };

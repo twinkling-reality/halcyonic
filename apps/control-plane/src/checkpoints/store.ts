@@ -1,10 +1,11 @@
 import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { createReadStream } from 'node:fs';
-import { lstat, mkdir, readFile, readlink, realpath, rm, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { lstat, mkdir, open, readFile, readlink, realpath, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, sep } from 'node:path';
 import type { CheckpointFailureCode } from '@halcyonic/contracts';
 import { toolFoldersFor } from '@halcyonic/integration-codex';
+import { NO_LINK } from '../observer/file-observer.ts';
 import { ancestors, resolved, SANDBOX_EXEC, SYSTEM_READS, subpaths } from '../seatbelt.ts';
 
 /**
@@ -716,12 +717,20 @@ async function compare(
   const differs: string[] = [];
   const missing: string[] = [];
   const linked = new Map<string, boolean>();
+  // Each file is read refusing a link anywhere in its path (U4), so the reads start from the
+  // folder's real path: a link above it, such as /var, is the system's, not a swap.
+  let base: string;
+  try {
+    base = await realpath(folder);
+  } catch {
+    base = folder;
+  }
   for (const entry of entries) {
-    if (await underLink(folder, entry.path, linked)) {
+    if (await underLink(base, entry.path, linked)) {
       missing.push(entry.path);
       continue;
     }
-    const path = join(folder, entry.path);
+    const path = join(base, entry.path);
     let stats: Awaited<ReturnType<typeof lstat>>;
     try {
       stats = await lstat(path);
@@ -902,11 +911,21 @@ function blobId(content: Buffer): string {
 }
 
 /** Git's SHA-256 blob id of a file, read in full from disk. */
-function fileBlobId(path: string, size: number): Promise<string> {
+async function fileBlobId(path: string, size: number): Promise<string> {
+  let handle: Awaited<ReturnType<typeof open>>;
+  try {
+    handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK | NO_LINK);
+  } catch (error) {
+    // A link where the file or, on macOS, a folder above it stands: not this checkpoint's file, so
+    // never equal to it, whatever the link leads to (U4).
+    if ((error as NodeJS.ErrnoException).code === 'ELOOP') return 'not-a-file';
+    throw error;
+  }
   return new Promise((resolvePromise, reject) => {
     const hash = createHash('sha256').update(`blob ${size}\0`);
     let read = 0;
-    createReadStream(path)
+    handle
+      .createReadStream()
       .on('data', (chunk: Buffer | string) => {
         const bytes = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
         read += bytes.length;
