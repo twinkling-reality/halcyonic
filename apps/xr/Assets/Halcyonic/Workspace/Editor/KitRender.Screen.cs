@@ -88,6 +88,29 @@ namespace Halcyonic.XR.Workspace.Editor
             }).DefaultIfEmpty(0f).Min().ToString("0.00") + " degrees.");
             // The bar's edges are the screen's (ADR 0040, rule 2; ADR 0026's aligned edges).
             Require(Mathf.Abs(bar.Size.x - screen.Size.x) < 1e-5f, "the bar is not as wide as the screen");
+            // Every button stands inside the bar, its padding kept, at the size it stands (XR baseline 2026-11-03: the outer
+            // buttons hung past the bar's ends), and the bar holds them all at one word size and one capsule shape: the
+            // owner's one type scale, and meaning carried by the fill alone.
+            var barPad = KitType.Units(SpatialKit.PaddingDegrees);
+            foreach (var (action, button) in bar.Shown)
+            {
+                var bt = button.transform;
+                var halfWide = button.Size.x * bt.localScale.x / 2f;
+                var halfTall = button.Size.y * bt.localScale.y / 2f;
+                var inside = bar.Size.x / 2f - barPad + 1e-4f;
+                Require(bt.localPosition.x - halfWide >= -inside && bt.localPosition.x + halfWide <= inside
+                    && Mathf.Abs(bt.localPosition.y) + halfTall <= bar.Size.y / 2f + 1e-4f,
+                    KitScreenModel.Words(action) + " runs from " + (bt.localPosition.x - halfWide).ToString("0.0000") + " to "
+                    + (bt.localPosition.x + halfWide).ToString("0.0000") + ", past the bar's inside, -" + inside.ToString("0.0000") + " to " + inside.ToString("0.0000"));
+                Require(Mathf.Abs(button.Plate.CornerRadius - button.Size.y / 2f) < 1e-5f,
+                    KitScreenModel.Words(action) + " is not a capsule: its corners " + button.Plate.CornerRadius.ToString("0.0000") + " on a height of " + button.Size.y.ToString("0.0000"));
+            }
+            // The title chip clear of the project's mark: at Larger the screen narrows while the type grows (XR baseline).
+            var chipBottom = screen.TitleChip.transform.localPosition.y - screen.TitleChip.Size.y / 2f;
+            var markTop = screen.Mark.transform.localPosition.y + screen.Mark.rectTransform.sizeDelta.y / 2f;
+            Require(!screen.Mark.gameObject.activeSelf || chipBottom - markTop >= KitType.Units(SpatialKit.TargetGapDegrees) - 1e-4f,
+                "the title chip's foot stands " + SpatialKit.DegreesTo(chipBottom - markTop).ToString("0.00") + " degrees above the mark's top, closer than "
+                + SpatialKit.TargetGapDegrees.ToString("0.0"));
             // The one clear action only where it applies, first; Try it only after a passed check of the computer's own, with a route.
             var actions = bar.Shown.Select(each => each.Action).ToList();
             Require(actions.SequenceEqual(model.Shown.Where(a => a != KitScreenAction.Steps && a != KitScreenAction.Why && a != KitScreenAction.HowItWent)
@@ -116,6 +139,11 @@ namespace Halcyonic.XR.Workspace.Editor
             screen.Name.ForceMeshUpdate(true);
             Require(screen.Name.gameObject.activeInHierarchy && !screen.Name.isTextTruncated && screen.Name.textInfo.lineCount == 1
                 && screen.Name.textBounds.size.x > KitType.Units(SpatialKit.Degrees(SpatialKit.DisplayDp)), "the project's name is not drawn whole");
+            // One word size across the bar, read last: after the primary has been pointed at and let go, as a hand would.
+            var wordSizes = bar.Shown.Select(each => each.Button.Words.fontSize * each.Button.transform.localScale.x).ToList();
+            if (wordSizes.Count > 0)
+                Require(wordSizes.Max() - wordSizes.Min() < 1e-3f, "the bar's words stand at more than one size, from "
+                    + wordSizes.Min().ToString("0.000") + " to " + wordSizes.Max().ToString("0.000"));
             FacesTheEyes(shot, view, carriers, eyes);
             Debug.Log("Halcyonic: spatial kit: screen " + Spread(shot, eyes) + "; bar " + bar.Rows + " row(s), " + bar.Shown.Count + " actions.");
             return shot;

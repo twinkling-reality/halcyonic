@@ -85,55 +85,76 @@ namespace Halcyonic.XR.UI
 
             var lead = model.Shown.Where(action => !IsDoor(action)).ToList();
             var doors = model.Shown.Where(IsDoor).ToList();
+            // Each button takes its role before it is measured: the primary's words stand further in than a quiet door's.
+            foreach (var action in model.Shown)
+                ButtonFor(action).Role = action == model.Primary ? KitButtonRole.Primary : lead.Contains(action) ? KitButtonRole.Secondary : KitButtonRole.Quiet;
             var natural = model.Shown.ToDictionary(action => action, action => ButtonFor(action).Measure(KitScreenModel.Words(action), null));
-            var scale = model.Shown.ToDictionary(action => action, _ => 1f);
             var groupGap = 3f * gap;
             var inner = width - 2f * padX;
-            float Span(IList<KitScreenAction> row, bool split) =>
-                row.Sum(action => natural[action] * scale[action]) + gap * Mathf.Max(0, row.Count - 1) + (split ? groupGap - gap : 0f);
-            Rows = Span(model.Shown.ToList(), lead.Count > 0 && doors.Count > 0) <= inner ? 1 : 2;
-            var rows = Rows == 1 ? new List<List<KitScreenAction>> { model.Shown.ToList() } : new List<List<KitScreenAction>> { lead, doors };
-            var centres = new Dictionary<KitScreenAction, Vector2>();
             var padY = (KitType.Units(SpatialKit.BarDegrees) - target) / 2f;
+            // One scale for the whole bar, the most any of its buttons needs to hold the floor where it stands, so every word
+            // stands at one size (the owner's one type scale): one row where it fits the bar's inside at that scale, else
+            // the lead actions above the doors.
+            var scale = 1f;
+            float Span(IList<KitScreenAction> row, bool split) =>
+                row.Sum(action => natural[action] * scale) + gap * Mathf.Max(0, row.Count - 1) + (split ? groupGap - gap : 0f);
+            var centres = new Dictionary<KitScreenAction, Vector2>();
             var height = 0f;
-
-            // Lay out, grow each button for where it stands, and lay out again: three rounds settle it.
-            for (var round = 0; round < 3; round++)
+            var rows = new List<List<KitScreenAction>>();
+            void LayOut()
             {
-                var rowHeights = rows.Select(row => row.Count == 0 ? 0f : row.Max(action => target * scale[action])).ToList();
-                height = rowHeights.Sum() + gap * (rows.Count - 1) + 2f * padY;
+                var rowHeight = target * scale;
+                height = rows.Count * rowHeight + gap * (rows.Count - 1) + 2f * padY;
                 var y = height / 2f - padY;
-                for (var r = 0; r < rows.Count; r++)
+                foreach (var row in rows)
                 {
-                    var row = rows[r];
-                    var split = Rows == 1 && lead.Count > 0 && doors.Count > 0;
+                    var split = rows.Count == 1 && lead.Count > 0 && doors.Count > 0;
                     var x = -Span(row, split) / 2f;
-                    var rowY = y - rowHeights[r] / 2f;
                     for (var k = 0; k < row.Count; k++)
                     {
-                        var action = row[k];
-                        var w = natural[action] * scale[action];
-                        centres[action] = new Vector2(x + w / 2f, rowY);
+                        var w = natural[row[k]] * scale;
+                        centres[row[k]] = new Vector2(x + w / 2f, y - rowHeight / 2f);
                         x += w + (split && k == lead.Count - 1 ? groupGap : gap);
                     }
-                    y -= rowHeights[r] + gap;
+                    y -= rowHeight + gap;
                 }
-                foreach (var action in model.Shown)
+            }
+            Rows = 1;
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                rows = Rows == 1 ? new List<List<KitScreenAction>> { model.Shown.ToList() } : new List<List<KitScreenAction>> { lead, doors };
+                scale = 1f;
+                // Lay out, grow the bar's scale for where its buttons stand, and lay out again: three rounds settle it, and the
+                // buttons stand where the settled scale lays them.
+                for (var round = 0; round < 3; round++)
                 {
-                    var c = centres[action];
-                    var outer = Mathf.Abs(c.x - facing.x) + natural[action] * scale[action] / 2f;
-                    var edge = Mathf.Abs(c.y - facing.y) + target * scale[action] / 2f;
-                    scale[action] = Mathf.Max(1f, 1f / PlaneComposition.ShrinkAt(outer, edge));
+                    LayOut();
+                    var needed = 1f;
+                    foreach (var action in model.Shown)
+                    {
+                        var c = centres[action];
+                        var outer = Mathf.Abs(c.x - facing.x) + natural[action] * scale / 2f;
+                        var edge = Mathf.Abs(c.y - facing.y) + target * scale / 2f;
+                        needed = Mathf.Max(needed, 1f / PlaneComposition.ShrinkAt(outer, edge));
+                    }
+                    scale = needed;
                 }
+                LayOut();
+                if (Rows == 1 && lead.Count > 0 && doors.Count > 0 && Span(rows[0], true) > inner + 1e-5f)
+                {
+                    Rows = 2;
+                    continue;
+                }
+                break;
             }
             Size = new Vector2(width, height);
             carrier.Draw(Size, KitType.Units(SpatialKit.ControlRadiusDegrees), SpatialKit.Carrier);
             foreach (var action in lead.Concat(doors))
             {
                 var button = ButtonFor(action);
-                button.Role = action == model.Primary ? KitButtonRole.Primary : lead.Contains(action) ? KitButtonRole.Secondary : KitButtonRole.Quiet;
+                // The bar's growth is the button's own base, so pointing at it grows it from there and never loses it.
+                button.BaseScale = scale;
                 button.Show(KitScreenModel.Words(action), null, centres[action], natural[action]);
-                button.transform.localScale = Vector3.one * scale[action];
                 shown.Add((action, button));
             }
             gameObject.SetActive(true);
