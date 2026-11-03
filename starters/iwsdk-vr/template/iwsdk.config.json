@@ -7,7 +7,7 @@
   "world": {
     "xr": { "mode": "vr", "offer": "always", "features": { "handTracking": true } },
     "input": { "canvasPointerEvents": true },
-    "render": { "near": 0.001, "far": 200, "camera": { "position": [-4, 1.5, -6], "lookAt": [0, 1.1, -1.8] } },
+    "render": { "near": 0.001, "far": 200, "camera": { "position": [0, 1.85, 2.2], "lookAt": [0, 0.8, -1.8] } },
     "features": {
       "locomotion": false,
       "grabbing": true,

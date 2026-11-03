@@ -293,3 +293,16 @@ eight of them behind, and another split the game into an unexported side file in
 `src/index.ts` (importing `./palette`, `./look`, `./decor`, `./motion` and `./play-input`), to edit `src/index.ts`
 directly rather than writing `.py`, `.txt`, `.sh` or `.patch` scripts, to delete any temporary helper file, and to run
 `npx tsc --noEmit` before ending each turn.
+
+## Amendment, 2026-11-03: the starter faces the headset wearer (U1)
+
+A headset wearer stands at the XR origin and faces -z when the session starts. The laptop camera, the only picture the
+check and the agent see, stood at (-4, 1.5, -6) on the far side of the island, 136 degrees from the wearer's facing,
+and the island was turned toward it. Rendered from the wearer's eye, a fresh project showed a green slope and sky: the
+clouds and the raised tier were behind the wearer, and whatever an agent turned toward the laptop camera faced away from
+the headset ([validation/iwsdk-starter.md](../validation/iwsdk-starter.md)). The laptop camera now stands just behind
+and above the wearer, at (0, 1.85, 2.2), looking at (0, 0.8, -1.8), within 5 degrees of the wearer's facing, and the
+island is left as ART7 framed it, its front toward +z: the tier and the clouds are in front of both. `src/look.ts`
+exports `PLAYER`, the player's spot in the island's coordinates, (0, 0, 1.8), and AGENTS.md asks for the game from 1 to
+4 m in front of the player, with anything that has a front, a face or words turned toward +z. Projects made before keep
+their own copies of these files.

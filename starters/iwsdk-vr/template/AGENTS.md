@@ -41,7 +41,10 @@ Input, both ways:
 
 Make it fun to look at:
 - Build the game on the island: `setupLook(world)` in `src/look.ts` makes it, top at y = 0, about 6 m across.
-  Add the game's objects to `gameIsland()` from `src/look.ts` so they stand on it, in front of the camera.
+  Add the game's objects to `gameIsland()` from `src/look.ts` so they stand on it.
+- In `gameIsland()`'s coordinates the player stands at `PLAYER` (0, 0, 1.8) and faces -z, in VR and on a laptop
+  alike: the laptop camera looks the same way from just behind them. Put the game in front of the player, from about
+  1 m to 4 m away (z from 0.8 to -2.2), and turn anything with a front, a face or words toward +z, toward the player.
 - Colour every object with `toyMaterial('berry')` and the other names in `src/palette.ts`, never a colour of your
   own. Put a `contactShadow(radius)` under each prop and set its `castShadow`. `decorate(gameIsland(), { ... })`
   from `src/decor.ts` adds trees and flowers if you want them.
