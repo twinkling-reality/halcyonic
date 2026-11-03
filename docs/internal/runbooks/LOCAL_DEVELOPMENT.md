@@ -301,12 +301,14 @@ New VR apps begin from the starter in `starters/iwsdk-vr`
 ([ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)). Its pinned set of packages is
 installed once, into `~/.halcyonic/starters/iwsdk-vr`, by you, from the public npm registry only, with no install
 scripts and none of your own npm settings; Halcyonic downloads nothing. `pnpm mac-setup starter` prints these commands
-when the set is missing or differs, and records the set once every package is the version the lockfile pins:
+when the set is missing or differs, and records the set once every package is the version the lockfile pins and
+nothing else is in it: no package the lockfile doesn't list, and no link but npm's own `.bin` links. A set changed by
+`npm install` or `npm link` reads as differing; `npm ci` makes it again.
 
 ```bash
-mkdir -p ~/.halcyonic/starters/iwsdk-vr
-cp starters/iwsdk-vr/package.json starters/iwsdk-vr/package-lock.json ~/.halcyonic/starters/iwsdk-vr/
-npm ci --prefix ~/.halcyonic/starters/iwsdk-vr --ignore-scripts --no-audit --no-fund --userconfig /dev/null --globalconfig /dev/null --cache "$(mktemp -d)" --registry https://registry.npmjs.org/
+mkdir -p "$HOME/.halcyonic/starters/iwsdk-vr"
+cp starters/iwsdk-vr/package.json starters/iwsdk-vr/package-lock.json "$HOME/.halcyonic/starters/iwsdk-vr"
+npm ci --prefix "$HOME/.halcyonic/starters/iwsdk-vr" --ignore-scripts --no-audit --no-fund --userconfig /dev/null --globalconfig /dev/null --cache "$(mktemp -d)" --registry https://registry.npmjs.org/
 pnpm mac-setup starter
 ```
 

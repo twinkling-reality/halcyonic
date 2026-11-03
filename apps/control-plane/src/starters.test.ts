@@ -20,7 +20,13 @@ import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import type { ProjectLocationChoice } from '@halcyonic/contracts';
 import { createHostLocations } from './locations.ts';
-import { HostStarters, originalFolderOf, originalRefusal, VR_STARTER } from './starters.ts';
+import {
+  HostStarters,
+  installedSet,
+  originalFolderOf,
+  originalRefusal,
+  VR_STARTER,
+} from './starters.ts';
 import { createTestControlPlane } from './testing/harness.ts';
 
 const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-starters-')));
@@ -77,6 +83,30 @@ describe('starters on the host', () => {
     ]);
     assert.equal(setup('stale', { installed: 'stale' }).starters.list()[0]?.installed, false);
     assert.equal(setup('match', { installed: 'matching' }).starters.list()[0]?.installed, true);
+  });
+
+  test('an installed set never matches a lockfile entry without a version of its own (AUDIT SETUP-3)', () => {
+    const { tracked, installed } = setup('unpinned');
+    writeFileSync(
+      join(tracked, 'vr', 'package-lock.json'),
+      JSON.stringify({
+        lockfileVersion: 3,
+        packages: {
+          '': { name: 'starter' },
+          'node_modules/kept': { version: '1.0.0' },
+          'node_modules/unpinned': {},
+        },
+      }),
+    );
+    mkdirSync(join(installed, 'vr', 'node_modules', 'kept'), { recursive: true });
+    writeFileSync(
+      join(installed, 'vr', 'node_modules', 'kept', 'package.json'),
+      '{"version":"1.0.0"}',
+    );
+    assert.deepEqual(installedSet(tracked, installed, 'vr'), {
+      state: 'differs',
+      differs: ['node_modules/unpinned'],
+    });
   });
 
   test('applying copies the template and links the shared dependencies', () => {
