@@ -1,9 +1,11 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { lstat, mkdir, readFile, readlink, realpath, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, sep } from 'node:path';
 import type { CheckpointFailureCode } from '@halcyonic/contracts';
+import { toolFoldersFor } from '@halcyonic/integration-codex';
+import { ancestors, resolved, SANDBOX_EXEC, SYSTEM_READS, subpaths } from '../seatbelt.ts';
 
 /**
  * Checkpoints of project folders, kept by the host in a git repository of its own per project
@@ -121,11 +123,102 @@ interface GitResult {
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
+/** Git as the store runs it: its own binary and, on macOS, the folders it reads to run. */
+interface RunnableGit {
+  readonly git: string;
+  /** Null where no Seatbelt profile confines it: anywhere but macOS. */
+  readonly tools: readonly string[] | null;
+}
+
+/**
+ * The binary to run for the configured git. Apple's tools in `/usr/bin` are shims that find the real
+ * tool through xcrun, which reads Xcode's own files and writes a cache in the user's temporary folder;
+ * the store runs the tool the shim would, by xcrun's own answer, so its profile opens none of that.
+ */
+async function runnableGit(configured: string): Promise<RunnableGit> {
+  if (process.platform !== 'darwin') return { git: configured, tools: null };
+  const real = await realpath(configured);
+  const git = real.startsWith('/usr/bin/') ? await realpath(await xcrunFind('git')) : real;
+  return { git, tools: toolFoldersFor(git) };
+}
+
+/** The developer tool xcrun names, by absolute path; it never looks the tool up on PATH. */
+function xcrunFind(tool: string): Promise<string> {
+  return new Promise((resolvePromise, reject) => {
+    execFile(
+      '/usr/bin/xcrun',
+      ['--find', tool],
+      { env: { PATH: '/usr/bin:/bin' }, timeout: 30_000 },
+      (error, stdout) => {
+        const path = String(stdout).trim();
+        if (error === null && isAbsolute(path)) resolvePromise(path);
+        else reject(error ?? new Error(`xcrun names no ${tool}`));
+      },
+    );
+  });
+}
+
+/**
+ * The Seatbelt profile every git of the store runs inside on macOS (U2): reads closed by default but
+ * for the system's own paths, git's own folders, the project's repository, the store's home for git
+ * and the project; writes only in the repository and the project. The store's checks before it acts
+ * only narrow the time in which a folder, swapped for a link by a process an agent left running, could
+ * send git elsewhere; under this profile the kernel refuses any read or write the link leads outside,
+ * since it judges the path each one resolves to. Git's own folders must not hold the project, or
+ * reading them would open what is around it. Exported for its tests.
+ */
+export function gitProfile(scope: {
+  readonly tools: readonly string[];
+  readonly repository: string;
+  readonly home: string;
+  readonly project: string | null;
+}): string {
+  const writable = [scope.repository, ...(scope.project === null ? [] : [scope.project])];
+  for (const tool of scope.tools)
+    for (const path of writable)
+      if (within(resolved(tool), resolved(path)))
+        throw new Error("git's own folder holds the project or its checkpoints, so git is not run");
+  const readable = [...writable, scope.home];
+  return [
+    '(version 1)',
+    '(allow default)',
+    '(deny network-outbound)',
+    '(deny file-write*)',
+    `(allow file-write* ${subpaths(writable)} (literal "/dev/null"))`,
+    '(deny file-read*)',
+    ...SYSTEM_READS,
+    `(allow file-read* ${subpaths(scope.tools)})`,
+    `(allow file-read-metadata ${ancestors(scope.tools)})`,
+    `(allow file-read* ${subpaths(readable)})`,
+    `(allow file-read-metadata ${ancestors(readable)})`,
+    '(deny lsopen)',
+    '(deny appleevent-send)',
+    '',
+  ].join('\n');
+}
+
+/**
+ * The Seatbelt profile a removal runs inside on macOS (U2): it writes only under the project's real
+ * path, so a folder swapped for a link between the store's check and the removal cannot send it out.
+ * Exported for its tests.
+ */
+export function removalProfile(project: string): string {
+  return [
+    '(version 1)',
+    '(allow default)',
+    '(deny network-outbound)',
+    '(deny file-write*)',
+    `(allow file-write* ${subpaths([project])})`,
+    '',
+  ].join('\n');
+}
+
 export class CheckpointStore {
   readonly #git: string;
   readonly #directory: string;
   readonly #limits: CheckpointLimits;
   readonly #protect: readonly string[];
+  #found: Promise<RunnableGit> | null = null;
 
   constructor(options: CheckpointStoreOptions) {
     this.#git = options.git;
@@ -481,7 +574,7 @@ export class CheckpointStore {
     await mkdir(this.#directory, { recursive: true, mode: 0o700 });
     const init = await this.#spawn(
       ['init', '-q', '--bare', '--object-format=sha256', repository],
-      null,
+      { repository, project: null },
       null,
     );
     if (init.code !== 0) throw new Error('the checkpoint store could not be made');
@@ -512,22 +605,35 @@ export class CheckpointStore {
         '--literal-pathspecs',
         ...args,
       ],
-      folder,
+      { repository, project: folder },
       index,
       input,
     );
   }
 
+  /** Git as the store runs it, found once; a git that could not be found is looked for again next time. */
+  #runnable(): Promise<RunnableGit> {
+    this.#found ??= runnableGit(this.#git);
+    const finding = this.#found;
+    finding.catch(() => {
+      if (this.#found === finding) this.#found = null;
+    });
+    return finding;
+  }
+
   /**
    * Runs git with none of the person's settings: no system or global configuration, a home of the
-   * store's own, no hooks, no file system monitor, and no conversion of line endings.
+   * store's own, no hooks, no file system monitor, and no conversion of line endings. On macOS it runs
+   * inside `gitProfile`, reading and writing only the project's repository and the project.
    */
-  #spawn(
+  async #spawn(
     args: readonly string[],
-    cwd: string | null,
+    scope: { readonly repository: string; readonly project: string | null },
     index: string | null,
     input?: Buffer,
   ): Promise<GitResult> {
+    const { git, tools } = await this.#runnable();
+    const home = join(this.#directory, '.home');
     const settings = [
       'core.fsmonitor=false',
       'core.hooksPath=/dev/null',
@@ -538,12 +644,26 @@ export class CheckpointStore {
       'core.untrackedCache=false',
       'gc.auto=0',
     ].flatMap((setting) => ['-c', setting]);
+    const [file, ...argv] =
+      tools === null
+        ? [git, ...settings, ...args]
+        : [
+            SANDBOX_EXEC,
+            '-p',
+            gitProfile({ tools, repository: scope.repository, home, project: scope.project }),
+            git,
+            ...settings,
+            ...args,
+          ];
+    // Git reads the folder it runs in, so it runs in one its profile reads: the project, else the
+    // repository, except for the init that makes the repository.
+    const cwd = scope.project ?? (args[0] === 'init' ? this.#directory : scope.repository);
     return new Promise((resolvePromise, reject) => {
-      const child = spawn(this.#git, [...settings, ...args], {
-        cwd: cwd ?? this.#directory,
+      const child = spawn(file as string, argv, {
+        cwd,
         env: {
           PATH: '/usr/bin:/bin',
-          HOME: join(this.#directory, '.home'),
+          HOME: home,
           LC_ALL: 'C',
           GIT_CONFIG_NOSYSTEM: '1',
           GIT_CONFIG_GLOBAL: '/dev/null',
@@ -683,7 +803,10 @@ async function clearWay(folder: string, entries: readonly TreeEntry[]): Promise<
 /**
  * Removes one path inside the folder, a link as a link and a folder with what it holds. Immediately
  * before, every folder above it must still be a real folder inside the project, not a link a process
- * left running put there since the path was listed; otherwise nothing is removed and it throws.
+ * left running put there since the path was listed; otherwise nothing is removed and it throws. That
+ * check only narrows the time a link could be put there; on macOS the removal itself runs inside
+ * `removalProfile`, so a link put there after it leads nowhere the removal may write (U2), and a path
+ * still there afterwards throws.
  */
 export async function removeInside(folder: string, relative: string): Promise<void> {
   const trimmed = relative.endsWith('/') ? relative.slice(0, -1) : relative;
@@ -703,7 +826,37 @@ export async function removeInside(folder: string, relative: string): Promise<vo
   const realParent = await realpath(dirname(path));
   if (realParent !== realFolder && !realParent.startsWith(realFolder + sep))
     throw new Error('a folder in the project now leads outside it');
-  await rm(path, { recursive: true, force: true });
+  if (process.platform !== 'darwin') {
+    await rm(path, { recursive: true, force: true });
+    return;
+  }
+  await removeConfined(realFolder, path);
+  if (await present(path))
+    throw new Error('a folder in the project changed while files were put back, so a path stayed');
+}
+
+/** Removes `path` inside `removalProfile(project)`, whatever is there, as `rm -rf` does. */
+function removeConfined(project: string, path: string): Promise<void> {
+  return new Promise((resolvePromise, reject) => {
+    execFile(
+      SANDBOX_EXEC,
+      ['-p', removalProfile(project), '/bin/rm', '-rf', '--', path],
+      { env: { PATH: '/usr/bin:/bin' }, timeout: GIT_TIMEOUT_MS },
+      (error) => (error === null ? resolvePromise() : reject(error)),
+    );
+  });
+}
+
+/** Whether anything is at the path, a link included, as the path resolves now. */
+async function present(path: string): Promise<boolean> {
+  try {
+    await lstat(path);
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return false;
+    throw error;
+  }
 }
 
 /** Whether `path` is `base` or inside it, `/` included. Exported for its tests. */

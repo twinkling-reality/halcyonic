@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
@@ -9,15 +9,18 @@ import {
   readFileSync,
   readlinkSync,
   realpathSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { createRequire, syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, test } from 'node:test';
-import { CheckpointStore, removeInside, within } from './store.ts';
+import { SANDBOX_EXEC } from '../seatbelt.ts';
+import { CheckpointStore, gitProfile, removalProfile, removeInside, within } from './store.ts';
 
 // The system's git, as the owner's Mac has it; the tests need a real one.
 const GIT = '/usr/bin/git';
@@ -329,4 +332,137 @@ describe('removing a leftover path', () => {
     await removeInside(folder, 'a/b.txt');
     assert.equal(existsSync(join(folder, 'a', 'b.txt')), false);
   });
+
+  test('on this Mac, a folder swapped for a link after the last check and before the removal leaves the outside alone (U2)', {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    write('a/victim/mine.txt', 'the agent made this\n');
+    mkdirSync(join(outside, 'victim'));
+    writeFileSync(join(outside, 'victim', 'keep.txt'), 'keep\n');
+    const swap = swapAfterResolving(join(folder, 'a'), () => {
+      renameSync(join(folder, 'a'), join(folder, 'a-was'));
+      symlinkSync(outside, join(folder, 'a'));
+    });
+    try {
+      await assert.rejects(removeInside(folder, 'a/victim/'));
+    } finally {
+      swap.undo();
+    }
+    assert.equal(swap.done(), true, 'the swap never happened, so this proves nothing');
+    assert.equal(readFileSync(join(outside, 'victim', 'keep.txt'), 'utf8'), 'keep\n');
+  });
+
+  test('on this Mac, a restore whose leftover folder is swapped for a link mid-removal changes nothing outside (U2)', {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    write('a/keep.md', 'keep\n');
+    const id = await take();
+    // What the agent made after the checkpoint, which the restore removes.
+    write('a/victim/mine.txt', 'the agent made this\n');
+    mkdirSync(join(outside, 'victim'));
+    writeFileSync(join(outside, 'victim', 'keep.txt'), 'keep\n');
+    const swap = swapAfterResolving(join(folder, 'a'), () => {
+      renameSync(join(folder, 'a'), join(folder, 'a-was'));
+      symlinkSync(outside, join(folder, 'a'));
+    });
+    let restored: Awaited<ReturnType<CheckpointStore['restore']>>;
+    try {
+      restored = await store.restore(PROJECT, folder, id);
+    } finally {
+      swap.undo();
+    }
+    assert.equal(swap.done(), true, 'the swap never happened, so this proves nothing');
+    assert.equal(restored.ok, false);
+    assert.equal(readFileSync(join(outside, 'victim', 'keep.txt'), 'utf8'), 'keep\n');
+    assert.equal(readFileSync(join(outside, 'secret.txt'), 'utf8'), 'outside\n');
+  });
 });
+
+describe("on this Mac, the store's own Seatbelt profiles (U2)", {
+  skip: process.platform !== 'darwin',
+}, () => {
+  const inside = (profile: string, command: string[]) =>
+    new Promise<string>((resolve) => {
+      execFile(SANDBOX_EXEC, ['-p', profile, ...command], (error, stdout, stderr) =>
+        resolve(error === null ? `${stdout}` : `${stderr}` || 'failed'),
+      );
+    });
+
+  test("git's reads only the system's paths, its own tools, the repository and the project, and writes only the last two", async () => {
+    const repository = join(root, 'store', 'p.git');
+    mkdirSync(repository, { recursive: true });
+    const profile = gitProfile({
+      tools: ['/usr/bin'],
+      repository,
+      home: join(root, 'store', '.home'),
+      project: folder,
+    });
+    assert.equal(await inside(profile, ['/bin/cat', join(folder, 'src', 'a.txt')]), 'one\n');
+    assert.equal(await inside(profile, ['/usr/bin/touch', join(repository, 'made')]), '');
+    assert.equal(await inside(profile, ['/usr/bin/touch', join(folder, 'made')]), '');
+    // Escape-shaped tries only touch this test's own scratch folder.
+    assert.match(
+      await inside(profile, ['/bin/cat', join(outside, 'secret.txt')]),
+      /Operation not permitted/,
+    );
+    assert.match(
+      await inside(profile, ['/usr/bin/touch', join(outside, 'made')]),
+      /Operation not permitted/,
+    );
+    assert.equal(existsSync(join(outside, 'made')), false);
+  });
+
+  test('a git whose own folders hold the project is not run, since reading them would open what is around it', () => {
+    assert.throws(
+      () =>
+        gitProfile({
+          tools: [root],
+          repository: join(root, 'store', 'p.git'),
+          home: join(root, 'store', '.home'),
+          project: folder,
+        }),
+      /git's own folder holds the project/,
+    );
+  });
+
+  test('a removal writes only in the project', async () => {
+    const profile = removalProfile(folder);
+    write('gone/x.txt', 'x\n');
+    assert.equal(await inside(profile, ['/bin/rm', '-r', join(folder, 'gone')]), '');
+    assert.equal(existsSync(join(folder, 'gone')), false);
+    assert.match(
+      await inside(profile, ['/bin/rm', join(outside, 'secret.txt')]),
+      /Operation not permitted/,
+    );
+    assert.equal(readFileSync(join(outside, 'secret.txt'), 'utf8'), 'outside\n');
+  });
+});
+
+/**
+ * Makes a process the agent left running win the race at a chosen moment: right after the store
+ * resolves `path`, its last check before acting, `swap` runs once. Interposes on fs/promises.realpath,
+ * whose live binding the store's import shares (`syncBuiltinESMExports`).
+ */
+function swapAfterResolving(path: string, swap: () => void) {
+  const fsp = createRequire(import.meta.url)('node:fs/promises') as {
+    realpath: (...args: unknown[]) => Promise<string>;
+  };
+  const realpath = fsp.realpath;
+  let swapped = false;
+  fsp.realpath = async (...args: unknown[]) => {
+    const answer = await realpath(...args);
+    if (!swapped && String(args[0]) === path) {
+      swap();
+      swapped = true;
+    }
+    return answer;
+  };
+  syncBuiltinESMExports();
+  return {
+    done: () => swapped,
+    undo: () => {
+      fsp.realpath = realpath;
+      syncBuiltinESMExports();
+    },
+  };
+}
