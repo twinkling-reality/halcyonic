@@ -142,3 +142,17 @@ as literal paths: the data folder, `codex-confined` and `starters`. A confined a
 folders exist and read their metadata (size, mode, owner and times); it still cannot list them, read anything in
 them, or find any other file or folder in the data folder, and nothing else is widened. Tested on this Mac with the
 real profile and the pinned Codex 0.157.0 ([codex-capabilities.md](../validation/codex-capabilities.md)).
+
+## Amendment, 2026-11-03: the check reads no more than the agent (AUDIT P1)
+
+The check of a starter project (ADR 0037) runs the agent's project through the starter's TypeScript and Vite, and
+its profile read everything outside the home folder, so it reached what the confined agent may not: `/private/tmp`,
+every app's per-user temporary and cache folders, drives, `/Users/Shared`, Homebrew's `etc` and `var`. The agent
+names what the check reads, in its `tsconfig.json` and its sources, and the result came back to it: a type check's
+first lines go after the person's next words (FX1), quoting the names in a file it read, and Vite inlines or copies
+an asset a source names into the built copy the preview serves. Both were run on this Mac with the pinned starter
+(TypeScript 5.9.3, Vite 7.3.7): the outside file's names were in `tsc.log`, and its bytes inlined in the built copy.
+The check's profile is now closed for reads by default: the system's own paths this profile's base allows a confined
+agent, Node's installation outside the home folder (`toolFoldersFor`), and the project, the starter, the check's
+cache and the controller models, nothing else. The same tests now find neither (`preview/check.test.ts`, opt-in with
+an installed starter; `preview/profiles.test.ts`).
