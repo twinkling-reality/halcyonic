@@ -506,6 +506,27 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   included; the page's own requests are same-origin and unaffected.
 - **Not tried:** the Quest Browser.
 
+## Files written in the confined sandbox (U9)
+
+- **Question:** why did the third showcase rehearsal, a VR version of a 2D game, end with no game at all?
+- **Date:** 2026-11-03, `muse-glimmer:30b-mlx` through confined Codex 0.157.0 on the lane's scratch control plane.
+- **Found:**
+  - The confinement (ADR 0041) lets the agent write its project's folder only, with no temporary folder. zsh puts
+    every here-document in a temporary file under `/tmp`, so each of the agent's seven heredoc writes
+    (`cat > src/index.ts << 'EOF'`, and a `python3 << 'PY'` script) exited 1 with "can't create temp file for here
+    document: operation not permitted".
+  - Two writes to `/tmp` (saving the original in parts to read) gave "operation not permitted".
+  - It never used its file-editing tool. Testing why its writes failed, it wrote `hello` over the starter's
+    `src/index.ts` with `python3 -c`, then removed the file; after 42 minutes the check had no entry point.
+  - The second rehearsal used the file-editing tool for each of its 8 writes and passed in one turn. The first had 3
+    heredoc writes refused and needed a fix-up turn.
+- **Since:** ADR 0041's amendment of 2026-11-03 (CONFINED-TMP) gives a confined server a temporary folder of its own,
+  named by `TMPDIR` and zsh's `TMPPREFIX`, so a here-document now works; writes to `/tmp` stay refused.
+- **Now:** AGENTS.md asks, with what the agent cannot do there, for every file to be written and changed with the
+  file-editing tool, never through the shell. Its first words named the two errors and said the shell had no
+  temporary folder; AUDIT stopped them before they landed, since CONFINED-TMP made them false.
+- **Not tried:** a rehearsal on these words (one S3 re-run follows CONFINED-TMP).
+
 ## A page drawn of its own (DRAWN)
 
 - **Question:** the starter draws an island, a sky, clouds and decor, about 56,000 sharp edges in each picture, so

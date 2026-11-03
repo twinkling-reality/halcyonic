@@ -349,6 +349,11 @@ each about 30 cm across, one draw call and facing the player: `critter()` (a rou
 a belly and feet), `toyStar()` (a bevelled star with a face, glowing a little in its own colour), `balloon()` (with
 its knot and a curling string) and `basket()` (woven bands, a rim), and AGENTS.md asks a game to start from them.
 
+Files through the file-editing tool (U9): the third showcase rehearsal's agent wrote through the shell only, never
+with its file-editing tool. With no temporary folder then, every here-document it wrote failed, and it ended with no
+game; ADR 0041's amendment of 2026-11-03 has since given a confined server a temporary folder of its own. AGENTS.md now
+asks for every file to be written and changed with the file-editing tool, never through the shell.
+
 ## Amendment, 2026-11-03: drawn means something of the project's own (DRAWN)
 
 Since the starter's look (GQ1b) and its decor (U4), the empty starter draws an island, a sky, clouds, trees and
