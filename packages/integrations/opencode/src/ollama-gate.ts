@@ -25,6 +25,12 @@ import { isRecord } from './events.ts';
  * which would let Ollama, unsandboxed, carry data to a host the command chooses, and no cloud or
  * remote model, which Ollama would run on another host. The gate always connects to the Ollama
  * address it was given, never to one a request names.
+ *
+ * Nor can a web page the person opens use it, as Ollama refuses one itself: a request that names
+ * another `Host` than the gate's own address and port, carries an `Origin`, or is marked by a
+ * browser as from a site or a page (`Sec-Fetch-Site` other than `none`) is refused before its route
+ * is read, and a body is passed on only when it is sent as JSON, which no page can send across
+ * sites without a preflight the gate never answers.
  */
 export interface OllamaGate {
   /** The gate's own port on 127.0.0.1. */
@@ -307,6 +313,9 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
     }
   };
 
+  // The gate's own address as a request names it, set once it listens: OpenCode dials the base URL.
+  let ownHost = '';
+
   // OpenCode sends one request at a time on a connection; one sent while a reply is still open
   // closes the connection, so a request never goes untimed behind another's reply.
   const answering = new Set<Socket>();
@@ -335,6 +344,12 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
   server.maxConnections = MAX_CONNECTIONS;
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (!fromOpenCode(req, ownHost)) {
+      res.setHeader('connection', 'close');
+      req.resume();
+      refuse(res, 403, 'Halcyonic passes on requests from OpenCode only.');
+      return;
+    }
     const route = `${req.method} ${req.url}`;
     if (route === 'GET /api/tags') {
       req.resume();
@@ -346,6 +361,12 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
       res.setHeader('connection', 'close');
       req.resume();
       refuse(res, 404, 'Halcyonic passes on only the model list, model details and chat.');
+      return;
+    }
+    if (!sentAsJson(req)) {
+      res.setHeader('connection', 'close');
+      req.resume();
+      refuse(res, 415, 'Halcyonic passes on only a body sent as JSON.');
       return;
     }
     const raw = await read(req);
@@ -398,6 +419,7 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
     server.listen(0, LOOPBACK, () => resolve());
   });
   const { port } = server.address() as AddressInfo;
+  ownHost = `${LOOPBACK}:${port}`;
   return {
     port,
     baseUrl: `http://${LOOPBACK}:${port}/v1`,
@@ -534,6 +556,36 @@ function readBody(
 
 /** A request refused because the gate is busy: it waited too long for a place to be read. */
 class Busy extends Error {}
+
+/**
+ * Whether a request comes from OpenCode, or a command it runs, and never from a browser page:
+ * addressed to the gate by its own address and port, as OpenCode dials its base URL, so a page that
+ * rebinds its own name to 127.0.0.1 is refused by its `Host`; with no `Origin`, which a page sends
+ * on every request that is not a plain GET; and with no `Sec-Fetch-Site` but `none`, a person's own
+ * navigation, which a page's cross-site fetch carries otherwise. Ollama itself refuses a foreign
+ * `Host` and an unlisted `Origin`; in front of it, the gate must too.
+ */
+function fromOpenCode(req: IncomingMessage, ownHost: string): boolean {
+  const site = req.headers['sec-fetch-site'];
+  return (
+    ownHost !== '' &&
+    req.headers.host === ownHost &&
+    req.headers.origin === undefined &&
+    (site === undefined || site === 'none')
+  );
+}
+
+/**
+ * Whether a body is sent as JSON, `application/json` with or without parameters, as OpenCode sends
+ * every body: a page can send a body across sites without a preflight, which the gate never
+ * answers, only as text, a form or no type at all.
+ */
+function sentAsJson(req: IncomingMessage): boolean {
+  const type = req.headers['content-type'];
+  return (
+    typeof type === 'string' && type.split(';')[0]?.trim().toLowerCase() === 'application/json'
+  );
+}
 
 function present(value: unknown): boolean {
   return value !== undefined && value !== null && value !== '';

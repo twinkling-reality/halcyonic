@@ -2140,11 +2140,22 @@ describe("OpenCode reaches Ollama only through Halcyonic's gate (ADR 0028)", {
         curl('cloud', chat('gemma4:cloud')),
         curl('remote', chat('big:70b')),
         curl('unlisted', chat('other:1b')),
-        curl('showremote', `-X POST -d '{"model":"big:70b"}' ${gate}/api/show`),
+        curl(
+          'showremote',
+          `-X POST -H 'content-type: application/json' -d '{"model":"big:70b"}' ${gate}/api/show`,
+        ),
         curl(
           'casechat',
-          `-X POST -d '{"model":"${TAG}","Model":"gemma4:cloud","messages":[]}' ${gate}/v1/chat/completions`,
+          `-X POST -H 'content-type: application/json' -d '{"model":"${TAG}","Model":"gemma4:cloud","messages":[]}' ${gate}/v1/chat/completions`,
         ),
+        // What a browser page sends, which Ollama itself refuses: a body as text, an Origin, and
+        // another name for the gate's address.
+        curl(
+          'plain',
+          `-X POST -H 'content-type: text/plain' -d '{"model":"${TAG}","messages":[]}' ${gate}/v1/chat/completions`,
+        ),
+        curl('origin', `-H 'Origin: https://attacker.example' ${chat(TAG)}`),
+        curl('rebound', `-H 'Host: attacker.example:${gatePort}' ${chat(TAG)}`),
         curl('local', chat(TAG)),
         curl('direct', `http://127.0.0.1:${ollamaPort}/api/tags`),
         `echo done >> ${results}`,
@@ -2172,6 +2183,9 @@ describe("OpenCode reaches Ollama only through Halcyonic's gate (ADR 0028)", {
       for (const name of ['cloud', 'remote', 'unlisted', 'showremote']) {
         assert.match(said, new RegExp(`\\b${name}=403 `), name);
       }
+      assert.match(said, /\bplain=415 /, 'a body sent as text');
+      assert.match(said, /\borigin=403 /, 'a request with an Origin');
+      assert.match(said, /\brebound=403 /, 'another name for the gate');
       // The control: a chat with the model on this Mac goes through, and Ollama's own port does not.
       assert.match(said, /casechat=400 /, 'a model named again in another case');
       assert.match(said, /local=200 /);

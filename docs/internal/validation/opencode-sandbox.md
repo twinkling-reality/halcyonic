@@ -149,6 +149,32 @@ a real turn, 2026-10-08, with Ollama 0.34.4 and the pinned binary:
    samples (every 250 ms, by `lsof`) neither Ollama nor the OpenCode server held a socket beyond
    loopback; the model was unloaded after (private probe).
 
+### Web pages and the gate (2026-11-03)
+
+An independent read of the control plane's listeners (2026-11-03) found that the gate checked
+neither `Host`, `Origin`, `Sec-Fetch-Site` nor a body's content type, all of which Ollama itself
+checks: a page the person opens could find the gate's port, then POST a chat as `text/plain`, which
+needs no preflight, or rebind its own name to 127.0.0.1 and read the replies, running the local
+models, reading their names and holding the gate's chat places. Its probe, the gate before a
+stand-in Ollama: a rebinding page's chat and a cross-site no-cors chat each answered 200 and
+reached the stand-in, and a rebinding page's model list answered 200.
+
+Now the gate refuses with 403, before reading the route, a request whose `Host` is not its own
+address and port (`127.0.0.1:<port>`, as OpenCode dials it), one with an `Origin`, and one marked
+`Sec-Fetch-Site` other than `none`; and with 415, before reading the body, a show or chat not sent
+as `application/json`. Node's server refuses a request without `Host` itself (400). Verified:
+
+- The probe again, against this checkout's gate and a stand-in: all three requests 403, nothing
+  reaching the stand-in.
+- The gate's unit tests: those requests, the gate named `localhost`, an `Origin` on JSON, a chat as
+  text and details without a content type, all refused with nothing reaching the stand-in;
+  OpenCode's own shapes, and `Sec-Fetch-Site: none`, still answered.
+- The end to end suite on the pinned binary, through the gate and the sandbox: OpenCode's own
+  model list, details and chats passed; an approved command's chat sent as text answered 415, with
+  an `Origin` or another name for the gate 403, its JSON chat with the local model 200.
+
+Not run: a real browser page against a running gate, and the real Ollama.
+
 ## ripgrep
 
 OpenCode 2.0.18 searches files with the first `rg` on its PATH, then one in its cache's `bin`, and
