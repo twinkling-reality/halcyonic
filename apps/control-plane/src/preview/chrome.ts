@@ -205,9 +205,10 @@ export async function launchChrome(options: {
     launcher ?? SANDBOX_EXEC,
     launcher === null ? command.slice(1) : command,
     {
-      // Through the launcher, the browser is a grandchild: its own process group lets a forced stop
-      // reach it as well.
-      detached: launcher !== null,
+      // A session of its own, launcher or not: no controlling terminal is carried over to the browser
+      // (AUDIT P2), and its process group lets a forced stop reach the browser, a grandchild through
+      // the launcher, as well.
+      detached: true,
       env: {
         HOME: join(folder, 'home'),
         TMPDIR: join(folder, 'tmp'),
@@ -224,7 +225,7 @@ export async function launchChrome(options: {
     if (child.exitCode !== null || child.signalCode !== null) return;
     child.kill('SIGTERM');
     const forced = setTimeout(() => {
-      if (launcher === null || child.pid === undefined) child.kill('SIGKILL');
+      if (child.pid === undefined) child.kill('SIGKILL');
       else {
         try {
           process.kill(-child.pid, 'SIGKILL');
