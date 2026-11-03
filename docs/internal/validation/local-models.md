@@ -624,6 +624,58 @@ setting or secret was printed, only field names and the checks' results.
   `~/.config/opencode` were not touched. Ollama's own settings (`OLLAMA_CONTEXT_LENGTH=65536` and
   the rest) are applied when it is restarted for the headset session.
 
+## Directed changes, approvals, the sandbox and undo through the control plane (2026-11-03)
+
+- **Question:** With each runtime on a local model, does a person directing work through the
+  control plane get the live trail, the Mac's reading of the changed files, the agent's test run, an
+  approval approved and one denied, a command held inside a sandbox against one that runs on the
+  host, and an undo that puts the agent's changes back exactly?
+- **Versions:** Halcyonic at `466e5326`; OpenCode 2.0.18 and Codex 0.157.0, the pinned binaries;
+  Ollama 0.40.13 with `qwen3.6:35b-a3b-nvfp4`; Salidium 0.8.3; macOS 26.7 on an Apple M5 Max with
+  64 GB.
+- **Method:** a scratch control plane from that checkout on 127.0.0.1:47890 with a data directory
+  of its own, set up with `pnpm mac-setup local-model qwen3.6:35b-a3b-nvfp4`,
+  `HALCYONIC_GIT_BIN=/usr/bin/git` and one project root; two scratch git projects, each the same
+  two-file module with one test and one commit; a driver speaking the realtime protocol as a headset
+  does (`project.create` on the existing folder, `workstream.create`, `execution.start` with the
+  model from the runtime's list and no options). The driver answered approvals only from an exact
+  list whose worst outcome was an empty marker file in a folder outside the project root, then read
+  Understand and Checks, the before-task checkpoint's restore preview and `project.restore`,
+  comparing every file's SHA-256 with the reading before the task. The task: add `multiply` and its
+  test, run `node --test`, then run two given `touch` commands into that folder, the second to be
+  denied, and commit nothing. One run at a time; memory free was 65% to 72% before each load and
+  67% after, the control plane having unloaded the model after each turn.
+
+| | OpenCode, inside Halcyonic's sandbox | Codex, default options (`workspace-write`, `on-request`) |
+| --- | --- | --- |
+| Trail | 49 events: the model's tool calls (a glob, reads, three edits), then three shell calls, each asked | Turn 1: reads, both files written by shell heredocs and `node --test`, all inside Codex's sandbox without asking, then a question through Codex's own surface, whether to run the escalated commands. Turn 2, an instruction at rest: the two escalations, each asked |
+| Files the Mac read as changed | `math.js` 3 to 7 lines, `math.test.js` 7 to 11 | `math.js` 3 to 7, `math.test.js` 7 to 12 |
+| Test run | Approved, and passed: 2 of 2 as the agent reported, and in a later run of the same tests | Ran inside the sandbox with exit 0 observed: 2 of 2 |
+| The approved outside write | Refused by Halcyonic's sandbox: OpenCode's own record of the call reads "Operation not permitted" and exit 1; no marker | Ran outside any sandbox, on the host: the marker was created |
+| The denial | No marker; the turn ended interrupted, as a denial without a message does in OpenCode | No marker; the turn went on and completed |
+| Undo | Preview: both files changed back, nothing removed or returned, the project's commit unmoved; then `project.restored`, every file equal byte for byte to the reading before the task | The same, after turn 1 |
+
+Observed along the way:
+
+- OpenCode's first tool call came 15 s after its turn started, the model loading; Codex's came 11 s
+  after its turn started.
+- Halcyonic journaled OpenCode's refused write as a tool call completed with the outcome
+  `succeeded`: OpenCode reports the call as `session.tool.success`, whose `metadata.exit` was 1, and
+  the adapter did not read the exit code.
+- Codex's second turn changed no file in the project, yet its `execution.files.observed` listed both
+  files changed back: the restore between the turns, since the reading before a turn at rest is the
+  one taken when the turn before ended.
+- Understand for the OpenCode execution answered `not_found`, "may not have reported yet": Salidium
+  0.8.3 reads only `$XDG_DATA_HOME/opencode/opencode.db` of its own process, else
+  `~/.local/share/opencode/opencode.db`, and Halcyonic's OpenCode keeps its sessions in
+  `<data dir>/opencode-sandbox/data/opencode/opencode.db`. Checks answered `runtime_not_observed`
+  for OpenCode, and both answered it for Codex, whose session is in Halcyonic's own Codex home.
+- Each approval's summary named the command exactly as it would run: OpenCode's "[in the task's
+  folder]" and the command, Codex's command in its login shell and the folder it runs in.
+
+Not verified here: other models, a turn longer than three minutes, two executions at once, Claude
+Agent, and how the headset shows any of it.
+
 ## Not verified
 
 - OpenCode compacting a local model's context before Ollama's memory runs out without a configured
