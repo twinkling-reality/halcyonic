@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
@@ -13,6 +16,7 @@ import { END_HOLD_MS } from './demonstration.ts';
 import {
   JUDGE_MUST_NOT_READ,
   MAX_GAP_MS,
+  PRIVATE_NAMES_FILE,
   RECORDED_CLIENT,
   RECORDED_MODEL,
   RECORDED_RUNTIME_ID,
@@ -21,6 +25,7 @@ import {
   type RecordedRun,
   RecordedRunError,
   type RecordedRunOptions,
+  readPrivateNames,
   recordRecordedRun,
   sanitizeRecordedRun,
 } from './recorded-run.ts';
@@ -29,7 +34,13 @@ import { parseTrace } from './trace.ts';
 const ROOT = new URL('../../../../', import.meta.url);
 const HOME = '/Users/someone';
 const PROJECT = `${HOME}/work/storefront`;
-const OPTIONS: RecordedRunOptions = { projectRoot: PROJECT, home: HOME, deny: ['Pemberton'] };
+// No names from the ignored file: these tests read none of the checkout's own.
+const OPTIONS: RecordedRunOptions = {
+  projectRoot: PROJECT,
+  home: HOME,
+  deny: ['Pemberton'],
+  names: [],
+};
 const validateServerMessage = compileValidator(ServerMessage);
 
 /**
@@ -275,17 +286,16 @@ describe('sanitizing a recorded real run', () => {
     { name: 'a model run into its version', text: 'Llama3 answered.', reason: /llama/ },
     { name: 'a hosted model', text: 'Compared with gpt-4o.', reason: /gpt/ },
     { name: 'a coding model', text: 'Tried deepseek-coder.', reason: /deepseek/ },
-    { name: "the owner's other project", text: 'As Exulanica does.', reason: /exulanica/ },
     { name: 'a computer by its product name', text: 'On a MacBook Pro.', reason: /macbook/ },
-    // The owner's catalog product, in any case (2026-10-29), and a host in lower case.
+    // A catalog product, in any case, and a host in lower case.
     {
-      name: "the owner's catalog product",
+      name: 'a catalog product',
       text: 'Read by Omnorium.',
       reason: /Omnorium/i,
     },
     { name: 'that product in lower case', text: 'the omnorium catalog', reason: /omnorium/ },
     {
-      name: "the owner's earlier name for that product",
+      name: "that product's earlier name",
       text: 'Read by Phat Porcupine.',
       reason: /porcupine/,
     },
@@ -356,12 +366,12 @@ describe('sanitizing a recorded real run', () => {
     const project = first(events, 'project.created') as unknown as {
       payload: Record<string, unknown>;
     };
-    project.payload.Exulanica_notes = null;
-    const error = errorOf(() => sanitizeRecordedRun(events, OPTIONS));
+    project.payload.Zarnoth_notes = null;
+    const error = errorOf(() => sanitizeRecordedRun(events, { ...OPTIONS, names: ['Zarnoth'] }));
     const finding = error.findings.find((entry) => entry.reason.startsWith('a key'));
     assert.ok(finding, error.message);
     assert.equal(finding.field, 'payload');
-    assert.ok(!error.message.includes('Exulanica'), 'the key itself is never printed');
+    assert.ok(!/zarnoth/i.test(error.message), 'the key itself is never printed');
   });
 
   test("a start's options are left out: the playback starts nothing", () => {
@@ -396,6 +406,66 @@ describe('sanitizing a recorded real run', () => {
     message.payload.text = 'Committed by g. chin.';
     const error = errorOf(() => sanitizeRecordedRun(events, denying));
     assert.ok(error.findings.some((finding) => finding.reason === 'a denied word'));
+  });
+
+  test("a name kept out of the repository is refused as a listed one is, and never printed (synthetic: 'Zarnoth')", () => {
+    const events = realShaped();
+    first(events, 'runtime.agent_message').payload.text = 'As Zarnoth does.';
+    assert.doesNotThrow(() => sanitizeRecordedRun(events, OPTIONS));
+    const error = errorOf(() => sanitizeRecordedRun(events, { ...OPTIONS, names: ['Zarnoth'] }));
+    assert.ok(
+      error.findings.some((finding) => finding.reason === 'a name kept out of the repository'),
+      error.message,
+    );
+    assert.ok(!/zarnoth/i.test(error.message), 'the name itself is never printed');
+  });
+
+  test('the names kept out of the repository come from a file git ignores, one a line, comments aside', async () => {
+    assert.equal(
+      fileURLToPath(PRIVATE_NAMES_FILE),
+      fileURLToPath(new URL('.private/recorded-run-names', ROOT)),
+    );
+    assert.match(
+      readFileSync(fileURLToPath(new URL('.gitignore', ROOT)), 'utf8'),
+      /^\/\.private\/$/m,
+    );
+    const folder = mkdtempSync(join(tmpdir(), 'halcyonic-names-'));
+    try {
+      const file = join(folder, 'names');
+      // Synthetic names, made up for this test.
+      writeFileSync(file, '# synthetic names\nZarnoth\n\n  Quillon  # another\n');
+      assert.deepEqual(await readPrivateNames(file), ['Zarnoth', 'Quillon']);
+      assert.deepEqual(await readPrivateNames(join(folder, 'none')), []);
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
+  });
+
+  test('no tracked file names a name kept out of the repository, where this checkout keeps any', async (t) => {
+    const names = await readPrivateNames(PRIVATE_NAMES_FILE);
+    if (names.length === 0) {
+      t.skip('this checkout keeps no names out of the repository');
+      return;
+    }
+    const root = fileURLToPath(ROOT);
+    const patterns = names.map(
+      (name) => new RegExp(`(?<![a-z])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'),
+    );
+    const files = execFileSync('git', ['ls-files', '-z'], { cwd: root })
+      .toString()
+      .split('\0')
+      .filter((file) => file !== '');
+    const naming = files.filter((file) => {
+      let text: string;
+      try {
+        text = readFileSync(join(root, file), 'utf8');
+      } catch {
+        return false;
+      }
+      return patterns.some((pattern) => pattern.test(text));
+    });
+    // Files only, never the names: the assertion's own message must not publish them.
+    assert.deepEqual(naming, []);
   });
 
   test('ordinary English that shares a word with a brand passes', () => {

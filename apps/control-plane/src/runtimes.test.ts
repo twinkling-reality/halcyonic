@@ -477,6 +477,11 @@ describe("the secrets taken out of a runtime's text", () => {
     const escaped = clean.held(JSON.stringify(identity.key));
     for (const line of lines) assert.ok(!escaped.includes(line));
     assert.ok(escaped.includes('[redacted: network key]'));
+
+    // The catalog takes its legacy form too (`ppc_`, Phat Porcupine's), and so does the held list.
+    const legacy = `ppc_${'Zr8tYw3nQp5k'.repeat(3)}Lm2Vx7c`;
+    writeFileSync(join(dataDir, 'omnorium-credential'), `${legacy}\n`, { mode: 0o600 });
+    assert.equal(clean.held(`token ${legacy}`), 'token [redacted: Omnorium credential]');
   });
 
   test("names read as a secret's by their whole words", () => {
