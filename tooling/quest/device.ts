@@ -18,6 +18,8 @@
  *   pnpm quest:device -- launch [--package <p>]      fails when a system dialog holds the launch
  *     [--extra <key>=<text>] [--extra-bool <key>=true|false]   intent extras, each repeatable
  *   pnpm quest:device -- stop [--package <p>]
+ *   pnpm quest:device -- glance [--owner-answers]    Halcyonic's 2D window, opened by intent; it polls
+ *   pnpm quest:device -- glance-token write | remove  its token, from the control plane's, by standard input
  *   pnpm quest:device -- shot [--out <dir>]          a frame of both eyes, through screenrecord
  *   pnpm quest:device -- clip --seconds <n> [--out <dir>]   both eyes for up to 180 s, through screenrecord,
  *     no sound and no upload, with <clip>.sha256 beside it; give-back collects one a cut-off run left
@@ -42,6 +44,13 @@
  * `connect` makes the one mapping a session keeps (checks.ts), recorded before it is made and with
  * --no-rebind, so `connect stop` and `give-back` remove it; it refuses while any other mapping uses
  * port 47800, however spelled, and leaves a mapping it did not make as it is.
+ *
+ * `glance` opens Halcyonic's 2D window (development builds) by intent, with `launch`'s refusals and
+ * confirmation; it refuses unless the app holds POST_NOTIFICATIONS, since the glance asks for it when
+ * it opens and only a person may answer, or `--owner-answers` says one is there. `glance-token write`
+ * copies the control plane's own token file into the app's private files the runbooks' way: the file
+ * is checked by its metadata only, its bytes go on adb's standard input and never pass through this
+ * process, and the copy is recorded so `give-back` removes it.
  *
  * Each reverse is recorded with the transport id of the headset's connection (`adb devices -l`). A
  * USB reconnect drops every reverse and gives a new id, so a record from another id is forgotten and
@@ -76,14 +85,17 @@
  */
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { promisify } from 'node:util';
+import { defaultDataDir } from '../../apps/control-plane/src/config.ts';
+import { ACCESS_TOKEN_FILE } from '../../apps/control-plane/src/http/security.ts';
 import {
   ACTIVITY,
   adb,
   adbFor,
   adbSaid,
+  adbWithInput,
   option,
   PACKAGE,
   requireHeadset,
@@ -91,16 +103,18 @@ import {
   textOption,
   transportId,
 } from './adb.ts';
-import { HALCYONIC_PORT, halcyonicMappings, PORT_MAPPING } from './checks.ts';
+import { HALCYONIC_PORT, halcyonicMappings, PORT_MAPPING, readFileState } from './checks.ts';
 import {
   type Activity,
   describeFront,
   isGuardianDialog,
   isLaunchHeld,
   isMediaSyncOn,
+  isPermissionPrompt,
   newCaptures,
   readBasePaths,
   readFirstInstall,
+  readGranted,
   readListedFiles,
   readSha256,
   readSystemDialogs,
@@ -159,6 +173,8 @@ interface State {
   reverses: Reverse[];
   /** A clip `clip` began and has not collected: where screenrecord writes it, and when it is done. */
   clip?: { remote: string; endsAt: string };
+  /** The apps whose glance token `glance-token write` wrote (or was about to) and has not removed. */
+  glanceTokens: string[];
 }
 
 /**
@@ -182,9 +198,10 @@ function readState(): State {
         typeof kept === 'number' ? { port: kept, transport: '' } : (kept as Reverse),
       ),
       ...(read.clip ? { clip: read.clip } : {}),
+      glanceTokens: read.glanceTokens ?? [],
     };
   } catch {
-    return { installs: {}, started: [], reverses: [] };
+    return { installs: {}, started: [], reverses: [], glanceTokens: [] };
   }
 }
 
@@ -412,6 +429,8 @@ async function status(): Promise<void> {
     console.log(`A recording is in progress since ${recording.startedAt}; record stop ends it.`);
   const left = readState().clip;
   if (left) console.log(`A clip is still on the headset: ${left.remote}. give-back collects it.`);
+  for (const name of readState().glanceTokens)
+    console.log(`The glance token this tool wrote is in ${name}'s files; give-back removes it.`);
   replaced();
 }
 
@@ -464,6 +483,10 @@ async function giveBack(): Promise<void> {
   writeState((state) => {
     state.started = [];
   });
+  for (const name of readState().glanceTokens) {
+    const problem = await removeGlanceToken(name);
+    if (problem !== null) problems.push(problem);
+  }
   const on = await giveSensorBack();
   // Seen on the headset (2026-10-29): while Meta's Guardian dialog holds it, the override reads on after the
   // release until the headset sleeps, and then reads off.
@@ -626,6 +649,22 @@ async function launch(): Promise<void> {
       "This is the owner's Halcyonic: a launch rewrites its files/halcyonic-panel-motion.json. Never run it with a real runtime behind it.",
     );
   }
+  const shown = await startConfirmed(activity, extras);
+  console.log(`Started ${packageName}.`);
+  console.log(`front: ${inFront(shown, packageName)}`);
+}
+
+/**
+ * Starts `activity` of the package by intent and confirms it, recording the package as started. Fails,
+ * stopping the package again, when a system dialog shows after the start, the log since it holds a
+ * hold, or `am start` does not say ok. `expected` is a dialog the start itself raises for the person in
+ * the headset to answer (the glance's notification prompt), so it is not taken for a hold.
+ */
+async function startConfirmed(
+  activity: string,
+  extras: readonly string[],
+  expected?: (dialog: Activity) => boolean,
+): Promise<Shown> {
   // The headset's clock before the launch: the log is read for a hold from then on. When the clock
   // can't be read, the whole log is: an older hold then fails the launch, rather than a hold being missed.
   const since = (await adbSaid('shell', 'date', '+%s')).trim();
@@ -649,7 +688,8 @@ async function launch(): Promise<void> {
   );
   // The headset caches a held launch ("Caching launch"), which may start when the dialog closes: it is
   // stopped here and again by give-back; whether a stop drops the cached launch is not known.
-  if (held || shown.dialogs.length > 0) {
+  const holding = shown.dialogs.filter((dialog) => expected === undefined || !expected(dialog));
+  if (held || holding.length > 0) {
     await adb('shell', 'am', 'force-stop', packageName);
     fail(`The launch was held and ${packageName} was stopped. ${inFront(shown, packageName)}`);
   }
@@ -660,8 +700,148 @@ async function launch(): Promise<void> {
       `am start did not say ok for ${packageName} (${status === undefined ? 'no status' : `Status: ${status}`}), so it was stopped.`,
     );
   }
-  console.log(`Started ${packageName}.`);
+  return shown;
+}
+
+/** The glance: Halcyonic's 2D window in development builds, which polls the control plane while it lives. */
+const GLANCE = 'com.halcyonic.glance.GlanceActivity';
+/** The permission the glance asks for when it opens without it. */
+const NOTIFICATIONS = 'android.permission.POST_NOTIFICATIONS';
+/** The glance's own copy of the access token, in the app's private files. */
+const GLANCE_TOKEN = 'files/glance-access-token';
+
+/**
+ * Opens the glance by intent, as its runbook's first step does from the shell, with the same refusals
+ * and confirmation as `launch`. The glance asks for POST_NOTIFICATIONS when it opens without it, which
+ * puts Android's prompt in front for a person to answer, so the tool refuses unless the app holds it or
+ * `--owner-answers` says someone is in the headset to answer it. Either way it never touches the prompt.
+ */
+async function glance(): Promise<void> {
+  await refuseSystemDialog('opening the glance');
+  const granted = readGranted(
+    await adbSaid('shell', 'dumpsys', 'package', packageName),
+    NOTIFICATIONS,
+  );
+  if (granted !== true && !flag('owner-answers')) {
+    fail(
+      `Not opening the glance: ${packageName} does not hold ${NOTIFICATIONS}${granted === null ? ' (or it could not be read)' : ''}, so the glance would raise Android's prompt on the headset. With someone in the headset to answer it, run glance --owner-answers.`,
+    );
+  }
+  const token = readFileState(
+    await adbSaid('shell', 'run-as', packageName, 'stat', '-c', "'%a %s %F'", GLANCE_TOKEN),
+    GLANCE_TOKEN,
+  );
+  if (token.kind !== 'file') {
+    console.log(
+      `${packageName} has no ${GLANCE_TOKEN}, so the glance's polls answer no_token until glance-token write.`,
+    );
+  }
+  const shown = await startConfirmed(
+    `${packageName}/${GLANCE}`,
+    [],
+    granted === true ? undefined : isPermissionPrompt,
+  );
+  console.log(
+    `Opened ${packageName}'s glance: it polls every 10 s while it shows, 30 s minimised.`,
+  );
+  if (granted !== true) {
+    console.log(
+      "Android's notification prompt is for the person in the headset to answer; nothing here touches it.",
+    );
+  }
   console.log(`front: ${inFront(shown, packageName)}`);
+}
+
+async function glanceToken(): Promise<void> {
+  if (positional === 'write') return glanceTokenWrite();
+  if (positional === 'remove') {
+    const problem = await removeGlanceToken(packageName);
+    if (problem !== null) fail(problem);
+    return;
+  }
+  fail('glance-token takes write or remove.');
+}
+
+/**
+ * Writes the app's glance token from the control plane's own token file, as the runbooks' three steps
+ * do: the file is checked by its metadata only (a private 44-byte regular file of this account, never
+ * a link), its bytes go to the headset on adb's standard input and never pass through this process,
+ * and the copy is written whole and private before it takes its name. Recorded before it is written,
+ * so give-back removes it even after a cut-off run.
+ */
+async function glanceTokenWrite(): Promise<void> {
+  const source = join(defaultDataDir(), ACCESS_TOKEN_FILE);
+  let held: ReturnType<typeof lstatSync>;
+  try {
+    held = lstatSync(source);
+  } catch {
+    fail(`Not writing the glance token: the control plane's token file is not at ${source}.`);
+  }
+  if (
+    !held.isFile() ||
+    (held.mode & 0o777) !== 0o600 ||
+    held.size !== 44 ||
+    held.uid !== process.getuid?.()
+  ) {
+    fail(
+      `Not writing the glance token: ${source} is not a private 44-byte file of this account (mode 600, not a link).`,
+    );
+  }
+  const temporary = `${GLANCE_TOKEN}.tmp`;
+  writeState((state) => {
+    if (!state.glanceTokens.includes(packageName)) state.glanceTokens.push(packageName);
+  });
+  await adb('shell', 'run-as', packageName, 'rm', '-f', temporary);
+  await adbWithInput(
+    source,
+    20_000,
+    'exec-in',
+    `run-as ${packageName} sh -c 'umask 077; mkdir -p files && rm -f ${temporary} && cat > ${temporary}'`,
+  );
+  // The input's end may not reach the remote cat, so this waits for its 44 bytes, then moves it into place.
+  const said = await adbSaid(
+    'shell',
+    `run-as ${packageName} sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do test "$(stat -c %s ${temporary} 2>/dev/null)" = 44 && break; sleep 1; done; if test "$(stat -c %s ${temporary} 2>/dev/null)" = 44 && chmod 600 ${temporary} && mv -f ${temporary} ${GLANCE_TOKEN}; then echo written; else rm -f ${temporary}; echo not written; fi'`,
+  );
+  if (!/^written$/m.test(said)) {
+    fail(
+      `The glance token was not written: the copy never reached 44 bytes on the headset. Nothing is in its place; give-back removes what is left.`,
+    );
+  }
+  const now = readFileState(
+    await adbSaid('shell', 'run-as', packageName, 'stat', '-c', "'%a %s %F'", GLANCE_TOKEN),
+    GLANCE_TOKEN,
+  );
+  if (
+    now.kind !== 'file' ||
+    now.mode !== '600' ||
+    now.bytes !== 44 ||
+    now.type !== 'regular file'
+  ) {
+    fail(
+      `${packageName}'s ${GLANCE_TOKEN} is not mode 600 and 44 bytes after the write; give-back removes it.`,
+    );
+  }
+  console.log(
+    `Wrote ${packageName}'s ${GLANCE_TOKEN}: mode 600, 44 bytes, from the control plane's token, which was never shown. give-back or glance-token remove removes it.`,
+  );
+}
+
+/** Removes the app's glance token and what a write left half done, then forgets it once stat says it is gone: what went wrong, or null. */
+async function removeGlanceToken(name: string): Promise<string | null> {
+  await adbSaid('shell', 'run-as', name, 'rm', '-f', GLANCE_TOKEN, `${GLANCE_TOKEN}.tmp`);
+  const left = readFileState(
+    await adbSaid('shell', 'run-as', name, 'stat', '-c', "'%a %s %F'", GLANCE_TOKEN),
+    GLANCE_TOKEN,
+  );
+  if (left.kind !== 'absent') {
+    return `${name}'s ${GLANCE_TOKEN} could not be shown gone, so it stays recorded; run glance-token remove again.`;
+  }
+  writeState((state) => {
+    state.glanceTokens = state.glanceTokens.filter((kept) => kept !== name);
+  });
+  console.log(`Removed ${name}'s ${GLANCE_TOKEN}.`);
+  return null;
 }
 
 async function stop(): Promise<void> {
@@ -1180,6 +1360,8 @@ const commands: Record<string, () => Promise<void>> = {
   restore,
   launch,
   stop,
+  glance,
+  'glance-token': glanceToken,
   shot,
   clip,
   record,

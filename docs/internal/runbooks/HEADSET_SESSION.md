@@ -335,7 +335,11 @@ adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && rm -f f
 adb shell "run-as com.halcyonic.xr sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do test \"\$(stat -c %s files/glance-access-token.tmp 2>/dev/null)\" = 44 && break; sleep 1; done; if test \"\$(stat -c %s files/glance-access-token.tmp 2>/dev/null)\" = 44 && chmod 600 files/glance-access-token.tmp && mv -f files/glance-access-token.tmp files/glance-access-token; then echo written; else rm -f files/glance-access-token.tmp; echo not written: the token file is not the 44 bytes the control plane makes, or it never arrived, so write it again; fi'"
 ```
 
-Open the glance (step 1), then `pnpm quest:check`. Pass: the glance token passes, the glance
+`pnpm quest:device -- glance-token write` does the same three steps, the token through standard
+input only, and `give-back` removes what it wrote. Open the glance (step 1): `pnpm quest:device --
+glance` opens it by intent, and refuses unless the app holds Android's notification permission, since
+the glance asks for it when it opens; with the owner in the headset to answer that prompt, run it with
+`--owner-answers`. Then `pnpm quest:check`. Pass: the glance token passes, the glance
 "polled ok", and no cleartext or StrictMode line. That is also the safety section's first check.
 
 1. **Notify over a game** (steps 2, 3, 6, 7 and 8): the window over a game, the toast within one
@@ -705,6 +709,11 @@ pnpm quest:device -- give-back
   removed from the headset by name. Captures show the room: keep them out of the repository.
 - `logs` keeps Halcyonic's own lines, its OpenXR session's states and the compositor's frame line,
   from Halcyonic's process only.
+- `glance` opens the glance (check 3) by intent, with `launch`'s refusals; it refuses unless the app
+  holds `POST_NOTIFICATIONS`, and `--owner-answers` lets the prompt rise for the person in the headset,
+  which the tool never touches. `glance-token write` puts the glance's token in place from the control
+  plane's own file (a private 44-byte file, never a link), its bytes on adb's standard input only;
+  `glance-token remove` and `give-back` remove it. Android's permission prompt is a known system dialog.
 - `preview <project id>` opens a project's checked copy in Quest Browser at `http://127.0.0.1:<port>/`, only when its
   latest check passed with the agents' reads confined and the host's own server serves it
   ([quest-browser-preview.md](../validation/quest-browser-preview.md)). The check holds when the page opens, not after:

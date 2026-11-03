@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { type AddressInfo, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -128,6 +128,36 @@ describe('adb for the device tools', () => {
         /^Error: adb shell screenrecord failed \(signal SIGTERM\)$/,
       );
       assert.equal((await adbFor(5000, 'shell', 'screenrecord')).trim(), 'finished');
+    } finally {
+      delete process.env.HALCYONIC_QUEST_SERIAL;
+    }
+  });
+
+  test('a file goes to adb on standard input only, never on its command line', async () => {
+    // The glance token reaches the headset this way: never in an argument, a variable or a log.
+    const fake = join(directory, 'adb-input');
+    const seen = join(directory, 'adb-input-seen');
+    writeFileSync(fake, `#!/bin/sh\necho "$@" > ${seen}.args\ncat > ${seen}.input\n`);
+    chmodSync(fake, 0o755);
+    const input = join(directory, 'input-file');
+    writeFileSync(input, 'bytes that stay off every command line', { mode: 0o600 });
+    process.env.HALCYONIC_ADB = fake;
+    process.env.HALCYONIC_QUEST_SERIAL = 'TEST-SERIAL-4';
+    try {
+      const { adbWithInput } = await import('./adb.ts');
+      await adbWithInput(
+        input,
+        5000,
+        'exec-in',
+        "run-as com.example.app sh -c 'cat > files/x.tmp'",
+      );
+      assert.equal(readFileSync(`${seen}.input`, 'utf8'), 'bytes that stay off every command line');
+      assert.ok(!readFileSync(`${seen}.args`, 'utf8').includes('stay off'));
+      writeFileSync(fake, '#!/bin/sh\nexit 3\n');
+      await assert.rejects(
+        adbWithInput(input, 5000, 'exec-in', 'x'),
+        /^Error: adb exec-in failed \(exit code 3\)$/,
+      );
     } finally {
       delete process.env.HALCYONIC_QUEST_SERIAL;
     }

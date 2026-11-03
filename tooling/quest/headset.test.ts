@@ -8,6 +8,7 @@ import {
   newCaptures,
   readBasePaths,
   readFirstInstall,
+  readGranted,
   readListedFiles,
   readSha256,
   readSystemDialogs,
@@ -85,6 +86,47 @@ describe('headset state', () => {
       describeFront(tip, 'com.halcyonic.xr'),
       /^One of Meta's first-time tips is open \(such as Customize your Library\)/,
     );
+  });
+
+  test("Android's permission prompt is a system dialog, read in words", () => {
+    const prompt = {
+      package: 'com.android.permissioncontroller',
+      activity: '.permission.ui.GrantPermissionsActivity',
+    };
+    assert.deepEqual(
+      readSystemDialogs(
+        '      topResumedActivity=ActivityRecord{aaa u0 com.android.permissioncontroller/.permission.ui.GrantPermissionsActivity t7}',
+      ),
+      [prompt],
+    );
+    assert.match(describeFront(prompt, 'com.halcyonic.xr'), /^Android's permission prompt is open/);
+  });
+
+  test('whether a package holds a permission is read from dumpsys package', () => {
+    const NOTIFICATIONS = 'android.permission.POST_NOTIFICATIONS';
+    // As the headset printed it for the owner's app on 2026-11-03.
+    assert.equal(
+      readGranted(
+        '        android.permission.POST_NOTIFICATIONS: granted=false, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]',
+        NOTIFICATIONS,
+      ),
+      false,
+    );
+    assert.equal(
+      readGranted(
+        '        android.permission.POST_NOTIFICATIONS: granted=true, flags=[ USER_SET ]',
+        NOTIFICATIONS,
+      ),
+      true,
+    );
+    assert.equal(
+      readGranted(
+        '    requested permissions:\n      android.permission.POST_NOTIFICATIONS',
+        NOTIFICATIONS,
+      ),
+      null,
+    );
+    assert.equal(readGranted('Unable to find package: com.example.none', NOTIFICATIONS), null);
   });
 
   test("the Headset Power menu and the alert service's other screens read as plain words", () => {

@@ -32,6 +32,15 @@ const GUARDIAN = 'com.oculus.guardian';
 const ALERTS = 'com.oculus.vralertservice';
 /** Meta's first-time tips, such as "Customize your Library", which held a launch on 2026-11-03. */
 const FIRST_TIME = 'com.oculus.firsttimenux';
+/** Android's permission controller, AOSP's and Google's, whose prompt asks the person to allow a permission. */
+const PERMISSIONS = ['com.android.permissioncontroller', 'com.google.android.permissioncontroller'];
+
+/** Whether `activity` is Android's permission prompt, which only the person in the headset answers. */
+export function isPermissionPrompt(activity: Activity): boolean {
+  return (
+    PERMISSIONS.includes(activity.package) && activity.activity.endsWith('GrantPermissionsActivity')
+  );
+}
 
 /** Whether Meta's Guardian dialog is in front: the headset can't find its position in the room. */
 export function isGuardianDialog(front: Activity | null): boolean {
@@ -39,8 +48,9 @@ export function isGuardianDialog(front: Activity | null): boolean {
 }
 
 /**
- * `dumpsys activity activities`: every system dialog showing, the Guardian's, the alert service's or
- * a first-time tip, in the order of the tasks, then the one `ResumedActivity` names. A Quest resumes several
+ * `dumpsys activity activities`: every system dialog showing, the Guardian's, the alert service's, a
+ * first-time tip or Android's permission prompt, in the order of the tasks, then the one
+ * `ResumedActivity` names. A Quest resumes several
  * activities at once, one per task: on 2026-11-03 the Headset Power menu's task came first while
  * `ResumedActivity` named the Guardian dialog. Each kind has held a launch (2026-10-28, 2026-11-03).
  */
@@ -50,7 +60,7 @@ export function readSystemDialogs(text: string): Activity[] {
     /(?:topResumedActivity=|ResumedActivity: )ActivityRecord\{\S+ u\d+ ([\w.]+)\/([\w.$]+)/g,
   )) {
     const found = { package: match[1] ?? '', activity: match[2] ?? '' };
-    const dialog = [GUARDIAN, ALERTS, FIRST_TIME].includes(found.package);
+    const dialog = [GUARDIAN, ALERTS, FIRST_TIME, ...PERMISSIONS].includes(found.package);
     const seen = dialogs.some(
       (kept) => kept.package === found.package && kept.activity === found.activity,
     );
@@ -71,12 +81,30 @@ export function describeFront(front: Activity | null, own: string): string {
   if (front.package === ALERTS) {
     return `A system alert is showing (${front.activity}), so nothing opens until someone closes it in the headset.`;
   }
+  if (isPermissionPrompt(front)) {
+    return "Android's permission prompt is open, so nothing opens until someone answers it in the headset.";
+  }
+  if (PERMISSIONS.includes(front.package)) {
+    return `Android's permissions screen is open (${front.activity}), so nothing opens until someone closes it in the headset.`;
+  }
   if (front.package === FIRST_TIME) {
     return "One of Meta's first-time tips is open (such as Customize your Library), so nothing opens until someone closes it in the headset.";
   }
   if (front.package === GUARDIAN) return `A system dialog is in front: ${front.activity}.`;
   if (front.package === own) return `${own} is in front.`;
   return `Another app is in front: ${front.package}.`;
+}
+
+/**
+ * `dumpsys package <package>`: whether it holds `permission`, from its `<permission>: granted=` lines,
+ * or null when none is there.
+ */
+export function readGranted(text: string, permission: string): boolean | null {
+  const named = permission.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const said = [...text.matchAll(new RegExp(`${named}: granted=(true|false)`, 'g'))].map(
+    (match) => match[1] === 'true',
+  );
+  return said.length === 0 ? null : said.some((granted) => granted);
 }
 
 /** `content call --uri content://com.oculus.rc --method GET_PROPERTY`: each property as a boolean. */

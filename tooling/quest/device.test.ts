@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { createServer, type Server } from 'node:http';
@@ -732,6 +733,159 @@ describe('pnpm quest:device, against a stand-in adb', () => {
     const shown = await device({ firstTimeTip: true }, 'status');
     assert.equal(shown.code, 0, shown.said);
     assert.match(shown.said, /^front: One of Meta's first-time tips is open/m);
+  });
+
+  describe("the glance: Halcyonic's 2D window, opened by intent, and its token", () => {
+    /** Made up, 44 bytes as the control plane's are; no piece of it may show in a command line or the tool's words. */
+    const TOKEN = 'tokentokentokentokentokentokentokentoken_-Z1';
+    let windows = 0;
+    /** A data directory holding the control plane's token file, and a headset and state of their own. */
+    function own(token: string | null = TOKEN, mode = 0o600) {
+      const at = windows++;
+      const dataDir = join(directory, `glance-data-${at}`);
+      mkdirSync(dataDir, { recursive: true });
+      if (token !== null) writeFileSync(join(dataDir, 'access-token'), token, { mode });
+      const state = join(directory, `glance-state-${at}.json`);
+      const headset = join(directory, `glance-headset-${at}`);
+      extra = {
+        HALCYONIC_DATA_DIR: dataDir,
+        HALCYONIC_QUEST_STATE: state,
+        QUEST_STATE_FILE: state,
+        ADB_HEADSET: headset,
+      };
+      return { dataDir, state, headset };
+    }
+    const written = (state: string) =>
+      existsSync(state)
+        ? ((JSON.parse(readFileSync(state, 'utf8')) as { glanceTokens?: string[] }).glanceTokens ??
+          [])
+        : [];
+    const leaks = (text: string) => {
+      for (let at = 0; at + 8 <= TOKEN.length; at++) {
+        if (text.includes(TOKEN.slice(at, at + 8))) return true;
+      }
+      return false;
+    };
+
+    test('glance refuses while the app does not hold POST_NOTIFICATIONS, so no prompt rises on an unworn headset', async () => {
+      own();
+      const { code, said, calls } = await device({}, 'glance');
+      assert.equal(code, 1, said);
+      assert.match(said, /POST_NOTIFICATIONS/);
+      assert.match(said, /--owner-answers/);
+      assert.ok(!calls.some((call) => call.startsWith('shell am start')), calls.join('\n'));
+      extra = {};
+    });
+
+    test('glance opens the window by intent when the permission is held, and give-back stops the app', async () => {
+      const { state } = own();
+      const opened = await device({ notifications: 'granted' }, 'glance');
+      assert.equal(opened.code, 0, opened.said);
+      assert.deepEqual(
+        opened.calls.filter((call) => call.startsWith('shell am start')),
+        ['shell am start -W -n com.halcyonic.xr/com.halcyonic.glance.GlanceActivity'],
+      );
+      assert.ok(!opened.calls.some((call) => call.includes('input')), opened.calls.join('\n'));
+      assert.match(opened.said, /answer no_token/);
+      assert.deepEqual((JSON.parse(readFileSync(state, 'utf8')) as { started: string[] }).started, [
+        'com.halcyonic.xr',
+      ]);
+      const given = await device({}, 'give-back');
+      assert.ok(
+        given.calls.includes('shell am force-stop com.halcyonic.xr'),
+        given.calls.join('\n'),
+      );
+      extra = {};
+    });
+
+    test("glance --owner-answers opens it although Android's prompt follows, and leaves the prompt to the person", async () => {
+      own();
+      const { code, said, calls } = await device(
+        { permissionPrompt: 'after-glance' },
+        'glance',
+        '--owner-answers',
+      );
+      assert.equal(code, 0, said);
+      assert.match(said, /prompt is for the person in the headset/);
+      assert.ok(
+        !calls.some((call) => call.includes('input') || call.includes('pm grant')),
+        calls.join('\n'),
+      );
+      extra = {};
+    });
+
+    test("nothing launches under Android's permission prompt, and status names it", async () => {
+      own();
+      const launched = await device({ permissionPrompt: 'showing' }, 'launch');
+      assert.equal(launched.code, 1, launched.said);
+      assert.match(launched.said, /Not launching: Android's permission prompt is open/);
+      const shown = await device({ permissionPrompt: 'showing' }, 'status');
+      assert.match(shown.said, /^front: Android's permission prompt is open/m);
+      extra = {};
+    });
+
+    test("glance-token write sends the control plane's token through standard input only, and give-back removes it", async () => {
+      const { state, headset } = own();
+      const wrote = await device({}, 'glance-token', 'write');
+      assert.equal(wrote.code, 0, wrote.said);
+      assert.equal(readFileSync(`${headset}.glance-com.halcyonic.xr`, 'utf8'), TOKEN);
+      assert.ok(!leaks(wrote.said), 'the tool never says the token');
+      assert.ok(!leaks(wrote.calls.join('\n')), 'no command line holds the token');
+      assert.match(wrote.said, /mode 600, 44 bytes/);
+      assert.deepEqual(written(state), ['com.halcyonic.xr']);
+      const shown = await device({}, 'status');
+      assert.match(shown.said, /glance token .*give-back removes it/);
+      const given = await device({}, 'give-back');
+      assert.equal(given.code, 0, given.said);
+      assert.ok(
+        given.calls.includes(
+          'shell run-as com.halcyonic.xr rm -f files/glance-access-token files/glance-access-token.tmp',
+        ),
+        given.calls.join('\n'),
+      );
+      assert.ok(!existsSync(`${headset}.glance-com.halcyonic.xr`));
+      assert.deepEqual(written(state), []);
+      extra = {};
+    });
+
+    test('glance-token write refuses a token file that is not a private 44-byte file, and nothing reaches the headset', async () => {
+      for (const [token, mode] of [
+        [TOKEN, 0o644],
+        [`${TOKEN}x`, 0o600],
+        [null, 0o600],
+      ] as const) {
+        const { state } = own(token, mode);
+        const wrote = await device({}, 'glance-token', 'write');
+        assert.equal(wrote.code, 1, wrote.said);
+        assert.ok(
+          !wrote.calls.some(
+            (call) => call.startsWith('exec-in') || call.startsWith('shell run-as'),
+          ),
+          wrote.calls.join('\n'),
+        );
+        assert.deepEqual(written(state), []);
+      }
+      // A link in its place is refused too, even to a private 44-byte file.
+      const { dataDir, state } = own(null);
+      const elsewhere = join(directory, 'elsewhere-token');
+      writeFileSync(elsewhere, TOKEN, { mode: 0o600 });
+      symlinkSync(elsewhere, join(dataDir, 'access-token'));
+      const linked = await device({}, 'glance-token', 'write');
+      assert.equal(linked.code, 1, linked.said);
+      assert.ok(!linked.calls.some((call) => call.startsWith('exec-in')), linked.calls.join('\n'));
+      assert.deepEqual(written(state), []);
+      extra = {};
+    });
+
+    test('glance-token remove removes it and forgets it', async () => {
+      const { state, headset } = own();
+      assert.equal((await device({}, 'glance-token', 'write')).code, 0);
+      const removed = await device({}, 'glance-token', 'remove');
+      assert.equal(removed.code, 0, removed.said);
+      assert.ok(!existsSync(`${headset}.glance-com.halcyonic.xr`));
+      assert.deepEqual(written(state), []);
+      extra = {};
+    });
   });
 
   test('status names the Headset Power menu first and the Guardian dialog behind it', async () => {
