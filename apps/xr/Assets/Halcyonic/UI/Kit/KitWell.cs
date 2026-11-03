@@ -8,8 +8,10 @@ namespace Halcyonic.XR.UI
 {
     /// <summary>
     /// A command of theirs set apart in a well (the art direction's handoff, 2026-10-30): their monospace in n7 on n0, radius
-    /// 12 dp, padded 12 by 14. Shown whole where it fits its lines; otherwise cut, its last shown line fading out, and what
-    /// is left counted beneath in Label n5, so a cut command never reads as the whole of it. Its top left is on its transform.
+    /// 12 dp, padded 12 by 14, in rows by the reader's rule (<see cref="KitReading"/>: at its spaces, else after a "/", "?", "&",
+    /// "=", ",", ";" or ":", never mid-name where one of those fits, a wrapped row hanging two characters in), one label a row.
+    /// Shown whole where it fits its rows; otherwise cut, its last shown row fading out, and what is left counted beneath in
+    /// Label n5, so a cut command never reads as the whole of it. Its top left is on its transform.
     /// </summary>
     public sealed class KitWell : MonoBehaviour
     {
@@ -22,6 +24,7 @@ namespace Halcyonic.XR.UI
         private Surface plate = null!;
         private TextMeshPro words = null!;
         private TextMeshPro rest = null!;
+        private readonly List<TextMeshPro> rows = new List<TextMeshPro>();
         private readonly List<Surface> fade = new List<Surface>();
 
         public TextMeshPro Words => words;
@@ -60,12 +63,25 @@ namespace Halcyonic.XR.UI
             var padY = KitType.Units(SpatialKit.Degrees(SpatialKit.WellPadYDp));
             var inner = width - 2f * padX;
             KitType.Size(words, KitRole.Mono);
-            GlazeRuns.Of(words).Set(LineWords.TheirName(command));
-            var (all, _, _) = KitType.Lay(words, inner, 64);
-            Cut = all > VisibleLines || words.isTextTruncated;
-            HiddenLines = Cut ? Mathf.Max(1, words.textInfo.lineCount - VisibleLines) : 0;
-            var (_, _, textHeight) = KitType.Lay(words, inner, Cut ? VisibleLines : all);
-            words.transform.localPosition = new Vector3(padX, -padY, -0.0005f);
+            var indent = words.GetPreferredValues("MM").x;
+            var reading = new KitReading(command, (row, continued) => Within(row, continued ? inner - indent : inner));
+            var all = reading.Rows.Count;
+            Cut = all > VisibleLines;
+            HiddenLines = Cut ? all - VisibleLines : 0;
+            var shown = Mathf.Min(all, VisibleLines);
+            foreach (var extra in rows) extra.gameObject.SetActive(false);
+            var rowPitch = KitType.LinePitch(words);
+            for (var row = 0; row < shown; row++)
+            {
+                var label = row == 0 ? words : RowAt(row - 1);
+                label.gameObject.SetActive(true);
+                KitType.Size(label, KitRole.Mono);
+                GlazeRuns.Of(label).Set(reading.RowWords(row));
+                var hang = reading.Rows[row].Continued ? indent : 0f;
+                KitType.Lay(label, inner - hang, 1);
+                label.transform.localPosition = new Vector3(padX + hang, -padY - row * rowPitch, -0.0005f);
+            }
+            var textHeight = shown * rowPitch;
             var wellHeight = textHeight + 2f * padY;
             plate.Draw(new Vector2(width, wellHeight), KitType.Units(SpatialKit.Degrees(SpatialKit.InsetRadiusDp)), KitType.Colour(SpatialKit.Well));
             plate.transform.localPosition = new Vector3(width / 2f, -wellHeight / 2f, 0f);
@@ -95,6 +111,26 @@ namespace Halcyonic.XR.UI
             Size = new Vector2(width, height);
             gameObject.SetActive(true);
             return Size;
+        }
+
+        /// <summary>Whether <paramref name="row"/> fits <paramref name="room"/> on one line of the command's face.</summary>
+        private bool Within(LineWords row, float room)
+        {
+            GlazeRuns.Of(words).Set(row);
+            return words.GetPreferredValues(words.text).x <= room + 1e-6f;
+        }
+
+        /// <summary>A row label after the first, in the command's look; made hidden.</summary>
+        private TextMeshPro RowAt(int index)
+        {
+            while (rows.Count <= index)
+            {
+                var made = KitType.Create(transform, "Command row " + (rows.Count + 1), KitRole.Mono, KitType.Text, KitType.Order.Words, room: true);
+                made.overflowMode = TextOverflowModes.Truncate;
+                made.gameObject.SetActive(false);
+                rows.Add(made);
+            }
+            return rows[index];
         }
 
         /// <summary>Whether the cut line itself reads whole.</summary>

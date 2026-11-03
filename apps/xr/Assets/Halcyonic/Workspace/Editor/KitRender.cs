@@ -197,7 +197,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 else
                 {
                     failures.AddRange(shot.Curved ? TextAsSeenWhereDrawn(root, eyes, name, shot.Seen) : GlazeChecks.TextAsSeen(root, eyes, name));
-                    failures.AddRange(SeparatorsHold(root.transform, name));
+                    failures.AddRange(KitWordsHold(root.transform, name));
                     foreach (var (plane, space, targets) in shot.Targets)
                     {
                         var shown = targets.Where(press => press.gameObject.activeInHierarchy).ToList();

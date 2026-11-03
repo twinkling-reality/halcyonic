@@ -179,12 +179,15 @@ namespace Halcyonic.XR.Workspace.Editor
             if (moment.Tone != KitMomentTone.Neutral)
                 Require((moment.Tone == KitMomentTone.Attention) == (moment.Kind == KitMomentKind.Question), "amber stands on something that is not a question");
             // A command is cut by its lines, never sideways: no ellipsis drawn in a well (ART's A3a review; a gap the cut check let through).
+            // The well lays a label a row (KitWell), so every row it laid is read, its cut line aside, whether or not it stands.
+            var wellRows = card.Well.GetComponentsInChildren<TextMeshPro>(true).Where(label => label.gameObject.activeSelf && label != card.Well.Rest).ToList();
             if (card.Well.gameObject.activeSelf)
-            {
-                card.Well.Words.ForceMeshUpdate(true);
-                var info = card.Well.Words.textInfo;
-                Require(!info.characterInfo.Take(info.characterCount).Any(character => character.isVisible && character.character == '\u2026'), "the well cuts its command sideways with an ellipsis");
-            }
+                foreach (var row in wellRows)
+                {
+                    row.ForceMeshUpdate(true);
+                    var info = row.textInfo;
+                    Require(!info.characterInfo.Take(info.characterCount).Any(character => character.isVisible && character.character == '\u2026'), "the well cuts its command sideways with an ellipsis");
+                }
             // A risk line of " · " segments flows by its segments, each on one line, never laid as one wrapping line (ART's A3b review);
             // the dot between two segments on a line is its own label (KitFlow), never a line's.
             var risks = card.GetComponentsInChildren<TextMeshPro>(false).Where(label => label.name.StartsWith("Risk ", StringComparison.Ordinal)).ToList();
@@ -246,7 +249,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var theirsModel = (moment.Title?.Runs.Count(run => run.Theirs) ?? 0) + moment.Meta.Sum(segment => segment.Runs.Count(run => run.Theirs))
                 + (moment.Prose?.Runs.Count(run => run.Theirs) ?? 0);
             Require(theirsShown == theirsModel, "outside text is not exactly where it is theirs (" + theirsShown + " runs shown, " + theirsModel + " theirs)");
-            if (moment.Well != null) Require(GlazeRuns.Of(card.Well.Words).Theirs.Count == 1, "the command in the well is not theirs in one run");
+            if (moment.Well != null) Require(wellRows.All(row => GlazeRuns.Of(row).Theirs.Count == 1), "a row of the command in the well is not theirs in one run");
             Require(card.Meta.Where(label => GlazeRuns.Of(label).Theirs.Count > 0 && GlazeRuns.Of(label).Theirs[0].Start == 0 && GlazeRuns.Of(label).Theirs[0].End == label.text.Length)
                 .All(label => label.font == KitType.Face(KitRole.Mono)), "a path or name of theirs in the metadata is not in their monospace");
             var everything = card.Words.Select(label => label.text ?? "").ToList();

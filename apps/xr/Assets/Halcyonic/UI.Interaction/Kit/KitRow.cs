@@ -8,7 +8,9 @@ namespace Halcyonic.XR.UI
 {
     /// <summary>
     /// A row of the spatial kit: its icon in the icon column in its state's tone, its words (wrapping to their lines),
-    /// a second line under them, and at its right end the words saying where it goes or a chevron. The whole row is
+    /// a second line under them, and at its right end the words saying where it goes or a chevron; where those end words
+    /// would push the words onto another line, they stand under the words instead, at the right. A name takes up to three
+    /// lines before it is cut, so a task's title reads whole at the larger size (the owner, 2026-11-03). The whole row is
     /// one hand target at least a target tall. Chosen, it stands lit on a raised fill with a crisp white frame;
     /// pointed at, the frame alone; no bar and no underline marks anything. Laid from its top left.
     /// </summary>
@@ -16,6 +18,9 @@ namespace Halcyonic.XR.UI
     {
         private const float PadDegrees = 0.55f;
         private const float EndGapDegrees = 0.6f;
+
+        /// <summary>The most lines a name takes before it is cut inside its run.</summary>
+        private const int NameLines = 3;
 
         private Surface plate = null!;
         private TextMeshPro icon = null!;
@@ -91,7 +96,23 @@ namespace Halcyonic.XR.UI
             GlazeText.SetStrong(words, row.Selected);
             if (row.IsName) GlazeRuns.Of(words).SetIdentity(row.Words.Text);
             else GlazeRuns.Of(words).Set(row.Words);
-            var (_, _, wordsHeight) = KitType.Lay(words, textWidth, row.WordLines);
+            var lines = row.IsName ? Mathf.Max(row.WordLines, NameLines) : row.WordLines;
+            var (laid, _, wordsHeight) = KitType.Lay(words, textWidth, lines);
+            // End words that push the words onto another line stand under them; the words take the row's whole width.
+            var endUnder = false;
+            if (row.End != null && laid > 1)
+            {
+                var whole = Mathf.Max(KitType.Units(3f), width - left - pad);
+                var (alone, _, aloneHeight) = KitType.Lay(words, whole, lines);
+                if (alone < laid)
+                {
+                    endUnder = true;
+                    textWidth = whole;
+                    wordsHeight = aloneHeight;
+                }
+                else KitType.Lay(words, textWidth, lines);
+            }
+            var endHeight = endUnder ? KitType.LinePitch(end) : 0f;
             var detailHeight = 0f;
             detail.gameObject.SetActive(row.Detail != null);
             if (row.Detail != null)
@@ -102,12 +123,12 @@ namespace Halcyonic.XR.UI
                 // Halcyonic's own words are never cut: a long state or fact wraps instead.
                 (_, _, detailHeight) = KitType.Lay(detail, textWidth, 3);
             }
-            var content = wordsHeight + detailHeight;
+            var content = wordsHeight + endHeight + detailHeight;
             var height = Mathf.Max(KitType.Units(SpatialKit.TargetDegrees), content + 2f * KitType.Scaled(0.55f));
             size = new Vector2(width, height);
             var top = (height - content) / 2f;
             words.transform.localPosition = new Vector3(-width / 2f + left, height / 2f - top, -0.0005f);
-            detail.transform.localPosition = new Vector3(-width / 2f + left, height / 2f - top - wordsHeight, -0.0005f);
+            detail.transform.localPosition = new Vector3(-width / 2f + left, height / 2f - top - wordsHeight - endHeight, -0.0005f);
             var firstLine = height / 2f - top - KitType.LinePitch(words) / 2f;
             icon.gameObject.SetActive(row.Icon.HasValue);
             if (row.Icon is GlazeIcon glyph)
@@ -118,7 +139,7 @@ namespace Halcyonic.XR.UI
                 GlazeIcons.Show(icon, glyph);
                 icon.transform.localPosition = new Vector3(-width / 2f + pad + iconEm / 2f, firstLine, -0.0005f);
             }
-            end.transform.localPosition = new Vector3(width / 2f - pad, height / 2f - top, -0.0005f);
+            end.transform.localPosition = new Vector3(width / 2f - pad, height / 2f - top - (endUnder ? wordsHeight : 0f), -0.0005f);
             chevron.transform.localPosition = new Vector3(width / 2f - pad - iconEm / 2f, 0f, -0.0005f);
             press.Resize(size);
             transform.localPosition = new Vector3(topLeft.x + width / 2f, topLeft.y - height / 2f, -KitType.Units(0.05f));

@@ -116,8 +116,10 @@ namespace Halcyonic.XR.UI
             words.color = KitType.Secondary;
             GlazeText.SetLiteral(words, why);
             var room = width - 2f * pad - (wayBack == null ? 0f : buttonWidth + gap);
-            var (_, _, wordsHeight) = KitType.Lay(words, room, 3);
+            var (_, wordsWidth, wordsHeight) = KitType.Lay(words, room, 3);
             Cut = words.isTextTruncated;
+            // As wide as its words and its way back, at most the width given: a few words never stand in an empty band.
+            width = Mathf.Min(width, 2f * pad + wordsWidth + (wayBack == null ? 0f : gap + buttonWidth));
             var height = Mathf.Max(wordsHeight, wayBack == null ? 0f : KitButton.Height) + 2f * pad;
             size = new Vector2(width, height);
             var outside = KitType.Units(SpatialKit.PaddingDegrees);
