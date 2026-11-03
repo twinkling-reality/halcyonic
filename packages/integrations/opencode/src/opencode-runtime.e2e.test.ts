@@ -1641,6 +1641,32 @@ describe("OpenCode's ask before a shell command, whatever the configuration says
   });
 
   test(
+    'an approved shell call killed by a signal, or timed out, completes failed, as one that did not exit 0',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, start } = await harness(t);
+      // OpenCode reports both as a success, "Killed by SIGKILL" and "Timed out before completion"
+      // (an independent probe of the pinned binary, 2026-11-03).
+      for (const args of [{ command: 'kill -9 $$' }, { command: 'sleep 5', timeout: 1000 }]) {
+        const execution = await start(call('shell', args));
+        const request = await asked(execution);
+        await runtime.respondToApproval({
+          execution: execution.context,
+          approval_id: request.approval_id,
+          decision: 'approve',
+          message: null,
+        });
+        const tool = await execution.next('runtime.tool.completed');
+        assert.equal(
+          tool.type === 'runtime.tool.completed' && tool.payload.outcome,
+          'failed',
+          args.command,
+        );
+      }
+    },
+  );
+
+  test(
     "neither the project's opencode.json nor the person's own settings allowing shell skip the ask",
     SLOW_TEST,
     async (t) => {
