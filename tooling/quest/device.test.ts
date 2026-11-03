@@ -42,6 +42,10 @@ interface Headset {
   readonly powerMenu?: boolean;
   /** Meta's first-time tip ("Customize your Library") is open, its task first, as on 2026-11-03 at 19:09Z. */
   readonly firstTimeTip?: boolean;
+  /** Android's permission prompt shows from the start, or once the glance has been opened. */
+  readonly permissionPrompt?: 'showing' | 'after-glance';
+  /** Whether the owner's app holds POST_NOTIFICATIONS; not, as on 2026-11-03, unless given. */
+  readonly notifications?: 'granted';
   /** Each GET_PROPERTY reading of set_proximity_close in turn, 'true', 'false' or 'missing'; the last repeats. */
   readonly proximity?: readonly string[];
   /** Meta's Guardian dialog is in front: the headset can't find its position in the room. */
@@ -58,8 +62,10 @@ interface Headset {
   readonly listFails?: boolean;
   /** The headset's transport id on its server (`adb devices -l`), '1' unless given; `unread` lists none. */
   readonly transport?: string;
-  /** Files already in /sdcard/Download, by name, as a cut-off clip leaves one. */
+  /** Files already in /data/local/tmp, by name, as a cut-off clip leaves one. */
   readonly downloads?: readonly string[];
+  /** screenrecord fails, as it did with exit code 218 while the headset slept (2026-11-03). */
+  readonly screenrecordFails?: boolean;
 }
 
 /**
@@ -82,13 +88,15 @@ if (said === 'devices') out('List of devices attached\\nTEST-SERIAL\\tdevice');
 else if (said === 'devices -l') out('List of devices attached\\n' + (scenario.transport === 'unread' ? '' : 'TEST-SERIAL            device usb:1-1 product:eureka model:Quest_3 device:eureka transport_id:' + (scenario.transport ?? '1')));
 else if (said === 'version') out('Android Debug Bridge version 1.0.41\\nVersion 36.0.0-test');
 else if (said === 'get-state') out('device');
-else if (said.startsWith('shell ls /sdcard/Download/') && (scenario.downloads ?? []).includes(args[2].slice('/sdcard/Download/'.length))) out(args[2]);
-else if (said.startsWith('shell ls /sdcard/Download/')) {
+else if (said.startsWith('shell ls /data/local/tmp/') && (scenario.downloads ?? []).includes(args[2].slice('/data/local/tmp/'.length))) out(args[2]);
+else if (said.startsWith('shell ls /data/local/tmp/')) {
   process.stderr.write('ls: ' + args[2] + ': No such file or directory\\n');
   process.exit(1);
-} else if (args[0] === 'shell' && args[1] === 'screenrecord') {}
-else if (said.startsWith('shell sha256sum /sdcard/')) out(sha(PULLED) + '  ' + args[2]);
-else if (args[0] === 'pull' && args[1].startsWith('/sdcard/')) fs.writeFileSync(args[2], scenario.pullMatches ? PULLED : 'other bytes');
+} else if (args[0] === 'shell' && /^umask 077 && screenrecord --time-limit \\d+ \\/data\\/local\\/tmp\\/halcyonic\\.(device|clip)-\\d{8}-\\d{6}\\.mp4$/.test(args[1] ?? '')) {
+  if (scenario.screenrecordFails) process.exit(218);
+}
+else if (said.startsWith('shell sha256sum /sdcard/') || said.startsWith('shell sha256sum /data/local/tmp/')) out(sha(PULLED) + '  ' + args[2]);
+else if (args[0] === 'pull' && (args[1].startsWith('/sdcard/') || args[1].startsWith('/data/local/tmp/'))) fs.writeFileSync(args[2], scenario.pullMatches ? PULLED : 'other bytes');
 else if (said === 'shell pm path com.halcyonic.xr') out('package:/data/app/test/base.apk');
 else if (said === 'shell pm path com.halcyonic.xr.check') {
   if (fs.existsSync(process.env.ADB_CALLS + '.check-sha')) out('package:/data/app/check/base.apk');
@@ -97,12 +105,18 @@ else if (said === 'shell dumpsys package com.halcyonic.xr.check') out('      fir
 else if (args[0] === 'install' && args[1] === '-r') fs.writeFileSync(process.env.ADB_CALLS + '.check-sha', sha(fs.readFileSync(args[2], 'utf8')));
 else if (said === 'uninstall com.halcyonic.xr.check' || said.startsWith('shell pm grant com.halcyonic.xr.check ')) {}
 else if (said === 'shell sha256sum /data/app/test/base.apk') out(scenario.installedSha256 + '  /data/app/test/base.apk');
-else if (said === 'shell dumpsys package com.halcyonic.xr') out('      firstInstallTime=2026-01-01 00:00:00');
+else if (said === 'shell dumpsys package com.halcyonic.xr') {
+  out('      firstInstallTime=2026-01-01 00:00:00');
+  out('        android.permission.POST_NOTIFICATIONS: granted=' + (scenario.notifications === 'granted') + ', flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]');
+}
 else if (said === 'shell dumpsys activity activities') {
   // Each visible task's topResumedActivity, top task first, then the one ResumedActivity: on 2026-11-03
   // the power menu's task came first while ResumedActivity named the Guardian dialog.
   const GUARDIAN = 'com.oculus.guardian/com.oculus.vrguardianservice.guardiandialog.GuardianDialogActivity';
+  const glanced = fs.readFileSync(process.env.ADB_CALLS, 'utf8').includes('GlanceActivity');
+  const prompt = scenario.permissionPrompt === 'showing' || (scenario.permissionPrompt === 'after-glance' && glanced);
   const tops = [
+    ...(prompt ? ['com.android.permissioncontroller/.permission.ui.GrantPermissionsActivity'] : []),
     ...(scenario.firstTimeTip ? ['com.oculus.firsttimenux/.FirstTimeNuxExclusiveSystemDialogActivity'] : []),
     ...(scenario.powerMenu ? ['com.oculus.vralertservice/.ShutdownConfirmActivity'] : []),
     ...(scenario.guardian ? [GUARDIAN] : []),
@@ -184,6 +198,32 @@ else if (said === 'shell cat /proc/net/tcp /proc/net/tcp6') {
     process.exit(3);
   }
   fs.appendFileSync(file, args[1] + ' ' + args[2] + '\\n');
+} else if (args[0] === 'exec-in' && /^run-as [\\w.]+ sh -c '.*cat > files\\/glance-access-token\\.tmp'$/.test(args[1] ?? '')) {
+  // The token arrives on standard input only; the stand-in keeps it where the headset would.
+  const name = args[1].split(' ')[1];
+  fs.writeFileSync((process.env.ADB_HEADSET ?? process.env.ADB_CALLS) + '.glance-tmp-' + name, fs.readFileSync(0));
+} else if (args[0] === 'shell' && /^run-as [\\w.]+ sh -c '.*echo written.*'$/.test(args[1] ?? '')) {
+  const name = args[1].split(' ')[1];
+  const tmp = (process.env.ADB_HEADSET ?? process.env.ADB_CALLS) + '.glance-tmp-' + name;
+  const held = fs.existsSync(tmp) ? fs.readFileSync(tmp) : null;
+  if (held !== null && held.length === 44) {
+    fs.renameSync(tmp, (process.env.ADB_HEADSET ?? process.env.ADB_CALLS) + '.glance-' + name);
+    out('written');
+  } else {
+    if (held !== null) fs.unlinkSync(tmp);
+    out('not written');
+  }
+} else if (args[0] === 'shell' && args[1] === 'run-as' && args[3] === 'stat' && args[6] === 'files/glance-access-token') {
+  if (fs.existsSync((process.env.ADB_HEADSET ?? process.env.ADB_CALLS) + '.glance-' + args[2])) out('600 44 regular file');
+  else {
+    process.stderr.write("stat: 'files/glance-access-token': No such file or directory\\n");
+    process.exit(1);
+  }
+} else if (args[0] === 'shell' && args[1] === 'run-as' && args[3] === 'rm' && args[4] === '-f') {
+  for (const file of args.slice(5)) {
+    const kept = (process.env.ADB_HEADSET ?? process.env.ADB_CALLS) + (file.endsWith('.tmp') ? '.glance-tmp-' : '.glance-') + args[2];
+    if (fs.existsSync(kept)) fs.unlinkSync(kept);
+  }
 } else if (said === 'shell pidof com.halcyonic.xr' || said === 'forward --list') {}
 else {
   process.stderr.write('stand-in adb: not modelled: ' + said + '\\n');
@@ -292,7 +332,7 @@ describe('pnpm quest:device, against a stand-in adb', () => {
     assert.equal(removed.length, 1, calls.join('\n'));
     assert.match(
       removed[0] ?? '',
-      /^shell rm \/sdcard\/Download\/halcyonic\.device-\d{8}-\d{6}\.mp4$/,
+      /^shell rm \/data\/local\/tmp\/halcyonic\.device-\d{8}-\d{6}\.mp4$/,
     );
   });
 
@@ -310,10 +350,10 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       state,
     );
     assert.equal(code, 0, said);
-    const recorded = calls.filter((call) => call.startsWith('shell screenrecord'));
+    const recorded = calls.filter((call) => call.startsWith('shell umask 077 && screenrecord'));
     assert.equal(recorded.length, 1, calls.join('\n'));
     const remote =
-      /^shell screenrecord --time-limit 12 (\/sdcard\/Download\/halcyonic\.clip-\d{8}-\d{6}\.mp4)$/.exec(
+      /^shell umask 077 && screenrecord --time-limit 12 (\/data\/local\/tmp\/halcyonic\.clip-\d{8}-\d{6}\.mp4)$/.exec(
         recorded[0] ?? '',
       )?.[1] ?? '';
     assert.notEqual(remote, '', recorded[0]);
@@ -346,7 +386,9 @@ describe('pnpm quest:device, against a stand-in adb', () => {
     );
     assert.equal(longest.code, 0, longest.said);
     assert.ok(
-      longest.calls.some((call) => call.startsWith('shell screenrecord --time-limit 180 ')),
+      longest.calls.some((call) =>
+        call.startsWith('shell umask 077 && screenrecord --time-limit 180 '),
+      ),
       longest.calls.join('\n'),
     );
   });
@@ -366,12 +408,12 @@ describe('pnpm quest:device, against a stand-in adb', () => {
     assert.equal(code, 1, said);
     assert.ok(!calls.some((call) => call.startsWith('shell rm')), calls.join('\n'));
     const left = JSON.parse(readFileSync(state, 'utf8')).clip as { remote?: string } | undefined;
-    assert.match(left?.remote ?? '', /^\/sdcard\/Download\/halcyonic\.clip-\d{8}-\d{6}\.mp4$/);
+    assert.match(left?.remote ?? '', /^\/data\/local\/tmp\/halcyonic\.clip-\d{8}-\d{6}\.mp4$/);
     const shown = await device({}, 'status', '--state', state);
     assert.equal(shown.code, 0, shown.said);
     assert.match(
       shown.said,
-      /A clip is still on the headset: \/sdcard\/Download\/halcyonic\.clip-\d{8}-\d{6}\.mp4/,
+      /A clip is still on the headset: \/data\/local\/tmp\/halcyonic\.clip-\d{8}-\d{6}\.mp4/,
     );
   });
 
@@ -386,7 +428,7 @@ describe('pnpm quest:device, against a stand-in adb', () => {
         installs: {},
         started: [],
         reverses: [],
-        clip: { remote: `/sdcard/Download/${name}`, endsAt },
+        clip: { remote: `/data/local/tmp/${name}`, endsAt },
       }),
     );
     const { code, said, calls } = await device(
@@ -399,12 +441,12 @@ describe('pnpm quest:device, against a stand-in adb', () => {
     );
     assert.equal(code, 0, said);
     assert.match(said, /Waiting \d+ s for the clip a cut-off run left to end/);
-    assert.ok(calls.includes(`shell rm /sdcard/Download/${name}`), calls.join('\n'));
+    assert.ok(calls.includes(`shell rm /data/local/tmp/${name}`), calls.join('\n'));
     assert.ok(existsSync(join(out, `${name}.sha256`)), said);
     assert.equal(JSON.parse(readFileSync(state, 'utf8')).clip, undefined);
   });
 
-  test('give-back forgets a cut-off clip that never reached the headset', async () => {
+  test('give-back forgets a cut-off clip that is no longer on the headset', async () => {
     const name = 'halcyonic.clip-20261103-190500.mp4';
     const state = join(directory, 'state-clip-none.json');
     writeFileSync(
@@ -413,7 +455,7 @@ describe('pnpm quest:device, against a stand-in adb', () => {
         installs: {},
         started: [],
         reverses: [],
-        clip: { remote: `/sdcard/Download/${name}`, endsAt: '2026-11-03T19:05:12.000Z' },
+        clip: { remote: `/data/local/tmp/${name}`, endsAt: '2026-11-03T19:05:12.000Z' },
       }),
     );
     const { code, said, calls } = await device(
@@ -423,11 +465,88 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       state,
     );
     assert.equal(code, 0, said);
-    assert.match(said, /never reached the headset/);
+    assert.match(said, /is no longer on the headset/);
     assert.ok(
       !calls.some((call) => call.startsWith('pull') || call.startsWith('shell rm')),
       calls.join('\n'),
     );
+    assert.equal(JSON.parse(readFileSync(state, 'utf8')).clip, undefined);
+  });
+
+  test('give-back runs nothing on a recorded clip path or app name the tool would never make, and forgets them', async () => {
+    // AUDIT, 2026-11-03: adb shell joins its words into one line for the headset's shell.
+    const state = join(directory, 'state-odd-records.json');
+    writeFileSync(
+      state,
+      JSON.stringify({
+        installs: {},
+        started: ['x;reboot', 'com.halcyonic.xr'],
+        reverses: [],
+        clip: {
+          remote: '/data/local/tmp/halcyonic.clip-1.mp4; reboot',
+          endsAt: '2026-11-03T19:05:12.000Z',
+        },
+      }),
+    );
+    const { code, said, calls } = await device(
+      { proximity: ['false'] },
+      'give-back',
+      '--state',
+      state,
+    );
+    assert.ok(!calls.some((call) => call.includes('reboot')), calls.join('\n'));
+    assert.ok(calls.includes('shell am force-stop com.halcyonic.xr'), calls.join('\n'));
+    assert.match(said, /not a path this tool makes/);
+    assert.match(said, /not an app name/);
+    const kept = JSON.parse(readFileSync(state, 'utf8')) as { started: string[]; clip?: unknown };
+    assert.deepEqual(kept.started, []);
+    assert.equal(kept.clip, undefined);
+    assert.equal(code, 0, said);
+  });
+
+  test('a recording screenrecord fails to make is removed by name at once, and the clip record goes with it', async () => {
+    // 2026-11-03: asleep, screenrecord exited 218 and left an empty file in the shell's folder.
+    for (const command of [['shot'], ['clip', '--seconds', '3']]) {
+      const state = join(directory, `state-failed-${command[0]}.json`);
+      const { code, said, calls } = await device(
+        { screenrecordFails: true },
+        ...command,
+        '--state',
+        state,
+        '--out',
+        join(directory, 'failed-recordings'),
+      );
+      assert.equal(code, 1, said);
+      assert.match(said, /asleep/);
+      const removed = calls.filter((call) => call.startsWith('shell rm'));
+      assert.equal(removed.length, 1, calls.join('\n'));
+      assert.match(
+        removed[0] ?? '',
+        /^shell rm -f \/data\/local\/tmp\/halcyonic\.(device|clip)-\d{8}-\d{6}\.mp4$/,
+      );
+      assert.ok(!calls.some((call) => call.startsWith('pull')), calls.join('\n'));
+      const kept = existsSync(state) ? JSON.parse(readFileSync(state, 'utf8')) : {};
+      assert.equal(kept.clip, undefined);
+    }
+  });
+
+  test('clip forget lets a recorded clip go without touching the headset, and says what it leaves there', async () => {
+    const state = join(directory, 'state-clip-forget.json');
+    const remote = '/data/local/tmp/halcyonic.clip-20261103-190700.mp4';
+    writeFileSync(
+      state,
+      JSON.stringify({
+        installs: {},
+        started: [],
+        reverses: [],
+        clip: { remote, endsAt: '2026-11-03T19:07:12.000Z' },
+      }),
+    );
+    const { code, said, calls } = await device({}, 'clip', 'forget', '--state', state);
+    assert.equal(code, 0, said);
+    assert.ok(!calls.some((call) => call.includes(remote)), calls.join('\n'));
+    assert.match(said, /may still be on the headset/);
+    assert.match(said, new RegExp(remote.replace(/[.]/g, '\\.')));
     assert.equal(JSON.parse(readFileSync(state, 'utf8')).clip, undefined);
   });
 

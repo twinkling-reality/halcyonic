@@ -246,6 +246,11 @@ A Quest 3 on build `UP1A.231005.007.A1` (incremental 52641960031600520) on its o
   listened on 8720 while the app ran (both tables read). The compositor held 72 to 73 fps after a
   first second of 31 with 44 stale frames, and the app logged its device view field (108 by 99
   degrees for both eyes). A 5 s `clip` came back whole: 4128 by 2208, about 67 fps, 12.9 MB.
+- **Frames and clips moved off shared storage (AUDIT).** `/data/local/tmp` read `drwxrwx--x shell
+  shell`. Asleep, `screenrecord` into it exited 218 and left an empty file of mode 644; awake, a 6 s
+  clip recorded under `umask 077` read `-rw------- shell shell` while it ran, and came back whole
+  (5.98 s, 16.1 MB). The tool now records there with that umask, and removes by name at once what
+  a failed `screenrecord` began.
 
 So the device tool reads every task's resumed activity and the one `ResumedActivity` for the
 Guardian's, the alert service's and the first-time tips' dialogs, reads a hold by its words since
@@ -262,7 +267,8 @@ mapping with `connect`.
   only an Android package name for `--package`, saves an installed APK before installing over it and
   checks the bytes both ways, fails a launch a system dialog holds or `am start` does not confirm,
   removes only the captures it made after checking their pulled bytes, uses `screenrecord` unless the
-  owner has turned media sync off, records clips of both eyes through `screenrecord` (`clip`, up to
-  180 s), and keeps only Halcyonic's own log lines.
+  owner has turned media sync off, records frames and clips of both eyes through `screenrecord` into
+  the adb shell's own folder as the shell's alone (`clip`, up to 180 s), runs nothing on a recorded
+  path or app name of a shape it never makes, and keeps only Halcyonic's own log lines.
 - Development builds leave Meta XR Operator out unless a journey build asks for it
   (`OperatorInDevelopmentBuilds`, XR_DEVELOPMENT.md).

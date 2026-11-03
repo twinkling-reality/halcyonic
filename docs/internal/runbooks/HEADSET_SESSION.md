@@ -697,7 +697,9 @@ pnpm quest:device -- give-back
 - `shot` takes one second of `screenrecord` (both eyes) and keeps a frame of the left eye when ffmpeg
   is there. `clip --seconds <n>` records both eyes the same way for up to 180 s, with no sound and
   nothing uploaded, and keeps `<clip>.sha256` beside it; `give-back` collects a clip a cut-off run
-  left. `shot --service` and `record --seconds <n>` use Meta's capture service (one eye; a
+  left, and `clip forget` lets one go that never pulls whole (it may stay on the headset). Both record
+  into the adb shell's own folder, `/data/local/tmp`, as the shell's alone (umask 077), never onto
+  shared storage that other apps read. Asleep, `screenrecord` records nothing: run `awake` first. `shot --service` and `record --seconds <n>` use Meta's capture service (one eye; a
   recording includes the headset microphone) and run only with `--sync-is-off`, once the owner has
   turned the headset's media sync off, and never while the headset's log says sync is on. Every capture is pulled, its bytes checked, and only then
   removed from the headset by name. Captures show the room: keep them out of the repository.
