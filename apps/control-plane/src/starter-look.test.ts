@@ -77,3 +77,22 @@ describe("the starter's look faces the headset wearer (U1)", () => {
     assert.doesNotMatch(agents, /in front of the camera/);
   });
 });
+
+describe("the starter's sky shows ART7's colours (U2)", () => {
+  test('the sky shader converts its linear colours for the screen, after it mixes them', () => {
+    // three.js holds the uniforms' colours linear; a ShaderMaterial writes what it computes unless it includes the
+    // output conversion, and then ART7's #4FAEFF shows as #146CFF.
+    const look = read('src/look.ts');
+    const shader = look.slice(
+      look.indexOf('fragmentShader'),
+      look.indexOf('}),', look.indexOf('fragmentShader')),
+    );
+    const mixed = shader.indexOf('gl_FragColor = vec4(mix(horizon, top, t), 1.0);');
+    const converted = shader.search(/^\s*'\s*#include <colorspace_fragment>',$/m);
+    assert.ok(mixed > 0, 'the sky mixes horizon to top');
+    assert.ok(
+      converted > mixed,
+      'then converts, on a line of its own (three.js includes only whole lines)',
+    );
+  });
+});
