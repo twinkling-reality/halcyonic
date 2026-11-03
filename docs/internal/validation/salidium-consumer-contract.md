@@ -301,3 +301,25 @@ v0 ([salidium-project-map.md](salidium-project-map.md)). Read-only verification 
   and lint (passed, scope unknown), and explanation `none`; an unknown session answered `not_found`.
   So commit anchors and verification runs are verified live for a Claude Code session; for an
   OpenCode one they are not, since none Halcyonic starts can be read.
+
+## If Salidium read Halcyonic's folders (2026-11-03)
+
+- **Question:** what would Understand show for a real task on a local model if Salidium read the
+  Codex home and OpenCode store Halcyonic keeps its sessions in?
+- **Method:** a copy of the released 0.8.3 service bundle, run apart from the owner's: a scratch
+  `HOME`, a `SALIDIUM_HOME` of its own on port 47895 with the OpenCode source on and the explainer
+  off (`SALIDIUM_EXPLAIN=0`), no agent command on `PATH`, and `CODEX_HOME` and `XDG_DATA_HOME`
+  pointed at copies of a scratch control plane's Codex home and sandboxed OpenCode store, which held
+  the two real tasks of the morning ([local-models.md](local-models.md), same day). A consumer
+  credential of that instance's own; Halcyonic's Salidium client read both sessions. The daemon held
+  only its own loopback listener and wrote nothing in the scratch homes; the owner's homes, Salidium's
+  launchd jobs and its daemon were unchanged.
+- **Result:** both `available` from 0.8.3, contract 1.1, `synthetic` false, verdict `pass`
+  (`observed`), the agent's latest words `reported`, a full test run observed passing. The OpenCode
+  task: two changed files with exact line counts (+5 -1 and +4 -0), each checked after the change
+  (`inferred`). The Codex task: no file, since its local model wrote both files with shell heredocs,
+  which Salidium records as commands (as on 2026-10-02 with `qwen3.8`). Neither had commit anchors or
+  repository paths, the sessions being read after the fact, and the explanation read `disabled`.
+- **So:** reading those folders would give Understand real answers for tasks on local models, which
+  it has none of today. It needs a change in Salidium, a second watched folder, and the owner's yes:
+  the open question stays theirs. Not tried: a session watched live, its anchors and waiting states.
