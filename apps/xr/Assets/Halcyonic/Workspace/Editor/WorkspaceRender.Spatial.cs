@@ -114,8 +114,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (kit)
                 {
                     foreach (var runtime in snapshot.Runtimes) runtime.ApprovalMayLeaveSandbox ??= true;
-                    // The Host chip switches only to an environment a registered runtime declares (ADR 0033): the journey
-                    // registers a synthetic runtime that stays inside a sandbox, so its toggle has somewhere real to go.
+                    // The chips stay the execution's own runtime's, locked (ADR 0033; AUDIT, 2026-11-03), even with a runtime that
+                    // declares the other environment registered: the journey registers a synthetic one that stays inside a sandbox.
                     snapshot.Runtimes.Add(new RuntimeDescriptor
                     {
                         RuntimeId = SandboxedRuntimeId, Kind = "render", DisplayName = SandboxedRuntimeName, Synthetic = true,

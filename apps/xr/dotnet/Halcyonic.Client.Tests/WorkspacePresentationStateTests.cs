@@ -719,8 +719,9 @@ public class WorkspacePresentationStateTests
     [Test]
     public void TheHostChipNeverShowsAnEnvironmentNoRegisteredRuntimeDeclares()
     {
-        // As the agent apps declare themselves on the owner's Mac (INTEGRATION, 2026-11-03): Codex and Claude Agent may
-        // leave the sandbox, OpenCode declares nothing, and none stays inside one. No command carries a sandbox choice.
+        // Registered runtimes none of which stays inside a sandbox: two that may leave it and one that declares nothing.
+        // (The owner's Mac declares otherwise: Codex may leave, OpenCode stays inside, Claude Agent declares nothing.)
+        // No command carries a sandbox choice.
         RuntimeDescriptor Runtime(string id, string name, bool? mayLeave) => new RuntimeDescriptor
         {
             RuntimeId = id,
@@ -729,34 +730,34 @@ public class WorkspacePresentationStateTests
             ApprovalMayLeaveSandbox = mayLeave,
             Capabilities = new RuntimeCapabilities { StartExecution = true },
         };
-        var codex = Runtime("codex", "Codex", true);
-        var openCode = Runtime("opencode", "OpenCode", null);
-        var runtimes = new[] { codex, openCode, Runtime("claude", "Claude Agent", true) };
+        var leaves = Runtime("leaves", "Leaving agent", true);
+        var undeclared = Runtime("undeclared", "Undeclared agent", null);
+        var runtimes = new[] { leaves, undeclared, Runtime("leaves-too", "Second leaving agent", true) };
         var presentation = new WorkspacePresentationState();
-        presentation.SelectRuntime("codex");
+        presentation.SelectRuntime("leaves");
         var changed = 0;
         presentation.Changed += () => changed++;
 
-        Assert.That(presentation.CycleEnvironment(runtimes, "codex"), Is.Null, "no registered runtime declares the other environment");
+        Assert.That(presentation.CycleEnvironment(runtimes, "leaves"), Is.Null, "no registered runtime declares the other environment");
 
         var current = System.Array.Find(runtimes, runtime => runtime.RuntimeId == presentation.SelectedRuntimeId);
         Assert.That(KitPresenter.EnvironmentOf(current), Is.EqualTo("This Mac"),
-            "Codex declares it may leave the sandbox and no registered runtime stays inside one: Sandbox does not exist here");
-        Assert.That((presentation.SelectedRuntimeId, changed), Is.EqualTo(("codex", 0)), "with nothing to switch to, nothing changes");
-        Assert.That(WorkspacePresentationState.EnvironmentCanChange(runtimes, codex), Is.False, "so the Host chip stands locked");
+            "it declares it may leave the sandbox and no registered runtime stays inside one: Sandbox does not exist here");
+        Assert.That((presentation.SelectedRuntimeId, changed), Is.EqualTo(("leaves", 0)), "with nothing to switch to, nothing changes");
+        Assert.That(WorkspacePresentationState.EnvironmentCanChange(runtimes, leaves), Is.False, "so the Host chip stands locked");
 
         // A runtime that declares nothing has no environment to show or to switch from.
-        presentation.SelectRuntime("opencode");
-        Assert.That((KitPresenter.EnvironmentOf(openCode), WorkspacePresentationState.EnvironmentCanChange(runtimes, openCode)), Is.EqualTo(((string?)null, false)));
+        presentation.SelectRuntime("undeclared");
+        Assert.That((KitPresenter.EnvironmentOf(undeclared), WorkspacePresentationState.EnvironmentCanChange(runtimes, undeclared)), Is.EqualTo(((string?)null, false)));
         Assert.That(presentation.CycleEnvironment(runtimes), Is.Null);
-        Assert.That(presentation.SelectedRuntimeId, Is.EqualTo("opencode"));
+        Assert.That(presentation.SelectedRuntimeId, Is.EqualTo("undeclared"));
 
         // Once a runtime that stays inside a sandbox is registered, Host switches to it, and back.
-        var sandboxed = Runtime("sandboxed", "Codex", false);
-        var withSandbox = new[] { codex, openCode, sandboxed };
-        Assert.That(WorkspacePresentationState.EnvironmentCanChange(withSandbox, codex), Is.True);
-        Assert.That(presentation.CycleEnvironment(withSandbox, "codex"), Is.EqualTo(("sandboxed", true)));
+        var sandboxed = Runtime("sandboxed", "Sandboxed agent", false);
+        var withSandbox = new[] { leaves, undeclared, sandboxed };
+        Assert.That(WorkspacePresentationState.EnvironmentCanChange(withSandbox, leaves), Is.True);
+        Assert.That(presentation.CycleEnvironment(withSandbox, "leaves"), Is.EqualTo(("sandboxed", true)));
         Assert.That(KitPresenter.EnvironmentOf(sandboxed), Is.EqualTo("Sandbox"));
-        Assert.That(presentation.CycleEnvironment(withSandbox), Is.EqualTo(("codex", false)));
+        Assert.That(presentation.CycleEnvironment(withSandbox), Is.EqualTo(("leaves", false)));
     }
 }

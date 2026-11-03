@@ -247,18 +247,19 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
-    /// The composer's Host and Agent chips for the runtime that would run, as given: its environment as it declares it
-    /// (<see cref="KitPresenter.EnvironmentOf"/>; null where it declares none, so no Host chip shows),
-    /// whether pressing Host can reach a registered runtime that declares the other environment (else the chip stands
-    /// locked), and the agent's or model's words.
+    /// The composer's Host and Agent chips for the runtime the composer's Send reaches, as given: its environment as it
+    /// declares it (<see cref="KitPresenter.EnvironmentOf"/>; null where it declares none, so no Host chip shows), the
+    /// agent's or model's words, and whether a press on either can change what runs; both stand locked unless a command
+    /// carries the choice (<see cref="KitPresenter.ChipsOf"/>).
     /// </summary>
     public sealed class KitSelectors
     {
-        public KitSelectors(string? environment, bool environmentChangeable, string? agent)
+        public KitSelectors(string? environment, bool environmentChangeable, string? agent, bool agentChangeable = false)
         {
             Environment = environment;
             EnvironmentChangeable = environmentChangeable;
             Agent = agent;
+            AgentChangeable = agentChangeable;
         }
 
         public string? Environment { get; }
@@ -266,6 +267,8 @@ namespace Halcyonic.Client
         public bool EnvironmentChangeable { get; }
 
         public string? Agent { get; }
+
+        public bool AgentChangeable { get; }
     }
 
     /// <summary>What the focused work shows: the selected task, what its agent last said, what was recorded, and the person's draft.</summary>
@@ -275,11 +278,12 @@ namespace Halcyonic.Client
             ActivityEntry? report, IReadOnlyList<KitTrailEntry> trail, string draft, bool voiceOffered, bool sendable,
             string? whyNotSend, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot,
             KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null, KitAvatar? avatar = null, IReadOnlyList<PageLine>? said = null,
-            string? environment = null, string? agent = null, bool environmentChangeable = true)
+            string? environment = null, string? agent = null, bool environmentChangeable = false, bool agentChangeable = false)
         {
             Environment = environment;
             EnvironmentChangeable = environmentChangeable;
             Agent = agent;
+            AgentChangeable = agentChangeable;
             Said = said ?? new PageLine[0];
             Avatar = avatar;
             Need = need;
@@ -304,11 +308,14 @@ namespace Halcyonic.Client
         /// <summary>The execution environment shown in the composer's context selector (such as "This Mac" or "Sandbox"), or null.</summary>
         public string? Environment { get; }
 
-        /// <summary>Whether pressing the Host chip can change the environment; false stands it locked, its words still read.</summary>
+        /// <summary>Whether pressing the Host chip can change what runs; false, the default, stands it locked, its words still read.</summary>
         public bool EnvironmentChangeable { get; }
 
         /// <summary>The runtime or agent shown in the composer's context selector (such as "Codex"), or null.</summary>
         public string? Agent { get; }
+
+        /// <summary>Whether pressing the Agent chip can change what runs; false, the default, stands it locked, its words still read.</summary>
+        public bool AgentChangeable { get; }
 
         public string TaskTitle { get; }
 

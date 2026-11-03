@@ -90,12 +90,9 @@ namespace Halcyonic.XR.Workspace
                 new KitSpineSection(new[] { new KitRowModel("place:" + MenuPlace.Tasks, LineWords.Ours("Tasks")) }),
             };
             var name = selected != null && State?.Projects.TryGetValue(selected, out var project) == true ? project.Name : "";
-            var runtime = CurrentKitRuntime(now);
-            var modelDisplay = setup.Presentation.SelectedModelDisplay(runtime, now.Execution);
-            // The chips say what the runtime that would run declares, and Host locks where no registered runtime declares
-            // the other environment: never a sandbox that does not exist (ADR 0033; INTEGRATION, 2026-11-03).
-            var selectors = new KitSelectors(KitPresenter.EnvironmentOf(runtime), WorkspacePresentationState.EnvironmentCanChange(State?.Runtimes, runtime),
-                KitPresenter.AgentOf(runtime, now.Execution, modelDisplay));
+            // The composer's Send instructs this execution, so the chips are its runtime's, both locked: never a runtime that
+            // does not run (ADR 0033; AUDIT, 2026-11-03). Choosing another becomes real only once a command carries it.
+            var selectors = KitPresenter.ChipsOf(now, setup.Presentation.ExecutionModelDisplay(now.Runtime, now.Execution));
             return KitFileBinding.Of(frame, file.Steering.Armed, now, file.Screen.Instruction.Open ? file.Screen.Instruction.Words : "",
                 setup.Session()?.Status ?? ConnectionStatus.Stopped, name, spine, new KitRowModel("workspace", LineWords.Ours("Workspace"), GlazeIcon.Move),
                 selectors: selectors);
@@ -193,9 +190,10 @@ namespace Halcyonic.XR.Workspace
         private bool KitStanding() => !Away && !dirty && drag == null && !plane.Repositioning && !plane.Sliding
             && plane.KitShows && plane.Kit.Settled && plane.Kit.Accepting();
 
+        /// <summary>Host pressed on the kit's composer: it changes what runs only where the binding says a press can; a locked chip is a fact.</summary>
         private void OnKitEnvironmentPressed()
         {
-            if (!KitStanding()) return;
+            if (!KitStanding() || plane.KitBinding?.Model.EnvironmentChangeable != true) return;
             var current = CurrentKitRuntime();
             setup.Presentation.CycleEnvironment(State?.Runtimes, current?.RuntimeId);
         }
@@ -209,7 +207,7 @@ namespace Halcyonic.XR.Workspace
 
         private void OnKitAgentPressed()
         {
-            if (!KitStanding() || State?.Runtimes is not IReadOnlyList<RuntimeDescriptor> runtimes) return;
+            if (!KitStanding() || plane.KitBinding?.Model.AgentChangeable != true || State?.Runtimes is not IReadOnlyList<RuntimeDescriptor> runtimes) return;
             var current = CurrentKitRuntime();
             var execution = (navigator.Beside as FileColumn)?.Now?.Execution;
             var currentModelRef = setup.Presentation.SelectedModelRef

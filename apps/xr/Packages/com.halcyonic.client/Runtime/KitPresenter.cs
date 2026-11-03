@@ -163,6 +163,18 @@ namespace Halcyonic.Client
         public static string? AgentOf(WorkspacePresentation workspace) => AgentOf(workspace.Runtime, workspace.Execution);
 
         /// <summary>
+        /// The composer's chips while its Send instructs <paramref name="workspace"/>'s execution, as every composer the kit
+        /// draws does: that execution's runtime, its environment as it declares it and its agent, with the model it runs
+        /// (<paramref name="modelDisplay"/>), both locked, since no command carries another runtime (AUDIT, 2026-11-03).
+        /// </summary>
+        public static KitSelectors ChipsOf(WorkspacePresentation workspace, string? modelDisplay = null) =>
+            ChipsOf(workspace.Runtime, workspace.Execution, modelDisplay);
+
+        /// <summary>The same chips for <paramref name="runtime"/>, which runs <paramref name="execution"/>.</summary>
+        public static KitSelectors ChipsOf(RuntimeDescriptor? runtime, ExecutionView? execution, string? modelDisplay) => new KitSelectors(
+            EnvironmentOf(runtime), environmentChangeable: false, AgentOf(runtime, execution, modelDisplay), agentChangeable: false);
+
+        /// <summary>
         /// The focused work from the presentation: its state and marks, the agent's report, the rail, what it waits on,
         /// and Send offered only where the connection is live and production takes an instruction, else why not in
         /// <see cref="ConnectionText"/>'s or <see cref="FileScreens.WhyNoInstruction"/>'s words.

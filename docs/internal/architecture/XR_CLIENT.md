@@ -3811,31 +3811,34 @@ presence, contextual moment cards and the on-demand project screen:
   `StarterId`, and `ToContract()` emits `NewFromStarterChoice` (`kind: "new_from_starter"`) so a
   developer or newcomer in VR can scaffold a starter VR project from an idea and rename its folder
   before confirming the build review.
-- **Composer context selectors (`KitPresenter.EnvironmentOf`, `KitPresenter.AgentOf`, `KitSelectors`, `WorkspacePresentationState.CycleEnvironment`, `WorkspacePresentationState.EnvironmentCanChange`, `WorkspacePresentationState.NextAgent`, `WorkspacePresentationState.CycleAgent`, `WorkspacePresentationState.SetRuntimeModels`)**:
-  the Host chip says what the runtime that would run declares (ADR 0033), never a choice of its own,
-  since no command carries one: `KitPresenter.EnvironmentOf` gives `"This Mac"` for
+- **Composer context selectors (`KitPresenter.ChipsOf`, `KitPresenter.EnvironmentOf`, `KitPresenter.AgentOf`, `KitSelectors`, `WorkspacePresentationState.CycleEnvironment`, `WorkspacePresentationState.EnvironmentCanChange`, `WorkspacePresentationState.NextAgent`, `WorkspacePresentationState.CycleAgent`, `WorkspacePresentationState.SetRuntimeModels`)**:
+  the chips name the runtime the composer's Send reaches. Every composer the kit draws today instructs
+  the task's existing execution (`WorkspaceSteering.SendInstruction`, which no chosen runtime reaches), so
+  `MenuDirector` hands `KitFileBinding.Of` `KitPresenter.ChipsOf(now, ...)`: that execution's runtime,
+  its environment as it declares it (ADR 0033), its agent with the model it runs
+  (`WorkspacePresentationState.ExecutionModelDisplay`), and both chips locked as facts, so a press changes
+  nothing (AUDIT's finding on U1, 2026-11-03). `KitPresenter.EnvironmentOf` gives `"This Mac"` for
   `ApprovalMayLeaveSandbox = true`, `"Sandbox"` for `false` and `null` when undeclared, so no Host chip
-  shows for a runtime that declares nothing (INTEGRATION's finding, 2026-11-03). `MenuDirector` hands
-  `KitFileBinding.Of` a `KitSelectors` for the runtime the person chose (or the task's own): those
-  words as given, never the workspace runtime's in their place, whether Host can change
-  (`EnvironmentCanChange`: some registered runtime that can start work declares the other environment;
-  otherwise the chip stands locked), and the agent's words (the selected model's short display name via
-  `ShortModelName` when `SelectedModelRef` or an execution model is present, else the runtime's plain
-  display name). Without one, the binding shows the workspace's own runtime's. `KitWorkspaceHost` sets
-  `AllowBoundSelectors = true` on its `KitWorkView` and forwards settled composer selector presses
-  (`EnvironmentPressed`, `ProjectPressed`, `AgentPressed`) through `MenuPlane` to `MenuDirector`, which
-  switches to the Projects chooser on `ProjectPressed`; on `EnvironmentPressed`, `CycleEnvironment`
-  selects a runtime that declares the other environment, or changes nothing and returns null where none
-  is registered; and on `AgentPressed` it cycles across available runtimes and their listed
-  `RuntimeModel` entries (cached via `SetRuntimeModels` from `ReadRuntimeModelsAsync`, including local
-  Meta/Ollama models such as `muse-glimmer:30b-mlx` and `llama*`) via `CycleAgent` / `NextAgent` while
-  preserving any unsent instruction draft in `KitComposer`. The chips' words are the client core's
-  (`KitMomentWords.HostChip`, `AgentChip`): the category, then the environment or their name whole.
-  `KitComposer` lays the two chips on the footer's equal halves where each fits its half whole, else
-  each at the full width on its own row; `KitRender`'s `28-chips-*` states hold every chip whole,
-  inside the composer and on those columns, Host locked where nothing can change, for Codex, OpenCode,
-  Claude Agent, a name that says agent and the local models' long names, on This Mac and in a sandbox.
-  A locked Host chip draws as a fact, its glyph and words in n5 with no outline (`KitButton`: a locked quiet control keeps
-  no shape). The kit's journeys (`KitSpatialCheck`, `KitActivityComposerCheck`) render at 2048 pixels square and register
-  a synthetic runtime that stays inside a sandbox, so the composer journey's Host press has a declared environment to
-  reach and back; `KitRender` places a bound fixture by its bound drawing, as the host draws it.
+  shows for a runtime that declares nothing (INTEGRATION's finding, 2026-11-03). Given no chips, the
+  binding shows the workspace's own runtime's, locked: `KitSelectors` and `KitWorkModel` default to
+  locked. On the owner's Mac, Codex declares that an approved command may leave the sandbox, OpenCode
+  that it stays inside one, and Claude Agent nothing. The choosing a press would do stays in
+  `WorkspacePresentationState`, for the run a later change starts on a chosen runtime: `CycleEnvironment`
+  selects a runtime that declares the other environment (`EnvironmentCanChange`), or changes nothing and
+  returns null where none is registered, and `CycleAgent` / `NextAgent` cycle across the runtimes that
+  can start work and their listed `RuntimeModel` entries (cached via `SetRuntimeModels` from
+  `ReadRuntimeModelsAsync`, including local Meta and Ollama models such as `muse-glimmer:30b-mlx`),
+  preserving any unsent draft. `KitWorkspaceHost` sets `AllowBoundSelectors = true` on its `KitWorkView`
+  and forwards settled composer selector presses (`EnvironmentPressed`, `ProjectPressed`, `AgentPressed`)
+  through `MenuPlane` to `MenuDirector`, which switches to the Projects chooser on `ProjectPressed` and
+  takes a Host or Agent press only where the binding says that chip can change, which today it never
+  does. The chips' words are the client core's (`KitMomentWords.HostChip`, `AgentChip`): the category,
+  then the environment or their name whole. `KitComposer` lays the two chips on the footer's equal halves
+  where each fits its half whole, else each at the full width on its own row; `KitRender`'s `28-chips-*`
+  states hold every chip whole, inside the composer and on those columns, both locked, for Codex,
+  OpenCode, Claude Agent, a name that says agent and the local models' long names, on This Mac and in a
+  sandbox. A locked chip draws as a fact, its glyph and words in n5 with no outline (`KitButton`: a locked
+  quiet control keeps no shape). The kit's journeys (`KitSpatialCheck`, `KitActivityComposerCheck`)
+  render at 2048 pixels square and register a synthetic runtime that stays inside a sandbox, so the
+  composer journey shows the chips stay the execution's own with another environment registered;
+  `KitRender` places a bound fixture by its bound drawing, as the host draws it.

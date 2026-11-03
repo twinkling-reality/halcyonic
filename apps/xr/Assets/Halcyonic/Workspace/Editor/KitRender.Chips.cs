@@ -9,20 +9,19 @@ using UnityEngine;
 namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
-    /// The composer's Host and Agent chips across the choices the Agent chip cycles through (Codex, OpenCode, Claude Agent
-    /// and the local models by their own long names) and both environments, each worded by production (KitPresenter's
-    /// EnvironmentOf and AgentOf, KitMomentWords' HostChip and AgentChip). Every chip must show its words whole,
-    /// stand inside the composer, and keep the footer's columns: two chips share a row only at the row's equal halves,
-    /// else each takes the full width. Host stands locked where no registered runtime declares the other environment. The
-    /// runtimes are synthetic descriptors named as the real apps are; the sandboxed one is invented, since none of the
-    /// owner's declares that it stays inside a sandbox, and every image says synthetic data.
+    /// The composer's Host and Agent chips for the runtimes the owner's Mac registers and the local models by their own
+    /// long names, each worded by production (KitPresenter.ChipsOf, KitMomentWords' HostChip and AgentChip): the chips of
+    /// the execution the composer's Send instructs, both locked as facts, since no command carries another runtime. Every
+    /// chip must show its words whole, stand inside the composer, and keep the footer's columns: two chips share a row
+    /// only at the row's equal halves, else each takes the full width. The runtimes are synthetic descriptors declaring as
+    /// the real ones do on macOS (Codex that an approved command may leave the sandbox, OpenCode that it stays inside one,
+    /// Claude Agent nothing), and every image says synthetic data.
     /// </summary>
     public static partial class KitRender
     {
         private static readonly string[] ChipStates =
         {
-            "28-chips-codex", "28-chips-sandbox", "28-chips-opencode", "28-chips-claude-agent", "28-chips-qwen", "28-chips-glimmer-sandbox",
-            "28-chips-named-agent", "28-chips-host-locked",
+            "28-chips-codex", "28-chips-sandbox", "28-chips-claude-agent", "28-chips-qwen", "28-chips-glimmer-sandbox", "28-chips-named-agent",
         };
 
         private static RuntimeDescriptor ChipRuntime(string id, string name, bool? mayLeave) => new RuntimeDescriptor
@@ -38,30 +37,24 @@ namespace Halcyonic.XR.Workspace.Editor
         private static Shot ChipShot(string state, Transform root, Vector3 eyes)
         {
             var codex = ChipRuntime("codex", "Codex", true);
-            var sandboxed = ChipRuntime("codex-sandboxed", "Codex", false);
-            var openCode = ChipRuntime("opencode", "OpenCode", null);
-            var claude = ChipRuntime("claude", "Claude Agent", true);
+            var openCode = ChipRuntime("opencode", "OpenCode", false);
+            var claude = ChipRuntime("claude", "Claude Agent", null);
             var named = ChipRuntime("named", "Synthetic agent app", true);
-            // What each state stands for: the runtime that would run, the model chosen for it as its list names it, and
-            // which runtimes are registered beside it (Host can change only where one declares the other environment).
-            var (runtime, model, registered, caption) = state switch
+            // What each state stands for: the runtime the task's execution runs on, and the model it runs as its list names it.
+            var (runtime, model, caption) = state switch
             {
-                "28-chips-codex" => (codex, (string?)null, new[] { codex, sandboxed }, "Host and Agent chips: Codex on This Mac"),
-                "28-chips-sandbox" => (sandboxed, null, new[] { codex, sandboxed }, "Host and Agent chips: Codex in a sandbox"),
-                "28-chips-opencode" => (openCode, null, new[] { codex, openCode }, "Host and Agent chips: OpenCode, which declares no environment"),
-                "28-chips-claude-agent" => (claude, null, new[] { claude, sandboxed }, "Host and Agent chips: Claude Agent on This Mac"),
-                "28-chips-qwen" => (codex, "qwen3.6:35b-a3b-nvfp4 (Ollama)", new[] { codex, sandboxed }, "Host and Agent chips: a local model's long name on This Mac"),
-                "28-chips-glimmer-sandbox" => (sandboxed, "muse-glimmer:30b-mlx (Ollama)", new[] { codex, sandboxed }, "Host and Agent chips: a local model's long name in a sandbox"),
-                "28-chips-named-agent" => (named, null, new[] { named, sandboxed }, "Host and Agent chips: an agent app whose own name says agent"),
-                _ => (codex, null, new[] { codex, claude }, "Host and Agent chips: Host locked, no registered runtime stays inside a sandbox"),
+                "28-chips-codex" => (codex, (string?)null, "Host and Agent chips: Codex on This Mac"),
+                "28-chips-sandbox" => (openCode, null, "Host and Agent chips: OpenCode in its sandbox"),
+                "28-chips-claude-agent" => (claude, null, "Host and Agent chips: Claude Agent, which declares no environment"),
+                "28-chips-qwen" => (codex, "qwen3.6:35b-a3b-nvfp4 (Ollama)", "Host and Agent chips: a local model's long name on This Mac"),
+                "28-chips-glimmer-sandbox" => (openCode, "muse-glimmer:30b-mlx (Ollama)", "Host and Agent chips: a local model's long name in a sandbox"),
+                _ => (named, null, "Host and Agent chips: an agent app whose own name says agent"),
             };
-            var environment = KitPresenter.EnvironmentOf(runtime);
-            var changeable = WorkspacePresentationState.EnvironmentCanChange(registered, runtime);
-            var agent = KitPresenter.AgentOf(runtime, null, model);
+            var chips = KitPresenter.ChipsOf(runtime, null, model);
             // A short report: these states are about the chips. Where a long name stacks them, the report's room is a row
             // shorter and the long report pages, as the slate's reading always does (KitComposer.GrowsSlateBy).
-            var work = WithSelectors(WorkModel(), new KitSelectors(environment, changeable, agent), ChipReport);
-            return FocusedWork(root, eyes, true, work, caption + ", synthetic data", (view, shot) => RequireChips(view, shot, environment, changeable, agent));
+            var work = WithSelectors(WorkModel(), chips, ChipReport);
+            return FocusedWork(root, eyes, true, work, caption + ", synthetic data", (view, shot) => RequireChips(view, shot, chips.Environment, chips.Agent));
         }
 
         /// <summary>The agent's report for the chip states, synthetic: two sentences, so the chips are what they show.</summary>
@@ -70,10 +63,11 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static KitWorkModel WithSelectors(KitWorkModel work, KitSelectors selectors, ActivityEntry? report = null) => new KitWorkModel(work.ProjectName,
             work.TaskTitle, work.Badge, work.Marks, report ?? work.Report, work.Trail, work.Draft, work.VoiceOffered, work.Sendable, work.WhyNotSend, work.Spine,
-            work.SpineFoot, work.Need, work.Ask, work.Notice, work.Avatar, work.Said, selectors.Environment, selectors.Agent, selectors.EnvironmentChangeable);
+            work.SpineFoot, work.Need, work.Ask, work.Notice, work.Avatar, work.Said, selectors.Environment, selectors.Agent, selectors.EnvironmentChangeable,
+            selectors.AgentChangeable);
 
-        /// <summary>The chips as drawn: their words whole, inside the composer, on the footer's columns, Host locked where it can change nothing.</summary>
-        private static void RequireChips(KitWorkView view, Shot shot, string? environment, bool changeable, string? agent)
+        /// <summary>The chips as drawn: their words whole, inside the composer, on the footer's columns, both locked, as no press can change what runs.</summary>
+        private static void RequireChips(KitWorkView view, Shot shot, string? environment, string? agent)
         {
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
             var composer = view.Composer;
@@ -106,9 +100,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(Mathf.Abs(chip.Size.x - column) < Tolerance,
                     "the chip \"" + words + "\" is " + chip.Size.x.ToString("0.0000") + " wide on a row of " + rowMates + ", off the footer's column of " + column.ToString("0.0000"));
             }
-            if (environment != null && host.gameObject.activeSelf)
-                Require(host.Available == changeable, changeable ? "the Host chip is locked though another environment is registered"
-                    : "the Host chip takes presses though no registered runtime declares the other environment");
+            foreach (var (chip, words) in shown)
+                Require(!chip.Available, "the chip \"" + words + "\" takes presses though no command carries another runtime");
             if (shown.Count > 0)
                 Debug.Log("Halcyonic: spatial kit: chips " + string.Join(" | ", shown.Select(each => "\"" + each.Words + "\" " + each.Chip.Size.x.ToString("0.0000")
                     + " at " + each.Chip.transform.localPosition.y.ToString("0.0000") + (each.Chip.Available ? "" : " locked")))
