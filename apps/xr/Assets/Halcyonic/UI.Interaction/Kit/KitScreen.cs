@@ -79,30 +79,6 @@ namespace Halcyonic.XR.UI
             Size = new Vector2(width, height);
             face.Draw(Size, KitType.Units(RadiusDegrees), SpatialKit.IdentityField(model.IdentityHue));
 
-            // No picture source exists yet: the project's identity stands in its place, the mark above its name.
-            KitType.Size(name, KitRole.Display);
-            GlazeText.SetLiteral(name, model.Project);
-            var (nameLines, nameWidth, nameHeight) = KitType.Lay(name, width * 0.8f, 1);
-            var diameter = KitType.Units(MarkDegrees);
-            var block = diameter + KitType.Units(NameGapDegrees) + nameHeight;
-            var markShown = model.Monogram.Length > 0;
-            var markY = markShown ? block / 2f - diameter / 2f : 0f;
-            // Lay sized the name's box to its line with room below; it is centred where the name stands, never shrunk after.
-            name.transform.localPosition = new Vector3(0f, markShown ? -block / 2f + nameHeight / 2f : 0f, -0.0006f);
-            name.ForceMeshUpdate(true);
-            var nameWhole = nameLines == 1 && !name.isTextTruncated && nameWidth <= width * 0.8f && name.textBounds.size.x > 0f;
-            disc.gameObject.SetActive(markShown);
-            mark.gameObject.SetActive(markShown);
-            if (markShown)
-            {
-                disc.Draw(new Vector2(diameter, diameter), diameter / 2f, KitType.Colour(SpatialKit.Raised));
-                disc.transform.localPosition = new Vector3(0f, markY, -0.0003f);
-                GlazeText.SetLiteral(mark, model.Monogram);
-                mark.fontSize = GlazeTokens.FontSize(KitType.Units(MarkEmDegrees));
-                mark.rectTransform.sizeDelta = new Vector2(diameter, diameter);
-                mark.transform.localPosition = new Vector3(0f, markY, -0.0006f);
-            }
-
             // The title chip: the project's name, then the runtime and the state, on one opaque carrier.
             var pad = KitType.Units(ChipPadDegrees);
             var inset = KitType.Units(ChipInsetDegrees);
@@ -114,12 +90,42 @@ namespace Halcyonic.XR.UI
             var room = width - 2f * inset - 3f * pad;
             var (titleLines, titleWidth, titleHeight) = KitType.Lay(title, room * 0.6f, 1);
             var (factLines, factWidth, _) = KitType.Lay(facts, room - titleWidth, 1);
-            ReadsWhole = nameWhole && titleLines == 1 && factLines == 1 && !title.isTextTruncated && !facts.isTextTruncated;
             var chipSize = new Vector2(titleWidth + factWidth + 3f * pad, titleHeight + 2f * pad * 0.6f);
             chip.Draw(chipSize, KitType.Units(SpatialKit.ControlRadiusDegrees), SpatialKit.Carrier);
             chip.transform.localPosition = new Vector3(-width / 2f + inset + chipSize.x / 2f, height / 2f - inset - chipSize.y / 2f, -0.0004f);
             title.transform.localPosition = new Vector3(-chipSize.x / 2f + pad, titleHeight / 2f, -0.0003f);
             facts.transform.localPosition = new Vector3(-chipSize.x / 2f + 2f * pad + titleWidth, titleHeight / 2f - (KitType.Em(KitRole.Title) - KitType.Em(KitRole.Body)) * 0.8f, -0.0003f);
+            // No picture source exists yet: the project's identity stands in its place, the mark above its name.
+            KitType.Size(name, KitRole.Display);
+            GlazeText.SetLiteral(name, model.Project);
+            var (nameLines, nameWidth, nameHeight) = KitType.Lay(name, width * 0.8f, 1);
+            // The mark is the screen's, not the text's: it narrows with the screen at Larger, so the block keeps its air
+            // below the chip while the name grows with the text.
+            var markShare = SpatialKit.ScreenDegreesAt(GlazeText.Scale) / SpatialKit.ScreenDegrees;
+            var diameter = KitType.Units(MarkDegrees * markShare);
+            var block = diameter + KitType.Units(NameGapDegrees) + nameHeight;
+            var markShown = model.Monogram.Length > 0;
+            // Centred in the face below the title chip, never under it.
+            var below = height / 2f - inset - chipSize.y;
+            var middle = (below - height / 2f) / 2f;
+            var markY = middle + (markShown ? block / 2f - diameter / 2f : 0f);
+            // Lay sized the name's box to its line with room below; it is centred where the name stands, never shrunk after.
+            name.transform.localPosition = new Vector3(0f, middle + (markShown ? -block / 2f + nameHeight / 2f : 0f), -0.0006f);
+            name.ForceMeshUpdate(true);
+            var nameWhole = nameLines == 1 && !name.isTextTruncated && nameWidth <= width * 0.8f && name.textBounds.size.x > 0f;
+            disc.gameObject.SetActive(markShown);
+            mark.gameObject.SetActive(markShown);
+            if (markShown)
+            {
+                disc.Draw(new Vector2(diameter, diameter), diameter / 2f, KitType.Colour(SpatialKit.Raised));
+                disc.transform.localPosition = new Vector3(0f, markY, -0.0003f);
+                GlazeText.SetLiteral(mark, model.Monogram);
+                mark.fontSize = GlazeTokens.FontSize(KitType.Units(MarkEmDegrees * markShare));
+                mark.rectTransform.sizeDelta = new Vector2(diameter, diameter);
+                mark.transform.localPosition = new Vector3(0f, markY, -0.0006f);
+            }
+
+            ReadsWhole = nameWhole && titleLines == 1 && factLines == 1 && !title.isTextTruncated && !facts.isTextTruncated;
             gameObject.SetActive(true);
         }
     }

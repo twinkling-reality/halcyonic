@@ -145,6 +145,12 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public bool Spent { get; set; }
 
+        /// <summary>
+        /// The size its owner stands the button at (the screen bar grows its buttons for where they stand): pointing and
+        /// pressing scale it from there, never back to 1, so a pointed button keeps its owner's growth.
+        /// </summary>
+        public float BaseScale { get; set; } = 1f;
+
         public static float Height => KitType.Units(SpatialKit.TargetDegrees);
 
         /// <summary>A button of <paramref name="role"/>; a <paramref name="room"/> button's words are in the room's faces (<see cref="KitType.Create"/>).</summary>
@@ -239,7 +245,9 @@ namespace Halcyonic.XR.UI
             painted = state;
             var hairline = KitType.Units(SpatialKit.HairlineDegrees);
             var frame = KitType.Units(0.09f);
-            var radius = Capsule ? size.y / 2f : KitType.Units(SpatialKit.ControlRadiusDegrees);
+            // One shape for every button the kit draws, the capsule: a quiet one (a door, a tab, a chip) is told by its
+            // outline and words, never by squarer corners (XR baseline 2026-11-03: tabs, chips and the bar mixed the two).
+            var radius = Capsule || role == KitButtonRole.Quiet ? size.y / 2f : KitType.Units(SpatialKit.ControlRadiusDegrees);
             var answerRing = KitType.Units(SpatialKit.Degrees(SpatialKit.AnswerRingDp));
             Color fill, edge, text;
             var edgeWidth = hairline;
@@ -319,7 +327,7 @@ namespace Halcyonic.XR.UI
                 ring.transform.localPosition = new Vector3(0f, 0f, 0.0001f);
                 ring.Fade(opacity);
             }
-            transform.localScale = Vector3.one * scale;
+            transform.localScale = Vector3.one * (scale * BaseScale);
             plate.Selection = hovered ? SurfaceSelection.Pointed : role == KitButtonRole.Primary && available ? SurfaceSelection.MainCap : SurfaceSelection.None;
             words.color = new Color(text.r, text.g, text.b, opacity);
             icon.color = words.color;
