@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -198,6 +198,40 @@ describe("the preview's Seatbelt profiles (ADR 0037)", () => {
       );
       assert.match(await inside(['/bin/ls', outside.path]), /Operation not permitted/);
     } finally {
+      cleanup();
+      outside.cleanup();
+    }
+  });
+
+  test("on this Mac, Chrome's profile keeps a renderer from a terminal, from other processes and from other folders (AUDIT P2)", {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const { scope, cleanup } = scene();
+    const outside = outsideFolder();
+    // A process of this test's own, outside the profile, standing for any other of the person's.
+    const other = spawn('/bin/sleep', ['30'], { stdio: 'ignore' });
+    try {
+      writeFileSync(join(outside.path, 'marker.txt'), 'outside');
+      const folder = join(scope.cache, 'chrome');
+      mkdirSync(folder, { recursive: true });
+      const profile = join(folder, 'chrome.sb');
+      writeFileSync(
+        profile,
+        chromeProfile({ home: scope.home, folder, port: 47866, browser: scope.starter }),
+      );
+      const inside = insideProfile(profile, folder);
+      // Its own folder still reads and writes; nothing else of the kind below does.
+      assert.equal(await inside(['/usr/bin/touch', join(folder, 'made')]), '');
+      // Without a terminal of its own this would say "Device not configured"; the profile refuses first.
+      assert.match(await inside(['/bin/cat', '/dev/tty']), /Operation not permitted/);
+      assert.match(await inside(['/bin/kill', '-0', String(other.pid)]), /Operation not permitted/);
+      // Escape-shaped tries only touch this test's own scratch folders and its own sleeper.
+      assert.match(
+        await inside(['/bin/cat', join(outside.path, 'marker.txt')]),
+        /Operation not permitted/,
+      );
+    } finally {
+      other.kill('SIGKILL');
       cleanup();
       outside.cleanup();
     }

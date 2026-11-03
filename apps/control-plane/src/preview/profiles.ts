@@ -98,7 +98,9 @@ export const SOUND_SERVICES: readonly string[] = [
  * home folder refused but Chrome's folder; Chrome's updater not started; no URL handed to another
  * app through LaunchServices (a page's `mailto:` once opened Mail); inbound connections only on
  * loopback and Chrome's own sockets. Chrome's own sandbox cannot start inside it, so this profile is
- * the boundary.
+ * the boundary, and what it leaves is what a renderer running the agent's page would keep after an
+ * exploit (AUDIT P2): no terminal, no signal to a process outside the profile, and no reads of the
+ * folders that hold a person's, a drive's or another app's files.
  */
 export function chromeProfile(scope: ChromeScope): string {
   if (!Number.isInteger(scope.port) || scope.port < 1 || scope.port > 65535) {
@@ -111,10 +113,15 @@ export function chromeProfile(scope: ChromeScope): string {
     '(deny network-outbound)',
     `(allow network-outbound (remote ip "localhost:${scope.port}"))`,
     '(deny file-write*)',
-    `(allow file-write* ${folder} ${DEVICES})`,
-    `(deny file-read* ${subpaths([scope.home])})`,
+    `(allow file-write* ${folder} ${CHROME_DEVICES})`,
+    `(deny file-read* ${subpaths([scope.home, ...CHROME_READS_REFUSED])})`,
     `(allow file-read* ${folder})`,
     `(allow file-read-metadata ${ancestors([scope.folder])})`,
+    // A terminal would let native code type into the shell that owns it (TIOCSTI), and the browser
+    // has none in its own session; nothing below allows one again.
+    '(deny file-read* file-write* file-ioctl (regex #"^/dev/tty"))',
+    '(deny signal)',
+    '(allow signal (target same-sandbox))',
     '(deny process-exec (regex #"/GoogleUpdater\\.app/"))',
     '(deny lsopen)',
     '(deny network-inbound)',
@@ -130,3 +137,24 @@ export function chromeProfile(scope: ChromeScope): string {
 }
 
 const DEVICES = '(literal "/dev/null") (regex #"^/dev/tty") (regex #"^/dev/fd/")';
+
+/** The devices Chrome may write: `/dev/null` and its own descriptors, never a terminal (AUDIT P2). */
+const CHROME_DEVICES = '(literal "/dev/null") (regex #"^/dev/fd/")';
+
+/**
+ * Folders whose reads the browser never needs and refuses (AUDIT P2): every person's home folder,
+ * drives and network shares, every app's temporary and cache folders, and the package managers' data
+ * and configuration. Its own folder and the browser's are allowed again after them.
+ */
+const CHROME_READS_REFUSED: readonly string[] = [
+  '/Users',
+  '/Volumes',
+  '/private/tmp',
+  '/private/var/folders',
+  '/opt/homebrew/etc',
+  '/opt/homebrew/var',
+  '/usr/local/etc',
+  '/usr/local/var',
+  '/Library/Application Support',
+  '/Library/Keychains',
+];
