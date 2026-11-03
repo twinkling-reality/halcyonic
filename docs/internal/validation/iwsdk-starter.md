@@ -451,6 +451,19 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 - **Not tried:** the headset; the sign's text in Quest Browser's own fonts (the canvas asks for a rounded font and
   falls back to the system's).
 
+## The page while a game loads (U6b)
+
+- **Question:** what does a person see between opening a game and its first frame?
+- **Date:** 2026-11-03.
+- **Method:** pictures of the preview's page from 150 ms after loading began, in the check's browser; a picture waits
+  for the page's next frame, so the time each one was taken is recorded.
+- **Before:** a white page (taken at 0.7 s), then black (taken at 1.9 s: the SDK's opaque canvas, drawing an empty scene
+  before `setupLook` has run), then the island at 5.1 s.
+- **Now:** ART7's sky from the first picture (taken at 1.4 s: #50AEFF at the top to #D7F0FF at the bottom), then the
+  island from its first frame. A fresh project's check passed (56,134 edges); the one-box game read ready through the
+  twin replay (87 s at a load of 5 to 6), so showing the canvas on the look's first update keeps the loads alike.
+- **Not tried:** Quest Browser's 2D page; how long the first frame takes there.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

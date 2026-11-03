@@ -321,6 +321,13 @@ export function setupLook(world: World): { island: Group } {
   const play = new Group();
   world.scene.add(play);
   built = play;
+  // index.html keeps the canvas clear over its sky until this first frame of the look, drawn after this update.
+  let shown = false;
+  ambientMotion(() => {
+    if (shown) return;
+    renderer.domElement.style.opacity = '1';
+    shown = true;
+  });
   world.registerSystem(AmbientSystem);
   return { island: play };
 }

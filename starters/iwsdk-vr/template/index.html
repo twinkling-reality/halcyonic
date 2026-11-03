@@ -8,8 +8,21 @@
     />
     <link rel="icon" href="data:," />
     <title>Untitled Game</title>
+    <style>
+      /* The sky (src/palette.ts) while the game loads and its first frame is drawn, never a white page. */
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: linear-gradient(#4FAEFF, #D8F0FF);
+      }
+      /* Clear until the look's first frame (src/look.ts shows it), so its empty frames never show as black. */
+      #scene-container canvas {
+        opacity: 0;
+      }
+    </style>
   </head>
-  <body style="margin: 0">
+  <body>
     <div id="scene-container"></div>
     <script type="module" src="/src/index.ts"></script>
   </body>
