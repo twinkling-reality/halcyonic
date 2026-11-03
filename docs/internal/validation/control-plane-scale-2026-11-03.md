@@ -79,12 +79,14 @@ Each journal's stream, replayed on .NET before and after U6b:
 - **Before, three things grew for as long as the headset stayed on one journal.** Activity lines, 200
   for every task ever streamed; every command since the last snapshot; and the name of every tool
   call ever started. A reconnect keeps the activity, so only a change of journal cleared them.
-- **Now (U6b):** the client keeps pending commands and the last 50 to finish, as many finished as a
-  snapshot carries; a tool's name until its completion line; and every line of the 32 tasks most
-  recently recorded or read, and of the rest the last 3 and the last one that is not a round's. The
-  open file and a peek read their task's lines, which keeps those whole; a peek shows the last line
-  that is not a round's; opening a file reads its history again. `ClientProjectionTests` and
-  `ActivityLogBoundTests` hold each bound, the open file and the peek.
+- **Now (U6b):** the client keeps pending commands and the last 50 to finish, the same 50 as the
+  snapshot, which now keeps the 50 whose outcomes came last however long they waited, so a headset
+  that reconnects holds what a connected one does; a tool's name until its completion line; and
+  every line of the 32 tasks most recently recorded or read, and of the rest the last 3 and the last
+  one that is not a round's. The open file and a peek read their task's lines, which keeps those
+  whole; a peek shows the last line that is not a round's; opening a file reads its history again.
+  `ClientProjectionTests`, `ActivityLogBoundTests` and the projection's tests hold each bound, the
+  open file and the peek.
 - The 50k stream's 550 commands are 500 still pending at its end, and 50 finished. It ends with five
   rounds of one line each for 100 tasks, so each fell out of the 32 kept whole between its own
   lines: 200 tasks keep 3 lines each, and the last 32 one more.
@@ -105,10 +107,6 @@ Each journal's stream, replayed on .NET before and after U6b:
   a restart folds all of it before the control plane serves anyone. Extrapolated linearly, not
   measured: a million events are about 1.3 GB and 7 to 19 s. A checkpoint of the projections would
   be an ADR-level change.
-- **A command that waited while 50 others finished.** The Mac's snapshot keeps the last 50 finished
-  commands in the order they were first journaled; the client keeps the 50 that finished last, so a
-  command that has just finished is never dropped before what watches it reads it. After a
-  reconnect, such a command can be missing from the snapshot.
 
 ## What only the headset tells
 

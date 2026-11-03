@@ -1,5 +1,6 @@
 #nullable enable
 using System.Collections.Generic;
+using System.Linq;
 using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
@@ -117,10 +118,11 @@ namespace Halcyonic.Client
             Replace(executions, snapshot.Executions, execution => execution.ExecutionId);
             Replace(commands, snapshot.Commands, command => command.CommandId);
             finished.Clear();
-            foreach (var command in snapshot.Commands)
-            {
-                if (command.Status != CommandStatus.Accepted) finished.Enqueue(command.CommandId);
-            }
+            // A snapshot lists commands in the order they were journaled; they leave in the order they finished.
+            var byFinish = snapshot.Commands
+                .Where(command => command.Status != CommandStatus.Accepted)
+                .OrderBy(command => command.UpdatedAt, System.StringComparer.Ordinal);
+            foreach (var command in byFinish) finished.Enqueue(command.CommandId);
             runtimes.Clear();
             runtimes.AddRange(snapshot.Runtimes);
             changes.Resynchronized = true;

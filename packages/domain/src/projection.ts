@@ -145,6 +145,8 @@ interface CommandState {
   workstreamId: WorkstreamId | null;
   executionId: ExecutionId | null;
   updatedAt: Timestamp;
+  /** The journal position of its outcome, or null while it awaits one. */
+  finishedAt: number | null;
   rejection: CommandRejection | null;
   failure: CommandFailure | null;
   result: CommandResult | null;
@@ -520,23 +522,26 @@ export class Projection {
     return Array.from(this.#executions.values(), this.#view);
   }
 
-  /** Commands still awaiting an outcome, plus the most recent `finishedLimit` finished ones. */
+  /**
+   * Commands still awaiting an outcome, plus the `finishedLimit` whose outcomes came last, in the
+   * order they were journaled. The last to finish are kept however long they waited, so a client
+   * that reconnects holds the outcomes a connected one just saw (U6).
+   */
   commands(finishedLimit: number): CommandView[] {
     if (this.#commands.size <= finishedLimit) {
       return Array.from(this.#commands.values(), toCommandView);
     }
-    let finishedTotal = 0;
+    const finishes: number[] = [];
     for (const command of this.#commands.values()) {
-      if (command.status !== 'accepted') finishedTotal += 1;
+      if (command.finishedAt !== null) finishes.push(command.finishedAt);
     }
-    let skipFinished = Math.max(0, finishedTotal - finishedLimit);
+    finishes.sort((a, b) => b - a);
+    const earliestKept =
+      finishedLimit > 0 ? (finishes[finishedLimit - 1] ?? 0) : Number.POSITIVE_INFINITY;
     const views: CommandView[] = [];
     for (const command of this.#commands.values()) {
-      if (command.status !== 'accepted' && skipFinished > 0) {
-        skipFinished -= 1;
-        continue;
-      }
-      views.push(toCommandView(command));
+      if (command.finishedAt === null || command.finishedAt >= earliestKept)
+        views.push(toCommandView(command));
     }
     return views;
   }
@@ -1058,6 +1063,7 @@ export class Projection {
           workstreamId: event.workstream_id,
           executionId: event.execution_id,
           updatedAt: event.ingested_at,
+          finishedAt: accepted ? null : this.#position,
           rejection: accepted ? null : event.payload.rejection,
           failure: null,
           result: null,
@@ -1085,6 +1091,7 @@ export class Projection {
         command.workstreamId = event.workstream_id ?? command.workstreamId;
         command.executionId = event.execution_id ?? command.executionId;
         command.updatedAt = event.ingested_at;
+        command.finishedAt = this.#position;
         changes.commands.add(event.payload.command_id);
         return;
       }
