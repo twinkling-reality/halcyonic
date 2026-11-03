@@ -90,9 +90,11 @@ namespace Halcyonic.XR.Workspace
                 new KitSpineSection(new[] { new KitRowModel("place:" + MenuPlace.Tasks, LineWords.Ours("Tasks")) }),
             };
             var name = selected != null && State?.Projects.TryGetValue(selected, out var project) == true ? project.Name : "";
-            // The composer's Send instructs this execution, so the chips are its runtime's, both locked: never a runtime that
-            // does not run (ADR 0033; AUDIT, 2026-11-03). Choosing another becomes real only once a command carries it.
-            var selectors = KitPresenter.ChipsOf(now, setup.Presentation.ExecutionModelDisplay(now.Runtime, now.Execution));
+            // While the run is active, Send instructs this execution, so the chips are its runtime's, locked (ADR 0033; AUDIT,
+            // 2026-11-03). At rest, Send starts the next run on the person's choice, so the chips are that choice (SWITCH).
+            var chosen = setup.Presentation.SelectedRuntimeId is string chosenId ? State?.Runtimes.FirstOrDefault(item => item.RuntimeId == chosenId) : null;
+            var selectors = KitPresenter.ChipsOf(now, setup.Presentation.ExecutionModelDisplay(now.Runtime, now.Execution), chosen,
+                chosen != null ? setup.Presentation.SelectedModelDisplay(chosen, now.Execution) : null, State?.Runtimes);
             return KitFileBinding.Of(frame, file.Steering.Armed, now, file.Screen.Instruction.Open ? file.Screen.Instruction.Words : "",
                 setup.Session()?.Status ?? ConnectionStatus.Stopped, name, spine, new KitRowModel("workspace", LineWords.Ours("Workspace"), GlazeIcon.Move),
                 selectors: selectors);
@@ -196,6 +198,7 @@ namespace Halcyonic.XR.Workspace
             if (!KitStanding() || plane.KitBinding?.Model.EnvironmentChangeable != true) return;
             var current = CurrentKitRuntime();
             setup.Presentation.CycleEnvironment(State?.Runtimes, current?.RuntimeId);
+            (navigator.Beside as FileColumn)?.Reflow();
         }
 
         private void OnKitProjectPressed()
@@ -212,7 +215,9 @@ namespace Halcyonic.XR.Workspace
             var execution = (navigator.Beside as FileColumn)?.Now?.Execution;
             var currentModelRef = setup.Presentation.SelectedModelRef
                 ?? (execution != null && execution.Runtime.RuntimeId == current?.RuntimeId ? execution.ModelRef : null);
-            if (setup.Presentation.CycleAgent(runtimes, current?.RuntimeId, currentModelRef) is var (runtime, _)
+            var cycled = setup.Presentation.CycleAgent(runtimes, current?.RuntimeId, currentModelRef);
+            (navigator.Beside as FileColumn)?.Reflow();
+            if (cycled is var (runtime, _)
                 && runtime.ModelChoice == ModelChoice.Listed
                 && setup.Presentation.ModelsForRuntime(runtime.RuntimeId).Count == 0
                 && pendingRuntimeModelsRead == null

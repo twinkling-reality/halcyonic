@@ -521,9 +521,9 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 failures.Add(name + ": the composer did not show both context selector pills while composing");
             }
-            else
+            else if (file.Now is WorkspacePresentation running && !KitPresenter.AtRest(running))
             {
-                // Send instructs the task's own execution, so the chips are that execution's runtime's, both locked as facts,
+                // While the run is active, Send instructs the task's own execution, so the chips are that execution's runtime's, both locked as facts,
                 // though a runtime that stays inside a sandbox is registered beside it: a press on either changes nothing.
                 var runs = file.Now?.Runtime;
                 var host = LabelText.ForTextMeshPro(KitMomentWords.HostChip(KitPresenter.EnvironmentOf(runs) ?? ""));

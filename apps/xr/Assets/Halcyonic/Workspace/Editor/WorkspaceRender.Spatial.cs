@@ -364,6 +364,33 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 if (!waiting) { Press(FileScreens.TellIt); done?.Invoke("Add a regression test for the rate limit."); }
                 Shot(question ? "spatial-question-first-part" : waiting ? "spatial-waiting-approval" : "spatial-working-direction");
+                // SWITCH: at rest, Send starts the task's next run on the person's choice. The run completes; Agent, pressed
+                // through the kit, chooses the next registered runtime; Send then reads Start New Run, and its press sends
+                // exactly one start, on that runtime, for this task, with the draft as its instruction.
+                if (kit && kitComposerWitness && !waiting)
+                {
+                    work.Execution.Status = ExecutionStatus.Completed;
+                    Draw(); System.Threading.Thread.Sleep(450);
+                    var composer = director.Plane.Kit.View.Composer;
+                    if (!composer.AgentButton.Available) failures.Add("spatial: at rest the Agent chip takes no press");
+                    else
+                    {
+                        composer.AgentButton.Press.SettleForRender();
+                        composer.AgentButton.Press.PressForRender(968);
+                        Draw(); System.Threading.Thread.Sleep(450);
+                        var send = director.Plane.KitBinding?.Controls.FirstOrDefault(control => control.Place == KitPlace.Send);
+                        if (send?.Words != FileScreens.StartNewRun)
+                            failures.Add("spatial: at rest after another agent, Send does not say " + FileScreens.StartNewRun + " (" + send?.Words + ")");
+                        var before = sends;
+                        if (send == null || !PressOnKit(director, send.Action, send.Key)) failures.Add("spatial: the kit's Send could not be pressed at rest");
+                        Draw();
+                        if (sends != before + 1 || lastSent is not ExecutionStartCommand start || start.Payload.RuntimeId == work.Execution.Runtime.RuntimeId
+                            || start.Payload.WorkstreamId != work.Workstream.WorkstreamId)
+                            failures.Add("spatial: Send at rest did not start the next run on the chosen agent (" + (sends - before) + " sent, "
+                                + (lastSent?.GetType().Name ?? "none") + ")");
+                        Shot("spatial-working-new-run");
+                    }
+                }
                 // KIT-ON: the kit draws the approval on the headset by default, so its Approve and Deny keep their confirm step
                 // there. Each press goes through the kit's own control and the pointer path the SDK raises; nothing is sent
                 // until Yes; a press on the frame no longer shown is refused; and where the runtime declares that an approved

@@ -122,6 +122,9 @@ namespace Halcyonic.Client
 
         public WorkspaceSteering Steering { get; }
 
+        /// <summary>The runtime and model the person chose for the task's next run, read at each press and rebuild (SWITCH).</summary>
+        public Func<RunChoice?>? Choice { get; set; }
+
         /// <summary>The work as last presented; presses are judged against it.</summary>
         public WorkspacePresentation? Now { get; private set; }
 
@@ -462,7 +465,7 @@ namespace Halcyonic.Client
                     if (drawnInstructionFrame != Frame || !host.Connected || FileScreens.InstructionSendReason(Now, Screen) != null) return;
                     instructionKeyboardSession++;
                     instructionVoiceValid = false;
-                    Steer(Steering.SendInstruction(Screen.Instruction, Now));
+                    Steer(Steering.SendInstruction(Screen.Instruction, Now, KitPresenter.NewRunOf(Now, Choice?.Invoke())));
                     return;
                 case FileScreens.TellIt when Screen.Presets != null:
                     if (Screen.PresetToSend is string words)
@@ -838,6 +841,7 @@ namespace Halcyonic.Client
         /// </summary>
         private void Rebuild()
         {
+            Screen.StartsNewRun = Now != null && KitPresenter.NewRunOf(Now, Choice?.Invoke()) != null;
             drawnColourFrame = null;
             drawnPresetFrame = null;
             nextRefresh = host.Now + RefreshSeconds;

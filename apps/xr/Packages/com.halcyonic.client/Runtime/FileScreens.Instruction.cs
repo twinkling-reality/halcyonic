@@ -13,6 +13,9 @@ namespace Halcyonic.Client
         public const string HideInstruction = "instruction-hide";
         public const string CancelInstruction = "instruction-cancel";
         public const string SendInstruction = "instruction-send";
+
+        /// <summary>Send's words where it starts the task's next run on the person's choice (SWITCH); the Agent chip names whose.</summary>
+        public const string StartNewRun = "Start New Run";
         public const string NextInstructionPart = "instruction-next-part";
         public const string PreviousInstructionPart = "instruction-previous-part";
         public const string InstructionNotRead = "Read Full Instruction";
@@ -61,7 +64,8 @@ namespace Halcyonic.Client
                 rare: screen.InstructionHideOffered ? new Prompt(CancelInstruction, "Discard Draft", GlazeIcon.Close) : null,
                 secondary: screen.Speak ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true,
                     available: WhyNoInstruction(workspace) == null, reason: WhyNoInstruction(workspace)) : null,
-                farRight: new Prompt(SendInstruction, "Send Instruction", GlazeIcon.TellIt, main: true, available: reason == null, reason: reason)));
+                farRight: new Prompt(SendInstruction, screen.StartsNewRun ? StartNewRun : "Send Instruction", GlazeIcon.TellIt, main: true,
+                    available: reason == null, reason: reason)));
         }
 
         /// <summary>

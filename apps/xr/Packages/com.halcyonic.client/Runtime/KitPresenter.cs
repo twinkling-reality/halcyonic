@@ -170,6 +170,42 @@ namespace Halcyonic.Client
         public static KitSelectors ChipsOf(WorkspacePresentation workspace, string? modelDisplay = null) =>
             ChipsOf(workspace.Runtime, workspace.Execution, modelDisplay);
 
+        /// <summary>
+        /// The chips at rest, where Send starts the task's next run on the person's choice: the chosen runtime (the
+        /// execution's while nothing is chosen), its environment and its agent with the chosen model, Host changeable
+        /// where a registered runtime that can start work declares the other environment, Agent where another runtime
+        /// or a listed model can be chosen. While the run is active, the execution's own, locked (<see cref="AtRest"/>).
+        /// </summary>
+        public static KitSelectors ChipsOf(WorkspacePresentation workspace, string? executionModelDisplay, RuntimeDescriptor? chosen,
+            string? chosenModelDisplay, IReadOnlyList<RuntimeDescriptor>? registered)
+        {
+            if (!AtRest(workspace)) return ChipsOf(workspace, executionModelDisplay);
+            var runtime = chosen ?? workspace.Runtime;
+            var starters = registered?.Count(each => each != null && each.Capabilities.StartExecution) ?? 0;
+            return new KitSelectors(EnvironmentOf(runtime), WorkspacePresentationState.EnvironmentCanChange(registered, runtime),
+                AgentOf(runtime, workspace.Execution, chosen != null ? chosenModelDisplay : executionModelDisplay),
+                agentChangeable: starters > 1 || runtime?.ModelChoice == ModelChoice.Listed);
+        }
+
+        /// <summary>
+        /// Whether the task's run is at rest, so the control plane admits a start beside it: its execution completed,
+        /// failed, was interrupted or ended unknown (never starting, running, verifying or waiting for the person), and no
+        /// command of this client's to it is still under way (CORE's ADMIT, 2026-11-03).
+        /// </summary>
+        public static bool AtRest(WorkspacePresentation workspace) =>
+            workspace.Execution?.Status is ExecutionStatus.Completed or ExecutionStatus.Failed or ExecutionStatus.Interrupted or ExecutionStatus.Unknown
+            && !workspace.Commands.Any(command => command.Waits || command.Status == CommandStatus.Accepted);
+
+        /// <summary>
+        /// The run Send would start on <paramref name="choice"/> instead of instructing the task's execution: null where
+        /// nothing is chosen, the choice is the execution's own runtime and model, or the run is not at rest.
+        /// </summary>
+        public static RunChoice? NewRunOf(WorkspacePresentation workspace, RunChoice? choice) =>
+            choice != null && AtRest(workspace) && workspace.Execution is ExecutionView execution
+            && (choice.RuntimeId != execution.Runtime.RuntimeId || choice.ModelRef != null && choice.ModelRef != execution.ModelRef)
+                ? choice
+                : null;
+
         /// <summary>The same chips for <paramref name="runtime"/>, which runs <paramref name="execution"/>.</summary>
         public static KitSelectors ChipsOf(RuntimeDescriptor? runtime, ExecutionView? execution, string? modelDisplay) => new KitSelectors(
             EnvironmentOf(runtime), environmentChangeable: false, AgentOf(runtime, execution, modelDisplay), agentChangeable: false);
