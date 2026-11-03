@@ -20,8 +20,9 @@ import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import { RuntimeActionError } from '@halcyonic/runtime-core';
 import { ConfigError, loadConfig } from './config.ts';
-import { looksLikeCredential, redactSecrets } from './core/redaction.ts';
+import { looksLikeCredential, redaction, redactSecrets } from './core/redaction.ts';
 import { createDirectoryPolicy } from './directory-policy.ts';
+import { loadOrCreateNetworkIdentity } from './network/certificate.ts';
 import {
   ANTHROPIC_KEY_FILE,
   CLAUDE_AGENT_PROCESS_RECORD,
@@ -444,6 +445,38 @@ describe("the secrets taken out of a runtime's text", () => {
       { what: 'Salidium credential', value: 'salidium-value' },
       { what: 'GATEWAY_KEY', value: 'gateway-value-1' },
     ]);
+  });
+
+  test("hold Omnorium's credential, and the network listener's key whole and line by line", async () => {
+    const dataDir = join(base, 'held-catalog-and-key');
+    mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+    const config = loadConfig({ ...HOST, HALCYONIC_DATA_DIR: dataDir });
+    const secrets = heldSecrets(
+      config,
+      { environment: HOST, dataDir },
+      'the-access-token-value',
+      [],
+    );
+    // Synthetic: a credential in Omnorium's shape, made up for this test.
+    const catalog = `omc_${'q7Xk2pLm9vRt'.repeat(3)}4wZb8nH`;
+    writeFileSync(join(dataDir, 'omnorium-credential'), `${catalog}\n`, { mode: 0o600 });
+    // The listener's own identity, made as the control plane makes it, with a key of this run's.
+    const { identity } = await loadOrCreateNetworkIdentity(dataDir, new Date());
+    const lines = identity.key.split('\n').filter((line) => line !== '' && !line.startsWith('-'));
+    assert.ok(lines.length > 1);
+    const clean = redaction(secrets);
+
+    // What a person reads as given, such as a command's output, loses both, named.
+    assert.equal(
+      clean.held(`cat omnorium-credential\n${catalog}\n`),
+      'cat omnorium-credential\n[redacted: Omnorium credential]\n',
+    );
+    assert.equal(clean.held(identity.key), '[redacted: network key]\n');
+    // A copy whose lines were joined, or escaped as JSON escapes them, loses every line of it.
+    assert.equal(clean.held(lines.join('')), '[redacted: network key]');
+    const escaped = clean.held(JSON.stringify(identity.key));
+    for (const line of lines) assert.ok(!escaped.includes(line));
+    assert.ok(escaped.includes('[redacted: network key]'));
   });
 
   test("names read as a secret's by their whole words", () => {

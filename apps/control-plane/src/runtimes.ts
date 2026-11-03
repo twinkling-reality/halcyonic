@@ -13,9 +13,11 @@ import { OpenCodeRuntimeAdapter, personalSecrets } from '@halcyonic/integration-
 import type { DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
 import { ConfigError, type ControlPlaneConfig, readPrivateFile } from './config.ts';
 import { type HeldSecret, looksLikeCredential } from './core/redaction.ts';
+import { OMNORIUM_CREDENTIAL_FILE } from './intelligence/catalog.ts';
 import { CODEX_HOME_FOLDER } from './intelligence/codex-home.ts';
 import { SEORAK_CREDENTIAL_FILE } from './intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from './intelligence/understanding.ts';
+import { NETWORK_KEY_FILE } from './network/certificate.ts';
 
 /** The file in the data directory that may hold the Anthropic API key, instead of the environment. */
 export const ANTHROPIC_KEY_FILE = 'anthropic-api-key';
@@ -384,7 +386,9 @@ export function secretName(name: string): boolean {
 /**
  * Every secret Halcyonic holds or passes to a runtime, each with what a person reads in its place,
  * taken out of a runtime's text before a device sees it (core/redaction.ts): the access token, the
- * Anthropic key, OpenCode's server password, Salidium's and Seorak's credentials, and of the
+ * Anthropic key, OpenCode's server password, Salidium's, Seorak's and Omnorium's credentials, the
+ * network listener's private key, whole, with its body's lines joined and line by line, since a
+ * copy a person reads may be joined or escaped as JSON escapes it, and of the
  * HALCYONIC_AGENT_ENV values, those whose names read as secret or that read as a credential by
  * themselves, each part of one that reads as a credential by itself, as the value of a header in
  * `Name: value`, but never one that is an absolute path, and the password in any URL, connection
@@ -430,6 +434,7 @@ export function heldSecrets(
       [
         [SALIDIUM_CREDENTIAL_FILE, 'Salidium credential'],
         [SEORAK_CREDENTIAL_FILE, 'Seorak credential'],
+        [OMNORIUM_CREDENTIAL_FILE, 'Omnorium credential'],
       ] as const
     ).flatMap(([file, what]) => {
       try {
@@ -438,6 +443,17 @@ export function heldSecrets(
         return [];
       }
     });
+    let networkKey: string[] = [];
+    try {
+      const pem = readPrivateFile(join(dependencies.dataDir, NETWORK_KEY_FILE), 16_384).trim();
+      const lines = pem
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line !== '' && !line.startsWith('-----'));
+      networkKey = [pem, lines.join(''), ...lines];
+    } catch {
+      // No listener was ever turned on, or its key can't be read: nothing to hold.
+    }
     return [
       { what: 'access token', value: accessToken },
       ...(anthropic === undefined ? [] : [{ what: 'Anthropic key', value: anthropic }]),
@@ -447,6 +463,7 @@ export function heldSecrets(
           : [],
       ),
       ...credentials,
+      ...networkKey.map((value) => ({ what: 'network key', value })),
       ...agentValues,
     ];
   };
