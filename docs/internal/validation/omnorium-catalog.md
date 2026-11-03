@@ -88,3 +88,20 @@
   `src/client.test.ts`, `src/wire.test.ts`, `apps/control-plane/src/intelligence/catalog.test.ts`,
   `apps/control-plane/src/http/catalog-route.test.ts`). Not read live: a live read still waits for
   the owner's yes to issue a consumer credential.
+
+## On this Mac (2026-11-03)
+
+- **Not running:** no Omnorium process; `~/.omnorium` and `~/.phat-porcupine` hold no discovery
+  file, and `~/.halcyonic` holds no `omnorium-credential`. A control plane on this Mac answers
+  `GET /api/catalog` `unauthorized` (`credential_missing`), checked on a scratch control plane; with
+  a credential saved but Omnorium stopped the client answers `unavailable` (`not_running`), tested
+  against the stand-in only (`packages/integrations/omnorium/src/client.test.ts`).
+- **Upstream, read in place:** the owner's checkout at `5c6d983`; `shared/contract/consumer.ts`
+  unchanged (sha256 `dc1389f7...`, as on 2026-10-31); of the four fixtures, `catalog-empty.json`,
+  `catalog-sample-small.json` and `error-unauthorized-401.json` are unchanged, and
+  `error-not-ready-503.json` (now `59c03d58...`) changed only in its message, which renames the
+  product (`f085d6a`); Halcyonic never passes that message on.
+- **To read it live**, the owner runs Omnorium in its checkout (`pnpm dev`, signed in to GitHub
+  and synced; `pnpm dev:sample` serves a labelled sample, which Halcyonic shows as one and never
+  links) and saves a consumer credential as the runbook says
+  ([LOCAL_DEVELOPMENT.md](../runbooks/LOCAL_DEVELOPMENT.md#connect-omnorium)). Halcyonic creates none.

@@ -213,3 +213,28 @@ replaces `~/.halcyonic/seorak-credential` with one credential carrying `sessions
 `replay:read` and `limits:read` ([LOCAL_DEVELOPMENT.md](../runbooks/LOCAL_DEVELOPMENT.md#connect-seorak)).
 Then `GET /api/usage-limits` on the running control plane should answer `available` with Codex
 readings, or `unavailable` (`not_captured`); record the result here.
+
+## On this Mac, through the control plane's routes (2026-11-03)
+
+- **Where Seorak answers:** the collector's daemon from the owner's Seorak checkout (`seorak`
+  0.3.0, `@seorak/types` 0.2.0, at `35446e32`), running since 2026-11-01, on 127.0.0.1:4317, its
+  default local plane port and the one Halcyonic dials. Nothing listens on 47821.
+- **How it was read:** through the control plane's own Seorak source with a copy of Halcyonic's
+  credential (mode 600, removed after), and through `GET /api/executions/:execution_id/evaluation`
+  and `GET /api/usage-limits` by an opt-in test, `apps/control-plane/src/intelligence/live-routes.test.ts`,
+  whose execution is a synthetic stand-in's that runs nothing, its native id a Claude Code session
+  on this Mac. Fewer than twenty requests in all, far inside the budget.
+- **Verified:** the credential the owner issued on 2026-09-30 is still accepted. The Claude Code
+  session answered `available` in 46 ms, its cost an estimate and `fresh`, its outcome with an
+  error count and the time of the first error. Its verification lens held two rows, the first seen
+  live: `lint` with 4 runs and 4 passed, and `typecheck` with 5 and 5, pass rates 1. An unknown
+  session answered `not_found` (`not_captured`); an OpenCode execution `runtime_not_observed`
+  without a request, as Seorak resolves only `claude-code` and `codex`.
+- **Usage limits:** `unavailable` (`not_captured`), "Seorak has not captured a provider limit.":
+  the Codex weekly reading of 2026-09-30 is no longer served, and no other was captured.
+- **Not read by Halcyonic:** a resolved session's summary also carries `elapsedSeconds`,
+  `toolCallCount` and `promptCount` (`PrivateSessionSummaryDto`), which the evaluation does not keep.
+- **Not verified:** 403 and 429, a Codex session, and a session Halcyonic started: its Codex and
+  OpenCode ones are kept where Seorak does not read
+  ([understanding-and-evaluation.md](understanding-and-evaluation.md)), and a Claude Agent one would
+  spend the paid key, so none was run.
