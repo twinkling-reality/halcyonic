@@ -361,6 +361,18 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   10 s (the island's top fills more of the picture than its side did), VR offered.
 - **Not tried:** the headset.
 
+## The sky's colours (U2)
+
+- **Question:** does the starter's sky show ART7's `sky` and `cloud` colours?
+- **Date:** 2026-11-03.
+- **Found:** no. The sky is a `ShaderMaterial` whose uniforms three.js holds as linear colours, and its fragment shader
+  wrote them with no output conversion. In the wearer's render the top sampled #146CFF and the horizon #AFDEFF, which
+  are #4FAEFF and #D8F0FF taken to linear and shown as they are.
+- **Now:** the shader ends with three.js's `colorspace_fragment` chunk, on a line of its own (three.js includes a
+  chunk only there). The same render samples #4FAEFF at the top and #D8F0FF at the horizon, exactly. A fresh project's
+  check passed: type check and build 0, no exception, 22,551 edges, VR offered.
+- **Not tried:** the headset.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

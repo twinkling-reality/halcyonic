@@ -260,8 +260,14 @@ export function setupLook(world: World): { island: Group } {
         uniforms: { top: { value: new Color(palette.sky) }, horizon: { value: new Color(palette.cloud) } },
         vertexShader:
           'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-        fragmentShader:
-          'uniform vec3 top; uniform vec3 horizon; varying vec3 vP; void main(){ float t = smoothstep(-0.02, 0.32, vP.y); gl_FragColor = vec4(mix(horizon, top, t), 1.0); }',
+        // The colours are linear, as three.js holds them: the last line converts them for the screen, or the sky shows
+        // darker and bluer than ART7's (#146CFF for #4FAEFF). three.js includes a chunk only on a line of its own.
+        fragmentShader: [
+          'uniform vec3 top; uniform vec3 horizon; varying vec3 vP;',
+          'void main(){ float t = smoothstep(-0.02, 0.32, vP.y); gl_FragColor = vec4(mix(horizon, top, t), 1.0);',
+          '#include <colorspace_fragment>',
+          '}',
+        ].join('\n'),
       }),
     ),
   );
