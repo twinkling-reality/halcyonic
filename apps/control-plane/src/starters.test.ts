@@ -328,6 +328,11 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     assert.ok(instruction.includes(join(projects, 'garden')), instruction);
     assert.match(instruction, /Do not change anything there/);
     assert.match(instruction, /src\/play-input\.ts/);
+    // The S3 re-run's game kept the starter's "Untitled Game" card: the instruction asks for the game's own.
+    assert.match(
+      instruction,
+      /Put the game's name and one line on how to play on its welcome card\./,
+    );
     assert.deepEqual(readdirSync(join(projects, 'garden')), ['game.js']);
     assert.equal(readFileSync(join(projects, 'garden', 'game.js'), 'utf8'), 'game');
     await controlPlane.close();
