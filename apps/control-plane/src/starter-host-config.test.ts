@@ -46,6 +46,15 @@ describe("the IWSDK starter's host config", () => {
       /`connect-src 'self' data: ws:\/\/localhost:\$\{port\} ws:\/\/127\.0\.0\.1:\$\{port\}`/,
     );
   });
+
+  test("answers no other origin's request for its files: CORS is off for the preview and the dev server (AUDIT H1)", () => {
+    // Vite 7 answers CORS for any localhost origin by default, so another preview's page, on another port of
+    // 127.0.0.1, could read this one's built game.
+    const preview = source.match(/preview: \{[^}]*\}/)?.[0] ?? '';
+    assert.match(preview, /cors: false/);
+    const server = source.match(/server: \{[\s\S]*?\n {2}\},/)?.[0] ?? '';
+    assert.match(server, /cors: false/);
+  });
 });
 
 interface ListedFile {

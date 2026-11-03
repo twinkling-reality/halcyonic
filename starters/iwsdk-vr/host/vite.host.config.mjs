@@ -169,11 +169,13 @@ export default defineConfig({
     port,
     strictPort: true,
     open: false,
+    // Vite answers CORS for any localhost origin by default: another preview's page could read this one (AUDIT H1).
+    cors: false,
     headers: { 'Content-Security-Policy': csp, 'Cache-Control': 'no-store' },
     // The project's own files, and the shared dependencies the host names.
     fs: { strict: true, allow: [root, ...deps] },
   },
-  preview: { host: '127.0.0.1', port, strictPort: true, headers: { 'Content-Security-Policy': csp, 'Cache-Control': 'no-store' } },
+  preview: { host: '127.0.0.1', port, strictPort: true, cors: false, headers: { 'Content-Security-Policy': csp, 'Cache-Control': 'no-store' } },
   build: { target: 'esnext', sourcemap: false, rollupOptions: { input: join(root, 'index.html') } },
   esbuild: { target: 'esnext' },
   resolve: { dedupe: ['three', '@pmndrs/uikit', '@pmndrs/uikit-horizon', '@pmndrs/uikit-lucide'] },

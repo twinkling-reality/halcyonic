@@ -464,6 +464,19 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   twin replay (87 s at a load of 5 to 6), so showing the canvas on the look's first update keeps the loads alike.
 - **Not tried:** Quest Browser's 2D page; how long the first frame takes there.
 
+## No cross-origin reads of a preview (AUDIT H1)
+
+- **Question:** does a preview's server let a page of another origin on this Mac read its files?
+- **Date:** 2026-11-03, Vite 7.3.7 from the vetted set.
+- **Method:** a built copy served by `vite preview` with the host config inside the check's Seatbelt profile, asked
+  for `/index.html` with `Origin` set to `http://localhost:47940`, `http://127.0.0.1:47931` and
+  `http://evil.localhost:8080`, by GET and by an OPTIONS preflight.
+- **Before:** every origin was answered with itself as `Access-Control-Allow-Origin`, and the preflights with every
+  method, so a game's page on another preview port could fetch and read this one's files.
+- **Now:** `cors: false` for the preview and the dev server: no origin gets `Access-Control-Allow-Origin`, preflights
+  included; the page's own requests are same-origin and unaffected.
+- **Not tried:** the Quest Browser.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.
