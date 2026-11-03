@@ -23,6 +23,7 @@ import {
   TorusGeometry,
   Vector2,
 } from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { drift } from './motion.js';
 import { groundPatch, palette, soilLip, toyMaterial } from './palette.js';
 
@@ -219,26 +220,24 @@ function island(): Group {
   return group;
 }
 
-function cloud(x: number, y: number, z: number, size: number): Group {
-  const group = new Group();
-  for (const [a, b, c, r] of [
+/** A toy cloud of four puffs, as one mesh: one draw call. */
+function cloud(x: number, y: number, z: number, size: number): Mesh {
+  const puffs = [
     [0, 0, 0, 1],
     [0.9, -0.15, 0, 0.75],
     [-0.9, -0.2, 0, 0.7],
     [0.35, 0.45, 0, 0.7],
-  ]) {
-    // White with a white self-light, so it stays white in the warm sun.
-    const material = toyMaterial('#FFFFFF', { ground: true, roughness: 0.9 });
-    material.sheen = 0;
-    material.emissive = new Color('#FFFFFF');
-    material.emissiveIntensity = 0.55;
-    const puff = new Mesh(new SphereGeometry(r, 32, 16), material);
-    puff.position.set(a, b, c);
-    group.add(puff);
-  }
-  group.position.set(x, y, z);
-  group.scale.set(size, size * 0.8, size);
-  return group;
+  ].map(([a, b, c, r]) => new SphereGeometry(r, 32, 16).translate(a, b, c));
+  const shape = mergeGeometries(puffs);
+  // White with a white self-light, so it stays white in the warm sun.
+  const material = toyMaterial('#FFFFFF', { ground: true, roughness: 0.9 });
+  material.sheen = 0;
+  material.emissive = new Color('#FFFFFF');
+  material.emissiveIntensity = 0.55;
+  const puff = new Mesh(shape, material);
+  puff.position.set(x, y, z);
+  puff.scale.set(size, size * 0.8, size);
+  return puff;
 }
 
 /** Sets up the starter's look once, after World.create; returns the island to put the game on. */

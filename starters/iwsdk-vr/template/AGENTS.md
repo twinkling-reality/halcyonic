@@ -50,8 +50,11 @@ Make it fun to look at:
   that is moved or turned would jump when it becomes an entity. Keep the objects the game makes into entities directly
   in `gameIsland()`, or pass `{ parent: entity }` to keep one under an entity of yours.
 - Colour every object with `toyMaterial('berry')` and the other names in `src/palette.ts`, never a colour of your
-  own. Put a `contactShadow(radius)` under each prop and set its `castShadow`. `decorate(gameIsland(), { ... })`
-  from `src/decor.ts` adds trees, flowers and butterflies if you want them.
+  own. Put a `contactShadow(radius)` under each prop and set its `castShadow`. Reuse one geometry and one material
+  for objects that look alike: a headset draws few calls a frame.
+- The island comes decorated: `src/index.ts` calls `decorate(gameIsland())` from `src/decor.ts`, which puts trees,
+  bushes, flowers, grass and two butterflies at its sides and back and keeps the middle clear for the game. Change
+  the counts if the game needs room, for example `decorate(gameIsland(), { trees: 2, butterflies: 0 })`.
 - The clouds and the decor move by themselves; leave that to `src/look.ts`. Move the game's own objects in the game's
   own systems.
 - Give every game object some motion each frame from `src/motion.ts` (`pop`, `hide`, `bob`, `wiggle`), using the
