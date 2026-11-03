@@ -20,6 +20,9 @@ namespace Halcyonic.Client
         Why,
 
         HowItWent,
+
+        /// <summary>Puts the screen away; the task stays where it was.</summary>
+        Close,
     }
 
     /// <summary>
@@ -122,7 +125,7 @@ namespace Halcyonic.Client
                 var actions = new List<KitScreenAction> { Primary };
                 if (!IsVr) actions.Add(KitScreenAction.ChangeIt);
                 if (CanTry) actions.Add(KitScreenAction.TryIt);
-                actions.AddRange(new[] { KitScreenAction.Steps, KitScreenAction.Why, KitScreenAction.HowItWent });
+                actions.AddRange(new[] { KitScreenAction.Steps, KitScreenAction.Why, KitScreenAction.HowItWent, KitScreenAction.Close });
                 return actions;
             }
         }
@@ -148,6 +151,7 @@ namespace Halcyonic.Client
             KitScreenAction.Steps => "Activity",
             KitScreenAction.Why => "Reasoning",
             KitScreenAction.HowItWent => "Outcome",
+            KitScreenAction.Close => "Close",
             _ => throw new ArgumentOutOfRangeException(nameof(action)),
         };
     }

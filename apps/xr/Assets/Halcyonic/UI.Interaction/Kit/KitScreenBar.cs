@@ -52,7 +52,7 @@ namespace Halcyonic.XR.UI
         }
 
         private static bool IsDoor(KitScreenAction action) =>
-            action == KitScreenAction.Steps || action == KitScreenAction.Why || action == KitScreenAction.HowItWent;
+            action == KitScreenAction.Steps || action == KitScreenAction.Why || action == KitScreenAction.HowItWent || action == KitScreenAction.Close;
 
         /// <summary>
         /// Shows the bar <paramref name="width"/> wide, the screen's own width, for <paramref name="model"/>. Its actions gather

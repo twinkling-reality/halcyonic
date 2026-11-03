@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
+using Halcyonic.XR.UI;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace
@@ -62,6 +63,15 @@ namespace Halcyonic.XR.Workspace
         {
             if (column is not FileColumn file) return;
             file.Choice = RunChoiceNow;
+            // A picked project comes forward as its screen (ADR 0040): Show Screen on the task's Activity, the spatial workspace's,
+            // a route on the kit's rail. The file's own views, the kit off, offer none: there the line pushed Activity onto a
+            // second page whose paging prompt does not fit beside Close, Stop and Write Instruction at Larger text.
+            if (setup.SpatialWorkspace)
+                file.OfferScreen(() => KitWorkspaceHost.Enabled, () =>
+                {
+                    if (file.Now?.Character.WorkstreamId is string task && State?.Workstreams.TryGetValue(task, out var work) == true)
+                        ShowProjectScreen(work.ProjectId, barOpen: false);
+                });
             file.OfferWorkspaceRequests(() => OpenWorkspaceRequest(file));
             file.OfferCharacterColours(() => ColourTarget(file, out _, out _), () => OpenCharacterColour(file));
             if (!Demonstration) file.OfferResults(() => OpenResults(file));

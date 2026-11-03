@@ -22,6 +22,12 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The project id whose screen is currently shown, or null.</summary>
         public string? ScreenProjectId { get; private set; }
 
+        /// <summary>
+        /// Whether a project's screen stands in the room this draw, told by the director before the plane is laid out: the
+        /// console set aside for it then shows neither its closed bar nor its compact presence in front of the screen.
+        /// </summary>
+        public bool ScreenStands { get; set; }
+
         /// <summary>Where <see cref="RoomLayout"/> stood the screen and its bar, in the room's metres.</summary>
         public RoomPose? ScreenPose { get; private set; }
 

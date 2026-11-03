@@ -117,6 +117,11 @@ namespace Halcyonic.Client
         public int WorkspaceRequestRows { get; set; } = 1;
         public bool ShowTaskHereOffered { get; set; }
         public int ShowTaskHereRows { get; set; } = 1;
+
+        /// <summary>The task's project's screen can be shown in the room: Activity offers Show Screen.</summary>
+        public bool ShowScreenOffered { get; set; }
+
+        public int ShowScreenRows { get; set; } = 1;
         public bool CharacterColourOffered { get; set; }
         public int CharacterColourRows { get; set; } = 1;
         public bool ResultsOffered { get; set; }

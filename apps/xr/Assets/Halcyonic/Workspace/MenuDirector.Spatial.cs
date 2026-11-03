@@ -395,6 +395,11 @@ namespace Halcyonic.XR.Workspace
         private void OnScreenActed(KitScreenAction action, string? projectId)
         {
             if (Away || drag != null || plane.Repositioning || plane.Sliding) return;
+            if (action == KitScreenAction.Close)
+            {
+                CloseProjectScreen();
+                return;
+            }
             var activeProjectId = projectId ?? setup.Presentation.ScreenProjectId;
             if (activeProjectId == null || State?.Projects.TryGetValue(activeProjectId, out var project) != true) return;
             var primaryWork = WorkspacePresentationState.PrimaryWorkstreamOf(project.ProjectId, State);

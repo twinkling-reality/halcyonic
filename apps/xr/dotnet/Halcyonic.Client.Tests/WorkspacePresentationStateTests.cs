@@ -170,6 +170,7 @@ public class WorkspacePresentationStateTests
         Assert.That(presentation.ActiveScreen(projection), Is.Null);
 
         Assert.That(presentation.ShowProjectScreen(Samples.ProjectId, barOpen: false), Is.True);
+        Assert.That(presentation.Minimized, Is.True, "the console steps aside for the screen");
         var folded = presentation.ActiveScreen(projection);
         Assert.That(folded, Is.Not.Null);
         Assert.That(folded!.Project, Is.EqualTo("Tower Toss"));
@@ -186,6 +187,25 @@ public class WorkspacePresentationStateTests
 
         Assert.That(presentation.CloseProjectScreen(), Is.True);
         Assert.That(presentation.ActiveScreen(projection), Is.Null);
+        Assert.That(presentation.Minimized, Is.False, "closing the screen brings the console back");
+    }
+
+    [Test]
+    public void TheScreenAndTheConsoleNeverStandInFrontOfEachOther()
+    {
+        var presentation = new WorkspacePresentationState(keepAgentsWhenMinimized: true);
+        var revoked = 0;
+        presentation.Suspending += () => revoked++;
+        Assert.That(presentation.ShowProjectScreen(Samples.ProjectId), Is.True);
+        Assert.That((presentation.Minimized, revoked), Is.EqualTo((true, 1)), "the console steps aside, its authority revoked first");
+        Assert.That(presentation.Restore(), Is.True);
+        Assert.That((presentation.Minimized, presentation.ScreenProjectId, presentation.ScreenBarOpen), Is.EqualTo((false, (string?)null, false)),
+            "the console back in front, the screen goes away");
+        Assert.That(presentation.Minimize(), Is.True);
+        Assert.That(presentation.ShowProjectScreen(Samples.ProjectId, barOpen: true), Is.True);
+        Assert.That(revoked, Is.EqualTo(2), "a console already aside has nothing more to revoke");
+        Assert.That(presentation.CloseProjectScreen(), Is.True);
+        Assert.That(presentation.Minimized, Is.True, "a console the person put aside stays aside when the screen closes");
     }
 
     [Test]

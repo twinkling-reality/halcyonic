@@ -2427,6 +2427,10 @@ They check, for every shot the kit draws:
 - everything drawn inside the Quest 3S field less its margin;
 - Read Results pressed on the kit's rail (a route row) opening the task's results beside it, the file's
   views drawing them, and their Close bringing the kit back;
+- Show Screen pressed on the kit's rail (the rail's pager turned to it where it sits on Activity's next
+  page, at Larger text) standing the task's project's screen in the room, as wide as the kit's screen and
+  with nothing of the console in front of it, the bar's Close putting the screen away and bringing the task
+  back in the kit, and nothing sent;
 - the approval's Approve and Deny with their confirm steps (above), and what 40 more shows of one file
   leave behind, logged as counts of game objects, materials, meshes and textures.
 
@@ -3830,6 +3834,21 @@ presence, contextual moment cards and the on-demand project screen:
   Summoning a project screen stands `KitScreen` and `KitScreenBar` in the room (`MenuPlane.ShowScreen`)
   with the project's current runtime, status words, latest host or agent check and neutral monogram
   fallback when no verified snapshot exists, and removes both when closed (`MenuPlane.HideScreen`).
+  A wearer brings it forward from a task: in the spatial workspace the task's Activity offers Show Screen
+  (`FileScreens.ShowScreen`, a route line, so the kit's rail shows it as a row, last of the routes) while
+  the kit is on, while connected and while the task's project is in the projection (the file's own views,
+  the kit off, offer none: there the line pushed Activity onto a second page whose paging prompt did not
+  fit beside Close, Stop and Write Instruction at Larger text); its press calls `ShowProjectScreen` for
+  that project with the bar folded and sends nothing. The screen and the console never stand in front of
+  each other: `WorkspacePresentationState.ShowProjectScreen` puts the console aside to its compact presence
+  (revoking its authority first, as minimizing does) and remembers that it did; `CloseProjectScreen`,
+  which the bar's Close calls (`KitScreenAction.Close`, a quiet door after the evidence doors), brings that
+  console back with the task where it was, and a console the person had put aside stays aside; `Restore`,
+  the presence's Workspace or a door opening the task's file, puts the screen away. While a screen stands
+  (`MenuPlane.ScreenStands`, told by the director before the plane is laid out), the console set aside
+  shows neither its closed bar nor its compact presence, which would stand in front of the screen. The
+  room's screen and bar stand flat where `ShowScreen` stood them: the console's curve leaves the room alone
+  (`MenuPlane.DrawOnCurve`), since its wrap keeps depth and would spread the screen several times wider.
   When a recorded host check's `files` state is not `current` (`changed` or `unknown`), `ScreenOf`
   marks the check stale (`NewestChangeAt = DateTimeOffset.MaxValue`) so `Try Build` (`CanTry`) is
   never offered over unchecked files. Pressing the folded `KitScreenBar` handle opens the command
