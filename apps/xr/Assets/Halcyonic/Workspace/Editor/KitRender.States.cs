@@ -34,6 +34,8 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             "5-approval" => FocusedWork(root, eyes, true, Approval(confirming: false), "An approval asked, synthetic data", RequireAsked),
             "5-approval-confirming" => FocusedWork(root, eyes, true, Approval(confirming: true), "An approval confirming, its request read, synthetic data", RequireConfirming),
+            "5-approval-confirm-arriving" => FocusedWork(root, eyes, true, Approval(confirming: true), "An approval confirming: Confirm on its arrival, locked, synthetic data",
+                RequireConfirmArriving),
             "6-checks-failed" => FocusedWork(root, eyes, true, ChecksFailed(), "Checks failed, synthetic data", RequireFailed),
             "7-disconnected" => FocusedWork(root, eyes, true, Disconnected(), "The connection lost, everything last known, synthetic data", RequireDisconnected),
             "8-cant-tell" => FocusedWork(root, eyes, true, CantTell(), "An outcome that can't be told, synthetic data", RequireCantTell),
@@ -425,7 +427,7 @@ namespace Halcyonic.XR.Workspace.Editor
             new KitSpineSection(new[] { new KitRowModel("place:Tasks", LineWords.Ours("Tasks")) }),
         };
 
-        private static readonly string[] States = { "5-approval", "5-approval-confirming", "6-checks-failed", "7-disconnected", "8-cant-tell", "9-question",
+        private static readonly string[] States = { "5-approval", "5-approval-confirming", "5-approval-confirm-arriving", "6-checks-failed", "7-disconnected", "8-cant-tell", "9-question",
             "10-avatar-working", "10-avatar-turning", "10-avatar-waiting", "11-avatar-agents-off", "11-avatar-no-room", "12-to-compact-mid", "12-to-task-mid",
             "13-bound-running", "13-bound-composing", "13-bound-nothing-yet", "13-bound-routes", "13-bound-routes-page", "13-bound-approval-from-activity", "13-host-compact", "14-question-answers", "14-question-secret" };
 
@@ -691,7 +693,45 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(view.Decision.gameObject.activeSelf && !view.Composer.gameObject.activeSelf, "the decision bar does not stand in the composer's place");
             Require(view.Decision.Deny.gameObject.activeSelf && view.Decision.Approve.gameObject.activeSelf, "the approval does not offer Deny and Approve");
             Require(!view.Decision.Yes.gameObject.activeSelf && !view.Decision.Cancel.gameObject.activeSelf, "the approval offers a confirmation before an answer was pressed");
+            // Two fixed places, as the composer's footer below the same slate (the owner's fixed places; XR baseline 13, 14).
+            Require(InHalf(view.Decision, view.Decision.Deny, left: true) && InHalf(view.Decision, view.Decision.Approve, left: false),
+                "Deny and Approve do not stand in the bar's two equal halves, the way back left and the way on right");
             RequireRequest(view, Require);
+        }
+
+        /// <summary>Whether <paramref name="button"/> fills the bar's left or right half: equal halves a target's gap apart.</summary>
+        private static bool InHalf(KitDecisionBar bar, KitButton button, bool left)
+        {
+            var half = (bar.Size.x - KitType.Units(SpatialKit.TargetGapDegrees)) / 2f;
+            var centre = left ? half / 2f : bar.Size.x - half / 2f;
+            return button.gameObject.activeSelf && Mathf.Abs(button.transform.localPosition.x - centre) < 1e-4f && Mathf.Abs(button.Size.x - half) < 1e-4f;
+        }
+
+        /// <summary>
+        /// Confirm on its arrival (the lead's U4 ruling, 2026-11-03): in the right half, locked as a locked answer is, and a press of
+        /// it refused, never queued; it is left locked for the render.
+        /// </summary>
+        private static void RequireConfirmArriving(KitWorkView view, Shot shot)
+        {
+            void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
+            var bar = view.Decision;
+            Require(InHalf(bar, bar.Cancel, left: true) && InHalf(bar, bar.Yes, left: false), "Cancel and Confirm do not stand in the halves Deny and Approve stood in");
+            var confirmed = 0;
+            void Count() => confirmed++;
+            bar.YesPressed += Count;
+            bar.Yes.Press.SettleForRender();
+            bar.Yes.Press.PressForRender(0);
+            bar.YesPressed -= Count;
+            Require(!bar.Yes.Available && confirmed == 0, "Confirm takes a press on its arrival");
+            Require(DrawnLocked(bar.Yes), "Confirm on its arrival is not drawn locked");
+        }
+
+        /// <summary>Whether <paramref name="button"/> is drawn as a locked answer: its word in the quiet n5 Paint gives a locked capsule.</summary>
+        private static bool DrawnLocked(KitButton button)
+        {
+            var word = button.Words.color;
+            var quiet = KitType.Colour(SpatialKit.TextTertiary);
+            return Mathf.Abs(word.r - quiet.r) < 1e-3f && Mathf.Abs(word.g - quiet.g) < 1e-3f && Mathf.Abs(word.b - quiet.b) < 1e-3f;
         }
 
         private static void RequireConfirming(KitWorkView view, Shot shot)
@@ -701,13 +741,24 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(!bar.Deny.gameObject.activeSelf && !bar.Approve.gameObject.activeSelf, "the answers still stand while confirming");
             Require(bar.Cancel.gameObject.activeSelf && bar.Yes.gameObject.activeSelf, "the confirmation lacks Cancel or Yes");
             Require(bar.Yes.Words.text == WorkspaceText.ConfirmLabel(WorkspaceAction.Approve), "Yes does not say " + WorkspaceText.ConfirmLabel(WorkspaceAction.Approve));
-            // Yes stands where no control stood a moment before: left of both answers' places, Cancel in Approve's.
-            var approveWidth = bar.Approve.Measure(WorkspaceText.Label(WorkspaceAction.Approve), GlazeIcon.Approve);
-            var denyWidth = bar.Deny.Measure(WorkspaceText.Label(WorkspaceAction.Deny), GlazeIcon.Deny);
-            var gap = KitType.Units(SpatialKit.TargetGapDegrees);
-            var denyLeft = bar.Size.x - approveWidth - gap - denyWidth;
-            Require(Mathf.Abs(bar.Cancel.transform.localPosition.x - (bar.Size.x - approveWidth / 2f)) < 1e-4f, "Cancel does not stand where Approve was pressed");
-            Require(bar.Yes.transform.localPosition.x + bar.Yes.Size.x / 2f <= denyLeft - gap + 1e-4f, "Yes stands where a control stood a moment before");
+            // The places never move (the owner's fixed places; this replaces "a second press where the first landed is a Cancel"
+            // for the kit): Cancel in the left half, the way back, Confirm in the right, where Approve stood.
+            Require(InHalf(bar, bar.Cancel, left: true), "Cancel does not stand in the left half, the way back");
+            Require(InHalf(bar, bar.Yes, left: false), "Confirm does not stand in the right half, where Approve stood");
+            // Locked on arrival, a press refused; once its 0.7 s have passed and the press has settled, one press confirms, once.
+            var confirmed = 0;
+            void Count() => confirmed++;
+            bar.YesPressed += Count;
+            bar.Yes.Press.SettleForRender();
+            bar.Yes.Press.PressForRender(0);
+            Require(!bar.Yes.Available && confirmed == 0, "Confirm takes a press on its arrival");
+            bar.AgeForRender(KitDecisionBar.ConfirmLockSeconds);
+            bar.Yes.Press.SettleForRender();
+            bar.Yes.Press.PressForRender(0);
+            bar.YesPressed -= Count;
+            Require(bar.Yes.Available && confirmed == 1, "Confirm does not take one press once its arrival has passed (" + confirmed + " taken)");
+            // What is drawn is what it is: unlocked, it is no longer drawn locked (renders have no frames to repaint it in).
+            Require(!DrawnLocked(bar.Yes), "Confirm, its lock passed, is still drawn locked");
             RequireRequest(view, Require);
         }
 

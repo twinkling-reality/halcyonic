@@ -7,22 +7,32 @@ using UnityEngine;
 namespace Halcyonic.XR.UI
 {
     /// <summary>
-    /// The spatial kit's decision bar, in the composer's place along the slate's lowest edge, nearest the hands. Asked,
-    /// it offers the two answers the work waits on, Deny then Approve at its right. Once one is pressed, its place
-    /// becomes Cancel, the other's stands empty, and the confirmation, "Yes, {verb}", stands where no control stood a
-    /// moment before, under the question in Halcyonic's words on its own line above, and only once the whole request and its notes have been
-    /// read; until then the bar says what to read first and offers no Yes (WORDS: confirmation, locked final press).
-    /// Places never move, so a second press where the first one landed is a Cancel, never a Yes. It decides nothing:
-    /// each press asks its owner, whose existing confirmation rules decide. Laid from its top left.
+    /// The spatial kit's decision bar, in the composer's place along the slate's lowest edge, nearest the hands: two fixed
+    /// places, equal halves of the slate's width 12 mm apart, as the composer's own footer below the same slate is laid. The
+    /// left place is the way back, the right place the way on, in every stage (the owner's fixed places, 2026-11-03): asked,
+    /// Deny left and Approve right; once either is pressed, the question in Halcyonic's words on its own line above, Cancel
+    /// left and Confirm right with the answer's icon, so the primary never leaves the right and the hand never crosses the
+    /// slate. Confirm arrives locked, drawn as a locked answer, until the whole request and its notes have been read (until
+    /// then the question line says what to read first) and then for <see cref="ConfirmLockSeconds"/> more; a press while
+    /// it is locked is refused, never queued, and once it unlocks a press already under way is still dropped by the settle
+    /// (<see cref="KitPress"/>). For a Deny, a second press where the first landed is a Cancel. It decides nothing: each
+    /// press asks its owner, whose existing confirmation rules decide. Laid from its top left.
     /// </summary>
     public sealed class KitDecisionBar : MonoBehaviour
     {
+        /// <summary>How long Confirm stands locked once it could be pressed: its arrival's length, so the press that answered is never a Confirm.</summary>
+        public const float ConfirmLockSeconds = 0.7f;
+
         private KitButton deny = null!;
         private KitButton approve = null!;
         private KitButton cancel = null!;
         private KitButton yes = null!;
         private TextMeshPro question = null!;
         private Vector2 size;
+        private bool confirming;
+        private bool confirmRead;
+        private float readAt = float.PositiveInfinity;
+        private float aged;
 
         public event Action? DenyPressed;
         public event Action? ApprovePressed;
@@ -55,32 +65,37 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// Shows the answers production offers, <paramref name="denyWords"/> then <paramref name="approveWords"/> at the
-        /// right of a bar <paramref name="width"/> wide with its top left at <paramref name="topLeft"/>; returns its
+        /// Shows the answers production offers, <paramref name="denyWords"/> in the left place and <paramref name="approveWords"/>
+        /// in the right, across a bar <paramref name="width"/> wide with its top left at <paramref name="topLeft"/>; returns its
         /// height. An answer not offered is not drawn and its place stays empty, so the other never moves into it.
         /// </summary>
         public float ShowAsked(Vector2 topLeft, float width, string denyWords, string approveWords, bool denyOffered, bool approveOffered)
         {
-            var (denyAt, approveAt) = Lay(topLeft, width, denyWords, approveWords);
-            if (denyOffered) deny.Show(denyWords, GlazeIcon.Deny, denyAt.Centre, denyAt.Width);
+            var (left, right) = Lay(topLeft, width);
+            if (denyOffered) deny.Show(denyWords, GlazeIcon.Deny, left.Centre, left.Width);
             else deny.Hide();
-            if (approveOffered) approve.Show(approveWords, GlazeIcon.Approve, approveAt.Centre, approveAt.Width);
+            if (approveOffered) approve.Show(approveWords, GlazeIcon.Approve, right.Centre, right.Width);
             else approve.Hide();
             cancel.Hide();
             yes.Hide();
             question.gameObject.SetActive(false);
+            confirming = false;
+            confirmRead = false;
+            readAt = float.PositiveInfinity;
+            aged = 0f;
             return size.y;
         }
 
         /// <summary>
-        /// Shows the confirmation of the answer pressed, approving where <paramref name="approving"/>: Cancel in its
-        /// place, the other answer's place empty, and <paramref name="ask"/> at the left with <paramref name="confirm"/>
-        /// after it where <paramref name="read"/>, else <paramref name="readFirst"/> in Yes's stead. Returns its height.
+        /// Shows the confirmation of the answer pressed, approving where <paramref name="approving"/>: <paramref name="ask"/> on its
+        /// own line above where <paramref name="read"/>, else <paramref name="readFirst"/>; Cancel in the left place and
+        /// <paramref name="confirm"/> in the right with the answer's icon, locked until read and for <see cref="ConfirmLockSeconds"/>
+        /// after. Returns its height.
         /// </summary>
         public float ShowConfirming(Vector2 topLeft, float width, string denyWords, string approveWords, bool approving,
             string ask, string confirm, bool read, string readFirst)
         {
-            // The question on its own line above the answers' row, whole.
+            // The question on its own line above the two places, whole.
             question.gameObject.SetActive(true);
             question.alignment = TextAlignmentOptions.TopLeft;
             question.rectTransform.pivot = new Vector2(0f, 1f);
@@ -89,39 +104,66 @@ namespace Halcyonic.XR.UI
             GlazeText.SetLiteral(question, read ? ask : readFirst);
             var (_, _, questionHeight) = KitType.Lay(question, width, 2);
             question.transform.localPosition = new Vector3(0f, 0f, -0.0005f);
-            var rowTop = questionHeight + KitType.Scaled(0.5f);
-            var (denyAt, approveAt) = Lay(topLeft, width, denyWords, approveWords, rowTop);
+            var (left, right) = Lay(topLeft, width, questionHeight + KitType.Scaled(0.5f));
             deny.Hide();
             approve.Hide();
-            var pressed = approving ? approveAt : denyAt;
-            cancel.Show("Cancel", null, pressed.Centre, pressed.Width);
-            // Yes stands left of both answers' places, where no control stood a moment before.
-            var gap = KitType.Units(SpatialKit.TargetGapDegrees);
-            var leftOfAnswers = denyAt.Centre.x - denyAt.Width / 2f - gap;
-            if (read)
+            cancel.Show("Cancel", null, left.Centre, left.Width);
+            // The lock starts when Confirm could first be pressed: on arrival when the request is read already, else once it is.
+            if (read && (!confirming || !confirmRead))
             {
-                var yesWidth = yes.Measure(confirm, approving ? GlazeIcon.Approve : GlazeIcon.Deny);
-                yes.Show(confirm, approving ? GlazeIcon.Approve : GlazeIcon.Deny, new Vector2(leftOfAnswers - yesWidth / 2f, denyAt.Centre.y), yesWidth);
+                readAt = Time.unscaledTime;
+                aged = 0f;
             }
-            else yes.Hide();
+            if (!read) readAt = float.PositiveInfinity;
+            confirming = true;
+            confirmRead = read;
+            yes.Available = LockPassed;
+            yes.Show(confirm, approving ? GlazeIcon.Approve : GlazeIcon.Deny, right.Centre, right.Width);
             return size.y;
         }
 
-        public void Hide() => gameObject.SetActive(false);
+        public void Hide()
+        {
+            confirming = false;
+            confirmRead = false;
+            readAt = float.PositiveInfinity;
+            aged = 0f;
+            gameObject.SetActive(false);
+        }
 
-        /// <summary>Where the two answers stand, fixed for every stage: Approve rightmost, Deny a target's gap before it.</summary>
-        private ((Vector2 Centre, float Width) Deny, (Vector2 Centre, float Width) Approve) Lay(Vector2 topLeft, float width, string denyWords, string approveWords,
-            float rowTop = 0f)
+        /// <summary>For renders, which have no clock: as if <paramref name="seconds"/> more had passed since Confirm could first be pressed.</summary>
+        public void AgeForRender(float seconds)
+        {
+            aged += seconds;
+            Unlock();
+            // Renders run no frames, so the button's own Update never repaints it: Confirm is drawn as it now is.
+            yes.PaintForRender(false, false);
+        }
+
+        private void Update() => Unlock();
+
+        /// <summary>
+        /// Whether Confirm's lock has passed: <see cref="ConfirmLockSeconds"/> since the request was read, a render's age counted. The
+        /// time since is taken first, so an unchanged clock gives exactly zero (an absolute deadline aged back could round above it).
+        /// </summary>
+        private bool LockPassed => Time.unscaledTime - readAt + aged >= ConfirmLockSeconds;
+
+        /// <summary>Confirm becomes pressable once its lock has passed; becoming available unsettles it, so a press under way is dropped.</summary>
+        private void Unlock()
+        {
+            if (confirming && !yes.Available && LockPassed) yes.Available = true;
+        }
+
+        /// <summary>The two places, fixed for every stage: equal halves of the bar's width, a target's gap between them.</summary>
+        private ((Vector2 Centre, float Width) Left, (Vector2 Centre, float Width) Right) Lay(Vector2 topLeft, float width, float rowTop = 0f)
         {
             gameObject.SetActive(true);
             transform.localPosition = new Vector3(topLeft.x, topLeft.y, 0f);
             var gap = KitType.Units(SpatialKit.TargetGapDegrees);
-            var height = rowTop + KitButton.Height;
+            var half = (width - gap) / 2f;
             var y = -rowTop - KitButton.Height / 2f;
-            var approveWidth = approve.Measure(approveWords, GlazeIcon.Approve);
-            var denyWidth = deny.Measure(denyWords, GlazeIcon.Deny);
-            size = new Vector2(width, height);
-            return ((new Vector2(width - approveWidth - gap - denyWidth / 2f, y), denyWidth), (new Vector2(width - approveWidth / 2f, y), approveWidth));
+            size = new Vector2(width, rowTop + KitButton.Height);
+            return ((new Vector2(half / 2f, y), half), (new Vector2(width - half / 2f, y), half));
         }
     }
 }

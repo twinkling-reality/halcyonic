@@ -230,7 +230,7 @@ stay exactly as written and lean.
 | Connection | {Truth} · {Cause} · {What Happens} | Computer Unreachable · Retrying |
 | Provenance | {Source} · {When} | Seorak · 2 min ago |
 | The work's reported request or state | Reported, on Waiting and request pages; Activity identifies each reported message separately | Reported |
-| Confirmation | Confirm, where no control stood a moment before, under the question that names the action; Cancel where the first press was | Approve Request? · Confirm · Cancel |
+| Confirmation | Confirm under the question that names the action. In the kit's decision bar, Cancel in the left place and Confirm in the right, the way on, locked until the request is read and for 0.7 s more (2026-11-03); the legacy menu's footer keeps Confirm where no control stood a moment before and Cancel where the first press was | Approve Request? · Cancel · Confirm |
 | Asking about what shows | {Verb} {Thing}? | Approve Request? |
 | Where an approved command runs | May Run Outside Sandbox · Your Access, or Runs Inside Sandbox, only for a command that can be approved and only as its agent app declares it, before what Approve does ([ADR 0033](../decisions/0033-approvals-declare-whether-commands-leave-the-sandbox.md)) | May Run Outside Sandbox · Your Access |
 | Locked final press | Read to Part {n} (locked) | Read to Part 3 |
