@@ -94,8 +94,19 @@ export function ambientMotion(move: (time: number) => void): void {
   movers.push(move);
 }
 
+let latest = 0;
+
+/**
+ * The game's time in seconds: the `time` the starter's system was last given. For a press handler of `onSelect` or
+ * `onTouch`, which is given no time; never a clock of the page's own, whose seconds are not the game's.
+ */
+export function gameTime(): number {
+  return latest;
+}
+
 class AmbientSystem extends createSystem({}) {
   update(_delta: number, time: number): void {
+    latest = time;
     for (const move of movers) move(time);
   }
 }

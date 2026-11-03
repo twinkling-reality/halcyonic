@@ -20,7 +20,7 @@ import {
   SRGBColorSpace,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { ambientMotion, contactShadow, gameIsland, ISLAND_CENTRE, TIER } from './look.js';
+import { ambientMotion, contactShadow, gameIsland, gameTime, ISLAND_CENTRE, TIER } from './look.js';
 import { ambient, confettiPiece, flap, flight, juice, pulse, sway } from './motion.js';
 import { type PaletteName, palette, toyMaterial } from './palette.js';
 
@@ -272,12 +272,12 @@ const CONFETTI_COLOURS: readonly PaletteName[] = ['berry', 'sunny', 'ocean', 'gr
 let confetti: { bursts: ({ x: number; y: number; z: number; time: number } | null)[]; next: number } | null = null;
 
 /**
- * Confetti bursting from a hit at `at`, in the world's coordinates, from the `time` the game's system was given, like
- * the curves in `src/motion.ts`: never a timer of its own. Up to four bursts fly at once, all one draw call.
+ * Confetti bursting from a hit at `at`, in the world's coordinates, now: on the game's own clock (`gameTime()`), so a
+ * press handler, which is given no time, can call it. Up to four bursts fly at once, all one draw call.
  */
-export function celebrate(at: { x: number; y: number; z: number }, time: number): void {
+export function celebrate(at: { x: number; y: number; z: number }): void {
   if (confetti === null) confetti = confettiPool();
-  confetti.bursts[confetti.next] = { x: at.x, y: at.y, z: at.z, time };
+  confetti.bursts[confetti.next] = { x: at.x, y: at.y, z: at.z, time: gameTime() };
   confetti.next = (confetti.next + 1) % BURSTS;
 }
 
@@ -322,10 +322,10 @@ function confettiPool(): NonNullable<typeof confetti> {
 
 /**
  * A big score sign on the raised tier at the back, facing the player: make it once, `const score = scoreSign('Score')`,
- * then call `score.show(points, time)` when the score changes, with the `time` the game's system was given; the board
- * jumps each time. One label and one number, dark on cream, readable from the far side of the island.
+ * then call `score.show(points)` when the score changes; the board jumps each time, on the game's own clock. One label
+ * and one number, dark on cream, readable from the far side of the island.
  */
-export function scoreSign(label = 'Score'): { show(value: number | string, time: number): void } {
+export function scoreSign(label = 'Score'): { show(value: number | string): void } {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 256;
@@ -378,9 +378,9 @@ export function scoreSign(label = 'Score'): { show(value: number | string, time:
     board.scale.setScalar(pulse(time - changedAt));
   });
   return {
-    show(value, time) {
+    show(value) {
       draw(value);
-      changedAt = time;
+      changedAt = gameTime();
     },
   };
 }

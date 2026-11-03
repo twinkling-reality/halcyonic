@@ -464,6 +464,21 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   twin replay (87 s at a load of 5 to 6), so showing the canvas on the look's first update keeps the loads alike.
 - **Not tried:** Quest Browser's 2D page; how long the first frame takes there.
 
+## A hit's time is the game's own (U7)
+
+- **Question:** can a game's press handler start a hit's motion, confetti and score jump on the game's clock?
+- **Date:** 2026-11-03.
+- **Found:** in the first showcase rehearsal (a bonk-the-mole game by `muse-glimmer:30b-mlx` through confined Codex, on
+  the starter after U6b), the agent passed `performance.now() / 1000` from its `onSelect` handler, which is given no
+  time, to `bonk`, `celebrate` and the sign; measured against the system's `time`, which starts later, every bonked
+  mole stayed bonked and stopped popping, no confetti was ever in flight and the sign never jumped. Its check passed
+  and read ready all the same: a pressed mole did change the picture.
+- **Now:** `celebrate(at)` and `show(points)` take the time from the starter's system, and `gameTime()` gives a
+  handler that time; in a lab game whose handler-free bursts call them with no time, the confetti flies and the board
+  jumps. AGENTS.md asks for `gameTime()` in handlers, targets at least 30 cm across, and no scratch files anywhere in
+  the project (the same agent left three in the project's root).
+- **Not tried:** the headset; whether a model reads the new lines (the third rehearsal runs on this starter).
+
 ## No cross-origin reads of a preview (AUDIT H1)
 
 - **Question:** does a preview's server let a page of another origin on this Mac read its files?

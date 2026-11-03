@@ -50,8 +50,11 @@ Make it fun to look at:
   that is moved or turned would jump when it becomes an entity. Keep the objects the game makes into entities directly
   in `gameIsland()`, or pass `{ parent: entity }` to keep one under an entity of yours.
 - Colour every object with `toyMaterial('berry')` and the other names in `src/palette.ts`, never a colour of your
-  own. Put a `contactShadow(radius)` under each prop and set its `castShadow`. Reuse one geometry and one material
-  for objects that look alike: a headset draws few calls a frame.
+  own; its other colours go in as themselves, `toyMaterial(soilLip)`. Put a `contactShadow(radius)` under each prop
+  and set its `castShadow`. Reuse one geometry and one material for objects that look alike: a headset draws few
+  calls a frame.
+- Make each thing the player aims at at least 30 cm across, bright, with a face or a shape you know at a glance: the
+  laptop camera sees it from 4 m away.
 - The island comes decorated: `src/index.ts` calls `decorate(gameIsland())` from `src/decor.ts`, which puts trees,
   bushes, flowers, grass and two butterflies at its sides and back and keeps the middle clear for the game. Change
   the counts if the game needs room, for example `decorate(gameIsland(), { trees: 2, butterflies: 0 })`.
@@ -59,15 +62,16 @@ Make it fun to look at:
   own systems.
 - Give every game object some motion each frame from `src/motion.ts` (`pop`, `hide`, `bob`, `wiggle`), using the
   `time` your system's `update(delta, time)` is given, never a timer of its own, so the person's computer can check
-  it.
-- When something is hit, `bonk` it, `celebrate(position, time)` from `src/decor.ts` at it, then `hide` it. Show the
-  score on a `scoreSign()`, which stands on the raised tier facing the player: make it once,
-  `const score = scoreSign('Score')`, and call `score.show(points, time)` when the score changes. Pass both the `time`
-  your system's `update(delta, time)` is given.
+  it. An `onSelect` or `onTouch` handler is given no time: use `gameTime()` from `src/look.ts` there, never
+  `performance.now()` or `Date.now()`, whose seconds are not the game's.
+- When something is hit, `bonk` it, `celebrate(position)` from `src/decor.ts` at it, then `hide` it. Show the score
+  on a `scoreSign()`, which stands on the raised tier facing the player: make it once, `const score =
+  scoreSign('Score')`, and call `score.show(points)` when the score changes.
 - Name the game on its welcome card, `public/ui/welcome.uikitml`: its name in `card-title` and one short line on how
   to play in `card-line`, with nothing else on the card; put the same name in `index.html`'s `<title>`. The card's
   words go by themselves after a few seconds (`src/panel.ts`); leave that as it is.
-- Before you finish, delete any scratch or helper files you made: no `.py`, `.txt`, `.sh` or `.patch` files in `src/`.
+- Before you finish, delete any scratch or helper files you made, anywhere in the project: no `.py`, `.txt`, `.sh` or
+  `.patch` files.
 - Run `npx tsc --noEmit` before ending your turn and fix any type, syntax or module error it reports.
 
 Keep changes small, one idea at a time, and keep the app running after each one.
