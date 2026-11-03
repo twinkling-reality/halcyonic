@@ -28,7 +28,8 @@ namespace Halcyonic.XR.Workspace.Editor
             var failures = new List<string>();
             try
             {
-                failures.AddRange(GlazeChecks.AtEachTextSize(variant =>
+                // The file's own Activity and composer pair is the kit's fallback once a draft runs past the kit's rows: the kit stands aside.
+                failures.AddRange(KitAside(() => GlazeChecks.AtEachTextSize(variant =>
                 {
                     UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
                     ViewField.Current = FieldChecks.Quest3S;
@@ -44,7 +45,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         result.AddRange(RenderActivityComposer(narrowFolder, field: InsufficientPairField, selectionOnly: true));
                     }
                     return result;
-                }));
+                })));
             }
             catch (Exception error) { failures.Add("Activity/composer fixture threw " + error); }
             finally { ViewField.Current = previous; KeepFontAssetsAsCommitted(); }

@@ -41,8 +41,11 @@ namespace Halcyonic.XR.Workspace.Editor
         /// The Spatial journey's running and approval routes with the spatial kit standing in for the task's file (D3.4),
         /// at both reading sizes. Every press on the file goes through the kit's own controls; every shot where the kit
         /// draws checks it in the plane's terms: one column, the file's views and the context column hidden, the spine the
-        /// context column's offers in its words, text in the kit's bands, everything on the curve, and a context row with
-        /// a stale owner refused. The approval route ends pressing Tasks on the spine, which must reach its place.
+        /// context column's offers in its words, text in the kit's bands, everything on the curve and inside the field less
+        /// its margin, and a context row with a stale owner refused. On the approval route Tasks pressed on the spine must
+        /// reach its place; then, the task opened again, Approve and Deny pressed through the kit must each bring their
+        /// confirm step, nothing sent before Yes, a press on the frame no longer shown refused, and the page saying where an
+        /// approved command runs. The journey runs on the default: nothing in it switches the kit on (KIT-ON).
         /// </summary>
         public static void KitSpatialCheck() => CheckKitWorkspace("KitWorkspaceRenders", composer: false);
 
@@ -65,14 +68,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 spatialProductGaps.Clear();
                 kitShots = 0; kitContextWitnessed = false; kitCompactWitnessed = false; kitComposerWitness = composer; kitFallbacks = 0;
                 var found = new List<string>();
-                var was = KitWorkspaceHost.Enabled;
-                KitWorkspaceHost.Enabled = true;
+                // KIT-ON: the journey runs on the default; nothing here switches the kit on.
+                if (!KitWorkspaceHost.Enabled) found.Add("kit: the kit is not on by default");
                 try
                 {
                     found.AddRange(RenderSpatialWorkspace(folder, Work.Running(), false, kit: true));
                     if (!composer) found.AddRange(RenderSpatialWorkspace(folder, Work.Approval("Run make migrate"), true, kit: true));
                 }
-                finally { KitWorkspaceHost.Enabled = was; kitComposerWitness = false; ViewField.Current = null; KeepFontAssetsAsCommitted(); }
+                finally { kitComposerWitness = false; ViewField.Current = null; KeepFontAssetsAsCommitted(); }
                 if (kitShots == 0) found.Add("kit: the kit never drew a task's file");
                 if (!composer && !kitContextWitnessed) found.Add("kit: no context row was pressed through the kit's spine");
                 if (!composer && !kitCompactWitnessed) found.Add("kit: Compact and Workspace never went through the kit's switch");
@@ -107,6 +110,20 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
+        /// Runs <paramref name="walk"/> with the kit stood aside, for a journey whose subject is the file's own views: since
+        /// KIT-ON the kit draws the task's file by default, and those views are its fallback wherever its binding gives up
+        /// (a side panel, a line it has no place for, words past its composer's rows). The kit's own presses into that
+        /// fallback are proven by <see cref="KitSpatialCheck"/>.
+        /// </summary>
+        private static List<string> KitAside(Func<IEnumerable<string>> walk)
+        {
+            var kitWas = KitWorkspaceHost.Enabled;
+            KitWorkspaceHost.Enabled = false;
+            try { return walk().ToList(); }
+            finally { KitWorkspaceHost.Enabled = kitWas; }
+        }
+
+        /// <summary>
         /// Presses <paramref name="action"/> on the kit's own control for it, where the kit draws the file and binds that
         /// action: the way a hand would, through the control's pointer target. False where the kit has no such control.
         /// </summary>
@@ -116,7 +133,10 @@ namespace Halcyonic.XR.Workspace.Editor
             if (!plane.KitShows || plane.KitBinding is not KitFileBinding binding) return false;
             var control = binding.Controls.FirstOrDefault(each => each.Action == action && (key == null || each.Key == key));
             if (control == null) return false;
-            var press = KitPressOf(plane.Kit.View, control);
+            // A route is a row on the rail, in the binding's order of routes.
+            var press = control.Place == KitPlace.Route
+                ? plane.Kit.View.Routes.ElementAtOrDefault(binding.Routes.ToList().IndexOf(control))?.Press
+                : KitPressOf(plane.Kit.View, control);
             if (press == null) return false;
             press.SettleForRender();
             press.PressForRender(960);
@@ -183,6 +203,7 @@ namespace Halcyonic.XR.Workspace.Editor
             failures.AddRange(OnTheCurve(name, plane, record: false));
             failures.AddRange(TargetsOnTheCurve(name, plane, record: false));
             failures.AddRange(KitTargets(name, plane));
+            failures.AddRange(KitInField(name, plane, eyes));
             failures.AddRange(KitStaleContext(name, director));
             camera.transform.rotation = PlaneLayout.Facing(plane.Direction);
             var image = Render(camera, texture); File.WriteAllBytes(Path.Combine(folder, name + "-kit.png"), image.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(image);
@@ -191,6 +212,25 @@ namespace Halcyonic.XR.Workspace.Editor
             if (name == "spatial-waiting-approval") failures.AddRange(KitContextPress(name, director));
             if (name == "spatial-working-direction" && !kitComposerWitness) failures.AddRange(KitCompactAndOpen(name, folder, camera, texture, director));
             return failures;
+        }
+
+        /// <summary>
+        /// Everything the kit draws inside the field less its margin, the head turned to the workspace and pitched as the
+        /// person reads it: every vertex of its surfaces where the curve puts it, and the workspace's own envelope.
+        /// </summary>
+        private static List<string> KitInField(string name, MenuPlane plane, Vector3 eyes)
+        {
+            if (ViewField.Current is not ViewField field || plane.Composition == null) return new List<string> { name + ": the kit was checked with no field or composition" };
+            var points = new List<Vector3>(plane.WorkspaceCorners);
+            foreach (var surface in plane.Kit.View.GetComponentsInChildren<Surface>(false))
+            {
+                var scale = surface.transform.lossyScale;
+                var mesh = surface.GetComponent<MeshFilter>().sharedMesh;
+                if (Mathf.Abs(scale.x) < 1e-6f || Mathf.Abs(scale.y) < 1e-6f || mesh == null) continue;
+                points.AddRange(mesh.vertices.Select(vertex => surface.transform.TransformPoint(vertex)));
+            }
+            return GlazeChecks.InsideField(name + " kit", points, eyes, plane.WorkspaceCentre,
+                WorkspacePlacement.ReadingPitch(plane.Composition.Size, plane.Direction.Elevation, field), field).ToList();
         }
 
         /// <summary>
