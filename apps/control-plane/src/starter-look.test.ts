@@ -331,3 +331,19 @@ describe("a toy kit of friendly things, so a game's things read at a glance (U8)
     assert.match(agents, /toy kit/);
   });
 });
+
+describe('the agent writes every file with its file-editing tool (U9)', () => {
+  test('AGENTS.md asks for every file to be written and changed with the file-editing tool, and claims nothing about a temporary folder', () => {
+    const agents = read('AGENTS.md').replace(/\s+/g, ' ');
+    const cannot = agents.slice(
+      agents.indexOf('What you cannot do here:'),
+      agents.indexOf('How the app is put together:'),
+    );
+    assert.match(
+      cannot,
+      /Write and change every file with your file-editing tool, never through the shell\./,
+    );
+    // A confined server has a temporary folder of its own (ADR 0041, CONFINED-TMP): no line says otherwise (AUDIT U9).
+    assert.doesNotMatch(agents, /temporary folder|here.document|operation not permitted/);
+  });
+});

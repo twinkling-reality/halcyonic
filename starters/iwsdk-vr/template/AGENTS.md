@@ -10,6 +10,7 @@ What you can do:
 What you cannot do here:
 - Your sandbox has no network: you cannot install packages or download anything. Use only what `node_modules`
   already has.
+- Write and change every file with your file-editing tool, never through the shell.
 - Do not edit `node_modules`, `tsconfig.json` or `index.html`'s script tag; they are shared or fixed.
 - Do not start a server or open a browser; the person's computer serves the app.
 - Do not load anything from another website at run time. Put every file the app needs in `public/` and name it in
