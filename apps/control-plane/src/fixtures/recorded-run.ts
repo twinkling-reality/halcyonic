@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import type {
   ClientInfo,
   EventEnvelope,
@@ -166,15 +167,14 @@ const NAMES_IN_ANY_CASE = [
   'omnorium',
   'postgres',
   'docker',
-  'boopy',
   // Found passing by AUDIT's probe on 2026-10-28: models by their tags, and products in mixed case.
   'gpt',
   'llama',
   'deepseek',
-  'exulanica',
   'macbook',
-  // The owner's unreleased product (2026-10-29). An English word too: a run that mentions the
-  // animal is refused and recorded again, which is the safe side.
+  // Omnorium's earlier name, which its contract and credentials still carry (`phat-porcupine.catalog`,
+  // `ppc_`). An English word too: a run that mentions the animal is refused and recorded again, which
+  // is the safe side.
   'porcupine',
 ];
 
@@ -220,6 +220,36 @@ export interface RecordedRunOptions {
    * and any other person's, since an agent quoting a commit's author carries them. Required.
    */
   readonly deny: readonly string[];
+  /**
+   * Further names refused as the listed ones are, in any case at a word's start: names that must not be
+   * published even in this list, such as other projects not yet public. `recordRecordedRun` reads them
+   * from {@link PRIVATE_NAMES_FILE}, which the repository ignores, when none are given.
+   */
+  readonly names?: readonly string[];
+}
+
+/** Where the names kept out of the repository are read from, one a line; the folder is ignored by git. */
+export const PRIVATE_NAMES_FILE = new URL(
+  '../../../../.private/recorded-run-names',
+  import.meta.url,
+);
+
+/**
+ * The names in a file of them, one a line, `#` starting a comment; none when there is no file. Any
+ * other failure to read it stops the recording, since a name it holds would otherwise pass.
+ */
+export async function readPrivateNames(file: URL | string): Promise<string[]> {
+  let text: string;
+  try {
+    text = await readFile(file, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw new RecordedRunError('The names kept out of the repository could not be read.');
+  }
+  return text
+    .split('\n')
+    .map((line) => line.replace(/#.*/, '').trim())
+    .filter((line) => line !== '');
 }
 
 /** Where a recorded run carries something a judge must not read: never the text itself. */
@@ -398,6 +428,10 @@ function findingsIn(
 ): RecordedRunFinding[] {
   const found: RecordedRunFinding[] = [];
   const home = options.home.replace(/\/+$/, '');
+  const privateNames = (options.names ?? [])
+    .map((name) => name.trim().toLowerCase())
+    .filter((name) => name !== '')
+    .map(literal);
   // Whole words in any case, so a surname is caught and the word it sits inside is not.
   const deny = options.deny
     .map((word) => word.trim())
@@ -414,6 +448,10 @@ function findingsIn(
       if (new RegExp(`(?<![a-z])${name}`, 'i').test(value))
         reasons.push(`names ${name} in some case`);
     }
+    // Named only by why, so a refusal never prints a name the repository must not hold.
+    for (const name of privateNames)
+      if (new RegExp(`(?<![a-z])${name}`, 'i').test(value))
+        reasons.push('a name kept out of the repository');
     if (home !== '' && value.includes(home)) reasons.push('the home folder');
     if (identifier) return reasons;
     for (const shape of SHAPES) if (shape.test(value)) reasons.push(shape.reason);
@@ -477,8 +515,9 @@ export interface RecordedRun {
  */
 export async function recordRecordedRun(
   trace: readonly EventEnvelope[],
-  options: RecordedRunOptions,
+  given: RecordedRunOptions,
 ): Promise<string> {
+  const options = { ...given, names: given.names ?? (await readPrivateNames(PRIVATE_NAMES_FILE)) };
   const events = sanitizeRecordedRun(trace, options);
   if (events.some((event) => event.event_type === 'runtime.question.asked')) {
     throw new RecordedRunError('The run asked a question, which a recorded run cannot hold yet.');

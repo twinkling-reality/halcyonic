@@ -265,14 +265,14 @@ describe('naming the roots for people', () => {
 
   test('a label already apart stays as it is while the others reach further up', () => {
     const labels = rootLabels([
-      '/Users/glen/Personal/Projects',
-      '/Users/glen/Personal/Work/Projects',
-      '/Users/glen/Work/Projects',
+      '/Users/someone/Personal/Projects',
+      '/Users/someone/Personal/Work/Projects',
+      '/Users/someone/Work/Projects',
     ]);
     assert.deepEqual(Object.fromEntries(labels), {
-      '/Users/glen/Personal/Projects': 'Projects (Personal)',
-      '/Users/glen/Personal/Work/Projects': 'Projects (Personal, Work)',
-      '/Users/glen/Work/Projects': 'Projects (glen, Work)',
+      '/Users/someone/Personal/Projects': 'Projects (Personal)',
+      '/Users/someone/Personal/Work/Projects': 'Projects (Personal, Work)',
+      '/Users/someone/Work/Projects': 'Projects (someone, Work)',
     });
   });
 
@@ -345,10 +345,10 @@ describe('naming the roots for people', () => {
 
   test('no two labels read alike, even where one folder is named like another root label', () => {
     const labels = rootLabels([
-      '/Users/glen/Personal/Projects',
-      '/Users/glen/Personal/Work/Projects',
-      '/Users/glen/Projects (old)',
-      '/Users/glen/old/Projects',
+      '/Users/someone/Personal/Projects',
+      '/Users/someone/Personal/Work/Projects',
+      '/Users/someone/Projects (old)',
+      '/Users/someone/old/Projects',
       `/x/${'n'.repeat(253)}`,
       `/y/${'n'.repeat(253)}`,
     ]);

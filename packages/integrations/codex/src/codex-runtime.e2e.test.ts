@@ -1635,7 +1635,7 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
   });
 
   test("cannot read a package manager's data or configuration", SLOW_TEST, async (t) => {
-    // Databases such as PostgreSQL's live in <prefix>/var; the listing goes nowhere (LANE-RULES 11b).
+    // Databases such as PostgreSQL's live in <prefix>/var; the listing goes nowhere and changes nothing.
     const found = TOOL_PREFIXES.flatMap((prefix) =>
       ['var', 'etc'].map((part) => join(prefix, part)).filter((path) => existsSync(path)),
     );
@@ -1660,7 +1660,7 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
 
   test('cannot open an app', SLOW_TEST, async (t) => {
     // The target is an app of the test's own, whose only effect is a marker file in the test's own
-    // folder, so even a failing profile can never act on the owner's apps (LANE-RULES 11b).
+    // folder, so even a failing profile can never act on the person's own apps.
     const { sandbox, start } = await harness(t, { runtime: confined });
     const app = join(sandbox.root, 'Marker.app');
     const marker = join(sandbox.root, 'opened.marker');

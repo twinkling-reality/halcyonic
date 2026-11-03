@@ -153,7 +153,7 @@ describe("the preview's Seatbelt profiles (ADR 0037)", () => {
     try {
       const file = join(scope.cache, 'build.sb');
       writeFileSync(file, buildProfile(scope));
-      // Escape-shaped tries only touch the scratch folder of this test (LANE-RULES 11b).
+      // Escape-shaped tries only touch this test's own scratch folder, so a failing profile harms nothing.
       const inside = (command: string[]) =>
         run(SANDBOX_EXEC, ['-f', file, ...command], { cwd: scope.cache }).then(
           ({ stdout }) => stdout,
