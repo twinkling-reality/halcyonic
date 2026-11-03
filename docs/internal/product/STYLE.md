@@ -103,6 +103,16 @@ line starts or ends with the dot, labels side by side never touch (half a space 
 what it follows than from what follows it, nor the other way round, beyond half a space, except before outside text, whose
 ground takes one more space by design.
 
+**Words read whole.** No word of the kit's is cut where it has room to stand whole (the owner, 2026-11-03): a task's or a
+project's name in a row takes up to three lines before it is cut inside its own run; where a row's end words (as "2 More")
+would push its words onto another line, they stand under the words at the right instead; a chip's path and a well's command
+wrap by the reader's own rule (`KitReading`: at their spaces, else after a "/", "?", "&", "=", ",", ";" or ":", never beside a
+"-", never mid-name where a mark fits, a wrapped well row hanging two characters in), one label a row, except that a chip's
+name longer than a row breaks beside its own hyphen rather than inside its letters ("test/sign-" / "in.test.ts"); a rail
+head in the cadence flows as its segments ("Tests Failed · Reported", never in brackets); and the absent character's band
+holds a few words on one line beside its way back, no wider than they need. `KitRender.KitWordsHold` checks each in every
+state at rest, with the cadence above.
+
 **Material.** The room's panels are one window glass (`KitGlassMaterial` in the client core, `KitGlass` and the
 `Halcyonic/Kit Glass` shader in the Unity layer; `KitCarrier.DrawGlass` draws a carrier in it): one opaque face over the
 whole panel (`#333A4A`, n1 `#2B3140` at the middle, `#242936`), an optional horizontal left-edge wash in the avatar's hue

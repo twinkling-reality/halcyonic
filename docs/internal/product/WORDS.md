@@ -488,6 +488,8 @@ in `KitMomentWords`; the gallery's title, newcomer line, shelves and finder are 
 | A package the starter doesn't hold | Eyebrow Your Computer · Observed; Title Not in Starter; the package; Install Not Run | Not in Starter · matter-js · Install Not Run |
 | Reading | Read File, Read Output, Fold, Whole File (unavailable until the Mac has read the file); a cut command in the well says Cut · {n} More Lines | Read File |
 | The report beside a task, in the kit | Agent · Reported, as the agent's chip everywhere; Nothing Reported; Earlier Activity · {n} More | Agent · Reported |
+| A rail entry the agent reported, its evidence in the chip beneath | {What} · Reported, in the cadence, never "(Reported)" | Tests Failed · Reported |
+| Where the task's character can't stand, beside its way back | No Room, with Move Workspace; Agents Hidden, with Show Agents (render fixtures: nothing in production draws this band yet) | No Room |
 | The composer, in the kit | Instruction (empty field) · Your Answer · Not Sent · Send Instruction · Hold to Talk | Send Instruction |
 
 ## The projects gallery

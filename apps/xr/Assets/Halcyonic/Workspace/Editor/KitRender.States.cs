@@ -430,9 +430,9 @@ namespace Halcyonic.XR.Workspace.Editor
             "13-bound-running", "13-bound-composing", "13-bound-nothing-yet", "13-bound-routes", "13-bound-routes-page", "13-bound-approval-from-activity", "13-host-compact", "14-question-answers", "14-question-secret" };
 
         // The ways back are the ones that exist: Settings' agents switch (SpaceSettings) and the placement column's move.
-        private const string AgentsOff = "The workspace works without characters";
-        private const string ShowAgents = "Show agents";
-        private const string NoRoom = "No room above the workspace for its character";
+        private const string AgentsOff = "Agents Hidden";
+        private const string ShowAgents = "Show Agents";
+        private const string NoRoom = "No Room";
         private const string WorkspaceMoveWords = "Move Workspace";
 
         private static KitWorkModel WithCharacter(CharacterActivity activity, AttentionLevel attention = AttentionLevel.None)
@@ -478,6 +478,10 @@ namespace Halcyonic.XR.Workspace.Editor
             if (view.Avatar.Character != null && view.Avatar.Character.gameObject.activeSelf) shot.Failures.Add("a character stands where none should");
             if (view.Avatar.Words.text != LabelText.ForTextMeshPro(why) || view.Avatar.Cut) shot.Failures.Add("the absence does not say why, whole");
             if (!view.Avatar.Action.gameObject.activeSelf || view.Avatar.Action.Words.text != LabelText.ForTextMeshPro(wayBack)) shot.Failures.Add("the absence does not offer " + wayBack);
+            // A few words on one line beside its way back, never a sentence wrapped in a small band (the XR baseline's defect 25).
+            view.Avatar.Words.ForceMeshUpdate(true);
+            if (view.Avatar.Words.textInfo.lineCount > 1 || why.Split(' ').Length > 3 || wayBack.Split(' ').Length > 3)
+                shot.Failures.Add("the absence says \"" + why + "\" in " + view.Avatar.Words.textInfo.lineCount + " lines, not a few words on one");
         };
 
         private static Shot Moving(Shot shot)

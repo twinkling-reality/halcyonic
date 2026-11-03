@@ -166,11 +166,16 @@ namespace Halcyonic.XR.UI
             public TextMeshPro When = null!;
             public KitChip Chip = null!;
 
+            /// <summary>A head's segments after the first and the dots between them, where it reads in the cadence (KitFlow).</summary>
+            public readonly List<TextMeshPro> Segments = new List<TextMeshPro>();
+            public readonly List<TextMeshPro> Dots = new List<TextMeshPro>();
+            private int order;
+
             public static Row Make(Transform parent, int index, int order)
             {
                 var root = new GameObject("Entry " + index);
                 root.transform.SetParent(parent, false);
-                var row = new Row { Root = root };
+                var row = new Row { Root = root, order = order };
                 row.Node = Surface.Create(root.transform, "Node", order - 4);
                 row.Icon = GlazeIcons.Create(root.transform, "Icon", SpatialKit.IconDegrees, KitType.Secondary, order);
                 row.Words = KitType.Create(root.transform, "Words", KitRole.Body, KitType.Text, order);
@@ -188,16 +193,26 @@ namespace Halcyonic.XR.UI
                 When.gameObject.SetActive(false);
                 var textLeft = node + KitType.Scaled(0.6f);
                 KitType.Size(Words, KitRole.Body);
-                GlazeRuns.Of(Words).Set(head);
-                var (_, _, wordsHeight) = KitType.Lay(Words, width, 3);
+                foreach (var label in Segments.Concat(Dots)) label.gameObject.SetActive(false);
+                // A head in the cadence ("Tests Failed · Reported") flows by its segments, so a break never leaves its dot at a line's end.
+                var segments = KitFlow.Segments(head);
+                float wordsHeight;
+                if (segments.Count > 1)
+                    (wordsHeight, _) = KitFlow.Lay(segments, at => at == 0 ? Words : Label(Segments, at - 1, "Words"), at => Label(Dots, at - 1, "Dot"),
+                        textLeft, 0f, textLeft + width, -0.0005f, 3);
+                else
+                {
+                    GlazeRuns.Of(Words).Set(head);
+                    (_, _, wordsHeight) = KitType.Lay(Words, width, 3);
+                    Words.transform.localPosition = new Vector3(textLeft, 0f, -0.0005f);
+                }
                 var pitch = KitType.LinePitch(Words);
-                Words.transform.localPosition = new Vector3(textLeft, 0f, -0.0005f);
                 var height = Mathf.Max(wordsHeight, node);
                 Chip.gameObject.SetActive(evidence != null);
                 if (evidence != null)
                 {
                     var glyph = item.Tone == GlazeTone.Failure ? GlazeIcon.ChecksFailed : IconOf(evidence.Text);
-                    var size = Chip.Show(evidence, glyph, item.Tone == GlazeTone.Failure ? KitType.ToneText(GlazeTone.Failure) : KitType.Secondary, width, 3);
+                    var size = Chip.Show(evidence, glyph, item.Tone == GlazeTone.Failure ? KitType.ToneText(GlazeTone.Failure) : KitType.Secondary, width, 3, byRows: true);
                     var top = height + KitType.Scaled(0.3f);
                     Chip.transform.localPosition = new Vector3(textLeft + size.x / 2f, -top - size.y / 2f, 0f);
                     height = top + size.y;
@@ -229,7 +244,7 @@ namespace Halcyonic.XR.UI
                 {
                     var lead = runs[0].Text.TrimEnd(' ', ':', '\u00B7');
                     if (lead.Length > 0)
-                        return (LineWords.Ours(lead + " (Reported)"), LineWords.Theirs(runs[1].Text));
+                        return (LineWords.Ours(lead + KitFlow.Separator + "Reported"), LineWords.Theirs(runs[1].Text));
                 }
                 if (runs.Count < 2 || !runs[runs.Count - 1].Theirs || runs[runs.Count - 2].Theirs) return (words, null);
                 var head = LineWords.None;
@@ -249,6 +264,20 @@ namespace Halcyonic.XR.UI
                 if (runs[runs.Count - 2].Text.EndsWith(" ", System.StringComparison.Ordinal) && sep != null && at > 0 && at + sep.Length < theirs.Length)
                     return (head + LineWords.Ours(" ") + LineWords.Theirs(theirs.Substring(0, at)), LineWords.Theirs(theirs.Substring(at + sep.Length)));
                 return (head, LineWords.Theirs(theirs));
+            }
+
+            /// <summary>A label of the head's flow, a segment's or a dot's, in the head's look; made hidden.</summary>
+            private TextMeshPro Label(List<TextMeshPro> pool, int index, string name)
+            {
+                while (pool.Count <= index)
+                {
+                    var made = KitType.Create(Root.transform, name + " " + (pool.Count + 1), KitRole.Body, KitType.Text, order);
+                    made.gameObject.SetActive(false);
+                    pool.Add(made);
+                }
+                var label = pool[index];
+                KitType.Size(label, KitRole.Body);
+                return label;
             }
 
             /// <summary>The glyph a piece of evidence shows: its file's kind where its last word names one.</summary>
