@@ -108,12 +108,18 @@ interface Answer {
   readonly body: string;
 }
 
+/** The headers OpenCode sends with a request that has a body: JSON. */
+const AS_JSON = { 'content-type': 'application/json' };
+
+/** A request as OpenCode sends it: the gate's own address as `Host`, and a POST's body as JSON. */
 function send(
   url: string,
   init: { method?: string; body?: string | Buffer; headers?: Record<string, string> } = {},
 ): Promise<Answer> {
+  const method = init.method ?? 'GET';
+  const headers = { ...(method === 'POST' ? AS_JSON : {}), ...init.headers };
   return new Promise((resolve, reject) => {
-    const req = request(url, { method: init.method ?? 'GET', headers: init.headers }, (res) => {
+    const req = request(url, { method, headers }, (res) => {
       const chunks: Buffer[] = [];
       res.on('data', (chunk: Buffer) => chunks.push(chunk));
       res.on('end', () =>
@@ -129,6 +135,11 @@ function send(
   });
 }
 
+/** A request's head written by hand, as OpenCode sends it: the gate's own address and JSON. */
+function head(port: number, path: string, length: number): string {
+  return `POST ${path} HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nContent-Type: application/json\r\nContent-Length: ${length}\r\n\r\n`;
+}
+
 /** Opens a chat and resolves with its first streamed bytes; `abort` closes it. */
 function openChat(gate: string, model = TAG) {
   const controller = new AbortController();
@@ -136,7 +147,7 @@ function openChat(gate: string, model = TAG) {
   const first = new Promise<string>((resolve, reject) => {
     const req = request(
       `${gate}/v1/chat/completions`,
-      { method: 'POST', signal: controller.signal },
+      { method: 'POST', headers: AS_JSON, signal: controller.signal },
       (res) => {
         status = res.statusCode ?? 0;
         res.once('data', (chunk: Buffer) => resolve(chunk.toString('utf8')));
@@ -257,6 +268,117 @@ describe("Ollama's gate", () => {
       assert.equal(answer.status, 404, `${method} ${path}`);
     }
     assert.deepEqual(ollama.received, []);
+  });
+
+  test('refuses what a browser page could send: another Host, an Origin, a cross-site fetch, a body not sent as JSON', async (t) => {
+    const ollama = await upstream(t);
+    const gate = await gateFor(t, ollama.origin);
+    const port = new URL(gate).port;
+    const chat = JSON.stringify({ model: TAG, messages: [], stream: true });
+    const show = JSON.stringify({ model: TAG });
+    /**
+     * Exactly these headers, as a page could send them: no content type unless given, the gate's
+     * own address as `Host` unless another is given, and none when it is given empty.
+     */
+    const raw = (method: string, path: string, headers: Record<string, string>, body?: string) =>
+      new Promise<number>((resolve, reject) => {
+        const { host, ...others } = headers;
+        const sent = host === undefined || host === '' ? others : { host, ...others };
+        const req = request(
+          { host: '127.0.0.1', port, method, path, headers: sent, setHost: host === undefined },
+          (res) => {
+            // A chat let through streams until it is closed: its status is enough.
+            resolve(res.statusCode ?? 0);
+            req.destroy();
+          },
+        );
+        req.on('error', (error) => (req.destroyed ? undefined : reject(error)));
+        req.end(body);
+      });
+    for (const [label, method, path, headers, body, status] of [
+      // AUDIT's probe (G1, 2026-11-03): a page that rebinds its own name to 127.0.0.1.
+      [
+        'rebinding page, chat',
+        'POST',
+        '/v1/chat/completions',
+        {
+          host: `attacker.example:${port}`,
+          origin: `http://attacker.example:${port}`,
+          'sec-fetch-site': 'same-origin',
+          'content-type': 'text/plain;charset=UTF-8',
+        },
+        chat,
+        403,
+      ],
+      [
+        'rebinding page, model list',
+        'GET',
+        '/api/tags',
+        { host: `attacker.example:${port}` },
+        undefined,
+        403,
+      ],
+      // A cross-site page's no-cors requests, which need no preflight.
+      [
+        'cross-site no-cors chat',
+        'POST',
+        '/v1/chat/completions',
+        {
+          origin: 'https://attacker.example',
+          'sec-fetch-site': 'cross-site',
+          'content-type': 'text/plain;charset=UTF-8',
+        },
+        chat,
+        403,
+      ],
+      [
+        'cross-site model list',
+        'GET',
+        '/api/tags',
+        { 'sec-fetch-site': 'cross-site' },
+        undefined,
+        403,
+      ],
+      [
+        'an Origin, even with JSON',
+        'POST',
+        '/api/show',
+        { origin: 'null', 'content-type': 'application/json' },
+        show,
+        403,
+      ],
+      [
+        'the gate by another name',
+        'GET',
+        '/api/tags',
+        { host: `localhost:${port}` },
+        undefined,
+        403,
+      ],
+      // Node's server refuses an HTTP/1.1 request without one before the gate is asked.
+      ['no Host at all', 'GET', '/api/tags', { host: '' }, undefined, 400],
+      // From the gate's own address, but not sent as JSON.
+      [
+        'chat as text/plain',
+        'POST',
+        '/v1/chat/completions',
+        { 'content-type': 'text/plain;charset=UTF-8' },
+        chat,
+        415,
+      ],
+      ['details with no content type', 'POST', '/api/show', {}, show, 415],
+    ] as const) {
+      assert.equal(await raw(method, path, headers, body), status, label);
+    }
+    assert.deepEqual(ollama.received, [], 'nothing reached Ollama');
+    // OpenCode's own requests, and a person typing the address, still pass.
+    assert.equal(await raw('GET', '/api/tags', {}), 200, 'the model list');
+    assert.equal(await raw('GET', '/api/tags', { 'sec-fetch-site': 'none' }), 200, 'typed in');
+    assert.equal(
+      await raw('POST', '/api/show', { 'content-type': 'application/json; charset=utf-8' }, show),
+      200,
+      'model details as JSON',
+    );
   });
 
   test('refuses a body that is too large, not JSON, or names a model that does not run here', async (t) => {
@@ -396,12 +518,16 @@ describe("Ollama's gate", () => {
     assert.equal(shown.status, 200);
     // Read up to the first streamed bytes, then closed.
     await new Promise<void>((resolve, reject) => {
-      const req = request(`${gate}/v1/chat/completions`, { method: 'POST' }, (res) => {
-        res.once('data', () => {
-          req.destroy();
-          resolve();
-        });
-      });
+      const req = request(
+        `${gate}/v1/chat/completions`,
+        { method: 'POST', headers: AS_JSON },
+        (res) => {
+          res.once('data', () => {
+            req.destroy();
+            resolve();
+          });
+        },
+      );
       req.on('error', reject);
       req.end(
         JSON.stringify({
@@ -477,9 +603,7 @@ describe("Ollama's gate", () => {
     const partial = (): Promise<Socket> =>
       new Promise((resolve) => {
         const socket = connect(port, '127.0.0.1', () => {
-          socket.write(
-            'POST /api/show HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\n{"model":',
-          );
+          socket.write(`${head(port, '/api/show', 100)}{"model":`);
           resolve(socket);
         });
         socket.on('error', () => undefined);
@@ -516,7 +640,7 @@ describe("Ollama's gate", () => {
     await chat.first;
     const slow = await new Promise<Socket>((resolve) => {
       const socket = connect(port, '127.0.0.1', () => {
-        socket.write('POST /api/show HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\n{');
+        socket.write(`${head(port, '/api/show', 100)}{`);
         resolve(socket);
       });
       socket.on('error', () => undefined);
@@ -559,8 +683,8 @@ describe("Ollama's gate", () => {
       new Promise((resolve) => {
         const socket = connect(port, '127.0.0.1', () => {
           socket.write(
-            `POST /v1/chat/completions HTTP/1.1\r\nHost: x\r\nContent-Length: ${chat.length}\r\n\r\n${chat}` +
-              'POST /api/show HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\n{"mo',
+            `${head(port, '/v1/chat/completions', chat.length)}${chat}` +
+              `${head(port, '/api/show', 100)}{"mo`,
           );
           resolve(socket);
         });
@@ -592,7 +716,7 @@ describe("Ollama's gate", () => {
     });
     t.after(() => gate.close());
     const socket = connect(gate.port, '127.0.0.1', () => {
-      socket.write('POST /api/show HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\n{');
+      socket.write(`${head(gate.port, '/api/show', 100)}{`);
     });
     socket.on('error', () => undefined);
     // A byte at a time keeps the connection busy, but not past the body's time.
