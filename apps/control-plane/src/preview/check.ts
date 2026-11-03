@@ -69,8 +69,10 @@ export type OwnReference =
 export const PAGE_MS = 10_000;
 export const EARLY_MS = 3_000;
 
-const MAX_EXCEPTIONS = 5;
-const MAX_EXCEPTION_CHARS = 300;
+/** How many exception texts a check's finding holds. */
+export const MAX_EXCEPTIONS = 5;
+/** The longest exception text a check's finding holds, cut only after secrets are taken out (P1b). */
+export const MAX_EXCEPTION_CHARS = 300;
 /** How many exception texts are kept to summarize; the rest are only counted. */
 const KEPT_EXCEPTIONS = 100;
 
@@ -162,15 +164,18 @@ export function passes(tsc: CheckStep, build: CheckStep, page: PageFindings | nu
   );
 }
 
-/** The exceptions to report: distinct, each its first two lines, clipped, at most five. */
+/**
+ * The exceptions to report: distinct, each its first two lines, at most five, whole. They are cut
+ * to what a finding holds only after the control plane takes secrets out, since a secret cut in
+ * two is no longer the copy it looks for (P1b, AUDIT).
+ */
 export function summarizeExceptions(texts: readonly string[]): string[] {
   const lines = texts.map((text) =>
     text
       .split('\n')
       .slice(0, 2)
       .map((line) => line.trim())
-      .join(' ')
-      .slice(0, MAX_EXCEPTION_CHARS),
+      .join(' '),
   );
   return [...new Set(lines)].slice(0, MAX_EXCEPTIONS);
 }
