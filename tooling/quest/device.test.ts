@@ -10,6 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { createServer, type Server } from 'node:http';
+import { createServer as createTcpServer, type Server as TcpServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
@@ -33,8 +34,12 @@ interface Headset {
   readonly noClip?: boolean;
   /** The capture service's log lines once a recording has stopped, where they differ. */
   readonly syncLogAfter?: string;
-  /** ActivityTaskManager's lines after a launch. */
+  /** The headset's log lines around a launch, in threadtime or epoch form, with their real tags. */
   readonly launchLog?: string;
+  /** What `am start` says of a launch; `Status: ok` unless given. */
+  readonly launchStatus?: string;
+  /** Meta's Headset Power menu is open, its task first, as on 2026-11-03 (a power-button hold left it). */
+  readonly powerMenu?: boolean;
   /** Each GET_PROPERTY reading of set_proximity_close in turn, 'true', 'false' or 'missing'; the last repeats. */
   readonly proximity?: readonly string[];
   /** Meta's Guardian dialog is in front: the headset can't find its position in the room. */
@@ -84,10 +89,27 @@ else if (args[0] === 'install' && args[1] === '-r') fs.writeFileSync(process.env
 else if (said === 'uninstall com.halcyonic.xr.check' || said.startsWith('shell pm grant com.halcyonic.xr.check ')) {}
 else if (said === 'shell sha256sum /data/app/test/base.apk') out(scenario.installedSha256 + '  /data/app/test/base.apk');
 else if (said === 'shell dumpsys package com.halcyonic.xr') out('      firstInstallTime=2026-01-01 00:00:00');
-else if (said === 'shell dumpsys activity activities') out(scenario.guardian
-  ? '      topResumedActivity=ActivityRecord{a u0 com.oculus.guardian/com.oculus.vrguardianservice.guardiandialog.GuardianDialogActivity t1}'
-  : '      topResumedActivity=ActivityRecord{a u0 com.oculus.vrshell/.HomeActivity t1}');
-else if (args[0] === 'logcat' && said.includes('ActivityTaskManager')) out(scenario.launchLog ?? '');
+else if (said === 'shell dumpsys activity activities') {
+  // Each visible task's topResumedActivity, top task first, then the one ResumedActivity: on 2026-11-03
+  // the power menu's task came first while ResumedActivity named the Guardian dialog.
+  const GUARDIAN = 'com.oculus.guardian/com.oculus.vrguardianservice.guardiandialog.GuardianDialogActivity';
+  const tops = [
+    ...(scenario.powerMenu ? ['com.oculus.vralertservice/.ShutdownConfirmActivity'] : []),
+    ...(scenario.guardian ? [GUARDIAN] : []),
+    'com.oculus.vrshell/.HomeActivity',
+  ];
+  tops.forEach((top, at) => out('      topResumedActivity=ActivityRecord{a' + at + ' u0 ' + top + ' t' + at + '}'));
+  out('  ResumedActivity: ActivityRecord{b u0 ' + (scenario.guardian ? GUARDIAN : tops[0]) + ' t9}');
+} else if (args[0] === 'logcat' && (args.includes('-e') || said.includes('ActivityTaskManager'))) {
+  // As logcat keeps a launch's lines: -s one tag's, -e those whose message matches, -t those since a time.
+  const tag = (line) => / [VDIWEF] (.+?): /.exec(line)?.[1] ?? '';
+  const message = (line) => line.slice(line.indexOf(tag(line) + ': ') + tag(line).length + 2);
+  const pattern = args.includes('-e') ? new RegExp(args[args.indexOf('-e') + 1]) : null;
+  const since = args.includes('-t') ? Number(args[args.indexOf('-t') + 1]) : -Infinity;
+  out((scenario.launchLog ?? '').split('\\n').filter((line) =>
+    (pattern ? pattern.test(message(line)) : tag(line) === 'ActivityTaskManager') &&
+    !(Number(/^(\\d+\\.\\d+) /.exec(line)?.[1]) < since)).join('\\n'));
+} else if (said === 'shell date +%s') out('1793726539');
 else if (args[0] === 'logcat') {
   const stopped = fs.readFileSync(process.env.ADB_CALLS, 'utf8').includes('STOP_INTERNAL_CAPTURE_TO_DISK');
   out(stopped && scenario.syncLogAfter !== undefined ? scenario.syncLogAfter : (scenario.syncLog ?? ''));
@@ -102,7 +124,7 @@ else if (said.startsWith('shell content call')) {
   const reading = readings[Math.min(seen, readings.length) - 1];
   out(reading === 'missing' ? 'Error: no such method' : 'Result: Bundle[{disable_guardian=false, set_proximity_close=' + reading + '}]');
 }
-else if (args[0] === 'shell' && args[1] === 'am' && args[2] === 'start') out('Status: ok');
+else if (args[0] === 'shell' && args[1] === 'am' && args[2] === 'start') out(scenario.launchStatus ?? 'Status: ok');
 else if (args[0] === 'shell' && args[1] === 'rm') {}
 else if (said === 'shell dumpsys power') out('  mWakefulness=Awake');
 else if (said === 'shell dumpsys battery') out('  AC powered: true\\n  level: 100\\n  scale: 100\\n  temperature: 300');
@@ -175,6 +197,16 @@ describe('pnpm quest:device, against a stand-in adb', () => {
   let runs = 0;
   /** More of the tool's environment, for the preview's control plane. */
   let extra: Record<string, string> = {};
+  // Stands for the headset's adb server: the tool connects to its port before it runs adb, and adb
+  // itself is the stand-in, so nothing here ever reaches a real server.
+  let server5038: TcpServer;
+  let serverPort = 0;
+  before(async () => {
+    server5038 = createTcpServer((socket) => socket.destroy());
+    await new Promise<void>((resolve) => server5038.listen(0, '127.0.0.1', resolve));
+    serverPort = (server5038.address() as { port: number }).port;
+  });
+  after(() => new Promise<void>((resolve) => server5038.close(() => resolve())));
 
   /** Runs the device tool on `headset`, giving its exit code, what it printed and every adb command it ran. */
   async function device(headset: Headset, ...args: string[]) {
@@ -186,6 +218,7 @@ describe('pnpm quest:device, against a stand-in adb', () => {
     const env = {
       ...process.env,
       HALCYONIC_ADB: adb,
+      HALCYONIC_ADB_PORT: String(serverPort),
       HALCYONIC_AAPT2: aapt2,
       HALCYONIC_QUEST_SERIAL: 'TEST-SERIAL',
       HALCYONIC_QUEST_STATE: join(directory, `state-${at}.json`),
@@ -355,8 +388,197 @@ describe('pnpm quest:device, against a stand-in adb', () => {
     assert.ok(calls.includes('shell am force-stop com.halcyonic.xr'), calls.join('\n'));
   });
 
+  test("a launch held under vrshell's own tag is found by its words, stopped and fails", async () => {
+    // As on 2026-11-03: the headset logged the hold as vrshell's [SEO] SystemUXController.
+    const launchLog =
+      '1793726539.200  3349  3349 W [SEO] SystemUXController: Launch is blocked because: a Reprojected OS dialog is currently showing. Caching launch  for component com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity';
+    const { code, said, calls } = await device({ launchLog }, 'launch');
+    assert.equal(code, 1, said);
+    assert.match(said, /The launch was held and com\.halcyonic\.xr was stopped/);
+    assert.ok(calls.includes('shell am force-stop com.halcyonic.xr'), calls.join('\n'));
+  });
+
+  test('a launch am start does not confirm is stopped and fails', async () => {
+    const { code, said, calls } = await device({ launchStatus: 'Status: timeout' }, 'launch');
+    assert.equal(code, 1, said);
+    assert.match(said, /am start did not say ok for com\.halcyonic\.xr/);
+    assert.ok(calls.includes('shell am force-stop com.halcyonic.xr'), calls.join('\n'));
+  });
+
+  test('a hold line from before the launch does not fail a launch that started', async () => {
+    const launchLog =
+      '1793726000.100  1505  1662 I ActivityTaskManager: Launch is blocked because: a Guardian dialog is currently showing. Caching launch';
+    const { code, said, calls } = await device({ launchLog }, 'launch');
+    assert.equal(code, 0, said);
+    assert.match(said, /Started com\.halcyonic\.xr\./);
+    assert.ok(!calls.includes('shell am force-stop com.halcyonic.xr'), calls.join('\n'));
+  });
+
+  test('nothing launches or is restored under the Headset Power menu, with or without the Guardian dialog behind it', async () => {
+    const apk = join(directory, 'menu.apk');
+    writeFileSync(apk, 'package com.halcyonic.xr\nthe saved build');
+    for (const headset of [{ powerMenu: true }, { powerMenu: true, guardian: true }]) {
+      const launched = await device(headset, 'launch');
+      assert.equal(launched.code, 1, launched.said);
+      assert.match(launched.said, /Not launching: Meta's Headset Power menu is open/);
+      assert.ok(
+        !launched.calls.some((call) => call.startsWith('shell am start')),
+        launched.calls.join('\n'),
+      );
+      const restored = await device(headset, 'restore', apk);
+      assert.equal(restored.code, 1, restored.said);
+      assert.ok(
+        !restored.calls.some((call) => call.startsWith('install')),
+        restored.calls.join('\n'),
+      );
+    }
+  });
+
+  test('status names the Headset Power menu first and the Guardian dialog behind it', async () => {
+    const { code, said } = await device({ powerMenu: true, guardian: true }, 'status');
+    assert.equal(code, 0, said);
+    assert.match(said, /^front: Meta's Headset Power menu is open/m);
+    assert.match(said, /^also: The headset can't find its position in the room/m);
+  });
+
+  test("pnpm's forwarded -- before the command is dropped", async () => {
+    // pnpm 11 runs `pnpm quest:device -- status` as `node device.ts -- status`.
+    const shown = await device({}, '--', 'status');
+    assert.equal(shown.code, 0, shown.said);
+    assert.match(shown.said, /^awake: awake$/m);
+    const apk = join(directory, 'dashes.apk');
+    writeFileSync(apk, 'package com.halcyonic.xr\nthe new build');
+    const install = await device({}, '--', 'install', apk);
+    assert.equal(install.code, 1, install.said);
+    assert.match(install.said, /needs --saved/);
+    const launched = await device({}, '--', 'launch', '--extra', 'halcyonic.open=running-task');
+    assert.equal(launched.code, 0, launched.said);
+    assert.ok(
+      launched.calls.some((call) => call.endsWith('--es halcyonic.open running-task')),
+      launched.calls.join('\n'),
+    );
+  });
+
+  test('a --package that is not an Android package name is refused before adb runs', async () => {
+    for (const [command, name] of [
+      ['stop', 'x;reboot'],
+      ['save', '../../x'],
+      ['launch', 'com.example.other app'],
+      ['stop', 'com.example.'],
+    ] as const) {
+      const { code, said, calls } = await device({}, command, '--package', name);
+      assert.equal(code, 1, said);
+      assert.match(said, /--package/);
+      assert.deepEqual(calls, []);
+    }
+  });
+
+  test("nothing runs, and no adb server is started, while nothing listens on the headset's port", async () => {
+    const closed = createTcpServer();
+    await new Promise<void>((resolve) => closed.listen(0, '127.0.0.1', resolve));
+    const port = (closed.address() as { port: number }).port;
+    await new Promise<void>((resolve) => closed.close(() => resolve()));
+    extra = { HALCYONIC_ADB_PORT: String(port) };
+    const { code, said, calls } = await device({}, 'status');
+    extra = {};
+    assert.equal(code, 1, said);
+    assert.match(said, new RegExp(`No adb server listens on port ${port}`));
+    assert.deepEqual(calls, []);
+  });
+
+  describe("connect: the control plane's one mapping, which give-back undoes", () => {
+    let headsets = 0;
+    /** A headset and a state file of their own, kept across one test's runs. */
+    function own(): string {
+      const at = headsets++;
+      const state = join(directory, `connect-state-${at}.json`);
+      extra = {
+        HALCYONIC_QUEST_STATE: state,
+        QUEST_STATE_FILE: state,
+        ADB_HEADSET: join(directory, `connect-headset-${at}`),
+      };
+      return state;
+    }
+    const recorded = (state: string) =>
+      existsSync(state)
+        ? (JSON.parse(readFileSync(state, 'utf8')) as { reverses: number[] }).reverses
+        : [];
+
+    test('connect records the mapping before it makes it, and give-back removes it', async () => {
+      const state = own();
+      const made = await device({}, 'connect');
+      assert.equal(made.code, 0, made.said);
+      assert.ok(
+        made.calls.includes('reverse --no-rebind tcp:47800 tcp:47800'),
+        made.calls.join('\n'),
+      );
+      assert.deepEqual(recorded(state), [47800]);
+      const given = await device({}, 'give-back');
+      assert.equal(given.code, 0, given.said);
+      assert.ok(given.calls.includes('reverse --remove tcp:47800'), given.calls.join('\n'));
+      assert.deepEqual(recorded(state), []);
+      extra = {};
+    });
+
+    test('connect refuses next to any other mapping of port 47800, however spelled, and give-back leaves it', async () => {
+      for (const other of ['tcp:47800 tcp:9000', 'tcp:9000 tcp:47800', 'tcp:0xBAB8 tcp:9000']) {
+        const state = own();
+        const headset = { otherReverses: [other] };
+        const made = await device(headset, 'connect');
+        assert.equal(made.code, 1, made.said);
+        assert.match(made.said, /already maps port 47800/);
+        assert.ok(
+          !made.calls.some((call) => call.startsWith('reverse --no-rebind')),
+          made.calls.join('\n'),
+        );
+        const given = await device(headset, 'give-back');
+        assert.ok(
+          !given.calls.some((call) => call.startsWith('reverse --remove')),
+          given.calls.join('\n'),
+        );
+        assert.deepEqual(recorded(state), []);
+      }
+      extra = {};
+    });
+
+    test('connect changes nothing when the mapping is already there from outside the tool', async () => {
+      const state = own();
+      const headset = { otherReverses: ['tcp:47800 tcp:47800'] };
+      const made = await device(headset, 'connect');
+      assert.equal(made.code, 0, made.said);
+      assert.match(made.said, /made outside this tool/);
+      assert.ok(
+        !made.calls.some((call) => call.startsWith('reverse --no-rebind')),
+        made.calls.join('\n'),
+      );
+      assert.deepEqual(recorded(state), []);
+      extra = {};
+    });
+
+    test('preview stop leaves the mapping, and connect stop removes it alone', async () => {
+      const state = own();
+      assert.equal((await device({}, 'connect')).code, 0);
+      const previewStopped = await device({}, 'preview', 'stop');
+      assert.equal(previewStopped.code, 0, previewStopped.said);
+      assert.ok(
+        !previewStopped.calls.some((call) => call.startsWith('reverse --remove')),
+        previewStopped.calls.join('\n'),
+      );
+      assert.deepEqual(recorded(state), [47800]);
+      const stopped = await device({}, 'connect', 'stop');
+      assert.equal(stopped.code, 0, stopped.said);
+      assert.ok(stopped.calls.includes('reverse --remove tcp:47800'), stopped.calls.join('\n'));
+      assert.deepEqual(recorded(state), []);
+      extra = {};
+    });
+  });
+
   test('uninstall refuses every package but the check build, and names it exactly', async () => {
-    for (const other of [[], ['--package', 'com.halcyonic.xr'], ['--package', 'com.boopy.quest']]) {
+    for (const other of [
+      [],
+      ['--package', 'com.halcyonic.xr'],
+      ['--package', 'com.example.other'],
+    ]) {
       const { code, said, calls } = await device({}, 'uninstall', ...other);
       assert.equal(code, 1, said);
       assert.ok(!calls.some((call) => call.startsWith('uninstall')), calls.join('\n'));

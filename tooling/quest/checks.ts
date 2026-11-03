@@ -16,8 +16,11 @@ export interface Verdict {
 const pass = (line: string): Verdict => ({ pass: true, line });
 const fail = (line: string): Verdict => ({ pass: false, line });
 
+/** The control plane's port, on the headset and on the Mac alike. */
+export const HALCYONIC_PORT = 47800;
+
 /** The one mapping a session keeps: the headset's 47800 to the Mac's 47800 (SECURITY.md). */
-export const PORT_MAPPING = 'tcp:47800';
+export const PORT_MAPPING = `tcp:${HALCYONIC_PORT}`;
 
 /** ADB accepts decimal aliases, optional +, hexadecimal ports and TCP host:port destinations.
  * Classify by numeric port so an alternate source cannot hide a proof relay behind its spelling. */
@@ -26,11 +29,15 @@ function usesHalcyonicPort(spec: string): boolean {
   const address = spec.slice(4);
   const port = address.slice(address.lastIndexOf(':') + 1);
   if (!/^(?:[+]?[0-9]+|0[xX][0-9a-fA-F]+)$/.test(port)) return false;
-  return Number(port) === 47800;
+  return Number(port) === HALCYONIC_PORT;
 }
 
-/** `adb reverse --list`: one `<serial or (reverse)> <headset side> <Mac side>` line per mapping. */
-export function checkReverse(text: string): Verdict {
+/**
+ * `adb reverse --list`, one `<serial or (reverse)> <headset side> <Mac side>` line per mapping:
+ * each mapping that uses Halcyonic's port on either side, as `<from> to <to>`, or null when a line
+ * cannot be parsed.
+ */
+export function halcyonicMappings(text: string): string[] | null {
   const mappings: string[] = [];
   for (const line of text.split(/\r?\n/).filter((entry) => entry.trim().length > 0)) {
     // The AOSP list has exactly serial, source and destination. A TCP specification may itself
@@ -40,11 +47,20 @@ export function checkReverse(text: string): Verdict {
     const from = fields?.[2];
     const to = fields?.[3];
     if (from === undefined || to === undefined || !from.includes(':') || !to.includes(':')) {
-      return fail(
-        'adb reverse: mapping list contains an unparsed line; inspect it before checking Halcyonic. Preserve unrelated routes.',
-      );
+      return null;
     }
     if (usesHalcyonicPort(from) || usesHalcyonicPort(to)) mappings.push(`${from} to ${to}`);
+  }
+  return mappings;
+}
+
+/** `adb reverse --list`: exactly the one Halcyonic mapping, other routes preserved. */
+export function checkReverse(text: string): Verdict {
+  const mappings = halcyonicMappings(text);
+  if (mappings === null) {
+    return fail(
+      'adb reverse: mapping list contains an unparsed line; inspect it before checking Halcyonic. Preserve unrelated routes.',
+    );
   }
   const only = `${PORT_MAPPING} to ${PORT_MAPPING}`;
   if (mappings.length === 1 && mappings[0] === only)

@@ -6,6 +6,8 @@
  *
  *   pnpm quest:device -- status
  *   pnpm quest:device -- awake                       keeps it awake on the desk; give-back undoes it
+ *   pnpm quest:device -- connect                     the headset's 47800 to the Mac's, for the control plane
+ *   pnpm quest:device -- connect stop                that mapping removed; give-back removes it too
  *   pnpm quest:device -- give-back                   the sensor back, stops what this tool started
  *   pnpm quest:device -- save [--package <p>]        pulls the installed APK and checks its bytes
  *   pnpm quest:device -- install <apk> --saved <saved apk> [--package <p>]
@@ -34,13 +36,23 @@
  * after a cut-off run; Quest Browser is stopped only when this tool started it. The check holds
  * when the page opens, not after. No browser log, no DevTools.
  *
+ * `connect` makes the one mapping a session keeps (checks.ts), recorded before it is made and with
+ * --no-rebind, so `connect stop` and `give-back` remove it; it refuses while any other mapping uses
+ * port 47800, however spelled, and leaves a mapping it did not make as it is.
+ *
  * A check build (QuestBuild's test application id, `com.halcyonic.xr.check`) installs beside the
  * owner's app with data of its own, so it needs no saved copy, and it is the only package `grant`
  * and `uninstall` act on: `grant` gives it one of the permissions in GRANTABLE.
  *
+ * Nothing is launched, installed, restored or opened under a system dialog that holds launches:
+ * Meta's Guardian dialog, or the alert service's, such as the Headset Power menu a power-button hold
+ * leaves open (2026-11-03). Every task's resumed activity is read, since such a dialog need not be
+ * the top task's. A launch counts only when `am start` says ok and the log since then has no hold.
+ *
  * Besides what adb.ts lists, it runs `input keyevent KEYCODE_WAKEUP` (no other input), the
  * vrpowermanager `prox_close` and `automation_disable` broadcasts, the testing service's
  * GET_PROPERTY, `pm path`, `sha256sum`, `pull`, `install -r`, `cmd package resolve-activity`,
+ * `reverse` and `reverse --remove` of the ports it records,
  * `screenrecord` into /sdcard/Download, Meta's capture service, `ls` of the capture folders and
  * `rm` of the files it made, by name, after their pulled copy's sha256 matched. It never
  * uninstalls, clears data, changes a setting or the boundary, or touches a system dialog.
@@ -69,7 +81,9 @@ import {
   sleep,
   textOption,
 } from './adb.ts';
+import { HALCYONIC_PORT, halcyonicMappings, PORT_MAPPING } from './checks.ts';
 import {
+  type Activity,
   describeFront,
   isGuardianDialog,
   isLaunchHeld,
@@ -79,6 +93,7 @@ import {
   readFirstInstall,
   readListedFiles,
   readSha256,
+  readSystemDialogs,
   readTestingProperties,
   readTopActivity,
   readWakefulness,
@@ -87,7 +102,9 @@ import { controlPlaneGate, listensOn } from './preview.ts';
 import { readBattery, readThermal } from './readings.ts';
 
 const run = promisify(execFile);
-const command = process.argv[2] ?? '';
+/** The words after the script: pnpm 11 forwards the `--` of `pnpm quest:device -- status`, which is dropped. */
+const words = process.argv.slice(process.argv[2] === '--' ? 3 : 2);
+const command = words[0] ?? '';
 /** Options that take a value, so the value is never taken for the command's own argument. */
 const VALUED = new Set([
   '--package',
@@ -100,11 +117,16 @@ const VALUED = new Set([
 ]);
 
 /** The command's own argument, such as the APK or the permission: the first word that is neither an option nor an option's value. */
-const positional = process.argv
-  .slice(3)
-  .find((word, at, words) => !word.startsWith('--') && !VALUED.has(words[at - 1] ?? ''));
+const positional = words
+  .slice(1)
+  .find((word, at, rest) => !word.startsWith('--') && !VALUED.has(rest[at - 1] ?? ''));
 const flag = (name: string) => process.argv.includes(`--${name}`);
 const packageName = textOption('package', PACKAGE);
+/**
+ * Android's grammar for a package name. `adb shell` joins its words into one line for the headset's
+ * shell, and `save` names a file after the package, so nothing else gets that far.
+ */
+const PACKAGE_NAME = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/;
 const out = textOption('out', '.private/quest');
 const STATE = textOption('state', process.env.HALCYONIC_QUEST_STATE ?? '.private/quest/state.json');
 const CHECK_PACKAGE = `${PACKAGE}.check`;
@@ -194,15 +216,24 @@ async function requirePackage(path: string, name: string): Promise<void> {
   }
 }
 
-async function front() {
-  return readTopActivity(await adb('shell', 'dumpsys', 'activity', 'activities'));
+interface Shown {
+  /** The top task's resumed activity. */
+  readonly top: Activity | null;
+  /** Every system dialog showing, in the order of the tasks. */
+  readonly dialogs: readonly Activity[];
 }
 
+async function front(): Promise<Shown> {
+  const text = await adb('shell', 'dumpsys', 'activity', 'activities');
+  return { top: readTopActivity(text), dialogs: readSystemDialogs(text) };
+}
+
+/** One plain line about what is in front, a system dialog before anything else. */
+const inFront = (shown: Shown, own: string) => describeFront(shown.dialogs[0] ?? shown.top, own);
+
 async function refuseSystemDialog(doing: string): Promise<void> {
-  const shown = await front();
-  if (isGuardianDialog(shown) || shown?.package === 'com.oculus.guardian') {
-    fail(`Not ${doing}: ${describeFront(shown, packageName)}`);
-  }
+  const dialog = (await front()).dialogs[0];
+  if (dialog !== undefined) fail(`Not ${doing}: ${describeFront(dialog, packageName)}`);
 }
 
 async function installed(name: string) {
@@ -319,7 +350,9 @@ async function status(): Promise<void> {
   const thermal = readThermal(await adb('shell', 'dumpsys', 'thermalservice'));
   const running = (await adbSaid('shell', 'pidof', PACKAGE)).trim() !== '';
   console.log(`awake: ${readWakefulness(await adb('shell', 'dumpsys', 'power')) ?? 'unknown'}`);
-  console.log(`front: ${describeFront(shown, PACKAGE)}`);
+  console.log(`front: ${inFront(shown, PACKAGE)}`);
+  for (const dialog of shown.dialogs.slice(1))
+    console.log(`also: ${describeFront(dialog, PACKAGE)}`);
   console.log(
     `battery: ${battery.levelPercent ?? '?'}% ${battery.plugged ? 'charging' : 'on battery'}, ${battery.celsius ?? '?'} C`,
   );
@@ -349,7 +382,7 @@ async function awake(): Promise<void> {
         ? 'The proximity override did not take.'
         : 'The proximity override could not be read.',
   );
-  console.log(`front: ${describeFront(await front(), PACKAGE)}`);
+  console.log(`front: ${inFront(await front(), PACKAGE)}`);
   if (on !== true) process.exit(1);
 }
 
@@ -372,7 +405,7 @@ async function giveBack(): Promise<void> {
   const on = await giveSensorBack();
   // Seen on the headset (2026-10-29): while Meta's Guardian dialog holds it, the override reads on after the
   // release until the headset sleeps, and then reads off.
-  const lost = on === true && isGuardianDialog(await front());
+  const lost = on === true && (await front()).dialogs.some(isGuardianDialog);
   console.log(
     on === false
       ? "The proximity sensor is the headset's again."
@@ -517,7 +550,7 @@ async function grant(): Promise<void> {
 }
 
 async function launch(): Promise<void> {
-  const extras = launchExtras(process.argv.slice(3));
+  const extras = launchExtras(words.slice(1));
   await refuseSystemDialog('launching');
   const activity =
     packageName === PACKAGE
@@ -532,27 +565,42 @@ async function launch(): Promise<void> {
       "This is the owner's Halcyonic: a launch rewrites its files/halcyonic-panel-motion.json. Never run it with a real runtime behind it.",
     );
   }
+  // The headset's clock before the launch: the log is read for a hold from then on. When the clock
+  // can't be read, the whole log is: an older hold then fails the launch, rather than a hold being missed.
+  const since = (await adbSaid('shell', 'date', '+%s')).trim();
   const said = await adbSaid('shell', 'am', 'start', '-W', '-n', activity, ...extras);
   writeState((state) => {
     if (!state.started.includes(packageName)) state.started.push(packageName);
   });
   await sleep(3000);
   const shown = await front();
+  // Only the lines with the hold's words come back (logcat's -e), whatever their tag.
   const held = isLaunchHeld(
-    await adbSaid('logcat', '-d', '-t', '200', '-s', 'ActivityTaskManager:I'),
+    await adbSaid(
+      'logcat',
+      '-d',
+      '-v',
+      'epoch',
+      ...(/^\d+$/.test(since) ? ['-t', `${since}.000`] : []),
+      '-e',
+      'Launch.is.blocked.because',
+    ),
   );
-  if (held || isGuardianDialog(shown)) {
+  // The headset caches a held launch ("Caching launch"), which may start when the dialog closes: it is
+  // stopped here and again by give-back; whether a stop drops the cached launch is not known.
+  if (held || shown.dialogs.length > 0) {
+    await adb('shell', 'am', 'force-stop', packageName);
+    fail(`The launch was held and ${packageName} was stopped. ${inFront(shown, packageName)}`);
+  }
+  if (!/Status: ok/.test(said)) {
+    const status = /Status: (\w+)/.exec(said)?.[1];
     await adb('shell', 'am', 'force-stop', packageName);
     fail(
-      `The launch was held and ${packageName} was stopped. ${describeFront(shown, packageName)}`,
+      `am start did not say ok for ${packageName} (${status === undefined ? 'no status' : `Status: ${status}`}), so it was stopped.`,
     );
   }
-  console.log(
-    /Status: ok/.test(said)
-      ? `Started ${packageName}.`
-      : `am start did not say ok for ${packageName}.`,
-  );
-  console.log(`front: ${describeFront(shown, packageName)}`);
+  console.log(`Started ${packageName}.`);
+  console.log(`front: ${inFront(shown, packageName)}`);
 }
 
 async function stop(): Promise<void> {
@@ -717,7 +765,6 @@ async function logs(): Promise<void> {
 
 const BROWSER = 'com.oculus.browser';
 
-/** Removes every reverse `preview` recorded, and forgets each one the headset no longer lists. */
 /** The headset's reverse rules, one line each; throws when `reverse --list` fails. */
 async function reverseList(): Promise<string[]> {
   return (await adb('reverse', '--list')).split(/\r?\n/).filter((line) => line.trim() !== '');
@@ -734,8 +781,12 @@ function isPreviewRule(line: string, port: number): boolean {
   return fields.length === 3 && fields[1] === `tcp:${port}` && fields[2] === `tcp:${port}`;
 }
 
-async function removeReverses(): Promise<void> {
-  for (const port of readState().reverses) {
+/**
+ * Removes each reverse this tool recorded, `connect`'s and `preview`'s, or only those of the ports
+ * `which` keeps, and forgets each one the headset no longer lists.
+ */
+async function removeReverses(which: (port: number) => boolean = () => true): Promise<void> {
+  for (const port of readState().reverses.filter(which)) {
     await adbSaid('reverse', '--remove', `tcp:${port}`);
     let rules: string[];
     try {
@@ -823,11 +874,14 @@ async function preview(): Promise<void> {
       ? `Opened ${gate.url} (check ${gate.checkId}) in Quest Browser.`
       : `am start did not say ok for ${gate.url}.`,
   );
-  console.log(`front: ${describeFront(await front(), BROWSER)}`);
+  console.log(`front: ${inFront(await front(), BROWSER)}`);
 }
 
+/** The previews' ports: every recorded one but the control plane's, which `connect` made. */
+const previewPort = (port: number) => port !== HALCYONIC_PORT;
+
 async function previewStop(): Promise<void> {
-  await removeReverses();
+  await removeReverses(previewPort);
   if (readState().started.includes(BROWSER)) {
     await adb('shell', 'am', 'force-stop', BROWSER);
     writeState((state) => {
@@ -835,12 +889,69 @@ async function previewStop(): Promise<void> {
     });
     console.log('Stopped Quest Browser, which this tool started.');
   }
-  if (readState().reverses.length > 0) process.exit(1);
+  if (readState().reverses.some(previewPort)) process.exit(1);
+}
+
+/**
+ * The one mapping a session keeps (checks.ts): recorded before it is made and made with --no-rebind,
+ * so `connect stop` and `give-back` remove it. Refused while any other mapping uses port 47800,
+ * however spelled; one made outside this tool is left as it is, and not recorded.
+ */
+async function connect(): Promise<void> {
+  if (positional === 'stop') return connectStop();
+  if (positional !== undefined) fail('connect takes nothing, or stop.');
+  const listed = await adb('reverse', '--list').catch(() =>
+    fail("Not connecting: the headset's reverse rules could not be read."),
+  );
+  const mappings = halcyonicMappings(listed);
+  if (mappings === null) {
+    fail(
+      "Not connecting: the headset's reverse rules have a line this tool cannot read; inspect it.",
+    );
+  }
+  const only = `${PORT_MAPPING} to ${PORT_MAPPING}`;
+  const recorded = readState().reverses.includes(HALCYONIC_PORT);
+  if (mappings.length === 1 && mappings[0] === only) {
+    console.log(
+      recorded
+        ? `Already connected: the headset's ${HALCYONIC_PORT} reaches the Mac's; give-back removes it.`
+        : `The headset's ${HALCYONIC_PORT} already reaches the Mac's, made outside this tool, so give-back leaves it.`,
+    );
+    return;
+  }
+  if (mappings.length > 0) {
+    fail(
+      `Not connecting: the headset already maps port ${HALCYONIC_PORT} otherwise (${mappings.join(', ')}). Nothing was changed; inspect it.`,
+    );
+  }
+  // Recorded before it is made, so a cut-off run still removes it; never made over anyone's.
+  writeState((state) => {
+    if (!state.reverses.includes(HALCYONIC_PORT)) state.reverses.push(HALCYONIC_PORT);
+  });
+  try {
+    await adb('reverse', '--no-rebind', PORT_MAPPING, PORT_MAPPING);
+  } catch {
+    if (!recorded) {
+      writeState((state) => {
+        state.reverses = state.reverses.filter((kept) => kept !== HALCYONIC_PORT);
+      });
+    }
+    fail(`Not connecting: the reverse of port ${HALCYONIC_PORT} could not be made.`);
+  }
+  console.log(
+    `Connected: the headset's ${HALCYONIC_PORT} reaches the Mac's; connect stop or give-back removes it.`,
+  );
+}
+
+async function connectStop(): Promise<void> {
+  await removeReverses((port) => port === HALCYONIC_PORT);
+  if (readState().reverses.includes(HALCYONIC_PORT)) process.exit(1);
 }
 
 const commands: Record<string, () => Promise<void>> = {
   status,
   awake,
+  connect,
   'give-back': giveBack,
   save,
   install,
@@ -857,6 +968,11 @@ const commands: Record<string, () => Promise<void>> = {
 
 const chosen = commands[command];
 if (chosen === undefined) fail(`Say what to do: ${Object.keys(commands).join(', ')}.`);
+if (!PACKAGE_NAME.test(packageName)) {
+  fail(
+    '--package takes an Android package name: dot-separated parts of letters, digits and _, each starting with a letter. Nothing ran.',
+  );
+}
 await requireHeadset();
 try {
   await chosen();

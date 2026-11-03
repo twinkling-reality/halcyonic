@@ -17,8 +17,9 @@ export interface Activity {
 }
 
 /**
- * `dumpsys activity activities`: the first `topResumedActivity`. Only it tells what is in front;
- * `ResumedActivity` and `mFocusedApp` stay on Home while Meta's Guardian dialog is on top.
+ * `dumpsys activity activities`: the first `topResumedActivity`, the top task's. On 2026-10-28 only
+ * it told what was in front: `ResumedActivity` and `mFocusedApp` stayed on Home while Meta's
+ * Guardian dialog was on top. A system dialog can show below it, so readSystemDialogs reads them all.
  */
 export function readTopActivity(text: string): Activity | null {
   const match = /topResumedActivity=ActivityRecord\{\S+ u\d+ ([\w.]+)\/([\w.$]+)/.exec(text);
@@ -27,10 +28,33 @@ export function readTopActivity(text: string): Activity | null {
 }
 
 const GUARDIAN = 'com.oculus.guardian';
+/** Meta's alert service, whose Headset Power menu a power-button hold leaves open. */
+const ALERTS = 'com.oculus.vralertservice';
 
 /** Whether Meta's Guardian dialog is in front: the headset can't find its position in the room. */
 export function isGuardianDialog(front: Activity | null): boolean {
   return front?.package === GUARDIAN && front.activity.endsWith('GuardianDialogActivity');
+}
+
+/**
+ * `dumpsys activity activities`: every system dialog showing, the Guardian's or the alert service's,
+ * in the order of the tasks, then the one `ResumedActivity` names. A Quest resumes several
+ * activities at once, one per task: on 2026-11-03 the Headset Power menu's task came first while
+ * `ResumedActivity` named the Guardian dialog. Each kind has held a launch (2026-10-28, 2026-11-03).
+ */
+export function readSystemDialogs(text: string): Activity[] {
+  const dialogs: Activity[] = [];
+  for (const match of text.matchAll(
+    /(?:topResumedActivity=|ResumedActivity: )ActivityRecord\{\S+ u\d+ ([\w.]+)\/([\w.$]+)/g,
+  )) {
+    const found = { package: match[1] ?? '', activity: match[2] ?? '' };
+    const dialog = found.package === GUARDIAN || found.package === ALERTS;
+    const seen = dialogs.some(
+      (kept) => kept.package === found.package && kept.activity === found.activity,
+    );
+    if (dialog && !seen) dialogs.push(found);
+  }
+  return dialogs;
 }
 
 /** One plain line about what is in front. */
@@ -38,6 +62,12 @@ export function describeFront(front: Activity | null, own: string): string {
   if (front === null) return 'Nothing is in front (the headset may be asleep).';
   if (isGuardianDialog(front)) {
     return "The headset can't find its position in the room, so nothing opens. Stand it facing the room, or wear it.";
+  }
+  if (front.package === ALERTS && front.activity.endsWith('ShutdownConfirmActivity')) {
+    return "Meta's Headset Power menu is open (Sleep, Cancel, Power Options), so nothing opens until someone closes it in the headset.";
+  }
+  if (front.package === ALERTS) {
+    return `A system alert is showing (${front.activity}), so nothing opens until someone closes it in the headset.`;
   }
   if (front.package === GUARDIAN) return `A system dialog is in front: ${front.activity}.`;
   if (front.package === own) return `${own} is in front.`;
@@ -56,7 +86,10 @@ export function readTestingProperties(text: string): Record<string, boolean> {
   return properties;
 }
 
-/** Whether the log has Android's line for a launch a system dialog held. */
+/**
+ * Whether the log has the line for a launch a system dialog held, read by its words alone: on
+ * 2026-11-03 the headset logged it under vrshell's own tag, `[SEO] SystemUXController`.
+ */
 export function isLaunchHeld(log: string): boolean {
   return /Launch is blocked because: .*Caching launch/.test(log);
 }

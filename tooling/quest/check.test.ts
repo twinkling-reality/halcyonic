@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer, type Server } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { after, describe, test } from 'node:test';
+import { after, before, describe, test } from 'node:test';
 import { promisify } from 'node:util';
 
 const run = promisify(execFile);
@@ -75,6 +76,15 @@ describe('pnpm quest:check, against a stand-in adb', () => {
   writeFileSync(adb, `#!${process.execPath}\n${STAND_IN}`);
   chmodSync(adb, 0o755);
   let scenarios = 0;
+  // Stands for the headset's adb server, which the check connects to before it runs adb.
+  let server: Server;
+  let serverPort = 0;
+  before(async () => {
+    server = createServer((socket) => socket.destroy());
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    serverPort = (server.address() as { port: number }).port;
+  });
+  after(() => new Promise<void>((resolve) => server.close(() => resolve())));
 
   /** Runs the check on `headset`, giving its exit code and lines. */
   async function check(headset: Headset, ...options: string[]) {
@@ -90,7 +100,12 @@ describe('pnpm quest:check, against a stand-in adb', () => {
         elapsed: headset.elapsed ?? '00:50',
       }),
     );
-    const env = { ...process.env, HALCYONIC_ADB: adb, ADB_SCENARIO: scenario };
+    const env = {
+      ...process.env,
+      HALCYONIC_ADB: adb,
+      HALCYONIC_ADB_PORT: String(serverPort),
+      ADB_SCENARIO: scenario,
+    };
     let code = 0;
     let stdout = '';
     try {

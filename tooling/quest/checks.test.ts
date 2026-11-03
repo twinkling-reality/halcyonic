@@ -15,6 +15,8 @@ import {
   checkTokenWritten,
   checkWritesFinished,
   GLANCE_CODES,
+  HALCYONIC_PORT,
+  halcyonicMappings,
   MOVE_LINES,
   REACH_MARGIN_SECONDS,
   readElapsed,
@@ -121,6 +123,20 @@ describe('headset session checks', () => {
       assert.doesNotMatch(result.line, /remove-all|UsbFfs/);
     }
     assert.equal(checkReverse(`\n  \n${ordinary}\nUsbFfs tcp:47900 tcp:47900\n`).pass, true);
+  });
+
+  test("each mapping of Halcyonic's port is named, however spelled; an unread line gives none", () => {
+    // What `pnpm quest:device -- connect` reads before it makes the one mapping.
+    assert.deepEqual(halcyonicMappings(''), []);
+    assert.deepEqual(halcyonicMappings('UsbFfs tcp:47900 tcp:47900\n'), []);
+    assert.deepEqual(
+      halcyonicMappings(
+        'UsbFfs tcp:47800 tcp:47800\nUsbFfs tcp:0xBAB8 tcp:9000\nUsbFfs tcp:9000 tcp:47800\n',
+      ),
+      ['tcp:47800 to tcp:47800', 'tcp:0xBAB8 to tcp:9000', 'tcp:9000 to tcp:47800'],
+    );
+    assert.equal(halcyonicMappings('UsbFfs tcp:47800 tcp:47800\nunknown\n'), null);
+    assert.equal(HALCYONIC_PORT, 47800);
   });
 
   test("a file's state is its mode, size and type, or why there is none", () => {

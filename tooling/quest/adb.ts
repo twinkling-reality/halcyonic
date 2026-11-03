@@ -5,7 +5,8 @@
  * `HALCYONIC_QUEST_SERIAL`, else the one headset that server lists. The shared server on 5037
  * belongs to other projects and Unity's throwaway one on 5039 never has the headset: both are
  * refused. `-L` keeps a shell that exports Unity's `ADB_SERVER_SOCKET` from sending commands to
- * 5039.
+ * 5039. adb starts a server of its own on the port when none answers there, so `requireHeadset`
+ * first connects to the port and stops when nothing listens: the tools never start a server.
  *
  * `check`, `session` and `cold-start` run only `dumpsys`, `am`, `logcat`, `date`, `pidof`, `ps`,
  * `reverse --list` and `stat` (directly or through `run-as`): they read the headset and start or
@@ -13,6 +14,7 @@
  * its contents. What `device` runs besides is listed in device.ts.
  */
 import { execFile, spawn } from 'node:child_process';
+import { connect } from 'node:net';
 import { promisify } from 'node:util';
 
 const run = promisify(execFile);
@@ -139,8 +141,28 @@ export function follow(tags: readonly string[], line: (text: string) => void): (
   };
 }
 
+/** Whether anything accepts a connection on 127.0.0.1:`port`. It sends nothing and closes at once. */
+export function listens(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = connect({ host: '127.0.0.1', port });
+    const settle = (answer: boolean) => {
+      socket.destroy();
+      resolve(answer);
+    };
+    socket.setTimeout(5000, () => settle(false));
+    socket.once('connect', () => settle(true));
+    socket.once('error', () => settle(false));
+  });
+}
+
 /** Stops with one plain line unless exactly one headset is attached and authorized. */
 export async function requireHeadset(): Promise<void> {
+  if (!(await listens(serverPort()))) {
+    console.error(
+      `No adb server listens on port ${serverPort()}, the headset's: the device tools never start one, so nothing ran.`,
+    );
+    process.exit(1);
+  }
   let state = '';
   try {
     state = (await adb('get-state')).trim();

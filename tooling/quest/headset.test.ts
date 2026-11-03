@@ -10,6 +10,7 @@ import {
   readFirstInstall,
   readListedFiles,
   readSha256,
+  readSystemDialogs,
   readTestingProperties,
   readTopActivity,
   readWakefulness,
@@ -39,6 +40,51 @@ describe('headset state', () => {
       activity: 'com.oculus.vrguardianservice.guardiandialog.GuardianDialogActivity',
     });
     assert.equal(readTopActivity('  mFocusedApp=null\n'), null);
+  });
+
+  test('every system dialog showing is found, in the order of the tasks, as on 2026-11-03', () => {
+    const guardian = {
+      package: 'com.oculus.guardian',
+      activity: 'com.oculus.vrguardianservice.guardiandialog.GuardianDialogActivity',
+    };
+    const menu = { package: 'com.oculus.vralertservice', activity: '.ShutdownConfirmActivity' };
+    // The power menu's task first, while ResumedActivity named the Guardian dialog.
+    const text = [
+      '      topResumedActivity=ActivityRecord{aaa u0 com.oculus.vralertservice/.ShutdownConfirmActivity t3}',
+      '      topResumedActivity=ActivityRecord{bbb u0 com.oculus.guardian/com.oculus.vrguardianservice.guardiandialog.GuardianDialogActivity t4}',
+      '      topResumedActivity=ActivityRecord{ccc u0 com.oculus.vrshell/.HomeActivity t1}',
+      '  ResumedActivity: ActivityRecord{bbb u0 com.oculus.guardian/com.oculus.vrguardianservice.guardiandialog.GuardianDialogActivity t4}',
+    ].join('\n');
+    assert.deepEqual(readSystemDialogs(text), [menu, guardian]);
+    assert.deepEqual(
+      readSystemDialogs(
+        '      topResumedActivity=ActivityRecord{ccc u0 com.oculus.vrshell/.HomeActivity t1}\n  ResumedActivity: ActivityRecord{bbb u0 com.oculus.guardian/com.oculus.vrguardianservice.guardiandialog.GuardianDialogActivity t4}',
+      ),
+      [guardian],
+    );
+    assert.deepEqual(
+      readSystemDialogs(
+        '      topResumedActivity=ActivityRecord{ccc u0 com.oculus.vrshell/.HomeActivity t1}',
+      ),
+      [],
+    );
+  });
+
+  test("the Headset Power menu and the alert service's other screens read as plain words", () => {
+    assert.match(
+      describeFront(
+        { package: 'com.oculus.vralertservice', activity: '.ShutdownConfirmActivity' },
+        'com.halcyonic.xr',
+      ),
+      /^Meta's Headset Power menu is open/,
+    );
+    assert.match(
+      describeFront(
+        { package: 'com.oculus.vralertservice', activity: '.OtherAlertActivity' },
+        'com.halcyonic.xr',
+      ),
+      /^A system alert is showing \(\.OtherAlertActivity\)/,
+    );
   });
 
   test('what is in front reads as plain words', () => {
@@ -86,6 +132,12 @@ describe('headset state', () => {
     assert.ok(
       isLaunchHeld(
         '10-28 15:11:02.100  1505  1662 I ActivityTaskManager: Launch is blocked because: a Guardian dialog is currently showing. Caching launch',
+      ),
+    );
+    // 2026-11-03: under vrshell's own tag, held by the Headset Power menu.
+    assert.ok(
+      isLaunchHeld(
+        '11-03 12:22:19.200  3349  3349 W [SEO] SystemUXController: Launch is blocked because: a Reprojected OS dialog is currently showing. Caching launch  for component com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity',
       ),
     );
     assert.ok(!isLaunchHeld('10-28 15:22:28.340 12037 12087 D Unity   : [EGL] Attaching window'));

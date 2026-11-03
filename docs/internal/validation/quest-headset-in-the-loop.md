@@ -15,10 +15,11 @@
   page (updated 2026-10-06) for the testing service; the Meta XR Core SDK 207.0.0 sources for Meta XR
   Operator. Where no Meta page documents a command, the run is the only evidence, and this record
   says so.
-- **Status:** Verified on the headset: every command in `pnpm quest:device`; the adb servers kept
-  apart. Not verified: the longest recording and the capture service's rate limit; whether the
-  microphone is heard while nobody wears the headset; what a 5039 server does when 5038 is not
-  running.
+- **Status:** Verified on the headset: every command in `pnpm quest:device` of 2026-10-28; the adb
+  servers kept apart. Not verified: the longest recording and the capture service's rate limit;
+  whether the microphone is heard while nobody wears the headset; what a 5039 server does when 5038
+  is not running. Added 2026-11-03 and tested only against a stand-in adb, not yet on the headset:
+  `connect`, and reading a launch's hold with `logcat -e` from the headset's clock (`-t <epoch>`).
 
 ## Findings
 
@@ -38,7 +39,8 @@
 - `dumpsys activity activities`: only the first `topResumedActivity` says what is in front. While
   Meta's Guardian dialog (`com.oculus.guardian/...GuardianDialogActivity`, "Finding position in
   room") was on top, `ResumedActivity` and `mFocusedApp` still named Home. `dumpsys window`'s
-  `mCurrentFocus` was always null.
+  `mCurrentFocus` was always null. (2026-11-03: a dialog that holds launches can show below the
+  first; see "The Headset Power menu" below.)
 - A headset lying on a desk loses tracking: the Guardian dialog takes the foreground after it wakes,
   and `am start` is held, with Android's `Launch is blocked because: a Guardian dialog is currently
   showing. Caching launch`. Twice it cleared by itself within about two minutes, nothing pressed;
@@ -184,11 +186,50 @@
   with its sha256 beside it and removed it from the headset; a `record stop` with nothing recording
   stopped nothing.
 
+### The Headset Power menu, and a hold under another tag (2026-11-03)
+
+A Quest 3 on build `UP1A.231005.007.A1` (incremental 52641960031600520) on its own adb server on
+5038, nobody wearing it, lying where its cameras saw the room; the installed development build of
+2026-11-01; the control plane from main `466e5326` on 127.0.0.1:47800.
+
+- **The power menu held a launch.** Meta's Headset Power menu
+  (`com.oculus.vralertservice/.ShutdownConfirmActivity`; Sleep, Cancel, Power Options) had been
+  started by the system (uid 1000, as at a power-button hold) 13 minutes before the session, and
+  was still open after the headset had slept and was woken. A launch logged
+  `Launch is blocked because: a Reprojected OS dialog is currently showing. Caching launch for
+  component com.halcyonic.xr/...` under vrshell's own tag, `[SEO] SystemUXController`, not
+  ActivityTaskManager's; `am start -W` did not say ok after about 20 s, and nothing started. Nothing
+  was pressed; the menu waits for a person.
+- **The first task is not always the dialog.** With the menu open and the Guardian dialog started
+  by the wake (it cleared by itself after about four minutes), the first `topResumedActivity` named
+  the menu while `ResumedActivity` named the Guardian dialog; Home and Meta's panels each had their
+  own `topResumedActivity` below. Each dialog showed as a visible task.
+- **screenrecord shows the menu.** A frame showed it in passthrough, legible, once
+  `ResumedActivity` named it; while `ResumedActivity` named the Guardian dialog, the three frames
+  looked at showed the room and no dialog. In every clip the right eye's image is rotated about 25
+  degrees against the left.
+- **`--no-rebind` runs here.** `adb reverse --no-rebind tcp:47800 tcp:47800` made the control
+  plane's mapping, listed as `UsbFfs tcp:47800 tcp:47800`; `reverse --remove tcp:47800` removed it.
+- **pnpm forwards `--`.** pnpm 11.27.1 ran `pnpm quest:device -- status` as
+  `node tooling/quest/device.ts -- status`, which the tool took as a command named `--`; the tests
+  ran the tool with node directly, so none had met it.
+- **Without the app running**, `pnpm quest:check` passed the mapping, the private token at mode 600
+  and 44 bytes, no glance token, no write's temporary file and nothing at the token's old place, and
+  failed only its log line, the app not running.
+- Not known: whether `am force-stop` drops a launch the headset cached.
+
+So the device tool reads every task's resumed activity and the one `ResumedActivity` for the
+Guardian's and the alert service's dialogs, reads a hold by its words since the launch, fails a
+launch `am start` does not confirm, drops the `--` pnpm forwards, and makes the mapping with
+`connect`.
+
 ## Consequences
 
 - `pnpm quest:device` gives every command `-L tcp:localhost:<port> -s <serial>`, refuses 5037,
-  saves an installed APK before installing over it and checks the bytes both ways, fails a launch a
-  system dialog holds, removes only the captures it made after checking their pulled bytes, uses
-  `screenrecord` unless the owner has turned media sync off, and keeps only Halcyonic's own log lines.
+  never starts an adb server (it connects to the port first and stops when nothing listens), takes
+  only an Android package name for `--package`, saves an installed APK before installing over it and
+  checks the bytes both ways, fails a launch a system dialog holds or `am start` does not confirm,
+  removes only the captures it made after checking their pulled bytes, uses `screenrecord` unless the
+  owner has turned media sync off, and keeps only Halcyonic's own log lines.
 - Development builds leave Meta XR Operator out unless a journey build asks for it
   (`OperatorInDevelopmentBuilds`, XR_DEVELOPMENT.md).
