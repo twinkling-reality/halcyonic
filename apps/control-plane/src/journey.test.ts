@@ -2203,7 +2203,7 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     assert.equal(client.invalid.length, 0);
   });
 
-  test('switches a task to another agent and model: a new execution at rest and while one is active, each read and undone as its own task', async (t: TestContext) => {
+  test('switches a task to another agent and model: a new execution at rest, refused while one is active (ADMIT), each read and undone as its own task', async (t: TestContext) => {
     // What XR's switch builds on (SWITCH-PATH, 2026-11-03), with synthetic stand-ins for OpenCode and Codex.
     const tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-journey-switch-')));
     t.after(() => rmSync(tempDir, { recursive: true, force: true }));
@@ -2515,17 +2515,32 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     assert.match(secondReads.understanding, /^unavailable runtime_not_observed .*own Codex home/);
     assert.match(secondReads.evaluation, /^unavailable runtime_not_observed .*own Codex home/);
 
-    // 2. While one is active: a start is admitted, and both agents work in the one folder.
+    // 2. While one is active: a start is refused (ADMIT), so two agents never work in the one folder.
     const waiting = await start('opencode', 'ask before anything');
     await client.waitFor(
       () => projection.execution(waiting)?.status === 'waiting_for_human',
       30_000,
     );
-    const beside = await start('codex', 'Look, change nothing.');
-    await atRest(beside);
+    const beside = await submit('execution.start', {
+      workstream_id: workstreamId,
+      runtime_id: 'codex',
+      instruction: 'Look, change nothing.',
+      options: {},
+      model_ref: MODEL,
+    });
+    assert.ok(beside.type === 'command_ack');
+    assert.equal(beside.disposition, 'rejected');
+    assert.deepEqual(beside.command?.rejection, {
+      code: 'invalid_state',
+      message: 'This task is waiting_for_human. Stop it first, or start another task.',
+    });
     const during = projection.workstream(workstreamId);
-    assert.equal(during?.current_execution_id, beside, 'the newest execution is the current one');
-    assert.equal(during?.status, 'completed', "the task's status is the newest execution's");
+    assert.deepEqual(during?.execution_ids, [first, second, waiting], 'no execution beside it');
+    assert.equal(
+      during?.current_execution_id,
+      waiting,
+      'the waiting execution stays the current one',
+    );
     assert.equal(
       projection.execution(waiting)?.status,
       'waiting_for_human',
@@ -2534,7 +2549,7 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     assert.deepEqual(
       during?.attention.reasons.map((reason) => [reason.kind, reason.execution_id]),
       [['approval_pending', waiting]],
-      "the earlier execution's approval stays in the task's attention",
+      "the waiting execution's approval is in the task's attention",
     );
     const pending = projection.execution(waiting)?.pending_approvals[0];
     assert.ok(pending !== undefined);
@@ -2544,10 +2559,7 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
       decision: 'deny',
       message: null,
     });
-    assert.ok(
-      denied.type === 'command_ack' && denied.disposition === 'accepted',
-      'not the current one, still answered',
-    );
+    assert.ok(denied.type === 'command_ack' && denied.disposition === 'accepted', 'answered');
     await atRest(waiting);
 
     // 3. Undo: each start took a checkpoint, so one execution's changes come back apart from another's.
@@ -2568,8 +2580,8 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
         (item) => item.reason === 'before_task' && item.execution_id === executionId,
       )?.checkpoint_id;
     assert.deepEqual(
-      [first, second, waiting, beside].map((id) => beforeTask(id) !== undefined),
-      [true, true, true, true],
+      [first, second, waiting].map((id) => beforeTask(id) !== undefined),
+      [true, true, true],
       'a checkpoint before every start',
     );
     const restore = async (checkpointId: string | undefined) => {

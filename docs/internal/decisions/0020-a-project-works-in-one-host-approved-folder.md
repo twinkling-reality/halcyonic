@@ -99,15 +99,26 @@ unit tests only.
   project. The command is then failed with an unknown effect when the control plane restarts, and a
   retry of the same choice is refused with `location_exists`, whose message says to choose it as an
   existing folder, which binds it (tested). Nothing deletes the folder.
-- **Parallel workstreams in one project share its folder.** Two executions, of one workstream or of
-  two, can run at once in the same tree: agents may overwrite each other's edits, and one agent's
-  checks can see the other's half-finished work. Nothing prevents it today. The options are one
-  active execution per folder (admission refuses a second start while one runs), a git worktree per
-  workstream made by the host, or leaving it to the person; this stays an open question
+- **Parallel workstreams in one project share its folder.** Executions of two workstreams can run
+  at once in the same tree: agents may overwrite each other's edits, and one agent's checks can see
+  the other's half-finished work. Nothing prevents that today. The options are one active execution
+  per folder (admission refuses a second start while one runs), a git worktree per workstream made
+  by the host, or leaving it to the person; this stays an open question
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). Several projects bound to one folder share
-  it the same way.
+  it the same way. One workstream's executions no longer overlap (amendment below).
 - The contracts, generated schema and C# bindings, recorded traces and the demonstration change
   together; the journal gains migration 4. Scripts that passed `cwd` or `directory` must bind the
   project instead.
 - Revisit when parallel workstreams need isolation, when a person needs folders deeper than one
   level or on another machine, or when packaging the host (consumer setup) chooses its own roots.
+
+## Amendment, 2026-11-03: one execution at a time in a workstream (ADMIT)
+
+Admission refuses `execution.start` with `invalid_state` while one of the workstream's executions is
+`starting`, `running`, `verifying` or `waiting_for_human`, or while an `execution.*` command for it
+awaits its outcome, so two executions of one workstream never work in its folder at once
+([DOMAIN_MODEL.md](../architecture/DOMAIN_MODEL.md)). A start had been admitted beside a waiting
+execution: both agents worked in the one tree, and the task read completed for the newer one while
+the earlier one still waited. An `unknown` execution does not hold its workstream, since refusing
+would only send the person to a new task in the same folder. Executions of two workstreams still
+share the folder; that stays the open question above.

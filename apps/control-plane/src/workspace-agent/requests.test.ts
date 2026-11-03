@@ -683,6 +683,7 @@ test('filtered event pages advance across older executions instead of looping on
     after = f.controlPlane.projection.position;
     for (let i = 0; i < 12; i++)
       f.emit('runtime.agent_message', { text: 'Older run reported text.' });
+    f.emit('runtime.turn.completed', { turn_id: 'existing-turn' });
     f.controlPlane.commands.submit(
       {
         schema_version: 1,
@@ -743,6 +744,7 @@ test('a newer execution during the model await expires the original mutation gra
     await settle();
     const request = f.controlPlane.projection.workspaceRequest(id);
     assert.ok(request);
+    f.emit('runtime.turn.completed', { turn_id: 'existing-turn' });
     f.controlPlane.commands.submit(
       {
         schema_version: 1,

@@ -324,6 +324,32 @@ export function admitCommand(
           'Choose a model: this runtime lists the models it can use.',
         );
       }
+      // One execution at a time in a task: a start beside an active one, or before a command to one
+      // has its outcome, would put two agents to work in the task's folder (ADMIT).
+      const active = projection
+        .activeExecutions()
+        .find((facts) => facts.workstreamId === workstream.workstream_id);
+      if (active !== undefined) {
+        return reject(
+          scope,
+          'invalid_state',
+          `This task is ${active.status}. Stop it first, or start another task.`,
+        );
+      }
+      const underWay = projection
+        .pendingCommands()
+        .find(
+          (pending) =>
+            pending.workstream_id === workstream.workstream_id &&
+            pending.command_type.startsWith('execution.'),
+        );
+      if (underWay !== undefined) {
+        return reject(
+          scope,
+          'invalid_state',
+          `The task's ${underWay.command_type} command is still in progress. Wait for its outcome, or start another task.`,
+        );
+      }
       if (projection.restoreInProgress(workstream.project_id)) {
         return reject(
           scope,

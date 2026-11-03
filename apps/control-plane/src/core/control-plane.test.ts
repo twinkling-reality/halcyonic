@@ -155,6 +155,37 @@ describe('command lifecycle', () => {
     await controlPlane.close();
   });
 
+  test('two starts of one task back to back: the second is refused, so one agent works in its folder (ADMIT)', async () => {
+    const harness = createTestControlPlane();
+    const { controlPlane, commands, time } = harness;
+    const workstreamId = await createWorkstream(harness);
+    const first = controlPlane.commands.submit(
+      commands.startExecution(workstreamId, FEATURE),
+      'internal',
+    );
+    const second = controlPlane.commands.submit(
+      commands.startExecution(workstreamId, FEATURE),
+      'internal',
+    );
+    assert.equal(first.disposition, 'accepted');
+    assert.equal(second.disposition, 'rejected');
+    assert.deepEqual(second.command?.rejection, {
+      code: 'invalid_state',
+      message: 'This task is starting. Stop it first, or start another task.',
+    });
+    await time.runUntilIdle();
+    assert.equal(controlPlane.projection.executions().length, 1);
+    // At rest, the task starts again.
+    const again = controlPlane.commands.submit(
+      commands.startExecution(workstreamId, FEATURE),
+      'internal',
+    );
+    assert.equal(again.disposition, 'accepted');
+    await time.runUntilIdle();
+    assert.equal(controlPlane.projection.executions().length, 2);
+    await controlPlane.close();
+  });
+
   test('a command from a device revoked since it authenticated is rejected and journaled', async () => {
     const { controlPlane, commands } = createTestControlPlane();
     const devices = new DeviceAccess({
@@ -822,11 +853,13 @@ describe('restart', () => {
       first.commands.startExecution(workstreamId, APPROVAL),
       'internal',
     );
+    // A task of its own: one task runs one execution at a time (ADMIT).
+    const stuckWorkstreamId = await createWorkstream(first, FEATURE);
     const stuck = first.controlPlane.commands.submit(
       {
-        ...first.commands.startExecution(workstreamId, FEATURE),
+        ...first.commands.startExecution(stuckWorkstreamId, FEATURE),
         payload: {
-          workstream_id: workstreamId,
+          workstream_id: stuckWorkstreamId,
           runtime_id: 'stuck' as RuntimeId,
           instruction: 'Go.',
           options: {},

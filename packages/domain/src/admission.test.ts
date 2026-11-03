@@ -46,6 +46,9 @@ function setup() {
   const workstream = b.workstream(project.projectId);
   const execution = b.execution(project.projectId, workstream.workstreamId);
   for (const stored of [project.event, workstream.event, execution.event]) projection.apply(stored);
+  // A task with no execution, so a start on it meets no active one.
+  const idle = b.workstream(project.projectId, 'Idle');
+  projection.apply(idle.event);
   const scope = {
     projectId: project.projectId,
     workstreamId: workstream.workstreamId,
@@ -94,21 +97,21 @@ function setup() {
       },
     }),
   };
-  return { b, projection, scope, commands, workstream };
+  return { b, projection, scope, commands, workstream, idle };
 }
 
 describe('command admission', () => {
   test('starting on a known workstream with a capable runtime is admitted as low consequence', () => {
-    const { projection, commands, workstream } = setup();
-    const admission = admitCommand(commands.start(workstream.workstreamId), projection, catalog());
+    const { projection, commands, idle } = setup();
+    const admission = admitCommand(commands.start(idle.workstreamId), projection, catalog());
     assert.equal(admission.admitted, true);
     assert.equal(admission.admitted && admission.policy, 'low_consequence');
-    assert.equal(admission.scope.workstream_id, workstream.workstreamId);
+    assert.equal(admission.scope.workstream_id, idle.workstreamId);
   });
 
   test('a chosen model is admitted only for a runtime that lists its models', () => {
-    const { projection, commands, workstream } = setup();
-    const start = commands.start(workstream.workstreamId);
+    const { projection, commands, idle } = setup();
+    const start = commands.start(idle.workstreamId);
     const choosing = {
       ...start,
       payload: { ...(start.payload as object), model_ref: 'ollama/qwen3.6:35b-a3b-nvfp4' },
@@ -124,9 +127,9 @@ describe('command admission', () => {
   });
 
   test('a runtime that lists its models never chooses one by itself: a start must name one', () => {
-    const { projection, commands, workstream } = setup();
+    const { projection, commands, idle } = setup();
     const refused = admitCommand(
-      commands.start(workstream.workstreamId),
+      commands.start(idle.workstreamId),
       projection,
       catalog(FULL, 'listed'),
     );
@@ -136,23 +139,23 @@ describe('command admission', () => {
     });
     // A runtime without a list chooses its own model, as before.
     assert.equal(
-      admitCommand(commands.start(workstream.workstreamId), projection, catalog()).admitted,
+      admitCommand(commands.start(idle.workstreamId), projection, catalog()).admitted,
       true,
     );
   });
 
   test('a runtime that works in the project folder is refused for a project without one', () => {
-    const { b, projection, commands, workstream } = setup();
+    const { b, projection, commands, idle } = setup();
     const refused = admitCommand(
-      commands.start(workstream.workstreamId),
+      commands.start(idle.workstreamId),
       projection,
       catalog(FULL, 'none', true),
     );
     assert.equal(refused.admitted ? null : refused.rejection.code, 'location_required');
-    assert.equal(refused.scope.workstream_id, workstream.workstreamId);
+    assert.equal(refused.scope.workstream_id, idle.workstreamId);
     // A runtime that uses no folder starts anywhere, as before.
     assert.equal(
-      admitCommand(commands.start(workstream.workstreamId), projection, catalog()).admitted,
+      admitCommand(commands.start(idle.workstreamId), projection, catalog()).admitted,
       true,
     );
 
@@ -167,6 +170,80 @@ describe('command admission', () => {
     );
     // The folder itself is the host's to check; the domain knows only that there is one.
     assert.equal(admitted.admitted, true);
+  });
+
+  test('a task runs one execution at a time: a start is refused while one is active or a command to it is under way, and admitted at rest (ADMIT)', () => {
+    const { b, projection, scope, commands, workstream } = setup();
+    const start = () =>
+      admitCommand(commands.start(workstream.workstreamId), projection, catalog());
+    const refusal = (status: string) => ({
+      code: 'invalid_state',
+      message: `This task is ${status}. Stop it first, or start another task.`,
+    });
+    // Created, and its runtime has not begun a turn: starting.
+    const starting = start();
+    assert.deepEqual(starting.admitted ? null : starting.rejection, refusal('starting'));
+    assert.equal(starting.scope.workstream_id, workstream.workstreamId);
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    const running = start();
+    assert.deepEqual(running.admitted ? null : running.rejection, refusal('running'));
+    projection.apply(
+      b.runtimeEvent(scope, 'runtime.test_run.started', { test_run_id: 'r1', label: null }),
+    );
+    const verifying = start();
+    assert.deepEqual(verifying.admitted ? null : verifying.rejection, refusal('verifying'));
+    projection.apply(
+      b.runtimeEvent(scope, 'runtime.approval.requested', {
+        approval_id: 'a1',
+        subject: { kind: 'tool_use', tool_name: 'bash', summary: 'Run it' },
+        complete: true,
+      }),
+    );
+    const waiting = start();
+    assert.deepEqual(waiting.admitted ? null : waiting.rejection, refusal('waiting_for_human'));
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }));
+    // At rest another start is admitted, as a switch to another agent is.
+    assert.equal(start().admitted, true);
+
+    // An instruction accepted at rest has no turn yet, so the task still reads at rest until the
+    // runtime begins one: the start waits for its outcome.
+    const instruct = commands.instruct();
+    const commandScope = {
+      project_id: scope.projectId,
+      workstream_id: scope.workstreamId,
+      execution_id: scope.executionId,
+    };
+    projection.apply(
+      b.controlPlane('command.accepted', commandScope, {
+        command: instruct,
+        policy: 'low_consequence',
+        received_via: 'internal',
+        principal: null,
+      }),
+    );
+    const underWay = start();
+    assert.deepEqual(underWay.admitted ? null : underWay.rejection, {
+      code: 'invalid_state',
+      message:
+        "The task's execution.send_instruction command is still in progress. Wait for its outcome, or start another task.",
+    });
+    projection.apply(
+      b.controlPlane('command.completed', commandScope, {
+        command_id: instruct.command_id,
+        command_type: 'execution.send_instruction',
+        result: null,
+      }),
+    );
+    assert.equal(start().admitted, true);
+
+    // One at a time is per task: another task of the project starts while this one runs.
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't2' }));
+    const other = b.workstream(scope.projectId, 'Other');
+    projection.apply(other.event);
+    assert.equal(
+      admitCommand(commands.start(other.workstreamId), projection, catalog()).admitted,
+      true,
+    );
   });
 
   test('setting a location is admitted only for a known project', () => {
