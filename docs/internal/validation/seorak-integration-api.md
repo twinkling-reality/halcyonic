@@ -232,8 +232,14 @@ readings, or `unavailable` (`not_captured`); record the result here.
   without a request, as Seorak resolves only `claude-code` and `codex`.
 - **Usage limits:** `unavailable` (`not_captured`), "Seorak has not captured a provider limit.":
   the Codex weekly reading of 2026-09-30 is no longer served, and no other was captured.
-- **Not read by Halcyonic:** a resolved session's summary also carries `elapsedSeconds`,
-  `toolCallCount` and `promptCount` (`PrivateSessionSummaryDto`), which the evaluation does not keep.
+- **The session's activity:** a resolved session's summary also carries `startedAt`, `endedAt`,
+  `elapsedSeconds`, `toolCallCount` and `promptCount` (`PrivateSessionSummaryDto`), which the
+  evaluation did not keep. Since then it carries them as `activity` (`started_at`, `ended_at`,
+  `elapsed_seconds`, `tool_calls`, `prompts`), from the same read and with the same statement about
+  it as the cost, and only when Seorak reports all five: a plane that leaves one out reads as before,
+  with no activity, and one that sends them outside the published types is `incompatible`. Read live
+  at 19:31Z for the same running session: 8,189 s, 477 tool calls, prompts null (not counted), no
+  end. No read of integration API v1 gives token counts, so Halcyonic shows none.
 - **Not verified:** 403 and 429, a Codex session, and a session Halcyonic started: its Codex and
   OpenCode ones are kept where Seorak does not read
   ([understanding-and-evaluation.md](understanding-and-evaluation.md)), and a Claude Agent one would

@@ -73,6 +73,7 @@ import {
 } from './devices.ts';
 import {
   Evaluation,
+  EvaluationActivity,
   EvaluationAvailability,
   EvaluationCost,
   EvaluationCoverage,
@@ -316,6 +317,7 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   Evaluation,
   EvaluationSource,
   EvaluationCost,
+  EvaluationActivity,
   EvaluationOutcome,
   EvaluationOutcomeMeasure,
   EvaluationUncommitted,

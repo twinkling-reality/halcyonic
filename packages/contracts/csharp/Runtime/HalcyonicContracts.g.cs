@@ -4682,6 +4682,33 @@ namespace Halcyonic.Contracts
         public string Note { get; set; } = "Estimated from token counts at list prices. Not a bill.";
     }
 
+    public sealed class EvaluationActivity
+    {
+        [JsonProperty("availability", Required = Required.Always)]
+        public EvaluationAvailability Availability { get; set; } = default!;
+
+        [JsonProperty("coverage", Required = Required.Always)]
+        public EvaluationCoverage Coverage { get; set; } = default!;
+
+        [JsonProperty("freshness", Required = Required.Always)]
+        public EvaluationFreshness Freshness { get; set; } = default!;
+
+        [JsonProperty("started_at", Required = Required.Always)]
+        public string StartedAt { get; set; } = default!;
+
+        [JsonProperty("ended_at", Required = Required.AllowNull)]
+        public string? EndedAt { get; set; }
+
+        [JsonProperty("elapsed_seconds", Required = Required.Always)]
+        public double ElapsedSeconds { get; set; }
+
+        [JsonProperty("tool_calls", Required = Required.Always)]
+        public long ToolCalls { get; set; }
+
+        [JsonProperty("prompts", Required = Required.AllowNull)]
+        public long? Prompts { get; set; }
+    }
+
     public sealed class EvaluationUncommitted
     {
         [JsonProperty("files_touched", Required = Required.Always)]
@@ -4821,6 +4848,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("cost", Required = Required.Always)]
         public EvaluationCost Cost { get; set; } = default!;
+
+        [JsonProperty("activity", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public EvaluationActivity? Activity { get; set; }
 
         [JsonProperty("outcome", Required = Required.Always)]
         public EvaluationOutcome Outcome { get; set; } = default!;
