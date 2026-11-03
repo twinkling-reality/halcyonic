@@ -75,8 +75,11 @@ namespace Halcyonic.XR.UI
         public string? ProjectChoice { get; set; }
         public string? AgentChoice { get; set; }
 
-        /// <summary>Whether the Host chip can change anything; false stands it locked, its words still read (<see cref="KitWorkModel.EnvironmentChangeable"/>).</summary>
-        public bool EnvironmentChangeable { get; set; } = true;
+        /// <summary>Whether the Host chip can change anything; false, the default, stands it locked, its words still read (<see cref="KitWorkModel.EnvironmentChangeable"/>).</summary>
+        public bool EnvironmentChangeable { get; set; }
+
+        /// <summary>Whether the Agent chip can change anything; false, the default, stands it locked, its words still read (<see cref="KitWorkModel.AgentChangeable"/>).</summary>
+        public bool AgentChangeable { get; set; }
 
         /// <summary>
         /// Whether the work waits for the person's answer to its question: the composer then asks for Your answer and
@@ -248,7 +251,7 @@ namespace Halcyonic.XR.UI
             {
                 (environmentButton, envWords, envGlyph, EnvironmentChangeable),
                 (projectButton, ProjectChoice, GlazeIcon.Folder, true),
-                (agentButton, agentWords, GlazeIcon.CodeFile, true),
+                (agentButton, agentWords, GlazeIcon.CodeFile, AgentChangeable),
             };
             var selectors = new System.Collections.Generic.List<(KitButton Button, string Words, GlazeIcon? Glyph, bool Available)>();
             foreach (var (button, choice, glyph, available) in selectorCandidates)

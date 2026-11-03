@@ -26,7 +26,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>Whether this pass also takes the composer past the kit's rows and back (<see cref="KitActivityComposerCheck"/>).</summary>
         private static bool kitComposerWitness;
 
-        /// <summary>The kit journeys' synthetic runtime that stays inside a sandbox, the Host chip's one place to switch to.</summary>
+        /// <summary>The kit journeys' synthetic runtime that stays inside a sandbox, registered so the chips can be seen to stay the execution's own.</summary>
         private const string SandboxedRuntimeId = "render-sandboxed";
 
         private const string SandboxedRuntimeName = "Sandboxed agent (render)";
@@ -483,29 +483,26 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             else
             {
-                var initialEnv = composer.EnvironmentButton.Words.text;
-                if (!composer.EnvironmentButton.Available)
-                    failures.Add(name + ": the Host chip is locked though a registered runtime stays inside a sandbox");
-                composer.EnvironmentButton.Press.SettleForRender();
-                composer.EnvironmentButton.Press.PressForRender(965);
-                KitDraw(director);
-                if (composer.EnvironmentButton.Words.text == initialEnv)
-                    failures.Add(name + ": pressing the environment selector pill did not toggle Host: This Mac / Host: Sandbox");
-                if (composer.EnvironmentButton.Words.text != LabelText.ForTextMeshPro(KitMomentWords.HostChip(KitMomentWords.InSandbox))
-                    || composer.AgentButton.Words.text != LabelText.ForTextMeshPro(KitMomentWords.AgentChip(SandboxedRuntimeName)))
-                    failures.Add(name + ": Host: Sandbox does not stand for the registered runtime that stays inside a sandbox");
+                // Send instructs the task's own execution, so the chips are that execution's runtime's, both locked as facts,
+                // though a runtime that stays inside a sandbox is registered beside it: a press on either changes nothing.
+                var runs = file.Now?.Runtime;
+                var host = LabelText.ForTextMeshPro(KitMomentWords.HostChip(KitPresenter.EnvironmentOf(runs) ?? ""));
+                var agent = LabelText.ForTextMeshPro(KitMomentWords.AgentChip(KitPresenter.AgentOf(runs, file.Now?.Execution) ?? ""));
+                if (composer.EnvironmentButton.Words.text != host || composer.AgentButton.Words.text != agent)
+                    failures.Add(name + ": the chips read \"" + composer.EnvironmentButton.Words.text + "\" and \"" + composer.AgentButton.Words.text
+                        + "\", not the execution's own \"" + host + "\" and \"" + agent + "\"");
+                if (composer.EnvironmentButton.Available || composer.AgentButton.Available)
+                    failures.Add(name + ": a chip takes presses though no command carries another runtime");
+                foreach (var (chip, pointer) in new[] { (composer.EnvironmentButton, 965), (composer.AgentButton, 966) })
+                {
+                    chip.Press.SettleForRender();
+                    chip.Press.PressForRender(pointer);
+                    KitDraw(director);
+                }
+                if (composer.EnvironmentButton.Words.text != host || composer.AgentButton.Words.text != agent)
+                    failures.Add(name + ": a press on a locked chip changed what the chips say");
                 if (instruction.Words != words)
-                    failures.Add(name + ": toggling the environment selector pill lost the unsent instruction draft");
-                composer.EnvironmentButton.Press.SettleForRender();
-                composer.EnvironmentButton.Press.PressForRender(966);
-                KitDraw(director);
-                if (composer.EnvironmentButton.Words.text != initialEnv)
-                    failures.Add(name + ": pressing the environment selector pill a second time did not restore " + initialEnv);
-                composer.AgentButton.Press.SettleForRender();
-                composer.AgentButton.Press.PressForRender(967);
-                KitDraw(director);
-                if (instruction.Words != words)
-                    failures.Add(name + ": cycling the agent selector pill lost the unsent instruction draft");
+                    failures.Add(name + ": a press on a locked chip lost the unsent instruction draft");
             }
             var longer = string.Join(" ", Enumerable.Repeat("Add a regression test for the rate limit, then run the whole suite.", 12));
             instruction.Restore(execution, longer, false, 0);

@@ -189,10 +189,11 @@ public class KitFileBindingTests
     }
 
     [Test]
-    public void TheChipsChosenWordsStandAsGivenNeverTheWorkspacesRuntimes()
+    public void TheComposersChipsAreTheExecutionsOwnAndLocked()
     {
-        // The person chose OpenCode, which declares no environment, for a task another runtime ran: no Host chip, never
-        // the workspace runtime's environment beside OpenCode's name.
+        // The composer's Send instructs the task's own execution (WorkspaceSteering.SendInstruction), so its chips are that
+        // execution's runtime's: a Codex task's composer says This Mac and Codex, neither taking a press, as does a binding
+        // given no chips (AUDIT, 2026-11-03).
         var running = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
         var codex = new RuntimeDescriptor
         {
@@ -208,18 +209,22 @@ public class KitFileBindingTests
         var screen = new FileScreen { Section = FileSection.Activity, Speak = true };
         screen.Instruction.Restore(workspace.Execution!.ExecutionId, "Run the tests again.", false, 0);
         var frame = Screen(workspace, steering, screen);
-        Assert.That(KitPresenter.EnvironmentOf(workspace.Runtime), Is.EqualTo("This Mac"), "the workspace's own runtime declares an environment");
-        var chosen = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Words, Live, "Storefront", Spine,
-            selectors: new KitSelectors(null, false, "OpenCode"))!;
-        Assert.That((chosen.Model.Environment, chosen.Model.EnvironmentChangeable, chosen.Model.Agent), Is.EqualTo(((string?)null, false, "OpenCode")));
-        var unchosen = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Words, Live, "Storefront", Spine)!;
-        Assert.That((unchosen.Model.Environment, unchosen.Model.EnvironmentChangeable), Is.EqualTo((KitPresenter.EnvironmentOf(workspace.Runtime), true)),
-            "without a choice, the workspace's own runtime's");
+        var chips = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Words, Live, "Storefront", Spine,
+            selectors: KitPresenter.ChipsOf(workspace))!;
+        Assert.That((chips.Model.Environment, chips.Model.EnvironmentChangeable, chips.Model.Agent, chips.Model.AgentChangeable),
+            Is.EqualTo(("This Mac", false, "Codex", false)));
+        var given = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Words, Live, "Storefront", Spine)!;
+        Assert.That((given.Model.Environment, given.Model.EnvironmentChangeable, given.Model.Agent, given.Model.AgentChangeable),
+            Is.EqualTo(("This Mac", false, "Codex", false)), "given no chips, the workspace's own runtime's, locked");
     }
 
     [Test]
-    public void TheComposerCyclesEnvironmentAndAgentWhilePreservingTheUnsentDraft()
+    public void AChoiceCyclesEnvironmentAndAgentAndTheDraftStays()
     {
+        // The choice a command will carry once Send can start a run on another runtime: the composer that instructs the
+        // task's own execution shows that execution's chips instead (TheComposersChipsAreTheExecutionsOwnAndLocked). The
+        // runtimes declare as the owner's do on macOS: Codex may leave the sandbox, OpenCode stays inside, Claude Agent
+        // declares nothing.
         var workspace = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
         var steering = Steering();
         var screen = new FileScreen { Section = FileSection.Activity, Speak = true };
@@ -232,7 +237,7 @@ public class KitFileBindingTests
             RuntimeId = "codex",
             Kind = "codex",
             DisplayName = "Codex",
-            ApprovalMayLeaveSandbox = false,
+            ApprovalMayLeaveSandbox = true,
             Capabilities = new RuntimeCapabilities { StartExecution = true },
         };
         var openCode = new RuntimeDescriptor
@@ -241,6 +246,7 @@ public class KitFileBindingTests
             Kind = "opencode",
             DisplayName = "OpenCode",
             ModelChoice = ModelChoice.Listed,
+            ApprovalMayLeaveSandbox = false,
             Capabilities = new RuntimeCapabilities { StartExecution = true },
         };
         var claude = new RuntimeDescriptor
@@ -248,7 +254,6 @@ public class KitFileBindingTests
             RuntimeId = "claude",
             Kind = "claude-code",
             DisplayName = "Claude Agent",
-            ApprovalMayLeaveSandbox = true,
             Capabilities = new RuntimeCapabilities { StartExecution = true },
         };
         var runtimes = new[] { codex, openCode, claude };
@@ -279,21 +284,22 @@ public class KitFileBindingTests
                     KitPresenter.AgentOf(current, workspace.Execution, presentation.SelectedModelDisplay(current, workspace.Execution))))!;
         }
 
-        presentation.SelectRuntime("claude");
+        presentation.SelectRuntime("codex");
         var initial = Rebind();
-        Assert.That((initial.Model.Environment, initial.Model.Agent, initial.Model.Draft), Is.EqualTo(("This Mac", "Claude Agent", draftWords)));
+        Assert.That((initial.Model.Environment, initial.Model.Agent, initial.Model.Draft), Is.EqualTo(("This Mac", "Codex", draftWords)));
 
         presentation.CycleEnvironment(runtimes);
         var sandboxed = Rebind();
-        Assert.That((sandboxed.Model.Environment, sandboxed.Model.Agent, sandboxed.Model.Draft), Is.EqualTo(("Sandbox", "Codex", draftWords)));
-
-        presentation.CycleAgent(runtimes);
-        var openCodeBound = Rebind();
-        Assert.That((openCodeBound.Model.Agent, openCodeBound.Model.Draft), Is.EqualTo(("OpenCode", draftWords)));
+        Assert.That((sandboxed.Model.Environment, sandboxed.Model.Agent, sandboxed.Model.Draft), Is.EqualTo(("Sandbox", "OpenCode", draftWords)));
 
         presentation.CycleAgent(runtimes);
         var glimmerBound = Rebind();
-        Assert.That((glimmerBound.Model.Agent, glimmerBound.Model.Draft), Is.EqualTo(("muse-glimmer:30b-mlx", draftWords)));
+        Assert.That((glimmerBound.Model.Environment, glimmerBound.Model.Agent, glimmerBound.Model.Draft), Is.EqualTo(("Sandbox", "muse-glimmer:30b-mlx", draftWords)));
+
+        presentation.CycleAgent(runtimes);
+        var claudeBound = Rebind();
+        Assert.That((claudeBound.Model.Environment, claudeBound.Model.Agent, claudeBound.Model.Draft), Is.EqualTo(((string?)null, "Claude Agent", draftWords)),
+            "a runtime that declares nothing shows no Host chip");
     }
 
     [Test]

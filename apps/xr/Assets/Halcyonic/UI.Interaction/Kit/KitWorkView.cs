@@ -377,6 +377,7 @@ namespace Halcyonic.XR.UI
                 && (!string.IsNullOrEmpty(model.Environment) || !string.IsNullOrEmpty(model.Agent));
             composer.EnvironmentChoice = hasSelectors ? model.Environment : null;
             composer.EnvironmentChangeable = model.EnvironmentChangeable;
+            composer.AgentChangeable = model.AgentChangeable;
             composer.ProjectChoice = null;
             composer.AgentChoice = hasSelectors ? model.Agent : null;
             if (binding != null && model.Ask?.Lines.Count > 0)

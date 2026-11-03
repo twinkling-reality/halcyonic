@@ -256,6 +256,17 @@ namespace Halcyonic.Client
                 : Array.Empty<RuntimeModel>();
 
         /// <summary>
+        /// The display name, or the reference, of the model <paramref name="execution"/> runs on <paramref name="runtime"/>
+        /// as the models listed for it name it, whatever is selected; null where it runs none by name.
+        /// </summary>
+        public string? ExecutionModelDisplay(RuntimeDescriptor? runtime, ExecutionView? execution)
+        {
+            if (runtime == null || runtime.ModelChoice != ModelChoice.Listed || execution == null
+                || execution.Runtime.RuntimeId != runtime.RuntimeId || string.IsNullOrWhiteSpace(execution.ModelRef)) return null;
+            return ModelsForRuntime(runtime.RuntimeId).FirstOrDefault(item => item.ModelRef == execution.ModelRef)?.DisplayName ?? execution.ModelRef;
+        }
+
+        /// <summary>
         /// Returns the display name or reference of the currently selected model for <paramref name="runtime"/>,
         /// or null when no specific model is selected.
         /// </summary>
