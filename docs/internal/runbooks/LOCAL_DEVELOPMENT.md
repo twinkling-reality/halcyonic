@@ -104,7 +104,12 @@ which only you can read or change, and Halcyonic reads it when it starts
    tab's explanations need Salidium and a credential ([Connect Seorak](#connect-seorak),
    [Connect Salidium](#connect-salidium)). Credentials move only as files with mode 600, never
    through the clipboard, a prompt or a chat; the setup checks that they exist and that no one else
-   can read them, and never opens them.
+   can read them, and never opens them. New VR apps begin from the VR starter: `pnpm mac-setup
+   starter` prints the commands that install its pinned set and records it once each package is the
+   version its lockfile pins ([The VR starter](#the-vr-starter)), and their checks run in the browser
+   `pnpm mac-setup browser` sets up ([New apps' browser](#new-apps-browser)). `pnpm mac-setup undo`
+   turns undo on with the system's git, `/usr/bin/git`, so a task's changes can be put back from the
+   checkpoints Halcyonic keeps; `pnpm mac-setup undo off` turns it off.
 5. **Start Halcyonic**, and leave its window open while you use the headset:
 
    ```bash
@@ -289,6 +294,24 @@ into `~/.halcyonic/browser/current`, records its folder in the settings file (ne
 the sound helper. After that `pnpm dev` needs no variable for it; at every start the copy is checked against the pin
 again. If the cache has no such build, the command says where it looked; install it with Playwright yourself and run
 the command again. Nothing is downloaded by Halcyonic.
+
+### The VR starter
+
+New VR apps begin from the starter in `starters/iwsdk-vr`
+([ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)). Its pinned set of packages is
+installed once, into `~/.halcyonic/starters/iwsdk-vr`, by you, from the public npm registry only, with no install
+scripts and none of your own npm settings; Halcyonic downloads nothing. `pnpm mac-setup starter` prints these commands
+when the set is missing or differs, and records the set once every package is the version the lockfile pins:
+
+```bash
+mkdir -p ~/.halcyonic/starters/iwsdk-vr
+cp starters/iwsdk-vr/package.json starters/iwsdk-vr/package-lock.json ~/.halcyonic/starters/iwsdk-vr/
+npm ci --prefix ~/.halcyonic/starters/iwsdk-vr --ignore-scripts --no-audit --no-fund --userconfig /dev/null --globalconfig /dev/null --cache "$(mktemp -d)" --registry https://registry.npmjs.org/
+pnpm mac-setup starter
+```
+
+The set is 80 packages, about 240 MB. A project made from the starter links to it and never changes it; Halcyonic
+sees the record at once, with no restart.
 
 ### The VR starter's controller models
 

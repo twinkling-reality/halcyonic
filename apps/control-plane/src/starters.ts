@@ -8,6 +8,7 @@ import {
   readFileSync,
   realpathSync,
   symlinkSync,
+  writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
@@ -252,6 +253,60 @@ export class HostStarters {
       return null;
     }
   }
+}
+
+/** How a starter's installed set stands against its tracked lockfile (`pnpm mac-setup starter`). */
+export type InstalledSet =
+  | { readonly state: 'missing' }
+  | { readonly state: 'differs'; readonly differs: readonly string[] }
+  | { readonly state: 'matches'; readonly lockfile: string; readonly packages: number };
+
+/**
+ * Whether `<installedDir>/<id>/node_modules` holds every package the tracked lockfile pins, each at
+ * its pinned version as its own package.json says; an optional package (a platform's build) may be
+ * absent. `lockfile` is the tracked lockfile's SHA-256.
+ */
+export function installedSet(trackedDir: string, installedDir: string, id: string): InstalledSet {
+  const folder = join(installedDir, id);
+  try {
+    if (!lstatSync(join(folder, 'node_modules')).isDirectory())
+      return { state: 'differs', differs: ['node_modules'] };
+  } catch {
+    return { state: 'missing' };
+  }
+  const text = readFileSync(join(trackedDir, id, 'package-lock.json'));
+  const lock = JSON.parse(text.toString('utf8')) as {
+    packages?: Record<string, { version?: unknown; optional?: unknown }>;
+  };
+  const differs: string[] = [];
+  let packages = 0;
+  for (const [path, entry] of Object.entries(lock.packages ?? {})) {
+    if (path === '') continue;
+    let version: unknown;
+    try {
+      version = (
+        JSON.parse(readFileSync(join(folder, path, 'package.json'), 'utf8')) as {
+          version?: unknown;
+        }
+      ).version;
+    } catch {
+      version = undefined;
+    }
+    if (version === undefined && entry.optional === true) continue;
+    if (version === entry.version) packages += 1;
+    else differs.push(path);
+  }
+  return differs.length > 0
+    ? { state: 'differs', differs }
+    : { state: 'matches', lockfile: createHash('sha256').update(text).digest('hex'), packages };
+}
+
+/** Records the installed set as made from the tracked lockfile, so the starter counts as installed. */
+export function recordInstalled(installedDir: string, id: string, lockfile: string): void {
+  writeFileSync(
+    join(installedDir, id, 'installed.json'),
+    `${JSON.stringify({ format: 1, lockfile })}\n`,
+  );
 }
 
 /** Every file below `root`, relative and sorted, or null when it holds a link or anything else. */

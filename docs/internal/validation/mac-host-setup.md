@@ -141,6 +141,23 @@ With no match it names the folder it looked in and the build it needs, and sets 
 `mac-setup.test.ts` with a stand-in cache (a matching build, another build, and a link to the match, passed over), in
 `config.test.ts` and in `settings.test.ts`; on this Mac Playwright's `chromium_headless_shell-1248` holds the pinned build.
 
+## The VR starter and undo in the setup (2026-11-03)
+
+`pnpm mac-setup starter` reads the VR starter's installed set in `<data dir>/starters/iwsdk-vr` against the tracked
+lockfile, each package's own `package.json` version against the version the lockfile pins (an optional platform
+build may be absent), and writes `installed.json` with the lockfile's SHA-256 only when all match; otherwise it names
+what differs, or says the set is missing, and prints the commands that install it (npm from the public registry, no
+install scripts, an empty user and global npm configuration, a cache of its own), changing nothing. `pnpm mac-setup
+undo` records `HALCYONIC_GIT_BIN`, `/usr/bin/git` or the absolute path named, only when it is a file this Mac can run;
+it never runs git, since `/usr/bin/git` without Apple's command line tools would ask on the person's screen to install
+them. `undo off` takes it away. The check shows both as steps, VR starter and Undo, Optional until set up.
+
+Run on a scratch data directory holding a set installed by those commands (80 packages, every version the
+lockfile's): `starter` recorded it, `undo` recorded `/usr/bin/git`, and the check read both Ready. Tested in
+`mac-setup.test.ts`: nothing installed (the commands printed, nothing recorded), a set stand-in matching the lockfile
+(recorded, then Ready), one package at another version (named, nothing recorded), undo on and off, and a missing
+path, a folder, a file that cannot run and a relative path refused.
+
 ## Not verified
 
 - **A person new to Halcyonic** following the runbook's "First run on a Mac" without help. Words

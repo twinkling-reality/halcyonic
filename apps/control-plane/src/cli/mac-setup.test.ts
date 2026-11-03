@@ -49,6 +49,28 @@ function sha256(text: string): string {
   return createHash('sha256').update(text).digest('hex');
 }
 
+const STARTER_LOCKFILE = new URL(
+  '../../../../starters/iwsdk-vr/package-lock.json',
+  import.meta.url,
+);
+
+/** A stand-in for the VR starter's installed set: each package its lockfile pins, as a package.json of that version. */
+function installStarterSet(dataDir: string): string {
+  const folder = join(dataDir, 'starters', 'iwsdk-vr');
+  const lock = JSON.parse(readFileSync(STARTER_LOCKFILE, 'utf8')) as {
+    packages: Record<string, { version?: string; optional?: boolean }>;
+  };
+  for (const [path, entry] of Object.entries(lock.packages)) {
+    if (path === '' || entry.optional) continue;
+    mkdirSync(join(folder, path), { recursive: true });
+    writeFileSync(
+      join(folder, path, 'package.json'),
+      JSON.stringify({ name: path.replace(/^.*node_modules\//, ''), version: entry.version }),
+    );
+  }
+  return folder;
+}
+
 /** A chrome-headless-shell folder: every file it is named by, its binary holding `binary`. */
 function writeShell(folder: string, binary: string): string {
   fs.mkdirSync(folder, { recursive: true });
@@ -1096,6 +1118,86 @@ describe('pnpm mac-setup', () => {
     });
     await machine.run('--with-token');
     assert.equal(status(machine, 'Companion'), 'Ready');
+  });
+
+  test("starter, with nothing installed, says how to install the VR starter's pinned set, and records nothing", async (t) => {
+    const machine = mac(t);
+    assert.equal(await machine.run('starter'), 1);
+    const said = text(machine);
+    assert.match(said, /npm ci --prefix ~\/\.halcyonic\/starters\/iwsdk-vr/);
+    assert.match(said, /--ignore-scripts/);
+    assert.match(said, /--registry https:\/\/registry\.npmjs\.org\//);
+    assert.match(said, /--userconfig \/dev\/null --globalconfig \/dev\/null/);
+    assert.match(said, /starters\/iwsdk-vr\/package-lock\.json/);
+    assert.equal(
+      existsSync(join(machine.dataDir, 'starters', 'iwsdk-vr', 'installed.json')),
+      false,
+    );
+    machine.lines.length = 0;
+    await machine.run();
+    assert.match(text(machine), /VR starter: Optional/);
+    assert.match(text(machine), /pnpm mac-setup starter/);
+  });
+
+  test('starter records a set whose every package is the version its lockfile pins, and the check reads it Ready', async (t) => {
+    const machine = mac(t);
+    const folder = installStarterSet(machine.dataDir);
+    assert.equal(await machine.run('starter'), 0, text(machine));
+    const record = JSON.parse(readFileSync(join(folder, 'installed.json'), 'utf8'));
+    assert.deepEqual(record, {
+      format: 1,
+      lockfile: sha256(readFileSync(STARTER_LOCKFILE, 'utf8')),
+    });
+    machine.lines.length = 0;
+    await machine.run();
+    assert.match(text(machine), /VR starter: Ready/);
+  });
+
+  test('starter refuses a set with a package at another version, and names it', async (t) => {
+    const machine = mac(t);
+    const folder = installStarterSet(machine.dataDir);
+    writeFileSync(
+      join(folder, 'node_modules', 'three', 'package.json'),
+      JSON.stringify({ name: 'three', version: '0.185.0' }),
+    );
+    assert.equal(await machine.run('starter'), 1);
+    assert.match(text(machine), /node_modules\/three/);
+    assert.equal(existsSync(join(folder, 'installed.json')), false);
+  });
+
+  test("undo records the system's git, so undo is on from the next start; off takes it away", async (t) => {
+    const machine = mac(t);
+    const git = join(machine.root, 'bin', 'git');
+    mkdirSync(dirname(git), { recursive: true });
+    writeFileSync(git, '#!/bin/sh\n');
+    chmodSync(git, 0o755);
+    machine.lines.length = 0;
+    await machine.run();
+    assert.match(text(machine), /Undo: Optional/);
+    assert.equal(await machine.run('undo', git), 0, text(machine));
+    assert.equal(machine.settings().HALCYONIC_GIT_BIN, git);
+    assert.equal(loadConfig(withSettings(machine.env, machine.settings()), PINS).gitBinary, git);
+    machine.lines.length = 0;
+    await machine.run();
+    assert.match(text(machine), /Undo: Ready/);
+    assert.equal(await machine.run('undo', 'off'), 0);
+    assert.equal(machine.settings().HALCYONIC_GIT_BIN, undefined);
+  });
+
+  test('undo refuses a git that is not there, is a folder or cannot run, and records nothing', async (t) => {
+    const machine = mac(t);
+    const notRunnable = join(machine.root, 'git-text');
+    writeFileSync(notRunnable, 'not a program\n');
+    chmodSync(notRunnable, 0o644);
+    for (const path of [
+      join(machine.root, 'missing-git'),
+      machine.root,
+      notRunnable,
+      'relative/git',
+    ]) {
+      assert.equal(await machine.run('undo', path), 1, path);
+      assert.equal(machine.settings().HALCYONIC_GIT_BIN, undefined, path);
+    }
   });
 
   test('unknown commands and flags print how to use it', async (t) => {
