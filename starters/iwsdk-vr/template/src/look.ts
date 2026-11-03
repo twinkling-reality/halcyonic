@@ -1,4 +1,4 @@
-import type { World } from '@iwsdk/core';
+import { createSystem, type World } from '@iwsdk/core';
 import {
   BackSide,
   CanvasTexture,
@@ -23,6 +23,7 @@ import {
   TorusGeometry,
   Vector2,
 } from 'three';
+import { drift } from './motion.js';
 import { groundPatch, palette, soilLip, toyMaterial } from './palette.js';
 
 /**
@@ -73,6 +74,22 @@ function deform<G extends BufferGeometry>(geometry: G): G {
 
 let shadowTexture: CanvasTexture | null = null;
 let built: Group | null = null;
+const movers: ((time: number) => void)[] = [];
+
+/**
+ * Moves a part of the world's own scenery every frame from the time the starter's system is given, never a clock of its
+ * own, so the person's computer can step it: the clouds and `decorate()`'s breeze and butterflies use it. A game moves
+ * its own objects in its own systems.
+ */
+export function ambientMotion(move: (time: number) => void): void {
+  movers.push(move);
+}
+
+class AmbientSystem extends createSystem({}) {
+  update(_delta: number, time: number): void {
+    for (const move of movers) move(time);
+  }
+}
 
 /** The island setupLook made: add the game's objects to it, so they stand on its top at y = 0. */
 export function gameIsland(): Group {
@@ -271,17 +288,25 @@ export function setupLook(world: World): { island: Group } {
       }),
     ),
   );
-  for (const [x, y, z, size] of [
+  for (const [i, [x, y, z, size]] of [
     [-6, 2.2, -12, 1.0],
     [5.5, 2.8, -14, 1.2],
     [10, 1.4, -11, 0.8],
     [-10.5, 1.2, -10, 0.75],
     [0.5, 3.6, -20, 1.1],
-  ])
-    stage.add(cloud(x, y, z, size));
+  ].entries()) {
+    const puff = cloud(x, y, z, size);
+    stage.add(puff);
+    // Each wanders around its own home, out of step with the others.
+    ambientMotion((time) => {
+      const away = drift(time, i * 1.9);
+      puff.position.set(x + away.x, y + away.y, z);
+    });
+  }
 
   const ground = island();
   stage.add(ground);
   built = ground;
+  world.registerSystem(AmbientSystem);
   return { island: ground };
 }

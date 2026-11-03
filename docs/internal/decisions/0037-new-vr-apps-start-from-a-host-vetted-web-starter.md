@@ -306,3 +306,11 @@ island is left as ART7 framed it, its front toward +z: the tier and the clouds a
 exports `PLAYER`, the player's spot in the island's coordinates, (0, 0, 1.8), and AGENTS.md asks for the game from 1 to
 4 m in front of the player, with anything that has a front, a face or words turned toward +z. Projects made before keep
 their own copies of these files.
+
+The world then moves by itself (U3): the clouds wander a few metres around their homes, a breeze crosses the island and
+sways `decorate()`'s flowers, grass and tree crowns, and two toy butterflies loop in front of the player. One system in
+`src/look.ts` runs it all from the time a system is given (`ambientMotion()`), never a clock of its own, so the check's
+stepped clock holds it; the curves are pure functions in `src/motion.ts`, beside ART7's, which are unchanged. The ground
+the player stands on never moves. The cost, accepted: a scene that moves leaves a single load's screen change unknown, so
+a still game's press is now seen through the twin replay (M1.8g); a one-box game's check took 28 s still and 80 s moving
+at a load of 6 to 8, and both read ready.
