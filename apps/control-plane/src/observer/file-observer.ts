@@ -304,6 +304,23 @@ export class FileObserver {
   /** The reading before a task's runtime is asked. A folder that cannot be read leaves none. */
   baseline(executionId: string, directory: string): Promise<void> {
     this.#watching.add(executionId);
+    return this.#readBefore(executionId, directory);
+  }
+
+  /**
+   * The reading before a later turn, taken when an instruction starts one from rest: what changed
+   * while no turn ran, a restore, a person's edit or another task in the folder, is then no turn's,
+   * since the record says what changed while the task ran (OBS, ADR 0038). Only for executions this
+   * process watches; a reading that cannot wait is dropped with `abandon`, as a first one is.
+   */
+  beforeTurn(executionId: string, directory: string): Promise<void> {
+    if (!this.#watching.has(executionId)) return Promise.resolve();
+    this.#abandoned.delete(executionId);
+    return this.#readBefore(executionId, directory);
+  }
+
+  /** Reads the folder as the execution's latest reading, unless it was abandoned meanwhile. */
+  #readBefore(executionId: string, directory: string): Promise<void> {
     return this.#serially(directory, async () => {
       if (await holdsHostData(directory, this.#protect)) {
         this.#readings.delete(executionId);

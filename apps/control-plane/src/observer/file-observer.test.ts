@@ -24,7 +24,11 @@ import type {
 import type { ObservationSink, RuntimeAdapter, RuntimeObservation } from '@halcyonic/runtime-core';
 
 /** A control plane with the Mac's file readings on, as its own start has them (ADR 0038). */
-function observingPlane(locations: HostLocations, adapters: RuntimeAdapter[]) {
+function observingPlane(
+  locations: HostLocations,
+  adapters: RuntimeAdapter[],
+  checkpoints?: { readonly store: CheckpointStore },
+) {
   const time = createVirtualTime(new Date('2026-10-29T10:00:00.000Z'));
   const ids = createUuidV7Generator({ now: () => Date.now() });
   const journal = openSqliteJournal({ path: ':memory:', originIfNew: 'live', ids });
@@ -38,11 +42,13 @@ function observingPlane(locations: HostLocations, adapters: RuntimeAdapter[]) {
     commandTimeoutMs: 30_000,
     locations,
     observeFiles: { protect: [] },
+    ...(checkpoints === undefined ? {} : { checkpoints }),
   });
   return { controlPlane, journal };
 }
 
 import { confirmProjectLocation, createVirtualTime, type Scheduler } from '@halcyonic/runtime-core';
+import { CheckpointStore } from '../checkpoints/store.ts';
 import { ControlPlane } from '../core/control-plane.ts';
 import { createUuidV7Generator } from '../ids.ts';
 import { openSqliteJournal } from '../journal/sqlite-journal.ts';
@@ -263,6 +269,53 @@ function writingRuntime(turns: ((directory: string) => void)[]) {
   return adapter;
 }
 
+/** Makes a project in `root`'s `name` folder, a workstream, and starts the writer in it. */
+async function startWriting(controlPlane: ControlPlane, root: string, name: string) {
+  let ids = 0;
+  const submit = (type: CommandEnvelope['command_type'], payload: unknown) => {
+    ids += 1;
+    return controlPlane.commands.submit(
+      {
+        schema_version: 1,
+        command_id: `00000000-0000-4000-8000-${String(ids).padStart(12, '0')}` as CommandId,
+        issued_at: '2026-10-29T10:00:00.000Z',
+        client: { name: 'test', version: null, device_label: null },
+        command_type: type,
+        payload,
+      } as CommandEnvelope,
+      'internal',
+    );
+  };
+  const project = submit('project.create', {
+    name: 'Game',
+    location: { kind: 'existing_folder', root, folder_name: name },
+  }).command?.result;
+  const projectId = (project?.kind === 'project_created' ? project.project_id : '') as ProjectId;
+  const work = submit('workstream.create', {
+    project_id: projectId,
+    title: 'Towers',
+    objective: null,
+  }).command?.result;
+  const workstreamId = (
+    work?.kind === 'workstream_created' ? work.workstream_id : ''
+  ) as WorkstreamId;
+  submit('execution.start', {
+    workstream_id: workstreamId,
+    runtime_id: 'writer',
+    instruction: 'Make a game.',
+    options: {},
+    model_ref: null,
+  });
+  await until(
+    () => controlPlane.projection.executions().some((view) => view.workstream_id === workstreamId),
+    'the execution',
+  );
+  const executionId = controlPlane.projection
+    .executions()
+    .find((view) => view.workstream_id === workstreamId)?.execution_id as string;
+  return { submit, projectId, executionId };
+}
+
 async function until(check: () => boolean, what: string): Promise<void> {
   for (let tries = 0; tries < 400; tries += 1) {
     if (check()) return;
@@ -355,6 +408,94 @@ describe('observing each turn through the control plane', () => {
     assert.deepEqual(second.payload.deleted.files, [{ path: 'index.ts', lines_before: 1 }]);
     for (const event of observed())
       assert.equal(JSON.stringify(event.payload).includes(root), false);
+    await controlPlane.close();
+  });
+
+  test("what changed while no turn ran, a restore's files included, is no later turn's (OBS)", async () => {
+    const root = folder('between');
+    mkdirSync(join(root, 'app'));
+    writeFileSync(join(root, 'app', 'index.ts'), 'start\n');
+    const harness = observingPlane(
+      createHostLocations([root]),
+      [
+        writingRuntime([
+          (dir) => writeFileSync(join(dir, 'game.ts'), 'a\nb\n'),
+          // The second turn changes nothing.
+          () => {},
+        ]),
+      ],
+      { store: new CheckpointStore({ git: '/usr/bin/git', directory: folder('between-store') }) },
+    );
+    const { controlPlane, journal } = harness;
+    const events = (): EventEnvelope[] => [...journal.readAll()].map((stored) => stored.event);
+    const observed = () =>
+      events().filter((event) => event.event_type === 'execution.files.observed');
+    const { submit, executionId, projectId } = await startWriting(controlPlane, root, 'app');
+    await until(() => observed().length === 1, 'the first turn observed');
+    await until(
+      () => controlPlane.projection.execution(executionId)?.status === 'completed',
+      'rest',
+    );
+    // Put the folder back to before the task, as INTEGRATION's real run did between two turns.
+    await until(
+      () => controlPlane.projection.checkpoints(projectId).length >= 2,
+      'the checkpoints before the task and after its turn',
+    );
+    const before = controlPlane.projection.checkpoints(projectId)[0];
+    assert.equal(before?.reason, 'before_task');
+    submit('project.restore', { project_id: projectId, checkpoint_id: before?.checkpoint_id });
+    await until(
+      () => events().some((event) => event.event_type === 'project.restored'),
+      'the restore',
+    );
+    submit('execution.send_instruction', { execution_id: executionId, text: 'More.' });
+    await until(() => observed().length === 2, 'the second turn observed');
+    const second = observed()[1];
+    if (second?.event_type !== 'execution.files.observed') return assert.fail('no second');
+    // The restore removed game.ts; the turn did not, and its record says only what it did: nothing.
+    assert.deepEqual(
+      [second.payload.created.total, second.payload.changed.total, second.payload.deleted.total],
+      [0, 0, 0],
+      JSON.stringify(second.payload),
+    );
+    assert.equal(second.payload.skipped, null);
+    // The turn's own checkpoint follows its record; it ends before the plane closes, so nothing of
+    // this test runs on into the next, whose clock is mocked.
+    await until(
+      () => controlPlane.projection.checkpoints(projectId).length >= 4,
+      'the checkpoint after the second turn',
+    );
+    await controlPlane.close();
+  });
+
+  test("a file a person edits between turns is no later turn's change (OBS)", async () => {
+    const root = folder('edited');
+    mkdirSync(join(root, 'app'));
+    writeFileSync(join(root, 'app', 'index.ts'), 'start\n');
+    const harness = observingPlane(createHostLocations([root]), [
+      writingRuntime([
+        (dir) => writeFileSync(join(dir, 'game.ts'), 'a\nb\n'),
+        (dir) => writeFileSync(join(dir, 'score.ts'), 'x\n'),
+      ]),
+    ]);
+    const { controlPlane, journal } = harness;
+    const observed = () =>
+      [...journal.readAll()]
+        .map((stored) => stored.event)
+        .filter((event) => event.event_type === 'execution.files.observed');
+    const { submit, executionId } = await startWriting(controlPlane, root, 'app');
+    await until(() => observed().length === 1, 'the first turn observed');
+    await until(
+      () => controlPlane.projection.execution(executionId)?.status === 'completed',
+      'rest',
+    );
+    writeFileSync(join(root, 'app', 'index.ts'), 'start\nedited by the person\n');
+    submit('execution.send_instruction', { execution_id: executionId, text: 'More.' });
+    await until(() => observed().length === 2, 'the second turn observed');
+    const second = observed()[1];
+    if (second?.event_type !== 'execution.files.observed') return assert.fail('no second');
+    assert.deepEqual(second.payload.created.files, [{ path: 'score.ts', lines: 1, bytes: 2 }]);
+    assert.equal(second.payload.changed.total, 0, JSON.stringify(second.payload.changed));
     await controlPlane.close();
   });
 

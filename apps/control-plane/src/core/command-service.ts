@@ -110,8 +110,27 @@ interface ActionOutcome {
   failed(failure: CommandFailure): void;
 }
 
-/** How long a start waits for the Mac's first reading of its folder before going ahead without it. */
+/**
+ * How long a start, or an instruction that starts a turn from rest, waits for the Mac's reading of
+ * its folder before going ahead without it.
+ */
 const BASELINE_WAIT_MS = 10_000;
+
+/**
+ * A reading the runtime waits for at most `BASELINE_WAIT_MS`, so a slow one never holds work up; past
+ * that, `abandon` drops it, since taken late it may hold what the runtime already wrote, and the
+ * turn says it has no earlier reading.
+ */
+function bounded(reading: Promise<void>, abandon: () => void): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<void>((resolveLate) => {
+    timer = setTimeout(() => {
+      abandon();
+      resolveLate();
+    }, BASELINE_WAIT_MS);
+  });
+  return Promise.race([reading.finally(() => clearTimeout(timer)), late]);
+}
 
 /** How many refused answers' digests are kept to tell a resent answer from another one. */
 const REFUSED_ANSWERS_KEPT = 1000;
@@ -805,21 +824,8 @@ export class CommandService {
         if (directory !== null) {
           const files = this.#deps.files;
           if (files) {
-            // Bounded, so a slow reading never holds the start up; a late one is not used.
             const id = execution.execution_id;
-            let timer: ReturnType<typeof setTimeout> | undefined;
-            const late = new Promise<void>((resolveLate) => {
-              timer = setTimeout(() => {
-                files.abandon(id);
-                resolveLate();
-              }, BASELINE_WAIT_MS);
-            });
-            before.push(
-              Promise.race([
-                files.baseline(id, directory).finally(() => clearTimeout(timer)),
-                late,
-              ]),
-            );
+            before.push(bounded(files.baseline(id, directory), () => files.abandon(id)));
           }
           const checkpoints = this.#deps.checkpoints;
           if (checkpoints)
@@ -861,13 +867,26 @@ export class CommandService {
               ) ?? this.#deps.ollamaUnload.modelFor(execution.execution_id))
             : null;
         const startAction = () => this.#perform(command, action, outcome);
+        const before: Promise<void>[] = [];
         if (ollamaModel !== null && this.#deps.ollamaUnload) {
-          void this.#deps.ollamaUnload
-            .beforeRun(execution.execution_id, ollamaModel)
-            .then(startAction, startAction);
-        } else {
-          void startAction();
+          before.push(this.#deps.ollamaUnload.beforeRun(execution.execution_id, ollamaModel));
         }
+        // An instruction that starts a turn from rest: the folder is read again first, so what
+        // changed while no turn ran, a restore or a person's edit, is not the coming turn's (OBS).
+        const view = this.#deps.projection.execution(execution.execution_id);
+        const files = this.#deps.files;
+        if (
+          command.command_type === 'execution.send_instruction' &&
+          files &&
+          view?.directory != null &&
+          (view.status === 'completed' || view.status === 'failed' || view.status === 'interrupted')
+        ) {
+          const { directory } = view;
+          const id = execution.execution_id;
+          before.push(bounded(files.beforeTurn(id, directory), () => files.abandon(id)));
+        }
+        if (before.length === 0) void startAction();
+        else void Promise.all(before).then(startAction, startAction);
         return;
       }
       default: {

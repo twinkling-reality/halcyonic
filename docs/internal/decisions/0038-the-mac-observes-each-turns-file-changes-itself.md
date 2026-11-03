@@ -61,3 +61,17 @@ or a person changed a file, and clients say so.
 - Large folders, such as a Unity project with its library, are skipped and say so; ignore files are
   not applied without git.
 - Two tasks in one folder at once would see each other's changes; that is open with undo's.
+
+## Amendment, 2026-11-03: a reading before each later turn (OBS)
+
+The readings were taken when the start was admitted and at each turn's end, so whatever changed in the folder while
+no turn ran was credited to the next turn. A real run showed it (Codex on a local model, ADR 0036's restore between
+two turns): the second turn changed nothing, and its record said it had changed two files back, exactly the restore.
+A person's edit between turns, or another task in the folder, read the same way. The record says what changed while
+the task ran, so the control plane now also reads the folder when an instruction starts a turn from rest, before the
+runtime is asked, as it does for a start: bounded the same (10 seconds; past that the turn says `no_baseline` rather
+than guess), and only for an execution this process started. What changed between turns is then no turn's: a
+restore records its own changes (`project.restored`), and a person's edit is not recorded by the observer at all. An
+instruction delivered into a running turn starts none and reads nothing; a turn a runtime starts on its own, without
+an instruction from Halcyonic, is still compared with the reading at the previous turn's end. Tested with a stub
+runtime through the control plane, the restore made by the real store (`observer/file-observer.test.ts`).
