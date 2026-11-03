@@ -21,6 +21,7 @@
  *   pnpm quest:device -- shot [--out <dir>]          a frame of both eyes, through screenrecord
  *   pnpm quest:device -- clip --seconds <n> [--out <dir>]   both eyes for up to 180 s, through screenrecord,
  *     no sound and no upload, with <clip>.sha256 beside it; give-back collects one a cut-off run left
+ *   pnpm quest:device -- clip forget                 lets a recorded clip go, leaving it in the shell's folder
  *   pnpm quest:device -- shot --service --sync-is-off    Meta's capture service, one eye
  *   pnpm quest:device -- record --seconds <n> --sync-is-off [--out <dir>]
  *   pnpm quest:device -- record start --sync-is-off, later record stop [--out <dir>]
@@ -59,9 +60,9 @@
  * Besides what adb.ts lists, it runs `input keyevent KEYCODE_WAKEUP` (no other input), the
  * vrpowermanager `prox_close` and `automation_disable` broadcasts, the testing service's
  * GET_PROPERTY, `pm path`, `sha256sum`, `pull`, `install -r`, `cmd package resolve-activity`,
- * `reverse` and `reverse --remove` of the ports it records,
- * `screenrecord` into /sdcard/Download, Meta's capture service, `ls` of the capture folders and
- * `rm` of the files it made, by name, after their pulled copy's sha256 matched. It never
+ * `reverse` and `reverse --remove` of the ports it records, `screenrecord` into /data/local/tmp (the
+ * adb shell's own folder), Meta's capture service, `ls` of the capture folders and `rm` of the files
+ * it made, by name, after their pulled copy's sha256 matched. It never
  * uninstalls, clears data, changes a setting or the boundary, or touches a system dialog.
  *
  * Meta's capture service uploads every capture to the headset's account while the headset's
@@ -205,7 +206,14 @@ function replaced(): void {
 const SCREENSHOTS = '/sdcard/Oculus/Screenshots';
 const VIDEOS = '/sdcard/Oculus/VideoShots';
 const CLIP_WAIT_MS = 120_000;
-const DOWNLOADS = '/sdcard/Download';
+/**
+ * The adb shell's own folder (0771 shell:shell on AOSP): apps can neither list nor write it, and
+ * screenrecord runs as shell. Frames and clips show the room, so they are recorded here, never on
+ * shared storage, where other apps could read or replace them (AUDIT, 2026-11-03).
+ */
+const SHELL_FOLDER = '/data/local/tmp';
+/** The one shape of path `clip` records; a recorded path of any other shape is never used. */
+const CLIP_PATH = /^\/data\/local\/tmp\/halcyonic\.clip-\d{8}-\d{6}\.mp4$/;
 /** screenrecord's own longest recording, in seconds. */
 const CLIP_MAX_SECONDS = 180;
 /**
@@ -443,6 +451,13 @@ async function giveBack(): Promise<void> {
   }
   await removeReverses();
   for (const name of readState().started) {
+    // The state file's names reach the headset's shell: only Android package names go there.
+    if (!PACKAGE_NAME.test(name)) {
+      console.log(
+        `${JSON.stringify(name)} is not an app name, so it was not stopped and was forgotten.`,
+      );
+      continue;
+    }
     await adb('shell', 'am', 'force-stop', name);
     console.log(`Stopped ${name}, which this tool started.`);
   }
@@ -661,6 +676,26 @@ async function stop(): Promise<void> {
   if (left) process.exit(1);
 }
 
+/**
+ * Records `seconds` of both eyes to `remote`, a path this tool made in the shell's own folder, with
+ * umask 077 so the file is the shell's alone. When screenrecord fails, what it began is removed by name
+ * at once and nothing is kept: on 2026-11-03, asleep, it exited 218 and left an empty file there.
+ */
+async function recordScreen(remote: string, seconds: number): Promise<void> {
+  try {
+    await adbFor(
+      (seconds + 30) * 1000,
+      'shell',
+      `umask 077 && screenrecord --time-limit ${seconds} ${remote}`,
+    );
+  } catch (error) {
+    await adbSaid('shell', 'rm', '-f', remote);
+    throw new Error(
+      `${(error as Error).message}: screenrecord recorded nothing, as when the headset is asleep (run awake first). What it began was removed.`,
+    );
+  }
+}
+
 async function shot(): Promise<void> {
   if (flag('service')) {
     await requireSyncOff();
@@ -677,10 +712,10 @@ async function shot(): Promise<void> {
     await warnIfSyncOn();
     return;
   }
-  const remote = `${DOWNLOADS}/halcyonic.device-${stamp()}.mp4`;
+  const remote = `${SHELL_FOLDER}/halcyonic.device-${stamp()}.mp4`;
   if (!/No such file/.test(await adbSaid('shell', 'ls', remote)))
     fail(`${remote} already exists on the headset.`);
-  await adb('shell', 'screenrecord', '--time-limit', '1', remote);
+  await recordScreen(remote, 1);
   const local = await collect(remote, out);
   const frame = await leftEye(local);
   console.log(frame ?? local);
@@ -692,6 +727,8 @@ async function shot(): Promise<void> {
  * recorded in the state before it starts, so give-back collects what a cut-off run leaves.
  */
 async function clip(): Promise<void> {
+  if (positional === 'forget') return clipForget();
+  if (positional !== undefined) fail('clip takes --seconds <n>, or forget.');
   const seconds = option('seconds', 10);
   if (!Number.isInteger(seconds) || seconds > CLIP_MAX_SECONDS) {
     fail(
@@ -700,20 +737,20 @@ async function clip(): Promise<void> {
   }
   const left = readState().clip;
   if (left) fail(`A clip is still on the headset: ${left.remote}. give-back collects it.`);
-  const remote = `${DOWNLOADS}/halcyonic.clip-${stamp()}.mp4`;
+  const remote = `${SHELL_FOLDER}/halcyonic.clip-${stamp()}.mp4`;
   if (!/No such file/.test(await adbSaid('shell', 'ls', remote)))
     fail(`${remote} already exists on the headset.`);
   writeState((state) => {
     state.clip = { remote, endsAt: new Date(Date.now() + (seconds + 2) * 1000).toISOString() };
   });
-  await adbFor(
-    (seconds + 30) * 1000,
-    'shell',
-    'screenrecord',
-    '--time-limit',
-    String(seconds),
-    remote,
-  );
+  try {
+    await recordScreen(remote, seconds);
+  } catch (error) {
+    writeState((state) => {
+      delete state.clip;
+    });
+    throw error;
+  }
   console.log(await keepClip(remote));
   writeState((state) => {
     delete state.clip;
@@ -722,16 +759,44 @@ async function clip(): Promise<void> {
 
 /**
  * Collects the clip a cut-off `clip` left, once screenrecord is done with it: what went wrong, or
- * null when it is kept or never reached the headset. Never exits, so give-back can finish its own work.
+ * null when it is kept or no longer on the headset. Never exits, so give-back can finish its own work.
  */
+/**
+ * Forgets the recorded clip without touching the headset, for one whose pull never matches: the
+ * file may stay in the shell's own folder, where no app reads it, until someone removes it by name.
+ */
+function clipForget(): void {
+  const left = readState().clip;
+  if (!left) {
+    console.log('No clip is recorded.');
+    return;
+  }
+  writeState((state) => {
+    delete state.clip;
+  });
+  console.log(
+    `Forgot the recorded clip. It may still be on the headset at ${JSON.stringify(left.remote)}, in the adb shell's own folder, which no app can read; nothing here removes it.`,
+  );
+}
+
 async function collectLeftClip(left: { remote: string; endsAt: string }): Promise<string | null> {
+  // adb shell joins its words into one line for the headset's shell: only the tool's own shape goes there.
+  if (!CLIP_PATH.test(left.remote)) {
+    writeState((state) => {
+      delete state.clip;
+    });
+    console.log(
+      `The recorded clip ${JSON.stringify(left.remote)} is not a path this tool makes, so nothing ran on it and it was forgotten.`,
+    );
+    return null;
+  }
   const wait = Date.parse(left.endsAt) - Date.now();
   if (wait > 0) {
     console.log(`Waiting ${Math.ceil(wait / 1000)} s for the clip a cut-off run left to end.`);
     await sleep(Math.min(wait, (CLIP_MAX_SECONDS + 2) * 1000));
   }
   if (/No such file/.test(await adbSaid('shell', 'ls', left.remote))) {
-    console.log(`The clip a cut-off run began never reached the headset: ${left.remote}.`);
+    console.log(`The clip a cut-off run began is no longer on the headset: ${left.remote}.`);
   } else {
     try {
       console.log(await keepClip(left.remote));
