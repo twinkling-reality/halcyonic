@@ -96,3 +96,32 @@ describe("the starter's sky shows ART7's colours (U2)", () => {
     );
   });
 });
+
+describe('the world moves by itself from the first frame, by the time a system is given (U3)', () => {
+  test('the look registers one system that moves the clouds, and anything else asks it', () => {
+    const look = read('src/look.ts');
+    assert.match(look, /class AmbientSystem extends createSystem\(\{\}\)/);
+    assert.match(look, /update\(_delta: number, time: number\): void \{/);
+    assert.match(look, /world\.registerSystem\(AmbientSystem\)/);
+    assert.match(look, /export function ambientMotion\(/);
+    assert.match(look, /drift\(time,/);
+  });
+
+  test('the decor sways in a breeze and brings butterflies, through the same system', () => {
+    const decor = read('src/decor.ts');
+    assert.match(decor, /ambientMotion\(/);
+    assert.match(decor, /sway\(time,/);
+    assert.match(decor, /flap\(time,/);
+    assert.match(decor, /flight\(time,/);
+    assert.match(decor, /butterflies = \d+/);
+  });
+
+  test('nothing in the look or the decor keeps a clock of its own, so the check can step it', () => {
+    for (const file of ['src/look.ts', 'src/decor.ts'])
+      assert.doesNotMatch(
+        read(file),
+        /setTimeout|setInterval|Date\.now|performance\.now|requestAnimationFrame|new Clock/,
+        file,
+      );
+  });
+});

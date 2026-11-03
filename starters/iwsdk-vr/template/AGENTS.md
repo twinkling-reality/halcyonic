@@ -47,7 +47,9 @@ Make it fun to look at:
   1 m to 4 m away (z from 0.8 to -2.2), and turn anything with a front, a face or words toward +z, toward the player.
 - Colour every object with `toyMaterial('berry')` and the other names in `src/palette.ts`, never a colour of your
   own. Put a `contactShadow(radius)` under each prop and set its `castShadow`. `decorate(gameIsland(), { ... })`
-  from `src/decor.ts` adds trees and flowers if you want them.
+  from `src/decor.ts` adds trees, flowers and butterflies if you want them.
+- The clouds and the decor move by themselves; leave that to `src/look.ts`. Move the game's own objects in the game's
+  own systems.
 - Give every game object some motion each frame from `src/motion.ts` (`pop`, `hide`, `bob`, `wiggle`), using the
   `time` your system's `update(delta, time)` is given, never a timer of its own, so the person's computer can check
   it.

@@ -373,6 +373,25 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   check passed: type check and build 0, no exception, 22,551 edges, VR offered.
 - **Not tried:** the headset.
 
+## The world moves by itself (U3)
+
+- **Question:** can the starter's scenery move from the first frame without breaking what the check holds, and what
+  does that cost a check?
+- **Date:** 2026-11-03.
+- **Method:** the starter with its clouds drifting and `decorate()`'s breeze and butterflies, all moved by one system
+  from the time it is given; frames as in U1; the real `runCheck` timed on a game of one clickable box, made the way the
+  template's AGENTS.md reads, with the starter before and after.
+- **Moving:** in the decorated island's frames 0.26 to 0.28% of the pixels change every half second from 1 s (the
+  butterflies, the clouds, the sway); without `decorate()` only the clouds move, 0.07% a second. A fresh project's check
+  passed: type check and build 0, no exception, edges 23,219 at 3 s and 24,331 at 10 s, VR offered.
+- **The cost:** the box game's check took 28 s and 28 s with the still starter (the press seen in one load) and 81 s
+  and 80 s with the moving one (one load's change unknown, the press seen through the twin replay), at loads of 6 to 9 on
+  18 cores; all four read ready. The twin step's limit stays three minutes.
+- **Seen:** a butterfly is about 20 cm across, two-tone, with a shadow on the grass; from the laptop camera about 40
+  pixels wide, from the wearer's eye larger.
+- **Not tried:** the headset: whether the motion is comfortable there (it is small and slow, and the ground never moves)
+  and what it costs a Quest's frame time.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

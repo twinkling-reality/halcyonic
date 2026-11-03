@@ -68,3 +68,65 @@ export function bonk(seconds: number): { sxz: number; sy: number } {
   const spring = Math.exp(-7 * t) * Math.cos(14 * t);
   return { sxz: 1 + (wide - 1) * spring, sy: 1 + (low - 1) * spring };
 }
+
+/**
+ * The world's own motion, which `src/look.ts` and `src/decor.ts` run by themselves so a game is alive from its first
+ * frame: a breeze that sways flowers, grass and trees, clouds that wander, butterflies. Small and slow, never the
+ * ground the player stands on, and like the curves above, pure functions of the time a system is given.
+ */
+export const ambient = {
+  swayAmp: 0.09,
+  swayPeriod: 2.6,
+  gust: 0.7,
+  treeAmp: 0.022,
+  treePeriod: 4.4,
+  cloudDrift: 2.2,
+  cloudPeriod: 48,
+  cloudLift: 0.1,
+  flapHz: 6.5,
+  flightPeriod: 7.5,
+} as const;
+
+/**
+ * A lean in radians for something rooted at (x, z), as a breeze crosses the island: places a metre apart lean at
+ * different moments, so the grass moves like a field rather than all at once.
+ */
+export function sway(
+  seconds: number,
+  x: number,
+  z: number,
+  amp: number = ambient.swayAmp,
+  period: number = ambient.swayPeriod,
+): number {
+  return amp * Math.sin((TAU * seconds) / period - ambient.gust * (0.8 * x + 0.6 * z));
+}
+
+/** A cloud's offset from its home in metres: a slow wander sideways and a breath up and down, never a jump. */
+export function drift(seconds: number, phase: number): { x: number; y: number } {
+  const a = (TAU * seconds) / ambient.cloudPeriod + phase;
+  return { x: ambient.cloudDrift * Math.sin(a), y: ambient.cloudLift * Math.sin(2.3 * a + phase) };
+}
+
+/** A butterfly's wing angle in radians up from flat: quick beats that open wide and close nearly shut. */
+export function flap(seconds: number, phase: number): number {
+  const beat = 0.5 + 0.5 * Math.sin(TAU * ambient.flapHz * seconds + phase);
+  return 0.15 + 1.05 * beat * beat;
+}
+
+/**
+ * A butterfly's place on its loop around its spot, within `reach` metres, rising and dipping a little, and its heading
+ * (radians about y, 0 toward +z) along the way it flies.
+ */
+export function flight(
+  seconds: number,
+  phase: number,
+  reach = 0.5,
+): { x: number; y: number; z: number; heading: number } {
+  const a = (TAU * seconds) / ambient.flightPeriod + phase;
+  return {
+    x: reach * Math.sin(a),
+    y: 0.12 * Math.sin(3 * a + phase),
+    z: 0.6 * reach * Math.sin(2 * a),
+    heading: Math.atan2(Math.cos(a), 1.2 * Math.cos(2 * a)),
+  };
+}
