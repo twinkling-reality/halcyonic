@@ -288,7 +288,9 @@ namespace Halcyonic.Client
             if (!string.IsNullOrEmpty(response.Summary.Title)) words = words.Then(LineWords.Theirs(response.Summary.Title)).Then(LineWords.Written("\n"));
             if (value is CommandToolResult command)
             {
-                words = words.Then(LineWords.Written(command.ExitCode.HasValue ? "Exit Code · " + command.ExitCode.Value + "\n" : "Exit Code Not Recorded\n"));
+                // The invariant number, as the listing writes it: a device's minus sign can carry a direction mark.
+                words = words.Then(LineWords.Written(command.ExitCode.HasValue
+                    ? "Exit Code · " + command.ExitCode.Value.ToString(CultureInfo.InvariantCulture) + "\n" : "Exit Code Not Recorded\n"));
                 words = words.Then(Body(command.Output, patch: false));
             }
             else if (value is FileChangesToolResult changes)

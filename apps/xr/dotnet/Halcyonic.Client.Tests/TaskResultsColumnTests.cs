@@ -147,6 +147,25 @@ public class TaskResultsColumnTests
         Assert.That(host.Sent, Is.Empty);
     }
 
+    [Test]
+    public void AnExitCodeIsWrittenTheSameInEveryCulture()
+    {
+        // A culture's minus sign can carry a direction mark (ICU's Hebrew writes U+200E before "-"), which Halcyonic's words
+        // refuse: the exit code is the invariant number on the page, as in the listing, whatever the device's culture.
+        var marked = (System.Globalization.CultureInfo)System.Globalization.CultureInfo.InvariantCulture.Clone();
+        marked.NumberFormat.NegativeSign = "\u200E-";
+        var was = System.Globalization.CultureInfo.CurrentCulture;
+        System.Globalization.CultureInfo.CurrentCulture = marked;
+        try
+        {
+            var listing = Listing(); listing.Results[0].ExitCode = -1;
+            var output = Output(); output.Summary.ExitCode = -1; ((CommandToolResult)output.Result).ExitCode = -1;
+            var column = Open(new FileMenuHost(), listing, output); Read(column);
+            Assert.That(Words(column), Does.Contain("Exit Code · -1"));
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = was; }
+    }
+
     [TestCase("journal")]
     [TestCase("event")]
     [TestCase("position")]

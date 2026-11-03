@@ -66,6 +66,30 @@ public class LineWordsTests
         else Assert.Throws<ArgumentException>(() => new PageLine(spoof), "raw outside text is never Halcyonic's row");
     }
 
+    // As the untrusted-text journeys do: outside text in a string that a public constructor turns into Halcyonic's runs.
+    private static readonly string Hostile = "\u202Eclaim\tline\r\nnext \u0003" + (char)0xD800;
+
+    [Test]
+    public void AnActivityEntryGivenOutsideTextAsAStringSpellsIt()
+    {
+        Assert.That(new ActivityEntry(1, Samples.Time, ActivityKind.Tool, Hostile, reported: false).Text, Is.EqualTo(LabelText.Plain(Hostile)));
+    }
+
+    [Test]
+    public void ASectionLineGivenOutsideTextAsAStringSpellsIt()
+    {
+        var line = new SectionLine(Hostile, Hostile, SectionTone.Claim);
+        Assert.That(line.Runs.Text, Is.EqualTo(LabelText.Plain(Hostile)));
+        Assert.DoesNotThrow(() => line.Runs.ForTextMeshPro());
+    }
+
+    [Test]
+    public void ASectionsProvenanceGivenAsAStringSpellsIt()
+    {
+        var section = new SectionPresentation(SectionKind.Understanding, Hostile, SectionTone.Secondary, Array.Empty<SectionLine>(), simulated: false);
+        Assert.That(section.ProvenanceRuns.Text, Is.EqualTo(LabelText.Plain(Hostile)));
+    }
+
     [Test]
     public void AnIconOfHalcyonicsOwnForTheThingStaysAndALineWithHalcyonicsWordsTakesNoQuoteMark()
     {
