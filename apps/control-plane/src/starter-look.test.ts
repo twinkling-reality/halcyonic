@@ -230,9 +230,10 @@ describe('the card names the game and says how to play it, nothing else (U5)', (
 describe('a hit can celebrate and the score can be shown big, ready for any game (U6)', () => {
   test('confetti is one instanced mesh driven by the same system, and a score sign stands on the tier', () => {
     const decor = read('src/decor.ts');
+    // Since U7 a hit takes its time from the game's clock itself.
     assert.match(
       decor,
-      /export function celebrate\(at: \{ x: number; y: number; z: number \}, time: number\): void/,
+      /export function celebrate\(at: \{ x: number; y: number; z: number \}\): void/,
     );
     assert.match(decor, /export function scoreSign\(/);
     assert.match(decor, /confettiPiece\(time - /);
@@ -265,5 +266,32 @@ describe('the page shows the sky while the game loads, never a white page (U6b)'
     assert.ok(
       look.indexOf("style.opacity = '1'") < look.indexOf('world.registerSystem(AmbientSystem)'),
     );
+  });
+});
+
+describe("a hit's time is the game's own, so a press handler cannot freeze it (U7)", () => {
+  // S1's agent passed performance.now() to bonk, celebrate and the sign from an onSelect handler, which is given no
+  // time: measured against the game's clock, its bonked moles never finished and no confetti ever showed.
+  test('the look keeps the time its system was last given, for handlers, which are given none', () => {
+    const look = read('src/look.ts');
+    assert.match(look, /export function gameTime\(\): number/);
+    assert.match(look, /latest = time;/);
+  });
+
+  test('confetti and the score sign take the time from the game, and ask for none', () => {
+    const decor = read('src/decor.ts');
+    assert.match(decor, /time: gameTime\(\)/);
+    assert.match(decor, /show\(value: number \| string\): void/);
+    assert.match(decor, /changedAt = gameTime\(\);/);
+  });
+
+  test('the agent is told to use gameTime() in handlers, never a clock of its own, and how big to make targets', () => {
+    const agents = read('AGENTS.md');
+    assert.match(agents, /`gameTime\(\)`/);
+    assert.match(agents, /never\s+`performance\.now\(\)` or `Date\.now\(\)`/);
+    assert.match(agents, /`celebrate\(position\)`/);
+    assert.match(agents, /`score\.show\(points\)`/);
+    assert.match(agents, /at least 30 cm across/);
+    assert.match(agents, /anywhere in the project/);
   });
 });

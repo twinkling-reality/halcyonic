@@ -335,3 +335,10 @@ scenery, and their curves are pure functions in `src/motion.ts`; AGENTS.md asks 
 A game never opens on a blank page (U6b): `index.html` paints ART7's sky behind the canvas and keeps the canvas clear
 until the look's first frame, which `src/look.ts` shows from its own system, in step with the check's clock. Before, the
 page was white until the SDK made its canvas and black until the island's first frame, 5 s on this Mac.
+
+A hit's time is the game's own (U7): `onSelect` and `onTouch` handlers are given no time, and the first showcase
+rehearsal's agent reached for `performance.now()` there, whose seconds are not the game's clock, so its bonked moles
+never finished their bonk and no confetti showed. `celebrate(at)` and the sign's `show(points)` now take the time from
+the starter's own system, `gameTime()` in `src/look.ts` gives a handler the same time for its own motion, and AGENTS.md
+asks for it there, never `performance.now()` or `Date.now()`; it also asks for targets at least 30 cm across and no
+scratch files anywhere in the project.
