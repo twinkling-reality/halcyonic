@@ -130,3 +130,55 @@ export function flight(
     heading: Math.atan2(Math.cos(a), 1.2 * Math.cos(2 * a)),
   };
 }
+
+/** A hit's juice (U6): confetti that bursts from it and a score that jumps when it changes. */
+export const juice = {
+  pieces: 24,
+  life: 1.4,
+  gravity: 4.2,
+  drag: 1.6,
+  sideDrag: 2.0,
+  speed: [2.2, 3.0] as const,
+  tilt: [0.25, 0.75] as const,
+  pulseMs: 380,
+  pulseAmp: 0.45,
+};
+
+/** The fractional part, for spreading pieces evenly without chance. */
+const frac = (x: number) => x - Math.floor(x);
+
+/**
+ * Where confetti piece `i` is, `seconds` after its burst, from the hit: it flies up and out, slowed by the air, then
+ * flutters down, turning, and shrinks away by the end of its life. Every burst is the same, so the check sees it alike.
+ */
+export function confettiPiece(
+  seconds: number,
+  i: number,
+): { x: number; y: number; z: number; rx: number; ry: number; rz: number; scale: number } {
+  const t = seconds;
+  if (!(t >= 0 && t < juice.life)) return { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, scale: 0 };
+  const around = i * 2.39996;
+  const tilt = juice.tilt[0] + (juice.tilt[1] - juice.tilt[0]) * frac(i * 0.618);
+  const speed = juice.speed[0] + (juice.speed[1] - juice.speed[0]) * frac(i * 0.381);
+  const up = speed * Math.cos(tilt);
+  const out = ((speed * Math.sin(tilt)) / juice.sideDrag) * (1 - Math.exp(-juice.sideDrag * t));
+  const falling = juice.gravity / juice.drag;
+  const flutter = 0.03 * Math.sin(9 * t + i * 1.7) * Math.min(1, t * 4);
+  const scale = t > juice.life - 0.35 ? (juice.life - t) / 0.35 : Math.min(1, t / 0.05);
+  return {
+    x: out * Math.cos(around) + flutter,
+    y: ((up + falling) / juice.drag) * (1 - Math.exp(-juice.drag * t)) - falling * t,
+    z: out * Math.sin(around),
+    rx: (5 + 4 * frac(i * 0.37)) * t,
+    ry: (3 + 3 * frac(i * 0.53)) * t,
+    rz: (2 + 5 * frac(i * 0.71)) * t,
+    scale,
+  };
+}
+
+/** A score's jump when it changes: a quick grow, a little past, back to exactly 1 within pulseMs. */
+export function pulse(seconds: number): number {
+  const x = (seconds * 1000) / juice.pulseMs;
+  if (!(x > 0 && x < 1)) return 1;
+  return 1 + juice.pulseAmp * Math.sin(Math.PI * x) * (1 - x) ** 0.6;
+}
