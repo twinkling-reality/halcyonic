@@ -85,6 +85,25 @@ describe('adb for the device tools', () => {
     assert.equal(await listens(port), false);
   });
 
+  test('a long command gets the time it is given, and is stopped after it', async () => {
+    // A screenrecord clip runs for its whole length; adb's usual 20 s would cut it off.
+    const fake = join(directory, 'adb-slow');
+    writeFileSync(fake, '#!/bin/sh\nsleep 1\necho finished\n');
+    chmodSync(fake, 0o755);
+    process.env.HALCYONIC_ADB = fake;
+    process.env.HALCYONIC_QUEST_SERIAL = 'TEST-SERIAL-3';
+    try {
+      const { adbFor } = await import('./adb.ts');
+      await assert.rejects(
+        adbFor(200, 'shell', 'screenrecord'),
+        /^Error: adb shell screenrecord failed \(signal SIGTERM\)$/,
+      );
+      assert.equal((await adbFor(5000, 'shell', 'screenrecord')).trim(), 'finished');
+    } finally {
+      delete process.env.HALCYONIC_QUEST_SERIAL;
+    }
+  });
+
   test('without HALCYONIC_QUEST_SERIAL the one headset the server lists is used', async () => {
     const { readSerial } = await import('./adb.ts');
     assert.equal(
