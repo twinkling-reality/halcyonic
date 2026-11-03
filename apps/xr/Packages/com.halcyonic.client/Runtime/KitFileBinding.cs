@@ -295,7 +295,7 @@ namespace Halcyonic.Client
         /// <summary>The lines that open the task's own routes from Activity, each a <see cref="KitPlace.Route"/>.</summary>
         private static readonly HashSet<string> RouteActions = new HashSet<string>(System.StringComparer.Ordinal)
         {
-            FileScreens.ShowTaskHere, FileScreens.OpenWorkspaceRequest, FileScreens.OpenResults, FileScreens.OpenCharacterColour,
+            FileScreens.ShowTaskHere, FileScreens.OpenWorkspaceRequest, FileScreens.OpenResults, FileScreens.OpenCharacterColour, FileScreens.ShowScreen,
         };
 
         /// <summary>The rows that take the person on within a question's page, or an approval's request, each a <see cref="KitPlace.Step"/>.</summary>

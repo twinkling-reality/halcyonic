@@ -345,6 +345,78 @@ namespace Halcyonic.XR.Workspace.Editor
                                 failures.Add("spatial: the results' Close did not bring the kit back to the task");
                         }
                     }
+                    // G2: Show Screen on the kit's rail brings the task's project's screen into the room (ADR 0040) and the
+                    // console steps aside to its compact presence; the bar's Close puts the screen away and brings the task back.
+                    // Nothing is sent.
+                    var sentBeforeScreen = sends;
+                    KitControl? ShowScreenRoute() => director.Plane.KitBinding?.Routes.FirstOrDefault(route => route.Action == FileScreens.ShowScreen);
+                    FileScreen? TaskScreen() => (director.Navigator.Beside as FileColumn)?.Screen;
+                    // Last of the routes, it can sit on Activity's next page (at Larger text); the rail's pager turns to it as a hand would.
+                    void TurnRail() { var pager = director.Plane.Kit.View.Earlier.Press; pager.SettleForRender(); pager.PressForRender(960); Draw(); System.Threading.Thread.Sleep(450); }
+                    Draw(); System.Threading.Thread.Sleep(450);
+                    var showScreen = ShowScreenRoute();
+                    for (var turned = 0; showScreen == null && TaskScreen() is FileScreen paged && turned < paged.Pages
+                        && director.Plane.KitBinding?.Controls.Any(control => control.Place == KitPlace.Pager) == true; turned++)
+                    {
+                        TurnRail();
+                        showScreen = ShowScreenRoute();
+                    }
+                    if (showScreen == null || !PressOnKit(director, showScreen.Action, showScreen.Key)) failures.Add("spatial: the kit's rail has no Show Screen to press");
+                    else
+                    {
+                        Draw(); System.Threading.Thread.Sleep(450); Draw();
+                        if (presentation.ScreenProjectId != work.Workstream.ProjectId || director.Plane.RoomScreen == null)
+                            failures.Add("spatial: Show Screen did not bring the task's project's screen into the room");
+                        // Aside, the console shows nothing in front of the screen: no file, no compact presence, no closed bar.
+                        else if (!director.IsCompact || director.Plane.KitShows || director.Plane.KitCompactShows || director.Plane.Bar != null)
+                            failures.Add("spatial: the console did not step aside for the screen: compact " + director.IsCompact
+                                + ", file " + director.Plane.KitShows + ", presence " + director.Plane.KitCompactShows + ", bar " + (director.Plane.Bar != null));
+                        else
+                        {
+                            // Stood in the room, the screen is as wide as the kit's screen at its distance; the console's curve, which
+                            // keeps depth and wraps across, would make it several times wider.
+                            ForceMeshes(root);
+                            var yaws = director.Plane.RoomScreen.GetComponentsInChildren<Renderer>(false)
+                                .SelectMany(each => new[] { each.bounds.min, each.bounds.max, new Vector3(each.bounds.min.x, 0f, each.bounds.max.z), new Vector3(each.bounds.max.x, 0f, each.bounds.min.z) })
+                                .Select(point => Mathf.Atan2(point.x - eyes.x, point.z - eyes.z) * Mathf.Rad2Deg).ToList();
+                            var across = yaws.Count == 0 ? 0f : yaws.Max() - yaws.Min();
+                            if (across > SpatialKit.ScreenDegreesAt(GlazeText.Scale) * 1.15f)
+                                failures.Add("spatial: the screen spans " + across.ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+                                    + " degrees across, more than the kit's screen: drawn on the console's curve");
+                            // The shot is the room as it now stands: the screen alone, the console set aside for it.
+                            failures.AddRange(KitTextInBands("spatial-working-screen", director.Plane));
+                            failures.AddRange(KitTargets("spatial-working-screen", director.Plane));
+                            camera.transform.rotation = PlaneLayout.Facing(director.Plane.Direction);
+                            var screenImage = Render(camera, texture);
+                            File.WriteAllBytes(Path.Combine(folder, "spatial-working-screen-kit.png"), screenImage.EncodeToPNG());
+                            UnityEngine.Object.DestroyImmediate(screenImage);
+                            // The bar opens as its handle opens it (its press is RoomScreenCheck's); Close is pressed as a hand would.
+                            director.SetProjectScreenBarOpen(true); Draw(); System.Threading.Thread.Sleep(450); Draw();
+                            ForceMeshes(root);
+                            var barImage = Render(camera, texture);
+                            File.WriteAllBytes(Path.Combine(folder, "spatial-working-screen-bar-kit.png"), barImage.EncodeToPNG());
+                            UnityEngine.Object.DestroyImmediate(barImage);
+                            var close = director.Plane.RoomBar?.Shown.FirstOrDefault(each => each.Action == KitScreenAction.Close).Button;
+                            if (close == null)
+                                failures.Add("spatial: the screen's bar has no Close; it shows " + string.Join(", ", director.Plane.RoomBar?.Shown.Select(each => each.Action.ToString()) ?? Enumerable.Empty<string>()));
+                            else { close.Press.SettleForRender(); close.Press.PressForRender(970); Draw(); System.Threading.Thread.Sleep(450); Draw(); }
+                            string Room() => "screen " + (presentation.ScreenProjectId ?? "none") + ", minimized " + presentation.Minimized + ", compact " + director.IsCompact
+                                + ", kit " + director.Plane.KitShows + ", task " + ((director.Navigator.Beside as FileColumn)?.Now?.Character.WorkstreamId ?? "none");
+                            if (presentation.ScreenProjectId != null || director.Plane.RoomScreen != null)
+                                failures.Add("spatial: the bar's Close did not put the screen away: " + Room());
+                            else if (director.IsCompact || !director.Plane.KitShows
+                                || (director.Navigator.Beside as FileColumn)?.Now?.Character.WorkstreamId != work.Workstream.WorkstreamId)
+                                failures.Add("spatial: the bar's Close did not bring the task back in the kit: " + Room());
+                        }
+                    }
+                    if (sends != sentBeforeScreen) failures.Add("spatial: showing or closing the screen sent a command");
+                    // A failure above leaves the room as it stood; put it back so the rest of the walk reports its own.
+                    if (presentation.ScreenProjectId != null) director.CloseProjectScreen();
+                    if (director.IsCompact) director.RestoreWorkspace();
+                    Draw();
+                    // Back to Activity's first page, where the rest of the walk presses.
+                    for (var back = 0; TaskScreen() is FileScreen turnedBack && turnedBack.Page != 0 && back < turnedBack.Pages; back++) TurnRail();
+                    if (TaskScreen() is FileScreen notBack && notBack.Page != 0) failures.Add("spatial: the rail's pager did not turn back to Activity's first page");
                     // The kit now redraws on the headset whenever the task's frame changes; each show lays it out again.
                     // What 40 more shows of one file leave behind is measured and said here (U6 fixes leaks).
                     if (director.Plane.KitShows && director.Plane.KitBinding is KitFileBinding shownFile && director.Plane.KitOwner is object kitOwner)

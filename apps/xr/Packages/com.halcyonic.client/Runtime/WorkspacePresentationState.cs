@@ -46,6 +46,9 @@ namespace Halcyonic.Client
         /// <summary>Whether the on-demand project screen's command bar is open rather than folded to its handle.</summary>
         public bool ScreenBarOpen { get; private set; }
 
+        /// <summary>Whether showing the screen put the console aside, so that closing the screen brings it back.</summary>
+        private bool consoleAsideForScreen;
+
         /// <summary>The project waiting to open on the Mac once its newly started preview is ready.</summary>
         public string? PendingOpenOnMacProjectId { get; private set; }
 
@@ -79,11 +82,21 @@ namespace Halcyonic.Client
             finally { changing = false; }
         }
 
+        /// <summary>
+        /// Brings the console back. A project's screen standing in the room goes away with it: the screen and the console
+        /// never stand in front of each other.
+        /// </summary>
         public bool Restore()
         {
             if (!Minimized || changing) return false;
             changing = true;
-            try { Minimized = false; Changed?.Invoke(); return true; }
+            try
+            {
+                Minimized = false;
+                (ScreenProjectId, ScreenBarOpen, consoleAsideForScreen) = (null, false, false);
+                Changed?.Invoke();
+                return true;
+            }
             finally { changing = false; }
         }
 
@@ -140,6 +153,10 @@ namespace Halcyonic.Client
             finally { changing = false; }
         }
 
+        /// <summary>
+        /// Brings a picked project's screen forward (ADR 0040). The console steps aside to its compact presence rather than
+        /// stand in front of the screen, revoking its authority as minimizing does, and comes back when the screen closes.
+        /// </summary>
         public bool ShowProjectScreen(string projectId, bool barOpen = false)
         {
             if (string.IsNullOrEmpty(projectId) || changing) return false;
@@ -147,6 +164,12 @@ namespace Halcyonic.Client
             changing = true;
             try
             {
+                if (!Minimized)
+                {
+                    Suspending?.Invoke();
+                    Minimized = true;
+                    consoleAsideForScreen = true;
+                }
                 ScreenProjectId = projectId;
                 ScreenBarOpen = barOpen;
                 Changed?.Invoke();
@@ -176,6 +199,9 @@ namespace Halcyonic.Client
             {
                 ScreenProjectId = null;
                 ScreenBarOpen = false;
+                // The console the screen put aside comes back; one the person had put aside stays so.
+                if (consoleAsideForScreen) Minimized = false;
+                consoleAsideForScreen = false;
                 Changed?.Invoke();
                 return true;
             }

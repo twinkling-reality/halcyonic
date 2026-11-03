@@ -113,8 +113,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 + SpatialKit.TargetGapDegrees.ToString("0.0"));
             // The one clear action only where it applies, first; Try it only after a passed check of the computer's own, with a route.
             var actions = bar.Shown.Select(each => each.Action).ToList();
-            Require(actions.SequenceEqual(model.Shown.Where(a => a != KitScreenAction.Steps && a != KitScreenAction.Why && a != KitScreenAction.HowItWent)
-                    .Concat(model.Shown.Where(a => a == KitScreenAction.Steps || a == KitScreenAction.Why || a == KitScreenAction.HowItWent))),
+            bool Door(KitScreenAction a) => a is KitScreenAction.Steps or KitScreenAction.Why or KitScreenAction.HowItWent or KitScreenAction.Close;
+            Require(actions.SequenceEqual(model.Shown.Where(a => !Door(a)).Concat(model.Shown.Where(Door))),
                 "the bar's actions are not the model's");
             Require(actions.Contains(KitScreenAction.TryIt) == (model.CanTry && !model.Folded), "Try it stands without a passed check of the computer's own, or is missing");
             Require(actions.Contains(KitScreenAction.MakeAVrVersion) == (!model.IsVr && !model.Folded), "Make a VR version stands where it does not apply, or is missing");

@@ -541,8 +541,9 @@ namespace Halcyonic.XR.Workspace
             if (shown.Count == 0)
             {
                 Context.Hide(); activityContext.Hide();
-                // With the kit switched on, its compact presence stands in the bar's place (D3.5); the bar otherwise.
-                var kitCompact = ShowKitCompact(menuBar, compactIdentity, compactState, waitingCount);
+                // With the kit switched on, its compact presence stands in the bar's place (D3.5); the bar otherwise; neither
+                // while a project's screen stands in the room, where they would stand in front of it.
+                var kitCompact = !ScreenStands && ShowKitCompact(menuBar, compactIdentity, compactState, waitingCount);
                 if (!kitCompact) Kit.Hide();
                 // Closed with no file: the bar alone, where the person looks, which leaves the banner be.
                 cover.SetActive(false);
@@ -558,7 +559,7 @@ namespace Halcyonic.XR.Workspace
                 LeaveLine(lineWas, immediately);
                 // Where something closes, the bar shows only once it has left, then fades in, so the bar's words
                 // never stand over the file's; newly laid otherwise, as the plane starts, it stands whole at once.
-                if (kitCompact) bar.Hide();
+                if (kitCompact || ScreenStands) bar.Hide();
                 else
                 {
                     var barWas = bar.gameObject.activeSelf;
@@ -1093,7 +1094,8 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>
         /// Places the curve where the plane stands, its axis through the eyes it was placed for, so Move takes it
-        /// along, and draws what moved or changed on it: pages bent, each task portrait stood where the curve puts it.
+        /// along, and draws what moved or changed on it: pages bent, each task portrait stood where the curve puts it; the
+        /// room's screen and bar are left flat where they stand.
         /// </summary>
         private void DrawOnCurve()
         {
@@ -1113,6 +1115,8 @@ namespace Halcyonic.XR.Workspace
                 curvedBodies.Add(body);
                 StandOnCurve(body, on);
             }
+            // A project's screen and its bar stand in the room where ShowScreen stood them, never on the console's curve.
+            if (room != null) curvedBodies.Add(room);
             Curved.Refresh(curvedBodies);
             DrawTargetsOnCurve();
         }

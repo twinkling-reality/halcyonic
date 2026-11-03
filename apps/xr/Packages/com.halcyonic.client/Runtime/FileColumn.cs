@@ -138,6 +138,15 @@ namespace Halcyonic.Client
         public void OfferWorkspaceRequests(Action open)
         { if (openWorkspaceRequest != null) return; openWorkspaceRequest = open; Screen.WorkspaceRequestOffered = true; Rebuild(); }
         public bool HasShowTaskHere => showTask != null;
+
+        private Action? showScreen;
+        private Func<bool>? screenAvailable;
+
+        /// <summary>
+        /// Offers Show Screen on Activity while <paramref name="available"/> holds (the director's: the kit is on, its rail is
+        /// where the route stands): <paramref name="show"/> brings the task's project's screen into the room.
+        /// </summary>
+        public void OfferScreen(Func<bool> available, Action show) => (screenAvailable, showScreen) = (available, show);
         /// <summary>Offers only an available local presentation action; it grants no runtime capability.</summary>
         public void OfferShowTaskHere(Func<bool> available, Action show)
         {
@@ -148,6 +157,13 @@ namespace Halcyonic.Client
         }
         private bool CanShowTaskHere() => showTask != null && canShowTask?.Invoke() == true && host.Connected && !host.Demonstration
             && showTaskJournal != null && showTaskJournal == host.State?.Journal?.JournalId && showTaskId == Now?.Character.WorkstreamId;
+        /// <summary>Offered while connected and while the task's project is in the projection: that project's screen is what the director brings forward.</summary>
+        private bool CanShowScreen()
+        {
+            if (showScreen == null || screenAvailable?.Invoke() != true || !host.Connected || Now?.Character.WorkstreamId is not string task
+                || host.State is not ClientProjection state) return false;
+            return state.Workstreams.TryGetValue(task, out var work) && state.Projects.ContainsKey(work.ProjectId);
+        }
         public void OfferResults(Action open)
         { if (openResults != null) return; openResults = open; Screen.ResultsOffered = true; Rebuild(); }
         public void OfferCharacterColours(Func<bool> available, Action open)
@@ -285,6 +301,9 @@ namespace Halcyonic.Client
                     var taskWasDrawn = drawnShowTaskFrame == Frame;
                     drawnShowTaskFrame = null; // Failed authority cannot revive an old draw after reconnect.
                     if (taskWasDrawn && Frame?.Lines.Any(line => line.Action == id && line.Available) == true && CanShowTaskHere()) showTask?.Invoke();
+                    return;
+                case FileScreens.ShowScreen:
+                    if (Frame?.Lines.Any(line => line.Action == id && line.Available) == true) showScreen?.Invoke();
                     return;
                 case FileScreens.OpenCharacterColour:
                     var colourWasDrawn = drawnColourFrame == Frame;
@@ -934,6 +953,8 @@ namespace Halcyonic.Client
             if (draft != null) ReadQuestion(draft, budget);
             Screen.ShowTaskHereOffered = CanShowTaskHere();
             if (Screen.ShowTaskHereOffered) Screen.ShowTaskHereRows = Math.Max(1, host.RowsOf(new PageLine(FileScreens.ShowTaskHereWords, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
+            Screen.ShowScreenOffered = CanShowScreen();
+            if (Screen.ShowScreenOffered) Screen.ShowScreenRows = Math.Max(1, host.RowsOf(new PageLine(FileScreens.ShowScreenWords, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             if (Screen.WorkspaceRequestOffered) Screen.WorkspaceRequestRows = Math.Max(1, host.RowsOf(new PageLine(FileScreens.AskWorkspaceWords, icon: GlazeIcon.Next,
                 action: FileScreens.OpenWorkspaceRequest, opens: true, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             if (Screen.CharacterColourOffered) Screen.CharacterColourRows = Math.Max(1, host.RowsOf(new PageLine(FileScreens.CharacterColourWords, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));

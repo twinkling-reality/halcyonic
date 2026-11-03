@@ -33,6 +33,11 @@ namespace Halcyonic.Client
         /// <summary>The Activity routes' words, one source for the page, its measure and the kit render's pin.</summary>
         public const string ShowTaskHereWords = "Show Task Here";
 
+        /// <summary>Shows the task's project's screen in the room (ADR 0040: a picked project comes forward as its screen).</summary>
+        public const string ShowScreen = "file-show-screen";
+
+        public const string ShowScreenWords = "Show Screen";
+
         public const string AskWorkspaceWords = "Ask Workspace";
 
         public const string CharacterColourWords = "Character Colour";
@@ -325,6 +330,8 @@ namespace Halcyonic.Client
                 utilityLines.Add(ReadResultsLine(screen.ResultsRows));
             if (screen.CharacterColourOffered)
                 utilityLines.Add(new PageLine(CharacterColourWords, icon: GlazeIcon.Next, action: OpenCharacterColour, opens: true, rows: screen.CharacterColourRows));
+            // Last, so the routes already there keep their places on the page.
+            if (screen.ShowScreenOffered) utilityLines.Add(new PageLine(ShowScreenWords, icon: GlazeIcon.Next, action: ShowScreen, opens: true, rows: screen.ShowScreenRows));
             var waiting = WorkspaceText.SomethingWaits(workspace);
             var tone = waiting ? LineTone.Waiting : workspace.Character.AttentionNotes.Count > 0 ? LineTone.Problem : LineTone.Primary;
             lines.AddRange(Doing(workspace, tone));
