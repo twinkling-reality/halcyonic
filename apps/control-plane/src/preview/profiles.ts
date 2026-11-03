@@ -1,5 +1,6 @@
 import { realpathSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
+import { toolFoldersFor } from '@halcyonic/integration-codex';
 
 /** Where macOS keeps the sandbox launcher; never looked up on PATH. */
 export const SANDBOX_EXEC = '/usr/bin/sandbox-exec';
@@ -16,13 +17,70 @@ export interface BuildScope {
   readonly cache: string;
   /** The host's controller and hand models, read only, or null. */
   readonly profiles: string | null;
+  /** Node, by absolute path, whose installation is read so it runs; the running Node's when not named. */
+  readonly node?: string;
 }
+
+/**
+ * The system's own paths a build reads to run, and nothing of a person's, another app's or a drive's:
+ * libraries, frameworks, time zones, the system's configuration and its standard devices, as the
+ * profile of a confined agent allows them (Codex's minimal platform defaults, ADR 0041), so the check
+ * reads no more of the Mac than the agent whose files it checks (AUDIT P1).
+ */
+const SYSTEM_READS: readonly string[] = [
+  `(allow file-read* (literal "/") ${[
+    '/Library/Apple',
+    '/Library/Filesystems/NetFSPlugins',
+    '/Library/Preferences',
+    '/System/Library/Frameworks',
+    '/System/Library/PrivateFrameworks',
+    '/System/Library/SubFrameworks',
+    '/System/iOSSupport/System/Library/Frameworks',
+    '/System/iOSSupport/System/Library/PrivateFrameworks',
+    '/System/iOSSupport/System/Library/SubFrameworks',
+    '/usr/lib',
+    '/usr/share',
+    '/bin',
+    '/sbin',
+    '/usr/bin',
+    '/usr/sbin',
+    '/usr/libexec',
+    '/etc',
+    '/private/etc',
+    '/private/var/db/timezone',
+    '/opt/homebrew/lib',
+    '/usr/local/lib',
+    '/dev/fd',
+  ]
+    .map((path) => `(subpath "${path}")`)
+    .join(' ')})`,
+  `(allow file-read* ${[
+    '/System/Library/CoreServices',
+    '/System/Library/CoreServices/SystemVersion.plist',
+    '/System/Library/CoreServices/.SystemVersionPlatform.plist',
+    '/private/var/db/DarwinDirectory/local/recordStore.data',
+    '/private/var/db/eligibilityd/eligibility.plist',
+    '/dev/null',
+    '/dev/zero',
+    '/dev/random',
+    '/dev/urandom',
+    '/dev/autofs_nowait',
+    '/dev/dtracehelper',
+  ]
+    .map((path) => `(literal "${path}")`)
+    .join(' ')})`,
+  '(allow file-read-metadata (literal "/etc") (literal "/tmp") (literal "/var") (literal "/dev") (regex #"^/dev/") (subpath "/var") (subpath "/private/var") (path-ancestors "/System/Volumes/Data/private"))',
+  '(allow file-read-metadata (literal "/System/Volumes") (literal "/System/Volumes/Data") (literal "/System/Volumes/Data/Users"))',
+];
 
 /**
  * The Seatbelt profile for `tsc`, `vite build` and `vite preview` of a project from a starter (ADR
  * 0037): no outbound connection at all (the preview server only answers on loopback), writes only
- * in the check's cache, and reads of the home folder refused but for the project, the starter and
- * the cache. The project's own code is transformed here, never run.
+ * in the check's cache, and reads closed by default (AUDIT P1): the system's own paths, Node's
+ * installation outside the home folder, and the project, the starter, the cache and the models. The
+ * project's own code is transformed here, never run, but its `tsconfig.json` and its sources name
+ * what the compiler and Vite read, and what they read can come back: the type check's first lines
+ * reach the agent's next instruction (FX1), and an asset Vite reads is served in the built copy.
  */
 export function buildProfile(scope: BuildScope): string {
   const readable = [
@@ -31,12 +89,18 @@ export function buildProfile(scope: BuildScope): string {
     scope.cache,
     ...(scope.profiles ? [scope.profiles] : []),
   ];
+  const node = toolFoldersFor(scope.node ?? process.execPath);
   return [
     '(version 1)',
     '(allow default)',
     '(deny network-outbound)',
     '(deny file-write*)',
     `(allow file-write* ${subpaths([scope.cache])} ${DEVICES})`,
+    '(deny file-read*)',
+    ...SYSTEM_READS,
+    `(allow file-read* ${subpaths(node)})`,
+    `(allow file-read-metadata ${ancestors(node)})`,
+    // Later rules win: Node's folders never open the home folder, which only the scope's own reach.
     `(deny file-read* ${subpaths([scope.home])})`,
     `(allow file-read* ${subpaths(readable)})`,
     `(allow file-read-metadata ${ancestors(readable)})`,

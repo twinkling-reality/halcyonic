@@ -191,7 +191,14 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
   const profile = join(cache, 'build.sb');
   await writeFile(
     profile,
-    buildProfile({ home: options.home, project, starter, cache, profiles: options.profiles }),
+    buildProfile({
+      home: options.home,
+      project,
+      starter,
+      cache,
+      profiles: options.profiles,
+      node: options.node,
+    }),
     { mode: 0o600 },
   );
   const env: Record<string, string> = {

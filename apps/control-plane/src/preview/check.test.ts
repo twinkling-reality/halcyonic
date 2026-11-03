@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import {
   cpSync,
   existsSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -11,7 +13,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { after, before, describe, type TestContext, test } from 'node:test';
 import {
   type CheckStep,
@@ -69,10 +71,11 @@ describe('the check of a project from a starter (ADR 0037)', () => {
 
 // The whole check against a real Chrome and an installed starter set: opt-in, since the repository does not install
 // the starter. HALCYONIC_TEST_STARTER names the installed folder (node_modules, input-profiles), HALCYONIC_TEST_BROWSER
-// the Chrome binary. Port 47886.
+// the Chrome binary. Port 47886, or HALCYONIC_TEST_CHECK_PORT.
 const STARTER = process.env.HALCYONIC_TEST_STARTER ?? '';
 const BROWSER = process.env.HALCYONIC_TEST_BROWSER ?? '';
 const BROWSER_SHA256 = process.env.HALCYONIC_TEST_BROWSER_SHA256 ?? '';
+const PORT = Number(process.env.HALCYONIC_TEST_CHECK_PORT ?? '47886');
 const SKIP =
   STARTER === '' || BROWSER === '' || BROWSER_SHA256 === ''
     ? 'HALCYONIC_TEST_STARTER, HALCYONIC_TEST_BROWSER and HALCYONIC_TEST_BROWSER_SHA256 are not set'
@@ -98,7 +101,8 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     cpSync(template, project, { recursive: true });
     symlinkSync(join(STARTER, 'node_modules'), join(project, 'node_modules'));
     change(project);
-    return runCheck({
+    const cache = join(root, 'cache');
+    const result = await runCheck({
       node: process.execPath,
       chrome: browserBinary(BROWSER),
       launcher,
@@ -107,14 +111,29 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
       starter: STARTER,
       hostSource: host,
       template,
-      cache: join(root, 'cache'),
+      cache,
       profiles: existsSync(join(STARTER, 'input-profiles'))
         ? join(STARTER, 'input-profiles')
         : null,
-      port: 47886,
+      port: PORT,
       ...(twinStepMs === undefined ? {} : { twinStepMs }),
     });
+    return { ...result, cache };
   };
+  /** A folder outside the project, the starter and the home folder, as `/private/tmp` or a drive is. */
+  const outsideFolder = (t: TestContext) => {
+    const path = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-check-outside-')));
+    t.after(() => rmSync(path, { recursive: true, force: true }));
+    return path;
+  };
+  /** Every file the build left in the copy it serves, as text, or nothing when it made none. */
+  const builtCopy = (cache: string) =>
+    existsSync(join(cache, 'dist'))
+      ? readdirSync(join(cache, 'dist'), { recursive: true, withFileTypes: true })
+          .filter((entry) => entry.isFile())
+          .map((entry) => readFileSync(join(entry.parentPath, entry.name), 'utf8'))
+          .join('\n')
+      : '';
   const addToIndex = (project: string, imports: string, code: string) => {
     const index = join(project, 'src', 'index.ts');
     const text = readFileSync(index, 'utf8');
@@ -166,6 +185,43 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     );
     assert.equal(result.page?.drawn, true, JSON.stringify(result.page?.edges));
     assert.equal(result.passed, true);
+  });
+
+  test("the type check reads no file outside its scope that the project's tsconfig names, so its log gives the agent none of it (AUDIT P1)", {
+    timeout: 180_000,
+  }, async (t) => {
+    const outside = outsideFolder(t);
+    const name = `halcyonicOutside${randomUUID().replaceAll('-', '')}`;
+    writeFileSync(join(outside, 'secret.ts'), `export const b = ${name};\n`);
+    const result = await check(t, (project) => {
+      const file = join(project, 'tsconfig.json');
+      const config = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
+      writeFileSync(file, JSON.stringify({ ...config, files: [join(outside, 'secret.ts')] }));
+    });
+    // The failed type check's first lines go after the person's next words to the agent (FX1).
+    const log = readFileSync(join(result.cache, 'tsc.log'), 'utf8');
+    assert.notEqual(result.tsc.exit, 0, log);
+    assert.ok(!log.includes(name), log);
+  });
+
+  test("the build reads no asset outside its scope that the project's source names, so the copy it serves holds none of it (AUDIT P1)", {
+    timeout: 180_000,
+  }, async (t) => {
+    const outside = outsideFolder(t);
+    const marker = `halcyonic-outside-${randomUUID()}`;
+    writeFileSync(join(outside, 'marker.txt'), marker);
+    const result = await check(t, (project) => {
+      const asset = relative(join(project, 'src'), join(outside, 'marker.txt'));
+      addToIndex(
+        project,
+        '',
+        `console.log(new URL(${JSON.stringify(asset)}, import.meta.url).href);`,
+      );
+    });
+    // Under 4 KiB Vite inlines an asset as base64; otherwise it copies it beside the page.
+    const copy = builtCopy(result.cache);
+    assert.ok(!copy.includes(marker), 'the marker is in the built copy');
+    assert.ok(!copy.includes(Buffer.from(marker).toString('base64')), 'the marker is inlined');
   });
 
   test('an uncaught exception in the page is caught and fails the check', {

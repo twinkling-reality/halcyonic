@@ -1,13 +1,37 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 import { promisify } from 'node:util';
 import { buildProfile, chromeProfile, SANDBOX_EXEC } from './profiles.ts';
 
 const run = promisify(execFile);
+
+/**
+ * A folder beside the scene, outside the home folder it stands for, as `/private/tmp`, another app's
+ * cache or a drive is: nothing the build runs may read it.
+ */
+function outsideFolder() {
+  const path = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-preview-outside-')));
+  return { path, cleanup: () => rmSync(path, { recursive: true, force: true }) };
+}
+
+/** What a command run inside the profile printed, its error output included, whatever its exit. */
+function insideProfile(profile: string, cwd: string) {
+  return (command: string[]) =>
+    run(SANDBOX_EXEC, ['-f', profile, ...command], {
+      cwd,
+      env: { PATH: '/usr/bin:/bin', TMPDIR: cwd },
+    }).then(
+      ({ stdout, stderr }) => `${stdout}${stderr}`,
+      (error: { stdout?: string; stderr?: string }) =>
+        `${error.stdout ?? ''}${error.stderr ?? ''}` || 'failed',
+    );
+}
 
 /** A scratch folder standing for the home folder, with a project, a starter, a cache and a secret. */
 function scene() {
@@ -52,6 +76,12 @@ describe("the preview's Seatbelt profiles (ADR 0037)", () => {
       }
       // Later rules win in Seatbelt: the exceptions come after the deny.
       assert.ok(profile.indexOf('(deny file-read*') < profile.indexOf('(allow file-read*'));
+      // Reads are closed by default (AUDIT P1), and the home folder is refused after Node's folders
+      // and before the scope's, so only the scope opens anything in it.
+      const closed = profile.indexOf('\n(deny file-read*)\n');
+      const home = profile.indexOf(`(deny file-read* (subpath "${scope.home}"))`);
+      const own = profile.indexOf(`(allow file-read* (subpath "${scope.project}")`);
+      assert.ok(closed > 0 && closed < home && home < own, profile);
     } finally {
       cleanup();
     }
@@ -142,6 +172,80 @@ describe("the preview's Seatbelt profiles (ADR 0037)", () => {
       );
     } finally {
       cleanup();
+    }
+  });
+
+  test("on this Mac, the build profile reads nothing outside its scope, Node's installation and the system's own paths (AUDIT P1)", {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const { scope, cleanup } = scene();
+    const outside = outsideFolder();
+    try {
+      writeFileSync(join(outside.path, 'marker.txt'), 'outside');
+      const profile = join(scope.cache, 'build.sb');
+      writeFileSync(profile, buildProfile(scope));
+      const inside = insideProfile(profile, scope.cache);
+      // Node still starts from its own installation, and the scope still reads.
+      assert.equal(
+        await inside([process.execPath, '-e', 'process.stdout.write("node runs")']),
+        'node runs',
+      );
+      assert.equal(await inside(['/bin/cat', join(scope.project, 'index.html')]), 'page');
+      // Escape-shaped tries only touch this test's own scratch folders.
+      assert.match(
+        await inside(['/bin/cat', join(outside.path, 'marker.txt')]),
+        /Operation not permitted/,
+      );
+      assert.match(await inside(['/bin/ls', outside.path]), /Operation not permitted/);
+    } finally {
+      cleanup();
+      outside.cleanup();
+    }
+  });
+
+  test("on this Mac, a type check under the build profile cannot quote a file outside its scope that the project's tsconfig names (AUDIT P1)", {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const { scope, cleanup } = scene();
+    const outside = outsideFolder();
+    try {
+      // The repository's own TypeScript stands in for the starter's, so its package store is the
+      // scope's starter folder; both take an absolute path in `files` and quote an unknown name.
+      const typescript = dirname(
+        realpathSync(createRequire(import.meta.url).resolve('typescript/package.json')),
+      );
+      const store = typescript.slice(0, typescript.indexOf('/.pnpm/') + '/.pnpm'.length);
+      const unique = randomUUID().replaceAll('-', '');
+      const insideName = `halcyonicInside${unique}`;
+      const outsideName = `halcyonicOutside${unique}`;
+      writeFileSync(join(scope.project, 'inside.ts'), `export const a = ${insideName};\n`);
+      writeFileSync(join(outside.path, 'secret.ts'), `export const b = ${outsideName};\n`);
+      writeFileSync(
+        join(scope.project, 'tsconfig.json'),
+        JSON.stringify({
+          compilerOptions: { noEmit: true, types: [] },
+          files: [join(scope.project, 'inside.ts'), join(outside.path, 'secret.ts')],
+        }),
+      );
+      const profile = join(scope.cache, 'build.sb');
+      writeFileSync(profile, buildProfile({ ...scope, starter: store }));
+      const output = await insideProfile(
+        profile,
+        scope.cache,
+      )([
+        process.execPath,
+        join(typescript, 'bin', 'tsc'),
+        '--noEmit',
+        '-p',
+        join(scope.project, 'tsconfig.json'),
+      ]);
+      // The compiler ran and read the project: it quotes the unknown name in the project's file.
+      assert.ok(output.includes(insideName), output);
+      // What the agent's next instruction would carry (FX1) holds nothing of the outside file.
+      assert.ok(!output.includes(outsideName), output);
+    } finally {
+      cleanup();
+      outside.cleanup();
     }
   });
 });
