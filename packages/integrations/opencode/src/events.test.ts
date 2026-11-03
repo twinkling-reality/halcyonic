@@ -718,6 +718,46 @@ describe('OpenCode event decoding', () => {
     assert.equal(shown('call_1'), null);
   });
 
+  test('a shell call OpenCode completes with a non-zero exit completes as failed; one with exit 0 succeeds', () => {
+    const state = createSessionState();
+    state.turn = { id: null };
+    const send = (type: string, data: Record<string, unknown>) => {
+      const event = decodeEvent(
+        JSON.stringify({
+          id: `evt_${type}_${String(data.id)}`,
+          type,
+          data: { sessionID: 's', ...data },
+        }),
+      );
+      assert.ok(event !== null);
+      return observeEvent(state, event, NOW);
+    };
+    const outcome = (id: string, name: string, metadata?: Record<string, unknown>) => {
+      send('session.tool.input.started', { assistantMessageID: 'msg_1', id, name });
+      const [completed] = send('session.tool.success', {
+        assistantMessageID: 'msg_1',
+        id,
+        content: [{ type: 'text', text: 'touch: /x/y.txt: Operation not permitted\n' }],
+        ...(metadata === undefined ? {} : { metadata }),
+        executed: false,
+      });
+      assert.ok(completed?.type === 'runtime.tool.completed');
+      return completed.payload.outcome;
+    };
+    // As OpenCode 2.0.18 recorded a command its sandbox refused (local-models.md, 2026-11-03).
+    assert.equal(
+      outcome('call_1', 'shell', { status: 'completed', truncated: false, exit: 1 }),
+      'failed',
+    );
+    assert.equal(
+      outcome('call_2', 'shell', { status: 'completed', truncated: false, exit: 0 }),
+      'succeeded',
+    );
+    // A tool without an exit, such as a read, succeeds as OpenCode says.
+    assert.equal(outcome('call_3', 'read'), 'succeeded');
+    assert.equal(outcome('call_4', 'shell', { status: 'completed', exit: null }), 'succeeded');
+  });
+
   test('an execution error type that does not start with a letter still yields a valid code', () => {
     const state = createSessionState();
     state.turn = { id: null };

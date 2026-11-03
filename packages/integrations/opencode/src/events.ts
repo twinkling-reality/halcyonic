@@ -283,9 +283,14 @@ export function observeEvent(
       if (call !== null) state.shellCalls.delete(call);
       if (id === null || !state.tools.has(id)) return [];
       state.tools.delete(id);
+      // OpenCode completes a shell call that ran to its end, whatever its exit; one that exited
+      // non-zero failed, as Codex reports one. The exit is OpenCode's own field (`metadata.exit`,
+      // a number for a shell call), never read from the command's output.
+      const exit = isRecord(data.metadata) ? data.metadata.exit : undefined;
+      const exitedNonZero = typeof exit === 'number' && exit !== 0;
       return make('runtime.tool.completed', {
         tool_call_id: id,
-        outcome: event.type === 'session.tool.success' ? 'succeeded' : 'failed',
+        outcome: event.type === 'session.tool.success' && !exitedNonZero ? 'succeeded' : 'failed',
       });
     }
     case 'session.text.ended': {
