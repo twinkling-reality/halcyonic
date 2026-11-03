@@ -54,7 +54,8 @@ Any other answer refuses in plain words, and no adb command beyond finding the h
    is not this tool's: a rule is this tool's only when the port is in its state and the rule's line
    is exactly `<transport> tcp:<port> tcp:<port>` (that line shape is read from adb's output; on
    this headset it was `UsbFfs tcp:47800 tcp:47800` for 47800 on 2026-11-03, not yet seen for a
-   preview port). Otherwise records the port in the tool's state, then
+   preview port). Otherwise records the port, with the headset's transport id (`adb devices -l`), in
+   the tool's state, then
    `adb reverse --no-rebind tcp:<port> tcp:<port>`, so it never replaces anyone's rule; if that
    fails the port is forgotten again. Android's adb page does not document `reverse`; plain
    `reverse` ran on this headset for 47800 ([xr-loopback-proof.md](xr-loopback-proof.md),
@@ -66,7 +67,8 @@ Any other answer refuses in plain words, and no adb command beyond finding the h
 6. Quest Browser goes into the tool's started apps only if it was not running before.
 
 `preview stop` and `give-back` run `adb reverse --remove tcp:<port>` for each recorded port, and
-forget it only once a `reverse --list` that was read shows it gone. They force-stop Quest Browser
+forget it only once a `reverse --list` that was read shows it gone. A record from another transport
+id (a USB reconnect dropped the rule) is forgotten and removes nothing. They force-stop Quest Browser
 only if this tool started it; a browser that was running before keeps the preview's tab. Rules this
 tool did not record are left alone. A frame of what the headset shows is `shot`, as for any app.
 No browser log and no DevTools forward: either would show the owner's other pages.

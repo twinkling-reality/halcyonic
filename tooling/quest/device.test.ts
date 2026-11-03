@@ -56,6 +56,8 @@ interface Headset {
   readonly procNetSilent?: boolean;
   /** `reverse --list` fails. */
   readonly listFails?: boolean;
+  /** The headset's transport id on its server (`adb devices -l`), '1' unless given; `unread` lists none. */
+  readonly transport?: string;
   /** Files already in /sdcard/Download, by name, as a cut-off clip leaves one. */
   readonly downloads?: readonly string[];
 }
@@ -77,6 +79,8 @@ const out = (text) => process.stdout.write(text + '\\n');
 const PULLED = 'the bytes the headset recorded';
 const sha = (text) => crypto.createHash('sha256').update(text).digest('hex');
 if (said === 'devices') out('List of devices attached\\nTEST-SERIAL\\tdevice');
+else if (said === 'devices -l') out('List of devices attached\\n' + (scenario.transport === 'unread' ? '' : 'TEST-SERIAL            device usb:1-1 product:eureka model:Quest_3 device:eureka transport_id:' + (scenario.transport ?? '1')));
+else if (said === 'version') out('Android Debug Bridge version 1.0.41\\nVersion 36.0.0-test');
 else if (said === 'get-state') out('device');
 else if (said.startsWith('shell ls /sdcard/Download/') && (scenario.downloads ?? []).includes(args[2].slice('/sdcard/Download/'.length))) out(args[2]);
 else if (said.startsWith('shell ls /sdcard/Download/')) {
@@ -166,7 +170,7 @@ else if (said === 'shell cat /proc/net/tcp /proc/net/tcp6') {
   }
   const state = JSON.parse(fs.existsSync(process.env.QUEST_STATE_FILE) ? fs.readFileSync(process.env.QUEST_STATE_FILE, 'utf8') : '{}');
   // The tool records a reverse before it makes it, so a cut-off run still removes it.
-  if (!(state.reverses ?? []).includes(Number(args[2].slice(4)))) {
+  if (!(state.reverses ?? []).map((kept) => kept.port ?? kept).includes(Number(args[2].slice(4)))) {
     process.stderr.write('stand-in adb: a reverse made before it was recorded\\n');
     process.exit(3);
   }
@@ -175,7 +179,7 @@ else if (said === 'shell cat /proc/net/tcp /proc/net/tcp6') {
   const file = (process.env.ADB_HEADSET ?? process.env.ADB_CALLS) + '.reverses';
   const state = JSON.parse(fs.existsSync(process.env.QUEST_STATE_FILE) ? fs.readFileSync(process.env.QUEST_STATE_FILE, 'utf8') : '{}');
   // The tool records a reverse before it makes it, so a cut-off run still removes it.
-  if (!(state.reverses ?? []).includes(Number(args[1].slice(4)))) {
+  if (!(state.reverses ?? []).map((kept) => kept.port ?? kept).includes(Number(args[1].slice(4)))) {
     process.stderr.write('stand-in adb: a reverse made before it was recorded\\n');
     process.exit(3);
   }
@@ -186,6 +190,28 @@ else {
   process.exit(2);
 }
 `;
+
+/**
+ * Stands for the headset's adb server: it answers adb's own `host:version` query with `version`,
+ * four hex digits as adb sends them (0029 is version 41), and closes anything else.
+ */
+function adbServer(version: string): TcpServer {
+  return createTcpServer((socket) => {
+    socket.once('data', (asked: Buffer) => {
+      if (asked.toString() === '000chost:version') socket.end(`OKAY0004${version}`);
+      else socket.destroy();
+    });
+  });
+}
+
+/** The ports the state file records a reverse for, whatever the record's shape. */
+function recordedPorts(state: string): number[] {
+  if (!existsSync(state)) return [];
+  const read = JSON.parse(readFileSync(state, 'utf8')) as {
+    reverses?: Array<number | { port: number }>;
+  };
+  return (read.reverses ?? []).map((kept) => (typeof kept === 'number' ? kept : kept.port));
+}
 
 describe('pnpm quest:device, against a stand-in adb', () => {
   const directory = mkdtempSync(join(tmpdir(), 'halcyonic-quest-device-'));
@@ -203,12 +229,12 @@ describe('pnpm quest:device, against a stand-in adb', () => {
   let runs = 0;
   /** More of the tool's environment, for the preview's control plane. */
   let extra: Record<string, string> = {};
-  // Stands for the headset's adb server: the tool connects to its port before it runs adb, and adb
+  // Stands for the headset's adb server: the tool asks its version before it runs adb, and adb
   // itself is the stand-in, so nothing here ever reaches a real server.
   let server5038: TcpServer;
   let serverPort = 0;
   before(async () => {
-    server5038 = createTcpServer((socket) => socket.destroy());
+    server5038 = adbServer('0029');
     await new Promise<void>((resolve) => server5038.listen(0, '127.0.0.1', resolve));
     serverPort = (server5038.address() as { port: number }).port;
   });
@@ -654,10 +680,7 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       };
       return state;
     }
-    const recorded = (state: string) =>
-      existsSync(state)
-        ? (JSON.parse(readFileSync(state, 'utf8')) as { reverses: number[] }).reverses
-        : [];
+    const recorded = recordedPorts;
 
     test('connect records the mapping before it makes it, and give-back removes it', async () => {
       const state = own();
@@ -726,6 +749,102 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       assert.deepEqual(recorded(state), []);
       extra = {};
     });
+
+    /** A state file that recorded `left`, as an earlier run left it. */
+    const leaving = (state: string, left: unknown) =>
+      writeFileSync(state, JSON.stringify({ installs: {}, started: [], reverses: [left] }));
+
+    test('a record from an earlier connection never claims a rule made by hand, and give-back removes nothing', async () => {
+      // AUDIT, 2026-11-03: a USB reconnect drops every reverse, and a rule made by hand can then sit on the recorded port.
+      for (const left of [{ port: 47800, transport: '1' }, 47800]) {
+        const state = own();
+        leaving(state, left);
+        const headset = { transport: '2', otherReverses: ['tcp:47800 tcp:47800'] };
+        const made = await device(headset, 'connect');
+        assert.equal(made.code, 0, made.said);
+        assert.doesNotMatch(made.said, /Already connected/);
+        assert.match(made.said, /made outside this tool/);
+        assert.deepEqual(recorded(state), []);
+        const given = await device(headset, 'give-back');
+        assert.ok(
+          !given.calls.some((call) => call.startsWith('reverse --remove')),
+          given.calls.join('\n'),
+        );
+      }
+      extra = {};
+    });
+
+    test('give-back and preview stop forget a record from an earlier connection and remove nothing', async () => {
+      for (const [port, command] of [
+        [47800, ['give-back']],
+        [47935, ['preview', 'stop']],
+      ] as const) {
+        const state = own();
+        leaving(state, { port, transport: '1' });
+        const headset = { transport: '2', otherReverses: [`tcp:${port} tcp:${port}`] };
+        const ran = await device(headset, ...command);
+        assert.equal(ran.code, 0, ran.said);
+        assert.match(ran.said, /from an earlier connection/);
+        assert.ok(
+          !ran.calls.some((call) => call.startsWith('reverse --remove')),
+          ran.calls.join('\n'),
+        );
+        assert.deepEqual(recorded(state), []);
+      }
+      extra = {};
+    });
+
+    test("while the headset's transport cannot be read, connect refuses and give-back removes nothing", async () => {
+      const state = own();
+      leaving(state, { port: 47800, transport: '1' });
+      const headset = { transport: 'unread' };
+      const made = await device(headset, 'connect');
+      assert.equal(made.code, 1, made.said);
+      assert.ok(
+        !made.calls.some((call) => call.startsWith('reverse --no-rebind')),
+        made.calls.join('\n'),
+      );
+      const given = await device(headset, 'give-back');
+      assert.ok(
+        !given.calls.some((call) => call.startsWith('reverse --remove')),
+        given.calls.join('\n'),
+      );
+      assert.deepEqual(recorded(state), [47800]);
+      extra = {};
+    });
+  });
+
+  test("nothing runs when the headset's server speaks another adb version, which adb would restart", async () => {
+    const other = adbServer('0028');
+    await new Promise<void>((resolve) => other.listen(0, '127.0.0.1', resolve));
+    extra = { HALCYONIC_ADB_PORT: String((other.address() as { port: number }).port) };
+    try {
+      const { code, said, calls } = await device({}, 'status');
+      assert.equal(code, 1, said);
+      assert.match(said, /speaks adb version 40, and this adb 41/);
+      assert.deepEqual(calls, ['version']);
+    } finally {
+      extra = {};
+      await new Promise<void>((resolve) => other.close(() => resolve()));
+    }
+  });
+
+  test('nothing runs when what listens on the port does not answer as an adb server', async () => {
+    const other = createTcpServer((socket) =>
+      socket.resume().end('HTTP/1.1 400 Bad Request\r\n\r\n'),
+    );
+    await new Promise<void>((resolve) => other.listen(0, '127.0.0.1', resolve));
+    const port = (other.address() as { port: number }).port;
+    extra = { HALCYONIC_ADB_PORT: String(port) };
+    try {
+      const { code, said, calls } = await device({}, 'status');
+      assert.equal(code, 1, said);
+      assert.match(said, new RegExp(`No adb server listens on port ${port}`));
+      assert.deepEqual(calls, []);
+    } finally {
+      extra = {};
+      await new Promise<void>((resolve) => other.close(() => resolve()));
+    }
   });
 
   test('uninstall refuses every package but the check build, and names it exactly', async () => {
@@ -1125,11 +1244,8 @@ describe('pnpm quest:device, against a stand-in adb', () => {
         `shell am start -W -a android.intent.action.VIEW -d ${url()} com.oculus.browser`,
       ]);
       assert.ok(!calls.some((call) => call.includes('localhost')), calls.join('\n'));
-      const kept = JSON.parse(readFileSync(state, 'utf8')) as {
-        reverses: number[];
-        started: string[];
-      };
-      assert.deepEqual(kept.reverses, [previewPort]);
+      const kept = JSON.parse(readFileSync(state, 'utf8')) as { started: string[] };
+      assert.deepEqual(recordedPorts(state), [previewPort]);
       assert.deepEqual(kept.started, ['com.oculus.browser']);
       extra = {};
     });
@@ -1191,11 +1307,8 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       assert.equal(code, 0, said);
       assert.ok(calls.includes(`reverse --remove tcp:${previewPort}`), calls.join('\n'));
       assert.ok(calls.includes('shell am force-stop com.oculus.browser'), calls.join('\n'));
-      const kept = JSON.parse(readFileSync(state, 'utf8')) as {
-        reverses: number[];
-        started: string[];
-      };
-      assert.deepEqual(kept.reverses, []);
+      const kept = JSON.parse(readFileSync(state, 'utf8')) as { started: string[] };
+      assert.deepEqual(recordedPorts(state), []);
       assert.deepEqual(kept.started, []);
       extra = {};
     });
@@ -1238,7 +1351,14 @@ describe('pnpm quest:device, against a stand-in adb', () => {
 
     test("a rule on the port that is not exactly this tool's is refused, even with the port recorded", async () => {
       const { project, state } = story();
-      writeFileSync(state, JSON.stringify({ installs: {}, started: [], reverses: [previewPort] }));
+      writeFileSync(
+        state,
+        JSON.stringify({
+          installs: {},
+          started: [],
+          reverses: [{ port: previewPort, transport: '1' }],
+        }),
+      );
       const headset = { otherReverses: [`tcp:${previewPort} tcp:9999`] };
       const { code, said, calls } = await device(headset, 'preview', project);
       assert.equal(code, 1, said);
@@ -1267,8 +1387,7 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       assert.equal((await device({}, 'preview', project)).code, 0);
       const { code, said } = await device({ listFails: true }, 'preview', 'stop');
       assert.equal(code, 1, said);
-      const kept = JSON.parse(readFileSync(state, 'utf8')) as { reverses: number[] };
-      assert.deepEqual(kept.reverses, [previewPort]);
+      assert.deepEqual(recordedPorts(state), [previewPort]);
       extra = {};
     });
 
@@ -1278,8 +1397,7 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       const { code, said, calls } = await device({}, 'give-back');
       assert.equal(code, 0, said);
       assert.ok(calls.includes(`reverse --remove tcp:${previewPort}`), calls.join('\n'));
-      const kept = JSON.parse(readFileSync(state, 'utf8')) as { reverses: number[] };
-      assert.deepEqual(kept.reverses, []);
+      assert.deepEqual(recordedPorts(state), []);
       extra = {};
     });
   });

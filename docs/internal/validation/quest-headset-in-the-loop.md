@@ -20,7 +20,10 @@
   whether the microphone is heard while nobody wears the headset; what a 5039 server does when 5038
   is not running. Added 2026-11-03 and run on the headset that day: `connect`, the forwarded `--`, the
   refusal to launch under a system dialog, reading a launch's hold with `logcat -e` from the
-  headset's clock (`-t <epoch>`), and `clip`.
+  headset's clock (`-t <epoch>`), and `clip`. Added after AUDIT's review that day and run once on the
+  headset's server (19:56Z): adb on `tcp:127.0.0.1`, the server's version read before the first command
+  (41, as its adb's), and `connect` recording the headset's transport id (2), which `connect stop`
+  then removed.
 
 ## Findings
 
@@ -251,8 +254,11 @@ mapping with `connect`.
 
 ## Consequences
 
-- `pnpm quest:device` gives every command `-L tcp:localhost:<port> -s <serial>`, refuses 5037,
-  never starts an adb server (it connects to the port first and stops when nothing listens), takes
+- `pnpm quest:device` gives every command `-L tcp:127.0.0.1:<port> -s <serial>`, refuses 5037,
+  never starts or restarts an adb server (it asks the server's version with `host:version` first and
+  stops when nothing answers or the version differs from its adb's), records each reverse with the
+  headset's transport id and forgets a record from an earlier connection without removing anything,
+  takes
   only an Android package name for `--package`, saves an installed APK before installing over it and
   checks the bytes both ways, fails a launch a system dialog holds or `am start` does not confirm,
   removes only the captures it made after checking their pulled bytes, uses `screenrecord` unless the

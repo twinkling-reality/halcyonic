@@ -42,6 +42,11 @@
  * --no-rebind, so `connect stop` and `give-back` remove it; it refuses while any other mapping uses
  * port 47800, however spelled, and leaves a mapping it did not make as it is.
  *
+ * Each reverse is recorded with the transport id of the headset's connection (`adb devices -l`). A
+ * USB reconnect drops every reverse and gives a new id, so a record from another id is forgotten and
+ * removes nothing: it can never claim a rule someone made since. An adb server restart drops the
+ * rules too but can give the same id again; after one, check `reverse --list` before `give-back`.
+ *
  * A check build (QuestBuild's test application id, `com.halcyonic.xr.check`) installs beside the
  * owner's app with data of its own, so it needs no saved copy, and it is the only package `grant`
  * and `uninstall` act on: `grant` gives it one of the permissions in GRANTABLE.
@@ -83,6 +88,7 @@ import {
   requireHeadset,
   sleep,
   textOption,
+  transportId,
 } from './adb.ts';
 import { HALCYONIC_PORT, halcyonicMappings, PORT_MAPPING } from './checks.ts';
 import {
@@ -148,10 +154,19 @@ interface State {
   started: string[];
   /** A recording `record start` began and `record stop` has not ended: the capture folders' names before it. */
   recording?: { before: string[]; startedAt: string; stopSentAt?: string };
-  /** The ports `preview` reversed (or was about to) and has not removed. */
-  reverses: number[];
+  /** Each reverse `preview` or `connect` made (or was about to) and has not removed. */
+  reverses: Reverse[];
   /** A clip `clip` began and has not collected: where screenrecord writes it, and when it is done. */
   clip?: { remote: string; endsAt: string };
+}
+
+/**
+ * A reverse rule this tool made: its port, and the transport id of the headset's connection it was
+ * made on (`adb devices -l`). A record from another transport names a rule the headset has dropped.
+ */
+interface Reverse {
+  port: number;
+  transport: string;
 }
 
 function readState(): State {
@@ -161,7 +176,10 @@ function readState(): State {
       installs: read.installs ?? {},
       started: read.started ?? [],
       ...(read.recording ? { recording: read.recording } : {}),
-      reverses: read.reverses ?? [],
+      // A record kept before transports were (a bare port) is from no known connection.
+      reverses: ((read.reverses ?? []) as unknown[]).map((kept) =>
+        typeof kept === 'number' ? { port: kept, transport: '' } : (kept as Reverse),
+      ),
       ...(read.clip ? { clip: read.clip } : {}),
     };
   } catch {
@@ -868,12 +886,57 @@ function isPreviewRule(line: string, port: number): boolean {
   return fields.length === 3 && fields[1] === `tcp:${port}` && fields[2] === `tcp:${port}`;
 }
 
+/** Records that this tool makes the reverse of `port` on transport `now`. */
+function recordReverse(port: number, now: string): void {
+  writeState((state) => {
+    if (!state.reverses.some((kept) => kept.port === port && kept.transport === now))
+      state.reverses.push({ port, transport: now });
+  });
+}
+
+/** Forgets every record of `port`. */
+function forgetReverse(port: number): void {
+  writeState((state) => {
+    state.reverses = state.reverses.filter((kept) => kept.port !== port);
+  });
+}
+
+/**
+ * Forgets each record of `port` from another transport than `now`: the headset dropped that rule
+ * when its connection went, so whatever sits on the port now is someone else's. True when one went.
+ */
+function forgetStale(port: number, now: string): boolean {
+  const stale = readState().reverses.filter((kept) => kept.port === port && kept.transport !== now);
+  if (stale.length === 0) return false;
+  writeState((state) => {
+    state.reverses = state.reverses.filter((kept) => kept.port !== port || kept.transport === now);
+  });
+  console.log(
+    `The record of port ${port}'s reverse is from an earlier connection, so it was forgotten and nothing was removed.`,
+  );
+  return true;
+}
+
 /**
  * Removes each reverse this tool recorded, `connect`'s and `preview`'s, or only those of the ports
- * `which` keeps, and forgets each one the headset no longer lists.
+ * `which` keeps, and forgets each one the headset no longer lists. A record from an earlier
+ * connection is forgotten and removes nothing; while the transport can't be read, nothing is removed.
  */
 async function removeReverses(which: (port: number) => boolean = () => true): Promise<void> {
-  for (const port of readState().reverses.filter(which)) {
+  const records = readState().reverses.filter((kept) => which(kept.port));
+  if (records.length === 0) return;
+  const now = await transportId();
+  for (const { port, transport } of records) {
+    if (now === null) {
+      console.log(
+        `The headset's transport could not be read, so the reverse of port ${port} stays recorded and nothing was removed.`,
+      );
+      continue;
+    }
+    if (transport !== now) {
+      forgetStale(port, now);
+      continue;
+    }
     await adbSaid('reverse', '--remove', `tcp:${port}`);
     let rules: string[];
     try {
@@ -889,9 +952,7 @@ async function removeReverses(which: (port: number) => boolean = () => true): Pr
       console.log(`The reverse of port ${port} is still there.`);
       continue;
     }
-    writeState((state) => {
-      state.reverses = state.reverses.filter((kept) => kept !== port);
-    });
+    forgetReverse(port);
     console.log(`Removed the reverse of port ${port}.`);
   }
 }
@@ -912,11 +973,20 @@ async function preview(): Promise<void> {
     fail('Not opening the preview: something on the headset listens on 8720 (Meta XR Operator).');
   }
   await refuseSystemDialog('opening the preview');
+  const now = await transportId();
+  if (now === null) {
+    fail(
+      "Not opening the preview: the headset's transport could not be read, so a recorded reverse could not be told from someone else's.",
+    );
+  }
+  forgetStale(gate.port, now);
   const rules = await reverseList().catch(() =>
     fail("Not opening the preview: the headset's reverse rules could not be read."),
   );
-  // Ours only when recorded and its rule is exactly the one this tool makes.
-  const recorded = readState().reverses.includes(gate.port);
+  // Ours only when recorded on this connection and its rule is exactly the one this tool makes.
+  const recorded = readState().reverses.some(
+    (kept) => kept.port === gate.port && kept.transport === now,
+  );
   const ours = recorded && rules.some((line) => isPreviewRule(line, gate.port));
   if (reversesPort(rules, gate.port) && !ours) {
     fail(
@@ -926,17 +996,11 @@ async function preview(): Promise<void> {
   const ran = (await adbSaid('shell', 'pidof', BROWSER)).trim() !== '';
   if (!reversesPort(rules, gate.port)) {
     // Recorded before it is made, so a cut-off run still removes it; never made over anyone's.
-    writeState((state) => {
-      if (!state.reverses.includes(gate.port)) state.reverses.push(gate.port);
-    });
+    recordReverse(gate.port, now);
     try {
       await adb('reverse', '--no-rebind', `tcp:${gate.port}`, `tcp:${gate.port}`);
     } catch {
-      if (!recorded) {
-        writeState((state) => {
-          state.reverses = state.reverses.filter((kept) => kept !== gate.port);
-        });
-      }
+      if (!recorded) forgetReverse(gate.port);
       fail(`Not opening the preview: the reverse of port ${gate.port} could not be made.`);
     }
   }
@@ -976,17 +1040,25 @@ async function previewStop(): Promise<void> {
     });
     console.log('Stopped Quest Browser, which this tool started.');
   }
-  if (readState().reverses.some(previewPort)) process.exit(1);
+  if (readState().reverses.some((kept) => previewPort(kept.port))) process.exit(1);
 }
 
 /**
- * The one mapping a session keeps (checks.ts): recorded before it is made and made with --no-rebind,
- * so `connect stop` and `give-back` remove it. Refused while any other mapping uses port 47800,
- * however spelled; one made outside this tool is left as it is, and not recorded.
+ * The one mapping a session keeps (checks.ts): recorded with the headset's transport before it is
+ * made, and made with --no-rebind, so `connect stop` and `give-back` remove it. Refused while any
+ * other mapping uses port 47800, however spelled; one made outside this tool, or recorded on an
+ * earlier connection, is left as it is.
  */
 async function connect(): Promise<void> {
   if (positional === 'stop') return connectStop();
   if (positional !== undefined) fail('connect takes nothing, or stop.');
+  const now = await transportId();
+  if (now === null) {
+    fail(
+      "Not connecting: the headset's transport could not be read, so a recorded mapping could not be told from someone else's.",
+    );
+  }
+  forgetStale(HALCYONIC_PORT, now);
   const listed = await adb('reverse', '--list').catch(() =>
     fail("Not connecting: the headset's reverse rules could not be read."),
   );
@@ -997,7 +1069,9 @@ async function connect(): Promise<void> {
     );
   }
   const only = `${PORT_MAPPING} to ${PORT_MAPPING}`;
-  const recorded = readState().reverses.includes(HALCYONIC_PORT);
+  const recorded = readState().reverses.some(
+    (kept) => kept.port === HALCYONIC_PORT && kept.transport === now,
+  );
   if (mappings.length === 1 && mappings[0] === only) {
     console.log(
       recorded
@@ -1012,17 +1086,11 @@ async function connect(): Promise<void> {
     );
   }
   // Recorded before it is made, so a cut-off run still removes it; never made over anyone's.
-  writeState((state) => {
-    if (!state.reverses.includes(HALCYONIC_PORT)) state.reverses.push(HALCYONIC_PORT);
-  });
+  recordReverse(HALCYONIC_PORT, now);
   try {
     await adb('reverse', '--no-rebind', PORT_MAPPING, PORT_MAPPING);
   } catch {
-    if (!recorded) {
-      writeState((state) => {
-        state.reverses = state.reverses.filter((kept) => kept !== HALCYONIC_PORT);
-      });
-    }
+    if (!recorded) forgetReverse(HALCYONIC_PORT);
     fail(`Not connecting: the reverse of port ${HALCYONIC_PORT} could not be made.`);
   }
   console.log(
@@ -1032,7 +1100,7 @@ async function connect(): Promise<void> {
 
 async function connectStop(): Promise<void> {
   await removeReverses((port) => port === HALCYONIC_PORT);
-  if (readState().reverses.includes(HALCYONIC_PORT)) process.exit(1);
+  if (readState().reverses.some((kept) => kept.port === HALCYONIC_PORT)) process.exit(1);
 }
 
 const commands: Record<string, () => Promise<void>> = {
