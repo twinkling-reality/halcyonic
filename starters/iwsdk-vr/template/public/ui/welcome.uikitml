@@ -63,21 +63,18 @@
 </style>
 <Panel id="card" class="panel-root">
   <div id="card-words" class="panel-content">
-    <div class="heading">Hello, Immersive Web!</div>
+    <div id="card-title" class="heading">Untitled Game</div>
     <Divider></Divider>
-    <div class="sub-heading">
-      Build interactive browser, mixed-reality, and virtual-reality experiences
-      with Immersive Web SDK.
-    </div>
+    <div id="card-line" class="sub-heading"></div>
   </div>
   <Button id="xr-button" class="button">
     <ButtonIcon>
       <RectangleGoggles></RectangleGoggles>
     </ButtonIcon>
-    <ButtonLabel class="button-label">Enter XR</ButtonLabel>
+    <ButtonLabel class="button-label">Enter VR</ButtonLabel>
   </Button>
   <div id="laptop-help" class="sub-heading laptop-help" style="display: none">
-    Put on your headset to play this in VR. On a laptop: click to play, drag to look around, W A S D to move,
+    Put on your headset to play this in VR. On a laptop: click to play, drag to look around, WASD to move,
     Space and E for buttons.
   </div>
   <Button id="exit-button" class="button" style="display: none">

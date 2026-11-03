@@ -423,6 +423,18 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   1 s, 0.35% of pixels change every half second. The one-box game on it read ready in 86 s at a load of 6 to 9.
 - **Not tried:** the headset's own frame time, in stereo, with a game on the island.
 
+## The game's own card (U5)
+
+- **Question:** what does a new game's welcome card say for its first 6 seconds?
+- **Date:** 2026-11-03.
+- **Before:** Meta's template words, "Hello, Immersive Web!" and a sentence about the SDK, in every game an agent did
+  not change (K1's check picture showed them over a game), a button reading Enter XR, and a tab titled IWSDK App; the
+  laptop line broke "W A S D" across two lines.
+- **Now:** the card reads Untitled Game, with an empty line under it that AGENTS.md asks the agent to fill with one
+  short line on how to play, after putting the game's name in the title and the tab; nothing else is added. The button
+  reads Enter VR, and the laptop line says WASD, which does not break. A fresh project's check passed.
+- **Not tried:** the headset's 2D page, where the button shows.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.
