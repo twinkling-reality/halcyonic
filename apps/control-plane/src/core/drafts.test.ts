@@ -122,7 +122,7 @@ describe("a runtime's observations", () => {
         answerable: true,
       }),
     );
-    // The agent's own messages are reported as given (an open question).
+    // The agent's own messages lose exact copies too (2026-11-03): an agent can echo a key it was given.
     sink(observation('runtime.agent_message', { text: `I will use ${held}` }));
     assert.deepEqual(
       recorded.map((draft) => draft.payload),
@@ -145,9 +145,20 @@ describe("a runtime's observations", () => {
           prompts: [{ key: 'q0', header: null, text: `Use ${MARK}?`, options: [option] }],
           answerable: true,
         },
-        { text: `I will use ${held}` },
+        { text: `I will use ${MARK}` },
       ],
     );
+  });
+
+  test("an agent's message at the contract's limit stays within it once a held copy is taken out", () => {
+    const { sink, recorded } = recordingSink();
+    // The marker is longer than the value it stands for, so the message grows past the limit and is cut.
+    const text = `${'x'.repeat(32_000 - held.length)}${held}`;
+    sink(observation('runtime.agent_message', { text }));
+    const kept = (recorded[0]?.payload as { text: string } | undefined)?.text ?? '';
+    assert.ok(kept !== '' && !kept.includes(held));
+    assert.equal([...kept].length, 32_000);
+    assert.ok(kept.endsWith(' [truncated]'));
   });
 
   test("are cut to their field's limit after redaction, never before, so no part of a held value is left", () => {
