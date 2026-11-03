@@ -19,6 +19,8 @@
  *     [--extra <key>=<text>] [--extra-bool <key>=true|false]   intent extras, each repeatable
  *   pnpm quest:device -- stop [--package <p>]
  *   pnpm quest:device -- shot [--out <dir>]          a frame of both eyes, through screenrecord
+ *   pnpm quest:device -- clip --seconds <n> [--out <dir>]   both eyes for up to 180 s, through screenrecord,
+ *     no sound and no upload, with <clip>.sha256 beside it; give-back collects one a cut-off run left
  *   pnpm quest:device -- shot --service --sync-is-off    Meta's capture service, one eye
  *   pnpm quest:device -- record --seconds <n> --sync-is-off [--out <dir>]
  *   pnpm quest:device -- record start --sync-is-off, later record stop [--out <dir>]
@@ -74,6 +76,7 @@ import { promisify } from 'node:util';
 import {
   ACTIVITY,
   adb,
+  adbFor,
   adbSaid,
   option,
   PACKAGE,
@@ -147,6 +150,8 @@ interface State {
   recording?: { before: string[]; startedAt: string; stopSentAt?: string };
   /** The ports `preview` reversed (or was about to) and has not removed. */
   reverses: number[];
+  /** A clip `clip` began and has not collected: where screenrecord writes it, and when it is done. */
+  clip?: { remote: string; endsAt: string };
 }
 
 function readState(): State {
@@ -157,6 +162,7 @@ function readState(): State {
       started: read.started ?? [],
       ...(read.recording ? { recording: read.recording } : {}),
       reverses: read.reverses ?? [],
+      ...(read.clip ? { clip: read.clip } : {}),
     };
   } catch {
     return { installs: {}, started: [], reverses: [] };
@@ -182,6 +188,13 @@ const SCREENSHOTS = '/sdcard/Oculus/Screenshots';
 const VIDEOS = '/sdcard/Oculus/VideoShots';
 const CLIP_WAIT_MS = 120_000;
 const DOWNLOADS = '/sdcard/Download';
+/** screenrecord's own longest recording, in seconds. */
+const CLIP_MAX_SECONDS = 180;
+/**
+ * How long pulling a clip may take. screenrecord wrote about 20 Mbit/s on the headset (2026-11-03: 2.1
+ * to 2.5 MB for 0.9 s of both eyes), so 180 s is about 450 MB.
+ */
+const CLIP_PULL_MS = 180_000;
 const CAPTURE_SERVICE = 'com.oculus.metacam/.capture.CaptureService';
 const TESTING = ['content', 'call', '--uri', 'content://com.oculus.rc', '--method', 'GET_PROPERTY'];
 
@@ -244,12 +257,15 @@ async function installed(name: string) {
   return sum === null ? null : { path: paths[0], sha256: sum, firstInstall: first };
 }
 
-/** Pulls a file the tool made, checks its bytes against the headset's sha256, and only then removes it there. */
-async function collect(remote: string, folder: string): Promise<string> {
+/**
+ * Pulls a file the tool made, checks its bytes against the headset's sha256, and only then removes it there.
+ * `pullMs` is how long the pull may take: a clip of minutes needs longer than adb's usual 20 s.
+ */
+async function collect(remote: string, folder: string, pullMs = 20_000): Promise<string> {
   mkdirSync(folder, { recursive: true });
   const local = join(folder, basename(remote));
   const onDevice = readSha256(await adbSaid('shell', 'sha256sum', remote));
-  await adb('pull', remote, local);
+  await adbFor(pullMs, 'pull', remote, local);
   if (onDevice === null || sha256File(local) !== onDevice) {
     throw new Error(
       `The pulled copy of ${basename(remote)} does not match the headset's; it was left there.`,
@@ -368,6 +384,8 @@ async function status(): Promise<void> {
     );
   else if (recording)
     console.log(`A recording is in progress since ${recording.startedAt}; record stop ends it.`);
+  const left = readState().clip;
+  if (left) console.log(`A clip is still on the headset: ${left.remote}. give-back collects it.`);
   replaced();
 }
 
@@ -389,10 +407,21 @@ async function awake(): Promise<void> {
 async function giveBack(): Promise<void> {
   // A recording a cut-off run left going keeps the microphone on until something stops it. Its trouble is reported
   // at the end, after the apps are stopped and the sensor is given back.
-  let problem: string | null = null;
+  const problems: string[] = [];
   if (readState().recording) {
     console.log('A recording is still in progress: stopping and collecting it first.');
-    problem = await stopRecording().catch((error: unknown) => (error as Error).message);
+    const problem = await stopRecording().catch((error: unknown) => (error as Error).message);
+    if (problem !== null)
+      problems.push(
+        `${problem} A clip may still be on the headset in ${VIDEOS}; collect it by name.`,
+      );
+  }
+  // A clip a cut-off run left is collected once screenrecord is done with it, as `clip` would have.
+  const left = readState().clip;
+  if (left) {
+    const problem = await collectLeftClip(left).catch((error: unknown) => (error as Error).message);
+    if (problem !== null)
+      problems.push(`${problem} It stays in the state, so the next give-back tries again.`);
   }
   await removeReverses();
   for (const name of readState().started) {
@@ -420,8 +449,7 @@ async function giveBack(): Promise<void> {
   if (reverse) console.log(`reverse rules left: ${reverse}`);
   if (forward) console.log(`forward rules left: ${forward}`);
   replaced();
-  if (problem !== null)
-    fail(`${problem} A clip may still be on the headset in ${VIDEOS}; collect it by name.`);
+  if (problems.length > 0) fail(problems.join(' '));
   if (on !== false && !lost) process.exit(1);
 }
 
@@ -640,9 +668,68 @@ async function shot(): Promise<void> {
   console.log(frame ?? local);
 }
 
+/**
+ * A clip of both eyes through screenrecord, with no sound and no upload, for motion a still can't
+ * show: kept in --out with its <clip>.sha256 beside it, then removed from the headset by name. It is
+ * recorded in the state before it starts, so give-back collects what a cut-off run leaves.
+ */
+async function clip(): Promise<void> {
+  const seconds = option('seconds', 10);
+  if (!Number.isInteger(seconds) || seconds > CLIP_MAX_SECONDS) {
+    fail(
+      `clip --seconds takes whole seconds from 1 to ${CLIP_MAX_SECONDS}, screenrecord's own limit.`,
+    );
+  }
+  const left = readState().clip;
+  if (left) fail(`A clip is still on the headset: ${left.remote}. give-back collects it.`);
+  const remote = `${DOWNLOADS}/halcyonic.clip-${stamp()}.mp4`;
+  if (!/No such file/.test(await adbSaid('shell', 'ls', remote)))
+    fail(`${remote} already exists on the headset.`);
+  writeState((state) => {
+    state.clip = { remote, endsAt: new Date(Date.now() + (seconds + 2) * 1000).toISOString() };
+  });
+  await adbFor(
+    (seconds + 30) * 1000,
+    'shell',
+    'screenrecord',
+    '--time-limit',
+    String(seconds),
+    remote,
+  );
+  console.log(await keepClip(remote));
+  writeState((state) => {
+    delete state.clip;
+  });
+}
+
+/**
+ * Collects the clip a cut-off `clip` left, once screenrecord is done with it: what went wrong, or
+ * null when it is kept or never reached the headset. Never exits, so give-back can finish its own work.
+ */
+async function collectLeftClip(left: { remote: string; endsAt: string }): Promise<string | null> {
+  const wait = Date.parse(left.endsAt) - Date.now();
+  if (wait > 0) {
+    console.log(`Waiting ${Math.ceil(wait / 1000)} s for the clip a cut-off run left to end.`);
+    await sleep(Math.min(wait, (CLIP_MAX_SECONDS + 2) * 1000));
+  }
+  if (/No such file/.test(await adbSaid('shell', 'ls', left.remote))) {
+    console.log(`The clip a cut-off run began never reached the headset: ${left.remote}.`);
+  } else {
+    try {
+      console.log(await keepClip(left.remote));
+    } catch (error) {
+      return (error as Error).message;
+    }
+  }
+  writeState((state) => {
+    delete state.clip;
+  });
+  return null;
+}
+
 /** Where the clip and its <clip>.sha256 go: --out, else .private/quest. ffprobe's summary of it, when ffprobe is there. */
 async function keepClip(remote: string): Promise<string> {
-  const local = await collect(remote, out);
+  const local = await collect(remote, out, CLIP_PULL_MS);
   writeFileSync(`${local}.sha256`, `${sha256File(local)}  ${basename(local)}\n`);
   const ffprobe = process.env.HALCYONIC_FFPROBE ?? '/opt/homebrew/bin/ffprobe';
   if (existsSync(ffprobe)) {
@@ -961,6 +1048,7 @@ const commands: Record<string, () => Promise<void>> = {
   launch,
   stop,
   shot,
+  clip,
   record,
   logs,
   preview,

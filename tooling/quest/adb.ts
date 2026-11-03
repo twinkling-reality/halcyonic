@@ -76,11 +76,16 @@ async function serial(): Promise<string> {
 
 const target = async () => [...server(), '-s', await serial()];
 
-export async function adb(...args: string[]): Promise<string> {
+export function adb(...args: string[]): Promise<string> {
+  return adbFor(20_000, ...args);
+}
+
+/** As `adb`, for a command that runs longer than adb's usual 20 s, such as a screenrecord clip: stopped after `ms`. */
+export async function adbFor(ms: number, ...args: string[]): Promise<string> {
   try {
     const { stdout } = await run(adbPath(), [...(await target()), ...args], {
       maxBuffer: 16 * 1024 * 1024,
-      timeout: 20_000,
+      timeout: ms,
     });
     return stdout;
   } catch (error) {

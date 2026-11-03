@@ -18,8 +18,9 @@
 - **Status:** Verified on the headset: every command in `pnpm quest:device` of 2026-10-28; the adb
   servers kept apart. Not verified: the longest recording and the capture service's rate limit;
   whether the microphone is heard while nobody wears the headset; what a 5039 server does when 5038
-  is not running. Added 2026-11-03 and tested only against a stand-in adb, not yet on the headset:
-  `connect`, and reading a launch's hold with `logcat -e` from the headset's clock (`-t <epoch>`).
+  is not running. Added 2026-11-03: `connect`, the forwarded `--` and the refusal to launch under a
+  system dialog ran on the headset; tested only against a stand-in adb, not yet on the headset:
+  reading a launch's hold with `logcat -e` from the headset's clock (`-t <epoch>`), and `clip`.
 
 ## Findings
 
@@ -216,7 +217,19 @@ A Quest 3 on build `UP1A.231005.007.A1` (incremental 52641960031600520) on its o
 - **Without the app running**, `pnpm quest:check` passed the mapping, the private token at mode 600
   and 44 bytes, no glance token, no write's temporary file and nothing at the token's old place, and
   failed only its log line, the app not running.
-- Not known: whether `am force-stop` drops a launch the headset cached.
+- **The cached launch did not start.** The menu's task closed at 17:42:07Z, when the owner closed
+  it; the log has no start of Halcyonic after the force-stop at 17:23:38Z. Seen once: whether a
+  force-stop always drops a cached launch is not known.
+- **Woken again at 18:16Z**, the headset showed Meta's tracking-lost dialog over black ("Continue
+  without tracking", "Turn on travel mode") for 8 minutes, nothing pressed. The fixed tool ran on it:
+  `pnpm quest:device -- status` through pnpm, `launch` refusing before `am start`, and `connect`
+  making `UsbFfs tcp:47800 tcp:47800`, which `give-back` removed.
+- **Awake on the cable**, the battery fell from 85% to 79% in those 8 minutes and the headset warmed
+  from 28 to 39 C (thermal status 0).
+- **Clips without a wearer use screenrecord.** The capture service logged its media sync setting
+  after each capture (2026-10-29), and no line shows it before the first capture of a session, so
+  the log cannot say sync is off until a capture has been made. `clip` records both eyes through
+  `screenrecord` instead, with no sound and nothing to upload.
 
 So the device tool reads every task's resumed activity and the one `ResumedActivity` for the
 Guardian's and the alert service's dialogs, reads a hold by its words since the launch, fails a
@@ -230,6 +243,7 @@ launch `am start` does not confirm, drops the `--` pnpm forwards, and makes the 
   only an Android package name for `--package`, saves an installed APK before installing over it and
   checks the bytes both ways, fails a launch a system dialog holds or `am start` does not confirm,
   removes only the captures it made after checking their pulled bytes, uses `screenrecord` unless the
-  owner has turned media sync off, and keeps only Halcyonic's own log lines.
+  owner has turned media sync off, records clips of both eyes through `screenrecord` (`clip`, up to
+  180 s), and keeps only Halcyonic's own log lines.
 - Development builds leave Meta XR Operator out unless a journey build asks for it
   (`OperatorInDevelopmentBuilds`, XR_DEVELOPMENT.md).

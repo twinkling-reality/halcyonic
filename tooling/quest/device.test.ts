@@ -12,7 +12,7 @@ import {
 import { createServer, type Server } from 'node:http';
 import { createServer as createTcpServer, type Server as TcpServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { promisify } from 'node:util';
 import { controlPlaneDraft, NO_CAUSE } from '../../apps/control-plane/src/core/drafts.ts';
@@ -54,6 +54,8 @@ interface Headset {
   readonly procNetSilent?: boolean;
   /** `reverse --list` fails. */
   readonly listFails?: boolean;
+  /** Files already in /sdcard/Download, by name, as a cut-off clip leaves one. */
+  readonly downloads?: readonly string[];
 }
 
 /**
@@ -74,6 +76,7 @@ const PULLED = 'the bytes the headset recorded';
 const sha = (text) => crypto.createHash('sha256').update(text).digest('hex');
 if (said === 'devices') out('List of devices attached\\nTEST-SERIAL\\tdevice');
 else if (said === 'get-state') out('device');
+else if (said.startsWith('shell ls /sdcard/Download/') && (scenario.downloads ?? []).includes(args[2].slice('/sdcard/Download/'.length))) out(args[2]);
 else if (said.startsWith('shell ls /sdcard/Download/')) {
   process.stderr.write('ls: ' + args[2] + ': No such file or directory\\n');
   process.exit(1);
@@ -262,6 +265,141 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       removed[0] ?? '',
       /^shell rm \/sdcard\/Download\/halcyonic\.device-\d{8}-\d{6}\.mp4$/,
     );
+  });
+
+  test('clip records the seconds asked through screenrecord, keeps it with its sha256 and removes it from the headset', async () => {
+    const out = join(directory, 'clips');
+    const state = join(directory, 'state-clip.json');
+    const { code, said, calls } = await device(
+      { pullMatches: true },
+      'clip',
+      '--seconds',
+      '12',
+      '--out',
+      out,
+      '--state',
+      state,
+    );
+    assert.equal(code, 0, said);
+    const recorded = calls.filter((call) => call.startsWith('shell screenrecord'));
+    assert.equal(recorded.length, 1, calls.join('\n'));
+    const remote =
+      /^shell screenrecord --time-limit 12 (\/sdcard\/Download\/halcyonic\.clip-\d{8}-\d{6}\.mp4)$/.exec(
+        recorded[0] ?? '',
+      )?.[1] ?? '';
+    assert.notEqual(remote, '', recorded[0]);
+    assert.deepEqual(
+      calls.filter((call) => call.startsWith('shell rm')),
+      [`shell rm ${remote}`],
+    );
+    assert.match(
+      readFileSync(join(out, `${basename(remote)}.sha256`), 'utf8'),
+      /^[0-9a-f]{64} {2}halcyonic\.clip-\d{8}-\d{6}\.mp4\n$/,
+    );
+    assert.equal(JSON.parse(readFileSync(state, 'utf8')).clip, undefined);
+  });
+
+  test("clip takes whole seconds from 1 to 180, screenrecord's own limit, and records nothing else", async () => {
+    for (const seconds of ['181', '2.5', '0', 'ten']) {
+      const { code, said, calls } = await device({}, 'clip', '--seconds', seconds);
+      assert.equal(code, 1, said);
+      assert.ok(!calls.some((call) => call.includes('screenrecord')), calls.join('\n'));
+    }
+    const longest = await device(
+      { pullMatches: true },
+      'clip',
+      '--seconds',
+      '180',
+      '--out',
+      join(directory, 'clips-longest'),
+      '--state',
+      join(directory, 'state-clip-longest.json'),
+    );
+    assert.equal(longest.code, 0, longest.said);
+    assert.ok(
+      longest.calls.some((call) => call.startsWith('shell screenrecord --time-limit 180 ')),
+      longest.calls.join('\n'),
+    );
+  });
+
+  test('a clip whose pulled copy differs stays on the headset and in the state, and status says where', async () => {
+    const state = join(directory, 'state-clip-mismatch.json');
+    const { code, said, calls } = await device(
+      { pullMatches: false },
+      'clip',
+      '--seconds',
+      '3',
+      '--state',
+      state,
+      '--out',
+      join(directory, 'clips-mismatch'),
+    );
+    assert.equal(code, 1, said);
+    assert.ok(!calls.some((call) => call.startsWith('shell rm')), calls.join('\n'));
+    const left = JSON.parse(readFileSync(state, 'utf8')).clip as { remote?: string } | undefined;
+    assert.match(left?.remote ?? '', /^\/sdcard\/Download\/halcyonic\.clip-\d{8}-\d{6}\.mp4$/);
+    const shown = await device({}, 'status', '--state', state);
+    assert.equal(shown.code, 0, shown.said);
+    assert.match(
+      shown.said,
+      /A clip is still on the headset: \/sdcard\/Download\/halcyonic\.clip-\d{8}-\d{6}\.mp4/,
+    );
+  });
+
+  test('give-back waits for a clip a cut-off run left to end, then keeps it and removes it from the headset', async () => {
+    const name = 'halcyonic.clip-20261103-190000.mp4';
+    const state = join(directory, 'state-clip-cutoff.json');
+    const out = join(directory, 'clips-cutoff');
+    const endsAt = new Date(Date.now() + 1500).toISOString();
+    writeFileSync(
+      state,
+      JSON.stringify({
+        installs: {},
+        started: [],
+        reverses: [],
+        clip: { remote: `/sdcard/Download/${name}`, endsAt },
+      }),
+    );
+    const { code, said, calls } = await device(
+      { pullMatches: true, downloads: [name], proximity: ['false'] },
+      'give-back',
+      '--state',
+      state,
+      '--out',
+      out,
+    );
+    assert.equal(code, 0, said);
+    assert.match(said, /Waiting \d+ s for the clip a cut-off run left to end/);
+    assert.ok(calls.includes(`shell rm /sdcard/Download/${name}`), calls.join('\n'));
+    assert.ok(existsSync(join(out, `${name}.sha256`)), said);
+    assert.equal(JSON.parse(readFileSync(state, 'utf8')).clip, undefined);
+  });
+
+  test('give-back forgets a cut-off clip that never reached the headset', async () => {
+    const name = 'halcyonic.clip-20261103-190500.mp4';
+    const state = join(directory, 'state-clip-none.json');
+    writeFileSync(
+      state,
+      JSON.stringify({
+        installs: {},
+        started: [],
+        reverses: [],
+        clip: { remote: `/sdcard/Download/${name}`, endsAt: '2026-11-03T19:05:12.000Z' },
+      }),
+    );
+    const { code, said, calls } = await device(
+      { proximity: ['false'] },
+      'give-back',
+      '--state',
+      state,
+    );
+    assert.equal(code, 0, said);
+    assert.match(said, /never reached the headset/);
+    assert.ok(
+      !calls.some((call) => call.startsWith('pull') || call.startsWith('shell rm')),
+      calls.join('\n'),
+    );
+    assert.equal(JSON.parse(readFileSync(state, 'utf8')).clip, undefined);
   });
 
   test('install refuses a saved copy that is not the installed APK, and installs nothing', async () => {

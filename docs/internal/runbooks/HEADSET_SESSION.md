@@ -651,6 +651,7 @@ pnpm quest:device -- install apps/xr/Builds/Halcyonic.apk --saved .private/quest
 pnpm quest:device -- connect
 pnpm quest:device -- launch
 pnpm quest:device -- shot
+pnpm quest:device -- clip --seconds 10
 pnpm quest:device -- logs --out .private/quest/halcyonic.log
 pnpm quest:device -- stop
 pnpm quest:device -- restore .private/quest/com.halcyonic.xr-installed-<sha>.apk
@@ -688,7 +689,9 @@ pnpm quest:device -- give-back
   `--extra key=text` and `--extra-bool key=true|false` pass intent extras, letters, digits and
   `._:/-` only, since the headset's shell reads the command.
 - `shot` takes one second of `screenrecord` (both eyes) and keeps a frame of the left eye when ffmpeg
-  is there. `shot --service` and `record --seconds <n>` use Meta's capture service (one eye; a
+  is there. `clip --seconds <n>` records both eyes the same way for up to 180 s, with no sound and
+  nothing uploaded, and keeps `<clip>.sha256` beside it; `give-back` collects a clip a cut-off run
+  left. `shot --service` and `record --seconds <n>` use Meta's capture service (one eye; a
   recording includes the headset microphone) and run only with `--sync-is-off`, once the owner has
   turned the headset's media sync off, and never while the headset's log says sync is on. Every capture is pulled, its bytes checked, and only then
   removed from the headset by name. Captures show the room: keep them out of the repository.
