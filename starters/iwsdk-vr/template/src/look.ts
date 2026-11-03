@@ -31,12 +31,12 @@ import { groundPatch, palette, soilLip, toyMaterial } from './palette.js';
  * toy clouds, and a floating island to play on. The island's top is at y = 0, centred at (0, 0, -1.8), about 6 m
  * across, and its raised tier sits at the back. The player stands at the origin facing -z, toward the centre: in VR
  * that is where the headset starts, and the laptop camera looks the same way from just behind them, so what faces one
- * faces both. Put the game's objects in `gameIsland()`, on the top.
+ * faces both. Put the game's objects in `gameIsland()`, on the top, in the world's own coordinates.
  */
 export const ISLAND_CENTRE = { x: 0, z: -1.8 } as const;
 export const ISLAND_RADIUS = 3.0;
-/** Where the player stands, in `gameIsland()`'s coordinates: the origin, 1.8 m in front of the centre, facing -z. */
-export const PLAYER = { x: 0, z: 1.8 } as const;
+/** Where the player stands: the origin, 1.8 m in front of the island's centre, facing -z. */
+export const PLAYER = { x: 0, z: 0 } as const;
 
 const FLOOR = {
   lobes: [
@@ -91,7 +91,11 @@ class AmbientSystem extends createSystem({}) {
   }
 }
 
-/** The island setupLook made: add the game's objects to it, so they stand on its top at y = 0. */
+/**
+ * Where the game's objects go: a group in the world's own frame (the player at the origin, the island's centre at
+ * `ISLAND_CENTRE`, its top at y = 0), never moved, so an object stays where it is put whether it hangs here or
+ * `world.createTransformEntity(object)` moves it to the level's root, as that call does.
+ */
 export function gameIsland(): Group {
   if (built === null) throw new Error('Call setupLook(world) in src/index.ts first.');
   return built;
@@ -306,7 +310,10 @@ export function setupLook(world: World): { island: Group } {
 
   const ground = island();
   stage.add(ground);
-  built = ground;
+  // The game's own frame is the world's, not the stage's: an interactive object leaves its group for the level's root.
+  const play = new Group();
+  world.scene.add(play);
+  built = play;
   world.registerSystem(AmbientSystem);
-  return { island: ground };
+  return { island: play };
 }
