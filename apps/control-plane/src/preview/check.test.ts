@@ -19,6 +19,8 @@ import {
   type CheckStep,
   DRAWN_EDGES,
   drawnFrom,
+  OWN_DRAWN,
+  type OwnReference,
   type PageFindings,
   passes,
   runCheck,
@@ -35,6 +37,7 @@ const page = (findings: Partial<PageFindings>): PageFindings => ({
   canvases: 1,
   edges: { at_3s: 0, at_10s: 0 },
   drawn: true,
+  own: { share: 0.5, reference: 'compared', frame: null },
   pictures: [],
   ...findings,
 });
@@ -50,11 +53,32 @@ describe('the check of a project from a starter (ADR 0037)', () => {
   });
 
   test('something is drawn when either picture has more sharp edges than the threshold; nothing is assumed', () => {
-    assert.ok(!drawnFrom(0, 0));
-    assert.ok(!drawnFrom(null, null));
-    assert.ok(!drawnFrom(DRAWN_EDGES, DRAWN_EDGES));
-    assert.ok(drawnFrom(DRAWN_EDGES + 1, 0));
-    assert.ok(drawnFrom(null, 7451));
+    const own = { share: OWN_DRAWN * 2, reference: 'compared' } as const;
+    assert.ok(!drawnFrom(0, 0, own));
+    assert.ok(!drawnFrom(null, null, own));
+    assert.ok(!drawnFrom(DRAWN_EDGES, DRAWN_EDGES, own));
+    assert.ok(drawnFrom(DRAWN_EDGES + 1, 0, own));
+    assert.ok(drawnFrom(null, 7451, own));
+  });
+
+  test("drawn needs pixels of the project's own too: the starter's scenery alone never draws, nothing is assumed (DRAWN)", () => {
+    const own = (
+      share: number | null,
+      reference: 'compared' | 'other_template' | 'unavailable' = 'compared',
+    ) => ({ share, reference });
+    // The starter's island, sky and decor: edges by the thousand, nothing of a game's own.
+    assert.ok(!drawnFrom(56_000, 56_000, own(0)));
+    assert.ok(!drawnFrom(56_000, 56_000, own(OWN_DRAWN)));
+    assert.ok(!drawnFrom(56_000, 56_000, own(null)));
+    assert.ok(drawnFrom(56_000, 56_000, own(OWN_DRAWN * 1.5)));
+    // Pixels of its own are no picture without edges: a white or black page differs everywhere.
+    assert.ok(!drawnFrom(0, 0, own(1)));
+    // Another template than the tracked one: the edges alone, as before DRAWN.
+    assert.ok(drawnFrom(56_000, 56_000, own(null, 'other_template')));
+    assert.ok(!drawnFrom(DRAWN_EDGES, 0, own(null, 'other_template')));
+    // No starter's picture to compare with: never drawn.
+    assert.ok(!drawnFrom(56_000, 56_000, own(null, 'unavailable')));
+    assert.ok(!drawnFrom(56_000, 56_000, own(0.5, 'unavailable')));
   });
 
   test('reports at most five distinct exceptions, each its first two lines, clipped', () => {
@@ -85,15 +109,45 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
   // The check's browser, chrome-headless-shell, started through a launcher built here (S1).
   const launcherData = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-check-launcher-')));
   let launcher: string | null = null;
+  /** The pristine starter's own picture, made in `before` as the host makes it (DRAWN). */
+  let reference: OwnReference = { kind: 'unavailable', why: 'not made' };
+  const template = new URL('../../../../starters/iwsdk-vr/template/', import.meta.url).pathname;
+  const host = new URL('../../../../starters/iwsdk-vr/host/', import.meta.url).pathname;
+  const references = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-check-reference-')));
   before(async () => {
     assert.equal(browserProblem(BROWSER, BROWSER_SHA256), null);
     await installLauncher({ dataDir: launcherData, clang: '/usr/bin/clang' });
     launcher = launcherFor(launcherData);
     assert.notEqual(launcher, null);
+    const project = join(references, 'project');
+    cpSync(template, project, { recursive: true });
+    symlinkSync(join(STARTER, 'node_modules'), join(project, 'node_modules'));
+    const made = await runCheck({
+      ...options(project, join(references, 'cache')),
+      reference: { kind: 'making' },
+    });
+    const frame = made.page?.own.frame ?? null;
+    assert.notEqual(frame, null, JSON.stringify(made.unknown));
+    reference = { kind: 'compared', png: readFileSync(frame?.file ?? '') };
   });
-  after(() => rmSync(launcherData, { recursive: true, force: true }));
-  const template = new URL('../../../../starters/iwsdk-vr/template/', import.meta.url).pathname;
-  const host = new URL('../../../../starters/iwsdk-vr/host/', import.meta.url).pathname;
+  after(() => {
+    rmSync(launcherData, { recursive: true, force: true });
+    rmSync(references, { recursive: true, force: true });
+  });
+  /** What every check here is given, but its reference. */
+  const options = (project: string, cache: string) => ({
+    node: process.execPath,
+    chrome: browserBinary(BROWSER),
+    launcher,
+    home: homedir(),
+    project,
+    starter: STARTER,
+    hostSource: host,
+    template,
+    cache,
+    profiles: existsSync(join(STARTER, 'input-profiles')) ? join(STARTER, 'input-profiles') : null,
+    port: PORT,
+  });
   const check = async (t: TestContext, change: (project: string) => void, twinStepMs?: number) => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-check-')));
     t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -116,6 +170,7 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
         ? join(STARTER, 'input-profiles')
         : null,
       port: PORT,
+      reference,
       ...(twinStepMs === undefined ? {} : { twinStepMs }),
     });
     return { ...result, cache };
@@ -163,6 +218,8 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     assert.equal(result.tsc.exit, 0);
     assert.equal(result.build.exit, 0);
     assert.equal(result.page?.exception_count, 0);
+    assert.equal(result.page?.own.reference, 'compared');
+    assert.ok((result.page?.own.share ?? 1) <= OWN_DRAWN, String(result.page?.own.share));
     assert.equal(result.page?.drawn, false);
     assert.equal(result.passed, false);
     // Nothing to press, but the starter's World offers VR as it loads (M1.8b).
@@ -184,7 +241,30 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
       ),
     );
     assert.equal(result.page?.drawn, true, JSON.stringify(result.page?.edges));
+    assert.ok((result.page?.own.share ?? 0) > OWN_DRAWN, String(result.page?.own.share));
     assert.equal(result.passed, true);
+  });
+
+  test('a game that names itself on its card but draws nothing of its own is not drawn (DRAWN)', {
+    timeout: 180_000,
+  }, async (t) => {
+    const result = await check(t, (project) => {
+      const card = join(project, 'public', 'ui', 'welcome.uikitml');
+      writeFileSync(
+        card,
+        readFileSync(card, 'utf8')
+          .replace('Untitled Game', 'Bonk the Moles')
+          .replace(
+            '<div id="card-line" class="sub-heading"></div>',
+            '<div id="card-line" class="sub-heading">Bonk a mole when it pops up</div>',
+          ),
+      );
+    });
+    assert.equal(result.page?.exception_count, 0);
+    assert.equal(result.page?.own.reference, 'compared');
+    assert.ok((result.page?.own.share ?? 1) <= OWN_DRAWN, String(result.page?.own.share));
+    assert.equal(result.page?.drawn, false);
+    assert.equal(result.passed, false);
   });
 
   test("the type check reads no file outside its scope that the project's tsconfig names, so its log gives the agent none of it (AUDIT P1)", {

@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { type ChildProcess, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,8 +23,9 @@ import {
   type ProjectId,
 } from '@halcyonic/contracts';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
+import { templateDigest } from '../starters.ts';
 import { createTestControlPlane } from '../testing/harness.ts';
-import type { CheckOptions, CheckResult } from './check.ts';
+import { type CheckOptions, type CheckResult, HOST_FILES } from './check.ts';
 import { type ChromeRun, DevToolsPipe } from './chrome.ts';
 import type { HostPreviewsDeps, ServeArgs } from './preview.ts';
 
@@ -29,6 +39,7 @@ const PASSED: CheckResult = {
     canvases: 1,
     edges: { at_3s: 0, at_10s: 7451 },
     drawn: true,
+    own: { share: 0.02, reference: 'compared', frame: null },
     pictures: [{ at_ms: 10_000, file: '/nowhere/picture-10s.png', sha256: 'c'.repeat(64) }],
   },
   unknown: null,
@@ -81,6 +92,43 @@ interface PlaneOptions {
   readonly browser?: HostPreviewsDeps['browser'];
   /** The launcher, checked now: by default one in place (S1). */
   readonly launcher?: string | null;
+  /**
+   * The starters on disk, and the template digest the project began from (DRAWN); by default a
+   * tracked folder that is not there, so no starter's picture can be made.
+   */
+  readonly starters?: {
+    readonly trackedDir: string;
+    readonly installedDir: string;
+    readonly began: string;
+  };
+  /** Whether the stand-in check makes the starter's own picture when asked; by default it does. */
+  readonly reference?: 'made' | 'fails';
+}
+
+/** The starter's own picture the stand-in check makes (DRAWN). */
+const FRAME = Buffer.from('a stand-in for the starter frame');
+
+/** A tracked starter on disk: its template, host files and lockfile, installed and recorded. */
+function trackedStarter(root: string) {
+  const trackedDir = join(root, 'starters');
+  const installedDir = join(root, 'installed');
+  const tracked = join(trackedDir, 'iwsdk-vr');
+  mkdirSync(join(tracked, 'template', 'src'), { recursive: true });
+  mkdirSync(join(tracked, 'host'), { recursive: true });
+  writeFileSync(join(tracked, 'starter.json'), JSON.stringify({ format: 1, title: 'A VR app' }));
+  const lock = '{"name":"starter","lockfileVersion":3,"packages":{}}\n';
+  writeFileSync(join(tracked, 'package-lock.json'), lock);
+  writeFileSync(join(tracked, 'template', 'index.html'), '<html></html>\n');
+  writeFileSync(join(tracked, 'template', 'src', 'index.ts'), 'export {};\n');
+  for (const file of HOST_FILES) writeFileSync(join(tracked, 'host', file), `${file}\n`);
+  mkdirSync(join(installedDir, 'iwsdk-vr', 'node_modules'), { recursive: true });
+  writeFileSync(
+    join(installedDir, 'iwsdk-vr', 'installed.json'),
+    JSON.stringify({ format: 1, lockfile: createHash('sha256').update(lock).digest('hex') }),
+  );
+  const template = templateDigest(join(tracked, 'template'));
+  assert.notEqual(template, null);
+  return { trackedDir, installedDir, template: template as string };
 }
 
 /** A control plane with checks on, a starter project in it, and the check and server standing in. */
@@ -93,6 +141,8 @@ function plane(
     play,
     browser = { folder: '/fake/chrome-headless-shell', sha256: 'a'.repeat(64) },
     launcher = '/fake/bin/halcyonic-disclaim',
+    starters,
+    reference = 'made',
   }: PlaneOptions = {},
 ) {
   const dataDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-previews-')));
@@ -108,7 +158,10 @@ function plane(
       browser,
       browserProblem: () => null,
       launcher: () => launcher,
-      starters: { trackedDir: '/repo/starters', installedDir: join(dataDir, 'starters') },
+      starters: starters ?? {
+        trackedDir: '/repo/starters',
+        installedDir: join(dataDir, 'starters'),
+      },
       confinesCodex: true,
       ...(play === undefined ? {} : { play }),
       runCheck: async (options) => {
@@ -117,7 +170,20 @@ function plane(
         // As the real check does: the built copy in the check's own cache.
         mkdirSync(join(options.cache, 'dist'), { recursive: true });
         writeFileSync(join(options.cache, 'dist', 'index.html'), `<title>${options.cache}</title>`);
-        return result;
+        if (options.reference.kind !== 'making') return result;
+        // Making the starter's own picture (DRAWN): its frame, kept in the check's cache.
+        if (reference === 'fails' || result.page === null)
+          return { ...result, page: null, passed: false, unknown: 'Chrome did not open the page.' };
+        const file = join(options.cache, 'own-frame.png');
+        writeFileSync(file, FRAME);
+        const sha256 = createHash('sha256').update(FRAME).digest('hex');
+        return {
+          ...result,
+          page: {
+            ...result.page,
+            own: { share: null, reference: 'unavailable', frame: { at_ms: 6000, file, sha256 } },
+          },
+        };
       },
       serve: (args) => {
         served.push(args);
@@ -154,7 +220,7 @@ function plane(
         starter_id: 'iwsdk-vr',
         lockfile: 'a'.repeat(64),
         files: 12,
-        template: 'b'.repeat(64),
+        template: starters?.began ?? 'b'.repeat(64),
       } as never,
       now,
       NO_CAUSE,
@@ -347,6 +413,74 @@ describe("whether a check's browser had none of the app's macOS permissions (S1)
     const none = await recorded({ browser: null });
     assert.equal(none.options?.chrome, null);
     assert.equal(Object.hasOwn(none.findings ?? {}, 'own_permissions'), false, 'no browser ran');
+  });
+});
+
+describe("the starter's own picture a check compares a project's with (DRAWN)", () => {
+  const rooted = (t: TestContext) => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-reference-')));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    return trackedStarter(root);
+  };
+
+  test('it is made once, from the tracked template in a folder of the host, kept and reused; each check compares with it', async (t) => {
+    const starters = rooted(t);
+    const { controlPlane, submit, done, checked, dataDir, projectId } = plane(t, {
+      starters: { ...starters, began: starters.template },
+    });
+    await done(submit('project.check').command.command_id);
+    assert.equal(checked.length, 2, 'the reference, then the project');
+    const [making, first] = checked;
+    assert.equal(making?.reference.kind, 'making');
+    const references = join(dataDir, 'checks', 'references', 'iwsdk-vr');
+    assert.ok(making?.project.startsWith(`${references}/`), making?.project);
+    assert.ok(making?.cache.startsWith(`${references}/`), making?.cache);
+    assert.equal(making?.template, join(starters.trackedDir, 'iwsdk-vr', 'template'));
+    assert.equal(first?.project, '/Users/someone/dev/garden');
+    assert.deepEqual(first?.reference, { kind: 'compared', png: FRAME });
+    assert.deepEqual(controlPlane.projection.latestCheck(projectId)?.findings.page?.own, {
+      share: 0.02,
+      reference: 'compared',
+    });
+    // Only the picture is kept: the copy of the template and its check's cache are gone.
+    const [key] = readdirSync(references);
+    assert.deepEqual(readdirSync(join(references, key ?? '')).sort(), ['frame.png']);
+    await done(submit('project.check').command.command_id);
+    assert.equal(checked.length, 3, 'the next check reuses it');
+    assert.deepEqual(checked[2]?.reference, { kind: 'compared', png: FRAME });
+  });
+
+  test('a project begun from another template than the tracked one is not compared, and its check is told so', async (t) => {
+    const starters = rooted(t);
+    const { submit, done, checked } = plane(t, {
+      starters: { ...starters, began: 'e'.repeat(64) },
+    });
+    await done(submit('project.check').command.command_id);
+    assert.equal(checked.length, 1, 'no reference made for it');
+    assert.deepEqual(checked[0]?.reference, { kind: 'other_template' });
+  });
+
+  test('one that cannot be made is unavailable, never guessed, and is tried again at the next check', async (t) => {
+    const starters = rooted(t);
+    const { submit, done, checked, dataDir } = plane(t, {
+      starters: { ...starters, began: starters.template },
+      reference: 'fails',
+    });
+    await done(submit('project.check').command.command_id);
+    assert.equal(checked.length, 2);
+    assert.equal(checked[1]?.reference.kind, 'unavailable');
+    const references = join(dataDir, 'checks', 'references', 'iwsdk-vr');
+    assert.deepEqual(existsSync(references) ? readdirSync(references) : [], [], 'nothing kept');
+    await done(submit('project.check').command.command_id);
+    assert.equal(checked.length, 4, 'made again, then the project');
+    assert.equal(checked[2]?.reference.kind, 'making');
+  });
+
+  test('with no tracked template to read, there is none to compare with, and nothing is made', async (t) => {
+    const { submit, done, checked } = plane(t);
+    await done(submit('project.check').command.command_id);
+    assert.equal(checked.length, 1);
+    assert.equal(checked[0]?.reference.kind, 'unavailable');
   });
 });
 

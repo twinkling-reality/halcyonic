@@ -180,6 +180,11 @@ export class HostStarters {
     return views;
   }
 
+  /** The SHA-256 of the lockfile the starter's shared dependencies were installed from, while it matches the tracked one; else null. */
+  lockfile(id: string): string | null {
+    return ID.test(id) ? this.#installedLockfile(id) : null;
+  }
+
   /** Whether a project can begin from the starter now, changing nothing. */
   check(id: string): { readonly ok: true } | { readonly ok: false; readonly message: string } {
     if (!ID.test(id) || this.#title(id) === null)
@@ -207,15 +212,13 @@ export class HostStarters {
     const files = listFiles(template);
     if (files === null)
       return { ok: false, message: 'The starter holds something other than files and folders.' };
-    const digest = createHash('sha256');
+    const digest = digestOf(template, files);
     for (const relative of files) {
-      const content = readFileSync(join(template, relative));
-      digest.update(`${relative}\0${createHash('sha256').update(content).digest('hex')}\n`);
       mkdirSync(join(folder, relative, '..'), { recursive: true });
       copyFileSync(join(template, relative), join(folder, relative));
     }
     symlinkSync(join(this.#installed, id, 'node_modules'), join(folder, 'node_modules'), 'dir');
-    return { ok: true, lockfile, files: files.length, template: digest.digest('hex') };
+    return { ok: true, lockfile, files: files.length, template: digest };
   }
 
   #title(id: string): string | null {
@@ -376,6 +379,29 @@ export function recordInstalled(installedDir: string, id: string, lockfile: stri
     flag: 'wx',
   });
   renameSync(temporary, path);
+}
+
+/**
+ * The SHA-256 over a template's files, each its path and its content's SHA-256, in path order: the
+ * digest `apply` records (DRAWN). Null when the template cannot be read or holds anything but files
+ * and folders.
+ */
+export function templateDigest(template: string): string | null {
+  try {
+    const files = listFiles(template);
+    return files === null ? null : digestOf(template, files);
+  } catch {
+    return null;
+  }
+}
+
+function digestOf(template: string, files: readonly string[]): string {
+  const digest = createHash('sha256');
+  for (const relative of files) {
+    const content = readFileSync(join(template, relative));
+    digest.update(`${relative}\0${createHash('sha256').update(content).digest('hex')}\n`);
+  }
+  return digest.digest('hex');
 }
 
 /** Every file below `root`, relative and sorted, or null when it holds a link or anything else. */

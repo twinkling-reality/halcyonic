@@ -9685,6 +9685,35 @@
       },
       "additionalProperties": false
     },
+    "CheckOwn": {
+      "type": "object",
+      "required": [
+        "share",
+        "reference"
+      ],
+      "properties": {
+        "share": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reference": {
+          "enum": [
+            "compared",
+            "other_template",
+            "unavailable"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "CheckPage": {
       "type": "object",
       "required": [
@@ -9744,6 +9773,9 @@
         },
         "drawn": {
           "type": "boolean"
+        },
+        "own": {
+          "$ref": "#/$defs/CheckOwn"
         },
         "pictures": {
           "type": "array",

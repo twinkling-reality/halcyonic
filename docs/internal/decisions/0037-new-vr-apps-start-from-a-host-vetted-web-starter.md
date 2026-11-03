@@ -348,3 +348,26 @@ read as default shapes from the laptop camera. `src/decor.ts` now makes four fri
 each about 30 cm across, one draw call and facing the player: `critter()` (a round creature with eyes, a nose, ears,
 a belly and feet), `toyStar()` (a bevelled star with a face, glowing a little in its own colour), `balloon()` (with
 its knot and a curling string) and `basket()` (woven bands, a rim), and AGENTS.md asks a game to start from them.
+
+## Amendment, 2026-11-03: drawn means something of the project's own (DRAWN)
+
+Since the starter's look (GQ1b) and its decor (U4), the empty starter draws an island, a sky, clouds, trees and
+flowers: about 56,000 sharp edges in each picture. So every project read drawn, with a game or without, and `passed`
+followed; the empty starter's own opt-in test and AUDIT M18B-M1's fake page failed for it. A page is now drawn when it
+has more than 200 edges, as before, and its own picture differs from the pristine starter's in more than 0.1%
+(`OWN_DRAWN`) of the pixels outside the welcome card's corner, which the edge count skips too: the card holds the
+game's name and how to play, which are no game. The picture is the page with no input at the last of the twin's frames
+(360) under the stepped clock: the twin step's first load when it runs, else one load of its own.
+
+The starter's picture is the host's own. It is made the first time a check needs it, from the tracked template applied
+to a folder in the data folder, which no agent may read, and checked as a project is, with the same profile, host
+files, server, browser and clock. It is kept under a key over the template's digest, the installed lockfile, the host
+files, the browser pin, the window, the system's release, the frames and a format number; making a new key's picture
+removes the starter's older ones. A project begun from another template than the tracked one is read by its edges
+alone, and the finding says so. When no starter's picture can be made, or the page's own cannot be taken, the page is
+not drawn and the check's `unknown` says why. The share is journaled as the page's `own` (`CheckOwn`), absent on earlier
+checks.
+
+On this Mac the stepped clock draws the same page to the same pixel. The empty starter, a game that only names itself
+on its card and the fake page differ from the starter's picture by 0; the smallest game tried, a 60 cm box 4 m away,
+by 0.9% ([validation/iwsdk-starter.md](../validation/iwsdk-starter.md)). Drawn still never means the game works.

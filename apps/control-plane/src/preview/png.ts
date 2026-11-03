@@ -94,9 +94,14 @@ export const CHANNEL_CHANGE = 40;
 
 /**
  * The share of pixels that changed from one picture to another, in the host; null when either
- * cannot be read or they are not the same size.
+ * cannot be read or they are not the same size. With `corner`, the pixels in that top-left
+ * rectangle are left out: neither counted as changed nor as part of the whole.
  */
-export function changedShare(before: Buffer, after: Buffer): number | null {
+export function changedShare(
+  before: Buffer,
+  after: Buffer,
+  corner?: { readonly width: number; readonly height: number },
+): number | null {
   let a: Pixels;
   let b: Pixels;
   try {
@@ -106,14 +111,20 @@ export function changedShare(before: Buffer, after: Buffer): number | null {
     return null;
   }
   if (a.width !== b.width || a.height !== b.height) return null;
+  const skipWidth = Math.min(corner?.width ?? 0, a.width);
+  const skipHeight = Math.min(corner?.height ?? 0, a.height);
   let changed = 0;
-  for (let i = 0; i < a.rgba.length; i += 4) {
-    for (let c = 0; c < 3; c += 1) {
-      if (Math.abs((a.rgba[i + c] ?? 0) - (b.rgba[i + c] ?? 0)) > CHANNEL_CHANGE) {
-        changed += 1;
-        break;
+  for (let y = 0; y < a.height; y += 1) {
+    for (let x = y < skipHeight ? skipWidth : 0; x < a.width; x += 1) {
+      const i = (y * a.width + x) * 4;
+      for (let c = 0; c < 3; c += 1) {
+        if (Math.abs((a.rgba[i + c] ?? 0) - (b.rgba[i + c] ?? 0)) > CHANNEL_CHANGE) {
+          changed += 1;
+          break;
+        }
       }
     }
   }
-  return changed / (a.width * a.height);
+  const whole = a.width * a.height - skipWidth * skipHeight;
+  return whole > 0 ? changed / whole : null;
 }
