@@ -110,9 +110,9 @@ export function createObservationSink(
  * text, a turn's failure and why the connection was lost or restored, loses what Halcyonic holds
  * and every credential shape. What a person reads to decide, a tool's title, what an approval asks
  * for, a question's prompt, a test run's label and summary, loses only exact copies of what
- * Halcyonic holds, so the command a person approves is never guessed away. A question's options
- * are left as given, since an answer names them. Everything else, the agent's messages included,
- * is reported as given.
+ * Halcyonic holds, so the command a person approves is never guessed away; so does the agent's own
+ * message, which can echo a key it was given (2026-11-03). A question's options are left as given,
+ * since an answer names them. Everything else is reported as given.
  */
 function withoutCredentials(
   observation: Parameters<ObservationSink>[0],
@@ -160,6 +160,8 @@ function withoutCredentials(
       return held('label', 500);
     case 'runtime.test_run.completed':
       return held('summary', 2000);
+    case 'runtime.agent_message':
+      return held('text', 32000);
     default:
       return payload;
   }

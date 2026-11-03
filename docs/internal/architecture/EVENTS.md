@@ -119,8 +119,8 @@ Codex's whole command line, with where it runs, or the files a change touches; C
 command, path, URL, query or pattern, or for an approval with none of those, its whole input as
 JSON, which for an MCP tool can hold a credential argument; for an OpenCode shell command, where it
 runs and the command as the model gave it, and otherwise OpenCode's resources for a permission.
-A question's texts and a test run's label and summary are the runtime's own words. Adapters report
-all of them whole, and the control plane takes every exact copy of a secret it holds out of them,
+A question's texts, a test run's label and summary and the agent's own messages are the runtime's
+own words. Adapters report all of them whole, and the control plane takes every exact copy of a secret it holds out of them,
 named, then cuts each to the contract before it is journaled. A credential it doesn't hold stays,
 so the person reads the command as it would run ([SECURITY.md](SECURITY.md), "Logs and error
 text").
