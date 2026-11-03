@@ -661,7 +661,9 @@ Observed along the way:
   after its turn started.
 - Halcyonic journaled OpenCode's refused write as a tool call completed with the outcome
   `succeeded`: OpenCode reports the call as `session.tool.success`, whose `metadata.exit` was 1, and
-  the adapter did not read the exit code.
+  the adapter did not read the exit code. Since then a shell call with a non-zero `metadata.exit`
+  completes as failed (unit and end to end tests against the pinned binary; not run again on a
+  model).
 - Codex's second turn changed no file in the project, yet its `execution.files.observed` listed both
   files changed back: the restore between the turns, since the reading before a turn at rest is the
   one taken when the turn before ended.
