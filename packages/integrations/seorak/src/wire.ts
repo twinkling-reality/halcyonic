@@ -95,7 +95,11 @@ const Metadata = {
 const WireMetadata = Type.Object(Metadata);
 export type WireMetadata = Static<typeof WireMetadata>;
 
-/** `PrivateSessionDto`, the answer to a resolve (ADR 007). `session` is null on a miss. */
+/**
+ * `PrivateSessionDto`, the answer to a resolve (ADR 007). `session` is null on a miss. Its activity
+ * (`PrivateSessionSummaryDto`: start, end, elapsed seconds, tool calls, prompts) is read when
+ * present, and must then be as the published types give it; a plane that leaves it out still reads.
+ */
 export const WireSession = Type.Object({
   ...Metadata,
   session: Nullable(
@@ -103,6 +107,11 @@ export const WireSession = Type.Object({
       sessionRef: SessionRef,
       agent: Type.String(),
       costUsd: Nullable(Type.Number({ minimum: 0 })),
+      startedAt: Type.Optional(Instant),
+      endedAt: Type.Optional(Nullable(Instant)),
+      elapsedSeconds: Type.Optional(Type.Number({ minimum: 0 })),
+      toolCallCount: Type.Optional(Count),
+      promptCount: Type.Optional(Nullable(Count)),
     }),
   ),
 });

@@ -417,7 +417,7 @@ export class SeorakClient {
         return incoherent('verification lens has a result exactly when it says it is unavailable');
       return {
         availability: 'available',
-        evaluation: toEvaluation(resolved.value, session.costUsd, outcome.value, lens.value),
+        evaluation: toEvaluation(resolved.value, session, outcome.value, lens.value),
       };
     } finally {
       this.#budget.release(unused);

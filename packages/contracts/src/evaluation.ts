@@ -3,14 +3,14 @@ import { ErrorInfo, Nullable, Timestamp } from './primitives.ts';
 
 /**
  * What an evaluation source measured about one execution's session: its estimated cost, its
- * outcome and its verification runs.
+ * activity, its outcome and its verification runs.
  *
  * This is Halcyonic's shape, not the source's wire format. It is strict, like every Halcyonic
  * contract: the mapping from the source's documents is written field by field, so nothing the
  * source adds later reaches Halcyonic clients unannounced. It is read through from the source on
  * request and never journaled (ADR 0010).
  *
- * The three parts are read separately, and each keeps the source's own statement about itself:
+ * The parts are read separately, and each keeps the source's own statement about itself:
  * `availability` (whether the source could support the claim at all), `coverage` (which dates and
  * sessions the claim covers) and `freshness` (how current it is). After `freshness.stale_at` a
  * client must describe that part as stale, whatever `freshness.state` said when it was read.
@@ -154,6 +154,27 @@ export const EvaluationCost = Type.Object(
   strict,
 );
 
+/**
+ * The session's activity as the source measured it, from the same read as its cost: when it began
+ * and ended, how long it ran, and how many tool calls and prompts it saw. No token counts: the
+ * source's integration API does not give them.
+ */
+export const EvaluationActivity = Type.Object(
+  {
+    ...Read,
+    started_at: Timestamp,
+    /** Null while the session runs, or when the source saw no end. */
+    ended_at: Nullable(Timestamp),
+    /** How long the session ran, in seconds, as the source measured it. */
+    elapsed_seconds: Type.Number({ minimum: 0 }),
+    /** The tool calls the source saw. */
+    tool_calls: Count,
+    /** The person's prompts, or null when the source did not count them. */
+    prompts: Nullable(Count),
+  },
+  strict,
+);
+
 /** The uncommitted changes at a session's end. Generated and lock file lines are counted apart. */
 export const EvaluationUncommitted = Type.Object(
   {
@@ -271,6 +292,8 @@ export const Evaluation = Type.Object(
   {
     source: EvaluationSource,
     cost: EvaluationCost,
+    /** Absent when the source did not report the session's activity: unknown, never zero. */
+    activity: Type.Optional(EvaluationActivity),
     outcome: EvaluationOutcome,
     verification: EvaluationVerification,
   },

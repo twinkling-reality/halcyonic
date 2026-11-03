@@ -1,5 +1,5 @@
 import { ESTIMATED_COST_NOTE, type Evaluation } from '@halcyonic/contracts';
-import type { ReadLens, WireMetadata, WireOutcome } from './wire.ts';
+import type { ReadLens, WireMetadata, WireOutcome, WireSession } from './wire.ts';
 
 type Read = Pick<Evaluation['cost'], 'availability' | 'coverage' | 'freshness'>;
 type Reason = NonNullable<Read['availability']['reason']>;
@@ -83,21 +83,50 @@ function read({ availability, coverage, freshness }: WireMetadata): Read {
 }
 
 /**
+ * The resolved session's activity, only when Seorak reported all of it: a part it left out is
+ * unknown, so no activity is made up from the rest.
+ */
+function activity(
+  resolved: WireMetadata,
+  session: NonNullable<WireSession['session']>,
+): Evaluation['activity'] {
+  const { startedAt, endedAt, elapsedSeconds, toolCallCount, promptCount } = session;
+  if (
+    startedAt === undefined ||
+    endedAt === undefined ||
+    elapsedSeconds === undefined ||
+    toolCallCount === undefined ||
+    promptCount === undefined
+  )
+    return undefined;
+  return {
+    ...read(resolved),
+    started_at: instant(startedAt),
+    ended_at: endedAt && instant(endedAt),
+    elapsed_seconds: elapsedSeconds,
+    tool_calls: toolCallCount,
+    prompts: promptCount,
+  };
+}
+
+/**
  * Maps the three reads onto Halcyonic's evaluation, field by field. Null stays null: an unpriced
  * cost, an outcome that has not matured and a metric without a result stay unknown, never zero.
  * Nothing is combined, and properties this function does not name never reach the result.
  */
 export function toEvaluation(
   resolved: WireMetadata,
-  costUsd: number | null,
+  session: NonNullable<WireSession['session']>,
   outcome: WireOutcome,
   lens: ReadLens,
 ): Evaluation {
   const measure = outcome.outcome;
+  const measured = activity(resolved, session);
   return {
     // Read from Seorak. The recorded demonstration marks its stand-in's answers synthetic.
     source: { system: 'seorak', synthetic: false, api_version: 'v1' },
-    cost: { ...read(resolved), estimated_usd: costUsd, note: ESTIMATED_COST_NOTE },
+    cost: { ...read(resolved), estimated_usd: session.costUsd, note: ESTIMATED_COST_NOTE },
+    ...(measured === undefined ? {} : { activity: measured }),
     outcome: {
       ...read(outcome),
       measure: measure && {

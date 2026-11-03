@@ -12717,6 +12717,9 @@
         "cost": {
           "$ref": "#/$defs/EvaluationCost"
         },
+        "activity": {
+          "$ref": "#/$defs/EvaluationActivity"
+        },
         "outcome": {
           "$ref": "#/$defs/EvaluationOutcome"
         },
@@ -12781,6 +12784,67 @@
         "note": {
           "type": "string",
           "const": "Estimated from token counts at list prices. Not a bill."
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationActivity": {
+      "type": "object",
+      "required": [
+        "availability",
+        "coverage",
+        "freshness",
+        "started_at",
+        "ended_at",
+        "elapsed_seconds",
+        "tool_calls",
+        "prompts"
+      ],
+      "properties": {
+        "availability": {
+          "$ref": "#/$defs/EvaluationAvailability"
+        },
+        "coverage": {
+          "$ref": "#/$defs/EvaluationCoverage"
+        },
+        "freshness": {
+          "$ref": "#/$defs/EvaluationFreshness"
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        },
+        "ended_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "elapsed_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "tool_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "prompts": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false

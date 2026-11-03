@@ -160,12 +160,21 @@ describe('live reads through the routes (opt-in)', { skip }, () => {
       const { result } = await read<EvaluationResponse>(`/api/executions/${id}/evaluation`);
       assert.equal(result.availability, 'available');
       if (result.availability !== 'available') return;
-      const { source, cost, outcome, verification } = result.evaluation;
+      const { source, cost, activity, outcome, verification } = result.evaluation;
       assert.equal(source.system, 'seorak');
       assert.equal(source.synthetic, false);
       t.diagnostic(
         JSON.stringify({
           cost: cost.estimated_usd === null ? null : 'estimated',
+          activity:
+            activity === undefined
+              ? 'not reported'
+              : {
+                  ended: activity.ended_at !== null,
+                  elapsed_seconds: activity.elapsed_seconds,
+                  tool_calls: activity.tool_calls,
+                  prompts: activity.prompts,
+                },
           outcome: outcome.availability.state,
           errors: outcome.measure?.error_count ?? null,
           lens:

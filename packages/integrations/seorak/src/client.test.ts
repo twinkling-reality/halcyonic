@@ -167,6 +167,52 @@ describe('evaluating a session through Seorak', () => {
     });
   });
 
+  test("carries the resolved session's activity as Seorak measured it: start, end, duration, tool calls, prompts", async (t) => {
+    const fake = await start(t);
+    const { activity, cost } = evaluation(await evaluate(fake));
+    assert.deepEqual(activity, {
+      // The same read as the cost, so the same statement about it.
+      availability: cost.availability,
+      coverage: cost.coverage,
+      freshness: cost.freshness,
+      started_at: '2026-09-26T17:40:03.000Z',
+      ended_at: null,
+      elapsed_seconds: 1089,
+      tool_calls: 42,
+      prompts: null,
+    });
+  });
+
+  test('keeps an ended session and its counted prompts, and leaves activity out when Seorak does not report it', async (t) => {
+    const fake = await start(t);
+    const session = fake.example.resolve.session as Json;
+    session.endedAt = '2026-09-26T17:58:12Z';
+    session.promptCount = 3;
+    const ended = evaluation(await evaluate(fake)).activity;
+    assert.equal(ended?.ended_at, '2026-09-26T17:58:12.000Z');
+    assert.equal(ended?.prompts, 3);
+    delete session.elapsedSeconds;
+    const without = evaluation(await evaluate(fake));
+    assert.equal('activity' in without, false, 'no activity is invented');
+    assert.equal(without.cost.estimated_usd, 1.37);
+  });
+
+  test("says incompatible when the session's activity breaks integration API v1", async (t) => {
+    const fake = await start(t);
+    const session = fake.example.resolve.session as Json;
+    for (const [field, value] of [
+      ['toolCallCount', -1],
+      ['elapsedSeconds', 'long'],
+      ['promptCount', 1.5],
+      ['startedAt', 'yesterday'],
+    ] as const) {
+      const kept = session[field];
+      session[field] = value;
+      assert.deepEqual(reason(await evaluate(fake)), ['incompatible', 'invalid_document'], field);
+      session[field] = kept;
+    }
+  });
+
   test('keeps an unpriced cost unknown, never zero', async (t) => {
     const fake = await start(t);
     (fake.example.resolve.session as Json).costUsd = null;
