@@ -13,8 +13,8 @@ namespace Halcyonic.XR.UI
     /// talk where the voice is offered and Send instruction, the region's one main action, at the right. It has no Hide: an empty composer is one line, so it never crowds the reading, and a draft stays where
     /// it was written. The person's words stay outside text, literal, upright only through the explicit prose
     /// treatment the input label justifies. Its field and buttons only ask their owner: typing and sending keep their
-    /// existing rules, and Send waits, quiet, with the reason given above the footer, until the owner says the whole
-    /// draft has been read. Laid from its top left.
+    /// existing rules, and Send waits, locked, until the owner says the whole draft has been read: a reason to read first is
+    /// Send's own word ("Read Full Instruction"), any other reason a line above the footer. Laid from its top left.
     /// </summary>
     public sealed class KitComposer : MonoBehaviour
     {
@@ -223,8 +223,11 @@ namespace Halcyonic.XR.UI
                 y += wellHeight + Mathf.Max(KitType.Scaled(0.6f), KitType.Units(SpatialKit.TargetGapDegrees));
             }
 
-            reason.gameObject.SetActive(!sendable && whyNot != null);
-            if (!sendable && whyNot != null)
+            // A reason to read first stands on the locked control itself, as its word (a locked answer's reason is its word),
+            // never as a line above the footer that reads as one more button; any other reason keeps its line.
+            var readFirst = !sendable && whyNot is FileScreens.InstructionNotRead or FileScreens.ReadTheQuestion;
+            reason.gameObject.SetActive(!sendable && whyNot != null && !readFirst);
+            if (!sendable && whyNot != null && !readFirst)
             {
                 KitType.Size(reason, KitRole.Body);
                 GlazeText.SetLiteral(reason, whyNot);
@@ -232,6 +235,9 @@ namespace Halcyonic.XR.UI
                 reason.transform.localPosition = new Vector3(0f, -y, -0.0005f);
                 y += reasonHeight + KitType.Scaled(0.35f);
             }
+            // With nothing of its own above its footer (no caption, no well, no reason line), the footer keeps the composer's own
+            // gap from what stands over it, so its targets stay 12 mm from the rows above (the reason line used to give that room).
+            else if (!caption && !withWell) y += KitType.Scaled(0.35f);
 
             // The footer: rows span the full width of the well above them, with equal column widths where they fit.
             var gap = KitType.Units(SpatialKit.TargetGapDegrees);
@@ -290,7 +296,7 @@ namespace Halcyonic.XR.UI
             {
                 var sendWords = sendControl != null ? sendControl.Words
                     : Answering ? WorkspaceText.Label(WorkspaceAction.Answer) : SendInstruction;
-                rightItems.Add((send, sendWords, GlazeIcon.SendAnswer, sendable));
+                rightItems.Add((send, readFirst ? whyNot! : sendWords, GlazeIcon.SendAnswer, sendable));
             }
             else
             {

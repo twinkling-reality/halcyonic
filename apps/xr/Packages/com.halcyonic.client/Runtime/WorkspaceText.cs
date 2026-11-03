@@ -358,8 +358,9 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The answer to What do you need from me?: the request the work waits on, as the runtime
-        /// reported it, and what each answer does; null while no request is pending. The whole
-        /// request, never shortened, shows again when Approve or Deny is chosen, before either is sent.
+        /// reported it, with how many wait, why only Deny is offered, or where an approved command runs; null
+        /// while no request is pending. No note says what Approve or Deny does: the buttons beside it say so
+        /// (WORDS rule 2). The whole request, never shortened, shows again when Approve or Deny is chosen.
         /// </summary>
         public static NeedAnswer? NeedFromYou(WorkspacePresentation workspace)
         {
@@ -369,19 +370,9 @@ namespace Halcyonic.Client
             var notes = new List<string>();
             var waiting = workspace.Execution?.PendingApprovals.Count ?? 0;
             if (waiting > 1) notes.Add(waiting.ToString(CultureInfo.InvariantCulture) + " Requests Waiting · Oldest First");
-            if (OnlyDeny(approval) is string onlyDeny)
-            {
-                notes.Add(onlyDeny);
-                notes.Add("Deny · Agent May Try Another Way");
-                notes.Add("Counts Once Agent Confirms");
-            }
-            else
-            {
-                // Where an approved command runs, as its agent app declares it, never read from the request (ADR 0033).
-                if (tool != null && RunsCommand(tool.ToolName) && ApprovedCommandNote(workspace.Runtime) is string where) notes.Add(where);
-                notes.Add("Approve · Agent Proceeds · Deny · Agent May Try Another Way");
-                notes.Add("Counts Once Agent Confirms");
-            }
+            if (OnlyDeny(approval) is string onlyDeny) notes.Add(onlyDeny);
+            // Where an approved command runs, as its agent app declares it, never read from the request (ADR 0033).
+            else if (tool != null && RunsCommand(tool.ToolName) && ApprovedCommandNote(workspace.Runtime) is string where) notes.Add(where);
             return new NeedAnswer(
                 tool == null ? LineWords.Ours("Approval Requested") : RunsCommand(tool.ToolName) ? LineWords.Ours("Run Command")
                     : LineWords.Ours("Use ") + LineWords.TheirName(tool.ToolName),

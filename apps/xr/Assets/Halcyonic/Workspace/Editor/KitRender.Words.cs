@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using System.Linq;
+using Halcyonic.Client;
 using Halcyonic.XR.UI;
 using TMPro;
 using UnityEngine;
@@ -20,7 +21,21 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>Every check of the kit's words read whole under <paramref name="root"/>; one failure a fault.</summary>
         private static IEnumerable<string> KitWordsHold(Transform root, string name) =>
             SeparatorsHold(root, name).Concat(NamesWhole(root, name)).Concat(RowsUnsqueezed(root, name)).Concat(ChipsUnbroken(root, name))
-                .Concat(HeadsUnbracketed(root, name)).Concat(WellRowsWhole(root, name)).ToList();
+                .Concat(HeadsUnbracketed(root, name)).Concat(WellRowsWhole(root, name)).Concat(ReasonsOnTheControl(root, name)).ToList();
+
+        /// <summary>
+        /// A reason to read first is the locked control's own word (18: "Read Full Instruction" and "Read Full Question" stood bare
+        /// above the footer and read as buttons): no composer's reason line says one.
+        /// </summary>
+        private static IEnumerable<string> ReasonsOnTheControl(Transform root, string name)
+        {
+            foreach (var composer in root.GetComponentsInChildren<KitComposer>(false))
+            {
+                var line = composer.Reason;
+                if (line.gameObject.activeInHierarchy && (line.text == LabelText.ForTextMeshPro(FileScreens.InstructionNotRead) || line.text == LabelText.ForTextMeshPro(FileScreens.ReadTheQuestion)))
+                    yield return name + ": \"" + line.text + "\" stands as a line above the footer, not on the locked control";
+            }
+        }
 
         /// <summary>The lines a label shows, each its characters from first to last (spaces at either end included), top first.</summary>
         private static List<string> LinesOf(TMP_Text label)

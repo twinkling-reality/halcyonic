@@ -390,8 +390,10 @@ public class WorkspacePresenterTests
         Assert.That(Asking(true).Notes, Does.Contain(mayLeave));
         Assert.That(Asking(false).Notes, Does.Contain(staysInside));
         var ordered = Asking(true).Notes.ToList();
-        Assert.That(ordered.IndexOf(mayLeave), Is.LessThan(ordered.IndexOf("Approve · Agent Proceeds · Deny · Agent May Try Another Way")),
-            "where it runs is read before what Approve does");
+        Assert.That(ordered.First(), Is.EqualTo(mayLeave), "where it runs is read first");
+        // No note says what an answer does: the buttons beside it say so (WORDS rule 2), in either branch.
+        foreach (var filler in new[] { "Agent Proceeds", "Agent May Try Another Way", "Counts Once Agent Confirms" })
+            Assert.That(ordered.Concat(Asking(true, approvable: false).Notes), Has.None.Contains(filler));
         // Undeclared: nothing either way. Not a command, or only deniable: no word about approving it.
         Assert.That(Asking(null).Notes, Has.None.Contains("sandbox"));
         Assert.That(Asking(true, tool: "webfetch").Notes, Has.None.Contains("sandbox"));
