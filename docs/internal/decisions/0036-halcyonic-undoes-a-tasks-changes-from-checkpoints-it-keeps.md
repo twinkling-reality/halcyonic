@@ -115,3 +115,25 @@ of is kept in the store, and a restore into another folder is refused.
   Their size and time on real projects still need measuring.
 - Revisit if a runtime gains a verified undo of its own, if projects need more than the bounds, or
   if two tasks must run in one folder at once (not verified).
+
+## Amendment, 2026-11-03: the kernel keeps undo inside the project (U2)
+
+The consequence above, that a process an agent left running "can still race the restore", was worse than a wrong
+file inside the folder. The store checked a folder, then acted on its path, and the kernel resolves the path again
+at the act. With a folder swapped for a link to a folder outside right after the last check (made certain in a test
+by stepping in at that check), `removeInside` removed the outside folder, and a whole restore did the same. An agent
+confined by ADR 0041 can leave such a process: its sandbox lets it make links in its own folder, and the store, which
+runs as the person, followed them.
+
+So on macOS the store's git and its removals now run inside Seatbelt profiles of Halcyonic's: git reads only the
+system's own paths, git's own folders, the project's repository, the store's home for git and the project, and writes
+only the repository and the project; a removal (`/bin/rm`) writes only under the project's real path, and a path still
+there after it stops the restore, recorded incomplete. The kernel judges the path each read and write resolves to, so
+a swap at any moment leads nowhere outside. Apple's `/usr/bin/git` is a shim that reads Xcode's own files and writes a
+cache in the user's temporary folder through xcrun, so the store runs the binary the shim would (`xcrun --find git`);
+any other configured git runs by its own real path. A git whose own folders hold the project is not run. The checks
+stay, as the only defence elsewhere. Tested on this Mac with the system's git, the swap made certain for a removal and
+for a whole restore, and each profile refusing a read and a write outside (`checkpoints/store.test.ts`). Inferred, not
+shown: since git reads nothing outside under its profile, a swap during `git add` can no longer take a file from outside
+into a checkpoint, which a later restore would have written into the project; a race inside git cannot be made certain
+in a test.
