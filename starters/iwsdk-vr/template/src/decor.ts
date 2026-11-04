@@ -11,11 +11,13 @@ import {
   ExtrudeGeometry,
   Float32BufferAttribute,
   Group,
+  IcosahedronGeometry,
   InstancedMesh,
   LatheGeometry,
   Mesh,
   type MeshPhysicalMaterial,
   Object3D,
+  OctahedronGeometry,
   PlaneGeometry,
   Shape,
   ShapeGeometry,
@@ -27,7 +29,7 @@ import {
   Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { ambientMotion, contactShadow, gameIsland, gameTime, ISLAND_CENTRE, TIER } from './look.js';
+import { ambientMotion, contactShadow, currentWorld, gameIsland, gameTime, ISLAND_CENTRE, TIER } from './look.js';
 import { ambient, confettiPiece, flap, flight, juice, pulse, sway } from './motion.js';
 import { type PaletteName, palette, toyMaterial } from './palette.js';
 
@@ -70,20 +72,39 @@ const LAYOUT = {
   ],
 } as const;
 
+/** How many of each kind of dressing `decorate()` puts on the island; the same names in every world. */
+export interface DecorCounts {
+  trees?: number;
+  bushes?: number;
+  flowers?: number;
+  tufts?: number;
+  butterflies?: number;
+}
+
 /**
- * Dressing for the island (ART7): round trees, bushes, flowers and grass tufts at its sides and back, and a couple of
- * butterflies, the middle left clear. `src/index.ts` calls it for every new game. A breeze sways the flowers, grass and
- * trees, and the butterflies loop in front of the player, by themselves. Each prop is one mesh, so the whole island
- * costs a headset about forty draw calls. For example `decorate(gameIsland(), { trees: 2, butterflies: 0 })`.
+ * Dressing for the island (ART7), in the world `setupLook` was given (`src/worlds.ts`): trees, bushes, flowers and
+ * grass tufts at its sides and back, and a couple of flyers, the middle left clear. In the meadow they are round trees,
+ * bushes, flowers and butterflies; in the garden apple trees, pumpkins, sunflowers, butterflies and a fence; at the
+ * seaside palms, rocks, shells and gulls; at night moon trees, crystals, glowing mushrooms and fireflies. `src/index.ts`
+ * calls it for every new game. A breeze sways the plants and the flyers loop in front of the player, by themselves.
+ * Each prop is one mesh, so the whole island costs a headset about forty draw calls. For example
+ * `decorate(gameIsland(), { trees: 2, butterflies: 0 })`.
  */
-export function decorate(
-  island: Group,
-  counts: { trees?: number; bushes?: number; flowers?: number; tufts?: number; butterflies?: number } = {},
-): Group {
-  const { trees = 3, bushes = 3, flowers = 6, tufts = 26, butterflies = 2 } = counts;
+export function decorate(island: Group, counts: DecorCounts = {}): Group {
   // Laid out round the island's centre; `gameIsland()` is in the world's frame, with the player at the origin.
   const decor = new Group();
   decor.position.set(ISLAND_CENTRE.x, 0, ISLAND_CENTRE.z);
+  const dressing = currentWorld().dressing;
+  if (dressing === 'garden') gardenDressing(decor, counts);
+  else if (dressing === 'seaside') seasideDressing(decor, counts);
+  else if (dressing === 'night') nightDressing(decor, counts);
+  else meadowDressing(decor, counts);
+  island.add(decor);
+  return decor;
+}
+
+function meadowDressing(decor: Group, counts: DecorCounts): void {
+  const { trees = 3, bushes = 3, flowers = 6, tufts = 26, butterflies = 2 } = counts;
   for (const [x, z, size] of LAYOUT.trees.slice(0, trees)) {
     const tree = new Group();
     const parts = [part(new CylinderGeometry(0.06, 0.08, 0.5, 16), 'cocoa', [0, 0.25, 0])];
@@ -133,36 +154,45 @@ export function decorate(
       flower.rotation.x = 0.35 * sway(time + 0.9, z, x);
     });
   }
-  if (tufts > 0) {
-    const blades = [0, 1, 2].map((k) =>
-      part(new ConeGeometry(0.025, 0.12, 6), '#4FB045', [(k - 1) * 0.03, 0.06, 0], [1, 1, 1], [0, 0, (k - 1) * 0.35]),
-    );
-    const material = toyMaterial('#FFFFFF', { ground: true, roughness: 0.8 });
-    material.vertexColors = true;
-    // Every tuft is one instance of the same three blades: one draw call for the island's grass.
-    const grass = new InstancedMesh(merge(blades), material, tufts);
-    const spots = Array.from({ length: tufts }, (_, i) => {
-      const [cx, cz] = LAYOUT.tufts[i % LAYOUT.tufts.length] as readonly [number, number];
-      const a = i * 2.39996;
-      const r = 0.12 + (i % 4) * 0.07;
-      return { x: cx + Math.cos(a) * r, z: cz + Math.sin(a) * r, turn: a };
-    });
-    const place = new Object3D();
-    const lean = (time: number) => {
-      for (const [i, spot] of spots.entries()) {
-        // Turned on its own, its root leaning with the breeze, the same way as every other: Rz(lean) after Ry(turn).
-        place.position.set(spot.x, 0, spot.z);
-        place.rotation.set(0, spot.turn, sway(time, spot.x, spot.z), 'ZYX');
-        place.updateMatrix();
-        grass.setMatrixAt(i, place.matrix);
-      }
-      grass.instanceMatrix.needsUpdate = true;
-    };
-    lean(0);
-    grass.computeBoundingSphere();
-    decor.add(grass);
-    ambientMotion(lean);
-  }
+  grassTufts(decor, tufts, '#4FB045', 1);
+  flyers(decor, butterflies);
+}
+
+/** Grass: every tuft one instance of the same three blades, one draw call for the island, leaning with the breeze. */
+function grassTufts(decor: Group, tufts: number, colour: string, height: number): void {
+  if (tufts <= 0) return;
+  const blades = [0, 1, 2].map((k) =>
+    part(new ConeGeometry(0.025, 0.12, 6), colour, [(k - 1) * 0.03, 0.06, 0], [1, 1, 1], [0, 0, (k - 1) * 0.35]),
+  );
+  const material = toyMaterial('#FFFFFF', { ground: true, roughness: 0.8 });
+  material.vertexColors = true;
+  const grass = new InstancedMesh(merge(blades), material, tufts);
+  const spots = Array.from({ length: tufts }, (_, i) => {
+    const [cx, cz] = LAYOUT.tufts[i % LAYOUT.tufts.length] as readonly [number, number];
+    const a = i * 2.39996;
+    const r = 0.12 + (i % 4) * 0.07;
+    return { x: cx + Math.cos(a) * r, z: cz + Math.sin(a) * r, turn: a };
+  });
+  const place = new Object3D();
+  const lean = (time: number) => {
+    for (const [i, spot] of spots.entries()) {
+      // Turned on its own, its root leaning with the breeze, the same way as every other: Rz(lean) after Ry(turn).
+      place.position.set(spot.x, 0, spot.z);
+      place.rotation.set(0, spot.turn, sway(time, spot.x, spot.z), 'ZYX');
+      place.scale.set(1, height, 1);
+      place.updateMatrix();
+      grass.setMatrixAt(i, place.matrix);
+    }
+    grass.instanceMatrix.needsUpdate = true;
+  };
+  lean(0);
+  grass.computeBoundingSphere();
+  decor.add(grass);
+  ambientMotion(lean);
+}
+
+/** The meadow's and the garden's butterflies, looping in front of the player. */
+function flyers(decor: Group, butterflies: number): void {
   for (const [i, [x, z, y, reach, upper, lower]] of LAYOUT.butterflies.slice(0, butterflies).entries()) {
     const flyer = butterfly([upper, lower]);
     decor.add(flyer.body);
@@ -176,8 +206,396 @@ export function decorate(
       flyer.left.rotation.z = -open;
     });
   }
-  island.add(decor);
-  return decor;
+}
+
+/**
+ * A material whose parts glow in their own colours: the emissive light takes each vertex's colour, so one mesh of
+ * many coloured parts glows each in its own, at one draw call.
+ */
+function glowing(material: MeshPhysicalMaterial, strength: number): MeshPhysicalMaterial {
+  material.emissive = new Color('#FFFFFF');
+  material.emissiveIntensity = strength;
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      'vec3 totalEmissiveRadiance = emissive;',
+      'vec3 totalEmissiveRadiance = emissive * vColor;',
+    );
+  };
+  material.customProgramCacheKey = () => 'glowing-vertex-colours';
+  return material;
+}
+
+/** The garden's fence, its two arcs at the island's sides behind the trees, white pickets, as one mesh. */
+function fence(decor: Group): void {
+  const parts: Mesh[] = [];
+  const R = 2.8;
+  for (const [from, to] of [
+    [-2.85, -1.95],
+    [-1.19, -0.29],
+  ] as const) {
+    const posts = Math.round(((to - from) * R) / 0.2);
+    let previous: [number, number] | null = null;
+    for (let i = 0; i <= posts; i++) {
+      const a = from + ((to - from) * i) / posts;
+      const x = Math.cos(a) * R;
+      const z = Math.sin(a) * R;
+      const turn = -a + Math.PI / 2;
+      parts.push(part(new BoxGeometry(0.06, 0.34, 0.03), '#FFF8EC', [x, 0.17, z], [1, 1, 1], [0, turn, 0]));
+      parts.push(
+        part(new ConeGeometry(0.043, 0.06, 4), '#FFF8EC', [x, 0.37, z], [1, 1, 0.5], [0, turn + Math.PI / 4, 0]),
+      );
+      if (previous !== null) {
+        const [px, pz] = previous;
+        const length = Math.hypot(x - px, z - pz);
+        const along = Math.atan2(-(z - pz), x - px);
+        for (const y of [0.1, 0.24])
+          parts.push(
+            part(new BoxGeometry(length, 0.035, 0.02), '#F2E6D2', [(x + px) / 2, y, (z + pz) / 2 - 0.0], [1, 1, 1], [
+              0,
+              along,
+              0,
+            ]),
+          );
+      }
+      previous = [x, z];
+    }
+  }
+  decor.add(prop(parts, { roughness: 0.5 }));
+}
+
+/** A garden at golden hour: apple trees, pumpkins, sunflowers facing the player, grass, butterflies and a fence. */
+function gardenDressing(decor: Group, counts: DecorCounts): void {
+  const { trees = 3, bushes = 3, flowers = 6, tufts = 26, butterflies = 2 } = counts;
+  for (const [x, z, size] of LAYOUT.trees.slice(0, trees)) {
+    const tree = new Group();
+    const parts = [part(new CylinderGeometry(0.06, 0.085, 0.55, 16), '#8A5232', [0, 0.27, 0])];
+    for (const [a, b, c, r] of [
+      [0, 0.78, 0, 0.38],
+      [0.22, 0.64, 0.06, 0.27],
+      [-0.22, 0.66, -0.02, 0.28],
+    ] as const)
+      parts.push(part(new SphereGeometry(r, 32, 16), '#5DA43C', [a, b, c]));
+    for (const [a, b, c] of [
+      [0.16, 0.86, 0.3],
+      [-0.2, 0.74, 0.27],
+      [0.05, 0.6, 0.34],
+      [0.34, 0.62, 0.17],
+      [-0.33, 0.8, 0.1],
+    ] as const)
+      parts.push(part(new SphereGeometry(0.05, 16, 12), 'berry', [a, b, c]));
+    const swaying = prop(parts, { roughness: 0.55, clearcoat: 0.2 });
+    tree.add(swaying);
+    tree.position.set(x, 0, z);
+    tree.scale.setScalar(size);
+    tree.add(contactShadow(0.45));
+    decor.add(tree);
+    ambientMotion((time) => {
+      swaying.rotation.z = sway(time, x, z, ambient.treeAmp, ambient.treePeriod);
+    });
+  }
+  for (const [x, z, size] of LAYOUT.bushes.slice(0, bushes)) {
+    const parts: Mesh[] = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      parts.push(
+        part(new SphereGeometry(0.1, 20, 12), 'tangerine', [Math.cos(a) * 0.075, 0.11, Math.sin(a) * 0.075], [
+          0.9,
+          1,
+          1.2,
+        ], [0, -a, 0]),
+      );
+    }
+    parts.push(part(new CylinderGeometry(0.014, 0.02, 0.07, 8), '#5E7A2E', [0, 0.23, 0], [1, 1, 1], [0, 0, 0.3]));
+    parts.push(part(new SphereGeometry(0.07, 16, 8), '#4E9A3A', [0.13, 0.02, 0.1], [1.4, 0.2, 1]));
+    const pumpkin = prop(parts, { roughness: 0.4 });
+    pumpkin.position.set(x, 0, z);
+    pumpkin.scale.setScalar(size * 1.3);
+    pumpkin.add(contactShadow(0.2));
+    decor.add(pumpkin);
+  }
+  for (const [i, [x, z]] of LAYOUT.flowers.slice(0, flowers).entries()) {
+    const tall = 0.4 + (i % 3) * 0.07;
+    const parts = [
+      part(new CylinderGeometry(0.012, 0.016, tall, 8), '#4E9A3A', [0, tall / 2, 0]),
+      part(new SphereGeometry(0.04, 12, 8), '#4E9A3A', [0.04, tall * 0.45, 0], [1.4, 0.25, 0.8], [0, 0, 0.5]),
+      part(new CylinderGeometry(0.05, 0.05, 0.03, 20), '#6B3F24', [0, tall + 0.02, 0.02], [1, 1, 1], [
+        Math.PI / 2,
+        0,
+        0,
+      ]),
+    ];
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      parts.push(
+        part(new SphereGeometry(0.03, 12, 8), 'sunny', [Math.cos(a) * 0.075, tall + 0.02 + Math.sin(a) * 0.075, 0.012], [
+          1.5,
+          0.6,
+          0.35,
+        ], [0, 0, a]),
+      );
+    }
+    const flower = prop(parts);
+    flower.position.set(x, 0, z);
+    decor.add(flower);
+    ambientMotion((time) => {
+      flower.rotation.z = 0.6 * sway(time, x, z);
+    });
+  }
+  fence(decor);
+  grassTufts(decor, tufts, '#5FB23F', 1.1);
+  flyers(decor, butterflies);
+}
+
+/** A seaside: palms and a striped umbrella, rocks, shells and starfish on the sand, dune grass, and gulls. */
+function seasideDressing(decor: Group, counts: DecorCounts): void {
+  const { trees = 3, bushes = 3, flowers = 6, tufts = 26, butterflies = 2 } = counts;
+  for (const [i, [x, z, size]] of LAYOUT.trees.slice(0, trees).entries()) {
+    const tree = new Group();
+    const parts: Mesh[] = [];
+    if (i === 2) {
+      // A beach umbrella, its stripes alternating, in the back corner.
+      parts.push(part(new CylinderGeometry(0.018, 0.018, 1.0, 10), '#FFF8EC', [0, 0.5, 0], [1, 1, 1], [0, 0, 0.12]));
+      const canopy = new ConeGeometry(0.55, 0.2, 16, 1, true).toNonIndexed();
+      const colours: number[] = [];
+      const stripe = [new Color(palette.berry), new Color('#FFF8EC')];
+      const per = canopy.getAttribute('position').count / 16;
+      for (let v = 0; v < canopy.getAttribute('position').count; v++) {
+        const c = stripe[Math.floor(v / per) % 2] ?? stripe[0];
+        if (c !== undefined) colours.push(c.r, c.g, c.b);
+      }
+      canopy.setAttribute('color', new Float32BufferAttribute(colours, 3));
+      const umbrella = prop(parts);
+      const top = new Mesh(canopy, toyMaterial('#FFFFFF', { roughness: 0.5 }));
+      (top.material as MeshPhysicalMaterial).vertexColors = true;
+      (top.material as MeshPhysicalMaterial).side = DoubleSide;
+      top.position.set(-0.06, 1.0, 0);
+      top.rotation.z = 0.12;
+      top.castShadow = true;
+      tree.add(umbrella, top);
+      tree.position.set(x, 0, z);
+      tree.scale.setScalar(size * 1.25);
+      tree.add(contactShadow(0.5));
+      decor.add(tree);
+      continue;
+    }
+    // A palm: a curving ringed trunk, fronds drooping all round, and coconuts.
+    const lean = i === 0 ? 1 : -1;
+    const curve = new CatmullRomCurve3(
+      [0, 0.4, 0.8, 1.2].map((y) => new Vector3(lean * 0.18 * (y / 1.2) ** 2, y, 0)),
+    );
+    const tip = curve.getPoint(1);
+    // One smooth trunk, its rings alternating in two browns along its length.
+    const trunk = new TubeGeometry(curve, 24, 0.055, 12, false);
+    const rings = [new Color('#B9875A'), new Color('#9A6A42')];
+    const ringColours: number[] = [];
+    for (let k = 0; k <= 24; k++)
+      for (let v = 0; v <= 12; v++) {
+        const c = rings[Math.floor(k / 3) % 2] ?? rings[0];
+        if (c !== undefined) ringColours.push(c.r, c.g, c.b);
+      }
+    trunk.setAttribute('color', new Float32BufferAttribute(ringColours, 3));
+    const bark = new Mesh(trunk, toyMaterial('#FFFFFF', { roughness: 0.7 }));
+    (bark.material as MeshPhysicalMaterial).vertexColors = true;
+    bark.castShadow = true;
+    for (let f = 0; f < 7; f++) {
+      const a = (f / 7) * Math.PI * 2 + 0.3;
+      parts.push(
+        part(new SphereGeometry(0.2, 16, 8), '#3FAE5A', [tip.x + Math.cos(a) * 0.2, tip.y - 0.04, Math.sin(a) * 0.2], [
+          1.6,
+          0.14,
+          0.5,
+        ], [0, -a, -0.45]),
+      );
+    }
+    for (const [a, b] of [
+      [0.05, 0.05],
+      [-0.05, 0.03],
+      [0, -0.05],
+    ] as const)
+      parts.push(part(new SphereGeometry(0.045, 12, 10), 'cocoa', [tip.x + a, tip.y - 0.06, b]));
+    const swaying = prop(parts, { roughness: 0.55, clearcoat: 0.15 });
+    swaying.add(bark);
+    tree.add(swaying);
+    tree.position.set(x, 0, z);
+    tree.scale.setScalar(size * 1.15);
+    tree.add(contactShadow(0.4));
+    decor.add(tree);
+    ambientMotion((time) => {
+      swaying.rotation.z = sway(time, x, z, ambient.treeAmp, ambient.treePeriod);
+    });
+  }
+  for (const [i, [x, z, size]] of LAYOUT.bushes.slice(0, bushes).entries()) {
+    const parts = [
+      part(new IcosahedronGeometry(0.16, 0), '#A19FA8', [0, 0.08, 0], [1.2, 0.7, 1]),
+      part(new IcosahedronGeometry(0.1, 0), '#8B8994', [0.17, 0.05, 0.05], [1, 0.75, 1], [0.4, i, 0]),
+      part(new IcosahedronGeometry(0.07, 0), '#B4B2BA', [-0.14, 0.035, 0.08], [1, 0.8, 1], [0, i * 2, 0.3]),
+    ];
+    const rock = prop(parts, { roughness: 0.8, clearcoat: 0 });
+    rock.position.set(x, 0, z);
+    rock.scale.setScalar(size * 1.2);
+    rock.add(contactShadow(0.3));
+    decor.add(rock);
+  }
+  for (const [i, [x, z, colour]] of LAYOUT.flowers.slice(0, flowers).entries()) {
+    let thing: Mesh;
+    if (i % 2 === 0) {
+      const outline = new Shape();
+      for (let k = 0; k < 10; k++) {
+        const r = k % 2 === 0 ? 0.075 : 0.032;
+        const a = Math.PI / 2 + (k * Math.PI) / 5;
+        if (k === 0) outline.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+        else outline.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      const shape = new ExtrudeGeometry(outline, {
+        depth: 0.012,
+        bevelEnabled: true,
+        bevelThickness: 0.008,
+        bevelSize: 0.008,
+        bevelSegments: 2,
+      });
+      shape.rotateX(-Math.PI / 2);
+      thing = prop([part(shape, i % 4 === 0 ? 'tangerine' : 'berry', [0, 0.012, 0])], { roughness: 0.5 });
+      thing.rotation.y = i * 0.7;
+    } else {
+      const parts = [part(new SphereGeometry(0.06, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), '#FFE3D3', [0, 0, 0], [1, 0.8, 1.2])];
+      for (let k = -2; k <= 2; k++)
+        parts.push(
+          part(new CylinderGeometry(0.004, 0.004, 0.13, 6), colour === 'grape' ? '#E6A0B8' : '#F2B9A0', [k * 0.02, 0.03, 0], [
+            1,
+            1,
+            1,
+          ], [Math.PI / 2, 0, k * 0.25]),
+        );
+      thing = prop(parts, { roughness: 0.35 });
+      thing.rotation.y = i;
+    }
+    thing.scale.setScalar(1.6);
+    thing.position.set(x, 0, z);
+    decor.add(thing);
+  }
+  grassTufts(decor, Math.round(tufts * 0.6), '#C8C46A', 1.6);
+  // Gulls: white birds with grey wings, wheeling high over the sides and back.
+  for (const [i, [x, z, y, reach]] of LAYOUT.butterflies.slice(0, butterflies).entries()) {
+    const body = prop([
+      part(new CapsuleGeometry(0.03, 0.12, 4, 12), '#FFFFFF', [0, 0, 0], [1, 1, 1], [Math.PI / 2, 0, 0]),
+      part(new SphereGeometry(0.032, 16, 12), '#FFFFFF', [0, 0.015, 0.1]),
+      part(new ConeGeometry(0.012, 0.04, 8), 'sunny', [0, 0.012, 0.145], [1, 1, 1], [Math.PI / 2, 0, 0]),
+    ]);
+    const wing = (side: number) => {
+      const lobe = new Shape();
+      lobe.moveTo(0, 0.03);
+      lobe.bezierCurveTo(0.1, 0.05, 0.2, 0.02, 0.26, -0.03);
+      lobe.bezierCurveTo(0.16, -0.02, 0.08, -0.03, 0, -0.03);
+      const geometry = new ShapeGeometry(lobe, 10);
+      geometry.rotateX(Math.PI / 2);
+      if (side < 0) geometry.rotateZ(Math.PI);
+      const mesh = prop([part(geometry, '#C7CDD6', [0, 0, 0])]);
+      (mesh.material as MeshPhysicalMaterial).side = DoubleSide;
+      body.add(mesh);
+      return mesh;
+    };
+    const right = wing(1);
+    const left = wing(-1);
+    decor.add(body);
+    const phase = i * 2.4;
+    ambientMotion((time) => {
+      const at = flight(time * 0.6, phase, reach * 2.2);
+      body.position.set(x * 1.4 + at.x, y + 1.3 + at.y, z - 0.6 + at.z);
+      body.rotation.y = at.heading;
+      const open = 0.35 * flap(time * 0.35, phase * 3);
+      right.rotation.z = open;
+      left.rotation.z = -open;
+    });
+  }
+}
+
+/** A starry night: moon trees, glowing crystals and mushrooms, teal grass and swarms of fireflies. */
+function nightDressing(decor: Group, counts: DecorCounts): void {
+  const { trees = 3, bushes = 3, flowers = 6, tufts = 26, butterflies = 2 } = counts;
+  for (const [x, z, size] of LAYOUT.trees.slice(0, trees)) {
+    const tree = new Group();
+    const parts = [part(new CylinderGeometry(0.05, 0.08, 0.6, 16), '#4A3B6B', [0, 0.3, 0])];
+    for (const [a, b, c, r, colour] of [
+      [0, 0.86, 0, 0.3, '#4A6AD0'],
+      [0.18, 0.66, 0.04, 0.22, '#3F5CC0'],
+      [-0.17, 0.7, -0.02, 0.23, '#5672DA'],
+      [0.02, 1.1, 0, 0.17, '#5C7CE0'],
+    ] as const)
+      parts.push(part(new SphereGeometry(r, 32, 16), colour, [a, b, c]));
+    const swaying = prop(parts, { roughness: 0.5, clearcoat: 0.25 });
+    tree.add(swaying);
+    tree.position.set(x, 0, z);
+    tree.scale.setScalar(size);
+    tree.add(contactShadow(0.4));
+    decor.add(tree);
+    ambientMotion((time) => {
+      swaying.rotation.z = sway(time, x, z, ambient.treeAmp, ambient.treePeriod);
+    });
+  }
+  for (const [i, [x, z, size]] of LAYOUT.bushes.slice(0, bushes).entries()) {
+    const parts = [
+      part(new OctahedronGeometry(0.08, 0), 'grape', [0, 0.17, 0], [1, 2.3, 1]),
+      part(new OctahedronGeometry(0.06, 0), 'ocean', [0.1, 0.11, 0.03], [1, 2.1, 1], [0, 0.4, -0.35]),
+      part(new OctahedronGeometry(0.05, 0), '#C59BFF', [-0.09, 0.09, 0.05], [1, 2, 1], [0, i, 0.4]),
+    ];
+    const crystal = prop(parts, { roughness: 0.15, clearcoat: 0.9 });
+    glowing(crystal.material as MeshPhysicalMaterial, 0.45);
+    crystal.position.set(x, 0, z);
+    crystal.scale.setScalar(size * 1.3);
+    crystal.add(contactShadow(0.25));
+    decor.add(crystal);
+  }
+  const caps: readonly string[] = ['berry', 'grape', 'ocean', 'sunny', 'tangerine', 'grape', 'berry', 'ocean'];
+  for (const [i, [x, z]] of LAYOUT.flowers.slice(0, flowers).entries()) {
+    const tall = 0.07 + (i % 3) * 0.03;
+    const cap = caps[i % caps.length] ?? 'berry';
+    const parts = [
+      part(new CylinderGeometry(0.014, 0.02, tall, 10), '#5B5470', [0, tall / 2, 0]),
+      part(new SphereGeometry(0.055, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), cap, [0, tall - 0.005, 0], [1, 0.75, 1]),
+    ];
+    for (let k = 0; k < 4; k++) {
+      const a = k * 1.7 + i;
+      parts.push(part(new SphereGeometry(0.009, 8, 6), '#FFFFFF', [Math.cos(a) * 0.033, tall + 0.03, Math.sin(a) * 0.033]));
+    }
+    const mushroom = prop(parts, { roughness: 0.35 });
+    glowing(mushroom.material as MeshPhysicalMaterial, 0.55);
+    mushroom.position.set(x, 0, z);
+    mushroom.scale.setScalar(2);
+    decor.add(mushroom);
+    ambientMotion((time) => {
+      mushroom.rotation.z = 0.4 * sway(time, x, z);
+    });
+  }
+  grassTufts(decor, tufts, '#3C9A8A', 1);
+  // Fireflies: a swarm round each home, drifting and blinking slowly; one draw call for them all.
+  const swarm = 7;
+  const homes = LAYOUT.butterflies.slice(0, butterflies);
+  if (homes.length > 0) {
+    const material = glowing(toyMaterial('#FFFFFF', { roughness: 0.4 }), 1.4);
+    material.vertexColors = true;
+    const flies = new InstancedMesh(merge([part(new SphereGeometry(0.022, 10, 8), '#EAFF86', [0, 0, 0])]), material, homes.length * swarm);
+    flies.frustumCulled = false;
+    const place = new Object3D();
+    const move = (time: number) => {
+      for (const [h, [x, z, y]] of homes.entries())
+        for (let k = 0; k < swarm; k++) {
+          const a = k * 2.39996 + h;
+          const wander = time * 0.7 + k * 0.9 + h * 3.1;
+          place.position.set(
+            x + Math.cos(a) * 0.5 + 0.18 * Math.sin(wander),
+            y + 0.25 * Math.sin(a * 1.3) + 0.12 * Math.sin(wander * 1.7),
+            z + Math.sin(a) * 0.5 + 0.12 * Math.cos(wander * 1.3),
+          );
+          place.scale.setScalar(0.6 + 0.4 * (0.5 + 0.5 * Math.sin(time * 2.2 + k * 1.7 + h)));
+          place.updateMatrix();
+          flies.setMatrixAt(h * swarm + k, place.matrix);
+        }
+      flies.instanceMatrix.needsUpdate = true;
+    };
+    move(0);
+    decor.add(flies);
+    ambientMotion(move);
+  }
 }
 
 /** One part of a prop: a geometry in its own colour, placed in the prop. */

@@ -578,6 +578,35 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 - **Not tried:** another Mac or GPU; a busy Mac, where a load that takes no picture reads unknown and the check does
   not pass; a game that only changes the decor's counts, which reads as its own.
 
+## Worlds of their own (W1)
+
+- **Question:** the three showcase finals all kept the starter's island, sky, trees, flowers and score sign, so from a
+  distance they read as one world with different toys. Can the starter give each game a place of its own?
+- **Date:** 2026-11-04, the vetted set, the pinned chrome-headless-shell through the launcher, on this Mac.
+- **Now:** `src/worlds.ts` holds four worlds, each its own sky, light, ground, set dressing and sound:
+  - `meadow`, the starter's own island, the default;
+  - `garden`, golden hour: a peach sky, a low sun, hills, apple trees, pumpkins, sunflowers, a fence, butterflies;
+  - `seaside`, sunset: a sandy island in the sea, a sun path on the water, palms, an umbrella, rocks, shells, gulls;
+  - `night`: a violet sky, stars and a moon, moon trees, crystals, glowing mushrooms, fireflies.
+- **How:** `setupLook(world, 'night')` picks one, or a world of the agent's own made from another. `decorate()` dresses
+  the island for it with the same counts, at the same spots, so the middle stays clear. The sky's sun or moon is
+  drawn in the sky's own shader, at no draw call of its own. The stars, the sea, its foam and the hills are one or two
+  draw calls each. The sound is made in the browser from noise and tones:
+  - wind and birds in the meadow and the garden;
+  - waves and gulls at the seaside;
+  - crickets at night.
+
+  It starts only once the page has had a press, so a page never warns about sound before one. The starter's AGENTS.md
+  tells the agent to pick the world that fits its game, or make one.
+- **Found:** the check's own picture of the pristine starter is the same bytes as main's (SHA-256 `a095f586`), so the
+  meadow, and DRAWN's reference, are unchanged. Frames of each world from the check's browser read as four different
+  places at a glance. In every frame and check, no exception and no console error.
+- **Risk:** DRAWN compares a page with the meadow. A game that only picks another world, with no game of its own,
+  differs from the meadow everywhere and so reads drawn, as one that only changes the decor's counts already did.
+  The laptop step still needs a target that responds before a check reads ready.
+- **Not tried:** the headset; whether the sound plays in Quest Browser after Enter VR; whether a local model picks a
+  world when told to (the restyle of the three showcase games is next).
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

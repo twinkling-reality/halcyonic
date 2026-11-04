@@ -22,8 +22,8 @@ What you cannot do here:
 
 How the app is put together:
 - `src/index.ts` calls `World.create(...)` with the options from `iwsdk.config.json`, then registers systems.
-- Keep the game's systems and setup in `src/index.ts` (importing `./palette`, `./look`, `./decor`, `./motion` and
-  `./play-input`) rather than splitting the game into extra files in `src/`.
+- Keep the game's systems and setup in `src/index.ts` (importing `./palette`, `./look`, `./decor`, `./motion`,
+  `./worlds` and `./play-input`) rather than splitting the game into extra files in `src/`.
 - Edit `src/index.ts` directly with your file-editing tool; never write `.py`, `.txt`, `.sh` or `.patch` scripts to
   generate or patch files.
 - A system is a class from `createSystem({...})` with `init()` and `update(delta, time)`. Look at `src/panel.ts`.
@@ -41,7 +41,17 @@ Input, both ways:
   needs an input `play-input.ts` does not have, add it there, for both ways.
 
 Make it fun to look at:
-- Build the game on the island: `setupLook(world)` in `src/look.ts` makes it, top at y = 0, about 6 m across.
+- Set the game in a world of its own. A new game starts in the meadow, the same island, sky and decor every other
+  game starts with, so pick the world in `src/worlds.ts` that fits the game and name it in `src/index.ts`, for
+  example `setupLook(world, 'night')`:
+  - `garden`: golden hour, hills, apple trees, sunflowers, pumpkins and a fence;
+  - `seaside`: a sandy island in the sea at sunset, palms, rocks, shells and gulls;
+  - `night`: a starry sky and a moon, moon trees, crystals, glowing mushrooms and fireflies.
+  If none fits, make one of your own from another, importing `worlds` from `./worlds`:
+  `setupLook(world, { ...worlds.seaside, name: 'lagoon', sky: { ...worlds.seaside.sky, top: '#2F5FA8' } })`.
+  A world brings its own sky, light, ground, dressing and sound; the toys keep the palette's colours in every world.
+  Put the world's sky colours in `index.html`'s `background` too, so the page shows them while the game loads.
+- Build the game on the island: `setupLook` in `src/look.ts` makes it in every world, top at y = 0, about 6 m across.
   Add the game's objects to `gameIsland()` from `src/look.ts` so they stand on it.
 - `gameIsland()` is in the world's own coordinates: the player stands at `PLAYER`, the origin, and faces -z, in VR
   and on a laptop alike (the laptop camera looks the same way from just behind them), and the island's centre is
@@ -60,11 +70,11 @@ Make it fun to look at:
   `critter('cocoa')`, a round creature with eyes, a nose and ears (a mole, a pet, a monster), `toyStar('sunny')`, a
   star with a face, `balloon('berry')`, with its knot and string, and `basket('tangerine')`. Pass any palette name,
   scale one with `.scale.setScalar(s)`, and make shapes of your own only for what the kit has no thing for.
-- The island comes decorated: `src/index.ts` calls `decorate(gameIsland())` from `src/decor.ts`, which puts trees,
-  bushes, flowers, grass and two butterflies at its sides and back and keeps the middle clear for the game. Change
-  the counts if the game needs room, for example `decorate(gameIsland(), { trees: 2, butterflies: 0 })`.
-- The clouds and the decor move by themselves; leave that to `src/look.ts`. Move the game's own objects in the game's
-  own systems.
+- The island comes decorated: `src/index.ts` calls `decorate(gameIsland())` from `src/decor.ts`, which puts the
+  world's trees, bushes, flowers, grass and two flyers at its sides and back and keeps the middle clear for the
+  game. Change the counts if the game needs room, for example `decorate(gameIsland(), { trees: 2, butterflies: 0 })`.
+- The clouds and the decor move by themselves, and the world's sound starts by itself after the first press; leave
+  that to `src/look.ts` and `src/sound.ts`. Move the game's own objects in the game's own systems.
 - Give every game object some motion each frame from `src/motion.ts` (`pop`, `hide`, `bob`, `wiggle`), using the
   `time` your system's `update(delta, time)` is given, never a timer of its own, so the person's computer can check
   it. An `onSelect` or `onTouch` handler is given no time: use `gameTime()` from `src/look.ts` there, never
