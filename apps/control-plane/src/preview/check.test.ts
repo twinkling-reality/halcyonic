@@ -378,7 +378,23 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
   test('a box the game listens to: the mouse reaches it, the host sees the screen change, VR is offered, ready (M1.8b)', {
     timeout: 240_000,
   }, async (t) => {
-    const result = await check(t, (project) => addToIndex(project, BOX_IMPORTS, BOX));
+    const result = await check(t, (project) => {
+      addToIndex(project, BOX_IMPORTS, BOX);
+      // Since U3 the starter's scenery moves by itself, so one load cannot tell a press's change from it and the twin
+      // replay sees the press instead (M1.8g's case). Held at its pose at time 0, the scenery stands still and this
+      // case covers the single-load path: a still control pair, then the screen changed by the press. The movers still
+      // run each frame, so the look still shows its canvas.
+      const look = join(project, 'src', 'look.ts');
+      const moving = 'for (const move of movers) move(time);';
+      assert.ok(
+        readFileSync(look, 'utf8').includes(moving),
+        'the look moves its scenery in one loop',
+      );
+      writeFileSync(
+        look,
+        readFileSync(look, 'utf8').replace(moving, 'for (const move of movers) move(0);'),
+      );
+    });
     assert.equal(result.passed, true, JSON.stringify(result.page));
     assert.deepEqual(result.laptop, {
       layer: 'starter',
