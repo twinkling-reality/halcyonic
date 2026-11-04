@@ -151,6 +151,19 @@ namespace Halcyonic.Client
             .Select(section => new KitRowModel(SectionRowKey + section.Key, LineWords.Ours(section.Words), opensMore: false, selected: section.Chosen)).ToList();
 
         /// <summary>
+        /// The page the kit lays a file's open instruction on, its composer's well <paramref name="wellRows"/> rows. The kit draws
+        /// the whole draft in the well and holds any draft the well holds, so the page leaves the instruction's field the well's
+        /// rows after the head row and the reason <see cref="FileInstruction.Measure"/> takes from it: a draft the well holds is
+        /// then one part, with no part pager, which has no place in the kit (a frame the kit can't bind goes back to the views,
+        /// which lay it for the kit again on the next update).
+        /// </summary>
+        public static PageBudget ComposerBudget(int wellRows)
+        {
+            var rows = new RowBudget(1);
+            return new RowBudget(wellRows + (int)System.Math.Ceiling(rows.Words(1) + rows.LineGap + rows.Reason));
+        }
+
+        /// <summary>
         /// Binds the kit to <paramref name="frame"/>, the frame <paramref name="workspace"/>'s file drew with
         /// <paramref name="armed"/> armed (<see cref="WorkspaceSteering.Armed"/>), and the person's
         /// <paramref name="draft"/>; null where the kit can't draw the frame whole. The composer's chips are

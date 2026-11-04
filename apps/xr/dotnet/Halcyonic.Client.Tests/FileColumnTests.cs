@@ -104,6 +104,33 @@ public class FileColumnTests
         return (host, work, column);
     }
 
+    /// <summary>
+    /// The kit draws the whole draft in its composer's well and holds any draft the well holds, so the page it lays the
+    /// instruction on holds that draft in one part: a part's pager has no place in the kit, and a frame it can't bind
+    /// hands the file back to its views, which lay it for the kit again on the next update (JUDGE's judge kit walk at
+    /// Larger, 2026-11-04: a new frame on every update, so Next Part never stood to be pressed).
+    /// </summary>
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(3)]
+    public void TheKitsComposerLaysADraftItsWellHoldsInOnePart(int rows)
+    {
+        const int well = 3;
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct));
+        column.ConfigureActivityComposer(() => new RowBudget(8), () => KitFileBinding.ComposerBudget(well));
+        column.HoldStarted(FileScreens.HoldToTalk);
+        column.Heard(new string('a', rows * host.RowCharacters));
+
+        Assert.That(column.Screen.Instruction.Parts, Is.EqualTo(1));
+        Assert.That(column.Frame!.Lines.Any(line => line.Action == FileScreens.NextInstructionPart), Is.False);
+        Assert.That(KitFileBinding.Of(column.Frame, column.Steering.Armed, column.Now!, column.Screen.Instruction.Words,
+            new ConnectionStatus(ConnectionPhase.Live), "Storefront", new[] { new KitSpineSection(new KitRowModel[0]) }), Is.Not.Null,
+            "the kit binds the frame it laid");
+    }
+
     [Test]
     public void SendIsWithdrawnTheMomentTheConnectionDrops()
     {

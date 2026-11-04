@@ -66,7 +66,7 @@ namespace Halcyonic.XR.Workspace
                             ? IndependentPageHeight(OwnerTitleRows(file), true, true, file)
                             : PageHeight(TitleRows(file.Now?.Character.Title ?? "", Glaze.Menu.FileColumnDegrees), besideMenu: false, focused: true));
                     composerFocus[file] = false;
-                    return new RowBudget(plane.Kit.ComposerRows);
+                    return KitFileBinding.ComposerBudget(plane.Kit.ComposerRows);
                 });
         }
 
