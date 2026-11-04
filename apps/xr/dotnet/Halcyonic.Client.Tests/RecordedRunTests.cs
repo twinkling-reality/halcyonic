@@ -45,6 +45,37 @@ public class RecordedRunTests
         Assert.That(Demonstration.Recording().IsRecordedRun, Is.False, "the bundled demonstration stays a demonstration");
     }
 
+    /// <summary>
+    /// A recorded run never carries an understanding or a measurement read (it holds nothing simulated), so its Changes
+    /// and Checks say calmly that none was recorded: never a red failure, never Demo (JUDGE's frames, 2026-11-04).
+    /// </summary>
+    [Test]
+    public async Task ARecordedRunsChangesAndChecksSayNothingWasRecordedCalmly()
+    {
+        var player = new DemonstrationPlayer(DemonstrationRecording.Parse(AsRecordedRun()), Samples.Client, new DemonstrationOptions { Speed = 1000, Loop = false });
+        var now = DateTimeOffset.UtcNow;
+        async Task<string> Why<T>(Func<Task<IntelligenceRead<T>>> read) where T : class
+        {
+            try { await read(); }
+            catch (Exception error) { return IntelligenceText.WhyUnread(error, ""); }
+            Assert.Fail("a recorded run answered a read it never carries");
+            return "";
+        }
+        var understandingError = await Why(() => player.Reads.ReadUnderstandingAsync("e-1"));
+        var evaluationError = await Why(() => player.Reads.ReadEvaluationAsync("e-1"));
+
+        var changes = UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, "e-1", null, false, understandingError, now, TimeZoneInfo.Utc);
+        var checks = CheckedPresenter.Present("e-1", null, false, understandingError, null, false, evaluationError, now, TimeZoneInfo.Utc);
+        foreach (var (page, section) in new[] { ("Changes", changes), ("Checks", checks) })
+        {
+            var words = new[] { section.Provenance }.Concat(section.Lines.Select(line => line.Text)).ToList();
+            Assert.That(words, Has.All.Not.Contain("Unreadable").And.All.Not.Contain("Demo"), page);
+            Assert.That(section.ProvenanceTone, Is.Not.EqualTo(SectionTone.Problem), page);
+            Assert.That(section.Lines.Select(line => line.Tone), Has.None.EqualTo(SectionTone.Problem), page);
+            Assert.That(words, Has.Some.EqualTo(DemonstrationReads.NotRecorded), page);
+        }
+    }
+
     [Test]
     public void ARecordedRunNeverRegistersASyntheticRuntime()
     {

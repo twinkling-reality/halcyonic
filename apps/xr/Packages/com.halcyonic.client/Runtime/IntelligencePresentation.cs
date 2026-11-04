@@ -255,6 +255,7 @@ namespace Halcyonic.Client
                 return new[]
                 {
                     loading ? Source("Reading Measurement", SectionTone.Secondary)
+                    : error == DemonstrationReads.NotRecorded ? Source(error, SectionTone.Secondary)
                     : error != null ? Source("Measurement Unreadable · " + error, SectionTone.Problem)
                     : Source("Not Read", SectionTone.Secondary),
                 };
@@ -649,6 +650,8 @@ namespace Halcyonic.Client
         internal static SectionPresentation Waiting(SectionKind kind, bool loading, string? error)
         {
             if (loading) return Empty(kind, "Reading Understanding");
+            // A recorded run carries no understanding read: nothing failed, so it is said calmly.
+            if (error == DemonstrationReads.NotRecorded) return Empty(kind, error);
             if (error != null)
             {
                 return new SectionPresentation(kind, "Understanding Unreadable · " + error, SectionTone.Problem, Array.Empty<SectionLine>(), simulated: false);
