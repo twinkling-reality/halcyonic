@@ -1424,11 +1424,12 @@ launch/return, process recreation and current-frame action behavior need separat
   leading to its own node. A node ends by holding its final state: until an answer at an approval
   or a question, for 60 seconds while it offers
   instructions, or, where the recording has nothing more, after a snapshot of its control plane
-  started again without runtimes, for 20 seconds. Neither timed hold runs while anything is open on
-  the plane (the menu, a task's file, New project or a side panel: `DemonstrationPlayer.Reading`,
-  which the workspace's director sets each frame), so a person reading Changes or Checks, or
-  browsing Projects, is never cut off; once everything has folded to the bar the hold runs whole
-  from then.
+  started again without runtimes, for 20 seconds. Neither timed hold runs while a task's file or New
+  project stands open beside the menu (`DemonstrationPlayer.Reading`, which the workspace's director
+  sets each frame), so a person reading Changes or Checks, or talking an idea through, is never cut
+  off; once it closes the hold runs whole from then. The workspace's own lists hold nothing
+  (2026-11-04): the release build opens the whole workspace at launch, so an ended recording, the
+  recorded run first of all, gives way with the workspace open.
   The control plane computed every state in it,
   so the client still derives nothing. A recording whose journal is not a fixture, whose answers
   are not where an instant ends, or whose nodes do not form a tree that continues the journal, is
