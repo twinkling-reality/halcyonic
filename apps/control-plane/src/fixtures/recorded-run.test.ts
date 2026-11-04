@@ -14,6 +14,7 @@ import {
 } from '@halcyonic/contracts';
 import { END_HOLD_MS } from './demonstration.ts';
 import {
+  HERE_DOCUMENT_CUT,
   JUDGE_MUST_NOT_READ,
   MAX_GAP_MS,
   PRIVATE_NAMES_FILE,
@@ -206,6 +207,94 @@ describe('sanitizing a recorded real run', () => {
     const error = errorOf(() => sanitizeRecordedRun([...events, linked], OPTIONS));
     assert.match(error.message, /project\.catalog_linked/);
     assert.ok(!error.message.includes('some-organisation'), 'the error never repeats its words');
+  });
+
+  test("a host's check, its preview and the check output it gave are recorded and scanned like any other words", () => {
+    const events = realShaped();
+    const project = first(events, 'project.created');
+    const execution = first(events, 'execution.created');
+    const at = (n: string) => `${project.event_id.slice(0, -4)}${n}`;
+    const of = (n: string, type: string, payload: unknown) =>
+      ({ ...execution, event_id: at(n), event_type: type, payload }) as unknown as EventEnvelope;
+    const check = 'c'.repeat(8);
+    const host = [
+      of('fff0', 'project.check.recorded', {
+        check_id: check,
+        findings: {
+          page: { exceptions: [`TypeError at ${PROJECT}/src/index.ts:12`] },
+          passed: false,
+        },
+      }),
+      of('fff1', 'execution.check_output_given', {
+        check_id: check,
+        parts: ['typecheck'],
+        lines: 3,
+        bytes: 90,
+      }),
+      of('fff2', 'project.preview.started', { check_id: check, port: 47930 }),
+      of('fff3', 'project.preview.stopped', { check_id: check, reason: 'ended' }),
+      of('fff4', 'project.made_from', {
+        original_project_id: project.project_id,
+        instruction: 'Make a VR version.',
+      }),
+    ];
+    const cleaned = sanitizeRecordedRun([...events, ...host], OPTIONS);
+    const recorded = cleaned.find((event) => event.event_id === at('fff0')) as unknown as {
+      payload: { findings: { page: { exceptions: string[] } } };
+    };
+    assert.deepEqual(recorded.payload.findings.page.exceptions, ['TypeError at src/index.ts:12']);
+    // A check's words that name the home folder outside the project are refused at their field.
+    const outside = of('fff5', 'project.check.recorded', {
+      check_id: check,
+      findings: {
+        page: { exceptions: [`TypeError at ${HOME}/elsewhere/index.ts:1`] },
+        passed: false,
+      },
+    });
+    const error = errorOf(() => sanitizeRecordedRun([...events, outside], OPTIONS));
+    assert.ok(
+      error.findings.some(
+        (found) =>
+          found.event_type === 'project.check.recorded' && found.reason === 'the home folder',
+      ),
+      error.message,
+    );
+  });
+
+  test("a command's here-document body is cut from its title, its first line kept and the cut said", () => {
+    const events = realShaped();
+    const started = first(events, 'runtime.tool.started');
+    const heredoc = structuredClone(started);
+    heredoc.event_id = `${started.event_id.slice(0, -4)}fff6` as EventEnvelope['event_id'];
+    heredoc.payload.title = `/bin/zsh -lc "cat > ${PROJECT}/src/index.ts <<'EOF'\n/**\n * Copyright (c) Meta Platforms, Inc.\n */\nEOF"`;
+    const plain = structuredClone(started);
+    plain.event_id = `${started.event_id.slice(0, -4)}fff7` as EventEnvelope['event_id'];
+    plain.payload.title = 'npx vitest run\nsecond line kept';
+    const cleaned = sanitizeRecordedRun([...events, heredoc, plain], OPTIONS);
+    const titleOf = (id: string) =>
+      (
+        cleaned.find((event) => event.event_id === id) as Extract<
+          EventEnvelope,
+          { event_type: 'runtime.tool.started' }
+        >
+      ).payload.title;
+    assert.equal(
+      titleOf(heredoc.event_id),
+      `/bin/zsh -lc "cat > src/index.ts <<'EOF'\n${HERE_DOCUMENT_CUT}`,
+    );
+    assert.equal(
+      titleOf(plain.event_id),
+      'npx vitest run\nsecond line kept',
+      'a title opening no here-document is kept whole',
+    );
+    // A name on the first line is still the agent's own words, and still refused.
+    const named = structuredClone(heredoc);
+    named.payload.title = "cat > Meta.txt <<'EOF'\nbody\nEOF";
+    const error = errorOf(() => sanitizeRecordedRun([...events, named], OPTIONS));
+    assert.ok(
+      error.findings.some((found) => found.reason === 'names Meta'),
+      error.message,
+    );
   });
 
   test("refuses a journal holding a device's pairing or revocation: no recording needs them", () => {
