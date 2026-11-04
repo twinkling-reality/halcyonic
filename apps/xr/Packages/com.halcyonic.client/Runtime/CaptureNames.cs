@@ -43,5 +43,28 @@ namespace Halcyonic.Client
 
         /// <summary>A model's name or reference as the headset draws it, or null where there is none.</summary>
         public static string? ModelNameOrNull(string? name) => name == null ? null : ModelName(name);
+
+        /// <summary>
+        /// An approval's request as the headset draws it. Under the extra, a line that names its folder by a host path
+        /// ("in /Users/someone/star-catcher", as Codex's adapter adds it) names the folder by its own name, so the home
+        /// folder's name never stands on camera; the command itself reads as the agent gave it.
+        /// </summary>
+        public static string Request(string summary)
+        {
+            if (!Generic || summary.IndexOf("\nin /", System.StringComparison.Ordinal) < 0) return summary;
+            var lines = summary.Split('\n');
+            for (var index = 1; index < lines.Length; index++)
+            {
+                if (lines[index].StartsWith("in /", System.StringComparison.Ordinal)) lines[index] = "in " + FolderName(lines[index].Substring(3));
+            }
+            return string.Join("\n", lines);
+        }
+
+        /// <summary>A host path's last folder, its own name.</summary>
+        public static string FolderName(string path)
+        {
+            var parts = path.Split(new[] { '/' }, System.StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length == 0 ? path : parts[parts.Length - 1];
+        }
     }
 }

@@ -68,7 +68,44 @@ public class CaptureNamesTests
             + "\n" + JsonConvert.SerializeObject(slot, new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore });
     }
 
-    private static (ClientProjection, WorkstreamView, ExecutionView, RuntimeDescriptor) Running()
+    /// <summary>
+    /// Under the extra an approval's request names its folder by the folder's own name, never the host path that holds the
+    /// home folder's name (DEMO's rehearsal, 2026-11-04); the command itself reads as the agent gave it. The run's Folder
+    /// line drops the parent folder too. Without the extra both read as given.
+    /// </summary>
+    [Test]
+    public void UnderTheExtraAnApprovalsFolderIsItsOwnNameNeverTheHomeFolder()
+    {
+        const string summary = "git -C . commit -am \"Golden fireflies\"\nin /Users/someone/star-catcher";
+        var approval = new ApprovalView
+        {
+            ApprovalId = "a1", Subject = new ToolUseSubject { ToolName = "commandExecution", Summary = summary }, Approvable = true, RequestedAt = Samples.Time,
+        };
+        var (state, work, _, _) = Running("/Users/someone/star-catcher");
+        string Words()
+        {
+            var workspace = WorkspacePresenter.Present(work, state, new ActivityLog(), true);
+            var activity = new ActivityLog();
+            activity.Record(new[]
+            {
+                ActivityLogBoundTests.Journaled(1, "e-1", "runtime.approval.requested",
+                    "{\"approval_id\":\"a1\",\"subject\":{\"kind\":\"tool_use\",\"tool_name\":\"commandExecution\",\"summary\":" + Newtonsoft.Json.JsonConvert.ToString(summary) + "},\"complete\":true}"),
+            });
+            return string.Join("\n", new[] { WorkspaceText.Request(approval) }
+                .Concat(WorkspaceText.RunDetails(workspace, System.TimeZoneInfo.Utc).Select(line => line.Line))
+                .Concat(activity.For("e-1").Select(entry => entry.Text)));
+        }
+
+        Assert.That(Words(), Does.Contain("/Users/someone/star-catcher"), "without the extra, as given");
+        CaptureNames.UseGeneric(true);
+        var generic = Words();
+        Assert.That(generic, Does.Not.Contain("someone").And.Not.Contain("/Users"));
+        Assert.That(CaptureNames.Request(summary), Is.EqualTo("git -C . commit -am \"Golden fireflies\"\nin star-catcher"), "the command unchanged");
+        Assert.That(WorkspaceText.Request(approval), Does.StartWith("commandExecution: git -C . commit -am \"Golden fireflies\"").And.EndWith("in star-catcher"));
+        Assert.That(generic, Does.Contain("Folder · star-catcher"));
+    }
+
+    private static (ClientProjection, WorkstreamView, ExecutionView, RuntimeDescriptor) Running(string? directory = null)
     {
         var runtime = Samples.MockRuntime();
         runtime.RuntimeId = "codex";
@@ -78,6 +115,7 @@ public class CaptureNamesTests
         var execution = Samples.Execution("e-1", "w-1", ExecutionStatus.Running, synthetic: false);
         execution.Runtime = new RuntimeRef { RuntimeId = "codex", Kind = "codex", DisplayName = "Codex", Synthetic = false };
         execution.ModelRef = "qwen3.6:35b-a3b-nvfp4";
+        execution.Directory = directory;
         var work = Samples.Workstream("w-1", WorkstreamStatus.Starting, "e-1");
         var snapshot = Samples.Snapshot(2, new[] { work }, new[] { execution });
         snapshot.Runtimes = new List<RuntimeDescriptor> { runtime };
