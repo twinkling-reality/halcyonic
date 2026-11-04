@@ -227,7 +227,12 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     assert.equal(result.laptop?.mouse, 'no_target');
     assert.equal(result.vr?.offered, 'offered');
     assert.equal(result.ready, false);
-    assert.deepEqual(result.notes, { scanned: 'full', items: [] });
+    // The one note is the starter's own: every new game starts in the default world (W1).
+    assert.equal(result.notes?.scanned, 'full');
+    assert.deepEqual(
+      result.notes?.items.map((item) => [item.kind, item.file]),
+      [['default_world', 'src/index.ts']],
+    );
   });
 
   test('a box in front of the camera is drawn, and the check passes', {

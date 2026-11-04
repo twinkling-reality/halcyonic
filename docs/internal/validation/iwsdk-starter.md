@@ -598,9 +598,13 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 
   It starts only once the page has had a press, so a page never warns about sound before one. The starter's AGENTS.md
   tells the agent to pick the world that fits its game, or make one.
-- **The check says so:** a game whose source still calls `setupLook(world)` with no world, or with `'meadow'`, gets
-  the check note `default_world` (a value of `CheckNoteKind`, 2026-11-04). Like the scan's other notes, it is never
-  a pass or a fail. The headset client reads no check notes, so it shows nothing for it.
+- **The check says so:** a game whose source has a statement calling `setupLook(world)` with no world, or with
+  `'meadow'`, gets the check note `default_world` (a value of `CheckNoteKind`, 2026-11-04). Like the scan's other
+  notes, it is never a pass or a fail. The headset client reads no check notes, so it shows nothing for it.
+  - It shares the scan's five notes with the input notes.
+  - It is a hint, not proof that the game kept the meadow. It misses, for example, `setupLook(world, worlds.meadow)`, a
+    cast, `setupLook(this.world)`, or a call split over lines (AUDIT W1B).
+  - It never fires on the starter's own `look.ts`, whose error text names the call in a string.
 - **Found:** the check's own picture of the pristine starter is the same bytes as main's (SHA-256 `a095f586`), so the
   meadow, and DRAWN's reference, are unchanged. Frames of each world from the check's browser read as four different
   places at a glance. In every frame and check, no exception and no console error.

@@ -19,15 +19,21 @@ const PATTERNS: readonly (readonly [CheckNoteKind, RegExp])[] = [
   ['canvas_listener', new RegExp(String.raw`\b(canvas|domElement)${LISTENS}`)],
   ['xr_input_read', /\binput\s*\.\s*xr\b/],
   ['gamepad_read', /\bnavigator\s*\.\s*getGamepads\b|\.\s*gamepads?\b/],
-  // The starter's look set up with no world, or the default's by name: the meadow every new game shares (W1).
-  ['default_world', /\bsetupLook\s*\(\s*\w+\s*(,\s*['"`]meadow['"`]\s*)?\)/],
+  // A call that sets the starter's look up with no world, or the default's by name: the meadow every new game
+  // shares (W1). Only a statement that starts with the call, so the starter's own error text, which names
+  // `setupLook(world)` in a string, and a comment are never noted (AUDIT W1B-1).
+  [
+    'default_world',
+    /^\s*(?:(?:const|let|var)\s+[^=]+=\s*)?(?:await\s+)?setupLook\s*\(\s*\w+\s*(?:,\s*['"`]meadow['"`]\s*)?\)/,
+  ],
 ];
 
 /**
  * Reads the project's `src/` for input read around the starter's layer: listeners on the window,
  * the document or the canvas, and controllers read directly; and for a game still set in the
  * starter's default world (W1). Never follows a link; a note is never a pass or a fail by itself
- * (M1.8b).
+ * (M1.8b). Every kind shares the five notes, in file and line order, so a pristine starter's own
+ * `default_world` note in `src/index.ts` takes one of them.
  */
 export async function scanSource(project: string): Promise<CheckNotes> {
   const items: CheckNotes['items'][number][] = [];
