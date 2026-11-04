@@ -6,6 +6,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -105,6 +106,8 @@ interface PlaneOptions {
   readonly reference?: 'made' | 'fails';
   /** What Halcyonic holds, which nothing journaled may carry. */
   readonly secrets?: () => readonly { readonly what: string; readonly value: string }[];
+  /** Runs inside every check once its copy is built, where the real check serves it. */
+  readonly during?: (options: CheckOptions) => Promise<void>;
 }
 
 /** The starter's own picture the stand-in check makes (DRAWN). */
@@ -146,6 +149,7 @@ function plane(
     starters,
     reference = 'made',
     secrets,
+    during,
   }: PlaneOptions = {},
 ) {
   const dataDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-previews-')));
@@ -174,6 +178,7 @@ function plane(
         // As the real check does: the built copy in the check's own cache.
         mkdirSync(join(options.cache, 'dist'), { recursive: true });
         writeFileSync(join(options.cache, 'dist', 'index.html'), `<title>${options.cache}</title>`);
+        await during?.(options);
         if (options.reference.kind !== 'making') return result;
         // Making the starter's own picture (DRAWN): its frame, kept in the check's cache.
         if (reference === 'fails' || result.page === null)
@@ -452,6 +457,29 @@ describe("the starter's own picture a check compares a project's with (DRAWN)", 
     await done(submit('project.check').command.command_id);
     assert.equal(checked.length, 3, 'the next check reuses it');
     assert.deepEqual(checked[2]?.reference, { kind: 'compared', png: FRAME });
+  });
+
+  test("the starter's check records its server while it serves too, and both records go with their checks (AUDIT S1)", async (t) => {
+    const starters = rooted(t);
+    const seen: { name: string; cache: string; record: unknown }[] = [];
+    const { submit, done, dataDir, projectId } = plane(t, {
+      starters: { ...starters, began: starters.template },
+      during: async (options) => {
+        const name = options.reference.kind === 'making' ? 'reference' : 'check';
+        await options.onServer?.(4242);
+        const file = join(dataDir, 'previews', `${projectId}.${name}.json`);
+        const record = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null;
+        seen.push({ name, cache: options.cache, record });
+      },
+    });
+    await done(submit('project.check').command.command_id);
+    assert.deepEqual(
+      seen.map(({ name }) => name),
+      ['reference', 'check'],
+    );
+    for (const { name, cache, record } of seen)
+      assert.deepEqual(record, { pid: 4242, copy: join(cache, 'dist') }, `${name}'s record`);
+    assert.deepEqual(readdirSync(join(dataDir, 'previews')), [], 'no record once the check ended');
   });
 
   test('a project begun from another template than the tracked one is not compared, and its check is told so', async (t) => {
@@ -774,6 +802,58 @@ describe("the host's checks and previews (ADR 0037)", () => {
     assert.equal(controlPlane.projection.preview(projectId), undefined);
     assert.ok(!existsSync(join(dataDir, 'previews', `${projectId}.json`)));
     assert.equal(types().filter((type) => type === 'project.preview.stopped').length, 1);
+  });
+
+  test("a check's own server is recorded while it serves, so the next start stops one a crash left serving (AUDIT S1)", async (t) => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const servers: ChildProcess[] = [];
+    const { controlPlane, submit, done, projectId, dataDir, checked } = plane(t, {
+      during: async (options) => {
+        // What a restart reads of the real one: `vite preview` of the check's own copy.
+        const server = spawn(
+          process.execPath,
+          [
+            '-e',
+            'setInterval(() => {}, 1000)',
+            'vite.js',
+            'preview',
+            '--outDir',
+            join(options.cache, 'dist'),
+          ],
+          { stdio: 'ignore' },
+        );
+        servers.push(server);
+        t.after(() => server.kill('SIGKILL'));
+        if (server.pid !== undefined) await options.onServer?.(server.pid);
+        // The second check is still serving when the control plane stops without a word.
+        if (servers.length > 1) await held;
+        server.kill('SIGTERM');
+      },
+    });
+    const record = join(dataDir, 'previews', `${projectId}.check.json`);
+    await done(submit('project.check').command.command_id);
+    assert.ok(!existsSync(record), 'a check that ends takes its record with it');
+
+    const second = submit('project.check');
+    await until(
+      () => servers.length === 2 && existsSync(record),
+      "the second check's server recorded",
+    );
+    const server = servers[1] as ChildProcess;
+    assert.deepEqual(JSON.parse(readFileSync(record, 'utf8')), {
+      pid: server.pid,
+      copy: join(checked[1]?.cache ?? '', 'dist'),
+    });
+    // What the control plane's next start does.
+    await controlPlane.previews?.reconcile();
+    await until(() => server.exitCode !== null || server.signalCode !== null, 'the server to stop');
+    assert.equal(server.signalCode, 'SIGTERM');
+    assert.ok(!existsSync(record));
+    release();
+    await done(second.command.command_id);
   });
 
   test('a server that exits at once is never recorded started, and the command fails', async (t) => {

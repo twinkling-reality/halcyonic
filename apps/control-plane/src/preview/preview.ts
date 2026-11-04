@@ -224,12 +224,15 @@ export class HostPreviews {
         profiles: existsSync(profiles) ? profiles : null,
       };
       const reference = await this.#reference(projectId, project.starter, common);
+      const cache = this.#cache(projectId, checkId);
       const result = await (this.#deps.runCheck ?? runCheck)({
         ...common,
         project: project.location.path,
-        cache: this.#cache(projectId, checkId),
+        cache,
         port,
         reference,
+        onServer: (pid) =>
+          this.#writeRecord(projectId, { pid, copy: join(cache, 'dist') }, 'check'),
       });
       const findings = this.#findings(
         projectId,
@@ -248,7 +251,12 @@ export class HostPreviews {
       return { check_id: checkId, passed: findings.passed, ready: findings.ready === true };
     } finally {
       if (port !== null) this.#ports.delete(port);
-      this.#checking.delete(projectId);
+      try {
+        // Its server stopped with the check, however the check ended.
+        await this.#removeRecord(projectId, 'check');
+      } finally {
+        this.#checking.delete(projectId);
+      }
     }
   }
 
@@ -405,9 +413,9 @@ export class HostPreviews {
   }
 
   /**
-   * At startup: a preview server a crash left running is stopped, by the pid its record names, only
-   * when that process still serves that copy; every preview the journal shows running is recorded
-   * stopped.
+   * At startup: a preview's server or a check's own that a crash left running is stopped, by the pid
+   * its record names, only when that process still serves that copy; every preview the journal shows
+   * running is recorded stopped.
    */
   async reconcile(): Promise<void> {
     const folder = join(this.#deps.dataDir, 'previews');
@@ -417,8 +425,11 @@ export class HostPreviews {
         const record = JSON.parse(await readFile(join(folder, name), 'utf8')) as {
           pid?: unknown;
           check_id?: unknown;
+          copy?: unknown;
         };
-        if (typeof record.pid === 'number' && typeof record.check_id === 'string') {
+        if (typeof record.pid === 'number' && typeof record.copy === 'string') {
+          await stopRecorded(record.pid, `--outDir ${record.copy}`);
+        } else if (typeof record.pid === 'number' && typeof record.check_id === 'string') {
           await stopRecorded(record.pid, record.check_id);
         }
       } catch (error) {
@@ -483,7 +494,7 @@ export class HostPreviews {
   async #reference(
     projectId: ProjectId,
     starterId: string,
-    common: Omit<CheckOptions, 'project' | 'cache' | 'port' | 'reference'>,
+    common: Omit<CheckOptions, 'project' | 'cache' | 'port' | 'reference' | 'onServer'>,
   ): Promise<OwnReference> {
     const template = templateDigest(common.template);
     if (template === null)
@@ -512,6 +523,8 @@ export class HostPreviews {
           cache: join(work, 'cache'),
           port,
           reference: { kind: 'making' },
+          onServer: (pid) =>
+            this.#writeRecord(projectId, { pid, copy: join(work, 'cache', 'dist') }, 'reference'),
         });
         // A starter that does not build, throws, or gives no picture of its own makes none.
         const frame = result.page?.own.frame ?? null;
@@ -520,6 +533,7 @@ export class HostPreviews {
         return await readFile(frame.file);
       } finally {
         this.#ports.delete(port);
+        await this.#removeRecord(projectId, 'reference');
       }
     });
     // A folder that cannot be written reads as no picture, never as a failed check command.
@@ -638,20 +652,23 @@ export class HostPreviews {
     return join(this.#deps.dataDir, 'checks', projectId, checkId);
   }
 
-  async #writeRecord(
-    projectId: ProjectId,
-    record: { pid: number; port: number; check_id: CheckId },
-  ) {
-    await mkdir(join(this.#deps.dataDir, 'previews'), { recursive: true, mode: 0o700 });
-    await writeFile(
-      join(this.#deps.dataDir, 'previews', `${projectId}.json`),
-      JSON.stringify(record),
-      { mode: 0o600 },
-    );
+  /** The record of a server this host runs for the project, each kind in a file of its own. */
+  #recordFile(projectId: ProjectId, server: RecordedServer): string {
+    const name = server === 'preview' ? `${projectId}.json` : `${projectId}.${server}.json`;
+    return join(this.#deps.dataDir, 'previews', name);
   }
 
-  async #removeRecord(projectId: ProjectId) {
-    await rm(join(this.#deps.dataDir, 'previews', `${projectId}.json`), { force: true });
+  async #writeRecord(
+    projectId: ProjectId,
+    record: { pid: number; port: number; check_id: CheckId } | { pid: number; copy: string },
+    server: RecordedServer = 'preview',
+  ) {
+    await mkdir(join(this.#deps.dataDir, 'previews'), { recursive: true, mode: 0o700 });
+    await writeFile(this.#recordFile(projectId, server), JSON.stringify(record), { mode: 0o600 });
+  }
+
+  async #removeRecord(projectId: ProjectId, server: RecordedServer = 'preview') {
+    await rm(this.#recordFile(projectId, server), { force: true });
   }
 
   #now() {
@@ -660,6 +677,9 @@ export class HostPreviews {
     >['occurred_at'];
   }
 }
+
+/** A server the host records while it runs: a preview, a check's own, or the starter's check's (S1). */
+type RecordedServer = 'preview' | 'check' | 'reference';
 
 /** Why a play ends when its preview stops. */
 const PLAY_END: Record<PreviewStopReason, PlayEnd> = {
@@ -714,15 +734,18 @@ async function stopChild(child: ChildProcess): Promise<void> {
   clearTimeout(forced);
 }
 
-/** Stops a recorded preview server only while that pid still runs `vite preview` of that check's copy. */
-async function stopRecorded(pid: number, checkId: string): Promise<void> {
+/**
+ * Stops a recorded server only while that pid still runs `vite preview` with `mark` in its command
+ * line: the check a preview's copy is of, or the copy a check's own server serves.
+ */
+async function stopRecorded(pid: number, mark: string): Promise<void> {
   const { execFile } = await import('node:child_process');
   const command = await new Promise<string>((resolve) =>
     execFile('/bin/ps', ['-o', 'command=', '-p', String(pid)], (error, stdout) =>
       resolve(error ? '' : stdout),
     ),
   );
-  if (!command.includes('vite.js preview') || !command.includes(checkId)) return;
+  if (!command.includes('vite.js preview') || !command.includes(mark)) return;
   try {
     process.kill(pid, 'SIGTERM');
   } catch {

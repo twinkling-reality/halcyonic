@@ -105,6 +105,11 @@ export interface CheckOptions {
   readonly twinStepMs?: number;
   /** What the project's own picture is compared with (DRAWN). */
   readonly reference: OwnReference;
+  /**
+   * Called with the pid of the check's own server as it starts, before it serves: the host records it,
+   * so a restart stops a server the control plane left serving when it died mid-check (AUDIT S1).
+   */
+  readonly onServer?: (pid: number) => Promise<void>;
 }
 
 export interface CheckStep {
@@ -321,6 +326,7 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
     { env, cwd: cache, stdio: 'ignore' },
   );
   try {
+    if (server.pid !== undefined) await options.onServer?.(server.pid);
     if (!(await servesCopy(server, port, join(cache, 'dist'), 30_000))) {
       return {
         tsc,
