@@ -186,6 +186,39 @@ describe('command lifecycle', () => {
     await controlPlane.close();
   });
 
+  test('a second Send during a switch: the resting execution is not instructed beside the new one (ADMIT-2)', async () => {
+    const harness = createTestControlPlane();
+    const { controlPlane, commands, time } = harness;
+    const workstreamId = await createWorkstream(harness);
+    controlPlane.commands.submit(commands.startExecution(workstreamId, FEATURE), 'internal');
+    await time.runUntilIdle();
+    const resting = controlPlane.projection.workstream(workstreamId)?.current_execution_id;
+    assert.ok(resting);
+    assert.equal(controlPlane.projection.execution(resting)?.status, 'completed');
+
+    const switched = controlPlane.commands.submit(
+      commands.startExecution(workstreamId, APPROVAL),
+      'internal',
+    );
+    assert.equal(switched.disposition, 'accepted');
+    const refusal = (state: string) => ({
+      code: 'invalid_state',
+      message: `This task is ${state} in another execution. Stop it first, or instruct that one.`,
+    });
+    const during = controlPlane.commands.submit(commands.instruct(resting, 'Go on.'), 'internal');
+    assert.equal(during.disposition, 'rejected');
+    assert.deepEqual(during.command?.rejection, refusal('starting'));
+    await time.runUntilIdle();
+    const waiting = controlPlane.commands.submit(commands.instruct(resting, 'Go on.'), 'internal');
+    assert.deepEqual(waiting.command?.rejection, refusal('waiting for you'));
+    assert.equal(
+      controlPlane.projection.execution(resting)?.status,
+      'completed',
+      'never set going',
+    );
+    await controlPlane.close();
+  });
+
   test('a command from a device revoked since it authenticated is rejected and journaled', async () => {
     const { controlPlane, commands } = createTestControlPlane();
     const devices = new DeviceAccess({

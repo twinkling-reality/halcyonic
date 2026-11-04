@@ -28,6 +28,7 @@
 | The observer and undo's compare could read through a folder swapped for a link | Verified | Opened with `O_NOFOLLOW_ANY`, which refuses a link anywhere in the path (de207b0c) |
 | A task unknown before a restart kept its project busy for good | Verified | Marked unknown because of the restart, so its project frees (ee108021) |
 | A start was admitted while the task's execution ran, so two agents worked in one folder | Verified (INTEGRATION's journey) | One execution at a time in a task (b263b05d, words 93de0913, ADR 0020 amendment) |
+| An instruction to a resting execution was admitted while a newer one of its task ran, so a second Send during a switch set the old agent going too | Verified (AUDIT's switch verdict, then a test) | Refused the same way ("Refuse instructing a resting execution while another of its task is active or about to be", ADMIT-2) |
 | The Mac kept every task's folder reading for good | Measured | Bounded across tasks (fa2a577f, ADR 0038 amendment) |
 | The headset's client kept every task's activity, every command and every tool name for a whole connection | Measured | Bounded (e6458aaa); the snapshot and the client keep the same 50 finished commands ("Keep in a snapshot, and in the headset's commands, the 50 that finished last") |
 | Private project names in tracked files | Verified | Read from an ignored local file (04d658ae) |

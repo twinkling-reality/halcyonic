@@ -1,6 +1,7 @@
 import type {
   CommandEnvelope,
   CommandRejection,
+  CommandType,
   ExecutionId,
   ExecutionStatus,
   PolicyCategory,
@@ -327,28 +328,19 @@ export function admitCommand(
       }
       // One execution at a time in a task: a start beside an active one, or before a command to one
       // has its outcome, would put two agents to work in the task's folder (ADMIT).
-      const active = projection
-        .activeExecutions()
-        .find((facts) => facts.workstreamId === workstream.workstream_id);
-      if (active !== undefined) {
+      const busy = taskInUse(projection, workstream.workstream_id, null);
+      if (busy?.kind === 'active') {
         return reject(
           scope,
           'invalid_state',
-          `This task is ${inWords(active.status)}. Stop it first, or start another task.`,
+          `This task is ${inWords(busy.status)}. Stop it first, or start another task.`,
         );
       }
-      const underWay = projection
-        .pendingCommands()
-        .find(
-          (pending) =>
-            pending.workstream_id === workstream.workstream_id &&
-            pending.command_type.startsWith('execution.'),
-        );
-      if (underWay !== undefined) {
+      if (busy?.kind === 'pending') {
         return reject(
           scope,
           'invalid_state',
-          `The task's ${underWay.command_type} command is still in progress. Wait for its outcome, or start another task.`,
+          `${commandInWords(busy.commandType)} for this task is still under way. Wait for its outcome, or start another task.`,
         );
       }
       if (projection.restoreInProgress(workstream.project_id)) {
@@ -392,7 +384,25 @@ export function admitCommand(
         case 'failed':
         case 'interrupted': {
           const missing = requireCapability(runtime, 'instruct_at_rest', scope);
-          return missing ?? { admitted: true, policy, scope, runtime };
+          if (missing !== undefined) return missing;
+          // An instruction sets a resting execution going, so not beside another of its task that
+          // is active or about to be: two agents would work in one folder (ADMIT-2).
+          const busy = taskInUse(projection, facts.workstreamId, facts.executionId);
+          if (busy?.kind === 'active') {
+            return reject(
+              scope,
+              'invalid_state',
+              `This task is ${inWords(busy.status)} in another execution. Stop it first, or instruct that one.`,
+            );
+          }
+          if (busy?.kind === 'pending') {
+            return reject(
+              scope,
+              'invalid_state',
+              `${commandInWords(busy.commandType)} for this task is still under way. Wait for its outcome first.`,
+            );
+          }
+          return { admitted: true, policy, scope, runtime };
         }
         case 'running':
         case 'verifying':
@@ -651,4 +661,51 @@ function inWords(status: ExecutionStatus): string {
     default:
       return status;
   }
+}
+
+/** A command for a task as a person would say it, at the start of a refusal. */
+function commandInWords(type: CommandType): string {
+  switch (type) {
+    case 'execution.start':
+      return 'A start';
+    case 'execution.send_instruction':
+      return 'An instruction';
+    case 'execution.respond_to_approval':
+      return 'An answer to an approval';
+    case 'execution.answer_question':
+      return 'An answer to a question';
+    case 'execution.interrupt':
+      return 'A stop';
+    default:
+      return 'A command';
+  }
+}
+
+/**
+ * What keeps a task from setting an execution going now: one of its executions is active, or an
+ * execution command for it has no outcome yet. `instructed` is the execution an instruction is for,
+ * which is neither, or null for a start, which nothing of the task may be beside (ADMIT, ADMIT-2).
+ */
+function taskInUse(
+  projection: Projection,
+  workstreamId: WorkstreamId,
+  instructed: ExecutionId | null,
+):
+  | { readonly kind: 'active'; readonly status: ExecutionStatus }
+  | { readonly kind: 'pending'; readonly commandType: CommandType }
+  | null {
+  const active = projection
+    .activeExecutions()
+    .find((facts) => facts.workstreamId === workstreamId && facts.executionId !== instructed);
+  if (active !== undefined) return { kind: 'active', status: active.status };
+  const pending = projection
+    .pendingCommands()
+    .find(
+      (command) =>
+        command.workstream_id === workstreamId &&
+        command.command_type.startsWith('execution.') &&
+        (instructed === null || command.execution_id !== instructed),
+    );
+  if (pending !== undefined) return { kind: 'pending', commandType: pending.command_type };
+  return null;
 }
