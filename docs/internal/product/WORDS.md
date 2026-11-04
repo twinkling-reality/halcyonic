@@ -492,6 +492,7 @@ in `KitMomentWords`; the gallery's title, newcomer line, shelves and finder are 
 | Where the task's character can't stand, beside its way back | No Room, with Move Workspace; Agents Hidden, with Show Agents (render fixtures: nothing in production draws this band yet) | No Room |
 | The composer, in the kit | Instruction (empty field) · Your Answer · Not Sent · Send Instruction · Hold to Talk | Send Instruction |
 | Send at rest on another agent | Start New Run, where Send starts the task's next run on the agent the Agent chip names (never a claim that the new run keeps the old one's conversation); Not Sent · Choose a Model where that agent lists its models and none is chosen | Start New Run |
+| Send while a request is under way | Request Under Way, Send's reason while a request to the task is being sent or not yet confirmed; Not Sent · Request Under Way where a press comes anyway | Request Under Way |
 
 ## The projects gallery
 

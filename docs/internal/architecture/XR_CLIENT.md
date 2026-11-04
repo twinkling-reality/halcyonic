@@ -3873,7 +3873,11 @@ presence, contextual moment cards and the on-demand project screen:
   `KitPresenter.NewRunOf` decides whether Send starts or instructs, Send then reads "Start New Run", and
   `WorkspaceSteering` sends `commands.StartExecution(workstream, runtime, words, model)` at once, or after
   Yes where the policy asks; a runtime that lists its models waits for one ("Not Sent · Choose a Model").
-  The new run does not carry the old one's conversation, and nothing says it does. The choosing is
+  The start takes the draft, which closes as an instruction's does, and while any request of this client's
+  to the task is under way (`FileScreens.RequestPending`: being sent, or accepted and not yet confirmed)
+  Send waits, saying "Request Under Way", and the steering sends nothing (AUDIT's XR-SWITCH finding: with a
+  start pending the old execution is at rest, and the same words would have set it going beside the new
+  run). The new run does not carry the old one's conversation, and nothing says it does. The choosing is
   `WorkspacePresentationState`'s: `CycleEnvironment`
   selects a runtime that declares the other environment (`EnvironmentCanChange`), or changes nothing and
   returns null where none is registered, and `CycleAgent` / `NextAgent` cycle across the runtimes that

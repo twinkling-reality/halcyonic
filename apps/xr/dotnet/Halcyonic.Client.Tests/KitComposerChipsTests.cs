@@ -174,6 +174,27 @@ public class KitComposerChipsTests
         Assert.That(KitPresenter.NewRunOf(composer.Work, new RunChoice("opencode", null, false)), Is.Null);
     }
 
+    /// <summary>
+    /// AUDIT's probe (XR-SWITCH): with the start pending the task is no longer at rest, so the same draft would instruct the
+    /// old execution beside the new run; nothing goes while the start is under way, and Send says why.
+    /// </summary>
+    [Test]
+    public void ASecondSendWhileTheNewRunIsStartingInstructsNothing()
+    {
+        var choice = new RunChoice("opencode", null, false);
+        var atRest = new Composer(Codex(), new[] { Codex(), OpenCode() }, ExecutionStatus.Completed);
+        var first = Send(atRest, choice);
+        Assert.That(first, Is.InstanceOf<ExecutionStartCommand>(), "at rest, Send starts the next run on the chosen agent");
+        var pending = new[] { new CommandFeedback(first!.CommandId, CommandType.ExecutionStart, CommandStatus.Accepted, "Sent") };
+        var starting = new Composer(Codex(), new[] { Codex(), OpenCode() }, ExecutionStatus.Completed, pending);
+        starting.Screen.Instruction.Drawn(Now);
+        var second = starting.Steering.SendInstruction(starting.Screen.Instruction, starting.Work, KitPresenter.NewRunOf(starting.Work, choice));
+        Assert.That(second.Command, Is.Null, "while the new run starts, the old run takes no instruction from the same draft");
+        Assert.That(second.Message, Is.EqualTo("Not Sent · " + FileScreens.RequestUnderWay));
+        Assert.That(FileScreens.WhyNoInstruction(starting.Work), Is.EqualTo(FileScreens.RequestUnderWay), "Send says why it waits");
+        Assert.That(starting.Steering.Typed("Run the tests again.", starting.Work).Command, Is.Null, "nor through the keyboard");
+    }
+
     [Test]
     public void SendSaysItStartsANewRunWhereItWould()
     {

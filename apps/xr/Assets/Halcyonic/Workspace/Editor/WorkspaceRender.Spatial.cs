@@ -388,6 +388,14 @@ namespace Halcyonic.XR.Workspace.Editor
                             || start.Payload.WorkstreamId != work.Workstream.WorkstreamId)
                             failures.Add("spatial: Send at rest did not start the next run on the chosen agent (" + (sends - before) + " sent, "
                                 + (lastSent?.GetType().Name ?? "none") + ")");
+                        // AUDIT (XR-SWITCH): the start takes the draft, which closes, so a second press cannot instruct the run at rest.
+                        Draw(); System.Threading.Thread.Sleep(450);
+                        if (director.Navigator.Beside is FileColumn started && started.Screen.Instruction.Open)
+                            failures.Add("spatial: the draft stayed open after Send started the next run");
+                        var again = director.Plane.KitBinding?.Controls.FirstOrDefault(control => control.Place == KitPlace.Send);
+                        var afterStart = sends;
+                        if (again != null && PressOnKit(director, again.Action, again.Key)) Draw();
+                        if (sends != afterStart) failures.Add("spatial: a second Send after the start sent " + (lastSent?.GetType().Name ?? "none"));
                         Shot("spatial-working-new-run");
                     }
                 }
