@@ -546,7 +546,7 @@ namespace Halcyonic.Client
                 foreach (var approval in execution.PendingApprovals.OrderBy(item => item.RequestedAt, StringComparer.Ordinal))
                 {
                     var command = approval.Subject is ToolUseSubject tool
-                        ? tool.Summary
+                        ? CaptureNames.Request(tool.Summary)
                         : WorkspaceText.ApprovalWithoutTool;
                     var complete = approval.Approvable && WorkspaceText.OnlyDeny(approval) == null;
                     moments.Add(KitMoment.Question(runtime, command, sandbox, complete, ParseTime(approval.RequestedAt)));

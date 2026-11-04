@@ -2479,7 +2479,10 @@ The extra `halcyonic.generic` (alone or with any preset) turns on `CaptureNames`
 product names (2026-11-04): wherever the headset draws an agent app's name it draws "Coding Agent", a model's name or
 reference "Local Model", the host "This Computer" (the Host chip, "Observed on This Computer"), Salidium "Explanation"
 (without the version it names for itself) and Seorak "Measurement"; ids, model references and commands keep the real
-values, and the agent's own words are not changed. The getter is in every build and false in a release build; its
+values, and the agent's own words are not changed. An approval's request names its folder by the folder's own
+name where it would name a host path ("in /Users/someone/star-catcher" reads "in star-catcher", `CaptureNames.Request`),
+and the run's Folder line leaves out the parent folder, so the home folder's name is never drawn; the command reads as
+given (no rule unwraps a `/bin/zsh -lc '...'` wrapper, so it stays). The getter is in every build and false in a release build; its
 setter, `UseGeneric`, is compiled into development builds, the editor and the test build alone, and
 `WorkspaceRender.CapturePresetsCheck` reads a release compile's client assembly to prove it is not there.
 

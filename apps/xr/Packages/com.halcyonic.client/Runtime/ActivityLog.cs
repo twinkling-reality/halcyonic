@@ -225,7 +225,7 @@ namespace Halcyonic.Client
                     return Said(ActivityKind.TestRun, (LineWords.Theirs(testsDone.Payload.Summary) is { IsEmpty: false } summary ? ran + Ours(" · ") + summary : ran) + Ours(" · Reported"));
                 case RuntimeApprovalRequestedEvent approval:
                     return Said(ActivityKind.Approval, approval.Payload.Subject is ToolUseSubject subject
-                        ? Ours("Approval Requested · ") + ToolWords(subject.ToolName) + Ours(" · ") + LineWords.Theirs(subject.Summary)
+                        ? Ours("Approval Requested · ") + ToolWords(subject.ToolName) + Ours(" · ") + LineWords.Theirs(CaptureNames.Request(subject.Summary))
                         : Ours("Approval Requested"));
                 case RuntimeApprovalResolvedEvent resolved:
                     return Entry(ActivityKind.Approval, resolved.Payload.Decision == ApprovalResolution.Approved ? "Approved" : "Denied");

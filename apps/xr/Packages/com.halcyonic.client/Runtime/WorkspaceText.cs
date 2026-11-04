@@ -385,7 +385,7 @@ namespace Halcyonic.Client
             return new NeedAnswer(
                 tool == null ? LineWords.Ours("Approval Requested") : RunsCommand(tool.ToolName) ? LineWords.Ours("Run Command")
                     : LineWords.Ours("Use ") + LineWords.TheirName(tool.ToolName),
-                tool == null ? null : LabelText.Exact(tool.Summary),
+                tool == null ? null : LabelText.Exact(CaptureNames.Request(tool.Summary)),
                 notes);
         }
 
@@ -589,7 +589,8 @@ namespace Halcyonic.Client
             if (string.IsNullOrWhiteSpace(directory)) return null;
             var parts = directory!.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 0) return OneLine(directory);
-            return parts.Length == 1 ? OneLine(parts[0]) : OneLine(parts[parts.Length - 1]) + " · " + OneLine(parts[parts.Length - 2]);
+            // Under the capture extra the parent folder, which can be the home folder, is left out.
+            return parts.Length == 1 || CaptureNames.Generic ? OneLine(parts[parts.Length - 1]) : OneLine(parts[parts.Length - 1]) + " · " + OneLine(parts[parts.Length - 2]);
         }
 
         /// <summary>When it started, in the local time and day: "09:00 on 2 Oct"; null when it hasn't or the time can't be read.</summary>
@@ -656,7 +657,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static string Request(ApprovalView? approval) => approval?.Subject switch
         {
-            ToolUseSubject tool => OneLine(tool.ToolName) + ": " + LabelText.Exact(tool.Summary),
+            ToolUseSubject tool => OneLine(tool.ToolName) + ": " + LabelText.Exact(CaptureNames.Request(tool.Summary)),
             _ => ApprovalWithoutTool,
         };
 
