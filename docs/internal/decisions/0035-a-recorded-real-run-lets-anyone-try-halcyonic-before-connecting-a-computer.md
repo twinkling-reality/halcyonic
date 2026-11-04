@@ -1,7 +1,8 @@
 # ADR 0035: A recorded real run lets anyone try Halcyonic before connecting a computer
 
 - Status: Accepted by the owner on 2026-10-29 ("Yes, real work"), for a recording of real agent work
-  on Halcyonic's own repository; no recorded run is bundled yet
+  on Halcyonic's own repository; amended 2026-11-04 (the lead, on JUDGE's ask) for a run in a project
+  the owner created for it; no recorded run is bundled yet
 - Date: 2026-10-29
 - Amends [ADR 0012](0012-judges-run-a-labeled-demonstration-on-the-headset.md): its demonstration
   stays, and a recorded real run now plays before it
@@ -44,7 +45,9 @@ build is its first user.
 2. `pnpm judge:record` prepares the run to be shown and records it for the headset
    ([EVENTS.md](../architecture/EVENTS.md), "Recorded runs"). It changes only where files live, the
    runtime's and model's names, the client's label and the start command's options, and leaves
-   command output out. The project folder's path is rewritten wherever it appears, in what the
+   command output out, and, where a command's tool title opens a here-document, keeps the title's first
+   line and says that the here-document is left out (amended 2026-11-04): the body is the content the
+   command writes, such as a starter's licence header, not what the agent said. The project folder's path is rewritten wherever it appears, in what the
    person and the agent said too; nothing else in their words is edited. Its rules refuse what they
    find: if a string names a product, a home or private folder, an address, a credential shape or a
    word from the private deny file, it writes nothing, and the run is recorded again. The rules find
@@ -59,7 +62,9 @@ build is its first user.
    question, denies and sees a correction round.
 5. Which run is bundled is a choice for each build, not part of this decision. Each one passes the
    recorder's rules and a reading of the whole recording, by AUDIT and then the owner, before it
-   ships.
+   ships. The run may be work Halcyonic did on the owner's computer in a project the owner created for it,
+   not only on Halcyonic's own repository (amended 2026-11-04; the first is the showcase finals' Star
+   Catcher, [showcase-finals.md](../validation/showcase-finals.md)).
 
 ## Alternatives considered
 
