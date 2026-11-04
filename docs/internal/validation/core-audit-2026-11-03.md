@@ -11,8 +11,8 @@
   `ActivityLog`), ranked twelve suspected defects, and took them most severe first. Each defect found was proved by
   a test that failed before its fix; security fixes were read by AUDIT before they landed. Scale was measured, not
   guessed ([control-plane-scale-2026-11-03.md](control-plane-scale-2026-11-03.md)).
-- **Status:** fixed as listed, each on main by the commit named; the two named by their subject were at AUDIT or
-  waiting for their batch on 2026-11-03. What remains is below, each with why it is not fixed.
+- **Status:** fixed as listed, each on main by the commit named; those named by their subject were at AUDIT or
+  waiting for their batch when this was written. What remains is below, each with why it is not fixed.
 
 ## Found and fixed
 
@@ -30,7 +30,8 @@
 | A start was admitted while the task's execution ran, so two agents worked in one folder | Verified (INTEGRATION's journey) | One execution at a time in a task (b263b05d, words 93de0913, ADR 0020 amendment) |
 | An instruction to a resting execution was admitted while a newer one of its task ran, so a second Send during a switch set the old agent going too | Verified (AUDIT's switch verdict, then a test) | Refused the same way ("Refuse instructing a resting execution while another of its task is active or about to be", ADMIT-2) |
 | The Mac kept every task's folder reading for good | Measured | Bounded across tasks (fa2a577f, ADR 0038 amendment) |
-| The headset's client kept every task's activity, every command and every tool name for a whole connection | Measured | Bounded (e6458aaa); the snapshot and the client keep the same 50 finished commands ("Keep in a snapshot, and in the headset's commands, the 50 that finished last") |
+| The headset's client kept every task's activity, every command and every tool name for a whole connection | Measured | Bounded (e6458aaa); the snapshot and the client keep the same 50 finished commands (9702766c) |
+| Every turn's start and end, and every file reading, visited all of its project's checks, none ever dropped, so a check after each changing round, as the automatic check makes, cost the square of the rounds, in every restart's fold too | Measured (a count test: 59,700 visits over 200 rounds) | Only checks whose files can still change are visited, 597 over the same rounds ("Visit only the checks whose files can still change", #8a) |
 | Private project names in tracked files | Verified | Read from an ignored local file (04d658ae) |
 
 Pinned by count tests: a task's share of the snapshot does not grow with its rounds, and what a task costs at the
@@ -71,9 +72,10 @@ Each was found by this audit and is not fixed by it.
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 - **A long instruction rides with every event of its task.** Risk, kept by decision: about 34 KB an event at the
   32,000-character maximum, all parsed by the headset. A test holds the figure, so a change to it is deliberate.
-- **Checks are walked at every round.** Verified in the code, not measured: every round's start and end walks all of
-  its project's checks, and none is dropped, so a long-lived project with a check after each changing round costs
-  the square of its rounds. The scale bench ran no checks, so the cost at today's sizes is not known.
+- **Checks with no change between them are each visited at every round until the files next change.** Verified in
+  the code. A changed check leaves the walk, so the automatic check after each changing round costs each round the
+  same; checks asked for with nothing changed between them all stay in it until a change. Each such check is a whole
+  build and browser run, so they come slowly.
 - **Each event is serialized once per realtime connection.** Verified in the code; measured with up to 8
   subscribers, with no trend in the cost. Usually two clients are connected.
 - **A summary of every tool result is kept per execution.** Verified in the code, not measured: the scale bench

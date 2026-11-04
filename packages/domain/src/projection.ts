@@ -166,6 +166,8 @@ export interface ProjectionOptions {
    * running execution's `tool_activity` is `unknown` rather than `none`.
    */
   readonly reportsToolActivity?: (runtimeId: string) => boolean;
+  /** For tests: called each time an event visits a check to update whether its files are current. */
+  readonly onCheckVisited?: () => void;
 }
 
 /**
@@ -175,6 +177,7 @@ export interface ProjectionOptions {
 export class Projection {
   #position = 0;
   readonly #reportsToolActivity: (runtimeId: string) => boolean;
+  readonly #onCheckVisited: (() => void) | undefined;
   readonly #projects = new Map<ProjectId, ProjectState>();
   readonly #workstreams = new Map<WorkstreamId, WorkstreamState>();
   readonly #executions = new Map<ExecutionId, ExecutionState>();
@@ -185,6 +188,12 @@ export class Projection {
   readonly #checks = new Map<ProjectId, CheckState>();
   /** Every check recorded for each project, so a preview or play of an older check knows its file state (T2). */
   readonly #checksById = new Map<ProjectId, Map<CheckId, CheckState>>();
+  /**
+   * Each project's checks whose files are not known to have changed: the ones a turn, a reading or a
+   * restore can still update. A changed check stays changed, so it leaves, and a round costs the same
+   * however many checks came before (#8a).
+   */
+  readonly #openChecks = new Map<ProjectId, Set<CheckState>>();
   /** Each project's running preview, by the check it serves. */
   readonly #previews = new Map<ProjectId, { readonly check_id: CheckId; readonly port: number }>();
   /** The check whose game plays on the Mac now, per project (ADR 0037). */
@@ -233,6 +242,7 @@ export class Projection {
 
   constructor(options: ProjectionOptions = {}) {
     this.#reportsToolActivity = options.reportsToolActivity ?? (() => false);
+    this.#onCheckVisited = options.onCheckVisited;
   }
 
   #view = (state: ExecutionState): ExecutionView =>
@@ -880,8 +890,13 @@ export class Projection {
         };
         this.#checks.set(event.project_id, checkState);
         const byId = this.#checksById.get(event.project_id) ?? new Map<CheckId, CheckState>();
+        const open = this.#openChecks.get(event.project_id) ?? new Set<CheckState>();
+        const replaced = byId.get(event.payload.check_id);
+        if (replaced !== undefined) open.delete(replaced);
         byId.set(event.payload.check_id, checkState);
+        open.add(checkState);
         this.#checksById.set(event.project_id, byId);
+        this.#openChecks.set(event.project_id, open);
         changes.projects.add(event.project_id);
         return;
       }
@@ -1404,13 +1419,14 @@ export class Projection {
     changes: ChangeSet,
     mutate: (state: CheckState) => void,
   ): void {
-    const checks = this.#checksById.get(projectId);
+    const checks = this.#openChecks.get(projectId);
     if (checks === undefined || checks.size === 0) return;
     const latestId = this.#checks.get(projectId)?.checkId;
     const previewId = this.#previews.get(projectId)?.check_id;
     const playId = this.#macPlays.get(projectId);
     let viewChanged = false;
-    for (const state of checks.values()) {
+    for (const state of checks) {
+      this.#onCheckVisited?.();
       const before = checkFilesState(state);
       mutate(state);
       const after = checkFilesState(state);
@@ -1420,6 +1436,8 @@ export class Projection {
       ) {
         viewChanged = true;
       }
+      // Changed reads changed whatever comes next, so nothing later needs to visit it.
+      if (state.changed) checks.delete(state);
     }
     if (viewChanged && this.#projects.has(projectId)) changes.projects.add(projectId);
   }

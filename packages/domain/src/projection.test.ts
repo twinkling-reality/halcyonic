@@ -1114,6 +1114,95 @@ describe("a project's view holds its latest check, its preview and its play (M1.
     );
     assert.equal(projection.latestCheck(project.projectId)?.files, 'changed');
   });
+
+  test('a round visits only the checks whose files can still change, so a check after every changing round costs each round the same (#8a)', () => {
+    let visits = 0;
+    const b = new EventBuilder();
+    const projection = new Projection({
+      onCheckVisited: () => {
+        visits += 1;
+      },
+    });
+    const project = b.project('Garden', { path: '/work/garden', name: 'garden', created: true });
+    const workstream = b.workstream(project.projectId);
+    const executionId = b.id() as ExecutionId;
+    const projectScope = { project_id: project.projectId, workstream_id: null, execution_id: null };
+    const execScope = {
+      project_id: project.projectId,
+      workstream_id: workstream.workstreamId,
+      execution_id: executionId,
+    };
+    const runtimeScope = {
+      projectId: project.projectId,
+      workstreamId: workstream.workstreamId,
+      executionId,
+    };
+    projection.apply(project.event);
+    projection.apply(workstream.event);
+    projection.apply(
+      b.controlPlane('execution.created', execScope, {
+        runtime: b.runtime,
+        instruction: 'Build it.',
+        directory: '/work/garden',
+      }),
+    );
+    projection.apply(
+      b.runtimeEvent(runtimeScope, 'runtime.execution.started', {
+        native_id: 's1',
+        confined: true,
+      }),
+    );
+    const findings = {
+      tsc: { exit: 0, seconds: 1 },
+      build: { exit: 0, seconds: 2 },
+      page: null,
+      unknown: null,
+      passed: true,
+      reads_confined: true,
+    } as never;
+    const empty = { files: [], total: 0 };
+    const edit = {
+      files: [{ path: 'src/game.ts', lines_before: 10, lines_after: 12, bytes: 300 }],
+      total: 1,
+    };
+    const rounds = 200;
+    const checks: string[] = [];
+    for (let round = 1; round <= rounds; round += 1) {
+      const turn = `t${round}`;
+      projection.apply(b.runtimeEvent(runtimeScope, 'runtime.turn.started', { turn_id: turn }));
+      projection.apply(b.runtimeEvent(runtimeScope, 'runtime.turn.completed', { turn_id: turn }));
+      projection.apply(
+        b.controlPlane('execution.files.observed', execScope, {
+          turn_id: turn,
+          created: empty,
+          changed: edit,
+          deleted: empty,
+          not_read: 0,
+          skipped: null,
+        }),
+      );
+      // As the automatic check after a turn that changed files (A1).
+      const checkId = b.id();
+      projection.apply(
+        b.controlPlane('project.check.recorded', projectScope, {
+          check_id: checkId as never,
+          findings,
+        }),
+      );
+      checks.push(checkId);
+    }
+    // Each round's start, end and reading visit only the check before it, which the change settles.
+    assert.equal(visits, 3 * (rounds - 1), `${rounds} rounds visited checks ${visits} times`);
+    // Every check still says what became of its files, settled ones included.
+    assert.equal(projection.latestCheck(project.projectId)?.files, 'current');
+    projection.apply(
+      b.controlPlane('project.preview.started', projectScope, {
+        check_id: checks[0] as never,
+        port: 47931,
+      }),
+    );
+    assert.equal(projection.preview(project.projectId)?.files, 'changed');
+  });
 });
 
 describe('whether an execution ran confined, as its start recorded it (S2)', () => {
