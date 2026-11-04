@@ -65,7 +65,8 @@ longest instruction (cccd0a4b).
 
 ## What remains, and why
 
-Each was found by this audit and is not fixed by it.
+Each was found by this audit, or by AUDIT's read of the check and preview host where marked, and is not fixed by
+it. Work on the audit stopped on 2026-11-04; those marked "next" were the ones it would have taken next.
 
 - **A long history is folded at every restart.** Risk. A restart replays the whole journal before the control plane
   serves anyone: 7 to 19 µs an event here, so a million events would take 7 to 19 s and about 1.3 GB on disk
@@ -78,17 +79,32 @@ Each was found by this audit and is not fixed by it.
   the code. A changed check leaves the walk, so the automatic check after each changing round costs each round the
   same; checks asked for with nothing changed between them all stay in it until a change. Each such check is a whole
   build and browser run, so they come slowly.
+- **Recording a check, and the busy rule, scan every command the projection keeps.** Verified in the code, not
+  measured. A check's record asks whether a restore is under way by scanning every command, and loops over every
+  execution; the busy rule scans both at admission and at each automatic check. Commands grow with rounds, so a check
+  after each round still costs every restart's fold a little more each round (inference: a few times less than the
+  walk did before #8a). An index of the commands still waiting would make each as cheap as what is pending. Next.
 - **Each event is serialized once per realtime connection.** Verified in the code; measured with up to 8
-  subscribers, with no trend in the cost. Usually two clients are connected.
+  subscribers, with no trend in the cost. Usually two clients are connected. Serializing once per event was next.
 - **A summary of every tool result is kept per execution.** Verified in the code, not measured: the scale bench
   sends no tool results.
 - **Not attacked in this audit:** `folder-safety.ts` against case and hard-link games, and error text and URLs in
   journal fields other than those above. No defect is suspected in them. `reads_confined` is recorded by each check
   and Play on the Mac refuses without it (tested); a Mac preview may serve an unconfined copy, its record saying so
   (ADR 0041); the headset's Quest Browser gate refuses one too, but no test pins that refusal.
-- **Reads that follow links, outside the core's files:** the check's source scan and layer probe (`scan.ts`,
-  `laptop-probe.ts`) read by path after a check of the path, so a file swapped for a link between the two is read
-  through it; only line numbers, a hash and whether files match leave them. `catalog-match.ts` reads by path too.
+- **The check reads its source and input layer by path after looking at them (AUDIT S3).** The source scan and the
+  comparison of the input layer with the template's (`scan.ts`, `laptop-probe.ts`) `lstat` a file, then read it by
+  path, so a file or a folder above it swapped for a link in between is read through; only line numbers and whether
+  the layer matches leave them. Next: open each refusing a link anywhere in its path and judge what was opened, as
+  the catalog's read of a folder's origin now does (7dea9602, INTEGRATION).
+- **A cookie another port's page plants keeps the person out of a play's viewer (AUDIT S2).** The viewer reads
+  only the first cookie of its name, and a page on another 127.0.0.1 port can set one of that name for a longer path,
+  which the browser sends first; the viewer then refuses its own stream. Denial only, nothing leaks. Next: take a
+  match among every cookie of the name.
+- **The viewer's one-time link travels in `/usr/bin/open`'s arguments (AUDIT S4).** Every account on the Mac can
+  read another's process arguments, so one that catches the link in that moment can trade its code first and watch
+  the play; the person then sees that the link was used. Next: hand the link to LaunchServices without a command
+  line, such as on `osascript`'s input.
 - **Smaller:** the control plane's close does not wait for a checkpoint being written; the check's build profile
   lets the build write to `/dev/tty`; a tool call that never completes keeps its name in the headset's activity
   until the journal changes (about 200 bytes); the busy rule's refusals name raw statuses
