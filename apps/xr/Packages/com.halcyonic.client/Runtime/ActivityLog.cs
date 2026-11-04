@@ -203,7 +203,10 @@ namespace Halcyonic.Client
                 case RuntimeTurnInterruptedEvent _:
                     return Entry(ActivityKind.Turn, "Round Stopped");
                 case RuntimeAgentMessageEvent message:
-                    return Said(ActivityKind.Message, LineWords.TheirName(message.Payload.Text), reported: true);
+                    // The agent's prose reads without Markdown's marks (DEVICE's headset frames, 2026-11-04); a message
+                    // that is only a fence has no prose, so it reads as written rather than as no words (AUDIT).
+                    var prose = LabelText.WithoutMarks(message.Payload.Text);
+                    return Said(ActivityKind.Message, LineWords.TheirName(string.IsNullOrWhiteSpace(prose) ? message.Payload.Text : prose), reported: true);
                 case RuntimeToolStartedEvent tool:
                     toolNames[ToolKey(e, tool.Payload.ToolCallId)] = tool.Payload.ToolName;
                     // Halcyonic's word first, so a tool named "Approved" never reads as Halcyonic's own entry (settled 2026-10-08).

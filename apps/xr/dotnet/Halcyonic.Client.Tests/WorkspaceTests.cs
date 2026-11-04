@@ -62,6 +62,45 @@ public class ActivityLogTests
     }
 
     [Test]
+    public void AnAgentsReportReadsWithoutMarkdownsMarks()
+    {
+        // DEVICE's headset frames (2026-11-04): an agent's report showed "**failed**", "`5038`" and fences as written.
+        var events = Load("multiple_workstreams.jsonl");
+        foreach (var message in events.Select(stored => stored.Event).OfType<RuntimeAgentMessageEvent>())
+            message.Payload.Text = "The build **failed**: ```\nattempt to write a readonly database\n``` on port `5038`.";
+        var log = new ActivityLog();
+        log.Record(events);
+        var said = log.For(ExecutionOf(events, "Fix flaky checkout tests")).Where(entry => entry.Kind == ActivityKind.Message).ToList();
+        Assert.That(said, Is.Not.Empty);
+        Assert.That(said.Select(entry => entry.Text), Is.All.EqualTo("The build failed: attempt to write a readonly database on port 5038."));
+    }
+
+    [TestCase("```")]
+    [TestCase("```\n```")]
+    [TestCase("```bash\n```")]
+    [TestCase("``` done")]
+    public void AnAgentsMessageThatIsOnlyAFenceStillReadsOnTheActivityPage(string text)
+    {
+        // AUDIT (D-XR-4): a fence's line has no prose, so a message of nothing else lost every word and the
+        // Activity page threw on a line with no words. It reads as written instead.
+        var events = Load("multiple_workstreams.jsonl");
+        foreach (var message in events.Select(stored => stored.Event).OfType<RuntimeAgentMessageEvent>()) message.Payload.Text = text;
+        var log = new ActivityLog();
+        log.Record(events);
+        var said = log.For(ExecutionOf(events, "Fix flaky checkout tests")).Where(entry => entry.Kind == ActivityKind.Message).ToList();
+        Assert.That(said, Is.Not.Empty);
+        Assert.That(said.Select(entry => entry.Words.IsEmpty), Is.All.False);
+
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        var current = work.Present();
+        var workspace = new WorkspacePresentation(current.Character, current.Objective, current.Execution, current.Runtime, current.Actions,
+            current.Actions.Where(current.RequiresConfirmation).ToList(), current.Commands, said);
+        var screen = new FileScreen { Section = FileSection.Activity };
+        Assert.DoesNotThrow(() => FileScreens.Screen(workspace, new WorkspaceSteering(new CommandFactory(Samples.Client)), screen, new AnswerRoom(4)));
+    }
+
+    [Test]
     public void SaysWhyItCantTellByTheCodeAloneNeverTheMessage()
     {
         var execution = "01a0dcf1-5e68-7034-8b08-109e41ae25e9";

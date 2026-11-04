@@ -439,7 +439,8 @@ still or disabled system animations. Connection failure replaces that wait with 
 recovery message; the animation never changes a checking state into a success claim.
 
 Workspace opens local organization and navigation. Move workspace enters placement; its header
-target says Move and its return says Done moving. Minimize workspace preserves work and drafts.
+target says Move and its return says Done moving. An agent's prose shows without Markdown's marks (fences, code spans'
+backticks, strong runs' asterisks), its words as written; a request for approval keeps every character. Minimize workspace preserves work and drafts.
 Open work window opens the existing native work panel and retains its platform availability rule;
 it does not open the system's app launcher. Show task portraits and Hide
 task portraits name a device-wide local preference, separate from per-task colour. The Projects
