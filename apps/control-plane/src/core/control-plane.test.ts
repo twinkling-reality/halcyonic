@@ -481,6 +481,122 @@ describe('truthful failure handling', () => {
     await controlPlane.close();
   });
 
+  test('every runtime command stays accepted until its runtime confirms, and fails with an unknown effect when it never does (#12)', async () => {
+    const commandTypes = [
+      'execution.send_instruction',
+      'execution.respond_to_approval',
+      'execution.answer_question',
+      'execution.interrupt',
+    ] as const;
+    for (const hanging of commandTypes) {
+      let emit: ((observation: RuntimeObservation) => void) | undefined;
+      const say = (type: string, payload: unknown) =>
+        emit?.({
+          type,
+          payload,
+          occurred_at: '2026-09-26T10:00:00.000Z',
+          native_event_id: null,
+          sequence: null,
+          provenance: { epistemic: 'observed', native_type: null },
+        } as RuntimeObservation);
+      // A runtime that takes every action and never says whether it did.
+      const never = () => new Promise<never>(() => {});
+      const base = stubRuntime('silent', async (request) => {
+        emit = request.emit;
+        say('runtime.execution.started', { native_id: 'native-silent' });
+        return { native_id: 'native-silent' };
+      });
+      const silent: RuntimeAdapter = {
+        ...base,
+        descriptor: {
+          ...base.descriptor,
+          capabilities: {
+            start_execution: true,
+            instruct_at_rest: true,
+            instruct_while_running: false,
+            respond_to_approval: true,
+            answer_question: true,
+            interrupt: true,
+          },
+        },
+        sendInstruction: never,
+        respondToApproval: never,
+        answerQuestion: never,
+        interrupt: never,
+      };
+      const harness = createTestControlPlane({ commandTimeoutMs: 5000, adapters: () => [silent] });
+      const { controlPlane, commands, time } = harness;
+      const workstreamId = await createWorkstream(harness);
+      controlPlane.commands.submit(
+        {
+          ...commands.startExecution(workstreamId, FEATURE),
+          payload: {
+            workstream_id: workstreamId,
+            runtime_id: 'silent' as RuntimeId,
+            instruction: 'Go.',
+            options: {},
+            model_ref: null,
+          },
+        },
+        'internal',
+      );
+      await time.runUntilIdle();
+      const executionId = controlPlane.projection.workstream(workstreamId)
+        ?.current_execution_id as ExecutionId;
+
+      // The state each command needs, as the runtime reports it.
+      say('runtime.turn.started', { turn_id: 't1' });
+      if (hanging === 'execution.send_instruction')
+        say('runtime.turn.completed', { turn_id: 't1' });
+      if (hanging === 'execution.respond_to_approval')
+        say('runtime.approval.requested', {
+          approval_id: 'a1',
+          subject: { kind: 'tool_use', tool_name: 'bash', summary: 'Run it' },
+          complete: true,
+        });
+      if (hanging === 'execution.answer_question')
+        say('runtime.question.asked', {
+          question_id: 'q1',
+          prompts: [
+            {
+              key: 'k',
+              header: null,
+              text: 'Which one?',
+              options: [],
+              multiple: false,
+              free_text: true,
+              secret: false,
+            },
+          ],
+          answerable: true,
+        });
+      const command =
+        hanging === 'execution.send_instruction'
+          ? commands.instruct(executionId, 'Go on.')
+          : hanging === 'execution.respond_to_approval'
+            ? commands.approve(executionId, 'a1')
+            : hanging === 'execution.answer_question'
+              ? commands.answerQuestion(executionId, 'q1', [
+                  { key: 'k', selected: [], text: 'This one.' },
+                ])
+              : commands.interrupt(executionId);
+      const submitted = controlPlane.commands.submit(command, 'internal');
+      assert.equal(submitted.disposition, 'accepted', hanging);
+
+      await time.advance(4999);
+      const pending = controlPlane.projection.command(command.command_id);
+      assert.equal(pending?.status, 'accepted', `${hanging}: accepted is not success`);
+      await time.advance(1);
+      const failed = controlPlane.projection.command(command.command_id);
+      assert.deepEqual(
+        { status: failed?.status, code: failed?.failure?.code, effect: failed?.failure?.effect },
+        { status: 'failed', code: 'timeout', effect: 'unknown' },
+        hanging,
+      );
+      await controlPlane.close();
+    }
+  });
+
   test('a runtime that refuses to start fails the execution with its reason', async () => {
     const harness = createTestControlPlane({
       adapters: () => [
