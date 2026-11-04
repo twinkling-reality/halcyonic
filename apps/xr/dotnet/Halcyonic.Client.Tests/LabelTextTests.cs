@@ -13,6 +13,20 @@ namespace Halcyonic.Client.Tests;
 /// </summary>
 public class LabelTextTests
 {
+    [TestCase("The build **failed** with exit code **1**.", "The build failed with exit code 1.")]
+    [TestCase("port `5038` (`tcp:localhost:5038`)", "port 5038 (tcp:localhost:5038)")]
+    [TestCase("```bash\nnpm test\n```", "npm test")]
+    [TestCase("stderr: ``` attempt to write ``` then", "stderr: attempt to write then")]
+    [TestCase("**Outcome:** Failure", "Outcome: Failure")]
+    [TestCase("src/**/x.ts and lib/**/y.ts", "src/**/x.ts and lib/**/y.ts")]
+    [TestCase("__init__ and 2*3*4", "__init__ and 2*3*4")]
+    [TestCase("it's `odd", "it's `odd")]
+    [TestCase("a ``code with ` inside`` b", "a code with ` inside b")]
+    public void AnAgentsProseLosesMarkdownsMarksAndNothingElse(string said, string shown)
+    {
+        Assert.That(LabelText.WithoutMarks(said), Is.EqualTo(shown));
+    }
+
     /// <summary>What an agent, a tool or a command could put in text the workspace shows.</summary>
     private static readonly string[] Hostile =
     {

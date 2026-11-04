@@ -223,6 +223,121 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// An agent's prose without Markdown's marks, so it reads as plain text (DEVICE's headset frames, 2026-11-04: "**failed**",
+        /// "`5038`", fences shown as written): a fence's own line (three or more backticks, a language after them or none) goes; a
+        /// code span keeps its words without its backticks, its line breaks as spaces and one space at each end dropped where it
+        /// has both; a strong run keeps its words without its two asterisks where they open after a line's start, white space or
+        /// an opening bracket or quote, close before a line's end, white space or punctuation, and stand on one line, so a glob
+        /// such as "src/**/x" keeps them. Underscores and single asterisks are kept: an identifier or a product reads as written.
+        /// Only an agent's prose: never a command, a path or a request for approval, where a backtick or an asterisk can mean
+        /// something. Spelled after, as any outside text is.
+        /// </summary>
+        public static string WithoutMarks(string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return text ?? "";
+            var lines = text!.Split('\n');
+            var kept = new StringBuilder(text.Length);
+            foreach (var line in lines)
+            {
+                if (IsFence(line)) continue;
+                if (kept.Length > 0) kept.Append('\n');
+                kept.Append(line);
+            }
+            return Strong(CodeSpans(kept.ToString()));
+        }
+
+        /// <summary>Whether <paramref name="line"/> is a fence's own line: three or more backticks, then a language or nothing.</summary>
+        private static bool IsFence(string line)
+        {
+            var bare = line.Trim();
+            var run = 0;
+            while (run < bare.Length && bare[run] == '`') run++;
+            return run >= 3 && bare.IndexOf('`', run) < 0;
+        }
+
+        /// <summary>Code spans' words without their backticks: a run of backticks closed by the next run of the same length.</summary>
+        private static string CodeSpans(string text)
+        {
+            var result = new StringBuilder(text.Length);
+            var at = 0;
+            while (at < text.Length)
+            {
+                if (text[at] != '`')
+                {
+                    result.Append(text[at++]);
+                    continue;
+                }
+                var run = 0;
+                while (at + run < text.Length && text[at + run] == '`') run++;
+                var close = -1;
+                for (var look = at + run; look < text.Length; look++)
+                {
+                    if (text[look] != '`') continue;
+                    var length = 0;
+                    while (look + length < text.Length && text[look + length] == '`') length++;
+                    if (length == run)
+                    {
+                        close = look;
+                        break;
+                    }
+                    look += length - 1;
+                }
+                if (close < 0)
+                {
+                    result.Append(text, at, run);
+                    at += run;
+                    continue;
+                }
+                var words = text.Substring(at + run, close - at - run).Replace("\r\n", " ").Replace('\n', ' ');
+                if (words.Length > 1 && words[0] == ' ' && words[words.Length - 1] == ' ' && words.Trim(' ').Length > 0)
+                    words = words.Substring(1, words.Length - 2);
+                result.Append(words);
+                at = close + run;
+            }
+            return result.ToString();
+        }
+
+        /// <summary>Strong runs' words without their two asterisks, where the asterisks flank as Markdown's do, on one line.</summary>
+        private static string Strong(string text)
+        {
+            const string opensAfter = "([{\"'";
+            const string closesBefore = ".,;:!?)]}\"'";
+            var result = new StringBuilder(text.Length);
+            var at = 0;
+            while (at < text.Length)
+            {
+                var opens = at + 2 < text.Length && text[at] == '*' && text[at + 1] == '*' && text[at + 2] != '*'
+                    && !char.IsWhiteSpace(text[at + 2]) && (at == 0 || char.IsWhiteSpace(text[at - 1]) || opensAfter.IndexOf(text[at - 1]) >= 0);
+                if (opens)
+                {
+                    var end = text.IndexOf('\n', at);
+                    if (end < 0) end = text.Length;
+                    var close = -1;
+                    for (var look = text.IndexOf("**", at + 2, System.StringComparison.Ordinal); look >= 0 && look + 2 <= end;
+                         look = text.IndexOf("**", look + 1, System.StringComparison.Ordinal))
+                    {
+                        var before = text[look - 1];
+                        var after = look + 2 < text.Length ? text[look + 2] : '\n';
+                        if (!char.IsWhiteSpace(before) && before != '*' && after != '*'
+                            && (char.IsWhiteSpace(after) || closesBefore.IndexOf(after) >= 0))
+                        {
+                            close = look;
+                            break;
+                        }
+                    }
+                    if (close > at + 2)
+                    {
+                        result.Append(text, at + 2, close - at - 2);
+                        at = close + 2;
+                        continue;
+                    }
+                }
+                result.Append(text[at++]);
+            }
+            return result.ToString();
+        }
+
+        /// <summary>
         /// <see cref="Plain"/> text for a TextMeshPro label with rich text off and escape parsing on:
         /// every backslash doubled, since such a label shows a doubled backslash as one and turns
         /// every other backslash sequence into another character. Set it on the label exactly once.
