@@ -22,7 +22,8 @@ namespace Halcyonic.XR.Workspace.Editor
         /// Unity laid them out: the screen 56 degrees across at 2 m, the bar its width, beneath it by the room's gap,
         /// 2 cm nearer and tilted to face the eyes, every glyph at the reading floor, every target whole and 12 mm from the next, the carriers opaque,
         /// the neutral mark where no picture exists. Straight ahead and 40 degrees round, the bar open and folded, at both
-        /// text sizes; a bar made wider and a title shrunk under the floor must each be caught. Every name is synthetic.
+        /// text sizes; a bar made wider and a title shrunk under the floor must each be caught. At desk height under a raised
+        /// look, it stands on the console's direction, whole in the field (<see cref="RenderRaisedLookScreen"/>). Every name is synthetic.
         /// </summary>
         public static void RoomScreenCheck()
         {
@@ -38,6 +39,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var bearing in new[] { 0f, 40f })
                     foreach (var open in new[] { true, false })
                         found.AddRange(RenderRoomScreen(folder, bearing, open));
+                    found.AddRange(RenderRaisedLookScreen(folder));
                 }
                 finally { KeepFontAssetsAsCommitted(); }
                 foreach (var failure in found) Debug.LogError("Halcyonic: room screen: " + failure);
@@ -140,6 +142,103 @@ namespace Halcyonic.XR.Workspace.Editor
                 UnityEngine.Object.DestroyImmediate(root);
                 texture.Release();
                 UnityEngine.Object.DestroyImmediate(texture);
+            }
+            return failures;
+        }
+
+        /// <summary>
+        /// DEVICE's D-XR-8: the headset on a desk, at desk height, looking up. The director stands the screen where the console
+        /// stands, on the plane's own direction (the look's elevation held within the room's pitch), so the screen and its bar
+        /// sit whole in the Quest 3S field less its margin; a level screen at eye height, as stood before, has its bar out of
+        /// that field, and the check must say so.
+        /// </summary>
+        private static IEnumerable<string> RenderRaisedLookScreen(string folder)
+        {
+            const string name = "screen-desk-raised-look";
+            const float Desk = 0.8f, Raised = 35f;
+            var failures = new List<string>();
+            var root = new GameObject("Raised look witness");
+            var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32);
+            try
+            {
+                var eyes = new Vector3(0f, Desk, 0f);
+                var look = Quaternion.Euler(-Raised, 0f, 0f) * Vector3.forward;
+                var camera = MakeCamera(root.transform, eyes, texture);
+                camera.transform.rotation = Quaternion.LookRotation(look, Vector3.up);
+                camera.backgroundColor = new Color(0f, 0f, 0f, 0f);
+                var work = Work.Running();
+                var commands = new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" });
+                var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
+                {
+                    Presentation = new WorkspacePresentationState(keepAgentsWhenMinimized: true),
+                    SpatialWorkspace = true,
+                    Commands = commands,
+                    Overview = () => WorkOverview.Of(work.State, new StageVisibility(), _ => true),
+                    Comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard },
+                    File = (host, _) => new FileColumn(host, () => work.Present(), commands, () => null, _ => null, () => ""),
+                    State = () => work.State,
+                    StageNow = () => new MenuDirector.Stage(eyes, look, new List<CharacterTarget>(), null, false),
+                    Bar = place => TasksColumn.Bar(place, work.State),
+                });
+                director.DrawNow();
+                director.ShowProjectScreen(work.Workstream.ProjectId, barOpen: true);
+                director.DrawNow();
+                var plane = director.Plane;
+                if (plane.ScreenPose is not RoomPose screen || plane.BarPose is not RoomPose bar)
+                {
+                    failures.Add(name + ": the director did not stand the summoned screen");
+                    return failures;
+                }
+                if (plane.Direction.Elevation < WorkspaceFollow.MaximumPitchDegrees - 0.01f)
+                    failures.Add(name + ": the console did not follow the raised look to the room's pitch, " + plane.Direction.Elevation.ToString("0.0", CultureInfo.InvariantCulture));
+                if (Mathf.Abs(screen.Pitch - plane.Direction.Elevation) > 0.01f || Mathf.Abs(Mathf.DeltaAngle(screen.Bearing, plane.Direction.Yaw)) > 0.01f)
+                    failures.Add(name + ": the screen does not stand on the console's direction: " + screen.Bearing.ToString("0.0", CultureInfo.InvariantCulture) + ", "
+                        + screen.Pitch.ToString("0.0", CultureInfo.InvariantCulture) + " against " + plane.Direction.Yaw.ToString("0.0", CultureInfo.InvariantCulture) + ", "
+                        + plane.Direction.Elevation.ToString("0.0", CultureInfo.InvariantCulture));
+                failures.AddRange(OutOfField(name, eyes, look, ("screen", screen), ("bar", bar)));
+                // The witness: the screen level at eye height, as it stood before, under the same look.
+                var at = new System.Numerics.Vector3(eyes.x, eyes.y, eyes.z);
+                var level = RoomLayout.Screen(at, screen.Bearing, SpatialKit.ScreenDegreesAt(GlazeText.Scale), SpatialKit.ScreenHeightDegreesAt(GlazeText.Scale));
+                if (OutOfField(name, eyes, look, ("screen", level), ("bar", RoomLayout.Bar(at, level, SpatialKit.BarDegrees))).Count == 0)
+                    failures.Add(name + ": the field check accepted a level screen under a look raised " + Raised.ToString("0", CultureInfo.InvariantCulture) + " degrees");
+                ForceMeshes(root);
+                var image = Render(camera, texture);
+                File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG());
+                UnityEngine.Object.DestroyImmediate(image);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                texture.Release();
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+            return failures;
+        }
+
+        /// <summary>Each corner of each pose that stands outside the Quest 3S field less its margin, the head turned along <paramref name="look"/>.</summary>
+        private static List<string> OutOfField(string name, Vector3 eyes, Vector3 look, params (string What, RoomPose Pose)[] poses)
+        {
+            var failures = new List<string>();
+            var head = Quaternion.Inverse(Quaternion.LookRotation(look, Vector3.up));
+            var full = MenuPage.Quest3S;
+            var margin = ViewField.EdgeMarginDegrees;
+            var field = new ViewField(full.Left - margin, full.Right - margin, full.Up - margin, full.Down - margin);
+            foreach (var (what, pose) in poses)
+            {
+                var bearing = pose.Bearing * Mathf.Deg2Rad;
+                var across = new Vector3(Mathf.Cos(bearing), 0f, -Mathf.Sin(bearing));
+                var up = new Vector3(pose.Up.X, pose.Up.Y, pose.Up.Z);
+                var centre = new Vector3(pose.Centre.X, pose.Centre.Y, pose.Centre.Z);
+                foreach (var x in new[] { -0.5f, 0.5f })
+                foreach (var y in new[] { -0.5f, 0.5f })
+                {
+                    var point = head * (centre + across * (pose.Width * x) + up * (pose.Height * y) - eyes);
+                    var yaw = Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg;
+                    var elevation = Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg;
+                    if (point.z <= 0f || !field.Shows(yaw, elevation))
+                        failures.Add(name + ": a corner of the " + what + " stands outside the field less its margin, at " + yaw.ToString("0.0", CultureInfo.InvariantCulture)
+                            + " across and " + elevation.ToString("0.0", CultureInfo.InvariantCulture) + " up");
+                }
             }
             return failures;
         }

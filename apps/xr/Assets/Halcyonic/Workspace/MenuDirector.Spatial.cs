@@ -462,8 +462,10 @@ namespace Halcyonic.XR.Workspace
             AdvanceSpatialFlows();
             if (setup.SpatialWorkspace && !Away && setup.Presentation.ActiveScreen(State, Connected || Demonstration) is KitScreenModel screenModel)
             {
-                var bearing = UnityEngine.Mathf.Atan2(looking.x, looking.z) * UnityEngine.Mathf.Rad2Deg + moved.Yaw;
-                plane.ShowScreen(screenModel, eyes, bearing, setup.Presentation.ScreenProjectId);
+                // It stands where the console stands, on the plane's own direction: the look's bearing and its elevation held
+                // within the room's pitch, plus the person's move. Level at eye height, it sat low under a raised look (D-XR-8).
+                var direction = plane.Direction;
+                plane.ShowScreen(screenModel, eyes, direction.Yaw, direction.Elevation, setup.Presentation.ScreenProjectId);
             }
             else if (plane.RoomScreen != null)
             {
