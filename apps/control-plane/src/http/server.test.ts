@@ -235,6 +235,32 @@ describe('REST', () => {
     assert.match(browser.body, /origin_not_allowed/);
   });
 
+  test('no spelling of a path reaches more than health without the token (#12)', async () => {
+    const host = `127.0.0.1:${server.port}`;
+    const health = await raw('/api/health', { host });
+    assert.equal(health.status, 200);
+    for (const path of [
+      '/api/health/../snapshot',
+      '/api/health/%2E%2E/snapshot',
+      '/api/health%2F..%2Fsnapshot',
+      '/api/%68ealth',
+      '/api/health;/snapshot',
+      '/api/health/',
+      '//api/snapshot',
+      '/API/SNAPSHOT',
+      '/api/snapshot?/api/health',
+      '/api/events',
+      '/api/commands',
+    ]) {
+      const response = await raw(path, { host });
+      assert.ok(
+        response.status !== 200 || response.body === health.body,
+        `${path}: ${response.status}`,
+      );
+      assert.ok(!response.body.includes('"projects"'), path);
+    }
+  });
+
   test('commands are validated, admitted, and answered with honest status codes', async () => {
     assert.equal((await post('name=x', { ...auth(), 'content-type': 'text/plain' })).status, 415);
     const invalid = await post({ command_type: 'project.create' });
