@@ -92,7 +92,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     var recording = DemonstrationRecording.Parse(asset.text);
                     Resources.UnloadAsset(asset);
                     if (recording.IsRecordedRun != recordedRun) failures.Add("judge kit: " + resource + " holds the wrong kind of recording");
-                    return new DemonstrationPlayer(recording, client, new DemonstrationOptions { Speed = 1000, Loop = loop });
+                    // The recorded run at ten times its pace (its 2 min 14 s in 13 s, its end hold 2 s), so the walk sees it play and
+                    // give way; the demonstration fast, its holds for an answer still waiting.
+                    return new DemonstrationPlayer(recording, client, new DemonstrationOptions { Speed = recordedRun ? 10 : 1000, Loop = loop });
                 }
                 var hasRecordedRun = Resources.Load<TextAsset>("HalcyonicRecordedRun") != null;
                 fallback = new DemonstrationFallback(null,
@@ -318,8 +320,15 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add("judge kit: the recorded run's workspace is labelled " + plane.ConnectionState + ", not Recorded (ADR 0035)");
                     var project = State()!.Projects.Values.First().ProjectId;
                     Press(ProjectsScreens.ChooseProject, project, required: false);
+                    Shot("recorded run tasks");
                     var task = State()!.Workstreams.Values.FirstOrDefault()?.WorkstreamId;
-                    if (task != null && Press(TasksColumn.OpenTask, task, required: false)) Shot("recorded run task");
+                    if (task != null && Press(TasksColumn.OpenTask, task, required: false))
+                    {
+                        Shot("recorded run task");
+                        foreach (var section in new[] { FileSection.Changes, FileSection.Checks })
+                            if (Press(MenuFrame.ChooseSection, FileScreens.Key(section), required: false)) Shot("recorded run " + section.ToString().ToLowerInvariant());
+                        Press(MenuFrame.ChooseSection, FileScreens.Key(FileSection.Activity), required: false);
+                    }
                     else failures.Add("judge kit: the recorded run's task did not open; drawn: " + Visible());
                     Until(() => fallback.Player?.Finished == true || fallback.Player?.Ended == true, "the recorded run's end", 120);
                     Shot("recorded run end");
@@ -329,121 +338,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 Shot(hasRecordedRun ? "demonstration follows" : "projects at launch");
                 if (!hasRecordedRun && navigator.Place != MenuPlace.Projects) failures.Add("judge kit: the workspace did not open on Projects");
-
-                // 2. The closed workspace: the directed task comes to wait, and the closed bar or presence says so.
-                PressMinimize();
+                // While the demonstration waits for its question's answer, nothing moves under the workspace's own places.
                 Until(() => DirectedRun()?.PendingQuestions.Count > 0, "the directed task's question");
-                Shot("closed a task waits");
-                if (TasksColumn.Bar(MenuPlace.Tasks, State()).ClosedLine != TasksText.Waiting(1)) failures.Add("judge kit: the closed line does not say one task waits");
-                PressRestore();
-                Shot("restored");
-
-                // 3. Tasks, the waiting task first; its file on Waiting at the question.
-                if (!Press(MenuFrame.ChooseSection, nameof(MenuPlace.Tasks), required: false) && plane.Context.TasksTarget.gameObject.activeInHierarchy)
-                {
-                    var tasksTarget = plane.Context.TasksTarget;
-                    tasksTarget.SettleForRender();
-                    tasksTarget.Target.PointerForRender(976, Oculus.Interaction.PointerEventType.Select, tasksTarget.transform.position);
-                    tasksTarget.Target.PointerForRender(976, Oculus.Interaction.PointerEventType.Unselect, tasksTarget.transform.position);
-                    Draw();
-                }
-                if (navigator.Place != MenuPlace.Tasks) { director.Open(MenuPlace.Tasks); failures.Add("judge kit: no drawn control reached Tasks from Projects; drawn: " + Visible()); }
-                Shot("tasks");
-                var directed = Directed()!.WorkstreamId;
-                if (plane.Showing(MenuColumn.Menu)?.Lines.FirstOrDefault(line => line.Action == TasksColumn.OpenTask)?.Key != directed)
-                    failures.Add("judge kit: the waiting task is not Tasks' first row");
-                Press(TasksColumn.OpenTask, directed);
-                Shot("question");
-                for (var turn = 0; turn < 12 && FileFrame()?.Footer[PromptSlot.FarRight]?.Id == FileScreens.NextPart; turn++)
-                {
-                    Press(FileScreens.NextPart, FileScreens.QuestionKey);
-                    Shot("question part " + (turn + 2));
-                }
-                for (var turn = 0; turn < 8 && FileFrame()?.Lines.Any(line => line.Action == FileScreens.Choose && line.Key == "0") != true; turn++)
-                    Press(FileScreens.MoreAnswers);
-                Press(FileScreens.Choose, "0");
-                // A cut answer opens its details beside: read and closed.
-                for (var turn = 0; turn < 6 && plane.Shown.Any(shown => shown.Kind == MenuColumn.Side || shown.View.Side != null); turn++)
-                {
-                    Shot("answer details " + (turn + 1));
-                    if (!Press(Footer.NextPage, required: false)) Press(SidePanel.Close);
-                }
-                Shot("answer chosen");
-                if (sent.Count != 0) failures.Add("judge kit: choosing an answer sent something");
-                Press(FileScreens.NextQuestion);
-                for (var turn = 0; turn < 8 && FileFrame()?.Footer[PromptSlot.FarRight]?.Id == FileScreens.MoreAnswers; turn++) Press(FileScreens.MoreAnswers);
-                Shot("answers reviewed");
-                Press(FileScreens.SendAnswer);
-                if (sent.OfType<ExecutionAnswerQuestionCommand>().Count() != 1) failures.Add("judge kit: Send answer did not send the one answer");
-                else
-                {
-                    // The recording acknowledges the answer itself; the next decision waits for that.
-                    var answerId = sent.OfType<ExecutionAnswerQuestionCommand>().Single().CommandId;
-                    Debug.Log("Halcyonic: judge kit: main-thread context " + (SynchronizationContext.Current?.GetType().FullName ?? "none"));
-                    Until(() => submissions.StateOf(answerId) != SubmissionState.Sending, "the answer's acknowledgement", 10);
-                    Debug.Log("Halcyonic: judge kit: the answer stands " + submissions.StateOf(answerId));
-                }
-
-                // 4. The approval: the request read part by part, Yes only after its last part.
-                Until(() => DirectedRun()?.PendingApprovals.Count > 0, "the directed task's approval");
-                Press(MenuFrame.ChooseSection, FileScreens.Key(FileSection.Waiting), required: false);
-                Shot("approval");
-                Press(FileScreens.Approve);
-                var parts = 1;
-                Shot("request part 1");
-                while (parts < 20 && File()?.Steering.CanConfirm != true)
-                {
-                    if (File()!.Screen.RequestParts > 1 && File()!.Screen.RequestPart + 1 < File()!.Screen.RequestParts && FileFrame()?.Footer[PromptSlot.Free] != null)
-                        failures.Add("judge kit: Yes shows before the request's last part");
-                    if (!Press(FileScreens.NextPart, FileScreens.RequestKey)) break;
-                    parts++;
-                    Shot("request part " + parts);
-                }
-                if (File()?.Screen.RequestDrawnWhole != true) failures.Add("judge kit: the request was never drawn whole");
-                Shot("yes");
-                Press(FileScreens.Yes);
-                if (sent.OfType<ExecutionRespondToApprovalCommand>().Count() != 1)
-                    failures.Add("judge kit: Yes did not send the one approval; armed " + File()?.Steering.Armed + ", can confirm " + File()?.Steering.CanConfirm
-                        + ", sent " + sent.Count + ", answer " + (sent.FirstOrDefault() is CommandEnvelope first ? submissions.StateOf(first.CommandId)?.ToString() : "none")
-                        + "; drawn: " + Visible());
-
-                // 5. The approved turn ends with failed checks.
-                Until(() => DirectedRun()?.Status == ExecutionStatus.Completed, "the approved turn's end");
-                Press(MenuFrame.ChooseSection, FileScreens.Key(FileSection.Checks));
-                Until(() => { Draw(); return FileFrame()?.Lines.FirstOrDefault()?.Words.StartsWith("Tests failed", StringComparison.Ordinal) == true; }, "the failed checks", 10);
-                Shot("checks failed");
-
-                // 6. Tell it: the recorded instructions, one chosen, reviewed and sent, the correction round.
-                Press(MenuFrame.ChooseSection, FileScreens.Key(FileSection.Activity));
-                Shot("activity after checks");
-                Press(FileScreens.TellIt);
-                Shot("tell it");
-                Press(FileScreens.Preset, "0");
-                Shot("instruction chosen");
-                Press(FileScreens.TellIt, required: false);
-                for (var part = 0; part < 8 && File()?.Screen.Instruction.Read == false; part++) Press(FileScreens.NextInstructionPart);
-                Shot("instruction reviewed");
-                Press(FileScreens.SendInstruction);
-                if (sent.OfType<ExecutionSendInstructionCommand>().Count() != 1) failures.Add("judge kit: Send did not send the one instruction");
-                Shot("correction sent");
-
-                // 7. The correction round runs and the checks pass.
-                Until(() => DirectedRun()?.LastTestRun?.Outcome == TestOutcome.Passed, "the passing checks", 60);
-                Press(MenuFrame.ChooseSection, FileScreens.Key(FileSection.Checks), required: false);
-                Shot("checks passed");
-                Press(MenuFrame.ChooseSection, FileScreens.Key(FileSection.Activity), required: false);
-                Shot("the end");
-
-                // 8. The end holds while the workspace is closed, then the recording starts again.
-                var plays = fallback.Player?.Plays ?? 0;
-                Press(Footer.Close, required: false);
-                PressMinimize();
-                Until(() => (fallback.Player?.Plays ?? 0) > plays, "the restart after the end", 120);
-                Shot("closed after restart");
-                PressRestore();
-                Shot("restarted");
-
-                // 9. New project's companion: its recorded questions and a recap that can't start here.
+                // 2. New project's companion: its recorded questions and a recap that can't start here.
                 ThroughWorkspace(PlacementColumn.Navigate, nameof(MenuPlace.Projects));
                 Press(ProjectsScreens.NewProject);
                 Shot("new project");
@@ -480,7 +377,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 else failures.Add("judge kit: Talk it through did not bring the companion's recorded questions; drawn: " + Visible());
                 Press(Footer.Close, required: false);
 
-                // 10. Usage: the recorded limits, a limit's details.
+                // 3. Usage: the recorded limits, a limit's details.
                 ThroughWorkspace(PlacementColumn.Navigate, nameof(MenuPlace.Usage));
                 Shot("usage");
                 Press(UsageColumn.OpenLimit, "0");
@@ -488,7 +385,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 for (var page = 2; page < 6 && Press(Footer.NextPage, required: false); page++) Shot("usage details part " + page);
                 Press(SidePanel.Close, required: false);
 
-                // 11. Settings: Your space, a setting chosen; Comfort's text size.
+                // 4. Settings: Your space, a setting chosen; Comfort's text size.
                 ThroughWorkspace(PlacementColumn.Navigate, nameof(MenuPlace.Settings));
                 Shot("settings");
                 if (OpenSettingsCategoryForRender(director, SettingsText.YourSpace))
@@ -508,6 +405,121 @@ namespace Halcyonic.XR.Workspace.Editor
                     Press(SidePanel.Close, required: false);
                 }
                 else failures.Add("judge kit: Settings offered no Comfort; drawn: " + Visible());
+
+
+                // 5. The closed workspace: the directed task comes to wait, and the closed bar or presence says so.
+                PressMinimize();
+                Until(() => DirectedRun()?.PendingQuestions.Count > 0, "the directed task's question");
+                Shot("closed a task waits");
+                if (TasksColumn.Bar(MenuPlace.Tasks, State()).ClosedLine != TasksText.Waiting(1)) failures.Add("judge kit: the closed line does not say one task waits");
+                PressRestore();
+                Shot("restored");
+
+                // 6. Tasks, the waiting task first; its file on Waiting at the question.
+                if (!Press(MenuFrame.ChooseSection, nameof(MenuPlace.Tasks), required: false) && plane.Context.TasksTarget.gameObject.activeInHierarchy)
+                {
+                    var tasksTarget = plane.Context.TasksTarget;
+                    tasksTarget.SettleForRender();
+                    tasksTarget.Target.PointerForRender(976, Oculus.Interaction.PointerEventType.Select, tasksTarget.transform.position);
+                    tasksTarget.Target.PointerForRender(976, Oculus.Interaction.PointerEventType.Unselect, tasksTarget.transform.position);
+                    Draw();
+                }
+                if (navigator.Place != MenuPlace.Tasks) ThroughWorkspace(PlacementColumn.Navigate, nameof(MenuPlace.Tasks));
+                if (navigator.Place != MenuPlace.Tasks) { director.Open(MenuPlace.Tasks); failures.Add("judge kit: no drawn control reached Tasks; drawn: " + Visible()); }
+                Shot("tasks");
+                var directed = Directed()!.WorkstreamId;
+                if (plane.Showing(MenuColumn.Menu)?.Lines.FirstOrDefault(line => line.Action == TasksColumn.OpenTask)?.Key != directed)
+                    failures.Add("judge kit: the waiting task is not Tasks' first row");
+                Press(TasksColumn.OpenTask, directed);
+                Shot("question");
+                for (var turn = 0; turn < 12 && FileFrame()?.Footer[PromptSlot.FarRight]?.Id == FileScreens.NextPart; turn++)
+                {
+                    Press(FileScreens.NextPart, FileScreens.QuestionKey);
+                    Shot("question part " + (turn + 2));
+                }
+                for (var turn = 0; turn < 8 && FileFrame()?.Lines.Any(line => line.Action == FileScreens.Choose && line.Key == "0") != true; turn++)
+                    Press(FileScreens.MoreAnswers);
+                Press(FileScreens.Choose, "0");
+                // A cut answer opens its details beside: read and closed.
+                for (var turn = 0; turn < 6 && plane.Shown.Any(shown => shown.Kind == MenuColumn.Side || shown.View.Side != null); turn++)
+                {
+                    Shot("answer details " + (turn + 1));
+                    if (!Press(Footer.NextPage, required: false)) Press(SidePanel.Close);
+                }
+                Shot("answer chosen");
+                if (sent.Count != 0) failures.Add("judge kit: choosing an answer sent something");
+                Press(FileScreens.NextQuestion);
+                for (var turn = 0; turn < 8 && FileFrame()?.Footer[PromptSlot.FarRight]?.Id == FileScreens.MoreAnswers; turn++) Press(FileScreens.MoreAnswers);
+                Shot("answers reviewed");
+                Press(FileScreens.SendAnswer);
+                if (sent.OfType<ExecutionAnswerQuestionCommand>().Count() != 1) failures.Add("judge kit: Send answer did not send the one answer");
+                else
+                {
+                    // The recording acknowledges the answer itself; the next decision waits for that.
+                    var answerId = sent.OfType<ExecutionAnswerQuestionCommand>().Single().CommandId;
+                    Debug.Log("Halcyonic: judge kit: main-thread context " + (SynchronizationContext.Current?.GetType().FullName ?? "none"));
+                    Until(() => submissions.StateOf(answerId) != SubmissionState.Sending, "the answer's acknowledgement", 10);
+                    Debug.Log("Halcyonic: judge kit: the answer stands " + submissions.StateOf(answerId));
+                }
+
+                // 7. The approval: the request read part by part, Yes only after its last part.
+                Until(() => DirectedRun()?.PendingApprovals.Count > 0, "the directed task's approval");
+                Press(MenuFrame.ChooseSection, FileScreens.Key(FileSection.Waiting), required: false);
+                Shot("approval");
+                Press(FileScreens.Approve);
+                var parts = 1;
+                Shot("request part 1");
+                while (parts < 20 && File()?.Steering.CanConfirm != true)
+                {
+                    if (File()!.Screen.RequestParts > 1 && File()!.Screen.RequestPart + 1 < File()!.Screen.RequestParts && FileFrame()?.Footer[PromptSlot.Free] != null)
+                        failures.Add("judge kit: Yes shows before the request's last part");
+                    if (!Press(FileScreens.NextPart, FileScreens.RequestKey)) break;
+                    parts++;
+                    Shot("request part " + parts);
+                }
+                if (File()?.Screen.RequestDrawnWhole != true) failures.Add("judge kit: the request was never drawn whole");
+                Shot("yes");
+                Press(FileScreens.Yes);
+                if (sent.OfType<ExecutionRespondToApprovalCommand>().Count() != 1)
+                    failures.Add("judge kit: Yes did not send the one approval; armed " + File()?.Steering.Armed + ", can confirm " + File()?.Steering.CanConfirm
+                        + ", sent " + sent.Count + ", answer " + (sent.FirstOrDefault() is CommandEnvelope first ? submissions.StateOf(first.CommandId)?.ToString() : "none")
+                        + "; drawn: " + Visible());
+
+                // 8. The approved turn ends with failed checks.
+                Until(() => DirectedRun()?.Status == ExecutionStatus.Completed, "the approved turn's end");
+                Press(MenuFrame.ChooseSection, FileScreens.Key(FileSection.Checks));
+                Until(() => { Draw(); return FileFrame()?.Lines.FirstOrDefault()?.Words.StartsWith("Tests failed", StringComparison.Ordinal) == true; }, "the failed checks", 10);
+                Shot("checks failed");
+
+                // 9. Tell it: the recorded instructions, one chosen, reviewed and sent, the correction round.
+                Press(MenuFrame.ChooseSection, FileScreens.Key(FileSection.Activity));
+                Shot("activity after checks");
+                Press(FileScreens.TellIt);
+                Shot("tell it");
+                Press(FileScreens.Preset, "0");
+                Shot("instruction chosen");
+                Press(FileScreens.TellIt, required: false);
+                for (var part = 0; part < 8 && File()?.Screen.Instruction.Read == false; part++) Press(FileScreens.NextInstructionPart);
+                Shot("instruction reviewed");
+                Press(FileScreens.SendInstruction);
+                if (sent.OfType<ExecutionSendInstructionCommand>().Count() != 1) failures.Add("judge kit: Send did not send the one instruction");
+                Shot("correction sent");
+
+                // 10. The correction round runs and the checks pass.
+                Until(() => DirectedRun()?.LastTestRun?.Outcome == TestOutcome.Passed, "the passing checks", 60);
+                Press(MenuFrame.ChooseSection, FileScreens.Key(FileSection.Checks), required: false);
+                Shot("checks passed");
+                Press(MenuFrame.ChooseSection, FileScreens.Key(FileSection.Activity), required: false);
+                Shot("the end");
+
+                // 11. The end: with no task's file open the end hold runs, the workspace still open, and the recording starts
+                // again (with a recorded run bundled, the recorded run plays once more).
+                var ending = fallback.Player;
+                var plays = ending?.Plays ?? 0;
+                Press(Footer.Close, required: false);
+                Until(() => !ReferenceEquals(fallback.Player, ending) || (fallback.Player?.Plays ?? 0) > plays, "the restart after the end", 120);
+                if (navigator.IsCompact) failures.Add("judge kit: the workspace closed by itself at the end");
+                Shot("restarted");
 
                 // Nothing a judge pressed reached an agent: the recording answered each send itself.
                 if (sent.Count != 3) failures.Add("judge kit: " + sent.Count + " commands were sent, not the answer, the approval and the instruction");
