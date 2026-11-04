@@ -16,6 +16,27 @@ public class WorkspaceRecoveryColumnTests
         WorkspaceContinuity.TryParse(fixture["cases"]![0]!["value"]!.ToString(Formatting.None), out var record);
         return record!;
     }
+    private static WorkspaceContinuation Case(int index)
+    {
+        var fixture = JObject.Parse(File.ReadAllText(Repository.PathTo("fixtures/workspace/continuation.json")));
+        Assert.That(WorkspaceContinuity.TryParse(fixture["cases"]![index]!["value"]!.ToString(Formatting.None), out var record), Is.True);
+        return record!;
+    }
+
+    // Saved Drafts opened on each state a saved request can stand in, from the shared fixture's valid cases: no draft (1), a
+    // request not submitted (21), its reference kept (22), its result pending (32). Each state's line opens whole.
+    [TestCase(1, "No Draft")]
+    [TestCase(21, "Not Submitted")]
+    [TestCase(22, "Request Reference Kept · Restore to Read Result")]
+    [TestCase(32, "Pending Result · Restore to Check")]
+    public void SavedDraftsOpenOnEveryStateOfASavedRequest(int index, string says)
+    {
+        var column = new WorkspaceRecoveryColumn(new FileMenuHost(), new[] { Case(index) }, _ => false, _ => false);
+        column.Drawn(column.Frame!, null);
+        column.Act(WorkspaceRecoveryColumn.OpenDraft, "0");
+        Assert.That(string.Join("\n", column.Frame!.Lines.Select(line => line.Words)), Does.Contain(says));
+    }
+
     [TestCase(TextSize.Standard)]
     [TestCase(TextSize.Larger)]
     public void EarlierDraftCanBeReadInFullButNeverRetargetedOrSent(TextSize size)
