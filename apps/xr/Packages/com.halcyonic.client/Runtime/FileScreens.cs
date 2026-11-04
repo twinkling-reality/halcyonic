@@ -518,9 +518,16 @@ namespace Halcyonic.Client
             var lines = new List<PageLine>();
             string? source = first.Provenance;
             LineWords? sourceRuns = first.ProvenanceRuns;
+            // A second source in a brief (the evaluation source's state on Checks, D-XR-6) starts pages of its own under it.
+            var later = new List<(SectionLine Source, List<SectionLine> Lines)>();
             foreach (var (key, _, answer) in groups)
             {
-                var content = answer.Brief.Lines.Where(line => !line.Source).ToList();
+                var content = answer.Brief.Lines.TakeWhile(line => !line.Source).ToList();
+                foreach (var line in answer.Brief.Lines.Skip(content.Count))
+                {
+                    if (line.Source) later.Add((line, new List<SectionLine>()));
+                    else later[later.Count - 1].Lines.Add(line);
+                }
                 if (content.Count == 0)
                 {
                     if (ReferenceEquals(answer.Brief, first)) (source, sourceRuns) = (null, null);
@@ -541,9 +548,20 @@ namespace Halcyonic.Client
             }
 
             var pages = Paged(lines, source == null ? room.Rows : WithSource(room).Rows);
+            var sources = pages.Select(_ => (Text: source, Runs: sourceRuns)).ToList();
+            foreach (var (from, below) in later)
+            {
+                // With nothing under it, its source line says why there is none, as the first source's does above.
+                var theirs = below.Count == 0
+                    ? Paged(new[] { new PageLine(IntelligenceText.Plain(from.Text), wordsAreData: true, tone: Tone(from.Tone), rows: 3) }, room.Rows)
+                    : Paged(below.Select(line => Line(line, room)).ToList(), WithSource(room).Rows);
+                pages.AddRange(theirs);
+                sources.AddRange(theirs.Select(_ => below.Count == 0 ? ((string?)null, (LineWords?)null) : ((string?)from.Text, (LineWords?)null)));
+            }
             screen.Pages = pages.Count;
             screen.Page = Math.Min(screen.Page, pages.Count - 1);
             var shown = pages[screen.Page];
+            (source, sourceRuns) = sources[screen.Page];
             // A side panel only from a line on the page showing.
             var opened = shown.FirstOrDefault(line => line.Opens && line.Chosen);
             SidePanel? side = null;

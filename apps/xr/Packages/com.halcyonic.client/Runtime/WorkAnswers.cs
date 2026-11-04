@@ -735,16 +735,26 @@ namespace Halcyonic.Client
         {
             room ??= AnswerRoom.Unlimited;
             if (executionId == null) return IntelligenceText.Empty(SectionKind.Checked, "No Work Yet");
-            if (depth == AnswerDepth.Brief)
-            {
-                if (understanding == null) return IntelligenceText.Waiting(SectionKind.Checked, understandingLoading, understandingError);
-                var briefStatus = IntelligenceText.ReadingStatus(understandingLoading, understandingError);
-                return understanding.Response.Result is AvailableUnderstanding seen
-                    ? Brief(seen.Understanding, understanding, briefStatus, now, zone)
-                    : UnderstandingPresenter.Failure(SectionKind.Checked, understanding.Response.Result, briefStatus);
-            }
             var measurement = EvaluationPresenter.Measurement(evaluation, evaluationLoading, evaluationError, now, zone);
             var simulated = evaluation?.Response.Result is AvailableEvaluation measured && measured.Evaluation.Source.Synthetic;
+            if (depth == AnswerDepth.Brief)
+            {
+                SectionPresentation seen;
+                if (understanding == null) seen = IntelligenceText.Waiting(SectionKind.Checked, understandingLoading, understandingError);
+                else
+                {
+                    var briefStatus = IntelligenceText.ReadingStatus(understandingLoading, understandingError);
+                    seen = understanding.Response.Result is AvailableUnderstanding observed
+                        ? Brief(observed.Understanding, understanding, briefStatus, now, zone)
+                        : UnderstandingPresenter.Failure(SectionKind.Checked, understanding.Response.Result, briefStatus);
+                }
+                // Seorak's state on a page of its own after Salidium's, so the Checks page itself says it (DEVICE's D-XR-6): its
+                // source line, then its checks line and that part's own status, or only the source line saying why there are none.
+                var state = measurement.Take(1).Concat(measurement.Skip(1).TakeWhile(line => line.Tag != "Cost"));
+                return new SectionPresentation(SectionKind.Checked, seen.Provenance, seen.ProvenanceTone,
+                    seen.Lines.Concat(state.Select((line, index) => index == 0 ? line.With(startsPage: true, repeats: true) : line)).ToList(),
+                    seen.Simulated || simulated, provenanceRuns: seen.ProvenanceRuns);
+            }
             SectionPresentation runs;
             if (understanding == null) runs = IntelligenceText.Waiting(SectionKind.Checked, understandingLoading, understandingError);
             else
@@ -763,8 +773,8 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// What was checked?, briefly: the latest check that ran and how it went, and, when files
-        /// changed after it, that they did. The other checks and the evaluation source's measurement
-        /// are detail.
+        /// changed after it, that they did. The other checks are detail, and so is the evaluation
+        /// source's measurement past its checks line, which the brief gives a page of its own.
         /// </summary>
         private static SectionPresentation Brief(Understanding understanding, IntelligenceRead<UnderstandingResponse> read, string status, DateTimeOffset now,
             TimeZoneInfo zone)

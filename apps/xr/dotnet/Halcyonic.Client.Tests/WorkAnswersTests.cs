@@ -935,16 +935,20 @@ public class BriefAnswersTests
 
         var checks = CheckedBrief(Intelligence.Verified);
         Assert.That(checks.Provenance, Is.EqualTo("Salidium 0.6.0 · 20 Sep 16:20"));
-        Assert.That(Answers.Pairs(checks.Lines), Is.EqualTo(new[]
+        var seen = checks.Lines.TakeWhile(line => !line.Source).ToList();
+        Assert.That(Answers.Pairs(seen), Is.EqualTo(new[]
         {
             ("observed", "Tests passed at 15:40: 118/118 tests passed (vitest)"),
             ("", "Then refunds.ts changed, so it no longer covers it"),
-        }), "the latest check and what changed since; the measurement is detail");
-        Assert.That(checks.Lines.Any(line => line.Source), Is.False);
+        }), "the latest check and what changed since; the rest of the measurement is detail");
+        var seorak = checks.Lines.Skip(seen.Count).ToList();
+        Assert.That((seorak[0].Source, seorak[0].StartsPage, seorak[0].Text), Is.EqualTo((true, true, "Seorak · Read 1 min ago")),
+            "then Seorak's state on a page of its own (D-XR-6)");
+        Assert.That(seorak.Skip(1).First().Tag, Is.EqualTo("Checks"));
 
-        foreach (var section in new[] { Brief(UnderstandPrompt.WhatChanged, Intelligence.Verified), why, how, checks })
+        foreach (var lines in new[] { Brief(UnderstandPrompt.WhatChanged, Intelligence.Verified).Lines, why.Lines, how.Lines, seen })
         {
-            Assert.That(section.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(3), "a line or two");
+            Assert.That(lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(3), "a line or two");
         }
     }
 
@@ -982,7 +986,8 @@ public class BriefAnswersTests
             verification["latest_by_method"] = new JArray();
             verification["summary"] = "No checks yet";
         });
-        Assert.That(Intelligence.Texts(CheckedBrief(noRuns)), Is.EqualTo(new[] { "No checks yet" }));
+        Assert.That(CheckedBrief(noRuns).Lines.TakeWhile(line => !line.Source).Select(line => line.Text), Is.EqualTo(new[] { "No checks yet" }),
+            "Salidium's own words for what it saw, then Seorak's state on its own page");
 
         var unobserved = Intelligence.Failure("unavailable", "runtime_not_observed", "Salidium does not observe sessions of the opencode runtime.");
         Assert.That(Brief(UnderstandPrompt.WhatChanged, unobserved).Provenance,
@@ -1020,11 +1025,13 @@ public class EvidenceTests
         }));
         var checks = CheckedPresenter.Present(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(Intelligence.Verified), "2026-09-20T16:21:30.000Z"),
             false, null, null, false, null, Intelligence.At(Answers.Now), Intelligence.Utc, depth: AnswerDepth.Brief);
-        Assert.That(Classes(checks), Is.EqualTo(new[]
+        Assert.That(Classes(checks).Take(2), Is.EqualTo(new[]
         {
             (Evidence.Observed, (string?)null, "Tests passed at 15:40: 118/118 tests passed (vitest)"),
             (Evidence.Observed, null, "Then refunds.ts changed, so it no longer covers it"),
         }));
+        Assert.That(checks.Lines.Skip(2).Select(line => (line.Source, line.Text)), Is.EqualTo(new[] { (true, "Not Read") }),
+            "Seorak's state, not read here, on a page of its own (D-XR-6)");
     }
 
     [Test]
@@ -1174,6 +1181,39 @@ public class AnswerPagesTests
         var both = AnswerPages.Split(Answers.Checked(Intelligence.Verified, ControlPlaneApiTests.Available), new AnswerRoom(20));
         Assert.That(both.Select(page => page.Provenance), Is.EqualTo(new[] { "Salidium 0.6.0 · 20 Sep 16:20", "Seorak · Read 1 min ago" }),
             "the checks seen, then the measurement, each under its own source");
+    }
+
+    /// <summary>
+    /// DEVICE's D-XR-6: the Checks page's brief credited only Salidium, where Seorak's evaluation was unavailable. It keeps
+    /// Salidium's observed checks first and gives Seorak's state a page of its own: its checks line with that part's own
+    /// status, or why there is none, under its own source line; one source a page.
+    /// </summary>
+    [Test]
+    public void TheChecksBriefGivesSeoraksStateAPageOfItsOwn()
+    {
+        var at = Intelligence.At("2026-09-26T18:02:00.000Z");
+        var understood = new IntelligenceRead<UnderstandingResponse>(Intelligence.Understanding(Intelligence.Verified), Intelligence.At("2026-09-20T16:21:30.000Z"), false);
+        var measured = new IntelligenceRead<EvaluationResponse>(Intelligence.Evaluation(ControlPlaneApiTests.Available), Intelligence.At("2026-09-26T18:01:00.000Z"), false);
+        var unavailable = new IntelligenceRead<EvaluationResponse>(new EvaluationResponse
+        {
+            ExecutionId = Intelligence.ExecutionId,
+            Result = new UnavailableEvaluation { Reason = new ErrorInfo { Code = "not_running", Message = "the evaluation service is down" } },
+        }, at, recorded: false);
+        IReadOnlyList<SectionPresentation> Brief(IntelligenceRead<EvaluationResponse> evaluation) => AnswerPages.Split(CheckedPresenter.Present(Intelligence.ExecutionId,
+            understood, false, null, evaluation, false, null, at, Intelligence.Utc, depth: AnswerDepth.Brief), new AnswerRoom(20));
+
+        var down = Brief(unavailable);
+        Assert.That(down.Count, Is.EqualTo(2), "Salidium's checks, then Seorak's state, each on a page of its own");
+        Assert.That(down[0].Provenance, Does.StartWith("Salidium"));
+        Assert.That(down[1].Provenance, Is.EqualTo("Seorak · Measurement Unavailable · Not Running · Start It · Refresh"));
+        Assert.That(down[1].Lines, Is.Empty, "why Seorak has none is its source line");
+
+        var up = Brief(measured);
+        Assert.That(up.Select(page => page.Provenance.Split(' ')[0]), Is.EqualTo(new[] { "Salidium", "Seorak" }));
+        Assert.That(up[1].Lines.First().Tag, Is.EqualTo("Checks"), "Seorak's checks line first");
+        Assert.That(up[1].Lines.Count, Is.EqualTo(2), "then that part's own status, and no more of the measurement");
+        Assert.That(up[1].Lines.Any(line => line.Tag is "Cost" or "Outcome"), Is.False);
+        Assert.That(up.Select(page => page.Lines.Count(line => line.Source)), Is.EqualTo(new[] { 0, 0 }), "one source a page");
     }
 
     [Test]

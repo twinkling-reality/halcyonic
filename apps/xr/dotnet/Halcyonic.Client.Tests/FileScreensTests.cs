@@ -194,7 +194,14 @@ public class FileScreensTests
         var frame = Screen(screen, room: AnswerRoom.Unlimited);
         Assert.That(frame.Lines[0].Words, Is.EqualTo("Tests passed at 15:40: 118/118 tests passed (vitest)"));
         Assert.That(frame.Lines[0].Key, Is.EqualTo(FileScreens.ChecksKey));
-        Assert.That(Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Refresh, null, null, null }));
+        // Salidium's checks, then Seorak's state on a page of its own under its own source (D-XR-6), which Next Page reaches.
+        Assert.That(Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Refresh, null, null, Footer.NextPage }));
+        Assert.That(frame.Source, Does.StartWith("Salidium"));
+        screen.NextPage();
+        var seorak = Screen(screen, room: AnswerRoom.Unlimited);
+        Assert.That(seorak.Source, Is.EqualTo("Seorak · Read 1 min ago"));
+        Assert.That(seorak.Lines[0].Words, Does.StartWith("Checks · "), "its checks line under its own source");
+        screen.NextPage();
         screen.Chosen = FileScreens.ChecksKey;
         var opened = Screen(screen, room: AnswerRoom.Unlimited);
         Assert.That(opened.Side!.Subject, Is.EqualTo(WorkspaceText.WhatWasChecked));
