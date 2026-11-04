@@ -16,9 +16,11 @@ import type {
   PairingRefusalReason,
   PairingStatus,
   RuntimeId,
+  UnderstandingResult,
 } from '@halcyonic/contracts';
 import { RealtimeClient } from '../client/realtime-client.ts';
 import { MODEL_LIST_TIMEOUT_MS } from '../core/runtime-models.ts';
+import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import { PairingRefused, pairDevice, replay } from '../testing/device.ts';
 import { startTestServer, TEST_CLIENT, type TestServerOptions } from '../testing/harness.ts';
 import {
@@ -685,6 +687,69 @@ describe('the network listener', () => {
 });
 
 describe('what revocation stops, and how long the listener waits', () => {
+  test('a slow read answered after its device is revoked gets the refusal, not the answer (#12)', async (t) => {
+    let release: (result: UnderstandingResult) => void = () => {};
+    const held = new Promise<UnderstandingResult>((resolve) => {
+      release = resolve;
+    });
+    let asked = 0;
+    const server = await start(t, {
+      understanding: {
+        understand: () => {
+          asked += 1;
+          return held;
+        },
+      },
+    });
+    // A task whose runtime has said its session, so a read of it goes to the source.
+    const template = DEMO_WORKSTREAMS[0];
+    assert.ok(template);
+    const project = server.controlPlane.commands.submit(
+      server.commands.createProject('P'),
+      'internal',
+    );
+    if (project.command?.result?.kind !== 'project_created') throw new Error('no project');
+    const task = server.controlPlane.commands.submit(
+      server.commands.createWorkstream(project.command.result.project_id, template),
+      'internal',
+    );
+    if (task.command?.result?.kind !== 'workstream_created') throw new Error('no task');
+    const workstreamId = task.command.result.workstream_id;
+    server.controlPlane.commands.submit(
+      server.commands.startExecution(workstreamId, template),
+      'internal',
+    );
+    await server.time.runUntilIdle();
+    const executionId =
+      server.controlPlane.projection.workstream(workstreamId)?.current_execution_id;
+    assert.ok(executionId);
+
+    const paired = await pairDevice(network(server).target, await openWindow(server));
+    const reading = onNetwork(
+      server,
+      'GET',
+      `/api/executions/${executionId}/understanding`,
+      bearer(paired.credential),
+    );
+    await within(
+      5_000,
+      (async () => {
+        while (asked === 0) await new Promise((resolve) => setTimeout(resolve, 5));
+      })(),
+      'the source is asked',
+    );
+    const revoked = await loopback(server, 'POST', `/api/devices/${paired.deviceId}/revoke`);
+    assert.equal(revoked.status, 200);
+    release({
+      availability: 'unavailable',
+      reason: { code: 'source_unreachable', message: 'The source answered late.' },
+    });
+    const answer = await reading;
+    assert.equal(answer.status, 401);
+    assert.match(answer.body, /device_revoked/);
+    assert.doesNotMatch(answer.body, /answered late/);
+  });
+
   test('a command whose body arrives after its device is revoked is rejected, journaled and answered as revoked', async (t) => {
     const server = await start(t);
     const paired = await pairDevice(network(server).target, await openWindow(server));
