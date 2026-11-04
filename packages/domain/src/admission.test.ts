@@ -225,7 +225,7 @@ describe('command admission', () => {
     assert.deepEqual(underWay.admitted ? null : underWay.rejection, {
       code: 'invalid_state',
       message:
-        "The task's execution.send_instruction command is still in progress. Wait for its outcome, or start another task.",
+        'An instruction for this task is still under way. Wait for its outcome, or start another task.',
     });
     projection.apply(
       b.controlPlane('command.completed', commandScope, {
@@ -244,6 +244,60 @@ describe('command admission', () => {
       admitCommand(commands.start(other.workstreamId), projection, catalog()).admitted,
       true,
     );
+  });
+
+  test('an instruction to a resting execution is refused while another of its task is active or a start for it is under way (ADMIT-2)', () => {
+    const { b, projection, scope, commands, workstream } = setup();
+    const instruct = () => admitCommand(commands.instruct(), projection, catalog());
+    const refusal = (state: string) => ({
+      code: 'invalid_state',
+      message: `This task is ${state} in another execution. Stop it first, or instruct that one.`,
+    });
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }));
+    assert.equal(instruct().admitted, true, 'at rest, and alone in its task');
+
+    // A switch: a newer execution of the task, which the instruction would run beside.
+    const newer = b.execution(scope.projectId, workstream.workstreamId);
+    projection.apply(newer.event);
+    const newerScope = { ...scope, executionId: newer.executionId };
+    const starting = instruct();
+    assert.deepEqual(starting.admitted ? null : starting.rejection, refusal('starting'));
+    assert.equal(starting.scope.execution_id, scope.executionId);
+    projection.apply(b.runtimeEvent(newerScope, 'runtime.turn.started', { turn_id: 'n1' }));
+    const running = instruct();
+    assert.deepEqual(running.admitted ? null : running.rejection, refusal('running'));
+    projection.apply(b.runtimeEvent(newerScope, 'runtime.turn.completed', { turn_id: 'n1' }));
+    assert.equal(instruct().admitted, true, 'both at rest');
+
+    // A start for the task accepted and without its outcome yet.
+    const start = commands.start(workstream.workstreamId);
+    const startScope = {
+      project_id: scope.projectId,
+      workstream_id: scope.workstreamId,
+      execution_id: null,
+    };
+    projection.apply(
+      b.controlPlane('command.accepted', startScope, {
+        command: start,
+        policy: 'low_consequence',
+        received_via: 'internal',
+        principal: null,
+      }),
+    );
+    const pending = instruct();
+    assert.deepEqual(pending.admitted ? null : pending.rejection, {
+      code: 'invalid_state',
+      message: 'A start for this task is still under way. Wait for its outcome first.',
+    });
+    projection.apply(
+      b.controlPlane('command.failed', startScope, {
+        command_id: start.command_id,
+        command_type: 'execution.start',
+        failure: { code: 'runtime_unavailable', message: 'Gone.', effect: 'none' },
+      }),
+    );
+    assert.equal(instruct().admitted, true);
   });
 
   test('setting a location is admitted only for a known project', () => {

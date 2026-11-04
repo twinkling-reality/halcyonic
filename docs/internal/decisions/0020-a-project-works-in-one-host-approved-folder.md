@@ -119,6 +119,9 @@ Admission refuses `execution.start` with `invalid_state` while one of the workst
 awaits its outcome, so two executions of one workstream never work in its folder at once
 ([DOMAIN_MODEL.md](../architecture/DOMAIN_MODEL.md)). A start had been admitted beside a waiting
 execution: both agents worked in the one tree, and the task read completed for the newer one while
-the earlier one still waited. An `unknown` execution does not hold its workstream, since refusing
-would only send the person to a new task in the same folder. Executions of two workstreams still
-share the folder; that stays the open question above.
+the earlier one still waited. An instruction to a resting execution, which sets it going, is
+refused the same way while another execution of its workstream is active or a start for it awaits
+its outcome (ADMIT-2): a second Send during a switch had set the old agent going beside the new one.
+An `unknown` execution does not hold its workstream, since refusing would only send the person to a
+new task in the same folder. Executions of two workstreams still share the folder; that stays the
+open question above.
