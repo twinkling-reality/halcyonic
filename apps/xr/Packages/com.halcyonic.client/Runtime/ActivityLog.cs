@@ -210,13 +210,13 @@ namespace Halcyonic.Client
                 case RuntimeToolStartedEvent tool:
                     toolNames[ToolKey(e, tool.Payload.ToolCallId)] = tool.Payload.ToolName;
                     // Halcyonic's word first, so a tool named "Approved" never reads as Halcyonic's own entry (settled 2026-10-08).
-                    var used = Ours("Tool · ") + LineWords.TheirName(tool.Payload.ToolName);
+                    var used = Ours("Tool · ") + ToolWords(tool.Payload.ToolName);
                     return Said(ActivityKind.Tool, LineWords.Theirs(tool.Payload.Title) is { IsEmpty: false } title ? used + Ours(" · ") + title : used);
                 case RuntimeToolCompletedEvent toolDone:
                     var succeeded = toolDone.Payload.Outcome == ToolOutcome.Succeeded;
                     // The completion line is the name's last use, so the name goes with it (U6).
                     return Said(ActivityKind.Tool, toolNames.Remove(ToolKey(e, toolDone.Payload.ToolCallId), out var known)
-                        ? Ours(succeeded ? "Succeeded · " : "Failed · ") + LineWords.TheirName(known) + Ours(" · Reported")
+                        ? Ours(succeeded ? "Succeeded · " : "Failed · ") + ToolWords(known) + Ours(" · Reported")
                         : Ours(succeeded ? "Tool Succeeded · Reported" : "Tool Failed · Reported"));
                 case RuntimeTestRunStartedEvent tests:
                     return Said(ActivityKind.TestRun, LineWords.Theirs(tests.Payload.Label) is { IsEmpty: false } label ? Ours("Tests Started · ") + label : Ours("Tests Started"));
@@ -225,7 +225,7 @@ namespace Halcyonic.Client
                     return Said(ActivityKind.TestRun, (LineWords.Theirs(testsDone.Payload.Summary) is { IsEmpty: false } summary ? ran + Ours(" · ") + summary : ran) + Ours(" · Reported"));
                 case RuntimeApprovalRequestedEvent approval:
                     return Said(ActivityKind.Approval, approval.Payload.Subject is ToolUseSubject subject
-                        ? Ours("Approval Requested · ") + LineWords.TheirName(subject.ToolName) + Ours(" · ") + LineWords.Theirs(subject.Summary)
+                        ? Ours("Approval Requested · ") + ToolWords(subject.ToolName) + Ours(" · ") + LineWords.Theirs(subject.Summary)
                         : Ours("Approval Requested"));
                 case RuntimeApprovalResolvedEvent resolved:
                     return Entry(ActivityKind.Approval, resolved.Payload.Decision == ApprovalResolution.Approved ? "Approved" : "Denied");
@@ -286,6 +286,17 @@ namespace Halcyonic.Client
             CommandType.ExecutionStart => "Start",
             CommandType.ExecutionAnswerQuestion => "Answer",
             _ => null,
+        };
+
+        /// <summary>
+        /// A tool's name as Activity says it: a runtime's internal id for its own kind of item (Codex's) as a person's word,
+        /// Halcyonic's; any other name as the agent gave it, theirs (JUDGE's frames, 2026-11-04).
+        /// </summary>
+        private static LineWords ToolWords(string name) => name switch
+        {
+            "commandExecution" => LineWords.Written("Command"),
+            "fileChange" => LineWords.Written("File Change"),
+            _ => LineWords.TheirName(name),
         };
 
         private static string TestWord(TestOutcome outcome) => outcome switch

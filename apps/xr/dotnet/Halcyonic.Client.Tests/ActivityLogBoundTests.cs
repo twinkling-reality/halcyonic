@@ -130,6 +130,25 @@ public class ActivityLogBoundTests
 
     private static string ToolCompleted(int call) => "{\"tool_call_id\":\"c" + call + "\",\"outcome\":\"succeeded\"}";
 
+    /// <summary>
+    /// A runtime's internal id for a tool reads as a person's word in Activity, Halcyonic's own (JUDGE's frames,
+    /// 2026-11-04: "Tool · commandExecution · /bin/zsh ..."); a tool's own name, as "shell" or "edit", stays the agent's.
+    /// </summary>
+    [TestCase("commandExecution", "Command")]
+    [TestCase("fileChange", "File Change")]
+    public void ARuntimesInternalToolIdReadsAsAPersonsWord(string id, string word)
+    {
+        var log = new ActivityLog();
+        log.Record(new[]
+        {
+            Journaled(1, "e1", "runtime.tool.started", "{\"tool_call_id\":\"t1\",\"tool_name\":\"" + id + "\",\"title\":\"make test\"}"),
+            Journaled(2, "e1", "runtime.tool.completed", "{\"tool_call_id\":\"t1\",\"outcome\":\"succeeded\"}"),
+        });
+        var entries = log.For("e1");
+        Assert.That(entries.Select(entry => entry.Text), Is.EqualTo(new[] { "Tool · " + word + " · make test", "Succeeded · " + word + " · Reported" }));
+        Assert.That(entries[0].Words.Runs.Select(run => (run.Text, run.Theirs)).First(), Is.EqualTo(("Tool · " + word + " · ", false)), "our word, upright");
+    }
+
     internal static StoredEvent Journaled(long position, string executionId, string type, string payload) => new()
     {
         Position = position,

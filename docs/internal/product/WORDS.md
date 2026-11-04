@@ -346,6 +346,9 @@ Settled by the coordinator on 2026-10-08, old beside new.
 | Activity: a start asked for | Asked to start on {app} | Start Requested · {app} (the owner's voice standard, 2026-10-30) |
 | Activity: a tool starting | Used {tool}: {title}, or Used {tool} | Tool · {tool} · {title}, or Tool · {tool}; our word first, so a tool named "Approved" never reads as ours (the owner's voice standard, 2026-10-30) |
 | Activity: a tool done | Succeeded: {tool}, Failed: {tool}; with no name, A tool succeeded, A tool failed | Succeeded · {tool} · Reported, Failed · {tool} · Reported; with no name, Tool Succeeded · Reported, Tool Failed · Reported (the owner's voice standard, 2026-10-30) |
+| Activity: a runtime's internal tool id (XR, 2026-11-04) | Tool · commandExecution · {title}, Tool · fileChange · {title} | Tool · Command · {title}, Tool · File Change · {title}, in our words; Succeeded · Command · Reported; Approval Requested · Command · {summary} |
+| A recorded run's composer, nothing to send (XR, 2026-11-04) | Not Sendable · Agent App Unavailable | Not Sendable · Recorded · Not Live |
+| A recorded run's Changes and Checks, no read recorded (XR, 2026-11-04) | Understanding Unreadable · Demo · No Recorded Answer Here, in the problem tone | Not Recorded, secondary |
 | A file's Doing, the latest line | Latest: {message}, with "Agent says" | Latest · {message} · Reported, the message leaning (the owner's voice standard, 2026-10-30) |
 | An agent's question, its answers, a header | {question} as a block under our quote mark; each answer a row of theirs under it | Agent · Question, then {question} as a block under our quote mark; each answer a row of theirs under it (the owner's voice standard, 2026-10-30) |
 | The companion's question and reply | {line} under our quote mark; the source line names the companion | Companion · {line}, the line leaning; its view Companion · Unclear or Companion · Not Buildable as Software (the owner's voice standard, 2026-10-30) |
