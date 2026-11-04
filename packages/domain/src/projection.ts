@@ -873,11 +873,12 @@ export class Projection {
         let tainted = this.restoreInProgress(event.project_id);
         for (const state of this.#executions.values()) {
           if (state.projectId !== event.project_id || state.directory === null) continue;
-          if (state.activeTurn !== null) unobservedTurns.add(state.executionId);
           const status = deriveExecutionStatus(state);
-          if (status === 'unknown' && state.unknownReason?.code !== 'control_plane_restarted') {
-            tainted = true;
-          }
+          // No runtime session survives a restart, so a turn one cut short runs no longer (#13).
+          if (status === 'unknown' && state.unknownReason?.code === 'control_plane_restarted')
+            continue;
+          if (state.activeTurn !== null) unobservedTurns.add(state.executionId);
+          if (status === 'unknown') tainted = true;
         }
         const checkState: CheckState = {
           checkId: event.payload.check_id,

@@ -8,9 +8,10 @@
   OpenCode and Codex where a test runs one; main from 466e5326 to 056bf71c.
 - **Method:** read the core (`packages/{contracts,domain,runtime-core}`, `apps/control-plane/src/{core,journal,
   network,checkpoints,observer}`, the check and preview host, the client core's `ClientProjection` and
-  `ActivityLog`), ranked twelve suspected defects, and took them most severe first. Each defect found was proved by
-  a test that failed before its fix; security fixes were read by AUDIT before they landed. Scale was measured, not
-  guessed ([control-plane-scale-2026-11-03.md](control-plane-scale-2026-11-03.md)).
+  `ActivityLog`), ranked twelve suspected defects, and took them most severe first; a thirteenth turned up while
+  fixing one. Each defect found was proved by a test that failed before its fix; security fixes were read by AUDIT
+  before they landed. Scale was measured, not guessed
+  ([control-plane-scale-2026-11-03.md](control-plane-scale-2026-11-03.md)).
 - **Status:** fixed as listed, each on main by the commit named; those named by their subject were at AUDIT or
   waiting for their batch when this was written. What remains is below, each with why it is not fixed.
 
@@ -27,6 +28,7 @@
 | Changes made between turns, by an undo or by the person, were credited to the next turn | Verified (a real runtime too) | The folder is read before a turn starts from rest (1505ac02, ADR 0038 amendment) |
 | The observer and undo's compare could read through a folder swapped for a link | Verified | Opened with `O_NOFOLLOW_ANY`, which refuses a link anywhere in the path (de207b0c) |
 | A task unknown before a restart kept its project busy for good | Verified | Marked unknown because of the restart, so its project frees (ee108021) |
+| A turn a restart cut short counted as running for good, so every later check of its project read unknown, and its preview and Play were refused for good with words asking for a check that could not help | Verified (a test) | A check recorded after the restart starts current; one recorded before it stays unknown ("Stop a turn a restart cut short from holding every later check unknown", #13) |
 | A start was admitted while the task's execution ran, so two agents worked in one folder | Verified (INTEGRATION's journey) | One execution at a time in a task (b263b05d, words 93de0913, ADR 0020 amendment) |
 | An instruction to a resting execution was admitted while a newer one of its task ran, so a second Send during a switch set the old agent going too | Verified (AUDIT's switch verdict, then a test) | Refused the same way ("Refuse instructing a resting execution while another of its task is active or about to be", ADMIT-2) |
 | The Mac kept every task's folder reading for good | Measured | Bounded across tasks (fa2a577f, ADR 0038 amendment) |
