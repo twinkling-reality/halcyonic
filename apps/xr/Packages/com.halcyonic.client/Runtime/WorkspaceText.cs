@@ -685,11 +685,16 @@ namespace Halcyonic.Client
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
 
+        /// <summary>Why nothing can be sent while a recorded run plays, in the Recorded mark's own words.</summary>
+        public const string NotSendableRecorded = "Not Sendable · Recorded · Not Live";
+
         /// <summary>Why nothing can be done right now, or null when an action is offered.</summary>
         public static string? WhyNoActions(WorkspacePresentation workspace)
         {
             if (workspace.Actions.Count > 0) return null;
             if (workspace.Character.Stale) return "Not Sendable · Awaiting Reconnect";
+            // A recorded run is played as it happened: nothing reaches an agent, whatever its agent app's state then.
+            if (workspace.Character.Recorded && !workspace.Character.Synthetic) return NotSendableRecorded;
             if (workspace.Execution == null) return "Not Sendable · Not Started";
             if (workspace.Runtime == null) return "Not Sendable · Agent App Unavailable";
             return workspace.Character.Activity switch

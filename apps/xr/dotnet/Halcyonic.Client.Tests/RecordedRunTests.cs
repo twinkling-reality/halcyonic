@@ -249,6 +249,31 @@ public class RecordedRunHandOffTests
     private static bool Playing(DemonstrationFallback fallback, bool recordedRun) =>
         fallback.Player?.Recording is DemonstrationRecording recording && recording.IsRecordedRun == recordedRun;
 
+    /// <summary>
+    /// Once a recorded run holds at its end, its composer says it is a recording, never that the agent app is gone
+    /// (JUDGE's frames, 2026-11-04: "Not Sendable · Agent App Unavailable").
+    /// </summary>
+    [Test]
+    public async Task ARecordedRunsComposerSaysItIsARecordingNeverThatTheAgentAppIsGone()
+    {
+        var player = ShortRun();
+        player.Session.Start();
+        try
+        {
+            await Pumping.Until(player.Session, _ => player.Finished, "the recorded run finishes");
+            var state = player.Session.State;
+            var work = state.Workstreams.Values.First(item => item.CurrentExecutionId != null);
+            var workspace = WorkspacePresenter.Present(work, state, new ActivityLog(), player.Session.Status.IsLive);
+            Assert.That((workspace.Character.Recorded, workspace.Character.Synthetic), Is.EqualTo((true, false)), "a recorded run's work");
+            Assert.That(workspace.Actions, Is.Empty);
+            Assert.That(WorkspaceText.WhyNoActions(workspace), Is.EqualTo("Not Sendable · Recorded · Not Live"));
+        }
+        finally
+        {
+            await player.Session.StopAsync();
+        }
+    }
+
     [Test]
     public async Task ARecordingThatDoesNotLoopFinishesAndHoldsInsteadOfStartingAgain()
     {
