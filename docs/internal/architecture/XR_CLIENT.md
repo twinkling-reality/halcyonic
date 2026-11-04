@@ -1899,10 +1899,15 @@ scripts use only long-stable core Unity APIs:
   id of what was pressed, with the row's or the tab's key, and splits text into parts of whole lines
   at the list's width (`SplitLines`).
 - A player build leaves out shaders that nothing in the build references; the first device build
-  rendered characters magenta for that reason. The two character shaders, `Halcyonic/Character
-  Body` and `Halcyonic/Soft Shape`, ship through materials in `Assets/Halcyonic/Characters/Resources`,
-  which the build always includes, so exactly the variants those materials use are compiled and
-  the Always Included Shaders list stays as it is.
+  rendered characters magenta for that reason, and a later one every kit capsule button (DEVICE's
+  D-XR-3, 2026-11-04: `Halcyonic/Kit Pill` was found by name and referenced by no asset). Every
+  Halcyonic shader ships through a material in a Resources folder, which the build always includes:
+  `Halcyonic/Character Body` and `Halcyonic/Soft Shape` through `Assets/Halcyonic/Characters/Resources`,
+  the kit's and the glaze's through `Assets/Halcyonic/UI/Resources/HalcyonicUI` (`KitPill` is loaded
+  there and copied per meaning and state, as `KitGlass` is). So exactly the variants those materials
+  use are compiled and the Always Included Shaders list stays as it is. `ShadersInBuildTests` fails
+  where shipping code names a Halcyonic shader that no Resources material references and Always
+  Included does not list, or loads a Resources material that is not there; Editor renders never show it.
 - Cost on a Quest 3, estimated
   ([character-rendering.md](../validation/character-rendering.md)): the body shader is one pass
   without keywords, about 160 to 185 arithmetic operations and at most two texture reads per

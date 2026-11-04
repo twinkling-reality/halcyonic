@@ -14,7 +14,11 @@ namespace Halcyonic.XR.UI
     /// </summary>
     public sealed class KitPill : MonoBehaviour
     {
-        private const string ShaderName = "Halcyonic/Kit Pill";
+        /// <summary>
+        /// The Resources material that keeps <c>Halcyonic/Kit Pill</c> in the player build, which strips a shader no asset
+        /// references; each <c>(Meaning, State)</c> draws with its own copy.
+        /// </summary>
+        private const string MaterialPath = "HalcyonicUI/KitPill";
 
         private static readonly int Stop0Id = Shader.PropertyToID("_Stop0");
         private static readonly int Stop1Id = Shader.PropertyToID("_Stop1");
@@ -84,18 +88,17 @@ namespace Halcyonic.XR.UI
             var unit = KitGlass.Units(1f);
             if (!Materials.TryGetValue((meaning, state), out var material) || material == null)
             {
-                var shader = Shader.Find(ShaderName);
-                if (shader == null)
+                // Found by name alone the shader was stripped from the player build, and every capsule drew magenta (D-XR-3).
+                var template = Resources.Load<Material>(MaterialPath);
+                if (template != null) material = new Material(template);
+                else
                 {
-                    Debug.LogError("Halcyonic: the shader " + ShaderName + " is missing, so glossy capsule buttons cannot render.");
+                    Debug.LogError("Halcyonic: the material Resources/" + MaterialPath + " is missing, so glossy capsule buttons cannot render.");
                     var fallback = Shader.Find("Hidden/InternalErrorShader");
-                    shader = fallback != null ? fallback : Shader.Find("Sprites/Default");
+                    material = new Material(fallback != null ? fallback : Shader.Find("Sprites/Default"));
                 }
-                material = new Material(shader)
-                {
-                    name = "Kit pill " + meaning + " " + state,
-                    enableInstancing = true,
-                };
+                material.name = "Kit pill " + meaning + " " + state;
+                material.enableInstancing = true;
                 var stops = KitPillMaterial.Stops(meaning);
                 material.SetVector(Stop0Id, StopVector(meaning, stops[0].At, state));
                 material.SetVector(Stop1Id, StopVector(meaning, stops[1].At, state));
