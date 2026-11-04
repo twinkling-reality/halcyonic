@@ -146,6 +146,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(label + "the waiting approval did not open armed at Waiting (" + armed + ")");
                 if (sends != 0) failures.Add(label + "arming the approval sent " + sends);
 
+                // A launch lays the file out again in its first seconds, which drops the arm (DEVICE, 2026-11-04): the
+                // preset presses Approve again while nothing is armed, and never once it is armed, as that would confirm.
+                file?.Reflow();
+                if (file?.Steering.Armed != null) failures.Add(label + "a layout did not drop the arm, so the hold went unchecked");
+                if (!CapturePresets.Rearm(director, waiting.Execution.ExecutionId) || file?.Steering.Armed != WorkspaceAction.Approve)
+                    failures.Add(label + "the preset did not arm the approval again after a layout dropped it");
+                if (!CapturePresets.Rearm(director, waiting.Execution.ExecutionId) || file?.Steering.Armed != WorkspaceAction.Approve)
+                    failures.Add(label + "the arm did not hold");
+                if (sends != 0) failures.Add(label + "holding the arm sent " + sends);
+
                 // The running task composing, with the agent chosen by its id: no keyboard, nothing sent.
                 var runtimeId = snapshot.Runtimes.First().RuntimeId;
                 var composing = Apply(CapturePresets.Parse("task:" + running.Execution.ExecutionId + ":activity", true, runtimeId, false, false));
