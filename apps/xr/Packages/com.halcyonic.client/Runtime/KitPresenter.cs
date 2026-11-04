@@ -194,7 +194,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static bool AtRest(WorkspacePresentation workspace) =>
             workspace.Execution?.Status is ExecutionStatus.Completed or ExecutionStatus.Failed or ExecutionStatus.Interrupted or ExecutionStatus.Unknown
-            && !workspace.Commands.Any(command => command.Waits || command.Status == CommandStatus.Accepted);
+            && !FileScreens.RequestPending(workspace);
 
         /// <summary>
         /// The run Send would start on <paramref name="choice"/> instead of instructing the task's execution: null where

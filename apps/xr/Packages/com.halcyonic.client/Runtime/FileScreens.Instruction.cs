@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
 {
@@ -21,6 +22,8 @@ namespace Halcyonic.Client
         public const string InstructionNotRead = "Read Full Instruction";
         public const string InstructionEmpty = "Write Instruction First";
         public const string InstructionChanged = "Not Sent · Task Changed";
+        /// <summary>Why Send waits while a request of this client's to the task is under way: nothing more goes until it is taken or refused.</summary>
+        public const string RequestUnderWay = "Request Under Way";
 
         /// <summary>The composer's caption over the person's own words.</summary>
         public const string YourInstruction = "Your Instruction";
@@ -69,15 +72,23 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// Why no instruction can be sent to the work now, whatever is written: it waits on an approval first, or it
-        /// takes no instructions, in production's words; null while it takes one.
+        /// Why no instruction can be sent to the work now, whatever is written: it waits on an approval first, a request of
+        /// this client's to it is still under way, or it takes no instructions, in production's words; null while it takes one.
         /// </summary>
         public static string? WhyNoInstruction(WorkspacePresentation workspace)
         {
             if (WorkspaceText.NeedFromYou(workspace) != null) return "Answer Approval First";
+            if (RequestPending(workspace)) return RequestUnderWay;
             if (!workspace.Actions.Contains(WorkspaceAction.Instruct)) return WorkspaceText.WhyNoActions(workspace) ?? "Not Taking Instructions";
             return null;
         }
+
+        /// <summary>
+        /// Whether a request of this client's to the task is still under way: being sent, or accepted and not yet confirmed.
+        /// A start pending leaves the old execution at rest, so an instruction now would set it going beside the new run.
+        /// </summary>
+        public static bool RequestPending(WorkspacePresentation workspace) =>
+            workspace.Commands.Any(command => command.Waits || command.Status == CommandStatus.Accepted);
 
         public static string? InstructionSendReason(WorkspacePresentation workspace, FileScreen screen)
         {

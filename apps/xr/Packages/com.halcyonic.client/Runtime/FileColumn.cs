@@ -534,8 +534,9 @@ namespace Halcyonic.Client
                 return;
             }
             notice = null;
-            // An answer sent shows how it goes with the activity: sent, then taken, refused or not confirmed.
-            if (command is ExecutionSendInstructionCommand) Screen.Instruction.Close();
+            // An answer sent shows how it goes with the activity: sent, then taken, refused or not confirmed. A start takes the
+            // draft as the new run's instruction, so it closes too, and the same words cannot go again to the run at rest.
+            if (command is ExecutionSendInstructionCommand or ExecutionStartCommand) Screen.Instruction.Close();
             if (command is ExecutionAnswerQuestionCommand) Screen.Section = FileSection.Activity;
             if (WorkspaceActs.Of(command) is WorkspaceAct act) acted?.Invoke(act);
         }

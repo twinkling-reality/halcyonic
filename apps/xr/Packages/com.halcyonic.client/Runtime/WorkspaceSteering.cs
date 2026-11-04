@@ -253,6 +253,7 @@ namespace Halcyonic.Client
         {
             if (!draft.Open || draft.ExecutionId != workspace.Execution?.ExecutionId) return SteeringOutcome.Explain(FileScreens.InstructionChanged);
             if (WorkspaceText.NeedFromYou(workspace) != null) return SteeringOutcome.Explain("Not Sent · Answer Approval First");
+            if (FileScreens.RequestPending(workspace)) return SteeringOutcome.Explain("Not Sent · " + FileScreens.RequestUnderWay);
             if (!draft.Read) return SteeringOutcome.Explain(draft.Words.Length == 0 ? FileScreens.InstructionEmpty : FileScreens.InstructionNotRead);
             if (newRun != null && newRun.ModelRequired && newRun.ModelRef == null) return SteeringOutcome.Explain(ChooseAModel);
             StopTyping();
@@ -273,6 +274,7 @@ namespace Halcyonic.Client
             Typing = false;
             var instruction = text?.Trim() ?? "";
             if (instruction.Length == 0) return SteeringOutcome.Explain("Not Sent · Nothing Typed");
+            if (FileScreens.RequestPending(workspace)) return SteeringOutcome.Explain("Not Sent · " + FileScreens.RequestUnderWay);
             if (!workspace.Actions.Contains(WorkspaceAction.Instruct))
             {
                 return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? NoInstructions);
