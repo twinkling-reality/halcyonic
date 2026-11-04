@@ -116,6 +116,37 @@ file rebuilt on every draw, so the frame drawn never stood. Lane W fixed that in
 `WorkspaceRender`'s judge walk (`far-3s judge 1 bar` to `12 closed`) draws the same steps from the
 eyes on the far Quest 3S stage. Each step is held to the plane's checks at both text sizes.
 
+### The judge path with the kit (2026-11-04)
+
+Since KIT-ON (2026-11-03) the kit draws a task's file on the headset by default, and the release
+player runs a spatial workspace. `WorkspaceRender.JudgeKitWalkCheck` walks that path as the release
+player runs it: no token and no control plane, so the real `DemonstrationFallback` plays the bundled
+recording (the recorded run first, where one is bundled), fast; the director set up as the release
+`WorkspaceDirector` sets it up; every press on the kit's own control where the kit draws the file, and
+on the frame drawn otherwise; every shot held to the kit's checks or the spatial workspace's, inside a
+Quest 3S field at Standard and Larger text, and every label scanned for brand names. Its renders land
+in `Builds/JudgeKitRenders`. The walk: Projects at launch, the closed workspace saying a task needs you
+and its Workspace switch, Tasks with the waiting task first, the question read and Send answer, the
+request with Yes only once read (the kit's Confirm arrives locked a moment), the failed checks, Tell
+it and the correction round, the passing checks, the end and the restart, New project's companion,
+Usage and Settings, each reached through the Workspace menu as a person reaches them.
+
+What it showed on main 5a2f699c (JUDGE, 2026-11-04):
+
+- At Standard text the whole walk passes: 30 shots, 10 drawn by the kit (the question, the review,
+  the approval and its confirm, Activity and the composer), the rest by the file's and the menu's
+  own views.
+- At Larger text the instruction review that Tell it opens is drawn by the file's views, measured at
+  one row a part in two parts, and the file hands a new frame on every update, so its Next part never
+  stands to be pressed and Send never comes: the correction round can't be finished. Seen in the
+  Editor; not yet on the headset.
+- With a recorded run bundled, the workspace's context column says "Demo" while the recorded run
+  plays (`MenuDirector` names any on-device recording Demo), where ADR 0035 says Recorded; the run's
+  Activity opens on its first command under the runtime's own tool name; and after the recorded run
+  gives way to the demonstration, the Workspace row on Tasks took no press in the Editor.
+- Pages outside the task's file, and the file's Checks and Tell it pages, still draw in the older
+  views beside the kit's.
+
 ## Gaps against today's product
 
 | Area | Today in the judge build | Evidence | Who closes it |
