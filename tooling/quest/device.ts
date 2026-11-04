@@ -28,7 +28,7 @@
  *   pnpm quest:device -- record --seconds <n> --sync-is-off [--out <dir>]
  *   pnpm quest:device -- record start --sync-is-off, later record stop [--out <dir>]
  *     a recording through Meta's capture service, pulled into --out with <clip>.sha256 beside it
- *   pnpm quest:device -- logs [--out <file>]         Halcyonic's own lines, its process only
+ *   pnpm quest:device -- logs [--out <file>] [--package <p>]   Halcyonic's own lines, its process only
  *   pnpm quest:device -- preview <project id>        the project's checked copy in Quest Browser
  *   pnpm quest:device -- preview stop                the reverse removed, the browser stopped if started
  *
@@ -1108,8 +1108,10 @@ async function record(): Promise<void> {
 const KEPT = /( Unity\s*: Halcyonic|OpenXR_SessionImpl: PostSessionStateChange| VrApi\s*: FPS=)/;
 
 async function logs(): Promise<void> {
-  const pid = (await adbSaid('shell', 'pidof', PACKAGE)).trim().split(/\s+/)[0] ?? '';
-  if (!/^\d+$/.test(pid)) fail('Halcyonic is not running.');
+  if (packageName !== PACKAGE && packageName !== CHECK_PACKAGE)
+    fail(`logs reads only Halcyonic's own apps (${PACKAGE} or ${CHECK_PACKAGE}). Nothing ran.`);
+  const pid = (await adbSaid('shell', 'pidof', packageName)).trim().split(/\s+/)[0] ?? '';
+  if (!/^\d+$/.test(pid)) fail(`${packageName} is not running.`);
   const lines = (await adbSaid('logcat', '-d', '-v', 'threadtime', `--pid=${pid}`))
     .split(/\r?\n/)
     .filter((line) => KEPT.test(line));
