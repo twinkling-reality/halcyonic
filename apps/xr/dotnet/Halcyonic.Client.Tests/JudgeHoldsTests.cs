@@ -9,11 +9,12 @@ namespace Halcyonic.Client.Tests;
 
 /// <summary>
 /// A judge on the plane through the recording's timed holds: the 60 seconds its instructions are
-/// offered after the approved turn, and the 20 seconds its end holds before it starts again. While
-/// anything is open (the menu, the directed task's file, New project) neither runs, so a judge
-/// reading Changes or Checks, or talking an idea through, is never cut off; once everything has
-/// folded to the bar, each runs whole from then. Everything opens and closes through the menu's own
-/// navigator, and the player is told as the workspace's director tells it, each frame.
+/// offered after the approved turn, and the 20 seconds its end holds before it starts again. While a
+/// task's file or New project stands open beside the menu neither runs, so a judge reading Changes or
+/// Checks, or talking an idea through, is never cut off; once it closes, each runs whole from then.
+/// The workspace's own lists, open from launch, hold nothing (2026-11-04), so an ended recording gives
+/// way with the workspace open. Everything opens and closes through the menu's own navigator, and the
+/// player is told as the workspace's director tells it, each frame.
 /// </summary>
 public class JudgeHoldsTests
 {
@@ -68,7 +69,7 @@ public class JudgeHoldsTests
     }
 
     [Test]
-    public async Task NewProjectKeptOpenPastBothHoldsStaysAsItIsAndTheMenuAloneStillHolds()
+    public async Task NewProjectKeptOpenPastBothHoldsStaysAsItIsAndTheOpenWorkspaceAloneHoldsNothing()
     {
         player = new DemonstrationPlayer(Demonstration.Recording(), Samples.Client, new DemonstrationOptions { Speed = Speed });
         player.Session.Start();
@@ -95,19 +96,14 @@ public class JudgeHoldsTests
         Assert.That((player.Plays, player.Ended), Is.EqualTo((1, true)), "the end still holds");
         Assert.That(host.Navigator.Beside, Is.SameAs(host.NewProject), "New project is still open");
 
-        // New project closed, the menu still open on Projects: it still holds.
+        // New project closed, the workspace still open on Projects, as the release build always is: the end gives way.
+        var closing = Stopwatch.StartNew();
         host.Navigator.CloseBeside();
         Follow(host);
-        Assert.That((host.Navigator.IsOpen, player.Reading), Is.EqualTo((true, true)), "the menu alone is open");
-        await Frames(host, EndHold * 4);
-        Assert.That((player.Plays, player.Ended), Is.EqualTo((1, true)), "the end still holds under the menu");
-
-        var folding = Stopwatch.StartNew();
-        host.Navigator.CloseMenu();
-        Follow(host);
-        Assert.That(player.Reading, Is.False, "everything has folded to the bar");
-        await Until(host, () => player.Plays == 2, "the demonstration starts again");
-        Assert.That(folding.Elapsed, Is.GreaterThanOrEqualTo(EndHold), "the hold ran whole from the fold");
+        Assert.That((host.Navigator.IsOpen, player.Reading), Is.EqualTo((true, false)), "the workspace's lists alone hold nothing");
+        await Until(host, () => player.Plays == 2, "the demonstration starts again with the workspace open");
+        Assert.That(closing.Elapsed, Is.GreaterThanOrEqualTo(EndHold), "the hold ran whole from the close");
+        Assert.That(host.Navigator.IsOpen, Is.True, "the workspace stayed open throughout");
     }
 
     /// <summary>Plays to the approval, then opens the directed task's file from Tasks, as a judge does.</summary>
@@ -137,19 +133,20 @@ public class JudgeHoldsTests
     /// </summary>
     private async Task<TimeSpan> CloseAndWaitForTheStartAgainAsync(DemonstrationMenuHost host)
     {
+        var closing = Stopwatch.StartNew();
         host.Press(MenuColumn.File, Footer.Close);
         Follow(host);
-        Assert.That((host.Navigator.Beside, player!.Reading), Is.EqualTo(((IMenuColumn?)null, true)), "the file is closed and the menu still holds");
-        var closing = Stopwatch.StartNew();
-        host.Navigator.CloseMenu();
-        Follow(host);
-        Assert.That(player.Reading, Is.False, "everything has folded to the bar");
+        Assert.That((host.Navigator.Beside, host.Navigator.IsOpen, player!.Reading), Is.EqualTo(((IMenuColumn?)null, true, false)),
+            "the file is closed; the workspace stays open and holds nothing");
         await Until(host, () => player.Plays == 2, "the demonstration starts again");
         return closing.Elapsed;
     }
 
-    /// <summary>As the workspace's director tells the player each frame: whether anything is open on the plane.</summary>
-    private void Follow(DemonstrationMenuHost host) => player!.Reading = host.Navigator.ShowsAnything;
+    /// <summary>
+    /// As the workspace's director tells the player each frame (WorkspaceDirector.FollowBeside): a task's file or New
+    /// project open beside a workspace that is not compact.
+    /// </summary>
+    private void Follow(DemonstrationMenuHost host) => player!.Reading = !host.Navigator.IsCompact && host.Navigator.Beside != null;
 
     /// <summary>Plays frames for <paramref name="time"/>, as the game loop does.</summary>
     private async Task Frames(DemonstrationMenuHost host, TimeSpan time)

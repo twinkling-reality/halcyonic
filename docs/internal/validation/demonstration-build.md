@@ -164,7 +164,7 @@ What it showed on main 5a2f699c (JUDGE, 2026-11-04):
 | Sound cues | Play as live work does (`StageSound`) | `StageSound.cs` | Headset check |
 | Icons | On badges, marks and actions, as live | Stage and workspace renders | None |
 | Starting again | Closed 2026-10-02: after a pause it goes on where it stood; only after its end does it start again | `DemonstrationTransport.Resume` | None |
-| The holds | Closed 2026-10-08 (the coordinator's call): the 60 s instruction hold and the 20 s end hold do not run while anything is open on the plane (the menu, a task's file, New project or a side panel) and run whole once it has folded to the bar, so a judge reading Changes or Checks, or browsing Projects, is never cut off | `DemonstrationPlayer.Reading`, `JudgeHoldsTests` | None |
+| The holds | Closed 2026-10-08 (the coordinator's call), changed 2026-11-04 (the lead, on JUDGE's ask): the 60 s instruction hold and the 20 s end hold do not run while a task's file or New project is open and run whole once it closes, so a judge reading Changes or Checks is never cut off; the workspace's lists, open from launch, hold nothing, so the recorded run gives way to the demonstration with the workspace open | `DemonstrationPlayer.Reading`, `JudgeHoldsTests` | None |
 
 ## Names a judge reads
 

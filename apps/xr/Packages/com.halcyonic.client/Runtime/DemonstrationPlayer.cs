@@ -106,11 +106,11 @@ namespace Halcyonic.Client
         private DemonstrationTransport? playing;
 
         /// <summary>
-        /// Something is open on the plane (the menu, a task's file, New project or a side panel), as the
-        /// workspace's director says each frame. While it is, a hold the recording times (an end's
-        /// before it starts again, or the time its instructions are offered) does not run, so a person
-        /// reading Changes or Checks, or browsing Projects, is never cut off; once everything has folded
-        /// to the bar, the hold runs whole from then. A hold that waits for an answer is unchanged.
+        /// A task's file or New project stands open beside the menu, as the workspace's director says each
+        /// frame. While it does, a hold the recording times (an end's before it starts again, or the time
+        /// its instructions are offered) does not run, so a person reading Changes or Checks, or talking
+        /// an idea through, is never cut off; once it closes, the hold runs whole from then. The workspace's
+        /// own lists, open from launch, hold nothing (2026-11-04). A hold that waits for an answer is unchanged.
         /// </summary>
         public bool Reading
         {

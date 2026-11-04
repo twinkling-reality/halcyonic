@@ -84,7 +84,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 // As ControlPlaneConnection loads it with no control plane configured: the recorded run first where the build
                 // has one, the demonstration after it (looping only when it plays alone). Played fast: the holds that wait
-                // for an answer still wait, and the timed ones still wait while anything is open (Reading).
+                // for an answer still wait, and the timed ones still wait while a task's file is open (Reading).
                 DemonstrationPlayer? Load(string resource, bool recordedRun, bool loop)
                 {
                     var asset = Resources.Load<TextAsset>(resource);
@@ -166,7 +166,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // A frame of the game loop: the session pumped and its events kept, the timed holds told whether anything is open.
                 void Pump()
                 {
-                    if (fallback.Player is DemonstrationPlayer player) player.Reading = navigator.ShowsAnything;
+                    if (fallback.Player is DemonstrationPlayer player) player.Reading = !navigator.IsCompact && navigator.Beside != null; // As WorkspaceDirector.FollowBeside tells it.
                     var changes = fallback.Pump();
                     if (changes.Resynchronized && (State()?.Journal?.JournalId != journal || changes.Rewound))
                     {
