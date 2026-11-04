@@ -9659,7 +9659,8 @@
                   "document_listener",
                   "canvas_listener",
                   "xr_input_read",
-                  "gamepad_read"
+                  "gamepad_read",
+                  "default_world"
                 ]
               },
               "file": {

@@ -78,3 +78,20 @@ describe("the scan of a new app's source for input read around the starter's lay
     assert.deepEqual(await scanSource(many), { scanned: 'partial', items: [] });
   });
 });
+
+describe("the scan says when a game is still set in the starter's default world (W1)", () => {
+  test('notes setupLook with no world or the meadow by name, and not a world the game picked or made', async (t) => {
+    const root = project(t, {
+      'src/index.ts': [
+        'setupLook(world);',
+        "setupLook(world, 'meadow');",
+        "setupLook(world, 'night');",
+        "setupLook(world, { ...worlds.seaside, name: 'lagoon' });",
+      ].join('\n'),
+    });
+    assert.deepEqual((await scanSource(root)).items, [
+      { kind: 'default_world', file: 'src/index.ts', line: 1 },
+      { kind: 'default_world', file: 'src/index.ts', line: 2 },
+    ]);
+  });
+});

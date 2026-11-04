@@ -123,13 +123,17 @@ export const CheckVr = Type.Object(
 );
 export type CheckVr = Static<typeof CheckVr>;
 
-/** What the scan of the project's source noticed about input read around the starter's layer. */
+/**
+ * What the scan of the project's source noticed: input read around the starter's layer, or a game
+ * still set in the starter's default world (`default_world`, W1), which every new game shares.
+ */
 export const CheckNoteKind = Type.Enum([
   'window_listener',
   'document_listener',
   'canvas_listener',
   'xr_input_read',
   'gamepad_read',
+  'default_world',
 ]);
 export type CheckNoteKind = Static<typeof CheckNoteKind>;
 

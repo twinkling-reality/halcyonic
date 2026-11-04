@@ -19,12 +19,15 @@ const PATTERNS: readonly (readonly [CheckNoteKind, RegExp])[] = [
   ['canvas_listener', new RegExp(String.raw`\b(canvas|domElement)${LISTENS}`)],
   ['xr_input_read', /\binput\s*\.\s*xr\b/],
   ['gamepad_read', /\bnavigator\s*\.\s*getGamepads\b|\.\s*gamepads?\b/],
+  // The starter's look set up with no world, or the default's by name: the meadow every new game shares (W1).
+  ['default_world', /\bsetupLook\s*\(\s*\w+\s*(,\s*['"`]meadow['"`]\s*)?\)/],
 ];
 
 /**
  * Reads the project's `src/` for input read around the starter's layer: listeners on the window,
- * the document or the canvas, and controllers read directly. Never follows a link; a note is never a
- * pass or a fail by itself (M1.8b).
+ * the document or the canvas, and controllers read directly; and for a game still set in the
+ * starter's default world (W1). Never follows a link; a note is never a pass or a fail by itself
+ * (M1.8b).
  */
 export async function scanSource(project: string): Promise<CheckNotes> {
   const items: CheckNotes['items'][number][] = [];
