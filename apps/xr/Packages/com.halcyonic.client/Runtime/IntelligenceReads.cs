@@ -188,6 +188,12 @@ namespace Halcyonic.Client
         /// <summary>Why there is no answer before the recording is read.</summary>
         public const string StillBeingRead = "Demo · Still Reading";
 
+        /// <summary>
+        /// Why a recorded run has no answer: it never carries an understanding or a measurement read (ADR 0035: nothing
+        /// simulated), so nothing is wrong and the pages say so calmly, never as a failure.
+        /// </summary>
+        public const string NotRecorded = "Not Recorded";
+
         private readonly DemonstrationPlayer player;
 
         internal DemonstrationReads(DemonstrationPlayer player)
@@ -208,6 +214,7 @@ namespace Halcyonic.Client
             {
                 return Task.FromException<IntelligenceRead<T>>(new UnaskedReadException(StillBeingRead));
             }
+            if (recording.IsRecordedRun) return Task.FromException<IntelligenceRead<T>>(new UnaskedReadException(NotRecorded));
             var (node, played) = player.Where;
             var answer = find(recording, node, played);
             return answer == null
