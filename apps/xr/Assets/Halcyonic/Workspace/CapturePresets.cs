@@ -19,12 +19,29 @@ namespace Halcyonic.XR.Workspace
     /// never approves, denies, answers, starts or previews anything; it arms only where a confirm step stands before the
     /// send, as an approval's always does. Ids and fixed words only: extras that are neither are ignored.
     /// It waits for the live snapshot to hold the id; one fixed log line then says what it applied, or that it found
-    /// nothing, and the app is as a person would have left it.
+    /// nothing, and the app is as a person would have left it. An armed approval is said only once it has held for
+    /// <see cref="HoldSeconds"/>, pressed again while the launch's layouts drop it.
     /// </summary>
     public sealed class CapturePresets : MonoBehaviour
     {
         /// <summary>How long it waits for the live snapshot to hold the id before it says it found nothing.</summary>
         private const float WaitSeconds = 60f;
+
+        /// <summary>
+        /// How long an armed approval must stand unbroken before the preset says so. A launch lays the file out again in
+        /// its first seconds (the room, the stage, the composer's geometry), and each layout drops an armed confirmation
+        /// ("Not Sent · Window Changed"), so the preset presses Approve again until the arm holds (DEVICE, 2026-11-04).
+        /// </summary>
+        public const float HoldSeconds = 3f;
+
+        /// <summary>How long it keeps arming the approval again before it says the approval is not armed.</summary>
+        private const float ArmSeconds = 30f;
+
+        /// <summary>The words that end what <see cref="Apply"/> returns when it armed the approval.</summary>
+        public const string ArmedWords = ", approval armed";
+
+        /// <summary>The words that end what <see cref="Apply"/> returns when it could not arm the approval.</summary>
+        public const string NotArmedWords = ", approval not armed";
 
         /// <summary>What <see cref="Apply"/> returns where the snapshot holds what the preset names but nothing opened.</summary>
         public const string Nothing = "";
@@ -52,6 +69,9 @@ namespace Halcyonic.XR.Workspace
 
         private Preset preset = null!;
         private float waited;
+        private string? applied;
+        private float arming;
+        private float held;
 
         /// <summary>An id as the device tool can pass it: letters, digits and <c>._:/-</c> only, never a name.</summary>
         public static bool IsId(string? text) => !string.IsNullOrEmpty(text) && text!.Length <= 128
@@ -103,14 +123,58 @@ namespace Halcyonic.XR.Workspace
         {
             waited += Time.unscaledDeltaTime;
             var director = FindAnyObjectByType<WorkspaceDirector>();
+            if (applied != null)
+            {
+                // The approval armed: it holds once it has stood unbroken, pressed again while a layout drops it.
+                arming += Time.unscaledDeltaTime;
+                var holds = director != null && director.Menu != null && Rearm(director.Menu, preset.Execution);
+                held = holds ? held + Time.unscaledDeltaTime : 0f;
+                if (held < HoldSeconds && arming < ArmSeconds) return;
+                if (held < HoldSeconds) applied = applied.Substring(0, applied.Length - ArmedWords.Length) + NotArmedWords;
+                Say(applied);
+                return;
+            }
             var session = director != null ? director.GetComponent<ControlPlaneConnection>().Session : null;
-            var applied = director != null && director.Menu != null && session != null && session.SnapshotCurrent
+            var now = director != null && director.Menu != null && session != null && session.SnapshotCurrent
                 ? Apply(director.Menu, director.Presentation, session.State, preset) : null;
-            if (applied == null && waited < WaitSeconds) return;
+            if (now == null && waited < WaitSeconds) return;
+            if (preset.Arm && now != null && now.EndsWith(ArmedWords, StringComparison.Ordinal))
+            {
+                applied = now;
+                return;
+            }
+            Say(now);
+        }
+
+        private void Say(string? applied)
+        {
             Debug.Log(string.IsNullOrEmpty(applied)
                 ? "Halcyonic: capture preset found nothing to open; staying on Projects."
                 : "Halcyonic: capture preset applied: " + applied + ".");
             Destroy(gameObject);
+        }
+
+        /// <summary>
+        /// Whether the task's file stands at its approval, armed, pressing Approve again first where the arm was dropped.
+        /// It presses only while nothing is armed, as a second press on an armed approval would confirm it.
+        /// </summary>
+        public static bool Rearm(MenuDirector menu, string? execution)
+        {
+            if (execution == null || menu.Navigator.Beside is not FileColumn file || file.Now is not WorkspacePresentation now
+                || now.Execution?.ExecutionId != execution) return false;
+            return Arm(file, now);
+        }
+
+        /// <summary>
+        /// The person's Approve press, which arms: an approval is confirmed whatever the policy
+        /// (WorkspacePresenter.AlwaysConfirmed), so the confirming bar shows and nothing is sent until its Yes, which
+        /// no preset presses. Checked all the same, so that a press which would send is never made.
+        /// </summary>
+        private static bool Arm(FileColumn file, WorkspacePresentation now)
+        {
+            if (now.Actions.Contains(WorkspaceAction.Approve) && now.RequiresConfirmation(WorkspaceAction.Approve) && file.Steering.Armed == null)
+                file.Act(FileScreens.Approve, null);
+            return file.Steering.Armed == WorkspaceAction.Approve;
         }
 
         /// <summary>
@@ -144,15 +208,7 @@ namespace Halcyonic.XR.Workspace
                 }
                 else words += ", not composing";
             }
-            if (preset.Arm)
-            {
-                // The person's Approve press, which arms: an approval is confirmed whatever the policy
-                // (WorkspacePresenter.AlwaysConfirmed), so the confirming bar shows and nothing is sent until its Yes, which
-                // no preset presses. Checked all the same, so that a press which would send is never made.
-                if (now.Actions.Contains(WorkspaceAction.Approve) && now.RequiresConfirmation(WorkspaceAction.Approve) && file.Steering.Armed == null)
-                    file.Act(FileScreens.Approve, null);
-                words += file.Steering.Armed == WorkspaceAction.Approve ? ", approval armed" : ", approval not armed";
-            }
+            if (preset.Arm) words += Arm(file, now) ? ArmedWords : NotArmedWords;
             return words;
         }
 

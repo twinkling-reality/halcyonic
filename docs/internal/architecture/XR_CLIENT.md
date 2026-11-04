@@ -2459,9 +2459,13 @@ compile's workspace assembly). Its extras are ids and fixed words only. It chang
 alone, through the director's own routes (`OpenFile` with a section, `ShowProjectScreen`,
 `SelectRuntime`, the instruction restored without the keyboard, and the person's Approve press, which
 always arms an approval's confirm step and never sends), waits for the live snapshot to hold the id,
-and logs one fixed line. The check applies each preset to a director with a counting submit and requires
-nothing sent, an unknown id to wait, and the approval armed with nothing sent even under a
-low-consequence approval policy.
+and logs one fixed line. An armed approval is said only once the arm has stood unbroken for three
+seconds: a launch lays the file out again in its first seconds (the room, the stage, the composer's
+geometry), each layout drops an armed confirmation ("Not Sent · Window Changed"), and the preset presses
+Approve again while nothing is armed, never once it is, as that press would confirm (2026-11-04). The
+check applies each preset to a director with a counting submit and requires nothing sent, an unknown id
+to wait, the approval armed with nothing sent even under a low-consequence approval policy, and the arm
+pressed again after a layout drops it, with nothing sent.
 
 ### The room of projects' placement (2026-10-29)
 
