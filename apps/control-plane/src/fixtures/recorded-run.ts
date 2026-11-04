@@ -48,8 +48,29 @@ export const RECORDED_CLIENT: ClientInfo = {
  */
 export const HERE_DOCUMENT_CUT = '(the here-document is left out)';
 
-/** A first line that opens a here-document: `<<` or `<<-`, then its delimiter, quoted or not. */
-const OPENS_HERE_DOCUMENT = /<<-?\s*(['"]?)[A-Za-z_][A-Za-z0-9_]*\1/;
+/** A first line that opens a here-document: `<<` or `<<-` after white space or the start, then its delimiter, quoted or not. */
+const OPENS_HERE_DOCUMENT = /(?:^|\s)<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1/;
+
+/** What stands for the starter a project began from: a starter's id can name the kit it is built on. */
+export const RECORDED_STARTER_ID = 'recorded-starter';
+
+/**
+ * A command's title with its here-document's body cut: the first line opens it, the lines up to its
+ * terminator are the body, and the terminator and what follows it are kept. A title that ends before
+ * its terminator (titles are cut at their length limit) loses everything after the first line. Null
+ * where the first line opens no here-document.
+ */
+function withoutHereDocument(title: string): string | null {
+  const lines = title.split('\n');
+  const opened = lines.length > 1 ? OPENS_HERE_DOCUMENT.exec(lines[0] as string) : null;
+  if (opened === null) return null;
+  const delimiter = opened[2] as string;
+  const ends = new RegExp(`^\\t*${delimiter}['"\\s)]*$`);
+  const terminator = lines.findIndex((line, at) => at > 0 && ends.test(line));
+  return [lines[0], HERE_DOCUMENT_CUT, ...(terminator < 0 ? [] : lines.slice(terminator))].join(
+    '\n',
+  );
+}
 
 /** The longest wait the playback keeps between two events; each event keeps its real time. */
 export const MAX_GAP_MS = 2500;
@@ -297,8 +318,9 @@ export class RecordedRunError extends OwnWordsError {
  * Prepares a real run's journal to be shown. The only changes are where files live, the runtime's
  * identity (a neutral id, kind and name, also in native types and commands), the model the runtime
  * reported, the client that sent the commands, the output of commands, which is left out
- * (`omitted_scope`, exit codes kept) because tools print their makers' names, and a here-document's
- * body in a command's tool title, which is the content the command writes ({@link HERE_DOCUMENT_CUT}).
+ * (`omitted_scope`, exit codes kept) because tools print their makers' names, a here-document's
+ * body in a command's tool title, which is the content the command writes ({@link HERE_DOCUMENT_CUT}),
+ * and the starter a project began from ({@link RECORDED_STARTER_ID}).
  *
  * Where files live: the project folder's path is rewritten in every string, what the person and the
  * agent said included, wherever it stands as a whole path, that is followed by `/`, the end of the
@@ -359,6 +381,14 @@ export function sanitizeRecordedRun(
   );
   const relative = (text: string) =>
     text.replace(whole, (_match, slash: string | undefined) => (slash ? '' : PROJECT_FOLDER));
+  // A command's tool call, as its result says: only a command's title can hold a here-document.
+  const commands = new Set(
+    events.flatMap((event) =>
+      event.event_type === 'runtime.tool.result' && event.payload.kind === 'command'
+        ? [event.payload.tool_call_id]
+        : [],
+    ),
+  );
   const cleaned = events.map((event) => {
     const copy = rewrite(structuredClone(event), (text) => relative(text)) as EventEnvelope;
     if (copy.source.kind === 'runtime' && runtimes.has(copy.source.runtime_id)) {
@@ -399,12 +429,16 @@ export function sanitizeRecordedRun(
       case 'runtime.tool.started': {
         // A command's title keeps its first line where that line opens a here-document; the body is cut.
         const title = copy.payload.title;
-        const lineEnd = title === null ? -1 : title.indexOf('\n');
-        if (title !== null && lineEnd >= 0 && OPENS_HERE_DOCUMENT.test(title.slice(0, lineEnd))) {
-          copy.payload.title = `${title.slice(0, lineEnd)}\n${HERE_DOCUMENT_CUT}`;
-        }
+        const cut =
+          title !== null && commands.has(copy.payload.tool_call_id)
+            ? withoutHereDocument(title)
+            : null;
+        if (cut !== null) copy.payload.title = cut;
         break;
       }
+      case 'project.starter_applied':
+        copy.payload.starter_id = RECORDED_STARTER_ID;
+        break;
       case 'runtime.tool.result':
         if (copy.payload.kind === 'command') {
           copy.payload.output = {
