@@ -360,28 +360,31 @@ checked. What the system services do with these events, and under which consent,
 not verified. The coordinator accepted the third path on 2026-10-08, with the owner's leave, because
 it goes only to the system service that already receives the Interaction SDK's.
 
-## Testing instructions for judges (draft for the owner, 2026-10-08)
+## Testing instructions for judges (for the submission form, 2026-11-04)
 
-For the submission form, written for the ambient first visit and the kit's first-open prompt that
-the owner approved on 2026-10-08; to be checked against the judge build at the freeze. No brand
-names. Checked against 2e3627d8 (the demonstration opening closed, lane C): steps 2 and 3 hold as
-written, and step 7 now names the closed bar's Open, since nothing opens by itself.
+Rewritten by JUDGE for the build as the Editor journey walks it on 2026-11-04 (`JudgeKitWalkCheck`,
+main 5a2f699c with Star Catcher bundled): the workspace opens on Projects, the recorded run plays
+first, the labelled demo follows. No brand names. Not yet checked on the headset; step 6 is the one
+the journey could not finish at Larger text (see "The judge path with the kit"). The 2026-10-08 draft
+described characters and a closed bar that this build no longer opens with.
 
 > Halcyonic lets you see and direct AI agents building software, from where you sit. This build
-> plays a recorded demo on the headset: it needs no computer, account or network, and nothing you
-> do reaches an agent.
+> needs no computer, account or network: it plays recordings on the headset, and nothing you do
+> reaches an agent.
 >
-> 1. Sit down and use your hands; no controllers are needed.
-> 2. Three characters stand in front of you, each a task an agent is working on. The line above them
->    says the demo is recorded.
-> 3. After a few seconds one of them reads "Waiting for you". Look at it and pinch to open its file.
-> 4. The agent asks a question: pinch an answer, then Send answer.
-> 5. It then asks to run a command: read the request to its end, then approve it.
-> 6. A check fails. Look through Changes and Checks, then use Tell it to send one of the offered
->    instructions. The agent goes again and the checks pass.
-> 7. Close puts the file away. The bar below the characters says what is waiting for you; its Open
->    shows the menu, where you can also try Projects (New project talks an idea through with an AI
->    companion), Usage and Settings.
+> 1. Sit down and use your hands; no controllers are needed. Pinch to press.
+> 2. The workspace opens in front of you. First it plays a recorded real run, marked Recorded: an
+>    agent making a small VR game, Star Catcher, from one sentence. Pinch Star Catcher, then its task,
+>    to watch what the agent did under Activity, Changes and Checks.
+> 3. When the run has ended, a demo follows, marked Demo, where you take part. Under Tasks, the task
+>    marked Needs You is waiting for you: pinch it.
+> 4. The agent asks a question: pinch an answer, then Review Answers, then Send Answer.
+> 5. It then asks to run a command: pinch Approve, then Confirm.
+> 6. A check fails. Look at Checks, then Activity. Pinch the Instruction box, choose one of the
+>    offered instructions, Review Instruction, then Send Instruction. The agent goes again and the
+>    checks pass.
+> 7. Workspace, at the foot of the left column, opens Minimize, Usage and Settings (Comfort has
+>    Larger Text). Under Projects, New Project talks an idea through with an AI companion.
 >
 > The demo waits for you at every decision and while anything is open in front of you, and starts
 > again by itself after it ends. Taking the headset off and on picks up where you were.
