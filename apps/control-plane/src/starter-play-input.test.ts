@@ -169,10 +169,30 @@ describe("the IWSDK starter's input layer", () => {
     const look = read('src/look.ts');
     assert.match(look, /NoToneMapping/);
     assert.match(look, /world\.scene\.environment = null;/);
-    assert.match(look, /world\.scene\.add\(new HemisphereLight\('#9CC8FF', '#8FC46E', 0\.55\)\);/);
-    assert.match(look, /new DirectionalLight\('#FFE9C7', 2\.45\)/);
+    // Since W1 the light is the world's: look.ts builds it from the world, and the meadow, the default, keeps ART7's.
+    assert.match(
+      look,
+      /world\.scene\.add\(new HemisphereLight\(look\.light\.sky, look\.light\.ground, look\.light\.fill\)\);/,
+    );
+    assert.match(look, /new DirectionalLight\(look\.light\.sun, look\.light\.sunStrength\)/);
     assert.match(look, /mapSize\.set\(1024, 1024\)/);
-    assert.match(look, /new DirectionalLight\('#CFE4FF', 0\.6\)/);
+    assert.match(look, /new DirectionalLight\(look\.light\.rim, look\.light\.rimStrength\)/);
+    const worlds = read('src/worlds.ts');
+    const meadow = worlds.slice(
+      worlds.indexOf('const meadow'),
+      worlds.indexOf('\n};', worlds.indexOf('const meadow')),
+    );
+    for (const line of [
+      "sky: '#9CC8FF',",
+      "ground: '#8FC46E',",
+      'fill: 0.55,',
+      "sun: '#FFE9C7',",
+      'sunStrength: 2.45,',
+      "rim: '#CFE4FF',",
+      'rimStrength: 0.6,',
+    ])
+      assert.ok(meadow.includes(line), line);
+    assert.doesNotMatch(meadow, /rimAt:/);
     assert.doesNotMatch(read('public/scenes/main.iwsdk.scene.json'), /IBLGradient/);
     assert.match(read('src/index.ts'), /setupLook\(world\)/);
   });

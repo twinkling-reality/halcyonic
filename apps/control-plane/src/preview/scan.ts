@@ -21,10 +21,11 @@ const PATTERNS: readonly (readonly [CheckNoteKind, RegExp])[] = [
   ['gamepad_read', /\bnavigator\s*\.\s*getGamepads\b|\.\s*gamepads?\b/],
   // A call that sets the starter's look up with no world, or the default's by name: the meadow every new game
   // shares (W1). Only a statement that starts with the call, so the starter's own error text, which names
-  // `setupLook(world)` in a string, and a comment are never noted (AUDIT W1B-1).
+  // `setupLook(world)` in a string, and a comment are never noted (AUDIT W1B-1). The name after `const`
+  // starts with a non-space, so the pattern never backtracks over white space (AUDIT W1B-FIX-1).
   [
     'default_world',
-    /^\s*(?:(?:const|let|var)\s+[^=]+=\s*)?(?:await\s+)?setupLook\s*\(\s*\w+\s*(?:,\s*['"`]meadow['"`]\s*)?\)/,
+    /^\s*(?:(?:const|let|var)\s+[^=\s][^=]*=\s*)?(?:await\s+)?setupLook\s*\(\s*\w+\s*(?:,\s*['"`]meadow['"`]\s*)?\)/,
   ],
 ];
 

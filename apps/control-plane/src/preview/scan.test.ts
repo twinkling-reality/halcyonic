@@ -127,3 +127,26 @@ describe("the default world's note on the starter's own template (AUDIT W1B-1)",
     assert.deepEqual(await scanSource(root), { scanned: 'full', items: [] });
   });
 });
+
+describe("the default world's pattern stays linear (AUDIT W1B-FIX-1)", () => {
+  test('a megabyte line of const and spaces scans within a second, with no note', async (t) => {
+    const root = project(t, { 'src/x.ts': `const${' '.repeat(SCAN_LIMITS.bytes - 16)}` });
+    const started = performance.now();
+    const notes = await scanSource(root);
+    const took = performance.now() - started;
+    assert.deepEqual(notes, { scanned: 'full', items: [] });
+    assert.ok(took < 1000, `took ${Math.round(took)} ms`);
+  });
+
+  test('still notes a call after a declaration, and not a picked world', async (t) => {
+    const root = project(t, {
+      'src/index.ts': [
+        'const { island } = setupLook(world);',
+        "const look = setupLook(world, 'garden');",
+      ].join('\n'),
+    });
+    assert.deepEqual((await scanSource(root)).items, [
+      { kind: 'default_world', file: 'src/index.ts', line: 1 },
+    ]);
+  });
+});
