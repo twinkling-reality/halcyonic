@@ -40,11 +40,12 @@ namespace Halcyonic.XR.Workspace
         public event Action? ScreenBarToggled;
 
         /// <summary>
-        /// Shows a picked project's screen on <paramref name="bearing"/> from <paramref name="eyes"/>, as wide as the kit's
-        /// <see cref="SpatialKit.ScreenDegrees"/> at <see cref="RoomLayout.ScreenDistance"/>, with its bar beneath at the
-        /// bar's own height, as wide as the screen and tilted to face the eyes. The kit draws both; this only stands them.
+        /// Shows a picked project's screen on <paramref name="bearing"/> and <paramref name="elevation"/> from <paramref name="eyes"/>,
+        /// as wide as the kit's <see cref="SpatialKit.ScreenDegrees"/> at <see cref="RoomLayout.ScreenDistance"/>, with its bar
+        /// beneath at the bar's own height, as wide as the screen and tilted to face the eyes. The kit draws both; this only
+        /// stands them.
         /// </summary>
-        public void ShowScreen(KitScreenModel model, Vector3 eyes, float bearing, string? projectId = null)
+        public void ShowScreen(KitScreenModel model, Vector3 eyes, float bearing, float elevation = 0f, string? projectId = null)
         {
             if (room == null)
             {
@@ -55,7 +56,7 @@ namespace Halcyonic.XR.Workspace
             if (RoomBar == null) RoomBar = KitScreenBar.Create(room);
             RoomScreen.Show(model);
             var at = new System.Numerics.Vector3(eyes.x, eyes.y, eyes.z);
-            var screen = RoomLayout.Screen(at, bearing, SpatialKit.ScreenDegreesAt(GlazeText.Scale), SpatialKit.ScreenHeightDegreesAt(GlazeText.Scale));
+            var screen = RoomLayout.Screen(at, bearing, SpatialKit.ScreenDegreesAt(GlazeText.Scale), SpatialKit.ScreenHeightDegreesAt(GlazeText.Scale), elevation: elevation);
             // The kit lays out in units of the viewing distance, so each view is scaled by its own distance from the eyes.
             // The bar stands lower and so farther: laid out that much narrower, it keeps the screen's width in metres and
             // its targets and words their angles. Its height can change its row count, so it is laid out until it settles.

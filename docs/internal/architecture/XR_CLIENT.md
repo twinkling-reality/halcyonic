@@ -2465,16 +2465,23 @@ distances and poses. Each `RoomPose` is a flat surface's centre, bearing from th
 size in metres, facing back along its bearing. No surface the person points at stands nearer than
 0.8 m or farther than 3 m (Meta's ray-cast reach); a distance outside that is refused.
 
-- **Screen.** A picked project's screen stands 2 m away on the bearing it is given, its middle at
-  eye height, as wide and as high as the kit's angles there: 56 by 31.5 degrees at the standard
+- **Screen.** A picked project's screen stands 2 m away on the bearing and elevation it is given,
+  square to the eyes. The director gives it the console's own direction (`MenuPlane.Direction`): the
+  look's bearing and its elevation held to 25 degrees either way (`WorkspaceFollow.MaximumPitchDegrees`),
+  plus the person's move, the plane's rule and the reading surface's. Level at eye height whatever the
+  look, it sat low in the view under a raised one, its bar cut at the bottom (DEVICE's D-XR-8, the
+  headset on a desk looking up); `RoomScreenCheck` stands it at desk height under a look raised 35
+  degrees and holds the screen and its bar inside the Quest 3S field less its margin, where a level
+  screen's bar falls outside it. It is as wide and as high as the kit's angles there: 56 by 31.5 degrees at the standard
   reading size (`SpatialKit.ScreenDegrees`), narrowed to 48 by 27 degrees at the larger reading
   size (`SpatialKit.LargerScreenDegrees`, `SpatialKit.ScreenDegreesAt`) so a one-agent shelf still
   stands beside it inside the Quest 3S field while staying above two thirds of the standard width
   (ART's LARGER-SHELF call (b), 2026-10-31).
 - **Bar.** The bar has the screen's width, so its edges are the screen's and it is never wider. It
-  stands on the screen's bearing, 2 cm nearer, its top 0.75 degrees (`BarGapDegrees`) under the
-  screen's bottom. About 19 degrees below eye level, it tilts up to face the eyes. Upright, the
-  slant and the extra distance put its targets at 3.3 to 3.5 degrees, under the kit's 3.75.
+  stands on the screen's bearing, in the screen's plane brought 2 cm nearer, its top 0.75 degrees
+  (`BarGapDegrees`) under the screen's bottom edge as the eyes see it. About 19 degrees below the
+  screen's middle (below eye level when the screen is level), it tilts up to face the eyes. Upright,
+  the slant and the extra distance put its targets at 3.3 to 3.5 degrees, under the kit's 3.75.
 - **Moment slot.** The slot stands beside the task's character, at the character's distance held
   to the reach above, a little above the character's point. It sits on the side toward where the
   person looks, its nearer edge 1.5 degrees (the workspace's clearance) beyond the character's body

@@ -100,12 +100,16 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// A picked project's screen: <paramref name="widthDegrees"/> across and <paramref name="heightDegrees"/> high, as the
-        /// eyes see it square on, at <paramref name="distance"/> on <paramref name="bearing"/>, its middle at eye height.
+        /// eyes see it square on, at <paramref name="distance"/> on <paramref name="bearing"/> and <paramref name="elevation"/>,
+        /// tilted square to the eyes. The caller stands it where the console stands, the look's elevation held within the
+        /// room's pitch (<see cref="WorkspaceFollow.MaximumPitchDegrees"/>) plus the person's move: level at eye height
+        /// whatever the look, it sat low in the view under a raised one and its bar was cut (DEVICE's D-XR-8).
         /// </summary>
-        public static RoomPose Screen(Vector3 eyes, float bearing, float widthDegrees, float heightDegrees, float distance = ScreenDistance)
+        public static RoomPose Screen(Vector3 eyes, float bearing, float widthDegrees, float heightDegrees, float distance = ScreenDistance, float elevation = 0f)
         {
             Reach(distance, nameof(distance));
-            return new RoomPose(eyes + Direction(bearing, 0f) * distance, bearing, 0f, Span(widthDegrees, distance), Span(heightDegrees, distance));
+            if (!(MathF.Abs(elevation) < 90f)) throw new ArgumentOutOfRangeException(nameof(elevation), elevation, "A screen stands within 90 degrees of level.");
+            return new RoomPose(eyes + Direction(bearing, elevation) * distance, bearing, elevation, Span(widthDegrees, distance), Span(heightDegrees, distance));
         }
 
         /// <summary>
@@ -117,14 +121,17 @@ namespace Halcyonic.Client
         public static RoomPose Bar(Vector3 eyes, RoomPose screen, float heightDegrees, float gapDegrees = BarGapDegrees)
         {
             if (!(gapDegrees >= 0f)) throw new ArgumentOutOfRangeException(nameof(gapDegrees), gapDegrees, "A gap can't be negative.");
-            var screenDistance = Flat(screen.Centre - eyes);
-            var distance = screenDistance - BarForward;
+            var reach = Vector3.Distance(screen.Centre, eyes);
+            var distance = reach - BarForward;
             Reach(distance, nameof(screen));
-            var top = MathF.Atan2(screen.Bottom - eyes.Y, screenDistance) - gapDegrees * RadiansPerDegree;
+            // The screen stands square to the eyes, so its bottom edge is half its height's angle under its own elevation.
+            var screenPitch = screen.Pitch * RadiansPerDegree;
+            var top = screenPitch - MathF.Atan2(screen.Height / 2f, reach) - gapDegrees * RadiansPerDegree;
             var tall = Angle(heightDegrees, nameof(heightDegrees));
             var middle = top - tall / 2f;
-            // Its middle on the bearing, as far across the floor as the screen less BarForward, raised or lowered to its angle.
-            var along = distance / MathF.Cos(middle);
+            // Its middle on the bearing, where that angle meets the screen's plane brought BarForward nearer: level, as far
+            // across the floor as the screen less BarForward.
+            var along = distance / MathF.Cos(middle - screenPitch);
             var pitch = middle / RadiansPerDegree;
             return new RoomPose(eyes + Direction(screen.Bearing, pitch) * along, screen.Bearing, pitch, screen.Width, 2f * along * MathF.Tan(tall / 2f));
         }

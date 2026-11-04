@@ -67,6 +67,37 @@ public class RoomLayoutTests
         Assert.That(RoomLayout.BarGapDegrees, Is.EqualTo(0.75f));
     }
 
+    /// <summary>
+    /// DEVICE's D-XR-8: level at eye height whatever the look, the screen sat low under a raised one and its bar was cut.
+    /// Given the console's elevation it stands square to the eyes there, its bar the room's gap under its bottom edge as the
+    /// eyes see it, in its plane brought BarForward nearer.
+    /// </summary>
+    [Test]
+    public void AScreenStandsOnTheElevationItIsGivenWithItsBarBeneathItAsTheEyesSeeIt()
+    {
+        foreach (var elevation in new[] { -20f, 25f })
+        {
+            var screen = RoomLayout.Screen(Eyes, 30f, ScreenDegrees, ScreenHeightDegrees, elevation: elevation);
+            Assert.That(Vector3.Distance(screen.Centre, Eyes), Is.EqualTo(RoomLayout.ScreenDistance).Within(1e-4f), "about 2 m along that elevation");
+            Assert.That(MathF.Asin((screen.Centre.Y - Eyes.Y) / RoomLayout.ScreenDistance) * 180f / MathF.PI, Is.EqualTo(elevation).Within(1e-3f));
+            Assert.That(screen.Pitch, Is.EqualTo(elevation));
+            Assert.That(Vector3.Dot(screen.Facing, Vector3.Normalize(Eyes - screen.Centre)), Is.GreaterThan(0.9999f), "square to the eyes");
+            Assert.That(Across(screen, Eyes), Is.EqualTo(ScreenDegrees).Within(0.01f), $"elevation {elevation}");
+            var bottom = screen.Centre - screen.Up * (screen.Height / 2f);
+            Assert.That(Degrees(screen.Centre + screen.Up * (screen.Height / 2f) - Eyes, bottom - Eyes), Is.EqualTo(ScreenHeightDegrees).Within(0.01f));
+            var bar = RoomLayout.Bar(Eyes, screen, BarDegrees, GapDegrees);
+            var barTop = bar.Centre + bar.Up * (bar.Height / 2f);
+            Assert.That(Degrees(bottom - Eyes, barTop - Eyes), Is.EqualTo(GapDegrees).Within(0.01f), "the gap under the screen's bottom edge, as the eyes see it");
+            Assert.That(Degrees(barTop - Eyes, bar.Centre - bar.Up * (bar.Height / 2f) - Eyes), Is.EqualTo(BarDegrees).Within(0.01f));
+            Assert.That(Vector3.Dot(screen.Centre - bar.Centre, Vector3.Normalize(screen.Centre - Eyes)), Is.EqualTo(RoomLayout.BarForward).Within(1e-4f),
+                "in the screen's plane, slightly in front");
+            Assert.That((bar.Width, bar.Bearing), Is.EqualTo((screen.Width, screen.Bearing)));
+            Assert.That(Vector3.Dot(bar.Facing, Vector3.Normalize(Eyes - bar.Centre)), Is.GreaterThan(0.9999f), "tilted to face the eyes");
+        }
+        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screen(Eyes, 0f, ScreenDegrees, ScreenHeightDegrees, elevation: 90f));
+        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screen(Eyes, 0f, ScreenDegrees, ScreenHeightDegrees, elevation: float.NaN));
+    }
+
     [Test]
     public void AMomentPopsInOneSlotBesideItsCharacterTowardThePerson()
     {
