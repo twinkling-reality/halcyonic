@@ -25,7 +25,8 @@ Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,        
         │                             EntryText,
         │                             PeekChoice, WorkspacePlacement, SeatedPointing,
         │                             InFrontPlacement,
-        │                             ActivityLog, EventHistory, CommandFactory,
+        │                             ActivityLog, EventHistory, HistoryReads,
+        │                             CommandFactory,
         │                             IntelligenceFeed, UnderstandingPresenter,
         │                             EvaluationPresenter, IntelligenceText,
         │                             DemonstrationRecording, DemonstrationPlayer,
@@ -902,7 +903,10 @@ launch/return, process recreation and current-frame action behavior need separat
   (`GET /api/events`, paged, refused if the journal changed). It keeps every line, up to 200, of the
   32 executions most recently recorded or read and, of the rest, the last 3 and the last one that is
   not a round's, which a peek shows; opening a file reads its history again, and a tool's name is
-  kept only until its completion line (U6).
+  kept only until its completion line (U6). **`HistoryReads`** counts each task's latest read on its
+  own, so a launch that restores other tasks' panels beside the one opened, and so reads theirs too,
+  never discards the opened task's history (one count across tasks left it reading "Nothing
+  Reported", 2026-11-04).
 - **`ControlPlaneApi`** also reads what Salidium and Seorak say about an execution
   (`GetUnderstandingAsync`, `GetEvaluationAsync`). Each answer states its availability instead of
   failing. An evaluation spends three of Seorak's 60 requests a minute, so a client fetches it when

@@ -130,7 +130,7 @@ public class ActivityLogBoundTests
 
     private static string ToolCompleted(int call) => "{\"tool_call_id\":\"c" + call + "\",\"outcome\":\"succeeded\"}";
 
-    private static StoredEvent Journaled(long position, string executionId, string type, string payload) => new()
+    internal static StoredEvent Journaled(long position, string executionId, string type, string payload) => new()
     {
         Position = position,
         Event = HalcyonicJson.Deserialize<EventEnvelope>("{\"schema_version\":1,\"event_id\":\"01a0dcf1-6e6c-74af-93ca-" + position.ToString("x12")
