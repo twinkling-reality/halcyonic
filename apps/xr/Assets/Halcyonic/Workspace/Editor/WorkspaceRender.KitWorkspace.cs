@@ -249,14 +249,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 || spine[0].Rows.Count != expected.Count + (choices.Count > 3 ? 1 : 0)
                 || choices.Count > 3 && (spine[0].Rows[^1].Key != "place:Projects" || spine[0].Rows[^1].Words.Text != "More projects")
                 || spine[1].Rows.Count != 1 || spine[1].Rows[0].Key != "place:Tasks" || spine[1].Rows[0].Words.Text != "Tasks"
-                || binding.Model.SpineFoot?.Key != "workspace" || binding.Model.SpineFoot.Words.Text != "Workspace")
+                || binding.Model.SpineFoot?.Key != "workspace" || binding.Model.SpineFoot.Words.Text != "Move Workspace")
                 failures.Add(name + ": the kit's spine is not the context column's offers");
             // The context column's own words, as it lays them for the same choices.
             plane.Context.Show(choices, plane.ContextSelectedProject, plane.ContextBinding!, plane.ConnectionState);
             string? Words(string path) => plane.Context.transform.Find(path)?.GetComponentInChildren<TMP_Text>(true)?.text;
             var context = new[] { Words("Projects heading"), Words("Tasks/Label"), Words("Workspace/Label") };
             plane.Context.Hide();
-            if (!context.SequenceEqual(new[] { "Projects", "Tasks", "Workspace" }))
+            if (!context.SequenceEqual(new[] { "Projects", "Tasks", "Move Workspace" }))
                 failures.Add(name + ": the context column's words are not the spine's: " + string.Join(", ", context));
             return failures;
         }

@@ -123,7 +123,8 @@ namespace Halcyonic.XR.UI
             navigationRule.Draw(new Vector2(inner - U(1f), U(Glaze.Menu.HairlineDegrees)), 0f,
                 GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.HairlineOpacity));
             navigationRule.transform.localPosition = new Vector3(0f, y + gap / 2f, -0.0005f);
-            Control(tasks, "Tasks"); Control(workspace, "Workspace");
+            // The row opens placement, so it says so, and Workspace stands once in the column, as the mode beside Compact.
+            Control(tasks, "Tasks"); Control(workspace, "Move Workspace");
             Size = new Vector2(width, -y + padding);
             var offset = new Vector3(0f, Size.y / 2f - padding, 0f);
             foreach (Transform child in transform) if (child != face.transform) child.localPosition += offset;

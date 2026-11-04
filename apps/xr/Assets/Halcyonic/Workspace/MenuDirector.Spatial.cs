@@ -96,7 +96,7 @@ namespace Halcyonic.XR.Workspace
             var selectors = KitPresenter.ChipsOf(now, setup.Presentation.ExecutionModelDisplay(now.Runtime, now.Execution), chosen,
                 chosen != null ? setup.Presentation.SelectedModelDisplay(chosen, now.Execution) : null, State?.Runtimes);
             return KitFileBinding.Of(frame, file.Steering.Armed, now, file.Screen.Instruction.Open ? file.Screen.Instruction.Words : "",
-                setup.Session()?.Status ?? ConnectionStatus.Stopped, name, spine, new KitRowModel("workspace", LineWords.Ours("Workspace"), GlazeIcon.Move),
+                setup.Session()?.Status ?? ConnectionStatus.Stopped, name, spine, new KitRowModel("workspace", LineWords.Ours("Move Workspace"), GlazeIcon.Move),
                 selectors: selectors);
         }
 

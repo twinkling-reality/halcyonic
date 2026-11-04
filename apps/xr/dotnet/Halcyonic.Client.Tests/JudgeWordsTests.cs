@@ -86,7 +86,7 @@ public class JudgeWordsTests
             var name = selected != null && state.Projects.TryGetValue(selected, out var project) ? project.Name : "";
             var selectors = KitPresenter.ChipsOf(workspace, new WorkspacePresentationState().ExecutionModelDisplay(runtime, workspace.Execution));
             if (KitFileBinding.Of(frame, armed, workspace, "", new ConnectionStatus(ConnectionPhase.Live), name, spine,
-                    new KitRowModel("workspace", LineWords.Ours("Workspace"), GlazeIcon.Move), selectors: selectors) is not KitFileBinding binding) return;
+                    new KitRowModel("workspace", LineWords.Ours("Move Workspace"), GlazeIcon.Move), selectors: selectors) is not KitFileBinding binding) return;
             kitHeld++;
             Add(binding.Model);
             foreach (var control in binding.Controls)
