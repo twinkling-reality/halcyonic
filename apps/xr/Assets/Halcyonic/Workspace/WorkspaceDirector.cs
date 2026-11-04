@@ -38,6 +38,7 @@ namespace Halcyonic.XR.Workspace
         private static readonly (TimeZoneInfo Zone, string Note) Clock = LocalClock();
 
         private readonly ActivityLog activity = new ActivityLog();
+        private HistoryReads? historyReads;
         private readonly CommandSubmissions submissions = new CommandSubmissions();
         private readonly Dictionary<string, CharacterTarget> targets = new Dictionary<string, CharacterTarget>();
 
@@ -66,8 +67,6 @@ namespace Halcyonic.XR.Workspace
         private float nextRefresh;
         private string? shownBeside;
         private Vector3 besidePlacedAt;
-        private string historyNote = "";
-        private int historyRequests;
         private TouchScreenKeyboard? keyboard;
         private Action<string>? keyboardDone;
         private Action? keyboardDismissed;
@@ -380,7 +379,7 @@ namespace Halcyonic.XR.Workspace
             Acted?.Invoke(workstreamId, WorkspaceAct.Open);
             ReadHistory(workstreamId);
             var file = new FileColumn(host, () => Present(workstreamId), commands, IntelligenceReader,
-                execution => connection.DemonstrationInstructions(execution), () => Clock.Note + historyNote,
+                execution => connection.DemonstrationInstructions(execution), () => Clock.Note + histories.NoteFor(workstreamId),
                 act => Acted?.Invoke(workstreamId, act));
             var ownedSession = connection.Session;
             var journal = ownedSession?.State.Journal?.JournalId;
@@ -722,6 +721,9 @@ namespace Halcyonic.XR.Workspace
             return ControlPlaneSettings.Api();
         }
 
+        /// <summary>Each task's reads of its history, so one task's read never discards another's.</summary>
+        private HistoryReads histories => historyReads ??= new HistoryReads(activity);
+
         /// <summary>Reads the workstream's history, which a snapshot does not carry, into the activity.</summary>
         private void ReadHistory(string workstreamId) => Report(ReadHistoryAsync(workstreamId));
 
@@ -733,27 +735,15 @@ namespace Halcyonic.XR.Workspace
             {
                 // The recorded demonstration plays its whole history through the session, and no
                 // control plane serves its journal.
-                historyNote = "";
+                histories.NotNeeded(workstreamId);
                 return;
             }
-            var request = ++historyRequests;
-            try
-            {
-                // The control plane configured now, over the pinned transport when paired (ADR 0017).
-                var api = ControlPlaneSettings.Api() ?? throw new ControlPlaneRequestException("no control plane is configured.");
-                historyNote = " · reading earlier activity…";
-                var events = await api.ReadAllAsync(workstreamId, journal);
-                if (request != historyRequests || journal != journalId) return;
-                activity.Record(events);
-                historyNote = "";
-            }
-            catch (Exception error)
-            {
-                if (request != historyRequests) return;
-                // Live activity still arrives; say that the older part is missing, and how to read it again.
-                historyNote = " · earlier activity unavailable, reopen to try again";
+            // The control plane configured now, over the pinned transport when paired (ADR 0017).
+            var error = await histories.ReadAsync(workstreamId,
+                () => (ControlPlaneSettings.Api() ?? throw new ControlPlaneRequestException("no control plane is configured.")).ReadAllAsync(workstreamId, journal),
+                () => journal == journalId);
+            if (error != null)
                 Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this, "Halcyonic: {0}", "earlier activity could not be read: " + error.GetType().Name);
-            }
         }
 
         /// <summary>The character turns to the person and looks at them while it is peeked at or open.</summary>
