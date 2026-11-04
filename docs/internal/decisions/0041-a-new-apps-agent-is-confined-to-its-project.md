@@ -8,7 +8,8 @@
 
 A new app (ADR 0037) is made by an agent from one sentence and then opened in the headset's browser. Codex 0.157.0's
 own sandbox, `workspace-write`, limits writes to the project but reads the whole disk: an agent asked to build a game
-could read the person's keys, Halcyonic's journal or another project and write them into the page. The headset side
+could read the person's keys, Halcyonic's journal or another project and write them into the page. (Amended
+2026-11-04: `workspace-write` also writes `/tmp`. See the amendment of that date.) The headset side
 cannot close the page's way out (RUNTIME's M1.6 plan), so the reading has to be stopped on the Mac.
 
 Seatbelt profiles do not nest: Codex's own sandbox cannot start inside another one (`sandbox_apply: Operation not
@@ -185,3 +186,22 @@ commands should get a `mktemp` that reads `TMPDIR` is open ([OPEN_QUESTIONS.md](
 Tested with the pinned binary and the fake provider (`codex-runtime.e2e.test.ts`), the fake binary
 (`codex-runtime.test.ts`) and the real profile on folders of our own (`confined-temp.test.ts`)
 ([codex-capabilities.md](../validation/codex-capabilities.md)).
+
+## Amendment, 2026-11-04: the open server writes `/tmp` too (AUDIT DEMO-TMP-WRITE)
+
+The Context's "limits writes to the project" holds only for this decision's confined server. A project not made from a
+starter, such as an existing 2D game, has its agent on the open server. That server runs Codex's own `workspace-write`,
+which writes the project and also `/tmp`.
+
+- Seen on 2026-11-04 in a rehearsal on a scratch control plane: an agent on the open server wrote
+  `/private/tmp/new_index.html`, outside its project, with no request.
+- Codex's configuration documents also name `$TMPDIR` as writable under `workspace-write`
+  (`sandbox_workspace_write.exclude_slash_tmp`, `exclude_tmpdir_env_var`). That is from memory and not re-read for
+  0.157.0.
+- Such a project's executions record `confined: false` on `runtime.execution.started` (S2). The host checks only
+  projects made from a starter (`preview.ts`), so such a project has no check. A starter project with any execution on
+  the open server reads `reads_confined: false`. So nothing shown of such a project, a film included, may say its
+  agent was kept to its project.
+- Closing `/tmp` on the open server is not decided here. It would need Codex's two exclude settings and a `TMPDIR` and
+  `TMPPREFIX` of the server's own, as the confined server has; without them, here-documents and a bare `mktemp` fail
+  ([codex-capabilities.md](../validation/codex-capabilities.md)). That is a runtime change for later.
