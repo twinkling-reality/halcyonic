@@ -135,6 +135,7 @@ else if (said === 'shell dumpsys activity activities') {
     (pattern ? pattern.test(message(line)) : tag(line) === 'ActivityTaskManager') &&
     !(Number(/^(\\d+\\.\\d+) /.exec(line)?.[1]) < since)).join('\\n'));
 } else if (said === 'shell date +%s') out('1793726539');
+else if (said === 'shell pidof com.halcyonic.xr.check') out('5678');
 else if (args[0] === 'logcat') {
   const stopped = fs.readFileSync(process.env.ADB_CALLS, 'utf8').includes('STOP_INTERNAL_CAPTURE_TO_DISK');
   out(stopped && scenario.syncLogAfter !== undefined ? scenario.syncLogAfter : (scenario.syncLog ?? ''));
@@ -1144,6 +1145,31 @@ describe('pnpm quest:device, against a stand-in adb', () => {
     assert.deepEqual(
       calls.filter((call) => call.startsWith('uninstall')),
       ['uninstall com.halcyonic.xr.check'],
+    );
+  });
+
+  test("logs --package reads the check build's own process, keeping Halcyonic's lines only", async () => {
+    const { code, said, calls } = await device(
+      {
+        syncLog:
+          '11-04 20:00:00.000  5678  5700 I Unity   : Halcyonic: first frame\n11-04 20:00:00.100  5678  5700 I Other   : not kept',
+      },
+      'logs',
+      '--package',
+      'com.halcyonic.xr.check',
+    );
+    assert.equal(code, 0, said);
+    assert.ok(calls.includes('logcat -d -v threadtime --pid=5678'), calls.join('\n'));
+    assert.match(said, /Halcyonic: first frame/);
+    assert.doesNotMatch(said, /not kept/);
+  });
+
+  test("logs refuses any app but Halcyonic's own two, before reading anything", async () => {
+    const { code, said, calls } = await device({}, 'logs', '--package', 'com.oculus.browser');
+    assert.equal(code, 1, said);
+    assert.ok(
+      !calls.some((call) => call.includes('pidof') || call.startsWith('logcat')),
+      calls.join('\n'),
     );
   });
 

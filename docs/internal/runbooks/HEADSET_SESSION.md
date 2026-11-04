@@ -723,7 +723,8 @@ pnpm quest:device -- give-back
   turned the headset's media sync off, and never while the headset's log says sync is on. Every capture is pulled, its bytes checked, and only then
   removed from the headset by name. Captures show the room: keep them out of the repository.
 - `logs` keeps Halcyonic's own lines, its OpenXR session's states and the compositor's frame line,
-  from Halcyonic's process only.
+  from Halcyonic's process only; `--package com.halcyonic.xr.check` reads the check build's process
+  instead, and no other package is read.
 - `glance` opens the glance (check 3) by intent, with `launch`'s refusals; it refuses unless the app
   holds `POST_NOTIFICATIONS`, and `--owner-answers` lets the prompt rise for the person in the headset,
   which the tool never touches. `glance-token write` puts the glance's token in place from the control
