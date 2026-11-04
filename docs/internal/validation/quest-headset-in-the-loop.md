@@ -24,7 +24,8 @@
   headset's server (19:56Z): adb on `tcp:127.0.0.1`, the server's version read before the first command
   (41, as its adb's), and `connect` recording the headset's transport id (2), which `connect stop`
   then removed. Added last that day, tested only against a stand-in adb so far: `glance` and
-  `glance-token`.
+  `glance-token`. Run on the headset that night (23:53Z): a development build's eight capture
+  presets, one launch each.
 
 ## Findings
 
@@ -262,6 +263,39 @@ So the device tool reads every task's resumed activity and the one `ResumedActiv
 Guardian's, the alert service's and the first-time tips' dialogs, reads a hold by its words since
 the launch, fails a launch `am start` does not confirm, drops the `--` pnpm forwards, and makes the
 mapping with `connect`.
+
+### The kit build's capture presets, and a shader the player left out (2026-11-03)
+
+The same headset, nobody wearing it, standing where its cameras saw a lit room; a development build
+of main `cccd0a4b`, which draws the kit by default, installed over the owner's app; the control
+plane from main on 127.0.0.1:47800.
+
+- **Nothing held a launch.** Woken at 23:53:56Z, the headset had only Meta's shell in front. The
+  launch started, `pnpm quest:check` passed every line with the connection live over `adb reverse`,
+  and nothing listened on 8720 while the app ran.
+- **First frame and frame rate.** The app logged its first frame 5,010 ms after start. After a
+  first second of 1 fps and a second of 48, the compositor held 72 to 73 fps, apart from one second
+  of 26 about 7 s after start, which was not looked into.
+- **The capture presets run on the headset.** Eight journeys, each a fresh launch with its preset's
+  extras through `launch --extra` and `--extra-bool`, then a frame and a 5 s clip. Every preset
+  logged its one line, `capture preset applied: ...`, about 3 s after start: a task at activity,
+  changes, checks and waiting, the composer with an agent chosen, and the screen with its bar. The
+  arm preset logged `approval not armed`: the only approval waiting belonged to a task whose status
+  was unknown, so it could not be sent. Every clip came back whole (4128 by 2208, about 67 fps,
+  5 s), its frames matching the still taken just before it (SSIM 0.87 to 0.95).
+- **A shader the player left out.** The kit's glass capsules, its coloured buttons and the selected
+  tab, drew solid magenta on the headset, though the editor's renders draw them right; unframed
+  controls drew as they should. The player build compiled six Halcyonic shaders, and
+  `Halcyonic/Kit Pill` was not one: the kit's other shaders ship through materials in
+  `Assets/Halcyonic/UI/Resources/HalcyonicUI`, while the capsule's is only named in code. In the
+  editor `Shader.Find` finds every shader in the project; in a player without the shader it finds
+  nothing, and the code falls back to Unity's error shader, which draws magenta. The first device
+  build's characters failed the same way ([XR_CLIENT.md](../architecture/XR_CLIENT.md)). The app's
+  own error line was not read on the headset: a read of its log two minutes after the session found
+  none, and whether the log still reached back to the session was not checked.
+
+So a frame from the headset is the check that sees a shader the player left out; the editor's
+renders cannot.
 
 ## Consequences
 
