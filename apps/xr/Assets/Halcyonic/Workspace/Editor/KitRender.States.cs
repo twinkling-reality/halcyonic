@@ -102,7 +102,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(rows));
             }
             var binding = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Open ? screen.Instruction.Words : "", new ConnectionStatus(ConnectionPhase.Live),
-                SelectedProject, ProductionSpine(workspace), new KitRowModel("workspace", LineWords.Ours("Workspace"), GlazeIcon.Move));
+                SelectedProject, ProductionSpine(workspace), new KitRowModel("workspace", LineWords.Ours("Move Workspace"), GlazeIcon.Move));
             if (binding == null)
             {
                 var failed = new Shot { Caption = caption };
@@ -148,7 +148,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var steering = new WorkspaceSteering(new CommandFactory(client));
             var frame = FileScreens.Screen(workspace, steering, new FileScreen { Section = FileSection.Activity, Speak = true }, new AnswerRoom(4));
             var binding = KitFileBinding.Of(frame, steering.Armed, workspace, "", new ConnectionStatus(ConnectionPhase.Live), SelectedProject, ProductionSpine(workspace),
-                new KitRowModel("workspace", LineWords.Ours("Workspace"), GlazeIcon.Move));
+                new KitRowModel("workspace", LineWords.Ours("Move Workspace"), GlazeIcon.Move));
             if (binding == null)
             {
                 shot.Failures.Add("the kit has no binding to this frame");
