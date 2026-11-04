@@ -45,6 +45,20 @@ longest instruction (cccd0a4b).
   fold again to the same views (`packages/domain/src/projection-events.test.ts`). The test fails when the projection
   is made to throw for one event type. What the generator never makes stays untried: shapes past its small pools of
   ids and words.
+- **The loopback guard and proof.** Only this server's `127.0.0.1`, `localhost` and `[::1]` with its port pass the
+  Host check; sixteen other spellings are refused (no port, another port, a trailing dot, short, numeric and octal
+  IPv4, IPv4 written as IPv6, `::1` written out, user information, two hosts). No spelling of a path reaches more than
+  health without the token on the real server. The proof names the address a connection reached, differs for another
+  address, port, token or challenge, and only a 32-byte lowercase hex challenge is answered
+  (`http/security.test.ts`, `http/server.test.ts`).
+- **Pairing under concurrent exchanges, and revocation.** An exchange already under way when the third failure locks
+  the window gets no guess, the right code included, and is not counted; the right code pairs while the window is
+  open, and the window then closes for the rest (`network/pairing.test.ts`). A slow read answered after its device is
+  revoked gets the revocation's refusal, not the answer; with the check at the answer removed, the test fails
+  (`network/network.test.ts`).
+- **Accepted is not success.** Every runtime command (a start, an instruction, an approval's answer, a question's
+  answer, a stop) stays accepted until its runtime confirms it, and one its runtime never confirms fails at the
+  timeout with an unknown effect; with that effect made certain, the test fails (`core/control-plane.test.ts`).
 
 ## What remains, and why
 
@@ -64,10 +78,10 @@ Each was found by this audit and is not fixed by it.
   subscribers, with no trend in the cost. Usually two clients are connected.
 - **A summary of every tool result is kept per execution.** Verified in the code, not measured: the scale bench
   sends no tool results.
-- **Not attacked in this audit:** the loopback proof, pairing under concurrent attempts and revocation against long
-  requests, `reads_confined` before a preview or a play opens, accepted-is-not-success across every command type,
-  `folder-safety.ts` against case and hard-link games, and error text and URLs in journal fields other than those
-  above. No defect is suspected in them.
+- **Not attacked in this audit:** `folder-safety.ts` against case and hard-link games, and error text and URLs in
+  journal fields other than those above. No defect is suspected in them. `reads_confined` is recorded by each check
+  and Play on the Mac refuses without it (tested); a Mac preview may serve an unconfined copy, its record saying so
+  (ADR 0041); the headset's Quest Browser gate refuses one too, but no test pins that refusal.
 - **Reads that follow links, outside the core's files:** the check's source scan and layer probe (`scan.ts`,
   `laptop-probe.ts`) read by path after a check of the path, so a file swapped for a link between the two is read
   through it; only line numbers, a hash and whether files match leave them. `catalog-match.ts` reads by path too.
