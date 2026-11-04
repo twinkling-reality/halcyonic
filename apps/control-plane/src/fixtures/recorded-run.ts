@@ -42,6 +42,15 @@ export const RECORDED_CLIENT: ClientInfo = {
   device_label: null,
 };
 
+/**
+ * What stands for a here-document's body in a tool title: the body is the content the command writes
+ * (a starter's licence header, say), not what the agent said, so like command output it is left out.
+ */
+export const HERE_DOCUMENT_CUT = '(the here-document is left out)';
+
+/** A first line that opens a here-document: `<<` or `<<-`, then its delimiter, quoted or not. */
+const OPENS_HERE_DOCUMENT = /<<-?\s*(['"]?)[A-Za-z_][A-Za-z0-9_]*\1/;
+
 /** The longest wait the playback keeps between two events; each event keeps its real time. */
 export const MAX_GAP_MS = 2500;
 
@@ -57,6 +66,10 @@ const LISTED_EVENT_TYPES: ReadonlySet<string> = new Set<EventEnvelope['event_typ
   'project.created',
   'project.location_set',
   'project.starter_applied',
+  'project.made_from',
+  'project.check.recorded',
+  'project.preview.started',
+  'project.preview.stopped',
   'project.checkpoint.recorded',
   'project.checkpoint.failed',
   'project.restored',
@@ -66,6 +79,7 @@ const LISTED_EVENT_TYPES: ReadonlySet<string> = new Set<EventEnvelope['event_typ
   'execution.files.observed',
   'execution.start_failed',
   'execution.state_unknown',
+  'execution.check_output_given',
   'command.accepted',
   'command.rejected',
   'command.completed',
@@ -282,8 +296,9 @@ export class RecordedRunError extends OwnWordsError {
 /**
  * Prepares a real run's journal to be shown. The only changes are where files live, the runtime's
  * identity (a neutral id, kind and name, also in native types and commands), the model the runtime
- * reported, the client that sent the commands, and the output of commands, which is left out
- * (`omitted_scope`, exit codes kept) because tools print their makers' names.
+ * reported, the client that sent the commands, the output of commands, which is left out
+ * (`omitted_scope`, exit codes kept) because tools print their makers' names, and a here-document's
+ * body in a command's tool title, which is the content the command writes ({@link HERE_DOCUMENT_CUT}).
  *
  * Where files live: the project folder's path is rewritten in every string, what the person and the
  * agent said included, wherever it stands as a whole path, that is followed by `/`, the end of the
@@ -378,6 +393,15 @@ export function sanitizeRecordedRun(
           if (command.payload.model_ref !== null) command.payload.model_ref = RECORDED_MODEL;
           // A free-form record whose keys a runtime chose; the playback never starts work.
           command.payload.options = {};
+        }
+        break;
+      }
+      case 'runtime.tool.started': {
+        // A command's title keeps its first line where that line opens a here-document; the body is cut.
+        const title = copy.payload.title;
+        const lineEnd = title === null ? -1 : title.indexOf('\n');
+        if (title !== null && lineEnd >= 0 && OPENS_HERE_DOCUMENT.test(title.slice(0, lineEnd))) {
+          copy.payload.title = `${title.slice(0, lineEnd)}\n${HERE_DOCUMENT_CUT}`;
         }
         break;
       }
