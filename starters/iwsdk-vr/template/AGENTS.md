@@ -22,11 +22,14 @@ What you cannot do here:
 
 How the app is put together:
 - `src/index.ts` calls `World.create(...)` with the options from `iwsdk.config.json`, then registers systems.
-- Keep the game's systems and setup in `src/index.ts` (importing `./palette`, `./look`, `./decor`, `./motion`,
-  `./worlds` and `./play-input`) rather than splitting the game into extra files in `src/`.
+- Keep the game's systems and setup in `src/index.ts` rather than splitting the game into extra files in `src/`.
+  Import everything the starter gives a game from `./kit.js` (the look, the toy kit, motion, the palette, input and
+  the worlds), so no import names the wrong file; only `PanelSystem` comes from `./panel.js`.
 - Edit `src/index.ts` directly with your file-editing tool; never write `.py`, `.txt`, `.sh` or `.patch` scripts to
   generate or patch files.
-- A system is a class from `createSystem({...})` with `init()` and `update(delta, time)`. Look at `src/panel.ts`.
+- A system is a class from `createSystem({...})` with `init()` and `update(delta, time)`, registered by its class,
+  `world.registerSystem(GameSystem)`, never constructed with `new`. Its `this.world` is the world. The whole game
+  below shows one.
 - A component is declared with `createComponent(...)` and listed in `src/components.ts`.
 - Scene objects are nodes in `public/scenes/main.iwsdk.scene.json`; simple shapes can also be made in code with
   three.js (`new Mesh(new BoxGeometry(), new MeshStandardMaterial())`) and added with `world.createTransformEntity`.
@@ -90,3 +93,94 @@ Make it fun to look at:
 - Run `npx tsc --noEmit` before ending your turn and fix any type, syntax or module error it reports.
 
 Keep changes small, one idea at a time, and keep the app running after each one.
+
+A whole small game, to start from: three critters breathe in the garden; press one and it is bonked with confetti,
+scores a point, hides, and comes back. It type checks and passes the person's computer's check as it is. Start a new
+game by changing this one rather than writing everything new.
+
+```ts
+import { createSystem, World } from '@iwsdk/core';
+import type { Mesh } from 'three';
+import projectOptions from 'virtual:iwsdk-project';
+import {
+  bob,
+  bonk,
+  celebrate,
+  contactShadow,
+  critter,
+  decorate,
+  gameIsland,
+  gameTime,
+  hide,
+  onSelect,
+  pop,
+  scoreSign,
+  setupLook,
+  setupPlayInput,
+} from './kit.js';
+import { PanelSystem } from './panel.js';
+
+interface Target {
+  mesh: Mesh;
+  shownAt: number;
+  hitAt: number | null;
+}
+
+class GameSystem extends createSystem({}) {
+  private targets: Target[] = [];
+  private points = 0;
+  private score!: { show(value: number | string): void };
+
+  init(): void {
+    this.score = scoreSign('Score');
+    for (const [i, x] of [-1, 0, 1].entries()) {
+      const mesh = critter('cocoa');
+      mesh.scale.setScalar(1.3);
+      mesh.position.set(x, 0, -2);
+      const shadow = contactShadow(0.25);
+      shadow.position.set(x, 0.006, -2);
+      gameIsland().add(mesh, shadow);
+      const entity = this.world.createTransformEntity(mesh);
+      const target: Target = { mesh, shownAt: i * 0.7, hitAt: null };
+      onSelect(entity, () => this.hit(target));
+      this.targets.push(target);
+    }
+  }
+
+  private hit(target: Target): void {
+    if (target.hitAt !== null) return;
+    target.hitAt = gameTime();
+    this.points += 1;
+    this.score.show(this.points);
+    celebrate(target.mesh.position);
+  }
+
+  update(_delta: number, time: number): void {
+    for (const target of this.targets) {
+      if (target.hitAt !== null) {
+        const since = time - target.hitAt;
+        const squash = bonk(since);
+        target.mesh.scale.set(1.3 * squash.sxz, 1.3 * squash.sy, 1.3 * squash.sxz);
+        target.mesh.position.y = hide(since - 0.5);
+        if (since > 2) {
+          target.hitAt = null;
+          target.shownAt = time;
+        }
+      } else {
+        const breath = bob(time);
+        target.mesh.position.y = pop(time - target.shownAt) + breath.y;
+        target.mesh.scale.set(1.3 * breath.sxz, 1.3 * breath.sy, 1.3 * breath.sxz);
+      }
+    }
+  }
+}
+
+World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
+  setupLook(world, 'garden');
+  decorate(gameIsland());
+  setupPlayInput(world);
+  world.registerSystem(PanelSystem);
+  world.registerSystem(GameSystem);
+});
+```
+

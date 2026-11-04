@@ -614,6 +614,36 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 - **Not tried:** the headset; whether the sound plays in Quest Browser after Enter VR; whether a local model picks a
   world when told to (the restyle of the three showcase games is next).
 
+## A VR version in one turn (V1)
+
+- **Question:** a VR version of a 2D game, on the local model, failed its first check and ran a fix-up past 58 minutes
+  (a rehearsal of 2026-11-04). Why, and can it pass in one turn?
+- **Found in that run:** the first check's type check failed on two of the agent's errors:
+  - it imported `contactShadow` from `./decor.js`, where it does not live;
+  - it misused the SDK's system API (`Expected 3 arguments`, and a system registered the wrong way).
+
+  It had ported the whole 2D game: title and end screens, combos, a timer sign.
+- **Now:**
+  - `src/kit.ts` gives every starter name in one import.
+  - The starter's AGENTS.md ends with a whole small game, type checked and passing the check as it is: three critters
+    to bonk, a score, a class from `createSystem` registered by its class.
+  - The host's VR-version instruction (`vrVersionInstruction`) asks for:
+    - the main play and its score only, with no title, end or pause screens, menus or best scores;
+    - starting from that game;
+    - the world that fits;
+    - a type check before the agent ends.
+- **Proof, 2026-11-04, a scratch control plane:** confined Codex 0.157.0 on `muse-glimmer:30b-mlx`, memory 86% free,
+  on a copy of Firefly Jar, a 2D canvas game:
+  - Make VR Version, then one turn of 866 s. The check after it took about 2.5 min.
+  - It passed and read ready: type check 0, build 0, no exception; 7 targets with a press seen against the twin; VR
+    offered; `reads_confined` true.
+  - The agent chose `night`, imported from `./kit.js`, and named the game on its card and in the page's title.
+  - Seventeen minutes in all, against the rehearsal's 58 minutes and more with no pass.
+- **Seen at a glance:** a starry night with the jar on the island and a Fireflies sign. The game's fireflies are small
+  dots, close to the night world's own fireflies, so the play reads less at a glance than the place.
+- **Not tried:** a second run, which a local model needs before one-turn success counts as usual; another 2D game; the
+  headset. The agent left a scratch `src/index.ts.new` behind.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

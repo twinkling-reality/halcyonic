@@ -333,6 +333,14 @@ describe('making a VR version of a project (M1.8c-1)', () => {
       instruction,
       /Put the game's name and one line on how to play on its welcome card\./,
     );
+    // V1: the main play only, from the starter's worked game, in a world that fits, type checked before it ends.
+    assert.match(
+      instruction,
+      /Start from the whole small game at the end of this project's AGENTS\.md/,
+    );
+    assert.match(instruction, /leave out title, end and pause screens, menus and best scores/);
+    assert.match(instruction, /the world from src\/worlds\.ts that fits the original/);
+    assert.match(instruction, /Run npx tsc --noEmit/);
     assert.deepEqual(readdirSync(join(projects, 'garden')), ['game.js']);
     assert.equal(readFileSync(join(projects, 'garden', 'game.js'), 'utf8'), 'game');
     await controlPlane.close();
@@ -486,6 +494,7 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       'components.ts',
       'decor.ts',
       'index.ts',
+      'kit.ts',
       'look.ts',
       'motion.ts',
       'palette.ts',

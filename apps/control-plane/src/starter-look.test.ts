@@ -416,3 +416,25 @@ describe('a game can be set in a world of its own, so two games never read as on
     assert.match(read('src/index.ts'), / {2}setupLook\(world\);/);
   });
 });
+
+describe('a whole small game in AGENTS.md, to start from, importing from one place (V1)', () => {
+  // A VR version's local model imported contactShadow from the wrong file and misused createSystem, failed its first
+  // check, and ran a fix-up past 58 minutes (DEMO's rehearsal, 2026-11-04).
+  test('the example registers its system by class and imports only names src/kit.ts gives', () => {
+    const agents = read('AGENTS.md');
+    const start = agents.indexOf('```ts\n');
+    const example = agents.slice(start, agents.indexOf('\n```', start + 6));
+    assert.ok(start > 0, 'AGENTS.md holds a ts example');
+    assert.match(example, /class GameSystem extends createSystem\(\{\}\)/);
+    assert.match(example, /world\.registerSystem\(GameSystem\);/);
+    assert.doesNotMatch(example, /new GameSystem/);
+    const imported = example.match(/import \{([^}]+)\} from '\.\/kit\.js';/);
+    assert.ok(imported, "the example imports from './kit.js'");
+    const kit = read('src/kit.ts');
+    for (const name of (imported[1] ?? '')
+      .split(',')
+      .map((n) => n.trim())
+      .filter((n) => n !== ''))
+      assert.match(kit, new RegExp(`\\b${name}\\b`), name);
+  });
+});

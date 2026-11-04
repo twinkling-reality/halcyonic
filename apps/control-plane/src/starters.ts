@@ -54,19 +54,24 @@ export const VR_STARTER = 'iwsdk-vr';
 
 /**
  * What the host asks a VR version's agent to do (M1.8c-1, M1.8-PLAN section 5): read the original in
- * its folder, change nothing there, and build the same game in its own project from the starter.
+ * its folder, change nothing there, and build its main play in its own project from the starter, in a
+ * world that fits. Since V1 it asks for the main play only, started from the whole small game in the
+ * starter's AGENTS.md: a local model that ported a whole 2D game, with its screens, failed its first
+ * check and ran a fix-up past 58 minutes.
  */
 export function vrVersionInstruction(originalFolder: string): string {
   return [
     `Make a VR version of the web app in ${originalFolder}.`,
     'Read that folder to understand the game: what you see, what you do, how you score or win.',
     'Do not change anything there.',
-    'Build the same game in this project with the Immersive Web SDK, so it plays in VR with controllers or hands and on a laptop with a mouse and keyboard.',
+    'Build its main play in this project with the Immersive Web SDK, so it plays in VR with controllers or hands and on a laptop with a mouse and keyboard.',
+    "Start from the whole small game at the end of this project's AGENTS.md and change it into this one, importing from src/kit.ts.",
+    'Keep to the main play and its score: leave out title, end and pause screens, menus and best scores.',
     'Read every input through src/play-input.ts.',
+    'Set it in the world from src/worlds.ts that fits the original, and keep its feel.',
     'Copy pictures and sounds you need from the original into public/ and name them in src/assets.ts.',
-    "Keep the original's colours and feel.",
     "Put the game's name and one line on how to play on its welcome card.",
-    'Start with the main thing the player does, make it work, then add the rest one piece at a time.',
+    'Run npx tsc --noEmit and fix every error it reports before you finish.',
   ].join(' ');
 }
 
