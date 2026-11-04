@@ -45,9 +45,10 @@ build is its first user.
 2. `pnpm judge:record` prepares the run to be shown and records it for the headset
    ([EVENTS.md](../architecture/EVENTS.md), "Recorded runs"). It changes only where files live, the
    runtime's and model's names, the client's label and the start command's options, and leaves
-   command output out, and, where a command's tool title opens a here-document, keeps the title's first
-   line and says that the here-document is left out (amended 2026-11-04): the body is the content the
-   command writes, such as a starter's licence header, not what the agent said. The project folder's path is rewritten wherever it appears, in what the
+   command output out, and, where a command's tool title opens a here-document, cuts its body up to its
+   terminator and says so (amended 2026-11-04): the body is the content the command writes, such as a
+   starter's licence header, not what the agent said. The starter a project began from gets a neutral
+   id, since a starter's id can name the kit it is built on (amended 2026-11-04, on AUDIT's read). The project folder's path is rewritten wherever it appears, in what the
    person and the agent said too; nothing else in their words is edited. Its rules refuse what they
    find: if a string names a product, a home or private folder, an address, a credential shape or a
    word from the private deny file, it writes nothing, and the run is recorded again. The rules find

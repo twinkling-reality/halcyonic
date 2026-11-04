@@ -316,9 +316,13 @@ reads the run exported as a trace (read only: `sqlite3 'file:control-plane.db?im
   `{}` because their keys are the runtime's own and the playback starts nothing;
 - the output of commands, left out as `omitted_scope` with exit codes kept, because tools print
   their makers' names;
-- a here-document's body in a command's tool title: where the title's first line opens one, the title
-  keeps that line and then says "(the here-document is left out)", because the body is the file the
-  command writes (a starter's licence header names its maker), not what the agent said.
+- a here-document's body in a command's tool title (a tool call whose result is a command's): where
+  the title's first line opens one (`<<` or `<<-` after white space, then its delimiter), the lines up
+  to its terminator become "(the here-document is left out)", and the terminator and what follows it
+  are kept, because the body is the file the command writes (a starter's licence header names its
+  maker), not what the agent said; a title that ends before its terminator keeps only its first line;
+- the starter a project began from, whose id becomes `recorded-starter`, because a starter's id can
+  name the kit it is built on.
 
 The project folder's path is rewritten wherever it appears, in what the person and the agent said
 too. Nothing else in instructions, agent messages, approval requests, tool titles, patches,

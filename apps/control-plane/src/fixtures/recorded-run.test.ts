@@ -23,6 +23,7 @@ import {
   RECORDED_RUNTIME_ID,
   RECORDED_RUNTIME_KIND,
   RECORDED_RUNTIME_NAME,
+  RECORDED_STARTER_ID,
   type RecordedRun,
   RecordedRunError,
   type RecordedRunOptions,
@@ -261,40 +262,92 @@ describe('sanitizing a recorded real run', () => {
     );
   });
 
-  test("a command's here-document body is cut from its title, its first line kept and the cut said", () => {
+  test("a command's here-document body is cut from its title, its first line, terminator and what follows kept", () => {
     const events = realShaped();
     const started = first(events, 'runtime.tool.started');
-    const heredoc = structuredClone(started);
-    heredoc.event_id = `${started.event_id.slice(0, -4)}fff6` as EventEnvelope['event_id'];
-    heredoc.payload.title = `/bin/zsh -lc "cat > ${PROJECT}/src/index.ts <<'EOF'\n/**\n * Copyright (c) Meta Platforms, Inc.\n */\nEOF"`;
-    const plain = structuredClone(started);
-    plain.event_id = `${started.event_id.slice(0, -4)}fff7` as EventEnvelope['event_id'];
-    plain.payload.title = 'npx vitest run\nsecond line kept';
-    const cleaned = sanitizeRecordedRun([...events, heredoc, plain], OPTIONS);
-    const titleOf = (id: string) =>
+    const result = toolResult(events) as Extract<
+      EventEnvelope,
+      { event_type: 'runtime.tool.result' }
+    >;
+    let next = 0;
+    // A tool call with this title, a command's where `command` says so (its result's kind).
+    const call = (title: string, command: boolean): EventEnvelope[] => {
+      next += 1;
+      const id = `call-${next}` as typeof started.payload.tool_call_id;
+      const begun = structuredClone(started);
+      begun.event_id =
+        `${started.event_id.slice(0, -4)}f${String(next).padStart(3, '0')}` as EventEnvelope['event_id'];
+      begun.payload = { ...begun.payload, tool_call_id: id, title };
+      if (!command) return [begun];
+      const ran = structuredClone(result);
+      ran.event_id =
+        `${result.event_id.slice(0, -4)}e${String(next).padStart(3, '0')}` as EventEnvelope['event_id'];
+      ran.payload = { ...ran.payload, tool_call_id: id };
+      return [begun, ran];
+    };
+    const header = '/**\n * Copyright (c) Meta Platforms, Inc.\n */';
+    const cut = call(
+      `/bin/zsh -lc "cat > ${PROJECT}/src/index.ts <<'EOF'\n${header}\nEOF\nnpx vitest run"`,
+      true,
+    );
+    const unended = call(`cat > notes.md <<EOF\n${header}`, true);
+    const shift = call('node -e "console.log(1<<n)\nsecond line kept"', true);
+    const notCommand = call(`write <<EOF\nkept as written\nEOF`, false);
+    const cleaned = sanitizeRecordedRun(
+      [...events, ...cut, ...unended, ...shift, ...notCommand],
+      OPTIONS,
+    );
+    const titleOf = (calls: EventEnvelope[]) =>
       (
-        cleaned.find((event) => event.event_id === id) as Extract<
+        cleaned.find((event) => event.event_id === calls[0]?.event_id) as Extract<
           EventEnvelope,
           { event_type: 'runtime.tool.started' }
         >
       ).payload.title;
     assert.equal(
-      titleOf(heredoc.event_id),
-      `/bin/zsh -lc "cat > src/index.ts <<'EOF'\n${HERE_DOCUMENT_CUT}`,
+      titleOf(cut),
+      `/bin/zsh -lc "cat > src/index.ts <<'EOF'\n${HERE_DOCUMENT_CUT}\nEOF\nnpx vitest run"`,
     );
     assert.equal(
-      titleOf(plain.event_id),
-      'npx vitest run\nsecond line kept',
-      'a title opening no here-document is kept whole',
+      titleOf(unended),
+      `cat > notes.md <<EOF\n${HERE_DOCUMENT_CUT}`,
+      'cut to the end where the title ends first',
     );
+    assert.equal(
+      titleOf(shift),
+      'node -e "console.log(1<<n)\nsecond line kept"',
+      'a shift opens no here-document',
+    );
+    assert.equal(titleOf(notCommand), 'write <<EOF\nkept as written\nEOF', 'only a command is cut');
     // A name on the first line is still the agent's own words, and still refused.
-    const named = structuredClone(heredoc);
-    named.payload.title = "cat > Meta.txt <<'EOF'\nbody\nEOF";
-    const error = errorOf(() => sanitizeRecordedRun([...events, named], OPTIONS));
+    const named = call("cat > Meta.txt <<'EOF'\nbody\nEOF", true);
+    const error = errorOf(() => sanitizeRecordedRun([...events, ...named], OPTIONS));
     assert.ok(
       error.findings.some((found) => found.reason === 'names Meta'),
       error.message,
     );
+  });
+
+  test('the starter a project began from is neutral: its id can name the kit it is built on', () => {
+    const events = realShaped();
+    const project = first(events, 'project.created');
+    const applied = {
+      ...project,
+      event_id: `${project.event_id.slice(0, -4)}fff8`,
+      event_type: 'project.starter_applied',
+      payload: {
+        starter_id: 'iwsdk-vr',
+        lockfile: 'a'.repeat(64),
+        files: 12,
+        template: 'b'.repeat(64),
+      },
+    } as unknown as EventEnvelope;
+    const cleaned = sanitizeRecordedRun([...events, applied], OPTIONS);
+    const kept = cleaned.find((event) => event.event_id === applied.event_id) as Extract<
+      EventEnvelope,
+      { event_type: 'project.starter_applied' }
+    >;
+    assert.equal(kept.payload.starter_id, RECORDED_STARTER_ID);
   });
 
   test("refuses a journal holding a device's pairing or revocation: no recording needs them", () => {
