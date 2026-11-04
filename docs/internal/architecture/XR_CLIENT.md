@@ -2410,7 +2410,11 @@ Routing stays production's:
   moves.
 - While the kit draws the file, Activity's page is the kit's rail rows and the composer's is its well's
   rows. The instruction is measured where the kit draws it, and the composer always pairs with the
-  rail.
+  rail. The composer's page (`KitFileBinding.ComposerBudget`) leaves the instruction's field the
+  well's rows after the head row and the reason, so a draft the well holds (`Kit.Holds`) is one part.
+  A part pager has no place in the kit: a frame the kit can't bind goes back to the views, which lay
+  it for the kit again on the next update, so a pager there handed a new frame on every update
+  (JUDGE's walk at Larger, 2026-11-04).
 
 Compact and Workspace go through the kit's connected switch to the existing routes only (D3.5):
 
