@@ -1302,7 +1302,9 @@ launch/return, process recreation and current-frame action behavior need separat
   or two a person reads first (What changed?: the count, and whether a check ran after the changes;
   Why?: the latest reason, leaning beside its chip, and how many more; How was it built?: the explanation's own "how",
   said to be a model's and whether it is up to date, or why there is none; What was checked?: the
-  latest check and any files changed since), and `Full`, everything below, for the panel that opens
+  latest check and any files changed since, then the evaluation source's state on a page of its own
+  under its own source line, its checks line and that part's status or why there is none, so the
+  Checks page itself says when Seorak is unavailable (DEVICE's D-XR-6)), and `Full`, everything below, for the panel that opens
   on request. Every line keeps its own class at both depths; nothing is blended into one sentence.
   - *What changed?* says how many files changed and how ("4 files changed: 1 new, 2 edited, 1
     removed"), the commits the work started from and stands at where the source watched them
