@@ -1203,6 +1203,111 @@ describe("a project's view holds its latest check, its preview and its play (M1.
     );
     assert.equal(projection.preview(project.projectId)?.files, 'changed');
   });
+
+  test('a turn a restart cut short holds no later check unknown, while one checked before it stays unknown (#13)', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const project = b.project('Garden', { path: '/work/garden', name: 'garden', created: true });
+    const workstream = b.workstream(project.projectId);
+    projection.apply(project.event);
+    projection.apply(workstream.event);
+    const projectScope = { project_id: project.projectId, workstream_id: null, execution_id: null };
+    const findings = {
+      tsc: { exit: 0, seconds: 1 },
+      build: { exit: 0, seconds: 2 },
+      page: null,
+      unknown: null,
+      passed: true,
+      reads_confined: true,
+    } as never;
+    const task = (name: string) => {
+      const executionId = b.id() as ExecutionId;
+      const execScope = {
+        project_id: project.projectId,
+        workstream_id: workstream.workstreamId,
+        execution_id: executionId,
+      };
+      const runtimeScope = {
+        projectId: project.projectId,
+        workstreamId: workstream.workstreamId,
+        executionId,
+      };
+      projection.apply(
+        b.controlPlane('execution.created', execScope, {
+          runtime: b.runtime,
+          instruction: `${name}.`,
+          directory: '/work/garden',
+        }),
+      );
+      projection.apply(
+        b.runtimeEvent(runtimeScope, 'runtime.execution.started', { native_id: name }),
+      );
+      return { executionId, execScope, runtimeScope };
+    };
+    const check = () => {
+      const checkId = b.id() as never;
+      projection.apply(
+        b.controlPlane('project.check.recorded', projectScope, { check_id: checkId, findings }),
+      );
+      return checkId;
+    };
+    const files = (checkId: string) => {
+      projection.apply(
+        b.controlPlane('project.preview.started', projectScope, {
+          check_id: checkId as never,
+          port: 47931,
+        }),
+      );
+      return projection.preview(project.projectId)?.files;
+    };
+
+    const cut = task('Cut short');
+    const before = check();
+    projection.apply(b.runtimeEvent(cut.runtimeScope, 'runtime.turn.started', { turn_id: 't1' }));
+    // What the control plane records at its start for each task it was running (U5).
+    projection.apply(
+      b.controlPlane('execution.state_unknown', cut.execScope, {
+        code: 'control_plane_restarted',
+        message: 'The control plane restarted.',
+      }),
+    );
+    assert.equal(projection.projectBusy(project.projectId), null);
+    // The cut turn may have changed files before the restart, unread.
+    assert.equal(files(before), 'unknown');
+    // No runtime session survives a restart, so nothing of that turn runs after it.
+    assert.equal(files(check()), 'current');
+
+    // A later task's change is read and checked like any other.
+    const next = task('Next');
+    projection.apply(b.runtimeEvent(next.runtimeScope, 'runtime.turn.started', { turn_id: 'n1' }));
+    projection.apply(
+      b.runtimeEvent(next.runtimeScope, 'runtime.turn.completed', { turn_id: 'n1' }),
+    );
+    const empty = { files: [], total: 0 };
+    projection.apply(
+      b.controlPlane('execution.files.observed', next.execScope, {
+        turn_id: 'n1',
+        created: empty,
+        changed: {
+          files: [{ path: 'src/game.ts', lines_before: 10, lines_after: 12, bytes: 300 }],
+          total: 1,
+        },
+        deleted: empty,
+        not_read: 0,
+        skipped: null,
+      }),
+    );
+    assert.equal(files(check()), 'current');
+    assert.equal(files(before), 'changed');
+
+    // A turn whose runtime only lost touch may still run, so it still holds a check unknown.
+    const lost = task('Lost');
+    projection.apply(b.runtimeEvent(lost.runtimeScope, 'runtime.turn.started', { turn_id: 'l1' }));
+    projection.apply(
+      b.runtimeEvent(lost.runtimeScope, 'runtime.connection.lost', { reason: 'Gone.' }),
+    );
+    assert.equal(files(check()), 'unknown');
+  });
 });
 
 describe('whether an execution ran confined, as its start recorded it (S2)', () => {

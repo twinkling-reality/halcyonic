@@ -101,6 +101,9 @@ command still awaiting a runtime, is recorded as unknown, because no runtime ses
 restart yet. So is one already unknown for another reason, a lost connection or a start whose
 outcome is unknown: it is now unknown because of the restart, which the rule for a busy project
 reads as stopped, so it no longer holds Undo, a check or the automatic check back for good (U5).
+Nor does a turn the restart cut short hold the project's later checks unknown: a check recorded
+after the restart starts current, while one recorded before it stays unknown, since the cut turn
+may have changed files unread (#13).
 
 ## Configuration
 

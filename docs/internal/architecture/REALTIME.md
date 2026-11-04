@@ -93,7 +93,8 @@ client                                   server
   `position` at which it was recorded, `files`, and the findings as recorded), `preview` (the check
   its running preview serves, the loopback port and that check's `files`) and `mac_play` (the check
   whose game plays on the Mac now and that check's `files`). `files` is `'current'` when recorded
-  while no turn is running in the project, `'changed'` once a turn's file reading or a restore
+  while no turn is running in the project (a turn a restart cut short runs no longer, since no
+  runtime session survives a restart; #13), `'changed'` once a turn's file reading or a restore
   changed files in the project's folder or the project was moved to another folder, and `'unknown'`
   while a turn is running or when a turn ended without a complete file reading, an incomplete
   restore stopped, or an execution's state became unknown. A check whose `files` is `'changed'` or
