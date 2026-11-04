@@ -69,10 +69,10 @@ namespace Halcyonic.Client
             return new NewWorkReview(
                 idea.Name,
                 title,
-                runtime.Synthetic && live ? LineWords.Ours(EntryText.PracticeRun) : (runtime.Synthetic ? LineWords.Ours("Simulated · ") : LineWords.None) + Raw(runtime.DisplayName),
-                model == null ? LineWords.Ours("App's Choice") : Raw(model.DisplayName),
+                runtime.Synthetic && live ? LineWords.Ours(EntryText.PracticeRun) : (runtime.Synthetic ? LineWords.Ours("Simulated · ") : LineWords.None) + Raw(CaptureNames.AgentName(runtime.DisplayName)),
+                model == null ? LineWords.Ours("App's Choice") : Raw(CaptureNames.ModelName(model.DisplayName)),
                 LineWords.Written(model == null ? "App's Choice" : EntryText.ServedInSentence(model.Served) + " · " + EntryText.Tools(model.ToolCalling)),
-                model?.ModelRef is string modelRef ? Raw(modelRef) : LineWords.Ours("none"),
+                model?.ModelRef is string modelRef ? Raw(CaptureNames.ModelName(modelRef)) : LineWords.Ours("none"),
                 idea.FirstTask,
                 folder,
                 before,

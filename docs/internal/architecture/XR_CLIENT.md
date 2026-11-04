@@ -2467,6 +2467,14 @@ check applies each preset to a director with a counting submit and requires noth
 to wait, the approval armed with nothing sent even under a low-consequence approval policy, and the arm
 pressed again after a layout drops it, with nothing sent.
 
+The extra `halcyonic.generic` (alone or with any preset) turns on `CaptureNames` (client core) for footage free of
+product names (2026-11-04): wherever the headset draws an agent app's name it draws "Coding Agent", a model's name or
+reference "Local Model", the host "This Computer" (the Host chip, "Observed on This Computer"), Salidium "Explanation"
+(without the version it names for itself) and Seorak "Measurement"; ids, model references and commands keep the real
+values, and the agent's own words are not changed. The getter is in every build and false in a release build; its
+setter, `UseGeneric`, is compiled into development builds, the editor and the test build alone, and
+`WorkspaceRender.CapturePresetsCheck` reads a release compile's client assembly to prove it is not there.
+
 ### The room of projects' placement (2026-10-29)
 
 ADR 0040's surfaces stand where `RoomLayout` (client core, no Unity) puts them. Sizes in degrees

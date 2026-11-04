@@ -413,7 +413,7 @@ namespace Halcyonic.Client
         /// <param name="plain">Shows the runtime's own name through <see cref="LabelText.Name"/>, which never leaves it empty; false leaves it as it is, for a review that spells it itself.</param>
         /// <summary>An agent app's name as runs: "Simulated: " upright first, its name leaning; the practice run Halcyonic's own words.</summary>
         public static LineWords RuntimeNameRuns(RuntimeDescriptor runtime, bool live = false) =>
-            runtime.Synthetic && live ? LineWords.Ours(PracticeRun) : (runtime.Synthetic ? LineWords.Ours("Simulated · ") : LineWords.None) + LineWords.TheirName(runtime.DisplayName);
+            runtime.Synthetic && live ? LineWords.Ours(PracticeRun) : (runtime.Synthetic ? LineWords.Ours("Simulated · ") : LineWords.None) + LineWords.TheirName(CaptureNames.AgentName(runtime.DisplayName));
 
         /// <summary>How it runs as runs (<see cref="RunsWith"/>): an agent app's name leaning.</summary>
         public static LineWords RunsWithRuns(NewWorkDraft draft, bool live = false) =>
@@ -425,7 +425,7 @@ namespace Halcyonic.Client
         public static LineWords NewFolderInRuns(LocationRoot root) => ProjectFolder.NewFolderRuns(root);
 
         public static string RuntimeName(RuntimeDescriptor runtime, bool live = false, bool plain = true) =>
-            runtime.Synthetic && live ? PracticeRun : (runtime.Synthetic ? "Simulated · " : "") + (plain ? LabelText.Name(runtime.DisplayName) : runtime.DisplayName);
+            runtime.Synthetic && live ? PracticeRun : (runtime.Synthetic ? "Simulated · " : "") + (plain ? LabelText.Name(CaptureNames.AgentName(runtime.DisplayName)) : CaptureNames.AgentName(runtime.DisplayName));
 
         /// <summary>The runtimes offered in Create: real ones first, by name, and simulated ones after them.</summary>
         public static List<RuntimeDescriptor> RuntimeChoices(IEnumerable<RuntimeDescriptor> runtimes) =>

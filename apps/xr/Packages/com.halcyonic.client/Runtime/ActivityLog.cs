@@ -177,9 +177,9 @@ namespace Halcyonic.Client
             {
                 case ExecutionCreatedEvent created:
                     // Recorded when the control plane accepts the start, before the runtime has started anything.
-                    if (e.ExecutionId != null) runtimeNames[e.ExecutionId] = created.Payload.Runtime.DisplayName;
+                    if (e.ExecutionId != null) runtimeNames[e.ExecutionId] = CaptureNames.AgentName(created.Payload.Runtime.DisplayName);
                     // Theirs last, so a name never stands where Halcyonic's words do (settled 2026-10-08).
-                    return Said(ActivityKind.Lifecycle, Ours("Start Requested · ") + LineWords.TheirName(created.Payload.Runtime.DisplayName));
+                    return Said(ActivityKind.Lifecycle, Ours("Start Requested · ") + LineWords.TheirName(CaptureNames.AgentName(created.Payload.Runtime.DisplayName)));
                 case RuntimeExecutionStartedEvent _:
                     // Started only once the runtime says so.
                     return Said(ActivityKind.Lifecycle, e.ExecutionId != null && runtimeNames.TryGetValue(e.ExecutionId, out var runtime)

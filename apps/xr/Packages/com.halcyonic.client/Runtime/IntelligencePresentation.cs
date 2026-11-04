@@ -627,6 +627,8 @@ namespace Halcyonic.Client
         {
             var when = read.Recorded ? "Recorded " + Clock(read.ReadAt, zone, seconds: true) : Ago(source.GeneratedAt, now, zone);
             if (source.Synthetic) return LineWords.Written((checks ? "Simulated Checks · " : "Simulated Explanation · ") + when);
+            // Under the capture extra the source is named generically, without the version it names for itself.
+            if (CaptureNames.Generic) return LineWords.Written(FromSalidium + " · " + when);
             return LineWords.Written(FromSalidium + " ") + LineWords.TheirName(Truncate(Plain(source.Version), 24)) + LineWords.Written(" · " + when);
         }
 
@@ -671,9 +673,9 @@ namespace Halcyonic.Client
         internal static string From(string source, ErrorInfo reason) => reason.Code == NotAsked ? "" : source + " · ";
 
         /// <summary>The source an understanding comes from, as a provenance line names it.</summary>
-        public const string FromSalidium = "Salidium";
+        public static string FromSalidium => CaptureNames.Generic ? CaptureNames.Explanation : "Salidium";
 
         /// <summary>The source a measurement comes from, as a provenance line names it.</summary>
-        public const string FromSeorak = "Seorak";
+        public static string FromSeorak => CaptureNames.Generic ? CaptureNames.Measurement : "Seorak";
     }
 }

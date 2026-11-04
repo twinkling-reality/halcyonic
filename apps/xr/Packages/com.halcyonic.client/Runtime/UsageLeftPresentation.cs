@@ -104,8 +104,8 @@ namespace Halcyonic.Client
         public const string Incomplete = "Some Limits Unread";
         public const string Unidentified = "Account Unknown · Any Account on Computer";
 
-        public const string FromSeorak = "Seorak · Provider Reported";
-        public const string Simulated = "Simulated · Not Seorak";
+        public static string FromSeorak => IntelligenceText.FromSeorak + " · Provider Reported";
+        public static string Simulated => "Simulated · Not " + IntelligenceText.FromSeorak;
 
         private const string NoReadingSinceReset = "No Reading Since Reset · Refresh Later";
 
@@ -149,11 +149,11 @@ namespace Halcyonic.Client
                 // Rounded up, so that "at most" stays true.
                 var left = (int)Math.Ceiling(100 - reading.UsedPercent);
                 rows.Add(new UsageLeftRow(
-                    LineWords.TheirName(IntelligenceText.Truncate(IntelligenceText.Plain(reading.Label), LabelLimit))
+                    LineWords.TheirName(IntelligenceText.Truncate(IntelligenceText.Plain(CaptureNames.AgentName(reading.Label)), LabelLimit))
                         + LineWords.Ours(" · " + (reading.Window == UsageLimitWindow.Rolling5h ? "5-Hour Window" : "Weekly")),
                     "Up to " + left.ToString(CultureInfo.InvariantCulture) + "% Left · Seen " + When(observed, now, zone)
                         + " · Resets " + When(resets, now, zone),
-                    left, When(observed, now, zone), When(resets, now, zone), reading.Agent));
+                    left, When(observed, now, zone), When(resets, now, zone), CaptureNames.Generic && reading.Agent != null ? CaptureNames.Agent : reading.Agent));
             }
             return rows.Count == 0
                 ? Quiet(NoReadingSinceReset)
