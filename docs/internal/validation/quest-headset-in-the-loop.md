@@ -23,9 +23,11 @@
   headset's clock (`-t <epoch>`), and `clip`. Added after AUDIT's review that day and run once on the
   headset's server (19:56Z): adb on `tcp:127.0.0.1`, the server's version read before the first command
   (41, as its adb's), and `connect` recording the headset's transport id (2), which `connect stop`
-  then removed. Added last that day, tested only against a stand-in adb so far: `glance` and
+  then removed. Added last that day, tested only against a stand-in adb then: `glance` and
   `glance-token`. Run on the headset that night (23:53Z): a development build's eight capture
-  presets, one launch each.
+  presets, one launch each. Run on the headset 2026-11-04: the final build's install and checks, the
+  decision bar and its approval denied from the Mac, three previews in Quest Browser, and `glance`
+  and `glance-token` with the owner answering the prompt.
 
 ## Findings
 
@@ -296,6 +298,53 @@ plane from main on 127.0.0.1:47800.
 
 So a frame from the headset is the check that sees a shader the player left out; the editor's
 renders cannot.
+
+### The final build, the decision bar, the previews and the glance (2026-11-04)
+
+The same headset, nobody wearing it except for the glance; the final development build from main
+`88818ce6` (sha256 `8da4224d2f79...`, 90,508,716 bytes), installed over the earlier development
+build with its saved copy; the control plane on 127.0.0.1:47800 from main `ee0cabc0`, as the finals
+had used it.
+
+- **A held wake.** At 03:36Z, in the evening room, Meta's dialog that the headset could not find its
+  position stayed in front for more than a minute after the wake. The session stopped and gave the
+  headset back; nothing was installed or pressed. With a light on, at 05:08Z, nothing held the
+  launch.
+- **Install and checks.** `pnpm quest:check` passed every line with the connection live, and
+  nothing listened on 8720. The app logged its first frame 4,951 ms after start. After its first two
+  seconds the compositor held 71 to 73 fps, apart from one second of 17 during start-up.
+- **The capsule shader ships.** The build log names Kit Pill among the seven Halcyonic shaders it
+  compiled. On the headset the kit's glass capsules drew as glass: the Activity tab, Close, Hold to
+  Talk, Make VR Version, Request Change, and the decision bar's Deny and Approve. None of the app's
+  logs had a line that a shader was missing.
+- **The screen's placement.** The screen with its bar stood as a panel of its own, clear of the menu
+  column, its whole bar in view.
+- **The live decision bar, denied from the Mac.** `pnpm demo --scenario approval_required` left one
+  practice approval waiting. At its Waiting page the task read Needs You, and the bar showed Deny
+  and Approve in two halves. With the app stopped, the approval was denied from the Mac through the control
+  plane's own realtime client (`execution.respond_to_approval`, `deny`). The deny was accepted, the
+  approval closed, and the mock's execution completed, so nothing was left waiting for a person.
+- **The armed bar was not seen.** The capture preset logged `approval armed`, but the frame showed
+  the earlier panel reading "Not Sent · Window Changed · Press Again": the arm was cancelled before
+  the frame.
+- **Three finals in Quest Browser.** For each, the control plane served its checked copy
+  (`project.preview.start`, as the headset's own button asks). `pnpm quest:device -- preview
+  <project id>` then opened it in Quest Browser on 127.0.0.1:47930 over a reverse it made, and each
+  game loaded with its scene and its score. `preview stop` and `project.preview.stop` ended each
+  one. Quest Browser kept the three tabs in its restored session; closing them needs a person.
+- **The glance, with the owner.** With the owner wearing the headset, `glance-token write` wrote
+  the token at mode 600 and 44 bytes, and `glance --owner-answers` opened the glance. The owner
+  granted the notification permission, and `pnpm quest:check` passed every line, with
+  `glance: polled ok`. No `cat` was left running. Give-back removed the token copy and the mapping.
+- **The proximity override came back on.** The final session's give-back read it off twice at
+  05:11Z. At 05:14Z, with nothing of this tool's run in between, it read on. The glance's give-back
+  turned it off, and a read at 05:15Z still said off.
+- **The battery fell on the cable.** It fell from 55% to 22% over the night, asleep as well as
+  awake, on the same cable.
+
+Not verified: the armed confirming bar on the headset; what turned the proximity override on again,
+whether it came back by itself, as once before, or something else set it; the previews' sound; and
+the final build against a control plane of its own commit.
 
 ## Consequences
 
