@@ -379,7 +379,7 @@ namespace Halcyonic.Client
         public const string ReportedSuffix = " (Reported)";
 
         /// <summary>The eyebrow of what the computer itself saw or ran, naming the host as the Host chip does (the owner, 2026-11-03).</summary>
-        public const string YourComputer = "Observed on This Mac";
+        public static string YourComputer => "Observed on " + ThisMac;
 
         /// <summary>The eyebrow of a question the agent asks: no app's name in our words, and that it is reported (WORDS.md, T2 and T7).</summary>
         public const string AgentQuestion = "Reported Question";
@@ -450,7 +450,7 @@ namespace Halcyonic.Client
         public static string Counts(KitCheckpointDiff diff) => "+" + Number(diff.Added) + " −" + Number(diff.Removed) + " Lines";
 
         /// <summary>The host where an approved command may leave the sandbox, as the owner named the Host chip (2026-11-03).</summary>
-        public const string ThisMac = "This Mac";
+        public static string ThisMac => CaptureNames.Generic ? CaptureNames.Host : "This Mac";
 
         /// <summary>The host where an approved command stays inside the agent app's sandbox.</summary>
         public const string InSandbox = "Sandbox";

@@ -555,11 +555,11 @@ namespace Halcyonic.Client
             if (execution.Runtime.Synthetic) lines.Add((EntryText.PracticeRun + gone, false));
             else
             {
-                var name = OneLine(workspace.Runtime?.DisplayName ?? execution.Runtime.DisplayName);
+                var name = CaptureNames.AgentName(OneLine(workspace.Runtime?.DisplayName ?? execution.Runtime.DisplayName));
                 lines.Add(("Agent App · " + name + (workspace.Runtime == null ? " · Unavailable" : " · On Your Computer"), true));
                 lines.Add(execution.ModelRef == null
                     ? ("Model · App's Choice · " + ModelPlaceUnknown, false)
-                    : ("Model · " + OneLine(execution.ModelRef) + " · " + ModelPlaceUnknown, true));
+                    : ("Model · " + CaptureNames.ModelName(OneLine(execution.ModelRef)) + " · " + ModelPlaceUnknown, true));
             }
             lines.Add(FolderOf(execution.Directory) is string folder ? ("Folder · " + folder, true) : ("Folder · None Given", false));
             var started = StartedAt(execution.StartedAt, zone);

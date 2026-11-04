@@ -32,11 +32,15 @@ namespace Halcyonic.XR.Workspace.Editor
             try
             {
                 // The compiles first: a player compile saves what is dirty, and drawing a director dirties the font assets.
-                var release = PresetsCompiled(ScriptCompilationOptions.None, "release", failures);
-                var development = PresetsCompiled(ScriptCompilationOptions.DevelopmentBuild, "development", failures);
+                var (release, releaseGeneric) = PresetsCompiled(ScriptCompilationOptions.None, "release", failures);
+                var (development, developmentGeneric) = PresetsCompiled(ScriptCompilationOptions.DevelopmentBuild, "development", failures);
                 if (development == false) failures.Add("the development build's scripts do not carry " + nameof(CapturePresets));
                 if (release == true) failures.Add("the release build's scripts carry " + nameof(CapturePresets));
-                Debug.Log("Halcyonic: capture presets: a development build carries them: " + development + "; a release build carries them: " + release + ".");
+                // The generic names' switch lives in the client, which every build carries: only its setter is compiled out.
+                if (developmentGeneric == false) failures.Add("the development build's client does not carry " + GenericSwitch);
+                if (releaseGeneric == true) failures.Add("the release build's client carries " + GenericSwitch);
+                Debug.Log("Halcyonic: capture presets: a development build carries them: " + development + "; a release build carries them: " + release
+                    + "; the generic names' switch in a development build: " + developmentGeneric + "; in a release build: " + releaseGeneric + ".");
                 failures.AddRange(PresetsParse());
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 failures.AddRange(PresetsApply(lowConsequenceApproval: false));
@@ -178,8 +182,14 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
-        /// <summary>Whether the player's scripts, compiled for Android with <paramref name="options"/>, carry the presets; null where the compile failed.</summary>
-        private static bool? PresetsCompiled(ScriptCompilationOptions options, string label, List<string> failures)
+        /// <summary>The generic names' switch (<see cref="CaptureNames"/>), compiled into development builds alone.</summary>
+        private const string GenericSwitch = "UseGeneric";
+
+        /// <summary>
+        /// Whether the player's scripts, compiled for Android with <paramref name="options"/>, carry the presets, and whether
+        /// their client carries the generic names' switch; null where the compile failed.
+        /// </summary>
+        private static (bool? Presets, bool? Generic) PresetsCompiled(ScriptCompilationOptions options, string label, List<string> failures)
         {
             var folder = Path.Combine(Path.GetTempPath(), "halcyonic-presets-" + label + "-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(folder);
@@ -187,15 +197,19 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var settings = new ScriptCompilationSettings { target = BuildTarget.Android, group = BuildTargetGroup.Android, options = options };
                 var result = PlayerBuildInterface.CompilePlayerScripts(settings, folder);
-                if (result.assemblies == null || !result.assemblies.Contains("Halcyonic.XR.Workspace.dll"))
+                if (result.assemblies == null || !result.assemblies.Contains("Halcyonic.XR.Workspace.dll") || !result.assemblies.Contains("Halcyonic.Client.dll"))
                 {
-                    failures.Add("the " + label + " compile made no workspace assembly");
-                    return null;
+                    failures.Add("the " + label + " compile made no workspace or client assembly");
+                    return (null, null);
                 }
-                // The type's name, as the assembly's metadata holds it: present only where the class was compiled.
-                var name = Encoding.UTF8.GetBytes(nameof(CapturePresets));
-                var bytes = File.ReadAllBytes(Path.Combine(folder, "Halcyonic.XR.Workspace.dll"));
-                return Enumerable.Range(0, bytes.Length - name.Length + 1).Any(at => bytes[at] == name[0] && name.Select((b, i) => bytes[at + i] == b).All(same => same));
+                // A name, as the assembly's metadata holds it: present only where its member was compiled.
+                bool Carries(string assembly, string member)
+                {
+                    var name = Encoding.UTF8.GetBytes(member);
+                    var bytes = File.ReadAllBytes(Path.Combine(folder, assembly));
+                    return Enumerable.Range(0, bytes.Length - name.Length + 1).Any(at => bytes[at] == name[0] && name.Select((b, i) => bytes[at + i] == b).All(same => same));
+                }
+                return (Carries("Halcyonic.XR.Workspace.dll", nameof(CapturePresets)), Carries("Halcyonic.Client.dll", GenericSwitch));
             }
             finally { Directory.Delete(folder, true); }
         }

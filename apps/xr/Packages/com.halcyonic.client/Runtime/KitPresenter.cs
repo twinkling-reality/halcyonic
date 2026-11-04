@@ -152,10 +152,10 @@ namespace Halcyonic.Client
         {
             if (ShortModelName(modelDisplay) is string selectedModel)
             {
-                return selectedModel;
+                return CaptureNames.ModelName(selectedModel);
             }
             return (runtime?.DisplayName ?? execution?.Runtime.DisplayName) is string raw && WorkspaceText.OneLine(raw) is { Length: > 0 } name
-                ? name
+                ? CaptureNames.AgentName(name)
                 : null;
         }
 

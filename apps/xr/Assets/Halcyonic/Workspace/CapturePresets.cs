@@ -15,7 +15,9 @@ namespace Halcyonic.XR.Workspace
     /// <c>task:{execution id}:{section}</c> (activity, waiting, changes or checks), <c>screen:{project id}</c> or
     /// <c>gallery</c>; <c>halcyonic.compose</c> opens the task's instruction without the keyboard; <c>halcyonic.agent</c>
     /// chooses a registered runtime by its id; <c>halcyonic.arm</c> arms the waiting approval so its confirming bar shows;
-    /// <c>halcyonic.bar</c> opens the screen's bar. Presentation only: it never sends a command, never confirms, and
+    /// <c>halcyonic.bar</c> opens the screen's bar; <c>halcyonic.generic</c>, on its own or with any of them, draws every agent
+    /// app, model, host and sibling source by a generic name (<see cref="CaptureNames"/>), for footage free of product
+    /// names. Presentation only: it never sends a command, never confirms, and
     /// never approves, denies, answers, starts or previews anything; it arms only where a confirm step stands before the
     /// send, as an approval's always does. Ids and fixed words only: extras that are neither are ignored.
     /// It waits for the live snapshot to hold the id; one fixed log line then says what it applied, or that it found
@@ -97,8 +99,30 @@ namespace Halcyonic.XR.Workspace
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Begin()
         {
-            if (!Debug.isDebugBuild || Application.isEditor || ReadIntent() is not Preset preset) return;
+            if (!Debug.isDebugBuild || Application.isEditor) return;
+            if (ReadGeneric())
+            {
+                CaptureNames.UseGeneric(true);
+                Debug.Log("Halcyonic: capture names generic.");
+            }
+            if (ReadIntent() is not Preset preset) return;
             new GameObject("Halcyonic capture preset").AddComponent<CapturePresets>().preset = preset;
+        }
+
+        /// <summary>Whether the launch intent asks for generic names (<c>halcyonic.generic</c>).</summary>
+        private static bool ReadGeneric()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                var activity = UnityEngine.Android.AndroidApplication.currentActivity;
+                using var intent = activity.Call<AndroidJavaObject>("getIntent");
+                return intent != null && intent.Call<bool>("getBooleanExtra", "halcyonic.generic", false);
+            }
+            catch (Exception) { return false; }
+#else
+            return false;
+#endif
         }
 
         private static Preset? ReadIntent()

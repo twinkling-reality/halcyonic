@@ -289,7 +289,7 @@ namespace Halcyonic.Client
         {
             if (runtime == null || runtime.ModelChoice != ModelChoice.Listed || execution == null
                 || execution.Runtime.RuntimeId != runtime.RuntimeId || string.IsNullOrWhiteSpace(execution.ModelRef)) return null;
-            return ModelsForRuntime(runtime.RuntimeId).FirstOrDefault(item => item.ModelRef == execution.ModelRef)?.DisplayName ?? execution.ModelRef;
+            return CaptureNames.ModelName(ModelsForRuntime(runtime.RuntimeId).FirstOrDefault(item => item.ModelRef == execution.ModelRef)?.DisplayName ?? execution.ModelRef);
         }
 
         /// <summary>
@@ -307,7 +307,7 @@ namespace Halcyonic.Client
             if (string.IsNullOrWhiteSpace(modelRef)) return null;
             var models = ModelsForRuntime(runtime.RuntimeId);
             var matched = models.FirstOrDefault(item => item.ModelRef == modelRef);
-            return matched?.DisplayName ?? modelRef;
+            return CaptureNames.ModelName(matched?.DisplayName ?? modelRef);
         }
 
         /// <summary>
@@ -514,7 +514,7 @@ namespace Halcyonic.Client
 
             var execution = state.CurrentExecution(work);
             var runtimeDescriptor = execution != null ? state.RuntimeOf(execution) : null;
-            var runtime = runtimeDescriptor?.DisplayName ?? execution?.Runtime.DisplayName ?? "Agent";
+            var runtime = CaptureNames.AgentName(runtimeDescriptor?.DisplayName ?? execution?.Runtime.DisplayName ?? "Agent");
             var working = work.Status == WorkstreamStatus.Starting
                 || work.Status == WorkstreamStatus.Running
                 || work.Status == WorkstreamStatus.Verifying
@@ -582,9 +582,9 @@ namespace Halcyonic.Client
 
             var work = OrderWorkstreams(state.Workstreams.Values.Where(item => item.ProjectId == project.ProjectId)).FirstOrDefault();
             var execution = work != null ? state.CurrentExecution(work) : null;
-            var runtime = execution != null
+            var runtime = CaptureNames.AgentName(execution != null
                 ? (state.RuntimeOf(execution)?.DisplayName ?? execution.Runtime.DisplayName)
-                : (state.Runtimes.FirstOrDefault()?.DisplayName ?? "Agent");
+                : (state.Runtimes.FirstOrDefault()?.DisplayName ?? "Agent"));
             var stateWords = work != null
                 ? StateLanguage.LineWordOf(CharacterPresenter.Present(work, state, isLive))
                 : StateLanguage.WordOf(WorkState.NotStarted);
