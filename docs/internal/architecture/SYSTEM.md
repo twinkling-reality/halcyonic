@@ -142,8 +142,9 @@ Files in the data directory besides the journal and the access token, all option
 `checkpoints/`, the store of Halcyonic's undo when it is set up, and `starters/<id>/`, each
 starter's installed dependencies with `installed.json`, the SHA-256 of the lockfile they came from, and
 `opencode-server.json`, `codex-server.json` and `claude-agent-processes.json`, the records of the
-running OpenCode and Codex servers and Claude Code processes (no secrets) that let the next start
-stop anything a crash left behind, and `network-key.pem` and `network-certificate.pem`, the network
+running OpenCode and Codex servers and Claude Code processes (no secrets), and `previews/`, those of
+each preview's server and, while a check runs, of the check's own server (AUDIT S1), that let the next
+start stop anything a crash left behind, and `network-key.pem` and `network-certificate.pem`, the network
 listener's TLS identity, created when the listener is first turned on; paired devices pin the
 certificate, so deleting the two makes every device pair again.
 
