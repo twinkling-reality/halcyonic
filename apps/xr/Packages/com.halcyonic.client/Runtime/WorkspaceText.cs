@@ -80,6 +80,15 @@ namespace Halcyonic.Client
         public const string Disconnected = "Disconnected";
         public const string Connecting = "Connecting";
         public const string Demo = "Demo";
+        public const string Recorded = "Recorded";
+
+        /// <summary>
+        /// What the workspace says of the session shown: Recorded while a recorded run plays (ADR 0035: never Practice or
+        /// Demo), Demo while the demonstration does, and otherwise the control plane's state.
+        /// </summary>
+        public static string ConnectionWords(bool demonstration, bool recordedRun, bool connected, bool connecting) =>
+            demonstration ? recordedRun ? Recorded : Demo
+            : connected ? Connected : connecting ? Connecting : Disconnected;
         public const string MoveWorkspace = "Move";
         public const string WhatIsItDoing = "Status";
 

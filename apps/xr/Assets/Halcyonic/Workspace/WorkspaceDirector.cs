@@ -177,6 +177,7 @@ namespace Halcyonic.XR.Workspace
                 Submit = Submit,
                 Api = () => ControlPlaneSettings.Api(),
                 Demonstration = () => connection.DemonstrationLine != null,
+                RecordedRun = () => connection.ShowingRecordedRun,
                 Keyboard = OpenKeyboard,
                 KeyboardOffered = () => TouchScreenKeyboard.isSupported,
                 Voice = voice,

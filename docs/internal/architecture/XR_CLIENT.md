@@ -1487,7 +1487,9 @@ launch/return, process recreation and current-frame action behavior need separat
   recorded run holds only the answers someone really gave when it ran, so `DemonstrationTransport`
   answers the one it holds with "Not sent to any agent. This was approved when it ran, so the run
   goes on as it happened." (or denied), and anything else with "Not sent to any agent. This run is
-  recorded as it happened, so nothing changes."
+  recorded as it happened, so nothing changes." While one plays the workspace's connection words
+  read Recorded, never Demo (`DemonstrationFallback.ShowingRecordedRun`,
+  `WorkspaceText.ConnectionWords`; ADR 0035 point 3).
   - **Recorded run, then demonstration.** When the build has `Resources/HalcyonicRecordedRun.json`,
     `ControlPlaneConnection` gives `DemonstrationFallback` a player for it as well, and neither player
     loops (`DemonstrationOptions.Loop` false): a recording that has held its final state to the end

@@ -122,6 +122,9 @@ namespace Halcyonic.XR.Workspace
 
             public Func<bool> Demonstration { get; set; } = () => false;
 
+            /// <summary>Whether the recording shown is a recorded run, which the workspace calls Recorded, never Demo.</summary>
+            public Func<bool> RecordedRun { get; set; } = () => false;
+
             public Func<Stage> StageNow { get; set; } = () => new Stage(Vector3.zero, Vector3.forward, Array.Empty<CharacterTarget>(), null, false);
 
             /// <summary>The character a task stands on the stage as, for the file's light line and its placement.</summary>
@@ -766,8 +769,8 @@ namespace Halcyonic.XR.Workspace
             var character = navigator.BesideTask is string task ? setup.CharacterOf(task) : null;
             drawnVoice = Voiced();
             plane.Voice = drawnVoice;
-            plane.ConnectionState = Demonstration ? WorkspaceText.Demo : Connected ? WorkspaceText.Connected
-                : setup.Session()?.Status.Phase is ConnectionPhase.Connecting or ConnectionPhase.Synchronizing ? WorkspaceText.Connecting : WorkspaceText.Disconnected;
+            plane.ConnectionState = WorkspaceText.ConnectionWords(Demonstration, setup.RecordedRun(), Connected,
+                setup.Session()?.Status.Phase is ConnectionPhase.Connecting or ConnectionPhase.Synchronizing);
             plane.SelectionContext = WorkspaceContext();
             plane.OtherAppsAvailable = CanOpenOtherApps;
             plane.Chrome.MoveMode = moveMode;

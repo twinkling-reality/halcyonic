@@ -47,6 +47,9 @@ namespace Halcyonic.XR
         /// </summary>
         public string? DemonstrationLine => sessions?.Line;
 
+        /// <summary>Whether the recording shown is a recorded run (ADR 0035), not the demonstration.</summary>
+        public bool ShowingRecordedRun => sessions?.ShowingRecordedRun ?? false;
+
         /// <summary>The recorded demonstration's usage limits as if read now, while it is shown and holds them; null otherwise.</summary>
         public AvailableUsageLimits? DemonstrationUsageLimits(DateTimeOffset now) => DemonstrationLine != null ? sessions?.UsageLimitsAt(now) : null;
 

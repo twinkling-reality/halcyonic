@@ -252,6 +252,30 @@ public class RecordedRunHandOffTests
     }
 
     [Test]
+    public async Task TheWorkspaceSaysRecordedWhileTheRecordedRunPlaysAndDemoWhileTheDemonstrationDoes()
+    {
+        // ADR 0035 point 3: a recorded run reads Recorded, never Practice or Demo.
+        string Words(DemonstrationFallback shown) =>
+            WorkspaceText.ConnectionWords(shown.Line != null, shown.ShowingRecordedRun, connected: false, connecting: false);
+        var fallback = Start(ShortDemonstration, ShortRun);
+        await Until(fallback, () => Playing(fallback, recordedRun: true), "the recorded run is read");
+        Assert.That(Words(fallback), Is.EqualTo("Recorded"));
+
+        await Until(fallback, () => Playing(fallback, recordedRun: false), "the demonstration follows");
+        Assert.That(Words(fallback), Is.EqualTo("Demo"));
+
+        var alone = Start(ShortDemonstration, null);
+        await Until(alone, () => Playing(alone, recordedRun: false), "the demonstration plays alone");
+        Assert.That(Words(alone), Is.EqualTo("Demo"));
+    }
+
+    [TestCase(true, false, "Connected")]
+    [TestCase(false, true, "Connecting")]
+    [TestCase(false, false, "Disconnected")]
+    public void WithNoRecordingShownTheWorkspaceSaysTheControlPlanesState(bool connected, bool connecting, string words) =>
+        Assert.That(WorkspaceText.ConnectionWords(false, false, connected, connecting), Is.EqualTo(words));
+
+    [Test]
     public async Task AtItsEndTheLineSaysWhatComesNext()
     {
         // At an end the end line takes the second sentence's place, so the banner keeps to its rows with a task

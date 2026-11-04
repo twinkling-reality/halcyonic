@@ -78,6 +78,9 @@ namespace Halcyonic.Client
         /// <summary>The demonstration's player, while it is shown.</summary>
         public DemonstrationPlayer? Player => player;
 
+        /// <summary>Whether what is shown is a recorded run, including while it is still being read.</summary>
+        public bool ShowingRecordedRun => player != null && (player.Recording?.IsRecordedRun ?? showingRecordedRun);
+
         /// <summary>Why the demonstration is shown, or null while it is not.</summary>
         public DemonstrationReason? Reason =>
             player == null ? (DemonstrationReason?)null
