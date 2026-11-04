@@ -57,8 +57,9 @@ namespace Halcyonic.Client
                     + (saved?.Invoke(chosen) == false ? " · Not Saved" : ""));
                 if (chosen.Instruction != null) runs = runs.Then(LineWords.Written("\nInstruction Draft\n")).Then(LineWords.Theirs(chosen.Instruction.Text));
                 if (chosen.Request != null) runs = runs.Then(LineWords.Written("\nRequest Draft\n")).Then(LineWords.Theirs(chosen.Request.Text))
-                    .Then(LineWords.Ours(chosen.Request.PendingCommandId != null ? "\nPending Result · Restore to Check" : chosen.Request.RequestId == null ? "\nNot Submitted" : "\nRequest Reference Kept · Restore to Read Result"));
-                if (chosen.Instruction == null && chosen.Request == null) runs = runs.Then(LineWords.Ours("\nNo Draft"));
+                    .Then(LineWords.Written(chosen.Request.PendingCommandId != null ? "\nPending Result · Restore to Check" : chosen.Request.RequestId == null ? "\nNot Submitted" : "\nRequest Reference Kept · Restore to Read Result"));
+                // A line break leads these words, so they are written line by line (Ours takes one line, and refused them).
+                if (chosen.Instruction == null && chosen.Request == null) runs = runs.Then(LineWords.Written("\nNo Draft"));
                 var rows = Math.Max(1, host.RowsOf(new PageLine(runs, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
                 var room = Math.Max(1, (int)Math.Floor(host.PageHeight(host.TitleRows("Saved Task View", Glaze.Menu.FileColumnDegrees), false, focused: true) / MenuPage.Words(1)));
                 var parts = Math.Max(1, (rows + room - 1) / room);
