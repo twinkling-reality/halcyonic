@@ -1,8 +1,18 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { SCAN_LIMITS, scanSource } from './scan.ts';
 
 function project(t: TestContext, files: Record<string, string>): string {
@@ -93,5 +103,27 @@ describe("the scan says when a game is still set in the starter's default world 
       { kind: 'default_world', file: 'src/index.ts', line: 1 },
       { kind: 'default_world', file: 'src/index.ts', line: 2 },
     ]);
+  });
+});
+
+describe("the default world's note on the starter's own template (AUDIT W1B-1)", () => {
+  const template = fileURLToPath(
+    new URL('../../../../starters/iwsdk-vr/template', import.meta.url),
+  );
+
+  test('a pristine starter has exactly its index.ts note, and none once index.ts names a world', async (t) => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-scan-template-')));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    cpSync(template, root, { recursive: true });
+    const index = join(root, 'src', 'index.ts');
+    const text = readFileSync(index, 'utf8');
+    const line = text.split('\n').findIndex((l) => l.trim() === 'setupLook(world);') + 1;
+    assert.ok(line > 0, 'the template calls setupLook(world)');
+    assert.deepEqual(await scanSource(root), {
+      scanned: 'full',
+      items: [{ kind: 'default_world', file: 'src/index.ts', line }],
+    });
+    writeFileSync(index, text.replace('setupLook(world);', "setupLook(world, 'night');"));
+    assert.deepEqual(await scanSource(root), { scanned: 'full', items: [] });
   });
 });
