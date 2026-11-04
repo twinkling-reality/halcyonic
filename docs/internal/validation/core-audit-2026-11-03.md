@@ -36,6 +36,16 @@
 Pinned by count tests: a task's share of the snapshot does not grow with its rounds, and what a task costs at the
 longest instruction (cccd0a4b).
 
+## Checked, no defect found
+
+- **No contract-valid event stops the projection.** An apply that throws would leave its event journaled and
+  unprojected, and every rebuild would meet it again. A seeded generator over the contract's own schemas makes
+  events of all 48 types, each checked by `parseEventEnvelope`, and folds 600 of them in random orders and scopes for
+  each of 30 seeds, the projects, tasks and executions they refer to made first: none throws, and the same events
+  fold again to the same views (`packages/domain/src/projection-events.test.ts`). The test fails when the projection
+  is made to throw for one event type. What the generator never makes stays untried: shapes past its small pools of
+  ids and words.
+
 ## What remains, and why
 
 Each was found by this audit and is not fixed by it.
@@ -54,9 +64,6 @@ Each was found by this audit and is not fixed by it.
   subscribers, with no trend in the cost. Usually two clients are connected.
 - **A summary of every tool result is kept per execution.** Verified in the code, not measured: the scale bench
   sends no tool results.
-- **An event the projection cannot apply would stop every later start.** Verified in the code: an apply that throws
-  leaves its event journaled and unprojected, and every rebuild meets it again. No such event is known; no test yet
-  applies every shape of contract-valid event.
 - **Not attacked in this audit:** the loopback proof, pairing under concurrent attempts and revocation against long
   requests, `reads_confined` before a preview or a play opens, accepted-is-not-success across every command type,
   `folder-safety.ts` against case and hard-link games, and error text and URLs in journal fields other than those
