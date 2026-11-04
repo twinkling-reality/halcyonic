@@ -144,7 +144,7 @@ describe('the world moves by itself from the first frame, by the time a system i
   });
 
   test('nothing in the look or the decor keeps a clock of its own, so the check can step it', () => {
-    for (const file of ['src/look.ts', 'src/decor.ts'])
+    for (const file of ['src/look.ts', 'src/decor.ts', 'src/sound.ts', 'src/worlds.ts'])
       assert.doesNotMatch(
         read(file),
         /setTimeout|setInterval|Date\.now|performance\.now|requestAnimationFrame|new Clock/,
@@ -345,5 +345,74 @@ describe('the agent writes every file with its file-editing tool (U9)', () => {
     );
     // A confined server has a temporary folder of its own (ADR 0041, CONFINED-TMP): no line says otherwise (AUDIT U9).
     assert.doesNotMatch(agents, /temporary folder|here.document|operation not permitted/);
+  });
+});
+
+describe('a game can be set in a world of its own, so two games never read as one place (W1)', () => {
+  // The three showcase games of 2026-11-04 all kept the starter's island, sky and decor, and read as one world.
+  const worlds = read('src/worlds.ts');
+  const names = ['meadow', 'garden', 'seaside', 'night'];
+
+  test('the starter offers the meadow and three other worlds, each its own sky, light, ground, dressing and sound', () => {
+    assert.match(worlds, /export const worlds = \{ meadow, garden, seaside, night \} as const;/);
+    for (const name of names) {
+      const start = worlds.indexOf(`const ${name}: WorldLook = {`);
+      assert.ok(start >= 0, name);
+      const body = worlds.slice(start, worlds.indexOf('\n};', start));
+      for (const part of ['sky:', 'light:', 'ground:', `dressing: '${name}'`, 'sound:'])
+        assert.ok(body.includes(part), `${name} has ${part}`);
+    }
+    // The meadow is the starter's own, so a game that keeps it draws the same picture as before (DRAWN's reference).
+    const meadow = worlds.slice(
+      worlds.indexOf('const meadow'),
+      worlds.indexOf('\n};', worlds.indexOf('const meadow')),
+    );
+    assert.match(
+      meadow,
+      /sky: \{ top: palette\.sky, horizon: palette\.cloud, clouds: '#FFFFFF' \}/,
+    );
+    assert.match(meadow, /top: palette\.leaf,/);
+    assert.doesNotMatch(meadow, /middle:|disc:|stars:|sea:|hills:/);
+  });
+
+  test('setupLook takes the world, the meadow when none is named, and decorate dresses the island for it', () => {
+    const look = read('src/look.ts');
+    assert.match(
+      look,
+      /export function setupLook\(world: World, setting: WorldName \| WorldLook = 'meadow'\): \{ island: Group \}/,
+    );
+    assert.match(look, /stage\.add\(plain \? meadowSky\(look\.sky\) : skyDome\(look\.sky\)\);/);
+    assert.match(look, /startAmbience\(look\.sound, ambientMotion\);/);
+    const decor = read('src/decor.ts');
+    for (const dressing of ['garden', 'seaside', 'night'])
+      assert.match(
+        decor,
+        new RegExp(`function ${dressing}Dressing\\(decor: Group, counts: DecorCounts\\): void`),
+      );
+    assert.match(decor, /const dressing = currentWorld\(\)\.dressing;/);
+  });
+
+  test("the new skies convert their colours for the screen after mixing, as the meadow's does", () => {
+    const look = read('src/look.ts');
+    const dome = look.slice(look.indexOf('function skyDome'), look.indexOf('function stars'));
+    const mixed = dome.indexOf('gl_FragColor = vec4(c, 1.0);');
+    assert.ok(mixed > 0 && dome.indexOf("'#include <colorspace_fragment>'") > mixed);
+  });
+
+  test('the sound waits for a press and needs no file', () => {
+    const sound = read('src/sound.ts');
+    assert.match(sound, /navigator\.userActivation\?\.hasBeenActive/);
+    assert.doesNotMatch(sound, /fetch\(|new Audio\(|decodeAudioData|Math\.random/);
+  });
+
+  test('the agent is told to pick the world that fits, or make one, and the meadow is what every game shares', () => {
+    const agents = read('AGENTS.md');
+    assert.match(agents, /Set the game in a world of its own/);
+    assert.match(agents, /`setupLook\(world, 'night'\)`/);
+    for (const name of ['garden', 'seaside', 'night'])
+      assert.match(agents, new RegExp(`- \`${name}\`: `));
+    assert.match(agents, /make one of your own from another/);
+    // The pristine starter keeps the meadow, so the check's reference picture is the starter's own.
+    assert.match(read('src/index.ts'), / {2}setupLook\(world\);/);
   });
 });

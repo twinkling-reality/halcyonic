@@ -492,7 +492,9 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       'panel.ts',
       'play-input-core.ts',
       'play-input.ts',
+      'sound.ts',
       'vite-env.d.ts',
+      'worlds.ts',
     ]);
     const agents = readFileSync(join(template, 'AGENTS.md'), 'utf8');
     assert.match(agents, /Keep the game's systems and setup in `src\/index\.ts`/);
