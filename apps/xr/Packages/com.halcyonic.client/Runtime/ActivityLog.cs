@@ -68,6 +68,9 @@ namespace Halcyonic.Client
         private readonly Dictionary<string, List<ActivityEntry>> entries = new Dictionary<string, List<ActivityEntry>>();
         private readonly Dictionary<string, string> toolNames = new Dictionary<string, string>();
         private readonly Dictionary<string, string> runtimeNames = new Dictionary<string, string>();
+        // What the computer observed of each execution's folder, turn by turn, in journal order.
+        private readonly Dictionary<string, List<ObservedTurn>> observed = new Dictionary<string, List<ObservedTurn>>();
+        private const int ObservedKept = 16;
         // The executions whose lines are all kept, the least recently recorded or read first.
         private readonly LinkedList<string> recent = new LinkedList<string>();
         private readonly Dictionary<string, LinkedListNode<string>> recentNodes = new Dictionary<string, LinkedListNode<string>>();
@@ -87,6 +90,13 @@ namespace Halcyonic.Client
             return list;
         }
 
+        /// <summary>
+        /// What the computer observed of the execution's folder (<c>execution.files.observed</c>), a turn each, oldest first:
+        /// the last <see cref="ObservedKept"/> of the executions kept whole, and of the rest the last.
+        /// </summary>
+        public IReadOnlyList<ObservedTurn> ObservedFor(string executionId) =>
+            observed.TryGetValue(executionId, out var turns) ? turns : (IReadOnlyList<ObservedTurn>)new ObservedTurn[0];
+
         /// <summary>Tool calls whose names wait for their completion line: started and not yet completed.</summary>
         public int OpenToolCalls => toolNames.Count;
 
@@ -98,6 +108,11 @@ namespace Halcyonic.Client
             {
                 var executionId = stored.Event.ExecutionId;
                 if (executionId == null) continue;
+                if (stored.Event is ExecutionFilesObservedEvent files)
+                {
+                    if (Observe(executionId, stored, files.Payload)) { changed.Add(executionId); Touch(executionId); }
+                    continue;
+                }
                 if (!entries.TryGetValue(executionId, out var list))
                 {
                     list = new List<ActivityEntry>();
@@ -124,6 +139,7 @@ namespace Halcyonic.Client
             entries.Clear();
             toolNames.Clear();
             runtimeNames.Clear();
+            observed.Clear();
             recent.Clear();
             recentNodes.Clear();
         }
@@ -151,7 +167,27 @@ namespace Halcyonic.Client
                 recent.RemoveFirst();
                 recentNodes.Remove(oldest);
                 if (entries.TryGetValue(oldest, out var list)) KeepTail(list);
+                if (observed.TryGetValue(oldest, out var turns) && turns.Count > 1) turns.RemoveRange(0, turns.Count - 1);
             }
+        }
+
+        /// <summary>Keeps an observed turn in journal order, once. Returns whether it was new.</summary>
+        private bool Observe(string executionId, StoredEvent stored, FilesObserved files)
+        {
+            if (!observed.TryGetValue(executionId, out var turns))
+            {
+                turns = new List<ObservedTurn>();
+                observed[executionId] = turns;
+            }
+            var at = turns.Count;
+            while (at > 0 && turns[at - 1].Position >= stored.Position)
+            {
+                if (turns[at - 1].Position == stored.Position) return false;
+                at--;
+            }
+            turns.Insert(at, new ObservedTurn(stored.Position, stored.Event.OccurredAt, files));
+            if (turns.Count > ObservedKept) turns.RemoveAt(0);
+            return true;
         }
 
         /// <summary>The last lines, and before them the last one that is not a round's when they are all rounds'.</summary>
