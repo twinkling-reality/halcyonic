@@ -65,6 +65,8 @@ namespace Halcyonic.XR.Workspace
         {
             Kit = KitWorkspaceHost.Create(root);
             Kit.Accepting = TakesKit;
+            Kit.Voice = () => Voice?.Stage ?? VoiceStage.Idle;
+            Kit.MicLevel = () => HoldToTalk.CurrentLevel;
             Kit.Acted += (kind, action, key, frame, side) => { if (TakesKit()) Acted?.Invoke(kind, action, key, frame, side); };
             Kit.HoldStarted += (kind, prompt, frame, side) => { if (TakesKit()) HoldStarted?.Invoke(kind, prompt, frame, side); };
             Kit.HoldEnded += (kind, prompt, letGo) => HoldEnded?.Invoke(kind, prompt, letGo);

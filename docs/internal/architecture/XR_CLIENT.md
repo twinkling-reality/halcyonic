@@ -2498,6 +2498,43 @@ given (no rule unwraps a `/bin/zsh -lc '...'` wrapper, so it stays). The getter 
 setter, `UseGeneric`, is compiled into development builds, the editor and the test build alone, and
 `WorkspaceRender.CapturePresetsCheck` reads a release compile's client assembly to prove it is not there.
 
+### The redesign, built unit by unit (2026-11-05)
+
+The owner said yes to DESIGN's v4 (its SYSTEM-v4 and design6, private): the shelf with plates, one Type or Talk
+bar, per moment an information panel with a choices panel beside it, one type size, the working field with the agent's
+cursor, Stop in its own panel. It is built unit by unit behind `RoomDesign.Enabled` (client core), off by default, so
+the kit and the judge path stand whole between units; a development build turns it on with the extra
+`--extra-bool halcyonic.redesign=true` (`CapturePresets`), and the redesign's render states turn it on for themselves.
+The last unit turns it on by default and removes the kit parts it replaced.
+
+- **Placement and type** live once in `RoomGeometry` (client core), SYSTEM-v4's numbers in degrees and dp: the pair
+  43.5 degrees wide, feet at pitch -17.6, the bar's foot at -23.5, every word Inter Regular 20 dp on a 28 dp line
+  (`RoomType`), larger text times 1.15. `RoomLayout` (ADR 0040's poses) is unchanged.
+- **One surface and one button:** every redesign part stands on `RoomSurface` and presses through `RoomButton`
+  (`UI.Interaction/Room`), plain placeholders in SYSTEM-v4's colours until DESIGN's finish (frosted squircle glass, no
+  pill buttons in panels) lands in those two places. A surface draws again only when its size, kind or colour changed.
+- **Unit 1, the bar:** `RoomBar` (client core) is a view of the open task's own instruction, never a second one: at
+  rest Type or Talk (a press is the file's Tell it), Listening and Transcribing from `MenuVoice`, open on the draft
+  (the keyboard, the mic held to talk, Send), and Sent · Awaiting Start while the task's run was asked for and has
+  not started. `RoomBarView` draws it under the kit, 1.9 degrees below its foot as SYSTEM-v4 stands it below the pair,
+  230 dp wide at rest, 340 dp listening or sent, the pair's width open; its presses go through `KitWorkspaceHost`'s
+  own places (Field, Send, Talk), so reading before Send, ADMIT and the voice rules hold. While it shows, the kit
+  composer's well, mic and Send hide (`KitComposer.ShowInstructionParts`); its Close, Stop, Discard and chips stay
+  until their units. DESIGN's numbers (BUILD-SPEC 2.1): 64 dp tall, corner 30, 6 dp inside its edge, the words 18 dp
+  in with 12 dp above and below, up to 3 draft lines for now (the kit composer's rows, so `Kit.Holds` is unchanged);
+  the mic and Send drawn 52 dp (corner 22) in Meta's 60.8 dp hand targets 12 mm apart, so drawn 19.8 dp apart; its
+  width moves over 360 ms; "Sent · Awaiting Start", "Listening" and "Transcribing" sweep (`GlazeShimmer`). One line of
+  words is never cut: at the larger size the capsule widens for them past its width.
+- **The level is the microphone's** (the lead's truth rule): `HoldToTalk` reads the last 50 ms it recorded every 50 ms
+  into `LevelHistory` (client core: the RMS, -54 to -12 dBFS, 26 bars, newest at the right), and the bar draws 26 bars
+  of it, drawn once and scaled so a frame draws nothing. A release build records nothing (`HoldToTalk.CurrentLevel` is
+  null) and shows Listening without bars.
+- **Checks:** `KitRender.Check`'s states `31-bar-rest`, `31-bar-open`, `31-bar-listening` (the level from recorded
+  samples, each bar following its 50 ms), `31-bar-listening-no-level` and `31-bar-sent`, on the real host bound to
+  production frames: state, width, words whole in the one size, controls inside the capsule, the composer's own parts
+  hidden, the field, targets, and presses reaching the file's Tell it, keyboard and Send. `LevelHistoryTests` and
+  `RoomBarTests` in the client suite.
+
 ### The room of projects' placement (2026-10-29)
 
 ADR 0040's surfaces stand where `RoomLayout` (client core, no Unity) puts them. Sizes in degrees

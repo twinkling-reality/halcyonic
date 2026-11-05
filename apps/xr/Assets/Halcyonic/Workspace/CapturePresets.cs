@@ -100,7 +100,12 @@ namespace Halcyonic.XR.Workspace
         private static void Begin()
         {
             if (!Debug.isDebugBuild || Application.isEditor) return;
-            if (ReadGeneric())
+            if (ReadExtra("halcyonic.redesign"))
+            {
+                RoomDesign.Enabled = true;
+                Debug.Log("Halcyonic: the redesign draws where it is built.");
+            }
+            if (ReadExtra("halcyonic.generic"))
             {
                 CaptureNames.UseGeneric(true);
                 Debug.Log("Halcyonic: capture names generic.");
@@ -109,15 +114,15 @@ namespace Halcyonic.XR.Workspace
             new GameObject("Halcyonic capture preset").AddComponent<CapturePresets>().preset = preset;
         }
 
-        /// <summary>Whether the launch intent asks for generic names (<c>halcyonic.generic</c>).</summary>
-        private static bool ReadGeneric()
+        /// <summary>Whether the launch intent carries the boolean extra <paramref name="name"/>: generic names (<c>halcyonic.generic</c>), the redesign (<c>halcyonic.redesign</c>).</summary>
+        private static bool ReadExtra(string name)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
             try
             {
                 var activity = UnityEngine.Android.AndroidApplication.currentActivity;
                 using var intent = activity.Call<AndroidJavaObject>("getIntent");
-                return intent != null && intent.Call<bool>("getBooleanExtra", "halcyonic.generic", false);
+                return intent != null && intent.Call<bool>("getBooleanExtra", name, false);
             }
             catch (Exception) { return false; }
 #else

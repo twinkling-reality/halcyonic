@@ -33,6 +33,19 @@ namespace Halcyonic.XR.UI
 
         private KitWorkView view = null!;
         private KitPresenceView presence = null!;
+        private RoomBarView bar = null!;
+
+        /// <summary>The redesign's Type or Talk bar, while <see cref="RoomDesign.Enabled"/> stands it in place of the composer's well.</summary>
+        public RoomBarView Bar => bar;
+
+        /// <summary>What voice is doing now, as the plane last drew it.</summary>
+        public Func<VoiceStage> Voice { get; set; } = () => VoiceStage.Idle;
+
+        /// <summary>The microphone's real level while hold to talk records; null where nothing records.</summary>
+        public Func<LevelHistory?> MicLevel { get => bar.Level; set => bar.Level = value; }
+
+        /// <summary>Whether the bound task's run was asked for and has not started.</summary>
+        public Func<bool> AwaitingStart { get; set; } = () => false;
         private TextMeshPro measure = null!;
         private KitFileBinding? binding;
         private MenuColumn column;
@@ -127,6 +140,15 @@ namespace Halcyonic.XR.UI
             composer.AgentPressed += () => { if (host.Settled && host.Accepting()) host.AgentPressed?.Invoke(); };
             composer.Talk.Pressed += host.OnTalkPressed;
             composer.Talk.Press.Target.Released += host.OnTalkReleased;
+            // The redesign's bar takes the composer's own places: its words the field, its Send, its mic held to talk.
+            host.bar = RoomBarView.Create(go.transform);
+            host.bar.FieldPressed += () => host.Press(KitPlace.Field);
+            host.bar.SendPressed += () => host.Press(KitPlace.Send);
+            host.bar.Mic.Pressed += host.OnTalkPressed;
+            host.bar.Mic.Press.Target.Released += host.OnTalkReleased;
+            host.bar.Field.Accepting = () => host.Accepting();
+            host.bar.Mic.Press.Accepting = () => host.Accepting();
+            host.bar.Send.Press.Accepting = () => host.Accepting();
             var decision = host.view.Decision;
             decision.DenyPressed += () => host.Press(KitPlace.Deny);
             decision.ApprovePressed += () => host.Press(KitPlace.Approve);
@@ -181,6 +203,7 @@ namespace Halcyonic.XR.UI
             Size = view.Size / zoom;
             TextBands = Bands(view.Size, zoom);
             RailRows = Mathf.Max(1, Mathf.FloorToInt(RailRoom(view.Size) / RowPitch()));
+            ShowBar(binding);
             drawn = null;
             if (changed)
             {
@@ -188,6 +211,52 @@ namespace Halcyonic.XR.UI
                 foreach (var press in view.Targets) press.Unsettle();
             }
         }
+
+        /// <summary>
+        /// While the redesign is on, the bar stands under the kit, 1.9 degrees below its foot as SYSTEM-v4 stands it below the
+        /// pair, and takes the composer's well, mic and Send, which hide; the composer's other controls stay until their units.
+        /// </summary>
+        private void ShowBar(KitFileBinding binding)
+        {
+            if (!RoomDesign.Enabled || binding.Model.Ask != null)
+            {
+                bar.Hide();
+                view.transform.localPosition = Vector3.zero;
+                view.Composer.ShowInstructionParts(true);
+                return;
+            }
+            var model = binding.Model;
+            var composing = binding.Frame.Lines.Any(line => line.Action == FileScreens.EditInstruction);
+            var voiceOffered = binding[KitPlace.Talk] != null || model.VoiceOffered;
+            var state = RoomBar.Of(composing, model.Draft, voiceOffered, model.Sendable, model.WhyNotSend, Voice(), AwaitingStart());
+            view.Composer.ShowInstructionParts(false);
+            // The host's size holds the kit and the bar under it, so the plane places both inside the field: the kit rises
+            // by half of what the bar and its gap take, its text bands with it, and the bar adds a band of its own.
+            // As the kit's view, the bar is laid at the person's text size and scaled back by it, so the plane's own scaling
+            // leaves its widths as SYSTEM-v4 gives them and its words larger at the larger size.
+            var zoom = GlazeText.Scale;
+            bar.transform.localScale = Vector3.one / zoom;
+            var kit = view.Size / zoom;
+            var gap = KitType.Units(RoomBarGapDegrees);
+            var barHeight = RoomType.Units(RoomGeometry.BarHeightDp) / zoom;
+            var shift = 0f;
+            for (var pass = 0; pass < 2; pass++)
+            {
+                shift = (gap + barHeight) / 2f;
+                bar.Show(state, new Vector2(0f, shift - kit.y / 2f - gap));
+                barHeight = bar.Size.y / zoom;
+            }
+            var barSize = bar.Size / zoom;
+            view.transform.localPosition = new Vector3(0f, shift, 0f);
+            Size = new Vector2(Mathf.Max(kit.x, barSize.x), kit.y + gap + barSize.y);
+            var barBottom = shift - kit.y / 2f - gap - barSize.y;
+            TextBands = Bands(view.Size, zoom, shift).Append(new TextBand(-barSize.x / 2f, barSize.x / 2f, barBottom, barBottom + barSize.y,
+                SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom)).ToArray();
+            foreach (var press in new[] { bar.Field, bar.Mic.Press, bar.Send.Press }) press.Accepting = () => Accepting();
+        }
+
+        /// <summary>From the pair's feet to the bar's top in SYSTEM-v4: its foot 5.9 degrees below, less its 4 degrees of height.</summary>
+        private const float RoomBarGapDegrees = 1.9f;
 
         /// <summary>
         /// Shows the compact presence where the closed bar stands, naming what the bar names (<paramref name="model"/>):
@@ -358,14 +427,14 @@ namespace Halcyonic.XR.UI
         /// Where the spine's, the slate's and the rail's words can stand, relative to the centre, at the standard text size:
         /// each region's whole visible face, padding included, since some words stand just inside it.
         /// </summary>
-        private static TextBand[] Bands(Vector2 size, float zoom)
+        private static TextBand[] Bands(Vector2 size, float zoom, float up = 0f)
         {
             var spine = PlaneComposition.Units(SpatialKit.SpineDegrees);
             var slate = PlaneComposition.Units(SpatialKit.SlateDegrees);
             var left = -size.x / 2f;
             var sides = size.y / 2f - KitType.Units(SpatialKit.SlateRiseDegrees);
             var em = SpatialKit.Degrees(SpatialKit.BodyDp) * zoom;
-            TextBand Band(float from, float to, float half) => new TextBand(from / zoom, to / zoom, -half / zoom, half / zoom, em);
+            TextBand Band(float from, float to, float half) => new TextBand(from / zoom, to / zoom, -half / zoom + up, half / zoom + up, em);
             return new[]
             {
                 Band(left, left + spine, sides),

@@ -46,6 +46,14 @@ namespace Halcyonic.XR.Workspace
         private CancellationTokenSource? cancellation;
         private volatile int permissionAnswer;
 
+        // The real level while recording (the lead's truth rule): the last 50 ms of what was recorded, read every 50 ms.
+        private readonly LevelHistory level = new LevelHistory();
+        private float[] levelSamples = new float[0];
+        private float levelAt;
+
+        /// <summary>The microphone's real level while this headset records; null when nothing records.</summary>
+        public static LevelHistory? CurrentLevel => capturing?.level;
+
         /// <summary>Voice is in this build: development builds and the editor.</summary>
         public static bool Offered => true;
 
@@ -79,6 +87,10 @@ namespace Halcyonic.XR.Workspace
             }
             capturing = this;
             startedAt = Time.unscaledTime;
+            level.Clear();
+            levelAt = startedAt;
+            var window = Mathf.CeilToInt(clip.frequency * LevelHistory.StepSeconds) * clip.channels;
+            if (levelSamples.Length != window) levelSamples = new float[window];
             Said?.Invoke(VoiceText.Listening);
         }
 
@@ -139,6 +151,7 @@ namespace Halcyonic.XR.Workspace
             {
                 if (FocusGuard.InputSuspended) End(false);
                 else if (Time.unscaledTime - startedAt >= SpeechClip.MaxSeconds) End(true);
+                else ReadLevel();
             }
             if (pending == null || !pending.IsCompleted) return;
             var answered = pending;
@@ -168,6 +181,18 @@ namespace Halcyonic.XR.Workspace
 
         private void OnDisable() => Drop();
 
+        /// <summary>Every 50 ms while recording, the RMS of the last 50 ms the microphone wrote into the clip.</summary>
+        private void ReadLevel()
+        {
+            if (clip == null || Time.unscaledTime - levelAt < LevelHistory.StepSeconds) return;
+            levelAt = Time.unscaledTime;
+            var frames = levelSamples.Length / Mathf.Max(1, clip.channels);
+            var position = Microphone.GetPosition(null);
+            if (position < frames) return;
+            clip.GetData(levelSamples, position - frames);
+            level.Add(levelSamples, levelSamples.Length);
+        }
+
         /// <summary>
         /// Whether the microphone may be used now. On the headset, the first hold asks for it and
         /// records nothing; the person holds again once they have allowed it.
@@ -195,6 +220,9 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>Voice is in this build: development builds and the editor.</summary>
         public static bool Offered => false;
+
+        /// <summary>No microphone in a release build, so no level: the bar shows listening without one.</summary>
+        public static LevelHistory? CurrentLevel => null;
 
         public bool Busy => false;
 

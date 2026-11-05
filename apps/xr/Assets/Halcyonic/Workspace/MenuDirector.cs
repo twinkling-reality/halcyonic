@@ -280,6 +280,9 @@ namespace Halcyonic.XR.Workspace
             director.plane.KitDrawn += director.OnKitDrawn;
             director.plane.KitContextPressed += director.OnKitContext;
             director.plane.KitEnvironmentPressed += director.OnKitEnvironmentPressed;
+            // The redesign's bar says Sent · Awaiting Start while the open task's run was asked for and has not started.
+            director.plane.Kit.AwaitingStart = () => director.navigator.Beside is FileColumn open && open.Now is WorkspacePresentation now
+                && director.State?.Workstreams.TryGetValue(now.Character.WorkstreamId, out var work) == true && work.Status == WorkstreamStatus.Starting;
             director.plane.KitProjectPressed += director.OnKitProjectPressed;
             director.plane.KitAgentPressed += director.OnKitAgentPressed;
             director.plane.ContextProjectPressed += director.OnContextProject;
