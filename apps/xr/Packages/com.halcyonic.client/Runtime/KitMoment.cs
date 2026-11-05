@@ -197,6 +197,9 @@ namespace Halcyonic.Client
 
         public KitCheckScope? Scope { get; }
 
+        /// <summary>A host check's steps, each with its result (<see cref="CheckSteps"/>); none for any other moment or a check still running.</summary>
+        public IReadOnlyList<CheckStepOutcome> Steps { get; private set; } = Array.Empty<CheckStepOutcome>();
+
         /// <summary>What a question's runtime declares about its sandbox (ADR 0033); <see cref="KitSandbox.NotDeclared"/> otherwise.</summary>
         public KitSandbox Sandbox { get; private set; }
 
@@ -262,14 +265,16 @@ namespace Halcyonic.Client
         /// A check the computer ran itself: under way only while no exit was seen; an exit with no outcome said as not known
         /// (AUDIT's wiring note); its words name what the check covered.
         /// </summary>
-        public static KitMoment HostCheck(KitCheckScope scope, bool ended, bool? passed, DateTimeOffset? at)
+        public static KitMoment HostCheck(KitCheckScope scope, bool ended, bool? passed, DateTimeOffset? at, IReadOnlyList<CheckStepOutcome>? steps = null)
         {
+            if (!ended && steps?.Count > 0) throw new ArgumentException("A check still running has no steps' results.", nameof(steps));
             if (!ended && passed != null) throw new ArgumentException("A check's outcome needs its exit.", nameof(passed));
             var tone = passed == true ? KitMomentTone.Passed : passed == false ? KitMomentTone.Failure : KitMomentTone.Neutral;
             var actions = ended ? new[] { KitMomentAction.SeeTheOutput } : NoActions;
             return new KitMoment(KitMomentKind.HostCheck, KitProvenance.Observed, KitMomentWords.YourComputer,
                 LineWords.Ours(KitMomentWords.Check(scope, ended, passed)), null, NoLines, tone, actions, at, null, passed, scope)
-                .Parts(LineWords.Ours(KitMomentWords.CheckTitle(scope, ended, passed)), new[] { LineWords.Ours(KitMomentWords.CheckOutcome(scope, ended, passed)) });
+                .Parts(LineWords.Ours(KitMomentWords.CheckTitle(scope, ended, passed)), new[] { LineWords.Ours(KitMomentWords.CheckOutcome(scope, ended, passed)) })
+                .WithSteps(steps);
         }
 
         /// <summary>A command <paramref name="runtime"/> says it ran and the outcome it reports: its words, no colour.</summary>
@@ -308,6 +313,12 @@ namespace Halcyonic.Client
         private static string Says(string runtime) => LabelText.Name(runtime) + KitMomentWords.ReportedSuffix;
 
         /// <summary>Sets the card's parts (<see cref="Title"/>, <see cref="Meta"/>, <see cref="Well"/>, <see cref="Prose"/>) and returns the moment.</summary>
+        private KitMoment WithSteps(IReadOnlyList<CheckStepOutcome>? steps)
+        {
+            Steps = steps ?? Array.Empty<CheckStepOutcome>();
+            return this;
+        }
+
         private KitMoment Parts(LineWords? title, IEnumerable<LineWords?>? meta = null, string? well = null, LineWords? prose = null)
         {
             Title = title;
