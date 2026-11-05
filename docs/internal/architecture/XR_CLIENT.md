@@ -2516,17 +2516,28 @@ The last unit turns it on by default and removes the kit parts it replaced.
   opaque for now (the spec's 0.90 is a device test over passthrough), its 1 dp inner edge, a shadow 10 dp down with
   28 dp of blur at 22 percent, squircle corners (exponent 4; panels 34 dp, the bar 30, rows 24, insets 16), and a well
   sunk with no edge. `RoomSheen` sets one sheen band for every glass surface once a frame as shader globals: tilted 20
-  degrees, 5 degrees wide, 7 percent at its peak, a 2 s pass then 8 s of rest, none kept still. The buttons' kinds keep
-  the flat placeholder until DESIGN's button update (the owner's new direction, 2026-11-05). A surface draws again only
-  when its size, kind or colour changed.
+  degrees, 5 degrees wide, 7 percent at its peak, a 2 s pass then 8 s of rest, none kept still. Every glass value comes
+  from one table, `RoomSurface.Looks` (`RoomGlassLook`: the fill with its alpha top to foot, composited premultiplied,
+  the edge line, the shadow, an optional lighter inner bar placed per surface by `InnerBar`), so DESIGN's next panel
+  numbers drop in without touching the shader. A surface draws again only when its size, kind, colour or inner bar changed.
+- **The actions** (BUILD-SPEC-v4 1.4, unit 1c) are `RoomButton`: no box and no edge, ever. A 32 dp chip (corner 12)
+  holds the glyph, the words follow in the one size, over a faint halo of #2E3A40 solid inside the 48 dp core, half at
+  its edge and gone 12 dp out (`Halcyonic/Room Halo`, material `RoomHalo`). Looks in the spec's linear alphas: rest,
+  main (a light #D5DADE chip, dark glyph, white words), pointed (3 percent larger), main pointed, held (96 percent);
+  the drawing scales, never the target. There is no disabled look: an action that cannot act yet is not drawn (DESIGN,
+  2026-11-05; at 45 percent its words fell under the kit's contrast). Confirm's lock is a 2 dp ring round its chip
+  filling clockwise, its words whole, ignoring pointing until full. The bar's mic and
+  Send are 44 dp chips in their 52 dp slots, no halo. Targets are Meta's 60.8 dp at least; the plane stands at 0.46 m,
+  where 12 mm is about 24 dp, so stacked actions stand 84.8 dp apart (DESIGN's 72 dp assumed 1.0 m). The glyphs are the
+  product's icon font for now; DESIGN's own glyph set and the words' underlay are not built yet.
+- **The old kit is gone with the switch on** (the owner, 2026-11-05): `KitWorkspaceHost` draws none of its spine,
+  slate or rail; the room shows only the redesign's parts. A frame asking an approval or a question shows nothing until
+  unit 2 and is never reported drawn, so nothing counts as read that no one saw. Off, the kit stands whole.
 - **Unit 1, the bar:** `RoomBar` (client core) is a view of the open task's own instruction, never a second one: at
   rest Type or Talk (a press is the file's Tell it), Listening and Transcribing from `MenuVoice`, open on the draft
   (the keyboard, the mic held to talk, Send), and Sent · Awaiting Start while the task's run was asked for and has
-  not started. `RoomBarView` draws it under the kit, 1.9 degrees below its foot as SYSTEM-v4 stands it below the pair,
-  230 dp wide at rest, 340 dp listening or sent, the pair's width open; its presses go through `KitWorkspaceHost`'s
-  own places (Field, Send, Talk), so reading before Send, ADMIT and the voice rules hold. While it shows, the kit
-  composer's well, mic and Send hide (`KitComposer.ShowInstructionParts`); its Close, Stop, Discard and chips stay
-  until their units. DESIGN's numbers (BUILD-SPEC 2.1): 64 dp tall, corner 30, 6 dp inside its edge, the words 18 dp
+  not started. `RoomBarView` draws it alone in the host (the kit gone, see below), 230 dp wide at rest, 340 dp listening or sent, the pair's width open; its presses go through `KitWorkspaceHost`'s
+  own places (Field, Send, Talk), so reading before Send, ADMIT and the voice rules hold. DESIGN's numbers (BUILD-SPEC 2.1): 64 dp tall, corner 30, 6 dp inside its edge, the words 18 dp
   in with 12 dp above and below, up to 3 draft lines for now (the kit composer's rows, so `Kit.Holds` is unchanged);
   the mic and Send drawn 52 dp (corner 22) in Meta's 60.8 dp hand targets 12 mm apart, so drawn 19.8 dp apart; its
   width moves over 360 ms; "Sent · Awaiting Start", "Listening" and "Transcribing" sweep (`GlazeShimmer`). One line of

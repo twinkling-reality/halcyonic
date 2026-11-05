@@ -15,6 +15,8 @@ Shader "Halcyonic/Room Glass"
         _EdgeTop ("The edge line's top, sRGB, and its width in dp", Vector) = (0.333, 0.380, 0.404, 1)
         _EdgeFoot ("The edge line's foot, sRGB, and 1 where it shows", Vector) = (0.286, 0.329, 0.349, 1)
         _Shade ("Shadow drop, blur and alpha in dp, and 1 where it shows", Vector) = (10, 28, 0.22, 1)
+        _Inner ("A lighter inner bar: its top from the panel's top and its height in dp, its corner in dp, and 1 where it shows", Vector) = (0, 0, 0, 0)
+        _InnerColour ("The inner bar's colour, sRGB, and its alpha", Vector) = (1, 1, 1, 0)
     }
 
     SubShader
@@ -42,6 +44,8 @@ Shader "Halcyonic/Room Glass"
                 UNITY_DEFINE_INSTANCED_PROP(float4, _EdgeTop)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _EdgeFoot)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Shade)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _Inner)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _InnerColour)
             UNITY_INSTANCING_BUFFER_END(Props)
 
             // The sheen, once a frame for every surface (RoomSheen): the plane's origin and its right and up in the world,
@@ -116,6 +120,8 @@ Shader "Halcyonic/Room Glass"
                 float4 edgeTop = UNITY_ACCESS_INSTANCED_PROP(Props, _EdgeTop);
                 float4 edgeFoot = UNITY_ACCESS_INSTANCED_PROP(Props, _EdgeFoot);
                 float4 shade = UNITY_ACCESS_INSTANCED_PROP(Props, _Shade);
+                float4 inner = UNITY_ACCESS_INSTANCED_PROP(Props, _Inner);
+                float4 innerColour = UNITY_ACCESS_INSTANCED_PROP(Props, _InnerColour);
 
                 float2 p = area.xy + i.uv * area.zw;
                 float aa = max(max(fwidth(p.x), fwidth(p.y)), 1e-3);
@@ -126,6 +132,18 @@ Shader "Halcyonic/Room Glass"
                 float cover = saturate(0.5 - outer / aa);
                 float tf = saturate((extent.y - p.y) / max(2.0 * extent.y, 1e-4));
                 float3 face = lerp(fillTop.rgb, fillFoot.rgb, tf);
+                // The face's own alpha (the frost's, 1 while it is opaque), top to foot.
+                float faceAlpha = lerp(fillTop.a, fillFoot.a, tf);
+                // A lighter inner bar across the panel, inset from its sides as from its top (the one sentence's).
+                if (inner.w > 0.5)
+                {
+                    float barTop = extent.y - inner.x;
+                    float2 barCentre = float2(0, barTop - inner.y * 0.5);
+                    float2 barExtent = float2(extent.x - inner.x, inner.y * 0.5);
+                    float barD = Shape(p - barCentre, barExtent, min(inner.z, min(barExtent.x, barExtent.y)), panel.w);
+                    float barCover = saturate(0.5 - barD / aa);
+                    face = lerp(face, innerColour.rgb, innerColour.a * barCover);
+                }
                 // The edge: a line of its own colour just inside the outline.
                 float edge = edgeFoot.a > 0.5 ? cover * saturate(0.5 + (outer + edgeTop.a) / aa) : 0.0;
                 face = lerp(face, lerp(edgeTop.rgb, edgeFoot.rgb, tf), edge);
@@ -135,7 +153,8 @@ Shader "Halcyonic/Room Glass"
                 float offset = (across - _RoomSheenBand.x) / max(_RoomSheenBand.y, 1e-4);
                 float band = abs(offset) < 0.5 ? cos(offset * 3.14159265) : 0.0;
                 face = lerp(face, float3(1, 1, 1), _RoomSheenBand.z * band * band);
-                float4 faceOut = float4(Decode(face), 1.0);
+                // Premultiplied, so a translucent frost composites over passthrough as it is (BUILD-SPEC-v4 1.2's device note).
+                float4 faceOut = float4(Decode(face) * faceAlpha, faceAlpha);
 
                 float4 outside = float4(0, 0, 0, 0);
                 if (shade.w > 0.5)

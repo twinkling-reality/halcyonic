@@ -44,6 +44,8 @@ namespace Halcyonic.XR.UI
         private static readonly int EdgeTopId = Shader.PropertyToID("_EdgeTop");
         private static readonly int EdgeFootId = Shader.PropertyToID("_EdgeFoot");
         private static readonly int ShadeId = Shader.PropertyToID("_Shade");
+        private static readonly int InnerId = Shader.PropertyToID("_Inner");
+        private static readonly int InnerColourId = Shader.PropertyToID("_InnerColour");
         private static Material? material;
         private static Mesh? quad;
 
@@ -52,7 +54,7 @@ namespace Halcyonic.XR.UI
         private MaterialPropertyBlock block = null!;
         private RoomSurfaceKind kind;
         private Vector2 size;
-        private (Vector2 Size, RoomSurfaceKind Kind, Color Fill)? drawn;
+        private (Vector2 Size, RoomSurfaceKind Kind, Color Fill, (float, float)? Inner)? drawn;
 
         public RoomSurfaceKind Kind => kind;
 
@@ -63,6 +65,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The glass a panel's, the bar's or a well's kind draws; hidden for a button's.</summary>
         public MeshRenderer Glass => glass;
+
+        /// <summary>A lighter inner bar across the panel (DESIGN's FINISH-3, coming): its top below the panel's top and its height, in dp; null for none.</summary>
+        public (float TopDp, float HeightDp)? InnerBar { get; set; }
 
         /// <summary>A corner in dp in place of the kind's, as a round control's 22 dp squircle (DESIGN, 2026-11-05).</summary>
         public float? CornerOverrideDp { get; set; }
@@ -102,8 +107,8 @@ namespace Halcyonic.XR.UI
         public void Draw(Vector2 size, Color? fill = null)
         {
             var colour = fill ?? Fill(kind);
-            if (drawn is var (lastSize, lastKind, lastFill) && lastSize == size && lastKind == kind && lastFill == colour) return;
-            drawn = (size, kind, colour);
+            if (drawn is var (lastSize, lastKind, lastFill, lastInner) && lastSize == size && lastKind == kind && lastFill == colour && lastInner == InnerBar) return;
+            drawn = (size, kind, colour, InnerBar);
             this.size = size;
             var radius = Mathf.Min(RoomType.Units(CornerOverrideDp ?? CornerDp(kind)), size.y / 2f);
             if (!IsGlass(kind))
@@ -117,37 +122,42 @@ namespace Halcyonic.XR.UI
             var unit = RoomType.Units(1f);
             var width = size.x / unit;
             var height = size.y / unit;
-            var (fillTop, fillFoot, edgeTop, edgeFoot, edgeDp, shadow) = Look(kind);
-            // The quad reaches past the panel for its shadow: 28 dp of blur round it, 10 dp more below.
-            var margin = shadow ? ShadowBlurDp + ShadowDropDp : 2f;
+            var look = Looks(kind);
+            // The quad reaches past the panel for its shadow: its blur round it and its drop below.
+            var margin = look.Shadow ? look.ShadowBlurDp + look.ShadowDropDp : 2f;
             var quadSize = new Vector2(width + 2f * margin, height + 2f * margin);
             glass.transform.localScale = new Vector3(quadSize.x * unit, quadSize.y * unit, 1f);
             glass.transform.localPosition = new Vector3(0f, 0f, RoomType.Units(0.02f));
             block.SetVector(PanelId, new Vector4(width, height, radius / unit, 1f));
             block.SetVector(QuadId, new Vector4(-quadSize.x / 2f, -quadSize.y / 2f, quadSize.x, quadSize.y));
-            block.SetVector(FillTopId, Srgb(fillTop, 1f));
-            block.SetVector(FillFootId, Srgb(fillFoot, 1f));
-            block.SetVector(EdgeTopId, Srgb(edgeTop, edgeDp));
-            block.SetVector(EdgeFootId, Srgb(edgeFoot, edgeDp > 0f ? 1f : 0f));
-            block.SetVector(ShadeId, new Vector4(ShadowDropDp, ShadowBlurDp, ShadowAlpha, shadow ? 1f : 0f));
+            block.SetVector(FillTopId, Srgb(look.FillTop, look.FillTop.a));
+            block.SetVector(FillFootId, Srgb(look.FillFoot, look.FillFoot.a));
+            block.SetVector(EdgeTopId, Srgb(look.EdgeTop, look.EdgeDp));
+            block.SetVector(EdgeFootId, Srgb(look.EdgeFoot, look.EdgeDp > 0f ? 1f : 0f));
+            block.SetVector(ShadeId, new Vector4(look.ShadowDropDp, look.ShadowBlurDp, look.ShadowAlpha, look.Shadow ? 1f : 0f));
+            block.SetVector(InnerId, InnerBar is var (innerTop, innerHeight) && look.InnerColour.a > 0f
+                ? new Vector4(innerTop, innerHeight, look.InnerCornerDp, 1f) : Vector4.zero);
+            block.SetVector(InnerColourId, Srgb(look.InnerColour, look.InnerColour.a));
             glass.SetPropertyBlock(block);
             glass.gameObject.SetActive(true);
         }
 
-        /// <summary>The shadow under a panel and the bar: 10 dp down, 28 dp of blur, black at 22 percent.</summary>
-        public const float ShadowDropDp = 10f;
-        public const float ShadowBlurDp = 28f;
-        public const float ShadowAlpha = 0.22f;
+        /// <summary>
+        /// Every glass kind's look, the one table DESIGN's numbers drop into (the lead, 2026-11-05: FINISH-3's translucent tonal
+        /// panels, hairlines and a lighter inner bar replace these without a rewrite). The fills carry their alpha, composited
+        /// premultiplied over passthrough; the edge, shadow and inner bar are each a value here, none in the shader.
+        /// </summary>
+        public static System.Func<RoomSurfaceKind, RoomGlassLook> Looks { get; set; } = DefaultLook;
 
         /// <summary>
-        /// A glass kind's look as BUILD-SPEC-v4 1.2's opaque colours over the frost: the frost #3B4950 to #2E3A40 with its 1 dp
-        /// edge (#F2F2F2 at 14 percent: #556167 to #495459) and a shadow; a well sunk (black at 16 percent: #323D43 to #273136),
-        /// no edge and no shadow.
+        /// BUILD-SPEC-v4 1.2's glass as its opaque colours over the frost: the frost #3B4950 to #2E3A40 at alpha 1 (0.90 is a
+        /// device test) with its 1 dp edge (#F2F2F2 at 14 percent: #556167 to #495459) and a shadow 10 dp down, 28 dp of blur,
+        /// black at 22 percent; a well sunk (black at 16 percent: #323D43 to #273136), no edge and no shadow; no inner bar yet.
         /// </summary>
-        public static (Color FillTop, Color FillFoot, Color EdgeTop, Color EdgeFoot, float EdgeDp, bool Shadow) Look(RoomSurfaceKind kind) => kind switch
+        public static RoomGlassLook DefaultLook(RoomSurfaceKind kind) => kind switch
         {
-            RoomSurfaceKind.Well => (Hex(0x323D43), Hex(0x273136), Hex(0x323D43), Hex(0x273136), 0f, false),
-            _ => (Hex(0x3B4950), Hex(0x2E3A40), Hex(0x556167), Hex(0x495459), 1f, true),
+            RoomSurfaceKind.Well => new RoomGlassLook(Hex(0x323D43), Hex(0x273136), Hex(0x323D43), Hex(0x273136), 0f, shadow: false),
+            _ => new RoomGlassLook(Hex(0x3B4950), Hex(0x2E3A40), Hex(0x556167), Hex(0x495459), 1f, shadow: true),
         };
 
         /// <summary>The kind's corner in dp (BUILD-SPEC-v4 1.2): panels 34, the bar 30, rows 24, insets 16.</summary>
@@ -219,6 +229,40 @@ namespace Halcyonic.XR.UI
             material = null;
             quad = null;
         }
+    }
+
+    /// <summary>One glass kind's look: its fill (with alpha) top to foot, its edge line, its shadow and an optional lighter inner bar.</summary>
+    public readonly struct RoomGlassLook
+    {
+        public RoomGlassLook(Color fillTop, Color fillFoot, Color edgeTop, Color edgeFoot, float edgeDp, bool shadow,
+            float shadowDropDp = 10f, float shadowBlurDp = 28f, float shadowAlpha = 0.22f, Color innerColour = default, float innerCornerDp = 0f)
+        {
+            FillTop = fillTop;
+            FillFoot = fillFoot;
+            EdgeTop = edgeTop;
+            EdgeFoot = edgeFoot;
+            EdgeDp = edgeDp;
+            Shadow = shadow;
+            ShadowDropDp = shadowDropDp;
+            ShadowBlurDp = shadowBlurDp;
+            ShadowAlpha = shadowAlpha;
+            InnerColour = innerColour;
+            InnerCornerDp = innerCornerDp;
+        }
+
+        public Color FillTop { get; }
+        public Color FillFoot { get; }
+        public Color EdgeTop { get; }
+        public Color EdgeFoot { get; }
+        public float EdgeDp { get; }
+        public bool Shadow { get; }
+        public float ShadowDropDp { get; }
+        public float ShadowBlurDp { get; }
+        public float ShadowAlpha { get; }
+
+        /// <summary>The inner bar's colour and alpha; transparent where the kind has none.</summary>
+        public Color InnerColour { get; }
+        public float InnerCornerDp { get; }
     }
 
     /// <summary>

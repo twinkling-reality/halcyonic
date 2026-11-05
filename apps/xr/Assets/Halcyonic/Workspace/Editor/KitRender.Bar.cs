@@ -102,18 +102,23 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(Mathf.Abs(centre.x) + control.Size.x / 2f <= bar.Size.x / 2f + Tolerance && Mathf.Abs(centre.y) + control.Size.y / 2f <= bar.Size.y / 2f + Tolerance,
                         "the bar's " + control.name + " stands outside its capsule");
                 }
-                Require(bar.Send.gameObject.activeSelf == shown.SendShown, "Send's showing does not follow the bar");
-                var composer = host.View.Composer;
-                Require(!composer.Well.gameObject.activeSelf && !composer.Talk.gameObject.activeSelf && !composer.Send.gameObject.activeSelf,
-                    "the composer's own well, mic or Send still shows beside the bar");
+                // Send stands only where it can send (BUILD-SPEC-v4 1.4: no disabled look).
+                Require(bar.Send.gameObject.activeSelf == (shown.SendShown && shown.SendAvailable), "Send's showing does not follow the bar");
+                // DESIGN's chips (BUILD-SPEC-v4 1.4): the mic at rest, the main chip while it listens; Send the main chip where it stands.
+                if (bar.Mic.gameObject.activeSelf)
+                    Require(bar.Mic.LookNow() == (shown.State == RoomBarState.Listening ? RoomButtonLook.Main : RoomButtonLook.Rest), "the mic shows " + bar.Mic.LookNow());
+                if (bar.Send.gameObject.activeSelf)
+                    Require(bar.Send.LookNow() == RoomButtonLook.Main, "Send shows " + bar.Send.LookNow());
+                // The old kit is not drawn at all beside the redesign (the owner, 2026-11-05): its spine, slate and rail are gone.
+                Require(!host.View.gameObject.activeInHierarchy, "the old kit still draws beside the redesign's bar");
             }
 
-            // Placed as the plane places the kit: centred on all it holds, the bar included, scaled for the text size.
+            // Placed as the plane places the kit's host: centred on what it holds, the bar alone, scaled for the text size.
             shot.Elevation = CentreFor(host.Size.y * GlazeText.Scale);
             shot.Centre = Place(host.transform, eyes, 0f, shot.Elevation);
             host.transform.localScale *= GlazeText.Scale;
-            // The head tips for all the host holds, the bar under the kit included.
-            Stand(shot, host.View.transform, eyes, host.View.Carriers, host.Size * GlazeText.Scale);
+            // The head tips for what the host holds: the bar alone.
+            Stand(shot, host.transform, eyes, new KitCarrier[0], host.Size * GlazeText.Scale);
             var half = bar.Size / 2f;
             foreach (var corner in new[] { new Vector3(-half.x, -half.y, 0f), new Vector3(half.x, -half.y, 0f), new Vector3(-half.x, half.y, 0f), new Vector3(half.x, half.y, 0f) })
                 shot.Corners.Add(bar.transform.TransformPoint(corner));
