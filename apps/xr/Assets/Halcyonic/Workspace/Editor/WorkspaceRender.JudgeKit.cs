@@ -147,6 +147,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     },
                     Api = () => null,
                     Demonstration = () => fallback.Line != null,
+                    RecordedRun = () => fallback.ShowingRecordedRun,
                     KeyboardOffered = () => false,
                     StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, Array.Empty<CharacterTarget>(), null, false),
                     Bar = place => TasksColumn.Bar(place, State()),
