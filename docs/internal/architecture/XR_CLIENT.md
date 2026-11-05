@@ -2511,8 +2511,14 @@ The last unit turns it on by default and removes the kit parts it replaced.
   43.5 degrees wide, feet at pitch -17.6, the bar's foot at -23.5, every word Inter Regular 20 dp on a 28 dp line
   (`RoomType`), larger text times 1.15. `RoomLayout` (ADR 0040's poses) is unchanged.
 - **One surface and one button:** every redesign part stands on `RoomSurface` and presses through `RoomButton`
-  (`UI.Interaction/Room`), plain placeholders in SYSTEM-v4's colours until DESIGN's finish (frosted squircle glass, no
-  pill buttons in panels) lands in those two places. A surface draws again only when its size, kind or colour changed.
+  (`UI.Interaction/Room`). Panels, the bar and wells are DESIGN's glass (BUILD-SPEC-v4 1.2, unit 1b): the shader
+  `Halcyonic/Room Glass` (material `Resources/HalcyonicUI/RoomGlass`) draws the frost's gradient #3B4950 to #2E3A40,
+  opaque for now (the spec's 0.90 is a device test over passthrough), its 1 dp inner edge, a shadow 10 dp down with
+  28 dp of blur at 22 percent, squircle corners (exponent 4; panels 34 dp, the bar 30, rows 24, insets 16), and a well
+  sunk with no edge. `RoomSheen` sets one sheen band for every glass surface once a frame as shader globals: tilted 20
+  degrees, 5 degrees wide, 7 percent at its peak, a 2 s pass then 8 s of rest, none kept still. The buttons' kinds keep
+  the flat placeholder until DESIGN's button update (the owner's new direction, 2026-11-05). A surface draws again only
+  when its size, kind or colour changed.
 - **Unit 1, the bar:** `RoomBar` (client core) is a view of the open task's own instruction, never a second one: at
   rest Type or Talk (a press is the file's Tell it), Listening and Transcribing from `MenuVoice`, open on the draft
   (the keyboard, the mic held to talk, Send), and Sent · Awaiting Start while the task's run was asked for and has
