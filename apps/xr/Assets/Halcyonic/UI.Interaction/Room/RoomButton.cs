@@ -6,38 +6,79 @@ using UnityEngine;
 
 namespace Halcyonic.XR.UI
 {
+    /// <summary>How an action shows now (DESIGN's BUILD-SPEC-v4 1.4).</summary>
+    public enum RoomButtonLook
+    {
+        Rest,
+        Main,
+        Pointed,
+        MainPointed,
+        Pressed,
+        Disabled,
+    }
+
     /// <summary>
-    /// The one button of the redesign: a choice (quiet or main) with its words, or a round control with its glyph alone
-    /// (the bar's mic and Send). A plain placeholder shape until DESIGN's finish lands, never a pill inside a squircle; this
-    /// is the one place the button's look changes then. It takes a press by <see cref="KitPress"/>'s rules and shows it
-    /// while held: scale 0.97, brightness 84 percent (SYSTEM-v4's Motion).
+    /// The one button of the redesign (DESIGN's BUILD-SPEC-v4 1.4, FINISH-2 2026-11-05): no box and no edge, ever. An action
+    /// is a 32 dp chip holding its glyph, then its words in the one type size, over a faint halo of #2E3A40 that is solid
+    /// inside the 48 dp core, half at its edge and gone 12 dp out (<c>Halcyonic/Room Halo</c>); the main action's chip is
+    /// light (#D5DADE) with a dark glyph, its words still white. A round control is the bar's chip alone, 44 dp in its 52 dp
+    /// slot, no halo over the bar's glass. Pointed it grows 3 percent, held it shrinks to 96 percent, disabled its content
+    /// stands at 45 percent; Confirm's lock is a ring round its chip (<see cref="LockProgress"/>). Every target is Meta's
+    /// 60.8 dp hand target at least. It takes a press by <see cref="KitPress"/>'s rules.
     /// </summary>
     public sealed class RoomButton : MonoBehaviour
     {
-        /// <summary>A choice's height and a round control's diameter, in dp: Meta's hand target (<see cref="SpatialKit.TargetDegrees"/>).</summary>
+        /// <summary>A target's least height and width, in dp: Meta's hand target (<see cref="SpatialKit.TargetDegrees"/>).</summary>
         public static float HeightDp => SpatialKit.TargetDegrees / SpatialKit.Degrees(1f);
 
-        /// <summary>A round control as drawn, in dp, centred in its target (DESIGN, 2026-11-05): 52 dp, corner 22.</summary>
+        /// <summary>A round control's slot in the bar, in dp, and its chip as drawn inside it (corner 16, glyph 22).</summary>
         public const float RoundDp = 52f;
+        public const float RoundChipDp = 44f;
+        public const float RoundChipCornerDp = 16f;
+        public const float RoundGlyphDp = 22f;
 
-        public const float RoundCornerDp = 22f;
+        /// <summary>An action's core: 48 dp tall, 8 dp above, below and at its left, 20 dp at its right; its chip 32 dp, corner 12, glyph 20; words 10 dp after.</summary>
+        public const float CoreDp = 48f;
+        public const float CorePadDp = 8f;
+        public const float CoreRightDp = 20f;
+        public const float ChipDp = 32f;
+        public const float ChipCornerDp = 12f;
+        public const float GlyphDp = 20f;
+        public const float WordsGapDp = 10f;
+        public const float HaloCornerDp = 24f;
+        public const float HaloReachDp = 12f;
 
-        public const float GlyphDp = 22f;
+        /// <summary>Confirm's lock ring round the chip: radius 19 dp, 2 dp wide.</summary>
+        public const float RingRadiusDp = 19f;
+        public const float RingWidthDp = 2f;
 
-        /// <summary>A choice's words' inset from its sides, in dp.</summary>
-        public const float PadDp = 16f;
+        private const float PointedScale = 1.03f;
+        private const float PressedScale = 0.96f;
+        private const float DisabledOpacity = 0.45f;
+        private const float ScaleRate = 20f;
 
-        private const float PressedScale = 0.97f;
-        private const float PressedBrightness = 0.84f;
+        private static readonly int CoreId = Shader.PropertyToID("_Core");
+        private static readonly int QuadId = Shader.PropertyToID("_Quad");
+        private static readonly int ChipId = Shader.PropertyToID("_Chip");
+        private static readonly int ChipColourId = Shader.PropertyToID("_ChipColour");
+        private static readonly int RingId = Shader.PropertyToID("_Ring");
+        private static readonly int FadeId = Shader.PropertyToID("_Fade");
+        private static Material? material;
+        private static Mesh? quad;
 
-        private RoomSurface plate = null!;
+        private Transform visual = null!;
+        private MeshRenderer halo = null!;
+        private MaterialPropertyBlock block = null!;
         private TextMeshPro words = null!;
         private TextMeshPro glyph = null!;
         private KitPress press = null!;
         private bool round;
         private bool main;
         private bool held;
-        private Vector2 size;
+        private Vector2 core;
+        private float chipCentreX;
+        private RoomButtonLook? painted;
+        private float? paintedLock;
 
         public event Action? Pressed;
 
@@ -45,11 +86,18 @@ namespace Halcyonic.XR.UI
 
         public TextMeshPro Words => words;
 
-        public RoomSurface Plate => plate;
+        public TextMeshPro Glyph => glyph;
 
+        /// <summary>The target's size, in its parent's units.</summary>
         public Vector2 Size => press.Size;
 
+        /// <summary>The core as drawn (an action's 48 dp box, or a round control's chip), in its parent's units.</summary>
+        public Vector2 Core => core;
+
         public bool Main => main;
+
+        /// <summary>How the button shows now.</summary>
+        public RoomButtonLook Look => painted ?? RoomButtonLook.Rest;
 
         public bool Available
         {
@@ -60,19 +108,34 @@ namespace Halcyonic.XR.UI
         /// <summary>Whether a hand holds the button now, for hold to talk.</summary>
         public bool Held => held;
 
-        /// <param name="round">A round control, its glyph alone at its centre.</param>
+        /// <summary>Confirm's lock, 0 to 1 filled while it holds, or null where there is none: a ring round the chip, and no pointed response.</summary>
+        public float? LockProgress { get; set; }
+
+        /// <param name="round">A round control, its chip alone (the bar's mic and Send).</param>
         public static RoomButton Create(Transform parent, string name, bool round, int order = KitType.Order.Control)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var button = go.AddComponent<RoomButton>();
             button.round = round;
-            button.plate = RoomSurface.Create(go.transform, "Plate", RoomSurfaceKind.Choice, order);
-            if (round) button.plate.CornerOverrideDp = RoundCornerDp;
-            button.words = RoomType.Create(go.transform, "Words", Color.white, order + 2, TextAlignmentOptions.Left);
+            // What a look scales: the drawing alone, so pointing or holding never moves the target or its neighbours' gaps.
+            button.visual = new GameObject("Visual").transform;
+            button.visual.SetParent(go.transform, false);
+            var haloGo = new GameObject("Halo and chip");
+            haloGo.transform.SetParent(button.visual, false);
+            haloGo.AddComponent<MeshFilter>().sharedMesh = Quad;
+            button.halo = haloGo.AddComponent<MeshRenderer>();
+            button.halo.sharedMaterial = Material;
+            button.halo.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            button.halo.receiveShadows = false;
+            button.halo.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+            button.halo.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+            button.halo.sortingOrder = order;
+            button.block = new MaterialPropertyBlock();
+            button.words = RoomType.Create(button.visual, "Words", Color.white, order + 2, TextAlignmentOptions.Left);
             button.words.rectTransform.pivot = new Vector2(0f, 0.5f);
             button.words.textWrappingMode = TextWrappingModes.NoWrap;
-            button.glyph = GlazeIcons.Create(go.transform, "Glyph", SpatialKit.IconDegrees, Color.white, order + 2);
+            button.glyph = GlazeIcons.Create(button.visual, "Glyph", SpatialKit.IconDegrees, Color.white, order + 3);
             var height = RoomType.Units(HeightDp);
             button.press = KitPress.Create(go, new Vector2(height, height));
             button.press.Pressed += () => button.Pressed?.Invoke();
@@ -82,66 +145,175 @@ namespace Halcyonic.XR.UI
             return button;
         }
 
-        /// <summary>How wide a choice is with these words at the person's text size, in the plane's units.</summary>
+        /// <summary>The core's width with these words at the person's text size, in the plane's units: content-sized, a round control its chip.</summary>
         public float Measure(string text)
         {
-            if (round) return RoomType.Units(RoundDp);
+            if (round) return RoomType.Units(RoundChipDp);
             RoomType.Size(words);
-            return 2f * RoomType.Units(PadDp) + words.GetPreferredValues(LabelText.ForTextMeshPro(text)).x;
+            return RoomType.Units(CorePadDp + ChipDp + WordsGapDp + CoreRightDp) + words.GetPreferredValues(LabelText.ForTextMeshPro(text)).x;
         }
 
-        /// <summary>Shows the button centred at <paramref name="centre"/>, a choice <paramref name="width"/> wide (a round one its own size).</summary>
+        /// <summary>
+        /// Shows the button centred at <paramref name="centre"/>: an action content-sized (<paramref name="width"/> its least
+        /// core width), a round control its chip in its slot. Its target is the core grown to Meta's hand target.
+        /// </summary>
         public void Show(string text, GlazeIcon? icon, bool isMain, bool available, Vector2 centre, float width)
         {
+            // An action that cannot act yet is not drawn (BUILD-SPEC-v4 1.4, 2026-11-05): no disabled look; it arrives when it can act.
+            if (!available)
+            {
+                Hide();
+                return;
+            }
             var literal = LabelText.ForTextMeshPro(text);
             var changed = !gameObject.activeSelf || words.text != literal || main != isMain;
             main = isMain;
-            // The target is Meta's hand target whatever is drawn; a round control draws its 52 dp at the target's centre.
-            var height = RoomType.Units(HeightDp);
-            var size = round ? new Vector2(height, height) : new Vector2(Mathf.Max(width, height), height);
-            plate.SetKind(isMain ? RoomSurfaceKind.MainChoice : RoomSurfaceKind.Choice);
-            this.size = round ? Vector2.one * RoomType.Units(RoundDp) : size;
             RoomType.Size(words);
             GlazeText.SetLiteral(words, text);
-            words.color = RoomSurface.Words(plate.Kind);
-            glyph.color = words.color;
             words.gameObject.SetActive(!round);
-            glyph.gameObject.SetActive(icon.HasValue);
-            // A 22 dp glyph (DESIGN, 2026-11-05).
-            var iconEm = RoomType.Units(GlyphDp);
-            if (icon is GlazeIcon shown)
+            var target = RoomType.Units(HeightDp);
+            if (round)
             {
-                glyph.fontSize = GlazeTokens.FontSize(iconEm);
-                glyph.rectTransform.sizeDelta = new Vector2(iconEm, iconEm);
-                GlazeIcons.Show(glyph, shown);
-                glyph.transform.localPosition = new Vector3(0f, 0f, -0.0005f);
+                var chip = RoomType.Units(RoundChipDp);
+                core = new Vector2(chip, chip);
+                chipCentreX = 0f;
+                press.Resize(new Vector2(target, target));
+                Lay(icon, RoomType.Units(RoundGlyphDp));
             }
-            if (!round)
+            else
             {
-                var (_, wordsWidth, _) = KitType.Lay(words, size.x - 2f * RoomType.Units(PadDp), 1);
-                words.transform.localPosition = new Vector3(-wordsWidth / 2f, 0f, -0.0005f);
+                var coreWidth = Mathf.Max(width, Measure(text));
+                core = new Vector2(coreWidth, RoomType.Units(CoreDp));
+                chipCentreX = -coreWidth / 2f + RoomType.Units(CorePadDp + ChipDp / 2f);
+                words.transform.localPosition = new Vector3(chipCentreX + RoomType.Units(ChipDp / 2f + WordsGapDp), 0f, -RoomType.Units(0.5f));
+                press.Resize(new Vector2(Mathf.Max(target, coreWidth), Mathf.Max(target, core.y)));
+                Lay(icon, RoomType.Units(GlyphDp));
             }
-            press.Resize(size);
             press.Available = available;
             transform.localPosition = new Vector3(centre.x, centre.y, -RoomType.Units(1f));
             if (changed) press.Unsettle();
+            painted = null;
             gameObject.SetActive(true);
-            Paint();
+            Paint(immediately: true);
         }
 
         public void Hide() => gameObject.SetActive(false);
 
-        private void Update() => Paint();
-
-        private void Paint()
+        private void Lay(GlazeIcon? icon, float glyphEm)
         {
-            var pressing = held || press.Pressing;
-            var scale = pressing ? PressedScale : 1f;
-            if (!Mathf.Approximately(transform.localScale.x, scale)) transform.localScale = new Vector3(scale, scale, 1f);
-            var fill = RoomSurface.Fill(plate.Kind);
-            if (pressing) fill = new Color(fill.r * PressedBrightness, fill.g * PressedBrightness, fill.b * PressedBrightness, fill.a);
-            if (!press.Available) fill = Color.Lerp(fill, RoomSurface.Fill(RoomSurfaceKind.Choices), 0.5f);
-            plate.Draw(size, fill);
+            glyph.gameObject.SetActive(icon.HasValue);
+            if (icon is not GlazeIcon shown) return;
+            glyph.fontSize = GlazeTokens.FontSize(glyphEm);
+            glyph.rectTransform.sizeDelta = new Vector2(glyphEm, glyphEm);
+            GlazeIcons.Show(glyph, shown);
+            glyph.transform.localPosition = new Vector3(chipCentreX, 0f, -RoomType.Units(0.6f));
+        }
+
+        private void Update() => Paint(immediately: false);
+
+        /// <summary>For renders, which have no hands: the look to show in place of the one its state gives, or null for its own.</summary>
+        public RoomButtonLook? LookForRender { get; set; }
+
+        /// <summary>The button's look from its state: disabled, held, pointed, or at rest, main or not; a locked Confirm never points.</summary>
+        public RoomButtonLook LookNow()
+        {
+            if (LookForRender is RoomButtonLook forced) return forced;
+            if (!press.Available) return RoomButtonLook.Disabled;
+            if (held || press.Pressing) return RoomButtonLook.Pressed;
+            var pointed = press.Hovered && LockProgress == null;
+            return main ? (pointed ? RoomButtonLook.MainPointed : RoomButtonLook.Main) : (pointed ? RoomButtonLook.Pointed : RoomButtonLook.Rest);
+        }
+
+        private void Paint(bool immediately)
+        {
+            var look = LookNow();
+            var scale = look switch
+            {
+                RoomButtonLook.Pressed => PressedScale,
+                RoomButtonLook.Pointed or RoomButtonLook.MainPointed => PointedScale,
+                _ => 1f,
+            };
+            var now = visual.localScale.x;
+            var next = immediately || GlazeMotion.Still ? scale : Mathf.MoveTowards(now, scale, ScaleRate * Time.unscaledDeltaTime * Mathf.Abs(scale - now) + 1e-4f);
+            if (!Mathf.Approximately(now, next)) visual.localScale = new Vector3(next, next, 1f);
+            if (painted == look && Nullable.Equals(paintedLock, LockProgress)) return;
+            painted = look;
+            paintedLock = LockProgress;
+            var unit = RoomType.Units(1f);
+            var reach = round ? 1f : HaloReachDp + 1f;
+            var quadSize = new Vector2(core.x / unit + 2f * reach, core.y / unit + 2f * reach);
+            halo.transform.localScale = new Vector3(quadSize.x * unit, quadSize.y * unit, 1f);
+            halo.transform.localPosition = new Vector3(0f, 0f, RoomType.Units(0.02f));
+            // The spec's linear-space alphas (BUILD-SPEC-v4 1.4): halo A at rest 0.81, main 0.86, pointed 0.90, main pointed 0.92.
+            var haloAlpha = round ? 0f : look switch
+            {
+                RoomButtonLook.Main => 0.86f,
+                RoomButtonLook.Pointed or RoomButtonLook.Pressed => 0.90f,
+                RoomButtonLook.MainPointed => 0.92f,
+                _ => 0.81f,
+            };
+            var light = RoomSurface.Hex(0xD5DADE);
+            var (chipColour, chipAlpha) = look switch
+            {
+                RoomButtonLook.Main => (light, 1f),
+                RoomButtonLook.MainPointed => (Color.white, 1f),
+                RoomButtonLook.Pressed => (light * 0.84f, 1f),
+                RoomButtonLook.Pointed => (Color.white, 0.13f),
+                _ => (Color.white, 0.05f),
+            };
+            var chipDp = round ? RoundChipDp : ChipDp;
+            var cornerDp = round ? RoundChipCornerDp : ChipCornerDp;
+            block.SetVector(CoreId, new Vector4(core.x / unit, core.y / unit, HaloCornerDp, haloAlpha));
+            block.SetVector(QuadId, new Vector4(-quadSize.x / 2f, -quadSize.y / 2f, quadSize.x, quadSize.y));
+            block.SetVector(ChipId, new Vector4(chipCentreX / unit, 0f, chipDp, cornerDp));
+            block.SetVector(ChipColourId, new Vector4(chipColour.r, chipColour.g, chipColour.b, chipAlpha));
+            block.SetVector(RingId, new Vector4(RingRadiusDp, RingWidthDp, LockProgress ?? 0f, LockProgress != null ? 1f : 0f));
+            var fade = look == RoomButtonLook.Disabled ? DisabledOpacity : 1f;
+            block.SetFloat(FadeId, fade);
+            halo.SetPropertyBlock(block);
+            var dark = look is RoomButtonLook.Main or RoomButtonLook.MainPointed or RoomButtonLook.Pressed;
+            glyph.color = dark ? RoomSurface.Hex(0x172024) : new Color(1f, 1f, 1f, fade);
+            words.color = Color.white;
+        }
+
+        private static Material Material
+        {
+            get
+            {
+                if (material != null) return material;
+                var loaded = Resources.Load<Material>("HalcyonicUI/RoomHalo");
+                if (loaded == null)
+                {
+                    Debug.LogError("Halcyonic: the material Resources/HalcyonicUI/RoomHalo is missing, so the redesign's actions cannot render.");
+                    var fallback = Shader.Find("Hidden/InternalErrorShader");
+                    material = new Material(fallback != null ? fallback : Shader.Find("Sprites/Default"));
+                    return material;
+                }
+                material = loaded;
+                return material;
+            }
+        }
+
+        private static Mesh Quad
+        {
+            get
+            {
+                if (quad != null) return quad;
+                quad = new Mesh { name = "Room halo" };
+                quad.SetVertices(new[] { new Vector3(-0.5f, -0.5f, 0f), new Vector3(0.5f, -0.5f, 0f), new Vector3(0.5f, 0.5f, 0f), new Vector3(-0.5f, 0.5f, 0f) });
+                quad.SetUVs(0, new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f) });
+                quad.SetTriangles(new[] { 0, 2, 1, 0, 3, 2 }, 0);
+                quad.RecalculateBounds();
+                quad.UploadMeshData(true);
+                return quad;
+            }
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            material = null;
+            quad = null;
         }
     }
 }

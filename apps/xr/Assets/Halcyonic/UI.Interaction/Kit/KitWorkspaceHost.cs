@@ -213,52 +213,52 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// While the redesign is on, the bar stands under the kit, 1.9 degrees below its foot as SYSTEM-v4 stands it below the
-        /// pair, and takes the composer's well, mic and Send, which hide; the composer's other controls stay until their units.
+        /// While the redesign is on (<see cref="RoomDesign.Enabled"/>), the old kit is not drawn at all (the owner, 2026-11-05):
+        /// its spine, slate and rail and every row hide, and the room shows only the redesign's parts, the bar now. What no
+        /// redesign unit draws yet is absent: a frame asking an approval or a question shows nothing and is never reported
+        /// drawn, so nothing counts as read that no one saw. Off, the kit stands whole and the bar hides.
         /// </summary>
         private void ShowBar(KitFileBinding binding)
         {
-            if (!RoomDesign.Enabled || binding.Model.Ask != null)
+            if (!RoomDesign.Enabled)
             {
                 bar.Hide();
-                view.transform.localPosition = Vector3.zero;
+                view.gameObject.SetActive(true);
                 view.Composer.ShowInstructionParts(true);
                 return;
             }
+            view.gameObject.SetActive(false);
             var model = binding.Model;
+            if (model.Ask != null || model.Need != null)
+            {
+                // Nothing drawn, standing where the resting bar would, so the plane still places a real footprint.
+                bar.Hide();
+                var rest = new Vector2(RoomType.Units(RoomGeometry.BarRestDp), RoomType.Units(RoomGeometry.BarHeightDp)) / GlazeText.Scale;
+                Size = rest;
+                TextBands = new[] { new TextBand(-rest.x / 2f, rest.x / 2f, -rest.y / 2f, rest.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * GlazeText.Scale) };
+                return;
+            }
             var composing = binding.Frame.Lines.Any(line => line.Action == FileScreens.EditInstruction);
             var voiceOffered = binding[KitPlace.Talk] != null || model.VoiceOffered;
             var state = RoomBar.Of(composing, model.Draft, voiceOffered, model.Sendable, model.WhyNotSend, Voice(), AwaitingStart());
-            view.Composer.ShowInstructionParts(false);
             // The one sheen crosses the redesign's glass in the host's own plane.
             RoomSheen.Plane = transform;
-            // The host's size holds the kit and the bar under it, so the plane places both inside the field: the kit rises
-            // by half of what the bar and its gap take, its text bands with it, and the bar adds a band of its own.
-            // As the kit's view, the bar is laid at the person's text size and scaled back by it, so the plane's own scaling
-            // leaves its widths as SYSTEM-v4 gives them and its words larger at the larger size.
+            // As the kit's view was, the bar is laid at the person's text size and scaled back by it, so the plane's own scaling
+            // leaves its widths as SYSTEM-v4 gives them and its words larger at the larger size. The host holds the bar alone.
             var zoom = GlazeText.Scale;
             bar.transform.localScale = Vector3.one / zoom;
-            var kit = view.Size / zoom;
-            var gap = KitType.Units(RoomBarGapDegrees);
             var barHeight = RoomType.Units(RoomGeometry.BarHeightDp) / zoom;
-            var shift = 0f;
             for (var pass = 0; pass < 2; pass++)
             {
-                shift = (gap + barHeight) / 2f;
-                bar.Show(state, new Vector2(0f, shift - kit.y / 2f - gap));
+                bar.Show(state, new Vector2(0f, barHeight / 2f));
                 barHeight = bar.Size.y / zoom;
             }
             var barSize = bar.Size / zoom;
-            view.transform.localPosition = new Vector3(0f, shift, 0f);
-            Size = new Vector2(Mathf.Max(kit.x, barSize.x), kit.y + gap + barSize.y);
-            var barBottom = shift - kit.y / 2f - gap - barSize.y;
-            TextBands = Bands(view.Size, zoom, shift).Append(new TextBand(-barSize.x / 2f, barSize.x / 2f, barBottom, barBottom + barSize.y,
-                SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom)).ToArray();
+            Size = barSize;
+            TextBands = new[] { new TextBand(-barSize.x / 2f, barSize.x / 2f, -barSize.y / 2f, barSize.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
             foreach (var press in new[] { bar.Field, bar.Mic.Press, bar.Send.Press }) press.Accepting = () => Accepting();
         }
 
-        /// <summary>From the pair's feet to the bar's top in SYSTEM-v4: its foot 5.9 degrees below, less its 4 degrees of height.</summary>
-        private const float RoomBarGapDegrees = 1.9f;
 
         /// <summary>
         /// Shows the compact presence where the closed bar stands, naming what the bar names (<paramref name="model"/>):
@@ -334,6 +334,8 @@ namespace Halcyonic.XR.UI
         private void ReportDrawn()
         {
             if (binding == null || !Settled || ReferenceEquals(drawn, binding.Frame)) return;
+            // With the redesign on, a frame is drawn only where the bar shows it: nothing else of it stands in the room yet.
+            if (RoomDesign.Enabled && !bar.gameObject.activeSelf) return;
             drawn = binding.Frame;
             Drawn?.Invoke(column, binding.Frame);
         }
