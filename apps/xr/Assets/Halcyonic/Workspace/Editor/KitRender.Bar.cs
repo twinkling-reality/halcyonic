@@ -118,7 +118,20 @@ namespace Halcyonic.XR.Workspace.Editor
             foreach (var corner in new[] { new Vector3(-half.x, -half.y, 0f), new Vector3(half.x, -half.y, 0f), new Vector3(-half.x, half.y, 0f), new Vector3(half.x, half.y, 0f) })
                 shot.Corners.Add(bar.transform.TransformPoint(corner));
             shot.Targets.Add(("the bar", bar.transform, new[] { bar.Field, bar.Mic.Press, bar.Send.Press }.Where(press => press.gameObject.activeInHierarchy)));
-            shot.Faces.Add(bar.Capsule.Drawn);
+            // The capsule is DESIGN's glass (BUILD-SPEC-v4 1.2): its glass draws, the flat placeholder does not.
+            Require(bar.Capsule.Glass.gameObject.activeSelf && !bar.Capsule.Drawn.gameObject.activeSelf
+                && bar.Capsule.Glass.sharedMaterial != null && bar.Capsule.Glass.sharedMaterial.shader.name == "Halcyonic/Room Glass",
+                "the bar's capsule is not drawn in the room's glass");
+            // The one sheen: a 2 s pass with its peak at the middle, then 8 s of rest; none kept still.
+            var stillWas = GlazeMotion.Still;
+            GlazeMotion.Still = false;
+            var (_, passing) = RoomSheen.At(1f);
+            var (_, resting) = RoomSheen.At(5f);
+            GlazeMotion.Still = true;
+            var (_, kept) = RoomSheen.At(1f);
+            GlazeMotion.Still = stillWas;
+            Require(Mathf.Abs(passing - RoomSheen.Peak) < 1e-4f && resting == 0f && kept == 0f,
+                "the sheen is " + passing + " mid-pass, " + resting + " at rest and " + kept + " kept still, not its peak, none and none");
             shot.AfterRender = failures =>
             {
                 // Its presses are the file's own: the words open it to write (Tell it) at rest and the keyboard open; Send sends.

@@ -230,6 +230,8 @@ namespace Halcyonic.XR.UI
             var voiceOffered = binding[KitPlace.Talk] != null || model.VoiceOffered;
             var state = RoomBar.Of(composing, model.Draft, voiceOffered, model.Sendable, model.WhyNotSend, Voice(), AwaitingStart());
             view.Composer.ShowInstructionParts(false);
+            // The one sheen crosses the redesign's glass in the host's own plane.
+            RoomSheen.Plane = transform;
             // The host's size holds the kit and the bar under it, so the plane places both inside the field: the kit rises
             // by half of what the bar and its gap take, its text bands with it, and the bar adds a band of its own.
             // As the kit's view, the bar is laid at the person's text size and scaled back by it, so the plane's own scaling
