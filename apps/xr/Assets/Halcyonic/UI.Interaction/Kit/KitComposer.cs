@@ -42,6 +42,17 @@ namespace Halcyonic.XR.UI
         private Vector2 size;
 
         public event Action? FieldPressed;
+
+        /// <summary>
+        /// Shows or hides the instruction's own parts (its caption, well, draft, status, reason, mic and Send) after a lay,
+        /// while the redesign's bar stands in for them (<see cref="RoomDesign.Enabled"/>); the composer's other controls stay.
+        /// </summary>
+        public void ShowInstructionParts(bool shown)
+        {
+            if (shown) return;
+            foreach (var part in new Component[] { label, well, draft, status, reason, talk, send }) part.gameObject.SetActive(false);
+            field.Available = false;
+        }
         public event Action? SendPressed;
 
         /// <summary>The bound Close, Cancel or Hide composer, at the row's left.</summary>
