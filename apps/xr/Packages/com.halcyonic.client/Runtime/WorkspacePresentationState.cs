@@ -597,7 +597,7 @@ namespace Halcyonic.Client
             if (project.Check is ProjectViewCheck hostCheck)
             {
                 var checkedAt = ParseTime(hostCheck.RecordedAt);
-                lastCheck = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: hostCheck.Findings.Passed, checkedAt);
+                lastCheck = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: hostCheck.Findings.Passed, checkedAt, CheckSteps.Of(hostCheck.Findings));
             }
             else if (execution?.LastTestRun is TestRunResultView agentTest)
             {

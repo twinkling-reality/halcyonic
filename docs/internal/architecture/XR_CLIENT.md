@@ -26,6 +26,7 @@ Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,        
         │                             PeekChoice, WorkspacePlacement, SeatedPointing,
         │                             InFrontPlacement,
         │                             ActivityLog, EventHistory, HistoryReads,
+        │                             ObservedFiles, CheckSteps,
         │                             CommandFactory,
         │                             IntelligenceFeed, UnderstandingPresenter,
         │                             EvaluationPresenter, IntelligenceText,
@@ -906,7 +907,17 @@ launch/return, process recreation and current-frame action behavior need separat
   kept only until its completion line (U6). **`HistoryReads`** counts each task's latest read on its
   own, so a launch that restores other tasks' panels beside the one opened, and so reads theirs too,
   never discards the opened task's history (one count across tasks left it reading "Nothing
-  Reported", 2026-11-04).
+  Reported", 2026-11-04). It also keeps what the computer observed of each execution's folder
+  (`execution.files.observed`, ADR 0038) as **`ObservedTurn`**s, live or read from history alike, in
+  journal order and once each (`ActivityLog.ObservedFor`): each listed file with its change kind,
+  line counts and size as the contract gives them, the totals past the lists, entries not read, and
+  a skipped turn's code (never its message, which can hold a path). The last 16 turns of an
+  execution kept whole, the last turn of the rest. No screen draws them yet (the redesign will).
+- **`CheckSteps`** turns a host check's findings into its steps, each with its own result: the type
+  check and the build by their exits (null, stopped at its limit), the page by whether something
+  was drawn (no page, not run), VR by whether a session was offered (absent on checks before VR
+  was checked, not run; `unknown`, unknown). `KitMoment.HostCheck` carries them as `Steps` beside
+  its one passed or failed; the kit still draws only that (2026-11-05).
 - **`ControlPlaneApi`** also reads what Salidium and Seorak say about an execution
   (`GetUnderstandingAsync`, `GetEvaluationAsync`). Each answer states its availability instead of
   failing. An evaluation spends three of Seorak's 60 requests a minute, so a client fetches it when
