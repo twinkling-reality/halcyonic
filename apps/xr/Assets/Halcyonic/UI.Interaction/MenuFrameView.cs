@@ -290,6 +290,30 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public static int RowsOf(PageLine line, float columnDegrees) => CountLine(line, WordsRoom(line, ContentWidth(columnDegrees)));
 
+        /// <summary>
+        /// The words of <paramref name="line"/>'s part as this view shows it in a column <paramref name="columnDegrees"/> wide: its
+        /// <see cref="PageLine.Rows"/> rows from its <see cref="PageLine.FromRow"/>, cut where <see cref="Wrap"/> cuts them, or the
+        /// whole text for a line drawn whole. The redesign's panel reads a part through this, so its parts are the file's parts
+        /// and no word is skipped or read twice between them.
+        /// </summary>
+        public static string PartText(PageLine line, float columnDegrees)
+        {
+            var text = line.Runs.ForTextMeshPro().Text;
+            if (line.FromRow is not int from) return text;
+            var label = Measuring(Glaze.Menu.BodyDegrees);
+            label.richText = false;
+            label.parseCtrlCharacters = true;
+            label.text = text;
+            GlazeText.Lay(label, WordsRoom(line, ContentWidth(columnDegrees)), Unlimited);
+            var info = label.textInfo;
+            var count = Mathf.Max(1, info.lineCount);
+            var first = Mathf.Min(from, count - 1);
+            var last = Mathf.Min(from + line.Rows, count);
+            var start = LabelText.CharacterStart(text, info.characterInfo[info.lineInfo[first].firstCharacterIndex].index);
+            var end = last < count ? LabelText.CharacterStart(text, info.characterInfo[info.lineInfo[last].firstCharacterIndex].index) : text.Length;
+            return text.Substring(start, end - start);
+        }
+
         /// <summary>How many rows <paramref name="words"/> alone wrap to across a column's content, as a side panel's fact value or a source line.</summary>
         public static int RowsOf(string words, float columnDegrees) => Count(words, ContentWidth(columnDegrees));
 

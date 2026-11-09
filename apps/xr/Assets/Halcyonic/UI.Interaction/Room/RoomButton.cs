@@ -17,25 +17,36 @@ namespace Halcyonic.XR.UI
         Disabled,
     }
 
+    /// <summary>How big an action stands: the column's, or the row's at home (DESIGN's FINISH-3).</summary>
+    public enum RoomButtonSize
+    {
+        /// <summary>A 48 dp core, a 32 dp chip, a 20 dp glyph.</summary>
+        Action,
+
+        /// <summary>The row at rest: the 60.8 dp hand target itself drawn as the core, a 44 dp chip, a 24 dp glyph.</summary>
+        Home,
+    }
+
     /// <summary>
-    /// The one button of the redesign (DESIGN's BUILD-SPEC-v4 1.4, FINISH-2 2026-11-05): no box and no edge, ever. An action
-    /// is a 32 dp chip holding its glyph, then its words in the one type size, over a faint halo of #2E3A40 that is solid
-    /// inside the 48 dp core, half at its edge and gone 12 dp out (<c>Halcyonic/Room Halo</c>); the main action's chip is
-    /// light (#D5DADE) with a dark glyph, its words still white. A round control is the bar's chip alone, 44 dp in its 52 dp
-    /// slot, no halo over the bar's glass. Pointed it grows 3 percent, held it shrinks to 96 percent, disabled its content
-    /// stands at 45 percent; Confirm's lock is a ring round its chip (<see cref="LockProgress"/>). Every target is Meta's
-    /// 60.8 dp hand target at least. It takes a press by <see cref="KitPress"/>'s rules.
+    /// The one button of the redesign (DESIGN's BUILD-SPEC-v4 1.4, FINISH-2 and FINISH-3 2026-11-05): no box and no edge, ever.
+    /// An action is a chip holding its glyph, then its words in the one type size, over a faint halo of the panel's foot tint
+    /// #343A3F that is solid inside the core, half at its edge and gone 12 dp out (<c>Halcyonic/Room Halo</c>); the main
+    /// action's chip is light (#D5DADE) with a dark glyph, its words still white. Pointed it grows 3 percent, held it shrinks to
+    /// 96 percent; Confirm's lock is a ring round its chip (<see cref="LockProgress"/>). An action that cannot act is not drawn.
+    /// Every target is Meta's 60.8 dp hand target at least. It takes a press by <see cref="KitPress"/>'s rules.
     /// </summary>
     public sealed class RoomButton : MonoBehaviour
     {
         /// <summary>A target's least height and width, in dp: Meta's hand target (<see cref="SpatialKit.TargetDegrees"/>).</summary>
         public static float HeightDp => SpatialKit.TargetDegrees / SpatialKit.Degrees(1f);
 
-        /// <summary>A round control's slot in the bar, in dp, and its chip as drawn inside it (corner 16, glyph 22).</summary>
-        public const float RoundDp = 52f;
-        public const float RoundChipDp = 44f;
-        public const float RoundChipCornerDp = 16f;
-        public const float RoundGlyphDp = 22f;
+        /// <summary>A home action's chip (corner 16) and glyph, its words 12 dp after the chip, 24 dp after them, a halo corner of 28; its core is the hand target, <see cref="HeightDp"/>.</summary>
+        public const float HomeChipDp = 44f;
+        public const float HomeChipCornerDp = 16f;
+        public const float HomeGlyphDp = 24f;
+        public const float HomeWordsGapDp = 12f;
+        public const float HomeRightDp = 24f;
+        public const float HomeHaloCornerDp = 28f;
 
         /// <summary>An action's core: 48 dp tall, 8 dp above, below and at its left, 20 dp at its right; its chip 32 dp, corner 12, glyph 20; words 10 dp after.</summary>
         public const float CoreDp = 48f;
@@ -72,7 +83,7 @@ namespace Halcyonic.XR.UI
         private TextMeshPro words = null!;
         private TextMeshPro glyph = null!;
         private KitPress press = null!;
-        private bool round;
+        private RoomButtonSize size;
         private bool main;
         private bool held;
         private Vector2 core;
@@ -91,7 +102,7 @@ namespace Halcyonic.XR.UI
         /// <summary>The target's size, in its parent's units.</summary>
         public Vector2 Size => press.Size;
 
-        /// <summary>The core as drawn (an action's 48 dp box, or a round control's chip), in its parent's units.</summary>
+        /// <summary>The core as drawn, the halo's solid middle, in its parent's units.</summary>
         public Vector2 Core => core;
 
         public bool Main => main;
@@ -111,13 +122,12 @@ namespace Halcyonic.XR.UI
         /// <summary>Confirm's lock, 0 to 1 filled while it holds, or null where there is none: a ring round the chip, and no pointed response.</summary>
         public float? LockProgress { get; set; }
 
-        /// <param name="round">A round control, its chip alone (the bar's mic and Send).</param>
-        public static RoomButton Create(Transform parent, string name, bool round, int order = KitType.Order.Control)
+        public static RoomButton Create(Transform parent, string name, RoomButtonSize size = RoomButtonSize.Action, int order = KitType.Order.Control)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var button = go.AddComponent<RoomButton>();
-            button.round = round;
+            button.size = size;
             // What a look scales: the drawing alone, so pointing or holding never moves the target or its neighbours' gaps.
             button.visual = new GameObject("Visual").transform;
             button.visual.SetParent(go.transform, false);
@@ -145,17 +155,32 @@ namespace Halcyonic.XR.UI
             return button;
         }
 
-        /// <summary>The core's width with these words at the person's text size, in the plane's units: content-sized, a round control its chip.</summary>
+        /// <summary>The core's height in dp: 48 for the column's actions, the hand target at home.</summary>
+        public float CoreHeightDp => size == RoomButtonSize.Home ? HeightDp : CoreDp;
+
+        private float ChipSizeDp => size == RoomButtonSize.Home ? HomeChipDp : ChipDp;
+
+        /// <summary>The room left of the chip: what leaves it centred in the core's height (8 dp, 8.4 at home).</summary>
+        private float ChipPadDp => (CoreHeightDp - ChipSizeDp) / 2f;
+
+        private float GapDp => size == RoomButtonSize.Home ? HomeWordsGapDp : WordsGapDp;
+
+        /// <summary>The core's room after its words, in dp.</summary>
+        public float RightDp => size == RoomButtonSize.Home ? HomeRightDp : CoreRightDp;
+
+        /// <summary>The core's width with these words at the person's text size, in the plane's units: content-sized.</summary>
         public float Measure(string text)
         {
-            if (round) return RoomType.Units(RoundChipDp);
             RoomType.Size(words);
-            return RoomType.Units(CorePadDp + ChipDp + WordsGapDp + CoreRightDp) + words.GetPreferredValues(LabelText.ForTextMeshPro(text)).x;
+            return RoomType.Units(ChipPadDp + ChipSizeDp + GapDp + RightDp) + words.GetPreferredValues(LabelText.ForTextMeshPro(text)).x;
         }
 
+        /// <summary>Where its words end, from its centre, in its parent's units: what stands after them inside the halo starts here.</summary>
+        public float WordsEnd => words.transform.localPosition.x + words.GetPreferredValues(words.text).x;
+
         /// <summary>
-        /// Shows the button centred at <paramref name="centre"/>: an action content-sized (<paramref name="width"/> its least
-        /// core width), a round control its chip in its slot. Its target is the core grown to Meta's hand target.
+        /// Shows the button centred at <paramref name="centre"/>, content-sized (<paramref name="width"/> its least core width).
+        /// Its target is the core grown to Meta's hand target.
         /// </summary>
         public void Show(string text, GlazeIcon? icon, bool isMain, bool available, Vector2 centre, float width)
         {
@@ -170,25 +195,13 @@ namespace Halcyonic.XR.UI
             main = isMain;
             RoomType.Size(words);
             GlazeText.SetLiteral(words, text);
-            words.gameObject.SetActive(!round);
             var target = RoomType.Units(HeightDp);
-            if (round)
-            {
-                var chip = RoomType.Units(RoundChipDp);
-                core = new Vector2(chip, chip);
-                chipCentreX = 0f;
-                press.Resize(new Vector2(target, target));
-                Lay(icon, RoomType.Units(RoundGlyphDp));
-            }
-            else
-            {
-                var coreWidth = Mathf.Max(width, Measure(text));
-                core = new Vector2(coreWidth, RoomType.Units(CoreDp));
-                chipCentreX = -coreWidth / 2f + RoomType.Units(CorePadDp + ChipDp / 2f);
-                words.transform.localPosition = new Vector3(chipCentreX + RoomType.Units(ChipDp / 2f + WordsGapDp), 0f, -RoomType.Units(0.5f));
-                press.Resize(new Vector2(Mathf.Max(target, coreWidth), Mathf.Max(target, core.y)));
-                Lay(icon, RoomType.Units(GlyphDp));
-            }
+            var coreWidth = Mathf.Max(width, Measure(text));
+            core = new Vector2(coreWidth, RoomType.Units(CoreHeightDp));
+            chipCentreX = -coreWidth / 2f + RoomType.Units(ChipPadDp + ChipSizeDp / 2f);
+            words.transform.localPosition = new Vector3(chipCentreX + RoomType.Units(ChipSizeDp / 2f + GapDp), 0f, -RoomType.Units(0.5f));
+            press.Resize(new Vector2(Mathf.Max(target, coreWidth), Mathf.Max(target, core.y)));
+            Lay(icon, RoomType.Units(size == RoomButtonSize.Home ? HomeGlyphDp : GlyphDp));
             press.Available = available;
             transform.localPosition = new Vector3(centre.x, centre.y, -RoomType.Units(1f));
             if (changed) press.Unsettle();
@@ -240,17 +253,17 @@ namespace Halcyonic.XR.UI
             painted = look;
             paintedLock = LockProgress;
             var unit = RoomType.Units(1f);
-            var reach = round ? 1f : HaloReachDp + 1f;
+            var reach = HaloReachDp + 1f;
             var quadSize = new Vector2(core.x / unit + 2f * reach, core.y / unit + 2f * reach);
             halo.transform.localScale = new Vector3(quadSize.x * unit, quadSize.y * unit, 1f);
             halo.transform.localPosition = new Vector3(0f, 0f, RoomType.Units(0.02f));
-            // The spec's linear-space alphas (BUILD-SPEC-v4 1.4): halo A at rest 0.81, main 0.86, pointed 0.90, main pointed 0.92.
-            var haloAlpha = round ? 0f : look switch
+            // DESIGN's linear-space alphas on #343A3F (FINISH-3): rest 0.83, main 0.87, pointed 0.90, main pointed 0.93 (page 0.66 to 0.82).
+            var haloAlpha = look switch
             {
-                RoomButtonLook.Main => 0.86f,
+                RoomButtonLook.Main => 0.87f,
                 RoomButtonLook.Pointed or RoomButtonLook.Pressed => 0.90f,
-                RoomButtonLook.MainPointed => 0.92f,
-                _ => 0.81f,
+                RoomButtonLook.MainPointed => 0.93f,
+                _ => 0.83f,
             };
             var light = RoomSurface.Hex(0xD5DADE);
             var (chipColour, chipAlpha) = look switch
@@ -261,9 +274,9 @@ namespace Halcyonic.XR.UI
                 RoomButtonLook.Pointed => (Color.white, 0.13f),
                 _ => (Color.white, 0.05f),
             };
-            var chipDp = round ? RoundChipDp : ChipDp;
-            var cornerDp = round ? RoundChipCornerDp : ChipCornerDp;
-            block.SetVector(CoreId, new Vector4(core.x / unit, core.y / unit, HaloCornerDp, haloAlpha));
+            var chipDp = ChipSizeDp;
+            var cornerDp = size == RoomButtonSize.Home ? HomeChipCornerDp : ChipCornerDp;
+            block.SetVector(CoreId, new Vector4(core.x / unit, core.y / unit, size == RoomButtonSize.Home ? HomeHaloCornerDp : HaloCornerDp, haloAlpha));
             block.SetVector(QuadId, new Vector4(-quadSize.x / 2f, -quadSize.y / 2f, quadSize.x, quadSize.y));
             block.SetVector(ChipId, new Vector4(chipCentreX / unit, 0f, chipDp, cornerDp));
             block.SetVector(ChipColourId, new Vector4(chipColour.r, chipColour.g, chipColour.b, chipAlpha));

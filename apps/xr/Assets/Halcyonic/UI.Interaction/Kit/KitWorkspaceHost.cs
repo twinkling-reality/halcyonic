@@ -35,7 +35,7 @@ namespace Halcyonic.XR.UI
         private KitPresenceView presence = null!;
         private RoomBarView bar = null!;
 
-        /// <summary>The redesign's Type or Talk bar, while <see cref="RoomDesign.Enabled"/> stands it in place of the composer's well.</summary>
+        /// <summary>The redesign's instruction (the row, its moments and its words), while <see cref="RoomDesign.Enabled"/> stands it in place of the kit.</summary>
         public RoomBarView Bar => bar;
 
         /// <summary>What voice is doing now, as the plane last drew it.</summary>
@@ -140,15 +140,11 @@ namespace Halcyonic.XR.UI
             composer.AgentPressed += () => { if (host.Settled && host.Accepting()) host.AgentPressed?.Invoke(); };
             composer.Talk.Pressed += host.OnTalkPressed;
             composer.Talk.Press.Target.Released += host.OnTalkReleased;
-            // The redesign's bar takes the composer's own places: its words the field, its Send, its mic held to talk.
+            // The redesign's actions are the frame's own controls; Hold to Talk is held, as the composer's is.
             host.bar = RoomBarView.Create(go.transform);
-            host.bar.FieldPressed += () => host.Press(KitPlace.Field);
-            host.bar.SendPressed += () => host.Press(KitPlace.Send);
-            host.bar.Mic.Pressed += host.OnTalkPressed;
-            host.bar.Mic.Press.Target.Released += host.OnTalkReleased;
-            host.bar.Field.Accepting = () => host.Accepting();
-            host.bar.Mic.Press.Accepting = () => host.Accepting();
-            host.bar.Send.Press.Accepting = () => host.Accepting();
+            host.bar.Acted += control => { if (host.binding != null) host.Acted?.Invoke(host.column, control.Action, control.Key, control.Frame, null); };
+            host.bar.TalkPressed += host.OnTalkPressed;
+            host.bar.TalkReleased += host.OnTalkReleased;
             var decision = host.view.Decision;
             decision.DenyPressed += () => host.Press(KitPlace.Deny);
             decision.ApprovePressed += () => host.Press(KitPlace.Approve);
@@ -172,6 +168,8 @@ namespace Halcyonic.XR.UI
         public bool Holds(KitFileBinding binding)
         {
             var model = binding.Model;
+            // The redesign's panel grows with an instruction under confirmation, which the old kit never draws.
+            if (RoomDesign.Enabled && model.Instruction != null) return true;
             if (model.Draft.Length > 0 && RowsOf(model.Draft) > ComposerRows) return false;
             if (model.Need?.Request is string request && RowsAt(request, SlateInner() - 2f * KitType.Scaled(1f)) > 8) return false;
             var shown = this.binding;
@@ -209,14 +207,16 @@ namespace Halcyonic.XR.UI
             {
                 shownAt = Time.unscaledTime;
                 foreach (var press in view.Targets) press.Unsettle();
+                bar.Field.Unsettle();
             }
         }
 
         /// <summary>
         /// While the redesign is on (<see cref="RoomDesign.Enabled"/>), the old kit is not drawn at all (the owner, 2026-11-05):
-        /// its spine, slate and rail and every row hide, and the room shows only the redesign's parts, the bar now. What no
-        /// redesign unit draws yet is absent: a frame asking an approval or a question shows nothing and is never reported
-        /// drawn, so nothing counts as read that no one saw. Off, the kit stands whole and the bar hides.
+        /// its spine, slate and rail and every row hide, and the room shows only the redesign's parts: the instruction's row, its
+        /// draft and confirmation moments, or its words (<see cref="RoomBar"/>). What no redesign unit draws yet is absent: a
+        /// frame asking an approval or a question shows nothing and is never reported drawn, so nothing counts as read that no one
+        /// saw. Off, the kit stands whole and the instruction hides.
         /// </summary>
         private void ShowBar(KitFileBinding binding)
         {
@@ -228,35 +228,25 @@ namespace Halcyonic.XR.UI
                 return;
             }
             view.gameObject.SetActive(false);
-            var model = binding.Model;
-            if (model.Ask != null || model.Need != null)
-            {
-                // Nothing drawn, standing where the resting bar would, so the plane still places a real footprint.
-                bar.Hide();
-                var rest = new Vector2(RoomType.Units(RoomGeometry.BarRestDp), RoomType.Units(RoomGeometry.BarHeightDp)) / GlazeText.Scale;
-                Size = rest;
-                TextBands = new[] { new TextBand(-rest.x / 2f, rest.x / 2f, -rest.y / 2f, rest.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * GlazeText.Scale) };
-                return;
-            }
-            var composing = binding.Frame.Lines.Any(line => line.Action == FileScreens.EditInstruction);
-            var voiceOffered = binding[KitPlace.Talk] != null || model.VoiceOffered;
-            var state = RoomBar.Of(composing, model.Draft, voiceOffered, model.Sendable, model.WhyNotSend, Voice(), AwaitingStart());
             // The one sheen crosses the redesign's glass in the host's own plane.
             RoomSheen.Plane = transform;
-            // As the kit's view was, the bar is laid at the person's text size and scaled back by it, so the plane's own scaling
-            // leaves its widths as SYSTEM-v4 gives them and its words larger at the larger size. The host holds the bar alone.
+            // As the kit's view was, it is laid at the person's text size and scaled back by it, so the plane's own scaling
+            // leaves its widths as DESIGN gives them and its words larger at the larger size.
             var zoom = GlazeText.Scale;
             bar.transform.localScale = Vector3.one / zoom;
-            var barHeight = RoomType.Units(RoomGeometry.BarHeightDp) / zoom;
-            for (var pass = 0; pass < 2; pass++)
+            bar.Show(RoomBar.Of(binding, Voice(), AwaitingStart()));
+            if (!bar.gameObject.activeSelf)
             {
-                bar.Show(state, new Vector2(0f, barHeight / 2f));
-                barHeight = bar.Size.y / zoom;
+                // Nothing drawn, standing where the row would, so the plane still places a real footprint.
+                var rest = new Vector2(RoomType.Units(RoomGeometry.PanelDp), RoomType.Units(RoomButton.HeightDp)) / zoom;
+                Size = rest;
+                TextBands = new[] { new TextBand(-rest.x / 2f, rest.x / 2f, -rest.y / 2f, rest.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
+                return;
             }
-            var barSize = bar.Size / zoom;
-            Size = barSize;
-            TextBands = new[] { new TextBand(-barSize.x / 2f, barSize.x / 2f, -barSize.y / 2f, barSize.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
-            foreach (var press in new[] { bar.Field, bar.Mic.Press, bar.Send.Press }) press.Accepting = () => Accepting();
+            var size = bar.Size / zoom;
+            Size = size;
+            TextBands = new[] { new TextBand(-size.x / 2f, size.x / 2f, -size.y / 2f, size.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
+            foreach (var press in bar.Presses) press.Accepting = () => Accepting();
         }
 
 
@@ -310,6 +300,8 @@ namespace Halcyonic.XR.UI
             shownAt = float.NegativeInfinity;
             foreach (var press in view.Targets) press.SettleForRender();
             foreach (var press in presence.Targets) press.SettleForRender();
+            foreach (var press in bar.Presses) press.SettleForRender();
+            bar.SettleForRender();
         }
 
         /// <summary>For the Editor, which runs no frames: every control as if settled, and the frame shown reported drawn as a frame would.</summary>
@@ -410,6 +402,8 @@ namespace Halcyonic.XR.UI
             runs.Set(LineWords.Theirs(words));
             runs.SetProseMode(true);
             var (lines, _, _) = KitType.Lay(measure, Mathf.Max(KitType.Units(4f), width), 200);
+            // The measure holds no words once it has counted them: it is never drawn, and nothing should read it as shown.
+            runs.Set(LineWords.None);
             return lines;
         }
 

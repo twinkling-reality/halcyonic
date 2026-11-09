@@ -221,6 +221,26 @@ namespace Halcyonic.Client
         public bool Confirming { get; }
     }
 
+    /// <summary>
+    /// The confirmation of an instruction armed to send, as the file drew it (the redesign's draft moment, DESIGN's FINISH-3):
+    /// the instruction's words, the person's, as the part showing (its rows and the row it starts from), and what the
+    /// confirmation asks under them: to read to the last part first, then whether to send.
+    /// </summary>
+    public sealed class KitInstruction
+    {
+        public KitInstruction(PageLine words, string asks)
+        {
+            Words = words;
+            Asks = asks;
+        }
+
+        /// <summary>The instruction's line as the file drew it: its words, rows and the row the part showing starts from.</summary>
+        public PageLine Words { get; }
+
+        /// <summary>The frame's own question under the words: Read to Part N, or Send Heard Instruction? or Send Instruction?.</summary>
+        public string Asks { get; }
+    }
+
     /// <summary>The task's place: its character, or why none stands there and the one real way back.</summary>
     public sealed class KitAvatar
     {
@@ -298,8 +318,11 @@ namespace Halcyonic.Client
             ActivityEntry? report, IReadOnlyList<KitTrailEntry> trail, string draft, bool voiceOffered, bool sendable,
             string? whyNotSend, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot,
             KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null, KitAvatar? avatar = null, IReadOnlyList<PageLine>? said = null,
-            string? environment = null, string? agent = null, bool environmentChangeable = false, bool agentChangeable = false)
+            string? environment = null, string? agent = null, bool environmentChangeable = false, bool agentChangeable = false,
+            KitInstruction? instruction = null, bool draftSpoken = false)
         {
+            Instruction = instruction;
+            DraftSpoken = draftSpoken;
             Environment = environment;
             EnvironmentChangeable = environmentChangeable;
             Agent = agent;
@@ -352,6 +375,9 @@ namespace Halcyonic.Client
 
         public string Draft { get; }
 
+        /// <summary>The draft was heard on the computer, not typed (<see cref="FileInstruction.Spoken"/>).</summary>
+        public bool DraftSpoken { get; }
+
         public bool VoiceOffered { get; }
 
         public bool Sendable { get; }
@@ -367,6 +393,9 @@ namespace Halcyonic.Client
 
         /// <summary>A question it waits on the person to answer: the composer asks for the answer.</summary>
         public KitAsk? Ask { get; }
+
+        /// <summary>An instruction armed to send, its confirmation showing, bound only for the redesign; null otherwise.</summary>
+        public KitInstruction? Instruction { get; }
 
         /// <summary>What its state alone can't say about what happened, as an outcome that can't be told: shown over the activity it points to.</summary>
         public KitNoticeModel? Notice { get; }

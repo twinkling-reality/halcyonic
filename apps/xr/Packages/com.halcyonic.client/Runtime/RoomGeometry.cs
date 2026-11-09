@@ -26,17 +26,38 @@ namespace Halcyonic.Client
 
         public const float BarFootPitch = -23.5f;
 
-        /// <summary>The bar's width at rest ("Type or Talk").</summary>
-        public const float BarRestDp = 230f;
+        /// <summary>The row at rest (DESIGN's FINISH-3): its two home-size actions 32 dp apart, standing where the bar stood.</summary>
+        public const float RowGapDp = 32f;
 
-        /// <summary>The bar's width while it listens or says it sent.</summary>
-        public const float BarWideDp = 340f;
+        /// <summary>The information panel's width in the pair (27.5 degrees), and the gap to the column of actions beside it (its left edge at yaw +6.75); the column takes the rest, 240 dp.</summary>
+        public const float PanelDp = 440f;
 
-        /// <summary>The bar's height with one line.</summary>
-        public const float BarHeightDp = 64f;
+        public const float PairGapDp = 16f;
 
-        /// <summary>The bar's width open to write: the pair's.</summary>
-        public const float BarOpenDp = PairDegrees * DpPerDegree;
+        public const float ColumnDp = PairDegrees * DpPerDegree - PanelDp - PairGapDp;
+
+        /// <summary>The panel's padding round its words (its content 14 dp in, the body 14 more), the room under the body before a sentence bar, and its corner.</summary>
+        public const float PanelPadDp = 28f;
+
+        public const float BodyFootDp = 18f;
+
+        public const float PanelCornerDp = 20f;
+
+        public const float SentenceInsetDp = 14f;
+
+        public const float SentenceDp = 52f;
+
+        /// <summary>The sentence's padding inside its bar: 14 dp at the sides, 12 above and below.</summary>
+        public const float SentencePadXDp = 14f;
+
+        public const float SentencePadYDp = 12f;
+
+        public const float SentenceCornerDp = 10f;
+
+        /// <summary>The caret after a typed draft's words: 2 dp by 24 dp.</summary>
+        public const float CaretDp = 2f;
+
+        public const float CaretHeightDp = 24f;
 
         /// <summary>Every word: Inter Regular 20 dp on a 28 dp line; a command's exact text JetBrains Mono 19 dp.</summary>
         public const float TypeDp = 20f;

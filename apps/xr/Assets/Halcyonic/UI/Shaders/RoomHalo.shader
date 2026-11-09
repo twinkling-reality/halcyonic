@@ -1,5 +1,5 @@
-// The redesign's action (DESIGN's BUILD-SPEC-v4 1.4, FINISH-2 2026-11-05): no box and no edge, ever. A faint halo of
-// #2E3A40 round the action's core, solid inside, half at its edge, gone 12 dp out (alpha A x (1 - smoothstep(-12, 12, d))
+// The redesign's action (DESIGN's BUILD-SPEC-v4 1.4, FINISH-2 and FINISH-3 2026-11-05): no box and no edge, ever. A faint
+// halo of the panel's foot tint #343A3F round the action's core, solid inside, half at its edge, gone 12 dp out (alpha A x (1 - smoothstep(-12, 12, d))
 // on the core's 24 dp squircle); a small squircle chip at the core's left that holds the glyph; and, on Confirm while its
 // lock fills, a 2 dp ring round the chip filling clockwise from 12 o'clock. One quad, signed distances only. The values
 // arrive linear (the spec's linear-space alphas); colours as sRGB, decoded here. RoomButton.cs sets each action's values.
@@ -103,13 +103,13 @@ Shader "Halcyonic/Room Halo"
                 float aa = max(max(fwidth(p.x), fwidth(p.y)), 1e-3);
                 float4 result = float4(0, 0, 0, 0);
 
-                // The halo: #2E3A40, solid inside the core, half at its edge, gone 12 dp out.
+                // The halo: #343A3F, solid inside the core, half at its edge, gone 12 dp out.
                 if (core.w > 0.0)
                 {
                     float2 extent = core.xy * 0.5;
                     float d = Squircle(p, extent, min(core.z, min(extent.x, extent.y)));
                     float halo = core.w * (1.0 - smoothstep(-12.0, 12.0, d));
-                    result = Over(result, Decode(float3(0.180, 0.227, 0.251)), halo);
+                    result = Over(result, Decode(float3(0.204, 0.227, 0.247)), halo);
                 }
 
                 // The chip, its glyph drawn over it by the words' layer.

@@ -2500,56 +2500,66 @@ setter, `UseGeneric`, is compiled into development builds, the editor and the te
 
 ### The redesign, built unit by unit (2026-11-05)
 
-The owner said yes to DESIGN's v4 (its SYSTEM-v4 and design6, private): the shelf with plates, one Type or Talk
-bar, per moment an information panel with a choices panel beside it, one type size, the working field with the agent's
+The owner said yes to DESIGN's v4 (its SYSTEM-v4 and design6, private) and its FINISH-3 (2026-11-05): the shelf with
+plates, one Hold to Talk and Type row, per moment an information panel with a choices panel beside it, one type size, the working field with the agent's
 cursor, Stop in its own panel. It is built unit by unit behind `RoomDesign.Enabled` (client core), off by default, so
 the kit and the judge path stand whole between units; a development build turns it on with the extra
 `--extra-bool halcyonic.redesign=true` (`CapturePresets`), and the redesign's render states turn it on for themselves.
 The last unit turns it on by default and removes the kit parts it replaced.
 
 - **Placement and type** live once in `RoomGeometry` (client core), SYSTEM-v4's numbers in degrees and dp: the pair
-  43.5 degrees wide, feet at pitch -17.6, the bar's foot at -23.5, every word Inter Regular 20 dp on a 28 dp line
+  43.5 degrees wide (the panel 440 dp, a 16 dp gap, the column 240 dp), feet at pitch -17.6, the row's foot at -23.5, every word Inter Regular 20 dp on a 28 dp line
   (`RoomType`), larger text times 1.15. `RoomLayout` (ADR 0040's poses) is unchanged.
 - **One surface and one button:** every redesign part stands on `RoomSurface` and presses through `RoomButton`
-  (`UI.Interaction/Room`). Panels, the bar and wells are DESIGN's glass (BUILD-SPEC-v4 1.2, unit 1b): the shader
-  `Halcyonic/Room Glass` (material `Resources/HalcyonicUI/RoomGlass`) draws the frost's gradient #3B4950 to #2E3A40,
-  opaque for now (the spec's 0.90 is a device test over passthrough), its 1 dp inner edge, a shadow 10 dp down with
-  28 dp of blur at 22 percent, squircle corners (exponent 4; panels 34 dp, the bar 30, rows 24, insets 16), and a well
-  sunk with no edge. `RoomSheen` sets one sheen band for every glass surface once a frame as shader globals: tilted 20
-  degrees, 5 degrees wide, 7 percent at its peak, a 2 s pass then 8 s of rest, none kept still. Every glass value comes
-  from one table, `RoomSurface.Looks` (`RoomGlassLook`: the fill with its alpha top to foot, composited premultiplied,
-  the edge line, the shadow, an optional lighter inner bar placed per surface by `InnerBar`), so DESIGN's next panel
-  numbers drop in without touching the shader. A surface draws again only when its size, kind, colour or inner bar changed.
-- **The actions** (BUILD-SPEC-v4 1.4, unit 1c) are `RoomButton`: no box and no edge, ever. A 32 dp chip (corner 12)
-  holds the glyph, the words follow in the one size, over a faint halo of #2E3A40 solid inside the 48 dp core, half at
-  its edge and gone 12 dp out (`Halcyonic/Room Halo`, material `RoomHalo`). Looks in the spec's linear alphas: rest,
-  main (a light #D5DADE chip, dark glyph, white words), pointed (3 percent larger), main pointed, held (96 percent);
-  the drawing scales, never the target. There is no disabled look: an action that cannot act yet is not drawn (DESIGN,
-  2026-11-05; at 45 percent its words fell under the kit's contrast). Confirm's lock is a 2 dp ring round its chip
-  filling clockwise, its words whole, ignoring pointing until full. The bar's mic and
-  Send are 44 dp chips in their 52 dp slots, no halo. Targets are Meta's 60.8 dp at least; the plane stands at 0.46 m,
-  where 12 mm is about 24 dp, so stacked actions stand 84.8 dp apart (DESIGN's 72 dp assumed 1.0 m). The glyphs are the
-  product's icon font for now; DESIGN's own glyph set and the words' underlay are not built yet.
+  (`UI.Interaction/Room`). The surface is DESIGN's FINISH-3 material (unit 1d): the shader `Halcyonic/Room Glass`
+  (material `Resources/HalcyonicUI/RoomGlass`) draws a translucent tonal layer, a neutral cool tint #3C4247 to #343A3F at
+  0.86 (the page's 0.72 as Unity blends in linear), a 1 dp white hairline at 10 percent, no shadow, squircle corners
+  (exponent 4; panels 20 dp, a bar 22), and an optional lighter sentence bar (white at 10 percent, inset 14 dp, corner
+  10) placed per surface by `InnerBar` (its top, height and side inset). `RoomSheen` sets one sheen band for every
+  surface once a frame as shader globals: tilted 20 degrees, 5 degrees wide, 7 percent at its peak, a 2 s pass then 8 s
+  of rest, 5 percent at its peak, none kept still. Every value comes from one table, `RoomSurface.Looks` (`RoomGlassLook`). A surface draws
+  again only when its size, kind or sentence bar changed. The well and the muted grey are retired: every word is white.
+- **The actions** (BUILD-SPEC-v4 1.4, units 1c and 1d) are `RoomButton`: no box and no edge, ever. A chip holds the
+  glyph, the words follow in the one size, over a faint halo of the panel's foot tint #343A3F solid inside the core,
+  half at its edge and gone 12 dp out (`Halcyonic/Room Halo`, material `RoomHalo`). Two sizes: the column's (a 48 dp
+  core, 32 dp chip, 20 dp glyph) and the row's at home (the 60.8 dp hand target itself as the core, a 44 dp chip, a
+  24 dp glyph, the words 12 dp after it, 24 dp after them, a 28 dp halo corner). Looks in DESIGN's linear alphas: rest 0.83, main 0.87 (a light #D5DADE chip, dark glyph, white words),
+  pointed 0.90 (3 percent larger), main pointed 0.93, held (96 percent); the drawing scales, never the target. An action
+  that cannot act is not drawn. Confirm's lock is a 2 dp ring round its chip filling clockwise. Targets are Meta's
+  60.8 dp at least; the plane stands at 0.46 m, where 12 mm is about 24 dp, so stacked actions stand 84.8 dp apart. The
+  glyphs are the product's icon font for now; DESIGN's own glyph set and the words' underlay are not built yet.
 - **The old kit is gone with the switch on** (the owner, 2026-11-05): `KitWorkspaceHost` draws none of its spine,
   slate or rail; the room shows only the redesign's parts. A frame asking an approval or a question shows nothing until
   unit 2 and is never reported drawn, so nothing counts as read that no one saw. Off, the kit stands whole.
-- **Unit 1, the bar:** `RoomBar` (client core) is a view of the open task's own instruction, never a second one: at
-  rest Type or Talk (a press is the file's Tell it), Listening and Transcribing from `MenuVoice`, open on the draft
-  (the keyboard, the mic held to talk, Send), and Sent · Awaiting Start while the task's run was asked for and has
-  not started. `RoomBarView` draws it alone in the host (the kit gone, see below), 230 dp wide at rest, 340 dp listening or sent, the pair's width open; its presses go through `KitWorkspaceHost`'s
-  own places (Field, Send, Talk), so reading before Send, ADMIT and the voice rules hold. DESIGN's numbers (BUILD-SPEC 2.1): 64 dp tall, corner 30, 6 dp inside its edge, the words 18 dp
-  in with 12 dp above and below, up to 3 draft lines for now (the kit composer's rows, so `Kit.Holds` is unchanged);
-  the mic and Send drawn 52 dp (corner 22) in Meta's 60.8 dp hand targets 12 mm apart, so drawn 19.8 dp apart; its
-  width moves over 360 ms; "Sent · Awaiting Start", "Listening" and "Transcribing" sweep (`GlazeShimmer`). One line of
-  words is never cut: at the larger size the capsule widens for them past its width.
+- **Unit 1d, the instruction** (DESIGN's FINISH-3, the owner's yes 2026-11-05): `RoomBar` (client core) is a view of
+  the open task's own file, never a second instruction: every action is a control the file's frame offers
+  (`KitFileBinding`), with its own words, so reading before Send, ADMIT and the voice rules hold. At rest there is no
+  field and no capsule: Hold to Talk (main, the frame's held Talk) and Type (the frame's Tell it) float side by side at
+  home size, 32 dp apart. Held, Hold to Talk reads Listening and Type goes; let go, Transcribing. A typed draft is a
+  moment: the information panel (440 dp, the pair's left) is the field, its words the person's with a caret after them
+  (a press opens the keyboard again), and the column beside it holds only Cancel until a word exists, then Send
+  Instruction where it can send; a typed draft has no sentence bar but a lasting reason Send waits. A heard draft (the
+  file's spoken draft, `KitWorkModel.DraftSpoken`) has no caret: its sentence bar says Read Full Instruction, then Send
+  Heard Instruction?, and its column holds Send Instruction once read, Talk Again (the frame's own held Hold to Talk,
+  which records afresh and replaces the words; held it stays in its place, lit, reading Listening) and Cancel. The
+  panel's body stands 28 dp in, 18 dp above the sentence bar, which stands 14 dp in with 14 by 12 dp of padding. An
+  instruction armed to send (a heard one
+  always is) is bound for the redesign alone (`KitFileBinding.Of(..., roomDesign: true)`, `KitWorkModel.Instruction`):
+  its words in the panel, part by part as the file cuts them (`MenuFrameView.PartText`, so no word is skipped or read
+  twice), the file's question in the sentence bar (Read to Part N, then Send Heard Instruction?), and in the column the
+  confirmation's Confirm once all of it was drawn, Next Part while parts remain, and Cancel. The column's actions stand
+  left-aligned, the main one first, at the hand-target pitch, the last one's foot on the panel's foot. Sending, then Sent ·
+  Awaiting Start while the task's run was asked for and has not started, stands as words alone, sweeping (`GlazeShimmer`), as
+  does the reason where no action can act. `RoomBarView` draws all of it centred in the host.
 - **The level is the microphone's** (the lead's truth rule): `HoldToTalk` reads the last 50 ms it recorded every 50 ms
-  into `LevelHistory` (client core: the RMS, -54 to -12 dBFS, 26 bars, newest at the right), and the bar draws 26 bars
-  of it, drawn once and scaled so a frame draws nothing. A release build records nothing (`HoldToTalk.CurrentLevel` is
-  null) and shows Listening without bars.
-- **Checks:** `KitRender.Check`'s states `31-bar-rest`, `31-bar-open`, `31-bar-listening` (the level from recorded
-  samples, each bar following its 50 ms), `31-bar-listening-no-level` and `31-bar-sent`, on the real host bound to
-  production frames: state, width, words whole in the one size, controls inside the capsule, the composer's own parts
-  hidden, the field, targets, and presses reaching the file's Tell it, keyboard and Send. `LevelHistoryTests` and
+  into `LevelHistory` (client core: the RMS, -54 to -12 dBFS, 26 bars, newest at the right), and Listening draws 26 bars
+  of it 4 dp after its words inside its halo, drawn once and scaled so a frame draws nothing. A release build records
+  nothing (`HoldToTalk.CurrentLevel` is null) and shows Listening without bars.
+- **Checks:** `KitRender.Check`'s states `31-bar-rest`, `31-bar-listening` (the level from recorded samples),
+  `31-bar-listening-no-level`, `31-bar-typing`, `31-bar-typed`, `31-bar-heard`, `31-bar-confirm` and `31-bar-sent`, on the real host bound
+  to production frames: state, the old kit not drawn, words whole in the one size, the row's sizes and gap, the panel's
+  material and width, the sentence bar, the caret, the column's order, alignment, foot and 12 mm gaps, and presses
+  reaching the file's Tell it, keyboard, Confirm and Cancel; `32-actions` for every look. `LevelHistoryTests` and
   `RoomBarTests` in the client suite.
 
 ### The room of projects' placement (2026-10-29)

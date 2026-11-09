@@ -168,15 +168,19 @@ namespace Halcyonic.Client
         /// <paramref name="armed"/> armed (<see cref="WorkspaceSteering.Armed"/>), and the person's
         /// <paramref name="draft"/>; null where the kit can't draw the frame whole. The composer's chips are
         /// <paramref name="selectors"/> as given (<see cref="KitPresenter.ChipsOf"/>); without them, the workspace's own
-        /// runtime's, locked.
+        /// runtime's, locked. With <paramref name="roomDesign"/> (<see cref="RoomDesign.Enabled"/>) an instruction's confirmation
+        /// binds too (<see cref="KitWorkModel.Instruction"/>), which the old kit has no place for. <paramref name="draftSpoken"/>:
+        /// the draft was heard, not typed (<see cref="FileInstruction.Spoken"/>).
         /// </summary>
         public static KitFileBinding? Of(MenuFrame frame, WorkspaceAction? armed, WorkspacePresentation workspace, string draft, ConnectionStatus connection,
             string projectName, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot = null, KitAvatar? avatar = null,
-            KitSelectors? selectors = null)
+            KitSelectors? selectors = null, bool roomDesign = false, bool draftSpoken = false)
         {
             if (frame.Side != null) return null;
-            // The kit shows an approval's, a denial's or the answers' confirmation; any other waits for the file's own drawing.
-            if (armed != null && armed != WorkspaceAction.Approve && armed != WorkspaceAction.Deny && armed != WorkspaceAction.Answer) return null;
+            // The kit shows an approval's, a denial's or the answers' confirmation, and the redesign an instruction's too; any
+            // other waits for the file's own drawing.
+            var instructing = roomDesign && armed == WorkspaceAction.Instruct;
+            if (armed != null && armed != WorkspaceAction.Approve && armed != WorkspaceAction.Deny && armed != WorkspaceAction.Answer && !instructing) return null;
             var controls = new List<KitControl>();
             foreach (var (slot, prompt) in frame.Footer.All)
             {
@@ -207,8 +211,16 @@ namespace Halcyonic.Client
             var deny = At(KitPlace.Deny);
             var approve = At(KitPlace.Approve);
             var cancel = At(KitPlace.Cancel);
+            // An instruction's confirmation: its words first, as the person's, and the frame's question last.
+            KitInstruction? instruction = null;
+            if (instructing)
+            {
+                var lines = frame.Lines;
+                if (lines.Count < 2 || lines[0].Action != null || lines[lines.Count - 1].Action != null || cancel == null) return null;
+                instruction = new KitInstruction(lines[0], lines[lines.Count - 1].Words);
+            }
             KitNeed? need = null;
-            if ((deny != null || approve != null || cancel != null) && KitPresenter.NeedOf(workspace) is KitNeed asked)
+            if (instruction == null && (deny != null || approve != null || cancel != null) && KitPresenter.NeedOf(workspace) is KitNeed asked)
             {
                 KitConfirmation? confirming = null;
                 if (cancel != null && armed is WorkspaceAction answer)
@@ -222,10 +234,10 @@ namespace Halcyonic.Client
                 need = new KitNeed(asked.Asks, asked.Request, asked.ScopeNote, asked.Notes, deny?.Words ?? asked.DenyWords, approve?.Words ?? asked.ApproveWords,
                     deny != null && deny.Available, approve != null && approve.Available, confirming);
             }
-            else if ((cancel != null || At(KitPlace.Yes) != null) && armed != WorkspaceAction.Answer) return null;
+            else if (instruction == null && (cancel != null || At(KitPlace.Yes) != null) && armed != WorkspaceAction.Answer) return null;
             // A question's page, wherever the file draws one (never Activity, which says only where it waits): its own lines, as drawn.
             KitAsk? ask = null;
-            if (need == null && workspace.QuestionToAnswer != null
+            if (need == null && instruction == null && workspace.QuestionToAnswer != null
                 && !frame.Sections.Any(section => section.Chosen && section.Key == FileScreens.Key(FileSection.Activity)))
                 ask = new KitAsk(frame.Lines.Where(line => line.Action == null).ToList(), armed == WorkspaceAction.Answer);
             else if (armed == WorkspaceAction.Answer) return null;
@@ -234,7 +246,8 @@ namespace Halcyonic.Client
             var model = new KitWorkModel(work.ProjectName, work.TaskTitle, work.Badge, work.Marks, work.Report, work.Trail, draft, work.VoiceOffered,
                 send != null && send.Available, send != null ? send.Reason : KitPresenter.WhyNotSendOf(connection), work.Spine, work.SpineFoot,
                 need, ask, work.Notice, work.Avatar, said, selectors != null ? selectors.Environment : work.Environment,
-                selectors != null ? selectors.Agent : work.Agent, selectors?.EnvironmentChangeable ?? false, selectors?.AgentChangeable ?? false);
+                selectors != null ? selectors.Agent : work.Agent, selectors?.EnvironmentChangeable ?? false, selectors?.AgentChangeable ?? false, instruction,
+                draftSpoken && draft.Length > 0);
             // Every line the frame shows is words the kit shows too; a line it would leave out, as an attention note,
             // a pointer to Waiting, why nothing can be sent or a notice, keeps the frame on the file's own drawing.
             var shown = ShownWords(model, workspace);
@@ -246,7 +259,8 @@ namespace Halcyonic.Client
                 if (frame.Lines[index].Action != null) continue;
                 var words = frame.Lines[index].Words;
                 var question = cancel != null && index == frame.Lines.Count - 1;
-                var request = need?.Request is string whole && (words == whole || words.EndsWith(": " + whole, System.StringComparison.Ordinal));
+                var request = need?.Request is string whole && (words == whole || words.EndsWith(": " + whole, System.StringComparison.Ordinal))
+                    || (instruction != null && index == 0);
                 if (!question && !request && !shown.Contains(words)) return null;
             }
             // A page of Waiting the kit draws is an approval's: anything else waiting there stays the file's.
