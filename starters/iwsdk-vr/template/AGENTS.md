@@ -92,6 +92,33 @@ Make it fun to look at:
   `.patch` files.
 - Run `npx tsc --noEmit` before ending your turn and fix any type, syntax or module error it reports.
 
+A view from another app, not a game:
+- When you bring an app's view into VR (a sky, planets, a terrain model, a diagram), it keeps its own look, not the
+  island's. In `src/index.ts` call `setupScene(world, '#000000')` from `./kit.js` instead of `setupLook` and
+  `decorate`, with the view's own background colour, and build the view in `gameIsland()`: the same frame, the person
+  at the origin facing -z, but no island, sky, lights or sound of the starter's. Put the colour in `index.html`'s
+  `background` too.
+- Find the view fast, and do not read the whole original. Read its README's first lines, then list the files that
+  draw: `rg -l "from 'three'" <original> -g '!node_modules' -g '!*.test.*'`, or its canvas or WebGL code. Pick the
+  view from them, read only those files, and start writing `src/index.ts` early; a big app has docs, data, tests and
+  services you never need.
+- Start from the whole small view at the end of this file and change it into the original's. Its main subject is
+  what the original shows biggest (a planet, the terrain), with the original's own pictures, never a placeholder
+  shape. Rebuild the look from the original's own code: read how it draws (its three.js scene, materials, shaders and
+  textures) and write the parts that make the look into `src/index.ts` with `three` (this project has three.js 0.181).
+  Never import from the original's folder. Copy only the images the view needs into `public/`, each under 8 MB, and
+  name them in `src/assets.ts`.
+- `setupScene` adds no light. A picture all round (a sky, stars) goes on a `MeshBasicMaterial`, which needs none; a
+  `MeshStandardMaterial` draws black until you add the lights the original uses.
+- Put the view around the person: what they look at from 1 m to 4 m away, something large (a planet, a mountain
+  range) farther and bigger, everything within 150 m. A stars or sky sphere goes round the origin, inside 150 m.
+- Give it one thing to press that answers at once: `onSelect` on the view's main object, which then grows, glows,
+  comes closer or shows the next view, with `src/motion.ts` and `gameTime()`; a round thing that only turns looks the
+  same, so it shows no answer. Keep something moving every frame, from
+  the `time` your system's `update(delta, time)` is given.
+- No score sign, critters or confetti unless the original has them. Name the app on its welcome card, with one line
+  on what to press, as for a game.
+
 Keep changes small, one idea at a time, and keep the app running after each one.
 
 A whole small game, to start from: three critters breathe in the garden; press one and it is bonked with confetti,
@@ -184,3 +211,67 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
 });
 ```
 
+A whole small view, to start from: a sky picture all round, and a lit planet with its own picture in front of the
+person; press it and it comes closer, then drifts back. It type checks and passes the person's computer's check with two
+pictures in `public/textures/`, `sky.png` and `planet.png`, named `sky` and `planet` in `src/assets.ts` as
+`{ url: publicAssetUrl('textures/sky.png'), type: AssetType.Texture, name: 'Sky' }`. Start a view from another app by
+changing this one.
+
+```ts
+import { AssetManager, createSystem, World } from '@iwsdk/core';
+import {
+  BackSide,
+  DirectionalLight,
+  HemisphereLight,
+  Mesh,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
+  SphereGeometry,
+  SRGBColorSpace,
+} from 'three';
+import projectOptions from 'virtual:iwsdk-project';
+import { gameIsland, gameTime, onSelect, setupPlayInput, setupScene } from './kit.js';
+import { PanelSystem } from './panel.js';
+
+class ViewSystem extends createSystem({}) {
+  private planet!: Mesh;
+  private pressedAt: number | null = null;
+
+  init(): void {
+    const view = gameIsland();
+    // A picture all round needs no light: MeshBasicMaterial, inside out, within 150 m.
+    const skyPicture = AssetManager.getTexture('sky');
+    if (skyPicture) skyPicture.colorSpace = SRGBColorSpace;
+    view.add(new Mesh(new SphereGeometry(120, 64, 32), new MeshBasicMaterial({ map: skyPicture, side: BackSide })));
+    // A lit thing needs the lights the original uses: setupScene adds none.
+    view.add(new HemisphereLight('#9fb7ff', '#0b0b14', 0.35));
+    const sun = new DirectionalLight('#ffffff', 2.4);
+    sun.position.set(-4, 2, 3);
+    view.add(sun);
+    // The main subject, with its own picture, in front of the person.
+    const surface = AssetManager.getTexture('planet');
+    if (surface) surface.colorSpace = SRGBColorSpace;
+    this.planet = new Mesh(new SphereGeometry(1, 64, 32), new MeshStandardMaterial({ map: surface, roughness: 0.9 }));
+    this.planet.position.set(0, 1.5, -4);
+    view.add(this.planet);
+    onSelect(this.world.createTransformEntity(this.planet), () => {
+      this.pressedAt = gameTime();
+    });
+  }
+
+  update(_delta: number, time: number): void {
+    this.planet.rotation.y = time * 0.15;
+    // A press brings it closer for a few seconds, then it drifts back.
+    const since = this.pressedAt === null ? 99 : time - this.pressedAt;
+    const near = since < 4 ? Math.sin(Math.min(since, 4) / 4 * Math.PI) : 0;
+    this.planet.position.z = -4 + near * 1.8;
+  }
+}
+
+World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
+  setupScene(world, '#05060f');
+  setupPlayInput(world);
+  world.registerSystem(PanelSystem);
+  world.registerSystem(ViewSystem);
+});
+```

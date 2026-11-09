@@ -328,15 +328,20 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     assert.ok(instruction.includes(join(projects, 'garden')), instruction);
     assert.match(instruction, /Do not change anything there/);
     assert.match(instruction, /src\/play-input\.ts/);
-    // The S3 re-run's game kept the starter's "Untitled Game" card: the instruction asks for the game's own.
+    // The S3 re-run's game kept the starter's "Untitled Game" card: the instruction asks for the app's own.
     assert.match(
       instruction,
-      /Put the game's name and one line on how to play on its welcome card\./,
+      /Put the app's name and one line on what to do on its welcome card\./,
     );
     // V1: the main play only, from the starter's worked game, in a world that fits, type checked before it ends.
     assert.match(
       instruction,
-      /Start from the whole small game at the end of this project's AGENTS\.md/,
+      /If it is a game, build its main play: start from the whole small game at the end of this project's AGENTS\.md/,
+    );
+    // VRIFY: an app that is not a game brings its most striking view, as the starter's AGENTS.md says.
+    assert.match(
+      instruction,
+      /If it is not a game, bring its one most striking view, the scene people open it for, as 'A view from another app' in this project's AGENTS\.md says/,
     );
     assert.match(instruction, /leave out title, end and pause screens, menus and best scores/);
     assert.match(instruction, /the world from src\/worlds\.ts that fits the original/);

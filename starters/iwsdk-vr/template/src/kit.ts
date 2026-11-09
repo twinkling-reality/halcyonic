@@ -23,6 +23,7 @@ export {
   ISLAND_RADIUS,
   PLAYER,
   setupLook,
+  setupScene,
   TIER,
 } from './look.js';
 export { bob, bonk, drift, flap, flight, hide, motion, pop, pulse, sway, wiggle } from './motion.js';

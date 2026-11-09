@@ -57,20 +57,24 @@ export const VR_STARTER = 'iwsdk-vr';
  * its folder, change nothing there, and build its main play in its own project from the starter, in a
  * world that fits. Since V1 it asks for the main play only, started from the whole small game in the
  * starter's AGENTS.md: a local model that ported a whole 2D game, with its screens, failed its first
- * check and ran a fix-up past 58 minutes.
+ * check and ran a fix-up past 58 minutes. Since VRIFY it also covers an app that is not a game (a sky, a terrain
+ * model, a lesson): its most striking view, rebuilt from the original's own drawing code with the starter's
+ * `setupScene`, as the starter's AGENTS.md says under "A view from another app".
  */
 export function vrVersionInstruction(originalFolder: string): string {
   return [
     `Make a VR version of the web app in ${originalFolder}.`,
-    'Read that folder to understand the game: what you see, what you do, how you score or win.',
+    'Read that folder to understand the app: what you see, what you do, and whether it is a game.',
     'Do not change anything there.',
-    'Build its main play in this project with the Immersive Web SDK, so it plays in VR with controllers or hands and on a laptop with a mouse and keyboard.',
-    "Start from the whole small game at the end of this project's AGENTS.md and change it into this one, importing from src/kit.ts.",
+    'Build it in this project with the Immersive Web SDK, so it works in VR with controllers or hands and on a laptop with a mouse and keyboard.',
+    'If it is a game, build its main play:',
+    "start from the whole small game at the end of this project's AGENTS.md and change it into this one, importing from src/kit.ts.",
     'Keep to the main play and its score: leave out title, end and pause screens, menus and best scores.',
-    'Read every input through src/play-input.ts.',
     'Set it in the world from src/worlds.ts that fits the original, and keep its feel.',
+    "If it is not a game, bring its one most striking view, the scene people open it for, as 'A view from another app' in this project's AGENTS.md says, and leave out its other pages, forms and settings.",
+    'Read every input through src/play-input.ts.',
     'Copy pictures and sounds you need from the original into public/ and name them in src/assets.ts.',
-    "Put the game's name and one line on how to play on its welcome card.",
+    "Put the app's name and one line on what to do on its welcome card.",
     'Run npx tsc --noEmit and fix every error it reports before you finish.',
   ].join(' ');
 }

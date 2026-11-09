@@ -438,3 +438,96 @@ describe('a whole small game in AGENTS.md, to start from, importing from one pla
       assert.match(kit, new RegExp(`\\b${name}\\b`), name);
   });
 });
+
+describe("a view from another app keeps its own look, not the island's (VRIFY)", () => {
+  // VRIFY: a VR version of an app that is not a game (a sky with planets, a terrain model) was asked for a game on
+  // the toy island, the only look the starter could set up.
+  const look = () => read('src/look.ts');
+  const setupScene = () => {
+    const text = look();
+    const start = text.indexOf('export function setupScene(');
+    assert.ok(start > 0, 'look.ts exports setupScene');
+    return text.slice(start, text.indexOf('\n}\n', start));
+  };
+
+  test('setupScene shows the canvas and keeps the clock, with no island, sky, lights or sound of the starter', () => {
+    const body = setupScene();
+    assert.match(body, /built = root;/, 'gameIsland() returns its group');
+    assert.match(
+      body,
+      /world\.registerSystem\(AmbientSystem\);/,
+      'gameTime() and motion keep their clock',
+    );
+    assert.match(
+      body,
+      /renderer\.domElement\.style\.opacity = '1';/,
+      'the canvas shows from the first frame',
+    );
+    // The SDK's environment system clears scene.background (VRIFY's first lab check showed the page behind): a sphere.
+    assert.doesNotMatch(body, /scene\.background =/);
+    assert.match(body, /new SphereGeometry\(180,/);
+    assert.match(body, /side: BackSide/);
+    for (const starterPart of [
+      'island()',
+      'skyDome',
+      'meadowSky',
+      'Light(',
+      'startAmbience',
+      'cloud(',
+    ])
+      assert.ok(!body.includes(starterPart), `no ${starterPart}`);
+    assert.match(read('src/kit.ts'), /\bsetupScene,/);
+  });
+
+  test("the agent is told when to use it, to rebuild the original's own look, and to give it one press that answers", () => {
+    const agents = read('AGENTS.md');
+    const start = agents.indexOf('A view from another app, not a game:');
+    assert.ok(start > 0, 'AGENTS.md has the section');
+    const section = agents.slice(start, agents.indexOf('\n\n', start));
+    assert.match(section, /`setupScene\(world, '#000000'\)`/);
+    assert.match(section, /instead of `setupLook` and\s+`decorate`/);
+    // VRIFY's first run on a big astronomy app read the 700 MB original for 75 minutes, looking for a game, and wrote nothing.
+    assert.match(section, /Find the view fast, and do not read the whole original/);
+    assert.match(section, /rg -l "from 'three'"/);
+    assert.match(section, /Rebuild the look from the original's own code/);
+    assert.match(section, /Never import from the original's folder/);
+    assert.match(section, /within 150 m/);
+    assert.match(section, /one thing to press that answers at once: `onSelect`/);
+    // The laptop camera's far plane is 200 m: a sky sphere past it would not draw.
+    const config = JSON.parse(read('iwsdk.config.json')) as { world: { render: { far: number } } };
+    assert.ok(config.world.render.far > 150, `far plane ${config.world.render.far}`);
+  });
+});
+
+describe('a whole small view in AGENTS.md, to start a view from another app from (VRIFY)', () => {
+  // VRIFY's re-run on that app passed the check with a sky on a lit material and no light: the frame was a blue dot on
+  // black. The worked view shows a picture sky that needs no light and a lit subject with its own picture.
+  const view = () => {
+    const agents = read('AGENTS.md');
+    const start = agents.indexOf('```ts\n', agents.indexOf('A whole small view, to start from'));
+    assert.ok(start > 0, 'AGENTS.md holds a view example');
+    return agents.slice(start, agents.indexOf('\n```', start + 6));
+  };
+
+  test('it sets up the scene, a picture sky with no light, a lit subject, and one press that answers', () => {
+    const example = view();
+    assert.match(example, /setupScene\(world, '#[0-9a-f]{6}'\);/);
+    assert.doesNotMatch(example, /setupLook|decorate|scoreSign/);
+    assert.match(example, /new MeshBasicMaterial\(\{ map: skyPicture, side: BackSide \}\)/);
+    assert.match(example, /new DirectionalLight\(/);
+    assert.match(example, /new MeshStandardMaterial\(\{ map: surface/);
+    assert.match(example, /onSelect\(this\.world\.createTransformEntity\(this\.planet\)/);
+    assert.match(example, /world\.registerSystem\(ViewSystem\);/);
+  });
+
+  test('it imports only names src/kit.ts gives', () => {
+    const imported = view().match(/import \{([^}]+)\} from '\.\/kit\.js';/);
+    assert.ok(imported, "the example imports from './kit.js'");
+    const kit = read('src/kit.ts');
+    for (const name of (imported[1] ?? '')
+      .split(',')
+      .map((n) => n.trim())
+      .filter((n) => n !== ''))
+      assert.match(kit, new RegExp(`\\b${name}\\b`), name);
+  });
+});
