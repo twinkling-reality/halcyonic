@@ -39,7 +39,7 @@ namespace Halcyonic.XR.Workspace.Editor
             for (var index = 0; index < looks.Length; index++)
             {
                 var (words, icon, main, available, look, locking, expected) = looks[index];
-                var button = RoomButton.Create(holder, words, round: false);
+                var button = RoomButton.Create(holder, words);
                 button.LookForRender = look;
                 button.LockProgress = locking;
                 var width = button.Measure(words);

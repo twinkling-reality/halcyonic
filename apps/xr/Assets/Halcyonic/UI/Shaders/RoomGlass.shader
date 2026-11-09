@@ -1,7 +1,6 @@
-// The redesign's glass (DESIGN's BUILD-SPEC-v4 1.2, final 2026-11-05): an opaque frost (the spec's 0.90 is tested on the
-// device later; at 1.0 every value holds and only the room's faint ghost is lost), a vertical gradient from its top to its
-// foot, an inner edge line in its own gradient, squircle corners (a superellipse of exponent 4), a soft shadow under a
-// panel, and one sheen band crossing every glass surface together in the plane's coordinates. No textures and no blur:
+// The redesign's surface (DESIGN's FINISH-3, 2026-11-05): a translucent tonal layer, a vertical gradient from its top to
+// its foot with its own alpha, a hairline in its own gradient, squircle corners (a superellipse of exponent 4), an optional
+// soft shadow, an optional lighter sentence bar, and one sheen band crossing every glass surface together in the plane's coordinates. No textures and no blur:
 // signed distances and a Gaussian's closed form. RoomSurface.cs sets each surface's values, instanced; the sheen comes once
 // a frame from RoomSheen as globals. Lengths are in dp at the eye; colours arrive as sRGB and mix in sRGB, then decode.
 Shader "Halcyonic/Room Glass"
@@ -15,7 +14,7 @@ Shader "Halcyonic/Room Glass"
         _EdgeTop ("The edge line's top, sRGB, and its width in dp", Vector) = (0.333, 0.380, 0.404, 1)
         _EdgeFoot ("The edge line's foot, sRGB, and 1 where it shows", Vector) = (0.286, 0.329, 0.349, 1)
         _Shade ("Shadow drop, blur and alpha in dp, and 1 where it shows", Vector) = (10, 28, 0.22, 1)
-        _Inner ("A lighter inner bar: its top from the panel's top and its height in dp, its corner in dp, and 1 where it shows", Vector) = (0, 0, 0, 0)
+        _Inner ("A lighter inner bar: its top from the panel's top and its height in dp, its corner in dp, and its inset from the sides in dp where it shows (0: none)", Vector) = (0, 0, 0, 0)
         _InnerColour ("The inner bar's colour, sRGB, and its alpha", Vector) = (1, 1, 1, 0)
     }
 
@@ -134,12 +133,12 @@ Shader "Halcyonic/Room Glass"
                 float3 face = lerp(fillTop.rgb, fillFoot.rgb, tf);
                 // The face's own alpha (the frost's, 1 while it is opaque), top to foot.
                 float faceAlpha = lerp(fillTop.a, fillFoot.a, tf);
-                // A lighter inner bar across the panel, inset from its sides as from its top (the one sentence's).
-                if (inner.w > 0.5)
+                // A lighter inner bar across the panel, its inset from the sides its own (the one sentence's, at the panel's foot).
+                if (inner.w > 0.0)
                 {
                     float barTop = extent.y - inner.x;
                     float2 barCentre = float2(0, barTop - inner.y * 0.5);
-                    float2 barExtent = float2(extent.x - inner.x, inner.y * 0.5);
+                    float2 barExtent = float2(max(extent.x - inner.w, 0.0), inner.y * 0.5);
                     float barD = Shape(p - barCentre, barExtent, min(inner.z, min(barExtent.x, barExtent.y)), panel.w);
                     float barCover = saturate(0.5 - barD / aa);
                     face = lerp(face, innerColour.rgb, innerColour.a * barCover);
