@@ -506,6 +506,8 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       'panel.ts',
       'play-input-core.ts',
       'play-input.ts',
+      // VRIFY: the relief table a view of land is raised with.
+      'relief.ts',
       'sound.ts',
       'vite-env.d.ts',
       'worlds.ts',

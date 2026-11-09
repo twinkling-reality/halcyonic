@@ -531,3 +531,46 @@ describe('a whole small view in AGENTS.md, to start a view from another app from
       assert.match(kit, new RegExp(`\\b${name}\\b`), name);
   });
 });
+
+describe('land comes into VR as a relief table from its own heights (VRIFY)', () => {
+  // VRIFY's run on a map app passed the check with its ground as a flat picture on a card turning edge-on: the planet of the
+  // worked view does not fit land. relief() raises real ground from the original's own height picture.
+  test('relief reads a grey or Terrarium height picture, raises the ground, and colours it by height without a picture', () => {
+    const relief = read('src/relief.ts');
+    assert.match(
+      relief,
+      /export function relief\(heights: Texture \| HeightGrid, options: ReliefOptions = \{\}\): Group/,
+    );
+    assert.match(relief, /r \* 256 \+ g \+ b \/ 256 - 32768/, "Terrarium's metres");
+    assert.match(
+      relief,
+      /position\.setY\(i, 0\.004 \+ t \* height\)/,
+      'just over the base, never fighting it',
+    );
+    // VRIFY's second run on it took a picture of elevation bands for heights; its own are a float32 grid.
+    assert.match(relief, /export interface HeightGrid \{/);
+    assert.match(relief, /computeVertexNormals\(\)/);
+    assert.match(relief, /vertexColors: picture === null/);
+    // No clock of its own and nothing from another site: the check steps it, and the preview is offline.
+    assert.doesNotMatch(relief, /performance\.now|Date\.now|https?:/);
+    assert.match(read('src/kit.ts'), /\brelief \} from '\.\/relief\.js';/);
+  });
+
+  test('the agent is told to use it for land, with the encoding its original names, and no picture that does not fit', () => {
+    const agents = read('AGENTS.md');
+    const start = agents.indexOf('A view from another app, not a game:');
+    const section = agents.slice(start, agents.indexOf('\n\n', start));
+    assert.match(
+      section,
+      /For land .* the subject is a relief table: `relief\(heights, options\)`/s,
+    );
+    assert.match(section, /`'terrarium'` \(R \* 256 \+ G \+ B \/ 256 - 32768\)/);
+    assert.match(
+      section,
+      /follow its code to\s+that file and its metadata, never a picture of bands or classes/,
+    );
+    assert.match(section, /new Float32Array\(await \(await fetch\(url\)\)\.arrayBuffer\(\)\)/);
+    // The same run draped a land-cover map, whose colours are class codes, and the ground read as blue noise.
+    assert.match(section, /never a data image whose\s+colours are codes/);
+  });
+});

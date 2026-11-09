@@ -108,6 +108,15 @@ A view from another app, not a game:
   textures) and write the parts that make the look into `src/index.ts` with `three` (this project has three.js 0.181).
   Never import from the original's folder. Copy only the images the view needs into `public/`, each under 8 MB, and
   name them in `src/assets.ts`.
+- For land (a valley, a site, terrain under a map), the subject is a relief table: `relief(heights, options)` from
+  `./kit.js` raises real ground from the heights the original's own relief or terrain view loads: follow its code to
+  that file and its metadata, never a picture of bands or classes. A raw grid (a `.f32` file) goes in as
+  `{ values: new Float32Array(await (await fetch(url)).arrayBuffer()), width, height }` with the width and height its
+  metadata gives; a height picture is named in `src/assets.ts` and read with `AssetManager.getTexture(...)`, with
+  `encoding` `'grey'` (brighter is higher) or `'terrarium'` (R * 256 + G + B / 256 - 32768). Put the table at
+  `table.position.set(0, 0.9, -1.8)`, with a light from above. Without `picture` it is coloured by height; pass one only
+  when it is a picture of exactly the same ground made to look at (satellite, a shaded map), never a data image whose
+  colours are codes. It takes the planet's place in the whole small view.
 - `setupScene` adds no light. A picture all round (a sky, stars) goes on a `MeshBasicMaterial`, which needs none; a
   `MeshStandardMaterial` draws black until you add the lights the original uses.
 - Put the view around the person: what they look at from 1 m to 4 m away, something large (a planet, a mountain
