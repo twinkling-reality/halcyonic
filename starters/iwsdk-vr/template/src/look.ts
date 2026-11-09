@@ -125,7 +125,7 @@ class AmbientSystem extends createSystem({}) {
  * `world.createTransformEntity(object)` moves it to the level's root, as that call does.
  */
 export function gameIsland(): Group {
-  if (built === null) throw new Error('Call setupLook(world) in src/index.ts first.');
+  if (built === null) throw new Error('Call setupLook(world) or setupScene(world) in src/index.ts first.');
   return built;
 }
 
@@ -549,4 +549,36 @@ export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow
   startAmbience(look.sound, ambientMotion);
   world.registerSystem(AmbientSystem);
   return { island: play };
+}
+
+/**
+ * Sets up a view brought from another app, not a game ("A view from another app" in AGENTS.md), once, after
+ * World.create, instead of `setupLook`: the same frame, the same clock for `gameTime()` and motion, and the canvas shown
+ * from the first frame, but none of the starter's sky, lights, island, clouds or sound. The view brings its own, over
+ * `background`, a sphere 180 m round the person. Returns the group to build it in, the one `gameIsland()` returns, in
+ * the world's own frame.
+ */
+export function setupScene(world: World, background = '#000000'): { root: Group } {
+  const renderer = world.renderer;
+  renderer.toneMapping = NoToneMapping;
+  world.scene.environment = null;
+  // The SDK's environment system clears scene.background, so the colour is a sphere round the person, as the starter's
+  // own skies are, inside the camera's far plane (200 m).
+  const backdrop = new Mesh(
+    new SphereGeometry(180, 32, 16),
+    new MeshBasicMaterial({ color: new Color(background), side: BackSide, depthWrite: false, fog: false }),
+  );
+  backdrop.renderOrder = -1;
+  world.scene.add(backdrop);
+  const root = new Group();
+  world.scene.add(root);
+  built = root;
+  let shown = false;
+  ambientMotion(() => {
+    if (shown) return;
+    renderer.domElement.style.opacity = '1';
+    shown = true;
+  });
+  world.registerSystem(AmbientSystem);
+  return { root };
 }
