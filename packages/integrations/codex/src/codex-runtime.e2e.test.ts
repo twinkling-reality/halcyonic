@@ -16,6 +16,7 @@ import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import {
+  type ApprovalLevel,
   compileValidator,
   type ExecutionId,
   type RuntimeEventType,
@@ -164,6 +165,7 @@ interface Harness {
     instruction: string,
     options?: Record<string, unknown>,
     modelRef?: string | null,
+    approvalLevel?: ApprovalLevel,
   ): Promise<Execution>;
 }
 
@@ -193,7 +195,7 @@ async function harness(
   return {
     sandbox,
     runtime,
-    async start(instruction, options = {}, modelRef = null) {
+    async start(instruction, options = {}, modelRef = null, approvalLevel = undefined) {
       const execution = new Execution();
       const result = await runtime.startExecution({
         execution: execution.context,
@@ -201,6 +203,7 @@ async function harness(
         options: { ...options },
         directory: sandbox.project,
         model_ref: modelRef,
+        ...(approvalLevel !== undefined && { approval_level: approvalLevel }),
         emit: execution.emit,
       });
       assert.match(result.native_id ?? '', /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-/);
@@ -523,6 +526,57 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
     assert.ok(existsSync(`${sandbox.project}/approved.txt`));
     assertValidObservations(execution.observations, execution.context);
   });
+
+  test(
+    'never asking: nothing asks, an escalation is refused rather than run outside, and a dangerous command stays in the sandbox (ADR 0043)',
+    SLOW_TEST,
+    async (t) => {
+      const { sandbox, start } = await harness(t);
+      // As in the escalation test below: under /tmp Codex may write anyway, so nothing would be shown.
+      if (/^\/(private\/)?tmp\//.test(sandbox.root)) {
+        t.skip('the sandbox lives under /tmp, which a workspace-write thread can write');
+        return;
+      }
+      const finish = async (instruction: string): Promise<Execution> => {
+        const execution = await start(instruction, {}, null, 'never_ask');
+        await execution.next('runtime.turn.completed');
+        assert.ok(
+          !execution.types().includes('runtime.approval.requested'),
+          `${instruction} asked: ${execution.types().join(', ')}`,
+        );
+        return execution;
+      };
+      const outside = join(sandbox.root, 'outside-never.txt');
+      const escalated = await finish(`CMD_ESC:touch ${outside} && echo wrote-outside`);
+      assert.equal(existsSync(outside), false, 'an escalation under never ran outside the sandbox');
+      // Codex 0.157.0 refuses the escalation itself and hands the refusal to the model, which the
+      // scripted provider repeats; no command ran (2026-11-10).
+      const told = escalated.observations.find((each) => each.type === 'runtime.agent_message');
+      assert.match(
+        (told?.payload as { text?: string } | undefined)?.text ?? '',
+        /cannot ask for escalated permissions if the approval policy is Never/,
+      );
+      assert.ok(
+        !escalated.types().includes('runtime.tool.started'),
+        'the escalation ran a command',
+      );
+      const started = escalated.observations.find(
+        (observation) => observation.type === 'runtime.execution.started',
+      );
+      assert.equal(
+        (started?.payload as { approval_level?: string } | undefined)?.approval_level,
+        'never_ask',
+      );
+      const kept = join(sandbox.root, 'outside-kept-never');
+      await mkdir(kept);
+      await writeFile(join(kept, 'keep.txt'), 'keep\n');
+      await finish(`CMD:rm -rf ${kept} && echo removed-outside`);
+      assert.ok(existsSync(join(kept, 'keep.txt')), 'a dangerous command left the sandbox');
+      // Inside the project a command runs without a press.
+      await finish('CMD:touch inside-never.txt && echo created-inside');
+      assert.ok(existsSync(join(sandbox.project, 'inside-never.txt')));
+    },
+  );
 
   test(
     'an approved escalation runs outside the sandbox, an approved plain command does not, and both ask alike',

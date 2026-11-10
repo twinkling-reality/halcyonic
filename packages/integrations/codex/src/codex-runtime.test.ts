@@ -17,7 +17,7 @@ import { delimiter, dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
-import { compileValidator, RuntimeDescriptor } from '@halcyonic/contracts';
+import { type ApprovalLevel, compileValidator, RuntimeDescriptor } from '@halcyonic/contracts';
 import {
   capabilityProblems,
   type ExecutionContext,
@@ -113,12 +113,13 @@ function fake(
           .filter((line) => line !== '')
           .map((line) => JSON.parse(line) as Record<string, unknown>)
       : [];
-  const start = (instruction = 'Do the work.') =>
+  const start = (instruction = 'Do the work.', approvalLevel?: ApprovalLevel) =>
     runtime.startExecution({
       execution: TEST_EXECUTION,
       instruction,
       options: {},
       model_ref: null,
+      ...(approvalLevel !== undefined && { approval_level: approvalLevel }),
       directory,
       emit: (observation) => observations.push(observation),
     });
@@ -253,6 +254,52 @@ describe('Codex start options', () => {
       );
       assert.match(result.ok ? '' : result.message, /needs "approval_policy" "untrusted"/);
     }
+  });
+});
+
+describe('Codex never asking (ADR 0043)', () => {
+  test('never_ask is the one way to the never policy, and refuses options that would choose another', (t) => {
+    const { runtime } = adapter(t);
+    // Declared once the end to end suite showed it on the pinned binary.
+    assert.equal(runtime.descriptor.offers_never_ask, true);
+    assert.deepEqual(runtime.validateStartOptions({}, null, 'never_ask'), { ok: true });
+    assert.deepEqual(runtime.validateStartOptions({}, null, 'ask'), { ok: true });
+    for (const options of [
+      { approval_policy: 'untrusted' },
+      { approval_policy: 'on-request' },
+      { sandbox: 'workspace-write' },
+      { sandbox: 'danger-full-access', approval_policy: 'untrusted' },
+    ]) {
+      const result = runtime.validateStartOptions(options, null, 'never_ask');
+      assert.match(
+        result.ok ? '' : result.message,
+        /either with approval_level or with the "approval_policy" and "sandbox" options/,
+        JSON.stringify(options),
+      );
+    }
+  });
+
+  test('a thread that never asks keeps the workspace-write sandbox and the person as reviewer, and records it', async (t) => {
+    const { start, received, observations } = fake(t);
+    const { native_id } = await start('COMPLETE the work.', 'never_ask');
+    const threadStart = received().find((message) => message.method === 'thread/start');
+    const params = threadStart?.params as Record<string, unknown> | undefined;
+    assert.deepEqual(
+      [params?.approvalPolicy, params?.sandbox, params?.approvalsReviewer],
+      ['never', 'workspace-write', 'user'],
+    );
+    await until(() => observations.length >= 1, 'the start');
+    assert.deepEqual(observations[0]?.payload, {
+      native_id,
+      confined: false,
+      approval_level: 'never_ask',
+    });
+  });
+
+  test('a thread for which Codex reports never while asking was asked for is refused', async (t) => {
+    const { start, observations } = fake(t, ['never']);
+    await assert.rejects(start(), actionError('runtime_refused'));
+    assert.deepEqual(observations, []);
   });
 });
 
@@ -634,8 +681,13 @@ describe('Codex runtime against a stand-in binary', () => {
         'runtime.turn.completed',
       ],
     );
-    // An open server: the start records, as observed, that the execution is not confined (S2).
-    assert.deepEqual(observations[0]?.payload, { native_id, confined: false });
+    // An open server: the start records, as observed, that the execution is not confined (S2), and
+    // that Codex asks, from the policy it reports for the thread (ADR 0043).
+    assert.deepEqual(observations[0]?.payload, {
+      native_id,
+      confined: false,
+      approval_level: 'ask',
+    });
     // The model the thread got, as Codex reported it in its answer to thread/start.
     assert.deepEqual(observations[1]?.payload, { model_ref: 'ollama/qwen3.6:35b-a3b-nvfp4' });
     assertValidObservations(observations);

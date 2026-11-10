@@ -1,4 +1,4 @@
-import type { RuntimeOptions } from '@halcyonic/contracts';
+import type { ApprovalLevel, RuntimeOptions } from '@halcyonic/contracts';
 import type { ApprovalPolicy, SandboxMode } from './protocol.ts';
 
 export interface StartOptions {
@@ -37,6 +37,7 @@ const SUPPORTED = [
   'approval_policy',
 ];
 const SANDBOXES: readonly SandboxMode[] = ['read-only', 'workspace-write', 'danger-full-access'];
+/** The policies a start option may choose; `never` comes only with the approval level `never_ask`. */
 const APPROVAL_POLICIES: readonly ApprovalPolicy[] = ['on-request', 'untrusted'];
 
 /** Model names as Codex and its providers spell them, for example `gpt-5.5` or `llama3:8b`. */
@@ -57,10 +58,15 @@ const MAX_TOKENS = 10_000_000;
  * - `sandbox: "danger-full-access"` with `on-request`: Codex 0.157.0 then runs every command it
  *   does not flag as dangerous without asking (codex-rs/core/src/exec_policy.rs at rust-v0.157.0).
  *   With `untrusted` it asks before every command not known to be safe.
+ *
+ * The approval level `never_ask` (ADR 0043) is the one way to `never`: always with the
+ * `workspace-write` sandbox and approvals routed to the person, so it widens asking only, and a
+ * start that also names `approval_policy` or `sandbox` is refused.
  */
 export function parseStartOptions(
   options: RuntimeOptions,
   modelRef: string | null = null,
+  approvalLevel: ApprovalLevel = 'ask',
 ): ParsedStartOptions {
   const unknown = Object.keys(options).filter((key) => !SUPPORTED.includes(key));
   if (unknown.length > 0) {
@@ -110,6 +116,14 @@ export function parseStartOptions(
       'Option "auto_compact_token_limit" must be smaller than "context_window": Codex compacts before the window is full.',
     );
   }
+  if (
+    approvalLevel === 'never_ask' &&
+    (options.approval_policy !== undefined || options.sandbox !== undefined)
+  ) {
+    return fail(
+      'Choose how often Codex asks either with approval_level or with the "approval_policy" and "sandbox" options, not both.',
+    );
+  }
   const sandboxMode = SANDBOXES.find((mode) => mode === sandbox);
   if (sandboxMode === undefined) {
     return fail(`Option "sandbox" must be one of ${SANDBOXES.join(', ')}.`);
@@ -135,7 +149,7 @@ export function parseStartOptions(
       contextWindow,
       autoCompactTokenLimit,
       sandbox: sandboxMode,
-      approvalPolicy,
+      approvalPolicy: approvalLevel === 'never_ask' ? 'never' : approvalPolicy,
     },
   };
 }

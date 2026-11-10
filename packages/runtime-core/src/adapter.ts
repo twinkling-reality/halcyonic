@@ -166,9 +166,15 @@ export interface RuntimeAdapter {
   readonly descriptor: RuntimeDescriptor;
   /**
    * Checks runtime-specific start options, and the form of a chosen model's `model_ref`, before
-   * anything is recorded. Whether the model is still listed is checked at the start itself.
+   * anything is recorded. Whether the model is still listed is checked at the start itself. An
+   * adapter that offers `never_ask` also refuses options that would contradict the chosen
+   * `approvalLevel` (absent means `ask`).
    */
-  validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation;
+  validateStartOptions(
+    options: RuntimeOptions,
+    modelRef: string | null,
+    approvalLevel?: ApprovalLevel,
+  ): OptionsValidation;
   /**
    * Reads the models the runtime can use now from the runtime itself (ADR 0016). Present exactly
    * when the descriptor's `model_choice` is `listed`. Rejects with `RuntimeActionError` when the
