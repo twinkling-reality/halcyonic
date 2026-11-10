@@ -415,11 +415,15 @@ const TOOL_SUBFOLDERS = ['Cellar', 'opt', 'lib', 'bin', 'libexec', 'share'] as c
 const SYSTEM_PERL = '/System/Library/Perl';
 
 /**
- * The git data a folder needs from outside itself (BOX), read only: when its `.git` is a file naming
- * a worktree's (`<repository>/.git/worktrees/<name>`) or a submodule's (`<repository>/.git/modules/...`)
- * folder, that folder and the repository's `.git` it lives in, which holds the objects and refs it
- * shares. None for a folder that is its own repository, has no `.git`, or names any other shape, so a
- * `.git` file cannot open an arbitrary folder: git then fails inside the profile, in its own words.
+ * The git data a folder needs from outside itself (BOX), read only: its worktree's or submodule's own
+ * git folder and the repository's `.git` that holds it, with the objects and refs they share. The
+ * folder's own `.git` file names them, and the agent can write that file, so it is never enough
+ * (AUDIT BOX-1 F1): the repository must name this folder back, in a file only the repository's own
+ * git writes and the agent cannot reach, and the named folder must exist.
+ * - A worktree: `<repository>/.git/worktrees/<name>/gitdir` resolves to this folder's `.git`.
+ * - A submodule: `<repository>/.git/modules/<path>/config` sets `core.worktree` to this folder.
+ * None for a folder that is its own repository, has no `.git`, names any other shape, or is not named
+ * back, so git then fails inside the profile, in its own words.
  */
 export function gitDataOutside(folder: string): string[] {
   let pointer: string;
@@ -438,11 +442,28 @@ export function gitDataOutside(folder: string): string[] {
   if (at < 1 || (kind !== 'worktrees' && kind !== 'modules') || parts.length < at + 3) return [];
   const common = parts.slice(0, at + 1).join(sep);
   const project = resolved(folder);
-  // Nothing of the folder's own, and never a folder holding it.
-  if (project === common || project.startsWith(`${common}${sep}`) === false) {
-    return [common, own];
+  if (project === common || project.startsWith(`${common}${sep}`)) return [];
+  const read = (file: string): string | null => {
+    try {
+      return readFileSync(join(own, file), 'utf8');
+    } catch {
+      return null;
+    }
+  };
+  if (kind === 'worktrees') {
+    // git writes the worktree's `.git` file's path here, absolute, when it makes the worktree.
+    const back = read('gitdir')?.trim();
+    if (back === undefined || back === '') return [];
+    const target = resolved(isAbsolute(back) ? back : join(own, back));
+    return target === join(project, '.git') ? [common, own] : [];
   }
-  return [];
+  // A submodule's `core.worktree`, relative to its git folder as git writes it.
+  const config = read('config');
+  const worktree = config === null ? undefined : /^\s*worktree\s*=\s*(.+?)\s*$/m.exec(config)?.[1];
+  if (worktree === undefined || worktree === '') return [];
+  return resolved(isAbsolute(worktree) ? worktree : join(own, worktree)) === project
+    ? [common, own]
+    : [];
 }
 
 /** A short, stable name for a project's server: its Codex home and record file carry it. */

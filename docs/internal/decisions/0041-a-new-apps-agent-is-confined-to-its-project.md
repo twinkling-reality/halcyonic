@@ -218,8 +218,14 @@ profile and the pinned Codex 0.157.0, no model:
   it, and `GIT_CONFIG_NOSYSTEM=1`. The person's home stays closed. git works in a confined project that is its own
   repository (`codex-runtime.e2e.test.ts`, with a `.gitconfig` planted in the test's home: 128 before, 0 after).
 - **A worktree or submodule has its git data outside its folder:** its `.git` is a file naming
-  `<repository>/.git/worktrees/<name>` or `<repository>/.git/modules/...`. The profile now reads, never writes, that
-  folder and the repository's `.git` it lives in. That is enough for `git status` and `git log`. A commit, which writes
+  `<repository>/.git/worktrees/<name>` or `<repository>/.git/modules/...`. The agent can write that file, so it is
+  never enough (AUDIT BOX-1 F1: a crafted one opened another repository's data). The profile reads, never writes,
+  that folder and the repository's `.git` it lives in only when the repository names this folder back, in a file
+  only its own git writes, and the named folder exists:
+  - a worktree: `<repository>/.git/worktrees/<name>/gitdir` resolves to this folder's `.git`;
+  - a submodule: its `config`'s `core.worktree` resolves to this folder.
+
+  That is enough for `git status` and `git log`. A commit, which writes
   the shared objects and refs, is refused, in git's own words, and changes nothing (`sandbox-profile.test.ts`).
   - The repository's own working files stay unreadable.
   - A `.git` file naming any other shape opens nothing.
