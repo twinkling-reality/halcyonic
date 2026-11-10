@@ -14,7 +14,7 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | ADR | Decision | Status |
 | --- | --- | --- |
 | [0001](0001-work-is-the-object-runtimes-are-executors.md) | Work is the object; runtimes are capability-declared executors | Accepted |
-| [0002](0002-append-only-journal-with-rebuilt-projection.md) | Append-only journal with a projection rebuilt at startup | Accepted |
+| [0002](0002-append-only-journal-with-rebuilt-projection.md) | Append-only journal with a projection rebuilt at startup | Accepted; amended by 0050 |
 | [0003](0003-rest-bootstrap-and-websocket-realtime.md) | REST for bootstrap and commands, WebSocket for live state | Accepted |
 | [0004](0004-control-plane-stack.md) | Node.js 24 running TypeScript directly, `node:sqlite`, Fastify, pnpm 11 | Accepted |
 | [0005](0005-typebox-contracts-as-single-source.md) | TypeBox schemas as the single source of the contracts | Accepted |
@@ -59,3 +59,4 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0044](0044-a-failed-check-goes-back-to-its-agent-on-its-own-within-a-cap.md) | A failed check goes back to its agent on its own, within a cap | Accepted; control plane built and tested through the mock; headset view pending |
 | [0046](0046-a-restart-re-attaches-each-tasks-session-where-the-runtime-keeps-it.md) | A restart re-attaches each task's session where the runtime keeps it | Accepted; the control plane's side, Claude Code and Codex built, OpenCode not yet |
 | [0049](0049-a-persons-world-is-a-project-whose-description-the-mac-reads.md) | A person's world is a project whose description the Mac reads and the headset draws | Proposed; contract, the Mac's reading and the world starter built; the headset does not draw it yet |
+| [0050](0050-a-start-restores-the-projection-from-a-checkpoint-and-folds-only-the-journal-after-it.md) | A start restores the projection from a checkpoint and folds only the journal after it | Accepted; built, measured at 50,000 and about a million events |

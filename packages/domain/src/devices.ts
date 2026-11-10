@@ -29,10 +29,33 @@ interface DeviceState {
  * of the projection (ADR 0017). It keeps each credential's SHA-256, never the credential, so the
  * control plane can recognize a device's credential without being able to present it.
  */
+/** A device registry's state as `exportState` gives it. Opaque to everything but the registry. */
+export interface DeviceRegistryState {
+  readonly devices: ReadonlyMap<DeviceId, unknown>;
+  readonly byCredential: ReadonlyMap<string, DeviceId>;
+}
+
 export class DeviceRegistry {
   readonly #devices = new Map<DeviceId, DeviceState>();
   /** Every credential hash ever issued, revoked ones included, so a revoked device is told so. */
   readonly #byCredential = new Map<string, DeviceId>();
+
+  /** The registry's whole state, for a checkpoint of the projection (ADR 0050). Live: copy it at once. */
+  exportState(): DeviceRegistryState {
+    return { devices: this.#devices, byCredential: this.#byCredential };
+  }
+
+  /** Takes a state `exportState` gave, into a registry that has applied nothing. */
+  restoreState(state: DeviceRegistryState): void {
+    if (this.#devices.size > 0 || this.#byCredential.size > 0) {
+      throw new Error('a device registry restores a state only before it applies anything');
+    }
+    if (!(state.devices instanceof Map) || !(state.byCredential instanceof Map)) {
+      throw new Error('the device registry state is not one a registry exported');
+    }
+    for (const [id, device] of state.devices) this.#devices.set(id, device as DeviceState);
+    for (const [hash, id] of state.byCredential) this.#byCredential.set(hash, id);
+  }
 
   apply(event: DeviceEvent): DeviceNote[] {
     switch (event.event_type) {

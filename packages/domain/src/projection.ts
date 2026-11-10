@@ -39,7 +39,7 @@ import type {
 } from '@halcyonic/contracts';
 import { fitQuestion, TOOL_RESULT_RECENT } from '@halcyonic/contracts';
 import { deriveAttention } from './attention.ts';
-import { DeviceRegistry } from './devices.ts';
+import { DeviceRegistry, type DeviceRegistryState } from './devices.ts';
 import {
   createExecutionState,
   deriveExecutionStatus,
@@ -154,6 +154,40 @@ export const RESTART_REASONS: ReadonlySet<string> = new Set([
 
 function stoppedByRestart(code: string | undefined): boolean {
   return code !== undefined && RESTART_REASONS.has(code);
+}
+
+/** Bumped whenever `ProjectionState`'s shape changes, so no older checkpoint is taken for it. */
+export const PROJECTION_STATE_FORMAT = 1;
+
+/**
+ * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
+ * Opaque to everything but the projection.
+ */
+export interface ProjectionState {
+  readonly format: number;
+  readonly position: number;
+  readonly projects: ReadonlyMap<unknown, unknown>;
+  readonly workstreams: ReadonlyMap<unknown, unknown>;
+  readonly executions: ReadonlyMap<unknown, unknown>;
+  readonly commands: ReadonlyMap<unknown, unknown>;
+  readonly executionsByProject: ReadonlyMap<unknown, unknown>;
+  readonly pendingCommands: ReadonlySet<unknown>;
+  readonly checkpoints: ReadonlyMap<unknown, unknown>;
+  readonly checks: ReadonlyMap<unknown, unknown>;
+  readonly checksById: ReadonlyMap<unknown, unknown>;
+  readonly openChecks: ReadonlyMap<unknown, unknown>;
+  readonly previews: ReadonlyMap<unknown, unknown>;
+  readonly macPlays: ReadonlyMap<unknown, unknown>;
+  readonly checkOutputs: ReadonlyMap<unknown, unknown>;
+  readonly resultStarts: ReadonlyMap<unknown, unknown>;
+  readonly results: ReadonlyMap<unknown, unknown>;
+  readonly inferredTurnOutcomes: ReadonlyMap<unknown, unknown>;
+  readonly turnStarts: ReadonlyMap<unknown, unknown>;
+  readonly turnObservations: ReadonlyMap<unknown, unknown>;
+  readonly requests: ReadonlyMap<unknown, unknown>;
+  readonly worlds: ReadonlyMap<unknown, unknown>;
+  readonly autoFixCommands: ReadonlySet<unknown>;
+  readonly devices: DeviceRegistryState;
 }
 
 /** What re-attaching an execution after a restart needs from the journal (ADR 0046). */
@@ -279,6 +313,115 @@ export class Projection {
       >;
     }
   >();
+
+  /**
+   * The projection's whole state, for a checkpoint beside the journal (ADR 0050): every field the
+   * events build, as live references that keep the objects they share shared. Serialize it at
+   * once (`v8.serialize` keeps maps, sets and shared references), before anything else is applied.
+   */
+  exportState(): ProjectionState {
+    return {
+      format: PROJECTION_STATE_FORMAT,
+      position: this.#position,
+      projects: this.#projects,
+      workstreams: this.#workstreams,
+      executions: this.#executions,
+      commands: this.#commands,
+      executionsByProject: this.#executionsByProject,
+      pendingCommands: this.#pendingCommands,
+      checkpoints: this.#checkpoints,
+      checks: this.#checks,
+      checksById: this.#checksById,
+      openChecks: this.#openChecks,
+      previews: this.#previews,
+      macPlays: this.#macPlays,
+      checkOutputs: this.#checkOutputs,
+      resultStarts: this.#resultStarts,
+      results: this.#results,
+      inferredTurnOutcomes: this.#inferredTurnOutcomes,
+      turnStarts: this.#turnStarts,
+      turnObservations: this.#turnObservations,
+      requests: this.#requests,
+      worlds: this.#worlds,
+      autoFixCommands: this.#autoFixCommands,
+      devices: this.#devices.exportState(),
+    };
+  }
+
+  /**
+   * Takes a state `exportState` gave, deserialized, into a projection that has applied nothing,
+   * as if it had folded the journal up to the state's position. Throws, having changed nothing,
+   * on a state of another shape; the caller then folds the whole journal.
+   */
+  restoreState(state: ProjectionState): void {
+    if (this.#position !== 0 || this.#projects.size > 0 || this.#commands.size > 0) {
+      throw new Error('a projection restores a state only before it applies anything');
+    }
+    if (
+      state.format !== PROJECTION_STATE_FORMAT ||
+      !Number.isSafeInteger(state.position) ||
+      state.position < 0 ||
+      !(state.projects instanceof Map) ||
+      !(state.workstreams instanceof Map) ||
+      !(state.executions instanceof Map) ||
+      !(state.commands instanceof Map) ||
+      !(state.executionsByProject instanceof Map) ||
+      !(state.pendingCommands instanceof Set) ||
+      !(state.checkpoints instanceof Map) ||
+      !(state.checks instanceof Map) ||
+      !(state.checksById instanceof Map) ||
+      !(state.openChecks instanceof Map) ||
+      !(state.previews instanceof Map) ||
+      !(state.macPlays instanceof Map) ||
+      !(state.checkOutputs instanceof Map) ||
+      !(state.resultStarts instanceof Map) ||
+      !(state.results instanceof Map) ||
+      !(state.inferredTurnOutcomes instanceof Map) ||
+      !(state.turnStarts instanceof Map) ||
+      !(state.turnObservations instanceof Map) ||
+      !(state.requests instanceof Map) ||
+      !(state.worlds instanceof Map) ||
+      !(state.autoFixCommands instanceof Set) ||
+      !(state.devices.devices instanceof Map) ||
+      !(state.devices.byCredential instanceof Map)
+    ) {
+      throw new Error('the state is not one this projection exported');
+    }
+    this.#devices.restoreState(state.devices);
+    for (const [key, value] of state.projects as Map<never, never>) this.#projects.set(key, value);
+    for (const [key, value] of state.workstreams as Map<never, never>)
+      this.#workstreams.set(key, value);
+    for (const [key, value] of state.executions as Map<never, never>)
+      this.#executions.set(key, value);
+    for (const [key, value] of state.commands as Map<never, never>) this.#commands.set(key, value);
+    for (const [key, value] of state.executionsByProject as Map<never, never>)
+      this.#executionsByProject.set(key, value);
+    for (const value of state.pendingCommands as Set<never>) this.#pendingCommands.add(value);
+    for (const [key, value] of state.checkpoints as Map<never, never>)
+      this.#checkpoints.set(key, value);
+    for (const [key, value] of state.checks as Map<never, never>) this.#checks.set(key, value);
+    for (const [key, value] of state.checksById as Map<never, never>)
+      this.#checksById.set(key, value);
+    for (const [key, value] of state.openChecks as Map<never, never>)
+      this.#openChecks.set(key, value);
+    for (const [key, value] of state.previews as Map<never, never>) this.#previews.set(key, value);
+    for (const [key, value] of state.macPlays as Map<never, never>) this.#macPlays.set(key, value);
+    for (const [key, value] of state.checkOutputs as Map<never, never>)
+      this.#checkOutputs.set(key, value);
+    for (const [key, value] of state.resultStarts as Map<never, never>)
+      this.#resultStarts.set(key, value);
+    for (const [key, value] of state.results as Map<never, never>) this.#results.set(key, value);
+    for (const [key, value] of state.inferredTurnOutcomes as Map<never, never>)
+      this.#inferredTurnOutcomes.set(key, value);
+    for (const [key, value] of state.turnStarts as Map<never, never>)
+      this.#turnStarts.set(key, value);
+    for (const [key, value] of state.turnObservations as Map<never, never>)
+      this.#turnObservations.set(key, value);
+    for (const [key, value] of state.requests as Map<never, never>) this.#requests.set(key, value);
+    for (const [key, value] of state.worlds as Map<never, never>) this.#worlds.set(key, value);
+    for (const value of state.autoFixCommands as Set<never>) this.#autoFixCommands.add(value);
+    this.#position = state.position;
+  }
 
   constructor(options: ProjectionOptions = {}) {
     this.#reportsToolActivity = options.reportsToolActivity ?? (() => false);

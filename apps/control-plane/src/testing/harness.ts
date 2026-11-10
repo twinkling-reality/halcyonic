@@ -64,6 +64,8 @@ export function capturingLogger(): { logger: Logger; entries: CapturedLog[] } {
 
 export interface TestControlPlaneOptions {
   readonly path?: string;
+  /** Events between two checkpoints of the projection (ADR 0050); the control plane's default otherwise. */
+  readonly checkpointEvery?: number;
   readonly time?: VirtualTime;
   readonly adapters?: (time: VirtualTime) => RuntimeAdapter[];
   readonly logger?: Logger;
@@ -117,6 +119,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     ...(options.catalogLinks !== undefined && { catalogLinks: options.catalogLinks }),
     ...(options.previews !== undefined && { previews: options.previews }),
     ...(options.autoFix !== undefined && { autoFix: options.autoFix }),
+    ...(options.checkpointEvery !== undefined && { checkpointEvery: options.checkpointEvery }),
   });
   const commands = createCommandFactory(
     createUuidV7Generator({ now: () => time.now().getTime() }),

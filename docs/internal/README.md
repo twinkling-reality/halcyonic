@@ -115,6 +115,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [quest-3-performance.md](validation/quest-3-performance.md) | What the headset interface costs to draw, measured off the device and left for the headset |
 | [control-plane-scale-2026-11-03.md](validation/control-plane-scale-2026-11-03.md) | What grows with a long history on the Mac and in the headset's client, what is now bounded, and what a task costs on the wire |
 | [restart-reattach.md](validation/restart-reattach.md) | Whether each runtime's session outlives its processes, so a restart can re-attach it, and what becomes of the cut turn |
+| [control-plane-scale-2026-11-10.md](validation/control-plane-scale-2026-11-10.md) | How long a start takes at 50,000 and a million events, whole and from a checkpoint, and the busy rule on a long journal |
 | [core-audit-2026-11-03.md](validation/core-audit-2026-11-03.md) | The audit of the event-sourced core and the control plane: what was checked, what was found and fixed, and what remains with why |
 | [iwsdk-starter.md](validation/iwsdk-starter.md) | The Immersive Web SDK starter on the Mac: what the vetted download brought, and a type check, build and serve with no network |
 | [showcase-finals.md](validation/showcase-finals.md) | Three VR games made by Halcyonic on the owner's Mac from one instruction each, checked and seen at a glance (2026-11-04) |

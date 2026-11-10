@@ -1,6 +1,6 @@
 # ADR 0002: Append-only journal with a projection rebuilt at startup
 
-- Status: Accepted
+- Status: Accepted; amended by [ADR 0050](0050-a-start-restores-the-projection-from-a-checkpoint-and-folds-only-the-journal-after-it.md) (a start restores a checkpoint and folds only the events after it)
 - Date: 2026-09-26
 
 ## Context
