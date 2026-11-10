@@ -187,6 +187,9 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public bool Holds(KitFileBinding binding)
         {
+            // A frame with no binding of its own stands only in the redesign, where a reader takes it and its column has room.
+            if (binding.Plain)
+                return RoomDesign.Enabled && RoomBar.Of(binding, Voice(), AwaitingStart()) is { Pair: true } page && page.Column.Count <= RoomBarView.ColumnMost;
             var model = binding.Model;
             // The redesign's panel holds every approval and every instruction under confirmation, read part by part, eight of
             // its own lines a part: but only where the file counted what is read by the panel's lines (RoomBarView.Lines), so
@@ -209,7 +212,7 @@ namespace Halcyonic.XR.UI
             var shown = this.binding;
             view.Show(model, binding);
             var whole = view.ReadsWhole;
-            if (shown != null) view.Show(shown.Model, shown);
+            if (shown is { Plain: false }) view.Show(shown.Model, shown);
             return whole;
         }
 
@@ -226,15 +229,19 @@ namespace Halcyonic.XR.UI
             compact = false;
             gameObject.SetActive(true);
             presence.gameObject.SetActive(false);
-            view.gameObject.SetActive(true);
             var zoom = GlazeText.Scale;
-            view.transform.localScale = Vector3.one / zoom;
-            view.Show(binding.Model, binding);
-            // Rows are made as they are first shown: each takes presses only while the host does.
-            foreach (var press in view.Targets) press.Accepting = () => Accepting();
-            Size = view.Size / zoom;
-            TextBands = Bands(view.Size, zoom);
-            RailRows = Mathf.Max(1, Mathf.FloorToInt(RailRoom(view.Size) / RowPitch()));
+            // A plain binding has nothing for the old kit to show: only the redesign draws it.
+            view.gameObject.SetActive(!binding.Plain);
+            if (!binding.Plain)
+            {
+                view.transform.localScale = Vector3.one / zoom;
+                view.Show(binding.Model, binding);
+                // Rows are made as they are first shown: each takes presses only while the host does.
+                foreach (var press in view.Targets) press.Accepting = () => Accepting();
+                Size = view.Size / zoom;
+                TextBands = Bands(view.Size, zoom);
+                RailRows = Mathf.Max(1, Mathf.FloorToInt(RailRoom(view.Size) / RowPitch()));
+            }
             ShowBar(binding);
             drawn = null;
             if (changed)

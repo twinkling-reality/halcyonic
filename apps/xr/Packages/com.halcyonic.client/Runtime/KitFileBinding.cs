@@ -128,16 +128,28 @@ namespace Halcyonic.Client
     /// </summary>
     public sealed class KitFileBinding
     {
-        private KitFileBinding(MenuFrame frame, KitWorkModel model, IReadOnlyList<KitControl> controls)
+        private KitFileBinding(MenuFrame frame, KitWorkModel? model, IReadOnlyList<KitControl> controls)
         {
             Frame = frame;
-            Model = model;
+            this.model = model;
             Controls = controls;
         }
 
+        private readonly KitWorkModel? model;
+
+        /// <summary>
+        /// A frame this binding has no place for, carried for the redesign alone, which reads it off the frame itself
+        /// (<see cref="RoomBar.OfFrame"/>): it holds no control and no task's model.
+        /// </summary>
+        public static KitFileBinding PlainOf(MenuFrame frame) => new KitFileBinding(frame, null, new KitControl[0]);
+
+        /// <summary>Whether this carries a frame with no binding of its own (<see cref="PlainOf"/>).</summary>
+        public bool Plain => model == null;
+
         public MenuFrame Frame { get; }
 
-        public KitWorkModel Model { get; }
+        /// <summary>The task as the kit shows it. A plain binding has none: asking is a mistake in the caller.</summary>
+        public KitWorkModel Model => model ?? throw new System.InvalidOperationException("A plain binding carries a frame and no task's model.");
 
         /// <summary>Every press the frame offers, each in its kit place; sections in the frame's order.</summary>
         public IReadOnlyList<KitControl> Controls { get; }
