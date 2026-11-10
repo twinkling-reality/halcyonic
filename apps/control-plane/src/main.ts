@@ -60,9 +60,12 @@ async function main(): Promise<void> {
   await chmod(config.dataDir, 0o700);
   const access = await loadOrCreateAccessToken(config.dataDir);
   const locations = createHostLocations(config.projectRoots);
-  // Every task's own copy (ADR 0045) lives beside the data folder; only the runtimes may work there.
-  await mkdir(config.tasksDir, { recursive: true, mode: 0o700 });
-  await chmod(config.tasksDir, 0o700);
+  // Every task's own copy (ADR 0045) lives beside the data folder; only the runtimes may work there,
+  // and only where copies are on.
+  if (config.taskCopies) {
+    await mkdir(config.tasksDir, { recursive: true, mode: 0o700 });
+    await chmod(config.tasksDir, 0o700);
+  }
   // Which starter a folder was made from, read from the projection once the control plane is built.
   let starterOf: (directory: string) => string | null = () => null;
   let originalOf: (directory: string) => string | null = () => null;
@@ -74,7 +77,9 @@ async function main(): Promise<void> {
       scenarios: loadScenarios(config.scenariosDir),
       models: MOCK_MODELS,
     }),
-    directoryPolicy: admittingAlso(locations.policy, config.tasksDir),
+    directoryPolicy: config.taskCopies
+      ? admittingAlso(locations.policy, config.tasksDir)
+      : locations.policy,
     environment: process.env,
     dataDir: config.dataDir,
     starterOf: (directory) => starterOf(directory),
@@ -167,7 +172,9 @@ async function main(): Promise<void> {
               // A project folder holding the journal and token is never checkpointed.
               protect: [config.dataDir],
             }),
-            copies: { directory: config.tasksDir, protect: [config.dataDir] },
+            ...(config.taskCopies
+              ? { copies: { directory: config.tasksDir, protect: [config.dataDir] } }
+              : {}),
           },
         }),
     // A project folder holding the journal and token is never read, as it is never checkpointed.

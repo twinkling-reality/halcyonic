@@ -68,6 +68,12 @@ export interface ControlPlaneConfig {
    * own beside its data folder, never inside it, since agents work there.
    */
   readonly tasksDir: string;
+  /**
+   * Whether every task works in its own copy (ADR 0045), with `HALCYONIC_TASK_COPIES=1`. Off by
+   * default until the headset offers Add To Project: with copies on, nothing an agent does reaches
+   * the project until the person adds it.
+   */
+  readonly taskCopies: boolean;
   readonly logLevel: LogLevel;
   readonly commandTimeoutMs: number;
   readonly scenariosDir: string;
@@ -165,6 +171,7 @@ export function loadConfig(
     network: parseNetwork(env, port),
     dataDir: defaultDataDir(env),
     tasksDir: parseTasksDir(env),
+    taskCopies: parseSwitch('HALCYONIC_TASK_COPIES', env.HALCYONIC_TASK_COPIES),
     logLevel: parseLogLevel(env.HALCYONIC_LOG_LEVEL),
     commandTimeoutMs: parseInteger(
       'HALCYONIC_COMMAND_TIMEOUT_MS',

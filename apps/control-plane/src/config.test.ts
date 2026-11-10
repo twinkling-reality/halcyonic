@@ -38,6 +38,9 @@ describe('configuration', () => {
       '/d/tasks',
     );
     assert.throws(() => loadConfig({ HALCYONIC_TASKS_DIR: 'tasks' }), /absolute/);
+    // Off until the headset can add a task's work: then nothing an agent does is held back.
+    assert.equal(loadConfig({}).taskCopies, false);
+    assert.equal(loadConfig({ HALCYONIC_TASK_COPIES: '1' }).taskCopies, true);
     for (const tasks of ['/d/data/tasks', '/d/data', '/d'])
       assert.throws(
         () => loadConfig({ HALCYONIC_DATA_DIR: '/d/data', HALCYONIC_TASKS_DIR: tasks }),
