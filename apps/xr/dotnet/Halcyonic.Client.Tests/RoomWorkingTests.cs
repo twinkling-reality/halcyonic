@@ -123,4 +123,29 @@ public class RoomWorkingTests
         column.Act(confirm.Control.Action, confirm.Control.Key);
         Assert.That(host.Sent.Count, Is.EqualTo(1), "a second press sends nothing");
     }
+
+    [Test]
+    public void AnArmedStopLapsesWhenTheTaskRunsAnotherRunByThen()
+    {
+        var work = Work(ExecutionStatus.Running);
+        var steering = new WorkspaceSteering(factory);
+        var pressedOn = Present(work, WorkspaceAction.Interrupt);
+        Assert.That(steering.Press(WorkspaceAction.Interrupt, pressedOn).Step, Is.EqualTo(SteeringStep.Confirm));
+
+        // The task's run is another by the time Confirm is pressed: nothing is stopped, and the person is told.
+        var other = Present(work, WorkspaceAction.Interrupt);
+        other.Execution!.ExecutionId = "another-run";
+        var outcome = steering.Confirm(other);
+        Assert.That((outcome.Step, outcome.Command, outcome.Message), Is.EqualTo((SteeringStep.Explain, (CommandEnvelope?)null, "Not Sent · Task Changed · Check and Retry")));
+        Assert.That(steering.Armed, Is.Null, "the confirmation is gone with it");
+
+        // The same run: Confirm stops it, by its own id.
+        var same = Work(ExecutionStatus.Running);
+        var again = new WorkspaceSteering(factory);
+        var shown = Present(same, WorkspaceAction.Interrupt);
+        again.Press(WorkspaceAction.Interrupt, shown);
+        var sent = again.Confirm(Present(same, WorkspaceAction.Interrupt));
+        Assert.That(sent.Step, Is.EqualTo(SteeringStep.Send));
+        Assert.That(((ExecutionInterruptCommand)sent.Command!).Payload.ExecutionId, Is.EqualTo(shown.Execution!.ExecutionId));
+    }
 }

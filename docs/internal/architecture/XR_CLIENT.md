@@ -2663,7 +2663,9 @@ The last unit turns it on by default and removes the kit parts it replaced.
   file's own confirmation (stopping always asks, `WorkspacePresenter.AlwaysConfirmed`), which the binding now binds for
   the redesign (`KitWorkModel.Stops`): what stopping does in the panel, the file's question in the sentence bar, Confirm
   behind its lock, and Cancel;
-  `execution.interrupt` goes only on that Yes. The host holds both without measuring anything
+  `execution.interrupt` goes only on that Yes, and only to the run Stop was pressed on: where the task runs another by
+  then the confirmation lapses with Not Sent · Task Changed · Check and Retry (`WorkspaceSteering.Lapse`), in
+  either view. The host holds both without measuring anything
   (`KitWorkspaceHost.Holds`). Checks: `36-work` (an agent that takes no instruction while it works, editing a file:
   the field, the cursor reading Editing and the file's name, Stop alone), `36-work-row` (one that takes one: the row
   under the foot line, no step reported, so no cursor) and `36-stop-confirm`; `RoomWorkingTests` drives Stop and its
