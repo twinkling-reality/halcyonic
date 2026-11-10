@@ -320,6 +320,105 @@ describe('command admission', () => {
     assert.equal(instruct().admitted, true);
   });
 
+  test('one task at a time in a folder: a start or an instruction is refused while another task works there, inside it or around it (FOLDER)', () => {
+    const { b, projection, commands } = setup();
+    const folder = (path: string) => ({
+      path,
+      name: path.split('/').at(-1) ?? path,
+      created: false,
+    });
+    const inFolder = catalog(FULL, 'none', true);
+    const project = b.project('App', folder('/work/app'));
+    projection.apply(project.event);
+    const first = b.workstream(project.projectId, 'First');
+    const second = b.workstream(project.projectId, 'Second');
+    projection.apply(first.event);
+    projection.apply(second.event);
+    const running = b.execution(project.projectId, first.workstreamId, '/work/app');
+    projection.apply(running.event);
+    const runningScope = {
+      projectId: project.projectId,
+      workstreamId: first.workstreamId,
+      executionId: running.executionId,
+    };
+    projection.apply(b.runtimeEvent(runningScope, 'runtime.turn.started', { turn_id: 't1' }));
+    const start = (workstreamId: string) =>
+      admitCommand(commands.start(workstreamId), projection, inFolder);
+    const refusal = {
+      code: 'invalid_state',
+      message:
+        'Another task is running in this folder. Wait for it to finish or stop it, then try again.',
+    };
+    const refused = start(second.workstreamId);
+    assert.deepEqual(refused.admitted ? null : refused.rejection, refusal);
+    assert.equal(refused.scope.workstream_id, second.workstreamId);
+
+    // Another project bound to the same folder, or to one inside it or around it, shares it.
+    const taskIn = (path: string) => {
+      const other = b.project('Other', folder(path));
+      const task = b.workstream(other.projectId, 'Task');
+      projection.apply(other.event);
+      projection.apply(task.event);
+      return task.workstreamId;
+    };
+    for (const path of ['/work/app', '/work/app/web', '/work']) {
+      const sharing = start(taskIn(path));
+      assert.deepEqual(sharing.admitted ? null : sharing.rejection, refusal, path);
+    }
+    // A folder whose name only begins the same way is another folder.
+    assert.equal(start(taskIn('/work/apple')).admitted, true);
+    // A runtime that works in no folder touches none of it.
+    assert.equal(
+      admitCommand(commands.start(second.workstreamId), projection, catalog()).admitted,
+      true,
+    );
+
+    // An instruction that sets a resting execution of another task going in the folder waits too.
+    const resting = b.execution(project.projectId, second.workstreamId, '/work/app');
+    projection.apply(resting.event);
+    const restingScope = {
+      projectId: project.projectId,
+      workstreamId: second.workstreamId,
+      executionId: resting.executionId,
+    };
+    projection.apply(b.runtimeEvent(restingScope, 'runtime.turn.started', { turn_id: 'r1' }));
+    projection.apply(b.runtimeEvent(restingScope, 'runtime.turn.completed', { turn_id: 'r1' }));
+    const instruct: CommandEnvelope = {
+      ...commands.instruct(),
+      command_type: 'execution.send_instruction',
+      payload: { execution_id: resting.executionId, text: 'Continue.' },
+    };
+    const waiting = admitCommand(instruct, projection, inFolder);
+    assert.deepEqual(waiting.admitted ? null : waiting.rejection, refusal);
+
+    // Once the first task is at rest the folder is free for either.
+    projection.apply(b.runtimeEvent(runningScope, 'runtime.turn.completed', { turn_id: 't1' }));
+    assert.equal(admitCommand(instruct, projection, inFolder).admitted, true);
+    assert.equal(start(second.workstreamId).admitted, true);
+
+    // A start for another task there, accepted and without its outcome, holds the folder.
+    const pendingStart = commands.start(first.workstreamId);
+    const startScope = {
+      project_id: project.projectId,
+      workstream_id: first.workstreamId,
+      execution_id: null,
+    };
+    projection.apply(
+      b.controlPlane('command.accepted', startScope, {
+        command: pendingStart,
+        policy: 'low_consequence',
+        received_via: 'internal',
+        principal: null,
+      }),
+    );
+    const underWay = start(second.workstreamId);
+    assert.deepEqual(underWay.admitted ? null : underWay.rejection, {
+      code: 'invalid_state',
+      message:
+        'A start for another task in this folder is still under way. Wait for its outcome, then try again.',
+    });
+  });
+
   test('setting a location is admitted only for a known project', () => {
     const { projection, scope } = setup();
     const setLocation = (projectId: string): CommandEnvelope => ({
