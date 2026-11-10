@@ -150,6 +150,27 @@ What it showed on main 5a2f699c (JUDGE, 2026-11-04):
 - Pages outside the task's file, and the file's Checks and Tell it pages, still draw in the older
   views beside the kit's.
 
+### The judge path in the redesign (2026-11-10)
+
+`WorkspaceRender.JudgeRoomWalkCheck` walks the same path with the redesign's switch on
+(`RoomDesign.Enabled`), as the release player will run it once the switch is on by default: the
+recorded run moment by moment (launch, at work, the result, Changes, Checks, its end), then the
+demonstration (the question and its answer, the request and Confirm, at work, Build Failed, the
+offered instruction sent, the correction, Build Passed, the restart). At each moment the redesign
+must draw it and no older view may show; what the redesign draws is held to the frame checks (every
+word whole, inside a Quest 3S field with the head level, at least 4.5:1, no brand names) at Standard
+and Larger text. A press goes through a drawn control; where none is drawn the walk says so and
+moves the recording on itself, so every later moment is still seen. Renders and the moment list
+(`moments.tsv`) land in `Builds/JudgeRoomRenders`. It replaces `JudgeKitWalkCheck` once the switch
+is on by default.
+
+What it showed on main e95cf9bb (JUDGE, 2026-11-10), the same at both sizes: the redesign draws no
+judge moment yet. The recorded run's launch, result, Changes, Checks and end, and the
+demonstration's launch, Checks, the offered instruction and the restart draw only in the older
+views; at work, the question, the request and the result after the approval draw nothing at all.
+No press a judge makes has a drawn control in the redesign; the walk sent the answer, the approval
+and the instruction itself. Not checked: the shelf (the walk opens the task's file directly).
+
 ## Gaps against today's product
 
 | Area | Today in the judge build | Evidence | Who closes it |
