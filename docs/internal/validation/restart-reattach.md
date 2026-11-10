@@ -59,8 +59,21 @@ arrived, SIGKILL to the CLI process (found by the session id on its command line
 The SDK documents `resume` and that `persistSession: false` would turn it off; the adapter leaves
 persistence on.
 
+## Through the adapters
+
+- Claude Code (2026-11-10): `resume.e2e.test.ts` on the bundled CLI with the fake Messages API, as
+  above. A first adapter starts a session, finishes a turn, starts a slow one, and its CLI process
+  is killed by SIGKILL; a second adapter on the same process record re-attaches the session by its
+  id (`getSessionInfo` found it for the folder), reports the connection restored and the cut turn
+  interrupted, and the next instruction resumes it: the model's request carries both earlier
+  prompts, no start is reported again, no event id repeats the first run's, a session id Claude Code
+  does not have is refused (`session_not_found`), and nothing reached the proxy trap. Run with
+  `CLAUDE_CODE_BIN` pointing at the bundled binary.
+
 ## Not verified
 
-- A resume through each adapter from a second adapter instance (each adapter's end to end test
-  when it declares `resumes_after_restart`).
+- A resume through the Codex and OpenCode adapters from a second adapter instance (each adapter's
+  end to end test when it declares `resumes_after_restart`).
 - A resume on a real model.
+- Claude Code: a host killed while its CLI runs, with the watchdog stopping the CLI, rather than the
+  CLI killed directly; the transcript is the same either way.

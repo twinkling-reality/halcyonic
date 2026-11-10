@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import {
   type CanUseTool,
+  getSessionInfo,
   type ModelInfo,
   type Options,
   type PermissionMode,
@@ -37,6 +38,7 @@ import {
   type ExecutionContext,
   type ObservationSink,
   type OptionsValidation,
+  type ReattachRequest,
   RuntimeActionError,
   type RuntimeAdapter,
   type RuntimeObservation,
@@ -94,7 +96,21 @@ export interface ClaudeAgentRuntimeOptions {
   readonly pathToClaudeCodeExecutable?: string;
   readonly clock?: Clock;
   readonly query?: QueryFunction;
+  /**
+   * Reads a session from Claude Code's own store, as the SDK's `getSessionInfo` does, which a
+   * re-attach asks before it takes a session for found (ADR 0046). The SDK's by default.
+   */
+  readonly sessionInfo?: SessionInfoFunction;
 }
+
+/** The SDK's `getSessionInfo`, narrowed to what a re-attach reads. */
+export type SessionInfoFunction = (
+  sessionId: string,
+  options: { readonly dir: string },
+) => Promise<{ readonly cwd?: string } | undefined>;
+
+/** A session id as Halcyonic chooses one: a UUID, so it can never read as a flag. */
+const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const START_OPTIONS = ['model', 'permission_mode'];
 
@@ -138,6 +154,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   readonly #executable: string | undefined;
   readonly #clock: Clock;
   readonly #query: QueryFunction;
+  readonly #sessionInfo: SessionInfoFunction;
   readonly #guard: ProcessGuard;
   /** Who serves Claude Code's models in this environment, and where. */
   readonly #modelHost: ModelHost;
@@ -155,6 +172,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     this.#executable = options.pathToClaudeCodeExecutable;
     this.#clock = options.clock ?? systemClock;
     this.#query = options.query ?? query;
+    this.#sessionInfo = options.sessionInfo ?? getSessionInfo;
     this.descriptor = {
       runtime_id: options.runtimeId ?? ('claude-agent' as RuntimeId),
       kind: 'claude-agent',
@@ -167,6 +185,8 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       // can go on unseen: no open call does not mean none runs (OPEN_QUESTIONS.md).
       reports_tool_activity: false,
       reports_tool_results: false,
+      // A session's transcript outlives its process, and `resume` continues it (restart-reattach.md).
+      resumes_after_restart: true,
     };
   }
 
@@ -283,6 +303,73 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     return { native_id: await started };
   }
 
+  /**
+   * Re-attaches a session an earlier control plane started (ADR 0046), with the bounds it started
+   * with: the same options, model and folder, asked of the policy again, and the level `ask`, the
+   * only one Claude Code offers, never confined. The session must be in Claude Code's own store for
+   * that folder. No process is launched until the next instruction, which resumes the session by
+   * its id; the turn the restart cut is reported ended.
+   */
+  async reattach(request: ReattachRequest): Promise<void> {
+    if (this.#closed) throw closedError();
+    const refuse = (message: string) => new RuntimeActionError('reattach_refused', message);
+    if (request.approval_level !== undefined && request.approval_level !== 'ask') {
+      throw refuse(
+        `The session started at the level ${request.approval_level}; ${NEVER_ASK_REFUSED}`,
+      );
+    }
+    if (request.confined === true) {
+      throw refuse(
+        'The session was recorded confined, and Halcyonic confines no Claude Code session.',
+      );
+    }
+    const parsed = parseStartOptions(request.options, request.model_ref);
+    if (!parsed.ok) throw refuse(parsed.message);
+    if (!SESSION_ID.test(request.native_id)) {
+      throw refuse(`${request.native_id} is not a session id Halcyonic chose.`);
+    }
+    const cwd = confirmProjectLocation(this.#directoryPolicy, request.directory);
+    const executionId = request.execution.execution_id;
+    if (this.#sessions.has(executionId)) {
+      throw new RuntimeActionError('duplicate_execution', 'The execution is already attached.');
+    }
+    let info: { readonly cwd?: string } | undefined;
+    try {
+      info = await this.#sessionInfo(request.native_id, { dir: cwd });
+    } catch (error) {
+      throw new RuntimeActionError(
+        'runtime_unavailable',
+        wholeError(`Claude Code's sessions could not be read: ${errorText(error)}`) ??
+          "Claude Code's sessions could not be read.",
+      );
+    }
+    if (info === undefined) {
+      throw new RuntimeActionError(
+        'session_not_found',
+        `Claude Code has no session ${request.native_id} for ${cwd}.`,
+      );
+    }
+    if (info.cwd !== undefined && info.cwd !== cwd) {
+      throw refuse(`The session works in ${info.cwd}, not in the task's folder ${cwd}.`);
+    }
+    if (request.model_ref !== null) {
+      const listed = await this.listModels();
+      if (!listed.some((model) => model.model_ref === request.model_ref)) {
+        throw refuse(`Claude Code does not list the model ${request.model_ref} any more.`);
+      }
+    }
+    // Asked again right before the session is taken: the reads above wait.
+    confirmProjectLocation(this.#directoryPolicy, cwd);
+    if (this.#closed) throw closedError();
+    if (this.#sessions.has(executionId)) {
+      throw new RuntimeActionError('duplicate_execution', 'The execution is already attached.');
+    }
+    const session = new ClaudeSession(request.native_id, request.emit, this.#clock, true);
+    session.prepare(this.#query, this.#options({ ...parsed.value, cwd }, session, true));
+    this.#sessions.set(executionId, session);
+    session.restored(request.cut_turn);
+  }
+
   async sendInstruction(request: { execution: ExecutionContext; text: string }): Promise<void> {
     await this.#session(request.execution).instruct(request.text);
   }
@@ -324,11 +411,12 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     await this.#guard.close();
   }
 
-  #options(start: StartOptions, session: ClaudeSession): Options {
+  #options(start: StartOptions, session: ClaudeSession, resume = false): Options {
     return {
       cwd: start.cwd,
       env: { ...this.#environment },
-      sessionId: session.id,
+      // A resumed session keeps its id: `resume` and `sessionId` together would fork it.
+      ...(resume ? { resume: session.id } : { sessionId: session.id }),
       canUseTool: session.canUseTool,
       spawnClaudeCodeProcess: (options) => this.#guard.spawn(options, session.id),
       // Claude Code's own system prompt. Without this option the SDK sends an empty one.
@@ -347,7 +435,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     if (session === undefined) {
       throw new RuntimeActionError(
         'execution_unknown_to_runtime',
-        'Claude Agent has no session for this execution. Sessions do not survive a restart.',
+        'Claude Agent has no session for this execution.',
       );
     }
     return session;
@@ -480,11 +568,50 @@ class ClaudeSession {
   /** The model Claude Code last reported for the session, and how many times it reported one. */
   #model: string | null = null;
   #modelReports = 0;
+  /**
+   * What every native event id starts with: the session id, and for a re-attached session also a
+   * mark of this attachment, since the journal keeps every id the session's earlier runs used.
+   */
+  readonly #eventPrefix: string;
+  /** False for a re-attached session, whose events carry no sequence: its earlier runs' are unknown here. */
+  readonly #sequenced: boolean;
+  /** For a re-attached session, the query its next instruction launches, resuming it. */
+  #pending: { readonly query: QueryFunction; readonly options: Options } | null = null;
 
-  constructor(id: string, emit: ObservationSink, clock: Clock) {
+  constructor(id: string, emit: ObservationSink, clock: Clock, reattached = false) {
     this.id = id;
     this.#emitObservation = emit;
     this.#clock = clock;
+    this.#eventPrefix = reattached ? `${id}:${randomUUID()}` : id;
+    this.#sequenced = !reattached;
+    // A re-attached session was confirmed by its first run; its start is not reported again.
+    if (reattached) this.#nativeId = id;
+  }
+
+  /** Sets the query a re-attached session's next instruction launches, resuming it. */
+  prepare(queryFunction: QueryFunction, options: Options): void {
+    this.#pending = { query: queryFunction, options };
+  }
+
+  /**
+   * Reports the session observable again, found in Claude Code's store, and the turn the restart
+   * cut, if any, ended: the restart stopped its process, and Claude Code records no end for it.
+   */
+  restored(cut: { readonly turn_id: string | null } | null): void {
+    this.#emit(
+      'runtime.connection.restored',
+      { reason: 'Claude Code still has the session, so it is re-attached after the restart.' },
+      observed('session_info'),
+      'restored',
+    );
+    if (cut !== null) {
+      this.#emit(
+        'runtime.turn.interrupted',
+        { turn_id: cut.turn_id },
+        { epistemic: 'inferred', native_type: null, rule: 'claude.restart.turn_status' },
+        'cut',
+      );
+    }
   }
 
   /** Launches the query with the first instruction. Resolves with the confirmed session id. */
@@ -498,6 +625,27 @@ class ClaudeSession {
 
   async instruct(text: string): Promise<void> {
     this.#assertOpen();
+    const pending = this.#pending;
+    if (pending !== null && this.#query === null) {
+      // The first instruction to a re-attached session launches Claude Code, resuming it.
+      this.#pending = null;
+      const turn = this.#deliver(text);
+      let handle: QueryHandle;
+      try {
+        handle = pending.query({ prompt: this.#input, options: pending.options });
+      } catch (error) {
+        this.#turn = null;
+        this.#pending = pending;
+        throw new RuntimeActionError(
+          'runtime_start_failed',
+          wholeError(errorText(error)) ?? 'The SDK refused to start Claude Code.',
+        );
+      }
+      this.#query = handle;
+      this.#consuming = this.#consume(handle);
+      await turn.confirmation.promise;
+      return;
+    }
     if (this.#turn !== null) {
       throw new RuntimeActionError(
         'turn_in_progress',
@@ -674,7 +822,7 @@ class ClaudeSession {
     if (this.#state === 'lost') {
       throw new RuntimeActionError(
         'runtime_unreachable',
-        'The Claude Code process for this execution has ended. Sessions are not resumed yet.',
+        'The Claude Code process for this execution has ended.',
       );
     }
   }
@@ -907,8 +1055,8 @@ class ClaudeSession {
       payload,
       provenance,
       occurred_at: this.#clock.now().toISOString(),
-      native_event_id: `${this.id}:${localId}`,
-      sequence: this.#sequence,
+      native_event_id: `${this.#eventPrefix}:${localId}`,
+      sequence: this.#sequenced ? this.#sequence : null,
     } as RuntimeObservation);
   }
 }

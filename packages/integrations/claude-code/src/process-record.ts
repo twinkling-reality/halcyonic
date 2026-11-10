@@ -14,7 +14,10 @@ export interface ProcessRecord {
   readonly startedAt: string;
   /** The command line `ps` reported for the process after launch. */
   readonly command: string;
-  /** The session id Halcyonic chose for the launch; the process carries it as `--session-id=<id>`. */
+  /**
+   * The session id Halcyonic chose for the launch; the process carries it as `--session-id=<id>`,
+   * or as `--resume=<id>` when it resumes the session after a restart (ADR 0046).
+   */
   readonly sessionId: string;
 }
 
@@ -66,6 +69,15 @@ export function readProcessIdentity(pid: number): Promise<ProcessIdentity | null
 }
 
 /**
+ * Whether a command line carries the session id as a launch of Halcyonic's passes it: `--session-id`
+ * for a new session, `--resume` for one resumed after a restart (ADR 0046), each as one argument.
+ */
+export function carriesSession(command: string, sessionId: string): boolean {
+  const args = command.split(' ');
+  return args.includes(`--session-id=${sessionId}`) || args.includes(`--resume=${sessionId}`);
+}
+
+/**
  * True when a live process is the recorded one: the same start time, and a command line that
  * carries the recorded session id. The rest of the command line is not compared, because a script
  * executable starts as its interpreter's launcher and then execs the interpreter, keeping its pid,
@@ -73,8 +85,7 @@ export function readProcessIdentity(pid: number): Promise<ProcessIdentity | null
  */
 export function isRecordedProcess(identity: ProcessIdentity, record: ProcessRecord): boolean {
   return (
-    identity.startedAt === record.startedAt &&
-    identity.command.split(' ').includes(`--session-id=${record.sessionId}`)
+    identity.startedAt === record.startedAt && carriesSession(identity.command, record.sessionId)
   );
 }
 

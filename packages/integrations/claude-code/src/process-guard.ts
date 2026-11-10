@@ -9,6 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import type { SpawnedProcess, SpawnOptions } from '@anthropic-ai/claude-agent-sdk';
 import {
+  carriesSession,
   type ProcessIdentity,
   type ProcessRecord,
   readProcessIdentity,
@@ -225,12 +226,11 @@ async function identify(
   sessionId: string,
   exited: () => boolean,
 ): Promise<ProcessIdentity | null> {
-  const argument = `--session-id=${sessionId}`;
   for (let attempt = 0; attempt < 100; attempt += 1) {
     if (exited()) return null;
     const identity = await readProcessIdentity(pid);
     if (identity === null) return null;
-    if (identity.command.split(' ').includes(argument)) return identity;
+    if (carriesSession(identity.command, sessionId)) return identity;
     await delay(20);
   }
   throw new Error(`ps never showed process ${pid} with its session id`);

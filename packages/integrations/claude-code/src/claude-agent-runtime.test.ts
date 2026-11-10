@@ -1533,3 +1533,128 @@ describe('descriptor', () => {
     assert.ok(validate(adapter.descriptor).ok);
   });
 });
+
+describe('re-attaching after a restart (ADR 0046)', () => {
+  const SESSION = '0f0e0d0c-0000-4000-8000-0000000000aa';
+  const found =
+    (cwd: string = WORKDIR) =>
+    async () => ({ cwd });
+  const reattach = (
+    adapter: ClaudeAgentRuntimeAdapter,
+    observed: RuntimeObservation[],
+    overrides: Partial<Parameters<ClaudeAgentRuntimeAdapter['reattach']>[0]> = {},
+  ) =>
+    adapter.reattach({
+      execution,
+      native_id: SESSION,
+      options: { permission_mode: 'acceptEdits' },
+      model_ref: null,
+      confined: false,
+      directory: WORKDIR,
+      cut_turn: { turn_id: 'turn-cut' },
+      emit: (observation) => observed.push(observation),
+      ...overrides,
+    });
+
+  test('a session in Claude Code store is re-attached, its cut turn ended, and the next instruction resumes it with the bounds it started with', async () => {
+    const asked: [string, string][] = [];
+    const { adapter, runs, run, observed, types } = setup({
+      sessionInfo: async (id, options) => {
+        asked.push([id, options.dir]);
+        return { cwd: WORKDIR };
+      },
+    });
+    await reattach(adapter, observed);
+    assert.deepEqual(asked, [[SESSION, WORKDIR]]);
+    assert.equal(runs.length, 0, 'no process until an instruction comes');
+    assert.deepEqual(types(), ['runtime.connection.restored', 'runtime.turn.interrupted']);
+    assert.deepEqual(observed[1]?.payload, { turn_id: 'turn-cut' });
+    assert.deepEqual(observed[1]?.provenance, {
+      epistemic: 'inferred',
+      native_type: null,
+      rule: 'claude.restart.turn_status',
+    });
+    // Unique beyond the session's earlier runs, and with no sequence of their own to collide with.
+    assert.ok(observed.every((observation) => observation.sequence === null));
+    assert.match(
+      observed[0]?.native_event_id ?? '',
+      new RegExp(`^${SESSION}:[0-9a-f-]{36}:restored$`),
+    );
+    assertContractValid(observed);
+
+    const sending = adapter.sendInstruction({ execution, text: 'Carry on.' });
+    await settle();
+    const resumed = run();
+    assert.equal(resumed.options.resume, SESSION);
+    assert.equal(resumed.options.sessionId, undefined, 'resume and sessionId together would fork');
+    assert.equal(resumed.options.cwd, WORKDIR);
+    assert.equal(resumed.options.permissionMode, 'acceptEdits');
+    assert.deepEqual(resumed.delivered[0]?.message.content, [{ type: 'text', text: 'Carry on.' }]);
+    resumed.emit(init(SESSION));
+    await sending;
+    assert.ok(!types().includes('runtime.execution.started'), 'the start is not reported again');
+    assert.equal(types().at(-2), 'runtime.turn.started');
+    resumed.emit(success(SESSION));
+    await settle();
+    assert.equal(types().at(-1), 'runtime.turn.completed');
+    assertContractValid(observed);
+  });
+
+  test('a session at rest is re-attached with no turn to end', async () => {
+    const { adapter, observed, types } = setup({ sessionInfo: found() });
+    await reattach(adapter, observed, { cut_turn: null });
+    assert.deepEqual(types(), ['runtime.connection.restored']);
+  });
+
+  test('a session missing from Claude Code store, or kept for another folder, is not re-attached', async () => {
+    const missing = setup({ sessionInfo: async () => undefined });
+    await assert.rejects(
+      reattach(missing.adapter, missing.observed),
+      actionError('session_not_found'),
+    );
+    const elsewhere = setup({ sessionInfo: found('/somewhere/else') });
+    await assert.rejects(
+      reattach(elsewhere.adapter, elsewhere.observed),
+      actionError('reattach_refused'),
+    );
+    for (const { observed, adapter } of [missing, elsewhere]) {
+      assert.equal(observed.length, 0);
+      await assert.rejects(
+        adapter.sendInstruction({ execution, text: 'More.' }),
+        actionError('execution_unknown_to_runtime'),
+      );
+    }
+  });
+
+  test('a session is not re-attached with other bounds than Claude Code runs: never ask, confined, other options, a folder the policy refuses', async () => {
+    const cases: Partial<Parameters<ClaudeAgentRuntimeAdapter['reattach']>[0]>[] = [
+      { approval_level: 'never_ask' },
+      { confined: true },
+      { options: { permission_mode: 'bypassPermissions' } },
+      { native_id: '--dangerously-skip-permissions' },
+    ];
+    for (const overrides of cases) {
+      const { adapter, observed } = setup({ sessionInfo: found() });
+      await assert.rejects(reattach(adapter, observed, overrides), actionError('reattach_refused'));
+      assert.equal(observed.length, 0);
+    }
+    const refused = setup({
+      sessionInfo: found(),
+      directoryPolicy: () => ({ ok: false, code: 'location_not_allowed', message: 'Not here.' }),
+    });
+    await assert.rejects(
+      reattach(refused.adapter, refused.observed),
+      actionError('location_not_allowed'),
+    );
+    const asked = setup({ sessionInfo: found() });
+    await assert.rejects(
+      reattach(asked.adapter, asked.observed, { approval_level: 'ask', directory: null }),
+      actionError('location_required'),
+    );
+  });
+
+  test('declares that its sessions outlive a restart', () => {
+    const { adapter } = setup();
+    assert.equal(adapter.descriptor.resumes_after_restart, true);
+  });
+});
