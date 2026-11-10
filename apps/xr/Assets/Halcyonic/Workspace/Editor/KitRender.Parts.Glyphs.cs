@@ -11,7 +11,7 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
     /// DESIGN's glyph set (BUILD-SPEC-v4 1.4's table) drawn from its geometry: every glyph in an action's chip at rest
-    /// (white on the faint chip) and in the main action's light chip (#172024), 20 dp across, with the two home-size
+    /// (white on the neutral chip) and in the main action's accent chip (#172024), 20 dp across, with the two home-size
     /// actions at 24 dp; and every glyph alone at 96 dp, for holding against the design's own path data. Each glyph is
     /// read in the pixels: its colour on the middle of every one of its shapes and wherever its geometry says ink, and no
     /// ink where its geometry says none.
@@ -78,15 +78,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var button = RoomButton.Create(plane, words + (main ? " main" : " rest"), size);
                     var width = button.Measure(words);
+                    // The action draws its own glyph, named by its words; no icon is handed to it.
                     button.Show(words, null, main, true, new Vector2((col - 2) * column + width / 2f, (4.5f - row) * pitch), 0f);
                     button.Press.SettleForRender();
+                    button.Settle();
                     var home = size == RoomButtonSize.Home;
-                    var chip = home ? RoomButton.HomeChipDp : RoomButton.ChipDp;
-                    var view = RoomGlyphView.Create(button.transform, "Glyph", KitType.Order.Control + 3);
-                    view.Show(glyph, home ? RoomGlyphs.HomeDp : RoomGlyphs.ChipDp, main ? RoomGlyphs.OnMain : RoomGlyphs.OnRest);
-                    // Centred on the chip: the chip stands at the core's left, as far in as it is from the core's top.
-                    view.transform.localPosition = new Vector3(-button.Core.x / 2f + (button.CoreHeightDp - chip) / 2f * unit + chip / 2f * unit, 0f, -RoomType.Units(0.6f));
-                    Require(Mathf.Approximately(view.SizeDp, home ? RoomGlyphs.HomeDp : RoomGlyphs.ChipDp) && view.Glyph == glyph, words + "'s glyph is not its own at its size");
+                    var view = button.Glyph;
+                    Require(Mathf.Approximately(view.SizeDp, (home ? RoomGlyphs.HomeDp : RoomGlyphs.ChipDp) * GlazeText.Scale) && view.Glyph == glyph, words + "'s glyph is not its own at its size");
                     Require(button.LookNow() == (main ? RoomButtonLook.Main : RoomButtonLook.Rest), words + " shows " + button.LookNow());
                     drawn.Add((view, glyph, main ? RoomGlyphs.OnMain : RoomGlyphs.OnRest, words + (main ? " (main chip)" : " (rest chip)") + (home ? " at home size" : "")));
                 }

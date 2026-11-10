@@ -70,22 +70,34 @@ namespace Halcyonic.XR.UI
         public const float MarkLineAlpha = 0.66f;
         public const float MarkCheckDp = 15f;
 
-        /// <summary>The lines an answer's words wrap to at most; a longer one stands taller than DESIGN's two, never cut.</summary>
-        public const int WordLines = 6;
+        /// <summary>An action's words are never cut: no ellipsis, as many lines as they need (this many at the very most), its box and backing as tall as its lines.</summary>
+        public const int WordLines = 400;
 
         /// <summary>Confirm's lock ring round the chip: radius 19 dp, 2 dp wide.</summary>
         public const float RingRadiusDp = 19f;
         public const float RingWidthDp = 2f;
 
-        private const float PointedScale = 1.03f;
-        private const float PressedScale = 0.96f;
         private const float DisabledOpacity = 0.45f;
-        private const float ScaleRate = 20f;
+
+        /// <summary>The one accent (the agent's cursor's #59CFF1): the one main action's chip, Confirm's ring and glyph while it locks, a chosen answer's mark.</summary>
+        public const int AccentColour = 0x59CFF1;
+
+        /// <summary>The main action's chip while pointed, the light chip a pointed action takes, and the glyph's ink on a light or accent chip.</summary>
+        public const int AccentPointedColour = 0x9BE2F7;
+        public const int LightColour = 0xD5DADE;
+        public const int InkColour = 0x172024;
+
+        /// <summary>An action's chip at rest: a dark well, black at the page's 0.45 over the halo (0.68 in Unity's linear blend), so its white glyph holds 4.5 to 1 over a bright wall.</summary>
+        public const float WellAlpha = 0.68f;
+
+        /// <summary>A held chip keeps this much of its brightness.</summary>
+        public const float HeldBrightness = 0.84f;
 
         private static readonly int CoreId = Shader.PropertyToID("_Core");
         private static readonly int QuadId = Shader.PropertyToID("_Quad");
         private static readonly int ChipId = Shader.PropertyToID("_Chip");
         private static readonly int ChipColourId = Shader.PropertyToID("_ChipColour");
+        private static readonly int HaloColourId = Shader.PropertyToID("_HaloColour");
         private static readonly int RingId = Shader.PropertyToID("_Ring");
         private static readonly int MarkId = Shader.PropertyToID("_Mark");
         private static readonly int FadeId = Shader.PropertyToID("_Fade");
@@ -96,7 +108,9 @@ namespace Halcyonic.XR.UI
         private MeshRenderer halo = null!;
         private MaterialPropertyBlock block = null!;
         private TextMeshPro words = null!;
-        private TextMeshPro glyph = null!;
+        private RoomGlyphView glyph = null!;
+        private RoomGlyph? glyphShown;
+        private float glyphDp;
         private KitPress press = null!;
         private RoomButtonSize size;
         private bool main;
@@ -107,7 +121,21 @@ namespace Halcyonic.XR.UI
         private Vector2 core;
         private float chipCentreX;
         private RoomButtonLook? painted;
-        private float? paintedLock;
+        private bool paintedLocked;
+
+        /// <summary>The look it eases from and to (its chip's colour and alpha, its halo, its glyph's colour, its scale), and when the easing started.</summary>
+        private Vector4 chipFrom, chipTo, chipNow;
+        private Vector4 haloFrom, haloTo, haloNow;
+        private Color glyphFrom, glyphTo, glyphNow;
+        private float scaleFrom = 1f, scaleTo = 1f, scaleNow = 1f;
+        private float lookSince = float.NegativeInfinity;
+
+        /// <summary>When it arrived and after how many others of the same moment, and how it was last drawn, so a still frame sets nothing.</summary>
+        private float arriveSince = float.NegativeInfinity;
+        private int arriveIndex;
+        private (Vector4 Chip, float Halo, Color Glyph, float Scale, float Shown, float Lower, float Lock)? pushed;
+        private static float arrivalStamp = float.NegativeInfinity;
+        private static int arrivalCount;
 
         public event Action? Pressed;
 
@@ -115,7 +143,8 @@ namespace Halcyonic.XR.UI
 
         public TextMeshPro Words => words;
 
-        public TextMeshPro Glyph => glyph;
+        /// <summary>The glyph in its chip, drawn from DESIGN's geometry (<see cref="RoomGlyphs"/>).</summary>
+        public RoomGlyphView Glyph => glyph;
 
         /// <summary>The target's size, in its parent's units.</summary>
         public Vector2 Size => press.Size;
@@ -179,7 +208,10 @@ namespace Halcyonic.XR.UI
             button.words = RoomType.Create(button.visual, "Words", Color.white, order + 2, TextAlignmentOptions.Left);
             button.words.rectTransform.pivot = new Vector2(0f, 0.5f);
             button.words.textWrappingMode = TextWrappingModes.NoWrap;
-            button.glyph = GlazeIcons.Create(button.visual, "Glyph", SpatialKit.IconDegrees, Color.white, order + 3);
+            button.words.overflowMode = TextOverflowModes.Overflow;
+            // Every action's words stand on the soft underlay (DESIGN 1.4): black at 35 percent, no offset.
+            RoomBand.Underlay(button.words, action: true);
+            button.glyph = RoomGlyphView.Create(button.visual, "Glyph", order + 3);
             var height = RoomType.Units(HeightDp);
             button.press = KitPress.Create(go, new Vector2(height, height));
             button.press.Pressed += () => button.Pressed?.Invoke();
@@ -190,17 +222,18 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>The core's height in dp: 48 for the column's actions, the hand target at home.</summary>
-        public float CoreHeightDp => size == RoomButtonSize.Home ? HeightDp : CoreDp;
+        public float CoreHeightDp => size == RoomButtonSize.Home ? HeightDp : CoreDp * GlazeText.Scale;
 
-        private float ChipSizeDp => size == RoomButtonSize.Home ? HomeChipDp : ChipDp;
+        /// <summary>The chip, its glyph and the room round them grow with the person's text size, as every length inside a surface does; the home core stays the hand target.</summary>
+        private float ChipSizeDp => (size == RoomButtonSize.Home ? HomeChipDp : ChipDp) * GlazeText.Scale;
 
         /// <summary>The room left of the chip: what leaves it centred in the core's height (8 dp, 8.4 at home).</summary>
         private float ChipPadDp => (CoreHeightDp - ChipSizeDp) / 2f;
 
-        private float GapDp => size == RoomButtonSize.Home ? HomeWordsGapDp : WordsGapDp;
+        private float GapDp => (size == RoomButtonSize.Home ? HomeWordsGapDp : WordsGapDp) * GlazeText.Scale;
 
         /// <summary>The core's room after its words, in dp.</summary>
-        public float RightDp => size == RoomButtonSize.Home ? HomeRightDp : CoreRightDp;
+        public float RightDp => (size == RoomButtonSize.Home ? HomeRightDp : CoreRightDp) * GlazeText.Scale;
 
         /// <summary>The core's width with these words at the person's text size, in the plane's units: content-sized.</summary>
         public float Measure(string text)
@@ -223,6 +256,9 @@ namespace Halcyonic.XR.UI
             if (wrap > 0f && inner + wordsWidth > wrap)
             {
                 words.textWrappingMode = TextWrappingModes.Normal;
+                // Words that wrap and hold a separator break at the first one, the dot dropped (WORDS rule 2), whether or not a line happened to end there.
+                var first = words.text.IndexOf(" · ", StringComparison.Ordinal);
+                if (first > 0) words.text = words.text.Substring(0, first) + "\n" + words.text.Substring(first + 3);
                 var laid = KitType.Lay(words, wrap - inner, WordLines);
                 // A line breaks only between segments and drops the dot there (WORDS rule 2): where a line would end in the
                 // separator, the break stands in its place.
@@ -263,7 +299,8 @@ namespace Halcyonic.XR.UI
                 Hide();
                 return;
             }
-            var changed = !gameObject.activeSelf || shownWords != text || main != isMain || this.mark != mark || this.chosen != chosen;
+            var arrives = !gameObject.activeSelf;
+            var changed = arrives || shownWords != text || main != isMain || this.mark != mark || this.chosen != chosen;
             shownWords = text;
             main = isMain;
             this.mark = mark;
@@ -276,30 +313,84 @@ namespace Halcyonic.XR.UI
             words.transform.localPosition = new Vector3(chipCentreX + RoomType.Units(ChipSizeDp / 2f + GapDp), 0f, -RoomType.Units(0.5f));
             press.Resize(new Vector2(Mathf.Max(target, coreWidth), Mathf.Max(target, core.y)));
             // A mark holds no glyph but its check once chosen.
-            if (mark != AnswerMark.None) Lay(chosen ? GlazeIcon.Approve : (GlazeIcon?)null, RoomType.Units(MarkCheckDp));
-            else Lay(icon, RoomType.Units(size == RoomButtonSize.Home ? HomeGlyphDp : GlyphDp));
+            if (mark != AnswerMark.None) Lay(chosen ? RoomGlyph.Check : (RoomGlyph?)null, MarkCheckDp * GlazeText.Scale);
+            else Lay(GlyphOf(text, icon), (size == RoomButtonSize.Home ? HomeGlyphDp : GlyphDp) * GlazeText.Scale);
             LockProgress = null;
             press.Available = available;
             transform.localPosition = new Vector3(centre.x, centre.y, -RoomType.Units(1f));
             if (changed) press.Unsettle();
-            painted = null;
+            if (arrives)
+            {
+                // The actions of one moment arrive one after another, in the order they are shown (RoomMotion): each 60 ms after the one before.
+                var now = Clock();
+                if (now - arrivalStamp > 0.05f || now < arrivalStamp) arrivalCount = 0;
+                arrivalStamp = now;
+                arriveIndex = arrivalCount++;
+                arriveSince = now;
+                painted = null;
+            }
+            pushed = null;
             gameObject.SetActive(true);
-            Paint(immediately: true);
+            Paint(immediately: false);
         }
 
         public void Hide() => gameObject.SetActive(false);
 
-        private void Lay(GlazeIcon? icon, float glyphEm)
+        /// <summary>Every move under way taken to its end at once: for renders, and for a first frame that must be whole.</summary>
+        public void Settle()
         {
-            glyph.gameObject.SetActive(icon.HasValue);
-            if (icon is not GlazeIcon shown) return;
-            glyph.fontSize = GlazeTokens.FontSize(glyphEm);
-            glyph.rectTransform.sizeDelta = new Vector2(glyphEm, glyphEm);
-            GlazeIcons.Show(glyph, shown);
-            glyph.transform.localPosition = new Vector3(chipCentreX, 0f, -RoomType.Units(0.6f));
+            arriveSince = float.NegativeInfinity;
+            lookSince = float.NegativeInfinity;
+            if (gameObject.activeSelf) Paint(immediately: true);
+        }
+
+        /// <summary>
+        /// The glyph an action carries: DESIGN's own for its words (<see cref="RoomGlyphs.Named"/>), else the one its icon
+        /// stands for (Confirm takes the check or the barred circle of what it confirms), else the arrow of going on.
+        /// </summary>
+        public static RoomGlyph? GlyphOf(string text, GlazeIcon? icon)
+        {
+            if (RoomGlyphs.Named(text) is RoomGlyph named) return named;
+            if (icon is not GlazeIcon given) return null;
+            return given switch
+            {
+                GlazeIcon.Approve => RoomGlyph.Check,
+                GlazeIcon.Deny => RoomGlyph.Barred,
+                GlazeIcon.Stop => RoomGlyph.Stop,
+                GlazeIcon.SendAnswer => RoomGlyph.Send,
+                GlazeIcon.HoldToTalk => RoomGlyph.Microphone,
+                GlazeIcon.Type or GlazeIcon.TellIt => RoomGlyph.Keyboard,
+                GlazeIcon.Next => RoomGlyph.Next,
+                GlazeIcon.Back => RoomGlyph.Back,
+                GlazeIcon.Refresh => RoomGlyph.Again,
+                GlazeIcon.Change => RoomGlyph.Pencil,
+                GlazeIcon.CreateProject => RoomGlyph.Plus,
+                _ => RoomGlyph.Continue,
+            };
+        }
+
+        private void Lay(RoomGlyph? shown, float sizeDp)
+        {
+            glyphShown = shown;
+            glyphDp = sizeDp;
+            if (shown == null) glyph.Hide();
+            else glyph.transform.localPosition = new Vector3(chipCentreX, 0f, -RoomType.Units(0.6f));
         }
 
         private void Update() => Paint(immediately: false);
+
+        /// <summary>The seconds its arrival and its easing are timed by; a check fixes it.</summary>
+        public Func<float> Clock { get; set; } = () => Time.unscaledTime;
+
+        /// <summary>Draws it as it stands at its clock's time: what every frame does, for a check at the times it draws.</summary>
+        public void Draw() => Paint(immediately: false);
+
+        /// <summary>How far into view its arrival has it, 0 to 1; its scale; and its chip's colour (sRGB, with its alpha) as drawn now.</summary>
+        public float ArrivalShown => pushed?.Shown ?? 0f;
+
+        public float Scale => scaleNow;
+
+        public Vector4 ChipColour => chipNow;
 
         /// <summary>For renders, which have no hands: the look to show in place of the one its state gives, or null for its own.</summary>
         public RoomButtonLook? LookForRender { get; set; }
@@ -316,66 +407,108 @@ namespace Halcyonic.XR.UI
             return main ? (pointed ? RoomButtonLook.MainPointed : RoomButtonLook.Main) : (pointed ? RoomButtonLook.Pointed : RoomButtonLook.Rest);
         }
 
+        /// <summary>The backing's colours: the neutral halo (#343A3F), and the one main action's, the accent's own dark (#22586A, #296A7F while pointed or held).</summary>
+        public const int HaloColour = 0x343A3F;
+        public const int MainHaloColour = 0x22586A;
+        public const int MainPointedHaloColour = 0x296A7F;
+
+        /// <summary>An action's chip at rest, a neutral that shows over a bright room and a dark one (#4A5258), and Confirm's round well while it locks (#2A3035).</summary>
+        public const int RestChipColour = 0x4A5258;
+        public const int LockWellColour = 0x2A3035;
+
+        /// <summary>How far the backing's edge feathers each way, in dp.</summary>
+        public const float HaloFeatherDp = 6f;
+
+        /// <summary>
+        /// What a look stands as (F6, 2026-11-10): the chip's colour, the backing's colour and its alpha in Unity's linear
+        /// blend, the glyph's colour and the scale. The moment's one main action carries the accent on its chip and in its
+        /// backing, also while Confirm locks; every other action is neutral. Pointed, a neutral chip turns light and every
+        /// backing denser; held, the chip dims.
+        /// </summary>
+        private (Vector4 Chip, Vector4 Halo, Color Glyph, float Scale) Target(RoomButtonLook look, bool locked)
+        {
+            var accent = RoomSurface.Hex(AccentColour);
+            var light = RoomSurface.Hex(LightColour);
+            var ink = RoomSurface.Hex(InkColour);
+            var pointed = look is RoomButtonLook.Pointed or RoomButtonLook.MainPointed;
+            var held = look == RoomButtonLook.Pressed;
+            var leads = main || locked;
+            var backing = RoomSurface.Hex(leads ? (pointed || held ? MainPointedHaloColour : MainHaloColour) : HaloColour);
+            var alpha = leads ? (pointed || held ? 0.96f : 0.93f) : (pointed || held ? 0.93f : 0.83f);
+            Color chip;
+            Color glyphColour;
+            if (mark != AnswerMark.None) (chip, glyphColour) = (chosen ? accent : new Color(1f, 1f, 1f, 0f), ink);
+            else if (locked) (chip, glyphColour) = (RoomSurface.Hex(LockWellColour), accent);
+            else if (main) (chip, glyphColour) = (held ? Dim(accent) : accent, ink);
+            else if (held) (chip, glyphColour) = (Dim(light), ink);
+            else if (pointed) (chip, glyphColour) = (light, ink);
+            else (chip, glyphColour) = (RoomSurface.Hex(RestChipColour), Color.white);
+            return (new Vector4(chip.r, chip.g, chip.b, chip.a), new Vector4(backing.r, backing.g, backing.b, alpha), glyphColour, RoomMotion.ActionScale(pointed ? 1f : 0f, held));
+        }
+
+        private static Color Dim(Color colour) => new Color(colour.r * HeldBrightness, colour.g * HeldBrightness, colour.b * HeldBrightness, 1f);
+
         private void Paint(bool immediately)
         {
             var look = LookNow();
-            var scale = look switch
+            var locked = LockProgress != null;
+            var now = Clock();
+            if (painted != look || paintedLocked != locked)
             {
-                RoomButtonLook.Pressed => PressedScale,
-                RoomButtonLook.Pointed or RoomButtonLook.MainPointed => PointedScale,
-                _ => 1f,
-            };
-            var now = visual.localScale.x;
-            var next = immediately || GlazeMotion.Still ? scale : Mathf.MoveTowards(now, scale, ScaleRate * Time.unscaledDeltaTime * Mathf.Abs(scale - now) + 1e-4f);
-            if (!Mathf.Approximately(now, next)) visual.localScale = new Vector3(next, next, 1f);
-            if (painted == look && Nullable.Equals(paintedLock, LockProgress)) return;
-            painted = look;
-            paintedLock = LockProgress;
+                var first = painted == null;
+                painted = look;
+                paintedLocked = locked;
+                (chipTo, haloTo, glyphTo, scaleTo) = Target(look, locked);
+                // A look eases from where the last one stood (RoomMotion: 150 ms, ease out); the first one, and a held one, are there at once.
+                if (first || look == RoomButtonLook.Pressed) (chipNow, haloNow, glyphNow, scaleNow) = (chipTo, haloTo, glyphTo, scaleTo);
+                (chipFrom, haloFrom, glyphFrom, scaleFrom) = (chipNow, haloNow, glyphNow, scaleNow);
+                lookSince = now;
+            }
+            var settled = immediately || GlazeMotion.Still;
+            var eased = settled ? 1f : RoomMotion.Pointed(now - lookSince);
+            chipNow = Vector4.Lerp(chipFrom, chipTo, eased);
+            haloNow = Vector4.Lerp(haloFrom, haloTo, eased);
+            glyphNow = Color.Lerp(glyphFrom, glyphTo, eased);
+            scaleNow = Mathf.Lerp(scaleFrom, scaleTo, eased);
+            // It arrives rising 8 dp and fading in, after the actions shown before it in the same moment.
+            var move = settled ? RoomMove.Settled : RoomMotion.LineArrives(now - arriveSince, arriveIndex);
+            var state = (chipNow, haloNow.w, glyphNow, scaleNow, move.Shown, move.LowerDp, LockProgress ?? -1f);
+            if (pushed is { } last && last.Chip == state.Item1 && last.Halo == state.Item2 && last.Glyph == state.Item3 && last.Scale == state.Item4
+                && last.Shown == state.Item5 && last.Lower == state.Item6 && last.Lock == state.Item7) return;
+            pushed = state;
+
             var unit = RoomType.Units(1f);
+            var textScale = GlazeText.Scale;
+            visual.localScale = new Vector3(scaleNow, scaleNow, 1f);
+            visual.localPosition = new Vector3(0f, -move.LowerDp * textScale * unit, 0f);
             var reach = HaloReachDp + 1f;
             var quadSize = new Vector2(core.x / unit + 2f * reach, core.y / unit + 2f * reach);
             halo.transform.localScale = new Vector3(quadSize.x * unit, quadSize.y * unit, 1f);
             halo.transform.localPosition = new Vector3(0f, 0f, RoomType.Units(0.02f));
-            // DESIGN's linear-space alphas on #343A3F (FINISH-3): rest 0.83, main 0.87, pointed 0.90, main pointed 0.93 (page 0.66 to 0.82).
-            var haloAlpha = look switch
-            {
-                RoomButtonLook.Main => 0.87f,
-                RoomButtonLook.Pointed or RoomButtonLook.Pressed => 0.90f,
-                RoomButtonLook.MainPointed => 0.93f,
-                _ => 0.83f,
-            };
-            var light = RoomSurface.Hex(0xD5DADE);
-            var (chipColour, chipAlpha) = look switch
-            {
-                RoomButtonLook.Main => (light, 1f),
-                RoomButtonLook.MainPointed => (Color.white, 1f),
-                RoomButtonLook.Pressed => (light * 0.84f, 1f),
-                RoomButtonLook.Pointed => (Color.white, 0.13f),
-                _ => (Color.white, 0.05f),
-            };
             var chipDp = ChipSizeDp;
-            var cornerDp = size == RoomButtonSize.Home ? HomeChipCornerDp : ChipCornerDp;
+            // Behind its lock Confirm's chip is round, its ring just inside its rim.
+            var cornerDp = locked ? chipDp / 2f : (size == RoomButtonSize.Home ? HomeChipCornerDp : ChipCornerDp) * textScale;
             var markLine = 0f;
             if (mark != AnswerMark.None)
             {
-                // In the chip's place: the outline alone, or chosen, the light disc or box under its dark check.
-                chipDp = MarkDp;
-                cornerDp = mark == AnswerMark.Multiple ? MarkBoxCornerDp : MarkDp / 2f;
-                (chipColour, chipAlpha) = chosen ? (light, 1f) : (Color.white, 0f);
+                // In the chip's place: the outline alone, or chosen, the accent's disc or box under its dark check.
+                chipDp = MarkDp * textScale;
+                cornerDp = mark == AnswerMark.Multiple ? MarkBoxCornerDp * textScale : chipDp / 2f;
                 markLine = chosen ? 0f : MarkLineAlpha;
             }
-            block.SetVector(CoreId, new Vector4(core.x / unit, core.y / unit, size == RoomButtonSize.Home ? HomeHaloCornerDp : HaloCornerDp, haloAlpha));
+            var fade = (look == RoomButtonLook.Disabled ? DisabledOpacity : 1f) * move.Shown;
+            var haloCorner = size == RoomButtonSize.Home ? HomeHaloCornerDp : HaloCornerDp * textScale;
+            block.SetVector(CoreId, new Vector4(core.x / unit, core.y / unit, haloCorner, haloNow.w * move.Shown));
+            block.SetVector(HaloColourId, new Vector4(haloNow.x, haloNow.y, haloNow.z, HaloFeatherDp));
             block.SetVector(QuadId, new Vector4(-quadSize.x / 2f, -quadSize.y / 2f, quadSize.x, quadSize.y));
             block.SetVector(ChipId, new Vector4(chipCentreX / unit, 0f, chipDp, cornerDp));
-            block.SetVector(ChipColourId, new Vector4(chipColour.r, chipColour.g, chipColour.b, chipAlpha));
-            block.SetVector(RingId, new Vector4(RingRadiusDp, RingWidthDp, LockProgress ?? 0f, LockProgress != null ? 1f : 0f));
-            block.SetVector(MarkId, new Vector4(MarkDp, cornerDp, MarkLineDp, markLine));
-            var fade = look == RoomButtonLook.Disabled ? DisabledOpacity : 1f;
+            block.SetVector(ChipColourId, chipNow);
+            block.SetVector(RingId, new Vector4(chipDp / 2f - RingWidthDp / 2f, RingWidthDp, LockProgress ?? 0f, locked ? 1f : 0f));
+            block.SetVector(MarkId, new Vector4(chipDp, cornerDp, MarkLineDp, markLine));
             block.SetFloat(FadeId, fade);
             halo.SetPropertyBlock(block);
-            var dark = mark != AnswerMark.None ? chosen : look is RoomButtonLook.Main or RoomButtonLook.MainPointed or RoomButtonLook.Pressed;
-            glyph.color = dark ? RoomSurface.Hex(0x172024) : new Color(1f, 1f, 1f, fade);
-            words.color = Color.white;
+            if (glyphShown is RoomGlyph shown) glyph.Show(shown, glyphDp, new Color(glyphNow.r, glyphNow.g, glyphNow.b, glyphNow.a * fade));
+            if (!Mathf.Approximately(words.alpha, move.Shown)) words.alpha = move.Shown;
         }
 
         private static Material Material

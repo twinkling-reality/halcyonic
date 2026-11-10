@@ -102,8 +102,10 @@ namespace Halcyonic.XR.UI
             block.SetVector(EdgeTopId, Srgb(look.EdgeTop, look.EdgeDp));
             block.SetVector(EdgeFootId, Srgb(look.EdgeFoot, look.EdgeDp > 0f ? 1f : 0f));
             block.SetVector(ShadeId, new Vector4(look.ShadowDropDp, look.ShadowBlurDp, look.ShadowAlpha, look.Shadow ? 1f : 0f));
-            block.SetVector(InnerId, InnerBar is var (innerTop, innerHeight, innerInset) && look.InnerColour.a > 0f
-                ? new Vector4(innerTop, innerHeight, look.InnerCornerDp, Mathf.Max(innerInset, 0.01f)) : Vector4.zero);
+            // The panel's one sentence stands under a hairline, never in a strip of its own (F6, 2026-11-10: a lighter strip read as a
+            // button): a 1 dp rule where the sentence's place starts, from the words' left edge to their right.
+            block.SetVector(InnerId, InnerBar is var (innerTop, _, _) && look.InnerColour.a > 0f
+                ? new Vector4(innerTop, 1f, 0f, RoomGeometry.PanelPadDp * GlazeText.Scale) : Vector4.zero);
             block.SetVector(InnerColourId, Srgb(look.InnerColour, look.InnerColour.a));
             glass.SetPropertyBlock(block);
             glass.gameObject.SetActive(true);
@@ -122,7 +124,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public static RoomGlassLook DefaultLook(RoomSurfaceKind kind) =>
             new RoomGlassLook(WithAlpha(Hex(0x3C4247), TintAlpha), WithAlpha(Hex(0x343A3F), TintAlpha), Hex(0x505559), Hex(0x484E52), 1f, shadow: false,
-                innerColour: new Color(1f, 1f, 1f, 0.10f), innerCornerDp: RoomGeometry.SentenceCornerDp);
+                innerColour: new Color(1f, 1f, 1f, 0.12f), innerCornerDp: 0f);
 
         /// <summary>The tint's alpha in Unity's linear blend: the page's 0.72 over a white wall (DESIGN's FINISH-3).</summary>
         public const float TintAlpha = 0.86f;

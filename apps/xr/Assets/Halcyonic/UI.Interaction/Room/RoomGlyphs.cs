@@ -224,6 +224,7 @@ namespace Halcyonic.XR.UI
         {
             ["Send Instruction"] = RoomGlyph.Send, ["Send Answer"] = RoomGlyph.Send, ["Hold to Talk"] = RoomGlyph.Microphone, ["Talk Again"] = RoomGlyph.Microphone,
             ["Type"] = RoomGlyph.Keyboard, ["Stop"] = RoomGlyph.Stop, ["Approve"] = RoomGlyph.Check, ["Deny"] = RoomGlyph.Barred, ["Cancel"] = RoomGlyph.Cross,
+            ["Discard Draft"] = RoomGlyph.Cross,
             ["Make VR Version"] = RoomGlyph.Cube, ["Changes"] = RoomGlyph.Changes, ["Checks"] = RoomGlyph.Checks, ["Back"] = RoomGlyph.Back, ["Next Part"] = RoomGlyph.Next,
             ["Next Page"] = RoomGlyph.Next, ["Next Choices"] = RoomGlyph.Next, ["Previous Part"] = RoomGlyph.Previous, ["Try Build"] = RoomGlyph.Play,
             ["New Project"] = RoomGlyph.Plus, ["Request Change"] = RoomGlyph.Pencil, ["Write Instruction"] = RoomGlyph.Pencil, ["Continue"] = RoomGlyph.Continue,

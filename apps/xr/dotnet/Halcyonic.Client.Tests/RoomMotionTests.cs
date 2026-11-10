@@ -182,8 +182,8 @@ public class RoomMotionTests
         Assert.That(RoomMotion.Pointed(0.075f), Is.EqualTo(0.875f).Within(Close));
         Assert.That(RoomMotion.Pointed(0.15f), Is.EqualTo(1f).Within(Close));
         Assert.That(RoomMotion.ActionScale(0f, false), Is.EqualTo(1f));
-        Assert.That(RoomMotion.ActionScale(1f, false), Is.EqualTo(1.03f).Within(Close));
-        Assert.That(RoomMotion.ActionScale(0.5f, false), Is.EqualTo(1.015f).Within(Close));
+        Assert.That(RoomMotion.ActionScale(1f, false), Is.EqualTo(1.06f).Within(Close));
+        Assert.That(RoomMotion.ActionScale(0.5f, false), Is.EqualTo(1.03f).Within(Close));
         Assert.That(RoomMotion.ActionScale(1f, true), Is.EqualTo(0.96f), "held, it is 0.96 at once, pointed or not");
     }
 
