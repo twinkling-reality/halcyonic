@@ -116,8 +116,13 @@ export interface PermissionRule {
  */
 export const DENIED_TOOLS: readonly string[] = ['execute', 'webfetch', 'websearch', 'subagent'];
 
-const NEVER_ASK_UNSANDBOXED =
-  "OpenCode works without asking only inside Halcyonic's sandbox, which this server does not run in.";
+/**
+ * OpenCode does not offer working without asking yet (ADR 0043): its one server's sandbox lets a
+ * command write every project under the host's project roots, not only the task's (AUDIT,
+ * MODES-step3 F1), so an unasked command could change another project.
+ */
+const NEVER_ASK_REFUSED =
+  "OpenCode does not work without asking yet: its sandbox lets a command write every project under this computer's project folder, not only this task's.";
 
 /** Every spelling of a name by the case of its letters, for a disk that ignores case. */
 function caseSpellings(name: string): string[] {
@@ -165,17 +170,9 @@ const CONFIG_PATHS: readonly string[] = [
  * asks by its own path. A session's rule outranks the person's and the
  * repository's configuration; a saved "always" outranks its ask but not its deny
  * (core/src/permission.ts at v2.0.18; opencode-permissions.md).
- *
- * At the approval level `never_ask` (ADR 0043), only inside Halcyonic's sandbox, nothing these rules
- * or OpenCode's own defaults would ask is asked: shell commands are allowed, and what would ask
- * becomes a refusal, never an approval: an edit outside the task's folder, any path outside it
- * (`external_directory`), and reading `.env` files (OpenCode 2.0.18's agent defaults ask before
- * both, read from the pinned binary). Every denial above stays. A rule in the person's own or the
- * project's OpenCode configuration that asks, for an action these rules do not name, still asks.
  */
 export function sessionPermissions(
   environment: Readonly<Record<string, string>>,
-  approvalLevel: ApprovalLevel = 'ask',
 ): PermissionRule[] {
   const configHome =
     environment.XDG_CONFIG_HOME !== undefined && environment.XDG_CONFIG_HOME !== ''
@@ -202,18 +199,6 @@ export function sessionPermissions(
     resource,
     effect: 'deny' as const,
   }));
-  if (approvalLevel === 'never_ask') {
-    return [
-      ...denied,
-      { action: 'shell', resource: '*', effect: 'allow' },
-      { action: 'external_directory', resource: '*', effect: 'deny' },
-      { action: 'read', resource: '*.env', effect: 'deny' },
-      { action: 'read', resource: '*.env.*', effect: 'deny' },
-      { action: 'read', resource: '*.env.example', effect: 'allow' },
-      { action: 'edit', resource: '/*', effect: 'deny' },
-      ...configuration,
-    ];
-  }
   return [
     ...denied,
     { action: 'shell', resource: '*', effect: 'ask' },
@@ -439,9 +424,6 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       // Inside Halcyonic's sandbox an approved command stays contained (ADR 0028, 0033); without it
       // nothing is declared.
       ...(this.#sandbox !== null ? { approval_may_leave_sandbox: false } : {}),
-      // Only inside Halcyonic's sandbox, which bounds a command allowed without asking to the
-      // project (ADR 0028, ADR 0043; opencode-runtime.e2e.test.ts, 2026-11-10).
-      ...(this.#sandbox !== null ? { offers_never_ask: true } : {}),
     };
   }
 
@@ -468,9 +450,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     modelRef: string | null,
     approvalLevel?: ApprovalLevel,
   ): OptionsValidation {
-    if (approvalLevel === 'never_ask' && this.#sandbox === null) {
-      return { ok: false, message: NEVER_ASK_UNSANDBOXED };
-    }
+    if (approvalLevel === 'never_ask') return { ok: false, message: NEVER_ASK_REFUSED };
     const parsed = parseStartOptions(options, modelRef);
     return parsed.ok ? { ok: true } : { ok: false, message: parsed.message };
   }
@@ -528,9 +508,9 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
 
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closing !== null) throw closedError();
-    const approvalLevel = request.approval_level ?? 'ask';
-    if (approvalLevel === 'never_ask' && this.#sandbox === null) {
-      throw new RuntimeActionError('invalid_runtime_options', NEVER_ASK_UNSANDBOXED);
+    // Refused, never ignored: a choice the runtime does not apply must not be accepted (ADR 0043).
+    if (request.approval_level === 'never_ask') {
+      throw new RuntimeActionError('invalid_runtime_options', NEVER_ASK_REFUSED);
     }
     const parsed = parseStartOptions(request.options, request.model_ref);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
@@ -551,7 +531,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       // The policy's real path. It also avoids the odd relative subpath OpenCode computes for a
       // directory reached through a symbolic link.
       location: { directory },
-      permissions: sessionPermissions(this.#environment, approvalLevel),
+      permissions: sessionPermissions(this.#environment),
     };
     if (parsed.value.model !== null) body.model = parsed.value.model;
     this.#creating += 1;
@@ -571,15 +551,9 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
         'unknown',
       );
     }
-    // The level is recorded only when OpenCode reports the session with exactly the rules it was
-    // given (ADR 0043). A session meant to work without asking that reports other rules is not used.
+    // The level, asking, is recorded only when OpenCode reports the session with exactly the rules it
+    // was given (ADR 0043); otherwise none is recorded.
     const applied = isDeepStrictEqual(info.permissions, body.permissions);
-    if (approvalLevel === 'never_ask' && !applied) {
-      throw new RuntimeActionError(
-        'runtime_refused',
-        'OpenCode did not report the session with the rules it was given to work without asking. The session is not used.',
-      );
-    }
     const session: HostedSession = {
       sessionId: info.id,
       execution: request.execution,
@@ -600,7 +574,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
         'runtime.execution.started',
         {
           native_id: session.sessionId,
-          ...(applied && { approval_level: approvalLevel }),
+          ...(applied && { approval_level: 'ask' as const }),
         },
         {
           native_event_id: null,
