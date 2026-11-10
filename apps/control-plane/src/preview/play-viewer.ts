@@ -255,12 +255,14 @@ export class PlayViewer {
     if (!this.#used) return false;
     const cookies = request.headers.cookie ?? '';
     const prefix = `${this.#cookieName}=`;
-    const value = cookies
+    // Every cookie of its name: a page on another 127.0.0.1 port can plant one for a longer path,
+    // which the browser sends first, so the first alone would keep the person out (AUDIT S2).
+    const session = Buffer.from(this.#session);
+    return cookies
       .split(';')
       .map((part) => part.trim())
-      .find((part) => part.startsWith(prefix))
-      ?.slice(prefix.length);
-    return value !== undefined && same(Buffer.from(value), Buffer.from(this.#session));
+      .filter((part) => part.startsWith(prefix))
+      .some((part) => same(Buffer.from(part.slice(prefix.length)), session));
   }
 }
 
