@@ -182,6 +182,8 @@ namespace Halcyonic.XR.Workspace
             var selected = memory.SelectedProjectId;
             if (navigator.BesideTask is string selectedTask && State?.Workstreams.TryGetValue(selectedTask, out var selectedWork) == true)
                 selected = selectedWork.ProjectId;
+            // The project's kept agent app and model become the choice for its tasks' next starts (kept across restarts).
+            setup.Presentation.UseProject(selected);
             if (selected != null && choices.FindIndex(project => project.ProjectId == selected) >= 3)
             {
                 var current = choices.Single(project => project.ProjectId == selected); choices.Remove(current); choices.Insert(0, current);

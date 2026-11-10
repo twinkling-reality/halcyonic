@@ -609,6 +609,7 @@ public class BuildSequenceTests
 
         // Chosen where the runtime does not offer it: the start leaves the level out, which means ask.
         var plain = Draft();
+        Assert.That(plain.NeverAsk, Is.False, "new work asks unless the flow that shows the level sets it");
         plain.Objective = "Plan dinners for the week.";
         plain.ChooseRuntime(Runtime(null));
         plain.NeverAsk = true;
@@ -620,6 +621,7 @@ public class BuildSequenceTests
         var changed = Draft();
         changed.Objective = "Plan dinners for the week.";
         changed.ChooseRuntime(Runtime(true));
+        changed.NeverAsk = false;
         var refused = new BuildSequence(changed, Commands, "Dinners");
         var reviewedAtAsk = Samples.Reviewed(refused);
         changed.NeverAsk = true;

@@ -2679,12 +2679,20 @@ The last unit turns it on by default and removes the kit parts it replaced.
   the field, the cursor reading Editing and the file's name, Stop alone), `36-work-row` (one that takes one: the row
   under the foot line, no step reported, so no cursor) and `36-stop-confirm`; `RoomWorkingTests` drives Stop and its
   confirmation through a real file column and reads the one command sent.
-- **The level of a task's next start** (ADR 0043), in the client core: the person's choice is kept per project beside
-  the chosen runtime (`WorkspacePresentationState.NeverAskFor`, `ChooseNeverAsk`, cleared where the chosen runtime
-  is). The row's action that names the agent and its level (FIELD's `RoomBar.AgentAtRest`) opens FIELD's page of
-  agents and levels beside the file (`MenuDirector.OpenAgentPage`, taken only from the file's frame as drawn); a pick
-  is kept for the project and the page closes back to the file. While the agent works, where the row does not stand,
-  FIELD's plate names the agent and the level its run recorded, in the row's place (`RoomBarView.LayWork`,
+- **The level of a task's next start** (ADR 0043 and its amendment of 2026-11-10), in the client core: never ask by
+  default wherever the runtime the start uses offers it AND the level is shown before the start goes; Ask First by
+  default anywhere else (AUDIT, 2026-11-11). For a task's next start that is the redesign, whose row names the agent
+  and its level at rest (`WorkspacePresentationState.NeverAskByDefault`, given `RoomDesign.Enabled` by the director);
+  for new work, only where its review names the level (`NewWorkDraft.NeverAsk`, false unless the flow that shows the
+  level sets it). The person chooses Ask First or Never Ask per project (`NeverAskFor`, `ChooseNeverAsk`). Each
+  project's choice, its agent app, model and level, is kept across restarts of the headset app where the headset
+  keeps its settings (`ProjectChoices`, under `halcyonic.project-choices` through `IDevicePreferences`,
+  `PlayerPreferences` on the device); what cannot be read is no choice. The director makes the project in context the
+  one whose agent app and model are chosen (`UseProject`, on every layout), and every change of agent app or model is
+  kept for it. The row's action that names the agent and its level (FIELD's `RoomBar.AgentAtRest`) opens FIELD's page
+  of agents and levels beside the file (`MenuDirector.OpenAgentPage`, taken only from the file's frame as drawn); a
+  pick is kept for the project and the page closes back to the file. While the agent works, where the row does not
+  stand, FIELD's plate names the agent and the level its run recorded, in the row's place (`RoomBarView.LayWork`,
   `LayPlate`). The choice alone is not the level: a start carries `approval_level` never ask only where the person chose it
   and the runtime it starts on says it offers it (`offers_never_ask` true), and leaves the field out otherwise,
   which means ask (`KitPresenter.RunChoiceOf`, `RunChoice.NeverAsk`, `WorkspaceSteering.Start`,

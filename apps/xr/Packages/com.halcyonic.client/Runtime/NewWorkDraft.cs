@@ -31,7 +31,11 @@ namespace Halcyonic.Client
 
         public RuntimeModel? Model { get; private set; }
 
-        /// <summary>Whether the person chose never ask for this start (ADR 0043). The choice alone is not the level the start uses (<see cref="StartsNeverAsk"/>).</summary>
+        /// <summary>
+        /// Whether this start is to be never ask (ADR 0043): false, Ask First, unless the flow that shows the level before
+        /// the start sets it (the review's Model row naming the level; AUDIT, 2026-11-11). The choice alone is not the level
+        /// the start uses (<see cref="StartsNeverAsk"/>).
+        /// </summary>
         public bool NeverAsk { get; set; }
 
         /// <summary>The level this start will use is never ask: the person chose it and the chosen runtime's descriptor offers it. Otherwise it asks.</summary>
