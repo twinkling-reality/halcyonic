@@ -20,7 +20,8 @@ namespace Halcyonic.XR.Workspace.Editor
     {
         private static readonly string[] BarStates =
         {
-            "31-bar-rest", "31-bar-listening", "31-bar-listening-no-level", "31-bar-typing", "31-bar-typed", "31-bar-heard", "31-bar-confirm", "31-bar-sent",
+            "31-bar-rest", "31-bar-listening", "31-bar-listening-no-level", "31-bar-typing", "31-bar-typed", "31-bar-heard", "31-bar-confirm", "31-bar-confirm-part",
+            "31-bar-sent",
         };
 
         /// <summary>What a microphone recorded, 50 ms a step, rising then falling: real samples the level is taken from, as hold to talk takes it.</summary>
@@ -40,6 +41,15 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The design's own draft, synthetic.</summary>
         private const string BarDraft = "Add a golden balloon worth five points, and remove the old backup file.";
 
+        /// <summary>A heard instruction holding backslashes, synthetic: the confirmation must read exactly the words that will be sent.</summary>
+        private const string BarConfirmWords = @"Add a golden balloon worth five points in games\balloon.js, matching \d+ points.";
+
+        /// <summary>A heard instruction long enough for the file to cut in parts, with a backslash in its first, synthetic.</summary>
+        private const string BarLongWords = @"Add a golden balloon worth five points in games\balloon.js, then a silver one worth three, then a bomb that ends the round "
+            + "when it is popped. Keep the score in the top corner, count each pop once, play the short pop sound for every balloon and the low one for the bomb, "
+            + "and show the best score of the day under it. When the round ends, show the three best scores with the time each was made, let the player start again "
+            + "with one press, and keep every balloon inside the play area at both screen sizes. Then remove the old backup file and run the tests again.";
+
         private static Shot BarShot(string state, Transform root, Vector3 eyes)
         {
             var (voice, sent, expected, caption) = state switch
@@ -50,6 +60,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "31-bar-typed" => (VoiceStage.Idle, false, RoomBarState.Draft, "A typed draft read: Send Instruction and Cancel, no sentence bar, synthetic data"),
                 "31-bar-heard" => (VoiceStage.Idle, false, RoomBarState.Draft, "A heard draft read: Send Heard Instruction?, Send Instruction, Talk Again and Cancel, synthetic data"),
                 "31-bar-confirm" => (VoiceStage.Idle, false, RoomBarState.Confirm, "An instruction's confirmation read: Confirm and Cancel, synthetic data"),
+                "31-bar-confirm-part" => (VoiceStage.Idle, false, RoomBarState.Confirm, "A long instruction's confirmation, its first part: Next Part and Cancel, synthetic data"),
                 "31-bar-sent" => (VoiceStage.Idle, true, RoomBarState.Sent, "Sent, the run not started yet, synthetic data"),
                 _ => (VoiceStage.Idle, false, RoomBarState.Rest, "At rest: Hold to Talk and Type, synthetic data"),
             };
@@ -71,12 +82,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 screen.Instruction.Restore(workspace.Execution!.ExecutionId, BarDraft, true, 0);
                 screen.Instruction.Drawn(DateTimeOffset.UtcNow);
             }
-            if (state == "31-bar-confirm")
+            // What the confirmation's panel must read: the armed words, or the part of them the file shows first.
+            string? armedWords = null;
+            if (state is "31-bar-confirm" or "31-bar-confirm-part")
             {
-                if (steering.Spoken(BarDraft, workspace).Step != SteeringStep.Confirm) shot.Failures.Add("the heard instruction did not arm its confirmation");
+                var heard = state == "31-bar-confirm" ? BarConfirmWords : BarLongWords;
+                if (steering.Spoken(heard, workspace).Step != SteeringStep.Confirm) shot.Failures.Add("the heard instruction did not arm its confirmation");
                 var request = steering.ToRead(workspace)!;
-                screen.ReadRequest(request, MenuFrameView.RowsOf(FileScreens.RequestLine(steering, request), Glaze.Menu.FileColumnDegrees), 3, steering);
+                var rows = MenuFrameView.RowsOf(FileScreens.RequestLine(steering, request), Glaze.Menu.FileColumnDegrees);
+                // A part as tall as the file gives one: every row of a page of eight.
+                screen.ReadRequest(request, rows, state == "31-bar-confirm" ? 3 : 8, steering);
                 screen.RequestDrawn(0, steering, DateTimeOffset.UtcNow);
+                if (state == "31-bar-confirm-part" && screen.RequestParts < 2) shot.Failures.Add("the long instruction is one part of " + rows + " rows");
+                armedWords = request;
             }
             var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4));
             var binding = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Open ? screen.Instruction.Words : "", new ConnectionStatus(ConnectionPhase.Live),
@@ -164,6 +182,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(Mathf.Abs(panel.Size.x - RoomType.Units(RoomGeometry.PanelDp)) < Tolerance, "the panel is not 440 dp wide");
                     Whole(bar.Body, "the panel's words");
                     Require(bar.Body.text.Length == 0 || bar.Body.text.Contains(BarDraft.Substring(0, 20)), "the panel does not hold the person's words");
+                    if (armedWords != null)
+                    {
+                        // The confirmation reads exactly the words that will be sent: as the label parses them, each backslash once (AUDIT, 2026-11-10).
+                        bar.Body.ForceMeshUpdate(true);
+                        var read = bar.Body.GetParsedText();
+                        Require(read.Contains("\\") && !read.Contains("\\\\"), "the panel reads \"" + read + "\", its backslashes not as written");
+                        Require(state == "31-bar-confirm" ? read == armedWords : read.Length > 0 && armedWords.StartsWith(read.TrimEnd(), StringComparison.Ordinal),
+                            "the panel reads \"" + read + "\", not the armed words \"" + armedWords + "\"");
+                    }
                     Require((panel.InnerBar != null) == (shown.Sentence != null), "the sentence bar does not follow the sentence");
                     if (shown.Sentence != null)
                     {

@@ -281,7 +281,10 @@ namespace Halcyonic.XR.UI
 
             // The words, the person's, whole: the draft, or the part of the instruction the file shows now.
             RoomType.Size(body);
-            var words = bar.Part is PageLine part && part.FromRow != null ? LineWords.Theirs(MenuFrameView.PartText(part, Glaze.Menu.FileColumnDegrees)) : bar.Body;
+            // A part comes back as a piece of a label's own text, its backslashes doubled: made words again before the label
+            // takes them, so the person reads exactly the words that will be sent.
+            var words = bar.Part is PageLine part && part.FromRow != null
+                ? LineWords.Theirs(LabelText.FromTextMeshPro(MenuFrameView.PartText(part, Glaze.Menu.FileColumnDegrees))) : bar.Body;
             var runs = GlazeRuns.Of(body);
             runs.Set(words);
             runs.SetProseMode(true);

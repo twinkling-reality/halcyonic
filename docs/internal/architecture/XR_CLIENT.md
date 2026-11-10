@@ -2546,7 +2546,8 @@ The last unit turns it on by default and removes the kit parts it replaced.
   instruction armed to send (a heard one
   always is) is bound for the redesign alone (`KitFileBinding.Of(..., roomDesign: true)`, `KitWorkModel.Instruction`):
   its words in the panel, part by part as the file cuts them (`MenuFrameView.PartText`, so no word is skipped or read
-  twice), the file's question in the sentence bar (Read to Part N, then Send Heard Instruction?), and in the column the
+  twice; a part is a piece of a label's own text, so `LabelText.FromTextMeshPro` makes it words again before the
+  panel's label takes them, and a backslash reads once, as it will be sent), the file's question in the sentence bar (Read to Part N, then Send Heard Instruction?), and in the column the
   confirmation's Confirm once all of it was drawn, Next Part while parts remain, and Cancel. The column's actions stand
   left-aligned, the main one first, at the hand-target pitch, the last one's foot on the panel's foot. Sending, then Sent ·
   Awaiting Start while the task's run was asked for and has not started, stands as words alone, sweeping (`GlazeShimmer`), as
@@ -2556,7 +2557,9 @@ The last unit turns it on by default and removes the kit parts it replaced.
   of it 4 dp after its words inside its halo, drawn once and scaled so a frame draws nothing. A release build records
   nothing (`HoldToTalk.CurrentLevel` is null) and shows Listening without bars.
 - **Checks:** `KitRender.Check`'s states `31-bar-rest`, `31-bar-listening` (the level from recorded samples),
-  `31-bar-listening-no-level`, `31-bar-typing`, `31-bar-typed`, `31-bar-heard`, `31-bar-confirm` and `31-bar-sent`, on the real host bound
+  `31-bar-listening-no-level`, `31-bar-typing`, `31-bar-typed`, `31-bar-heard`, `31-bar-confirm` (words holding
+  backslashes, read back from the label exactly as armed), `31-bar-confirm-part` (a long instruction's first part,
+  eight of the file's rows, inside the field at both sizes) and `31-bar-sent`, on the real host bound
   to production frames: state, the old kit not drawn, words whole in the one size, the row's sizes and gap, the panel's
   material and width, the sentence bar, the caret, the column's order, alignment, foot and 12 mm gaps, and presses
   reaching the file's Tell it, keyboard, Confirm and Cancel; `32-actions` for every look. `LevelHistoryTests` and

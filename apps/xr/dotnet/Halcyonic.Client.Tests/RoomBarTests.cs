@@ -131,6 +131,111 @@ public class RoomBarTests
     }
 
     [Test]
+    public void AThreePartInstructionOffersConfirmOnlyAfterItsLastPartWasDrawnAndSendsOnce()
+    {
+        var now = Now;
+        var workspace = Running(WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = new WorkspaceSteering(factory, () => now);
+        var words = "Add a golden balloon worth five points, then a silver one worth three, then a bomb that ends the round when it is popped.";
+        Assert.That(steering.Spoken(words, workspace).Step, Is.EqualTo(SteeringStep.Confirm));
+        var screen = new FileScreen { Section = FileSection.Activity, Speak = true };
+        // Three parts: 3 rows, one a part.
+        screen.ReadRequest(steering.ToRead(workspace)!, 3, 1, steering);
+
+        var first = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
+        Assert.That(first.Column.Any(action => action.Place == KitPlace.Yes), Is.False, "no Confirm at part 1");
+        // A Confirm no control offers: the steering refuses it and stays armed.
+        Assert.That(steering.Confirm(workspace).Step, Is.EqualTo(SteeringStep.Explain));
+        Assert.That(steering.Armed, Is.EqualTo(WorkspaceAction.Instruct));
+
+        // Next Part before the part was drawn turns nothing; a double press turns one part only.
+        screen.NextRequestPart(steering, now);
+        Assert.That(screen.RequestPart, Is.EqualTo(0), "not drawn, not turned");
+        screen.RequestDrawn(0, steering, now);
+        screen.NextRequestPart(steering, now.AddSeconds(0.1));
+        Assert.That(screen.RequestPart, Is.EqualTo(0), "inside the turn guard");
+        now = now.AddSeconds(1);
+        screen.NextRequestPart(steering, now);
+        screen.NextRequestPart(steering, now);
+        Assert.That(screen.RequestPart, Is.EqualTo(1), "a double press turns one part");
+        Assert.That(RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false).Column.Any(action => action.Place == KitPlace.Yes), Is.False);
+        screen.RequestDrawn(1, steering, now);
+        now = now.AddSeconds(1);
+        screen.NextRequestPart(steering, now);
+        Assert.That(screen.RequestPart, Is.EqualTo(2));
+        Assert.That(RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false).Column.Any(action => action.Place == KitPlace.Yes), Is.False,
+            "turned to the last part is not read");
+        Assert.That(steering.Confirm(workspace).Step, Is.EqualTo(SteeringStep.Explain), "turned to, not drawn: refused");
+
+        screen.RequestDrawn(2, steering, now);
+        Assert.That(RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false).Column[0].Place, Is.EqualTo(KitPlace.Yes));
+
+        // Confirm, twice: one command with the armed words, then nothing.
+        var sent = steering.Confirm(workspace);
+        Assert.That(sent.Step, Is.EqualTo(SteeringStep.Send));
+        Assert.That(((ExecutionSendInstructionCommand)sent.Command!).Payload.Text, Is.EqualTo(words));
+        Assert.That(steering.Confirm(workspace).Step, Is.EqualTo(SteeringStep.None));
+        Assert.That(Bind(workspace, steering, screen).Model.Instruction, Is.Null, "after the send nothing is armed");
+    }
+
+    [Test]
+    public void AfterCancelATimeoutOrAChangedTaskConfirmSendsNothing()
+    {
+        var now = Now;
+        var workspace = Running(WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = new WorkspaceSteering(factory, () => now);
+        var screen = new FileScreen { Section = FileSection.Activity, Speak = true };
+
+        // Cancel, then a late Confirm.
+        steering.Spoken("Add a test.", workspace);
+        screen.ReadRequest(steering.ToRead(workspace)!, 1, 3, steering);
+        screen.RequestDrawn(0, steering, now);
+        Assert.That(steering.CanConfirm, Is.True);
+        steering.Cancel();
+        screen.ForgetRequest();
+        Assert.That(steering.Confirm(workspace).Step, Is.EqualTo(SteeringStep.None), "after Cancel");
+
+        // A read counted for one arming never counts for the next, even with the same words.
+        steering.Spoken("Add a test.", workspace);
+        screen.RequestDrawn(0, steering, now);
+        Assert.That(steering.CanConfirm, Is.False, "a new arming is unread");
+        Assert.That(RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false).Column.Any(action => action.Place == KitPlace.Yes), Is.False);
+
+        // Read, then the task no longer takes instructions: refused, and disarmed.
+        screen.ReadRequest(steering.ToRead(workspace)!, 1, 3, steering);
+        screen.RequestDrawn(0, steering, now);
+        Assert.That(steering.CanConfirm, Is.True);
+        Assert.That(steering.Confirm(Running(WorkspaceAction.Interrupt)).Step, Is.EqualTo(SteeringStep.Explain));
+        Assert.That(steering.Armed, Is.Null);
+
+        // Read, then left too long: refused.
+        steering.Spoken("Add a test.", workspace);
+        screen.ReadRequest(steering.ToRead(workspace)!, 1, 3, steering);
+        screen.RequestDrawn(0, steering, now);
+        now = now.AddMinutes(30);
+        Assert.That(steering.Confirm(workspace).Step, Is.EqualTo(SteeringStep.Explain));
+    }
+
+    [Test]
+    public void ABackslashInTheInstructionReachesThePanelsLabelEscapedExactlyOnce()
+    {
+        var workspace = Running(WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = new WorkspaceSteering(factory, () => Now);
+        const string words = @"Match \d+ in C:\temp";
+        steering.Spoken(words, workspace);
+        var screen = new FileScreen { Section = FileSection.Activity, Speak = true };
+        screen.ReadRequest(steering.ToRead(workspace)!, 1, 3, steering);
+        var bar = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
+        Assert.That(bar.Part!.FromRow, Is.Not.Null, "a confirmation's line is always a part, so the panel always reads it as the file cut it");
+        // The file's part is a piece of the label's own text, each backslash doubled; the panel makes it words again before it sets them.
+        var piece = bar.Part.Runs.ForTextMeshPro().Text;
+        Assert.That(piece.Count(c => c == '\\'), Is.EqualTo(4));
+        Assert.That(LabelText.FromTextMeshPro(piece), Is.EqualTo(words));
+        Assert.That(LineWords.Theirs(LabelText.FromTextMeshPro(piece)).ForTextMeshPro().Text, Is.EqualTo(piece), "set on the label, it is escaped once, so the label draws the words as written");
+        Assert.That(LineWords.Theirs(piece).ForTextMeshPro().Text.Count(c => c == '\\'), Is.EqualTo(8), "handed on as it came, each backslash would be drawn twice");
+    }
+
+    [Test]
     public void WithoutTheRedesignAnInstructionsConfirmationStaysTheFilesOwn()
     {
         var workspace = Running(WorkspaceAction.Instruct);
