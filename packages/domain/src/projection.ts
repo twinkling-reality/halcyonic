@@ -842,7 +842,8 @@ export class Projection {
           recorded_at: state.recordedAt,
           position: state.position,
           files: checkFilesState(state),
-          workstream_id: state.workstreamId,
+          // A check kept from before copies has none: the project's own folder.
+          workstream_id: state.workstreamId ?? null,
         };
   }
 
@@ -1838,7 +1839,8 @@ export class Projection {
       attention: deriveAttention(executions, current),
       current_execution_id: current?.executionId ?? null,
       execution_ids: [...state.executionIds],
-      ...(state.copy === null ? {} : { copy: cloneCopy(state.copy) }),
+      // A task kept from before copies has no copy field at all: as none.
+      ...(state.copy == null ? {} : { copy: cloneCopy(state.copy) }),
       created_at: state.createdAt,
       updated_at: state.updatedAt,
     };
@@ -1903,7 +1905,7 @@ export class Projection {
       this.#onCheckVisited?.();
       if (
         directory !== undefined &&
-        state.folder !== null &&
+        state.folder != null &&
         !foldersOverlap(state.folder, directory)
       )
         continue;
