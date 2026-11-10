@@ -178,6 +178,11 @@ has passed one press sends the one approval. Those moments draw only the redesig
 whole and inside the field at both sizes; the frame checks fail only on the actions' glyphs (the
 check reaches 3.1 to 4.4:1 and the cross 3.4:1 over the render's black ground, under 4.5:1).
 
+On the XR lane's question (3b0c200b) the walk answers through the redesign too: the prompt on the
+words band, an answer chosen, Review Answers and Send Answer, and the one answer sent by the
+redesign's own press. Those frames pass every check but the glyphs' contrast again (Send Answer's
+and Back's glyphs reach 2.0 to 4.2:1).
+
 ## Gaps against today's product
 
 | Area | Today in the judge build | Evidence | Who closes it |
