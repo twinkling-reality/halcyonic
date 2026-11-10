@@ -78,6 +78,9 @@ namespace Halcyonic.Client
         private int shownPart;
         private string? instructionExecution;
 
+        /// <summary>The run Stop was pressed on: its confirmation stops that run or none (AUDIT, 2026-11-10).</summary>
+        private string? interruptExecution;
+
         /// <summary>The run an armed instruction starts on Yes, where Send starts the task's next run (SWITCH).</summary>
         private RunChoice? armedChoice;
 
@@ -153,6 +156,7 @@ namespace Halcyonic.Client
             {
                 Arm(action, approvalId, null);
                 ArmedRequest = IsAnswer(action) ? Request(workspace) : null;
+                if (action == WorkspaceAction.Interrupt) interruptExecution = workspace.Execution?.ExecutionId;
                 return SteeringOutcome.Of(SteeringStep.Confirm);
             }
             return SteeringOutcome.Send(Build(action, workspace.Execution!.ExecutionId, approvalId, null));
@@ -369,6 +373,7 @@ namespace Halcyonic.Client
             armedAnswers = null;
             Armed = null;
             instructionExecution = null;
+            interruptExecution = null;
             armedChoice = null;
             ArmedApprovalId = null;
             ArmedRequest = null;
@@ -480,6 +485,8 @@ namespace Halcyonic.Client
                 if (WorkspaceText.NeedFromYou(workspace) != null) return "Not Sent · Answer Approval First";
                 if (armedChoice != null && !KitPresenter.AtRest(workspace)) return "Not Sent · Task Changed · Check and Retry";
             }
+            // Stop was read and pressed on one run: where the task runs another by now, nothing is stopped.
+            if (Armed == WorkspaceAction.Interrupt && interruptExecution != workspace.Execution?.ExecutionId) return "Not Sent · Task Changed · Check and Retry";
             if (!workspace.Actions.Contains(Armed!.Value)) return "Not Sent · Task Changed · Check and Retry";
             if (IsAnswer(Armed.Value)
                 && workspace.Execution?.PendingApprovals.Any(pending => pending.ApprovalId == ArmedApprovalId) != true)
