@@ -60,6 +60,9 @@ namespace Halcyonic.Client
 
         /// <summary>Back to the question before, or the answers' part before.</summary>
         Back,
+
+        /// <summary>An answer sent that may still take effect, standing where the answer was and taking no press; bound only for the redesign.</summary>
+        Sending,
     }
 
     /// <summary>
@@ -169,12 +172,15 @@ namespace Halcyonic.Client
         /// <paramref name="draft"/>; null where the kit can't draw the frame whole. The composer's chips are
         /// <paramref name="selectors"/> as given (<see cref="KitPresenter.ChipsOf"/>); without them, the workspace's own
         /// runtime's, locked. With <paramref name="roomDesign"/> (<see cref="RoomDesign.Enabled"/>) an instruction's confirmation
-        /// binds too (<see cref="KitWorkModel.Instruction"/>), which the old kit has no place for. <paramref name="draftSpoken"/>:
+        /// binds too (<see cref="KitWorkModel.Instruction"/>), which the old kit has no place for, and an approval's page binds
+        /// with a long request in parts, an answer in flight and the file's notice (<see cref="KitNeed.Part"/>,
+        /// <see cref="KitNeed.Sending"/>, <see cref="KitNeed.Says"/>), with <paramref name="requestRows"/> the rows the file
+        /// counted for what its confirmation reads, where it has measured it. <paramref name="draftSpoken"/>:
         /// the draft was heard, not typed (<see cref="FileInstruction.Spoken"/>).
         /// </summary>
         public static KitFileBinding? Of(MenuFrame frame, WorkspaceAction? armed, WorkspacePresentation workspace, string draft, ConnectionStatus connection,
             string projectName, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot = null, KitAvatar? avatar = null,
-            KitSelectors? selectors = null, bool roomDesign = false, bool draftSpoken = false)
+            KitSelectors? selectors = null, bool roomDesign = false, bool draftSpoken = false, int? requestRows = null)
         {
             if (frame.Side != null) return null;
             // The kit shows an approval's, a denial's or the answers' confirmation, and the redesign an instruction's too; any
@@ -184,7 +190,7 @@ namespace Halcyonic.Client
             var controls = new List<KitControl>();
             foreach (var (slot, prompt) in frame.Footer.All)
             {
-                var place = PlaceOf(slot, prompt);
+                var place = roomDesign && prompt.Id == WorkspaceScreens.Sent && !prompt.Available ? KitPlace.Sending : PlaceOf(slot, prompt);
                 if (place == null || controls.Any(control => control.Place == place)) return null;
                 controls.Add(new KitControl(place.Value, frame, prompt.Id, null, prompt.Words, prompt.Icon, prompt.Available, prompt.Reason, prompt.Holds));
             }
@@ -217,22 +223,43 @@ namespace Halcyonic.Client
             {
                 var lines = frame.Lines;
                 if (lines.Count < 2 || lines[0].Action != null || lines[lines.Count - 1].Action != null || cancel == null) return null;
-                instruction = new KitInstruction(lines[0], lines[lines.Count - 1].Words);
+                instruction = new KitInstruction(lines[0], lines[lines.Count - 1].Words, requestRows);
             }
             KitNeed? need = null;
-            if (instruction == null && (deny != null || approve != null || cancel != null) && KitPresenter.NeedOf(workspace) is KitNeed asked)
+            var sending = At(KitPlace.Sending);
+            if (instruction == null && (deny != null || approve != null || cancel != null || sending != null) && KitPresenter.NeedOf(workspace) is KitNeed asked)
             {
                 KitConfirmation? confirming = null;
+                PageLine? part = null;
+                string? says = null;
+                var texts = frame.Lines.Where(line => line.Action == null).ToList();
                 if (cancel != null && armed is WorkspaceAction answer)
                 {
                     // The question under the request is the frame's own last line: what to read first, then whether to answer.
                     var question = frame.Lines.Count > 0 ? frame.Lines[frame.Lines.Count - 1].Words : "";
+                    if (roomDesign)
+                    {
+                        // The redesign reads the request as the file cut it, and a notice the file stands after its question.
+                        var at = texts.FindLastIndex(line => line.Words == WorkspaceText.ReadRequestFirst || line.Words == WorkspaceText.ConfirmationPrompt(answer, null));
+                        if (at < 1 || at + 2 < texts.Count) return null;
+                        question = texts[at].Words;
+                        part = texts[0];
+                        if (at + 1 < texts.Count) says = texts[at + 1].Words;
+                    }
                     var yes = At(KitPlace.Yes);
                     confirming = new KitConfirmation(answer == WorkspaceAction.Approve, question, yes?.Words ?? WorkspaceText.ConfirmLabel(answer),
                         yes != null && yes.Available, question);
                 }
+                else if (roomDesign && texts.Count > 0)
+                {
+                    // Asked: a last line that is none of the page's own is what the file says now, a lapse's notice or why no answer can be given.
+                    var last = texts[texts.Count - 1].Words;
+                    var own = last == asked.Asks.Text || last == asked.Request || last == asked.ScopeNote || asked.Notes.Contains(last);
+                    if (!own && texts.Count > 1) says = last;
+                    else says = texts.Skip(1).Select(line => line.Words).FirstOrDefault(words => words == WorkspaceText.WhyNoActions(workspace));
+                }
                 need = new KitNeed(asked.Asks, asked.Request, asked.ScopeNote, asked.Notes, deny?.Words ?? asked.DenyWords, approve?.Words ?? asked.ApproveWords,
-                    deny != null && deny.Available, approve != null && approve.Available, confirming);
+                    deny != null && deny.Available, approve != null && approve.Available, confirming, part, says, sending != null, asked.Commands, part != null ? requestRows : null);
             }
             else if (instruction == null && (cancel != null || At(KitPlace.Yes) != null) && armed != WorkspaceAction.Answer) return null;
             // A question's page, wherever the file draws one (never Activity, which says only where it waits): its own lines, as drawn.
@@ -258,6 +285,8 @@ namespace Halcyonic.Client
                 // A line that acts is a control, with its own words.
                 if (frame.Lines[index].Action != null) continue;
                 var words = frame.Lines[index].Words;
+                // The redesign's approval shows the request and one sentence; the page's other lines (its notes, where a command runs) it leaves out by design.
+                if (roomDesign && need != null) continue;
                 var question = cancel != null && index == frame.Lines.Count - 1;
                 var request = need?.Request is string whole && (words == whole || words.EndsWith(": " + whole, System.StringComparison.Ordinal))
                     || (instruction != null && index == 0);

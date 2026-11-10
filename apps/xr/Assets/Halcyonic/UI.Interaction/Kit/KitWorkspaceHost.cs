@@ -168,8 +168,14 @@ namespace Halcyonic.XR.UI
         public bool Holds(KitFileBinding binding)
         {
             var model = binding.Model;
-            // The redesign's panel grows with an instruction under confirmation, which the old kit never draws.
-            if (RoomDesign.Enabled && model.Instruction != null) return true;
+            // The redesign's panel holds every approval and every instruction under confirmation, read part by part, eight of
+            // its own lines a part: but only where the file counted what is read by the panel's lines (RoomBarView.Lines), so
+            // the file's parts are the panel's. Where it counted otherwise, the file draws the frame itself.
+            if (RoomDesign.Enabled && (model.Instruction != null || model.Need != null))
+            {
+                var read = RoomBar.Of(binding, Voice(), AwaitingStart());
+                return read.Rows is not int rows || bar.Lines(read.Body, read.Mono) == rows;
+            }
             if (model.Draft.Length > 0 && RowsOf(model.Draft) > ComposerRows) return false;
             if (model.Need?.Request is string request && RowsAt(request, SlateInner() - 2f * KitType.Scaled(1f)) > 8) return false;
             var shown = this.binding;
@@ -216,9 +222,9 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// While the redesign is on (<see cref="RoomDesign.Enabled"/>), the old kit is not drawn at all (the owner, 2026-11-05):
         /// its spine, slate and rail and every row hide, and the room shows only the redesign's parts: the instruction's row, its
-        /// draft and confirmation moments, or its words (<see cref="RoomBar"/>). What no redesign unit draws yet is absent: a
-        /// frame asking an approval or a question shows nothing and is never reported drawn, so nothing counts as read that no one
-        /// saw. Off, the kit stands whole and the instruction hides.
+        /// draft and confirmation moments, an approval and its confirmation, or its words (<see cref="RoomBar"/>). What no
+        /// redesign unit draws yet is absent: a frame asking a question shows nothing and is never reported drawn, so nothing
+        /// counts as read that no one saw. Off, the kit stands whole and the instruction hides.
         /// </summary>
         private void ShowBar(KitFileBinding binding)
         {

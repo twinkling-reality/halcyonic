@@ -1249,9 +1249,22 @@ namespace Halcyonic.XR.Workspace
 
         public int RowsOf(string words, float columnDegrees) => MenuFrameView.RowsOf(words, columnDegrees);
 
-        /// <summary>The rows a line takes where it is drawn: the person's instruction in the kit's composer while the kit draws the file.</summary>
-        public int RowsOf(PageLine line, float columnDegrees) => plane.KitShows && line.Action == FileScreens.EditInstruction
-            ? plane.Kit.RowsOf(line.Words) : MenuFrameView.RowsOf(line, columnDegrees);
+        /// <summary>
+        /// The rows a line takes where it is drawn: the person's instruction in the kit's composer while the kit draws the file;
+        /// and, while the redesign draws it, what a confirmation reads (an approval's request, an armed instruction's words) in
+        /// the panel's own lines, so the file's parts are the panel's (<see cref="RoomBar.Reading"/>).
+        /// </summary>
+        public int RowsOf(PageLine line, float columnDegrees)
+        {
+            if (plane.KitShows && line.Action == FileScreens.EditInstruction) return plane.Kit.RowsOf(line.Words);
+            if (RoomDesign.Enabled && plane.KitShows && line.Action == null && navigator.Beside is FileColumn file && file.Now is WorkspacePresentation now
+                && file.Steering.ToRead(now) is string read && line.Words == read)
+            {
+                var (words, mono) = RoomBar.Reading(line, WorkspaceText.NeedFromYou(now)?.Request, file.Steering.Armed == WorkspaceAction.Instruct);
+                return plane.Kit.Bar.Lines(words, mono);
+            }
+            return MenuFrameView.RowsOf(line, columnDegrees);
+        }
 
         public bool FitsHalf(PageLine answer, float columnDegrees) => MenuFrameView.FitsHalf(answer, columnDegrees);
 

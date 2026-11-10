@@ -166,6 +166,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (composing != "task at activity, agent chosen, composing" || Opened()?.Screen.Instruction.Open != true || keyboards != 0
                     || presentation.SelectedRuntimeId != runtimeId || director.Navigator.BesideTask != running.Workstream.WorkstreamId)
                     failures.Add(label + "the composing preset did not open the instruction without the keyboard for the chosen agent (" + composing + ")");
+                // The redesign's draft screens, which need a keyboard or a voice otherwise: the one fixed draft, typed, then as if heard; nothing sent.
+                var typed = Apply(CapturePresets.Parse("task:" + running.Execution.ExecutionId + ":activity", false, null, false, false, draft: true));
+                if (typed != "task at activity, typed draft" || Opened()?.Screen.Instruction is not { Open: true, Spoken: false, Words: CapturePresets.DraftWords } || keyboards != 0)
+                    failures.Add(label + "the typed draft preset did not open the instruction holding the fixed draft (" + typed + ")");
+                var heard = Apply(CapturePresets.Parse("task:" + running.Execution.ExecutionId + ":activity", false, null, false, false, heard: true));
+                if (heard != "task at activity, heard draft" || Opened()?.Screen.Instruction is not { Open: true, Spoken: true, Words: CapturePresets.DraftWords } || keyboards != 0)
+                    failures.Add(label + "the heard draft preset did not open the instruction holding the fixed draft as heard (" + heard + ")");
+                if (sends != 0) failures.Add(label + "a draft preset sent " + sends);
                 if (Apply(CapturePresets.Parse("task:" + running.Execution.ExecutionId + ":changes", false, "render-unregistered", false, false)) != "task at changes"
                     || presentation.SelectedRuntimeId != runtimeId)
                     failures.Add(label + "a runtime no one registered was chosen");

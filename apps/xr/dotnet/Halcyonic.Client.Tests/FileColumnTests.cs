@@ -2474,6 +2474,54 @@ public class FileColumnTests
     }
 
     [Test]
+    public void TheRedesignsApprovalSendsThroughTheFilesOwnActionsAndOnlyAfterItsRequestWasDrawn()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var host = new FileMenuHost();
+            var work = new WaitingWork();
+            work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+            var column = Column(host, () => work.Present());
+            Assert.That(column.Screen.Section, Is.EqualTo(FileSection.Activity));
+
+            // The approval arrives while Activity shows: the redesign has no sections to choose, so the file turns to what waits.
+            const string migration = "Run the migration against the staging database, then check every table for rows the new column left empty";
+            work.Change(execution => { execution.PendingApprovals.Add(WaitingWork.Approval(WaitingWork.ApprovalId, migration, Samples.Time)); execution.Status = ExecutionStatus.WaitingForHuman; },
+                WorkstreamStatus.WaitingForHuman);
+            // What draws the confirmation gives a part its rows, as the redesign's panel does: here two of this host's rows.
+            column.RequestPartRowsOf = () => 2;
+            column.Reflow();
+            Assert.That(column.Screen.Section, Is.EqualTo(FileSection.Waiting));
+            RoomBar Bar() => RoomBar.Of(KitFileBinding.Of(column.Frame!, column.Steering.Armed, column.Now!, "", new ConnectionStatus(ConnectionPhase.Live), "Storefront",
+                new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true)!, VoiceStage.Idle, false);
+            void Press(RoomAction action) => column.Act(action.Control.Action, action.Control.Key);
+
+            var asked = Bar();
+            Assert.That(asked.Column.Select(action => action.Words), Is.EqualTo(new[] { "Approve", "Deny" }));
+            Draw(host, column);
+            Press(asked.Column[0]);
+            Assert.That((column.Steering.Armed, host.Sent.Count), Is.EqualTo(((WorkspaceAction?)WorkspaceAction.Approve, 0)), "Approve asks for its confirmation and sends nothing");
+
+            var unread = Bar();
+            Assert.That((column.Screen.RequestPartRows, column.Screen.RequestParts), Is.EqualTo((2, 2)), "the request is cut by the rows its drawing gives");
+            Assert.That(unread.Column.Select(action => action.Words), Is.EqualTo(new[] { "Next Part · 2 of 2", "Cancel" }), "no Confirm before the whole request was drawn");
+            Draw(host, column);
+            Press(Bar().Column[0]);
+            Assert.That((column.Screen.RequestPart, Bar().Column.Select(action => action.Words).First(), host.Sent.Count), Is.EqualTo((1, "First Part · 1 of 2", 0)),
+                "the last part turned to is not yet read");
+            Draw(host, column);
+            var read = Bar();
+            Assert.That((read.Sentence, read.Column[0].Words, read.Column[0].Locks), Is.EqualTo(("Approve Request?", "Confirm", true)));
+            Press(read.Column[0]);
+            Assert.That(host.Sent.Select(command => command.CommandType), Is.EqualTo(new[] { "execution.respond_to_approval" }));
+            Assert.That(((ExecutionRespondToApprovalCommand)host.Sent[0]).Payload.Decision, Is.EqualTo(ApprovalDecision.Approve));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    [Test]
     public void DrawingAnApprovalOnWaitingCountsNothingTowardTheQuestionDraftedMeanwhile()
     {
         var host = new FileMenuHost();

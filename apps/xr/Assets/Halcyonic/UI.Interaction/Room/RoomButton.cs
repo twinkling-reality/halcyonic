@@ -122,6 +122,17 @@ namespace Halcyonic.XR.UI
         /// <summary>Confirm's lock, 0 to 1 filled while it holds, or null where there is none: a ring round the chip, and no pointed response.</summary>
         public float? LockProgress { get; set; }
 
+        /// <summary>
+        /// Stands the action behind Confirm's lock, its ring <paramref name="progress"/> full, taking no press; null lifts the
+        /// lock, and it can be pressed from then, a press already under way dropped (<see cref="KitPress.Available"/>).
+        /// </summary>
+        public void Lock(float? progress)
+        {
+            LockProgress = progress;
+            press.Available = progress == null;
+            if (gameObject.activeSelf) Paint(immediately: false);
+        }
+
         public static RoomButton Create(Transform parent, string name, RoomButtonSize size = RoomButtonSize.Action, int order = KitType.Order.Control)
         {
             var go = new GameObject(name);
@@ -202,6 +213,7 @@ namespace Halcyonic.XR.UI
             words.transform.localPosition = new Vector3(chipCentreX + RoomType.Units(ChipSizeDp / 2f + GapDp), 0f, -RoomType.Units(0.5f));
             press.Resize(new Vector2(Mathf.Max(target, coreWidth), Mathf.Max(target, core.y)));
             Lay(icon, RoomType.Units(size == RoomButtonSize.Home ? HomeGlyphDp : GlyphDp));
+            LockProgress = null;
             press.Available = available;
             transform.localPosition = new Vector3(centre.x, centre.y, -RoomType.Units(1f));
             if (changed) press.Unsettle();
@@ -231,6 +243,8 @@ namespace Halcyonic.XR.UI
         public RoomButtonLook LookNow()
         {
             if (LookForRender is RoomButtonLook forced) return forced;
+            // Confirm behind its lock is a rest action with its ring, its words whole white: it only takes no press yet.
+            if (LockProgress != null) return RoomButtonLook.Rest;
             if (!press.Available) return RoomButtonLook.Disabled;
             if (held || press.Pressing) return RoomButtonLook.Pressed;
             var pointed = press.Hovered && LockProgress == null;

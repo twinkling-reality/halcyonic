@@ -24,6 +24,25 @@ namespace Halcyonic.XR.Workspace.Editor
             "31-bar-sent",
         };
 
+        /// <summary>
+        /// The redesign's approval (DESIGN 2.4; unit U2) on the same host: asked, with Approve and Deny; its confirmation with
+        /// Confirm arriving behind its lock, then the main action; a long request before its answer (its first eight lines) and
+        /// under its confirmation (the file's first part, the next part the main action); a request that can only be denied; and
+        /// Sending, the column emptied, while the answer sent may still take effect.
+        /// </summary>
+        private static readonly string[] AskStates =
+        {
+            "33-ask", "33-ask-confirm-arriving", "33-ask-confirm", "33-ask-long", "33-ask-long-part", "33-ask-deny-only", "33-ask-sending",
+        };
+
+        /// <summary>The design's own request, synthetic.</summary>
+        private const string AskCommand = "rm backup/old-game.js";
+
+        /// <summary>A request past eight lines of mono in the panel, synthetic.</summary>
+        private const string AskLongCommand = "grep -rnE \"balloon\\s+\\d+\" src/game.js; for file in backup/old-game.js backup/old-score.js backup/old-sprites.png backup/old-levels.json; do "
+            + "if test -f \"$file\"; then echo \"removing $file\"; rm \"$file\"; else echo \"no $file here\"; fi; done; "
+            + "npm test -- --grep \"golden balloon\" --reporter spec; git status --short; git diff --stat; echo finished cleaning the old backup files";
+
         /// <summary>What a microphone recorded, 50 ms a step, rising then falling: real samples the level is taken from, as hold to talk takes it.</summary>
         private static LevelHistory RecordedLevel()
         {
@@ -52,8 +71,16 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static Shot BarShot(string state, Transform root, Vector3 eyes)
         {
+            var asking = AskStates.Contains(state);
             var (voice, sent, expected, caption) = state switch
             {
+                "33-ask" => (VoiceStage.Idle, false, RoomBarState.Request, "An approval asked: the request in mono, Run Command?, Approve and Deny, synthetic data"),
+                "33-ask-confirm-arriving" => (VoiceStage.Idle, false, RoomBarState.Request, "Approve pressed: Confirm on its arrival behind its lock, and Cancel, synthetic data"),
+                "33-ask-confirm" => (VoiceStage.Idle, false, RoomBarState.Request, "Approve pressed, the lock passed: Confirm and Cancel, synthetic data"),
+                "33-ask-long" => (VoiceStage.Idle, false, RoomBarState.Request, "A long request asked: its first eight lines, Approve and Deny, synthetic data"),
+                "33-ask-long-part" => (VoiceStage.Idle, false, RoomBarState.Request, "A long request under its confirmation: its first part, Next Part and Cancel, synthetic data"),
+                "33-ask-deny-only" => (VoiceStage.Idle, false, RoomBarState.Request, "A request that can only be denied: why in the sentence bar, Deny alone, synthetic data"),
+                "33-ask-sending" => (VoiceStage.Idle, false, RoomBarState.Request, "The answer sent: Sending, the column emptied, synthetic data"),
                 "31-bar-listening" => (VoiceStage.Listening, false, RoomBarState.Listening, "Hold to Talk held: Listening, the level from recorded samples, synthetic data"),
                 "31-bar-listening-no-level" => (VoiceStage.Listening, false, RoomBarState.Listening, "Hold to Talk held where nothing records a level, synthetic data"),
                 "31-bar-typing" => (VoiceStage.Idle, false, RoomBarState.Draft, "Type pressed: the panel is the field, only Cancel until a word, synthetic data"),
@@ -66,9 +93,41 @@ namespace Halcyonic.XR.Workspace.Editor
             };
             var shot = new Shot { Caption = caption };
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
-            var workspace = Running(ShortReport());
-            var steering = new WorkspaceSteering(new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" }), () => DateTimeOffset.UtcNow);
-            var screen = new FileScreen { Section = FileSection.Activity, Speak = true };
+            var factory = new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" });
+            var workspace = state switch
+            {
+                "33-ask-long" or "33-ask-long-part" => SelectedWorkspace(waiting: true, command: AskLongCommand),
+                "33-ask-deny-only" => SelectedWorkspace(waiting: true, command: AskCommand + " [truncated]", approvable: false),
+                _ when asking => SelectedWorkspace(waiting: true, command: AskCommand),
+                _ => Running(ShortReport()),
+            };
+            var steering = new WorkspaceSteering(factory, () => DateTimeOffset.UtcNow);
+            var screen = new FileScreen { Section = asking ? FileSection.Waiting : FileSection.Activity, Speak = true };
+            // The host stands first: under a confirmation the file counts what is read by the panel's own lines, as the director has it do.
+            var host = KitWorkspaceHost.Create(root);
+            int? requestRows = null;
+            void Read(string request, bool instruction, int part)
+            {
+                var (words, mono) = RoomBar.Reading(FileScreens.RequestLine(steering, request), WorkspaceText.NeedFromYou(workspace)?.Request, instruction);
+                screen.ReadRequest(request, host.Bar.Lines(words, mono), part, steering);
+                screen.RequestDrawn(0, steering, DateTimeOffset.UtcNow);
+                requestRows = screen.RequestRows;
+            }
+            if (state is "33-ask-confirm-arriving" or "33-ask-confirm" or "33-ask-long-part")
+            {
+                // Approve pressed, as the person presses it: the file measures the request, shows its first part, and that part is drawn.
+                if (steering.Press(WorkspaceAction.Approve, workspace).Step != SteeringStep.Confirm) shot.Failures.Add("Approve did not ask for its confirmation");
+                Read(steering.ToRead(workspace)!, instruction: false, RoomBar.RequestLines);
+                if (state == "33-ask-long-part" && screen.RequestParts < 2) shot.Failures.Add("the long request is one part of " + screen.RequestRows + " lines");
+            }
+            if (state == "33-ask-sending")
+            {
+                // The answer went and no acknowledgement came back yet: it may still take effect.
+                var submissions = new CommandSubmissions();
+                _ = submissions.SubmitAsync(_ => new System.Threading.Tasks.TaskCompletionSource<CommandAckMessage>().Task,
+                    factory.RespondToApproval(workspace.Execution!.ExecutionId, workspace.ApprovalToAnswer!.ApprovalId, ApprovalDecision.Approve), workspace.Execution.ExecutionId);
+                workspace = SelectedWorkspace(waiting: true, command: AskCommand, submissions: submissions);
+            }
             if (state == "31-bar-typing") screen.Instruction.Restore(workspace.Execution!.ExecutionId, "", false, 0);
             if (state == "31-bar-typed")
             {
@@ -89,23 +148,20 @@ namespace Halcyonic.XR.Workspace.Editor
                 var heard = state == "31-bar-confirm" ? BarConfirmWords : BarLongWords;
                 if (steering.Spoken(heard, workspace).Step != SteeringStep.Confirm) shot.Failures.Add("the heard instruction did not arm its confirmation");
                 var request = steering.ToRead(workspace)!;
-                var rows = MenuFrameView.RowsOf(FileScreens.RequestLine(steering, request), Glaze.Menu.FileColumnDegrees);
-                // A part as tall as the file gives one: every row of a page of eight.
-                screen.ReadRequest(request, rows, state == "31-bar-confirm" ? 3 : 8, steering);
-                screen.RequestDrawn(0, steering, DateTimeOffset.UtcNow);
-                if (state == "31-bar-confirm-part" && screen.RequestParts < 2) shot.Failures.Add("the long instruction is one part of " + rows + " rows");
+                // A part is eight of the panel's own lines, as the director gives the file while the redesign draws it.
+                Read(request, instruction: true, RoomBar.RequestLines);
+                if (state == "31-bar-confirm-part" && screen.RequestParts < 2) shot.Failures.Add("the long instruction is one part of " + screen.RequestRows + " lines");
                 armedWords = request;
             }
             var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4));
             var binding = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Open ? screen.Instruction.Words : "", new ConnectionStatus(ConnectionPhase.Live),
                 SelectedProject, ProductionSpine(workspace), new KitRowModel("workspace", LineWords.Ours("Move Workspace"), GlazeIcon.Move), roomDesign: true,
-                draftSpoken: screen.Instruction.Open && screen.Instruction.Spoken);
+                draftSpoken: screen.Instruction.Open && screen.Instruction.Spoken, requestRows: requestRows);
             if (binding == null)
             {
                 shot.Failures.Add("the kit has no binding to this frame");
                 return shot;
             }
-            var host = KitWorkspaceHost.Create(root);
             host.Accepting = () => true;
             host.Voice = () => voice;
             host.AwaitingStart = () => sent;
@@ -123,6 +179,14 @@ namespace Halcyonic.XR.Workspace.Editor
             finally { RoomDesign.Enabled = was; }
             host.SettleForRender();
             var bar = host.Bar;
+            // Confirm's lock: on its arrival the ring is part filled and it takes no press; 0.7 s on it is the main action.
+            if (state == "33-ask-confirm-arriving") bar.AgeLockForRender(0.42f * RoomBar.ConfirmLockSeconds);
+            if (state == "33-ask-confirm")
+            {
+                // The lock lifted is a new action, which waits as any other before it takes a press: settled again for the render.
+                bar.AgeLockForRender(RoomBar.ConfirmLockSeconds);
+                host.SettleForRender();
+            }
             const float Tolerance = 1e-4f;
             var typeSize = GlazeTokens.FontSize(RoomType.Scaled(RoomGeometry.TypeDp));
             void Whole(TMPro.TextMeshPro words, string what)
@@ -181,7 +245,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(look.FillTop.a < 1f && !look.Shadow && look.EdgeDp > 0f, "the panel is not DESIGN's translucent tonal layer with a hairline and no shadow");
                     Require(Mathf.Abs(panel.Size.x - RoomType.Units(RoomGeometry.PanelDp)) < Tolerance, "the panel is not 440 dp wide");
                     Whole(bar.Body, "the panel's words");
-                    Require(bar.Body.text.Length == 0 || bar.Body.text.Contains(BarDraft.Substring(0, 20)), "the panel does not hold the person's words");
+                    Require(asking || bar.Body.text.Length == 0 || bar.Body.text.Contains(BarDraft.Substring(0, 20)), "the panel does not hold the person's words");
                     if (armedWords != null)
                     {
                         // The confirmation reads exactly the words that will be sent: as the label parses them, each backslash once (AUDIT, 2026-11-10).
@@ -190,7 +254,30 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(read.Contains("\\") && !read.Contains("\\\\"), "the panel reads \"" + read + "\", its backslashes not as written");
                         Require(state == "31-bar-confirm" ? read == armedWords : read.Length > 0 && armedWords.StartsWith(read.TrimEnd(), StringComparison.Ordinal),
                             "the panel reads \"" + read + "\", not the armed words \"" + armedWords + "\"");
+                        Require(bar.Body.textInfo.lineCount <= RoomBar.RequestLines && (state == "31-bar-confirm" || bar.Body.textInfo.lineCount == RoomBar.RequestLines),
+                            "the instruction's part stands " + bar.Body.textInfo.lineCount + " lines, not the panel's eight at most");
                     }
+                    Require(bar.Request.gameObject.activeSelf == shown.Mono, shown.Mono ? "the request does not stand in mono" : "mono stands where no request is");
+                    Require(!shown.Mono || !bar.Body.gameObject.activeSelf, "prose stands beside the request");
+                    if (shown.Mono)
+                    {
+                        // The request: exact, in mono 19 dp, whole lines, at most eight before its confirmation, the tool's name never in it,
+                        // and read back from the label exactly as it will run, each backslash once.
+                        var request = bar.Request;
+                        request.ForceMeshUpdate(true);
+                        Require(!request.isTextTruncated, "the request is cut inside a line");
+                        Require(Mathf.Approximately(request.fontSize, GlazeTokens.FontSize(RoomType.Scaled(RoomGeometry.MonoTypeDp))), "the request is not in mono's size");
+                        Require(request.font == KitType.Face(KitRole.Mono), "the request is not in the mono face");
+                        var longer = state.StartsWith("33-ask-long", StringComparison.Ordinal);
+                        var command = longer ? AskLongCommand : state == "33-ask-deny-only" ? AskCommand + " [truncated]" : AskCommand;
+                        var read = request.GetParsedText();
+                        Require(!read.Contains("\\\\") && (!longer || read.Contains("\\")), "the request reads \"" + read + "\", its backslashes not as written");
+                        Require(longer ? read.Length > 0 && command.StartsWith(read.TrimEnd(), StringComparison.Ordinal) : read == command,
+                            "the panel reads \"" + read + "\", not the request \"" + command + "\" from its start");
+                        Require(request.textInfo.lineCount <= RoomBar.RequestLines, "the request stands " + request.textInfo.lineCount + " lines, past the panel's eight");
+                        if (longer) Require(request.textInfo.lineCount == RoomBar.RequestLines, "a long request does not show eight lines of it");
+                    }
+                    Require(bar.SentenceWaits == shown.Waits, "the sentence's sweep does not follow the state under way");
                     Require((panel.InnerBar != null) == (shown.Sentence != null), "the sentence bar does not follow the sentence");
                     if (shown.Sentence != null)
                     {
@@ -205,14 +292,20 @@ namespace Halcyonic.XR.Workspace.Editor
                     for (var index = 0; index < drawn.Count && index < shown.Column.Count; index++)
                     {
                         Require(ReferenceEquals(bar.ControlOf(drawn[index]), shown.Column[index].Control), drawn[index].Words.text + " raises another control");
-                        Require(drawn[index].LookNow() == (shown.Column[index].Main ? RoomButtonLook.Main : RoomButtonLook.Rest), drawn[index].Words.text + " shows " + drawn[index].LookNow());
+                        // Behind its lock Confirm is a rest action with its ring, taking no press; the lock passed, it is the main one.
+                        var locked = ReferenceEquals(bar.Locking, drawn[index]);
+                        Require(locked == (state == "33-ask-confirm-arriving" && shown.Column[index].Locks), drawn[index].Words.text + (locked ? " stands locked" : " stands unlocked"));
+                        if (locked) Require(drawn[index].LockProgress is float ring && Mathf.Abs(ring - 0.42f) < 1e-3f && !drawn[index].Available, "Confirm's ring is not part filled, or it takes a press");
+                        else Require(drawn[index].LockProgress == null && drawn[index].Available, drawn[index].Words.text + " keeps a ring or takes no press");
+                        Require(drawn[index].Glyph.gameObject.activeSelf, drawn[index].Words.text + " has no glyph in its chip");
+                        Require(drawn[index].LookNow() == (shown.Column[index].Main && !locked ? RoomButtonLook.Main : RoomButtonLook.Rest), drawn[index].Words.text + " shows " + drawn[index].LookNow());
                         Whole(drawn[index].Words, drawn[index].Words.text);
                     }
                     if (drawn.Count > 0)
                     {
-                        var lastFoot = drawn[drawn.Count - 1].transform.localPosition.y - drawn[drawn.Count - 1].Size.y / 2f;
+                        var lastFoot = drawn[drawn.Count - 1].transform.localPosition.y - drawn[drawn.Count - 1].Core.y / 2f;
                         var panelFoot = panel.transform.localPosition.y - panel.Size.y / 2f;
-                        Require(Mathf.Abs(lastFoot - panelFoot) < 1e-3f, "the column's foot is not on the panel's foot");
+                        Require(Mathf.Abs(lastFoot - panelFoot) < 1e-3f, "the column's lowest action does not stand on the panel's foot line");
                         var lefts = drawn.Select(button => button.transform.localPosition.x - button.Core.x / 2f).ToList();
                         Require(lefts.Max() - lefts.Min() < Tolerance, "the column's actions are not left-aligned");
                     }
@@ -274,8 +367,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     // Talk Again is held, not pressed: it starts the hold, as Hold to Talk does.
                     if (bar.ControlOf(button) is not KitControl control || control.Place == KitPlace.Talk) continue;
                     button.Press.PressForRender(press++);
+                    // Confirm behind its lock takes no press: nothing is confirmed by the press that answered.
+                    if (ReferenceEquals(bar.Locking, button))
+                    {
+                        if (acted.Contains(control.Action)) failures.Add(state + ": Confirm took a press behind its lock");
+                        continue;
+                    }
                     expectedActions.Add(control.Action);
                 }
+                if (state == "33-ask-sending" && bar.Column.Any(button => button.gameObject.activeSelf)) failures.Add(state + ": an action stands while the answer is on its way");
                 foreach (var action in expectedActions)
                     if (!acted.Contains(action)) failures.Add(state + ": a press did not take the file's " + action + "; took " + string.Join(", ", acted));
                 Debug.Log("Halcyonic: spatial kit: " + state + ": " + bar.Shown?.State + ", " + bar.Size.x.ToString("0.0000") + " by " + bar.Size.y.ToString("0.0000")

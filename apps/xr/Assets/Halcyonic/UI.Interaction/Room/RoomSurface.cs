@@ -267,11 +267,17 @@ namespace Halcyonic.XR.UI
     /// <summary>The redesign's one type size: every word Inter Regular 20 dp on a 28 dp line, larger text times 1.15.</summary>
     public static class RoomType
     {
-        /// <summary>A length in dp as the plane's units (1 at its distance).</summary>
-        public static float Units(float dp) => KitType.Units(SpatialKit.Degrees(dp));
+        /// <summary>
+        /// A length in dp as the plane's units (1 at its distance): dp times one dp's length, as DESIGN's page lays them, so a
+        /// 440 dp panel is 440 one-dp lengths wide (the tangent of its whole angle would lay it about 8 percent wider).
+        /// </summary>
+        public static float Units(float dp) => dp * KitType.Units(SpatialKit.Degrees(1f));
 
         /// <summary>A length in dp that grows with the person's text size.</summary>
         public static float Scaled(float dp) => Units(dp) * GlazeText.Scale;
+
+        /// <summary>The tracking of every word in the one size (BUILD-SPEC-v4 1.3), in hundredths of an em.</summary>
+        public const float Tracking = -0.6f;
 
         /// <summary>A label in the one size, its box's top left on its transform.</summary>
         public static TextMeshPro Create(Transform parent, string name, Color colour, int order, TextAlignmentOptions alignment = TextAlignmentOptions.TopLeft)
@@ -281,6 +287,23 @@ namespace Halcyonic.XR.UI
             return label;
         }
 
+        /// <summary>A label for exact text, a request as the runtime reported it: JetBrains Mono 19 dp on the same 28 dp line, its box's top left on its transform.</summary>
+        public static TextMeshPro CreateMono(Transform parent, string name, Color colour, int order)
+        {
+            var label = KitType.Create(parent, name, KitRole.Mono, colour, order, TextAlignmentOptions.TopLeft, SpatialKit.ReadingLeading, room: true);
+            SizeMono(label);
+            return label;
+        }
+
+        /// <summary>Sizes an exact-text label at the person's text size: 19 dp on the 28 dp line.</summary>
+        public static void SizeMono(TMP_Text label)
+        {
+            var size = GlazeTokens.FontSize(Scaled(RoomGeometry.MonoTypeDp));
+            if (!Mathf.Approximately(label.fontSize, size)) label.fontSize = size;
+            var spacing = KitType.LineSpacingFor(label, RoomGeometry.LineDp / RoomGeometry.MonoTypeDp);
+            if (!Mathf.Approximately(label.lineSpacing, spacing)) label.lineSpacing = spacing;
+        }
+
         /// <summary>Sizes a label to the one size at the person's text size, its line pitch 28 over 20.</summary>
         public static void Size(TMP_Text label)
         {
@@ -288,6 +311,8 @@ namespace Halcyonic.XR.UI
             if (!Mathf.Approximately(label.fontSize, size)) label.fontSize = size;
             var spacing = KitType.LineSpacingFor(label, RoomGeometry.LineDp / RoomGeometry.TypeDp);
             if (!Mathf.Approximately(label.lineSpacing, spacing)) label.lineSpacing = spacing;
+            // DESIGN's tracking for every word, in hundredths of an em: -0.6 percent.
+            if (!Mathf.Approximately(label.characterSpacing, Tracking)) label.characterSpacing = Tracking;
         }
     }
 }

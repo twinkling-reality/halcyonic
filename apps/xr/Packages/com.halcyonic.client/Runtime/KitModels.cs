@@ -125,8 +125,14 @@ namespace Halcyonic.Client
     public sealed class KitNeed
     {
         public KitNeed(LineWords asks, string? request, string? scopeNote, IReadOnlyList<string> notes, string denyWords, string approveWords,
-            bool denyOffered, bool approveOffered, KitConfirmation? confirming = null)
+            bool denyOffered, bool approveOffered, KitConfirmation? confirming = null, PageLine? part = null, string? says = null, bool sending = false, bool commands = false,
+            int? rows = null)
         {
+            Commands = commands;
+            Rows = rows;
+            Part = part;
+            Says = says;
+            Sending = sending;
             Asks = asks;
             Request = request;
             ScopeNote = scopeNote;
@@ -162,6 +168,27 @@ namespace Halcyonic.Client
 
         /// <summary>The confirmation of the answer pressed, or null while both answers are offered.</summary>
         public KitConfirmation? Confirming { get; }
+
+        /// <summary>
+        /// The request's line as the file drew it under a confirmation, its rows and the row its part starts from, bound only for
+        /// the redesign, which reads a long request part by part; null otherwise.
+        /// </summary>
+        public PageLine? Part { get; }
+
+        /// <summary>The rows the file counted for the whole request under its confirmation, once it has measured it; null before.</summary>
+        public int? Rows { get; }
+
+        /// <summary>
+        /// What the file says under the request beside what it asks, bound only for the redesign: a confirmation's lapse in the
+        /// product's words (<see cref="WorkspaceSteering"/>), or why no answer can be given now; null for nothing.
+        /// </summary>
+        public string? Says { get; }
+
+        /// <summary>An answer was sent and may still take effect: no answer is offered until the runtime resolves the approval.</summary>
+        public bool Sending { get; }
+
+        /// <summary>The request is a command to run, by the name its agent app gave its tool (<see cref="WorkspaceText.RunsCommand"/>).</summary>
+        public bool Commands { get; }
     }
 
     /// <summary>The confirmation of an approval's answer: the question about the request above, Yes's words, and whether all of it has been read.</summary>
@@ -228,11 +255,15 @@ namespace Halcyonic.Client
     /// </summary>
     public sealed class KitInstruction
     {
-        public KitInstruction(PageLine words, string asks)
+        public KitInstruction(PageLine words, string asks, int? rows = null)
         {
             Words = words;
             Asks = asks;
+            Rows = rows;
         }
+
+        /// <summary>The rows the file counted for the whole instruction, once it has measured it; null before.</summary>
+        public int? Rows { get; }
 
         /// <summary>The instruction's line as the file drew it: its words, rows and the row the part showing starts from.</summary>
         public PageLine Words { get; }

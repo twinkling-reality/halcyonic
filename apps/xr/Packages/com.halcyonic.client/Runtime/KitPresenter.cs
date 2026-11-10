@@ -33,7 +33,8 @@ namespace Halcyonic.Client
             var scope = where != null && need.Notes.Contains(where) ? where : null;
             var notes = need.Notes.Where(note => scope == null || note != scope).ToList();
             return new KitNeed(need.AsksRuns, need.Request, scope, notes, WorkspaceText.Label(WorkspaceAction.Deny), WorkspaceText.Label(WorkspaceAction.Approve),
-                denyOffered, approveOffered, confirming);
+                denyOffered, approveOffered, confirming,
+                commands: workspace.ApprovalToAnswer?.Subject is Halcyonic.Contracts.ToolUseSubject tool && WorkspaceText.RunsCommand(tool.ToolName));
         }
 
         /// <summary>

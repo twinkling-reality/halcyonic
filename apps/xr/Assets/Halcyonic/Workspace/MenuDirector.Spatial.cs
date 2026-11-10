@@ -55,6 +55,8 @@ namespace Halcyonic.XR.Workspace
                 return;
             }
             composerLayouts[file] = geometry;
+            // While the redesign draws this file, a part of what a confirmation reads is eight of the panel's own lines.
+            file.RequestPartRowsOf = () => RoomDesign.Enabled && KitDraws(file) ? RoomBar.RequestLines : (int?)null;
             // Each retained file keeps its own callbacks and geometry lifetime. Background rebuilds
             // must never borrow another selected task's provenance or portrait allocation.
             file.ConfigureActivityComposer(
@@ -97,7 +99,8 @@ namespace Halcyonic.XR.Workspace
                 chosen != null ? setup.Presentation.SelectedModelDisplay(chosen, now.Execution) : null, State?.Runtimes);
             return KitFileBinding.Of(frame, file.Steering.Armed, now, file.Screen.Instruction.Open ? file.Screen.Instruction.Words : "",
                 setup.Session()?.Status ?? ConnectionStatus.Stopped, name, spine, new KitRowModel("workspace", LineWords.Ours("Move Workspace"), GlazeIcon.Move),
-                selectors: selectors, roomDesign: RoomDesign.Enabled, draftSpoken: file.Screen.Instruction.Open && file.Screen.Instruction.Spoken);
+                selectors: selectors, roomDesign: RoomDesign.Enabled, draftSpoken: file.Screen.Instruction.Open && file.Screen.Instruction.Spoken,
+                requestRows: file.Steering.ToRead(now) is string read && file.Screen.Measured(file.Steering, read) ? file.Screen.RequestRows : (int?)null);
         }
 
         private RuntimeDescriptor? CurrentKitRuntime(WorkspacePresentation? now = null)
