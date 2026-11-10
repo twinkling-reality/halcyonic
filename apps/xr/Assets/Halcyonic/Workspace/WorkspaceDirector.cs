@@ -163,6 +163,7 @@ namespace Halcyonic.XR.Workspace
             saveCharacterColours = appearance.KeepCharacterColours;
             menu = MenuDirector.Create(transform, new MenuDirector.Setup
             {
+                Observed = run => activity.ObservedFor(run),
                 SpatialWorkspace = true,
                 ResponsiveWorkspace = true,
                 Presentation = Presentation,

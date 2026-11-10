@@ -2679,6 +2679,32 @@ The last unit turns it on by default and removes the kit parts it replaced.
   the field, the cursor reading Editing and the file's name, Stop alone), `36-work-row` (one that takes one: the row
   under the foot line, no step reported, so no cursor) and `36-stop-confirm`; `RoomWorkingTests` drives Stop and its
   confirmation through a real file column and reads the one command sent.
+- **The result at rest** (BUILD-SPEC-v4 2.5 to 2.8): what the computer itself knows of a task whose run is at rest
+  stands as the pair over the row, in the same host (`RoomResult`, `KitWorkModel.Result`, `RoomBar.Resulting`,
+  `RoomBar.Result`). The director gives it (`MenuDirector.ResultOf`) from the project's own screen
+  (`WorkspacePresentationState.ScreenOf`: its last check and whether Try Build may stand) and the last turn of the
+  run the computer observed (`ActivityLog.ObservedFor`). The result: "{n} Files Changed" in the panel, the totals of
+  the files it saw made, changed and removed, only where it read the folder; Build Passed or Build Failed in the
+  sentence bar, only where the computer's own check gave an outcome (alone, it is the panel's one line); the agent's
+  newest message on the band, by parts, which is not something to read before the row takes a press
+  (`RoomBar.BandIsRead`). Its actions: Make VR Version, the main one, for a project that is not VR yet, else the
+  file's own way to an instruction as Request Change; Try Build where the product lets it stand
+  (`KitScreenModel.CanTry`); Changes where a turn was observed; Checks where the computer's check has steps.
+  Changes and Checks are pages of the same pair, not the file's sections of those names (which hold the
+  understanding answers): Changes a row a file (Made, Changed or Removed, for a change "{before} to {after} Lines", then the path as
+  the folder names it, leaning and last, since none of Halcyonic's words follow an outside name across a separator), eight a page, Next Page the main action while more follow, and Back; where
+  the computer could not read the folder its one honest line, Not Observed, never an empty list. Checks a row a step
+  the check reached (Type Check, Build, Page Drawn, VR Offered) with a check or a cross, then Try Build where it may
+  stand, or Write Instruction, the file's own, where the check failed, and Back. The page shown is kept per task and
+  run (`WorkspacePresentationState.ResultPageFor`, `ShowResultPage`) and starts at the result again with a new run.
+  The result's own actions (`RoomResult.Actions`) are none of the file's frame's: the director takes each itself
+  (`MenuDirector.OnResultActed`), only from the file's frame as drawn and still standing as any press of the file's
+  is; Make VR Version and Try Build then go the way the project's screen sends them (`OnScreenActed`). The view lays
+  the row under the pair's foot line, its feet 94.4 dp down (`RoomBarView.RowDrop`), and the host hangs the row and
+  then the band under the pair. The rows are the panel's own (`RoomBar.Facts`, FIELD's rows part): each under a
+  hairline, a step's with its check or cross. With nothing known of the task, the row stands alone as before. Not
+  drawn yet: the check or cross beside Build Passed or Build Failed in the sentence bar. Checks: `38-result`, `38-result-long`, `38-changes`, `38-changes-long`, `38-checks`,
+  `38-checks-failed`, `38-project`; `RoomResultTests`.
 - **The level of a task's next start** (ADR 0043 and its amendment of 2026-11-10), in the client core: never ask by
   default wherever the runtime the start uses offers it AND the level is shown before the start goes; Ask First by
   default anywhere else (AUDIT, 2026-11-11). For a task's next start that is the redesign, whose row names the agent

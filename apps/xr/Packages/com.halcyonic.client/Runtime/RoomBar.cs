@@ -216,11 +216,21 @@ namespace Halcyonic.Client
         /// <summary>At work, the step the runtime reports under way, for the agent's cursor; null where it reports none.</summary>
         public RoomWorkStep? Step { get; private set; }
 
+        /// <summary>
+        /// The result at rest (DESIGN 2.5 to 2.8): the pair stands over the row, holding what the computer knows of the task,
+        /// its actions the result's own (<see cref="RoomResult.Actions"/>) beside the file's. The agent's newest message
+        /// stands on the band, and is not something to read before the row takes a press.
+        /// </summary>
+        public bool Result { get; private set; }
+
+        /// <summary>Whether the frame counts as read only once the band shows its last part: so for a question; never for a result's message.</summary>
+        public bool BandIsRead => Band != null && !Result;
+
         /// <summary>The control a press on the panel's field raises (the keyboard again), or null.</summary>
         public KitControl? Field { get; }
 
         /// <summary>Whether the pair (the panel and its column) shows.</summary>
-        public bool Pair => State is RoomBarState.Draft or RoomBarState.Confirm or RoomBarState.Request or RoomBarState.Question or RoomBarState.Choose or RoomBarState.Page;
+        public bool Pair => Result || State is RoomBarState.Draft or RoomBarState.Confirm or RoomBarState.Request or RoomBarState.Question or RoomBarState.Choose or RoomBarState.Page;
 
         /// <summary>The words of the action that opens the offered instructions where no keyboard is offered: the product's own.</summary>
         public const string ChooseInstruction = FileScreens.ChooseAnInstruction;
@@ -388,6 +398,7 @@ namespace Halcyonic.Client
         {
             var loop = Loop(binding, voice, sentAwaitingStart);
             var model = binding.Model;
+            if (!model.Working && model.Result is RoomResult result) return Resulting(binding, result, loop);
             if (!model.Working || loop.Pair || loop.State == RoomBarState.Sent) return loop;
             // That a request is under way is not said in words while the agent works: the field and the cursor say it.
             if (loop.State == RoomBarState.Words && loop.Words.Text == FileScreens.RequestUnderWay) loop = new RoomBar(RoomBarState.Hidden);

@@ -1,0 +1,149 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Halcyonic.Contracts;
+
+namespace Halcyonic.Client
+{
+    /// <summary>The redesign's pages over a task at rest: its result, the files the computer saw change, and the steps of the computer's own check.</summary>
+    public enum RoomResultPage
+    {
+        Result,
+        Changes,
+        Checks,
+    }
+
+    /// <summary>
+    /// What the computer itself knows of a task at rest, for the redesign's result (DESIGN's BUILD-SPEC-v4 2.5 to 2.8):
+    /// the files it saw change over the last turn it observed, and its own last check of the project, step by step.
+    /// Nothing here is the agent's word: a count stands only where the computer read the folder, a check line only
+    /// where the computer ran the check, and what it does not know is left out.
+    /// </summary>
+    public sealed class RoomResult
+    {
+        /// <summary>The redesign's own actions over the result: none is the file's frame's, so the director takes each itself.</summary>
+        public const string MakeVrVersion = "room-make-vr-version";
+        public const string TryBuild = "room-try-build";
+        public const string ShowChanges = "room-changes";
+        public const string ShowChecks = "room-checks";
+        public const string NextPage = "room-next-page";
+        public const string Back = "room-back";
+
+        public const string ChangesWords = "Changes";
+        public const string ChecksWords = "Checks";
+
+        /// <summary>The kind of an observed file in a row, short for the product's File Made, Change Observed and File Removed (BUILD-SPEC-v4 2.6).</summary>
+        public const string Made = "Made";
+        public const string Changed = "Changed";
+        public const string Removed = "Removed";
+
+        /// <summary>Every action id of the result's own.</summary>
+        public static readonly IReadOnlyList<string> Actions = new[] { MakeVrVersion, TryBuild, ShowChanges, ShowChecks, NextPage, Back };
+
+        public RoomResult(bool isVr, bool canMakeVr, bool canTry, bool? passed, ObservedTurn? observed, IReadOnlyList<CheckStepOutcome>? steps,
+            RoomResultPage page = RoomResultPage.Result, int part = 0)
+        {
+            IsVr = isVr;
+            CanMakeVr = canMakeVr;
+            CanTry = canTry;
+            Passed = passed;
+            Observed = observed;
+            Steps = steps ?? Array.Empty<CheckStepOutcome>();
+            Page = page;
+            Part = Math.Max(0, Math.Min(part, RoomRows.Pages(Rows.Count) - 1));
+        }
+
+        /// <summary>Whether the project is made from a starter, a VR project already.</summary>
+        public bool IsVr { get; }
+
+        /// <summary>Whether Make VR Version can be asked now: not a VR project, and a place for its copy can be named.</summary>
+        public bool CanMakeVr { get; }
+
+        /// <summary>Whether Try Build may stand (<see cref="KitScreenModel.CanTry"/>): a passed check of the computer's own, nothing changed since, no turn running.</summary>
+        public bool CanTry { get; }
+
+        /// <summary>The computer's own last check of the project: passed, failed, or null where it ran none or its outcome is unknown.</summary>
+        public bool? Passed { get; }
+
+        /// <summary>The last turn of the task's run the computer observed, or null where none arrived.</summary>
+        public ObservedTurn? Observed { get; }
+
+        /// <summary>The steps of the computer's own last check; none where it ran none.</summary>
+        public IReadOnlyList<CheckStepOutcome> Steps { get; }
+
+        public RoomResultPage Page { get; }
+
+        /// <summary>Which page of the rows shows, from 0.</summary>
+        public int Part { get; }
+
+        /// <summary>How many files the computer saw made, changed and removed; null where it read no turn or could not read the folder.</summary>
+        public long? FilesChanged => Observed is { Skipped: null } turn ? turn.CreatedTotal + turn.ChangedTotal + turn.DeletedTotal : (long?)null;
+
+        /// <summary>"4 Files Changed", "1 File Changed"; null where the computer observed nothing.</summary>
+        public string? CountLine => FilesChanged is long count ? count + (count == 1 ? " File Changed" : " Files Changed") : null;
+
+        /// <summary>The check's line, the product's own: Build Passed or Build Failed; null where the computer's check gave no outcome.</summary>
+        public string? CheckLine => Passed is bool passed ? KitMomentWords.CheckTitle(KitCheckScope.Builds, ended: true, passed) : null;
+
+        /// <summary>Whether the computer has anything to say of the task at rest.</summary>
+        public bool Any => Observed != null || Passed != null || Steps.Count > 0;
+
+        /// <summary>The page's rows: an observed file a row, or a step of the check a row; none on the result itself.</summary>
+        public IReadOnlyList<RoomRow> Rows => Page switch
+        {
+            RoomResultPage.Changes => ChangeRows(),
+            // A step the check never reached has no row: a failure shows which step failed, and nothing is said of the rest.
+            RoomResultPage.Checks => Steps.Where(step => step.Result != CheckStepResult.NotRun).Select(step => new RoomRow(LineWords.Ours(StepWords(step.Step)),
+                step.Result == CheckStepResult.Passed ? RoomRowMark.Check : step.Result == CheckStepResult.Failed ? RoomRowMark.Cross : RoomRowMark.None)).ToList(),
+            _ => Array.Empty<RoomRow>(),
+        };
+
+        /// <summary>The rows the page shows now, eight at most (<see cref="RoomRows.APage"/>).</summary>
+        public IReadOnlyList<RoomRow> Shown => RoomRows.Page(Rows, Part);
+
+        public int Parts => RoomRows.Pages(Rows.Count);
+
+        /// <summary>A file as the computer saw it: its kind, for a change its lines before and after, then its path as the folder names it.</summary>
+        private IReadOnlyList<RoomRow> ChangeRows()
+        {
+            if (Observed == null) return Array.Empty<RoomRow>();
+            // The computer could not say what changed: its honest line, never an empty list read as no changes.
+            if (Observed.Skipped != null) return new[] { new RoomRow(LineWords.Ours(KitMomentWords.NotObservedWords)) };
+            // The path is the folder's own name, outside text, so it leans and stands last: Halcyonic's words never follow a
+            // leaning name across a separator (the cadence the product keeps for every outside name).
+            return Observed.Files.Select(file =>
+            {
+                var kind = file.Change == ObservedChange.Created ? Made : file.Change == ObservedChange.Deleted ? Removed : Changed;
+                var lead = kind + KitMomentWords.Dot;
+                if (file.Change == ObservedChange.Changed && file.LinesBefore is long before && file.LinesAfter is long after)
+                    lead += before + " to " + after + " Lines" + KitMomentWords.Dot;
+                return new RoomRow(LineWords.Ours(lead) + LineWords.TheirName(file.Path));
+            }).ToList();
+        }
+
+        /// <summary>A step of the computer's check, in DESIGN's words (BUILD-SPEC-v4 2.8).</summary>
+        public static string StepWords(CheckStepKind step) => step switch
+        {
+            CheckStepKind.TypeCheck => "Type Check",
+            CheckStepKind.Build => "Build",
+            CheckStepKind.PageDrawn => "Page Drawn",
+            _ => "VR Offered",
+        };
+
+        /// <summary>
+        /// The result of <paramref name="project"/>'s task, from the project's own screen
+        /// (<see cref="WorkspacePresentationState.ScreenOf"/>: its last check, whether Try Build may stand) and
+        /// <paramref name="observed"/>, the last turn of the task's run the computer observed; null with no project.
+        /// </summary>
+        public static RoomResult? Of(ProjectView? project, ClientProjection? state, ObservedTurn? observed,
+            RoomResultPage page = RoomResultPage.Result, int part = 0)
+        {
+            if (project == null || state == null) return null;
+            var screen = WorkspacePresentationState.ScreenOf(project, state, barOpen: true);
+            var check = screen.LastCheck is { Kind: KitMomentKind.HostCheck } host ? host : null;
+            var canMakeVr = !screen.IsVr && ProjectPlayFacts.TryVrVersionTarget(project, out _, out _);
+            return new RoomResult(screen.IsVr, canMakeVr, screen.CanTry, check?.Passed, observed, check?.Steps, page, part);
+        }
+    }
+}

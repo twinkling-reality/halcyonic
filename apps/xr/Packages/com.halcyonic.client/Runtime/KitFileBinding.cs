@@ -197,7 +197,7 @@ namespace Halcyonic.Client
         public static KitFileBinding? Of(MenuFrame frame, WorkspaceAction? armed, WorkspacePresentation workspace, string draft, ConnectionStatus connection,
             string projectName, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot = null, KitAvatar? avatar = null,
             KitSelectors? selectors = null, bool roomDesign = false, bool draftSpoken = false, int? requestRows = null, bool chooses = false,
-            int? asking = null, string? writing = null)
+            int? asking = null, string? writing = null, RoomResult? result = null)
         {
             if (frame.Side != null) return null;
             // The kit shows an approval's, a denial's or the answers' confirmation, and the redesign an instruction's too; any
@@ -356,7 +356,8 @@ namespace Halcyonic.Client
                 working: roomDesign && workspace.Execution?.Status is Halcyonic.Contracts.ExecutionStatus.Running or Halcyonic.Contracts.ExecutionStatus.Verifying,
                 step: roomDesign ? RoomWork.Of(workspace.Execution) : null,
                 offersNeverAsk: selectors?.OffersNeverAsk ?? false, neverAsk: selectors?.NeverAsk ?? false,
-                runNeverAsk: workspace.Execution?.ApprovalLevel is Halcyonic.Contracts.ApprovalLevel level ? level == Halcyonic.Contracts.ApprovalLevel.NeverAsk : (bool?)null);
+                runNeverAsk: workspace.Execution?.ApprovalLevel is Halcyonic.Contracts.ApprovalLevel level ? level == Halcyonic.Contracts.ApprovalLevel.NeverAsk : (bool?)null,
+                result: roomDesign && KitPresenter.AtRest(workspace) ? result : null);
             // Every line the frame shows is words the kit shows too; a line it would leave out, as an attention note,
             // a pointer to Waiting, why nothing can be sent or a notice, keeps the frame on the file's own drawing.
             var shown = ShownWords(model, workspace);
