@@ -2517,20 +2517,29 @@ The last unit turns it on by default and removes the kit parts it replaced.
   (`UI.Interaction/Room`). The surface is DESIGN's FINISH-3 material (unit 1d): the shader `Halcyonic/Room Glass`
   (material `Resources/HalcyonicUI/RoomGlass`) draws a translucent tonal layer, a neutral cool tint #3C4247 to #343A3F at
   0.86 (the page's 0.72 as Unity blends in linear), a 1 dp white hairline at 10 percent, no shadow, squircle corners
-  (exponent 4; panels 20 dp, a bar 22), and an optional lighter sentence bar (white at 10 percent, inset 14 dp, corner
-  10) placed per surface by `InnerBar` (its top, height and side inset). `RoomSheen` sets one sheen band for every
-  surface once a frame as shader globals: tilted 20 degrees, 5 degrees wide, 7 percent at its peak, a 2 s pass then 8 s
-  of rest, 5 percent at its peak, none kept still. Every value comes from one table, `RoomSurface.Looks` (`RoomGlassLook`). A surface draws
-  again only when its size, kind or sentence bar changed. The well and the muted grey are retired: every word is white.
-- **The actions** (BUILD-SPEC-v4 1.4, units 1c and 1d) are `RoomButton`: no box and no edge, ever. A chip holds the
-  glyph, the words follow in the one size, over a faint halo of the panel's foot tint #343A3F solid inside the core,
-  half at its edge and gone 12 dp out (`Halcyonic/Room Halo`, material `RoomHalo`). Two sizes: the column's (a 48 dp
-  core, 32 dp chip, 20 dp glyph) and the row's at home (the 60.8 dp hand target itself as the core, a 44 dp chip, a
-  24 dp glyph, the words 12 dp after it, 24 dp after them, a 28 dp halo corner). Looks in DESIGN's linear alphas: rest 0.83, main 0.87 (a light #D5DADE chip, dark glyph, white words),
-  pointed 0.90 (3 percent larger), main pointed 0.93, held (96 percent); the drawing scales, never the target. An action
-  that cannot act is not drawn. Confirm's lock is a 2 dp ring round its chip filling clockwise. Targets are Meta's
-  60.8 dp at least; the plane stands at 0.46 m, where 12 mm is about 24 dp, so stacked actions stand 84.8 dp apart. The
-  glyphs are the product's icon font for now; DESIGN's own glyph set and the words' underlay are not built yet.
+  (exponent 4; panels 20 dp, a bar 22), and the panel's one sentence under a 1 dp hairline (white at 12 percent, from
+  the words' left edge to their right, the sentence 12 dp under it on the body's own left edge), placed per surface by
+  `InnerBar`: no strip, so nothing in a panel can be taken for a button (FIELD's F6, the owner's words of 2026-11-10;
+  where this document says "sentence bar" below it means that sentence under its hairline). `RoomSheen` sets one sheen
+  band for every surface once a frame as shader globals: tilted 20 degrees, 5 degrees wide, a 2 s pass then 8 s of
+  rest, 5 percent at its peak, none kept still. Every value comes from one table, `RoomSurface.Looks`
+  (`RoomGlassLook`). A surface draws again only when its size, kind or sentence changed. The well and the muted grey
+  are retired: every word is white.
+- **The actions** (BUILD-SPEC-v4 1.4; FIELD's F6, 2026-11-10) are `RoomButton`: no box and no edge, ever. A chip holds
+  the glyph, the words follow in the one size, over a backing solid inside the core that feathers out over 6 dp
+  (`Halcyonic/Room Halo`, material `RoomHalo`). Two sizes: the column's (a 48 dp core, 32 dp chip, 20 dp glyph) and
+  the row's at home (the 60.8 dp hand target itself as the core, a 44 dp chip, a 24 dp glyph). The one main action
+  carries the accent: a #59CFF1 chip with a #172024 glyph on the accent's own dark backing (#22586A), so it reads
+  coloured whole; every other action is neutral (a #4A5258 chip, white glyph). Pointed, a neutral chip turns light
+  (#D5DADE), a main backing brightens and the action grows 6 percent, eased over 150 ms (`RoomMotion`); held, 96
+  percent and a dimmed chip at once; actions shown in the same moment arrive 60 ms apart. The drawing scales, never
+  the target. An action that cannot act is not drawn. Confirm behind its lock keeps the main backing, a round dark
+  well and a ring just inside its rim that fills clockwise, then the chip floods with the accent. An answer's chosen
+  mark is the accent's disc or box with the dark check. The glyphs are DESIGN's own, drawn from geometry
+  (`RoomGlyphView`, named by the action's words, else by its icon); the icon font is gone from actions. An action's
+  words are never cut: as many lines as they need, the box as tall, a wrapped answer broken at its first separator.
+  At the larger text size the chip, glyph, padding and corners scale with the words. Targets are Meta's 60.8 dp at
+  least; the plane stands at 0.46 m, where 12 mm is about 24 dp, so stacked one-line actions stand 84.8 dp apart.
 - **The old kit is gone with the switch on** (the owner, 2026-11-05): `KitWorkspaceHost` draws none of its spine,
   slate or rail; the room shows only the redesign's parts. A frame asking a question shows nothing until its unit
   and is never reported drawn, so nothing counts as read that no one saw. Off, the kit stands whole.
