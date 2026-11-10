@@ -84,6 +84,18 @@ namespace Halcyonic.Client
         /// <summary>The run an armed instruction starts on Yes, where Send starts the task's next run (SWITCH).</summary>
         private RunChoice? armedChoice;
 
+        /// <summary>
+        /// The person's choice for the task's next run as it stands now (the runtime, the model and the level a start
+        /// would use; null where the next instruction starts none), where the steering's owner can say. An armed
+        /// instruction is sent only while this is still the choice it was armed with: the agent and the level shown
+        /// before a start are the ones sent (ADR 0043; AUDIT, 2026-11-10).
+        /// </summary>
+        public Func<RunChoice?>? ChoiceNow { get; set; }
+
+        private static bool SameChoice(RunChoice? first, RunChoice? second) => first == null || second == null
+            ? first == null && second == null
+            : first.RuntimeId == second.RuntimeId && first.ModelRef == second.ModelRef && first.NeverAsk == second.NeverAsk;
+
         /// <summary>Why a start on a runtime that lists its models waits: no model chosen.</summary>
         public const string ChooseAModel = "Not Sent · Choose a Model";
 
@@ -484,6 +496,7 @@ namespace Halcyonic.Client
                 if (instructionExecution != workspace.Execution?.ExecutionId) return FileScreens.InstructionChanged;
                 if (WorkspaceText.NeedFromYou(workspace) != null) return "Not Sent · Answer Approval First";
                 if (armedChoice != null && !KitPresenter.AtRest(workspace)) return "Not Sent · Task Changed · Check and Retry";
+                if (ChoiceNow != null && !SameChoice(armedChoice, ChoiceNow())) return "Not Sent · Task Changed · Check and Retry";
             }
             // Stop was read and pressed on one run: where the task runs another by now, nothing is stopped.
             if (Armed == WorkspaceAction.Interrupt && interruptExecution != workspace.Execution?.ExecutionId) return "Not Sent · Task Changed · Check and Retry";

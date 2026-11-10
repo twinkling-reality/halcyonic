@@ -113,6 +113,8 @@ namespace Halcyonic.Client
             this.historyNote = historyNote;
             this.acted = acted;
             Steering = new WorkspaceSteering(commands, () => host.Clock);
+            // An armed start goes only on the choice it was armed with: the agent and the level shown are the ones sent.
+            Steering.ChoiceNow = () => Now != null ? KitPresenter.NewRunOf(Now, Choice?.Invoke()) : null;
             understanding = new IntelligenceFeed<UnderstandingResponse>((id, cancel) => Reader().ReadUnderstandingAsync(id, cancel), AccessRefused);
             evaluation = new IntelligenceFeed<EvaluationResponse>((id, cancel) => Reader().ReadEvaluationAsync(id, cancel), AccessRefused);
             Screen.Zone = host.Zone;
