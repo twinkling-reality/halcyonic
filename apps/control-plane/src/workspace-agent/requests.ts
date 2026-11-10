@@ -5,6 +5,7 @@ import {
   compileValidator,
   type ExecutionId,
   ExecutionSendInstructionCommand,
+  type ExecutionView,
   type Principal,
   WORKSPACE_TOOL_ARGUMENTS,
   type WorkspaceAgentStatus,
@@ -15,7 +16,12 @@ import {
   type WorkspaceRequestView,
   type WorkstreamId,
 } from '@halcyonic/contracts';
-import { checkProjectLocation, RuntimeActionError } from '@halcyonic/runtime-core';
+import {
+  checkProjectLocation,
+  RuntimeActionError,
+  type Scheduler,
+  systemScheduler,
+} from '@halcyonic/runtime-core';
 import type { WorkspaceRequestCommand, WorkspaceRequestHandler } from '../core/command-service.ts';
 import type { ControlPlane } from '../core/control-plane.ts';
 import { causedBy, controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
@@ -48,6 +54,26 @@ interface Options {
   model: Model;
   understanding: UnderstandingSource;
   evaluation: EvaluationSource;
+  /** Wakes a request whose wait for the Mac's reading of a turn ran out; the system's by default. */
+  scheduler?: Scheduler;
+}
+/** How long after a task's last activity a request waits for the Mac to read its turn's files. */
+export const UNREAD_WAIT_MS = 60_000;
+/**
+ * How much longer a request waits for the Mac's reading of a task's turn, in ms, or 0: only while
+ * the task is at rest, the project's latest check reads its files `unknown`, and the task's last
+ * activity is less than `UNREAD_WAIT_MS` old (AUDIT2 S2).
+ */
+export function unreadWaitMs(facts: {
+  readonly files: string | undefined;
+  readonly status: string | undefined;
+  readonly lastActivity: string | undefined;
+  readonly now: number;
+}): number {
+  if (facts.files !== 'unknown') return 0;
+  if (!['completed', 'failed', 'interrupted'].includes(facts.status ?? '')) return 0;
+  const age = facts.now - Date.parse(facts.lastActivity ?? '');
+  return age >= 0 && age < UNREAD_WAIT_MS ? UNREAD_WAIT_MS - age : 0;
 }
 interface Budget {
   turns: number;
@@ -125,6 +151,8 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
   readonly #lists = new Map<string, WorkstreamId[]>();
   readonly #unsubscribe: () => void;
   #closed = false;
+  /** Ends the wake-up timers of requests waiting for the Mac's reading of a turn. */
+  readonly #timers = new AbortController();
   constructor(options: Options) {
     this.#o = options;
     options.controlPlane.commands.attachWorkspaceRequests(this);
@@ -257,6 +285,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
   }
   close(): void {
     this.#closed = true;
+    this.#timers.abort();
     this.#unsubscribe();
     for (const controller of this.#active.values()) controller.abort();
     for (const waiter of [...this.#modelWaiters]) waiter.abort();
@@ -710,6 +739,16 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       );
       return { data: { availability: 'unavailable', reason: 'unsupported_tool_or_arguments' } };
     }
+    // The gate is what this request was offered now, not only what exists (AUDIT2 S1).
+    if (!this.#toolsFor(request).some((tool) => tool.function.name === name)) {
+      this.#step(
+        request,
+        'tool_call',
+        'rejected',
+        'That tool is not offered for this request now.',
+      );
+      return { data: { availability: 'unavailable', reason: 'tool_not_offered' } };
+    }
     const plane = this.#o.controlPlane;
     if (name === 'read_project' || name === 'read_task')
       return this.#projectTool(request, name, args);
@@ -1100,6 +1139,28 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       },
     };
   }
+  /**
+   * Whether a task at rest has a turn whose files the Mac has not read yet, so a check may follow:
+   * only for a minute after the task's last activity, with a wake-up then, since an observer that is
+   * off or failing would otherwise hold the request for good (AUDIT2 S2).
+   */
+  #unreadTurn(request: TaskRequest, run: ExecutionView | undefined): boolean {
+    const remaining = unreadWaitMs({
+      files: this.#o.controlPlane.projection.latestCheck(request.project_id)?.files,
+      status: run?.status,
+      lastActivity: run?.updated_at,
+      now: this.#o.controlPlane.clock.now().getTime(),
+    });
+    if (remaining === 0) return false;
+    const id = request.request_id;
+    (this.#o.scheduler ?? systemScheduler).sleep(remaining, this.#timers.signal).then(
+      () => {
+        if (!this.#closed) this.#schedule(id);
+      },
+      () => {},
+    );
+    return true;
+  }
   #observe(request: WorkspaceRequestView): {
     actions: unknown[];
     blocked: boolean;
@@ -1236,9 +1297,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         .some(
           (command) =>
             command.command_type === 'project.check' && command.project_id === request.project_id,
-        ) ||
-      (plane.projection.latestCheck(request.project_id)?.files === 'unknown' &&
-        ['completed', 'failed', 'interrupted'].includes(run?.status ?? ''));
+        ) || this.#unreadTurn(request, run);
     if (!blocked && actions.length > 0 && checking) {
       blocked = true;
       actions.push({ waiting_for: 'the_macs_check_of_the_project' });
