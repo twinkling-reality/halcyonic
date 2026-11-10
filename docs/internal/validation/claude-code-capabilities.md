@@ -203,7 +203,8 @@ model.
   message the adapter delivered; its id is the uuid the adapter put on that message. Approval ids
   are the SDK's request ids. Native event ids are prefixed with the chosen session id.
 - A query that ends without a result fails the running turn (provenance inferred, code
-  `no_result`) and loses the connection. Sessions are not resumed.
+  `no_result`) and loses the connection. Within one control plane such a session is not resumed;
+  after a restart it is re-attached ([record](restart-reattach.md)).
 
 ### Smoke test
 

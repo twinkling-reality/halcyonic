@@ -12,6 +12,7 @@ import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import {
+  carriesSession,
   isRecordedProcess,
   type ProcessRecord,
   readProcessIdentity,
@@ -120,6 +121,17 @@ async function longCommand(t: TestContext): Promise<number> {
     await delay(20);
   }
 }
+
+describe('a launch of Halcyonic', () => {
+  test('carries its session id as --session-id or, resumed after a restart, as --resume, each one argument (ADR 0046)', () => {
+    const id = randomUUID();
+    assert.ok(carriesSession(`claude --session-id=${id} --print`, id));
+    assert.ok(carriesSession(`claude --resume=${id} --print`, id));
+    assert.ok(!carriesSession(`claude --resume ${id}`, id));
+    assert.ok(!carriesSession(`claude --resume=${id}x`, id));
+    assert.ok(!carriesSession(`claude --resume=${randomUUID()}`, id));
+  });
+});
 
 describe('a recorded process', () => {
   test('is stopped with SIGTERM while it is still the recorded process', async (t) => {
