@@ -63,6 +63,12 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Turning arrow: Run Checks Again.</summary>
         Again,
+
+        /// <summary>The agent's own: its cursor's arrow as a stroke. The action that names the agent and its level.</summary>
+        Agent,
+
+        /// <summary>Two sliders: Settings.</summary>
+        Settings,
     }
 
     /// <summary>
@@ -207,6 +213,13 @@ namespace Halcyonic.XR.UI
             [RoomGlyph.Lines] = new[] { Line(5f, 7f, 19f, 7f), Line(5f, 12f, 15f, 12f), Line(5f, 17f, 11f, 17f) },
             // Most of a circle, from just under its right round by the bottom and the left to its upper right, and the arrowhead there.
             [RoomGlyph.Again] = new[] { Arc(12.14f, 11.64f, 6.75f, 162.45f, 150.85f), Line(17.5f, 3.5f, 17.5f, 7.25f), Line(17.5f, 7.25f, 13.75f, 7.25f) },
+            // The cursor's arrow, closed: its tip at the upper left, down its long side, in to the notch, out to the right corner and back.
+            [RoomGlyph.Agent] = new[] { Line(6.5f, 4.5f, 7f, 19.5f), Line(7f, 19.5f, 11f, 15.5f), Line(11f, 15.5f, 18f, 15f), Line(18f, 15f, 6.5f, 4.5f) },
+            // Two tracks, each broken where its knob (a circle) rides: the upper one left of the middle, the lower one right of it.
+            [RoomGlyph.Settings] = new[]
+            {
+                Line(5f, 8f, 8.5f, 8f), Line(12.5f, 8f, 19f, 8f), Circle(10.5f, 8f, 2f), Line(5f, 16f, 12.5f, 16f), Line(16.5f, 16f, 19f, 16f), Circle(14.5f, 16f, 2f),
+            },
         };
 
         /// <summary>The glyph's shapes on the 24-unit grid, y down.</summary>
@@ -228,15 +241,22 @@ namespace Halcyonic.XR.UI
             ["Make VR Version"] = RoomGlyph.Cube, ["Changes"] = RoomGlyph.Changes, ["Checks"] = RoomGlyph.Checks, ["Back"] = RoomGlyph.Back, ["Next Part"] = RoomGlyph.Next,
             ["Next Page"] = RoomGlyph.Next, ["Next Choices"] = RoomGlyph.Next, ["Previous Part"] = RoomGlyph.Previous, ["Try Build"] = RoomGlyph.Play,
             ["New Project"] = RoomGlyph.Plus, ["Request Change"] = RoomGlyph.Pencil, ["Write Instruction"] = RoomGlyph.Pencil, ["Continue"] = RoomGlyph.Continue,
-            ["Summarize"] = RoomGlyph.Lines, ["Choose Instruction"] = RoomGlyph.Lines, ["Run Checks Again"] = RoomGlyph.Again,
+            ["Summarize"] = RoomGlyph.Lines, ["Choose Instruction"] = RoomGlyph.Lines, ["Run Checks Again"] = RoomGlyph.Again, ["Settings"] = RoomGlyph.Settings,
         };
+
+        /// <summary>The two levels an agent works at, as the action that names the agent ends: "{agent} · Ask First", "{agent} · Never Ask".</summary>
+        private static readonly string[] levels = { " · Ask First", " · Never Ask" };
 
         /// <summary>
         /// The glyph the design gives an action, by the action's own words; a paging action's count (" · 2 of 3") is left
-        /// out. Null for words the table does not name: Confirm takes the glyph of what it confirms, which its owner knows.
+        /// out. The action that names the agent and its level ("{agent} · Ask First") takes the agent's own glyph, whatever
+        /// the agent is called; a level alone is an answer with its mark, and has none. Null for words the table does not
+        /// name: Confirm takes the glyph of what it confirms, which its owner knows.
         /// </summary>
         public static RoomGlyph? Named(string action)
         {
+            foreach (var level in levels)
+                if (action.Length > level.Length && action.EndsWith(level, System.StringComparison.Ordinal)) return RoomGlyph.Agent;
             var cut = action.IndexOf(" · ", System.StringComparison.Ordinal);
             return named.TryGetValue(cut >= 0 ? action.Substring(0, cut) : action, out var glyph) ? glyph : (RoomGlyph?)null;
         }

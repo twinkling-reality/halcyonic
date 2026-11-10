@@ -28,7 +28,11 @@ namespace Halcyonic.XR.Workspace.Editor
             (RoomGlyph.Changes, "Changes"), (RoomGlyph.Checks, "Checks"), (RoomGlyph.Back, "Back"), (RoomGlyph.Next, "Next Part · 2 of 3"),
             (RoomGlyph.Previous, "Previous Part"), (RoomGlyph.Play, "Try Build"), (RoomGlyph.Plus, "New Project"), (RoomGlyph.Pencil, "Request Change"),
             (RoomGlyph.Continue, "Continue"), (RoomGlyph.Lines, "Summarize"), (RoomGlyph.Again, "Run Checks Again"),
+            (RoomGlyph.Agent, "Tide 12B · Ask First"), (RoomGlyph.Settings, "Settings"),
         };
+
+        /// <summary>How many actions stand in each pair of the sheet's columns; the two home-size actions stand under the second pair.</summary>
+        private const int GlyphRows = 11;
 
         /// <summary>The large sheet: five glyphs a row in the set's order, each 96 dp across in a 120 dp cell.</summary>
         private const float GlyphLargeDp = 96f;
@@ -58,6 +62,9 @@ namespace Halcyonic.XR.Workspace.Editor
             foreach (var (glyph, words) in GlyphActions) Require(RoomGlyphs.Named(words) == glyph, "\"" + words + "\" is not named " + glyph);
             Require(RoomGlyphs.Named("Talk Again") == RoomGlyph.Microphone && RoomGlyphs.Named("Next Page") == RoomGlyph.Next && RoomGlyphs.Named("Write Instruction") == RoomGlyph.Pencil
                 && RoomGlyphs.Named("Choose Instruction") == RoomGlyph.Lines && RoomGlyphs.Named("Send Answer") == RoomGlyph.Send && RoomGlyphs.Named("Confirm") == null, "an action's glyph is misnamed");
+            // The agent's own glyph goes with the action that names an agent and its level, whatever the agent is called; a level alone is an answer.
+            Require(RoomGlyphs.Named("Kite Run · Never Ask") == RoomGlyph.Agent && RoomGlyphs.Named("Ember 7B · Next · Ask First") == RoomGlyph.Agent && RoomGlyphs.Named("Ask First") == null
+                && RoomGlyphs.Named("Never Ask") == null && RoomGlyphs.Named(" · Ask First") == null && RoomGlyphs.Named("Tide 12B · Ask") == null, "the agent's glyph is misnamed");
 
             if (state == "43-glyphs-large")
             {
@@ -65,7 +72,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var view = RoomGlyphView.Create(plane, all[index].ToString());
                     view.Show(all[index], GlyphLargeDp, RoomGlyphs.OnMain);
-                    view.transform.localPosition = new Vector3((index % 5 - 2) * GlyphCellDp * unit, (1.5f - index / 5) * GlyphCellDp * unit, 0f);
+                    view.transform.localPosition = new Vector3((index % 5 - 2) * GlyphCellDp * unit, (2f - index / 5) * GlyphCellDp * unit, 0f);
                     drawn.Add((view, all[index], RoomGlyphs.OnMain, all[index] + " at 96 dp"));
                 }
             }
@@ -73,13 +80,13 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 // Each glyph in a real action, at rest and as the main one, in two pairs of columns; then the two home-size actions.
                 var pitch = RoomType.Units(RoomButton.HeightDp) + KitType.Units(SpatialKit.TargetGapDegrees);
-                var column = 270f * unit;
+                var column = 300f * unit;
                 void Stand(RoomGlyph glyph, string words, bool main, RoomButtonSize size, int col, int row)
                 {
                     var button = RoomButton.Create(plane, words + (main ? " main" : " rest"), size);
                     var width = button.Measure(words);
                     // The action draws its own glyph, named by its words; no icon is handed to it.
-                    button.Show(words, null, main, true, new Vector2((col - 2) * column + width / 2f, (4.5f - row) * pitch), 0f);
+                    button.Show(words, null, main, true, new Vector2((col - 2) * column + width / 2f, (GlyphRows / 2f - row) * pitch), 0f);
                     button.Press.SettleForRender();
                     button.Settle();
                     var home = size == RoomButtonSize.Home;
@@ -91,12 +98,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 for (var index = 0; index < GlyphActions.Length; index++)
                 {
                     var (glyph, words) = GlyphActions[index];
-                    var pair = index < 10 ? 0 : 2;
-                    Stand(glyph, words, false, RoomButtonSize.Action, pair, index % 10);
-                    Stand(glyph, words, true, RoomButtonSize.Action, pair + 1, index % 10);
+                    var pair = index < GlyphRows ? 0 : 2;
+                    Stand(glyph, words, false, RoomButtonSize.Action, pair, index % GlyphRows);
+                    Stand(glyph, words, true, RoomButtonSize.Action, pair + 1, index % GlyphRows);
                 }
-                Stand(RoomGlyph.Keyboard, "Type", false, RoomButtonSize.Home, 2, 9);
-                Stand(RoomGlyph.Microphone, "Hold to Talk", true, RoomButtonSize.Home, 3, 9);
+                Require(GlyphActions.Length <= 2 * GlyphRows - 1, "the sheet has no row left for the home-size actions");
+                Stand(RoomGlyph.Keyboard, "Type", false, RoomButtonSize.Home, 2, GlyphRows - 1);
+                Stand(RoomGlyph.Microphone, "Hold to Talk", true, RoomButtonSize.Home, 3, GlyphRows - 1);
             }
             Place(plane, eyes, 0f, shot.Elevation);
 
