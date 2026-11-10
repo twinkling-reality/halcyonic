@@ -110,6 +110,19 @@ public class RoomMotionTests
     }
 
     [Test]
+    public void TheWorkingFieldFadesInAndOutOverSixHundredMillisecondsOnTheStandardCurve()
+    {
+        var half = BezierByWalking(0.2f, 0f, 0f, 1f, 0.5f);
+        Assert.That(RoomMotion.FieldArrives(0f), Is.EqualTo(0f));
+        Assert.That(RoomMotion.FieldArrives(0.3f), Is.EqualTo(half).Within(1e-3f));
+        Assert.That(RoomMotion.FieldArrives(0.6f), Is.EqualTo(1f));
+        Assert.That(RoomMotion.FieldLeaves(0f), Is.EqualTo(1f));
+        Assert.That(RoomMotion.FieldLeaves(0.3f), Is.EqualTo(1f - half).Within(1e-3f));
+        Assert.That(RoomMotion.FieldLeaves(0.6f), Is.EqualTo(0f));
+        Assert.That(RoomMotion.FieldLeaves(float.PositiveInfinity), Is.EqualTo(0f));
+    }
+
+    [Test]
     public void TheBandLeavesOnTheStandardCurve()
     {
         Assert.That(RoomMotion.BandLeaves(0f), Is.EqualTo(1f));
