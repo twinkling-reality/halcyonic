@@ -290,6 +290,7 @@ namespace Halcyonic.XR.UI
         {
             alone.gameObject.SetActive(false);
             alonePlate.gameObject.SetActive(false);
+            HidePlate();
             var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
             var gap = RoomType.Units(RoomGeometry.PairGapDp);
             var target = RoomType.Units(RoomButton.HeightDp);
@@ -297,17 +298,20 @@ namespace Halcyonic.XR.UI
             var core = stops ? column[0].Measure(bar.Column[0].Words, 0f) : Vector2.zero;
             var total = panelWidth + gap + Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), core.x);
             var rowed = bar.Row.Count > 0;
-            // From the foot line: the column's one action above it, the row's feet under it.
+            // Where the row does not stand, the agent's plate stands in its place: a name tag, never pressed (FIELD's part).
+            var plated = !rowed && bar.Plate != null;
+            // From the foot line: the column's one action above it, the row's feet, or the plate's, under it.
             var above = stops ? Mathf.Max(target, core.y) : 0f;
-            var below = rowed ? RoomType.Units(RowFeetDp) : 0f;
+            var below = rowed || plated ? RoomType.Units(RowFeetDp) : 0f;
             var foot = (below - above) / 2f;
             if (rowed) LayRow(bar, foot - below + target / 2f);
             else
             {
                 talk.Hide();
                 type.Hide();
-            more.Hide();
+                more.Hide();
                 levelRoot.gameObject.SetActive(false);
+                LayPlate(bar, new Vector3(0f, foot - below + target / 2f, -RoomType.Units(0.5f)));
             }
             var rowWidth = rowed ? Size.x : 0f;
             if (stops)
@@ -349,6 +353,7 @@ namespace Halcyonic.XR.UI
             panel.gameObject.SetActive(false);
             alone.gameObject.SetActive(false);
             alonePlate.gameObject.SetActive(false);
+            HidePlate();
             levelRoot.gameObject.SetActive(false);
             gameObject.SetActive(false);
         }
@@ -398,6 +403,7 @@ namespace Halcyonic.XR.UI
         {
             alone.gameObject.SetActive(false);
             alonePlate.gameObject.SetActive(false);
+            HidePlate();
             var listening = bar.State == RoomBarState.Listening && Level() != null;
             var buttons = new List<(RoomButton Button, RoomAction Action, float Width)>();
             foreach (var action in bar.Row)
@@ -535,6 +541,7 @@ namespace Halcyonic.XR.UI
             more.Hide();
             alone.gameObject.SetActive(false);
             alonePlate.gameObject.SetActive(false);
+            HidePlate();
             levelRoot.gameObject.SetActive(false);
             var unit = RoomType.Units(1f);
             var panelWidth = RoomType.Units(RoomGeometry.PanelDp);

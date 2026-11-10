@@ -97,6 +97,38 @@ namespace Halcyonic.XR.Workspace
             return RoomBar.OfFrame(frame, VoiceStage.Idle) != null ? KitFileBinding.PlainOf(frame) : null;
         }
 
+        /// <summary>
+        /// The agent's page (FIELD's <see cref="AgentColumn"/>) opened from the task's file: the agent and model the next
+        /// start would use, the level the project keeps, and every agent and model to choose from. A pick is kept for the
+        /// project and the page closes back to the file. An instruction armed meanwhile lapses where the choice changed
+        /// (<see cref="WorkspaceSteering.ChoiceNow"/>), so the level shown before a start is the level sent.
+        /// </summary>
+        private bool OpenAgentPage(MenuFrame? frame)
+        {
+            if (navigator.Taking(MenuColumn.File, AgentColumn.Open, frame, null) is not FileColumn file || file.Now is not WorkspacePresentation now
+                || State?.Workstreams.TryGetValue(now.Character.WorkstreamId, out var work) != true || plane.KitBinding is not { Plain: false } binding) return false;
+            var projectId = work!.ProjectId;
+            var task = now.Character.WorkstreamId;
+            AgentOffer? Offer()
+            {
+                var current = CurrentKitRuntime(file.Now);
+                var execution = file.Now?.Execution;
+                var modelRef = setup.Presentation.SelectedModelRef
+                    ?? (execution != null && execution.Runtime.RuntimeId == current?.RuntimeId ? execution.ModelRef : null);
+                return AgentOffer.Of(binding.Model.Agent, State?.Runtimes, setup.Presentation.ModelsForRuntime, current?.RuntimeId, modelRef,
+                    setup.Presentation.NeverAskFor(projectId));
+            }
+            var page = new AgentColumn(Offer, neverAsk => setup.Presentation.ChooseNeverAsk(projectId, neverAsk), key =>
+            {
+                var (runtimeId, modelRef) = AgentOffer.Picked(key);
+                setup.Presentation.SelectRuntime(runtimeId, modelRef);
+            });
+            page.Closed += () => { if (ReferenceEquals(navigator.Beside, page)) { navigator.ShowBeside(file, task); ViewsChanged(); } };
+            navigator.ShowBeside(page, task);
+            ViewsChanged();
+            return true;
+        }
+
         private Func<LineWords, int>? roomLines;
 
         private KitFileBinding? KitBindingOf(FileColumn? file, IReadOnlyList<ProjectView> choices, string? selected)

@@ -2681,7 +2681,11 @@ The last unit turns it on by default and removes the kit parts it replaced.
   confirmation through a real file column and reads the one command sent.
 - **The level of a task's next start** (ADR 0043), in the client core: the person's choice is kept per project beside
   the chosen runtime (`WorkspacePresentationState.NeverAskFor`, `ChooseNeverAsk`, cleared where the chosen runtime
-  is). The choice alone is not the level: a start carries `approval_level` never ask only where the person chose it
+  is). The row's action that names the agent and its level (FIELD's `RoomBar.AgentAtRest`) opens FIELD's page of
+  agents and levels beside the file (`MenuDirector.OpenAgentPage`, taken only from the file's frame as drawn); a pick
+  is kept for the project and the page closes back to the file. While the agent works, where the row does not stand,
+  FIELD's plate names the agent and the level its run recorded, in the row's place (`RoomBarView.LayWork`,
+  `LayPlate`). The choice alone is not the level: a start carries `approval_level` never ask only where the person chose it
   and the runtime it starts on says it offers it (`offers_never_ask` true), and leaves the field out otherwise,
   which means ask (`KitPresenter.RunChoiceOf`, `RunChoice.NeverAsk`, `WorkspaceSteering.Start`,
   `CommandFactory.StartExecution`). The level applies to a start only, so at rest a level that differs from the last
