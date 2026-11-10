@@ -260,7 +260,9 @@ public class RecordedRunHandOffTests
         player.Session.Start();
         try
         {
-            await Pumping.Until(player.Session, _ => player.Finished, "the recorded run finishes");
+            // The player finishes once it has sent the run; the session holds the run's work only once a pump has applied it.
+            await Pumping.Until(player.Session, session => player.Finished && session.State.Workstreams.Values.Any(item => item.CurrentExecutionId != null),
+                "the recorded run finishes and the session holds its work");
             var state = player.Session.State;
             var work = state.Workstreams.Values.First(item => item.CurrentExecutionId != null);
             var workspace = WorkspacePresenter.Present(work, state, new ActivityLog(), player.Session.Status.IsLive);
