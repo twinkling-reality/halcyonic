@@ -57,6 +57,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.AddRange(FieldMotion());
                     failures.AddRange(CursorMotion());
                     failures.AddRange(UnderlayHolds());
+                    failures.AddRange(BandKeepsWords());
                 }
                 failures.AddRange(GlazeChecks.AtEachTextSize(variant =>
                 {
@@ -140,6 +141,60 @@ namespace Halcyonic.XR.Workspace.Editor
             catch (Exception error) { failures.Add("the words' underlay threw " + error); }
             finally { UnityEngine.Object.DestroyImmediate(root); }
             if (failures.Count == 0) Debug.Log("Halcyonic: parts: the words' underlay presets hold.");
+            return failures;
+        }
+
+        /// <summary>
+        /// The band never breaks a word at its hyphen (F6b; JUDGE's frame read "sign-" / "ins?"): for texts that push a
+        /// hyphenated word across a line's end one letter at a time, a plain label of the band's own face, size and measure
+        /// does break it at the hyphen (so the case is real), and the band gives the same words with every line ending at a
+        /// space or the text's own break, the word whole on the next line.
+        /// </summary>
+        private static List<string> BandKeepsWords()
+        {
+            var failures = new List<string>();
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Hyphens");
+            try
+            {
+                var band = RoomBand.Create(root.transform);
+                var arose = 0;
+                var most = 0;
+                for (var pad = 1; pad <= 70; pad++)
+                {
+                    var said = "Should " + new string('o', pad) + " the game keep the players' saved sign-ins? Yes - keep them, or re-enter each time.";
+                    band.Show(said);
+                    band.Settle();
+                    var label = band.Label;
+                    var laid = RoomWords.Laid(said);
+                    // The plain label: the band's own, copied, given the words as they came.
+                    var plain = UnityEngine.Object.Instantiate(label, label.transform.parent);
+                    plain.text = laid;
+                    plain.ForceMeshUpdate(true);
+                    bool AtHyphen(TMP_TextInfo info)
+                    {
+                        for (var index = 0; index + 1 < info.lineCount; index++)
+                        {
+                            var line = info.lineInfo[index];
+                            if (line.characterCount > 0 && line.lastCharacterIndex == line.lastVisibleCharacterIndex && info.characterInfo[line.lastVisibleCharacterIndex].character == '-'
+                                && line.lastCharacterIndex + 1 < info.characterCount && !char.IsWhiteSpace(info.characterInfo[line.lastCharacterIndex + 1].character)) return true;
+                        }
+                        return false;
+                    }
+                    var broke = AtHyphen(plain.textInfo);
+                    UnityEngine.Object.DestroyImmediate(plain.gameObject);
+                    if (broke) arose++;
+                    label.ForceMeshUpdate(true);
+                    if (AtHyphen(label.textInfo)) failures.Add("the band breaks a word at its hyphen with " + pad + " letters before it: \"" + label.text.Replace("\n", " / ") + "\"");
+                    if (label.text.Replace('\n', ' ') != laid.Replace('\n', ' ') || band.Text != laid) failures.Add("the band's words changed with " + pad + " letters before them");
+                    if (label.text.Contains("sign-\n") || label.text.Contains("re-\n")) failures.Add("the band's text ends a line inside a word with " + pad + " letters before it");
+                    most = Mathf.Max(most, label.textInfo.lineCount);
+                }
+                if (arose < 2) failures.Add("the plain label broke at a hyphen in only " + arose + " of 70 texts, so the check proves nothing");
+                if (failures.Count == 0) Debug.Log("Halcyonic: parts: the band keeps a hyphenated word whole: a plain label broke one in " + arose + " of 70 texts, the band in none (at most " + most + " lines).");
+            }
+            catch (Exception error) { failures.Add("the band's hyphens threw " + error); }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
             return failures;
         }
 
@@ -265,7 +320,7 @@ namespace Halcyonic.XR.Workspace.Editor
             }
 
             // The band holds the words given, and nothing else: one label, one ground, the one type size, white, never cut.
-            Require(band.Text == laid && label.text == laid, "the band's words are not the words given");
+            Require(band.Text == laid && label.text.Replace('\n', ' ') == laid.Replace('\n', ' '), "the band's words are not the words given");
             var labels = band.GetComponentsInChildren<TMP_Text>(false);
             Require(labels.Length == 1 && labels[0] == label, "the band holds " + labels.Length + " labels, not its words alone");
             Require(band.GetComponentsInChildren<Renderer>(false).Length == 2, "the band draws more than its ground and its words");

@@ -363,9 +363,39 @@ namespace Halcyonic.XR.UI
                 var above = RoomWords.PadDp * Dp * GlazeText.Scale + (pitch - GlazeText.LineHeight(Label)) / 2f;
                 Label.transform.localPosition = new Vector3(-box.x / 2f, -above, -RoomType.Units(0.5f));
                 Label.ForceMeshUpdate(true);
+                // Words break only at spaces: where the label ended a line on a hyphen inside a word ("sign-" / "ins"), the
+                // word goes whole to the next line, the space before it becoming the line's end.
+                for (var pass = 0; pass < MostHyphenTurns && HyphenBreak(Label.textInfo) is int space; pass++)
+                {
+                    var shown = Label.text;
+                    Label.text = shown.Substring(0, space) + "\n" + shown.Substring(space + 1);
+                    Label.ForceMeshUpdate(true);
+                }
                 Words = RoomWords.Of(Label.textInfo.characterCount == 0 ? 0 : Label.textInfo.lineCount, part);
                 Place(Label.textInfo, everything: true);
                 Push();
+            }
+
+            /// <summary>The words a band turns to their next line at most to keep them off a hyphen's break: more than its longest text has lines.</summary>
+            private const int MostHyphenTurns = 64;
+
+            /// <summary>
+            /// Where the label broke a word at its hyphen: the place in its text of the space before that word, which is
+            /// where the line should end instead. Null where no line ends so, or the word starts its line and is as wide
+            /// as the measure allows, so it breaks where it must.
+            /// </summary>
+            private static int? HyphenBreak(TMP_TextInfo info)
+            {
+                for (var index = 0; index + 1 < info.lineCount; index++)
+                {
+                    var line = info.lineInfo[index];
+                    // A line that ends on its last letter, a hyphen, with a letter starting the next: the break is the hyphen's own.
+                    if (line.characterCount == 0 || line.lastCharacterIndex != line.lastVisibleCharacterIndex || line.lastCharacterIndex + 1 >= info.characterCount) continue;
+                    if (info.characterInfo[line.lastVisibleCharacterIndex].character != '-' || char.IsWhiteSpace(info.characterInfo[line.lastCharacterIndex + 1].character)) continue;
+                    for (var at = line.lastVisibleCharacterIndex; at > line.firstCharacterIndex; at--)
+                        if (info.characterInfo[at].character == ' ') return info.characterInfo[at].index;
+                }
+                return null;
             }
 
             /// <summary>The part's lines where their moves put them now, sent to the mesh.</summary>
