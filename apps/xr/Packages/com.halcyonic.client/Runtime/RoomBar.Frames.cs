@@ -19,6 +19,8 @@ namespace Halcyonic.Client
         /// </summary>
         private static readonly RoomFrameMoment[] Frames =
         {
+            Agent,
+            NewProject,
             Page,
         };
 
