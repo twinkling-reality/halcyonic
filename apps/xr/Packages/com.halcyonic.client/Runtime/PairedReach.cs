@@ -185,11 +185,18 @@ namespace Halcyonic.Client
             return said
                 .Where(address => address != null)
                 .Select(address => address.Trim().Trim('[', ']').ToLowerInvariant())
-                .Where(address => address.Length > 0 && address.Length <= 253 && (IPAddress.TryParse(address, out _) || LocalName.IsMatch(address)))
+                .Where(address => address.Length > 0 && address.Length <= 253 && (IsAddress(address) || LocalName.IsMatch(address)))
                 .Distinct(StringComparer.Ordinal)
                 .Take(MaxAddresses)
                 .ToList();
         }
+
+        /// <summary>
+        /// An IP address in a form a computer reports it: IPv6 with its colons, or IPv4 as four dotted parts,
+        /// never the short forms .NET also parses, such as "10.1" for 10.0.0.1.
+        /// </summary>
+        private static bool IsAddress(string address) =>
+            IPAddress.TryParse(address, out _) && (address.Contains(":") || address.Split('.').Length == 4);
 
         private async Task LearnAsync()
         {
