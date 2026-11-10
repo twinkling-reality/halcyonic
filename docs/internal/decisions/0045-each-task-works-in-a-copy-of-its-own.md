@@ -1,6 +1,6 @@
 # ADR 0045: Each task works in a copy of its own, and its work reaches the project only when the person adds it
 
-- Status: Accepted 2026-11-10; contracts, views and admission built; the host's copies, adding and checks per task not yet
+- Status: Accepted 2026-11-10; contracts, views, admission and the copies made at a task's first start built; adding and checks per task not yet
 - Date: 2026-11-10
 - Amends ADR 0020 (a project works in one folder) and ADR 0036 (checkpoints); complements ADR 0037 and ADR 0041
 

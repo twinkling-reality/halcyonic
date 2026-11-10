@@ -11,6 +11,7 @@ import { Companion } from './companion/companion.ts';
 import { type ControlPlaneConfig, defaultDataDir, loadConfig, parseNetwork } from './config.ts';
 import { ControlPlane } from './core/control-plane.ts';
 import { OllamaUnloader } from './core/ollama-unload.ts';
+import { admittingAlso } from './directory-policy.ts';
 import { registerDeviceRoutes } from './http/device-routes.ts';
 import { registerRealtime } from './http/realtime.ts';
 import { registerRoutes } from './http/routes.ts';
@@ -59,6 +60,9 @@ async function main(): Promise<void> {
   await chmod(config.dataDir, 0o700);
   const access = await loadOrCreateAccessToken(config.dataDir);
   const locations = createHostLocations(config.projectRoots);
+  // Every task's own copy (ADR 0045) lives beside the data folder; only the runtimes may work there.
+  await mkdir(config.tasksDir, { recursive: true, mode: 0o700 });
+  await chmod(config.tasksDir, 0o700);
   // Which starter a folder was made from, read from the projection once the control plane is built.
   let starterOf: (directory: string) => string | null = () => null;
   let originalOf: (directory: string) => string | null = () => null;
@@ -70,7 +74,7 @@ async function main(): Promise<void> {
       scenarios: loadScenarios(config.scenariosDir),
       models: MOCK_MODELS,
     }),
-    directoryPolicy: locations.policy,
+    directoryPolicy: admittingAlso(locations.policy, config.tasksDir),
     environment: process.env,
     dataDir: config.dataDir,
     starterOf: (directory) => starterOf(directory),
@@ -163,6 +167,7 @@ async function main(): Promise<void> {
               // A project folder holding the journal and token is never checkpointed.
               protect: [config.dataDir],
             }),
+            copies: { directory: config.tasksDir, protect: [config.dataDir] },
           },
         }),
     // A project folder holding the journal and token is never read, as it is never checkpointed.
@@ -215,11 +220,25 @@ async function main(): Promise<void> {
     controlPlane.projection
       .projects()
       .flatMap((project) => (project.location === null ? [] : [project.location.path]));
-  starterOf = (directory) =>
-    controlPlane.projection
-      .projects()
-      .find((project) => project.starter !== null && project.location?.path === directory)
-      ?.starter ?? null;
+  // A task's own copy is its project's folder for what the project was made from (ADR 0045).
+  const projectFolderOf = (directory: string): string => {
+    const projection = controlPlane.projection;
+    for (const workstream of projection.workstreams()) {
+      const copy = workstream.copy;
+      if (copy?.state === 'own' && copy.directory === directory)
+        return projection.project(workstream.project_id)?.location?.path ?? directory;
+    }
+    return directory;
+  };
+  starterOf = (directory) => {
+    const folder = projectFolderOf(directory);
+    return (
+      controlPlane.projection
+        .projects()
+        .find((project) => project.starter !== null && project.location?.path === folder)
+        ?.starter ?? null
+    );
+  };
   // The original a VR version was made from, read from the journal at each start (M1.8c-1).
   // Bounded again here as at the command (AUDIT M18C1-M1, M18C1-S2).
   originalOf = (directory) => {
@@ -233,7 +252,7 @@ async function main(): Promise<void> {
     const folders = projects.flatMap((project) =>
       project.folder === null ? [] : [project.folder],
     );
-    return originalFolderOf(directory, projects, (folder) =>
+    return originalFolderOf(projectFolderOf(directory), projects, (folder) =>
       originalRefusal(folder, {
         roots: locations.list().roots.map((root) => root.path),
         home: homedir(),

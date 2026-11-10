@@ -25,6 +25,7 @@ import {
   type Admission,
   admitCommand,
   type CommandScope,
+  folderInUse,
   journaledRejection,
   type Projection,
 } from '@halcyonic/domain';
@@ -37,6 +38,7 @@ import {
   type Scheduler,
 } from '@halcyonic/runtime-core';
 import type { Checkpointer } from '../checkpoints/checkpointer.ts';
+import type { PrepareResult, TaskCopies } from '../checkpoints/task-copies.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
@@ -94,6 +96,8 @@ export interface CommandServiceDeps {
   readonly redaction: Redaction;
   /** Halcyonic's own undo (ADR 0036), or null when the host has not set it up. */
   readonly checkpoints?: Checkpointer | null;
+  /** Every task's own copy of its project's folder (ADR 0045); absent, tasks work in the project's. */
+  readonly copies?: TaskCopies | null;
   /** The host's checks and previews of starter projects (ADR 0037), or null when not set up. */
   readonly previews?: HostPreviews | null;
   /** The starters a new project can begin from (ADR 0037), or null when there are none. */
@@ -535,6 +539,68 @@ export class CommandService {
     }
   }
 
+  /** The folder of the task's own copy, or null while it has none (ADR 0045). */
+  #ownCopy(workstreamId: string): string | null {
+    const copy = this.#deps.projection.workstream(workstreamId)?.copy;
+    return copy?.state === 'own' ? copy.directory : null;
+  }
+
+  /**
+   * Makes the task's copy and records it, or records why it has none; resolves to the folder the
+   * start works in: the copy, else the project's folder, asked again of the folder rule just before,
+   * since starts beside it were admitted while the copy was being made (FOLDER, ADR 0045).
+   */
+  async #makeCopy(
+    copies: TaskCopies,
+    scope: CommandScope,
+    projectFolder: string,
+    cause: Cause,
+  ): Promise<
+    | { readonly ok: true; readonly directory: string }
+    | { readonly ok: false; readonly failure: CommandFailure }
+  > {
+    const { project_id, workstream_id } = scope;
+    if (project_id === null || workstream_id === null)
+      return { ok: true, directory: projectFolder };
+    const where = { project_id, workstream_id, execution_id: null };
+    let made: PrepareResult;
+    try {
+      made = await copies.prepare(project_id, workstream_id, projectFolder);
+    } catch {
+      // What failed may name the person's folders, so only the task is logged.
+      this.#deps.logger.warn({ workstream_id }, 'task copy failed');
+      made = { ok: false, code: 'copy_failed', message: 'The copy of the folder failed.' };
+    }
+    if (made.ok) {
+      this.#deps.recorder.record(
+        controlPlaneDraft(
+          'workstream.copy_made',
+          where,
+          { directory: made.directory, base_tree: made.baseTree, files: made.files },
+          this.#now(),
+          cause,
+        ),
+      );
+      return { ok: true, directory: made.directory };
+    }
+    this.#deps.recorder.record(
+      controlPlaneDraft(
+        'workstream.copy_refused',
+        where,
+        { code: made.code, message: made.message },
+        this.#now(),
+        cause,
+      ),
+    );
+    const busy = folderInUse(this.#deps.projection, projectFolder, workstream_id);
+    if (busy !== null)
+      return {
+        ok: false,
+        failure: { code: 'folder_in_use', message: busy.message, effect: 'none' },
+      };
+    return { ok: true, directory: projectFolder };
+  }
+
   /** The folder the admitted command's project is bound to, or null for none. */
   #projectDirectory(scope: CommandScope): string | null {
     if (scope.project_id === null) return null;
@@ -809,81 +875,98 @@ export class CommandService {
         };
         const scope = { project_id, workstream_id, execution_id: execution.execution_id };
         // Admission checked it; the adapter asks the host's policy again before anything runs.
-        const directory = runtime.uses_project_location
+        const begin = (directory: string | null): void => {
+          recorder.record(
+            controlPlaneDraft(
+              'execution.created',
+              scope,
+              {
+                runtime: toRuntimeRef(runtime),
+                instruction: command.payload.instruction,
+                directory,
+              },
+              this.#now(),
+              cause,
+            ),
+          );
+          this.#deps.reattacher?.started(execution.execution_id);
+          const start = adapter.startExecution;
+          if (start === undefined) {
+            this.#recordStartFailure(command, scope, unimplemented('startExecution'));
+            return;
+          }
+          const emit = createObservationSink(
+            recorder,
+            this.#deps.logger,
+            execution,
+            runtime.runtime_id,
+            this.#deps.redaction,
+          );
+          // A failed check's first lines go after the person's words, once per check (FX1).
+          const checked = this.#checkOutputFor(project_id);
+          const run = () =>
+            this.#perform(
+              command,
+              () =>
+                start.call(adapter, {
+                  execution,
+                  instruction: withCheckOutput(command.payload.instruction, checked),
+                  options: command.payload.options,
+                  model_ref: command.payload.model_ref,
+                  ...(command.payload.approval_level !== undefined && {
+                    approval_level: command.payload.approval_level,
+                  }),
+                  directory,
+                  emit,
+                }),
+              {
+                succeeded: () => {
+                  this.#recordCheckOutput(scope, checked, cause);
+                  this.#complete(command, scope, {
+                    kind: 'execution_created',
+                    execution_id: execution.execution_id,
+                  });
+                },
+                failed: (failure) => this.#recordStartFailure(command, scope, failure),
+              },
+            );
+          // Before the runtime is asked, outside its timeout: the folder's first reading for what each
+          // turn changes (ADR 0038), a checkpoint of it (ADR 0036), and whether an Ollama model was
+          // already loaded before Halcyonic started using it (UL1).
+          const before: Promise<void>[] = [];
+          const ollamaModel = ollamaModelFrom(command.payload.model_ref, command.payload.options);
+          if (ollamaModel !== null && this.#deps.ollamaUnload) {
+            before.push(this.#deps.ollamaUnload.beforeRun(execution.execution_id, ollamaModel));
+          }
+          if (directory !== null) {
+            const files = this.#deps.files;
+            if (files) {
+              const id = execution.execution_id;
+              before.push(bounded(files.baseline(id, directory), () => files.abandon(id)));
+            }
+            const checkpoints = this.#deps.checkpoints;
+            if (checkpoints)
+              before.push(
+                checkpoints.beforeTask(project_id, execution.execution_id, directory, cause),
+              );
+          }
+          if (before.length === 0) void run();
+          else void Promise.all(before).then(run, run);
+        };
+        // A task works in its own copy of the project's folder, made before its first start (ADR 0045).
+        const projectFolder = runtime.uses_project_location
           ? this.#projectDirectory(admission.scope)
           : null;
-        recorder.record(
-          controlPlaneDraft(
-            'execution.created',
-            scope,
-            { runtime: toRuntimeRef(runtime), instruction: command.payload.instruction, directory },
-            this.#now(),
-            cause,
-          ),
-        );
-        this.#deps.reattacher?.started(execution.execution_id);
-        const start = adapter.startExecution;
-        if (start === undefined) {
-          this.#recordStartFailure(command, scope, unimplemented('startExecution'));
+        const own = this.#ownCopy(workstream_id);
+        const copies = this.#deps.copies;
+        if (projectFolder !== null && own === null && copies) {
+          void this.#makeCopy(copies, admission.scope, projectFolder, cause).then((where) => {
+            if (where.ok) begin(where.directory);
+            else this.#fail(command, admission.scope, where.failure);
+          });
           return;
         }
-        const emit = createObservationSink(
-          recorder,
-          this.#deps.logger,
-          execution,
-          runtime.runtime_id,
-          this.#deps.redaction,
-        );
-        // A failed check's first lines go after the person's words, once per check (FX1).
-        const checked = this.#checkOutputFor(project_id);
-        const run = () =>
-          this.#perform(
-            command,
-            () =>
-              start.call(adapter, {
-                execution,
-                instruction: withCheckOutput(command.payload.instruction, checked),
-                options: command.payload.options,
-                model_ref: command.payload.model_ref,
-                ...(command.payload.approval_level !== undefined && {
-                  approval_level: command.payload.approval_level,
-                }),
-                directory,
-                emit,
-              }),
-            {
-              succeeded: () => {
-                this.#recordCheckOutput(scope, checked, cause);
-                this.#complete(command, scope, {
-                  kind: 'execution_created',
-                  execution_id: execution.execution_id,
-                });
-              },
-              failed: (failure) => this.#recordStartFailure(command, scope, failure),
-            },
-          );
-        // Before the runtime is asked, outside its timeout: the folder's first reading for what each
-        // turn changes (ADR 0038), a checkpoint of it (ADR 0036), and whether an Ollama model was
-        // already loaded before Halcyonic started using it (UL1).
-        const before: Promise<void>[] = [];
-        const ollamaModel = ollamaModelFrom(command.payload.model_ref, command.payload.options);
-        if (ollamaModel !== null && this.#deps.ollamaUnload) {
-          before.push(this.#deps.ollamaUnload.beforeRun(execution.execution_id, ollamaModel));
-        }
-        if (directory !== null) {
-          const files = this.#deps.files;
-          if (files) {
-            const id = execution.execution_id;
-            before.push(bounded(files.baseline(id, directory), () => files.abandon(id)));
-          }
-          const checkpoints = this.#deps.checkpoints;
-          if (checkpoints)
-            before.push(
-              checkpoints.beforeTask(project_id, execution.execution_id, directory, cause),
-            );
-        }
-        if (before.length === 0) void run();
-        else void Promise.all(before).then(run, run);
+        begin(projectFolder === null ? null : (own ?? projectFolder));
         return;
       }
       case 'execution.send_instruction':

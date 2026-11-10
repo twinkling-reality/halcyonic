@@ -11,7 +11,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
-import { createDirectoryPolicy } from './directory-policy.ts';
+import { admittingAlso, createDirectoryPolicy } from './directory-policy.ts';
 
 const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-directory-policy-')));
 after(() => rmSync(base, { recursive: true, force: true }));
@@ -90,5 +90,23 @@ describe('directory policy', () => {
     const decision = createDirectoryPolicy([])(inside);
     assert.equal(decision.ok ? 'ok' : decision.code, 'location_not_allowed');
     assert.match(decision.ok ? '' : decision.message, /HALCYONIC_PROJECT_ROOTS/);
+  });
+});
+
+describe("the runtimes' policy with the tasks' copies (ADR 0045)", () => {
+  test('admits folders inside the copies folder, never the folder itself, and leaves the roots as they were', () => {
+    const { root, inside, outside } = layout('copies');
+    const copies = join(root, '..', 'tasks');
+    const copy = join(copies, 'p', 't', 'app');
+    mkdirSync(copy, { recursive: true });
+    const policy = admittingAlso(createDirectoryPolicy([root]), copies);
+    assert.deepEqual(policy(copy), { ok: true, directory: realpathSync(copy) });
+    assert.equal(policy(copies).ok, false, 'the folder of every copy is no one task folder');
+    assert.equal(policy(inside).ok, true);
+    assert.equal(policy(outside).ok, false);
+    // A link inside the copies folder that leads out is judged where it leads.
+    symlinkSync(outside, join(copies, 'out'));
+    assert.equal(policy(join(copies, 'out')).ok, false);
+    assert.equal(policy(join(copies, 'p', 'missing')).ok, false);
   });
 });

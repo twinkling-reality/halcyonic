@@ -10,6 +10,7 @@ import { Projection } from '@halcyonic/domain';
 import type { Clock, RuntimeAdapter, Scheduler } from '@halcyonic/runtime-core';
 import { Checkpointer } from '../checkpoints/checkpointer.ts';
 import type { CheckpointStore, RestoreHooks } from '../checkpoints/store.ts';
+import { TaskCopies } from '../checkpoints/task-copies.ts';
 import type { IdGenerator } from '../ids.ts';
 import {
   CHECKPOINT_EVERY,
@@ -57,6 +58,11 @@ export interface ControlPlaneOptions {
     readonly restoreHooks?: RestoreHooks;
     /** How long a close waits for checkpoints and restores under way; 10 s by default. */
     readonly closeWaitMs?: number;
+    /**
+     * Where every task's own copy of its project's folder lives (ADR 0045), with the folders no
+     * copied project may hold. Absent, every task works in its project's folder, one at a time.
+     */
+    readonly copies?: { readonly directory: string; readonly protect?: readonly string[] };
   };
   /** The starters a new project can begin from (ADR 0037); none by default. */
   readonly starters?: HostStarters;
@@ -242,6 +248,17 @@ export class ControlPlane {
       commandTimeoutMs: options.commandTimeoutMs,
       redaction: this.redaction,
       checkpoints: this.checkpoints,
+      copies:
+        options.checkpoints?.copies === undefined
+          ? null
+          : new TaskCopies({
+              directory: options.checkpoints.copies.directory,
+              store: options.checkpoints.store,
+              nextId: () => options.ids.next(),
+              ...(options.checkpoints.copies.protect === undefined
+                ? {}
+                : { protect: options.checkpoints.copies.protect }),
+            }),
       starters: this.starters,
       files: this.files,
       catalogLinks: options.catalogLinks ?? null,

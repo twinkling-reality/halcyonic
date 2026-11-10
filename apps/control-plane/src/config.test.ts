@@ -31,6 +31,21 @@ describe('configuration', () => {
     assert.deepEqual(config.projectRoots, []);
   });
 
+  test("keeps every task's copy beside the data folder, never inside it or around it (ADR 0045)", () => {
+    assert.match(loadConfig({}).tasksDir, /\/\.halcyonic-tasks$/);
+    assert.equal(
+      loadConfig({ HALCYONIC_DATA_DIR: '/d/data', HALCYONIC_TASKS_DIR: '/d/tasks' }).tasksDir,
+      '/d/tasks',
+    );
+    assert.throws(() => loadConfig({ HALCYONIC_TASKS_DIR: 'tasks' }), /absolute/);
+    for (const tasks of ['/d/data/tasks', '/d/data', '/d'])
+      assert.throws(
+        () => loadConfig({ HALCYONIC_DATA_DIR: '/d/data', HALCYONIC_TASKS_DIR: tasks }),
+        /beside Halcyonic's data folder/,
+        tasks,
+      );
+  });
+
   test('refuses a host that is not loopback', () => {
     assert.throws(() => loadConfig({ HALCYONIC_HOST: '0.0.0.0' }), ConfigError);
   });

@@ -134,6 +134,7 @@ Environment variables, all optional:
 | `HALCYONIC_NETWORK_HOST` | none | An IP address, such as `0.0.0.0` for every interface, turns on the TLS listener for paired devices ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)); unset, nothing listens beyond loopback |
 | `HALCYONIC_NETWORK_PORT` | `47801` | The network listener's port; must differ from `HALCYONIC_PORT` |
 | `HALCYONIC_DATA_DIR` | `~/.halcyonic` | Journal, access token |
+| `HALCYONIC_TASKS_DIR` | `~/.halcyonic-tasks` | Every task's own copy of its project's folder, `<project id>/<task id>/<folder name>` ([ADR 0045](../decisions/0045-each-task-works-in-a-copy-of-its-own.md)); beside the data folder, never inside it or around it (startup refuses either); mode 0700; only the runtimes are given it, never a client. Copies are made where undo is on (`HALCYONIC_GIT_BIN`) |
 | `HALCYONIC_LOG_LEVEL` | `info` | `fatal` to `trace`, or `silent` |
 | `HALCYONIC_EXIT_ON_STDIN_END` | `0` | `1` shuts the control plane down, as SIGTERM does, when its standard input ends; for a launcher that holds that input open, so that the control plane stops when the launcher exits, however it exits |
 | `HALCYONIC_COMMAND_TIMEOUT_MS` | `30000` | How long to wait for a runtime to confirm an action |
