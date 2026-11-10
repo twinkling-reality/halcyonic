@@ -1,5 +1,6 @@
 import type {
   ApprovalDecision,
+  ApprovalLevel,
   EventOf,
   ExecutionId,
   ProjectId,
@@ -59,6 +60,12 @@ export interface StartExecutionRequest {
    * `model_unavailable`.
    */
   readonly model_ref: string | null;
+  /**
+   * How often the agent stops to ask the person (ADR 0043); absent means `ask`. Admission passes
+   * `never_ask` only to an adapter whose descriptor declares `offers_never_ask`. The adapter
+   * observes the level the runtime confirmed and reports it in `runtime.execution.started`.
+   */
+  readonly approval_level?: ApprovalLevel;
   /**
    * The project's location: the real path the host's directory policy returned for it when the
    * control plane dispatched the start, or null when the project has none or the runtime does not

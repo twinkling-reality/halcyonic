@@ -196,6 +196,26 @@ describe('commands and realtime messages', () => {
     assert.equal(parseCommandEnvelope(start({ nested })).ok, true);
   });
 
+  test('a start may say how often the agent asks, only as ask or never_ask, and may leave it out (ADR 0043)', () => {
+    const start = (extra: object) => ({
+      ...COMMAND,
+      command_type: 'execution.start',
+      payload: {
+        workstream_id: COMMAND.payload.execution_id,
+        runtime_id: 'mock',
+        instruction: 'Go.',
+        options: {},
+        model_ref: null,
+        ...extra,
+      },
+    });
+    assert.equal(parseCommandEnvelope(start({})).ok, true, 'absent means ask, as before');
+    assert.equal(parseCommandEnvelope(start({ approval_level: 'ask' })).ok, true);
+    assert.equal(parseCommandEnvelope(start({ approval_level: 'never_ask' })).ok, true);
+    for (const level of ['bypass', 'never', null, true])
+      assert.equal(parseCommandEnvelope(start({ approval_level: level })).ok, false, String(level));
+  });
+
   test('an invalid command inside a realtime message reports paths under /command', () => {
     const parsed = parseClientMessage({
       type: 'command',
@@ -517,8 +537,8 @@ describe('the C# bindings', () => {
     );
     assert.equal(
       generated.match(/Required = Required\.Default/g)?.length,
-      19,
-      "the optional members are a location's label, a completed tool's turn, two declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), why a twin read was unknown (M1.8g-b), whether an execution's start recorded it confined (S2), whether a check's browser had permissions of its own (S1), a project's check, preview and play (M1.8e), an evaluation's activity, and a check page's own pixels against the starter's (DRAWN)",
+      23,
+      "the optional members are a location's label, a completed tool's turn, three declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), why a twin read was unknown (M1.8g-b), whether an execution's start recorded it confined (S2), whether a check's browser had permissions of its own (S1), a project's check, preview and play (M1.8e), an evaluation's activity, a check page's own pixels against the starter's (DRAWN), and the approval level a start chose, its runtime recorded and its view shows (ADR 0043)",
     );
     for (const member of [
       'Activity',
@@ -535,6 +555,8 @@ describe('the C# bindings', () => {
       'Preview',
       'MacPlay',
       'Own',
+      'ApprovalLevel',
+      'OffersNeverAsk',
     ])
       assert.match(generated, new RegExp(`public \\w+\\? ${member} \\{ get; set; \\}`), member);
     assert.match(

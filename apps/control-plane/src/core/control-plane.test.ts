@@ -133,6 +133,61 @@ describe('command lifecycle', () => {
     await controlPlane.close();
   });
 
+  test('a start that never asks reaches the runtime, and the view shows the level the runtime recorded (ADR 0043)', async () => {
+    const harness = createTestControlPlane({
+      adapters: (time) => [
+        new MockRuntimeAdapter({
+          scenarios: SCENARIOS,
+          clock: time,
+          scheduler: time,
+          offersNeverAsk: true,
+        }),
+      ],
+    });
+    const { controlPlane, commands, time } = harness;
+    const asking = await createWorkstream(harness);
+    const quiet = await createWorkstream(harness);
+    const start = (workstreamId: WorkstreamId, level: 'never_ask' | undefined) => {
+      const command = commands.startExecution(workstreamId, FEATURE);
+      return controlPlane.commands.submit(
+        level === undefined
+          ? command
+          : { ...command, payload: { ...command.payload, approval_level: level } },
+        'internal',
+      );
+    };
+    assert.equal(start(quiet, 'never_ask').disposition, 'accepted');
+    assert.equal(start(asking, undefined).disposition, 'accepted');
+    await time.runUntilIdle();
+    const levelOf = (workstreamId: WorkstreamId) =>
+      controlPlane.projection.executions().find((each) => each.workstream_id === workstreamId)
+        ?.approval_level;
+    assert.equal(levelOf(quiet), 'never_ask');
+    // A start that chose nothing asks, as before, and the runtime says so.
+    assert.equal(levelOf(asking), 'ask');
+    await controlPlane.close();
+  });
+
+  test('a runtime that records no level shows none, and refuses a start that never asks (ADR 0043)', async () => {
+    const harness = createTestControlPlane();
+    const { controlPlane, commands, time } = harness;
+    const workstreamId = await createWorkstream(harness);
+    const command = commands.startExecution(workstreamId, FEATURE);
+    const refused = controlPlane.commands.submit(
+      { ...command, payload: { ...command.payload, approval_level: 'never_ask' } },
+      'internal',
+    );
+    assert.equal(refused.command?.rejection?.code, 'capability_unsupported');
+    const asking = commands.startExecution(workstreamId, FEATURE);
+    assert.equal(controlPlane.commands.submit(asking, 'internal').disposition, 'accepted');
+    await time.runUntilIdle();
+    const [execution] = controlPlane.projection.executions();
+    assert.ok(execution);
+    // Not recorded is never shown as asking.
+    assert.equal('approval_level' in execution, false);
+    await controlPlane.close();
+  });
+
   test('rejected commands are journaled with a reason and create nothing', async () => {
     const harness = createTestControlPlane();
     const { controlPlane, commands } = harness;

@@ -4576,6 +4576,9 @@
                 },
                 "confined": {
                   "type": "boolean"
+                },
+                "approval_level": {
+                  "$ref": "#/$defs/ApprovalLevel"
                 }
               },
               "additionalProperties": false
@@ -7610,6 +7613,9 @@
                       "type": "null"
                     }
                   ]
+                },
+                "approval_level": {
+                  "$ref": "#/$defs/ApprovalLevel"
                 }
               },
               "additionalProperties": false
@@ -8348,6 +8354,9 @@
         },
         "approval_may_leave_sandbox": {
           "type": "boolean"
+        },
+        "offers_never_ask": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -8431,6 +8440,18 @@
         {
           "type": "string",
           "const": "listed"
+        }
+      ]
+    },
+    "ApprovalLevel": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "ask"
+        },
+        {
+          "type": "string",
+          "const": "never_ask"
         }
       ]
     },
@@ -10466,6 +10487,9 @@
               "type": "null"
             }
           ]
+        },
+        "approval_level": {
+          "$ref": "#/$defs/ApprovalLevel"
         },
         "instruction": {
           "type": "string",

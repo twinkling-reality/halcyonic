@@ -1215,6 +1215,7 @@ export class Projection {
       case 'runtime.execution.started':
         execution.nativeId = event.payload.native_id ?? execution.nativeId;
         execution.confined = event.payload.confined === true;
+        execution.approvalLevel = event.payload.approval_level ?? null;
         execution.startedAt ??= event.occurred_at;
         break;
       case 'runtime.turn.started':

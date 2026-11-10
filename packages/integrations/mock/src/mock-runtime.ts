@@ -1,5 +1,6 @@
 import type {
   ApprovalDecision,
+  ApprovalLevel,
   EventOf,
   ExecutionId,
   QuestionAnswer,
@@ -98,6 +99,11 @@ export interface MockRuntimeOptions {
    * client still labels the work as simulated.
    */
   readonly displayName?: string;
+  /**
+   * Whether the runtime offers `never_ask` (ADR 0043), synthetic like the rest of it. Off unless
+   * given, so the recorded demonstration's runtimes offer none.
+   */
+  readonly offersNeverAsk?: boolean;
   readonly clock?: Clock;
   readonly scheduler?: Scheduler;
 }
@@ -136,6 +142,7 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
       uses_project_location: false,
       reports_tool_activity: true,
       reports_tool_results: false,
+      ...(options.offersNeverAsk === true && { offers_never_ask: true }),
     };
     if (this.#models.length > 0) this.listModels = async () => this.#models;
   }
@@ -180,6 +187,13 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
     }
     const validation = this.validateStartOptions(request.options, request.model_ref);
     if (!validation.ok) throw new RuntimeActionError('invalid_runtime_options', validation.message);
+    const offered = this.descriptor.offers_never_ask === true;
+    if (request.approval_level === 'never_ask' && !offered) {
+      throw new RuntimeActionError(
+        'invalid_runtime_options',
+        'The mock runtime does not offer working without asking.',
+      );
+    }
     const scenarioId =
       request.options.scenario === undefined
         ? MockRuntimeAdapter.DEFAULT_SCENARIO
@@ -205,7 +219,11 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
       new Map((scenario.instructions ?? []).map(({ text, steps }) => [text, steps])),
     );
     this.#sessions.set(request.execution.execution_id, session);
-    session.begin(scenario.steps, request.model_ref);
+    session.begin(
+      scenario.steps,
+      request.model_ref,
+      offered ? (request.approval_level ?? 'ask') : null,
+    );
     return { native_id: session.nativeId };
   }
 
@@ -287,8 +305,16 @@ class MockSession {
     this.#instructions = instructions;
   }
 
-  begin(steps: readonly ScenarioStep[], modelRef: string | null): void {
-    this.#emit('runtime.execution.started', { native_id: this.nativeId });
+  /** `approvalLevel` is the level the mock started with, recorded only where it offers a choice. */
+  begin(
+    steps: readonly ScenarioStep[],
+    modelRef: string | null,
+    approvalLevel: ApprovalLevel | null,
+  ): void {
+    this.#emit('runtime.execution.started', {
+      native_id: this.nativeId,
+      ...(approvalLevel !== null && { approval_level: approvalLevel }),
+    });
     // The mock "uses" the model it was given, and reports it as a runtime reports its model.
     if (modelRef !== null) this.#emit('runtime.model.used', { model_ref: modelRef });
     this.#startTurn(steps);

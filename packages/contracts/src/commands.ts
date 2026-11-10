@@ -17,7 +17,7 @@ import {
   WorkstreamId,
 } from './primitives.ts';
 import { QuestionAnswer } from './questions.ts';
-import { ModelRef, RuntimeOptions } from './runtime.ts';
+import { ApprovalLevel, ModelRef, RuntimeOptions } from './runtime.ts';
 import { COMMAND_SCHEMA_VERSION } from './versions.ts';
 
 const strict = { additionalProperties: false } as const;
@@ -150,6 +150,11 @@ export const ExecutionStartCommand = defineCommand(
        * against a fresh list before anything runs.
        */
       model_ref: Nullable(ModelRef),
+      /**
+       * How often the agent stops to ask the person (ADR 0043); absent means `ask`, as every start
+       * before it meant. `never_ask` only for a runtime whose descriptor offers it.
+       */
+      approval_level: Type.Optional(ApprovalLevel),
     },
     strict,
   ),

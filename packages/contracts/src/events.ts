@@ -44,7 +44,7 @@ import {
   WorkspaceRequestStep,
   WorkspaceRequestView,
 } from './requests.ts';
-import { ModelRef, RuntimeRef } from './runtime.ts';
+import { ApprovalLevel, ModelRef, RuntimeRef } from './runtime.ts';
 import { StarterId } from './starters.ts';
 import { ToolResult } from './tool-results.ts';
 import { EVENT_SCHEMA_VERSION } from './versions.ts';
@@ -571,10 +571,16 @@ export const RUNTIME_EVENT_PAYLOADS = {
    * The runtime created the native session or thread backing the execution. `confined` (S2) is
    * observed by the adapter: true when it started the execution inside Halcyonic's confinement of a
    * project (ADR 0041), false when not; absent from runtimes that do not record it and from events
-   * before it existed, which read as not confined.
+   * before it existed, which read as not confined. `approval_level` (ADR 0043) is observed by the
+   * adapter too: the level the runtime confirmed it started with; absent where it was not recorded,
+   * which never reads as `ask`.
    */
   'runtime.execution.started': Type.Object(
-    { native_id: Nullable(NativeId), confined: Type.Optional(Type.Boolean()) },
+    {
+      native_id: Nullable(NativeId),
+      confined: Type.Optional(Type.Boolean()),
+      approval_level: Type.Optional(ApprovalLevel),
+    },
     strict,
   ),
   'runtime.turn.started': Type.Object({ ...TurnRef }, strict),

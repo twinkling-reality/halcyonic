@@ -1,4 +1,5 @@
 import type {
+  ApprovalLevel,
   ApprovalView,
   ErrorInfo,
   ExecutionId,
@@ -36,6 +37,11 @@ export interface ExecutionState {
    * when the start said not, said nothing, or has not come.
    */
   confined: boolean;
+  /**
+   * The approval level its start recorded the runtime confirmed (ADR 0043); null when the start
+   * recorded none or has not come.
+   */
+  approvalLevel: ApprovalLevel | null;
   /** The model the runtime last reported using, as its model list names it. */
   modelRef: string | null;
   /** True once the runtime has reported any activity, meaning a native session exists. */
@@ -71,6 +77,7 @@ export function createExecutionState(init: {
     ...init,
     nativeId: null,
     confined: false,
+    approvalLevel: null,
     modelRef: null,
     runtimeStarted: false,
     startedAt: null,
@@ -151,6 +158,7 @@ export function toExecutionView(
     runtime: state.runtime,
     native_id: state.nativeId,
     model_ref: state.modelRef,
+    ...(state.approvalLevel !== null && { approval_level: state.approvalLevel }),
     instruction: state.instruction,
     directory: state.directory,
     status: deriveExecutionStatus(state),

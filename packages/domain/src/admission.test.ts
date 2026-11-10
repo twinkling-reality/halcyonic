@@ -144,6 +144,26 @@ describe('command admission', () => {
     );
   });
 
+  test('never asking is admitted only for a runtime that offers it, and asking always (ADR 0043)', () => {
+    const { projection, commands, idle } = setup();
+    const start = commands.start(idle.workstreamId);
+    const at = (approval_level: 'ask' | 'never_ask') =>
+      ({ ...start, payload: { ...(start.payload as object), approval_level } }) as typeof start;
+    const refused = admitCommand(at('never_ask'), projection, catalog());
+    assert.deepEqual(refused.admitted ? null : refused.rejection, {
+      code: 'capability_unsupported',
+      message: 'Runtime mock does not offer working without asking.',
+    });
+    const offering = catalog();
+    const descriptor = offering.get('mock' as RuntimeId);
+    assert.ok(descriptor);
+    const offers: RuntimeCatalog = {
+      get: (id) => (id === 'mock' ? { ...descriptor, offers_never_ask: true } : undefined),
+    };
+    assert.equal(admitCommand(at('never_ask'), projection, offers).admitted, true);
+    assert.equal(admitCommand(at('ask'), projection, catalog()).admitted, true);
+  });
+
   test('a runtime that works in the project folder is refused for a project without one', () => {
     const { b, projection, commands, idle } = setup();
     const refused = admitCommand(
