@@ -70,10 +70,22 @@ persistence on.
   does not have is refused (`session_not_found`), and nothing reached the proxy trap. Run with
   `CLAUDE_CODE_BIN` pointing at the bundled binary.
 
+- Codex (2026-11-10): `codex-runtime.e2e.test.ts`, "a thread a crashed control plane left is
+  re-attached by the next one", on the pinned 0.157.0 with the suite's fake provider. A crash host
+  runs one execution whose turn runs a slow command and is killed by SIGKILL; once its server has
+  exited, a new adapter over the same Codex home refuses the thread recorded confined (no
+  confinement is set up) and a thread Codex does not have, each reporting nothing, then re-attaches
+  the thread: `runtime.connection.restored`, then the cut turn `interrupted` from
+  `thread/turns/list` (inferred), every observation numbered above the crash host's last. The next
+  instruction runs a turn to completion whose model request carries the cut turn's command. Run
+  with `CODEX_BIN` at the pinned binary.
+
 ## Not verified
 
-- A resume through the Codex and OpenCode adapters from a second adapter instance (each adapter's
-  end to end test when it declares `resumes_after_restart`).
+- A resume through the OpenCode adapter from a second adapter instance (its end to end test when it
+  declares `resumes_after_restart`).
+- Codex: a re-attach on a confined starter project's own server (ADR 0041), which needs the
+  macOS sandbox the suite's confined tests set up; the slot is chosen by the folder as a start's is.
 - A resume on a real model.
 - Claude Code: a host killed while its CLI runs, with the watchdog stopping the CLI, rather than the
   CLI killed directly; the transcript is the same either way.

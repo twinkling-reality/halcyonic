@@ -240,6 +240,7 @@ test('a session whose Claude Code process died mid-turn is re-attached by a new 
     confined: false,
     directory: PROJECT,
     cut_turn: { turn_id: cutTurn },
+    last_sequence: null,
     emit: (observation) => afterRestart.push(observation),
   });
   assert.deepEqual(
@@ -275,6 +276,7 @@ test('a session whose Claude Code process died mid-turn is re-attached by a new 
       confined: false,
       directory: PROJECT,
       cut_turn: null,
+      last_sequence: null,
       emit: () => undefined,
     }),
     (error: unknown) => error instanceof RuntimeActionError && error.code === 'session_not_found',

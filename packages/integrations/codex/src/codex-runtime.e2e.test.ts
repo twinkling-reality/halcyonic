@@ -345,7 +345,12 @@ async function crashHost(t: TestContext, sandbox: CodexSandbox, marker: string) 
       throw new Error('the crash host never started its command');
     }),
   ]);
-  const { serverPid } = JSON.parse(line) as { serverPid: number };
+  const { serverPid, threadId, turnId, sequence } = JSON.parse(line) as {
+    serverPid: number;
+    threadId: string;
+    turnId: string;
+    sequence: number;
+  };
   // Safety nets that signal only what still runs the binary or the marker command.
   t.after(async () => {
     const identity = await readProcessIdentity(serverPid).catch(() => null);
@@ -355,7 +360,7 @@ async function crashHost(t: TestContext, sandbox: CodexSandbox, marker: string) 
   const record = JSON.parse(readFileSync(sandbox.recordFile, 'utf8')) as { pid: number };
   assert.equal(record.pid, serverPid);
   await until(() => markerLines(marker) > 2, 10_000, 'the command to run');
-  return { host, serverPid };
+  return { host, serverPid, threadId, turnId, sequence };
 }
 
 function watchdogsOf(parent: number): number[] {
@@ -1177,6 +1182,83 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       t.after(() => runtime.close());
       assert.deepEqual(await runtime.stopStaleServer(), { outcome: 'not_running', pid: serverPid });
       assert.equal(existsSync(sandbox.recordFile), false);
+      assertStayedLocal(sandbox);
+    },
+  );
+
+  test(
+    'a thread a crashed control plane left is re-attached by the next one, with the bounds it started with, its cut turn settled, and carries on (ADR 0046)',
+    SLOW_TEST,
+    async (t) => {
+      const sandbox = await createSandbox(BINARY);
+      t.after(() => sandbox.cleanup());
+      const marker = `${sandbox.project}/marker.log`;
+      const { host, serverPid, threadId, turnId, sequence } = await crashHost(t, sandbox, marker);
+      host.kill('SIGKILL');
+      await until(() => !alive(serverPid), 15_000, 'the server to exit');
+      const runtime = new CodexRuntimeAdapter({
+        binaryPath: BINARY,
+        codexHome: sandbox.codexHome,
+        serverRecordFile: sandbox.recordFile,
+        directoryPolicy: allowOnly(sandbox.project),
+        env: sandbox.env,
+      });
+      t.after(() => runtime.close());
+      await runtime.stopStaleServer();
+      const bounds = {
+        native_id: threadId,
+        options: {},
+        model_ref: null,
+        approval_level: 'ask' as const,
+        confined: false,
+        directory: sandbox.project,
+        cut_turn: { turn_id: turnId },
+        last_sequence: sequence,
+      };
+      // A thread recorded confined is not resumed on the open server, and Codex resumes only a thread
+      // it has; either refusal reports nothing.
+      for (const other of [
+        { confined: true },
+        { native_id: '01920000-0000-7000-8000-00000000dead' },
+      ]) {
+        const refused = new Execution();
+        await assert.rejects(
+          runtime.reattach({ ...bounds, ...other, execution: refused.context, emit: refused.emit }),
+          (error: unknown) => error instanceof RuntimeActionError,
+        );
+        assert.deepEqual(refused.observations, []);
+      }
+
+      const execution = new Execution();
+      await runtime.reattach({ ...bounds, execution: execution.context, emit: execution.emit });
+      assert.equal(execution.observations[0]?.type, 'runtime.connection.restored');
+      const ended = execution.observations[1];
+      assert.equal(ended?.type, 'runtime.turn.interrupted');
+      assert.deepEqual(ended?.payload, { turn_id: turnId });
+      assert.deepEqual(ended?.provenance, {
+        epistemic: 'inferred',
+        native_type: 'codex/thread/turns/list',
+        rule: 'codex.restart.turn_status',
+      });
+      // Numbered on from the journal's last, so none is dropped as out of order.
+      assert.ok(execution.observations.every((o) => o.sequence !== null && o.sequence > sequence));
+
+      const before = sandbox.provider.requests.length;
+      await runtime.sendInstruction({
+        execution: execution.context,
+        text: 'Hello after the restart.',
+      });
+      await execution.next('runtime.turn.completed');
+      const resumed = sandbox.provider.requests
+        .slice(before)
+        .find((request) => request.lastUserText.includes('Hello after the restart.'));
+      assert.ok(resumed !== undefined);
+      assert.match(JSON.stringify(resumed.body), /echo tick/, 'the cut turn is in the history');
+      const sequences = execution.observations.map((o) => o.sequence ?? 0);
+      assert.deepEqual(
+        sequences,
+        [...sequences].sort((a, b) => a - b),
+      );
       assertStayedLocal(sandbox);
     },
   );

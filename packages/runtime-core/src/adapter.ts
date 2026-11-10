@@ -103,6 +103,12 @@ export interface ReattachRequest {
    * ends the approvals, questions and tool calls it left open.
    */
   readonly cut_turn: { readonly turn_id: string | null } | null;
+  /**
+   * The highest sequence the journal holds for the execution's observations, or null when none
+   * carried one. An adapter that numbers its observations goes on above it: the journal drops an
+   * observation whose sequence is not after the last.
+   */
+  readonly last_sequence: number | null;
   /** Where the adapter sends every observation about this execution from now on. */
   readonly emit: ObservationSink;
 }

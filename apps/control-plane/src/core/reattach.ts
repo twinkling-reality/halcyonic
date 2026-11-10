@@ -145,6 +145,7 @@ export class Reattacher {
           confined: bounds.confined,
           directory: bounds.directory,
           cut_turn: bounds.cut_turn,
+          last_sequence: bounds.last_sequence,
           emit: createObservationSink(
             this.#deps.recorder,
             this.#deps.logger,
