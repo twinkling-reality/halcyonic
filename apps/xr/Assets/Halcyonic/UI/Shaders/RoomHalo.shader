@@ -10,7 +10,8 @@ Shader "Halcyonic/Room Halo"
         _Core ("The core's width, height and corner in dp, and the halo's alpha", Vector) = (120, 48, 24, 0.81)
         _Quad ("The quad's left, bottom, width and height, in dp from the core's centre", Vector) = (-72, -36, 144, 72)
         _Chip ("The chip's centre x and y, its size and corner, in dp", Vector) = (-40, 0, 32, 12)
-        _ChipColour ("The chip's colour, sRGB, and its alpha", Vector) = (1, 1, 1, 0.05)
+        _ChipColour ("The chip's colour, sRGB, and its alpha", Vector) = (0.29, 0.32, 0.345, 1)
+        _HaloColour ("The backing's colour, sRGB, and how far its edge feathers each way in dp", Vector) = (0.204, 0.227, 0.247, 6)
         _Ring ("The ring's radius and width in dp, its fill 0 to 1, and 1 where it shows", Vector) = (19, 2, 0, 0)
         _Mark ("An answer's mark at the chip's centre: its size and corner in dp, its line's width, and the line's alpha", Vector) = (22, 11, 2, 0)
         _Fade ("The content's opacity: 1, or 0.45 while disabled", Float) = 1
@@ -38,6 +39,7 @@ Shader "Halcyonic/Room Halo"
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Quad)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Chip)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _ChipColour)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _HaloColour)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Ring)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Mark)
                 UNITY_DEFINE_INSTANCED_PROP(float, _Fade)
@@ -116,8 +118,10 @@ Shader "Halcyonic/Room Halo"
                 {
                     float2 extent = core.xy * 0.5;
                     float d = Squircle(p, extent, min(core.z, min(extent.x, extent.y)));
-                    float halo = core.w * (1.0 - smoothstep(-12.0, 12.0, d));
-                    result = Over(result, Decode(float3(0.204, 0.227, 0.247)), halo);
+                    float4 haloColour = UNITY_ACCESS_INSTANCED_PROP(Props, _HaloColour);
+                    float feather = max(haloColour.a, 0.5);
+                    float halo = core.w * (1.0 - smoothstep(-feather, feather, d));
+                    result = Over(result, Decode(haloColour.rgb), halo);
                 }
 
                 // The chip, its glyph drawn over it by the words' layer.
@@ -144,7 +148,8 @@ Shader "Halcyonic/Room Halo"
                     float turn = frac(angle / 6.2831853 + 1.0);
                     float filled = turn <= ring.z ? 1.0 : 0.0;
                     result = Over(result, float3(1, 1, 1), 0.2 * 0.5 * band * fade);
-                    result = Over(result, Decode(float3(0.835, 0.855, 0.871)), filled * band * fade);
+                    // The ring fills in the one accent, #59CFF1.
+                    result = Over(result, Decode(float3(0.349, 0.812, 0.945)), filled * band * fade);
                 }
                 return result;
             }

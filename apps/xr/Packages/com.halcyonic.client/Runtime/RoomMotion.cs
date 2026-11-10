@@ -64,10 +64,10 @@ namespace Halcyonic.Client
         /// <summary>The column's first action starts this long after its moment, each next one <see cref="LineApartSeconds"/> later, and takes <see cref="LineSeconds"/>, rising <see cref="RiseDp"/>.</summary>
         public const float ActionsAfterSeconds = 0.22f;
 
-        /// <summary>An action answers pointing over this long, ease out: its halo, its chip and its scale, to 1.03. Held, it is 0.96 at once.</summary>
+        /// <summary>An action answers pointing over this long, ease out: its backing, its chip and its scale, to 1.06 (the spec's 1.03 was not felt; F6, 2026-11-10). Held, it is 0.96 at once.</summary>
         public const float PointedSeconds = 0.15f;
 
-        public const float PointedScale = 1.03f;
+        public const float PointedScale = 1.06f;
 
         public const float PressedScale = 0.96f;
 
