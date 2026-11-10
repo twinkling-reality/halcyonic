@@ -2678,7 +2678,9 @@ The last unit turns it on by default and removes the kit parts it replaced.
   (`KitPresenter.NewRunOf`); a run under way keeps its level whatever is chosen. The model carries what a view may
   show: whether the runtime the next start would use offers it, the level that start will use, shown before it
   goes, and the running or last run's own recorded level, null where its record has none, never the choice
-  (`KitWorkModel.OffersNeverAsk`, `NeverAsk`, `RunNeverAsk`). No view draws them yet, and New Project's and Make VR
+  (`KitWorkModel.OffersNeverAsk`, `NeverAsk`, `RunNeverAsk`). The row lays a third action after Type where the model
+  gives one, action size, 32 dp on, on the row's line (`RoomBarView.More`: any row action that is neither Hold to
+  Talk's place nor the field's). No moment gives one or draws the level yet, and New Project's and Make VR
   Version's starts (`BuildSequence`) do not carry a level yet. `NeverAskTests`.
 - **Where a moment plugs in.** `RoomBar.Of` reads a bound frame in two steps: the task's own loop (`RoomBar.Tasks`:
   the row at rest, talking, a draft, a confirmation, an approval, a question, what was sent), then the moments
