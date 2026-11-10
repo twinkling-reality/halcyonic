@@ -1013,9 +1013,15 @@ namespace Halcyonic.Client
         /// why, while something else stops the start.
         /// </summary>
         /// <param name="problem">Why it can't start now even on the last part, such as the computer gone, or null.</param>
-        public static MenuFrame Review(ProjectIdea idea, NewWorkReview review, string? problem)
+        /// <param name="room">
+        /// The review's parts were cut for the redesign's rows, eight of their own lines a part (the flow's
+        /// <c>RoomLines</c>): the page then starts with its first item, never the line that says to review every part,
+        /// which is how the redesign's view knows the cut is in its lines.
+        /// </param>
+        public static MenuFrame Review(ProjectIdea idea, NewWorkReview review, string? problem, bool room = false)
         {
-            var lines = new List<PageLine> { new PageLine(EntryText.ReviewLine, tone: LineTone.Secondary) };
+            var lines = new List<PageLine>();
+            if (!room) lines.Add(new PageLine(EntryText.ReviewLine, tone: LineTone.Secondary));
             foreach (var part in review.Parts)
             {
                 // Halcyonic's labels upright, the names and the person's words leaning, as the review spells them.

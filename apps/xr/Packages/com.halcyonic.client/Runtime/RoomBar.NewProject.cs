@@ -51,6 +51,8 @@ namespace Halcyonic.Client
             var yes = prompts.FirstOrDefault(prompt => prompt.Kind == PromptKind.Yes);
             var cancel = prompts.FirstOrDefault(prompt => prompt.Kind == PromptKind.Cancel);
             var close = prompts.FirstOrDefault(prompt => prompt.Kind == PromptKind.Close);
+            // Hold to Talk where the page offers it: held, it records, as the row's does (the view raises it as the held Talk).
+            var hold = prompts.FirstOrDefault(prompt => prompt.Holds && prompt.Available);
             // Why the page's main action or its Confirm cannot be taken: the panel's sentence where one stands.
             var why = frame.Reason;
 
@@ -68,9 +70,10 @@ namespace Halcyonic.Client
             {
                 var column = new List<RoomAction>();
                 if (main is { Available: true }) column.Add(Of(main, KitPlace.Forward, isMain: true));
+                if (hold != null) column.Add(Of(hold, KitPlace.Talk));
                 foreach (var line in frame.Lines.Where(line => line.Action != null && line.Available)) column.Add(Line(line));
                 foreach (var prompt in after)
-                    if (prompt is { Available: true } && prompt != main) column.Add(Of(prompt, KitPlace.Route));
+                    if (prompt is { Available: true } && prompt != main && prompt != hold) column.Add(Of(prompt, KitPlace.Route));
                 if (withClose && close is { Available: true }) column.Add(Of(close, KitPlace.Close));
                 return column;
             }
@@ -87,12 +90,19 @@ namespace Halcyonic.Client
             if (chosen == Key(NewProjectStep.Build))
             {
                 var first = frame.Lines.FirstOrDefault()?.Words;
-                if (first == EntryText.ReviewLine)
+                // The review shows what will be sent and nothing else: its page ends in Cancel, with Confirm where it may be taken.
+                var reviewing = first == EntryText.ReviewLine
+                    || first != EntryText.SendingLine && first != EntryText.PreviousRequestTitle && cancel != null && prompts.All(prompt => prompt.Kind != PromptKind.Action)
+                        && frame.Lines.Any(line => line.FromRow != null);
+                if (reviewing)
                 {
-                    // The review: what will be sent, each of the part's items a row, whole (an item the file cut across two parts
-                    // stands whole in both, never less than its part). Until the last part is read the one action on is the
-                    // file's own Next Part, and Confirm, behind its lock, stands only where the file offers it.
-                    var items = plain.Select(line => new RoomRow(line.Runs)).ToList();
+                    // Each of the part's items a row. Where the flow cut the parts by the rows' own lines (the page then does
+                    // not start with the older line), a row shows exactly its part of an item, so nothing is read twice;
+                    // where it cut them for the older page, an item stands whole in every part it is in, never less than
+                    // its part. Until the last part is read the one action on is the flow's own Next Part, and Confirm,
+                    // behind its lock, stands only where the flow offers it.
+                    var cut = first != EntryText.ReviewLine;
+                    var items = plain.Select(line => cut && line.FromRow is int from ? new RoomRow(line.Runs, fromLine: from, lines: line.Rows) : new RoomRow(line.Runs)).ToList();
                     if (frame.Lines.FirstOrDefault(line => line.Action == NewProjectScreens.NextPart && line.Available) is PageLine next)
                     {
                         var reading = new List<RoomAction> { new RoomAction(Line(next).Control, main: true) };
@@ -185,6 +195,7 @@ namespace Halcyonic.Client
                     field = type.Control;
                     column.Add(new RoomAction(type.Control, main: column.Count == 0));
                 }
+                if (hold != null) column.Add(Of(hold, KitPlace.Talk));
                 foreach (var line in frame.Lines.Where(line => line.Action != null && line.Available && line != typing)) column.Add(Line(line));
                 if (close is { Available: true }) column.Add(Of(close, KitPlace.Close));
                 var said = plain.Skip(1).FirstOrDefault()?.Words;

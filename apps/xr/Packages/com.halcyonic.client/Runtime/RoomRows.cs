@@ -15,15 +15,25 @@ namespace Halcyonic.Client
     /// <summary>One row of the information panel: its words, and its mark.</summary>
     public readonly struct RoomRow
     {
-        public RoomRow(LineWords words, RoomRowMark mark = RoomRowMark.None)
+        public RoomRow(LineWords words, RoomRowMark mark = RoomRowMark.None, int fromLine = 0, int? lines = null)
         {
             Words = words;
             Mark = mark;
+            FromLine = fromLine < 0 ? 0 : fromLine;
+            Lines = lines;
         }
 
         public LineWords Words { get; }
 
         public RoomRowMark Mark { get; }
+
+        /// <summary>
+        /// Where the row shows a part of its words, as a review read part by part does: the first of its lines to show
+        /// (from 0) and how many, counted in the lines the rows themselves wrap the words to. Null lines is all of them.
+        /// </summary>
+        public int FromLine { get; }
+
+        public int? Lines { get; }
     }
 
     /// <summary>

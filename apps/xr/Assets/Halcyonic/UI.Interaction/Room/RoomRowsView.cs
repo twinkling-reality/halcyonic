@@ -14,8 +14,8 @@ namespace Halcyonic.XR.UI
     /// </summary>
     public sealed class RoomRowsView : MonoBehaviour
     {
-        /// <summary>The lines one row's words may take: a longer fact is the screen's to part.</summary>
-        public const int RowLines = 6;
+        /// <summary>The lines one row's words may take at most: a fact longer than a page is the screen's to part.</summary>
+        public const int RowLines = 40;
 
         private readonly List<TextMeshPro> labels = new List<TextMeshPro>();
         private readonly List<Surface> hairlines = new List<Surface>();
@@ -85,6 +85,14 @@ namespace Halcyonic.XR.UI
                 runs.Set(rows[index].Words);
                 runs.SetProseMode(true);
                 var laid = KitType.Lay(label, width - indent, RowLines);
+                // A row that shows a part of its words (a review read part by part): its own lines from the first of the part,
+                // as many as the part holds, cut where the rows themselves break the words.
+                if (rows[index].FromLine > 0 || rows[index].Lines is int part && label.textInfo.lineCount > part)
+                {
+                    runs.Set(LineWords.Theirs(LabelText.FromTextMeshPro(Part(label, rows[index].FromLine, rows[index].Lines ?? RowLines))));
+                    runs.SetProseMode(true);
+                    laid = KitType.Lay(label, width - indent, RowLines);
+                }
                 var tall = Mathf.Max(line, laid.Height);
                 label.transform.localPosition = new Vector3(indent, -down, 0f);
                 var mark = marks[index];
@@ -117,5 +125,18 @@ namespace Halcyonic.XR.UI
         }
 
         public void Hide() => gameObject.SetActive(false);
+
+        /// <summary>The label's own text of its lines from <paramref name="from"/>, <paramref name="lines"/> of them at most, as it is laid now, never cut inside a doubled backslash.</summary>
+        private static string Part(TextMeshPro label, int from, int lines)
+        {
+            var text = label.text;
+            var info = label.textInfo;
+            var count = Mathf.Max(1, info.lineCount);
+            var first = Mathf.Min(from, count - 1);
+            var last = (int)Mathf.Min((long)from + lines, count);
+            var start = LabelText.CharacterStart(text, info.characterInfo[info.lineInfo[first].firstCharacterIndex].index);
+            var end = last < count ? LabelText.CharacterStart(text, info.characterInfo[info.lineInfo[last].firstCharacterIndex].index) : text.Length;
+            return text.Substring(start, end - start).TrimEnd();
+        }
     }
 }

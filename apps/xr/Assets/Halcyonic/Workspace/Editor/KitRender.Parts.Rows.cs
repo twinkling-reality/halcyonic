@@ -18,7 +18,10 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] RowsStates = { "45-rows-recap", "45-rows-steps", "45-rows-checks", "45-rows-changes" };
+        private static readonly string[] RowsStates = { "45-rows-recap", "45-rows-steps", "45-rows-checks", "45-rows-changes", "45-rows-part" };
+
+        /// <summary>A first task long enough to be read in parts.</summary>
+        private const string RowsLongTask = "Make a kite that follows my hand and climbs when I raise it, with a tail that streams behind it and a score that counts how high it has climbed since the last time it fell";
 
         private static List<RoomRow> RowsOf(string state)
         {
@@ -34,6 +37,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     };
                 case "45-rows-steps":
                     return new List<RoomRow> { Ours("Create Project · Confirmed", RoomRowMark.Check), Ours("Create First Task · Confirmed", RoomRowMark.Check), Ours("Start Task · Sent · Awaiting Agent") };
+                case "45-rows-part":
+                    // A review's second part: the first task from its third line, three lines of it, then the next item whole.
+                    return new List<RoomRow> { new RoomRow(LineWords.Ours("First Task · ") + LineWords.Theirs(RowsLongTask), fromLine: 2, lines: 3), new RoomRow(LineWords.Ours("Folder · ") + LineWords.Theirs("kite-run"), fromLine: 0, lines: 1) };
                 case "45-rows-checks":
                     return new List<RoomRow> { Ours("Type Check", RoomRowMark.Check), Ours("Build", RoomRowMark.Check), Ours("Page Drawn", RoomRowMark.Cross), Ours("VR Offered", RoomRowMark.Check) };
                 default:
@@ -79,8 +85,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(Mathf.Abs(label.transform.localPosition.x - indent) < 1e-6f, what + " starts " + (label.transform.localPosition.x / unit).ToString("0.0") + " dp in, not " + (indent / unit).ToString("0.0"));
                 var lines = label.textInfo.lineCount;
                 // At the standard size the page's own breaks; larger, a row may take more lines, never more than a row's most.
-                var wantedLines = state == "45-rows-recap" && index == 1 ? 2 : 1;
-                Require(GlazeText.Scale > 1.001f ? lines >= wantedLines && lines <= RoomRowsView.RowLines : lines == wantedLines, what + " takes " + lines + " lines");
+var wantedLines = rows[index].Lines ?? (state == "45-rows-recap" && index == 1 ? 2 : 1);
+                Require(rows[index].Lines != null ? lines == wantedLines : GlazeText.Scale > 1.001f ? lines >= wantedLines && lines <= RoomRowsView.RowLines : lines == wantedLines,
+                    what + " takes " + lines + " lines");
+                if (state == "45-rows-part" && index == 0)
+                {
+                    // The part is the words' own lines from the third: it does not start the task again, and it is words of the task.
+                    var part = string.Join(" ", label.GetParsedText().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+                    Require(!part.StartsWith("First Task", StringComparison.Ordinal) && !part.StartsWith("Make a kite", StringComparison.Ordinal) && RowsLongTask.Contains(part),
+                        "the part is not the task's own later lines: \"" + part + "\"");
+                }
                 var bottom = -label.transform.localPosition.y + Mathf.Max(line, lines * KitType.LinePitch(label));
                 var mark = view.Mark(index);
                 var wanted = rows[index].Mark == RoomRowMark.Check ? RoomGlyph.Check : rows[index].Mark == RoomRowMark.Cross ? RoomGlyph.Cross : (RoomGlyph?)null;

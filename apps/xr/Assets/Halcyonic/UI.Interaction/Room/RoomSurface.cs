@@ -14,8 +14,11 @@ namespace Halcyonic.XR.UI
         /// <summary>The deeper tray the choices stand in.</summary>
         Choices,
 
-        /// <summary>A bar's or a name tag's surface, in the panel's material.</summary>
+        /// <summary>A bar's surface, in the panel's material.</summary>
         Bar,
+
+        /// <summary>A name tag's surface, or the plate that names the agent while it works, in the panel's material: corner 14 dp (DESIGN 1.2).</summary>
+        Tag,
     }
 
     /// <summary>
@@ -80,10 +83,19 @@ namespace Halcyonic.XR.UI
         /// Draws the surface <paramref name="size"/> big, in the plane's units, centred on its transform, in its kind's look.
         /// Drawn again only when something changed, so a still frame draws nothing.
         /// </summary>
+        /// <summary>
+        /// A ring in place of the surface's own hairline, drawn as its edge so it follows the corner exactly: a picked name
+        /// tag's 1.5 dp of #E4E8EA (DESIGN 1.2). Null for the kind's own edge.
+        /// </summary>
+        public (Color Colour, float WidthDp)? Ring { get; set; }
+
+        private (Color Colour, float WidthDp)? ringDrawn;
+
         public void Draw(Vector2 size)
         {
-            if (drawn is var (lastSize, lastKind, lastInner) && lastSize == size && lastKind == kind && lastInner == InnerBar) return;
+            if (drawn is var (lastSize, lastKind, lastInner) && lastSize == size && lastKind == kind && lastInner == InnerBar && ringDrawn == Ring) return;
             drawn = (size, kind, InnerBar);
+            ringDrawn = Ring;
             this.size = size;
             var radius = Mathf.Min(RoomType.Units(CornerDp(kind)), size.y / 2f);
             var unit = RoomType.Units(1f);
@@ -99,8 +111,8 @@ namespace Halcyonic.XR.UI
             block.SetVector(QuadId, new Vector4(-quadSize.x / 2f, -quadSize.y / 2f, quadSize.x, quadSize.y));
             block.SetVector(FillTopId, Srgb(look.FillTop, look.FillTop.a));
             block.SetVector(FillFootId, Srgb(look.FillFoot, look.FillFoot.a));
-            block.SetVector(EdgeTopId, Srgb(look.EdgeTop, look.EdgeDp));
-            block.SetVector(EdgeFootId, Srgb(look.EdgeFoot, look.EdgeDp > 0f ? 1f : 0f));
+            block.SetVector(EdgeTopId, Ring is var (ring, ringDp) ? Srgb(ring, ringDp) : Srgb(look.EdgeTop, look.EdgeDp));
+            block.SetVector(EdgeFootId, Ring is var (ringFoot, _) ? Srgb(ringFoot, 1f) : Srgb(look.EdgeFoot, look.EdgeDp > 0f ? 1f : 0f));
             block.SetVector(ShadeId, new Vector4(look.ShadowDropDp, look.ShadowBlurDp, look.ShadowAlpha, look.Shadow ? 1f : 0f));
             // The panel's one sentence stands under a hairline, never in a strip of its own (F6, 2026-11-10: a lighter strip read as a
             // button): a 1 dp rule where the sentence's place starts, from the words' left edge to their right.
@@ -129,8 +141,8 @@ namespace Halcyonic.XR.UI
         /// <summary>The tint's alpha in Unity's linear blend: the page's 0.72 over a white wall (DESIGN's FINISH-3).</summary>
         public const float TintAlpha = 0.86f;
 
-        /// <summary>The kind's corner in dp (DESIGN's FINISH-3): panels 20, a bar 22.</summary>
-        public static float CornerDp(RoomSurfaceKind kind) => kind == RoomSurfaceKind.Bar ? 22f : RoomGeometry.PanelCornerDp;
+        /// <summary>The kind's corner in dp (DESIGN's FINISH-3): panels 20, a bar 22, a name tag 14.</summary>
+        public static float CornerDp(RoomSurfaceKind kind) => kind == RoomSurfaceKind.Bar ? 22f : kind == RoomSurfaceKind.Tag ? 14f : RoomGeometry.PanelCornerDp;
 
         private static Color WithAlpha(Color colour, float alpha) => new Color(colour.r, colour.g, colour.b, alpha);
 

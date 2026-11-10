@@ -455,7 +455,7 @@ namespace Halcyonic.Client
                             return NewProjectScreens.Starting(current, sequence, current.Folder);
                         case BuildPage.Review when review != null:
                             Measure();
-                            return NewProjectScreens.Review(current, review, problem);
+                            return NewProjectScreens.Review(current, review, problem, ReviewForRoom);
                         default:
                             step = current.HasRecap ? NewProjectStep.Recap : NewProjectStep.YourIdea;
                             recapPage = RecapPage.Facts;
@@ -1556,13 +1556,27 @@ namespace Halcyonic.Client
             // Read once for this review, and again only when the text size changes, never as the head moves.
             if (!(reviewRows is { } kept && ReferenceEquals(kept.Review, reading) && kept.Size == host.TextSize))
             {
-                reviewRows = (reading, host.TextSize, ReviewPartRows());
+                reviewRows = (reading, host.TextSize, ReviewForRoom ? RoomBar.RequestLines : ReviewPartRows());
             }
             var partRows = reviewRows.Value.Rows;
             if (reading.Paginated && partRows == measuredPartRows) return;
             measuredPartRows = partRows;
-            reading.Paginate(reading.Items.Select(item => host.RowsOf(new PageLine(item.Runs), Glaze.Menu.FileColumnDegrees)).ToList(), partRows);
+            // The same rule by either measure: every item whole or cut at a line's end, a part never holding more lines than
+            // it has room for. The redesign's rows count their own lines, eight a part, as a request's parts are counted.
+            reading.Paginate(ReviewForRoom
+                ? reading.Items.Select(item => Math.Max(1, RoomLines!(item.Runs))).ToList()
+                : reading.Items.Select(item => host.RowsOf(new PageLine(item.Runs), Glaze.Menu.FileColumnDegrees)).ToList(), partRows);
         }
+
+        /// <summary>
+        /// The lines the redesign's rows wrap words to at the person's text size, given by the host that draws New
+        /// Project with the redesign's view (the panel's own count). Where it is given, with the redesign on, the review's
+        /// parts are cut by those lines, eight a part, so a part shows exactly its lines there; where it is not, they are
+        /// cut for the older page, as ever.
+        /// </summary>
+        public Func<LineWords, int>? RoomLines { get; set; }
+
+        private bool ReviewForRoom => RoomDesign.Enabled && RoomLines != null;
 
         /// <summary>
         /// The rows of the request a part of the review holds: the page's height standing alone, as the

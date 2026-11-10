@@ -2225,11 +2225,11 @@ public class NewProjectFlowTests
     }
 
     /// <summary>Under the redesign: an idea typed, an agent app chosen through the page of what can be changed, and the recap showing.</summary>
-    private static NewProjectFlow RoomRecapped(Host host)
+    private static NewProjectFlow RoomRecapped(Host host, string idea = "A page of race times for my running club")
     {
         var flow = Flow(host);
         flow.Open(null, null);
-        host.Typed.Enqueue("A page of race times for my running club");
+        host.Typed.Enqueue(idea);
         Press(flow, NewProjectScreens.TypeIdea, null);
         Press(flow, NewProjectScreens.UseIdea, null);
         Press(flow, NewProjectScreens.ChangeRecap, null);
@@ -2538,4 +2538,77 @@ public class NewProjectFlowTests
             lines: new[] { new PageLine("Restore Default", action: "appearance-read-restore", opens: true) });
         Assert.That(RoomBar.NewProject(other, VoiceStage.Idle), Is.Null);
     }
+
+    [Test]
+    public void The_redesign_draws_Hold_to_Talk_as_the_held_action_where_the_page_offers_it() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = Flow(host);
+        flow.Open(null, null);
+        Assume.That(Ids(flow.Frame!), Does.Contain(NewProjectScreens.HoldToTalk), "this host offers the voice");
+        var bar = Bar(flow);
+        var talk = bar.Column.Single(action => action.Control.Action == NewProjectScreens.HoldToTalk);
+        Assert.That((talk.Place, talk.Control.Holds, talk.Words, talk.Main), Is.EqualTo((KitPlace.Talk, true, VoiceText.HoldToTalk, false)), "held, it records, as the row's does");
+        Assert.That(Reads(bar), Is.EqualTo(new[] { EntryText.StartQuestions, RoomBar.Type, VoiceText.HoldToTalk, EntryText.Close }));
+        Press(flow, NewProjectScreens.BeginQuestions, null);
+        Assert.That(Bar(flow).Column.Count(action => action.Place == KitPlace.Talk), Is.EqualTo(1), "a question can be answered aloud too");
+    });
+
+    [Test]
+    public void A_review_cut_for_the_redesigns_rows_shows_every_line_once_eight_a_part() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        // A first task longer than a part, so it must be cut.
+        var flow = RoomRecapped(host, string.Join(" ", Enumerable.Repeat("A page of race times for my running club, newest first.", 6)));
+        // The rows' own count, as the host that draws them gives it: here a line every 24 letters.
+        static int Lines(LineWords words) => Math.Max(1, (words.Text.Length + 23) / 24);
+        flow.RoomLines = Lines;
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Draw(flow, flow.Frame!);
+        var whole = flow.Review!.Items.Select(item => Lines(item.Runs)).ToList();
+        Assume.That(whole.Sum(), Is.GreaterThan(RoomBar.RequestLines), "the review needs more than one part");
+        var shown = new Dictionary<string, List<(int From, int Lines)>>();
+        for (var part = 0; part < 50; part++)
+        {
+            var frame = flow.Frame!;
+            Assert.That(frame.Lines.Select(line => line.Words), Has.None.EqualTo(EntryText.ReviewLine), "a page cut for the rows starts with its first item");
+            var bar = Bar(flow);
+            Assert.That(bar.State, Is.EqualTo(RoomBarState.Confirm));
+            Assert.That(bar.Facts!.Sum(row => row.Lines!.Value), Is.LessThanOrEqualTo(RoomBar.RequestLines), "a part holds eight of the rows' lines at most");
+            foreach (var row in bar.Facts!)
+            {
+                if (!shown.TryGetValue(row.Words.Text, out var parts)) shown[row.Words.Text] = parts = new List<(int, int)>();
+                parts.Add((row.FromLine, row.Lines!.Value));
+            }
+            if (flow.Review!.CanConfirm) break;
+            Assert.That(bar.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { NewProjectScreens.NextPart, NewProjectScreens.Cancel }));
+            host.Now += 1;
+            Press(flow, NewProjectScreens.NextPart, null);
+            Draw(flow, flow.Frame!);
+        }
+        Assert.That(flow.Review!.CanConfirm, Is.True, "every part was read");
+        foreach (var item in flow.Review!.Items)
+        {
+            var parts = shown[item.Runs.Text];
+            Assert.That(parts.First().From, Is.EqualTo(0));
+            for (var index = 1; index < parts.Count; index++)
+                Assert.That(parts[index].From, Is.EqualTo(parts[index - 1].From + parts[index - 1].Lines), "an item's next part starts where the last one ended: no line twice, none left out");
+            Assert.That(parts.Last().From + parts.Last().Lines, Is.EqualTo(Lines(item.Runs)), "every line of \"" + item.Runs.Text + "\" is shown");
+        }
+        Assert.That(shown.Values.Any(parts => parts.Count > 1), Is.True, "an item longer than what was left of a part is cut at a line's end");
+        Assert.That(Bar(flow).Column.Select(action => action.Control.Action), Is.EqualTo(new[] { NewProjectScreens.ConfirmStart, NewProjectScreens.Cancel }));
+        Assert.That(host.Sent, Is.Empty);
+    });
+
+    [Test]
+    public void A_review_cut_for_the_older_page_stands_whole_in_the_redesigns_rows() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        var flow = RoomRecapped(host);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Draw(flow, flow.Frame!);
+        Assert.That(flow.Frame!.Lines.First().Words, Is.EqualTo(EntryText.ReviewLine), "no count of the rows' lines was given: the older page's cut");
+        var bar = Bar(flow);
+        Assert.That(bar.Facts!.All(row => row.FromLine == 0 && row.Lines == null), "each item whole: never less than its part");
+    });
 }
