@@ -36,9 +36,33 @@ project. The store side used a bare repository with the checkpoint store's attri
 9. A git worktree's folder, cloned, keeps its `.git` as a file reading `gitdir: <the original
    repository's worktree record>`, so git commands in the clone would act on the original.
 
+10. `merge-tree --write-tree --name-only -z` prints the merged tree, the conflicted paths, an empty
+    separator, then messages, each as a count, that many paths, a type and the message; the types seen
+    were `CONFLICT (contents)` (also for an add/add), `CONFLICT (binary)` (beside a contents conflict for
+    the same file), `CONFLICT (modify/delete)`, and `Auto-merging`. A modify/delete leaves the modified
+    version in the merged tree.
+
+## A real run (2026-11-10, 22:49 to 22:57Z, a scratch control plane, ollama/muse-glimmer:30b-mlx)
+
+One git project with one commit, two tasks started at once, Codex 0.157.0 and OpenCode 2.0.18, each told
+to write one file; one iwsdk-vr starter project, one Codex task told to add a comment line to
+`src/index.ts` and run `npx tsc --noEmit`. All three were accepted at once, each got a copy of its own
+(`workstream.copy_made` before `execution.created`), and all three completed with no approval and no
+question asked by any runtime in a folder it had not seen.
+
+- Each file was in its own task's copy only: `codex.txt` in Codex's, `opencode.txt` in OpenCode's,
+  neither in the other's; the project's folder still held only `.git` and `README.md`, one commit.
+- The starter's copy had the comment line, the project's `src/index.ts` was unchanged, and the copy's
+  `node_modules` was still a link to the starter's shared dependencies.
+- Codex ran the starter task confined (`confined: true`), the git project's unconfined, as Codex's
+  confinement is for starter projects today. Inside its confinement `npx tsc --noEmit` first failed: Node
+  could not read `/System/Library/OpenSSL/openssl.cnf` (`Operation not permitted`) and npm warned of the
+  Node version on the agent's PATH; the agent's own `env -i ... OPENSSL_CONF= npx tsc --noEmit` then
+  exited 0. Not checked in the project's own folder, so not known to be the copy's.
+
 ## Not verified
 
-- Whether Claude Code, Codex or OpenCode ask anything new for a folder they have not seen.
+- Claude Code in a copy (it needs a hosted model, which no lane may use).
 - Whether Salidium and Seorak follow an execution whose folder is a copy.
 - Clone time for a folder with a real `node_modules` of 100,000 files (extrapolated, not measured).
 - A volume that cannot clone (`cp -c` on a non-APFS volume).

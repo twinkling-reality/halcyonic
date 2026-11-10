@@ -1,8 +1,13 @@
 import { execFile } from 'node:child_process';
 import { lstat, mkdir, realpath, rm } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import type { CopyRefusalCode } from '@halcyonic/contracts';
-import type { CheckpointStore } from './store.ts';
+import type { CopyRefusalCode, Timestamp } from '@halcyonic/contracts';
+import type { Projection } from '@halcyonic/domain';
+import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
+import type { EventPublisher } from '../core/publisher.ts';
+import type { Recorder } from '../core/recorder.ts';
+import { pathList } from './checkpointer.ts';
+import type { CheckpointStore, MergeConflict } from './store.ts';
 import { within } from './store.ts';
 
 /**
@@ -17,7 +22,10 @@ import { within } from './store.ts';
 export interface TaskCopiesOptions {
   /** The folder copies live in. Never inside a project's folder nor Halcyonic's data folder. */
   readonly directory: string;
-  readonly store: Pick<CheckpointStore, 'take'>;
+  readonly store: Pick<
+    CheckpointStore,
+    'take' | 'treeOf' | 'keep' | 'changedPaths' | 'merge' | 'apply'
+  >;
   /** A UUID naming the base's tree in the store, as a checkpoint's id does. */
   readonly nextId: () => string;
   /** Folders no copied project may hold, such as Halcyonic's data folder. */
@@ -41,7 +49,8 @@ const DEFAULT_TIMEOUT_MS = 10 * 60_000;
 
 export class TaskCopies {
   readonly #directory: string;
-  readonly #store: Pick<CheckpointStore, 'take'>;
+  readonly #store: TaskCopiesOptions['store'];
+  readonly #queues = new Map<string, Promise<unknown>>();
   readonly #nextId: () => string;
   readonly #protect: readonly string[];
   readonly #timeoutMs: number;
@@ -109,6 +118,148 @@ export class TaskCopies {
     return { ok: true, directory: target, baseTree: base.tree, files: base.files };
   }
 
+  /**
+   * What the copy now differs by from its base: its tree, read with the base as the index's start,
+   * and the paths that differ. Null when it cannot be read.
+   */
+  readChanges(
+    projectId: string,
+    workstreamId: string,
+    copy: string,
+    base: string,
+  ): Promise<{ tree: string; changed: string[] } | null> {
+    return this.#serially(workstreamId, async () => {
+      const task = await this.#store.treeOf(projectId, copy, base);
+      if (!task.ok) return null;
+      const changed = await this.#store.changedPaths(projectId, base, task.tree);
+      return changed === null ? null : { tree: task.tree, changed };
+    });
+  }
+
+  /**
+   * Combines the task's work in `copy` with the project's `folder` over `base` (ADR 0045), and,
+   * when they meet nowhere, has `keepFirst` keep the folder (its checkpoint id, or null to stop),
+   * then writes the combined files into the folder and reads it again. Nothing is written to the
+   * folder when the two met, when the task changed nothing, or when the folder changed meanwhile.
+   */
+  add(
+    projectId: string,
+    workstreamId: string,
+    request: { copy: string; base: string; folder: string },
+    keepFirst: () => Promise<string | null>,
+  ): Promise<AddOutcome> {
+    return this.#serially(workstreamId, async (): Promise<AddOutcome> => {
+      const read = await this.#both(projectId, request);
+      if (read.kind !== 'read') return read;
+      const { task, project, merged } = read;
+      if (task === request.base) return { kind: 'nothing' };
+      if (merged.conflicts.length > 0)
+        return {
+          kind: 'conflicted',
+          taskTree: task,
+          projectTree: project,
+          conflicts: merged.conflicts,
+        };
+      const added = await this.#store.changedPaths(projectId, project, merged.tree);
+      if (added === null) return failed('store_failed', 'The changes could not be read.');
+      if (added.length === 0) return { kind: 'nothing' };
+      const checkpointId = await keepFirst();
+      if (checkpointId === null)
+        return failed(
+          'before_add_failed',
+          "The project's files could not be kept first, so nothing was added.",
+        );
+      const applied = await this.#store.apply(projectId, request.folder, project, merged.tree);
+      if (!applied.ok)
+        return {
+          kind: 'failed',
+          code: applied.code,
+          message: applied.message,
+          written: applied.written,
+        };
+      // The next add brings what the task changes from here on.
+      await this.#store.keep(projectId, `${workstreamId}/base`, task);
+      return {
+        kind: 'added',
+        checkpointId,
+        taskTree: task,
+        projectTree: project,
+        mergedTree: merged.tree,
+        added,
+      };
+    });
+  }
+
+  /**
+   * Writes the task's work combined with the project's, both sides marked where they met, into the
+   * task's own copy (ADR 0045); the copy's base becomes the project as it was read. The project's
+   * folder is never written.
+   */
+  fit(
+    projectId: string,
+    workstreamId: string,
+    request: { copy: string; base: string; folder: string },
+  ): Promise<FitOutcome> {
+    return this.#serially(workstreamId, async (): Promise<FitOutcome> => {
+      const read = await this.#both(projectId, request);
+      if (read.kind !== 'read') return read;
+      const { task, project, merged } = read;
+      const written = await this.#store.changedPaths(projectId, task, merged.tree);
+      if (written === null) return failed('store_failed', 'The changes could not be read.');
+      const applied = await this.#store.apply(projectId, request.copy, task, merged.tree);
+      if (!applied.ok)
+        return {
+          kind: 'failed',
+          code: applied.code,
+          message: applied.message,
+          written: applied.written,
+        };
+      await this.#store.keep(projectId, `${workstreamId}/base`, project);
+      return {
+        kind: 'fitted',
+        projectTree: project,
+        fittedTree: merged.tree,
+        written,
+        conflicts: merged.conflicts,
+      };
+    });
+  }
+
+  async #both(
+    projectId: string,
+    request: { copy: string; base: string; folder: string },
+  ): Promise<
+    | {
+        kind: 'read';
+        task: string;
+        project: string;
+        merged: { tree: string; conflicts: readonly MergeConflict[] };
+      }
+    | { kind: 'failed'; code: string; message: string; written: false }
+  > {
+    // The task's files are read with its base as the index's start, so an ignore rule the agent
+    // wrote cannot hide a file the base holds; the project's as the person's own rules say.
+    const task = await this.#store.treeOf(projectId, request.copy, request.base);
+    if (!task.ok) return failed(task.code, "The task's copy could not be read.");
+    const project = await this.#store.treeOf(projectId, request.folder, null);
+    if (!project.ok) return failed(project.code, "The project's folder could not be read.");
+    const merged = await this.#store.merge(projectId, request.base, project.tree, task.tree);
+    if (!merged.ok) return failed(merged.code, merged.message);
+    return { kind: 'read', task: task.tree, project: project.tree, merged };
+  }
+
+  /** One read or write of a task's copy at a time, so a reading never lands after an add it predates. */
+  #serially<T>(workstreamId: string, step: () => Promise<T>): Promise<T> {
+    const previous = this.#queues.get(workstreamId) ?? Promise.resolve();
+    const next = previous.then(step, step);
+    const settled = next.catch(() => undefined);
+    this.#queues.set(workstreamId, settled);
+    void settled.then(() => {
+      if (this.#queues.get(workstreamId) === settled) this.#queues.delete(workstreamId);
+    });
+    return next;
+  }
+
   /** `cp -c` clones with clonefile(2), keeping modes, times and links; it fails rather than copy bytes. */
   #clone(
     source: string,
@@ -137,6 +288,51 @@ export class TaskCopies {
   }
 }
 
+export type AddOutcome =
+  | { readonly kind: 'nothing' }
+  | {
+      readonly kind: 'conflicted';
+      readonly taskTree: string;
+      readonly projectTree: string;
+      readonly conflicts: readonly MergeConflict[];
+    }
+  | {
+      readonly kind: 'added';
+      readonly checkpointId: string;
+      readonly taskTree: string;
+      readonly projectTree: string;
+      readonly mergedTree: string;
+      readonly added: readonly string[];
+    }
+  | {
+      readonly kind: 'failed';
+      readonly code: string;
+      readonly message: string;
+      readonly written: boolean;
+    };
+
+export type FitOutcome =
+  | {
+      readonly kind: 'fitted';
+      readonly projectTree: string;
+      readonly fittedTree: string;
+      readonly written: readonly string[];
+      readonly conflicts: readonly MergeConflict[];
+    }
+  | {
+      readonly kind: 'failed';
+      readonly code: string;
+      readonly message: string;
+      readonly written: boolean;
+    };
+
+function failed(
+  code: string,
+  message: string,
+): { kind: 'failed'; code: string; message: string; written: false } {
+  return { kind: 'failed', code, message, written: false };
+}
+
 function refuse(code: CopyRefusalCode, message: string): PrepareResult {
   return { ok: false, code, message };
 }
@@ -160,4 +356,51 @@ async function resolvedOrSelf(path: string): Promise<string> {
   } catch {
     return path;
   }
+}
+
+/**
+ * After every turn that ended in a task's own copy, reads what the copy differs by from its base
+ * and records it (ADR 0045): what "ready to add" counts. A reading that fails records nothing.
+ */
+export function readCopiesAfterTurns(
+  copies: TaskCopies,
+  deps: {
+    readonly publisher: EventPublisher;
+    readonly recorder: Recorder;
+    readonly projection: Projection;
+    readonly now: () => Timestamp;
+  },
+): () => void {
+  return deps.publisher.subscribe(({ event }) => {
+    if (
+      event.event_type !== 'runtime.turn.completed' &&
+      event.event_type !== 'runtime.turn.failed' &&
+      event.event_type !== 'runtime.turn.interrupted'
+    )
+      return;
+    const directory = deps.projection.execution(event.execution_id)?.directory ?? null;
+    const copy = deps.projection.workstream(event.workstream_id)?.copy;
+    if (directory === null || copy?.state !== 'own' || copy.directory !== directory) return;
+    void copies
+      .readChanges(event.project_id, event.workstream_id, copy.directory, copy.base_tree)
+      .then((read) => {
+        // A base that moved while it was read makes the reading another base's.
+        const now = deps.projection.workstream(event.workstream_id)?.copy;
+        if (read === null || now?.state !== 'own' || now.base_tree !== copy.base_tree) return;
+        deps.recorder.record(
+          controlPlaneDraft(
+            'workstream.copy_changes_read',
+            {
+              project_id: event.project_id,
+              workstream_id: event.workstream_id,
+              execution_id: null,
+            },
+            { tree: read.tree, changed: pathList(read.changed) },
+            deps.now(),
+            NO_CAUSE,
+          ),
+        );
+      })
+      .catch(() => undefined);
+  });
 }

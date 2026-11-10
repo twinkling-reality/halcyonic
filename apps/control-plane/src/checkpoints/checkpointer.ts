@@ -94,6 +94,19 @@ export class Checkpointer {
     );
   }
 
+  /**
+   * Keeps the project's folder just before a task's work is added to it (ADR 0045), so the add can
+   * be undone: the checkpoint's id, or null when nothing could be kept, and then nothing is added.
+   */
+  beforeAdd(projectId: ProjectId, folder: string, cause: Cause): Promise<CheckpointId | null> {
+    return this.#checkpoint(projectId, folder, 'before_add', null, cause).catch(
+      (error: unknown) => {
+        this.#unrecorded(error, projectId);
+        return null;
+      },
+    );
+  }
+
   /** A checkpoint or restore whose outcome could not be journaled, as when the control plane stops. */
   #unrecorded(error: unknown, projectId: string): void {
     this.#deps.logger.error(
@@ -402,12 +415,11 @@ function projectScope(projectId: ProjectId) {
   return { project_id: projectId, workstream_id: null, execution_id: null } as const;
 }
 
-/** The first paths of a set, and how many it holds. */
 /**
  * The first paths of a set that the contract can carry, and how many the set holds. A name with a
  * control character is counted but not listed, so recording what happened never fails on it.
  */
-function pathList(paths: readonly string[]): PathList {
+export function pathList(paths: readonly string[]): PathList {
   const listable = paths.filter(
     (path) =>
       path.length <= 1024 &&

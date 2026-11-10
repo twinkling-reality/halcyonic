@@ -55,6 +55,31 @@ export interface CheckpointStoreOptions {
   readonly protect?: readonly string[];
 }
 
+/** A tree of a folder in the store, without a checkpoint's name or record (ADR 0045). */
+export type TreeResult =
+  | { readonly ok: true; readonly tree: string; readonly files: number }
+  | { readonly ok: false; readonly code: string; readonly message: string };
+
+/** How a file's changes met in a merge, as the merge said it (ADR 0045). */
+export interface MergeConflict {
+  readonly path: string;
+  readonly kind: 'text' | 'binary' | 'deleted' | 'other';
+}
+
+export type MergeResult =
+  | { readonly ok: true; readonly tree: string; readonly conflicts: readonly MergeConflict[] }
+  | { readonly ok: false; readonly code: string; readonly message: string };
+
+export type ApplyResult =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      /** `folder_changed`: the folder is no longer the tree it was read as; nothing was written. */
+      readonly code: string;
+      readonly message: string;
+      readonly written: boolean;
+    };
+
 export type TakeResult =
   | {
       readonly ok: true;
@@ -349,6 +374,198 @@ export class CheckpointStore {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * The tree of every file of `folder` it does not ignore, through a throwaway index, kept in the
+   * project's repository but named nowhere. With `seed`, the index starts as that tree, so a file it
+   * holds stays in the tree though an ignore file now names it: an agent cannot hide a file from an
+   * add by ignoring it (ADR 0045).
+   */
+  async treeOf(projectId: string, folder: string, seed: string | null): Promise<TreeResult> {
+    if (!(await isFolder(folder)))
+      return { ok: false, code: 'location_missing', message: 'The folder is not there.' };
+    if (await this.#holdsHostData(folder)) return HOLDS_HOST_DATA;
+    if (seed !== null && !OBJECT_ID.test(seed)) throw new Error('not a tree');
+    let repository: string;
+    try {
+      repository = await this.#repository(projectId);
+    } catch {
+      return storeFailed('The checkpoint store could not be opened.');
+    }
+    const index = this.#indexFile(repository, 'tree');
+    try {
+      if (seed !== null) {
+        const seeded = await this.#run(repository, folder, index, ['read-tree', seed]);
+        if (seeded.code !== 0) return storeFailed('The earlier files could not be read.');
+      }
+      const added = await this.#run(repository, folder, index, ['add', '-A', '--', '.']);
+      if (added.code !== 0) return failedAdd(added.stderr);
+      const staged = await this.#run(repository, folder, index, ['ls-files', '-s', '-z']);
+      if (staged.code !== 0) return storeFailed("The folder's file list could not be read.");
+      const entries = splitNul(staged.stdout).map(parseStageLine);
+      if (entries.some((entry) => entry.mode === '160000'))
+        return {
+          ok: false,
+          code: 'nested_repository',
+          message: 'Another git repository sits inside the folder, so its files cannot be kept.',
+        };
+      const written = await this.#run(repository, folder, index, ['write-tree']);
+      const tree = written.stdout.toString().trim();
+      if (written.code !== 0 || !OBJECT_ID.test(tree))
+        return storeFailed('The tree could not be written.');
+      return { ok: true, tree, files: entries.length };
+    } catch {
+      return storeFailed('The checkpoint store failed.');
+    } finally {
+      await rm(index, { force: true });
+    }
+  }
+
+  /** Names `tree` by `name` under the store's own refs, so it is kept; false when it could not. */
+  async keep(projectId: string, name: string, tree: string): Promise<boolean> {
+    if (!/^[a-z0-9-]+(?:\/[a-z0-9-]+)*$/.test(name) || !OBJECT_ID.test(tree)) return false;
+    const repository = await this.#repository(projectId);
+    const updated = await this.#run(repository, null, null, [
+      'update-ref',
+      `refs/halcyonic/copies/${name}`,
+      tree,
+    ]);
+    return updated.code === 0;
+  }
+
+  /** The paths that differ between two trees, in git's order; null when they cannot be read. */
+  async changedPaths(projectId: string, from: string, to: string): Promise<string[] | null> {
+    if (!OBJECT_ID.test(from) || !OBJECT_ID.test(to)) return null;
+    const repository = await this.#repository(projectId);
+    const diff = await this.#run(repository, null, null, [
+      'diff-tree',
+      '-r',
+      '-z',
+      '--name-only',
+      '--no-renames',
+      from,
+      to,
+    ]);
+    return diff.code === 0 ? splitNul(diff.stdout) : null;
+  }
+
+  /**
+   * The three-way merge of `ours` and `theirs` over `base` (ADR 0045), as trees only: nothing is
+   * written to any folder. The merged tree holds both sides, marked, where text met; `conflicts`
+   * names every path where the two met, and how.
+   */
+  async merge(projectId: string, base: string, ours: string, theirs: string): Promise<MergeResult> {
+    for (const tree of [base, ours, theirs])
+      if (!OBJECT_ID.test(tree)) throw new Error('not a tree');
+    const repository = await this.#repository(projectId);
+    const merged = await this.#run(repository, null, null, [
+      'merge-tree',
+      '--write-tree',
+      '--name-only',
+      '-z',
+      `--merge-base=${base}`,
+      ours,
+      theirs,
+    ]);
+    if (merged.code !== 0 && merged.code !== 1)
+      return { ok: false, code: 'merge_failed', message: 'The two could not be combined.' };
+    const parts = merged.stdout.toString().split('\0');
+    const tree = parts[0] ?? '';
+    if (!OBJECT_ID.test(tree))
+      return { ok: false, code: 'merge_failed', message: 'The two could not be combined.' };
+    if (merged.code === 0) return { ok: true, tree, conflicts: [] };
+    const separator = parts.indexOf('', 1);
+    const paths = parts.slice(1, separator === -1 ? parts.length : separator);
+    // Then messages: a count, that many paths, a type, a message.
+    const kinds = new Map<string, MergeConflict['kind']>();
+    let at = separator + 1;
+    while (separator !== -1 && at < parts.length) {
+      const count = Number(parts[at]);
+      if (!Number.isInteger(count) || count < 1) break;
+      const named = parts.slice(at + 1, at + 1 + count);
+      const type = parts[at + 1 + count] ?? '';
+      at += count + 3;
+      const kind =
+        type === 'CONFLICT (binary)'
+          ? 'binary'
+          : type === 'CONFLICT (modify/delete)'
+            ? 'deleted'
+            : type === 'CONFLICT (contents)'
+              ? 'text'
+              : type.startsWith('CONFLICT')
+                ? 'other'
+                : null;
+      if (kind === null) continue;
+      for (const path of named) {
+        const before = kinds.get(path);
+        // A binary file's contents conflict is still a binary one.
+        if (before === undefined || (before === 'text' && kind !== 'text')) kinds.set(path, kind);
+      }
+    }
+    return {
+      ok: true,
+      tree,
+      conflicts: paths.map((path) => ({ path, kind: kinds.get(path) ?? 'other' })),
+    };
+  }
+
+  /**
+   * Makes `folder`, which holds `from`, hold `to` instead (ADR 0045): git compares the folder with
+   * `from` first and writes nothing if any file differs, then writes only what differs between the
+   * two trees, and the folder is read again and must hold exactly `to`.
+   */
+  async apply(projectId: string, folder: string, from: string, to: string): Promise<ApplyResult> {
+    if (!OBJECT_ID.test(from) || !OBJECT_ID.test(to)) throw new Error('not a tree');
+    if (!(await isFolder(folder)))
+      return {
+        ok: false,
+        code: 'location_missing',
+        message: 'The folder is not there.',
+        written: false,
+      };
+    if (await this.#holdsHostData(folder)) return { ...HOLDS_HOST_DATA, written: false };
+    const repository = await this.#repository(projectId);
+    const index = this.#indexFile(repository, 'apply');
+    try {
+      const seeded = await this.#run(repository, folder, index, ['read-tree', from]);
+      const added = await this.#run(repository, folder, index, ['add', '-A', '--', '.']);
+      const now = await this.#run(repository, folder, index, ['write-tree']);
+      if (seeded.code !== 0 || added.code !== 0 || now.code !== 0)
+        return {
+          ok: false,
+          code: 'store_failed',
+          message: 'The folder could not be read.',
+          written: false,
+        };
+      if (now.stdout.toString().trim() !== from)
+        return {
+          ok: false,
+          code: 'folder_changed',
+          message: 'The folder changed since it was read, so nothing was written. Try again.',
+          written: false,
+        };
+      const moved = await this.#run(repository, folder, index, ['read-tree', '-m', '-u', from, to]);
+      if (moved.code !== 0)
+        return {
+          ok: false,
+          code: 'folder_changed',
+          message:
+            'A file changed while the work was being added, so nothing was written. Try again.',
+          written: false,
+        };
+    } finally {
+      await rm(index, { force: true });
+    }
+    const after = await this.treeOf(projectId, folder, to);
+    if (!after.ok || after.tree !== to)
+      return {
+        ok: false,
+        code: 'incomplete',
+        message: 'The folder does not hold every file as it should after the add.',
+        written: true,
+      };
+    return { ok: true };
   }
 
   /** What putting the checkpoint back would change now; reads only. */

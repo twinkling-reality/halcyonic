@@ -345,7 +345,8 @@ describe("admitting work on a task's own copy", () => {
   });
 
   test('fitting is admitted only after an add met the project, for a resting task', () => {
-    const { b, projection, task, scopeOf, copyMade, running, fit, admit, refusal } = setup();
+    const { b, projection, task, scopeOf, copyMade, running, add, fit, accept, admit, refusal } =
+      setup();
     const id = task('First');
     copyMade(id);
     assert.equal(
@@ -361,6 +362,22 @@ describe("admitting work on a task's own copy", () => {
     );
     const admitted = admit(fit(id));
     assert.equal(admitted.admitted && admitted.policy, 'low_consequence');
+    // A fit reads the project's folder whole, so it waits for another task's add (AUDIT S1).
+    const other = task('Other');
+    copyMade(other);
+    const pending = add(other);
+    accept(pending, other);
+    assert.equal(
+      refusal(fit(id)),
+      'Adding to the project in this project is still under way. Wait for its outcome, then try again.',
+    );
+    projection.apply(
+      b.controlPlane('command.failed', scopeOf(other), {
+        command_id: pending.command_id,
+        command_type: 'workstream.add_to_project',
+        failure: { code: 'nothing_to_add', message: 'Nothing to add.', effect: 'none' },
+      }),
+    );
     running(id, `${COPIES}/${id}/app`);
     assert.equal(
       refusal(fit(id)),
