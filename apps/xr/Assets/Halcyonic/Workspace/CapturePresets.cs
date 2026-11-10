@@ -15,7 +15,8 @@ namespace Halcyonic.XR.Workspace
     /// <c>task:{execution id}:{section}</c> (activity, waiting, changes or checks), <c>screen:{project id}</c> or
     /// <c>gallery</c>; <c>halcyonic.compose</c> opens the task's instruction without the keyboard, empty, and
     /// <c>halcyonic.draft</c> or <c>halcyonic.heard</c> open it holding one fixed synthetic draft (<see cref="DraftWords"/>),
-    /// typed or as if heard, so a draft's screen can be captured with no keyboard and no voice; <c>halcyonic.agent</c>
+    /// typed or as if heard, so a draft's screen can be captured with no keyboard and no voice; <c>halcyonic.choose</c>
+    /// opens the instructions offered to choose from where Tell it offers them; <c>halcyonic.agent</c>
     /// chooses a registered runtime by its id; <c>halcyonic.arm</c> arms the waiting approval so its confirming bar shows;
     /// <c>halcyonic.bar</c> opens the screen's bar; <c>halcyonic.generic</c>, on its own or with any of them, draws every agent
     /// app, model, host and sibling source by a generic name (<see cref="CaptureNames"/>), for footage free of product
@@ -75,6 +76,9 @@ namespace Halcyonic.XR.Workspace
 
             /// <summary>The instruction opens holding <see cref="DraftWords"/> as heard (the redesign's heard draft).</summary>
             public bool Heard;
+
+            /// <summary>Tell it pressed where it offers instructions to choose from (no keyboard, or a recorded run's own): their page opens.</summary>
+            public bool Choose;
             public string? Runtime;
             public bool Arm;
             public bool Bar;
@@ -91,9 +95,9 @@ namespace Halcyonic.XR.Workspace
             && text.All(c => c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '.' or '_' or ':' or '/' or '-');
 
         /// <summary>The preset the extras ask for; null where <paramref name="open"/> names none, or names one that is not ids and fixed words.</summary>
-        public static Preset? Parse(string? open, bool compose, string? runtime, bool arm, bool bar, bool draft = false, bool heard = false)
+        public static Preset? Parse(string? open, bool compose, string? runtime, bool arm, bool bar, bool draft = false, bool heard = false, bool choose = false)
         {
-            var preset = new Preset { Compose = compose, Arm = arm, Bar = bar, Runtime = IsId(runtime) ? runtime : null, Draft = draft, Heard = heard };
+            var preset = new Preset { Compose = compose, Arm = arm, Bar = bar, Runtime = IsId(runtime) ? runtime : null, Draft = draft, Heard = heard, Choose = choose };
             if (open == "gallery") preset.Gallery = true;
             else if (open != null && open.StartsWith("screen:", StringComparison.Ordinal) && IsId(open.Substring(7))) preset.Project = open.Substring(7);
             else if (open != null && open.StartsWith("task:", StringComparison.Ordinal))
@@ -152,7 +156,7 @@ namespace Halcyonic.XR.Workspace
                 return Parse(intent.Call<string>("getStringExtra", "halcyonic.open"), intent.Call<bool>("getBooleanExtra", "halcyonic.compose", false),
                     intent.Call<string>("getStringExtra", "halcyonic.agent"), intent.Call<bool>("getBooleanExtra", "halcyonic.arm", false),
                     intent.Call<bool>("getBooleanExtra", "halcyonic.bar", false), intent.Call<bool>("getBooleanExtra", "halcyonic.draft", false),
-                    intent.Call<bool>("getBooleanExtra", "halcyonic.heard", false));
+                    intent.Call<bool>("getBooleanExtra", "halcyonic.heard", false), intent.Call<bool>("getBooleanExtra", "halcyonic.choose", false));
             }
             catch (Exception) { return null; }
 #else
@@ -250,6 +254,17 @@ namespace Halcyonic.XR.Workspace
                     words += preset.Heard ? ", heard draft" : preset.Draft ? ", typed draft" : ", composing";
                 }
                 else words += ", not composing";
+            }
+            if (preset.Choose)
+            {
+                // Tell it's own press, only where it offers instructions to choose from: their page opens and nothing is sent
+                // (a choice sends only from its draft, by the person's Send). Where it would open the keyboard, it is not pressed.
+                if (now.Actions.Contains(WorkspaceAction.Instruct) && file.ChoosesInstruction && !file.Screen.Instruction.Open)
+                {
+                    file.Act(FileScreens.TellIt, null);
+                    words += file.Screen.Presets != null ? ", choosing" : ", not choosing";
+                }
+                else words += ", not choosing";
             }
             if (preset.Arm) words += Arm(file, now) ? ArmedWords : NotArmedWords;
             return words;

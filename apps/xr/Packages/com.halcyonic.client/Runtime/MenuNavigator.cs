@@ -489,6 +489,11 @@ namespace Halcyonic.Client
         /// </summary>
         public IMenuColumn? Taking(MenuColumn from, string action, MenuFrame? frame, SidePanel? side)
         {
+            // Stopping is the safe action and never waits for reading (the lead, 2026-11-10): Stop alone is taken from the
+            // file's frame as it shows now, reported drawn or not. It only asks for its confirmation
+            // (WorkspacePresenter.AlwaysConfirmed); every other press still waits for the draw.
+            if (from == MenuColumn.File && side == null && action == FileScreens.Stop && !IsCompact && Beside != null && !BesideAside && frame != null
+                && frame == besideFrame) return Beside;
             if (!(Standing(from, frame, side) is IMenuColumn column)) return null;
             if (from == MenuColumn.Side && !Offers(drawnSideFooter, action)) return null;
             return column;

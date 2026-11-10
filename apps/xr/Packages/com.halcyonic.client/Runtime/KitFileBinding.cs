@@ -184,7 +184,8 @@ namespace Halcyonic.Client
         /// </summary>
         public static KitFileBinding? Of(MenuFrame frame, WorkspaceAction? armed, WorkspacePresentation workspace, string draft, ConnectionStatus connection,
             string projectName, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot = null, KitAvatar? avatar = null,
-            KitSelectors? selectors = null, bool roomDesign = false, bool draftSpoken = false, int? requestRows = null, bool chooses = false)
+            KitSelectors? selectors = null, bool roomDesign = false, bool draftSpoken = false, int? requestRows = null, bool chooses = false,
+            int? asking = null, string? writing = null)
         {
             if (frame.Side != null) return null;
             // The kit shows an approval's, a denial's or the answers' confirmation, and the redesign an instruction's too; any
@@ -198,7 +199,8 @@ namespace Halcyonic.Client
             {
                 // For the redesign: an answer in flight, and the way back from the offered instructions (the page's own Cancel).
                 var place = roomDesign && prompt.Id == WorkspaceScreens.Sent && !prompt.Available ? KitPlace.Sending
-                    : roomDesign && prompt.Id == FileScreens.Cancel && prompt.Kind != PromptKind.Cancel && offering ? KitPlace.Back : PlaceOf(slot, prompt);
+                    : roomDesign && prompt.Id == FileScreens.Cancel && prompt.Kind != PromptKind.Cancel && offering ? KitPlace.Back
+                    : roomDesign ? RoomPlaceOf(prompt) ?? PlaceOf(slot, prompt) : PlaceOf(slot, prompt);
                 if (place == null || controls.Any(control => control.Place == place)) return null;
                 controls.Add(new KitControl(place.Value, frame, prompt.Id, null, prompt.Words, prompt.Icon, prompt.Available, prompt.Reason, prompt.Holds));
             }
@@ -206,7 +208,9 @@ namespace Halcyonic.Client
             var composing = frame.Lines.Any(line => line.Action == FileScreens.EditInstruction);
             foreach (var line in frame.Lines.Where(line => line.Action != null))
             {
-                var place = line.Action == FileScreens.EditInstruction ? KitPlace.Field : line.Action == Footer.NextPage ? KitPlace.Pager
+                // For the redesign, on the page that writes an answer: its line is the field, and Edit Answer a row on within the page.
+                var place = roomDesign && line.Action == FileScreens.EditInput ? (line.Control == LineControl.Input ? KitPlace.Field : KitPlace.Step)
+                    : line.Action == FileScreens.EditInstruction ? KitPlace.Field : line.Action == Footer.NextPage ? KitPlace.Pager
                     : !composing && RouteActions.Contains(line.Action!) ? KitPlace.Route
                     : line.Action == FileScreens.Choose || (offering && line.Action == FileScreens.Preset) ? KitPlace.Choice
                     : StepActions.Contains(line.Action!) || (offering && line.Action == FileScreens.NextPresetPage) ? KitPlace.Step : (KitPlace?)null;
@@ -286,8 +290,25 @@ namespace Halcyonic.Client
                     var prompts = question.Prompts.Select(each => FileScreens.QuestionWords(each).Text).ToList();
                     var at = frame.Lines.Select(line => prompts.IndexOf(line.Words)).Where(index => index >= 0).DefaultIfEmpty(-1).First();
                     if (at < 0 && prompts.Count == 1) at = 0;
+                    // A page that shows no prompt's words is still about one: the one the person is on (the page that writes its answer).
+                    if (at < 0 && asking is int on && on >= 0 && on < prompts.Count) at = on;
+                    var band = at >= 0 ? question.Prompts[at].Text : null;
                     var rest = words.Where(line => !prompts.Contains(line.Words)).ToList();
                     string? asks = null;
+                    // The page of answers that read alike: the answers, the agent's own words, go on the band, and the panel holds
+                    // only Halcyonic's (the lead, 2026-11-10); its caption is the panel's sentence.
+                    var alike = rest.FindIndex(line => line.Words.StartsWith(FileScreens.AlikeLead, System.StringComparison.Ordinal));
+                    if (alike >= 0)
+                    {
+                        band = rest[alike].Words.Substring(FileScreens.AlikeLead.Length);
+                        rest[alike] = new PageLine(FileScreens.AlikeLead.Substring(0, FileScreens.AlikeLead.Length - KitMomentWords.Dot.Length));
+                        var captioned = rest.FindIndex(line => line.Words == FileScreens.AlikeCaption);
+                        if (captioned >= 0)
+                        {
+                            asks = FileScreens.AlikeCaption;
+                            rest.RemoveAt(captioned);
+                        }
+                    }
                     if (ask.Confirming && rest.FindLastIndex(line => line.Words == WorkspaceText.ConfirmationPrompt(WorkspaceAction.Answer, null)) is int last && last >= 0)
                     {
                         asks = rest[last].Words;
@@ -299,7 +320,7 @@ namespace Halcyonic.Client
                         caption = rest[0];
                         rest.RemoveAt(0);
                     }
-                    ask = new KitAsk(words, ask.Confirming, at >= 0 ? question.Prompts[at].Text : null, prompts.Count > 1, caption?.Words, rest, asks);
+                    ask = new KitAsk(words, ask.Confirming, band, prompts.Count > 1, caption?.Words, rest, asks, writing);
                 }
             }
             else if (armed == WorkspaceAction.Answer) return null;
@@ -395,6 +416,19 @@ namespace Halcyonic.Client
         private static readonly HashSet<string> StepActions = new HashSet<string>(System.StringComparer.Ordinal)
         {
             FileScreens.TypeAnswer, FileScreens.MoreAnswers, FileScreens.GoToQuestion, FileScreens.ReadQuestion, FileScreens.ReadWhy, FileScreens.NextPart,
+        };
+
+        /// <summary>
+        /// The place of a footer prompt only the redesign draws: on the page that writes an answer, Use Answer and the next
+        /// part the way on, the part before the way back, and the held Hold to Talk; on the page of answers that read alike,
+        /// its next part and its way back. Null for any other prompt.
+        /// </summary>
+        private static KitPlace? RoomPlaceOf(Prompt prompt) => prompt.Id switch
+        {
+            FileScreens.UseInput or FileScreens.NextInputPart or FileScreens.NextAmbiguityPart => KitPlace.Forward,
+            FileScreens.PreviousInputPart or FileScreens.BackAmbiguity => KitPlace.Back,
+            FileScreens.SpeakAnswer when prompt.Holds => KitPlace.Talk,
+            _ => null,
         };
 
         /// <summary>The kit place of a footer prompt, or null where the kit has none for it.</summary>

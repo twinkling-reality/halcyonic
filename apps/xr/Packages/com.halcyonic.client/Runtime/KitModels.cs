@@ -236,8 +236,9 @@ namespace Halcyonic.Client
         }
 
         public KitAsk(IReadOnlyList<PageLine> lines, bool confirming, string? prompt = null, bool several = false, string? caption = null,
-            IReadOnlyList<PageLine>? body = null, string? asks = null)
+            IReadOnlyList<PageLine>? body = null, string? asks = null, string? writing = null)
         {
+            Writing = writing;
             Heading = LineWords.None;
             Question = "";
             Lines = lines;
@@ -260,6 +261,12 @@ namespace Halcyonic.Client
 
         /// <summary>The page's lines that are none of its prompt, caption or confirmation's question: the answers about to go, or why it can't be answered. Bound for the redesign.</summary>
         public IReadOnlyList<PageLine> Body { get; } = new PageLine[0];
+
+        /// <summary>
+        /// The answer being written on the file's page for it, as it stands (empty before a word); null on every other
+        /// page. Bound for the redesign, whose panel is then the field.
+        /// </summary>
+        public string? Writing { get; }
 
         /// <summary>What the answers' confirmation asks, the file's own (Send Answers?); null otherwise. Bound for the redesign.</summary>
         public string? Asks { get; }
