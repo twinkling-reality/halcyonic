@@ -171,6 +171,13 @@ views; at work, the question, the request and the result after the approval draw
 No press a judge makes has a drawn control in the redesign; the walk sent the answer, the approval
 and the instruction itself. Not checked: the shelf (the walk opens the task's file directly).
 
+On the XR lane's approval (878a68f6, not yet on main; JUDGE, 2026-11-10) the walk presses the
+redesign's own Approve, Cancel and Confirm: the request asks with Approve and Deny, Cancel brings it
+back with nothing sent, Confirm arrives behind its lock and takes no press there, and once the lock
+has passed one press sends the one approval. Those moments draw only the redesign, every word
+whole and inside the field at both sizes; the frame checks fail only on the actions' glyphs (the
+check reaches 3.1 to 4.4:1 and the cross 3.4:1 over the render's black ground, under 4.5:1).
+
 ## Gaps against today's product
 
 | Area | Today in the judge build | Evidence | Who closes it |
