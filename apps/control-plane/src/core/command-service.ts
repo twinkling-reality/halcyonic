@@ -9,6 +9,7 @@ import type {
   CommandView,
   ExecutionId,
   ExecutionStatus,
+  ExecutionView,
   Principal,
   ProjectId,
   ProjectLocation,
@@ -51,6 +52,7 @@ import {
   NO_CAUSE,
 } from './drafts.ts';
 import { type OllamaUnloader, ollamaModelFrom } from './ollama-unload.ts';
+import { type Reattacher, SESSION_LOST } from './reattach.ts';
 import type { Recorder } from './recorder.ts';
 import { fitted, type Redaction, withinLimit } from './redaction.ts';
 import type { RuntimeRegistry } from './runtime-registry.ts';
@@ -102,6 +104,8 @@ export interface CommandServiceDeps {
   readonly catalogLinks?: CatalogLinks | null;
   /** Unloads a local Ollama model that Halcyonic loaded once no execution uses it (UL1); none by default. */
   readonly ollamaUnload?: OllamaUnloader | null;
+  /** Re-attaches what an earlier control plane started (ADR 0046); none for a fixture journal. */
+  readonly reattacher?: Reattacher | null;
 }
 
 type Admitted = Admission & { admitted: true };
@@ -275,11 +279,12 @@ export class CommandService {
   }
 
   /**
-   * After a restart nothing that was in flight can still be observed: the mock runtime's sessions
-   * died with the process, and no adapter can reattach yet. Record that honestly instead of
-   * leaving executions "running" and commands "pending" forever.
+   * After a restart nothing that was in flight can still be observed: the start stopped every
+   * runtime process the last control plane left. Each execution in flight is recorded unknown
+   * until its session is re-attached (ADR 0046), every pending command failed with an unknown
+   * effect; nothing is left "running" or "pending" forever. Returns the executions to re-attach.
    */
-  reconcileAfterRestart(): { executions: number; commands: number } {
+  reconcileAfterRestart(): { executions: number; commands: number; cut: ExecutionView[] } {
     // Active ones, and ones already unknown for another reason, a lost connection or a start whose
     // outcome is unknown: no runtime session survives a restart, and the start stops what a crash
     // left recorded, so each is unknown because of the restart, which a project's busy rule reads
@@ -289,7 +294,9 @@ export class CommandService {
       .filter(
         (view) =>
           ACTIVE_STATUSES.has(view.status) ||
-          (view.status === 'unknown' && view.status_reason?.code !== 'control_plane_restarted'),
+          (view.status === 'unknown' &&
+            view.status_reason?.code !== 'control_plane_restarted' &&
+            view.status_reason?.code !== SESSION_LOST),
       );
     for (const view of executions) {
       this.#deps.recorder.record(
@@ -335,7 +342,7 @@ export class CommandService {
         ),
       );
     }
-    return { executions: executions.length, commands: commands.length };
+    return { executions: executions.length, commands: commands.length, cut: executions };
   }
 
   /** Rejects a command from a device that is no longer paired, whatever its admission. */
@@ -796,6 +803,7 @@ export class CommandService {
             cause,
           ),
         );
+        this.#deps.reattacher?.started(execution.execution_id);
         const start = adapter.startExecution;
         if (start === undefined) {
           this.#recordStartFailure(command, scope, unimplemented('startExecution'));
@@ -889,7 +897,15 @@ export class CommandService {
                 this.#deps.projection.execution(execution.execution_id)?.model_ref,
               ) ?? this.#deps.ollamaUnload.modelFor(execution.execution_id))
             : null;
-        const startAction = () => this.#perform(command, action, outcome);
+        // An execution an earlier control plane started is re-attached first, or fails as lost (ADR 0046).
+        const reattacher = this.#deps.reattacher;
+        const startAction = () =>
+          reattacher == null
+            ? this.#perform(command, action, outcome)
+            : reattacher.ensure(execution).then(
+                () => this.#perform(command, action, outcome),
+                (error: unknown) => outcome.failed(toFailure(error, this.#deps.redaction)),
+              );
         const before: Promise<void>[] = [];
         if (ollamaModel !== null && this.#deps.ollamaUnload) {
           before.push(this.#deps.ollamaUnload.beforeRun(execution.execution_id, ollamaModel));

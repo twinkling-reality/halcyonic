@@ -444,8 +444,10 @@ export const ExecutionStartFailed = executionEvent(
 
 /**
  * The control plane can no longer say what the execution is doing: a restart lost the connection
- * to its runtime, or a start request timed out or failed in a way that may still have started
- * the runtime. The execution shows `unknown` until the runtime reports again.
+ * to its runtime (`control_plane_restarted`, until its session is re-attached), a restart's
+ * session could not be re-attached and is gone for good (`session_lost`, ADR 0046), or a start
+ * request timed out or failed in a way that may still have started the runtime. The execution
+ * shows `unknown` until the runtime reports again.
  */
 export const ExecutionStateUnknown = executionEvent(
   'execution.state_unknown',
@@ -454,6 +456,7 @@ export const ExecutionStateUnknown = executionEvent(
       code: Type.Union([
         Type.Literal('control_plane_restarted'),
         Type.Literal('start_outcome_unknown'),
+        Type.Literal('session_lost'),
       ]),
       message: Text(2000),
     },

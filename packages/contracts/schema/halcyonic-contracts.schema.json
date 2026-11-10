@@ -8466,6 +8466,9 @@
         },
         "offers_never_ask": {
           "type": "boolean"
+        },
+        "resumes_after_restart": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -16040,6 +16043,10 @@
         {
           "type": "string",
           "const": "start_outcome_unknown"
+        },
+        {
+          "type": "string",
+          "const": "session_lost"
         }
       ]
     },

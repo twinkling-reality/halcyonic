@@ -98,10 +98,18 @@ event. Current state is held in memory and rebuilt from the journal at startup
 ([ADR 0002](../decisions/0002-append-only-journal-with-rebuilt-projection.md)).
 
 On startup the control plane also reconciles: every execution that was in flight, and every
-command still awaiting a runtime, is recorded as unknown, because no runtime session survives a
-restart yet. So is one already unknown for another reason, a lost connection or a start whose
-outcome is unknown: it is now unknown because of the restart, which the rule for a busy project
-reads as stopped, so it no longer holds Undo, a check or the automatic check back for good (U5).
+command still awaiting a runtime, is recorded as unknown, because the start stopped every runtime
+process the last control plane left, and with it any turn that was running. So is one already
+unknown for another reason, a lost connection or a start whose outcome is unknown: it is now unknown
+because of the restart, which the rule for a busy project reads as stopped, so it no longer holds
+Undo, a check or the automatic check back for good (U5). Then each execution in flight is
+re-attached where its runtime keeps its session (`resumes_after_restart`): the adapter finds the
+session again by its native id with the bounds it started with, reports it observable again and the
+cut turn ended, and the task takes instructions again; an execution at rest is re-attached by the
+next action on it. One that cannot be, on a runtime that keeps no session, or one its runtime
+refuses or does not answer for, is recorded `session_lost`, which the busy rule also reads as
+stopped, and an action on it fails having done nothing
+([ADR 0046](../decisions/0046-a-restart-re-attaches-each-tasks-session-where-the-runtime-keeps-it.md)).
 Nor does a turn the restart cut short hold the project's later checks unknown: a check recorded
 after the restart starts current, while one recorded before it stays unknown, since the cut turn
 may have changed files unread (#13).

@@ -1,6 +1,7 @@
 import type {
   ApprovalLevel,
   ApprovalView,
+  CommandId,
   ErrorInfo,
   ExecutionId,
   ExecutionStatus,
@@ -31,6 +32,11 @@ export interface ExecutionState {
   /** The folder the runtime was given; null for none, or not recorded. */
   readonly directory: string | null;
   readonly createdAt: Timestamp;
+  /**
+   * The command whose start created it, from `execution.created`'s causation, which holds the
+   * start's options and chosen model; null when the event names none.
+   */
+  readonly startCommandId: CommandId | null;
   nativeId: string | null;
   /**
    * Whether its start recorded that it ran inside the host's confinement of the project (S2); false
@@ -72,6 +78,7 @@ export function createExecutionState(init: {
   instruction: string;
   directory: string | null;
   createdAt: Timestamp;
+  startCommandId: CommandId | null;
 }): ExecutionState {
   return {
     ...init,

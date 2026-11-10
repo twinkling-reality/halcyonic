@@ -15,6 +15,7 @@ import type {
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import {
   type ObservationSink,
+  type ReattachRequest,
   RuntimeActionError,
   type RuntimeAdapter,
   type RuntimeObservation,
@@ -967,6 +968,151 @@ describe('truthful failure handling', () => {
   });
 });
 
+/**
+ * A runtime that keeps its sessions after its processes end (ADR 0046): a start reports a session
+ * and a turn that ends only when the instruction says `Finish`; a re-attach is recorded, and
+ * answered as `answer` says.
+ */
+class ResumableRuntime implements RuntimeAdapter {
+  readonly descriptor: RuntimeDescriptor = {
+    runtime_id: 'resumable' as RuntimeId,
+    kind: 'stub',
+    display_name: 'Resumable stub',
+    synthetic: true,
+    capabilities: {
+      start_execution: true,
+      instruct_at_rest: true,
+      instruct_while_running: false,
+      respond_to_approval: false,
+      answer_question: false,
+      interrupt: false,
+    },
+    model_choice: 'none',
+    uses_project_location: false,
+    reports_tool_activity: false,
+    resumes_after_restart: true,
+  };
+  readonly reattached: Omit<ReattachRequest, 'emit'>[] = [];
+  readonly instructions: string[] = [];
+  readonly #emits = new Map<string, ObservationSink>();
+  readonly #answer: 'restore' | 'refuse';
+
+  constructor(answer: 'restore' | 'refuse' = 'restore') {
+    this.#answer = answer;
+  }
+
+  validateStartOptions() {
+    return { ok: true } as const;
+  }
+
+  async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
+    this.#emits.set(request.execution.execution_id, request.emit);
+    const at = new Date().toISOString() as never;
+    const observed = { epistemic: 'observed', native_type: null } as const;
+    const native = `native-${request.execution.execution_id}`;
+    request.emit({
+      type: 'runtime.execution.started',
+      occurred_at: at,
+      native_event_id: `${native}-s`,
+      sequence: null,
+      provenance: observed,
+      payload: { native_id: native },
+    });
+    request.emit({
+      type: 'runtime.turn.started',
+      occurred_at: at,
+      native_event_id: `${native}-t1`,
+      sequence: null,
+      provenance: observed,
+      payload: { turn_id: 't1' },
+    });
+    if (request.instruction.includes('Finish')) {
+      request.emit({
+        type: 'runtime.turn.completed',
+        occurred_at: at,
+        native_event_id: `${native}-t1c`,
+        sequence: null,
+        provenance: observed,
+        payload: { turn_id: 't1' },
+      });
+    }
+    return { native_id: native };
+  }
+
+  async reattach(request: ReattachRequest): Promise<void> {
+    const { emit, ...rest } = request;
+    this.reattached.push(rest);
+    if (this.#answer === 'refuse') {
+      throw new RuntimeActionError('session_not_found', 'The runtime has no such session.');
+    }
+    this.#emits.set(request.execution.execution_id, emit);
+    const at = new Date().toISOString() as never;
+    const id = request.native_id;
+    emit({
+      type: 'runtime.connection.restored',
+      occurred_at: at,
+      native_event_id: `${id}-r${this.reattached.length}`,
+      sequence: null,
+      provenance: { epistemic: 'observed', native_type: null },
+      payload: { reason: 'Found again after the restart.' },
+    });
+    if (request.cut_turn !== null) {
+      emit({
+        type: 'runtime.turn.interrupted',
+        occurred_at: at,
+        native_event_id: `${id}-cut`,
+        sequence: null,
+        provenance: { epistemic: 'inferred', native_type: null, rule: 'stub.restart.turn_status' },
+        payload: { turn_id: request.cut_turn.turn_id },
+      });
+    }
+  }
+
+  async sendInstruction(request: {
+    execution: { execution_id: string };
+    text: string;
+  }): Promise<void> {
+    if (!this.#emits.has(request.execution.execution_id)) {
+      throw new RuntimeActionError('execution_unknown_to_runtime', 'No session for it.');
+    }
+    this.instructions.push(request.text);
+  }
+
+  async close(): Promise<void> {}
+}
+
+function startOn(
+  harness: ReturnType<typeof createTestControlPlane>,
+  workstreamId: WorkstreamId,
+  runtimeId: string,
+  instruction = 'Go.',
+) {
+  return harness.controlPlane.commands.submit(
+    {
+      ...harness.commands.startExecution(workstreamId, FEATURE),
+      payload: {
+        workstream_id: workstreamId,
+        runtime_id: runtimeId as RuntimeId,
+        instruction,
+        options: { lane: 'core' },
+        model_ref: null,
+      },
+    },
+    'internal',
+  );
+}
+
+function stateUnknownCodes(
+  harness: ReturnType<typeof createTestControlPlane>,
+  executionId: string,
+) {
+  return [...harness.journal.readAll()].flatMap(({ event }) =>
+    event.event_type === 'execution.state_unknown' && event.execution_id === executionId
+      ? [event.payload.code]
+      : [],
+  );
+}
+
 describe('restart', () => {
   test('a journal written before principals were recorded, at schema version 2, opens and replays', async () => {
     const path = join(directory, 'before-principals.db');
@@ -1093,12 +1239,19 @@ describe('restart', () => {
     );
 
     second.controlPlane.reconcile();
+    const cut = second.controlPlane.snapshot();
+    assert.ok(cut.executions.every((execution) => execution.status === 'unknown'));
+    assert.ok(
+      cut.executions.every(
+        (execution) => execution.status_reason?.code === 'control_plane_restarted',
+      ),
+    );
+    // Neither runtime keeps a session after a restart (ADR 0046): each is said plainly to be lost.
+    await second.controlPlane.reattached;
     const after = second.controlPlane.snapshot();
     assert.ok(after.executions.every((execution) => execution.status === 'unknown'));
     assert.ok(
-      after.executions.every(
-        (execution) => execution.status_reason?.code === 'control_plane_restarted',
-      ),
+      after.executions.every((execution) => execution.status_reason?.code === 'session_lost'),
     );
     const pending = second.controlPlane.projection.command(stuck.command?.command_id ?? '');
     assert.deepEqual(
@@ -1150,14 +1303,146 @@ describe('restart', () => {
 
     const second = createTestControlPlane({ path, time: first.time });
     second.controlPlane.reconcile();
-    // No runtime session survives a restart, and the start stops what a crash left behind.
+    await second.controlPlane.reattached;
+    // Neither runtime keeps a session after a restart, and the start stops what a crash left behind.
     for (const execution of before) {
       const after = second.controlPlane.projection.execution(execution.execution_id);
       assert.equal(after?.status, 'unknown');
-      assert.equal(after?.status_reason?.code, 'control_plane_restarted');
+      assert.equal(after?.status_reason?.code, 'session_lost');
       assert.equal(second.controlPlane.projection.projectBusy(execution.project_id), null);
     }
     await second.controlPlane.close();
+  });
+
+  test('work a restart cut is re-attached with the bounds it started with, its cut turn ended, and takes instructions again (ADR 0046)', async () => {
+    const path = join(directory, 'restart-reattach.db');
+    const first = createTestControlPlane({ path, adapters: () => [new ResumableRuntime()] });
+    const workstreamId = await createWorkstream(first);
+    startOn(first, workstreamId, 'resumable');
+    await first.time.runUntilIdle();
+    const executionId =
+      first.controlPlane.projection.workstream(workstreamId)?.current_execution_id;
+    assert.ok(executionId);
+    assert.equal(first.controlPlane.projection.execution(executionId)?.status, 'running');
+    await first.controlPlane.close();
+
+    const runtime = new ResumableRuntime();
+    const second = createTestControlPlane({ path, time: first.time, adapters: () => [runtime] });
+    second.controlPlane.reconcile();
+    assert.equal(second.controlPlane.projection.execution(executionId)?.status, 'unknown');
+    await second.controlPlane.reattached;
+    const { project_id } = second.controlPlane.projection.execution(executionId) ?? {};
+    assert.deepEqual(runtime.reattached, [
+      {
+        execution: { execution_id: executionId, workstream_id: workstreamId, project_id },
+        native_id: `native-${executionId}`,
+        options: { lane: 'core' },
+        model_ref: null,
+        confined: false,
+        directory: null,
+        cut_turn: { turn_id: 't1' },
+      },
+    ]);
+    const after = second.controlPlane.projection.execution(executionId);
+    assert.equal(after?.status, 'interrupted');
+    assert.equal(second.controlPlane.projection.projectBusy(after?.project_id ?? ''), null);
+
+    const sent = second.controlPlane.commands.submit(
+      second.commands.instruct(executionId as ExecutionId, 'Carry on.'),
+      'internal',
+    );
+    await second.time.runUntilIdle();
+    assert.equal(
+      second.controlPlane.projection.command(sent.command?.command_id ?? '')?.status,
+      'completed',
+    );
+    assert.deepEqual(runtime.instructions, ['Carry on.']);
+    assert.equal(runtime.reattached.length, 1, 'once re-attached, not again');
+    await second.controlPlane.close();
+  });
+
+  test('work at rest at a restart is re-attached by the next action on it, not at the start (ADR 0046)', async () => {
+    const path = join(directory, 'restart-reattach-rest.db');
+    const first = createTestControlPlane({ path, adapters: () => [new ResumableRuntime()] });
+    const workstreamId = await createWorkstream(first);
+    startOn(first, workstreamId, 'resumable', 'Finish.');
+    await first.time.runUntilIdle();
+    const executionId =
+      first.controlPlane.projection.workstream(workstreamId)?.current_execution_id;
+    assert.ok(executionId);
+    assert.equal(first.controlPlane.projection.execution(executionId)?.status, 'completed');
+    await first.controlPlane.close();
+
+    const runtime = new ResumableRuntime();
+    const second = createTestControlPlane({ path, time: first.time, adapters: () => [runtime] });
+    second.controlPlane.reconcile();
+    await second.controlPlane.reattached;
+    assert.equal(runtime.reattached.length, 0);
+    assert.equal(second.controlPlane.projection.execution(executionId)?.status, 'completed');
+
+    const sent = second.controlPlane.commands.submit(
+      second.commands.instruct(executionId as ExecutionId, 'One more thing.'),
+      'internal',
+    );
+    await second.time.runUntilIdle();
+    assert.equal(
+      second.controlPlane.projection.command(sent.command?.command_id ?? '')?.status,
+      'completed',
+    );
+    assert.equal(runtime.reattached.length, 1);
+    assert.equal(runtime.reattached[0]?.cut_turn, null);
+    assert.deepEqual(runtime.instructions, ['One more thing.']);
+    await second.controlPlane.close();
+  });
+
+  test('a session the runtime cannot find again is lost: said plainly, never busy, and its next action fails having done nothing (ADR 0046)', async () => {
+    const path = join(directory, 'restart-reattach-lost.db');
+    const first = createTestControlPlane({ path, adapters: () => [new ResumableRuntime()] });
+    const cutWorkstream = await createWorkstream(first);
+    startOn(first, cutWorkstream, 'resumable');
+    const restWorkstream = await createWorkstream(first);
+    startOn(first, restWorkstream, 'resumable', 'Finish.');
+    await first.time.runUntilIdle();
+    await first.controlPlane.close();
+
+    const runtime = new ResumableRuntime('refuse');
+    const last = createTestControlPlane({ path, time: first.time, adapters: () => [runtime] });
+    last.controlPlane.reconcile();
+    await last.controlPlane.reattached;
+    const cut = last.controlPlane.projection.workstream(cutWorkstream)?.current_execution_id ?? '';
+    const rest =
+      last.controlPlane.projection.workstream(restWorkstream)?.current_execution_id ?? '';
+    const lost = last.controlPlane.projection.execution(cut);
+    assert.equal(lost?.status, 'unknown');
+    assert.equal(lost?.status_reason?.code, 'session_lost');
+    assert.match(
+      lost?.status_reason?.message ?? '',
+      /could not be found again: The runtime has no such session\./,
+    );
+    assert.equal(last.controlPlane.projection.projectBusy(lost?.project_id ?? ''), null);
+
+    const sent = last.controlPlane.commands.submit(
+      last.commands.instruct(rest as ExecutionId, 'One more thing.'),
+      'internal',
+    );
+    await last.time.runUntilIdle();
+    const failed = last.controlPlane.projection.command(sent.command?.command_id ?? '');
+    assert.deepEqual(
+      { status: failed?.status, code: failed?.failure?.code, effect: failed?.failure?.effect },
+      { status: 'failed', code: 'session_lost', effect: 'none' },
+    );
+    assert.deepEqual(runtime.instructions, []);
+    assert.deepEqual(stateUnknownCodes(last, rest), ['session_lost']);
+    assert.equal(last.controlPlane.projection.execution(rest)?.status_reason?.code, 'session_lost');
+    // A later restart leaves lost work lost: it is not re-marked or re-attached.
+    await last.controlPlane.close();
+    const again = new ResumableRuntime();
+    const fourth = createTestControlPlane({ path, time: first.time, adapters: () => [again] });
+    fourth.controlPlane.reconcile();
+    await fourth.controlPlane.reattached;
+    assert.deepEqual(again.reattached, []);
+    assert.deepEqual(stateUnknownCodes(fourth, cut), ['control_plane_restarted', 'session_lost']);
+    await fourth.controlPlane.close();
   });
 
   test('a mock runtime started after a restart has every observation journaled', async () => {

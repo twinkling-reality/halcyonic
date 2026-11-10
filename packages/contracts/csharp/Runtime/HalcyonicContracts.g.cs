@@ -1549,6 +1549,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("offers_never_ask", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public bool? OffersNeverAsk { get; set; }
+
+        [JsonProperty("resumes_after_restart", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? ResumesAfterRestart { get; set; }
     }
 
     public sealed class Snapshot
@@ -2091,6 +2094,7 @@ namespace Halcyonic.Contracts
     {
         [EnumMember(Value = "control_plane_restarted")] ControlPlaneRestarted,
         [EnumMember(Value = "start_outcome_unknown")] StartOutcomeUnknown,
+        [EnumMember(Value = "session_lost")] SessionLost,
     }
 
     public sealed class ExecutionStateUnknownPayload

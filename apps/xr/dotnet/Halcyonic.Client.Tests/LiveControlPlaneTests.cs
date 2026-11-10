@@ -601,7 +601,7 @@ public class LiveControlPlaneTests
             s => s.Status.IsLive && s.State.Executions[executionId].Status == ExecutionStatus.Unknown,
             "the restarted control plane reports the execution as unknown");
         var execution = session.State.Executions[executionId];
-        Assert.That(execution.StatusReason!.Code, Is.EqualTo("control_plane_restarted"));
+        Assert.That(execution.StatusReason!.Code, Is.EqualTo("session_lost"), "the mock keeps no session, so the restart loses it (ADR 0046)");
         var character = CharacterPresenter.Present(session.State.Workstreams[workstreamId], session.State, session.Status.IsLive);
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.Unknown));
         Assert.That(character.Stale, Is.False);
