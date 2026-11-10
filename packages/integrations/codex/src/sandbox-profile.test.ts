@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 import {
   confinedProfile,
   confinementKey,
+  gitDataOutside,
   SANDBOX_EXEC,
   secretsUnder,
   TOOL_PREFIXES,
@@ -418,6 +419,142 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
       );
     } finally {
       cleanup();
+    }
+  });
+});
+
+describe("a folder's git data outside it, read only (BOX)", () => {
+  const temporary = () => realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-gitdata-test-')));
+
+  test("a worktree's and a submodule's own git data and their repository's .git; nothing for any other shape", () => {
+    const root = temporary();
+    try {
+      const made = (path: string) => {
+        mkdirSync(join(root, path), { recursive: true });
+        return join(root, path);
+      };
+      const common = made('repo/.git');
+      const worktree = made('wt');
+      writeFileSync(join(worktree, '.git'), `gitdir: ${join(common, 'worktrees', 'wt')}\n`);
+      made('repo/.git/worktrees/wt');
+      assert.deepEqual(gitDataOutside(worktree), [common, join(common, 'worktrees', 'wt')]);
+      // A submodule names its data relatively.
+      const submodule = made('repo/lib');
+      made('repo/.git/modules/lib');
+      writeFileSync(join(submodule, '.git'), 'gitdir: ../.git/modules/lib\n');
+      assert.deepEqual(gitDataOutside(submodule), [common, join(common, 'modules', 'lib')]);
+      // Its own repository, no .git at all, or a .git file naming any other folder: nothing.
+      assert.deepEqual(gitDataOutside(join(root, 'repo')), []);
+      assert.deepEqual(gitDataOutside(made('plain')), []);
+      for (const named of [
+        '/',
+        homedir(),
+        join(root, 'repo'),
+        join(common, 'worktrees'),
+        join(root, 'elsewhere'),
+      ]) {
+        const odd = made(`odd-${confinementKey(named)}`);
+        writeFileSync(join(odd, '.git'), `gitdir: ${named}\n`);
+        assert.deepEqual(gitDataOutside(odd), [], named);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('on this Mac, git reads a worktree inside the profile, and its shared data is never written', {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const root = temporary();
+    try {
+      const repo = join(root, 'repo');
+      mkdirSync(repo);
+      const git = (cwd: string, ...args: string[]) =>
+        run(
+          '/usr/bin/git',
+          ['-c', 'user.email=box@example.invalid', '-c', 'user.name=box', ...args],
+          { cwd },
+        );
+      await git(repo, 'init', '-q', '-b', 'main');
+      writeFileSync(join(repo, 'README.md'), 'box\n');
+      await git(repo, 'add', '.');
+      await git(repo, 'commit', '-q', '-m', 'box');
+      const worktree = join(root, 'wt');
+      await git(repo, 'worktree', 'add', '-q', worktree, '-b', 'wt');
+      const home = join(root, 'home');
+      const temp = join(root, 'temp');
+      mkdirSync(home);
+      mkdirSync(temp);
+      const file = join(temp, 'profile.sb');
+      writeFileSync(
+        file,
+        confinedProfile({
+          project: worktree,
+          readable: [],
+          codexHome: home,
+          temp,
+          runtimeFolder: home,
+          toolFolders: toolFoldersFor(process.execPath),
+          loopbackPorts: [11434],
+        }),
+      );
+      // The developer folder's own git, not Apple's /usr/bin shim, which writes a cache in the
+      // person's temporary folder; HOME and system configuration as the confined server gives them.
+      const developer = (await run('/usr/bin/xcode-select', ['-p'])).stdout.trim();
+      const inside = (...args: string[]) =>
+        run(SANDBOX_EXEC, ['-f', file, join(developer, 'usr', 'bin', 'git'), ...args], {
+          cwd: worktree,
+          env: { PATH: '/usr/bin:/bin', HOME: temp, GIT_CONFIG_NOSYSTEM: '1' },
+        }).then(
+          ({ stdout }) => ({ code: 0, out: stdout }),
+          (error: { code?: number; stdout?: string; stderr?: string }) => ({
+            code: typeof error.code === 'number' ? error.code : 1,
+            out: `${error.stdout ?? ''}${error.stderr ?? ''}`,
+          }),
+        );
+      const log = await inside('log', '--oneline', '-1');
+      assert.equal(log.code, 0, log.out);
+      assert.match(log.out, / box\n$/);
+      const status = await inside('status', '--short', '--branch');
+      assert.equal(status.code, 0, status.out);
+      assert.match(status.out, /^## wt/);
+      // A commit writes the shared objects and refs: refused, in git's own words, and nothing changed.
+      writeFileSync(join(worktree, 'new.txt'), 'new\n');
+      const before = (await git(repo, 'rev-parse', 'refs/heads/wt')).stdout;
+      const added = await inside('add', 'new.txt');
+      const committed = await inside(
+        '-c',
+        'user.email=box@example.invalid',
+        '-c',
+        'user.name=box',
+        'commit',
+        '-q',
+        '-m',
+        'unasked',
+      );
+      assert.notEqual(
+        added.code === 0 && committed.code === 0,
+        true,
+        `${added.out}${committed.out}`,
+      );
+      assert.match(
+        `${added.out}${committed.out}`,
+        /Operation not permitted|Unable to create|unable to/i,
+      );
+      assert.equal((await git(repo, 'rev-parse', 'refs/heads/wt')).stdout, before);
+      // The repository's own working files stay unreadable: only its .git is opened.
+      const readme = await run(SANDBOX_EXEC, [
+        '-f',
+        file,
+        '/bin/cat',
+        join(repo, 'README.md'),
+      ]).then(
+        () => 'read',
+        (error: { stderr?: string }) => error.stderr ?? '',
+      );
+      assert.match(readme, /Operation not permitted/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });

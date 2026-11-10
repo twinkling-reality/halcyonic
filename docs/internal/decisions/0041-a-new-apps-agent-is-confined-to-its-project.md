@@ -205,3 +205,26 @@ which writes the project and also `/tmp`.
 - Closing `/tmp` on the open server is not decided here. It would need Codex's two exclude settings and a `TMPDIR` and
   `TMPPREFIX` of the server's own, as the confined server has; without them, here-documents and a bare `mktemp` fail
   ([codex-capabilities.md](../validation/codex-capabilities.md)). That is a runtime change for later.
+
+## Amendment, 2026-11-10: a home of its own for commands, and a worktree's git data read only (BOX-1)
+
+The first step of a sandbox of Halcyonic's for every agent (ADR 0048, to be written). Seen on this Mac with the real
+profile and the pinned Codex 0.157.0, no model:
+
+- **git stopped inside the profile.** A confined server's commands inherited the person's own `HOME`, and git stops
+  at a configuration file it may not read (`~/.gitconfig`, and Homebrew's `etc/gitconfig`), where a missing one is
+  fine. So `git status` in a confined project exited 128 for anyone with a `~/.gitconfig`.
+- **The fix:** a confined server now gives its commands `HOME` inside its own temporary folder, the XDG folders under
+  it, and `GIT_CONFIG_NOSYSTEM=1`. The person's home stays closed. git works in a confined project that is its own
+  repository (`codex-runtime.e2e.test.ts`, with a `.gitconfig` planted in the test's home: 128 before, 0 after).
+- **A worktree or submodule has its git data outside its folder:** its `.git` is a file naming
+  `<repository>/.git/worktrees/<name>` or `<repository>/.git/modules/...`. The profile now reads, never writes, that
+  folder and the repository's `.git` it lives in. That is enough for `git status` and `git log`. A commit, which writes
+  the shared objects and refs, is refused, in git's own words, and changes nothing (`sandbox-profile.test.ts`).
+  - The repository's own working files stay unreadable.
+  - A `.git` file naming any other shape opens nothing.
+  - The repository's `.git/config` becomes readable to the agent, and a remote's address with a token in it would be
+    too.
+- **Apple's `/usr/bin/git`** is a shim that writes a cache into the person's own temporary folder. Inside the profile
+  that cache write is refused and the shim falls back to `xcodebuild`. It works, about three seconds a call, with
+  warnings in the command's output. The developer folder's own git (`xcode-select -p`) and Homebrew's run directly.
