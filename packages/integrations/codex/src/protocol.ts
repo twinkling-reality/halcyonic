@@ -70,6 +70,12 @@ export interface ThreadConfigOverrides {
    */
   readonly 'features.default_mode_request_user_input'?: boolean;
   /**
+   * The `workspace-write` sandbox's network and extra writable folders, given with every thread so
+   * that nothing in the home's `config.toml` widens it past the project (ADR 0043, AUDIT F1).
+   */
+  readonly 'sandbox_workspace_write.network_access': false;
+  readonly 'sandbox_workspace_write.writable_roots': readonly [];
+  /**
    * Trust levels by folder, as a nested object since paths hold dots. A thread's overrides join
    * the launch's `-c` overrides (precedence 30), above the home's `config.toml`, and Codex reads
    * them before it decides a project's trust (codex-rs/app-server/src/config_manager.rs,
@@ -107,7 +113,11 @@ export interface ThreadSettingsResponse {
   readonly modelProvider: string;
   readonly approvalPolicy: unknown;
   readonly approvalsReviewer: unknown;
-  readonly sandbox: { readonly type: string };
+  readonly sandbox: {
+    readonly type: string;
+    readonly networkAccess?: unknown;
+    readonly writableRoots?: unknown;
+  };
 }
 
 /** `v2/ThreadTurnsListParams.ts`. */

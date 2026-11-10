@@ -15,6 +15,7 @@ import {
 } from '@anthropic-ai/claude-agent-sdk';
 import type {
   ApprovalDecision,
+  ApprovalLevel,
   ApprovalSubject,
   ErrorInfo,
   EventOf,
@@ -98,6 +99,13 @@ export interface ClaudeAgentRuntimeOptions {
 const START_OPTIONS = ['model', 'permission_mode'];
 
 /**
+ * Claude Code does not offer working without asking (ADR 0043): Halcyonic gives it no sandbox of its
+ * own, so nothing would bound a command it ran unasked.
+ */
+const NEVER_ASK_REFUSED =
+  'Claude Code does not work without asking: Halcyonic gives it no sandbox of its own.';
+
+/**
  * Permission modes a start may choose. `bypassPermissions` and `auto` are refused because they
  * take decisions away from the person supervising the execution.
  */
@@ -167,7 +175,12 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     return this.#guard.watchdogPid;
   }
 
-  validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation {
+  validateStartOptions(
+    options: RuntimeOptions,
+    modelRef: string | null,
+    approvalLevel?: ApprovalLevel,
+  ): OptionsValidation {
+    if (approvalLevel === 'never_ask') return { ok: false, message: NEVER_ASK_REFUSED };
     const parsed = parseStartOptions(options, modelRef);
     return parsed.ok ? { ok: true } : parsed;
   }
@@ -226,6 +239,10 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
 
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closed) throw closedError();
+    // Refused, never ignored: a choice the runtime does not apply must not be accepted (ADR 0043).
+    if (request.approval_level === 'never_ask') {
+      throw new RuntimeActionError('invalid_runtime_options', NEVER_ASK_REFUSED);
+    }
     const parsed = parseStartOptions(request.options, request.model_ref);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
     // Asked again before anything is launched: the folder may have changed since admission.
