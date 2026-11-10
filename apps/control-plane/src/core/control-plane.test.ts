@@ -1341,6 +1341,7 @@ describe('restart', () => {
         confined: false,
         directory: null,
         cut_turn: { turn_id: 't1' },
+        last_sequence: null,
       },
     ]);
     const after = second.controlPlane.projection.execution(executionId);

@@ -166,6 +166,7 @@ export interface ReattachBounds {
   readonly confined: boolean;
   readonly directory: string | null;
   readonly cut_turn: { readonly turn_id: string | null } | null;
+  readonly last_sequence: number | null;
 }
 
 interface CommandState {
@@ -481,6 +482,7 @@ export class Projection {
       confined: state.confined,
       directory: state.directory,
       cut_turn: state.activeTurn === null ? null : { turn_id: state.activeTurn.turnId },
+      last_sequence: state.lastSequence,
     };
   }
   executionResultSummaries(executionId: string): { total: number; summaries: ToolResultSummary[] } {

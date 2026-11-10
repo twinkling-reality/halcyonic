@@ -1,6 +1,7 @@
 /**
  * Plays a control plane that is about to crash: it runs one Codex execution whose turn runs a slow
- * command, and prints `{"serverPid": n}` once the command runs. End to end tests kill this process
+ * command, and prints `{"serverPid": n, "threadId": "...", "turnId": "...", "sequence": n}` once the
+ * command runs, the last the highest sequence observed so far. End to end tests kill this process
  * to check that neither the server it launched nor the command outlives it. It exits when its own
  * stdin ends, so it does not outlive its test either; its exit ends the server's input and the
  * watchdog's, as a kill does. Usage: `node crash-host.ts <json options>` with `binaryPath`,
@@ -25,6 +26,9 @@ const options = JSON.parse(process.argv[2] ?? '{}') as {
   directory: string;
   instruction: string;
 };
+let threadId: string | null = null;
+let turnId: string | null = null;
+let sequence = 0;
 const runtime = new CodexRuntimeAdapter({
   binaryPath: options.binaryPath,
   codexHome: options.codexHome,
@@ -39,8 +43,12 @@ await runtime.startExecution({
   directory: options.directory,
   model_ref: null,
   emit: (observation) => {
+    if (observation.type === 'runtime.execution.started') threadId = observation.payload.native_id;
+    if (observation.type === 'runtime.turn.started') turnId = observation.payload.turn_id;
+    sequence = Math.max(sequence, observation.sequence ?? 0);
     if (observation.type === 'runtime.tool.started') {
-      process.stdout.write(`${JSON.stringify({ serverPid: runtime.serverPid })}\n`);
+      const line = { serverPid: runtime.serverPid, threadId, turnId, sequence };
+      process.stdout.write(`${JSON.stringify(line)}\n`);
     }
   },
 });

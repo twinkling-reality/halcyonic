@@ -1552,6 +1552,7 @@ describe('re-attaching after a restart (ADR 0046)', () => {
       confined: false,
       directory: WORKDIR,
       cut_turn: { turn_id: 'turn-cut' },
+      last_sequence: 7,
       emit: (observation) => observed.push(observation),
       ...overrides,
     });

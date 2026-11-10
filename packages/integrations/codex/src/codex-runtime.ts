@@ -19,6 +19,7 @@ import {
   type ExecutionContext,
   type ObservationSink,
   type OptionsValidation,
+  type ReattachRequest,
   RuntimeActionError,
   type RuntimeAdapter,
   type RuntimeObservation,
@@ -339,6 +340,9 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       // keeps a dangerous command in its sandbox, asking nothing (codex-runtime.e2e.test.ts,
       // 2026-11-10; ADR 0043).
       offers_never_ask: true,
+      // A thread outlives its server in the Codex home, and thread/resume continues it
+      // (codex-capabilities.md, restart-reattach.md; ADR 0046).
+      resumes_after_restart: true,
     };
   }
 
@@ -477,6 +481,123 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     }
     await this.#act(thread, () => this.#startTurn(thread, request.instruction));
     return { native_id: threadId };
+  }
+
+  /**
+   * Re-attaches a thread an earlier control plane started (ADR 0046): on the server its recorded
+   * folder chooses, confined exactly as it was recorded, resumed with the settings it started
+   * with, which Codex must report back as a start's must, and at the level it was recorded at. The
+   * turn the restart cut is settled from Codex's own record of it, as after a server that died.
+   * Anything else is refused, and the thread is not used.
+   */
+  async reattach(request: ReattachRequest): Promise<void> {
+    if (this.#closing !== null) throw closedError();
+    const refuse = (detail: string) => new RuntimeActionError('reattach_refused', detail);
+    const parsed = parseStartOptions(request.options, request.model_ref, request.approval_level);
+    if (!parsed.ok) throw refuse(parsed.message);
+    const cwd = confirmProjectLocation(this.#directoryPolicy, request.directory);
+    const executionId = request.execution.execution_id;
+    if (this.#threads.has(executionId) || this.#byThreadId.has(request.native_id)) {
+      throw new RuntimeActionError('duplicate_execution', 'The execution is already attached.');
+    }
+    if (request.model_ref !== null) {
+      const listed = await this.listModels();
+      if (!listed.some((model) => model.model_ref === request.model_ref)) {
+        throw refuse(`Codex does not list the model ${request.model_ref} any more.`);
+      }
+    }
+    await prepareHome(this.#home);
+    // The folder chooses the server, and with it the Codex home that holds the thread.
+    const slot = this.#slotFor(cwd);
+    const confined = slot.confinement !== null;
+    if (confined !== (request.confined === true)) {
+      throw refuse(
+        confined
+          ? 'The thread ran unconfined, and its folder is now confined: it is not moved.'
+          : 'The thread ran confined, and its folder no longer has a confinement: it does not run unconfined.',
+      );
+    }
+    const connection = await this.#connection(false, slot);
+    const local = await this.#onThisMac(connection, { ...parsed.value, cwd });
+    confirmProjectLocation(this.#directoryPolicy, cwd);
+    const thread: HostedThread = {
+      threadId: request.native_id,
+      execution: request.execution,
+      emit: request.emit,
+      options: local,
+      state: createThreadState(this.#answerQuestions, local.cwd),
+      connection,
+      confirmations: new Map(),
+      queue: Promise.resolve(),
+      recovering: null,
+      lost: false,
+    };
+    // Numbered on from the journal, which drops what is not after its last.
+    thread.state.sequence = request.last_sequence ?? 0;
+    thread.state.activeTurnId = request.cut_turn?.turn_id ?? null;
+    this.#threads.set(executionId, thread);
+    this.#byThreadId.set(request.native_id, thread);
+    try {
+      const params: ThreadResumeParams = {
+        threadId: request.native_id,
+        ...threadSettings(local, this.#answerQuestions),
+        excludeTurns: true,
+      };
+      const reported = checkSettings(
+        await send(connection, 'thread/resume', params, this.#requestTimeoutMs),
+        local,
+      );
+      if (reported.threadId !== request.native_id) {
+        throw refuse(`Codex resumed thread ${reported.threadId}, not ${request.native_id}.`);
+      }
+      const level = confined || reported.approvalPolicy === 'never' ? 'never_ask' : 'ask';
+      if (request.approval_level !== undefined && request.approval_level !== level) {
+        throw refuse(
+          `The thread started at the level ${request.approval_level} and would resume at ${level}.`,
+        );
+      }
+      const page = await send(
+        connection,
+        'thread/turns/list',
+        {
+          threadId: request.native_id,
+          limit: 1,
+          sortDirection: 'desc',
+        } satisfies ThreadTurnsListParams,
+        this.#requestTimeoutMs,
+      );
+      const latest = isRecord(page) && Array.isArray(page.data) ? page.data[0] : undefined;
+      // The restoration comes first, so its number is taken before the cut turn's end is settled.
+      thread.state.sequence += 1;
+      const restored = thread.state.sequence;
+      const settled = settleResumed(thread.state, latest ?? null, this.#clock.now());
+      if (settled.unsettled !== null) throw refuse(settled.unsettled);
+      if (connection.halted.signal.aborted) throw unreachableError();
+      this.#emit(thread, [
+        observation(
+          'runtime.connection.restored',
+          { reason: 'Codex still has the thread, so it is resumed after the restart.' },
+          {
+            native_event_id: `${request.native_id}:restored:${restored}`,
+            sequence: restored,
+            occurred_at: this.#clock.now().toISOString(),
+            provenance: { epistemic: 'observed', native_type: nativeType('thread/resume') },
+          },
+        ),
+      ]);
+      this.#apply(thread, settled);
+      this.#reportModel(thread, reported.provider, reported.model, 'thread/resume');
+    } catch (error) {
+      this.#threads.delete(executionId);
+      this.#byThreadId.delete(request.native_id);
+      if (error instanceof RuntimeActionError && /active writer/.test(error.message)) {
+        throw new RuntimeActionError(
+          'runtime_unavailable',
+          'Another Codex process still holds the thread, so it could not be resumed.',
+        );
+      }
+      throw error;
+    }
   }
 
   /** Starts a turn at rest, or steers the running turn. */
@@ -1250,7 +1371,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     if (thread === undefined) {
       throw new RuntimeActionError(
         'execution_unknown_to_runtime',
-        'This Codex runtime has no thread for the execution. Threads are not reattached after the control plane restarts.',
+        'This Codex runtime has no thread for the execution.',
       );
     }
     if (thread.lost) throw unreachableError();
