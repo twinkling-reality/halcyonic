@@ -64,29 +64,77 @@ namespace Halcyonic.Client
         /// <summary>The model reference selected for a <see cref="ModelChoice.Listed"/> runtime through the composer's agent selector pill, if any.</summary>
         public string? SelectedModelRef { get; private set; }
 
-        private readonly HashSet<string> neverAskProjects = new HashSet<string>(StringComparer.Ordinal);
+        /// <summary>Where the device keeps the person's choice per project across restarts of the headset app; none, and it is kept for this run only.</summary>
+        public IDevicePreferences? Preferences { get; set; }
+
+        /// <summary>The device preference that keeps every project's choice (<see cref="ProjectChoices"/>).</summary>
+        public const string ProjectChoicesKey = "halcyonic.project-choices";
+
+        private ProjectChoices? projectChoices;
+
+        private ProjectChoices Choices => projectChoices ??= ProjectChoices.Read(Preferences?.Get(ProjectChoicesKey));
+
+        /// <summary>The project whose kept choice is the chosen runtime and model now (<see cref="UseProject"/>); null with none.</summary>
+        public string? ChoiceProjectId { get; private set; }
 
         /// <summary>
-        /// Whether the person chose never ask for the next start in <paramref name="projectId"/> (ADR 0043). The choice
-        /// alone starts nothing and is not the level a start uses: that also needs the chosen runtime's descriptor to
-        /// offer it (<see cref="KitPresenter.RunChoiceOf"/>). Kept as long as the chosen runtime is, per project.
+        /// Whether a task's next start is never ask by default (ADR 0043's amendment of 2026-11-10): only where the level is
+        /// shown before the start goes, which the redesign's row does at rest (AUDIT, 2026-11-11); Ask First anywhere else.
         /// </summary>
-        public bool NeverAskFor(string? projectId) => projectId != null && neverAskProjects.Contains(projectId);
+        public Func<bool> NeverAskByDefault { get; set; } = () => RoomDesign.Enabled;
 
-        /// <summary>Keeps the level the person chose for the next start in <paramref name="projectId"/>; true where it changed.</summary>
+        /// <summary>
+        /// The level for the next start in <paramref name="projectId"/>: the one the person chose for that project, else the
+        /// default (<see cref="NeverAskByDefault"/>). The choice alone starts nothing and is not the level a start uses: that
+        /// also needs the runtime the start uses to offer it (<see cref="KitPresenter.RunChoiceOf"/>,
+        /// <see cref="NewWorkDraft.StartsNeverAsk"/>). No project, no choice.
+        /// </summary>
+        public bool NeverAskFor(string? projectId) => projectId != null && (Choices.Of(projectId)?.NeverAsk ?? NeverAskByDefault());
+
+        /// <summary>The level the person chose for <paramref name="projectId"/> themselves, never the default: never ask only where they chose it.</summary>
+        public bool NeverAskChosenFor(string? projectId) => projectId != null && Choices.Of(projectId)?.NeverAsk == true;
+
+        /// <summary>Keeps the level the person chose for the next start in <paramref name="projectId"/>, across restarts; true where it changed.</summary>
         public bool ChooseNeverAsk(string projectId, bool neverAsk)
         {
             if (changing || NeverAskFor(projectId) == neverAsk) return false;
             changing = true;
             try
             {
-                if (neverAsk) neverAskProjects.Add(projectId);
-                else neverAskProjects.Remove(projectId);
+                Choices.Keep(projectId, Choices.Of(projectId) is ProjectChoice kept ? kept.WithLevel(neverAsk) : new ProjectChoice(null, null, neverAsk));
+                Save();
                 Changed?.Invoke();
                 return true;
             }
             finally { changing = false; }
         }
+
+        /// <summary>
+        /// The person's context is <paramref name="projectId"/> now: its kept agent app and model become the chosen runtime
+        /// and model (none kept, none chosen, so the run's own stand). Called while the view is laid out, it raises nothing;
+        /// true where the chosen runtime or model changed.
+        /// </summary>
+        public bool UseProject(string? projectId)
+        {
+            if (changing || projectId == ChoiceProjectId) return false;
+            ChoiceProjectId = projectId;
+            var kept = projectId != null ? Choices.Of(projectId) : null;
+            var (runtimeId, modelRef) = (kept?.RuntimeId, kept?.ModelRef);
+            if (SelectedRuntimeId == runtimeId && SelectedModelRef == modelRef) return false;
+            (SelectedRuntimeId, SelectedModelRef) = (runtimeId, modelRef);
+            return true;
+        }
+
+        /// <summary>The chosen runtime and model are kept for the project in use, across restarts.</summary>
+        private void RememberRuntime()
+        {
+            if (ChoiceProjectId is not string projectId) return;
+            var level = Choices.Of(projectId)?.NeverAsk;
+            Choices.Keep(projectId, new ProjectChoice(SelectedRuntimeId, SelectedModelRef, level));
+            Save();
+        }
+
+        private void Save() => Preferences?.Set(ProjectChoicesKey, Choices.Write());
 
         /// <summary>Revokes retained input and command authority before any presentation disappears.</summary>
         public event Action? Suspending;
@@ -241,6 +289,7 @@ namespace Halcyonic.Client
             {
                 SelectedRuntimeId = runtimeId;
                 SelectedModelRef = normalizedModel;
+                RememberRuntime();
                 Changed?.Invoke();
                 return true;
             }
@@ -255,6 +304,7 @@ namespace Halcyonic.Client
             try
             {
                 SelectedModelRef = normalizedModel;
+                RememberRuntime();
                 Changed?.Invoke();
                 return true;
             }
@@ -352,6 +402,7 @@ namespace Halcyonic.Client
             {
                 SelectedRuntimeId = next.RuntimeId;
                 SelectedModelRef = null;
+                RememberRuntime();
                 Changed?.Invoke();
             }
             finally { changing = false; }
@@ -465,6 +516,7 @@ namespace Halcyonic.Client
                 {
                     SelectedRuntimeId = runtime.RuntimeId;
                     SelectedModelRef = model?.ModelRef;
+                    RememberRuntime();
                     Changed?.Invoke();
                 }
                 finally { changing = false; }
@@ -739,7 +791,8 @@ namespace Halcyonic.Client
             PendingVrConversionSequence = null;
             SelectedRuntimeId = null;
             SelectedModelRef = null;
-            neverAskProjects.Clear();
+            // What each project keeps stays kept; the next context loads it again.
+            ChoiceProjectId = null;
             runtimeModels.Clear();
         }
 
@@ -823,7 +876,9 @@ namespace Halcyonic.Client
                             runtime,
                             commands,
                             out var firstCommand,
-                            modelRef);
+                            modelRef,
+                            // The VR copy starts at the level the person chose for its source project; nothing shows a default for it.
+                            neverAsk: NeverAskChosenFor(sourceProjectId));
                         return firstCommand;
                     }
                 }

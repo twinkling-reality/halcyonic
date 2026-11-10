@@ -73,21 +73,91 @@ public class NeverAskTests
         }
     }
 
-    [Test]
-    public void TheLevelIsKeptPerProjectAndSaysWhenItChanged()
+    /// <summary>A device's preferences, in memory, as the headset keeps them.</summary>
+    private sealed class Kept : IDevicePreferences
     {
-        var state = new WorkspacePresentationState();
+        public readonly Dictionary<string, string> Values = new();
+        public string? Get(string key) => Values.TryGetValue(key, out var value) ? value : null;
+        public void Set(string key, string? value) { if (value == null) Values.Remove(key); else Values[key] = value; }
+    }
+
+    [Test]
+    public void NeverAskIsTheDefaultOnlyWhereTheLevelIsShownBeforeTheStart()
+    {
+        // The redesign's row names the level at rest: there the default is never ask.
+        var shown = new WorkspacePresentationState { NeverAskByDefault = () => true };
         var changes = 0;
-        state.Changed += () => changes++;
-        Assert.That(state.NeverAskFor("p1"), Is.False, "ask until the person chooses otherwise");
-        Assert.That(state.ChooseNeverAsk("p1", true), Is.True);
-        Assert.That(state.ChooseNeverAsk("p1", true), Is.False, "the same choice again changes nothing");
-        Assert.That((state.NeverAskFor("p1"), state.NeverAskFor("p2"), state.NeverAskFor(null), changes), Is.EqualTo((true, false, false, 1)));
-        Assert.That(state.ChooseNeverAsk("p1", false), Is.True);
-        Assert.That((state.NeverAskFor("p1"), changes), Is.EqualTo((false, 2)));
-        state.ChooseNeverAsk("p1", true);
-        state.ResetPendingCommands();
-        Assert.That(state.NeverAskFor("p1"), Is.False, "it goes where the chosen runtime goes");
+        shown.Changed += () => changes++;
+        Assert.That((shown.NeverAskFor("p1"), shown.NeverAskFor(null)), Is.EqualTo((true, false)), "never ask until the person chooses Ask First; no project, no choice");
+        Assert.That(shown.ChooseNeverAsk("p1", true), Is.False, "choosing the default changes nothing");
+        Assert.That(shown.ChooseNeverAsk("p1", false), Is.True);
+        Assert.That(shown.ChooseNeverAsk("p1", false), Is.False, "the same choice again changes nothing");
+        Assert.That((shown.NeverAskFor("p1"), shown.NeverAskFor("p2"), changes), Is.EqualTo((false, true, 1)));
+        Assert.That(shown.ChooseNeverAsk("p1", true), Is.True, "going back is the same press");
+        Assert.That((shown.NeverAskFor("p1"), changes), Is.EqualTo((true, 2)));
+        shown.ChooseNeverAsk("p1", false);
+        shown.ResetPendingCommands();
+        Assert.That(shown.NeverAskFor("p1"), Is.False, "a reset of the session forgets no project's choice");
+
+        // The older kit names no level: there the default is Ask First, and only the person's own choice is never ask.
+        var was = RoomDesign.Enabled;
+        try
+        {
+            RoomDesign.Enabled = false;
+            var older = new WorkspacePresentationState();
+            Assert.That(older.NeverAskFor("p1"), Is.False, "nothing names the level, so nothing starts at never ask by default");
+            older.ChooseNeverAsk("p1", true);
+            Assert.That((older.NeverAskFor("p1"), older.NeverAskChosenFor("p1"), older.NeverAskChosenFor("p2")), Is.EqualTo((true, true, false)));
+            RoomDesign.Enabled = true;
+            Assert.That(new WorkspacePresentationState().NeverAskFor("p1"), Is.True, "the redesign on: the default follows it");
+            Assert.That(new WorkspacePresentationState().NeverAskChosenFor("p1"), Is.False, "a default is never a choice");
+        }
+        finally { RoomDesign.Enabled = was; }
+
+        // New work asks unless the flow that shows the level before the start sets it.
+        Assert.That(new NewWorkDraft(new CommandFactory(Samples.Client)).NeverAsk, Is.False);
+    }
+
+    [Test]
+    public void EachProjectsChoiceSurvivesARestartOfTheHeadsetApp()
+    {
+        var device = new Kept();
+        var before = new WorkspacePresentationState { Preferences = device, NeverAskByDefault = () => true };
+        before.UseProject("p1");
+        Assert.That(before.SelectRuntime("codex", "gpt-5"), Is.True);
+        before.ChooseNeverAsk("p1", false);
+        before.UseProject("p2");
+        Assert.That((before.SelectedRuntimeId, before.SelectedModelRef), Is.EqualTo(((string?)null, (string?)null)), "another project keeps its own choice, none here");
+        before.SelectRuntime("opencode");
+        Assert.That(device.Values.ContainsKey(WorkspacePresentationState.ProjectChoicesKey), Is.True, "kept where the device keeps its settings");
+
+        // The headset app starts again.
+        var after = new WorkspacePresentationState { Preferences = device, NeverAskByDefault = () => true };
+        Assert.That((after.NeverAskFor("p1"), after.NeverAskFor("p2")), Is.EqualTo((false, true)), "Ask First kept; the other project still at the default");
+        Assert.That(after.UseProject("p1"), Is.True);
+        Assert.That((after.SelectedRuntimeId, after.SelectedModelRef), Is.EqualTo(("codex", "gpt-5")));
+        after.UseProject("p2");
+        Assert.That((after.SelectedRuntimeId, after.SelectedModelRef), Is.EqualTo(("opencode", (string?)null)));
+        Assert.That(after.UseProject("p2"), Is.False, "the same project again changes nothing");
+
+        // What cannot be read is no choice, never a failure.
+        device.Values[WorkspacePresentationState.ProjectChoicesKey] = "{not json";
+        Assert.That(new WorkspacePresentationState { Preferences = device, NeverAskByDefault = () => true }.NeverAskFor("p1"), Is.True);
+        Assert.That(ProjectChoices.Read("[1,2]").Of("p1"), Is.Null);
+    }
+
+    [Test]
+    public void AKeptLevelAppliesOnlyWhereTheRuntimeStillOffersIt()
+    {
+        var device = new Kept();
+        var state = new WorkspacePresentationState { Preferences = device, NeverAskByDefault = () => true };
+        Assert.That(state.NeverAskFor("p1"), Is.True);
+        // The runtime no longer offers it: the next start asks, and the model says so.
+        var plain = Runtime("codex", false);
+        var task = new Task(plain, new[] { plain });
+        Assert.That(task.Choice(null, state.NeverAskFor("p1")), Is.Null, "nothing to start for: the run's own level stands");
+        var model = task.Model(null, state.NeverAskFor("p1"));
+        Assert.That((model.OffersNeverAsk, model.NeverAsk), Is.EqualTo((false, false)), "the level shown is the level the start would use: ask");
     }
 
     [Test]

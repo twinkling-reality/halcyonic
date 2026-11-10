@@ -109,3 +109,24 @@ but fatigue; where nothing bounds it, a press is the only check.
 - Claude Code and OpenCode need a sandbox Halcyonic controls, bounded to one task's project, before they can offer
   the level; that is a decision of its own (ADR 0048).
 - Revisit when a runtime marks escalations in its requests, or when a third level is wanted.
+
+## Amendment 2026-11-10: the headset's default
+
+On the headset a task's next start is never ask by default wherever the runtime that start uses offers it AND the
+level is shown before the start goes, and ask anywhere else: the owner asked for no constant pressing of Approve in VR, and inside the sandbox an asking Codex
+run asks before every command (37 of 37 in VRIFY's survey, `ls` and `cat` among them). The person chooses Ask First
+for a project with one press, and goes back with the same press.
+
+- The choice is the person's, per project: the agent app, the model, and the level where they chose one. The
+  headset keeps it across restarts of the app, where it keeps its settings.
+- The default and a kept choice change nothing of decision 2: a start carries `never_ask` only where the runtime's
+  descriptor offers it at that start; anywhere else it leaves the level out, which means ask.
+- Decision 7 holds: the level shown before a start is the level sent. An instruction armed for its confirmation goes
+  only on the agent, model and level it was armed with; a new project's review is made at its level, and a build
+  confirms only that level.
+- Shown before the start means on the screen that sends it (AUDIT, 2026-11-11): the redesign's row names the agent and
+  its level at rest, so a task's next start there takes the default; the older kit names no level, so it asks unless
+  the person chose never ask; new work takes the default only where its review names the level; Make VR Version's
+  copy takes only the level the person chose for its source project.
+- The control plane's default is unchanged: an `execution.start` without a level asks. The default is the headset's.
+

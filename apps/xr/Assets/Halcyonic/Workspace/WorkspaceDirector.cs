@@ -46,7 +46,7 @@ namespace Halcyonic.XR.Workspace
         private readonly List<CharacterTarget> standing = new List<CharacterTarget>();
         private ControlPlaneConnection connection = null!;
         private CharacterStage? stage;
-        public WorkspacePresentationState Presentation { get; } = new WorkspacePresentationState(keepAgentsWhenMinimized: true) { ContextualMomentsEnabled = true };
+        public WorkspacePresentationState Presentation { get; } = new WorkspacePresentationState(keepAgentsWhenMinimized: true) { ContextualMomentsEnabled = true, Preferences = new PlayerPreferences() };
         public event Action<CharacterStage>? AgentStageCreated;
         private CommandFactory commands = null!;
         private PeekLabel peek = null!;
