@@ -12,6 +12,7 @@ import type {
   RuntimeCapabilities,
   RuntimeDescriptor,
   WorkstreamId,
+  WorkstreamView,
 } from '@halcyonic/contracts';
 import { WORLD_STARTER_ID } from '@halcyonic/contracts';
 import { COMMAND_POLICY } from './policy.ts';
@@ -311,6 +312,88 @@ export function admitCommand(
       };
     }
 
+    case 'workstream.add_to_project':
+    case 'workstream.fit_to_project': {
+      const workstream = projection.workstream(command.payload.workstream_id);
+      if (workstream === undefined) {
+        return reject(
+          NO_SCOPE,
+          'workstream_not_found',
+          `Workstream ${command.payload.workstream_id} does not exist.`,
+        );
+      }
+      const scope: CommandScope = {
+        project_id: workstream.project_id,
+        workstream_id: workstream.workstream_id,
+        execution_id: null,
+      };
+      const adding = command.command_type === 'workstream.add_to_project';
+      const copy = workstream.copy;
+      if (copy?.state !== 'own') {
+        return reject(
+          scope,
+          'invalid_state',
+          copy?.state === 'refused'
+            ? "This task works in the project's own folder, so its changes are already there."
+            : 'This task has no copy of its own yet: it gets one when it starts.',
+        );
+      }
+      if (!adding && copy.conflict === null) {
+        return reject(
+          scope,
+          'invalid_state',
+          "Nothing to fit: the task's work and the project's did not meet at its last add.",
+        );
+      }
+      // Its copy must be still while it is read or written (ADR 0045).
+      const busy = taskInUse(projection, workstream.workstream_id, null);
+      if (busy?.kind === 'active') {
+        return reject(
+          scope,
+          'invalid_state',
+          `This task is ${inWords(busy.status)}. ${untilFree(busy.status)}`,
+        );
+      }
+      if (busy?.kind === 'pending') {
+        return reject(
+          scope,
+          'invalid_state',
+          `${commandInWords(busy.commandType)} for this task is still under way. Wait for its outcome first.`,
+        );
+      }
+      if (projection.restoreInProgress(workstream.project_id)) {
+        return reject(
+          scope,
+          'invalid_state',
+          "The project's files are being put back. Try again once that has finished.",
+        );
+      }
+      if (!adding) return { admitted: true, policy, scope, runtime: null };
+      const location = projection.project(workstream.project_id)?.location ?? null;
+      if (location === null) {
+        return reject(scope, 'location_required', 'The project has no folder to add the work to.');
+      }
+      // The project's folder takes one writer: no other add, check or move of it under way, and no
+      // task working in it directly.
+      const writing = projection
+        .pendingCommands()
+        .find(
+          (pending) =>
+            pending.project_id === workstream.project_id &&
+            PROJECT_FOLDER_COMMANDS.has(pending.command_type),
+        );
+      if (writing !== undefined) {
+        return reject(
+          scope,
+          'invalid_state',
+          `${commandInWords(writing.command_type)} in this project is still under way. Wait for its outcome, then try again.`,
+        );
+      }
+      const refusal = folderRefusal(projection, location.path, workstream.workstream_id, scope);
+      if (refusal !== undefined) return refusal;
+      return { admitted: true, policy, scope, runtime: null };
+    }
+
     case 'execution.start': {
       const workstream = projection.workstream(command.payload.workstream_id);
       if (workstream === undefined) {
@@ -391,8 +474,11 @@ export function admitCommand(
           `Runtime ${runtime.runtime_id} works in the project's folder, and the project has none. Choose a folder for the project first.`,
         );
       }
-      if (runtime.uses_project_location && location !== null) {
-        const refusal = folderRefusal(projection, location.path, workstream.workstream_id, scope);
+      // A task with a copy of its own works there; one without works in the project's folder
+      // until the host makes it one (ADR 0045).
+      const folder = taskFolder(projection, workstream);
+      if (runtime.uses_project_location && folder !== null) {
+        const refusal = folderRefusal(projection, folder, workstream.workstream_id, scope);
         if (refusal !== undefined) return refusal;
       }
       return { admitted: true, policy, scope, runtime };
@@ -704,6 +790,13 @@ function inWords(status: ExecutionStatus): string {
   }
 }
 
+/** What frees a task's folder, as a person can act on it: a starting task has no Stop yet. */
+function untilFree(status: ExecutionStatus): string {
+  return status === 'starting'
+    ? 'Wait for it to start, then try again.'
+    : 'Wait for it to finish or stop it, then try again.';
+}
+
 /** A command for a task as a person would say it, at the start of a refusal. */
 function commandInWords(type: CommandType): string {
   switch (type) {
@@ -717,6 +810,14 @@ function commandInWords(type: CommandType): string {
       return 'An answer to a question';
     case 'execution.interrupt':
       return 'A stop';
+    case 'workstream.add_to_project':
+      return 'Adding to the project';
+    case 'workstream.fit_to_project':
+      return 'Fitting to the project';
+    case 'project.restore':
+      return 'Putting files back';
+    case 'project.check':
+      return 'A check';
     default:
       return 'A command';
   }
@@ -744,7 +845,8 @@ function taskInUse(
     .find(
       (command) =>
         command.workstream_id === workstreamId &&
-        command.command_type.startsWith('execution.') &&
+        (command.command_type.startsWith('execution.') ||
+          command.command_type.startsWith('workstream.')) &&
         (instructed === null || command.execution_id !== instructed),
     );
   if (pending !== undefined) return { kind: 'pending', commandType: pending.command_type };
@@ -764,7 +866,7 @@ function folderRefusal(
   scope: CommandScope,
 ): (Admission & { admitted: false }) | undefined {
   const active = projection
-    .activeExecutions()
+    .executionsAtWork()
     .find(
       (facts) =>
         facts.workstreamId !== workstreamId &&
@@ -775,14 +877,19 @@ function folderRefusal(
     return reject(
       scope,
       'invalid_state',
-      `Another task is ${inWords(active.status)} in this folder. Wait for it to finish or stop it, then try again.`,
+      active.status === 'unknown'
+        ? 'Another task in this folder may still be running. Wait for it, then try again.'
+        : `Another task is ${inWords(active.status)} in this folder. ${untilFree(active.status)}`,
     );
   }
   const pending = projection.pendingCommands().find((command) => {
     if (command.workstream_id === null || command.workstream_id === workstreamId) return false;
+    const other = projection.workstream(command.workstream_id);
     const where =
       command.command_type === 'execution.start'
-        ? (projection.project(command.project_id ?? '')?.location?.path ?? null)
+        ? other === undefined
+          ? null
+          : taskFolder(projection, other)
         : command.command_type === 'execution.send_instruction' && command.execution_id !== null
           ? (projection.execution(command.execution_id)?.directory ?? null)
           : null;
@@ -803,4 +910,22 @@ function foldersOverlap(a: string, b: string): boolean {
   const left = a.endsWith('/') ? a : `${a}/`;
   const right = b.endsWith('/') ? b : `${b}/`;
   return left.startsWith(right) || right.startsWith(left);
+}
+
+/** Commands that read or write a project's own folder, which an add must not run beside. */
+const PROJECT_FOLDER_COMMANDS: ReadonlySet<CommandType> = new Set<CommandType>([
+  'workstream.add_to_project',
+  'project.restore',
+  'project.check',
+  'project.set_location',
+  'project.make_vr_version',
+]);
+
+/**
+ * The folder a task's next start works in, as admission knows it: its own copy, else the project's
+ * folder (ADR 0045), or null when the project has none.
+ */
+function taskFolder(projection: Projection, workstream: WorkstreamView): string | null {
+  if (workstream.copy?.state === 'own') return workstream.copy.directory;
+  return projection.project(workstream.project_id)?.location?.path ?? null;
 }

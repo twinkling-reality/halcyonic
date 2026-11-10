@@ -26,6 +26,8 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'project.link_catalog': 'low_consequence',
   'project.unlink_catalog': 'low_consequence',
   'workstream.create': 'low_consequence',
+  'workstream.add_to_project': 'review_required',
+  'workstream.fit_to_project': 'low_consequence',
   'execution.start': 'low_consequence',
   'execution.send_instruction': 'low_consequence',
   'execution.respond_to_approval': 'review_required',

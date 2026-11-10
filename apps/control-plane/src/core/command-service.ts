@@ -651,6 +651,16 @@ export class CommandService {
         this.#complete(command, admission.scope, null);
         return;
       }
+      case 'workstream.add_to_project':
+      case 'workstream.fit_to_project':
+        // No task has a copy of its own until the host makes them (ADR 0045), so admission refuses
+        // both; should one be admitted, it fails having done nothing.
+        this.#fail(command, admission.scope, {
+          code: 'unavailable',
+          message: "Adding a task's work to its project is not available yet.",
+          effect: 'none',
+        });
+        return;
       case 'project.link_catalog':
       case 'project.unlink_catalog': {
         // The person's own link (ADR 0039): a local fact, complete as soon as it is recorded.

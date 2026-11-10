@@ -381,6 +381,8 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
         [EnumMember(Value = "project.unlink_catalog")] ProjectUnlinkCatalog,
         [EnumMember(Value = "workstream.create")] WorkstreamCreate,
+        [EnumMember(Value = "workstream.add_to_project")] WorkstreamAddToProject,
+        [EnumMember(Value = "workstream.fit_to_project")] WorkstreamFitToProject,
         [EnumMember(Value = "execution.start")] ExecutionStart,
         [EnumMember(Value = "execution.send_instruction")] ExecutionSendInstruction,
         [EnumMember(Value = "execution.respond_to_approval")] ExecutionRespondToApproval,
@@ -952,6 +954,136 @@ namespace Halcyonic.Contracts
         public List<AttentionReason> Reasons { get; set; } = new List<AttentionReason>();
     }
 
+    public sealed class PathList
+    {
+        [JsonProperty("paths", Required = Required.Always)]
+        public List<string> Paths { get; set; } = new List<string>();
+
+        [JsonProperty("total", Required = Required.Always)]
+        public long Total { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ConflictKind
+    {
+        [EnumMember(Value = "text")] Text,
+        [EnumMember(Value = "binary")] Binary,
+        [EnumMember(Value = "deleted")] Deleted,
+        [EnumMember(Value = "other")] Other,
+    }
+
+    public sealed class ConflictedFile
+    {
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [JsonProperty("kind", Required = Required.Always)]
+        public ConflictKind Kind { get; set; }
+    }
+
+    public sealed class ConflictedFiles
+    {
+        [JsonProperty("files", Required = Required.Always)]
+        public List<ConflictedFile> Files { get; set; } = new List<ConflictedFile>();
+
+        [JsonProperty("total", Required = Required.Always)]
+        public long Total { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum CopyRefusalCode
+    {
+        [EnumMember(Value = "linked_repository")] LinkedRepository,
+        [EnumMember(Value = "nested_repository")] NestedRepository,
+        [EnumMember(Value = "too_large")] TooLarge,
+        [EnumMember(Value = "cannot_clone")] CannotClone,
+        [EnumMember(Value = "location_missing")] LocationMissing,
+        [EnumMember(Value = "holds_host_data")] HoldsHostData,
+        [EnumMember(Value = "copy_failed")] CopyFailed,
+    }
+
+    [JsonConverter(typeof(WorkstreamCopyConverter))]
+    public abstract class WorkstreamCopy
+    {
+        [JsonProperty("state", Order = -2)]
+        public string State => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class WorkstreamCopyConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(WorkstreamCopy).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["state"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            WorkstreamCopy value = tag switch
+            {
+                "own" => new OwnCopy(),
+                "refused" => new RefusedCopy(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "WorkstreamCopy has no string state."
+                    : "Unknown state \"" + tag + "\" for WorkstreamCopy."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but state is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class OwnCopy : WorkstreamCopy
+    {
+        protected override string Discriminator => "own";
+
+        [JsonProperty("directory", Required = Required.Always)]
+        public string Directory { get; set; } = default!;
+
+        [JsonProperty("made_at", Required = Required.Always)]
+        public string MadeAt { get; set; } = default!;
+
+        [JsonProperty("base_tree", Required = Required.Always)]
+        public string BaseTree { get; set; } = default!;
+
+        [JsonProperty("to_add", Required = Required.AllowNull)]
+        public PathList? ToAdd { get; set; }
+
+        [JsonProperty("to_add_read_at", Required = Required.AllowNull)]
+        public string? ToAddReadAt { get; set; }
+
+        [JsonProperty("last_added_at", Required = Required.AllowNull)]
+        public string? LastAddedAt { get; set; }
+
+        [JsonProperty("conflict", Required = Required.AllowNull)]
+        public ConflictedFiles? Conflict { get; set; }
+    }
+
+    public sealed class RefusedCopy : WorkstreamCopy
+    {
+        protected override string Discriminator => "refused";
+
+        [JsonProperty("code", Required = Required.Always)]
+        public CopyRefusalCode Code { get; set; }
+
+        [JsonProperty("refused_at", Required = Required.Always)]
+        public string RefusedAt { get; set; } = default!;
+    }
+
     public sealed class WorkstreamView
     {
         [JsonProperty("workstream_id", Required = Required.Always)]
@@ -977,6 +1109,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("execution_ids", Required = Required.Always)]
         public List<string> ExecutionIds { get; set; } = new List<string>();
+
+        [JsonProperty("copy", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public WorkstreamCopy? Copy { get; set; }
 
         [JsonProperty("created_at", Required = Required.Always)]
         public string CreatedAt { get; set; } = default!;
@@ -1411,6 +1546,8 @@ namespace Halcyonic.Contracts
                 "workstream_created" => new WorkstreamCreatedResult(),
                 "execution_created" => new ExecutionCreatedResult(),
                 "project_restored" => new ProjectRestoredResult(),
+                "workstream_added" => new WorkstreamAddedResult(),
+                "workstream_fitted" => new WorkstreamFittedResult(),
                 "project_checked" => new ProjectCheckedResult(),
                 "preview_started" => new PreviewStartedResult(),
                 _ => throw new JsonSerializationException(tag == null
@@ -1471,6 +1608,25 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("checkpoint_id", Required = Required.Always)]
         public string CheckpointId { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamAddedResult : CommandResult
+    {
+        protected override string Discriminator => "workstream_added";
+
+        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        public string CheckpointId { get; set; } = default!;
+
+        [JsonProperty("files", Required = Required.Always)]
+        public long Files { get; set; }
+    }
+
+    public sealed class WorkstreamFittedResult : CommandResult
+    {
+        protected override string Discriminator => "workstream_fitted";
+
+        [JsonProperty("files", Required = Required.Always)]
+        public long Files { get; set; }
     }
 
     public sealed class ProjectCheckedResult : CommandResult
@@ -1822,6 +1978,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "before_task")] BeforeTask,
         [EnumMember(Value = "after_turn")] AfterTurn,
         [EnumMember(Value = "before_restore")] BeforeRestore,
+        [EnumMember(Value = "before_add")] BeforeAdd,
     }
 
     public sealed class ProjectCheckpointRecordedPayload
@@ -1875,15 +2032,6 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("failure", Required = Required.Always)]
         public ProjectCheckpointFailedPayloadFailure Failure { get; set; } = default!;
-    }
-
-    public sealed class PathList
-    {
-        [JsonProperty("paths", Required = Required.Always)]
-        public List<string> Paths { get; set; } = new List<string>();
-
-        [JsonProperty("total", Required = Required.Always)]
-        public long Total { get; set; }
     }
 
     public sealed class ProjectRestoredPayload
@@ -1998,6 +2146,78 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("objective", Required = Required.AllowNull)]
         public string? Objective { get; set; }
+    }
+
+    public sealed class WorkstreamCopyMadePayload
+    {
+        [JsonProperty("directory", Required = Required.Always)]
+        public string Directory { get; set; } = default!;
+
+        [JsonProperty("base_tree", Required = Required.Always)]
+        public string BaseTree { get; set; } = default!;
+
+        [JsonProperty("files", Required = Required.Always)]
+        public long Files { get; set; }
+    }
+
+    public sealed class WorkstreamCopyRefusedPayload
+    {
+        [JsonProperty("code", Required = Required.Always)]
+        public CopyRefusalCode Code { get; set; }
+
+        [JsonProperty("message", Required = Required.Always)]
+        public string Message { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamCopyChangesReadPayload
+    {
+        [JsonProperty("tree", Required = Required.Always)]
+        public string Tree { get; set; } = default!;
+
+        [JsonProperty("changed", Required = Required.Always)]
+        public PathList Changed { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamAddedPayload
+    {
+        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        public string CheckpointId { get; set; } = default!;
+
+        [JsonProperty("task_tree", Required = Required.Always)]
+        public string TaskTree { get; set; } = default!;
+
+        [JsonProperty("project_tree", Required = Required.Always)]
+        public string ProjectTree { get; set; } = default!;
+
+        [JsonProperty("merged_tree", Required = Required.Always)]
+        public string MergedTree { get; set; } = default!;
+
+        [JsonProperty("added", Required = Required.Always)]
+        public PathList Added { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamAddConflictedPayload
+    {
+        [JsonProperty("task_tree", Required = Required.Always)]
+        public string TaskTree { get; set; } = default!;
+
+        [JsonProperty("project_tree", Required = Required.Always)]
+        public string ProjectTree { get; set; } = default!;
+
+        [JsonProperty("conflicted", Required = Required.Always)]
+        public ConflictedFiles Conflicted { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamFittedPayload
+    {
+        [JsonProperty("project_tree", Required = Required.Always)]
+        public string ProjectTree { get; set; } = default!;
+
+        [JsonProperty("fitted_tree", Required = Required.Always)]
+        public string FittedTree { get; set; } = default!;
+
+        [JsonProperty("written", Required = Required.Always)]
+        public PathList Written { get; set; } = default!;
     }
 
     public sealed class ExecutionCreatedPayload
@@ -2355,6 +2575,18 @@ namespace Halcyonic.Contracts
         public string? Objective { get; set; }
     }
 
+    public sealed class WorkstreamAddToProjectPayload
+    {
+        [JsonProperty("workstream_id", Required = Required.Always)]
+        public string WorkstreamId { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamFitToProjectPayload
+    {
+        [JsonProperty("workstream_id", Required = Required.Always)]
+        public string WorkstreamId { get; set; } = default!;
+    }
+
     public sealed class ExecutionStartPayload
     {
         [JsonProperty("workstream_id", Required = Required.Always)]
@@ -2513,6 +2745,8 @@ namespace Halcyonic.Contracts
                 "project.link_catalog" => new ProjectLinkCatalogCommand(),
                 "project.unlink_catalog" => new ProjectUnlinkCatalogCommand(),
                 "workstream.create" => new WorkstreamCreateCommand(),
+                "workstream.add_to_project" => new WorkstreamAddToProjectCommand(),
+                "workstream.fit_to_project" => new WorkstreamFitToProjectCommand(),
                 "execution.start" => new ExecutionStartCommand(),
                 "execution.send_instruction" => new ExecutionSendInstructionCommand(),
                 "execution.respond_to_approval" => new ExecutionRespondToApprovalCommand(),
@@ -2627,6 +2861,22 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public WorkstreamCreatePayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamAddToProjectCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "workstream.add_to_project";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkstreamAddToProjectPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamFitToProjectCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "workstream.fit_to_project";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkstreamFitToProjectPayload Payload { get; set; } = default!;
     }
 
     public sealed class ExecutionStartCommand : CommandEnvelope
@@ -3213,6 +3463,12 @@ namespace Halcyonic.Contracts
                 "project.mac_play.stopped" => new ProjectMacPlayStoppedEvent(),
                 "project.world.observed" => new ProjectWorldObservedEvent(),
                 "workstream.created" => new WorkstreamCreatedEvent(),
+                "workstream.copy_made" => new WorkstreamCopyMadeEvent(),
+                "workstream.copy_refused" => new WorkstreamCopyRefusedEvent(),
+                "workstream.copy_changes_read" => new WorkstreamCopyChangesReadEvent(),
+                "workstream.added" => new WorkstreamAddedEvent(),
+                "workstream.add_conflicted" => new WorkstreamAddConflictedEvent(),
+                "workstream.fitted" => new WorkstreamFittedEvent(),
                 "execution.created" => new ExecutionCreatedEvent(),
                 "execution.files.observed" => new ExecutionFilesObservedEvent(),
                 "execution.check_output_given" => new ExecutionCheckOutputGivenEvent(),
@@ -3401,6 +3657,54 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public WorkstreamCreatedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamCopyMadeEvent : EventEnvelope
+    {
+        protected override string Discriminator => "workstream.copy_made";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkstreamCopyMadePayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamCopyRefusedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "workstream.copy_refused";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkstreamCopyRefusedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamCopyChangesReadEvent : EventEnvelope
+    {
+        protected override string Discriminator => "workstream.copy_changes_read";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkstreamCopyChangesReadPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamAddedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "workstream.added";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkstreamAddedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamAddConflictedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "workstream.add_conflicted";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkstreamAddConflictedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamFittedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "workstream.fitted";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkstreamFittedPayload Payload { get; set; } = default!;
     }
 
     public sealed class ExecutionCreatedEvent : EventEnvelope

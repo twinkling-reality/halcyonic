@@ -18,6 +18,7 @@ import {
   PolicyCategory,
   ReceivedVia,
 } from './commands.ts';
+import { ConflictedFiles, CopyRefusalCode } from './copies.ts';
 import { DeviceLabel, Principal, Sha256Hex } from './devices.ts';
 import { FilesObserved } from './file-changes.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
@@ -421,6 +422,77 @@ export const ProjectWorldObserved = projectEvent('project.world.observed', World
 export const WorkstreamCreated = workstreamEvent(
   'workstream.created',
   Type.Object({ title: Text(200), objective: Nullable(Text(4000)) }, strict),
+);
+
+/**
+ * The task has a copy of its own of the project's folder in `directory`, a folder of Halcyonic's own
+ * (ADR 0045), made just before its first start. `base_tree` is the SHA-256 tree of the copy as it
+ * was made, in the project's checkpoint store, `files` the files it holds; the task's work is what
+ * changes from it.
+ */
+export const WorkstreamCopyMade = workstreamEvent(
+  'workstream.copy_made',
+  Type.Object(
+    { directory: HostPath, base_tree: Sha256Hex, files: Type.Integer({ minimum: 0 }) },
+    strict,
+  ),
+);
+
+/** The task could not have a copy of its own, so its start works in the project's own folder. */
+export const WorkstreamCopyRefused = workstreamEvent(
+  'workstream.copy_refused',
+  Type.Object({ code: CopyRefusalCode, message: Text(2000) }, strict),
+);
+
+/**
+ * The host read the task's copy (its tree `tree`) and found `changed` differing from the copy's
+ * base: what an add would bring to the project, as far as the copy goes.
+ */
+export const WorkstreamCopyChangesRead = workstreamEvent(
+  'workstream.copy_changes_read',
+  Type.Object({ tree: Sha256Hex, changed: PathList }, strict),
+);
+
+/**
+ * The task's work is in the project's folder (ADR 0045): the host combined the copy (`task_tree`)
+ * with the project's folder (`project_tree`) over the copy's base, wrote `merged_tree` into the
+ * folder and read it again equal. `checkpoint_id` is the project's checkpoint taken just before;
+ * `added` the files the add changed. The copy's base becomes `task_tree`.
+ */
+export const WorkstreamAdded = workstreamEvent(
+  'workstream.added',
+  Type.Object(
+    {
+      checkpoint_id: CheckpointId,
+      task_tree: Sha256Hex,
+      project_tree: Sha256Hex,
+      merged_tree: Sha256Hex,
+      added: PathList,
+    },
+    strict,
+  ),
+);
+
+/**
+ * An add found the task (`task_tree`) and the project (`project_tree`) changed the same places, so
+ * nothing was written to the project's folder.
+ */
+export const WorkstreamAddConflicted = workstreamEvent(
+  'workstream.add_conflicted',
+  Type.Object(
+    { task_tree: Sha256Hex, project_tree: Sha256Hex, conflicted: ConflictedFiles },
+    strict,
+  ),
+);
+
+/**
+ * The host wrote the combined files, both sides marked where they met, into the task's copy (its
+ * tree now `fitted_tree`), so the copy's base becomes `project_tree`, the project as the add read it.
+ * `written` lists the files it changed in the copy.
+ */
+export const WorkstreamFitted = workstreamEvent(
+  'workstream.fitted',
+  Type.Object({ project_tree: Sha256Hex, fitted_tree: Sha256Hex, written: PathList }, strict),
 );
 
 export const ExecutionCreated = executionEvent(
@@ -832,6 +904,12 @@ export const EVENT_VARIANTS = [
   ProjectMacPlayStopped,
   ProjectWorldObserved,
   WorkstreamCreated,
+  WorkstreamCopyMade,
+  WorkstreamCopyRefused,
+  WorkstreamCopyChangesRead,
+  WorkstreamAdded,
+  WorkstreamAddConflicted,
+  WorkstreamFitted,
   ExecutionCreated,
   ExecutionFilesObserved,
   ExecutionCheckOutputGiven,

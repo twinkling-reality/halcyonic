@@ -59,6 +59,13 @@ import {
   CompanionWant,
 } from './companion.ts';
 import {
+  ConflictedFile,
+  ConflictedFiles,
+  ConflictKind,
+  CopyRefusalCode,
+  WorkstreamCopy,
+} from './copies.ts';
+import {
   DevicesResponse,
   DeviceView,
   NetworkListener,
@@ -266,6 +273,11 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   CheckpointView,
   CheckpointReason,
   PathList,
+  WorkstreamCopy,
+  CopyRefusalCode,
+  ConflictKind,
+  ConflictedFile,
+  ConflictedFiles,
   RestorePreview,
   CheckpointsResponse,
   RestorePreviewResponse,

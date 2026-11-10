@@ -136,6 +136,28 @@ export const WorkstreamCreateCommand = defineCommand(
   Type.Object({ project_id: ProjectId, title: Text(200), objective: Nullable(Text(4000)) }, strict),
 );
 
+/**
+ * Adds a task's work to its project (ADR 0045): the host combines what the task changed in its own
+ * copy with what changed in the project's folder since the copy's base, keeps a checkpoint of the
+ * project first, and writes the result into the project's folder. The person's own step; nothing
+ * else ever adds. When both changed the same places the project is not touched and the command
+ * fails with the files named.
+ */
+export const WorkstreamAddToProjectCommand = defineCommand(
+  'workstream.add_to_project',
+  Type.Object({ workstream_id: WorkstreamId }, strict),
+);
+
+/**
+ * After an add found the task and the project changed the same places (ADR 0045): the host writes
+ * the combined files, both sides marked, into the task's own copy, and asks the task's agent to fit
+ * its work to the project's. The project's folder is not touched.
+ */
+export const WorkstreamFitToProjectCommand = defineCommand(
+  'workstream.fit_to_project',
+  Type.Object({ workstream_id: WorkstreamId }, strict),
+);
+
 export const ExecutionStartCommand = defineCommand(
   'execution.start',
   Type.Object(
@@ -242,6 +264,8 @@ export const COMMAND_VARIANTS = [
   ProjectLinkCatalogCommand,
   ProjectUnlinkCatalogCommand,
   WorkstreamCreateCommand,
+  WorkstreamAddToProjectCommand,
+  WorkstreamFitToProjectCommand,
   ExecutionStartCommand,
   ExecutionSendInstructionCommand,
   ExecutionRespondToApprovalCommand,
@@ -269,6 +293,8 @@ export const CommandType = Type.Union([
   Type.Literal('project.link_catalog'),
   Type.Literal('project.unlink_catalog'),
   Type.Literal('workstream.create'),
+  Type.Literal('workstream.add_to_project'),
+  Type.Literal('workstream.fit_to_project'),
   Type.Literal('execution.start'),
   Type.Literal('execution.send_instruction'),
   Type.Literal('execution.respond_to_approval'),
@@ -361,6 +387,20 @@ export const CommandResult = Type.Union([
   Type.Object({ kind: Type.Literal('workstream_created'), workstream_id: WorkstreamId }, strict),
   Type.Object({ kind: Type.Literal('execution_created'), execution_id: ExecutionId }, strict),
   Type.Object({ kind: Type.Literal('project_restored'), checkpoint_id: CheckpointId }, strict),
+  /** A task's work is in the project's folder; `checkpoint_id` puts back the folder as it was. */
+  Type.Object(
+    {
+      kind: Type.Literal('workstream_added'),
+      checkpoint_id: CheckpointId,
+      files: Type.Integer({ minimum: 1 }),
+    },
+    strict,
+  ),
+  /** The combined files are in the task's copy, `files` of them, and its agent was asked to fit them. */
+  Type.Object(
+    { kind: Type.Literal('workstream_fitted'), files: Type.Integer({ minimum: 1 }) },
+    strict,
+  ),
   Type.Object(
     {
       kind: Type.Literal('project_checked'),

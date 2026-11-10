@@ -34,6 +34,7 @@ import type {
   ToolResultSummary,
   WorkspaceRequestStep,
   WorkspaceRequestView,
+  WorkstreamCopy,
   WorkstreamId,
   WorkstreamView,
 } from '@halcyonic/contracts';
@@ -140,6 +141,8 @@ interface WorkstreamState {
   readonly executionIds: ExecutionId[];
   readonly createdAt: Timestamp;
   updatedAt: Timestamp;
+  /** The task's own copy of the project's folder, or why it has none; null before either (ADR 0045). */
+  copy: WorkstreamCopy | null;
 }
 
 /**
@@ -799,6 +802,20 @@ export class Projection {
       .map(toFacts);
   }
 
+  /**
+   * Executions whose agent may be at work: active, or unknown for any reason but a restart, which no
+   * runtime session survives. What holds a folder (FOLDER), as `projectBusy` counts a project.
+   */
+  executionsAtWork(): ExecutionFacts[] {
+    return [...this.#executions.values()]
+      .filter((state) => {
+        const status = deriveExecutionStatus(state);
+        if (ACTIVE_STATUSES.has(status)) return true;
+        return status === 'unknown' && state.unknownReason?.code !== 'control_plane_restarted';
+      })
+      .map(toFacts);
+  }
+
   /** The project's checkpoints, oldest first. */
   checkpoints(projectId: string): CheckpointView[] {
     return [...(this.#checkpoints.get(projectId as ProjectId) ?? [])];
@@ -1263,12 +1280,21 @@ export class Projection {
           executionIds: [],
           createdAt: event.occurred_at,
           updatedAt: event.ingested_at,
+          copy: null,
         });
         project.updatedAt = event.ingested_at;
         changes.workstreams.add(event.workstream_id);
         changes.projects.add(event.project_id);
         return;
       }
+      case 'workstream.copy_made':
+      case 'workstream.copy_refused':
+      case 'workstream.copy_changes_read':
+      case 'workstream.added':
+      case 'workstream.add_conflicted':
+      case 'workstream.fitted':
+        this.#applyCopy(event, changes, notes);
+        return;
       case 'execution.created': {
         const workstream = this.#workstreams.get(event.workstream_id);
         if (workstream === undefined || workstream.projectId !== event.project_id) {
@@ -1440,6 +1466,80 @@ export class Projection {
         );
       }
     }
+  }
+
+  /**
+   * A task's own copy (ADR 0045): made once, or refused at a start without one; read, added, found
+   * overlapping and fitted only while it is the task's own. Anything else is noted and ignored.
+   */
+  #applyCopy(
+    event: Extract<EventEnvelope, { event_type: `workstream.${string}` }>,
+    changes: ChangeSet,
+    notes: ProjectionNote[],
+  ): void {
+    const workstream = this.#workstreams.get(event.workstream_id);
+    if (workstream === undefined || workstream.projectId !== event.project_id) {
+      notes.push(note('unknown_entity', event, `workstream ${event.workstream_id} does not exist`));
+      return;
+    }
+    const copy = workstream.copy;
+    if (
+      event.event_type === 'workstream.copy_made' ||
+      event.event_type === 'workstream.copy_refused'
+    ) {
+      if (copy?.state === 'own') {
+        notes.push(note('duplicate_entity', event, 'the task already has a copy of its own'));
+        return;
+      }
+      workstream.copy =
+        event.event_type === 'workstream.copy_made'
+          ? {
+              state: 'own',
+              directory: event.payload.directory,
+              made_at: event.occurred_at,
+              base_tree: event.payload.base_tree,
+              to_add: null,
+              to_add_read_at: null,
+              last_added_at: null,
+              conflict: null,
+            }
+          : { state: 'refused', code: event.payload.code, refused_at: event.occurred_at };
+    } else {
+      if (copy?.state !== 'own') {
+        notes.push(note('unknown_entity', event, 'the task has no copy of its own'));
+        return;
+      }
+      switch (event.event_type) {
+        case 'workstream.copy_changes_read':
+          copy.to_add = clonePathList(event.payload.changed);
+          copy.to_add_read_at = event.occurred_at;
+          break;
+        case 'workstream.added':
+          copy.base_tree = event.payload.task_tree;
+          copy.to_add = { paths: [], total: 0 };
+          copy.to_add_read_at = event.occurred_at;
+          copy.last_added_at = event.occurred_at;
+          copy.conflict = null;
+          break;
+        case 'workstream.add_conflicted':
+          copy.conflict = {
+            files: event.payload.conflicted.files.map((file) => ({ ...file })),
+            total: event.payload.conflicted.total,
+          };
+          break;
+        case 'workstream.fitted':
+          // What the copy now differs by is read again after the agent's turn.
+          copy.base_tree = event.payload.project_tree;
+          copy.to_add = null;
+          copy.to_add_read_at = null;
+          copy.conflict = null;
+          break;
+        default:
+          break;
+      }
+    }
+    workstream.updatedAt = event.ingested_at;
+    changes.workstreams.add(workstream.workstreamId);
   }
 
   #applyRuntime(event: RuntimeEvent, changes: ChangeSet, notes: ProjectionNote[]): void {
@@ -1672,6 +1772,7 @@ export class Projection {
       attention: deriveAttention(executions, current),
       current_execution_id: current?.executionId ?? null,
       execution_ids: [...state.executionIds],
+      ...(state.copy === null ? {} : { copy: cloneCopy(state.copy) }),
       created_at: state.createdAt,
       updated_at: state.updatedAt,
     };
@@ -1814,5 +1915,24 @@ function toFacts(state: ExecutionState): ExecutionFacts {
     pendingApprovals: [...state.pendingApprovals.values()],
     // Only those shown can be answered: one behind them waits its turn.
     pendingQuestions: shownQuestions(state.pendingQuestions),
+  };
+}
+
+function clonePathList(list: { paths: readonly string[]; total: number }): {
+  paths: string[];
+  total: number;
+} {
+  return { paths: [...list.paths], total: list.total };
+}
+
+function cloneCopy(copy: WorkstreamCopy): WorkstreamCopy {
+  if (copy.state === 'refused') return { ...copy };
+  return {
+    ...copy,
+    to_add: copy.to_add === null ? null : clonePathList(copy.to_add),
+    conflict:
+      copy.conflict === null
+        ? null
+        : { files: copy.conflict.files.map((file) => ({ ...file })), total: copy.conflict.total },
   };
 }

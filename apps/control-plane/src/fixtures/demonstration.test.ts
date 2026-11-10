@@ -262,6 +262,13 @@ describe('the XR client demonstration', () => {
     assert.equal(await recordDemonstration(SCENARIOS), COMMITTED, 'run pnpm demonstration:record');
   });
 
+  test("it plays as before task copies: no task carries a copy, and nothing adds a task's work (ADR 0045)", () => {
+    // Only the welcome lists the two commands, among every command's policy.
+    const played = JSON.stringify([DEMONSTRATION.snapshot, DEMONSTRATION.nodes]);
+    assert.doesNotMatch(played, /"copy":/);
+    assert.doesNotMatch(played, /workstream\.(copy_|added|add_|fit)/);
+  });
+
   test('every message it holds matches the realtime contract', () => {
     const messages = [
       DEMONSTRATION.welcome,
