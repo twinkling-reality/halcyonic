@@ -2522,6 +2522,40 @@ public class FileColumnTests
     }
 
     [Test]
+    public void ARequestCutForOneDrawersLinesCountsNoDrawByTheOther()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        const string migration = "Run the migration against the staging database, then check every table for rows the new column left empty";
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.PendingApprovals.Add(WaitingWork.Approval(WaitingWork.ApprovalId, migration, Samples.Time)); });
+        var column = Column(host, () => work.Present());
+        // The redesign's panel draws: a part is the rows it gives, here every row of the request.
+        int? panel = 8;
+        column.RequestPartRowsOf = () => panel;
+        column.Reflow();
+        Draw(host, column);
+        column.Act(FileScreens.Approve, null);
+        Assert.That((column.Steering.Armed, column.Screen.RequestParts), Is.EqualTo(((WorkspaceAction?)WorkspaceAction.Approve, 1)), "one part of the panel's lines");
+
+        // The file's own view draws that frame instead: its rows are not the panel's, so the draw counts for nothing and the
+        // request is cut again for the view that draws now.
+        panel = null;
+        var cutForThePanel = column.Frame;
+        column.Drawn(column.Frame!, sidePanel: null);
+        Assert.That(column.Steering.CanConfirm, Is.False, "a draw by another drawer than the measure's is no read");
+        Assert.That(column.Frame, Is.Not.SameAs(cutForThePanel), "the request is laid again");
+        Assert.That(column.Frame!.Footer.All.Any(each => each.Prompt.Kind == PromptKind.Yes), Is.False);
+
+        // Drawn by the drawer it is now cut for, part by part, it is read.
+        for (var part = 0; part < 12 && !column.Steering.CanConfirm; part++)
+        {
+            Draw(host, column);
+            if (!column.Steering.CanConfirm) column.Act(FileScreens.NextPart, FileScreens.RequestKey);
+        }
+        Assert.That(column.Steering.CanConfirm, Is.True);
+    }
+
+    [Test]
     public void TheRedesignsQuestionIsAnsweredThroughTheFilesOwnActionsItsPromptOnTheBand()
     {
         var was = RoomDesign.Enabled;

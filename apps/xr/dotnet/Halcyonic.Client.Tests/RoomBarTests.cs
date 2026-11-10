@@ -330,7 +330,7 @@ public class RoomBarTests
         Assert.That(RoomBar.Reading(line, "Run the migration", instruction: false), Is.EqualTo((LineWords.Theirs("Run the migration"), true)).Using<(LineWords Words, bool Mono)>(
             (a, b) => a.Words.Text == b.Words.Text && a.Mono == b.Mono));
         Assert.That(RoomBar.Reading(line, "another request", instruction: false).Words.Text, Is.EqualTo(request));
-        Assert.That(RoomBar.Reading(line, null, instruction: false), Is.EqualTo((line.Runs, false)));
+        Assert.That(RoomBar.Reading(line, (string?)null, instruction: false), Is.EqualTo((line.Runs, false)));
         Assert.That(RoomBar.Reading(line, "Run the migration", instruction: true), Is.EqualTo((line.Runs, false)));
 
         screen.RequestDrawn(0, steering, Now);
@@ -348,6 +348,35 @@ public class RoomBarTests
         {
             (KitPlace.Yes, true, true, (GlazeIcon?)GlazeIcon.Deny), (KitPlace.Step, false, false, (GlazeIcon?)GlazeIcon.Next), (KitPlace.Cancel, false, false, (GlazeIcon?)GlazeIcon.Close),
         }));
+    }
+
+    [Test]
+    public void AToolThatIsNoCommandKeepsItsNameLeadingTheRequestAskedAndUnderItsConfirmation()
+    {
+        var work = new WaitingWork();
+        work.Change(execution =>
+        {
+            execution.PendingApprovals.Clear();
+            execution.PendingApprovals.Add(new ApprovalView
+            {
+                ApprovalId = WaitingWork.ApprovalId, Subject = new ToolUseSubject { ToolName = "Edit", Summary = "src/game.js" }, Approvable = true, RequestedAt = Samples.Time,
+            });
+        });
+        var workspace = work.Present();
+        var steering = new WorkspaceSteering(factory, () => Now);
+        var screen = new FileScreen { Section = FileSection.Waiting };
+        var asked = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
+        Assert.That((asked.Body.Text, asked.Mono, asked.Sentence), Is.EqualTo(("Edit: src/game.js", true, (string?)"Use Edit")), "the file's own line, the tool's name leading it");
+
+        steering.Press(WorkspaceAction.Approve, workspace);
+        screen.ReadRequest(steering.ToRead(workspace)!, 1, 8, steering);
+        screen.RequestDrawn(0, steering, Now);
+        var confirming = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
+        Assert.That((confirming.Body.Text, confirming.Mono, confirming.Sentence), Is.EqualTo(("Edit: src/game.js", true, (string?)"Approve Request?")),
+            "under the confirmation the tool is still on screen");
+        var line = FileScreens.RequestLine(steering, steering.ToRead(workspace)!);
+        Assert.That(RoomBar.Reading(line, workspace, instruction: false).Words.Text, Is.EqualTo("Edit: src/game.js"));
+        Assert.That(RoomBar.Reading(line, "src/game.js", instruction: false, commands: true).Words.Text, Is.EqualTo("src/game.js"), "a command's request stands alone");
     }
 
     [Test]

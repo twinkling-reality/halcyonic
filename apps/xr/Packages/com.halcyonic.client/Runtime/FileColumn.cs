@@ -58,6 +58,9 @@ namespace Halcyonic.Client
         private QuestionDraft? draft;
         private QuestionDraft? measuredFor;
         private bool measuredWhole;
+
+        /// <summary>The request's parts were cut by the lines of the drawer that gives them itself (the redesign's panel), not the file's own view.</summary>
+        private bool requestForPanel;
         private TextSize measuredAt;
         private IReadOnlyList<PromptMeasure>? measures;
         private bool presets;
@@ -679,6 +682,14 @@ namespace Halcyonic.Client
             if (drawn.Lines.Any(line => line.Action == FileScreens.OpenCharacterColour && line.Available)) drawnColourFrame = drawn;
             if (Steering.ToRead(Now) is string request)
             {
+                // The parts were cut for one drawer's lines, the redesign's panel or the file's own view: a draw by the other
+                // shows other lines, so it counts for nothing, and the request is measured again for the one drawing now
+                // (AUDIT, 2026-11-10).
+                if (requestForPanel != (RequestPartRowsOf?.Invoke() != null))
+                {
+                    Rebuild();
+                    return;
+                }
                 var from = Screen.RequestPart * Screen.RequestPartRows;
                 if (Screen.Measured(Steering, request) && drawn.Lines.Any(line => line.Words == request && line.FromRow == from))
                 {
@@ -708,6 +719,13 @@ namespace Halcyonic.Client
             // whatever its words: an approval's request may read as the prompt itself.
             if (Steering.Armed == null && Screen.Section == FileSection.Waiting && Screen.QuestionPage && Screen.Question.Draft != null)
             {
+                // As a request: a question laid whole for the redesign counts only a draw of the redesign, and one laid for
+                // the file's own view only a draw of that view.
+                if (measuredWhole != (QuestionBudgetOf?.Invoke() != null))
+                {
+                    Rebuild();
+                    return;
+                }
                 var before = Frame!.Footer[PromptSlot.FarRight]?.Available;
                 var beforeReason = Frame.Footer[PromptSlot.FarRight]?.Reason;
                 var beforeExplains = Frame.Footer[PromptSlot.FarRight]?.PageExplains;
@@ -983,6 +1001,7 @@ namespace Halcyonic.Client
             {
                 Screen.ReadRequest(request, host.RowsOf(FileScreens.RequestLine(Steering, request), Glaze.Menu.FileColumnDegrees),
                     RequestPartRows(FileScreens.AllAsks(Steering), budget), Steering);
+                requestForPanel = RequestPartRowsOf?.Invoke() != null;
             }
 
             // Each line measured as the page draws it, its runs, chip and icon (FileScreens.Line).

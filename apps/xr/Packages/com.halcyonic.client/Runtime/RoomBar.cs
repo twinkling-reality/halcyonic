@@ -239,17 +239,26 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// What the panel reads of a request or an instruction under its confirmation, whole, and whether it stands in mono:
-        /// an instruction's words as the file's line holds them; an approval's request alone, in mono, without the tool's name
-        /// and colon the file's line leads it with (the sentence named the tool before the answer was pressed), or, where no
-        /// tool was named, the file's own line. The panel wraps these words at its own width and shows the rows the file's part
-        /// names (<see cref="Part"/>), and the file counts the same words at the same width (<see cref="Rows"/>), so every part
-        /// together is the whole, no word skipped or read twice.
+        /// an instruction's words as the file's line holds them; a command's request alone, in mono, without the tool's name
+        /// and colon the file's line leads it with (Run Command? named it before the answer was pressed); for a tool that is
+        /// <paramref name="commands"/> false, the file's own line in mono, the tool's name leading it, so the person never
+        /// confirms a request with no tool on screen (the lead, 2026-11-10); where no tool was named, the file's own line.
+        /// The panel wraps these words at its own width and shows the rows the file's part names (<see cref="Part"/>), and
+        /// the file counts the same words at the same width (<see cref="Rows"/>), so every part together is the whole, no
+        /// word skipped or read twice.
         /// </summary>
-        public static (LineWords Words, bool Mono) Reading(PageLine line, string? request, bool instruction)
+        public static (LineWords Words, bool Mono) Reading(PageLine line, string? request, bool instruction, bool commands = true)
         {
             if (instruction || request == null) return (line.Runs, false);
-            var alone = line.Words == request || line.Words.EndsWith(": " + request, System.StringComparison.Ordinal);
+            var alone = commands && (line.Words == request || line.Words.EndsWith(": " + request, System.StringComparison.Ordinal));
             return (LineWords.Theirs(alone ? request : line.Words), true);
+        }
+
+        /// <summary>What a confirmation's <paramref name="line"/> reads in the panel for <paramref name="workspace"/>'s approval or its armed instruction (<see cref="Reading(PageLine, string?, bool, bool)"/>).</summary>
+        public static (LineWords Words, bool Mono) Reading(PageLine line, WorkspacePresentation workspace, bool instruction)
+        {
+            var need = instruction ? null : KitPresenter.NeedOf(workspace);
+            return Reading(line, need?.Request, instruction, need?.Commands ?? true);
         }
 
         /// <summary>
@@ -263,12 +272,13 @@ namespace Halcyonic.Client
         {
             KitControl? Available(KitPlace place) => binding[place] is KitControl control && control.Available ? control : null;
             // With no tool named the panel is Halcyonic's one line, and a panel of one line has no sentence bar.
-            var body = need.Request != null ? LineWords.Theirs(need.Request) : need.Asks;
+            // A command stands alone; another tool's request keeps the file's own line, its name leading it, asked and confirming.
+            var body = need.Request == null ? need.Asks : LineWords.Theirs(need.Commands || need.Line == null ? need.Request : need.Line);
             var mono = need.Request != null;
             var column = new List<RoomAction>();
             if (need.Confirming is KitConfirmation confirming)
             {
-                if (need.Part != null) (body, mono) = Reading(need.Part, need.Request, instruction: false);
+                if (need.Part != null) (body, mono) = Reading(need.Part, need.Request, instruction: false, need.Commands);
                 var yes = Available(KitPlace.Yes);
                 if (yes != null) column.Add(new RoomAction(yes, main: true, locks: true));
                 foreach (var step in binding.Controls.Where(control => control.Place == KitPlace.Step && control.Available))

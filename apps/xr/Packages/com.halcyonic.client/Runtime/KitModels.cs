@@ -126,10 +126,11 @@ namespace Halcyonic.Client
     {
         public KitNeed(LineWords asks, string? request, string? scopeNote, IReadOnlyList<string> notes, string denyWords, string approveWords,
             bool denyOffered, bool approveOffered, KitConfirmation? confirming = null, PageLine? part = null, string? says = null, bool sending = false, bool commands = false,
-            int? rows = null)
+            int? rows = null, string? line = null)
         {
             Commands = commands;
             Rows = rows;
+            Line = line;
             Part = part;
             Says = says;
             Sending = sending;
@@ -189,6 +190,13 @@ namespace Halcyonic.Client
 
         /// <summary>The request is a command to run, by the name its agent app gave its tool (<see cref="WorkspaceText.RunsCommand"/>).</summary>
         public bool Commands { get; }
+
+        /// <summary>
+        /// The request as the file's confirmation reads it whole, the tool's name leading it (<see cref="WorkspaceText.Request"/>);
+        /// null where no approval waits. The redesign shows this line for a tool that is no command, so its name never
+        /// leaves the screen.
+        /// </summary>
+        public string? Line { get; }
     }
 
     /// <summary>The confirmation of an approval's answer: the question about the request above, Yes's words, and whether all of it has been read.</summary>

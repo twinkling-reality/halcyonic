@@ -267,6 +267,14 @@ namespace Halcyonic.XR.UI
             shown = null;
             controls.Clear();
             locking = null;
+            bandNext = null;
+            // Each part goes off with it, so nothing of a moment that ended reads as standing under the hidden whole.
+            talk.Hide();
+            type.Hide();
+            foreach (var button in column) button.Hide();
+            panel.gameObject.SetActive(false);
+            alone.gameObject.SetActive(false);
+            levelRoot.gameObject.SetActive(false);
             gameObject.SetActive(false);
         }
 
