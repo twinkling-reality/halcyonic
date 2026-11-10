@@ -1082,7 +1082,9 @@ namespace Halcyonic.Client
                 {
                     // Where what draws the question stands every word of it whole (QuestionBudgetOf), each takes one row: nothing is cut,
                     // so nothing needs a part or a side panel to be read.
-                    if (whole) return new PromptMeasure(1, prompt.Options.Select(_ => 1).ToList(), prompt.Options.Select(_ => 1).ToList());
+                    // The row to write an answer and the row to more choices are each an action of their own there, so each takes a place.
+                    if (whole) return new PromptMeasure(1, prompt.Options.Select(_ => 1).ToList(), prompt.Options.Select(_ => 1).ToList(), inputPagerFitsHalf: false,
+                        selectedInputPagerFitsHalf: false);
                     return new PromptMeasure(
                         host.RowsOf(new PageLine(FileScreens.QuestionWords(prompt)), File),
                         Enumerable.Range(0, prompt.Options.Count).Select(option => host.RowsOf(FileScreens.OptionRow(prompt, option), File)).ToList(),

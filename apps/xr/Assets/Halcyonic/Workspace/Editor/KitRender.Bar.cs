@@ -50,6 +50,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly string[] QuestionStates =
         {
             "34-question", "34-question-review", "34-question-several", "34-question-more", "34-question-confirm", "34-question-sending", "34-question-long",
+            "34-question-tall",
         };
 
         /// <summary>The design's own question, synthetic.</summary>
@@ -64,11 +65,22 @@ namespace Halcyonic.XR.Workspace.Editor
             QuestionOption Option(string label, string? description = null) => new QuestionOption { Label = label, Description = description };
             var scheme = new QuestionPrompt
             {
-                Key = "scheme", Header = "Colour scheme", Text = state == "34-question-long" ? QuestionLongWords : QuestionPromptWords,
+                Key = "scheme", Header = "Colour scheme", Text = state is "34-question-long" or "34-question-tall" ? QuestionLongWords : QuestionPromptWords,
                 Options = new List<QuestionOption> { Option("Light", "Dark text on a light background"), Option("Dark", "Light text on a dark background") },
             };
             if (state == "34-question-more")
                 scheme.Options = new List<QuestionOption> { Option("Light"), Option("Dark"), Option("Sepia", "Warm paper tones"), Option("High Contrast"), Option("Pastel"), Option("Follow the Headset") };
+            // The tallest page today's placement holds at the larger size: four answers that each wrap to two lines, under a
+            // prompt the band reads by parts, with the band's way to its next part. (Answers of three lines reach past the
+            // field's lower margin while the host rests by its top edge; the spec's foot line is the placement that holds them.)
+            if (state == "34-question-tall")
+                scheme.Options = new List<QuestionOption>
+                {
+                    Option("Light", "Dark text on a light background, bright balloons"),
+                    Option("Dark", "Light text on a dark background, dimmer balloons"),
+                    Option("Follow the Headset", "Whichever the headset is set to"),
+                    Option("Ask Each Time", "A choice on the first screen of every game"),
+                };
             var prompts = new List<QuestionPrompt> { scheme };
             if (state == "34-question-several")
                 prompts.Add(new QuestionPrompt
@@ -126,6 +138,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "34-question-confirm" => (VoiceStage.Idle, false, RoomBarState.Question, "Send Answer pressed: Send Answers?, Confirm behind its lock, and Cancel, synthetic data"),
                 "34-question-sending" => (VoiceStage.Idle, false, RoomBarState.Question, "The answer sent: Sending, no action, synthetic data"),
                 "34-question-long" => (VoiceStage.Idle, false, RoomBarState.Question, "A long question read by parts on the band: Next Part, synthetic data"),
+                "34-question-tall" => (VoiceStage.Idle, false, RoomBarState.Question, "A tall page: four answers that wrap under a long prompt read by parts, synthetic data"),
                 "33-ask" => (VoiceStage.Idle, false, RoomBarState.Request, "An approval asked: the request in mono, Run Command?, Approve and Deny, synthetic data"),
                 "33-ask-confirm-arriving" => (VoiceStage.Idle, false, RoomBarState.Request, "Approve pressed: Confirm on its arrival behind its lock, and Cancel, synthetic data"),
                 "33-ask-confirm" => (VoiceStage.Idle, false, RoomBarState.Request, "Approve pressed, the lock passed: Confirm and Cancel, synthetic data"),
@@ -366,7 +379,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
                             Require(!(label.text ?? "").Contains(prompt.Substring(0, 16)), "the agent's words stand off the band, in " + label.name);
                         Require(band.transform.localPosition.y < bar.transform.localPosition.y - bar.Size.y / GlazeText.Scale / 2f + 1e-4f, "the band does not hang under the pair's foot line");
-                        var parted = state == "34-question-long";
+                        var parted = state is "34-question-long" or "34-question-tall";
                         Require((bar.BandNextButton != null) == parted, parted ? "no way to the band's next part" : "a way to a next part the band does not have");
                         Require((drawnFrames == 0) == parted, parted ? "a question still holding an unread part was reported drawn" : "the question's frame was not reported drawn");
                         if (parted) Require(bar.BandNextButton!.LookNow() == RoomButtonLook.Main && band.Words!.Next == bar.BandNextButton.Words.text.Replace("\\\\", "\\"), "the next part is not the way on, in the band's words");
