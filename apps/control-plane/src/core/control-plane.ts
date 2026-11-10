@@ -122,6 +122,8 @@ export class ControlPlane {
   readonly commands: CommandService;
   /** Halcyonic's own undo, or null when it is off. */
   readonly checkpoints: Checkpointer | null;
+  /** Every task's own copy (ADR 0045), or null where copies are off. */
+  readonly copies: TaskCopies | null;
   /** The starters a new project can begin from, or null when there are none. */
   readonly starters: HostStarters | null;
   /** The Mac's own reading of what each turn changed in its folder (ADR 0038), or null when off. */
@@ -236,7 +238,7 @@ export class ControlPlane {
             timeoutMs: options.commandTimeoutMs,
           })
         : null;
-    const copies =
+    const copies: TaskCopies | null =
       options.checkpoints?.copies === undefined
         ? null
         : new TaskCopies({
@@ -247,6 +249,7 @@ export class ControlPlane {
               ? {}
               : { protect: options.checkpoints.copies.protect }),
           });
+    this.copies = copies;
     if (copies !== null)
       readCopiesAfterTurns(copies, {
         publisher: this.publisher,

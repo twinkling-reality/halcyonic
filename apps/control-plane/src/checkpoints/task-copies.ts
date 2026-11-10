@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { lstat, mkdir, realpath, rm } from 'node:fs/promises';
+import { lstat, mkdir, readdir, realpath, rmdir } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import type { CopyRefusalCode, Timestamp } from '@halcyonic/contracts';
 import type { Projection } from '@halcyonic/domain';
@@ -8,7 +8,7 @@ import type { EventPublisher } from '../core/publisher.ts';
 import type { Recorder } from '../core/recorder.ts';
 import { pathList } from './checkpointer.ts';
 import type { CheckpointStore, MergeConflict } from './store.ts';
-import { within } from './store.ts';
+import { removeInside, within } from './store.ts';
 
 /**
  * Every task's own copy of its project's folder (ADR 0045): an APFS clone, made just before the
@@ -103,19 +103,62 @@ export class TaskCopies {
     if ((await realpath(parent)) !== parent)
       return refuse('copy_failed', "The task's folder for its copy is not Halcyonic's own.");
     const target = join(parent, basename(real));
-    await rm(target, { recursive: true, force: true });
+    // Whatever an earlier attempt left here goes, removed only inside the copies' folder.
+    await removeInside(root, `${projectId}/${workstreamId}`);
+    await mkdir(parent, { recursive: true, mode: 0o700 });
 
     const copied = await this.#clone(real, target);
     if (!copied.ok) {
-      await rm(target, { recursive: true, force: true });
+      await removeInside(root, `${projectId}/${workstreamId}`);
       return copied;
     }
     const base = await this.#store.take(projectId, target, this.#nextId());
     if (!base.ok) {
-      await rm(target, { recursive: true, force: true });
+      await removeInside(root, `${projectId}/${workstreamId}`);
       return refuse(refusalOf(base.code), base.message);
     }
     return { ok: true, directory: target, baseTree: base.tree, files: base.files };
+  }
+
+  /**
+   * Removes every copy no task holds (ADR 0045): what a start left when it stopped before its copy
+   * was recorded, or what a journal that no longer names it left behind. Only a folder at
+   * `<project id>/<task id>` inside the copies' folder, both names ids and both real folders, is
+   * ever removed, and only when no path in `kept` lies inside it; removal runs confined to the
+   * copies' folder. Anything else there is left as it is and counted. Run before any start can
+   * make a copy, so a copy being made is never taken for one no task holds.
+   */
+  async sweep(kept: ReadonlySet<string>): Promise<{ removed: number; left: number }> {
+    let root: string;
+    try {
+      root = await realpath(this.#directory);
+    } catch {
+      return { removed: 0, left: 0 };
+    }
+    let removed = 0;
+    let left = 0;
+    const realDirectory = async (path: string) =>
+      (await lstat(path).catch(() => null))?.isDirectory() === true;
+    for (const project of await readdir(root)) {
+      const projectPath = join(root, project);
+      if (!ID_PATTERN.test(project) || !(await realDirectory(projectPath))) {
+        left += 1;
+        continue;
+      }
+      for (const task of await readdir(projectPath)) {
+        const taskPath = join(projectPath, task);
+        if (!ID_PATTERN.test(task) || !(await realDirectory(taskPath))) {
+          left += 1;
+          continue;
+        }
+        if ([...kept].some((path) => within(taskPath, path))) continue;
+        await removeInside(root, `${project}/${task}`);
+        removed += 1;
+      }
+      // An empty project folder goes too; one still holding anything stays.
+      await rmdir(projectPath).catch(() => undefined);
+    }
+    return { removed, left };
   }
 
   /**

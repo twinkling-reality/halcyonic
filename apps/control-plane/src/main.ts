@@ -262,6 +262,15 @@ async function main(): Promise<void> {
     );
   };
   controlPlane.reconcile();
+  // Copies no task holds go before anything can start a task (ADR 0045); only counts are logged.
+  if (controlPlane.copies !== null) {
+    const held = new Set<string>();
+    for (const workstream of controlPlane.projection.workstreams())
+      if (workstream.copy?.state === 'own') held.add(workstream.copy.directory);
+    const swept = await controlPlane.copies.sweep(held);
+    if (swept.removed > 0 || swept.left > 0)
+      app.log.info({ removed: swept.removed, left: swept.left }, 'task copies swept');
+  }
   const transcriptions = new Transcriptions({
     engine: speech,
     clock: systemClock,

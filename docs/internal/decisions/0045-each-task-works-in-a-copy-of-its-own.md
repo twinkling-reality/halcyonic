@@ -90,6 +90,11 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
 - The directory policy, OpenCode's sandbox and Codex's confinement must admit the copies' folder,
   and every lookup of a project by its folder must also know a task's copy.
 - Disk: a clone shares blocks until changed, but a project with very many files takes longer to
-  copy per new task. Copies are kept while their task exists; removing them is a later decision.
+  copy per new task. A copy is kept while its task exists (Halcyonic has no command that removes a
+  task). At every start, before anything can start a task, the host removes each copy no task holds:
+  one a start left when it stopped before recording it, or one a journal that no longer names it left
+  behind. Only a folder `<project id>/<task id>` of real folders named by ids is ever removed, never
+  one that holds a recorded copy, and the removal runs confined to the copies' folder; anything else
+  there is left and counted.
 - Revisit if a runtime asks anything new for a folder it has not seen, or if Salidium and Seorak
   cannot follow an execution whose folder is a copy.
