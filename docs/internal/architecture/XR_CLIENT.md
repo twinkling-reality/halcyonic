@@ -2711,7 +2711,10 @@ The last unit turns it on by default and removes the kit parts it replaced.
   (`RoomBar.OfFrame`). The readers stand in `RoomBar.Frames.cs`, asked in order, each one static function
   `(MenuFrame frame, VoiceStage voice)` in a partial of `RoomBar` in a file of its own, with one line in that list;
   each makes its controls from the frame's own lines and prompts, so a press raises the frame's own action through
-  the same path as any other. Last stands the general rule (`RoomBar.Page`, `RoomBarState.Page`): Halcyonic's lines
+  the same path as any other. FIELD's readers stand first: the page of an agent and its level (`RoomBar.Agent`) and
+  New Project's pages (`RoomBar.NewProject`). A bar may give the panel rows in place of lines (`RoomBar.Facts`, each
+  a fact, a step's with a check or a cross): the pair's laying asks FIELD's rows for their height and places them
+  (`RoomBarView.LayFacts`, `PlaceFacts`), the reading label hidden where rows stand. Last stands the general rule (`RoomBar.Page`, `RoomBarState.Page`): Halcyonic's lines
   in the panel, each on its own line (a name from outside inside one of its sentences stays with the sentence); the
   one line wholly of outside words, or an agent's claim, on the band, never in the panel; what keeps the main action
   waiting in the sentence; and in the column the main action, the lines that act, the other prompts, the sections

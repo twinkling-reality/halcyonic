@@ -574,6 +574,9 @@ namespace Halcyonic.XR.UI
             }
             var empty = bar.Body.Text.Length == 0;
             var bodyHeight = Mathf.Max(line, empty ? line : laid.Height);
+            // Where the bar gives rows, FIELD's rows draw them (each under a hairline, a mark before a step's words) and decide the height.
+            var rowsTall = LayFacts(bar, wordsWidth);
+            if (rowsTall is float tall) bodyHeight = Mathf.Max(line, tall);
             bodySweep.Waits = bar.Waits && bar.Sentence == null && !bar.Mono && !empty;
 
             float barHeight = 0f;
@@ -628,7 +631,8 @@ namespace Halcyonic.XR.UI
             var top = panelHeight / 2f;
             body.transform.localPosition = new Vector3(-panelWidth / 2f + pad, top - pad, -RoomType.Units(0.5f));
             request.transform.localPosition = body.transform.localPosition;
-            reading.gameObject.SetActive(!empty);
+            reading.gameObject.SetActive(!empty && rowsTall == null);
+            PlaceFacts(body.transform.localPosition);
             if (bar.Sentence != null)
                 sentence.transform.localPosition = new Vector3(-panelWidth / 2f + inset + RoomType.Scaled(RoomGeometry.SentencePadXDp),
                     -panelHeight / 2f + inset + barHeight - RoomType.Scaled(RoomGeometry.SentencePadYDp), -RoomType.Units(0.5f));
