@@ -137,6 +137,22 @@ export const NetworkListener = Type.Object(
 );
 export type NetworkListener = Static<typeof NetworkListener>;
 
+/**
+ * A link to the pairing page on the control plane's machine (ADR 0047), from `POST /api/pairing/page`
+ * on loopback. Its code opens the page once, within a minute; the link is never logged.
+ */
+export const PairingPageResponse = Type.Object(
+  {
+    link: Type.String({
+      minLength: 1,
+      maxLength: 200,
+      pattern: '^http://127\\.0\\.0\\.1:[0-9]+/\\?code=[A-Za-z0-9_-]+$',
+    }),
+  },
+  strict,
+);
+export type PairingPageResponse = Static<typeof PairingPageResponse>;
+
 /** Eight decimal digits, shown on the control plane's machine and typed on the device. */
 export const PairingCode = Type.String({ pattern: '^[0-9]{8}$' });
 

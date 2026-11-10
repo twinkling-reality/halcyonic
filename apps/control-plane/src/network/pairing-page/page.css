@@ -1,0 +1,210 @@
+/* Inter (SIL Open Font License, OFL.txt beside it), served from this page's own folder. */
+@font-face {
+  font-family: "Inter";
+  font-weight: 400;
+  font-display: swap;
+  src: url("/Inter-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Inter";
+  font-weight: 600;
+  font-display: swap;
+  src: url("/Inter-SemiBold.ttf") format("truetype");
+}
+:root {
+  color-scheme: dark;
+  --page: #121416;
+  --card-top: #3c4247;
+  --card-foot: #343a3f;
+  --edge: rgb(255 255 255 / 0.1);
+  --row: #2c3135;
+  --quiet-ground: #343a3f;
+  --quiet-hover: #444b51;
+  --text: #ffffff;
+  --secondary: #c9ced3;
+  --accent: #59cff1;
+  --accent-hover: #7fdaf4;
+  --ink: #172024;
+  --success: #7ad9a4;
+  --problem: #ff8a80;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--page);
+  color: var(--text);
+}
+body {
+  display: grid;
+  place-items: start center;
+  padding: 48px 16px;
+  font:
+    17px / 1.5 "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Helvetica Neue",
+    sans-serif;
+}
+main {
+  width: min(100%, 560px);
+  padding: 28px 32px 32px;
+  border-radius: 20px;
+  background: linear-gradient(to bottom, var(--card-top), var(--card-foot));
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: 16px;
+  row-gap: 4px;
+  margin-bottom: 20px;
+}
+h1 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+h2 {
+  margin: 28px 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--secondary);
+}
+p {
+  margin: 0 0 12px;
+}
+.line {
+  font-weight: 600;
+}
+.status,
+.quiet {
+  color: var(--secondary);
+}
+.status {
+  margin: 0;
+}
+.outcome {
+  color: var(--success);
+  font-weight: 600;
+}
+.problem {
+  margin: 20px 0 0;
+  color: var(--problem);
+}
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 0;
+  border-radius: 12px;
+  transition:
+    background 120ms ease,
+    transform 80ms ease;
+}
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.primary {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px 20px;
+  background: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.quiet-button {
+  padding: 8px 14px;
+  background: var(--quiet-ground);
+  color: var(--text);
+  /* The card's own edge, so a rest action reads as one on a ground of its own value. */
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+.quiet-button:hover:not(:disabled) {
+  background: var(--quiet-hover);
+}
+.headsets {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.headsets li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 10px 10px 14px;
+  border-radius: 12px;
+  background: var(--row);
+}
+.headsets li + li {
+  margin-top: 8px;
+}
+.label {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.fact {
+  color: var(--secondary);
+}
+.off-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px 16px;
+  margin-top: 28px;
+}
+.off-row p {
+  margin: 0;
+}
+.pairing {
+  margin: 8px 0 20px;
+}
+.pairing dt {
+  margin-top: 16px;
+  font-size: 14px;
+  color: var(--secondary);
+}
+.pairing dd {
+  margin: 4px 0 0;
+}
+/* The name and the code stay whole on one line: they shrink with a narrow window, and a name too
+   long even then scrolls rather than break. */
+.name {
+  font:
+    600 clamp(15px, 5vw, 22px) / 1.3 ui-monospace,
+    "SF Mono",
+    Menlo,
+    monospace;
+  white-space: nowrap;
+  overflow-x: auto;
+}
+.others {
+  color: var(--secondary);
+}
+.code {
+  white-space: nowrap;
+  font:
+    600 clamp(32px, 11vw, 48px) / 1.2 ui-monospace,
+    "SF Mono",
+    Menlo,
+    monospace;
+  letter-spacing: 0.06em;
+}
+[hidden] {
+  display: none;
+}

@@ -2,7 +2,9 @@
  * Pairs and manages devices through the running control plane, on loopback with the access token
  * (ADR 0017, docs/internal/runbooks/LOCAL_DEVELOPMENT.md):
  *
- *   pnpm pair                          open a pairing window and show the address and code
+ *   pnpm pair [--print]                open the pairing page in the browser (ADR 0047); --print
+ *                                      also prints its one-time link here
+ *   pnpm pair --here                   open a pairing window here and show the address and code
  *   pnpm devices                       list paired devices
  *   pnpm devices revoke <device id>    stop accepting a device
  *
@@ -16,6 +18,7 @@ import type {
   DeviceView,
   ErrorResponse,
   PairingOpenedResponse,
+  PairingPageResponse,
   PairingRefusalReason,
   PairingRefusalTally,
   PairingStatus,
@@ -29,6 +32,7 @@ import {
   provenBase,
   TokenNotSent,
 } from '../http/security.ts';
+import { openLinkPrivately } from '../network/open-link.ts';
 
 export interface CliIo {
   readonly env: NodeJS.ProcessEnv;
@@ -36,14 +40,19 @@ export interface CliIo {
   /** Resolves when the person asks to stop, as with Ctrl-C. */
   readonly interrupted: Promise<void>;
   readonly pollMs?: number;
+  /** Opens a file in the person's browser; on macOS, `open`. Never given a link with a code. */
+  readonly open?: (path: string) => void;
 }
 
 /** Runs one command; returns the process exit status. */
 export async function runDevicesCli(args: readonly string[], io: CliIo): Promise<number> {
   const [command = 'list', deviceId] = args;
   switch (command) {
-    case 'pair':
-      return pair(await connect(io.env), io);
+    case 'pair': {
+      const api = await connect(io.env);
+      if (deviceId === '--here') return pair(api, io);
+      return (await pairOnPage(api, io, deviceId === '--print')) ?? pair(api, io);
+    }
     case 'list':
       return list(await connect(io.env), io);
     case 'revoke':
@@ -53,7 +62,9 @@ export async function runDevicesCli(args: readonly string[], io: CliIo): Promise
       }
       return revoke(await connect(io.env), io, deviceId);
     default:
-      io.print('Usage: pnpm pair | pnpm devices [list] | pnpm devices revoke <device id>');
+      io.print(
+        'Usage: pnpm pair [--print | --here] | pnpm devices [list] | pnpm devices revoke <device id>',
+      );
       return 2;
   }
 }
@@ -103,6 +114,27 @@ async function connect(env: NodeJS.ProcessEnv): Promise<Api> {
       };
     },
   };
+}
+
+/**
+ * Opens the pairing page in the browser, where the person turns pairing on and sees the code; null
+ * where the control plane serves no page, to pair here instead.
+ */
+async function pairOnPage(api: Api, io: CliIo, print: boolean): Promise<number | null> {
+  const opened = await api.request<PairingPageResponse>('POST', '/api/pairing/page');
+  if (opened.status !== 201 || !('link' in opened.body)) return null;
+  // The link holds a one-time code worth a pairing: handed over in a file only this user can read,
+  // never in a process's arguments (open-link.ts).
+  openLinkPrivately(loadConfig(io.env).dataDir, opened.body.link, {
+    ...(io.open === undefined ? {} : { open: io.open }),
+  });
+  io.print('Pairing opened in your browser.');
+  // The link is worth a pairing for a minute, and terminals, recorders and agent sessions keep
+  // what they show: printed only when asked (AUDIT S2).
+  if (print) io.print(`Open this within a minute: ${opened.body.link}`);
+  else io.print('If it did not open: pnpm pair --print shows a link to open.');
+  io.print('To pair here instead: pnpm pair --here');
+  return 0;
 }
 
 async function pair(api: Api, io: CliIo): Promise<number> {

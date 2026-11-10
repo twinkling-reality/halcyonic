@@ -188,7 +188,10 @@ export function loadConfig(
   };
 }
 
-function parseNetwork(env: NodeJS.ProcessEnv, loopbackPort: number): NetworkListenerConfig | null {
+export function parseNetwork(
+  env: NodeJS.ProcessEnv,
+  loopbackPort: number,
+): NetworkListenerConfig | null {
   const host = env.HALCYONIC_NETWORK_HOST;
   if (host === undefined || host === '') {
     if (env.HALCYONIC_NETWORK_PORT !== undefined && env.HALCYONIC_NETWORK_PORT !== '') {

@@ -1,5 +1,5 @@
 import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { type NetworkInterfaceInfo, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { NetworkListener } from '@halcyonic/contracts';
@@ -26,11 +26,14 @@ import type { Logger } from '../logger.ts';
 import { createNetworkIdentity, type NetworkIdentity } from '../network/certificate.ts';
 import { DeviceAccess } from '../network/devices.ts';
 import { Pairing, type PairingLimits } from '../network/pairing.ts';
+import { PairingPage, pairingControls } from '../network/pairing-page.ts';
 import {
   createNetworkServer,
   DEFAULT_NETWORK_LIMITS,
   type NetworkLimits,
 } from '../network/server.ts';
+import { NetworkSwitch } from '../network/switch.ts';
+import { rememberNetworkListener } from '../settings.ts';
 import { spokenNames } from '../speech/tidy.ts';
 import { Transcriptions } from '../speech/transcriptions.ts';
 import type { SpeechEngine } from '../speech/whisper.ts';
@@ -136,6 +139,18 @@ export interface TestServerOptions extends TestControlPlaneOptions {
     /** The listener's own limits, over the defaults. */
     readonly listener?: Partial<NetworkLimits>;
   };
+  /**
+   * Instead of `network`: the network listener off, as a control plane starts without it, and the
+   * pairing page that turns it on (on 127.0.0.1, port chosen) and off, from `ports` (ADR 0047).
+   */
+  readonly page?: {
+    readonly ports: readonly [number, number];
+    /** Describes the loopback listener as a wildcard one with these names, as on a Mac on Wi-Fi. */
+    readonly describeAs?: {
+      readonly localName: string | null;
+      readonly interfaces: NodeJS.Dict<NetworkInterfaceInfo[]>;
+    };
+  };
   readonly logLevel?: LogLevel;
   /** Receives both listeners' log lines, for tests that check what is logged. */
   readonly logStream?: NodeJS.WritableStream;
@@ -207,13 +222,45 @@ export async function startTestServer(options: TestServerOptions = {}) {
     options.network === undefined
       ? null
       : await startNetworkListener(app, harness, devices, sources, options.network);
+  const networkSwitch =
+    options.page === undefined
+      ? null
+      : new NetworkSwitch({
+          dataDir,
+          controlPlane: harness.controlPlane,
+          sources,
+          devices,
+          clock: harness.time,
+          logger: app.log,
+          localName: async () => options.page?.describeAs?.localName ?? null,
+          ...(options.page.describeAs === undefined
+            ? {}
+            : {
+                describeHost: '0.0.0.0',
+                interfaces: () => options.page?.describeAs?.interfaces ?? {},
+              }),
+        });
+  const page =
+    networkSwitch === null || options.page === undefined
+      ? null
+      : await PairingPage.open(
+          pairingControls({
+            network: networkSwitch,
+            controlPlane: harness.controlPlane,
+            devices,
+            listenOn: () => ({ host: '127.0.0.1', port: 0 }),
+            remember: (on) => rememberNetworkListener(dataDir, on),
+          }),
+          { ports: options.page.ports },
+        );
   registerRoutes(app, harness.controlPlane, sources);
   registerRealtime(app, harness.controlPlane);
   registerDeviceRoutes(app, {
     controlPlane: harness.controlPlane,
     devices,
-    pairing: network?.pairing ?? null,
-    listener: () => network?.listener ?? null,
+    pairing: () => networkSwitch?.pairing ?? network?.pairing ?? null,
+    listener: () => networkSwitch?.listener() ?? network?.listener ?? null,
+    page: () => page,
   });
   await app.listen({ host: '127.0.0.1', port: 0 });
   const address = app.server.address();
@@ -225,10 +272,15 @@ export async function startTestServer(options: TestServerOptions = {}) {
     token,
     devices,
     network,
+    networkSwitch,
+    page,
+    dataDir,
     port: address.port,
     baseUrl: `http://${origin}`,
     wsUrl: `ws://${origin}/realtime`,
     async stop() {
+      await page?.close();
+      await networkSwitch?.stop();
       await network?.server.close();
       await app.close();
       await harness.controlPlane.close();

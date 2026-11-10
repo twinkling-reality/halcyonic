@@ -156,6 +156,16 @@ export function settingsInUse(env: NodeJS.ProcessEnv, settings: HostSettings): S
 }
 
 /**
+ * Turns the network listener's setting on (every interface, as `pnpm mac-setup pairing on` writes it)
+ * or off, keeping every other setting as the file holds it.
+ */
+export function rememberNetworkListener(dataDir: string, on: boolean): void {
+  const settings: Record<string, string | undefined> = { ...readHostSettings(dataDir) };
+  settings.HALCYONIC_NETWORK_HOST = on ? '0.0.0.0' : undefined;
+  writeHostSettings(dataDir, settings);
+}
+
+/**
  * Writes the settings file whole, mode 600, through a new file renamed into place, after making
  * the data directory owner-only as the control plane does. `undefined` entries are left out.
  */
