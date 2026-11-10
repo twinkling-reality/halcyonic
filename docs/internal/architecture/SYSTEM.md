@@ -99,7 +99,12 @@ One Node.js process. The journal (`node:sqlite`) is synchronous, so append, proj
 publication happen without interleaving: a reader never sees a journal and projection that
 disagree, and a WebSocket client subscribing in the same step as its snapshot cannot miss an
 event. Current state is held in memory and rebuilt from the journal at startup
-([ADR 0002](../decisions/0002-append-only-journal-with-rebuilt-projection.md)).
+([ADR 0002](../decisions/0002-append-only-journal-with-rebuilt-projection.md)): from a checkpoint
+of the projection kept beside the events, then only the events after it, when the checkpoint was
+written for this journal by this code at a position the journal still holds with the same event
+there and its bytes are unchanged; otherwise from the whole journal. A checkpoint is written at a
+clean close and every 50,000 events; the journal itself is never cut
+([ADR 0050](../decisions/0050-a-start-restores-the-projection-from-a-checkpoint-and-folds-only-the-journal-after-it.md)).
 
 On startup the control plane also reconciles: every execution that was in flight, and every
 command still awaiting a runtime, is recorded as unknown, because the start stopped every runtime

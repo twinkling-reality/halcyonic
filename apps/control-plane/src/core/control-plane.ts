@@ -11,6 +11,12 @@ import type { Clock, RuntimeAdapter, Scheduler } from '@halcyonic/runtime-core';
 import { Checkpointer } from '../checkpoints/checkpointer.ts';
 import type { CheckpointStore, RestoreHooks } from '../checkpoints/store.ts';
 import type { IdGenerator } from '../ids.ts';
+import {
+  CHECKPOINT_EVERY,
+  checkpointCodeIdentity,
+  restoreCheckpoint,
+  writeCheckpoint,
+} from '../journal/checkpoint.ts';
 import type { EventJournal } from '../journal/journal.ts';
 import { createHostLocations, type HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
@@ -81,6 +87,11 @@ export interface ControlPlaneOptions {
    * it (UL1); none by default, so tests do not touch loopback Ollama unless they pass one.
    */
   readonly ollamaUnload?: OllamaUnloader;
+  /**
+   * Events appended between two checkpoints of the projection (ADR 0050); `CHECKPOINT_EVERY` by
+   * default. A checkpoint is also written at close. Fixture journals are never checkpointed.
+   */
+  readonly checkpointEvery?: number;
 }
 
 /**
@@ -121,6 +132,11 @@ export class ControlPlane {
   #autoCheckScheduled = false;
   readonly #autoFix: AutoFix | null;
   #closed = false;
+  /** Events between checkpoints, or null for a fixture journal, never checkpointed (ADR 0050). */
+  readonly #checkpointEvery: number | null;
+  /** The position of the last checkpoint written or restored. */
+  #checkpointed = 0;
+  #checkpointDue = false;
   /** Settles once every execution the last restart cut is re-attached or recorded lost. */
   reattached: Promise<void> = Promise.resolve();
 
@@ -226,6 +242,8 @@ export class ControlPlane {
       ollamaUnload: this.ollamaUnload,
       reattacher: this.reattacher,
     });
+    this.#checkpointEvery =
+      this.journal.info.origin === 'live' ? (options.checkpointEvery ?? CHECKPOINT_EVERY) : null;
     this.#rebuild();
     this.#autoFix =
       this.previews === null || options.autoFix === false
@@ -243,6 +261,7 @@ export class ControlPlane {
             live: this.journal.info.origin === 'live',
           });
     this.#autoFix?.attach();
+    if (this.#checkpointEvery !== null) this.#attachCheckpoints(this.#checkpointEvery);
     if (this.previews !== null) this.#attachAutoCheck();
   }
 
@@ -331,7 +350,26 @@ export class ControlPlane {
 
   #rebuild(): void {
     let events = 0;
-    for (const stored of this.journal.readAll()) {
+    // A live journal's checkpoint, when it can be trusted, holds the fold of everything up to its
+    // position; only the events after it are folded (ADR 0050). Fixture journals are folded whole.
+    let from = 0;
+    let checkpoint: string | null = null;
+    if (this.#checkpointEvery !== null) {
+      checkpointCodeIdentity();
+      const restored = restoreCheckpoint(this.journal, this.projection);
+      if (restored.restored) {
+        from = restored.position;
+        this.#checkpointed = restored.position;
+        checkpoint = `restored at position ${restored.position}`;
+      } else if (restored.reason !== null) {
+        checkpoint = `not taken: ${restored.reason}`;
+        this.#logger.warn(
+          { journal_id: this.journal.info.journal_id, reason: restored.reason },
+          'checkpoint not taken; folding the whole journal',
+        );
+      }
+    }
+    for (const stored of this.journal.readAll(from)) {
       const { notes } = this.projection.apply(stored);
       for (const note of notes) {
         this.#logger.warn(
@@ -347,9 +385,41 @@ export class ControlPlane {
       events += 1;
     }
     this.#logger.info(
-      { journal_id: this.journal.info.journal_id, events, position: this.projection.position },
+      {
+        journal_id: this.journal.info.journal_id,
+        events,
+        position: this.projection.position,
+        checkpoint,
+      },
       'state rebuilt from journal',
     );
+  }
+
+  /** Writes a checkpoint of the projection once enough events came since the last (ADR 0050). */
+  #attachCheckpoints(every: number): void {
+    this.publisher.subscribe(({ position }) => {
+      if (this.#closed || this.#checkpointDue || position - this.#checkpointed < every) return;
+      this.#checkpointDue = true;
+      setImmediate(() => {
+        this.#checkpointDue = false;
+        if (!this.#closed) this.#checkpoint();
+      });
+    });
+  }
+
+  #checkpoint(): void {
+    if (this.projection.position === this.#checkpointed) return;
+    const written = writeCheckpoint(this.journal, this.projection, this.clock.now());
+    if (written === null) return;
+    if ('error' in written) {
+      this.#logger.warn(
+        { err: written.error },
+        'checkpoint not written; the journal holds everything',
+      );
+      return;
+    }
+    this.#checkpointed = written.position;
+    this.#logger.info({ position: written.position }, 'checkpoint written');
   }
 
   /**
@@ -394,6 +464,7 @@ export class ControlPlane {
     await this.previews?.close();
     await this.registry.closeAll(this.#logger);
     await this.ollamaUnload?.close();
+    if (this.#checkpointEvery !== null) this.#checkpoint();
     this.journal.close();
   }
 }

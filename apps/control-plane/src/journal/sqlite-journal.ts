@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { chmodSync, closeSync, openSync } from 'node:fs';
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import {
@@ -8,7 +9,14 @@ import {
   type StoredEvent,
 } from '@halcyonic/contracts';
 import type { IdGenerator } from '../ids.ts';
-import { type AppendResult, type EventJournal, JournalError, type ReadOptions } from './journal.ts';
+import {
+  type AppendResult,
+  type CheckpointToWrite,
+  type EventJournal,
+  JournalError,
+  type ReadOptions,
+  type StoredCheckpoint,
+} from './journal.ts';
 
 /**
  * Forward-only migrations; `PRAGMA user_version` records how many have run. Never edit a
@@ -104,6 +112,20 @@ const MIGRATIONS: readonly string[] = [
   WHERE event_type = 'runtime.approval.requested'
     AND json_type(envelope, '$.payload.complete') IS NULL;
   `,
+  // ADR 0050: a checkpoint of the projection beside the events, one row, a cache of them only.
+  // Opening drops it whenever a migration runs, since a migration may change events.
+  `
+  CREATE TABLE IF NOT EXISTS projection_checkpoint (
+    slot INTEGER PRIMARY KEY CHECK (slot = 1),
+    position INTEGER NOT NULL,
+    event_id TEXT NOT NULL,
+    journal_id TEXT NOT NULL,
+    code_identity TEXT NOT NULL,
+    state_sha256 TEXT NOT NULL,
+    written_at TEXT NOT NULL,
+    state BLOB NOT NULL
+  ) STRICT;
+  `,
 ];
 
 export const JOURNAL_SCHEMA_VERSION = MIGRATIONS.length;
@@ -127,7 +149,11 @@ export function openSqliteJournal(options: OpenJournalOptions): EventJournal {
     db.exec('PRAGMA synchronous = FULL');
     db.exec('PRAGMA busy_timeout = 5000');
     const from = migrate(db);
-    if (from < MIGRATIONS.length) options.onMigrated?.(from, MIGRATIONS.length);
+    if (from < MIGRATIONS.length) {
+      // A migration may have changed events: no checkpoint of the fold of earlier ones stays.
+      db.exec('DELETE FROM projection_checkpoint');
+      options.onMigrated?.(from, MIGRATIONS.length);
+    }
     const info = readOrCreateInfo(db, options);
     return new SqliteJournal(db, info);
   } catch (error) {
@@ -208,6 +234,8 @@ class SqliteJournal implements EventJournal {
   readonly #readWorkstreamAfter: StatementSync;
   readonly #readAfterExcluding: StatementSync;
   readonly #readWorkstreamAfterExcluding: StatementSync;
+  readonly #readCheckpoint: StatementSync;
+  readonly #writeCheckpoint: StatementSync;
   #closed = false;
 
   constructor(db: DatabaseSync, info: JournalInfo) {
@@ -235,6 +263,12 @@ class SqliteJournal implements EventJournal {
     // The types to leave out arrive as one JSON array, so one statement serves any list.
     this.#readAfterExcluding = db.prepare(
       'SELECT position, envelope FROM events WHERE position > ? AND event_type NOT IN (SELECT value FROM json_each(?)) ORDER BY position LIMIT ?',
+    );
+    this.#readCheckpoint = db.prepare(
+      'SELECT position, event_id, journal_id, code_identity, state_sha256, written_at, state FROM projection_checkpoint WHERE slot = 1',
+    );
+    this.#writeCheckpoint = db.prepare(
+      'INSERT OR REPLACE INTO projection_checkpoint (slot, position, event_id, journal_id, code_identity, state_sha256, written_at, state) VALUES (1, ?, ?, ?, ?, ?, ?, ?)',
     );
     this.#readWorkstreamAfterExcluding = db.prepare(
       'SELECT position, envelope FROM events WHERE workstream_id = ? AND position > ? AND event_type NOT IN (SELECT value FROM json_each(?)) ORDER BY position LIMIT ?',
@@ -301,9 +335,53 @@ class SqliteJournal implements EventJournal {
     return row ? toStoredEvent(row) : undefined;
   }
 
-  *readAll(): Iterable<StoredEvent> {
+  readCheckpoint(): StoredCheckpoint | null {
+    const row = this.#readCheckpoint.get() as
+      | {
+          position: number;
+          event_id: string;
+          journal_id: string;
+          code_identity: string;
+          state_sha256: string;
+          written_at: string;
+          state: Uint8Array;
+        }
+      | undefined;
+    if (row === undefined) return null;
+    return {
+      position: row.position,
+      eventId: row.event_id,
+      journalId: row.journal_id,
+      codeIdentity: row.code_identity,
+      stateSha256: row.state_sha256,
+      writtenAt: row.written_at,
+      state: row.state,
+    };
+  }
+
+  writeCheckpoint(checkpoint: CheckpointToWrite): void {
+    const sha256 = createHash('sha256').update(checkpoint.state).digest('hex');
+    this.#db.exec('BEGIN IMMEDIATE');
+    try {
+      this.#writeCheckpoint.run(
+        checkpoint.position,
+        checkpoint.eventId,
+        this.info.journal_id,
+        checkpoint.codeIdentity,
+        sha256,
+        checkpoint.writtenAt,
+        checkpoint.state,
+      );
+      this.#db.exec('COMMIT');
+    } catch (error) {
+      this.#db.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  *readAll(from = 0): Iterable<StoredEvent> {
     const batch = 1000;
-    for (let after = 0; ; ) {
+    for (let after = from; ; ) {
       const rows = this.#readAfter.all(after, batch) as { position: number; envelope: string }[];
       for (const row of rows) {
         yield toStoredEvent(row);
