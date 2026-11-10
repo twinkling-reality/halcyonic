@@ -80,7 +80,10 @@ client                                   server
   synchronous step, so no event can fall between them.
 - **Resume.** If the client's cursor names this journal and the current head, the server answers
   `resumed: true` and sends no snapshot. Otherwise it sends a fresh snapshot. Missed history is
-  available from `GET /api/events`.
+  available from `GET /api/events`. Sending the missed events instead was weighed on 2026-11-10 and
+  not built: each `event` carries the `changes` the projection computed when it was recorded, which
+  are not kept, so a replayed event could not carry its own; and a snapshot is small and quick (352
+  KiB built in 0.7 ms at 50,000 events, [control-plane-scale-2026-11-03.md](../validation/control-plane-scale-2026-11-03.md)).
 - **Device events stay home.** `device.paired` and `device.revoked` are journaled like every
   event, but no client receives them over this stream, and a paired device does not read them from
   `GET /api/events` either, where `limit` counts only the events returned: which devices are

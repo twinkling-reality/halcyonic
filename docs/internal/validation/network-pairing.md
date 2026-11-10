@@ -198,6 +198,18 @@ file keeps the addresses, reads a file written before them, and never writes ove
 forgotten or made again. `scutil --get LocalHostName` answers this Mac's Bonjour name, which
 `readLocalName` turns into the `.local` name (not printed here: it can carry a person's name).
 
+### Sleep, a silent network and a restart, over the pinned path (2026-11-10)
+
+Off the headset, .NET 10 against a real control plane (`PairedReconnectLiveTests`): a paired session
+through a relay that goes silent the way Wi-Fi does (bytes stop both ways, nothing closes, new
+connections are taken and never passed on) notices it from its own pings, with no help from TCP,
+and once the network returns connects again on a new connection and holds a project made from the
+Mac meanwhile, from a snapshot; a pause and resume with nothing new comes back `resumed: true` with
+no snapshot, and one with work done meanwhile catches up; a control plane killed and started again
+on the same data directory and port is found again with the same pairing, its certificate kept.
+The test timings are shortened (pings every 0.3 s, silence after 2 s); the headset's own are 10 and
+30 seconds.
+
 ## What needs a headset
 
 - The pinned transports under IL2CPP with the Android build of UnityTLS: pairing, the realtime
