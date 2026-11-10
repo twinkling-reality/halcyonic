@@ -200,3 +200,53 @@ export const PreviewStopReason = Type.Union([
   Type.Literal('host_restarted'),
 ]);
 export type PreviewStopReason = Static<typeof PreviewStopReason>;
+
+/** The most tries a failed check is sent back to its agent on its own, per chain (ADR 0044). */
+export const AUTO_FIX_CAP_MAX = 10;
+
+/**
+ * Why sending a failed check back to its agent on its own ended, or never began (ADR 0044):
+ * `passed` the next check passed; `cap_reached` the check still failed after the last try;
+ * `person_stopped` the person asked to stop the task; `person_instructed` the person (or their
+ * request) gave the project's agents their own words; `waiting_on_person` an approval or a question
+ * waits; `project_busy` another task or command in the project is under way; `runtime_cannot` the
+ * runtime does not declare instructions at rest; `turn_failed` the agent's turn did not complete;
+ * `no_change` the try's turn changed no file, so no check followed; `nothing_to_send` the check gave
+ * nothing an agent could act on; `check_unavailable` the check itself did not finish; `send_failed`
+ * the try was refused or not delivered; `several_tasks` more than one task changed the project
+ * before the check, so no one of them is sent it; `host_restarted` the host restarted meanwhile.
+ */
+export const AutoFixEndReason = Type.Union([
+  Type.Literal('passed'),
+  Type.Literal('cap_reached'),
+  Type.Literal('person_stopped'),
+  Type.Literal('person_instructed'),
+  Type.Literal('waiting_on_person'),
+  Type.Literal('project_busy'),
+  Type.Literal('runtime_cannot'),
+  Type.Literal('turn_failed'),
+  Type.Literal('no_change'),
+  Type.Literal('nothing_to_send'),
+  Type.Literal('check_unavailable'),
+  Type.Literal('send_failed'),
+  Type.Literal('several_tasks'),
+  Type.Literal('host_restarted'),
+]);
+export type AutoFixEndReason = Static<typeof AutoFixEndReason>;
+
+/**
+ * A task's failed check sent back to its agent on its own (ADR 0044): `fixing` while a try is under
+ * way, `attempt` of `cap`; `ended`, with `attempt` the tries made (0 when none was sent) and why.
+ * States and numbers only: clients choose the words.
+ */
+export const AutoFixView = Type.Object(
+  {
+    state: Type.Union([Type.Literal('fixing'), Type.Literal('ended')]),
+    check_id: CheckId,
+    attempt: Type.Integer({ minimum: 0, maximum: AUTO_FIX_CAP_MAX }),
+    cap: Type.Integer({ minimum: 1, maximum: AUTO_FIX_CAP_MAX }),
+    reason: Nullable(AutoFixEndReason),
+  },
+  strict,
+);
+export type AutoFixView = Static<typeof AutoFixView>;

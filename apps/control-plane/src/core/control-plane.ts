@@ -18,6 +18,7 @@ import { FileObserver } from '../observer/file-observer.ts';
 import { attachWorldReader } from '../observer/world-reader.ts';
 import { HostPreviews, type HostPreviewsDeps } from '../preview/preview.ts';
 import type { HostStarters } from '../starters.ts';
+import { AutoFix } from './auto-fix.ts';
 import { type CatalogLinks, CommandService } from './command-service.ts';
 import type { OllamaUnloader } from './ollama-unload.ts';
 import { EventPublisher } from './publisher.ts';
@@ -64,6 +65,11 @@ export interface ControlPlaneOptions {
    * default, as for recorded traces and most tests; the control plane's own start turns it on.
    */
   readonly observeFiles?: { readonly protect: readonly string[] };
+  /**
+   * Whether a failed automatic check goes back on its own to the agent whose turn changed the
+   * files, up to a cap (ADR 0044). On wherever checks are, unless false.
+   */
+  readonly autoFix?: boolean;
   /**
    * Every secret Halcyonic holds or passes to a runtime, asked for each time a runtime's text is
    * journaled or read through to a device, since some change (redaction.ts). None by default;
@@ -113,6 +119,7 @@ export class ControlPlane {
   readonly #snapshotFinishedCommands: number;
   readonly #autoCheckNeeded = new Set<ProjectId>();
   #autoCheckScheduled = false;
+  readonly #autoFix: AutoFix | null;
   #closed = false;
   /** Settles once every execution the last restart cut is re-attached or recorded lost. */
   reattached: Promise<void> = Promise.resolve();
@@ -220,6 +227,21 @@ export class ControlPlane {
       reattacher: this.reattacher,
     });
     this.#rebuild();
+    this.#autoFix =
+      this.previews === null || options.autoFix === false
+        ? null
+        : new AutoFix({
+            projection: this.projection,
+            recorder: this.recorder,
+            publisher: this.publisher,
+            commands: this.commands,
+            registry: this.registry,
+            previews: this.previews,
+            ids: options.ids,
+            clock: options.clock,
+            logger: options.logger,
+          });
+    this.#autoFix?.attach();
     if (this.previews !== null) this.#attachAutoCheck();
   }
 
@@ -289,10 +311,12 @@ export class ControlPlane {
       }
       if (this.projection.projectBusy(projectId) !== null) continue;
       this.#autoCheckNeeded.delete(projectId);
+      const commandId = this.#ids.next() as CommandId;
+      this.#autoFix?.checkQueued(projectId, commandId);
       this.commands.submit(
         {
           schema_version: COMMAND_SCHEMA_VERSION,
-          command_id: this.#ids.next() as CommandId,
+          command_id: commandId,
           issued_at: this.clock.now().toISOString() as Timestamp,
           client: { name: 'halcyonic-control-plane', version: null, device_label: null },
           command_type: 'project.check',
@@ -365,6 +389,7 @@ export class ControlPlane {
   async close(): Promise<void> {
     this.#closed = true;
     this.#autoCheckNeeded.clear();
+    this.#autoFix?.close();
     await this.previews?.close();
     await this.registry.closeAll(this.#logger);
     await this.ollamaUnload?.close();

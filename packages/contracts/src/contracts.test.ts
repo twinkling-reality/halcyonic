@@ -487,12 +487,12 @@ describe('the language-neutral schema document', () => {
     // 400,000 for M1.8b's check findings, which repeat nothing, and from 420,000 for FX1's
     // execution.check_output_given, whose event envelope repeats as every event's does, and from
     // 430,000 for ADR 0049's world description and its event, 11,539 bytes that repeat nothing
-    // but that envelope).
+    // but that envelope, and from 440,000 for ADR 0044's two auto_fix events, for the same reason).
     assert.deepEqual(
       inlinedDefinitions(buildSchemaDocument() as { $defs: Record<string, unknown> }),
       [],
     );
-    assert.ok(text.length < 440_000, `document is ${text.length} bytes`);
+    assert.ok(text.length < 450_000, `document is ${text.length} bytes`);
   });
 });
 
@@ -539,8 +539,8 @@ describe('the C# bindings', () => {
     );
     assert.equal(
       generated.match(/Required = Required\.Default/g)?.length,
-      25,
-      "the optional members are a location's label, a completed tool's turn, three declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), why a twin read was unknown (M1.8g-b), whether an execution's start recorded it confined (S2), whether a check's browser had permissions of its own (S1), a project's check, preview and play (M1.8e), an evaluation's activity, a check page's own pixels against the starter's (DRAWN), the approval level a start chose, its runtime recorded and its view shows (ADR 0043), a world project's world (ADR 0049), and whether a runtime keeps its sessions after a restart (ADR 0046)",
+      26,
+      "the optional members are a location's label, a completed tool's turn, three declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), why a twin read was unknown (M1.8g-b), whether an execution's start recorded it confined (S2), whether a check's browser had permissions of its own (S1), a project's check, preview and play (M1.8e), an evaluation's activity, a check page's own pixels against the starter's (DRAWN), the approval level a start chose, its runtime recorded and its view shows (ADR 0043), a world project's world (ADR 0049), whether a runtime keeps its sessions after a restart (ADR 0046), and an execution's failed check sent back on its own (ADR 0044)",
     );
     for (const member of [
       'Activity',

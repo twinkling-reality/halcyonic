@@ -1,6 +1,7 @@
 import type {
   ApprovalLevel,
   ApprovalView,
+  AutoFixView,
   CommandId,
   ErrorInfo,
   ExecutionId,
@@ -68,6 +69,10 @@ export interface ExecutionState {
   unknownReason: ErrorInfo | null;
   /** Highest source sequence applied, used to ignore reordered runtime events. */
   lastSequence: number | null;
+  /** The latest chain of the project's failed check sent back to it on its own (ADR 0044). */
+  autoFix: AutoFixView | null;
+  /** Whether its latest accepted instruction was one the host sent on its own (ADR 0044). */
+  autoFixDriven: boolean;
 }
 
 export function createExecutionState(init: {
@@ -100,6 +105,8 @@ export function createExecutionState(init: {
     startFailure: null,
     unknownReason: null,
     lastSequence: null,
+    autoFix: null,
+    autoFixDriven: false,
   };
 }
 
@@ -177,6 +184,7 @@ export function toExecutionView(
     active_test_run: state.activeTestRun,
     last_test_run: state.lastTestRun,
     turn_count: state.turnCount,
+    ...(state.autoFix !== null && { auto_fix: { ...state.autoFix } }),
     created_at: state.createdAt,
     started_at: state.startedAt,
     updated_at: state.updatedAt,

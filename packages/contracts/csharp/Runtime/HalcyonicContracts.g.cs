@@ -1208,6 +1208,50 @@ namespace Halcyonic.Contracts
         public string CompletedAt { get; set; } = default!;
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum AutoFixViewState
+    {
+        [EnumMember(Value = "fixing")] Fixing,
+        [EnumMember(Value = "ended")] Ended,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum AutoFixEndReason
+    {
+        [EnumMember(Value = "passed")] Passed,
+        [EnumMember(Value = "cap_reached")] CapReached,
+        [EnumMember(Value = "person_stopped")] PersonStopped,
+        [EnumMember(Value = "person_instructed")] PersonInstructed,
+        [EnumMember(Value = "waiting_on_person")] WaitingOnPerson,
+        [EnumMember(Value = "project_busy")] ProjectBusy,
+        [EnumMember(Value = "runtime_cannot")] RuntimeCannot,
+        [EnumMember(Value = "turn_failed")] TurnFailed,
+        [EnumMember(Value = "no_change")] NoChange,
+        [EnumMember(Value = "nothing_to_send")] NothingToSend,
+        [EnumMember(Value = "check_unavailable")] CheckUnavailable,
+        [EnumMember(Value = "send_failed")] SendFailed,
+        [EnumMember(Value = "several_tasks")] SeveralTasks,
+        [EnumMember(Value = "host_restarted")] HostRestarted,
+    }
+
+    public sealed class AutoFixView
+    {
+        [JsonProperty("state", Required = Required.Always)]
+        public AutoFixViewState State { get; set; }
+
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("attempt", Required = Required.Always)]
+        public long Attempt { get; set; }
+
+        [JsonProperty("cap", Required = Required.Always)]
+        public long Cap { get; set; }
+
+        [JsonProperty("reason", Required = Required.AllowNull)]
+        public AutoFixEndReason? Reason { get; set; }
+    }
+
     public sealed class ExecutionView
     {
         [JsonProperty("execution_id", Required = Required.Always)]
@@ -1263,6 +1307,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("turn_count", Required = Required.Always)]
         public long TurnCount { get; set; }
+
+        [JsonProperty("auto_fix", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public AutoFixView? AutoFix { get; set; }
 
         [JsonProperty("created_at", Required = Required.Always)]
         public string CreatedAt { get; set; } = default!;
@@ -2081,6 +2128,36 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("bytes", Required = Required.Always)]
         public long Bytes { get; set; }
+    }
+
+    public sealed class ExecutionAutoFixSentPayload
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("attempt", Required = Required.Always)]
+        public long Attempt { get; set; }
+
+        [JsonProperty("cap", Required = Required.Always)]
+        public long Cap { get; set; }
+
+        [JsonProperty("command_id", Required = Required.Always)]
+        public string CommandId { get; set; } = default!;
+    }
+
+    public sealed class ExecutionAutoFixEndedPayload
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("attempts", Required = Required.Always)]
+        public long Attempts { get; set; }
+
+        [JsonProperty("cap", Required = Required.Always)]
+        public long Cap { get; set; }
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public AutoFixEndReason Reason { get; set; }
     }
 
     public sealed class ExecutionStartFailedPayload
@@ -3139,6 +3216,8 @@ namespace Halcyonic.Contracts
                 "execution.created" => new ExecutionCreatedEvent(),
                 "execution.files.observed" => new ExecutionFilesObservedEvent(),
                 "execution.check_output_given" => new ExecutionCheckOutputGivenEvent(),
+                "execution.auto_fix.sent" => new ExecutionAutoFixSentEvent(),
+                "execution.auto_fix.ended" => new ExecutionAutoFixEndedEvent(),
                 "execution.start_failed" => new ExecutionStartFailedEvent(),
                 "execution.state_unknown" => new ExecutionStateUnknownEvent(),
                 "command.accepted" => new CommandAcceptedEvent(),
@@ -3346,6 +3425,22 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ExecutionCheckOutputGivenPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionAutoFixSentEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.auto_fix.sent";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ExecutionAutoFixSentPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionAutoFixEndedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.auto_fix.ended";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ExecutionAutoFixEndedPayload Payload { get; set; } = default!;
     }
 
     public sealed class ExecutionStartFailedEvent : EventEnvelope

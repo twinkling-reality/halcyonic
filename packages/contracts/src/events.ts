@@ -21,7 +21,13 @@ import {
 import { DeviceLabel, Principal, Sha256Hex } from './devices.ts';
 import { FilesObserved } from './file-changes.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
-import { CheckFindings, CheckId, PreviewStopReason } from './previews.ts';
+import {
+  AUTO_FIX_CAP_MAX,
+  AutoFixEndReason,
+  CheckFindings,
+  CheckId,
+  PreviewStopReason,
+} from './previews.ts';
 import {
   DeviceId,
   ErrorInfo,
@@ -436,6 +442,41 @@ export const ExecutionCheckOutputGiven = executionEvent(
   ),
 );
 
+/**
+ * The host, not the person, sent the project's failed check back to this execution's agent as
+ * its next instruction (ADR 0044): which check, which try of how many, and the instruction's own
+ * command, recorded before that command is submitted. Delivery is that command's own outcome.
+ */
+export const ExecutionAutoFixSent = executionEvent(
+  'execution.auto_fix.sent',
+  Type.Object(
+    {
+      check_id: CheckId,
+      attempt: Type.Integer({ minimum: 1, maximum: AUTO_FIX_CAP_MAX }),
+      cap: Type.Integer({ minimum: 1, maximum: AUTO_FIX_CAP_MAX }),
+      command_id: CommandId,
+    },
+    strict,
+  ),
+);
+
+/**
+ * Sending a failed check back to this execution's agent on its own ended, or did not begin
+ * (`attempts` 0), and why (ADR 0044).
+ */
+export const ExecutionAutoFixEnded = executionEvent(
+  'execution.auto_fix.ended',
+  Type.Object(
+    {
+      check_id: CheckId,
+      attempts: Type.Integer({ minimum: 0, maximum: AUTO_FIX_CAP_MAX }),
+      cap: Type.Integer({ minimum: 1, maximum: AUTO_FIX_CAP_MAX }),
+      reason: AutoFixEndReason,
+    },
+    strict,
+  ),
+);
+
 /** The adapter reported that the runtime could not start the execution. */
 export const ExecutionStartFailed = executionEvent(
   'execution.start_failed',
@@ -771,6 +812,8 @@ export const EVENT_VARIANTS = [
   ExecutionCreated,
   ExecutionFilesObserved,
   ExecutionCheckOutputGiven,
+  ExecutionAutoFixSent,
+  ExecutionAutoFixEnded,
   ExecutionStartFailed,
   ExecutionStateUnknown,
   CommandAccepted,
