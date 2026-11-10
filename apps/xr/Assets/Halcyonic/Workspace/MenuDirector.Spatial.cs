@@ -109,7 +109,8 @@ namespace Halcyonic.XR.Workspace
             // 2026-11-03). At rest, Send starts the next run on the person's choice, so the chips are that choice (SWITCH).
             var chosen = setup.Presentation.SelectedRuntimeId is string chosenId ? State?.Runtimes.FirstOrDefault(item => item.RuntimeId == chosenId) : null;
             var selectors = KitPresenter.ChipsOf(now, setup.Presentation.ExecutionModelDisplay(now.Runtime, now.Execution), chosen,
-                chosen != null ? setup.Presentation.SelectedModelDisplay(chosen, now.Execution) : null, State?.Runtimes);
+                chosen != null ? setup.Presentation.SelectedModelDisplay(chosen, now.Execution) : null, State?.Runtimes,
+                neverAskChosen: setup.Presentation.NeverAskFor(selected));
             return KitFileBinding.Of(frame, file.Steering.Armed, now, file.Screen.Instruction.Open ? file.Screen.Instruction.Words : "",
                 setup.Session()?.Status ?? ConnectionStatus.Stopped, name, spine, new KitRowModel("workspace", LineWords.Ours("Move Workspace"), GlazeIcon.Move),
                 selectors: selectors, roomDesign: RoomDesign.Enabled, draftSpoken: file.Screen.Instruction.Open && file.Screen.Instruction.Spoken,

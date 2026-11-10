@@ -289,7 +289,8 @@ namespace Halcyonic.Client
 
         /// <summary>The task's next run on <paramref name="choice"/>, with the person's words as its instruction.</summary>
         private CommandEnvelope Start(WorkspacePresentation workspace, RunChoice choice, string instruction) =>
-            commands.StartExecution(workspace.Character.WorkstreamId, choice.RuntimeId, instruction, modelRef: choice.ModelRef);
+            commands.StartExecution(workspace.Character.WorkstreamId, choice.RuntimeId, instruction, modelRef: choice.ModelRef,
+                approvalLevel: choice.NeverAsk ? ApprovalLevel.NeverAsk : (ApprovalLevel?)null);
 
         /// <summary>
         /// The Mac heard this instruction in a held clip (ADR 0021). Unlike a typed one, it is always
