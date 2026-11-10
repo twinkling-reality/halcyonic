@@ -197,6 +197,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     Draw();
                     Thread.Sleep(TimeSpan.FromSeconds(0.45));
                     Draw();
+                    if (Drawn(action, key) is RoomButton button)
+                    {
+                        button.Press.SettleForRender();
+                        button.Press.PressForRender(990);
+                        Draw();
+                        return true;
+                    }
                     if (Opened()?.Frame is MenuFrame record && director.PressForRender(MenuColumn.File, action, key, record, null))
                     {
                         momentFailures.Add("no drawn control for " + action + (key == null ? "" : " " + key) + ": the frame of record took it");
@@ -205,6 +212,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     return false;
                 }
+                // The redesign's own drawn button that raises the file's action, where the redesign draws the file.
+                RoomButton? Drawn(string action, string? key) => plane.KitShows ? plane.Kit.Bar.Button(action, key) : null;
                 // Closing the task's file: through the frame of record's Close, else the navigator, said either way.
                 void CloseFile()
                 {
@@ -306,11 +315,40 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     director.OpenFile(Directed()!.WorkstreamId, FileSection.Waiting);
                     Moment("it asks");
+                    if (Drawn(FileScreens.Deny, null) == null && Drawn(FileScreens.Approve, null) != null) momentFailures.Add("Approve stands without Deny");
+                    // Approve, then Cancel: the request asks again and nothing was sent.
+                    if (Press(FileScreens.Approve) && Drawn(FileScreens.Cancel, null) != null)
+                    {
+                        Moment("confirm cancel offered");
+                        Press(FileScreens.Cancel);
+                        if (Drawn(FileScreens.Approve, null) == null) momentFailures.Add("Cancel did not bring the request back to Approve and Deny");
+                        if (sent.OfType<ExecutionRespondToApprovalCommand>().Any()) momentFailures.Add("Cancel sent an answer");
+                        Moment("cancelled asks again");
+                    }
                     var approved = Press(FileScreens.Approve);
                     for (var part = 0; approved && part < 20 && Opened()?.Steering.CanConfirm != true; part++)
+                    {
                         if (!Press(FileScreens.NextPart, FileScreens.RequestKey)) break;
-                    if (approved) Moment("confirm");
-                    approved = approved && Press(FileScreens.Yes) && sent.OfType<ExecutionRespondToApprovalCommand>().Any();
+                        Moment("request part " + (part + 2));
+                    }
+                    if (approved && Drawn(FileScreens.Yes, null) is RoomButton confirm)
+                    {
+                        // Confirm arrives behind its lock: drawn, ring part filled, a press taken by nothing.
+                        Draw();
+                        if (plane.Kit.Bar.Locking != confirm) momentFailures.Add("Confirm arrived without its lock");
+                        Moment("confirm locked");
+                        confirm.Press.SettleForRender();
+                        confirm.Press.PressForRender(991);
+                        Draw();
+                        if (sent.OfType<ExecutionRespondToApprovalCommand>().Any()) failures.Add("judge room: Confirm took a press behind its lock");
+                        plane.Kit.Bar.AgeLockForRender(RoomBar.ConfirmLockSeconds);
+                        Draw();
+                        Moment("confirm");
+                    }
+                    else if (approved) Moment("confirm");
+                    approved = approved && Press(FileScreens.Yes) && sent.OfType<ExecutionRespondToApprovalCommand>().Count() == 1;
+                    if (approved && sent.OfType<ExecutionRespondToApprovalCommand>().Single().Payload.Decision != ApprovalDecision.Approve)
+                        failures.Add("judge room: Confirm sent a denial");
                     if (!approved && DirectedRun()?.PendingApprovals.FirstOrDefault() is ApprovalView approval)
                         SendInstead("Approve and Confirm", commands.RespondToApproval(DirectedRun()!.ExecutionId, approval.ApprovalId, ApprovalDecision.Approve));
                 }
@@ -371,6 +409,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 foreach (var component in at.GetComponents<MonoBehaviour>())
                 {
                     var type = component.GetType();
+                    // A label's own helpers (its runs and its shimmer) belong to whatever part owns the label.
+                    if (component is GlazeRuns || component is GlazeShimmer) continue;
                     if (type.Namespace?.StartsWith("Halcyonic", StringComparison.Ordinal) == true && type.Name != nameof(MenuDirector)) return type.Name;
                 }
             }
@@ -399,7 +439,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (string.IsNullOrWhiteSpace(label.text) || label.GetComponent<Renderer>() is Renderer shown && !shown.enabled) continue;
                 if (OwnerOf(label.transform)?.StartsWith("Room", StringComparison.Ordinal) != true) continue;
                 label.ForceMeshUpdate(true);
-                if (label.isTextTruncated) failures.Add("\"" + label.text + "\" is cut");
+                if (label.isTextTruncated) failures.Add(PathOf(label.transform) + " \"" + Codes(label.text) + "\" is cut");
                 // The label's rectangle on the render: its strokes against the most common colour under them.
                 var bounds = label.textBounds;
                 var corners = new[] { new Vector3(bounds.min.x, bounds.min.y), new Vector3(bounds.max.x, bounds.max.y), new Vector3(bounds.min.x, bounds.max.y), new Vector3(bounds.max.x, bounds.min.y) }
@@ -410,7 +450,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (rect.width < 2 || rect.height < 2) continue;
                 var ground = MostCommon(image, rect);
                 var contrast = GlazeChecks.Contrast(image, rect, ground);
-                if (contrast < 4.5f) failures.Add("\"" + label.text + "\" reaches " + contrast.ToString("0.0") + ":1, under 4.5:1");
+                if (contrast < 4.5f) failures.Add(PathOf(label.transform) + " \"" + Codes(label.text) + "\" reaches " + contrast.ToString("0.0") + ":1, under 4.5:1");
             }
             return failures;
         }
