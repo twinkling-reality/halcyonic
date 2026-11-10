@@ -2522,6 +2522,136 @@ public class FileColumnTests
     }
 
     [Test]
+    public void TheRedesignsQuestionIsAnsweredThroughTheFilesOwnActionsItsPromptOnTheBand()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var host = new FileMenuHost();
+            var work = new AskingWork(new QuestionView
+            {
+                QuestionId = "question-1", Answerable = true, AskedAt = Samples.Time,
+                Prompts = new List<QuestionPrompt>
+                {
+                    new()
+                    {
+                        Key = "q0", Header = "Colour scheme", Text = "Which colour scheme should the game use?",
+                        Options = new List<QuestionOption>
+                        {
+                            new() { Label = "Light", Description = "Dark text on a light background" },
+                            new() { Label = "Dark", Description = "Light text on a dark background" },
+                        },
+                        Multiple = false, FreeText = false, Secret = false,
+                    },
+                },
+            });
+            var column = Column(host, () => work.Present());
+            // What draws the question stands every word whole and gives the page its room: four choices.
+            column.QuestionBudgetOf = () => new ChoiceBudget(RoomBar.ChoicesAPage);
+            column.Reflow();
+            RoomBar Bar() => RoomBar.Of(KitFileBinding.Of(column.Frame!, column.Steering.Armed, column.Now!, "", new ConnectionStatus(ConnectionPhase.Live), "Storefront",
+                new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true)!, VoiceStage.Idle, false);
+            void Press(RoomAction action) => column.Act(action.Control.Action, action.Control.Key);
+
+            var asked = Bar();
+            Assert.That((asked.State, asked.Band, asked.Wide, asked.Body.IsEmpty), Is.EqualTo((RoomBarState.Question, (string?)"Which colour scheme should the game use?", true, true)),
+                "one prompt: it stands on the band, and with nothing from the computer to say the choices take the panel's place");
+            Assert.That(asked.Column.Take(2).Select(action => (action.Words, action.Mark, action.Chosen, action.Control.Action)), Is.EqualTo(new[]
+            {
+                ("Light · Dark text on a light background", AnswerMark.Single, false, FileScreens.Choose),
+                ("Dark · Light text on a dark background", AnswerMark.Single, false, FileScreens.Choose),
+            }));
+            Assert.That(asked.Column.Any(action => action.Main), Is.False, "no way on before an answer is chosen: an action that cannot act is not drawn");
+
+            Draw(host, column);
+            Press(asked.Column[1]);
+            var chosen = Bar();
+            Assert.That(chosen.Column.Take(2).Select(action => action.Chosen), Is.EqualTo(new[] { false, true }));
+            // The way on, by the file's own steps and words, each the main action, until the one command goes.
+            var steps = new List<string>();
+            for (var step = 0; step < 6 && host.Sent.Count == 0; step++)
+            {
+                Draw(host, column);
+                var bar = Bar();
+                var on = bar.Column.Single(action => action.Main);
+                steps.Add(on.Words + (bar.Sentence != null ? " (" + bar.Sentence + ")" : ""));
+                if (on.Control.Action == FileScreens.SendAnswer)
+                    Assert.That((bar.Column[0].Mark, bar.Column[0].Chosen, bar.Column[0].Control.Action), Is.EqualTo((AnswerMark.Single, true, FileScreens.GoToQuestion)),
+                        "the answer given stands chosen over Send Answer, and its press goes back to its question");
+                Press(on);
+            }
+            Assert.That(host.Sent.Select(command => command.CommandType), Is.EqualTo(new[] { "execution.answer_question" }), string.Join(" > ", steps));
+            Assert.That(steps.First(), Is.EqualTo("Review Answers"));
+            Assert.That(steps.Any(step => step.StartsWith("Send Answer", StringComparison.Ordinal)), Is.True, string.Join(" > ", steps));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    [Test]
+    public void TheRedesignsSeveralQuestionsSayWhichInThePanelAndTheirAnswersGoOnlyAfterConfirm()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var host = new FileMenuHost();
+            var work = new AskingWork(policies: new[] { new CommandPolicy { CommandType = CommandType.ExecutionAnswerQuestion, Policy = PolicyCategory.ReviewRequired } });
+            var column = Column(host, () => work.Present());
+            column.QuestionBudgetOf = () => new ChoiceBudget(RoomBar.ChoicesAPage);
+            column.Reflow();
+            RoomBar Bar() => RoomBar.Of(KitFileBinding.Of(column.Frame!, column.Steering.Armed, column.Now!, "", new ConnectionStatus(ConnectionPhase.Live), "Storefront",
+                new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true)!, VoiceStage.Idle, false);
+            void Press(RoomAction action) => column.Act(action.Control.Action, action.Control.Key);
+            RoomAction Named(RoomBar bar, string words) => bar.Column.Single(action => action.Words == words);
+
+            // The first of two: which it is stands in the panel, the computer's own; the prompt on the band; the choices beside the panel.
+            var first = Bar();
+            Assert.That((first.State, first.Wide, first.Body.Text, first.Band), Is.EqualTo((RoomBarState.Question, false, "Question 1 of 2 · Choose One",
+                (string?)"Which colour scheme should the dashboard use?")));
+            Assert.That(first.Column.Where(action => action.Mark != AnswerMark.None).Select(action => action.Mark), Is.All.EqualTo(AnswerMark.Single));
+            Draw(host, column);
+            Press(Named(first, "Dark · Light text on a dark background"));
+            Draw(host, column);
+            Press(Bar().Column.Single(action => action.Main));
+
+            // The second, any number to choose: the box marks.
+            var second = Bar();
+            Assert.That((second.Body.Text, second.Band), Is.EqualTo(("Question 2 of 2 · Choose Any", (string?)"Which pages should change?")));
+            Assert.That(second.Column.Where(action => action.Mark != AnswerMark.None).Select(action => (action.Words, action.Mark, action.Chosen)), Is.EqualTo(new[]
+            {
+                ("Sign in", AnswerMark.Multiple, false), ("Orders", AnswerMark.Multiple, false), ("Settings", AnswerMark.Multiple, false),
+            }));
+            Assert.That(second.Column.Any(action => action.Control.Place == KitPlace.Back), Is.True, "the way back to the question before");
+            Draw(host, column);
+            Press(Named(second, "Orders"));
+            Draw(host, column);
+            Press(Bar().Column.Single(action => action.Main));
+
+            // The person's answers, each back to its question, then Send Answer; the prompt of no one question stands on the band.
+            Draw(host, column);
+            var review = Bar();
+            Assert.That((review.Body.Text, review.Band), Is.EqualTo(("Your Answers", (string?)null)));
+            Assert.That(review.Column.Where(action => action.Mark != AnswerMark.None).Select(action => (action.Words, action.Chosen, action.Control.Action)), Is.EqualTo(new[]
+            {
+                ("Colour scheme: Dark", true, FileScreens.GoToQuestion), ("Pages: Orders", true, FileScreens.GoToQuestion),
+            }));
+            Press(review.Column.Single(action => action.Main));
+            Assert.That((column.Steering.Armed, host.Sent.Count), Is.EqualTo(((WorkspaceAction?)WorkspaceAction.Answer, 0)), "Send Answer asks for its confirmation and sends nothing");
+
+            // What goes stands in the panel, the file's question in its sentence bar, Confirm behind its lock.
+            var confirming = Bar();
+            Assert.That(confirming.Sentence, Is.EqualTo("Send Answers?"));
+            Assert.That(confirming.Body.Text, Does.Contain("Dark").And.Contain("Orders"));
+            Assert.That(confirming.Column.Select(action => (action.Control.Place, action.Main, action.Locks)), Is.EqualTo(new[] { (KitPlace.Yes, true, true), (KitPlace.Cancel, false, false) }));
+            Draw(host, column);
+            Press(confirming.Column[0]);
+            Assert.That(host.Sent.Select(command => command.CommandType), Is.EqualTo(new[] { "execution.answer_question" }));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    [Test]
     public void DrawingAnApprovalOnWaitingCountsNothingTowardTheQuestionDraftedMeanwhile()
     {
         var host = new FileMenuHost();

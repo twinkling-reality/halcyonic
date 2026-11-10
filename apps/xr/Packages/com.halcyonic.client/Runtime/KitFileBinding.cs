@@ -73,8 +73,9 @@ namespace Halcyonic.Client
     public sealed class KitControl
     {
         public KitControl(KitPlace place, MenuFrame frame, string action, string? key, string words, GlazeIcon? icon, bool available, string? reason, bool holds,
-            bool chosen = false)
+            bool chosen = false, AnswerMark mark = AnswerMark.None)
         {
+            Mark = mark;
             Place = place;
             Frame = frame;
             Action = action;
@@ -108,8 +109,11 @@ namespace Halcyonic.Client
         /// <summary>Held rather than pressed, as Hold to talk is.</summary>
         public bool Holds { get; }
 
-        /// <summary>A section that is the one showing.</summary>
+        /// <summary>A section that is the one showing, or an answer that is chosen.</summary>
         public bool Chosen { get; }
+
+        /// <summary>An answer's mark as the file's row carries it: one of several to choose, or any number.</summary>
+        public AnswerMark Mark { get; }
     }
 
     /// <summary>
@@ -204,7 +208,7 @@ namespace Halcyonic.Client
                     : StepActions.Contains(line.Action!) ? KitPlace.Step : (KitPlace?)null;
                 var several = place is KitPlace.Route or KitPlace.Choice or KitPlace.Step;
                 if (place == null || (!several && controls.Any(control => control.Place == place))) return null;
-                controls.Add(new KitControl(place.Value, frame, line.Action!, line.Key, line.Words, line.Icon, line.Available, null, false, line.Chosen));
+                controls.Add(new KitControl(place.Value, frame, line.Action!, line.Key, line.Words, line.Icon, line.Available, null, false, line.Chosen, line.AnswerMark));
             }
             foreach (var section in frame.Sections)
                 controls.Add(new KitControl(KitPlace.Section, frame, MenuFrame.ChooseSection, section.Key, section.Words, null, true, null, false, section.Chosen));
@@ -266,7 +270,34 @@ namespace Halcyonic.Client
             KitAsk? ask = null;
             if (need == null && instruction == null && workspace.QuestionToAnswer != null
                 && !frame.Sections.Any(section => section.Chosen && section.Key == FileScreens.Key(FileSection.Activity)))
-                ask = new KitAsk(frame.Lines.Where(line => line.Action == null).ToList(), armed == WorkspaceAction.Answer);
+            {
+                var words = frame.Lines.Where(line => line.Action == null).ToList();
+                ask = new KitAsk(words, armed == WorkspaceAction.Answer);
+                if (roomDesign)
+                {
+                    // What the redesign reads of the page: the prompt it shows, for the band (a line of the page, acting or not, that is
+                    // a prompt's words; with one prompt, that prompt on every page of it); the page's caption; what the confirmation
+                    // asks; and the lines left, which the panel holds.
+                    var question = workspace.QuestionToAnswer!;
+                    var prompts = question.Prompts.Select(each => FileScreens.QuestionWords(each).Text).ToList();
+                    var at = frame.Lines.Select(line => prompts.IndexOf(line.Words)).Where(index => index >= 0).DefaultIfEmpty(-1).First();
+                    if (at < 0 && prompts.Count == 1) at = 0;
+                    var rest = words.Where(line => !prompts.Contains(line.Words)).ToList();
+                    string? asks = null;
+                    if (ask.Confirming && rest.FindLastIndex(line => line.Words == WorkspaceText.ConfirmationPrompt(WorkspaceAction.Answer, null)) is int last && last >= 0)
+                    {
+                        asks = rest[last].Words;
+                        rest.RemoveAt(last);
+                    }
+                    PageLine? caption = null;
+                    if (!ask.Confirming && rest.Count > 0 && rest[0].Tone == LineTone.Secondary && ReferenceEquals(rest[0], words[0]))
+                    {
+                        caption = rest[0];
+                        rest.RemoveAt(0);
+                    }
+                    ask = new KitAsk(words, ask.Confirming, at >= 0 ? question.Prompts[at].Text : null, prompts.Count > 1, caption?.Words, rest, asks);
+                }
+            }
             else if (armed == WorkspaceAction.Answer) return null;
             // Send says what the frame says of it; with no Send on the frame, only why the connection keeps it.
             var said = Said(frame, workspace);

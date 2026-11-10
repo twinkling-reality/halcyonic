@@ -78,6 +78,33 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
+    /// A page counted in choices, for what stands a question's answers as actions of their own, as the redesign does
+    /// (DESIGN 2.9): each choice, the row to write an answer and the row to more choices takes one of its places, whatever
+    /// its words wrap to, and words that are not a choice (the question, its caption, a reason) take none, since they
+    /// stand elsewhere, whole.
+    /// </summary>
+    public sealed class ChoiceBudget : PageBudget
+    {
+        /// <param name="choices">The choices a page holds.</param>
+        public ChoiceBudget(int choices) => Choices = Math.Max(1, choices);
+
+        public int Choices { get; }
+
+        public override float Room => Choices;
+
+        /// <summary>Words take no place: any number of rows a page could hold, then none, so a count of the rows that fit ends.</summary>
+        public override float Words(int rows) => rows <= 64 ? 0f : float.MaxValue;
+
+        public override float Target(int rows = 1) => 1f;
+
+        public override float TargetGap => 0f;
+
+        public override float LineGap => 0f;
+
+        public override float GroupGap => 0f;
+    }
+
+    /// <summary>
     /// A page packed by height (<see cref="MenuPage"/>): a line of words a line's height, a target
     /// 48 dp or taller, 12 mm between targets, 8 dp between other lines of a group and a group's gap
     /// before the reason, against the most a

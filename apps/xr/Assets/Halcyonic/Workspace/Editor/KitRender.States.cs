@@ -626,7 +626,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <see cref="ApprovalCommand"/>, or running with nothing waiting, the agent app's every action offered.
         /// </summary>
         private static WorkspacePresentation SelectedWorkspace(bool waiting, QuestionView? asked = null, string? command = null, bool approvable = true,
-            CommandSubmissions? submissions = null)
+            CommandSubmissions? submissions = null, bool confirmAnswers = false)
         {
             const string at = Day + "09:03:00.000Z";
             var runtime = new RuntimeDescriptor
@@ -704,6 +704,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     new() { CommandType = CommandType.ExecutionRespondToApproval, Policy = PolicyCategory.ReviewRequired },
                     new() { CommandType = CommandType.ExecutionSendInstruction, Policy = PolicyCategory.LowConsequence },
+                    new() { CommandType = CommandType.ExecutionAnswerQuestion, Policy = confirmAnswers ? PolicyCategory.ReviewRequired : PolicyCategory.LowConsequence },
                 },
             });
             return WorkspacePresenter.Present(workstream, state, new ActivityLog(), live: true, submissions);

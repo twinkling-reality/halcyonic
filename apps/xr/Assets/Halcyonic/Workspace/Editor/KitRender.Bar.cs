@@ -35,6 +35,44 @@ namespace Halcyonic.XR.Workspace.Editor
             "33-ask", "33-ask-confirm-arriving", "33-ask-confirm", "33-ask-long", "33-ask-long-part", "33-ask-deny-only", "33-ask-sending",
         };
 
+        /// <summary>
+        /// The redesign's question (DESIGN 2.9; unit U2) on the same host, its prompt on the band of the agent's words: one
+        /// prompt before an answer is chosen, the answers in the panel's place; the answer given over Send Answer; several
+        /// prompts, the panel holding which it is and the choices in the column with Choose Any's marks; more answers than a
+        /// page holds; the answers' confirmation; Sending; and a prompt longer than the band's three lines, read by parts.
+        /// </summary>
+        private static readonly string[] QuestionStates =
+        {
+            "34-question", "34-question-review", "34-question-several", "34-question-more", "34-question-confirm", "34-question-sending", "34-question-long",
+        };
+
+        /// <summary>The design's own question, synthetic.</summary>
+        private const string QuestionPromptWords = "Which colour scheme should the game use?";
+
+        private const string QuestionLongWords = "Which colour scheme should the game use? The menu and the score board follow the same choice, the balloons keep their own "
+            + "colours either way, and the pause screen is dimmed in both. I can also follow the headset's own setting, which changes with the room's light, if neither "
+            + "fits: say which you want, and whether the choice should hold for every level or only for this one, before I change the files.";
+
+        private static QuestionView QuestionFor(string state)
+        {
+            QuestionOption Option(string label, string? description = null) => new QuestionOption { Label = label, Description = description };
+            var scheme = new QuestionPrompt
+            {
+                Key = "scheme", Header = "Colour scheme", Text = state == "34-question-long" ? QuestionLongWords : QuestionPromptWords,
+                Options = new List<QuestionOption> { Option("Light", "Dark text on a light background"), Option("Dark", "Light text on a dark background") },
+            };
+            if (state == "34-question-more")
+                scheme.Options = new List<QuestionOption> { Option("Light"), Option("Dark"), Option("Sepia", "Warm paper tones"), Option("High Contrast"), Option("Pastel"), Option("Follow the Headset") };
+            var prompts = new List<QuestionPrompt> { scheme };
+            if (state == "34-question-several")
+                prompts.Add(new QuestionPrompt
+                {
+                    Key = "screens", Header = "Screens", Text = "Which screens should change?", Multiple = true,
+                    Options = new List<QuestionOption> { Option("Menu"), Option("Score Board", "The best scores of the day"), Option("Pause Screen") },
+                });
+            return new QuestionView { QuestionId = "synthetic-question-scheme", Answerable = true, AskedAt = Day + "09:03:10.000Z", Prompts = prompts };
+        }
+
         /// <summary>The design's own request, synthetic.</summary>
         private const string AskCommand = "rm backup/old-game.js";
 
@@ -72,8 +110,16 @@ namespace Halcyonic.XR.Workspace.Editor
         private static Shot BarShot(string state, Transform root, Vector3 eyes)
         {
             var asking = AskStates.Contains(state);
+            var questioning = QuestionStates.Contains(state);
             var (voice, sent, expected, caption) = state switch
             {
+                "34-question" => (VoiceStage.Idle, false, RoomBarState.Question, "A question: its prompt on the band, the answers in the panel's place, synthetic data"),
+                "34-question-review" => (VoiceStage.Idle, false, RoomBarState.Question, "The answer given, over Send Answer, synthetic data"),
+                "34-question-several" => (VoiceStage.Idle, false, RoomBarState.Question, "The second of two questions, any number to choose: which it is in the panel, the choices beside it, synthetic data"),
+                "34-question-more" => (VoiceStage.Idle, false, RoomBarState.Question, "More answers than a page holds: More Choices, synthetic data"),
+                "34-question-confirm" => (VoiceStage.Idle, false, RoomBarState.Question, "Send Answer pressed: Send Answers?, Confirm behind its lock, and Cancel, synthetic data"),
+                "34-question-sending" => (VoiceStage.Idle, false, RoomBarState.Question, "The answer sent: Sending, no action, synthetic data"),
+                "34-question-long" => (VoiceStage.Idle, false, RoomBarState.Question, "A long question read by parts on the band: Next Part, synthetic data"),
                 "33-ask" => (VoiceStage.Idle, false, RoomBarState.Request, "An approval asked: the request in mono, Run Command?, Approve and Deny, synthetic data"),
                 "33-ask-confirm-arriving" => (VoiceStage.Idle, false, RoomBarState.Request, "Approve pressed: Confirm on its arrival behind its lock, and Cancel, synthetic data"),
                 "33-ask-confirm" => (VoiceStage.Idle, false, RoomBarState.Request, "Approve pressed, the lock passed: Confirm and Cancel, synthetic data"),
@@ -99,10 +145,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 "33-ask-long" or "33-ask-long-part" => SelectedWorkspace(waiting: true, command: AskLongCommand),
                 "33-ask-deny-only" => SelectedWorkspace(waiting: true, command: AskCommand + " [truncated]", approvable: false),
                 _ when asking => SelectedWorkspace(waiting: true, command: AskCommand),
+                _ when questioning => SelectedWorkspace(waiting: true, asked: QuestionFor(state), confirmAnswers: state == "34-question-confirm"),
                 _ => Running(ShortReport()),
             };
             var steering = new WorkspaceSteering(factory, () => DateTimeOffset.UtcNow);
-            var screen = new FileScreen { Section = asking ? FileSection.Waiting : FileSection.Activity, Speak = true };
+            var screen = new FileScreen { Section = asking || questioning ? FileSection.Waiting : FileSection.Activity, Speak = true };
             // The host stands first: under a confirmation the file counts what is read by the panel's own lines, as the director has it do.
             var host = KitWorkspaceHost.Create(root);
             int? requestRows = null;
@@ -119,6 +166,54 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (steering.Press(WorkspaceAction.Approve, workspace).Step != SteeringStep.Confirm) shot.Failures.Add("Approve did not ask for its confirmation");
                 Read(steering.ToRead(workspace)!, instruction: false, RoomBar.RequestLines);
                 if (state == "33-ask-long-part" && screen.RequestParts < 2) shot.Failures.Add("the long request is one part of " + screen.RequestRows + " lines");
+            }
+            if (questioning)
+            {
+                // The question laid as the file lays it while the redesign draws it: every word whole, four choices a page; then
+                // read, answered and turned as the person does it, each page drawn before its press.
+                var question = workspace.QuestionToAnswer!;
+                var draft = new QuestionDraft(workspace.Execution!.ExecutionId, question);
+                var ones = question.Prompts.Select(prompt => new PromptMeasure(1, prompt.Options.Select(_ => 1).ToList(), prompt.Options.Select(_ => 1).ToList())).ToList();
+                var page = new ChoiceBudget(RoomBar.ChoicesAPage);
+                var at = DateTimeOffset.UtcNow;
+                void Lay()
+                {
+                    screen.ReadQuestion(draft, ones, page, page);
+                    screen.Question.MeasureReview(question.Prompts.Select(_ => 1).ToList());
+                }
+                void Seen()
+                {
+                    Lay();
+                    FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4));
+                    screen.Question.Drawn(at);
+                    at += TimeSpan.FromSeconds(1);
+                }
+                Lay();
+                if (state is "34-question-review" or "34-question-several" or "34-question-confirm" or "34-question-sending")
+                {
+                    Seen();
+                    screen.Question.Choose(1);
+                    Seen();
+                    screen.Question.NextQuestion(at);
+                    Seen();
+                }
+                if (state == "34-question-several")
+                {
+                    screen.Question.Choose(1);
+                    Seen();
+                }
+                if (state == "34-question-confirm" && steering.SendAnswer(screen, workspace).Step != SteeringStep.Confirm) shot.Failures.Add("Send Answer did not ask for its confirmation");
+                if (state == "34-question-sending")
+                {
+                    var going = steering.SendAnswer(screen, workspace);
+                    if (going.Step != SteeringStep.Send) shot.Failures.Add("Send Answer did not send: " + going.Step + " " + going.Message);
+                    else
+                    {
+                        var submissions = new CommandSubmissions();
+                        _ = submissions.SubmitAsync(_ => new System.Threading.Tasks.TaskCompletionSource<CommandAckMessage>().Task, going.Command!, workspace.Execution.ExecutionId);
+                        workspace = SelectedWorkspace(waiting: true, asked: question, submissions: submissions);
+                    }
+                }
             }
             if (state == "33-ask-sending")
             {
@@ -169,19 +264,23 @@ namespace Halcyonic.XR.Workspace.Editor
             host.MicLevel = () => recorded;
             var acted = new List<string>();
             host.Acted += (_, action, _, _, _) => acted.Add(action);
+            var drawnFrames = 0;
+            host.Drawn += (_, _) => drawnFrames++;
             var was = RoomDesign.Enabled;
             RoomDesign.Enabled = true;
             try
             {
                 Require(host.Holds(binding), "the host does not hold the frame");
                 host.Show(binding, MenuColumn.File, new object());
+                // A question's frame is reported drawn as a frame would report it, with the redesign still on: not while the band holds an unread part.
+                if (questioning) host.DrawnForRender();
+                else host.SettleForRender();
             }
             finally { RoomDesign.Enabled = was; }
-            host.SettleForRender();
             var bar = host.Bar;
             // Confirm's lock: on its arrival the ring is part filled and it takes no press; 0.7 s on it is the main action.
             if (state == "33-ask-confirm-arriving") bar.AgeLockForRender(0.42f * RoomBar.ConfirmLockSeconds);
-            if (state == "33-ask-confirm")
+            if (state is "33-ask-confirm" or "34-question-confirm")
             {
                 // The lock lifted is a new action, which waits as any other before it takes a press: settled again for the render.
                 bar.AgeLockForRender(RoomBar.ConfirmLockSeconds);
@@ -239,13 +338,30 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     // The panel: DESIGN's translucent tonal material, 440 dp wide, the person's words whole, the sentence in its bar.
                     var panel = bar.Panel;
-                    Require(panel.gameObject.activeSelf && panel.Glass.gameObject.activeSelf && panel.Glass.sharedMaterial != null
+                    Require(panel.gameObject.activeSelf != shown.Wide, shown.Wide ? "a panel stands with nothing from the computer to say" : "the panel is not drawn");
+                    Require(shown.Wide || panel.Glass.gameObject.activeSelf && panel.Glass.sharedMaterial != null
                         && panel.Glass.sharedMaterial.shader.name == "Halcyonic/Room Glass", "the panel is not drawn in the room's material");
                     var look = Halcyonic.XR.UI.RoomSurface.Looks(panel.Kind);
                     Require(look.FillTop.a < 1f && !look.Shadow && look.EdgeDp > 0f, "the panel is not DESIGN's translucent tonal layer with a hairline and no shadow");
-                    Require(Mathf.Abs(panel.Size.x - RoomType.Units(RoomGeometry.PanelDp)) < Tolerance, "the panel is not 440 dp wide");
+                    Require(shown.Wide || Mathf.Abs(panel.Size.x - RoomType.Units(RoomGeometry.PanelDp)) < Tolerance, "the panel is not 440 dp wide");
                     Whole(bar.Body, "the panel's words");
-                    Require(asking || bar.Body.text.Length == 0 || bar.Body.text.Contains(BarDraft.Substring(0, 20)), "the panel does not hold the person's words");
+                    Require(asking || questioning || bar.Body.text.Length == 0 || bar.Body.text.Contains(BarDraft.Substring(0, 20)), "the panel does not hold the person's words");
+                    Require(bar.BodyWaits == (shown.Waits && shown.Sentence == null && !shown.Mono), "the panel's one line does not sweep with the state under way");
+                    if (questioning)
+                    {
+                        // The agent's words stand on the band and nowhere else; the panel holds only the computer's own.
+                        var prompt = workspace.QuestionToAnswer!.Prompts[state == "34-question-several" ? 1 : 0].Text;
+                        var band = host.Band;
+                        Require(shown.Band == prompt && band.Words != null && RoomWords.Laid(prompt).Replace("\n", " ").StartsWith(band.Text.Replace("\n", " ").Trim(), StringComparison.Ordinal) && band.Text.Length > 0,
+                            "the band reads \"" + band.Text + "\", not the prompt");
+                        foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
+                            Require(!(label.text ?? "").Contains(prompt.Substring(0, 16)), "the agent's words stand off the band, in " + label.name);
+                        Require(band.transform.localPosition.y < bar.transform.localPosition.y - bar.Size.y / GlazeText.Scale / 2f + 1e-4f, "the band does not hang under the pair's foot line");
+                        var parted = state == "34-question-long";
+                        Require((bar.BandNextButton != null) == parted, parted ? "no way to the band's next part" : "a way to a next part the band does not have");
+                        Require((drawnFrames == 0) == parted, parted ? "a question still holding an unread part was reported drawn" : "the question's frame was not reported drawn");
+                        if (parted) Require(bar.BandNextButton!.LookNow() == RoomButtonLook.Main && band.Words!.Next == bar.BandNextButton.Words.text.Replace("\\\\", "\\"), "the next part is not the way on, in the band's words");
+                    }
                     if (armedWords != null)
                     {
                         // The confirmation reads exactly the words that will be sent: as the label parses them, each backslash once (AUDIT, 2026-11-10).
@@ -277,7 +393,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(request.textInfo.lineCount <= RoomBar.RequestLines, "the request stands " + request.textInfo.lineCount + " lines, past the panel's eight");
                         if (longer) Require(request.textInfo.lineCount == RoomBar.RequestLines, "a long request does not show eight lines of it");
                     }
-                    Require(bar.SentenceWaits == shown.Waits, "the sentence's sweep does not follow the state under way");
+                    Require(bar.SentenceWaits == (shown.Waits && shown.Sentence != null), "the sentence's sweep does not follow the state under way");
                     Require((panel.InnerBar != null) == (shown.Sentence != null), "the sentence bar does not follow the sentence");
                     if (shown.Sentence != null)
                     {
@@ -286,7 +402,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     Require(bar.CaretShown == shown.Caret, "the caret does not follow the field");
                     // The column: its actions left-aligned, the main one first, the last one's foot on the panel's foot.
-                    var drawn = bar.Column.Where(button => button.gameObject.activeSelf).ToList();
+                    var drawn = bar.Column.Where(button => button.gameObject.activeSelf && !ReferenceEquals(button, bar.BandNextButton)).ToList();
                     actions.AddRange(drawn);
                     Require(drawn.Count == shown.Column.Count, drawn.Count + " actions drawn for " + shown.Column.Count);
                     for (var index = 0; index < drawn.Count && index < shown.Column.Count; index++)
@@ -297,11 +413,13 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(locked == (state == "33-ask-confirm-arriving" && shown.Column[index].Locks), drawn[index].Words.text + (locked ? " stands locked" : " stands unlocked"));
                         if (locked) Require(drawn[index].LockProgress is float ring && Mathf.Abs(ring - 0.42f) < 1e-3f && !drawn[index].Available, "Confirm's ring is not part filled, or it takes a press");
                         else Require(drawn[index].LockProgress == null && drawn[index].Available, drawn[index].Words.text + " keeps a ring or takes no press");
-                        Require(drawn[index].Glyph.gameObject.activeSelf, drawn[index].Words.text + " has no glyph in its chip");
+                        var marked = shown.Column[index].Mark != AnswerMark.None;
+                        Require(drawn[index].Mark == shown.Column[index].Mark && drawn[index].Chosen == shown.Column[index].Chosen, drawn[index].Words.text + " carries another mark");
+                        Require(drawn[index].Glyph.gameObject.activeSelf == (!marked || shown.Column[index].Chosen), drawn[index].Words.text + (marked ? " shows a check it has not got" : " has no glyph in its chip"));
                         Require(drawn[index].LookNow() == (shown.Column[index].Main && !locked ? RoomButtonLook.Main : RoomButtonLook.Rest), drawn[index].Words.text + " shows " + drawn[index].LookNow());
                         Whole(drawn[index].Words, drawn[index].Words.text);
                     }
-                    if (drawn.Count > 0)
+                    if (drawn.Count > 0 && !shown.Wide && bar.BandNextButton == null)
                     {
                         var lastFoot = drawn[drawn.Count - 1].transform.localPosition.y - drawn[drawn.Count - 1].Core.y / 2f;
                         var panelFoot = panel.transform.localPosition.y - panel.Size.y / 2f;
@@ -333,9 +451,11 @@ namespace Halcyonic.XR.Workspace.Editor
             shot.Centre = Place(host.transform, eyes, 0f, shot.Elevation);
             host.transform.localScale *= GlazeText.Scale;
             Stand(shot, host.transform, eyes, new KitCarrier[0], host.Size * GlazeText.Scale);
-            var half = bar.Size / 2f;
+            // What must stand inside the field: the instruction, and with a question the band under it (the host's whole extent).
+            var half = questioning ? host.Size / 2f : bar.Size / 2f;
+            var extent = questioning ? host.transform : bar.transform;
             foreach (var corner in new[] { new Vector3(-half.x, -half.y, 0f), new Vector3(half.x, -half.y, 0f), new Vector3(-half.x, half.y, 0f), new Vector3(half.x, half.y, 0f) })
-                shot.Corners.Add(bar.transform.TransformPoint(corner));
+                shot.Corners.Add(extent.TransformPoint(corner));
             shot.Targets.Add(("the instruction", bar.transform, bar.Presses.ToList()));
             // The one sheen: a 2 s pass with its peak at the middle, then 8 s of rest; none kept still.
             var stillWas = GlazeMotion.Still;
@@ -375,7 +495,21 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     expectedActions.Add(control.Action);
                 }
-                if (state == "33-ask-sending" && bar.Column.Any(button => button.gameObject.activeSelf)) failures.Add(state + ": an action stands while the answer is on its way");
+                if (state is "33-ask-sending" or "34-question-sending" && bar.Column.Any(button => button.gameObject.activeSelf)) failures.Add(state + ": an action stands while the answer is on its way");
+                if (bar.BandNextButton is RoomButton turning)
+                {
+                    // The band's next part is pressed as any action: the band turns, and with its last part showing the frame counts as drawn.
+                    var designWas = RoomDesign.Enabled;
+                    RoomDesign.Enabled = true;
+                    try
+                    {
+                        turning.Press.PressForRender(590);
+                        host.DrawnForRender();
+                    }
+                    finally { RoomDesign.Enabled = designWas; }
+                    if (host.Band.Words is not { Part: 1 }) failures.Add(state + ": the press did not turn the band to its next part");
+                    if (host.Band.Words is { More: false } && drawnFrames == 0) failures.Add(state + ": the question read to its last part was not reported drawn");
+                }
                 foreach (var action in expectedActions)
                     if (!acted.Contains(action)) failures.Add(state + ": a press did not take the file's " + action + "; took " + string.Join(", ", acted));
                 Debug.Log("Halcyonic: spatial kit: " + state + ": " + bar.Shown?.State + ", " + bar.Size.x.ToString("0.0000") + " by " + bar.Size.y.ToString("0.0000")

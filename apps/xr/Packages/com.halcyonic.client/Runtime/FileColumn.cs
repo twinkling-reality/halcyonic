@@ -57,6 +57,7 @@ namespace Halcyonic.Client
         private TextSize budgetAt;
         private QuestionDraft? draft;
         private QuestionDraft? measuredFor;
+        private bool measuredWhole;
         private TextSize measuredAt;
         private IReadOnlyList<PromptMeasure>? measures;
         private bool presets;
@@ -954,7 +955,7 @@ namespace Halcyonic.Client
                 Screen.MeasurePresets(Screen.Presets.Select((preset, index) => Math.Min(2, host.RowsOf(FileScreens.PresetLine(preset, index, recordedPresets), Glaze.Menu.FileColumnDegrees))).ToList(), budget,
                     notice == null ? 0 : host.RowsOf(new PageLine(notice, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             }
-            if (draft != null) ReadQuestion(draft, budget);
+            if (draft != null) ReadQuestion(draft, QuestionBudgetOf?.Invoke() is PageBudget choices ? choices : budget, QuestionBudgetOf?.Invoke() != null);
             Screen.ShowTaskHereOffered = CanShowTaskHere();
             if (Screen.ShowTaskHereOffered) Screen.ShowTaskHereRows = Math.Max(1, host.RowsOf(new PageLine(FileScreens.ShowTaskHereWords, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             Screen.ShowScreenOffered = CanShowScreen();
@@ -1051,14 +1052,18 @@ namespace Halcyonic.Client
         /// The agent's question measured as the view wraps it at the file's and the side panel's widths:
         /// every prompt and every answer, and the typed answers and the person's answers as they read now.
         /// </summary>
-        private void ReadQuestion(QuestionDraft asked, PageBudget page)
+        private void ReadQuestion(QuestionDraft asked, PageBudget page, bool whole = false)
         {
             const float File = Glaze.Menu.FileColumnDegrees;
             const float Side = Glaze.Menu.SideColumnDegrees;
-            if (measuredFor != asked || measuredAt != host.TextSize || measures == null)
+            if (measuredFor != asked || measuredAt != host.TextSize || measures == null || measuredWhole != whole)
             {
+                measuredWhole = whole;
                 measures = asked.Prompts.Select((prompt, index) =>
                 {
+                    // Where what draws the question stands every word of it whole (QuestionBudgetOf), each takes one row: nothing is cut,
+                    // so nothing needs a part or a side panel to be read.
+                    if (whole) return new PromptMeasure(1, prompt.Options.Select(_ => 1).ToList(), prompt.Options.Select(_ => 1).ToList());
                     return new PromptMeasure(
                         host.RowsOf(new PageLine(FileScreens.QuestionWords(prompt)), File),
                         Enumerable.Range(0, prompt.Options.Count).Select(option => host.RowsOf(FileScreens.OptionRow(prompt, option), File)).ToList(),
@@ -1075,7 +1080,8 @@ namespace Halcyonic.Client
             for (var prompt = 0; prompt < asked.Prompts.Count; prompt++)
             {
                 if (!(asked.Typed(prompt) is string typed)) continue;
-                Screen.Question.MeasureTyped(prompt,
+                if (whole) Screen.Question.MeasureTyped(prompt, 1, 1);
+                else Screen.Question.MeasureTyped(prompt,
                     host.RowsOf(FileScreens.SelectedTypedLine(typed), File),
                     host.RowsOf(FileScreens.SideAnswerLine(null, typed), Side));
             }
@@ -1084,7 +1090,7 @@ namespace Halcyonic.Client
             if (asked.Prompts.Count > 0)
             {
                 Screen.Question.MeasureReview(Enumerable.Range(0, asked.Prompts.Count)
-                    .Select(prompt => host.RowsOf(FileScreens.ReviewRow(asked, prompt), File))
+                    .Select(prompt => whole ? 1 : host.RowsOf(FileScreens.ReviewRow(asked, prompt), File))
                     .ToList());
             }
         }
@@ -1102,6 +1108,13 @@ namespace Halcyonic.Client
         /// own lines, <see cref="RoomBar.RequestLines"/>); null, or unset, leaves them to the page's room.
         /// </summary>
         public Func<int?>? RequestPartRowsOf { get; set; }
+
+        /// <summary>
+        /// The page a question is laid on where what draws it gives the page itself and stands every word whole, as the
+        /// redesign does (a <see cref="ChoiceBudget"/> of <see cref="RoomBar.ChoicesAPage"/>): the question, each answer and
+        /// each answer given then count one row, so none is cut. Null, or unset, leaves both to the file's own page and measure.
+        /// </summary>
+        public Func<PageBudget?>? QuestionBudgetOf { get; set; }
 
         /// <summary>The rows of a request a part shows, beside the part's row and a question of <paramref name="askingRows"/> rows, at most two.</summary>
         public static int RequestPartRows(int askingRows, PageBudget page)

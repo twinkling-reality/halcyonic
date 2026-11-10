@@ -2578,11 +2578,36 @@ The last unit turns it on by default and removes the kit parts it replaced.
   the answer may still take effect (`ApprovalInFlight`, the frame's Sending prompt, `KitPlace.Sending`) the sentence
   bar reads Sending, sweeping, and the column is empty, until `runtime.approval.resolved` takes the approval away. A
   confirmation that lapses reads in the sentence bar in the product's words (Not Sent · Confirm Timed Out · Press
-  Again and the others), with both answers back. Before its answer a request shows its first eight lines
-  (`RoomBar.RequestLines`), the same lines its confirmation's first part shows; a longer one is read whole under its
-  confirmation, as the file's own page has it. The page's notes (where an approved command runs, how many requests wait) are left out, as the
+  Again and the others), with both answers back. **The rule for a long request: it is read once, under its
+  confirmation.** Before its answer a request shows its first eight lines (`RoomBar.RequestLines`), the same lines its
+  confirmation's first part shows, with Approve and Deny; the product's read rule lives after the answer is pressed
+  (every arming is read afresh, part by part, before Confirm), so paging before Approve as well would have the person
+  read a long command twice, and no view keeps a reading state of its own. The page's notes (where an approved command runs, how many requests wait) are left out, as the
   spec leaves them. With the redesign on, `FileColumn` turns the file to Waiting the moment something waits, since
   the redesign has no sections to choose from.
+- **Unit U2, a question** (BUILD-SPEC-v4 2.9, 1.4, 1.6): `RoomBarState.Question`, bound to the file's own question
+  pages (`KitAsk`, with what the redesign reads of a page apart: `Prompt`, `Several`, `Caption`, `Body`, `Asks`) and
+  sending only through the file's actions. The prompt, the agent's own words, stands on FIELD's band low in the view
+  (`RoomBand`, owned by `KitWorkspaceHost`, hung `BandUnderDp` under the pair's foot line and centred), never in the
+  panel. Each answer is a floating action with its mark in the chip's place (`RoomAction.Mark`, `RoomButton`: a 22 dp
+  circle for one of several, a squircle box where any number may be chosen, the chosen one a light disc or box with a
+  dark check; the shader's `_Mark`), its words "{label} · {description}", wrapped inside the panel's width (440 dp) and,
+  where a line would end in the separator, broken there, the dot dropped (WORDS rule 2). With one prompt and nothing from the computer to say
+  there is no panel and the choices take its place, as wide as it (`RoomBar.Wide`); with several the panel holds the
+  file's caption (Question 1 of 2 · Choose One) and the choices stand in the column. After the answers come the
+  file's own rows and prompts in its order: Write Answer, More Choices, the way on as the main action once the file
+  offers it (Next Question, Review Answers, Send Answer) and the way back. The file's page of the person's answers
+  reads as each answer given, chosen, its press back to its question, over Send Answer. Where the policy asks, Send
+  Answer arms the file's confirmation: what goes in the panel, Send Answers? in its sentence bar, Confirm behind its
+  lock and Cancel; `execution.answer_question` goes only on that Yes, and while it may still take effect the panel
+  reads Sending and no action stands. While the redesign draws the file, the file lays a question for it
+  (`FileColumn.QuestionBudgetOf`, a `ChoiceBudget` of `RoomBar.ChoicesAPage`, four): every word counts one row, so no
+  question or answer is cut or sent to a side panel, and four choices make a page, more behind the file's More
+  Choices. A prompt longer than the band's three lines is read by parts there (the band's own Next Part · 2 of 3, the
+  column's last action and the main one while the file offers no way on), and the host reports the frame drawn only
+  once the band shows its last part, so the file takes the question as read only then. A page offering more than the
+  column's six actions, the page that writes an answer and the page that explains two answers reading alike have no
+  place yet and stay the file's own.
 - **The level is the microphone's** (the lead's truth rule): `HoldToTalk` reads the last 50 ms it recorded every 50 ms
   into `LevelHistory` (client core: the RMS, -54 to -12 dBFS, 26 bars, newest at the right), and Listening draws 26 bars
   of it 4 dp after its words inside its halo, drawn once and scaled so a frame draws nothing. A release build records
@@ -2596,7 +2621,10 @@ The last unit turns it on by default and removes the kit parts it replaced.
   reaching the file's Tell it, keyboard, Confirm and Cancel; `32-actions` for every look; `33-ask`,
   `33-ask-confirm-arriving` (the ring part filled, no press taken), `33-ask-confirm`, `33-ask-long`,
   `33-ask-long-part`, `33-ask-deny-only` and `33-ask-sending` for the approval: the request in mono, whole lines, the
-  tool's name never in it, the sentence, the sweep, the lock and each press reaching the file's own control.
+  tool's name never in it, the sentence, the sweep, the lock and each press reaching the file's own control; and
+  `34-question`, `-review`, `-several`, `-more`, `-confirm`, `-sending` and `-long` for the question: the prompt on
+  the band and in no other label, the band under the pair's foot line, each mark and its check, no panel where the
+  computer has nothing to say, and a long prompt's frame not reported drawn until its last part shows.
   `LevelHistoryTests` and `RoomBarTests` in the client suite; `FileColumnTests` drives the redesign's Approve and
   Confirm through a file column and reads the one command sent. Development builds: `halcyonic.draft` and
   `halcyonic.heard` (`CapturePresets`) open the instruction holding one fixed synthetic draft, typed or as if heard.
