@@ -95,12 +95,12 @@ it. Work on the audit stopped on 2026-11-04; those marked "next" were the ones i
 - **The check reads its source and input layer by path after looking at them (AUDIT S3).** The source scan and the
   comparison of the input layer with the template's (`scan.ts`, `laptop-probe.ts`) `lstat` a file, then read it by
   path, so a file or a folder above it swapped for a link in between is read through; only line numbers and whether
-  the layer matches leave them. Next: open each refusing a link anywhere in its path and judge what was opened, as
-  the catalog's read of a folder's origin now does (7dea9602, INTEGRATION).
+  the layer matches leave them. Fixed on 2026-11-10 (JUDGE): each is opened once refusing a link anywhere in its
+  path and judged and read through that handle (`readNoLink`, `scan.ts`), as the catalog's read of a folder's origin does.
 - **A cookie another port's page plants keeps the person out of a play's viewer (AUDIT S2).** The viewer reads
   only the first cookie of its name, and a page on another 127.0.0.1 port can set one of that name for a longer path,
-  which the browser sends first; the viewer then refuses its own stream. Denial only, nothing leaks. Next: take a
-  match among every cookie of the name.
+  which the browser sends first; the viewer then refused its own stream. Denial only, nothing leaks. Fixed on
+  2026-11-10 (JUDGE): the viewer accepts when any cookie of its name is its session.
 - **The viewer's one-time link travels in `/usr/bin/open`'s arguments (AUDIT S4).** Every account on the Mac can
   read another's process arguments, so one that catches the link in that moment can trade its code first and watch
   the play; the person then sees that the link was used. Next: hand the link to LaunchServices without a command

@@ -1,6 +1,8 @@
-import { lstat, readdir, readFile } from 'node:fs/promises';
+import { constants, type Stats } from 'node:fs';
+import { lstat, open, readdir } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import type { CheckNoteKind, CheckNotes } from '@halcyonic/contracts';
+import { NO_LINK } from '../observer/file-observer.ts';
 
 /** How much of a project's source the scan reads; at any of these it stops and says it was partial. */
 export const SCAN_LIMITS = { files: 500, bytes: 1024 * 1024, depth: 20, entries: 5000 } as const;
@@ -75,7 +77,7 @@ export async function scanSource(project: string): Promise<CheckNotes> {
       if (LAYER.has(path)) continue;
       files += 1;
       if (files > SCAN_LIMITS.files || info.size > SCAN_LIMITS.bytes) return stop();
-      const text = await readFile(full, 'utf8').catch(() => null);
+      const text = (await readNoLink(full, info, SCAN_LIMITS.bytes))?.toString('utf8') ?? null;
       if (text === null) {
         partial = true;
         continue;
@@ -97,4 +99,43 @@ export async function scanSource(project: string): Promise<CheckNotes> {
   if (info === null || !info.isDirectory()) return { scanned: 'partial', items: [] };
   await visit(source, 0);
   return { scanned: partial ? 'partial' : 'full', items };
+}
+
+/**
+ * The file at `path` as the check looked at it (`seen`, its `lstat`), or null: opened once without
+ * waiting on a pipe and without following a link, on macOS anywhere in its path (`NO_LINK`), then
+ * judged and read through that one handle, so a file or a folder above it swapped for a link, or the
+ * file swapped for another, after the look is never read through (AUDIT S3). At most `maxBytes`.
+ */
+export async function readNoLink(
+  path: string,
+  seen: Stats,
+  maxBytes: number,
+): Promise<Buffer | null> {
+  const file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK | NO_LINK).catch(
+    () => null,
+  );
+  if (file === null) return null;
+  try {
+    const opened = await file.stat();
+    if (
+      !opened.isFile() ||
+      opened.ino !== seen.ino ||
+      opened.dev !== seen.dev ||
+      opened.size > maxBytes
+    )
+      return null;
+    const buffer = Buffer.alloc(opened.size + 1);
+    let length = 0;
+    while (length < buffer.length) {
+      const { bytesRead } = await file.read(buffer, length, buffer.length - length, length);
+      if (bytesRead === 0) break;
+      length += bytesRead;
+    }
+    return length > maxBytes ? null : buffer.subarray(0, length);
+  } catch {
+    return null;
+  } finally {
+    await file.close();
+  }
 }
