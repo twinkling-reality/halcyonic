@@ -105,7 +105,7 @@ namespace Halcyonic.Client
     /// information panel holds the words, its sentence bar the one thing to say, the column the actions. An action that cannot
     /// act is not drawn; where none can, the reason stands as words alone.
     /// </summary>
-    public sealed class RoomBar
+    public sealed partial class RoomBar
     {
         /// <summary>The words of the action that opens the instruction to type: the redesign's own.</summary>
         public const string Type = "Type";
@@ -209,28 +209,6 @@ namespace Halcyonic.Client
 
         /// <summary>The words of the action that opens the offered instructions where no keyboard is offered: the product's own.</summary>
         public const string ChooseInstruction = FileScreens.ChooseAnInstruction;
-
-        /// <summary>
-        /// The offered instructions (DESIGN 2.1), every action the file's own control: each instruction a choice, by the
-        /// product's short name where it is one of its own (Continue, Summarize, Run Checks Again), else its words, the one
-        /// chosen marked; the file's row to more of them; Review Instruction, the main action, once one is chosen (it opens
-        /// the draft with the very words, which send only from there); and Cancel. A notice of the file's stands in the panel.
-        /// </summary>
-        private static RoomBar Choosing(KitFileBinding binding, IReadOnlyList<KitControl> offered)
-        {
-            var column = new List<RoomAction>();
-            foreach (var control in offered.Where(control => control.Available))
-            {
-                var own = WorkspaceText.PresetInstructions.FirstOrDefault(preset => WorkspaceText.OneLine(preset.Text) == control.Words);
-                column.Add(new RoomAction(control, main: false, own?.Label, mark: AnswerMark.Single, chosen: control.Chosen));
-            }
-            foreach (var step in binding.Controls.Where(control => control.Place == KitPlace.Step && control.Available))
-                column.Add(new RoomAction(step, main: false, icon: step.Icon ?? GlazeIcon.Next));
-            if (binding[KitPlace.Field] is { Available: true } review) column.Add(new RoomAction(review, main: true));
-            if (binding[KitPlace.Back] is { Available: true } cancel) column.Add(new RoomAction(cancel, main: false));
-            var says = binding.Model.Said.LastOrDefault(line => line.Action == null);
-            return new RoomBar(RoomBarState.Choose, body: says?.Runs, column: column, wide: says == null);
-        }
 
         /// <summary>
         /// A question (DESIGN 2.9), every action the file's own control, in the file's order: each answer with its mark, the
@@ -362,8 +340,28 @@ namespace Halcyonic.Client
             return new RoomBar(RoomBarState.Request, body: body, sentence: sentence, column: column, mono: mono);
         }
 
-        /// <summary>The redesign's view of <paramref name="binding"/>, the file's frame, with voice as it stands and whether the run waits to start.</summary>
+        /// <summary>
+        /// The redesign's view of <paramref name="binding"/>, the file's frame, with voice as it stands and whether the run
+        /// waits to start: what the task's own loop makes of it (<see cref="Tasks"/>), unless a moment outside that loop
+        /// answers for the frame (<see cref="Moments"/>, asked in their order, the first that answers).
+        /// </summary>
         public static RoomBar Of(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart)
+        {
+            var tasks = Tasks(binding, voice, sentAwaitingStart);
+            foreach (var moment in Moments)
+                if (moment(binding, voice, tasks) is RoomBar own)
+                {
+                    own.FromMoment = true;
+                    return own;
+                }
+            return tasks;
+        }
+
+        /// <summary>Whether a moment outside the task's own loop made this (<see cref="Moments"/>).</summary>
+        public bool FromMoment { get; private set; }
+
+        /// <summary>The task's own loop: the row at rest, talking, a draft, a confirmation, an approval, a question, what was sent.</summary>
+        private static RoomBar Tasks(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart)
         {
             var model = binding.Model;
             if (model.Need is KitNeed need) return Asked(binding, need);
@@ -371,8 +369,6 @@ namespace Halcyonic.Client
             if (model.Ask is KitAsk ask) return ask.Lines.Count > 0 && (ask.Prompt != null || ask.Caption != null || ask.Body.Count > 0 || ask.Asks != null)
                 ? Asking(binding, ask, voice) : new RoomBar(RoomBarState.Hidden);
             KitControl? Available(KitPlace place) => binding[place] is KitControl control && control.Available ? control : null;
-            var offered = binding.Controls.Where(control => control.Place == KitPlace.Choice && control.Action == FileScreens.Preset).ToList();
-            if (offered.Count > 0) return Choosing(binding, offered);
             var talk = binding[KitPlace.Talk];
             var field = binding[KitPlace.Field];
             var composing = field != null && field.Action == FileScreens.EditInstruction;

@@ -45,6 +45,7 @@ public class RoomBarTests
         var binding = Bind(workspace, new WorkspaceSteering(factory), new FileScreen { Section = FileSection.Activity, Speak = true });
         var rest = RoomBar.Of(binding, VoiceStage.Idle, sentAwaitingStart: false);
         Assert.That((rest.State, rest.Pair), Is.EqualTo((RoomBarState.Rest, false)));
+        Assert.That(rest.FromMoment, Is.False, "the row at rest is the task's own loop");
         Assert.That(Actions(rest.Row), Is.EqualTo(new[] { (KitPlace.Talk, "Hold to Talk", true), (KitPlace.Field, "Type", false) }));
         Assert.That(rest.Row[1].Control.Action, Is.EqualTo(FileScreens.TellIt), "Type opens the file's own instruction");
 

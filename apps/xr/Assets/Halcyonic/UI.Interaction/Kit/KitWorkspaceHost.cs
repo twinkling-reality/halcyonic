@@ -183,9 +183,9 @@ namespace Halcyonic.XR.UI
             // A question's page the redesign reads, with no more actions than its column holds; any other stays the file's own.
             if (RoomDesign.Enabled && model.Ask != null)
                 return RoomBar.Of(binding, Voice(), AwaitingStart()) is { State: RoomBarState.Question } asking && asking.Column.Count <= RoomBarView.ColumnMost;
-            // The offered instructions, likewise.
-            if (RoomDesign.Enabled && RoomBar.Of(binding, Voice(), AwaitingStart()) is { State: RoomBarState.Choose } choosing)
-                return choosing.Column.Count <= RoomBarView.ColumnMost;
+            // A moment outside the task's loop that draws the pair (the offered instructions, and any in RoomBar.Moments), likewise.
+            if (RoomDesign.Enabled && RoomBar.Of(binding, Voice(), AwaitingStart()) is { FromMoment: true, Pair: true } moment)
+                return moment.Column.Count <= RoomBarView.ColumnMost;
             if (RoomDesign.Enabled && (model.Instruction != null || model.Need != null))
             {
                 var read = RoomBar.Of(binding, Voice(), AwaitingStart());
