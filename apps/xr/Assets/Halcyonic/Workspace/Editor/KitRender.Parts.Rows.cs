@@ -43,9 +43,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 case "45-rows-checks":
                     return new List<RoomRow> { Ours("Type Check", RoomRowMark.Check), Ours("Build", RoomRowMark.Check), Ours("Page Drawn", RoomRowMark.Cross), Ours("VR Offered", RoomRowMark.Check) };
                 default:
-                    return new[] { ("Changed", "src/game.js", " · 120 to 134 Lines"), ("Changed", "src/balloon.js", " · 64 to 71 Lines"), ("Made", "src/gold.js", ""), ("Changed", "src/score.js", " · 40 to 52 Lines"),
-                            ("Changed", "src/sounds.js", " · 12 to 15 Lines"), ("Made", "assets/pop-gold.wav", ""), ("Changed", "src/menu.js", " · 88 to 90 Lines"), ("Removed", "notes/old-plan.md", "") }
-                        .Select(file => new RoomRow(LineWords.Ours(file.Item1 + " ") + LineWords.Theirs(file.Item2) + LineWords.Ours(file.Item3))).ToList();
+                    // A page of Changes as the screen words its rows (2.6): the kind, a change's lines, then the path, the agent's own word, last.
+                    return new[] { ("Changed", "src/game.js", "120 to 134 Lines"), ("Changed", "src/balloons/golden/burst-particles.js", "41 to 54 Lines"), ("Made", "src/gold.js", ""),
+                            ("Changed", "src/score.js", "40 to 52 Lines"), ("Changed", "src/sounds.js", "12 to 15 Lines"), ("Made", "assets/pop-gold.wav", ""), ("Changed", "src/menu.js", "88 to 90 Lines"),
+                            ("Removed", "notes/old-plan.md", "") }
+                        .Select(file => new RoomRow(LineWords.Ours(file.Item1 + KitMomentWords.Dot + (file.Item3.Length > 0 ? file.Item3 + KitMomentWords.Dot : "")) + LineWords.Theirs(file.Item2))).ToList();
             }
         }
 
@@ -85,7 +87,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(Mathf.Abs(label.transform.localPosition.x - indent) < 1e-6f, what + " starts " + (label.transform.localPosition.x / unit).ToString("0.0") + " dp in, not " + (indent / unit).ToString("0.0"));
                 var lines = label.textInfo.lineCount;
                 // At the standard size the page's own breaks; larger, a row may take more lines, never more than a row's most.
-var wantedLines = rows[index].Lines ?? (state == "45-rows-recap" && index == 1 ? 2 : 1);
+// No line of a row ends in the separator: the break stands in its place, the dot dropped (WORDS rule 2).
+                for (var each = 0; each < lines - 1; each++)
+                    Require(label.textInfo.characterInfo[label.textInfo.lineInfo[each].lastVisibleCharacterIndex].character != '·', what + " ends its line " + (each + 1) + " in the separator");
+                if (state == "45-rows-changes" && index == 1)
+                {
+                    var shown = label.GetParsedText();
+                    // The first line is Halcyonic's own words whole; the path follows on its own line (or lines, where it is wider than one).
+                    var parts = shown.Split('\n');
+                    Require(parts.First().Trim() == "Changed · 41 to 54 Lines" && string.Concat(parts.Skip(1).Select(part => part.Trim())) == "src/balloons/golden/burst-particles.js",
+                        "the long path's row does not break at its separator, the path whole on its own line: \"" + shown.Replace("\n", " / ") + "\"");
+                }
+                var wantedLines = rows[index].Lines ?? (state == "45-rows-recap" && index == 1 || state == "45-rows-changes" && index == 1 ? 2 : 1);
                 Require(rows[index].Lines != null ? lines == wantedLines : GlazeText.Scale > 1.001f ? lines >= wantedLines && lines <= RoomRowsView.RowLines : lines == wantedLines,
                     what + " takes " + lines + " lines");
                 if (state == "45-rows-part" && index == 0)

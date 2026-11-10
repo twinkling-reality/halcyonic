@@ -1,5 +1,6 @@
 #nullable enable
 using System.Collections.Generic;
+using System.Linq;
 using Halcyonic.Client;
 using TMPro;
 using UnityEngine;
@@ -84,14 +85,14 @@ namespace Halcyonic.XR.UI
                 var runs = GlazeRuns.Of(label);
                 runs.Set(rows[index].Words);
                 runs.SetProseMode(true);
-                var laid = KitType.Lay(label, width - indent, RowLines);
+                var laid = LayAtSeparators(label, runs, width - indent);
                 // A row that shows a part of its words (a review read part by part): its own lines from the first of the part,
                 // as many as the part holds, cut where the rows themselves break the words.
                 if (rows[index].FromLine > 0 || rows[index].Lines is int part && label.textInfo.lineCount > part)
                 {
                     runs.Set(LineWords.Theirs(LabelText.FromTextMeshPro(Part(label, rows[index].FromLine, rows[index].Lines ?? RowLines))));
                     runs.SetProseMode(true);
-                    laid = KitType.Lay(label, width - indent, RowLines);
+                    laid = LayAtSeparators(label, runs, width - indent);
                 }
                 var tall = Mathf.Max(line, laid.Height);
                 label.transform.localPosition = new Vector3(indent, -down, 0f);
@@ -125,6 +126,35 @@ namespace Halcyonic.XR.UI
         }
 
         public void Hide() => gameObject.SetActive(false);
+
+        /// <summary>
+        /// Lays a row's label so that no line ends in the separator (WORDS rule 2, as the panel's body and an action do):
+        /// where one would, the break stands in the separator's place, the dot and the spaces round it dropped, and the
+        /// places of the row's outside words move with the text.
+        /// </summary>
+        private static (int Lines, float Width, float Height) LayAtSeparators(TextMeshPro label, GlazeRuns runs, float width)
+        {
+            var laid = KitType.Lay(label, width, RowLines);
+            for (var pass = 0; pass < 8; pass++)
+            {
+                var info = label.textInfo;
+                var at = -1;
+                for (var index = 0; index < info.lineCount - 1 && at < 0; index++)
+                {
+                    var last = info.characterInfo[info.lineInfo[index].lastVisibleCharacterIndex];
+                    if (last.character == '·') at = last.index;
+                }
+                var text = label.text;
+                if (at < 1 || at + 1 >= text.Length || text[at - 1] != ' ' || text[at + 1] != ' ') break;
+                var after = at + 1;
+                while (after < text.Length && text[after] == ' ') after++;
+                var gone = after - (at - 1) - 1;
+                label.text = text.Substring(0, at - 1) + "\n" + text.Substring(after);
+                runs.Lean(runs.Theirs.Select(run => run.Start > at ? (run.Start - gone, run.End - gone) : run).ToList());
+                laid = KitType.Lay(label, width, RowLines);
+            }
+            return laid;
+        }
 
         /// <summary>The label's own text of its lines from <paramref name="from"/>, <paramref name="lines"/> of them at most, as it is laid now, never cut inside a doubled backslash.</summary>
         private static string Part(TextMeshPro label, int from, int lines)
