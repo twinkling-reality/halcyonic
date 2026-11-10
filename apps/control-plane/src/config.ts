@@ -12,7 +12,7 @@ import {
 } from 'node:fs';
 import { isIP } from 'node:net';
 import { homedir, userInfo } from 'node:os';
-import { delimiter, isAbsolute, join, resolve } from 'node:path';
+import { delimiter, isAbsolute, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isCloudName } from './companion/ollama.ts';
 import { assessFolder, type FolderContext } from './folder-safety.ts';
@@ -63,6 +63,11 @@ export interface ControlPlaneConfig {
   /** Null unless the owner turned the network listener on with HALCYONIC_NETWORK_HOST. */
   readonly network: NetworkListenerConfig | null;
   readonly dataDir: string;
+  /**
+   * Where every task's own copy of its project's folder lives (ADR 0045): a folder of Halcyonic's
+   * own beside its data folder, never inside it, since agents work there.
+   */
+  readonly tasksDir: string;
   readonly logLevel: LogLevel;
   readonly commandTimeoutMs: number;
   readonly scenariosDir: string;
@@ -159,6 +164,7 @@ export function loadConfig(
     port,
     network: parseNetwork(env, port),
     dataDir: defaultDataDir(env),
+    tasksDir: parseTasksDir(env),
     logLevel: parseLogLevel(env.HALCYONIC_LOG_LEVEL),
     commandTimeoutMs: parseInteger(
       'HALCYONIC_COMMAND_TIMEOUT_MS',
@@ -647,6 +653,22 @@ function parseNames(name: string, raw: string | undefined): string[] {
  * folder holding it, system and shared folders, Halcyonic's data and the rest, whether a root
  * comes from the environment or the settings file (ADR 0024).
  */
+/** The copies' folder: absolute, and neither inside the data folder nor holding it. */
+function parseTasksDir(env: NodeJS.ProcessEnv): string {
+  const raw = env.HALCYONIC_TASKS_DIR;
+  if (raw !== undefined && !isAbsolute(raw))
+    throw new ConfigError(`HALCYONIC_TASKS_DIR must be an absolute path, got "${raw}".`);
+  const tasks = resolve(raw ?? join(homedir(), '.halcyonic-tasks'));
+  const data = defaultDataDir(env);
+  const inside = (base: string, path: string) =>
+    path === base || path.startsWith(base.endsWith(sep) ? base : base + sep);
+  if (inside(data, tasks) || inside(tasks, data))
+    throw new ConfigError(
+      "HALCYONIC_TASKS_DIR must be beside Halcyonic's data folder, not inside it or around it: agents work there.",
+    );
+  return tasks;
+}
+
 function parseProjectRoots(raw: string | undefined, context: FolderContext): string[] {
   if (raw === undefined || raw.trim() === '') return [];
   return raw

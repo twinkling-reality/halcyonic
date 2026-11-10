@@ -109,7 +109,7 @@ export class Checkpointer {
 
   /** What restoring the checkpoint would change now. Reads only. */
   async preview(projectId: ProjectId, checkpointId: CheckpointId): Promise<PreviewOutcome> {
-    const folder = this.#folder(projectId);
+    const folder = await this.#folderFor(projectId, checkpointId);
     if (!folder.ok) return folder;
     const previewed = await this.#deps.store.preview(projectId, folder.path, checkpointId);
     if (!previewed.ok) return previewed;
@@ -141,7 +141,7 @@ export class Checkpointer {
     command: CommandOf<'project.restore'>,
   ): Promise<RestoreOutcome> {
     const cause = causedBy(command.command_id);
-    const folder = this.#folder(projectId);
+    const folder = await this.#folderFor(projectId, checkpointId);
     if (!folder.ok)
       return this.#incomplete(projectId, checkpointId, null, false, [], folder, cause);
     const previewed = await this.#deps.store.preview(projectId, folder.path, checkpointId);
@@ -276,7 +276,10 @@ export class Checkpointer {
     keepAlso: readonly string[],
   ): Promise<CheckpointId | null> {
     const checkpointId = this.#deps.ids.next() as CheckpointId;
-    const allowed = checkProjectLocation(this.#deps.locations.policy, directory);
+    const allowed =
+      this.#ownCopy(projectId, directory) !== null
+        ? { ok: true }
+        : checkProjectLocation(this.#deps.locations.policy, directory);
     const taken = allowed.ok
       ? await this.#deps.store.take(projectId, directory, checkpointId, { keepAlso }).catch(() => ({
           ok: false as const,
@@ -323,11 +326,20 @@ export class Checkpointer {
     return checkpointId;
   }
 
-  /** The project's folder now, checked against the host's roots again. */
-  #folder(
+  /**
+   * The folder a checkpoint goes back into: the one it was taken of, when that is the project's
+   * folder, checked against the host's roots again, or the own copy of one of the project's tasks
+   * (ADR 0045). A checkpoint of a copy never goes back into the project's folder, nor the other way.
+   */
+  async #folderFor(
     projectId: ProjectId,
-  ): { ok: true; path: string } | { ok: false; code: string; message: string } {
-    const path = this.#deps.projection.project(projectId)?.location?.path ?? null;
+    checkpointId: CheckpointId,
+  ): Promise<{ ok: true; path: string } | { ok: false; code: string; message: string }> {
+    const projection = this.#deps.projection;
+    const path = projection.project(projectId)?.location?.path ?? null;
+    const taken = await this.#deps.store.folderOf(projectId, checkpointId);
+    const copy = taken === null ? null : this.#ownCopy(projectId, taken);
+    if (copy !== null) return { ok: true, path: copy };
     if (path === null)
       return { ok: false, code: 'location_required', message: 'The project has no folder.' };
     const allowed = checkProjectLocation(this.#deps.locations.policy, path);
@@ -356,6 +368,18 @@ export class Checkpointer {
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  /**
+   * `directory` when it is the own copy of one of the project's tasks (ADR 0045), a folder of
+   * Halcyonic's own outside the project roots, matched exactly as the host recorded it; else null.
+   */
+  #ownCopy(projectId: ProjectId, directory: string): string | null {
+    for (const workstream of this.#deps.projection.workstreams(projectId)) {
+      const copy = workstream.copy;
+      if (copy?.state === 'own' && copy.directory === directory) return copy.directory;
+    }
+    return null;
   }
 
   #serially<T>(projectId: string, step: () => Promise<T>): Promise<T> {

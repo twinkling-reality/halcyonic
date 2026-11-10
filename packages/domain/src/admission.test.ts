@@ -411,6 +411,16 @@ describe('command admission', () => {
         principal: null,
       }),
     );
+    // While the host may still be making that task a copy of its own, its start holds nothing
+    // here: the host asks again before it falls back to this folder (ADR 0045).
+    assert.equal(start(second.workstreamId).admitted, true);
+    // Once refused a copy, the task works in this folder, and its start holds it.
+    projection.apply(
+      b.controlPlane('workstream.copy_refused', startScope, {
+        code: 'linked_repository',
+        message: "The folder's .git is a file.",
+      }),
+    );
     const underWay = start(second.workstreamId);
     assert.deepEqual(underWay.admitted ? null : underWay.rejection, {
       code: 'invalid_state',

@@ -329,6 +329,28 @@ export class CheckpointStore {
     }
   }
 
+  /**
+   * The folder the checkpoint was taken of, as the file system resolved it then: the project's, or
+   * a task's own copy (ADR 0045). Null when the checkpoint is not kept here.
+   */
+  async folderOf(projectId: string, checkpointId: string): Promise<string | null> {
+    if (!ID_PATTERN.test(checkpointId)) return null;
+    const repository = this.#repositoryPath(projectId);
+    if (!(await isFolder(repository))) return null;
+    const blob = await this.#run(repository, null, null, [
+      'cat-file',
+      'blob',
+      metaRef(checkpointId),
+    ]);
+    if (blob.code !== 0) return null;
+    try {
+      const meta = JSON.parse(blob.stdout.toString()) as Meta;
+      return meta.format === 1 && typeof meta.folder === 'string' ? meta.folder : null;
+    } catch {
+      return null;
+    }
+  }
+
   /** What putting the checkpoint back would change now; reads only. */
   async preview(projectId: string, folder: string, checkpointId: string): Promise<PreviewResult> {
     const loaded = await this.#load(projectId, folder, checkpointId);
@@ -571,15 +593,20 @@ export class CheckpointStore {
 
   async #repository(projectId: string): Promise<string> {
     const repository = this.#repositoryPath(projectId);
-    if (await isFolder(repository)) return repository;
+    const attributes = join(repository, 'info', 'attributes');
+    if ((await isFolder(repository)) && (await present(attributes))) return repository;
     await mkdir(this.#directory, { recursive: true, mode: 0o700 });
     const init = await this.#spawn(
       ['init', '-q', '--bare', '--object-format=sha256', repository],
       { repository, project: null },
       null,
     );
-    if (init.code !== 0) throw new Error('the checkpoint store could not be made');
-    await writeFile(join(repository, 'info', 'attributes'), STORE_ATTRIBUTES, { mode: 0o600 });
+    // A task's copy and a checkpoint may make the project's repository at once (ADR 0045): the
+    // one that lost finds it made, and writes the same attributes before any git reads the files.
+    if (init.code !== 0 && !(await isFolder(repository)))
+      throw new Error('the checkpoint store could not be made');
+    await mkdir(join(repository, 'info'), { recursive: true, mode: 0o700 });
+    await writeFile(attributes, STORE_ATTRIBUTES, { mode: 0o600 });
     return repository;
   }
 

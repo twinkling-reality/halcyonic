@@ -1,0 +1,169 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, test } from 'node:test';
+import { CheckpointStore } from './store.ts';
+import { TaskCopies } from './task-copies.ts';
+
+// The system's git and cp, as the owner's Mac has them; a task's copy is an APFS clone (ADR 0045).
+const GIT = '/usr/bin/git';
+const PROJECT = '01920000-0000-7000-8000-00000000abcd';
+const TASK = '01920000-0000-7000-8000-00000000ab01';
+
+let root = '';
+let folder = '';
+let copies: TaskCopies;
+let ids = 0;
+const nextId = () => {
+  ids += 1;
+  return `01920000-0000-7000-8000-${ids.toString(16).padStart(12, '0')}`;
+};
+
+function write(relative: string, content: string, mode?: number): void {
+  const path = join(folder, relative);
+  mkdirSync(join(path, '..'), { recursive: true });
+  writeFileSync(path, content);
+  if (mode !== undefined) chmodSync(path, mode);
+}
+
+beforeEach(() => {
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-copies-')));
+  folder = join(root, 'projects', 'app');
+  mkdirSync(folder, { recursive: true });
+  const data = join(root, 'data');
+  copies = new TaskCopies({
+    directory: join(root, 'tasks'),
+    store: new CheckpointStore({
+      git: GIT,
+      directory: join(data, 'checkpoints'),
+      protect: [data],
+    }),
+    nextId,
+    protect: [data],
+  });
+});
+
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true });
+});
+
+describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }, () => {
+  test('a plain folder is cloned whole, links and modes kept, and its base is the copy as made', async () => {
+    write('src/main.ts', 'export const a = 1;\n');
+    write('run.sh', '#!/bin/sh\n', 0o755);
+    write('.gitignore', 'node_modules\n');
+    const shared = join(root, 'shared', 'node_modules');
+    mkdirSync(join(shared, 'pkg'), { recursive: true });
+    writeFileSync(join(shared, 'pkg', 'index.js'), 'shared\n');
+    symlinkSync(shared, join(folder, 'node_modules'), 'dir');
+
+    const made = await copies.prepare(PROJECT, TASK, folder);
+    assert.ok(made.ok, made.ok ? '' : `${made.code}: ${made.message}`);
+    assert.equal(made.directory, join(root, 'tasks', PROJECT, TASK, 'app'));
+    assert.match(made.baseTree, /^[0-9a-f]{64}$/);
+    assert.equal(made.files, 3, 'the ignored link is copied, never kept in the base');
+    assert.equal(
+      readFileSync(join(made.directory, 'src/main.ts'), 'utf8'),
+      'export const a = 1;\n',
+    );
+    assert.equal(statSync(join(made.directory, 'run.sh')).mode & 0o777, 0o755);
+    assert.equal(readlinkSync(join(made.directory, 'node_modules')), shared);
+    assert.equal(existsSync(join(folder, '.git')), false, 'nothing is written to the project');
+
+    // The copy is the task's alone: a change in it never reaches the project.
+    writeFileSync(join(made.directory, 'src/main.ts'), 'export const a = 2;\n');
+    assert.equal(readFileSync(join(folder, 'src/main.ts'), 'utf8'), 'export const a = 1;\n');
+  });
+
+  test("a git project's copy has its own repository: a commit in it stays there", async () => {
+    write('a.txt', 'one\n');
+    const git = (cwd: string, ...args: string[]) =>
+      execFileSync(GIT, ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], {
+        cwd,
+        env: { PATH: '/usr/bin:/bin', HOME: root, GIT_CONFIG_NOSYSTEM: '1' },
+      })
+        .toString()
+        .trim();
+    git(folder, 'init', '-q');
+    git(folder, 'add', 'a.txt');
+    git(folder, 'commit', '-qm', 'one');
+    const made = await copies.prepare(PROJECT, TASK, folder);
+    assert.ok(made.ok, made.ok ? '' : made.code);
+    writeFileSync(join(made.directory, 'b.txt'), 'two\n');
+    git(made.directory, 'add', 'b.txt');
+    git(made.directory, 'commit', '-qm', 'two');
+    assert.equal(git(folder, 'rev-list', '--count', 'HEAD'), '1');
+    assert.equal(git(made.directory, 'rev-list', '--count', 'HEAD'), '2');
+    assert.equal(existsSync(join(folder, 'b.txt')), false);
+  });
+
+  test('a folder whose .git is a file is refused: its copy would act on the repository it points to', async () => {
+    write('a.txt', 'one\n');
+    writeFileSync(join(folder, '.git'), 'gitdir: /elsewhere/.git/worktrees/app\n');
+    const refused = await copies.prepare(PROJECT, TASK, folder);
+    assert.equal(refused.ok ? null : refused.code, 'linked_repository');
+    assert.equal(existsSync(join(root, 'tasks', PROJECT, TASK, 'app')), false);
+  });
+
+  test('a folder holding Halcyonic data, or the copies themselves, is refused before anything is copied', async () => {
+    const holder = join(root, 'holder');
+    mkdirSync(join(holder, 'data-inside'), { recursive: true });
+    const guarded = new TaskCopies({
+      directory: join(holder, 'tasks'),
+      store: { take: () => Promise.reject(new Error('never reached')) },
+      nextId,
+    });
+    const refused = await guarded.prepare(PROJECT, TASK, holder);
+    assert.equal(refused.ok ? null : refused.code, 'holds_host_data');
+  });
+
+  test('a folder the store will not keep whole is refused, and its copy removed', async () => {
+    write('a.txt', 'one\n');
+    const nested = join(folder, 'vendor', 'lib');
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(join(nested, 'x.txt'), 'x\n');
+    execFileSync(GIT, ['init', '-q'], { cwd: nested, env: { PATH: '/usr/bin:/bin', HOME: root } });
+    execFileSync(GIT, ['-c', 'user.name=t', '-c', 'user.email=t@t', 'add', 'x.txt'], {
+      cwd: nested,
+      env: { PATH: '/usr/bin:/bin', HOME: root },
+    });
+    execFileSync(GIT, ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'x'], {
+      cwd: nested,
+      env: { PATH: '/usr/bin:/bin', HOME: root },
+    });
+    const refused = await copies.prepare(PROJECT, TASK, folder);
+    assert.equal(refused.ok ? null : refused.code, 'nested_repository');
+    assert.equal(existsSync(join(root, 'tasks', PROJECT, TASK, 'app')), false);
+  });
+
+  test('a copy an earlier attempt left without recording it is replaced, never kept', async () => {
+    write('a.txt', 'one\n');
+    const stale = join(root, 'tasks', PROJECT, TASK, 'app');
+    mkdirSync(stale, { recursive: true });
+    writeFileSync(join(stale, 'left.txt'), 'from before\n');
+    const made = await copies.prepare(PROJECT, TASK, folder);
+    assert.ok(made.ok);
+    assert.equal(existsSync(join(made.directory, 'left.txt')), false);
+    assert.equal(lstatSync(join(made.directory, 'a.txt')).isFile(), true);
+  });
+
+  test('a missing folder is refused', async () => {
+    const refused = await copies.prepare(PROJECT, TASK, join(root, 'gone'));
+    assert.equal(refused.ok ? null : refused.code, 'location_missing');
+  });
+});

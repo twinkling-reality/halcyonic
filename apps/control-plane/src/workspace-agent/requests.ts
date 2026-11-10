@@ -492,11 +492,15 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     }
     const descriptor = this.#o.controlPlane.registry.get(run.runtime.runtime_id);
     if (descriptor?.uses_project_location) {
-      const folder = this.#o.controlPlane.projection.project(request.project_id)?.location?.path;
+      const projection = this.#o.controlPlane.projection;
+      const folder = projection.project(request.project_id)?.location?.path;
+      // The task's own copy is its folder as much as the project's is (ADR 0045).
+      const copy = projection.workstream(request.workstream_id)?.copy;
+      const own = copy?.state === 'own' ? copy.directory : null;
       if (
         !folder ||
         !checkProjectLocation(this.#o.controlPlane.locations.policy, folder)?.ok ||
-        run.directory !== folder
+        (run.directory !== folder && run.directory !== own)
       ) {
         this.#changed(request, 'interrupted', request.reply);
         return null;

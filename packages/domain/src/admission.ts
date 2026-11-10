@@ -885,9 +885,11 @@ function folderRefusal(
   const pending = projection.pendingCommands().find((command) => {
     if (command.workstream_id === null || command.workstream_id === workstreamId) return false;
     const other = projection.workstream(command.workstream_id);
+    // A start of a task the host has not refused a copy works in a copy it is making (ADR 0045);
+    // should the copy fail, the host asks `folderInUse` again before it falls back to this folder.
     const where =
       command.command_type === 'execution.start'
-        ? other === undefined
+        ? other === undefined || other.copy === undefined
           ? null
           : taskFolder(projection, other)
         : command.command_type === 'execution.send_instruction' && command.execution_id !== null
@@ -903,6 +905,20 @@ function folderRefusal(
     );
   }
   return undefined;
+}
+
+/**
+ * Why a task may not work in `folder` now, as admission would refuse it (FOLDER), or null when the
+ * folder is free: what the host asks before a start whose copy was refused works in the project's
+ * own folder (ADR 0045).
+ */
+export function folderInUse(
+  projection: Projection,
+  folder: string,
+  workstreamId: WorkstreamId,
+): CommandRejection | null {
+  const refusal = folderRefusal(projection, folder, workstreamId, NO_SCOPE);
+  return refusal === undefined ? null : refusal.rejection;
 }
 
 /** Whether two absolute folders are one, or one holds the other, so that work in one reaches the other. */

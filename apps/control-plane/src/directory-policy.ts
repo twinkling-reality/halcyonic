@@ -46,6 +46,28 @@ export function createDirectoryPolicy(roots: readonly string[]): DirectoryPolicy
   };
 }
 
+/**
+ * The host's policy, admitting also folders under `folder`, a folder of Halcyonic's own such as the
+ * one every task's copy lives in (ADR 0045). Clients never bind a project there: the host's
+ * locations keep the roots-only policy, and only the runtimes are given this one. `folder` must
+ * exist; it is resolved once, as the roots are.
+ */
+export function admittingAlso(policy: DirectoryPolicy, folder: string): DirectoryPolicy {
+  const real = realpathSync.native(folder);
+  return (path) => {
+    if (isAbsolute(path)) {
+      try {
+        const resolved = realpathSync.native(path);
+        if (contains(real, resolved) && resolved !== real && isDirectory(resolved))
+          return { ok: true, directory: resolved };
+      } catch {
+        // Not there: the host's policy says so in its own words.
+      }
+    }
+    return policy(path);
+  };
+}
+
 function isDirectory(path: string): boolean {
   try {
     return statSync(path, { throwIfNoEntry: false })?.isDirectory() === true;
