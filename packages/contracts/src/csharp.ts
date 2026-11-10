@@ -39,6 +39,7 @@ const UNIONS: Readonly<Record<string, UnionNaming>> = {
   CompanionExchangeTurn: { discriminator: 'from', suffix: 'Turn' },
   CompanionStatus: { discriminator: 'availability', suffix: 'Companion' },
   ProjectLocationChoice: { discriminator: 'kind', suffix: 'Choice' },
+  WorkstreamCopy: { discriminator: 'state', suffix: 'Copy' },
   WorkspaceAgentStatus: { discriminator: 'availability', suffix: 'WorkspaceAgent' },
 };
 

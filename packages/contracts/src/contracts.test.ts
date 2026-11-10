@@ -489,12 +489,13 @@ describe('the language-neutral schema document', () => {
     // 430,000 for ADR 0049's world description and its event, 11,539 bytes that repeat nothing
     // but that envelope, from 440,000 for ADR 0044's two auto_fix events, for the same reason, and
     // from 450,000 for ADR 0047's pairing page link, which repeats nothing, and ADR 0030's two list
-    // reads and the request fields that may be null).
+    // reads and the request fields that may be null, and from 460,000 for ADR 0045's six events of
+    // a task's own copy, about 5,000 bytes each, for the same reason as every event's).
     assert.deepEqual(
       inlinedDefinitions(buildSchemaDocument() as { $defs: Record<string, unknown> }),
       [],
     );
-    assert.ok(text.length < 460_000, `document is ${text.length} bytes`);
+    assert.ok(text.length < 490_000, `document is ${text.length} bytes`);
   });
 });
 
@@ -541,8 +542,8 @@ describe('the C# bindings', () => {
     );
     assert.equal(
       generated.match(/Required = Required\.Default/g)?.length,
-      26,
-      "the optional members are a location's label, a completed tool's turn, three declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), why a twin read was unknown (M1.8g-b), whether an execution's start recorded it confined (S2), whether a check's browser had permissions of its own (S1), a project's check, preview and play (M1.8e), an evaluation's activity, a check page's own pixels against the starter's (DRAWN), the approval level a start chose, its runtime recorded and its view shows (ADR 0043), a world project's world (ADR 0049), whether a runtime keeps its sessions after a restart (ADR 0046), and an execution's failed check sent back on its own (ADR 0044)",
+      27,
+      "the optional members are a location's label, a completed tool's turn, three declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), why a twin read was unknown (M1.8g-b), whether an execution's start recorded it confined (S2), whether a check's browser had permissions of its own (S1), a project's check, preview and play (M1.8e), an evaluation's activity, a check page's own pixels against the starter's (DRAWN), the approval level a start chose, its runtime recorded and its view shows (ADR 0043), a world project's world (ADR 0049), whether a runtime keeps its sessions after a restart (ADR 0046), an execution's failed check sent back on its own (ADR 0044), and a task's own copy (ADR 0045)",
     );
     for (const member of [
       'Activity',
@@ -563,6 +564,7 @@ describe('the C# bindings', () => {
       'ApprovalLevel',
       'OffersNeverAsk',
       'ResumesAfterRestart',
+      'Copy',
     ])
       assert.match(generated, new RegExp(`public \\w+\\? ${member} \\{ get; set; \\}`), member);
     assert.match(
@@ -957,6 +959,73 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     assert.equal(
       parseEventEnvelope({ ...event, payload: { original_project_id: ORIGINAL } }).ok,
       false,
+    );
+  });
+});
+
+describe("a task's own copy and adding its work (ADR 0045)", () => {
+  const WORKSTREAM = '0192f1a0-0000-7000-8000-0000000000dd';
+  const TREE = 'a'.repeat(64);
+  const event = (event_type: string, payload: Record<string, unknown>) =>
+    parseEventEnvelope({ ...sampleEvent('workstream.created'), event_type, payload }).ok;
+
+  test('adding and fitting name only the task; the host decides everything else', () => {
+    for (const command_type of ['workstream.add_to_project', 'workstream.fit_to_project']) {
+      const make = (payload: Record<string, unknown>) =>
+        parseCommandEnvelope({ ...COMMAND, command_type, payload }).ok;
+      assert.equal(make({ workstream_id: WORKSTREAM }), true, command_type);
+      assert.equal(make({ workstream_id: WORKSTREAM, folder: '/x' }), false, command_type);
+      assert.equal(make({}), false, command_type);
+    }
+  });
+
+  test('the copy, its reading, an add, a conflict and a fit carry trees, counts and paths, never contents', () => {
+    const paths = { paths: ['src/a.ts'], total: 1 };
+    assert.equal(
+      event('workstream.copy_made', { directory: '/c/app', base_tree: TREE, files: 2 }),
+      true,
+    );
+    assert.equal(
+      event('workstream.copy_made', { directory: '/c/app', base_tree: 'abc', files: 2 }),
+      false,
+    );
+    assert.equal(
+      event('workstream.copy_refused', { code: 'linked_repository', message: 'No.' }),
+      true,
+    );
+    assert.equal(event('workstream.copy_refused', { code: 'bored', message: 'No.' }), false);
+    assert.equal(event('workstream.copy_changes_read', { tree: TREE, changed: paths }), true);
+    assert.equal(
+      event('workstream.copy_changes_read', { tree: TREE, changed: { paths: ['../x'], total: 1 } }),
+      false,
+      'a path never leaves the folder',
+    );
+    const added = {
+      checkpoint_id: '0192f1a0-0000-7000-8000-0000000000ee',
+      task_tree: TREE,
+      project_tree: TREE,
+      merged_tree: TREE,
+      added: paths,
+    };
+    assert.equal(event('workstream.added', added), true);
+    assert.equal(event('workstream.added', { ...added, contents: 'x' }), false);
+    const conflicted = { files: [{ path: 'img.png', kind: 'binary' }], total: 1 };
+    assert.equal(
+      event('workstream.add_conflicted', { task_tree: TREE, project_tree: TREE, conflicted }),
+      true,
+    );
+    assert.equal(
+      event('workstream.add_conflicted', {
+        task_tree: TREE,
+        project_tree: TREE,
+        conflicted: { files: [], total: 0 },
+      }),
+      false,
+      'a conflict names at least one file',
+    );
+    assert.equal(
+      event('workstream.fitted', { project_tree: TREE, fitted_tree: TREE, written: paths }),
+      true,
     );
   });
 });

@@ -6,6 +6,7 @@ import {
   CommandResult,
   CommandType,
 } from './commands.ts';
+import { WorkstreamCopy } from './copies.ts';
 import { ApprovalSubject } from './events.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
 import { AutoFixView, CheckFindings, CheckId } from './previews.ts';
@@ -152,6 +153,11 @@ export const WorkstreamView = Type.Object(
     current_execution_id: Nullable(ExecutionId),
     /** All executions of the workstream, oldest first. */
     execution_ids: Type.Array(ExecutionId),
+    /**
+     * The task's own copy of the project's folder, or why it has none (ADR 0045). Absent when the
+     * task has not started in a folder since copies began, as in every journal from before.
+     */
+    copy: Type.Optional(WorkstreamCopy),
     created_at: Timestamp,
     updated_at: Timestamp,
   },

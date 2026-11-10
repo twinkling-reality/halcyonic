@@ -419,6 +419,59 @@ describe('command admission', () => {
     });
   });
 
+  test('a task whose start may have reached its agent holds the folder; one cut short by a restart does not; a starting one is waited for (FOLDER)', () => {
+    const { b, projection, commands } = setup();
+    const inFolder = catalog(FULL, 'none', true);
+    const project = b.project('App', { path: '/work/app', name: 'app', created: false });
+    projection.apply(project.event);
+    const first = b.workstream(project.projectId, 'First');
+    const second = b.workstream(project.projectId, 'Second');
+    projection.apply(first.event);
+    projection.apply(second.event);
+    const start = () => {
+      const admission = admitCommand(commands.start(second.workstreamId), projection, inFolder);
+      return admission.admitted ? null : admission.rejection.message;
+    };
+    const created = b.execution(project.projectId, first.workstreamId, '/work/app');
+    projection.apply(created.event);
+    assert.equal(
+      start(),
+      'Another task is starting in this folder. Wait for it to start, then try again.',
+      'a starting task has no Stop yet',
+    );
+    const scope = {
+      project_id: project.projectId,
+      workstream_id: first.workstreamId,
+      execution_id: created.executionId,
+    };
+    // A start that timed out may still have set its agent to work, as a cold model does.
+    projection.apply(
+      b.controlPlane('execution.state_unknown', scope, {
+        code: 'start_outcome_unknown',
+        message: 'The start timed out.',
+      }),
+    );
+    assert.equal(
+      start(),
+      'Another task in this folder may still be running. Wait for it, then try again.',
+    );
+    // No runtime session survives a restart, so nothing of that task works there any more.
+    const cut = b.execution(project.projectId, first.workstreamId, '/work/app');
+    const before = new Projection();
+    for (const event of [project.event, first.event, second.event, cut.event]) before.apply(event);
+    before.apply(
+      b.controlPlane(
+        'execution.state_unknown',
+        { ...scope, execution_id: cut.executionId },
+        { code: 'control_plane_restarted', message: 'Restarted.' },
+      ),
+    );
+    assert.equal(
+      admitCommand(commands.start(second.workstreamId), before, inFolder).admitted,
+      true,
+    );
+  });
+
   test('setting a location is admitted only for a known project', () => {
     const { projection, scope } = setup();
     const setLocation = (projectId: string): CommandEnvelope => ({

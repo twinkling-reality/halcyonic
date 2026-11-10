@@ -14,12 +14,14 @@ export const CheckpointId = Type.Unsafe<CheckpointId>(
 /**
  * Why the host took a checkpoint: `before_task` once a start is admitted and before the runtime
  * is asked, `after_turn` once the runtime reported a turn ended, `before_restore` just before a
- * restore writes anything, so the restore can itself be undone.
+ * restore writes anything, so the restore can itself be undone, `before_add` of the project's
+ * folder just before a task's work is added to it (ADR 0045), so the add can be undone.
  */
 export const CheckpointReason = Type.Union([
   Type.Literal('before_task'),
   Type.Literal('after_turn'),
   Type.Literal('before_restore'),
+  Type.Literal('before_add'),
 ]);
 export type CheckpointReason = Static<typeof CheckpointReason>;
 

@@ -3,6 +3,7 @@ export * from './catalog.ts';
 export * from './checkpoints.ts';
 export * from './commands.ts';
 export * from './companion.ts';
+export * from './copies.ts';
 export * from './devices.ts';
 export * from './evaluation.ts';
 export * from './events.ts';
