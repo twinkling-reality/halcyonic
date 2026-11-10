@@ -47,6 +47,8 @@ export interface AutoFixDeps {
   readonly clock: Clock;
   readonly logger: Logger;
   readonly cap?: number;
+  /** Whether the journal is the person's own (`live`); a fixture's journal is never appended to. */
+  readonly live: boolean;
 }
 
 /**
@@ -64,6 +66,8 @@ export class AutoFix {
   readonly #checks = new Map<CommandId, { projectId: ProjectId; executions: Set<ExecutionId> }>();
   /** Executions the person asked to stop since their own last instruction to it. */
   readonly #stopAsked = new Set<ExecutionId>();
+  /** Executions the person gave words that were refused, since their own last accepted instruction. */
+  readonly #wordsRefused = new Set<ExecutionId>();
   /** The host's own interrupts of a try the person asked to stop before its turn began. */
   readonly #ownInterrupts = new Set<string>();
   readonly #interrupted = new Set<ExecutionId>();
@@ -77,9 +81,10 @@ export class AutoFix {
 
   /** Ends any chain a restart cut short (no try is replayed), then follows the journal. */
   attach(): void {
-    for (const view of this.#deps.projection.executions()) {
-      if (view.auto_fix?.state === 'fixing') this.#end(view.execution_id, 'host_restarted', null);
-    }
+    if (this.#deps.live)
+      for (const view of this.#deps.projection.executions()) {
+        if (view.auto_fix?.state === 'fixing') this.#end(view.execution_id, 'host_restarted', null);
+      }
     this.#unsubscribe = this.#deps.publisher.subscribe(({ event }) => this.#on(event));
   }
 
@@ -138,7 +143,14 @@ export class AutoFix {
             // A check the person asked for takes the automatic one's place, as A1 does.
             if (accepted && !this.#checks.has(command.command_id))
               this.#changed.delete(command.payload.project_id);
-            if (!accepted) this.#checks.delete(command.command_id);
+            if (!accepted && this.#checks.has(command.command_id)) {
+              // A refused automatic check ends the chains it followed: no check, no next try.
+              const executions = this.#checks.get(command.command_id)?.executions ?? new Set();
+              this.#checks.delete(command.command_id);
+              for (const executionId of executions)
+                if (this.#fixing(executionId))
+                  this.#later(() => this.#end(executionId, 'check_unavailable', null));
+            }
             return;
           case 'execution.interrupt': {
             if (this.#ownInterrupts.has(command.command_id)) return;
@@ -150,8 +162,18 @@ export class AutoFix {
             return;
           }
           case 'execution.send_instruction': {
-            if (!accepted || this.#deps.projection.isAutoFixCommand(command.command_id)) return;
+            if (this.#deps.projection.isAutoFixCommand(command.command_id)) return;
             const executionId = command.payload.execution_id;
+            if (!accepted) {
+              // The person's words, refused (a try runs on a runtime that takes none while running,
+              // or the try's own command has no outcome yet), still end its chain and block the next
+              // try, as their Stop does (AUDIT2, 2026-11-10).
+              this.#wordsRefused.add(executionId);
+              if (this.#fixing(executionId))
+                this.#later(() => this.#end(executionId, 'person_instructed', null));
+              return;
+            }
+            this.#wordsRefused.delete(executionId);
             this.#stopAsked.delete(executionId);
             this.#interrupted.delete(executionId);
             const projectId =
@@ -262,6 +284,7 @@ export class AutoFix {
 
   #blocked(view: ExecutionView, attempts: number): AutoFixEndReason | null {
     if (this.#stopAsked.has(view.execution_id)) return 'person_stopped';
+    if (this.#wordsRefused.has(view.execution_id)) return 'person_instructed';
     if (
       view.status === 'waiting_for_human' ||
       view.pending_approvals.length > 0 ||
@@ -343,7 +366,9 @@ export class AutoFix {
       { execution_id: view.execution_id, command_id: commandId, attempt, cap: this.#cap },
       'sent a failed check back to its agent',
     );
-    if (outcome.disposition !== 'accepted') this.#end(view.execution_id, 'send_failed', null);
+    // A try refused at once never reached the agent, so it is not counted as one.
+    if (outcome.disposition !== 'accepted')
+      this.#end(view.execution_id, 'send_failed', null, { notSent: true });
   }
 
   #interrupt(executionId: ExecutionId): void {
@@ -367,7 +392,12 @@ export class AutoFix {
    * Records why the chain ended: a chain under way ends with its own numbers; with none under way,
    * a `checkId` records that none began for that check (0 tries), and without one nothing is recorded.
    */
-  #end(executionId: ExecutionId, reason: AutoFixEndReason, checkId: string | null): void {
+  #end(
+    executionId: ExecutionId,
+    reason: AutoFixEndReason,
+    checkId: string | null,
+    options: { notSent?: boolean } = {},
+  ): void {
     const view = this.#deps.projection.execution(executionId);
     if (view === undefined) return;
     const chain = view.auto_fix?.state === 'fixing' ? view.auto_fix : null;
@@ -382,7 +412,7 @@ export class AutoFix {
         },
         {
           check_id: (checkId ?? chain?.check_id) as never,
-          attempts: chain?.attempt ?? 0,
+          attempts: Math.max(0, (chain?.attempt ?? 0) - (options.notSent === true ? 1 : 0)),
           cap: chain?.cap ?? this.#cap,
           reason,
         },

@@ -89,13 +89,21 @@ async function quiet(): Promise<void> {
   for (let i = 0; i < 20; i += 1) await new Promise((resolve) => setTimeout(resolve, 2));
 }
 
-function plane(t: TestContext, results: CheckResult[], options: { atRest?: boolean } = {}) {
-  const dataDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-auto-fix-')));
-  t.after(() => rmSync(dataDir, { recursive: true, force: true }));
+function plane(
+  t: TestContext,
+  results: CheckResult[],
+  options: { atRest?: boolean; dataDir?: string } = {},
+) {
+  const dataDir =
+    options.dataDir ?? realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-auto-fix-')));
+  if (options.dataDir === undefined)
+    t.after(() => rmSync(dataDir, { recursive: true, force: true }));
   const folder = join(dataDir, 'projects', 'garden');
+  const reopened = options.dataDir !== undefined;
   mkdirSync(folder, { recursive: true });
   const runtimes: RecordingRuntime[] = [];
   const harness = createTestControlPlane({
+    path: join(dataDir, 'journal.db'),
     adapters: (time) => {
       const adapter = new RecordingRuntime({ scenarios: SCENARIOS, clock: time, scheduler: time });
       if (options.atRest === false)
@@ -134,24 +142,26 @@ function plane(t: TestContext, results: CheckResult[], options: { atRest?: boole
   const projectId = '01a19000-0000-7000-8000-000000000002' as ProjectId;
   const scope = { project_id: projectId, workstream_id: null, execution_id: null };
   const now = '2026-11-10T10:00:00.000Z' as never;
-  controlPlane.recorder.record(
-    controlPlaneDraft(
-      'project.created',
-      scope,
-      { name: 'Garden', location: { path: folder, name: 'garden', created: true } },
-      now,
-      NO_CAUSE,
-    ),
-  );
-  controlPlane.recorder.record(
-    controlPlaneDraft(
-      'project.starter_applied',
-      scope,
-      { starter_id: 'iwsdk-vr', lockfile: 'a'.repeat(64), files: 12, template: 'b'.repeat(64) },
-      now,
-      NO_CAUSE,
-    ),
-  );
+  if (!reopened)
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'project.created',
+        scope,
+        { name: 'Garden', location: { path: folder, name: 'garden', created: true } },
+        now,
+        NO_CAUSE,
+      ),
+    );
+  if (!reopened)
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'project.starter_applied',
+        scope,
+        { starter_id: 'iwsdk-vr', lockfile: 'a'.repeat(64), files: 12, template: 'b'.repeat(64) },
+        now,
+        NO_CAUSE,
+      ),
+    );
   const events = (): EventEnvelope[] =>
     controlPlane.journal.read({ after: 0, limit: 5000 }).map((stored) => stored.event);
   const ofType = <T extends EventEnvelope['event_type']>(type: T) =>
@@ -224,6 +234,7 @@ function plane(t: TestContext, results: CheckResult[], options: { atRest?: boole
   const sent = () => ofType('execution.auto_fix.sent');
   const ended = () => ofType('execution.auto_fix.ended');
   return {
+    dataDir,
     controlPlane,
     time,
     runtime,
@@ -462,5 +473,56 @@ describe('a failed check goes back to its agent on its own, within a cap (ADR 00
     p.changedFiles(executionId, 0);
     await until(() => p.ended().length === 1, 'the end');
     assert.equal(p.ended()[0]?.payload.reason, 'no_change');
+  });
+});
+
+describe('what AUDIT2 found (2026-11-10)', () => {
+  test("the person's words, refused while a try runs, end the chain and no try follows them", async (t) => {
+    const p = plane(t, [FAILED, FAILED]);
+    const executionId = await p.start();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 1, 'the first try');
+    await until(
+      () => p.controlPlane.projection.execution(executionId)?.status === 'running',
+      'the try running',
+    );
+    // The mock takes no instruction while a turn runs, as Claude Agent: the person's words are refused.
+    assert.equal(p.instruct(executionId, 'No, do something else instead.').disposition, 'rejected');
+    await until(() => p.ended().length === 1, 'the end of the chain');
+    assert.equal(p.ended()[0]?.payload.reason, 'person_instructed');
+    await p.time.runUntilIdle();
+    p.changedFiles(executionId);
+    await until(() => p.checksDone() === 2, 'the second check');
+    await quiet();
+    assert.equal(p.sent().length, 1);
+    assert.equal(p.ended().length, 1);
+  });
+
+  test('a chain under way at a restart ends once, and no try follows until the person speaks', async (t) => {
+    const first = plane(t, [FAILED]);
+    t.after(() => rmSync(first.dataDir, { recursive: true, force: true }));
+    const executionId = await first.start();
+    first.changedFiles(executionId);
+    await until(() => first.sent().length === 1, 'the first try');
+    // The try was delivered (its command has its outcome) and its turn runs when the host stops.
+    const tryCommand = first.sent()[0]?.payload.command_id ?? '';
+    await until(
+      () => first.controlPlane.projection.command(tryCommand)?.status === 'completed',
+      "the try's delivery",
+    );
+    await first.controlPlane.close();
+    const second = plane(t, [FAILED], { dataDir: first.dataDir });
+    // As the host's start does: what the restart made unknowable is recorded so.
+    second.controlPlane.reconcile();
+    await quiet();
+    assert.deepEqual(
+      second.ended().map((event) => [event.payload.reason, event.payload.attempts]),
+      [['host_restarted', 1]],
+    );
+    second.changedFiles(executionId);
+    await until(() => second.checksDone() === 2, 'a check after the restart');
+    await quiet();
+    assert.equal(second.sent().length, 1);
+    assert.equal(second.ended().length, 1);
   });
 });
