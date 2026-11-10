@@ -135,6 +135,7 @@ namespace Halcyonic.XR.UI
             cursor.label.textWrappingMode = TextWrappingModes.NoWrap;
             cursor.label.overflowMode = TextOverflowModes.Overflow;
             cursor.label.characterSpacing = RoomWords.Tracking;
+            RoomBand.Underlay(cursor.label);
             cursor.sweep = GlazeShimmer.On(cursor.label);
             cursor.sweep.Waits = true;
             go.SetActive(false);

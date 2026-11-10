@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Halcyonic.Client;
 using TMPro;
 using UnityEngine;
@@ -89,6 +90,24 @@ namespace Halcyonic.XR.UI
 
         /// <summary>One dp on the plane, in the plane's units.</summary>
         private static float Dp => RoomType.Units(1f);
+
+        private static readonly Dictionary<string, Material?> underlays = new Dictionary<string, Material?>();
+
+        /// <summary>
+        /// Puts the words' underlay on a label drawn in one of the room's faces (DESIGN's BUILD-SPEC-v4 1.2 and 1.4):
+        /// TextMeshPro's own underlay, black at 28 percent, or 35 on an <paramref name="action"/>'s words, with no offset,
+        /// as soft as the face's atlas allows. It is a preset of the face's material (Resources/HalcyonicUI, the face's name
+        /// then "Underlay" or "Underlay Action"), shared by every label that takes it. False where the face has none.
+        /// </summary>
+        public static bool Underlay(TMP_Text label, bool action = false)
+        {
+            if (label.font == null) return false;
+            var name = label.font.name + (action ? " Underlay Action" : " Underlay");
+            if (!underlays.TryGetValue(name, out var preset)) underlays[name] = preset = Resources.Load<Material>("HalcyonicUI/" + name);
+            if (preset == null) return false;
+            if (label.fontSharedMaterial != preset) label.fontSharedMaterial = preset;
+            return true;
+        }
 
         /// <summary>A band under <paramref name="parent"/>, hidden, its origin the middle of its top edge; the ground draws at <paramref name="order"/> and the words over it.</summary>
         public static RoomBand Create(Transform parent, int order = KitType.Order.Plate)
@@ -295,6 +314,7 @@ namespace Halcyonic.XR.UI
                 // Never cut: what does not fit a part is the next part.
                 Label.overflowMode = TextOverflowModes.Overflow;
                 Label.characterSpacing = RoomWords.Tracking;
+                Underlay(Label);
                 // Whenever TextMeshPro builds the mesh again, the part is placed in it before it is drawn.
                 Label.OnPreRenderText += info => Place(info, everything: true);
                 Label.gameObject.SetActive(false);
@@ -443,6 +463,7 @@ namespace Halcyonic.XR.UI
         {
             material = null;
             quad = null;
+            underlays.Clear();
         }
     }
 }

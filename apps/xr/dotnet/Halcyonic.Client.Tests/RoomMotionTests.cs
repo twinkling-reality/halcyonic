@@ -147,6 +147,67 @@ public class RoomMotionTests
     }
 
     [Test]
+    public void ThePanelRisesADegreeAndFadesInThenLeavesOnTheStandardCurve()
+    {
+        var start = RoomMotion.PanelArrives(0f);
+        Assert.That((start.Shown, start.LowerDp), Is.EqualTo((0f, 16f)));
+        var half = RoomMotion.PanelArrives(0.18f);
+        Assert.That(half.Shown, Is.EqualTo(0.875f).Within(Close));
+        Assert.That(half.LowerDp, Is.EqualTo(2f).Within(1e-3f));
+        var end = RoomMotion.PanelArrives(0.36f);
+        Assert.That(end.Shown, Is.EqualTo(1f).Within(Close));
+        Assert.That(end.LowerDp, Is.EqualTo(0f).Within(1e-3f));
+        Assert.That(RoomMotion.PanelLeaves(0f), Is.EqualTo(1f));
+        Assert.That(RoomMotion.PanelLeaves(0.18f), Is.EqualTo(1f - BezierByWalking(0.2f, 0f, 0f, 1f, 0.5f)).Within(1e-3f));
+        Assert.That(RoomMotion.PanelLeaves(0.36f), Is.EqualTo(0f));
+    }
+
+    [Test]
+    public void TheColumnsActionsArriveAfterTwoHundredAndTwentyMillisecondsSixtyApart()
+    {
+        Assert.That(RoomMotion.ActionArrives(0.22f, 0).Shown, Is.EqualTo(0f).Within(Close));
+        Assert.That(RoomMotion.ActionArrives(0.22f, 0).LowerDp, Is.EqualTo(8f).Within(1e-3f));
+        Assert.That(RoomMotion.ActionArrives(0.34f, 0).Shown, Is.EqualTo(0.875f).Within(Close));
+        Assert.That(RoomMotion.ActionArrives(0.34f, 0).LowerDp, Is.EqualTo(1f).Within(1e-3f));
+        Assert.That(RoomMotion.ActionArrives(0.46f, 0).Shown, Is.EqualTo(1f).Within(Close));
+        Assert.That(RoomMotion.ActionArrives(0.34f, 2).Shown, Is.EqualTo(0f).Within(Close), "the third waits 120 ms more");
+        Assert.That(RoomMotion.ActionArrives(0.46f, 2).Shown, Is.EqualTo(0.875f).Within(Close));
+        Assert.That(RoomMotion.ActionArrives(0.64f, 3).Shown, Is.EqualTo(1f).Within(Close), "four actions are whole by 640 ms");
+    }
+
+    [Test]
+    public void AnActionAnswersPointingOverOneHundredAndFiftyMillisecondsAndShrinksWhileHeld()
+    {
+        Assert.That(RoomMotion.Pointed(0f), Is.EqualTo(0f));
+        Assert.That(RoomMotion.Pointed(0.075f), Is.EqualTo(0.875f).Within(Close));
+        Assert.That(RoomMotion.Pointed(0.15f), Is.EqualTo(1f).Within(Close));
+        Assert.That(RoomMotion.ActionScale(0f, false), Is.EqualTo(1f));
+        Assert.That(RoomMotion.ActionScale(1f, false), Is.EqualTo(1.03f).Within(Close));
+        Assert.That(RoomMotion.ActionScale(0.5f, false), Is.EqualTo(1.015f).Within(Close));
+        Assert.That(RoomMotion.ActionScale(1f, true), Is.EqualTo(0.96f), "held, it is 0.96 at once, pointed or not");
+    }
+
+    [Test]
+    public void AnAnswersMarkFillsOverTwoHundredAndFiftyMilliseconds()
+    {
+        Assert.That(RoomMotion.MarkFills(0f), Is.EqualTo(0f));
+        Assert.That(RoomMotion.MarkFills(0.125f), Is.EqualTo(0.875f).Within(Close));
+        Assert.That(RoomMotion.MarkFills(0.25f), Is.EqualTo(1f).Within(Close));
+    }
+
+    [Test]
+    public void ConfirmsRingFillsInAStraightLineThenItsChipLights()
+    {
+        Assert.That(RoomMotion.ConfirmRing(0f), Is.EqualTo(0f));
+        Assert.That(RoomMotion.ConfirmRing(0.35f), Is.EqualTo(0.5f).Within(Close));
+        Assert.That(RoomMotion.ConfirmRing(0.7f), Is.EqualTo(1f).Within(Close));
+        Assert.That(RoomMotion.ConfirmRing(3f), Is.EqualTo(1f));
+        Assert.That(RoomMotion.ConfirmLights(0.7f), Is.EqualTo(0f).Within(Close), "the chip waits for the ring");
+        Assert.That(RoomMotion.ConfirmLights(0.76f), Is.EqualTo(0.5f).Within(1e-3f));
+        Assert.That(RoomMotion.ConfirmLights(0.82f), Is.EqualTo(1f).Within(1e-3f));
+    }
+
+    [Test]
     public void TheBandLeavesOnTheStandardCurve()
     {
         Assert.That(RoomMotion.BandLeaves(0f), Is.EqualTo(1f));
