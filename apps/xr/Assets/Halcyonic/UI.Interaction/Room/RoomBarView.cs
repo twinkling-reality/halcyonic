@@ -27,8 +27,12 @@ namespace Halcyonic.XR.UI
         public const float LevelGapDp = 4f;
         public const float CaretSeconds = 0.53f;
 
-        /// <summary>The column's actions at most: a confirmation's Confirm, Next Part and Cancel, or a draft's Send, Cancel and Discard.</summary>
-        public const int ColumnMost = 4;
+        /// <summary>
+        /// The column's actions at most: a question's page of four answers with the file's way on and back (DESIGN 2.9); a
+        /// frame offering more stays the file's own (<see cref="KitWorkspaceHost.Holds"/>). One more place holds the band's
+        /// next part.
+        /// </summary>
+        public const int ColumnMost = 6;
 
         private RoomButton talk = null!;
         private RoomButton type = null!;
@@ -44,6 +48,8 @@ namespace Halcyonic.XR.UI
         private TextMeshPro measureRequest = null!;
         private TextMeshPro sentence = null!;
         private GlazeShimmer sentenceSweep = null!;
+        private GlazeShimmer bodySweep = null!;
+        private RoomButton? bandNext;
         private RoomButton? locking;
         private float lockedAt;
         private float lockAged;
@@ -85,6 +91,21 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Whether the sentence sweeps: a state under way.</summary>
         public bool SentenceWaits => sentenceSweep.Waits;
+
+        /// <summary>Whether the panel's one line sweeps: a state under way with no sentence bar.</summary>
+        public bool BodyWaits => bodySweep.Waits;
+
+        /// <summary>
+        /// The words of the way to the next part of the agent's words on the band (the band's own, as "Next Part · 2 of 3"),
+        /// set by the band's owner before <see cref="Show"/>; null where the band shows its last part or nothing. It stands
+        /// as the column's last action and raises <see cref="BandNextPressed"/>.
+        /// </summary>
+        public string? BandNext { get; set; }
+
+        /// <summary>The action that turns the band to its next part, where it stands now.</summary>
+        public RoomButton? BandNextButton => bandNext != null && bandNext.gameObject.activeSelf ? bandNext : null;
+
+        public event Action? BandNextPressed;
 
         public TextMeshPro Sentence => sentence;
 
@@ -156,6 +177,7 @@ namespace Halcyonic.XR.UI
             view.panel = RoomSurface.Create(go.transform, "Information panel", RoomSurfaceKind.Information, KitType.Order.Plate);
             view.body = RoomType.Create(view.panel.transform, "Words", Color.white, KitType.Order.Words);
             view.body.textWrappingMode = TextWrappingModes.Normal;
+            view.bodySweep = GlazeShimmer.On(view.body);
             view.request = RoomType.CreateMono(view.panel.transform, "Request", Color.white, KitType.Order.Words);
             view.request.textWrappingMode = TextWrappingModes.Normal;
             view.request.overflowMode = TextOverflowModes.Overflow;
@@ -177,7 +199,7 @@ namespace Halcyonic.XR.UI
             fieldGo.transform.SetParent(view.panel.transform, false);
             view.field = KitPress.Create(fieldGo, Vector2.one * RoomType.Units(RoomButton.HeightDp));
             view.field.Pressed += () => { if (view.shown?.Field is KitControl control) view.Acted?.Invoke(control); };
-            for (var index = 0; index < ColumnMost; index++)
+            for (var index = 0; index < ColumnMost + 1; index++)
             {
                 var button = RoomButton.Create(go.transform, "Action " + index);
                 button.Pressed += () => view.Raise(button);
@@ -193,6 +215,11 @@ namespace Halcyonic.XR.UI
 
         private void Raise(RoomButton button)
         {
+            if (ReferenceEquals(button, bandNext))
+            {
+                BandNextPressed?.Invoke();
+                return;
+            }
             if (!controls.TryGetValue(button, out var control)) return;
             if (control.Place == KitPlace.Talk) TalkPressed?.Invoke();
             else Acted?.Invoke(control);
@@ -208,6 +235,7 @@ namespace Halcyonic.XR.UI
             }
             shown = bar;
             controls.Clear();
+            bandNext = null;
             gameObject.SetActive(true);
             if (bar.Pair) LayPair(bar);
             else
@@ -415,6 +443,7 @@ namespace Halcyonic.XR.UI
             }
             var empty = bar.Body.Text.Length == 0;
             var bodyHeight = Mathf.Max(line, empty ? line : laid.Height);
+            bodySweep.Waits = bar.Waits && bar.Sentence == null && !bar.Mono && !empty;
 
             float barHeight = 0f;
             if (bar.Sentence is string said)
@@ -427,27 +456,44 @@ namespace Halcyonic.XR.UI
             sentence.gameObject.SetActive(bar.Sentence != null);
             sentenceSweep.Waits = bar.Sentence != null && bar.Waits;
             // The body 28 dp in from the top and sides; 18 dp under it before the sentence bar, which stands 14 dp in; 28 dp under it with no bar.
-            var panelHeight = pad + bodyHeight + (barHeight > 0f ? RoomType.Scaled(RoomGeometry.BodyFootDp) + barHeight + inset : pad);
+            // With nothing from the computer to say there is no panel: the choices take its place.
+            var panelHeight = bar.Wide ? 0f : pad + bodyHeight + (barHeight > 0f ? RoomType.Scaled(RoomGeometry.BodyFootDp) + barHeight + inset : pad);
 
-            // The column: the main action first, the hand target's pitch, the lowest action's core standing on the panel's foot
-            // line as DESIGN's page stands it (its target reaches 6.4 dp under the line).
-            var pitch = RoomType.Units(RoomButton.HeightDp) + KitType.Units(SpatialKit.TargetGapDegrees);
+            // The column: the lowest action's core stands on the panel's foot line as DESIGN's page stands it (its target reaches
+            // 6.4 dp under the line), the others above it, targets 12 mm apart. An answer's words may wrap, so an action may
+            // stand taller than a line: each is laid by its own height. Last, where the
+            // band holds more of the agent's words, the way to its next part, the main action where the file offers none.
+            var target = RoomType.Units(RoomButton.HeightDp);
+            // An answer wraps inside the information panel's width wherever it stands (DESIGN 1.4): the column's actions are content-sized.
+            var wrap = panelWidth;
             var count = Mathf.Min(bar.Column.Count, ColumnMost);
-            var coreHalf = RoomType.Units(RoomButton.CoreDp) / 2f;
-            var columnHeight = count == 0 ? 0f : (count - 1) * pitch + coreHalf + RoomType.Units(RoomButton.HeightDp) / 2f;
+            var paging = bar.Band != null && BandNext != null;
+            var places = count + (paging ? 1 : 0);
+            var cores = new Vector2[places];
             var widest = 0f;
-            for (var index = 0; index < count; index++) widest = Mathf.Max(widest, column[index].Measure(bar.Column[index].Words));
-            var columnWidth = Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), widest);
+            for (var index = 0; index < places; index++)
+            {
+                cores[index] = index < count
+                    ? column[index].Measure(bar.Column[index].Words, bar.Column[index].Mark != AnswerMark.None ? wrap : 0f)
+                    : column[index].Measure(BandNext!, 0f);
+                widest = Mathf.Max(widest, cores[index].x);
+            }
+            var rises = new float[places];
+            for (var index = places - 1; index >= 0; index--)
+                rises[index] = index == places - 1 ? cores[index].y / 2f
+                    : rises[index + 1] + Mathf.Max(target, cores[index + 1].y) / 2f + KitType.Units(SpatialKit.TargetGapDegrees) + Mathf.Max(target, cores[index].y) / 2f;
+            var columnHeight = places == 0 ? 0f : rises[0] + Mathf.Max(target, cores[0].y) / 2f;
             var gap = RoomType.Units(RoomGeometry.PairGapDp);
-            var total = panelWidth + gap + columnWidth;
+            var total = bar.Wide ? Mathf.Max(panelWidth + gap + RoomType.Units(RoomGeometry.ColumnDp), widest)
+                : panelWidth + gap + Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), widest);
             var height = Mathf.Max(panelHeight, columnHeight);
             var foot = -height / 2f;
             var left = -total / 2f;
 
             panel.InnerBar = barHeight > 0f ? ((panelHeight - inset - barHeight) / unit, barHeight / unit, inset / unit) : ((float, float, float)?)null;
             panel.transform.localPosition = new Vector3(left + panelWidth / 2f, foot + panelHeight / 2f, 0f);
-            panel.Draw(new Vector2(panelWidth, panelHeight));
-            panel.gameObject.SetActive(true);
+            if (!bar.Wide) panel.Draw(new Vector2(panelWidth, panelHeight));
+            panel.gameObject.SetActive(!bar.Wide);
             var top = panelHeight / 2f;
             body.transform.localPosition = new Vector3(-panelWidth / 2f + pad, top - pad, -RoomType.Units(0.5f));
             request.transform.localPosition = body.transform.localPosition;
@@ -480,20 +526,27 @@ namespace Halcyonic.XR.UI
                 field.Available = true;
             }
 
-            var columnLeft = left + panelWidth + gap;
+            var columnLeft = bar.Wide ? left : left + panelWidth + gap;
             RoomButton? locks = null;
             for (var index = 0; index < column.Count; index++)
             {
                 var button = column[index];
-                if (index >= count)
+                if (index >= places)
                 {
                     button.Hide();
                     continue;
                 }
+                var centre = new Vector2(columnLeft + cores[index].x / 2f, foot + rises[index]);
+                if (index >= count)
+                {
+                    // The band's next part: the way on while no other stands, since the agent's words are read before they are answered.
+                    button.Show(BandNext!, GlazeIcon.Next, !bar.Column.Any(each => each.Main), available: true, centre, cores[index].x);
+                    bandNext = button;
+                    continue;
+                }
                 var action = bar.Column[index];
-                var width = button.Measure(action.Words);
-                var y = foot + coreHalf + (count - 1 - index) * pitch;
-                button.Show(action.Words, action.Icon, action.Main, available: true, new Vector2(columnLeft + width / 2f, y), width);
+                button.Show(action.Words, action.Icon, action.Main, available: true, centre, cores[index].x, action.Mark, action.Chosen,
+                    action.Mark != AnswerMark.None ? wrap : 0f);
                 controls[button] = action.Control;
                 if (action.Locks) locks = button;
             }

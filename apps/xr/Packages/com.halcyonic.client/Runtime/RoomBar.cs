@@ -7,7 +7,7 @@ namespace Halcyonic.Client
     /// <summary>What the redesign shows of the open task's instruction now (DESIGN's FINISH-3, 2026-11-05).</summary>
     public enum RoomBarState
     {
-        /// <summary>Nothing: a question waits, which the redesign's next unit draws.</summary>
+        /// <summary>Nothing: no action can act and there is nothing to say.</summary>
         Hidden,
 
         /// <summary>The row at rest: Hold to Talk, the main action, and Type, floating with no field.</summary>
@@ -32,6 +32,13 @@ namespace Halcyonic.Client
         /// </summary>
         Request,
 
+        /// <summary>
+        /// A question (DESIGN 2.9): its prompt on the band of the agent's words, each answer a floating action with its mark
+        /// in the information panel's place, then the file's way on; with several prompts the panel holds which question it
+        /// is and the choices stand in the column; the answers' confirmation and Sending as an approval's.
+        /// </summary>
+        Question,
+
         /// <summary>"Sending", then "Sent · Awaiting Start", words alone, sweeping: the instruction went and the run has not started.</summary>
         Sent,
 
@@ -42,14 +49,26 @@ namespace Halcyonic.Client
     /// <summary>One floating action of the redesign: the file's own control at its place, with its words and glyph, main or not.</summary>
     public sealed class RoomAction
     {
-        public RoomAction(KitControl control, bool main, string? words = null, bool locks = false, GlazeIcon? icon = null)
+        public RoomAction(KitControl control, bool main, string? words = null, bool locks = false, GlazeIcon? icon = null, AnswerMark mark = AnswerMark.None,
+            bool chosen = false)
         {
             Control = control;
             Main = main;
             Words = words ?? control.Words;
             Locks = locks;
             Icon = icon ?? control.Icon;
+            Mark = mark;
+            Chosen = chosen;
         }
+
+        /// <summary>
+        /// An answer's mark, standing where the chip would (DESIGN 1.4): a circle for one of several, a squircle box where any
+        /// number may be chosen; none for an action that is no answer.
+        /// </summary>
+        public AnswerMark Mark { get; }
+
+        /// <summary>The answer is chosen: its mark is the light disc with a check.</summary>
+        public bool Chosen { get; }
 
         /// <summary>The file's control a press raises, with its frame.</summary>
         public KitControl Control { get; }
@@ -96,15 +115,20 @@ namespace Halcyonic.Client
         /// <summary>The lines of a request the panel shows at most (DESIGN 1.1): a longer one is read whole, part by part, under its confirmation.</summary>
         public const int RequestLines = 8;
 
+        /// <summary>The choices a page of a question holds as actions of their own (DESIGN 2.9: more than four page by the file's own row).</summary>
+        public const int ChoicesAPage = 4;
+
         private static readonly RoomAction[] None = new RoomAction[0];
 
         private RoomBar(RoomBarState state, IReadOnlyList<RoomAction>? row = null, LineWords? words = null, LineWords? body = null, PageLine? part = null,
             bool caret = false, string? sentence = null, IReadOnlyList<RoomAction>? column = null, KitControl? field = null, bool mono = false,
-            bool waits = false, int? rows = null)
+            bool waits = false, int? rows = null, string? band = null, bool wide = false)
         {
             Mono = mono;
             Waits = waits;
             Rows = rows;
+            Band = band;
+            Wide = wide;
             State = state;
             Row = row ?? None;
             Words = words ?? LineWords.None;
@@ -142,8 +166,17 @@ namespace Halcyonic.Client
         /// <summary>The body is exact text, a request as the runtime reported it: it stands in mono, literal, at most <see cref="RequestLines"/> lines of it before its confirmation.</summary>
         public bool Mono { get; }
 
-        /// <summary>The sentence is a state under way (Sending): it sweeps.</summary>
+        /// <summary>A state under way (Sending): the sentence sweeps, or the panel's one line where it has no sentence.</summary>
         public bool Waits { get; }
+
+        /// <summary>
+        /// The agent's own words for the band low in the view (DESIGN 1.6): the prompt of the question the page is about, as
+        /// the agent wrote it; null where nothing of the agent's stands. Never in the panel, which holds the computer's own.
+        /// </summary>
+        public string? Band { get; }
+
+        /// <summary>No panel: with nothing from the computer to say, the choices take its place, as wide as it (DESIGN 0, rule 3).</summary>
+        public bool Wide { get; }
 
         /// <summary>
         /// The rows the file counted for what is read under a confirmation (<see cref="Body"/>, whole), where it has measured
@@ -158,7 +191,51 @@ namespace Halcyonic.Client
         public KitControl? Field { get; }
 
         /// <summary>Whether the pair (the panel and its column) shows.</summary>
-        public bool Pair => State is RoomBarState.Draft or RoomBarState.Confirm or RoomBarState.Request;
+        public bool Pair => State is RoomBarState.Draft or RoomBarState.Confirm or RoomBarState.Request or RoomBarState.Question;
+
+        /// <summary>
+        /// A question (DESIGN 2.9), every action the file's own control, in the file's order: each answer with its mark, the
+        /// chosen one lit; the rows that take the person on within the page (Write Answer, More Choices, an answer given
+        /// back to its question); then the way on, the main action, where the file offers it (Next Question, Review Answers,
+        /// Send Answer), and the way back. The prompt stands on the band. With one prompt and nothing else to say there is
+        /// no panel and the choices take its place; with several the panel holds which question it is. The answers'
+        /// confirmation holds what goes in the panel, the file's question in its sentence bar, Confirm behind its lock and
+        /// Cancel; sent, the panel reads Sending and no action stands until the runtime takes the question away.
+        /// </summary>
+        private static RoomBar Asking(KitFileBinding binding, KitAsk ask)
+        {
+            KitControl? Available(KitPlace place) => binding[place] is KitControl control && control.Available ? control : null;
+            var column = new List<RoomAction>();
+            foreach (var control in binding.Controls.Where(control => control.Available && (control.Place == KitPlace.Choice || control.Place == KitPlace.Step)))
+            {
+                if (control.Place == KitPlace.Choice)
+                    column.Add(new RoomAction(control, main: false, mark: control.Mark == AnswerMark.None ? AnswerMark.Single : control.Mark, chosen: control.Chosen));
+                // An answer given, on the page of the person's answers: it reads as chosen, and its press goes back to its question.
+                else if (control.Action == FileScreens.GoToQuestion) column.Add(new RoomAction(control, main: false, mark: AnswerMark.Single, chosen: true));
+                else column.Add(new RoomAction(control, main: false, icon: control.Icon ?? GlazeIcon.Next));
+            }
+            if (Available(KitPlace.Yes) is KitControl yes) column.Add(new RoomAction(yes, main: true, locks: true));
+            if (Available(KitPlace.Forward) is KitControl forward) column.Add(new RoomAction(forward, main: true));
+            if (Available(KitPlace.Back) is KitControl back) column.Add(new RoomAction(back, main: false));
+            if (Available(KitPlace.Cancel) is KitControl cancel) column.Add(new RoomAction(cancel, main: false));
+            if (Available(KitPlace.Stop) is KitControl stop) column.Add(new RoomAction(stop, main: false));
+            // The panel: Sending; what goes, under its confirmation; why it can't be answered; or, with several prompts, which this is.
+            var sending = binding[KitPlace.Sending] != null;
+            var body = LineWords.None;
+            string? sentence = null;
+            if (sending) body = LineWords.Ours(WorkspaceText.Sent);
+            else if (ask.Body.Count > 0)
+            {
+                body = ask.Body[0].Runs;
+                for (var index = 1; index < ask.Body.Count; index++) body = body + LineWords.Ours(KitMomentWords.Dot) + ask.Body[index].Runs;
+                if (ask.Confirming) sentence = ask.Asks;
+            }
+            else if (ask.Confirming && ask.Asks != null) body = LineWords.Ours(ask.Asks);
+            else if (ask.Several && ask.Caption != null) body = LineWords.Ours(ask.Caption);
+            // Where the way on waits and a panel stands, its sentence bar says why, in the file's words.
+            if (!sending && !ask.Confirming && !body.IsEmpty && binding[KitPlace.Forward] is { Available: false, Reason: string why }) sentence = why;
+            return new RoomBar(RoomBarState.Question, body: body, sentence: sentence, column: sending ? None : column, waits: sending, band: ask.Prompt, wide: body.IsEmpty);
+        }
 
         /// <summary>
         /// What the panel reads of a request or an instruction under its confirmation, whole, and whether it stands in mono:
@@ -214,7 +291,9 @@ namespace Halcyonic.Client
         {
             var model = binding.Model;
             if (model.Need is KitNeed need) return Asked(binding, need);
-            if (model.Ask != null) return new RoomBar(RoomBarState.Hidden);
+            // A question's page as the redesign reads it (its prompt, caption and lines apart); one bound without them stays the file's.
+            if (model.Ask is KitAsk ask) return ask.Lines.Count > 0 && (ask.Prompt != null || ask.Caption != null || ask.Body.Count > 0 || ask.Asks != null)
+                ? Asking(binding, ask) : new RoomBar(RoomBarState.Hidden);
             KitControl? Available(KitPlace place) => binding[place] is KitControl control && control.Available ? control : null;
             var talk = binding[KitPlace.Talk];
             var field = binding[KitPlace.Field];

@@ -57,6 +57,8 @@ namespace Halcyonic.XR.Workspace
             composerLayouts[file] = geometry;
             // While the redesign draws this file, a part of what a confirmation reads is eight of the panel's own lines.
             file.RequestPartRowsOf = () => RoomDesign.Enabled && KitDraws(file) ? RoomBar.RequestLines : (int?)null;
+            // And a question is laid for it: every word whole, four choices a page.
+            file.QuestionBudgetOf = () => RoomDesign.Enabled && KitDraws(file) ? new ChoiceBudget(RoomBar.ChoicesAPage) : null;
             // Each retained file keeps its own callbacks and geometry lifetime. Background rebuilds
             // must never borrow another selected task's provenance or portrait allocation.
             file.ConfigureActivityComposer(

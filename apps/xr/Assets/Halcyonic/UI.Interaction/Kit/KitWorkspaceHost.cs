@@ -34,6 +34,13 @@ namespace Halcyonic.XR.UI
         private KitWorkView view = null!;
         private KitPresenceView presence = null!;
         private RoomBarView bar = null!;
+        private RoomBand band = null!;
+
+        /// <summary>The band of the agent's own words low in the view (DESIGN 1.6): a question's prompt while the redesign draws it.</summary>
+        public RoomBand Band => band;
+
+        /// <summary>From the pair's foot line to the band's top edge, in dp: pitch -17.6 to -24.5 (DESIGN 1.1, 1.6).</summary>
+        public const float BandUnderDp = (RoomWords.TopPitch - RoomGeometry.FeetPitch) * -RoomGeometry.DpPerDegree;
 
         /// <summary>The redesign's instruction (the row, its moments and its words), while <see cref="RoomDesign.Enabled"/> stands it in place of the kit.</summary>
         public RoomBarView Bar => bar;
@@ -145,6 +152,8 @@ namespace Halcyonic.XR.UI
             host.bar.Acted += control => { if (host.binding != null) host.Acted?.Invoke(host.column, control.Action, control.Key, control.Frame, null); };
             host.bar.TalkPressed += host.OnTalkPressed;
             host.bar.TalkReleased += host.OnTalkReleased;
+            host.band = RoomBand.Create(go.transform);
+            host.bar.BandNextPressed += host.OnBandNext;
             var decision = host.view.Decision;
             decision.DenyPressed += () => host.Press(KitPlace.Deny);
             decision.ApprovePressed += () => host.Press(KitPlace.Approve);
@@ -171,6 +180,9 @@ namespace Halcyonic.XR.UI
             // The redesign's panel holds every approval and every instruction under confirmation, read part by part, eight of
             // its own lines a part: but only where the file counted what is read by the panel's lines (RoomBarView.Lines), so
             // the file's parts are the panel's. Where it counted otherwise, the file draws the frame itself.
+            // A question's page the redesign reads, with no more actions than its column holds; any other stays the file's own.
+            if (RoomDesign.Enabled && model.Ask != null)
+                return RoomBar.Of(binding, Voice(), AwaitingStart()) is { State: RoomBarState.Question } asking && asking.Column.Count <= RoomBarView.ColumnMost;
             if (RoomDesign.Enabled && (model.Instruction != null || model.Need != null))
             {
                 var read = RoomBar.Of(binding, Voice(), AwaitingStart());
@@ -230,6 +242,7 @@ namespace Halcyonic.XR.UI
         {
             if (!RoomDesign.Enabled)
             {
+                band.Hide();
                 bar.Hide();
                 view.gameObject.SetActive(true);
                 view.Composer.ShowInstructionParts(true);
@@ -242,7 +255,13 @@ namespace Halcyonic.XR.UI
             // leaves its widths as DESIGN gives them and its words larger at the larger size.
             var zoom = GlazeText.Scale;
             bar.transform.localScale = Vector3.one / zoom;
-            bar.Show(RoomBar.Of(binding, Voice(), AwaitingStart()));
+            bar.transform.localPosition = Vector3.zero;
+            var room = RoomBar.Of(binding, Voice(), AwaitingStart());
+            // The agent's own words stand on the band, never in the panel; the same words again keep the part it shows.
+            if (room.Band != null) band.Show(room.Band);
+            else band.Hide();
+            bar.BandNext = band.Words?.Next;
+            bar.Show(room);
             if (!bar.gameObject.activeSelf)
             {
                 // Nothing drawn, standing where the row would, so the plane still places a real footprint.
@@ -252,9 +271,35 @@ namespace Halcyonic.XR.UI
                 return;
             }
             var size = bar.Size / zoom;
+            if (band.Words != null)
+            {
+                // The band hangs under the pair's foot line, centred, and grows downward; the whole is centred on the host.
+                // As the instruction, it lays its words at the person's text size and is scaled back by it, so its width stays.
+                band.transform.localScale = Vector3.one / zoom;
+                var under = RoomType.Units(BandUnderDp) / zoom;
+                var hangs = band.Size / zoom;
+                var whole = size.y + under + hangs.y;
+                bar.transform.localPosition = new Vector3(0f, (whole - size.y) / 2f, 0f);
+                band.transform.localPosition = new Vector3(0f, whole / 2f - size.y - under, 0f);
+                size = new Vector2(Mathf.Max(size.x, hangs.x), whole);
+            }
             Size = size;
             TextBands = new[] { new TextBand(-size.x / 2f, size.x / 2f, -size.y / 2f, size.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
             foreach (var press in bar.Presses) press.Accepting = () => Accepting();
+        }
+
+        /// <summary>
+        /// The band's next part pressed: it turns, and the frame is laid again with what the band holds now. The frame counts
+        /// as drawn only once the band shows its last part (<see cref="ReportDrawn"/>), so a question is read before the file
+        /// takes it as read.
+        /// </summary>
+        private void OnBandNext()
+        {
+            if (binding == null || !Settled || !Accepting() || !band.Next()) return;
+            ShowBar(binding);
+            drawn = null;
+            shownAt = Time.unscaledTime;
+            foreach (var press in bar.Presses) press.Unsettle();
         }
 
 
@@ -269,6 +314,7 @@ namespace Halcyonic.XR.UI
             binding = null;
             drawn = null;
             compact = true;
+            band.Hide();
             gameObject.SetActive(true);
             view.gameObject.SetActive(false);
             presence.gameObject.SetActive(true);
@@ -299,6 +345,7 @@ namespace Halcyonic.XR.UI
             binding = null;
             drawn = null;
             compact = false;
+            band.Hide();
             gameObject.SetActive(false);
         }
 
@@ -310,6 +357,7 @@ namespace Halcyonic.XR.UI
             foreach (var press in presence.Targets) press.SettleForRender();
             foreach (var press in bar.Presses) press.SettleForRender();
             bar.SettleForRender();
+            band.Settle();
         }
 
         /// <summary>For the Editor, which runs no frames: every control as if settled, and the frame shown reported drawn as a frame would.</summary>
@@ -336,6 +384,8 @@ namespace Halcyonic.XR.UI
             if (binding == null || !Settled || ReferenceEquals(drawn, binding.Frame)) return;
             // With the redesign on, a frame is drawn only where the bar shows it: nothing else of it stands in the room yet.
             if (RoomDesign.Enabled && !bar.gameObject.activeSelf) return;
+            // The agent's words still hold a part not shown: the frame is not read yet.
+            if (RoomDesign.Enabled && band.Words is { More: true }) return;
             drawn = binding.Frame;
             Drawn?.Invoke(column, binding.Frame);
         }

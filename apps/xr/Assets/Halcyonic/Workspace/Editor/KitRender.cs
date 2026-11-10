@@ -68,7 +68,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var size = variant.Length == 0 ? "Standard" : variant;
                     var found = new List<string>();
                     var shown = 0;
-                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" }.Concat(States).Concat(ScreenStates).Concat(MomentStates).Concat(FontStates).Concat(GlassStates).Concat(ChoreographyStates).Concat(ReaderStates).Concat(ReceiptStates).Concat(FigureStates).Concat(ChipStates).Concat(BarStates).Concat(ActionStates).Concat(AskStates))
+                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" }.Concat(States).Concat(ScreenStates).Concat(MomentStates).Concat(FontStates).Concat(GlassStates).Concat(ChoreographyStates).Concat(ReaderStates).Concat(ReceiptStates).Concat(FigureStates).Concat(ChipStates).Concat(BarStates).Concat(ActionStates).Concat(AskStates).Concat(QuestionStates))
                     {
                         if (narrowed && !state.Contains(only!, StringComparison.OrdinalIgnoreCase)) continue;
                         shown++;
@@ -185,7 +185,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     _ when ReceiptStates.Contains(state) => ReceiptShot(state, root.transform, eyes),
                     _ when FigureStates.Contains(state) => FigureShot(state, root.transform, eyes),
                     _ when ChipStates.Contains(state) => ChipShot(state, root.transform, eyes),
-                    _ when BarStates.Contains(state) || AskStates.Contains(state) => BarShot(state, root.transform, eyes),
+                    _ when BarStates.Contains(state) || AskStates.Contains(state) || QuestionStates.Contains(state) => BarShot(state, root.transform, eyes),
                     _ when ActionStates.Contains(state) => ActionsShot(state, root.transform, eyes),
                     _ => ControlKit(root.transform, eyes),
                 };
@@ -990,6 +990,15 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 if (string.IsNullOrEmpty(label.text) || GlazeIcons.IsIcon(label) || label.textInfo == null || label.textInfo.characterCount == 0) continue;
                 var bounds = label.textBounds;
+                // The band's label holds every part's letters, the other parts' folded away and the part showing lifted to its
+                // first rows: the words that show stand in those rows, and their ground is measured there.
+                if (label.GetComponentInParent<RoomBand>() is RoomBand band && ReferenceEquals(band.Label, label) && band.Words is RoomWords part
+                    && part.Count > 0 && label.textInfo.lineCount > part.Count)
+                {
+                    var top = label.textInfo.lineInfo[0].ascender;
+                    var foot = label.textInfo.lineInfo[part.Count - 1].descender;
+                    bounds = new Bounds(new Vector3(bounds.center.x, (top + foot) / 2f, 0f), new Vector3(bounds.size.x, top - foot, 0f));
+                }
                 var min = new Vector2(float.MaxValue, float.MaxValue);
                 var max = new Vector2(float.MinValue, float.MinValue);
                 foreach (var x in new[] { bounds.min.x, bounds.max.x })

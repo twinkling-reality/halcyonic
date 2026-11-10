@@ -227,13 +227,34 @@ namespace Halcyonic.Client
             Question = question;
         }
 
-        public KitAsk(IReadOnlyList<PageLine> lines, bool confirming)
+        public KitAsk(IReadOnlyList<PageLine> lines, bool confirming, string? prompt = null, bool several = false, string? caption = null,
+            IReadOnlyList<PageLine>? body = null, string? asks = null)
         {
             Heading = LineWords.None;
             Question = "";
             Lines = lines;
             Confirming = confirming;
+            Prompt = prompt;
+            Several = several;
+            Caption = caption;
+            Body = body ?? new PageLine[0];
+            Asks = asks;
         }
+
+        /// <summary>The prompt the page is about, as the agent wrote it, for the redesign's band of the agent's words; null where the page is about none (several prompts' answers).</summary>
+        public string? Prompt { get; }
+
+        /// <summary>The question holds more than one prompt, so the page's caption says which it is (the redesign shows it in the panel).</summary>
+        public bool Several { get; }
+
+        /// <summary>The page's caption, Halcyonic's: which question of how many and how it is answered, or Your Answers; null for none. Bound for the redesign.</summary>
+        public string? Caption { get; }
+
+        /// <summary>The page's lines that are none of its prompt, caption or confirmation's question: the answers about to go, or why it can't be answered. Bound for the redesign.</summary>
+        public IReadOnlyList<PageLine> Body { get; } = new PageLine[0];
+
+        /// <summary>What the answers' confirmation asks, the file's own (Send Answers?); null otherwise. Bound for the redesign.</summary>
+        public string? Asks { get; }
 
         /// <summary>Halcyonic's heading, such as It asks you, or the agent's own header leaning.</summary>
         public LineWords Heading { get; }
