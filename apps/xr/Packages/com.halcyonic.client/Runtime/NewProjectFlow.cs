@@ -31,6 +31,9 @@ namespace Halcyonic.Client
             Folder,
             Options,
             Words,
+
+            /// <summary>The redesign's page of what the recap lets a person change (<see cref="NewProjectScreens.RecapChange"/>).</summary>
+            Change,
         }
 
         private enum BuildPage
@@ -435,6 +438,8 @@ namespace Halcyonic.Client
                         RecapPage.Options => NewProjectScreens.RecapOptions(current, reached, draft, host.State?.Runtimes ?? new List<RuntimeDescriptor>(),
                             showModels, Live),
                         RecapPage.Words => NewProjectScreens.Words(current, reached, wordsFor, written, writtenHeard, Voice, Said(step), wordsRoot, host.KeyboardOffered),
+                        RecapPage.Change when RoomDesign.Enabled => NewProjectScreens.RecapChange(current, reached, confirmingStartOver,
+                            Building() || OutcomeUnknown ? problem : null, WordsOffered),
                         _ => NewProjectScreens.Recap(current, draft, CurrentFolder(), Live, Said(step), problem, fact, confirmingStartOver, reached,
                             Building() || OutcomeUnknown ? problem : null, WordsOffered).Focus(),
                     };
@@ -662,7 +667,21 @@ namespace Halcyonic.Client
                 case NewProjectScreens.StartOver when step == NewProjectStep.Recap && fact == RecapFact.StartOver && !Building() && !OutcomeUnknown:
                     confirmingStartOver = true;
                     break;
-                case NewProjectScreens.ConfirmStartOver when confirmingStartOver && !Building() && !OutcomeUnknown:
+                // The redesign's recap: its page of what can be changed, where Start Over arms as it does on its row.
+                case NewProjectScreens.StartOver when RoomDesign.Enabled && step == NewProjectStep.Recap && recapPage == RecapPage.Change && !Building() && !OutcomeUnknown:
+                    confirmingStartOver = true;
+                    break;
+                case NewProjectScreens.ChangeRecap when RoomDesign.Enabled && step == NewProjectStep.Recap && recapPage == RecapPage.Facts:
+                    confirmingStartOver = false;
+                    Show(NewProjectStep.Recap, page: RecapPage.Change);
+                    break;
+                case NewProjectScreens.BackToRecap when step == NewProjectStep.Recap && recapPage == RecapPage.Change:
+                    confirmingStartOver = false;
+                    Show(NewProjectStep.Recap);
+                    break;
+                // Under the redesign its Confirm stands only on the page of what can be changed, so it is taken only there.
+                case NewProjectScreens.ConfirmStartOver when confirmingStartOver && !Building() && !OutcomeUnknown
+                    && (!RoomDesign.Enabled || recapPage == RecapPage.Change):
                     fact = null;
                     idea = new ProjectIdea(current.ExistingProjectId, current.ExistingProjectId == null ? null : current.Name);
                     LeaveCompanion(exchange);

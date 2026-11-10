@@ -2212,4 +2212,191 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.MoreOptions, null);
         Assert.That(routes.Asked.Count(asked => asked == "GET /api/runtimes/local/models"), Is.EqualTo(1), "on the person's press");
     }
+
+    // The redesign's New Project (the addendum's A2), every change behind RoomDesign.Enabled: no read and no send moves.
+
+    /// <summary>Runs <paramref name="check"/> with the redesign on, and puts the switch back.</summary>
+    private static void InTheRedesign(Action check)
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try { check(); }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    /// <summary>Under the redesign: an idea typed, an agent app chosen through the page of what can be changed, and the recap showing.</summary>
+    private static NewProjectFlow RoomRecapped(Host host)
+    {
+        var flow = Flow(host);
+        flow.Open(null, null);
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        PressOn(flow, NewProjectScreens.MoreOptions);
+        Press(flow, NewProjectScreens.ChooseRuntime, "mock");
+        Press(flow, NewProjectScreens.Done, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+        return flow;
+    }
+
+    /// <summary>What the page's lines raise, on every page of it as a person turns them, the rows that only turn left out.</summary>
+    private static string?[] Actions(NewProjectFlow flow) =>
+        Pages(flow).SelectMany(frame => frame.Lines).Where(line => line.Action != null && !Turns(line)).Select(line => line.Action).Distinct().ToArray();
+
+    /// <summary>Every line's words, on every page of what shows.</summary>
+    private static List<string> Words(NewProjectFlow flow) => Pages(flow).SelectMany(frame => frame.Lines).Where(line => !Turns(line)).Select(line => line.Words).Distinct().ToList();
+
+    /// <summary>Presses a line or prompt with no key, turning to its page first as a person would.</summary>
+    private static void PressOn(NewProjectFlow flow, string id)
+    {
+        for (var turned = 0; turned < 12 && flow.Frame is MenuFrame frame && !Shows(frame, id, null) && Turn(frame) is { } turn; turned++)
+        {
+            Draw(flow, frame);
+            flow.Act(turn.Id, turn.Key);
+        }
+        Press(flow, id, null);
+    }
+
+    [Test]
+    public void In_the_redesign_Your_Idea_offers_its_way_as_one_press() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = Flow(host);
+        flow.Open(null, null);
+        Assert.That(Actions(flow), Is.EqualTo(new[] { NewProjectScreens.TypeIdea }), "no row to choose a way by");
+        var empty = flow.Frame!;
+        var way = empty.Footer[PromptSlot.FarRight]!;
+        Assert.That((way.Id, way.Main), Is.EqualTo((NewProjectScreens.BeginQuestions, true)), "with no words yet the way is the main action");
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Assert.That(Actions(flow), Is.EqualTo(new[] { NewProjectScreens.TypeIdea, NewProjectScreens.BeginQuestions }));
+        Assert.That(Words(flow), Does.Contain(EntryText.StartQuestions));
+        var worded = flow.Frame!;
+        Assert.That(worded.Footer.All.Select(each => each.Prompt).Single(prompt => prompt.Main).Id, Is.EqualTo(NewProjectScreens.UseIdea));
+        PressOn(flow, NewProjectScreens.BeginQuestions);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Questions), "one press, with words already written");
+        Assert.That(host.Sent, Is.Empty);
+    });
+
+    [Test]
+    public void In_the_redesign_the_recap_names_each_fact_and_no_row_takes_a_press() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = RoomRecapped(host);
+        Assert.That(Actions(flow), Is.Empty, "the facts are read, not pressed");
+        var words = Words(flow);
+        var recap = flow.Frame!;
+        Assert.That(words.Any(line => line.StartsWith(NewWorkReview.ProjectLabel, StringComparison.Ordinal)), "the name's row says what it is: " + string.Join(" | ", words));
+        Assert.That(words, Does.Contain(NewWorkReview.FirstTaskLabel + "A page of race times for my running club"));
+        Assert.That(words, Has.None.EqualTo(EntryText.StartOver), "Start Over stands on the page of what can be changed");
+        Assert.That(words, Has.None.EqualTo(EntryText.RecapLine), "no line that only says the facts can be edited");
+        var prompts = recap.Footer.All.Select(each => each.Prompt).ToList();
+        Assert.That(prompts.Single(prompt => prompt.Id == NewProjectScreens.ChangeRecap).Words, Is.EqualTo(EntryText.Change));
+        var start = prompts.Single(prompt => prompt.Id == NewProjectScreens.StartBuilding);
+        Assert.That((start.Words, start.Main), Is.EqualTo((EntryText.StartBuilding, true)));
+        Assert.That(recap.Side, Is.Null);
+        Assert.That(host.Sent, Is.Empty, "nothing is sent by reading the recap");
+    });
+
+    [Test]
+    public void In_the_redesign_Change_opens_what_can_be_changed_and_Back_returns_to_the_facts() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = RoomRecapped(host);
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        Assert.That(Actions(flow), Is.EqualTo(new[] { NewProjectScreens.Rename, NewProjectScreens.ChangeTask, NewProjectScreens.ChooseWhere, NewProjectScreens.MoreOptions }));
+        Assert.That(Words(flow), Is.EqualTo(new[] { EntryText.ProjectName, EntryText.FirstTask, EntryText.ChooseAnotherFolder, EntryText.MoreOptions }));
+        var page = flow.Frame!;
+        Assert.That((page.Footer[PromptSlot.Rare]!.Id, page.Footer[PromptSlot.FarRight]!.Id, page.Footer[PromptSlot.FarRight]!.Words),
+            Is.EqualTo((NewProjectScreens.StartOver, NewProjectScreens.BackToRecap, EntryText.Back)));
+        Press(flow, NewProjectScreens.BackToRecap, null);
+        Assert.That(Actions(flow), Is.Empty);
+        Assert.That(Ids(flow.Frame!), Does.Contain(NewProjectScreens.ChangeRecap));
+    });
+
+    [Test]
+    public void In_the_redesign_a_change_opens_its_own_page_and_comes_back_to_the_facts() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = RoomRecapped(host);
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        PressOn(flow, NewProjectScreens.Rename);
+        Assert.That(Actions(flow), Does.Contain(NewProjectScreens.TypeWords), "the name's own page");
+        host.Typed.Enqueue("Race Times");
+        Press(flow, NewProjectScreens.TypeWords, null);
+        Press(flow, NewProjectScreens.Done, null);
+        Assert.That(flow.Idea!.Name, Is.EqualTo("Race Times"));
+        Assert.That(Words(flow), Does.Contain(NewWorkReview.ProjectLabel + "Race Times"), "back on the facts, the row reads the new name");
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        PressOn(flow, NewProjectScreens.ChooseWhere);
+        Assert.That(Actions(flow), Has.None.EqualTo(NewProjectScreens.Rename), "the folder's own page");
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+    });
+
+    [Test]
+    public void In_the_redesign_Start_Over_is_armed_on_the_page_of_changes_and_cleared_only_by_its_Confirm_there() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = RoomRecapped(host);
+        Press(flow, NewProjectScreens.StartOver, null);
+        Press(flow, NewProjectScreens.ConfirmStartOver, null);
+        Assert.That(flow.Idea!.HasRecap, Is.True, "on the facts Start Over is not offered and does nothing");
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        Press(flow, NewProjectScreens.ConfirmStartOver, null);
+        Assert.That(flow.Idea!.HasRecap, Is.True, "Confirm before Start Over does nothing");
+        Press(flow, NewProjectScreens.StartOver, null);
+        var armed = flow.Frame!;
+        Assert.That(Words(flow), Does.Contain(EntryText.StartOverClears(false)), "all it clears is said before its Confirm");
+        Assert.That((armed.Footer[PromptSlot.Free]!.Id, armed.Footer[PromptSlot.Free]!.Kind), Is.EqualTo((NewProjectScreens.ConfirmStartOver, PromptKind.Yes)));
+        Assert.That(armed.Footer[PromptSlot.FarRight], Is.Null, "armed, only Cancel and Confirm stand beside Close");
+        Press(flow, NewProjectScreens.Cancel, null);
+        Assert.That(flow.Frame!.Footer[PromptSlot.Free], Is.Null);
+        Press(flow, NewProjectScreens.ConfirmStartOver, null);
+        Assert.That(flow.Idea!.HasRecap, Is.True, "cancelled, Confirm does nothing");
+        // Armed, then left for the facts: its Confirm is not taken from there.
+        Press(flow, NewProjectScreens.StartOver, null);
+        Assert.That(Ids(flow.Frame!), Has.None.EqualTo(NewProjectScreens.BackToRecap), "armed, the way back is Cancel");
+        Press(flow, NewProjectScreens.Cancel, null);
+        Press(flow, NewProjectScreens.BackToRecap, null);
+        Press(flow, NewProjectScreens.ConfirmStartOver, null);
+        Assert.That(flow.Idea!.HasRecap, Is.True);
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        Assert.That(flow.Frame!.Footer[PromptSlot.Free], Is.Null, "opened again, the page is not armed");
+        Press(flow, NewProjectScreens.StartOver, null);
+        Press(flow, NewProjectScreens.ConfirmStartOver, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.YourIdea));
+        Assert.That(flow.Idea!.HasRecap, Is.False);
+        Assert.That(host.Sent, Is.Empty, "starting over sends nothing");
+    });
+
+    [Test]
+    public void In_the_redesign_Start_Task_still_opens_the_review_and_nothing_is_sent_before_its_Confirm() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = RoomRecapped(host);
+        var start = flow.Frame!.Footer.All.Select(each => each.Prompt).Single(prompt => prompt.Id == NewProjectScreens.StartBuilding);
+        Assert.That(start.Available, Is.True, start.Reason);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Build));
+        var review = flow.Frame!;
+        Assert.That(review.Lines.First().Words, Is.EqualTo(EntryText.ReviewLine), "the review, as it is without the redesign");
+        Assert.That(review.Footer.All.Select(each => each.Prompt.Kind), Does.Contain(PromptKind.Cancel));
+        Assert.That(Ids(review), Does.Not.Contain(NewProjectScreens.ConfirmStart), "its Confirm stands only once every part is read");
+        Assert.That(host.Sent, Is.Empty, "Start Task opens what will be sent; it sends nothing");
+        Press(flow, NewProjectScreens.Cancel, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+        Assert.That(Actions(flow), Is.Empty, "Cancel returns to the facts");
+    });
+
+    [Test]
+    public void Without_the_redesign_the_pages_of_changes_are_not_reachable()
+    {
+        Assume.That(RoomDesign.Enabled, Is.False);
+        var host = new Host();
+        var flow = Recapped(host);
+        flow.Act(NewProjectScreens.ChangeRecap, null);
+        Assert.That(Actions(flow), Does.Contain(NewProjectScreens.ChooseFact), "the recap stays its rows to choose");
+        Assert.That(flow.Frame!.Footer.All.Select(each => each.Prompt.Id), Has.None.EqualTo(NewProjectScreens.ChangeRecap));
+    }
 }
