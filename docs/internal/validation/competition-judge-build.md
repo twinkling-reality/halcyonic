@@ -43,8 +43,11 @@ page gives no update date):
 
 ## What a judge meets
 
-The release APK has no access token and offers no pairing (`PairingBootstrap` runs in development
-builds only), so it always plays the demonstration. Once a recorded run is bundled
+The release APK has no access token and no pairing on a fresh install, so it always plays the
+demonstration. Since 2026-11-10 it offers pairing (Settings, Your computer, Pairing, which reads
+Not paired), as every build does, so a person with a Mac can direct real work from a release build
+([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md), amendment of 2026-11-10);
+a judge without one sees the row and the demonstration as before. Once a recorded run is bundled
 (`HalcyonicRecordedRun.json`, not yet), a judge meets it first, and the demonstration below follows
 when its end has held ([XR_CLIENT.md](../architecture/XR_CLIENT.md), "Recorded run, then
 demonstration"); this table and the testing instructions change with it. From the recording:

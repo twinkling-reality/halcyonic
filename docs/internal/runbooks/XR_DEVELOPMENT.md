@@ -720,8 +720,8 @@ tcp:47800` is in place.
 
 ### Pair over Wi-Fi
 
-A development build can pair with the control plane over the local network instead, with no cable
-([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)); release builds cannot.
+Any build, a release build included, can pair with the control plane over the local network
+instead, with no cable ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)).
 The Mac and the headset must be on the same network, and not a guest network that keeps devices
 apart. On the Mac, start the control plane with its network listener and open pairing
 ([LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md)):

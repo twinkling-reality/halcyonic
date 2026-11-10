@@ -169,7 +169,7 @@ headset can do what its owner could over that network until the owner revokes it
   paired device does not read them from the event history.
 - **Headset.** The client core holds the SRP client, the pinned transports and the pairing
   client, with no engine reference; `Halcyonic.XR.Pairing` adds a small pairing panel at runtime,
-  in development builds.
+  in every build since the amendment of 2026-11-10 (it was development builds only before).
 
 ## Alternatives considered
 
@@ -217,3 +217,10 @@ Still discovery is never trusted: the pin and the credential decide, as before. 
 headset: whether Horizon OS resolves `.local` names; if it does not, the stored IP addresses still
 help while the Mac keeps one of them, and a broadcast search answered under the pin is the
 fallback to decide on then. Discovery by mDNS browsing stays as the options table above left it.
+
+Release builds pair too. A release build is not debuggable, so no access token can be put on it,
+and with pairing in development builds only it could show nothing but the demonstration: nobody
+without a developer's cable could direct real work. The pairing panel and Settings' Your computer
+are now in every build, the judges' build included, where the row reads Not paired and the
+demonstration is as it was. The credential stays in app-internal storage, which on a release build
+not even `run-as` reaches.

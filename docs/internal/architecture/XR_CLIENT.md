@@ -12,7 +12,7 @@ Unity layer (apps/xr/Assets)          stage, characters, focus guard;           
         │                             transition, first-time hint;                    quest-3-device.md;
         │                             Meta's rig; room: passthrough, MRUK, stage      Wi-Fi pairing has not
         │                             anchor; sound: the characters' voices;          been run on a headset
-        │                             pairing: panel, development builds              (network-pairing.md)
+        │                             pairing: panel, every build                     (network-pairing.md)
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
         │                             CharacterPresenter, CharacterCues,
@@ -624,7 +624,7 @@ launch/return, process recreation and current-frame action behavior need separat
   walk follows the offered parts, including the in-place pager at Larger, and verifies the complete
   fact sequence with unchanged subject, source and selected limit) and `SettingsColumn` (each setting under its
   group's heading, its one change the main action; the comfort settings from `ComfortSettings`, and
-  Your space and, in a development build, Your computer from `SpaceSettings`, each row's change only
+  Your space and Your computer from `SpaceSettings`, each row's change only
   raising its id for what owns it (`IRoomSettings`, `IPairingSettings`, `MenuDirector.ResetPosition`); a change that asks first, as forgetting the computer, arms on that press
   with `Footer.Confirm`, Cancel in its place and Yes in the free middle, the Yes given to the
   setting's `Confirmed` with the reading it armed where it has one, lapsing after 6 seconds, on
@@ -2107,9 +2107,9 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   all the closed bar says "Nothing is running yet" (`TasksText.NothingRunning`).
 - **Settings:** the menu's Settings (`SettingsColumn`, above): Your space, from `SpaceSettings`
   (the room shown and what it offers, given by the room's controls, where the characters stand, and
-  the menu's Reset position, `MenuDirector.ResetPosition`), Comfort (`ComfortSettings`), and, in a
-  development build (`Debug.isDebugBuild`, the pairing's own gate), Your computer, its Pairing row
-  given by the pairing. Every row stands whatever is there and reads what stands now: without the
+  the menu's Reset position, `MenuDirector.ResetPosition`), Comfort (`ComfortSettings`), and, in
+  every build since 2026-11-10, release builds included, Your computer, its Pairing row given by
+  the pairing. Every row stands whatever is there and reads what stands now: without the
   room's controls, before they start or once they have gone, the room's rows say "Your room can't
   be read now." and take no change, while The menu and Reset position stay; without the pairing,
   Pairing says it isn't ready yet. The room's and the
@@ -3193,11 +3193,13 @@ memory on a Quest 3. The checks are in [XR_DEVELOPMENT.md](../runbooks/XR_DEVELO
 
 ### Pairing
 
-`Assets/Halcyonic/Pairing` is its own assembly, `Halcyonic.XR.Pairing`, added only to development
-builds and the editor: `PairingBootstrap` adds `PairingPanel` to the stage object at runtime, as
-the room's and the sound's bootstraps do, so neither the scene nor the stage refers to it. A
-release build, such as the one judges run, offers no pairing
-([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)).
+`Assets/Halcyonic/Pairing` is its own assembly, `Halcyonic.XR.Pairing`: `PairingBootstrap` adds
+`PairingPanel` to the stage object at runtime, as the room's and the sound's bootstraps do, so
+neither the scene nor the stage refers to it. Since 2026-11-10 every build pairs, release builds
+included, the one judges run too: without pairing a release build, which cannot take an access
+token, could only show the demonstration, and Settings there shows Your computer, Pairing, Not
+paired ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md), amendment of
+2026-11-10).
 
 - **The panel** is the Pairing row of the menu's Settings, under Your computer (`SpaceSettings`;
   `PairingPanel` gives the workspace director its state, Pair and Forget, `IPairingSettings`, and

@@ -97,7 +97,7 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The room's part of Settings' Your space, given by the room's controls once they start; none in a scene without a room.</summary>
         public IRoomSettings? Room { get; set; }
 
-        /// <summary>Pairing, Settings' Your computer, given by the pairing in a development build; none otherwise.</summary>
+        /// <summary>Pairing, Settings' Your computer, given by the pairing in every build; none until it is.</summary>
         public IPairingSettings? Pairing { get; set; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -189,9 +189,9 @@ namespace Halcyonic.XR.Workspace
                 ComfortSaved = comfort.Keep,
                 Appearance = appearance.Settings,
                 AppearanceSaved = appearance.Keep,
-                // Your space always, so Reset position is always there; Your computer where the build
-                // offers pairing (PairingBootstrap's gate), each row reading whatever stands now.
-                Space = () => SpaceSettings.Of(SpaceNow, ActInSpace, address => Pairing?.Forget(address), pairing: Debug.isDebugBuild, boundary: Debug.isDebugBuild),
+                // Your space always, so Reset position is always there; Your computer in every build,
+                // since every build pairs (PairingBootstrap), each row reading whatever stands now.
+                Space = () => SpaceSettings.Of(SpaceNow, ActInSpace, address => Pairing?.Forget(address), pairing: true, boundary: Debug.isDebugBuild),
                 Commands = commands,
                 Overview = Overview,
                 ShowProject = ShowProject,
