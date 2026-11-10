@@ -68,6 +68,7 @@ export class EventBuilder {
   execution(
     projectId: ProjectId,
     workstreamId: WorkstreamId,
+    directory: string | null = null,
   ): { executionId: ExecutionId; event: StoredEvent } {
     const executionId = this.id() as ExecutionId;
     return {
@@ -77,7 +78,7 @@ export class EventBuilder {
         project_id: projectId,
         workstream_id: workstreamId,
         execution_id: executionId,
-        payload: { runtime: this.runtime, instruction: 'Do the work.', directory: null },
+        payload: { runtime: this.runtime, instruction: 'Do the work.', directory },
       }),
     };
   }

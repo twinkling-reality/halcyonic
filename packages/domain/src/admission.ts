@@ -366,6 +366,10 @@ export function admitCommand(
           `Runtime ${runtime.runtime_id} works in the project's folder, and the project has none. Choose a folder for the project first.`,
         );
       }
+      if (runtime.uses_project_location && location !== null) {
+        const refusal = folderRefusal(projection, location.path, workstream.workstream_id, scope);
+        if (refusal !== undefined) return refusal;
+      }
       return { admitted: true, policy, scope, runtime };
     }
 
@@ -409,6 +413,10 @@ export function admitCommand(
               'invalid_state',
               `${commandInWords(busy.commandType)} for this task is still under way. Wait for its outcome first.`,
             );
+          }
+          if (facts.directory !== null) {
+            const refusal = folderRefusal(projection, facts.directory, facts.workstreamId, scope);
+            if (refusal !== undefined) return refusal;
           }
           return { admitted: true, policy, scope, runtime };
         }
@@ -716,4 +724,58 @@ function taskInUse(
     );
   if (pending !== undefined) return { kind: 'pending', commandType: pending.command_type };
   return null;
+}
+
+/**
+ * Why setting an agent going in `folder` for a task must wait: another task's execution works in
+ * that folder, or in one inside it or around it, and is active, or a start or an instruction for
+ * another task there has no outcome yet. Two agents in one tree would write the same files and see
+ * each other's unfinished changes (FOLDER, OPEN_QUESTIONS). Undefined when the folder is free.
+ */
+function folderRefusal(
+  projection: Projection,
+  folder: string,
+  workstreamId: WorkstreamId,
+  scope: CommandScope,
+): (Admission & { admitted: false }) | undefined {
+  const active = projection
+    .activeExecutions()
+    .find(
+      (facts) =>
+        facts.workstreamId !== workstreamId &&
+        facts.directory !== null &&
+        foldersOverlap(facts.directory, folder),
+    );
+  if (active !== undefined) {
+    return reject(
+      scope,
+      'invalid_state',
+      `Another task is ${inWords(active.status)} in this folder. Wait for it to finish or stop it, then try again.`,
+    );
+  }
+  const pending = projection.pendingCommands().find((command) => {
+    if (command.workstream_id === null || command.workstream_id === workstreamId) return false;
+    const where =
+      command.command_type === 'execution.start'
+        ? (projection.project(command.project_id ?? '')?.location?.path ?? null)
+        : command.command_type === 'execution.send_instruction' && command.execution_id !== null
+          ? (projection.execution(command.execution_id)?.directory ?? null)
+          : null;
+    return where !== null && foldersOverlap(where, folder);
+  });
+  if (pending !== undefined) {
+    return reject(
+      scope,
+      'invalid_state',
+      `${commandInWords(pending.command_type)} for another task in this folder is still under way. Wait for its outcome, then try again.`,
+    );
+  }
+  return undefined;
+}
+
+/** Whether two absolute folders are one, or one holds the other, so that work in one reaches the other. */
+function foldersOverlap(a: string, b: string): boolean {
+  const left = a.endsWith('/') ? a : `${a}/`;
+  const right = b.endsWith('/') ? b : `${b}/`;
+  return left.startsWith(right) || right.startsWith(left);
 }

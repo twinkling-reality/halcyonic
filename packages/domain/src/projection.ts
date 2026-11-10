@@ -65,6 +65,8 @@ export interface ExecutionFacts {
   projectId: ProjectId;
   workstreamId: WorkstreamId;
   runtimeId: string;
+  /** The folder the runtime was given to work in, or null where it was given none or none was recorded. */
+  directory: string | null;
   status: ExecutionStatus;
   hasNativeSession: boolean;
   activeTurnId: string | null;
@@ -1507,6 +1509,7 @@ function toFacts(state: ExecutionState): ExecutionFacts {
     projectId: state.projectId,
     workstreamId: state.workstreamId,
     runtimeId: state.runtime.runtime_id,
+    directory: state.directory,
     status: deriveExecutionStatus(state),
     hasNativeSession: state.runtimeStarted,
     activeTurnId: state.activeTurn?.turnId ?? null,
