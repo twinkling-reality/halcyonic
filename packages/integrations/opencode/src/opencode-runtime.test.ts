@@ -11,6 +11,7 @@ import {
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
+import { isDeepStrictEqual } from 'node:util';
 import { compileValidator, RuntimeDescriptor } from '@halcyonic/contracts';
 import {
   capabilityProblems,
@@ -61,8 +62,16 @@ describe('OpenCode runtime descriptor', () => {
     assert.equal(runtime.descriptor.kind, 'opencode');
     assert.equal(runtime.descriptor.synthetic, false);
     assert.equal(runtime.descriptor.model_choice, 'listed');
-    // Without Halcyonic's sandbox nothing is declared about where an approved command runs.
+    // Without Halcyonic's sandbox nothing is declared about where an approved command runs, and
+    // working without asking is not offered (ADR 0043).
     assert.equal(runtime.descriptor.approval_may_leave_sandbox, undefined);
+    assert.equal(runtime.descriptor.offers_never_ask, undefined);
+    assert.deepEqual(runtime.validateStartOptions({}, null, 'never_ask'), {
+      ok: false,
+      message:
+        "OpenCode works without asking only inside Halcyonic's sandbox, which this server does not run in.",
+    });
+    assert.deepEqual(runtime.validateStartOptions({}, null, 'ask'), { ok: true });
     assert.equal(typeof runtime.listModels, 'function');
     assert.deepEqual(runtime.descriptor.capabilities, OPENCODE_CAPABILITIES);
     assert.deepEqual(OPENCODE_CAPABILITIES, {
@@ -85,6 +94,9 @@ describe('OpenCode runtime descriptor', () => {
     });
     t.after(() => runtime.close());
     assert.equal(runtime.descriptor.approval_may_leave_sandbox, false);
+    // Inside it, working without asking is offered (ADR 0043).
+    assert.equal(runtime.descriptor.offers_never_ask, true);
+    assert.deepEqual(runtime.validateStartOptions({}, null, 'never_ask'), { ok: true });
     assert.ok(compileValidator(RuntimeDescriptor)(runtime.descriptor).ok);
   });
 });
@@ -254,6 +266,53 @@ describe('OpenCode session rules', () => {
     });
     assert.ok(own.some((rule) => rule.action === 'edit' && rule.resource === '/d/*'));
     assert.ok(own.some((rule) => rule.action === 'edit' && rule.resource === '/f.json'));
+  });
+});
+
+describe('OpenCode session rules that never ask (ADR 0043)', () => {
+  test('allow shell commands, refuse what would ask, and keep every denial', () => {
+    const environment = { HOME: '/Users/someone', PATH: '/usr/bin' };
+    const asking = sessionPermissions(environment);
+    const quiet = sessionPermissions(environment, 'never_ask');
+    assert.deepEqual(sessionPermissions(environment, 'ask'), asking);
+    // Nothing asks: OpenCode asks only where a rule says so or none matches, and its own agent
+    // defaults ask for paths outside the project and .env files, which these rules refuse.
+    assert.deepEqual(
+      quiet.filter((rule) => rule.effect === 'ask'),
+      [],
+    );
+    assert.deepEqual(
+      quiet.filter((rule) => rule.effect === 'allow'),
+      [
+        { action: 'shell', resource: '*', effect: 'allow' },
+        { action: 'read', resource: '*.env.example', effect: 'allow' },
+      ],
+    );
+    for (const refused of [
+      { action: 'external_directory', resource: '*' },
+      { action: 'read', resource: '*.env' },
+      { action: 'read', resource: '*.env.*' },
+      { action: 'edit', resource: '/*' },
+    ])
+      assert.ok(
+        quiet.some(
+          (rule) =>
+            rule.action === refused.action &&
+            rule.resource === refused.resource &&
+            rule.effect === 'deny',
+        ),
+        JSON.stringify(refused),
+      );
+    // Every denial of the asking rules stays, after the allows, where the last match wins.
+    const denials = asking.filter((rule) => rule.effect === 'deny');
+    for (const rule of denials) assert.ok(quiet.some((each) => isDeepStrictEqual(each, rule)));
+    const shell = quiet.findIndex((rule) => rule.action === 'shell');
+    const lastDenial = quiet.map((rule) => rule.effect).lastIndexOf('deny');
+    assert.ok(shell < lastDenial);
+    assert.ok(
+      quiet.slice(shell + 1).filter((rule) => rule.action === 'shell').length === 0,
+      'a later shell rule would outrank the allow',
+    );
   });
 });
 
