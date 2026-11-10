@@ -22,7 +22,6 @@ import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import {
-  type ApprovalLevel,
   compileValidator,
   type ExecutionId,
   type RuntimeEventType,
@@ -156,11 +155,7 @@ function actionError(code: string, effect: 'none' | 'unknown' = 'none') {
 interface Harness {
   readonly sandbox: OpenCodeSandbox;
   readonly runtime: OpenCodeRuntimeAdapter;
-  start(
-    instruction: string,
-    options?: Record<string, unknown>,
-    approvalLevel?: ApprovalLevel,
-  ): Promise<Execution>;
+  start(instruction: string, options?: Record<string, unknown>): Promise<Execution>;
 }
 
 async function harness(
@@ -184,7 +179,7 @@ async function harness(
   return {
     sandbox,
     runtime,
-    async start(instruction, options = {}, approvalLevel = undefined) {
+    async start(instruction, options = {}) {
       const execution = new Execution();
       const result = await runtime.startExecution({
         execution: execution.context,
@@ -192,7 +187,6 @@ async function harness(
         options: { ...options },
         directory: sandbox.project,
         model_ref: null,
-        ...(approvalLevel !== undefined && { approval_level: approvalLevel }),
         emit: execution.emit,
       });
       assert.match(result.native_id ?? '', /^ses/);
@@ -275,6 +269,9 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     const [started, turn, model, message, completed] = execution.observations;
     assert.ok(started?.type === 'runtime.execution.started');
     assert.match(started.payload.native_id ?? '', /^ses/);
+    // OpenCode reported the session with exactly the rules it was given, so asking is recorded as
+    // observed (ADR 0043).
+    assert.equal(started.payload.approval_level, 'ask');
     assert.equal(turnId(completed), turnId(turn));
     // The model OpenCode says the step runs on, not the one asked for.
     assert.deepEqual(model?.payload, { model_ref: 'fake/fake-model' });
@@ -1895,56 +1892,6 @@ describe("A repository's own OpenCode configuration never loads into Halcyonic's
 describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
   skip: SKIP || (process.platform !== 'darwin' ? 'Seatbelt is macOS only' : false),
 }, () => {
-  test(
-    'never asking: nothing asks, a command runs in the project, and nothing is written or read outside it (ADR 0043)',
-    SLOW_TEST,
-    async (t) => {
-      const { runtime, sandbox, start } = await harness(t);
-      assert.equal(runtime.descriptor.offers_never_ask, true);
-      const quiet = async (instruction: string): Promise<Execution> => {
-        const execution = await start(instruction, {}, 'never_ask');
-        await execution.next('runtime.turn.completed');
-        assert.ok(
-          !execution.types().includes('runtime.approval.requested'),
-          `it asked: ${execution.types().join(', ')}`,
-        );
-        return execution;
-      };
-      const outside = join(sandbox.root, 'outside-never');
-      mkdirSync(outside);
-      const results = join(sandbox.project, 'never-results.txt');
-      const shell = await quiet(
-        call('shell', {
-          command: [
-            `echo out > ${outside}/written.txt; echo "write=$?" >> ${results}`,
-            'echo inside > inside-never.txt',
-          ].join('\n'),
-        }),
-      );
-      const started = shell.observations.find((each) => each.type === 'runtime.execution.started');
-      assert.equal(
-        (started?.payload as { approval_level?: string } | undefined)?.approval_level,
-        'never_ask',
-      );
-      t.diagnostic(readFileSync(results, 'utf8'));
-      // The control: the command ran without a press, inside the project.
-      assert.equal(readFileSync(join(sandbox.project, 'inside-never.txt'), 'utf8'), 'inside\n');
-      assert.equal(existsSync(join(outside, 'written.txt')), false, 'a command wrote outside');
-      // The edit tool outside the folder is refused, not asked.
-      await quiet(call('write', { path: join(outside, 'edited.txt'), content: 'hello\n' }));
-      assert.equal(existsSync(join(outside, 'edited.txt')), false, 'an edit wrote outside');
-      // A .env file is refused to the read tool, not asked: its text never reaches the model. The
-      // control: the same read of another file in the project does reach it.
-      writeFileSync(join(sandbox.project, 'notes.txt'), 'notes-4b1d\n');
-      await quiet(call('read', { path: join(sandbox.project, 'notes.txt') }));
-      writeFileSync(join(sandbox.project, '.env'), 'STAND_IN_SECRET=never-9c2e\n');
-      await quiet(call('read', { path: join(sandbox.project, '.env') }));
-      const sent = sandbox.provider.requests.map((request) => request.body).join('\n');
-      assert.ok(sent.includes('notes-4b1d'), 'the control read did not reach the model');
-      assert.ok(!sent.includes('never-9c2e'), 'the .env file reached the model');
-    },
-  );
-
   test(
     'an approved command cannot write outside the project, read a credential, reach another program or beyond this Mac, or loosen the sandbox',
     SLOW_TEST,
