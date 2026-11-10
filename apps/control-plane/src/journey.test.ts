@@ -352,6 +352,9 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     let runCheckCalls = 0;
     const children: ChildProcess[] = [];
     const server = await startTestServer({
+      // The person's own instruction carries the failed check here (FX1); auto-fix.test.ts covers
+      // the same check sent back on its own (ADR 0044).
+      autoFix: false,
       adapters: () => [adapter],
       locations: createHostLocations([root]),
       starters: new HostStarters({ trackedDir, installedDir, dataDir: tempDir }),

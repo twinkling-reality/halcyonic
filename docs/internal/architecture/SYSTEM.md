@@ -81,7 +81,11 @@ client ── command ──> CommandService ── admit (domain) ──> Recor
 6. When checks are set up on the host and a turn in a starter project ends with file changes
    (`execution.files.observed` with at least one file created, changed or deleted), the control
    plane submits `project.check` on its own (`received_via: 'internal'`), one check at a time per
-   project, waiting if a check or another task in the project is still running (A1).
+   project, waiting if a check or another task in the project is still running (A1). When that
+   check fails and exactly one task's turn changed the files, the control plane sends the failure
+   back to that task's agent as its next instruction (`received_via: 'internal'`), up to two tries,
+   journaling each try and why it stopped; the person's Stop or their own words end it at once
+   ([ADR 0044](../decisions/0044-a-failed-check-goes-back-to-its-agent-on-its-own-within-a-cap.md)).
 7. Before starting a turn on a local `ollama/<model>` execution, if no active execution in
    Halcyonic is already using that model, the control plane reads `GET /api/ps` on loopback Ollama
    (`127.0.0.1:11434`); when the execution's turn ends (or fails, is interrupted, becomes unknown

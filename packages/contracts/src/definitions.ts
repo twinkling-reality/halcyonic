@@ -111,6 +111,8 @@ import {
   ProjectLocationChoice,
 } from './locations.ts';
 import {
+  AutoFixEndReason,
+  AutoFixView,
   CheckFindings,
   CheckLaptop,
   CheckNotes,
@@ -274,6 +276,8 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   CheckStep,
   CheckVr,
   PreviewStopReason,
+  AutoFixEndReason,
+  AutoFixView,
   StarterView,
   StartersResponse,
   FilesObserved,

@@ -238,6 +238,8 @@ export class Projection {
   readonly #checkOutputs = new Map<ProjectId, CheckId>();
   /** Each world project's description as the Mac last read it (ADR 0049). */
   readonly #worlds = new Map<ProjectId, ProjectWorldView>();
+  /** The instructions the host sent on its own for a failed check (ADR 0044). */
+  readonly #autoFixCommands = new Set<CommandId>();
   readonly #devices = new DeviceRegistry();
   readonly #resultStarts = new Map<
     string,
@@ -661,6 +663,16 @@ export class Projection {
         };
   }
 
+  /** Whether the command is an instruction the host sent on its own for a failed check (ADR 0044). */
+  isAutoFixCommand(commandId: string): boolean {
+    return this.#autoFixCommands.has(commandId as CommandId);
+  }
+
+  /** Whether the execution's latest accepted instruction was one the host sent on its own (ADR 0044). */
+  autoFixDriven(executionId: string): boolean {
+    return this.#executions.get(executionId as ExecutionId)?.autoFixDriven ?? false;
+  }
+
   /** The failed check whose output was last given to an agent in the project, or undefined (FX1). */
   checkOutputGiven(projectId: string): CheckId | undefined {
     return this.#checkOutputs.get(projectId as ProjectId);
@@ -967,6 +979,33 @@ export class Projection {
         }
         this.#checkOutputs.set(event.project_id, event.payload.check_id);
         return;
+      case 'execution.auto_fix.sent':
+      case 'execution.auto_fix.ended': {
+        // A failed check sent back to its agent on its own (ADR 0044).
+        const execution = this.#executions.get(event.execution_id);
+        if (execution === undefined) {
+          notes.push(
+            note('unknown_entity', event, `execution ${event.execution_id} does not exist`),
+          );
+          return;
+        }
+        const { check_id, cap } = event.payload;
+        if (event.event_type === 'execution.auto_fix.sent') {
+          this.#autoFixCommands.add(event.payload.command_id);
+          execution.autoFix = {
+            state: 'fixing',
+            check_id,
+            attempt: event.payload.attempt,
+            cap,
+            reason: null,
+          };
+        } else {
+          const { attempts, reason } = event.payload;
+          execution.autoFix = { state: 'ended', check_id, attempt: attempts, cap, reason };
+        }
+        this.#touchExecution(execution, event.ingested_at, changes);
+        return;
+      }
       case 'project.preview.started':
         if (!this.#projects.has(event.project_id)) {
           notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
@@ -1165,6 +1204,11 @@ export class Projection {
         this.#commands.set(commandId, state);
         if (accepted) this.#pendingCommands.add(state);
         changes.commands.add(commandId);
+        if (accepted && event.payload.command.command_type === 'execution.send_instruction') {
+          const execution = this.#executions.get(event.payload.command.payload.execution_id);
+          if (execution !== undefined)
+            execution.autoFixDriven = this.#autoFixCommands.has(commandId);
+        }
         return;
       }
       case 'command.completed':

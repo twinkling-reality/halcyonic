@@ -8,7 +8,7 @@ import {
 } from './commands.ts';
 import { ApprovalSubject } from './events.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
-import { CheckFindings, CheckId } from './previews.ts';
+import { AutoFixView, CheckFindings, CheckId } from './previews.ts';
 import {
   ErrorInfo,
   ExecutionId,
@@ -260,6 +260,11 @@ export const ExecutionView = Type.Object(
     active_test_run: Nullable(TestRunView),
     last_test_run: Nullable(TestRunResultView),
     turn_count: Type.Integer({ minimum: 0 }),
+    /**
+     * The project's failed check sent back to this agent on its own (ADR 0044): the latest chain,
+     * under way or ended. Absent where none was ever recorded.
+     */
+    auto_fix: Type.Optional(AutoFixView),
     created_at: Timestamp,
     started_at: Nullable(Timestamp),
     updated_at: Timestamp,

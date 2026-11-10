@@ -86,6 +86,8 @@ export interface TestControlPlaneOptions {
   readonly catalogLinks?: ControlPlaneOptions['catalogLinks'];
   /** Checks and previews of starter projects (ADR 0037); off by default. */
   readonly previews?: ControlPlaneOptions['previews'];
+  /** A failed check sent back to its agent on its own (ADR 0044); on wherever checks are. */
+  readonly autoFix?: boolean;
 }
 
 /** A control plane on virtual time with the mock runtime, so tests decide when work progresses. */
@@ -114,6 +116,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     ...(options.starters !== undefined && { starters: options.starters }),
     ...(options.catalogLinks !== undefined && { catalogLinks: options.catalogLinks }),
     ...(options.previews !== undefined && { previews: options.previews }),
+    ...(options.autoFix !== undefined && { autoFix: options.autoFix }),
   });
   const commands = createCommandFactory(
     createUuidV7Generator({ now: () => time.now().getTime() }),

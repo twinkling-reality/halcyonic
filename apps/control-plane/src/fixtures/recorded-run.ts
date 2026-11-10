@@ -101,6 +101,8 @@ const LISTED_EVENT_TYPES: ReadonlySet<string> = new Set<EventEnvelope['event_typ
   'execution.start_failed',
   'execution.state_unknown',
   'execution.check_output_given',
+  'execution.auto_fix.sent',
+  'execution.auto_fix.ended',
   'command.accepted',
   'command.rejected',
   'command.completed',
