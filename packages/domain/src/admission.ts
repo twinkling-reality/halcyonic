@@ -54,6 +54,16 @@ export function admitCommand(
     case 'workspace.request.submit': {
       const { project_id, workstream_id, execution_id } = command.payload;
       const scope = { project_id, workstream_id, execution_id };
+      // A request about all of the person's work binds nothing (ADR 0030, amended 2026-11-10).
+      if (project_id === null) {
+        if (workstream_id === null && execution_id === null)
+          return { admitted: true, policy, scope, runtime: null };
+        return reject(
+          NO_SCOPE,
+          'invalid_state',
+          'A request about all work names no task; one about a task names its project too.',
+        );
+      }
       if (!projection.project(project_id))
         return reject(scope, 'project_not_found', 'The selected project does not exist.');
       // A request about the whole project binds no task (ADR 0030, amended 2026-11-10).

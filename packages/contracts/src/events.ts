@@ -176,9 +176,12 @@ function executionEvent<const T extends string, P extends TSchema>(eventType: T,
   );
 }
 
-/** A workspace request's scope: its task and execution, or neither for a whole-project request. */
+/**
+ * A workspace request's scope: its task and execution; neither, for a whole-project request; or no
+ * project either, for a request about all of the person's work.
+ */
 const RequestScope = {
-  project_id: ProjectId,
+  project_id: Nullable(ProjectId),
   workstream_id: Nullable(WorkstreamId),
   execution_id: Nullable(ExecutionId),
 };

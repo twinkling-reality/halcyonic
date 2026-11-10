@@ -929,7 +929,7 @@ export class Projection {
           view.status !== 'running' ||
           view.reply !== null ||
           (wholeProject
-            ? !this.#projects.has(view.project_id)
+            ? view.project_id !== null && !this.#projects.has(view.project_id)
             : execution?.projectId !== view.project_id ||
               execution?.workstreamId !== view.workstream_id) ||
           view.project_id !== event.project_id ||

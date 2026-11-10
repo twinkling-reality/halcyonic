@@ -487,8 +487,9 @@ describe('the language-neutral schema document', () => {
     // 400,000 for M1.8b's check findings, which repeat nothing, and from 420,000 for FX1's
     // execution.check_output_given, whose event envelope repeats as every event's does, and from
     // 430,000 for ADR 0049's world description and its event, 11,539 bytes that repeat nothing
-    // but that envelope, and from 440,000 for ADR 0044's two auto_fix events, for the same reason, and
-    // from 450,000 for ADR 0047's pairing page link, which repeats nothing).
+    // but that envelope, from 440,000 for ADR 0044's two auto_fix events, for the same reason, and
+    // from 450,000 for ADR 0047's pairing page link, which repeats nothing, and ADR 0030's two list
+    // reads and the request fields that may be null).
     assert.deepEqual(
       inlinedDefinitions(buildSchemaDocument() as { $defs: Record<string, unknown> }),
       [],

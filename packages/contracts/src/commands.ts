@@ -205,14 +205,15 @@ export const ExecutionInterruptCommand = defineCommand(
 );
 
 /**
- * A request about a project's task and its current execution, or, with both null, about the whole
- * project, which is read-only (ADR 0030, amended 2026-11-10). Admission refuses one null without the other.
+ * A request about a project's task and its current execution; with both null, about the whole
+ * project; with all three null, about all of the person's work. The last two are read-only (ADR 0030,
+ * amended 2026-11-10). Admission refuses any other mix.
  */
 export const WorkspaceRequestSubmitCommand = defineCommand(
   'workspace.request.submit',
   Type.Object(
     {
-      project_id: ProjectId,
+      project_id: Nullable(ProjectId),
       workstream_id: Nullable(WorkstreamId),
       execution_id: Nullable(ExecutionId),
       text: Text(32000),
