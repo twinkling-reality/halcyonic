@@ -263,7 +263,7 @@ namespace Halcyonic.Client
                     else says = texts.Skip(1).Select(line => line.Words).FirstOrDefault(words => words == WorkspaceText.WhyNoActions(workspace));
                 }
                 need = new KitNeed(asked.Asks, asked.Request, asked.ScopeNote, asked.Notes, deny?.Words ?? asked.DenyWords, approve?.Words ?? asked.ApproveWords,
-                    deny != null && deny.Available, approve != null && approve.Available, confirming, part, says, sending != null, asked.Commands, part != null ? requestRows : null);
+                    deny != null && deny.Available, approve != null && approve.Available, confirming, part, says, sending != null, asked.Commands, part != null ? requestRows : null, asked.Line);
             }
             else if (instruction == null && (cancel != null || At(KitPlace.Yes) != null) && armed != WorkspaceAction.Answer) return null;
             // A question's page, wherever the file draws one (never Activity, which says only where it waits): its own lines, as drawn.

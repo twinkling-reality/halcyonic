@@ -1260,7 +1260,7 @@ namespace Halcyonic.XR.Workspace
             if (RoomDesign.Enabled && plane.KitShows && line.Action == null && navigator.Beside is FileColumn file && file.Now is WorkspacePresentation now
                 && file.Steering.ToRead(now) is string read && line.Words == read)
             {
-                var (words, mono) = RoomBar.Reading(line, WorkspaceText.NeedFromYou(now)?.Request, file.Steering.Armed == WorkspaceAction.Instruct);
+                var (words, mono) = RoomBar.Reading(line, now, file.Steering.Armed == WorkspaceAction.Instruct);
                 return plane.Kit.Bar.Lines(words, mono);
             }
             return MenuFrameView.RowsOf(line, columnDegrees);

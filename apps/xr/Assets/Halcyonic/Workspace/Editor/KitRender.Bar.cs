@@ -32,8 +32,14 @@ namespace Halcyonic.XR.Workspace.Editor
         /// </summary>
         private static readonly string[] AskStates =
         {
-            "33-ask", "33-ask-confirm-arriving", "33-ask-confirm", "33-ask-long", "33-ask-long-part", "33-ask-deny-only", "33-ask-sending",
+            "33-ask", "33-ask-confirm-arriving", "33-ask-confirm", "33-ask-long", "33-ask-long-part", "33-ask-deny-only", "33-ask-sending", "33-ask-tool",
+            "33-ask-tool-confirm",
         };
+
+        /// <summary>A request of a tool that is no command, synthetic: its name leads the request wherever it stands.</summary>
+        private const string AskToolName = "Edit";
+
+        private const string AskToolRequest = "src/game.js";
 
         /// <summary>
         /// The redesign's question (DESIGN 2.9; unit U2) on the same host, its prompt on the band of the agent's words: one
@@ -127,6 +133,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 "33-ask-long-part" => (VoiceStage.Idle, false, RoomBarState.Request, "A long request under its confirmation: its first part, Next Part and Cancel, synthetic data"),
                 "33-ask-deny-only" => (VoiceStage.Idle, false, RoomBarState.Request, "A request that can only be denied: why in the sentence bar, Deny alone, synthetic data"),
                 "33-ask-sending" => (VoiceStage.Idle, false, RoomBarState.Request, "The answer sent: Sending, the column emptied, synthetic data"),
+                "33-ask-tool" => (VoiceStage.Idle, false, RoomBarState.Request, "A tool that is no command asked: its name leads the request, synthetic data"),
+                "33-ask-tool-confirm" => (VoiceStage.Idle, false, RoomBarState.Request, "That tool's confirmation: its name still leads the request, synthetic data"),
                 "31-bar-listening" => (VoiceStage.Listening, false, RoomBarState.Listening, "Hold to Talk held: Listening, the level from recorded samples, synthetic data"),
                 "31-bar-listening-no-level" => (VoiceStage.Listening, false, RoomBarState.Listening, "Hold to Talk held where nothing records a level, synthetic data"),
                 "31-bar-typing" => (VoiceStage.Idle, false, RoomBarState.Draft, "Type pressed: the panel is the field, only Cancel until a word, synthetic data"),
@@ -144,6 +152,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 "33-ask-long" or "33-ask-long-part" => SelectedWorkspace(waiting: true, command: AskLongCommand),
                 "33-ask-deny-only" => SelectedWorkspace(waiting: true, command: AskCommand + " [truncated]", approvable: false),
+                "33-ask-tool" or "33-ask-tool-confirm" => SelectedWorkspace(waiting: true, command: AskToolRequest, tool: AskToolName),
                 _ when asking => SelectedWorkspace(waiting: true, command: AskCommand),
                 _ when questioning => SelectedWorkspace(waiting: true, asked: QuestionFor(state), confirmAnswers: state == "34-question-confirm"),
                 _ => Running(ShortReport()),
@@ -155,12 +164,12 @@ namespace Halcyonic.XR.Workspace.Editor
             int? requestRows = null;
             void Read(string request, bool instruction, int part)
             {
-                var (words, mono) = RoomBar.Reading(FileScreens.RequestLine(steering, request), WorkspaceText.NeedFromYou(workspace)?.Request, instruction);
+                var (words, mono) = RoomBar.Reading(FileScreens.RequestLine(steering, request), workspace, instruction);
                 screen.ReadRequest(request, host.Bar.Lines(words, mono), part, steering);
                 screen.RequestDrawn(0, steering, DateTimeOffset.UtcNow);
                 requestRows = screen.RequestRows;
             }
-            if (state is "33-ask-confirm-arriving" or "33-ask-confirm" or "33-ask-long-part")
+            if (state is "33-ask-confirm-arriving" or "33-ask-confirm" or "33-ask-long-part" or "33-ask-tool-confirm")
             {
                 // Approve pressed, as the person presses it: the file measures the request, shows its first part, and that part is drawn.
                 if (steering.Press(WorkspaceAction.Approve, workspace).Step != SteeringStep.Confirm) shot.Failures.Add("Approve did not ask for its confirmation");
@@ -280,7 +289,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var bar = host.Bar;
             // Confirm's lock: on its arrival the ring is part filled and it takes no press; 0.7 s on it is the main action.
             if (state == "33-ask-confirm-arriving") bar.AgeLockForRender(0.42f * RoomBar.ConfirmLockSeconds);
-            if (state is "33-ask-confirm" or "34-question-confirm")
+            if (state is "33-ask-confirm" or "34-question-confirm" or "33-ask-tool-confirm")
             {
                 // The lock lifted is a new action, which waits as any other before it takes a press: settled again for the render.
                 bar.AgeLockForRender(RoomBar.ConfirmLockSeconds);
@@ -385,7 +394,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(Mathf.Approximately(request.fontSize, GlazeTokens.FontSize(RoomType.Scaled(RoomGeometry.MonoTypeDp))), "the request is not in mono's size");
                         Require(request.font == KitType.Face(KitRole.Mono), "the request is not in the mono face");
                         var longer = state.StartsWith("33-ask-long", StringComparison.Ordinal);
-                        var command = longer ? AskLongCommand : state == "33-ask-deny-only" ? AskCommand + " [truncated]" : AskCommand;
+                        var command = longer ? AskLongCommand : state == "33-ask-deny-only" ? AskCommand + " [truncated]"
+                            : state.StartsWith("33-ask-tool", StringComparison.Ordinal) ? AskToolName + ": " + AskToolRequest : AskCommand;
                         var read = request.GetParsedText();
                         Require(!read.Contains("\\\\") && (!longer || read.Contains("\\")), "the request reads \"" + read + "\", its backslashes not as written");
                         Require(longer ? read.Length > 0 && command.StartsWith(read.TrimEnd(), StringComparison.Ordinal) : read == command,

@@ -626,7 +626,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <see cref="ApprovalCommand"/>, or running with nothing waiting, the agent app's every action offered.
         /// </summary>
         private static WorkspacePresentation SelectedWorkspace(bool waiting, QuestionView? asked = null, string? command = null, bool approvable = true,
-            CommandSubmissions? submissions = null, bool confirmAnswers = false)
+            CommandSubmissions? submissions = null, bool confirmAnswers = false, string tool = "shell")
         {
             const string at = Day + "09:03:00.000Z";
             var runtime = new RuntimeDescriptor
@@ -679,7 +679,7 @@ namespace Halcyonic.XR.Workspace.Editor
             else if (waiting) execution.PendingApprovals.Add(new ApprovalView
             {
                 ApprovalId = "synthetic-approval",
-                Subject = new ToolUseSubject { ToolName = "shell", Summary = command ?? ApprovalCommand },
+                Subject = new ToolUseSubject { ToolName = tool, Summary = command ?? ApprovalCommand },
                 Approvable = approvable,
                 RequestedAt = at,
             });

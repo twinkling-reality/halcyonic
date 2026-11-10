@@ -2552,7 +2552,10 @@ The last unit turns it on by default and removes the kit parts it replaced.
   file counts what a confirmation reads by the panel's lines (`MenuDirector.RowsOf` asks `RoomBarView.Lines`,
   `FileColumn.RequestPartRowsOf` gives eight), the panel wraps the same words (`RoomBar.Reading`) at the same width and
   shows the rows the file's part names, and it draws the confirmation only where its own count is the file's
-  (`RoomBar.Rows`, `KitWorkspaceHost.Holds`), so no word is skipped or read twice; a part is a piece of a label's own
+  (`RoomBar.Rows`, `KitWorkspaceHost.Holds`), so no word is skipped or read twice; and the file counts a draw only
+  from the drawer its parts were cut for (the panel or its own view): a draw by the other counts for nothing and has
+  the request cut again for the one drawing now, as a question laid whole for the redesign counts only the redesign's
+  draw (`FileColumn.Drawn`); a part is a piece of a label's own
   text, so `LabelText.FromTextMeshPro` makes it words again before the label takes them, and a backslash reads once,
   as it will be sent), the file's question in the sentence bar (Read to Part N, then Send Heard Instruction?), and in the column the
   confirmation's Confirm once all of it was drawn, Next Part while parts remain, and Cancel. The column's actions stand
@@ -2561,7 +2564,9 @@ The last unit turns it on by default and removes the kit parts it replaced.
   does the reason where no action can act. `RoomBarView` draws all of it centred in the host.
 - **Unit U2, an approval and its Confirm** (BUILD-SPEC-v4 2.4 and 1.4): the same pair, `RoomBarState.Request`, bound
   to the file's own approval page (`KitNeed`) and sending only through the file's actions. Asked: the request in the
-  panel in mono (JetBrains Mono 19 dp on the 28 dp line, literal, the summary alone), what it asks in the sentence bar
+  panel in mono (JetBrains Mono 19 dp on the 28 dp line, literal; a command's request alone, and for a tool that is no
+  command the file's own line, the tool's name leading it, asked and under its confirmation, so no request is ever
+  confirmed with its tool off the screen), what it asks in the sentence bar
   (Run Command? for a command, else the product's Use {tool}; with no tool named the panel is the one line Approval
   Requested and has no bar), and in the column Approve (main) and Deny, the frame's own prompts. A request that can
   only be denied shows Deny alone and the product's reason in the sentence bar (Command Too Long · Deny Only and its
@@ -2620,7 +2625,7 @@ The last unit turns it on by default and removes the kit parts it replaced.
   material and width, the sentence bar, the caret, the column's order, alignment, foot and 12 mm gaps, and presses
   reaching the file's Tell it, keyboard, Confirm and Cancel; `32-actions` for every look; `33-ask`,
   `33-ask-confirm-arriving` (the ring part filled, no press taken), `33-ask-confirm`, `33-ask-long`,
-  `33-ask-long-part`, `33-ask-deny-only` and `33-ask-sending` for the approval: the request in mono, whole lines, the
+  `33-ask-long-part`, `33-ask-deny-only`, `33-ask-sending`, `33-ask-tool` and `33-ask-tool-confirm` for the approval: the request in mono, whole lines, the
   tool's name never in it, the sentence, the sweep, the lock and each press reaching the file's own control; and
   `34-question`, `-review`, `-several`, `-more`, `-confirm`, `-sending` and `-long` for the question: the prompt on
   the band and in no other label, the band under the pair's foot line, each mark and its check, no panel where the
