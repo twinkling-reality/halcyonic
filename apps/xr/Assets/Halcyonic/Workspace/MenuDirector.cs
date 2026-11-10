@@ -845,6 +845,8 @@ namespace Halcyonic.XR.Workspace
                 placement.Act(action, key);
                 return true;
             }
+            // The agent's page opens beside the file, from the file's frame as drawn, as any press of the file's is taken.
+            if (RoomDesign.Enabled && from == MenuColumn.File && side == null && action == AgentColumn.Open) return OpenAgentPage(frame);
             if (!navigator.Act(from, action, key, frame, side)) return false;
             setup.Acted?.Invoke(from, action, key);
             return true;
