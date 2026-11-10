@@ -394,6 +394,8 @@ public class PinnedTransportTests
         Assert.That(kept.Take(3), Is.EqualTo(new[] { "studio-mac.local", "192.168.1.23", "fd00::5" }));
         Assert.That(kept, Has.Count.EqualTo(PairedReach.MaxAddresses));
         Assert.That(kept, Does.Not.Contain("example.com"));
+        Assert.That(PairedReach.Usable(new[] { "1", "10.1", "10.0.1", "10.0.0.1" }), Is.EqualTo(new[] { "10.0.0.1" }),
+            "short forms of an IPv4 address are not what a computer reports");
     }
 
     [Test]
