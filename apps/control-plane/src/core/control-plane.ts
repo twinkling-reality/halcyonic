@@ -240,6 +240,7 @@ export class ControlPlane {
             ids: options.ids,
             clock: options.clock,
             logger: options.logger,
+            live: this.journal.info.origin === 'live',
           });
     this.#autoFix?.attach();
     if (this.previews !== null) this.#attachAutoCheck();

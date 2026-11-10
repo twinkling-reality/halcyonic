@@ -49,6 +49,13 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   has not begun its turn, the host interrupts that turn as soon as it runs.
 - The person's own start or instruction to any task in the project ends that project's chains.
   Their turn may then begin a new chain. A turn the host set going whose chain has ended begins none.
+- The person's words to a task, refused or not, count like their Stop for that task: refused (a try
+  runs on a runtime that takes no instruction while running, or the try's own command has no outcome
+  yet), they end its chain `person_instructed` and no try follows until the person's own instruction
+  is accepted (AUDIT2's finding, 2026-11-10).
+- A try refused at once never reached the agent and is not counted in the end's `attempts`. A refused
+  automatic check ends the chains it followed `check_unavailable`. A chain is ended `host_restarted`
+  only on the person's own journal, never a fixture's.
 - A chain under way when the host stops ends `host_restarted` at the next start; nothing is
   replayed, as ADR 0030 does for the request coordinator.
 - When two or more tasks changed the project before its check, none is sent the failure: whose
