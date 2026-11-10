@@ -1,5 +1,31 @@
 # Workspace request verification
 
+## 2026-11-10 (later): the product's model passes continue and observe
+
+The lead's decision: a request runs on the person's chosen local model (Halcyonic's own OpenCode settings,
+written by `pnpm mac-setup local-model`), else the companion's. On this Mac that is `muse-glimmer:30b-mlx`. With
+no companion model set, `GET /api/workspace/agent` answered `muse-glimmer:30b-mlx`, served on this Mac.
+
+After the "act first" rule (a change request calls `continue_task` first, since the Mac's evidence is already in
+its context), the same isolated plane and Codex 0.157.0, on a fresh task with a green sphere: "Make the sphere
+blue instead of green. Then tell me what changed and whether it works." Steps: `continue_task` confirmed,
+`observe_task` confirmed. The reply came at 23:18:52Z, 44 s after the host's automatic check of that turn
+(23:18:07Z, passed, files current). It named the colour and emissive values and the position, all true in
+`src/index.ts`, said which facts the agent reported and which the Mac's check showed, and said the change appears
+to work in the observed run. 216 s in all. This passes the exchange the 30B model failed earlier (eight reads,
+then the planning bound).
+
+Not yet rerun on this model: the code after AUDIT2's S3, which moves the evidence and the agent's words from a
+system message into a quoted user-role block. A rerun began at 23:40Z and was stopped at 23:51Z on the lead's
+word, to free memory for a landing gate; no result. The request tests pass on that code.
+
+A second rerun, 00:12 to 00:39Z on 2026-11-11, with a Unity job of another lane running: Codex's first turn on the
+fresh task changed no file and said nothing (no check followed), and two requests on that task then failed at the
+transport's 45 s bound for one model turn (`timeout`), the second at 30% memory free. Stopped there and the model
+unloaded. Suspected, not verified: Codex runs the model with a 65,536-token context (`pnpm mac-setup local-model`)
+and the assistant asks for 8,192, so Ollama may reload the 22 GB model at each switch between them. So the code
+after S3 is not yet shown passing on the product's model.
+
 ## 2026-11-10: What a task changed and whether it works, a whole project, on local models
 
 Setup: an isolated control plane on 127.0.0.1 with its own data directory, Codex 0.157.0 confined to a

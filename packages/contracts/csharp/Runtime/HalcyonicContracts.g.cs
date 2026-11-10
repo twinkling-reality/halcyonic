@@ -2439,8 +2439,8 @@ namespace Halcyonic.Contracts
 
     public sealed class WorkspaceRequestSubmitPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
-        public string ProjectId { get; set; } = default!;
+        [JsonProperty("project_id", Required = Required.AllowNull)]
+        public string? ProjectId { get; set; }
 
         [JsonProperty("workstream_id", Required = Required.AllowNull)]
         public string? WorkstreamId { get; set; }
@@ -2899,8 +2899,8 @@ namespace Halcyonic.Contracts
         [JsonProperty("journal_id", Required = Required.Always)]
         public string JournalId { get; set; } = default!;
 
-        [JsonProperty("project_id", Required = Required.Always)]
-        public string ProjectId { get; set; } = default!;
+        [JsonProperty("project_id", Required = Required.AllowNull)]
+        public string? ProjectId { get; set; }
 
         [JsonProperty("workstream_id", Required = Required.AllowNull)]
         public string? WorkstreamId { get; set; }

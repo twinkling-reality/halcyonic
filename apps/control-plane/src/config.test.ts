@@ -288,6 +288,26 @@ describe('configuration', () => {
     assert.equal(loadConfig({ HALCYONIC_OPENCODE_CONFIG_HOME: home }).opencodeConfigHome, home);
   });
 
+  test("the assistant runs on the person's chosen local model, else the companion's, never a hosted one", () => {
+    assert.equal(loadConfig({}).assistant, null);
+    const chosen = openCodeHome({ model: 'ollama/muse-glimmer:30b-mlx' });
+    const both = loadConfig({
+      HALCYONIC_OPENCODE_CONFIG_HOME: chosen,
+      HALCYONIC_COMPANION_MODEL: 'qwen3.5:9b',
+    });
+    assert.equal(both.assistant?.model, 'muse-glimmer:30b-mlx');
+    assert.equal(both.assistant?.ollama.href, 'http://127.0.0.1:11434/');
+    assert.equal(both.companion?.model, 'qwen3.5:9b');
+    assert.equal(
+      loadConfig({ HALCYONIC_OPENCODE_CONFIG_HOME: chosen }).assistant?.model,
+      'muse-glimmer:30b-mlx',
+    );
+    assert.equal(
+      loadConfig({ HALCYONIC_COMPANION_MODEL: 'qwen3.5:9b' }).assistant?.model,
+      'qwen3.5:9b',
+    );
+  });
+
   test('the companion is off unless its model is named, and asks only Ollama on this computer', () => {
     assert.equal(loadConfig({}).companion, null);
     const on = loadConfig({ HALCYONIC_COMPANION_MODEL: 'qwen3.6:35b-a3b-nvfp4' }).companion;

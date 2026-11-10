@@ -247,7 +247,7 @@ async function main(): Promise<void> {
   const workspaceRequests = new WorkspaceRequests({
     controlPlane,
     ids,
-    model: new OllamaWorkspaceModel({ config: config.companion }),
+    model: new OllamaWorkspaceModel({ config: config.assistant }),
     understanding,
     evaluation,
   });

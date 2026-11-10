@@ -103,6 +103,12 @@ export interface ControlPlaneConfig {
   /** Null, and the companion off, unless the owner named its model in HALCYONIC_COMPANION_MODEL. */
   readonly companion: CompanionConfig | null;
   /**
+   * The local model the assistant's requests run on (ADR 0030): the person's chosen local model,
+   * the one `pnpm mac-setup local-model` named in Halcyonic's own OpenCode settings, where one is set,
+   * else the companion's model; null when neither is. Never a hosted model.
+   */
+  readonly assistant: CompanionConfig | null;
+  /**
    * Whether the end of stdin shuts the control plane down as SIGTERM does. For a launcher, such as
    * a test harness, that runs it as a child and holds its stdin open without writing to it: when
    * the launcher exits, however it exits, the operating system closes the pipe and the control
@@ -184,6 +190,7 @@ export function loadConfig(
     browser: parseBrowser(env, pins),
     speech: parseSpeech(env),
     companion: parseCompanion(env),
+    assistant: parseAssistant(env, parseOpenCodeConfigHome(env.HALCYONIC_OPENCODE_CONFIG_HOME)),
     exitOnStdinEnd: parseSwitch('HALCYONIC_EXIT_ON_STDIN_END', env.HALCYONIC_EXIT_ON_STDIN_END),
   };
 }
@@ -560,6 +567,35 @@ function parseCompanion(env: NodeJS.ProcessEnv): CompanionConfig | null {
     );
   }
   return { model, ollama };
+}
+
+/**
+ * The assistant's model: the person's chosen local model where `pnpm mac-setup local-model` set one
+ * (its OpenCode settings' `model`, `ollama/<name>`, held to that file's standard), else the
+ * companion's. Settings that can't be read leave the companion's model, as with none set. Ollama is
+ * reached at the companion's address, loopback only, never through a proxy.
+ */
+function parseAssistant(
+  env: NodeJS.ProcessEnv,
+  opencodeHome: string | null,
+): CompanionConfig | null {
+  const companion = parseCompanion(env);
+  if (opencodeHome === null) return companion;
+  let chosen: string;
+  try {
+    chosen = readOpenCodeSettings(opencodeHome).model;
+  } catch {
+    return companion;
+  }
+  const name = chosen.slice('ollama/'.length);
+  if (!OLLAMA_MODEL.test(name) || isCloudName(name)) return companion;
+  const ollama = companion?.ollama ?? companionOllamaAddress(env.HALCYONIC_COMPANION_OLLAMA_URL);
+  if (proxied(env, ollama)) {
+    throw new ConfigError(
+      "Node's environment proxy is on (NODE_USE_ENV_PROXY or --use-env-proxy with HTTP_PROXY), and NO_PROXY does not name Ollama's loopback address: the assistant's requests would leave through the proxy. Add the address to NO_PROXY, or turn the proxy off.",
+    );
+  }
+  return { model: name, ollama };
 }
 
 /**

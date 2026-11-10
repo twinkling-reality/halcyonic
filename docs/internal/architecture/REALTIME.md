@@ -347,8 +347,8 @@ for privacy, capture and source-memory limits and the coordinator's separate bou
 ## Workspace request upgrade order
 
 Since 2026-11-10 `workspace.request.submit` may name a project alone (`workstream_id` and
-`execution_id` both null) for a read-only whole-project request; one null without the other is
-refused. A request view's and request events' task fields are then null, so clients that read them
+`execution_id` both null) for a read-only whole-project request, or nothing (all three null) for a
+read-only request about all of the person's work; any other mix is refused. A request view's and request events' task fields are then null, so clients that read them
 need the regenerated bindings first.
 
 The journaled general request coordinator adds `workspace.request.submit`, `.resume` and `.cancel`

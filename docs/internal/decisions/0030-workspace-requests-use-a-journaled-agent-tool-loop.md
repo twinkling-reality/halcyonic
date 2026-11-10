@@ -111,3 +111,20 @@ answer from.
 - A tool call is refused unless the request was offered that tool at that moment, whatever tools exist
   (AUDIT2, 2026-11-10). The wait for the Mac's reading of a turn's files ends a minute after the task's
   last activity, with a wake-up then, so an observer that is off or failing never holds a request.
+
+## Amendment, 2026-11-10 (later): a request about all work, the model it runs on, and quoted data
+
+- A request may bind nothing: `project_id`, `workstream_id` and `execution_id` all null, for "what is going
+  on with my work". It is read-only and offered `read_projects` (the person's projects by index, at most 64,
+  with task counts by state, the latest check, and whether a fix chain runs), `read_project_at {index}` (one of
+  that list, read as `read_project`; it chooses the project whose tasks `read_task` then reads) and
+  `ask_person`. Only Halcyonic's own projects, from the host's own lists; the model never names one. Answers
+  name projects and tasks by the names the host gave. Admission refuses any other mix of null fields.
+- The model: a request runs on the person's chosen local model, the one `pnpm mac-setup local-model` named,
+  where one is set, else on the companion's model; never a hosted model (the lead, 2026-11-10). SYSTEM.md
+  says which setting decides.
+- A request that asks for a change calls `continue_task` first: the Mac's evidence is already in its context,
+  so it reads only what that lacks. The 30B local model spent all eight turns on reads before this rule.
+- Text an agent wrote, or that was read from the project (file paths, page errors, the agent's own messages),
+  reaches the model in a user-role block that says it is quoted data, neither the person's words nor
+  instructions; the host's own receipts stay in a system message (AUDIT2 S3).
