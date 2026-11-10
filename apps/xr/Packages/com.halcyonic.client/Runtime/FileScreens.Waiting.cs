@@ -561,12 +561,18 @@ namespace Halcyonic.Client
                 key: option.ToString(CultureInfo.InvariantCulture), opens: true, control: LineControl.Action, rows: rows)
             : AnswerRow(prompt.Options[option], option.ToString(CultureInfo.InvariantCulture), chosen, rows: rows, multiple: prompt.Multiple);
 
+        /// <summary>What leads the answers that read alike on their page, Halcyonic's own: the redesign stands these words in its panel and the answers, the agent's, on its band.</summary>
+        public const string AlikeLead = "Same Name · Not Selectable · ";
+
+        /// <summary>The caption over them.</summary>
+        public const string AlikeCaption = "Duplicate Choices";
+
         public static LineWords AmbiguityRuns(QuestionDraft draft, int prompt, int option)
         {
             var asked = draft.Prompts[prompt];
             var shown = WorkspaceText.AsShown(asked.Options[option].Label);
             var matches = asked.Options.Where(each => WorkspaceText.AsShown(each.Label) == shown).ToList();
-            var words = LineWords.Ours("Same Name · Not Selectable · ");
+            var words = LineWords.Ours(AlikeLead);
             for (var index = 0; index < matches.Count; index++)
                 words = words + (index > 0 ? LineWords.Ours(" / ") : LineWords.None) + AnswerRuns(matches[index]);
             return words;
@@ -578,7 +584,7 @@ namespace Halcyonic.Client
         private static Page AmbiguityPage(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft, string source) =>
             new Page(new[]
             {
-                new PageLine("Duplicate Choices", tone: LineTone.Secondary),
+                new PageLine(AlikeCaption, tone: LineTone.Secondary),
                 AmbiguityLine(screen.Question, screen.Question.AmbiguityPartRows, screen.Question.AmbiguityPart * screen.Question.AmbiguityPartRows),
             }, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
 

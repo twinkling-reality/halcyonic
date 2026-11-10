@@ -241,9 +241,32 @@ namespace Halcyonic.Client
         /// confirmation holds what goes in the panel, the file's question in its sentence bar, Confirm behind its lock and
         /// Cancel; sent, the panel reads Sending and no action stands until the runtime takes the question away.
         /// </summary>
-        private static RoomBar Asking(KitFileBinding binding, KitAsk ask)
+        private static RoomBar Asking(KitFileBinding binding, KitAsk ask, VoiceStage voice)
         {
             KitControl? Available(KitPlace place) => binding[place] is KitControl control && control.Available ? control : null;
+            if (ask.Writing is string written)
+            {
+                // Writing an answer is the typed draft's moment (DESIGN 2.1): the panel is the field, the person's words and the
+                // caret; Use Answer arrives where the file offers it, the main action; Hold to Talk where it offers its held one;
+                // the file's parts of a long answer; and Cancel. A lasting reason Use Answer waits stands in the sentence.
+                var writing = new List<RoomAction>();
+                var use = Available(KitPlace.Forward);
+                if (use != null) writing.Add(new RoomAction(use, main: true));
+                if (Available(KitPlace.Talk) is KitControl speak)
+                    writing.Add(voice switch
+                    {
+                        VoiceStage.Listening => new RoomAction(speak, main: true, VoiceText.ListeningWords),
+                        VoiceStage.WritingDown => new RoomAction(speak, main: true, VoiceText.WritingDownWords),
+                        _ => new RoomAction(speak, main: false),
+                    });
+                foreach (var step in binding.Controls.Where(control => control.Place == KitPlace.Step && control.Available))
+                    writing.Add(new RoomAction(step, main: false, icon: step.Icon ?? GlazeIcon.Next));
+                if (Available(KitPlace.Back) is KitControl before) writing.Add(new RoomAction(before, main: false));
+                if (Available(KitPlace.Close) is KitControl leave) writing.Add(new RoomAction(leave, main: false));
+                var waits = written.Length > 0 && binding[KitPlace.Forward] is { Available: false, Reason: string reason } ? reason : null;
+                return new RoomBar(RoomBarState.Question, body: written.Length > 0 ? LineWords.Theirs(written) : LineWords.None, caret: true, sentence: waits,
+                    column: writing, field: Available(KitPlace.Field), band: ask.Prompt);
+            }
             var column = new List<RoomAction>();
             foreach (var control in binding.Controls.Where(control => control.Available && (control.Place == KitPlace.Choice || control.Place == KitPlace.Step)))
             {
@@ -269,7 +292,8 @@ namespace Halcyonic.Client
                 body = ask.Body[0].Runs;
                 for (var index = 1; index < ask.Body.Count; index++) body = body + LineWords.Ours(KitMomentWords.Dot) + ask.Body[index].Runs;
                 if (ask.Body.Count > 1) lines = ask.Body.Select(line => line.Runs).ToList();
-                if (ask.Confirming) sentence = ask.Asks;
+                // Under what the panel holds: what the confirmation asks, or the page's own caption (answers that read alike).
+                sentence = ask.Asks;
             }
             else if (ask.Confirming && ask.Asks != null) body = LineWords.Ours(ask.Asks);
             else if (ask.Several && ask.Caption != null) body = LineWords.Ours(ask.Caption);
@@ -345,7 +369,7 @@ namespace Halcyonic.Client
             if (model.Need is KitNeed need) return Asked(binding, need);
             // A question's page as the redesign reads it (its prompt, caption and lines apart); one bound without them stays the file's.
             if (model.Ask is KitAsk ask) return ask.Lines.Count > 0 && (ask.Prompt != null || ask.Caption != null || ask.Body.Count > 0 || ask.Asks != null)
-                ? Asking(binding, ask) : new RoomBar(RoomBarState.Hidden);
+                ? Asking(binding, ask, voice) : new RoomBar(RoomBarState.Hidden);
             KitControl? Available(KitPlace place) => binding[place] is KitControl control && control.Available ? control : null;
             var offered = binding.Controls.Where(control => control.Place == KitPlace.Choice && control.Action == FileScreens.Preset).ToList();
             if (offered.Count > 0) return Choosing(binding, offered);

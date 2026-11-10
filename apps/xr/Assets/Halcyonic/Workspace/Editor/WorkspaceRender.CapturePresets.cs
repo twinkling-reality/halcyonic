@@ -160,6 +160,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(label + "the arm did not hold");
                 if (sends != 0) failures.Add(label + "holding the arm sent " + sends);
 
+                // The offered instructions, only where Tell it offers them rather than the keyboard: their page opens, no keyboard, nothing sent.
+                var choosing = Apply(CapturePresets.Parse("task:" + running.Execution.ExecutionId + ":activity", false, null, false, false, choose: true));
+                var offers = Opened()?.ChoosesInstruction == true;
+                if (choosing != "task at activity" + (offers ? ", choosing" : ", not choosing") || (Opened()?.Screen.Presets != null) != offers || keyboards != 0 || sends != 0)
+                    failures.Add(label + "the choose preset did not open the offered instructions where Tell it offers them (" + choosing + ")");
                 // The running task composing, with the agent chosen by its id: no keyboard, nothing sent.
                 var runtimeId = snapshot.Runtimes.First().RuntimeId;
                 var composing = Apply(CapturePresets.Parse("task:" + running.Execution.ExecutionId + ":activity", true, runtimeId, false, false));

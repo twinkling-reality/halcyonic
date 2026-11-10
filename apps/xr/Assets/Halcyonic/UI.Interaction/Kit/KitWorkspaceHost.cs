@@ -387,9 +387,9 @@ namespace Halcyonic.XR.UI
             if (binding == null || !Settled || ReferenceEquals(drawn, binding.Frame)) return;
             // With the redesign on, a frame is drawn only where the bar shows it: nothing else of it stands in the room yet.
             if (RoomDesign.Enabled && !bar.gameObject.activeSelf) return;
-            // The agent's words still hold a part not shown: the frame is not read yet. But stopping is the safe action and
-            // never waits for reading, on any screen (the lead, 2026-11-10): a frame that offers Stop is drawn at once.
-            if (RoomDesign.Enabled && band.Words is { More: true } && binding[KitPlace.Stop] == null) return;
+            // The agent's words still hold a part not shown: the frame is not read yet. (Stop alone does not wait for this:
+            // the navigator takes it from the frame as it shows, MenuNavigator.Taking.)
+            if (RoomDesign.Enabled && band.Words is { More: true }) return;
             drawn = binding.Frame;
             Drawn?.Invoke(column, binding.Frame);
         }

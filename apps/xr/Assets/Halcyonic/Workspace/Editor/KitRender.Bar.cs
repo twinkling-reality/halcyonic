@@ -50,7 +50,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly string[] QuestionStates =
         {
             "34-question", "34-question-review", "34-question-several", "34-question-more", "34-question-confirm", "34-question-sending", "34-question-long",
-            "34-question-tall", "34-question-stop",
+            "34-question-tall", "34-question-stop", "34-question-writing", "34-question-alike",
         };
 
         /// <summary>
@@ -61,6 +61,9 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>The design's own question, synthetic.</summary>
         private const string QuestionPromptWords = "Which colour scheme should the game use?";
+
+        /// <summary>An answer the person writes, synthetic.</summary>
+        private const string QuestionWritten = "Teal, with a gold string";
 
         private const string QuestionLongWords = "Which colour scheme should the game use? The menu and the score board follow the same choice, the balloons keep their own "
             + "colours either way, and the pause screen is dimmed in both. I can also follow the headset's own setting, which changes with the room's light, if neither "
@@ -90,6 +93,10 @@ namespace Halcyonic.XR.Workspace.Editor
             // A question Halcyonic cannot answer (it asks for a secret), its prompt longer than the band's three lines: Stop is the way on.
             if (state == "34-question-stop")
                 scheme = new QuestionPrompt { Key = "token", Header = "Token", Text = QuestionLongWords, FreeText = true, Secret = true };
+            // An answer may be written; and two answers that read alike, which cannot be chosen.
+            if (state == "34-question-writing") scheme.FreeText = true;
+            if (state == "34-question-alike")
+                scheme.Options = new List<QuestionOption> { Option("Dark", "Light text on a dark background"), Option("Dark", "The headset's own dark theme"), Option("Light") };
             var prompts = new List<QuestionPrompt> { scheme };
             if (state == "34-question-several")
                 prompts.Add(new QuestionPrompt
@@ -152,7 +159,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 "34-question-sending" => (VoiceStage.Idle, false, RoomBarState.Question, "The answer sent: Sending, no action, synthetic data"),
                 "34-question-long" => (VoiceStage.Idle, false, RoomBarState.Question, "A long question read by parts on the band: Next Part, synthetic data"),
                 "34-question-tall" => (VoiceStage.Idle, false, RoomBarState.Question, "A tall page: four answers that wrap under a long prompt read by parts, synthetic data"),
-                "34-question-stop" => (VoiceStage.Idle, false, RoomBarState.Question, "A question that cannot be answered, its long prompt unread: Stop stands at once, synthetic data"),
+                "34-question-stop" => (VoiceStage.Idle, false, RoomBarState.Question, "A question that cannot be answered, its long prompt unread: Stop stands, the frame not yet read, synthetic data"),
+                "34-question-writing" => (VoiceStage.Idle, false, RoomBarState.Question, "An answer being written: the panel is the field, Use Answer and Cancel, synthetic data"),
+                "34-question-alike" => (VoiceStage.Idle, false, RoomBarState.Question, "Two answers that read alike: the answers on the band, why in the panel, synthetic data"),
                 "33-ask" => (VoiceStage.Idle, false, RoomBarState.Request, "An approval asked: the request in mono, Run Command?, Approve and Deny, synthetic data"),
                 "33-ask-confirm-arriving" => (VoiceStage.Idle, false, RoomBarState.Request, "Approve pressed: Confirm on its arrival behind its lock, and Cancel, synthetic data"),
                 "33-ask-confirm" => (VoiceStage.Idle, false, RoomBarState.Request, "Approve pressed, the lock passed: Confirm and Cancel, synthetic data"),
@@ -216,6 +225,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     screen.ReadQuestion(draft, ones, page, page);
                     screen.Question.MeasureReview(question.Prompts.Select(_ => 1).ToList());
+                    if (screen.Question.Writing) screen.Question.MeasureInput(1);
+                    if (screen.Question.ExplainingAmbiguity) screen.Question.MeasureAmbiguity(1);
                 }
                 void Seen()
                 {
@@ -236,6 +247,21 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (state == "34-question-several")
                 {
                     screen.Question.Choose(1);
+                    Seen();
+                }
+                if (state == "34-question-writing")
+                {
+                    // Write Answer pressed, the words typed and the page drawn: Use Answer has arrived.
+                    Seen();
+                    if (!screen.Question.BeginInput()) shot.Failures.Add("the question takes no written answer");
+                    screen.Question.ChangeInput(QuestionWritten);
+                    Seen();
+                }
+                if (state == "34-question-alike")
+                {
+                    Seen();
+                    screen.Question.ExplainAmbiguity(0);
+                    if (!screen.Question.ExplainingAmbiguity) shot.Failures.Add("the page of answers that read alike did not open");
                     Seen();
                 }
                 if (state == "34-question-confirm" && steering.SendAnswer(screen, workspace).Step != SteeringStep.Confirm) shot.Failures.Add("Send Answer did not ask for its confirmation");
@@ -294,7 +320,9 @@ namespace Halcyonic.XR.Workspace.Editor
             var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4));
             var binding = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Open ? screen.Instruction.Words : "", new ConnectionStatus(ConnectionPhase.Live),
                 SelectedProject, ProductionSpine(workspace), new KitRowModel("workspace", LineWords.Ours("Move Workspace"), GlazeIcon.Move), roomDesign: true,
-                draftSpoken: screen.Instruction.Open && screen.Instruction.Spoken, requestRows: requestRows, chooses: choosing);
+                draftSpoken: screen.Instruction.Open && screen.Instruction.Spoken, requestRows: requestRows, chooses: choosing,
+                asking: screen.Question.Draft != null && !screen.Question.Reviewing ? screen.Question.Prompt : (int?)null,
+                writing: screen.Question.Writing ? screen.Question.Input : null);
             if (binding == null)
             {
                 shot.Failures.Add("the kit has no binding to this frame");
@@ -404,18 +432,31 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (questioning)
                     {
                         // The agent's words stand on the band and nowhere else; the panel holds only the computer's own.
-                        var prompt = workspace.QuestionToAnswer!.Prompts[state == "34-question-several" ? 1 : 0].Text;
+                        // On the page of answers that read alike the band holds those answers, the agent's words too.
+                        var prompt = state == "34-question-alike" ? shown.Band ?? "" : workspace.QuestionToAnswer!.Prompts[state == "34-question-several" ? 1 : 0].Text;
+                        if (state == "34-question-alike")
+                        {
+                            Require(prompt.StartsWith("Dark", StringComparison.Ordinal) && prompt.Contains(" / "), "the band does not hold the answers that read alike: \"" + prompt + "\"");
+                            Require(bar.Body.text == LabelText.ForTextMeshPro("Same Name · Not Selectable") && shown.Sentence == FileScreens.AlikeCaption, "the panel holds \"" + bar.Body.text + "\" under \"" + shown.Sentence + "\"");
+                        }
+                        if (state == "34-question-writing")
+                        {
+                            Require(shown.Caret && bar.Body.GetParsedText() == QuestionWritten, "the panel is not the field holding the answer as written: \"" + bar.Body.GetParsedText() + "\"");
+                            Require(shown.Column.Any(action => action.Main && action.Control.Action == FileScreens.UseInput), "Use Answer has not arrived with the answer written and drawn");
+                            Require(shown.Field?.Action == FileScreens.EditInput, "a press on the panel does not open the keyboard again");
+                        }
                         var band = host.Band;
-                        Require(shown.Band == prompt && band.Words != null && RoomWords.Laid(prompt).Replace("\n", " ").StartsWith(band.Text.Replace("\n", " ").Trim(), StringComparison.Ordinal) && band.Text.Length > 0,
+                        Require(prompt.Length >= 16 && shown.Band == prompt && band.Words != null && RoomWords.Laid(prompt).Replace("\n", " ").StartsWith(band.Text.Replace("\n", " ").Trim(), StringComparison.Ordinal) && band.Text.Length > 0,
                             "the band reads \"" + band.Text + "\", not the prompt");
                         foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
                             Require(!(label.text ?? "").Contains(prompt.Substring(0, 16)), "the agent's words stand off the band, in " + label.name);
                         Require(band.transform.localPosition.y < bar.transform.localPosition.y - bar.Size.y / GlazeText.Scale / 2f + 1e-4f, "the band does not hang under the pair's foot line");
                         var parted = state is "34-question-long" or "34-question-tall" or "34-question-stop";
-                        // Stopping never waits for reading: a frame that offers Stop is drawn at once, its prompt's later parts unread.
+                        // Stopping never waits for reading, yet the frame is not reported drawn for it: the navigator takes Stop alone
+                        // from the frame as it shows (MenuNavigator.Taking), and everything else waits for the band's last part.
                         var stops = state == "34-question-stop";
                         Require((bar.BandNextButton != null) == parted, parted ? "no way to the band's next part" : "a way to a next part the band does not have");
-                        Require((drawnFrames == 0) == (parted && !stops), stops ? "a frame offering Stop waits for the band to be read" : parted ? "a question still holding an unread part was reported drawn" : "the question's frame was not reported drawn");
+                        Require((drawnFrames == 0) == parted, parted ? "a question still holding an unread part was reported drawn" : "the question's frame was not reported drawn");
                         if (stops) Require(shown.Column.Any(action => action.Place == KitPlace.Stop), "no Stop on a question that cannot be answered");
                         if (parted) Require(bar.BandNextButton!.LookNow() == RoomButtonLook.Main && band.Words!.Next == bar.BandNextButton.Words.text.Replace("\\\\", "\\"), "the next part is not the way on, in the band's words");
                     }

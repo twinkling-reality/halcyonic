@@ -404,6 +404,30 @@ namespace Halcyonic.XR.UI
             return lines;
         }
 
+        /// <summary>
+        /// Lays <paramref name="label"/> so that no line ends in the separator: where one would, the break stands in the
+        /// separator's place, the dot dropped (WORDS rule 2). For labels of Halcyonic's own words, set literally.
+        /// </summary>
+        private static (int Lines, float Width, float Height) BreakAtSeparators(TextMeshPro label, float width, int maxLines)
+        {
+            var laid = KitType.Lay(label, width, maxLines);
+            for (var pass = 0; pass < 8; pass++)
+            {
+                var info = label.textInfo;
+                var at = -1;
+                for (var index = 0; index < info.lineCount - 1 && at < 0; index++)
+                {
+                    var last = info.characterInfo[info.lineInfo[index].lastVisibleCharacterIndex];
+                    if (last.character == '·') at = last.index;
+                }
+                var text = label.text;
+                if (at < 1 || at + 1 >= text.Length || text[at - 1] != ' ' || text[at + 1] != ' ') break;
+                label.text = text.Substring(0, at - 1) + "\n" + text.Substring(at + 2);
+                laid = KitType.Lay(label, width, maxLines);
+            }
+            return laid;
+        }
+
         /// <summary>The label's own text of its lines from <paramref name="from"/>, <paramref name="rows"/> of them at most, as it is laid now, never cut inside a doubled backslash.</summary>
         private static string Rows(TextMeshPro label, int from, int rows)
         {
@@ -448,24 +472,9 @@ namespace Halcyonic.XR.UI
                 reading.text = string.Join("\n", bar.Lines.Select(each => each.ForTextMeshPro().Text));
             }
             var laid = KitType.Lay(reading, wordsWidth, 200);
-            // Halcyonic's own words break only between segments and drop the dot there (WORDS rule 2): where a line would end
-            // in the separator, the break stands in its place. Only where no outside words stand in the label, whose places
-            // in its text a changed text would move.
-            if (!bar.Mono && bar.Part == null && GlazeRuns.Of(reading).Theirs.Count == 0)
-                for (var pass = 0; pass < 8; pass++)
-                {
-                    var info = reading.textInfo;
-                    var at = -1;
-                    for (var index = 0; index < info.lineCount - 1 && at < 0; index++)
-                    {
-                        var last = info.characterInfo[info.lineInfo[index].lastVisibleCharacterIndex];
-                        if (last.character == '·') at = last.index;
-                    }
-                    var text = reading.text;
-                    if (at < 1 || at + 1 >= text.Length || text[at - 1] != ' ' || text[at + 1] != ' ') break;
-                    reading.text = text.Substring(0, at - 1) + "\n" + text.Substring(at + 2);
-                    laid = KitType.Lay(reading, wordsWidth, 200);
-                }
+            // Halcyonic's own words break only between segments and drop the dot there (WORDS rule 2). Only where no outside
+            // words stand in the label, whose places in its text a changed text would move.
+            if (!bar.Mono && bar.Part == null && GlazeRuns.Of(reading).Theirs.Count == 0) laid = BreakAtSeparators(reading, wordsWidth, 200);
             var from = bar.Part?.FromRow ?? 0;
             var most = bar.Part != null ? bar.Part.Rows : bar.Mono ? RoomBar.RequestLines : int.MaxValue;
             if (from > 0 || reading.textInfo.lineCount > most)
@@ -484,7 +493,7 @@ namespace Halcyonic.XR.UI
             {
                 RoomType.Size(sentence);
                 GlazeText.SetLiteral(sentence, said);
-                var (_, _, saidHeight) = KitType.Lay(sentence, panelWidth - 2f * inset - 2f * RoomType.Scaled(RoomGeometry.SentencePadXDp), 3);
+                var saidHeight = BreakAtSeparators(sentence, panelWidth - 2f * inset - 2f * RoomType.Scaled(RoomGeometry.SentencePadXDp), 3).Height;
                 barHeight = Mathf.Max(RoomType.Scaled(RoomGeometry.SentenceDp), saidHeight + 2f * RoomType.Scaled(RoomGeometry.SentencePadYDp));
             }
             sentence.gameObject.SetActive(bar.Sentence != null);
