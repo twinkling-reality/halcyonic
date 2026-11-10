@@ -183,7 +183,8 @@ namespace Halcyonic.Client
             RuntimeDescriptor runtime,
             CommandFactory commands,
             out CommandEnvelope firstCommand,
-            string? modelRef = null)
+            string? modelRef = null,
+            bool neverAsk = false)
         {
             if (string.IsNullOrEmpty(projectId)) throw new ArgumentException("A project id is required.", nameof(projectId));
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
@@ -198,7 +199,8 @@ namespace Halcyonic.Client
             };
             draft.ChooseRuntime(runtime);
             var sequence = new BuildSequence(draft, commands, newProjectName: null, folder: null);
-            sequence.confirmed = new Confirmation(draft.Title, objective, runtime.RuntimeId, modelRef);
+            // Never ask rides only where the runtime the run starts on offers it (ADR 0043); otherwise the start asks.
+            sequence.confirmed = new Confirmation(draft.Title, objective, runtime.RuntimeId, modelRef, neverAsk && runtime.OffersNeverAsk == true);
             firstCommand = sequence.Send(sequence.CommandFor(sequence.steps[0].Kind));
             return sequence;
         }
@@ -282,15 +284,18 @@ namespace Halcyonic.Client
             if (runtime.ModelChoice == ModelChoice.Listed && draft.Model == null) throw new InvalidOperationException("Choose a model.");
             var objective = draft.Objective.Trim();
             if (objective.Length == 0 || objective.Length > 4000) throw new InvalidOperationException("The first task is empty or too long.");
+            // The level sent is the level reviewed (ADR 0043, decision 7): a review made at another level confirms nothing.
+            if (reviewed.NeverAsk != draft.StartsNeverAsk) throw new InvalidOperationException("The level is not the one reviewed.");
             if (!reviewed.Spend()) throw new InvalidOperationException("Only a request read to its end, and confirmed once, is sent.");
-            confirmed = new Confirmation(draft.Title, objective, runtime.RuntimeId, draft.Model?.ModelRef);
+            confirmed = new Confirmation(draft.Title, objective, runtime.RuntimeId, draft.Model?.ModelRef, draft.StartsNeverAsk);
         }
 
         /// <summary>The request the person confirmed, as each of its steps sends it.</summary>
         private sealed class Confirmation
         {
-            public Confirmation(string title, string objective, string runtimeId, string? modelRef)
+            public Confirmation(string title, string objective, string runtimeId, string? modelRef, bool neverAsk)
             {
+                NeverAsk = neverAsk;
                 Title = title;
                 Objective = objective;
                 RuntimeId = runtimeId;
@@ -304,6 +309,9 @@ namespace Halcyonic.Client
             public string RuntimeId { get; }
 
             public string? ModelRef { get; }
+
+            /// <summary>The start asks for never ask: chosen, reviewed, and offered by the runtime it starts on.</summary>
+            public bool NeverAsk { get; }
         }
 
         /// <summary>The acknowledgement of the command in flight.</summary>
@@ -378,7 +386,8 @@ namespace Halcyonic.Client
             BuildStepKind.CreateProject => commands.CreateProject(newProjectName!, location),
             BuildStepKind.BindFolder => commands.SetProjectLocation(projectId!, location!),
             BuildStepKind.CreateWorkstream => commands.CreateWorkstream(projectId!, confirmed!.Title, confirmed.Objective),
-            _ => commands.StartExecution(WorkstreamId!, confirmed!.RuntimeId, confirmed.Objective, modelRef: confirmed.ModelRef),
+            _ => commands.StartExecution(WorkstreamId!, confirmed!.RuntimeId, confirmed.Objective, modelRef: confirmed.ModelRef,
+                approvalLevel: confirmed.NeverAsk ? ApprovalLevel.NeverAsk : (ApprovalLevel?)null),
         };
 
         private CommandEnvelope Send(CommandEnvelope command)

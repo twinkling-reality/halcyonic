@@ -157,10 +157,11 @@ internal static class Samples
     /// renames the project and in <paramref name="folder"/> when it moves it, read through and
     /// confirmable, as Start building's review leaves it.
     /// </summary>
-    public static NewWorkReview Reviewed(BuildSequence sequence, string? projectName = null, ProjectLocationChoice? folder = null)
+    public static NewWorkReview Reviewed(BuildSequence sequence, string? projectName = null, ProjectLocationChoice? folder = null, bool? neverAsk = null)
     {
+        // As EntryScreens.ReviewOf makes it: at the level the draft's start will use, unless a test reviews another.
         var review = new NewWorkReview(projectName ?? sequence.NewProjectName ?? "Project", "Title", "Agent", "Model", "on your computer",
-            sequence.Draft.Model?.ModelRef ?? "none", sequence.Draft.Objective, folderChoice: folder ?? sequence.Location);
+            sequence.Draft.Model?.ModelRef ?? "none", sequence.Draft.Objective, folderChoice: folder ?? sequence.Location, neverAsk: neverAsk ?? sequence.Draft.StartsNeverAsk);
         review.Paginate(review.Items.Select(_ => 1).ToList(), review.Items.Count);
         ReadThrough(review);
         return review;

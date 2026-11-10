@@ -2692,10 +2692,15 @@ The last unit turns it on by default and removes the kit parts it replaced.
   and Retry, so the level shown before a start is the level sent (`WorkspaceSteering.ChoiceNow`, set by the file). The model carries what a view may
   show: whether the runtime the next start would use offers it, the level that start will use, shown before it
   goes, and the running or last run's own recorded level, null where its record has none, never the choice
-  (`KitWorkModel.OffersNeverAsk`, `NeverAsk`, `RunNeverAsk`). The row lays a third action after Type where the model
+  (`KitWorkModel.OffersNeverAsk`, `NeverAsk`, `RunNeverAsk`). New work's start carries the level the same way: the draft holds the person's choice
+  (`NewWorkDraft.NeverAsk`, set by the flow that shows it) and starts at never ask only where the chosen runtime
+  offers it (`StartsNeverAsk`); the review is made at that level (`NewWorkReview.NeverAsk`) and a build confirms
+  only the level its review was made with ("The level is not the one reviewed" otherwise), then every later step
+  sends what was confirmed (`BuildSequence`); Make VR Version's start takes the level as an argument
+  (`BuildSequence.ForPrompt`). The row lays a third action after Type where the model
   gives one, action size, 32 dp on, on the row's line (`RoomBarView.More`: any row action that is neither Hold to
-  Talk's place nor the field's). No moment gives one or draws the level yet, and New Project's and Make VR
-  Version's starts (`BuildSequence`) do not carry a level yet. `NeverAskTests`.
+  Talk's place nor the field's). No moment gives one or draws the level yet. `NeverAskTests`,
+  `EntryTests.ABuildStartsAtNeverAskOnlyWhereChosenReviewedAndOffered`.
 - **Where a moment plugs in.** `RoomBar.Of` reads a bound frame in two steps: the task's own loop (`RoomBar.Tasks`:
   the row at rest, talking, a draft, a confirmation, an approval, a question, what was sent), then the moments
   outside that loop (`RoomBar.Moments`, in `RoomBar.Moments.cs`), asked in order with the binding, the voice and

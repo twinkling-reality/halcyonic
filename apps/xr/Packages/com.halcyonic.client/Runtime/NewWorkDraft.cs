@@ -31,6 +31,12 @@ namespace Halcyonic.Client
 
         public RuntimeModel? Model { get; private set; }
 
+        /// <summary>Whether the person chose never ask for this start (ADR 0043). The choice alone is not the level the start uses (<see cref="StartsNeverAsk"/>).</summary>
+        public bool NeverAsk { get; set; }
+
+        /// <summary>The level this start will use is never ask: the person chose it and the chosen runtime's descriptor offers it. Otherwise it asks.</summary>
+        public bool StartsNeverAsk => NeverAsk && Runtime?.OffersNeverAsk == true;
+
         public string? ModelProblem { get; private set; }
 
         /// <summary>The model was chosen for the person, because it runs on this Mac; they have not chosen it themselves.</summary>
