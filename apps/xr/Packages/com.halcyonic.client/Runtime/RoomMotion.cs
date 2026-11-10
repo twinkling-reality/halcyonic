@@ -53,6 +53,9 @@ namespace Halcyonic.Client
         /// <summary>Where newer words replace older ones, their first line starts once the old have left and the height has eased.</summary>
         public const float ReplaceLinesAfterSeconds = LineLeaveSeconds + BandHeightSeconds;
 
+        /// <summary>The working field fades in, and out, over this long, on the standard curve.</summary>
+        public const float FieldSeconds = 0.6f;
+
         /// <summary>Ease out, cubic: fast first, settling; 0 at 0 and 1 from 1 on.</summary>
         public static float EaseOut(float progress)
         {
@@ -92,6 +95,12 @@ namespace Halcyonic.Client
         /// </summary>
         public static float BandHeight(float seconds, float from, float to) =>
             from + (to - from) * EaseOut((seconds - LineLeaveSeconds) / BandHeightSeconds);
+
+        /// <summary>How far the working field is in view <paramref name="seconds"/> after it starts to fade in: 600 ms, the standard curve.</summary>
+        public static float FieldArrives(float seconds) => Standard(seconds / FieldSeconds);
+
+        /// <summary>How far the working field is still in view <paramref name="seconds"/> after it starts to fade out.</summary>
+        public static float FieldLeaves(float seconds) => 1f - Standard(seconds / FieldSeconds);
 
         /// <summary>A cubic bezier easing through (x1, y1) and (x2, y2): the value where the curve's time is <paramref name="progress"/>.</summary>
         private static float Bezier(float x1, float y1, float x2, float y2, float progress)
