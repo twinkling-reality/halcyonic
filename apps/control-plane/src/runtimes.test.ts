@@ -676,6 +676,8 @@ describe("Codex's confinement of a project made from a starter (ADR 0041)", () =
       originals: ['/Users/someone/dev/garden'],
       // The data folder is never readable through it (AUDIT M18C1-M1).
       hidden: ['/Users/someone/.halcyonic'],
+      // A starter's project asks nothing (ADR 0041).
+      asksNothing: true,
     });
   });
 
@@ -692,8 +694,15 @@ describe("Codex's confinement of a project made from a starter (ADR 0041)", () =
       readable: ['/Users/someone/.halcyonic/starters/iwsdk-vr'],
       // Halcyonic's data folder is refused outright, the confinement's own folders in it allowed again.
       hidden: ['/Users/someone/.halcyonic'],
+      // A starter's project asks nothing (ADR 0041).
+      asksNothing: true,
     });
-    assert.equal(confinement.forDirectory('/Users/someone/dev/storefront'), null);
+    // Every other folder is confined too, to itself alone (BOX-2).
+    assert.deepEqual(confinement.forDirectory('/Users/someone/dev/storefront'), {
+      project: '/Users/someone/dev/storefront',
+      readable: [],
+      hidden: ['/Users/someone/.halcyonic'],
+    });
     // Homebrew's package folders, where Node loads its libraries from; never var or etc.
     assert.deepEqual(confinement.toolFolders, [
       '/opt/homebrew/Cellar',
@@ -708,7 +717,16 @@ describe("Codex's confinement of a project made from a starter (ADR 0041)", () =
     assert.deepEqual(confinement.loopbackPorts, [OLLAMA_PORT]);
   });
 
-  test('confines nothing without a way to tell starter projects apart', () => {
-    assert.deepEqual(codexConfinement(dependencies()), {});
+  test('confines every folder on macOS, without a way to tell starter projects apart too (BOX-2)', () => {
+    const { confinement } = codexConfinement(dependencies());
+    if (process.platform !== 'darwin') {
+      assert.equal(confinement, undefined);
+      return;
+    }
+    assert.deepEqual(confinement?.forDirectory('/Users/someone/dev/storefront'), {
+      project: '/Users/someone/dev/storefront',
+      readable: [],
+      hidden: ['/Users/someone/.halcyonic'],
+    });
   });
 });

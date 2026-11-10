@@ -26,6 +26,11 @@ export interface Confinement {
    * refused after every allowance, then the scope's own folders are allowed again.
    */
   readonly hidden?: readonly string[];
+  /**
+   * True for a project made from a starter (ADR 0041): its commands run without asking, whatever the
+   * start chose. Any other confined folder asks when its start asks (BOX-2).
+   */
+  readonly asksNothing?: boolean;
 }
 
 /** Everything one confined server may touch; nothing else is readable, writable or reachable. */
