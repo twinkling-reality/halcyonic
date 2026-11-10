@@ -563,10 +563,19 @@ namespace Halcyonic.XR.Workspace.Editor
                         // A page of rows: every row's words in the panel, eight at most, no band and no sentence.
                         Require(shown.Band == null && host.Band.Words == null && shown.Sentence == null, "a band or a sentence stands on a page of rows");
                         Require(shown.Facts != null && shown.Facts.Count == (state == "38-changes-long" ? RoomRows.APage : state == "38-checks-failed" ? 2 : 4), "the page holds " + shown.Facts?.Count + " rows");
-                        // Compared without their spaces: a name from outside stands a narrow space off Halcyonic's words.
-                        string Bare(string words) => new string(words.Where(character => !char.IsWhiteSpace(character) && character != '\u202F').ToArray());
-                        var read = Bare(bar.Body.GetParsedText());
-                        foreach (var row in shown.Facts!) Require(read.Contains(Bare(row.Words.Text)), "the row \"" + row.Words.Text + "\" is not in the panel");
+                        // Each row in its own label of the panel's rows, its words whole, a step's mark beside it; compared without their
+                        // spaces, since a name from outside stands a narrow space off Halcyonic's words.
+                        // A wrapping row breaks at its separator, the dot dropped (FIELD's ea71425a): compared without its dots too.
+                        string Bare(string words) => new string(words.Where(character => !char.IsWhiteSpace(character) && character != '\u202F' && character != '·').ToArray());
+                        var rows = bar.Facts;
+                        Require(rows != null && rows.Count == shown.Facts!.Count && !bar.Body.gameObject.activeSelf, "the panel's rows do not stand in the body's place");
+                        for (var index = 0; rows != null && index < Mathf.Min(rows.Count, shown.Facts!.Count); index++)
+                        {
+                            var label = rows.Label(index);
+                            label.ForceMeshUpdate(true);
+                            Require(Bare(label.GetParsedText()) == Bare(shown.Facts[index].Words.Text) && !label.isTextTruncated, "the row \"" + shown.Facts[index].Words.Text + "\" reads \"" + label.GetParsedText() + "\"");
+                            Require(rows.Mark(index).gameObject.activeSelf == (shown.Facts[index].Mark != RoomRowMark.None), "the row \"" + shown.Facts[index].Words.Text + "\" has a mark it should not, or lacks one");
+                        }
                         Require(shown.Column.Last().Control.Action == RoomResult.Back, "Back does not stand last");
                         Require(shown.Column[0].Main == (state != "38-changes") && shown.Column[0].Control.Action == state switch
                         {
