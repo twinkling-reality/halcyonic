@@ -817,18 +817,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       throw error;
     }
     await this.#noProjectSettings(connection, options.cwd);
-    // An MCP tool runs outside Codex's command sandbox, and what `never` does with one is not
-    // verified, so a thread that never asks has none (ADR 0043, AUDIT's step 2 S1).
-    if (
-      options.approvalPolicy === 'never' &&
-      isRecord(config.mcp_servers) &&
-      Object.keys(config.mcp_servers).length > 0
-    ) {
-      throw new RuntimeActionError(
-        'runtime_refused',
-        `Codex works without asking only with no MCP servers, and Halcyonic's Codex home config.toml names ${Object.keys(config.mcp_servers).length}. Nothing was started.`,
-      );
-    }
+    neverAskingWithoutMcp(config, options.approvalPolicy);
     const configured = typeof config.model_provider === 'string' ? config.model_provider : '';
     const provider = options.modelProvider ?? (configured === '' ? 'openai' : configured);
     const served = servedBy(config, provider, this.#environment);
@@ -1202,6 +1191,11 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     try {
       // The folder is handed to Codex again on resume, so it is asked about again first.
       confirmProjectLocation(this.#directoryPolicy, thread.options.cwd);
+      // So is the home's configuration, for a thread that never asks: an MCP server named there
+      // since its start would run outside the command sandbox unasked (AUDIT's step 2 S2).
+      if (thread.options.approvalPolicy === 'never') {
+        neverAskingWithoutMcp(await this.#localOnly(connection), 'never');
+      }
       const params: ThreadResumeParams = {
         threadId: thread.threadId,
         ...threadSettings(thread.options, this.#answerQuestions),
@@ -1453,6 +1447,24 @@ function managedLayer(layer: unknown): string[] {
     return [where];
   }
   return [];
+}
+
+/**
+ * Refuses a thread that never asks while the home's configuration names an MCP server: an MCP tool
+ * runs outside Codex's command sandbox, and what `never` does with one is not verified (ADR 0043,
+ * AUDIT's step 2 S1). Checked at the start and again at every resume.
+ */
+function neverAskingWithoutMcp(
+  config: Readonly<Record<string, unknown>>,
+  approvalPolicy: StartOptions['approvalPolicy'],
+): void {
+  if (approvalPolicy !== 'never' || !isRecord(config.mcp_servers)) return;
+  const count = Object.keys(config.mcp_servers).length;
+  if (count === 0) return;
+  throw new RuntimeActionError(
+    'runtime_refused',
+    `Codex works without asking only with no MCP servers, and Halcyonic's Codex home config.toml names ${count}. Nothing was started.`,
+  );
 }
 
 /** The settings every thread is started and resumed with. */
