@@ -12,6 +12,7 @@ Shader "Halcyonic/Room Halo"
         _Chip ("The chip's centre x and y, its size and corner, in dp", Vector) = (-40, 0, 32, 12)
         _ChipColour ("The chip's colour, sRGB, and its alpha", Vector) = (1, 1, 1, 0.05)
         _Ring ("The ring's radius and width in dp, its fill 0 to 1, and 1 where it shows", Vector) = (19, 2, 0, 0)
+        _Mark ("An answer's mark at the chip's centre: its size and corner in dp, its line's width, and the line's alpha", Vector) = (22, 11, 2, 0)
         _Fade ("The content's opacity: 1, or 0.45 while disabled", Float) = 1
     }
 
@@ -38,6 +39,7 @@ Shader "Halcyonic/Room Halo"
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Chip)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _ChipColour)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Ring)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _Mark)
                 UNITY_DEFINE_INSTANCED_PROP(float, _Fade)
             UNITY_INSTANCING_BUFFER_END(Props)
 
@@ -83,6 +85,12 @@ Shader "Halcyonic/Room Halo"
                 return pow(pow(m.x, 4.0) + pow(m.y, 4.0), 0.25) + min(max(q.x, q.y), 0.0) - radius;
             }
 
+            // A box with squircle corners, or a circle where its corner is half its size.
+            float Rounded(float2 p, float size, float corner)
+            {
+                return corner >= size * 0.5 - 0.01 ? length(p) - size * 0.5 : Squircle(p, float2(size, size) * 0.5, corner);
+            }
+
             // Source over, premultiplied.
             float4 Over(float4 under, float3 colour, float alpha)
             {
@@ -114,9 +122,18 @@ Shader "Halcyonic/Room Halo"
 
                 // The chip, its glyph drawn over it by the words' layer.
                 float2 c = p - chip.xy;
-                float chipD = Squircle(c, chip.zz * 0.5, min(chip.w, chip.z * 0.5));
+                float chipD = Rounded(c, chip.z, min(chip.w, chip.z * 0.5));
                 float chipCover = saturate(0.5 - chipD / aa);
                 result = Over(result, Decode(chipColour.rgb), chipColour.a * chipCover * fade);
+
+                // An answer's mark not chosen: the outline alone, a circle for one of several, a squircle box for any number.
+                float4 mark = UNITY_ACCESS_INSTANCED_PROP(Props, _Mark);
+                if (mark.w > 0.0)
+                {
+                    float markD = Rounded(c, mark.x, min(mark.y, mark.x * 0.5));
+                    float stroke = saturate(0.5 - (abs(markD + mark.z * 0.5) - mark.z * 0.5) / aa);
+                    result = Over(result, float3(1, 1, 1), mark.w * stroke * fade);
+                }
 
                 // Confirm's lock: a ring round the chip, its track white at 20 percent, filled clockwise from 12 o'clock.
                 if (ring.w > 0.5)

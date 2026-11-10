@@ -59,6 +59,20 @@ namespace Halcyonic.XR.UI
         public const float HaloCornerDp = 24f;
         public const float HaloReachDp = 12f;
 
+        /// <summary>
+        /// An answer's mark in the chip's place (DESIGN 1.4): 22 dp, a circle for one of several, a squircle box of corner 7
+        /// where any number may be chosen; a 2 dp line, white at the page's 80 percent (0.66 in Unity's linear blend over the
+        /// halo); chosen, a #D5DADE disc or box with a #172024 check 15 dp.
+        /// </summary>
+        public const float MarkDp = 22f;
+        public const float MarkBoxCornerDp = 7f;
+        public const float MarkLineDp = 2f;
+        public const float MarkLineAlpha = 0.66f;
+        public const float MarkCheckDp = 15f;
+
+        /// <summary>The lines an answer's words wrap to at most; a longer one stands taller than DESIGN's two, never cut.</summary>
+        public const int WordLines = 6;
+
         /// <summary>Confirm's lock ring round the chip: radius 19 dp, 2 dp wide.</summary>
         public const float RingRadiusDp = 19f;
         public const float RingWidthDp = 2f;
@@ -73,6 +87,7 @@ namespace Halcyonic.XR.UI
         private static readonly int ChipId = Shader.PropertyToID("_Chip");
         private static readonly int ChipColourId = Shader.PropertyToID("_ChipColour");
         private static readonly int RingId = Shader.PropertyToID("_Ring");
+        private static readonly int MarkId = Shader.PropertyToID("_Mark");
         private static readonly int FadeId = Shader.PropertyToID("_Fade");
         private static Material? material;
         private static Mesh? quad;
@@ -85,6 +100,9 @@ namespace Halcyonic.XR.UI
         private KitPress press = null!;
         private RoomButtonSize size;
         private bool main;
+        private AnswerMark mark;
+        private bool chosen;
+        private string? shownWords;
         private bool held;
         private Vector2 core;
         private float chipCentreX;
@@ -106,6 +124,11 @@ namespace Halcyonic.XR.UI
         public Vector2 Core => core;
 
         public bool Main => main;
+
+        /// <summary>The answer's mark it carries in its chip's place, and whether it shows chosen.</summary>
+        public AnswerMark Mark => mark;
+
+        public bool Chosen => chosen;
 
         /// <summary>How the button shows now.</summary>
         public RoomButtonLook Look => painted ?? RoomButtonLook.Rest;
@@ -186,6 +209,44 @@ namespace Halcyonic.XR.UI
             return RoomType.Units(ChipPadDp + ChipSizeDp + GapDp + RightDp) + words.GetPreferredValues(LabelText.ForTextMeshPro(text)).x;
         }
 
+        /// <summary>
+        /// The core with these words, in the plane's units: content-sized, and where <paramref name="wrap"/> is given and the
+        /// words would pass it, wrapped inside it and a line taller for each line more. Lays the words; <see cref="Show"/> follows.
+        /// </summary>
+        public Vector2 Measure(string text, float wrap)
+        {
+            RoomType.Size(words);
+            GlazeText.SetLiteral(words, text);
+            var inner = RoomType.Units(ChipPadDp + ChipSizeDp + GapDp + RightDp);
+            var wordsWidth = words.GetPreferredValues(words.text).x;
+            var lines = 1;
+            if (wrap > 0f && inner + wordsWidth > wrap)
+            {
+                words.textWrappingMode = TextWrappingModes.Normal;
+                var laid = KitType.Lay(words, wrap - inner, WordLines);
+                // A line breaks only between segments and drops the dot there (WORDS rule 2): where a line would end in the
+                // separator, the break stands in its place.
+                for (var pass = 0; pass < WordLines; pass++)
+                {
+                    var info = words.textInfo;
+                    var at = -1;
+                    for (var index = 0; index < info.lineCount - 1 && at < 0; index++)
+                    {
+                        var last = info.characterInfo[info.lineInfo[index].lastVisibleCharacterIndex];
+                        if (last.character == '·') at = last.index;
+                    }
+                    var shown = words.text;
+                    if (at < 1 || at + 1 >= shown.Length || shown[at - 1] != ' ' || shown[at + 1] != ' ') break;
+                    words.text = shown.Substring(0, at - 1) + "\n" + shown.Substring(at + 2);
+                    laid = KitType.Lay(words, wrap - inner, WordLines);
+                }
+                lines = Mathf.Max(1, laid.Lines);
+                wordsWidth = wrap - inner;
+            }
+            else words.textWrappingMode = TextWrappingModes.NoWrap;
+            return new Vector2(inner + wordsWidth, RoomType.Units(CoreHeightDp) + (lines - 1) * RoomType.Scaled(RoomGeometry.LineDp));
+        }
+
         /// <summary>Where its words end, from its centre, in its parent's units: what stands after them inside the halo starts here.</summary>
         public float WordsEnd => words.transform.localPosition.x + words.GetPreferredValues(words.text).x;
 
@@ -193,7 +254,8 @@ namespace Halcyonic.XR.UI
         /// Shows the button centred at <paramref name="centre"/>, content-sized (<paramref name="width"/> its least core width).
         /// Its target is the core grown to Meta's hand target.
         /// </summary>
-        public void Show(string text, GlazeIcon? icon, bool isMain, bool available, Vector2 centre, float width)
+        public void Show(string text, GlazeIcon? icon, bool isMain, bool available, Vector2 centre, float width, AnswerMark mark = AnswerMark.None,
+            bool chosen = false, float wrap = 0f)
         {
             // An action that cannot act yet is not drawn (BUILD-SPEC-v4 1.4, 2026-11-05): no disabled look; it arrives when it can act.
             if (!available)
@@ -201,18 +263,21 @@ namespace Halcyonic.XR.UI
                 Hide();
                 return;
             }
-            var literal = LabelText.ForTextMeshPro(text);
-            var changed = !gameObject.activeSelf || words.text != literal || main != isMain;
+            var changed = !gameObject.activeSelf || shownWords != text || main != isMain || this.mark != mark || this.chosen != chosen;
+            shownWords = text;
             main = isMain;
-            RoomType.Size(words);
-            GlazeText.SetLiteral(words, text);
+            this.mark = mark;
+            this.chosen = chosen;
             var target = RoomType.Units(HeightDp);
-            var coreWidth = Mathf.Max(width, Measure(text));
-            core = new Vector2(coreWidth, RoomType.Units(CoreHeightDp));
+            var measured = Measure(text, wrap);
+            var coreWidth = Mathf.Max(width, measured.x);
+            core = new Vector2(coreWidth, measured.y);
             chipCentreX = -coreWidth / 2f + RoomType.Units(ChipPadDp + ChipSizeDp / 2f);
             words.transform.localPosition = new Vector3(chipCentreX + RoomType.Units(ChipSizeDp / 2f + GapDp), 0f, -RoomType.Units(0.5f));
             press.Resize(new Vector2(Mathf.Max(target, coreWidth), Mathf.Max(target, core.y)));
-            Lay(icon, RoomType.Units(size == RoomButtonSize.Home ? HomeGlyphDp : GlyphDp));
+            // A mark holds no glyph but its check once chosen.
+            if (mark != AnswerMark.None) Lay(chosen ? GlazeIcon.Approve : (GlazeIcon?)null, RoomType.Units(MarkCheckDp));
+            else Lay(icon, RoomType.Units(size == RoomButtonSize.Home ? HomeGlyphDp : GlyphDp));
             LockProgress = null;
             press.Available = available;
             transform.localPosition = new Vector3(centre.x, centre.y, -RoomType.Units(1f));
@@ -290,15 +355,25 @@ namespace Halcyonic.XR.UI
             };
             var chipDp = ChipSizeDp;
             var cornerDp = size == RoomButtonSize.Home ? HomeChipCornerDp : ChipCornerDp;
+            var markLine = 0f;
+            if (mark != AnswerMark.None)
+            {
+                // In the chip's place: the outline alone, or chosen, the light disc or box under its dark check.
+                chipDp = MarkDp;
+                cornerDp = mark == AnswerMark.Multiple ? MarkBoxCornerDp : MarkDp / 2f;
+                (chipColour, chipAlpha) = chosen ? (light, 1f) : (Color.white, 0f);
+                markLine = chosen ? 0f : MarkLineAlpha;
+            }
             block.SetVector(CoreId, new Vector4(core.x / unit, core.y / unit, size == RoomButtonSize.Home ? HomeHaloCornerDp : HaloCornerDp, haloAlpha));
             block.SetVector(QuadId, new Vector4(-quadSize.x / 2f, -quadSize.y / 2f, quadSize.x, quadSize.y));
             block.SetVector(ChipId, new Vector4(chipCentreX / unit, 0f, chipDp, cornerDp));
             block.SetVector(ChipColourId, new Vector4(chipColour.r, chipColour.g, chipColour.b, chipAlpha));
             block.SetVector(RingId, new Vector4(RingRadiusDp, RingWidthDp, LockProgress ?? 0f, LockProgress != null ? 1f : 0f));
+            block.SetVector(MarkId, new Vector4(MarkDp, cornerDp, MarkLineDp, markLine));
             var fade = look == RoomButtonLook.Disabled ? DisabledOpacity : 1f;
             block.SetFloat(FadeId, fade);
             halo.SetPropertyBlock(block);
-            var dark = look is RoomButtonLook.Main or RoomButtonLook.MainPointed or RoomButtonLook.Pressed;
+            var dark = mark != AnswerMark.None ? chosen : look is RoomButtonLook.Main or RoomButtonLook.MainPointed or RoomButtonLook.Pressed;
             glyph.color = dark ? RoomSurface.Hex(0x172024) : new Color(1f, 1f, 1f, fade);
             words.color = Color.white;
         }
