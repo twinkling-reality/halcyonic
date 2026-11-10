@@ -36,7 +36,7 @@ namespace Halcyonic.Client
             CancellationToken cancellationToken = default)
         {
             var code = PairingCrypto.NormalizeCode(typedCode)
-                ?? throw new PairingException("invalid_code", "The code is the eight digits pnpm pair shows.", null);
+                ?? throw new PairingException("invalid_code", "The code is the eight digits your computer shows.", null);
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(Timeout);
             var token = timeout.Token;
@@ -177,7 +177,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static string WhyRefused(string? code) => code switch
         {
-            "pairing_closed" => "Pairing Closed · Run pnpm pair · Try Again",
+            "pairing_closed" => "Pairing Closed · Open Pairing on Your Computer · Try Again",
             "wrong_code" => "Code Refused · Check and Retype",
             "too_many_requests" => "Pairing Paused · Too Many Tries · Retry in 1 min",
             "busy" => "Computer Busy · Retry",

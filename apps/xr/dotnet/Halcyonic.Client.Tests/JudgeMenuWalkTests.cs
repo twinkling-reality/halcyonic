@@ -31,9 +31,11 @@ internal sealed class DemonstrationMenuHost : IMenuHost
             [MenuPlace.Projects] = () => new ProjectsColumn(this, commands, new ProjectsMemory(), () => State == null ? null : WorkOverview.Of(State, new StageVisibility(), _ => true),
                 (_, _) => { }),
             [MenuPlace.Usage] = () => new UsageColumn(this, at => player.Recording?.UsageLimitsAt(at)),
-            // As the director gives them in the release build: Your space, with no Your computer, then Comfort.
-            [MenuPlace.Settings] = () => new SettingsColumn(this, SpaceSettings.Of(() => new SpaceNow(RoomStatus.Initial, RoomOffer.None, StageArrangement.InFront, null),
-                id => SpaceActs.Add(id), _ => { }).Concat(ComfortSettings.Of(Comfort, () => { })).ToList()),
+            // As the director gives them in the release build: Your space, Your computer, which every build
+            // offers since release builds pair, not yet paired, then Comfort.
+            [MenuPlace.Settings] = () => new SettingsColumn(this, SpaceSettings.Of(() => new SpaceNow(RoomStatus.Initial, RoomOffer.None, StageArrangement.InFront,
+                    new PairingNow(null, PairingStep.Idle, keyboard: true)),
+                id => SpaceActs.Add(id), _ => { }, pairing: true).Concat(ComfortSettings.Of(Comfort, () => { })).ToList()),
         });
         Navigator.Changed += () => changed = true;
     }
@@ -593,7 +595,7 @@ public class JudgeMenuWalkTests
         host.Press(MenuColumn.Menu, SidePanel.Close);
 
         // Settings: a page a group, Your space then Comfort, each setting a row with its value, chosen to
-        // show what it is and what its change does. No Your computer: the release build pairs nothing.
+        // show what it is and what its change does. Your computer too: the release build pairs, not yet paired here.
         host.Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Settings));
         (menu, _) = host.Draw();
         Assert.That(menu!.Subject, Is.EqualTo(SettingsText.Subject));
@@ -615,7 +617,7 @@ public class JudgeMenuWalkTests
             host.Press(MenuColumn.Menu, Footer.NextPage);
             (menu, _) = host.Draw();
         }
-        Assert.That(groups, Is.EqualTo(new[] { SettingsText.YourSpace, Comfort.Heading }));
+        Assert.That(groups, Is.EqualTo(new[] { SettingsText.YourSpace, HostText.YourStart, Comfort.Heading }));
         Assert.That(host.SpaceActs, Is.Empty, "choosing a setting changes nothing");
 
         // Closed again: the bar alone, the file closed too, saying nothing waits.
