@@ -13,6 +13,7 @@ import { COMMAND_POLICY } from '@halcyonic/domain';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import type { RawData, WebSocket } from 'ws';
 import type { ControlPlane } from '../core/control-plane.ts';
+import type { PublishedEvent } from '../core/publisher.ts';
 
 export interface RealtimeOptions {
   /** Interval between server pings; a client that misses one is disconnected. */
@@ -232,12 +233,7 @@ class RealtimeConnection {
       // Who may reach the control plane is not work: clients never receive device events, and the
       // gap they leave in positions is harmless (docs/internal/architecture/REALTIME.md).
       if (isDeviceEvent(published.event)) return;
-      this.#send({
-        type: 'event',
-        position: published.position,
-        event: published.event,
-        changes: published.changes,
-      });
+      this.#sendText(eventMessage(published));
     });
     this.#phase = 'live';
     this.#log.info(
@@ -279,6 +275,10 @@ class RealtimeConnection {
   }
 
   #send(message: ServerMessage): void {
+    this.#sendText(JSON.stringify(message));
+  }
+
+  #sendText(text: string): void {
     if (this.#phase === 'closed' || this.#socket.readyState !== this.#socket.OPEN) return;
     if (this.#socket.bufferedAmount > this.#options.maxBufferedBytes) {
       this.#log.warn({}, 'realtime client is too far behind; disconnecting');
@@ -286,7 +286,7 @@ class RealtimeConnection {
       this.#dispose();
       return;
     }
-    this.#socket.send(JSON.stringify(message));
+    this.#socket.send(text);
   }
 
   #sendError(code: string, message: string, issues: ValidationIssue[], fatal: boolean): void {
@@ -307,6 +307,27 @@ class RealtimeConnection {
 }
 
 /** Every client gets the same policies until per-device authorization exists (SECURITY.md). */
+/**
+ * An event's message, serialized once for every connection that receives it rather than once for
+ * each (core audit 2026-11-03). Every connection sends the same message for the same event.
+ */
+const eventMessages = new WeakMap<PublishedEvent, string>();
+
+export function eventMessage(published: PublishedEvent): string {
+  let text = eventMessages.get(published);
+  if (text === undefined) {
+    const message: ServerMessage = {
+      type: 'event',
+      position: published.position,
+      event: published.event,
+      changes: published.changes,
+    };
+    text = JSON.stringify(message);
+    eventMessages.set(published, text);
+  }
+  return text;
+}
+
 const COMMAND_POLICIES: CommandPolicy[] = Object.entries(COMMAND_POLICY).map(
   ([commandType, policy]) => ({ command_type: commandType as CommandType, policy }),
 );

@@ -1204,6 +1204,70 @@ describe("a project's view holds its latest check, its preview and its play (M1.
     assert.equal(projection.preview(project.projectId)?.files, 'changed');
   });
 
+  test("the busy rule and the restore check read each project's own executions and pending commands (core audit 2026-11-03)", () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const garden = b.project('Garden', { path: '/work/garden', name: 'garden', created: true });
+    const pond = b.project('Pond', { path: '/work/pond', name: 'pond', created: true });
+    const workstream = b.workstream(pond.projectId);
+    for (const event of [garden.event, pond.event, workstream.event]) projection.apply(event);
+    const restoreId = b.id() as CommandId;
+    const gardenScope = { project_id: garden.projectId, workstream_id: null, execution_id: null };
+    projection.apply(
+      b.controlPlane('command.accepted', gardenScope, {
+        command: {
+          schema_version: 1,
+          command_id: restoreId,
+          issued_at: '2026-11-10T10:00:00.000Z',
+          client: { name: 'test', version: null, device_label: null },
+          command_type: 'project.restore',
+          payload: { project_id: garden.projectId, checkpoint_id: b.id() },
+        } as never,
+        policy: 'low_consequence',
+        received_via: 'internal',
+        principal: null,
+      }),
+    );
+    const executionId = b.id() as ExecutionId;
+    const execScope = {
+      project_id: pond.projectId,
+      workstream_id: workstream.workstreamId,
+      execution_id: executionId,
+    };
+    projection.apply(
+      b.controlPlane('execution.created', execScope, {
+        runtime: b.runtime,
+        instruction: 'Go.',
+        directory: '/work/pond',
+      }),
+    );
+    const runtimeScope = {
+      projectId: pond.projectId,
+      workstreamId: workstream.workstreamId,
+      executionId,
+    };
+    projection.apply(b.runtimeEvent(runtimeScope, 'runtime.execution.started', { native_id: 'n' }));
+    projection.apply(b.runtimeEvent(runtimeScope, 'runtime.turn.started', { turn_id: 't1' }));
+
+    assert.match(projection.projectBusy(garden.projectId) ?? '', /project.restore command/);
+    assert.equal(projection.restoreInProgress(garden.projectId), true);
+    assert.match(projection.projectBusy(pond.projectId) ?? '', /running/);
+    assert.equal(projection.restoreInProgress(pond.projectId), false);
+
+    projection.apply(
+      b.controlPlane('command.failed', gardenScope, {
+        command_id: restoreId,
+        command_type: 'project.restore',
+        failure: { code: 'x', message: 'No.', effect: 'none' },
+      }),
+    );
+    projection.apply(b.runtimeEvent(runtimeScope, 'runtime.turn.completed', { turn_id: 't1' }));
+    assert.equal(projection.projectBusy(garden.projectId), null);
+    assert.equal(projection.restoreInProgress(garden.projectId), false);
+    assert.equal(projection.projectBusy(pond.projectId), null);
+    assert.deepEqual(projection.pendingCommands(), []);
+  });
+
   test('a turn a restart cut short holds no later check unknown, while one checked before it stays unknown (#13)', () => {
     const b = new EventBuilder();
     const projection = new Projection();

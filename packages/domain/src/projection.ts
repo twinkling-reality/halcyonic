@@ -214,6 +214,10 @@ export class Projection {
   readonly #workstreams = new Map<WorkstreamId, WorkstreamState>();
   readonly #executions = new Map<ExecutionId, ExecutionState>();
   readonly #commands = new Map<CommandId, CommandState>();
+  /** Each project's executions, so a rule about one project reads only its own (core audit 2026-11-03). */
+  readonly #executionsByProject = new Map<ProjectId, ExecutionState[]>();
+  /** Commands accepted and still awaiting an outcome, in the order they were accepted. */
+  readonly #pendingCommands = new Set<CommandState>();
   /** Checkpoints the host took, by project, oldest first (ADR 0036). */
   readonly #checkpoints = new Map<ProjectId, CheckpointView[]>();
   /** Each project's latest check (ADR 0037). */
@@ -686,15 +690,14 @@ export class Projection {
    * project still waiting for its outcome, such as a start or a restore.
    */
   projectBusy(projectId: string): string | null {
-    for (const state of this.#executions.values()) {
-      if (state.projectId !== projectId) continue;
+    for (const state of this.#executionsByProject.get(projectId as ProjectId) ?? []) {
       const status = deriveExecutionStatus(state);
       if (ACTIVE_STATUSES.has(status)) return `A task in this project is ${status}.`;
       if (status === 'unknown' && !stoppedByRestart(state.unknownReason?.code))
         return 'A task in this project may still be running: its state is unknown.';
     }
-    for (const command of this.#commands.values()) {
-      if (command.status === 'accepted' && command.projectId === projectId)
+    for (const command of this.#pendingCommands) {
+      if (command.projectId === projectId)
         return `A ${command.envelope.command_type} command in this project is still in progress.`;
     }
     return null;
@@ -702,21 +705,15 @@ export class Projection {
 
   /** Whether a restore of the project's files has been accepted and has no outcome yet. */
   restoreInProgress(projectId: string): boolean {
-    for (const command of this.#commands.values()) {
-      if (
-        command.status === 'accepted' &&
-        command.envelope.command_type === 'project.restore' &&
-        command.projectId === projectId
-      )
+    for (const command of this.#pendingCommands) {
+      if (command.envelope.command_type === 'project.restore' && command.projectId === projectId)
         return true;
     }
     return false;
   }
 
   pendingCommands(): CommandView[] {
-    return [...this.#commands.values()]
-      .filter((command) => command.status === 'accepted')
-      .map(toCommandView);
+    return Array.from(this.#pendingCommands, toCommandView);
   }
 
   /** Every device ever paired, revoked ones included. */
@@ -934,8 +931,8 @@ export class Projection {
         }
         const unobservedTurns = new Set<ExecutionId>();
         let tainted = this.restoreInProgress(event.project_id);
-        for (const state of this.#executions.values()) {
-          if (state.projectId !== event.project_id || state.directory === null) continue;
+        for (const state of this.#executionsByProject.get(event.project_id) ?? []) {
+          if (state.directory === null) continue;
           const status = deriveExecutionStatus(state);
           // A restart stops every runtime process, so a turn one cut short runs no longer (#13).
           if (status === 'unknown' && stoppedByRestart(state.unknownReason?.code)) continue;
@@ -1089,6 +1086,9 @@ export class Projection {
           }),
         );
         workstream.executionIds.push(event.execution_id);
+        const inProject = this.#executionsByProject.get(event.project_id) ?? [];
+        inProject.push(this.#executions.get(event.execution_id) as ExecutionState);
+        this.#executionsByProject.set(event.project_id, inProject);
         workstream.updatedAt = event.ingested_at;
         changes.executions.add(event.execution_id);
         changes.workstreams.add(event.workstream_id);
@@ -1149,7 +1149,7 @@ export class Projection {
           return;
         }
         const accepted = event.event_type === 'command.accepted';
-        this.#commands.set(commandId, {
+        const state: CommandState = {
           envelope: event.payload.command,
           principal: event.payload.principal ? { ...event.payload.principal } : null,
           status: accepted ? 'accepted' : 'rejected',
@@ -1161,7 +1161,9 @@ export class Projection {
           rejection: accepted ? null : event.payload.rejection,
           failure: null,
           result: null,
-        });
+        };
+        this.#commands.set(commandId, state);
+        if (accepted) this.#pendingCommands.add(state);
         changes.commands.add(commandId);
         return;
       }
@@ -1174,6 +1176,7 @@ export class Projection {
           );
           return;
         }
+        this.#pendingCommands.delete(command);
         if (event.event_type === 'command.completed') {
           command.status = 'completed';
           command.result = event.payload.result;
