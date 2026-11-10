@@ -108,3 +108,6 @@ answer from.
   turn's files are not yet read (its check may follow), and wakes when the check ends or the files are
   read: "does it work" is answered from the Mac's check, never ahead of it. The first real run answered
   five seconds before its check ended.
+- A tool call is refused unless the request was offered that tool at that moment, whatever tools exist
+  (AUDIT2, 2026-11-10). The wait for the Mac's reading of a turn's files ends a minute after the task's
+  last activity, with a wake-up then, so an observer that is off or failing never holds a request.

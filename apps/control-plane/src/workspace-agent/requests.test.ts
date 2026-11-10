@@ -21,7 +21,7 @@ import { createUuidV7Generator } from '../ids.ts';
 import { DeviceAccess } from '../network/devices.ts';
 import { capturingLogger, createTestControlPlane } from '../testing/harness.ts';
 import type { ToolDefinition, ToolMessage, ToolTurnResult } from './ollama.ts';
-import { WorkspaceRequests } from './requests.ts';
+import { UNREAD_WAIT_MS, unreadWaitMs, WorkspaceRequests } from './requests.ts';
 
 const unavailable = {
   availability: 'unavailable' as const,
@@ -154,6 +154,7 @@ async function fixture(
     model,
     ...providers,
     ...(options.understand ? { understanding: { understand: options.understand } } : {}),
+    scheduler: h.time,
   });
   const initial = DEMO_WORKSTREAMS[0];
   assert.ok(initial);
@@ -1420,12 +1421,9 @@ test('a whole-project request reads two tasks by the host list and cannot instru
     assert.match(text, /Second synthetic task/);
     assert.match(text, /not_started/);
     assert.match(text, /"evidence":\{"observed_by":"the Mac, not the agent"/);
-    assert.ok(!text.includes('continue_task_offered'));
-    assert.match(text, /project_request_reads_only/);
+    assert.match(text, /tool_not_offered/);
     assert.ok(
-      request?.steps.some(
-        (step) => step.tool_name === 'continue_task' && step.status === 'rejected',
-      ),
+      request?.steps.some((step) => step.tool_name === 'tool_call' && step.status === 'rejected'),
     );
   } finally {
     await f.close();
@@ -1612,4 +1610,34 @@ test("after its own work, a request waits for the Mac's check of the project and
   } finally {
     await f.close();
   }
+});
+
+test('a tool the request was not offered is refused, even one that exists (AUDIT2 S1)', async () => {
+  const seen: ToolMessage[][] = [];
+  const f = await fixture({
+    turn: async (messages) => {
+      seen.push([...messages]);
+      return seen.length === 1
+        ? answer([{ name: 'read_project', arguments: {} }])
+        : answer([], 'Done.');
+    },
+  });
+  try {
+    f.submit();
+    for (let i = 0; i < 10; i++) await settle();
+    const result = (seen.at(-1) ?? []).find((message) => message.role === 'tool')?.content ?? '';
+    assert.match(result, /tool_not_offered/);
+  } finally {
+    await f.close();
+  }
+});
+
+test("the wait for the Mac's reading of a turn ends a minute after the task's last activity (AUDIT2 S2)", () => {
+  const at = Date.parse('2026-11-10T10:00:00.000Z');
+  const facts = { files: 'unknown', status: 'completed', lastActivity: '2026-11-10T10:00:00.000Z' };
+  assert.equal(unreadWaitMs({ ...facts, now: at + 30_000 }), UNREAD_WAIT_MS - 30_000);
+  assert.equal(unreadWaitMs({ ...facts, now: at + UNREAD_WAIT_MS }), 0);
+  assert.equal(unreadWaitMs({ ...facts, files: 'current', now: at }), 0);
+  assert.equal(unreadWaitMs({ ...facts, status: 'running', now: at }), 0);
+  assert.equal(unreadWaitMs({ ...facts, lastActivity: 'not a time', now: at }), 0);
 });
