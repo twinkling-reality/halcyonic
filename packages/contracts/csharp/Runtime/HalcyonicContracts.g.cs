@@ -642,6 +642,167 @@ namespace Halcyonic.Contracts
         public ProjectViewMacPlayFiles Files { get; set; }
     }
 
+    public sealed class WorldDescriptionSky
+    {
+        [JsonProperty("zenith", Required = Required.Always)]
+        public string Zenith { get; set; } = default!;
+
+        [JsonProperty("band", Required = Required.AllowNull)]
+        public string? Band { get; set; }
+
+        [JsonProperty("horizon", Required = Required.Always)]
+        public string Horizon { get; set; } = default!;
+    }
+
+    public sealed class WorldDescriptionDisc
+    {
+        [JsonProperty("bearing", Required = Required.Always)]
+        public double Bearing { get; set; }
+
+        [JsonProperty("height", Required = Required.Always)]
+        public double Height { get; set; }
+
+        [JsonProperty("size", Required = Required.Always)]
+        public double Size { get; set; }
+
+        [JsonProperty("colour", Required = Required.Always)]
+        public string Colour { get; set; } = default!;
+
+        [JsonProperty("glow", Required = Required.Always)]
+        public double Glow { get; set; }
+    }
+
+    public sealed class WorldDescriptionClouds
+    {
+        [JsonProperty("amount", Required = Required.Always)]
+        public double Amount { get; set; }
+
+        [JsonProperty("colour", Required = Required.Always)]
+        public string Colour { get; set; } = default!;
+    }
+
+    public sealed class WorldDescriptionMist
+    {
+        [JsonProperty("amount", Required = Required.Always)]
+        public double Amount { get; set; }
+
+        [JsonProperty("colour", Required = Required.Always)]
+        public string Colour { get; set; } = default!;
+    }
+
+    public sealed class WorldDescriptionWater
+    {
+        [JsonProperty("near", Required = Required.Always)]
+        public string Near { get; set; } = default!;
+
+        [JsonProperty("far", Required = Required.Always)]
+        public string Far { get; set; } = default!;
+
+        [JsonProperty("ripple", Required = Required.Always)]
+        public double Ripple { get; set; }
+
+        [JsonProperty("shine", Required = Required.Always)]
+        public double Shine { get; set; }
+    }
+
+    public sealed class WorldDescriptionGround
+    {
+        [JsonProperty("colour", Required = Required.Always)]
+        public string Colour { get; set; } = default!;
+
+        [JsonProperty("radius", Required = Required.Always)]
+        public double Radius { get; set; }
+    }
+
+    public sealed class WorldDescriptionWind
+    {
+        [JsonProperty("bearing", Required = Required.Always)]
+        public double Bearing { get; set; }
+
+        [JsonProperty("strength", Required = Required.Always)]
+        public double Strength { get; set; }
+    }
+
+    public sealed class WorldPlace
+    {
+        [JsonProperty("project", Required = Required.Always)]
+        public string Project { get; set; } = default!;
+
+        [JsonProperty("bearing", Required = Required.Always)]
+        public double Bearing { get; set; }
+
+        [JsonProperty("distance", Required = Required.Always)]
+        public double Distance { get; set; }
+    }
+
+    public sealed class WorldDescription
+    {
+        [JsonProperty("format", Required = Required.Always)]
+        public long Format { get; set; } = 1;
+
+        [JsonProperty("sky", Required = Required.Always)]
+        public WorldDescriptionSky Sky { get; set; } = default!;
+
+        [JsonProperty("disc", Required = Required.AllowNull)]
+        public WorldDescriptionDisc? Disc { get; set; }
+
+        [JsonProperty("stars", Required = Required.Always)]
+        public double Stars { get; set; }
+
+        [JsonProperty("clouds", Required = Required.Always)]
+        public WorldDescriptionClouds Clouds { get; set; } = default!;
+
+        [JsonProperty("mist", Required = Required.Always)]
+        public WorldDescriptionMist Mist { get; set; } = default!;
+
+        [JsonProperty("water", Required = Required.Always)]
+        public WorldDescriptionWater Water { get; set; } = default!;
+
+        [JsonProperty("ground", Required = Required.Always)]
+        public WorldDescriptionGround Ground { get; set; } = default!;
+
+        [JsonProperty("wind", Required = Required.Always)]
+        public WorldDescriptionWind Wind { get; set; } = default!;
+
+        [JsonProperty("places", Required = Required.Always)]
+        public List<WorldPlace> Places { get; set; } = new List<WorldPlace>();
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum WorldRefusedCode
+    {
+        [EnumMember(Value = "missing")] Missing,
+        [EnumMember(Value = "not_a_file")] NotAFile,
+        [EnumMember(Value = "too_large")] TooLarge,
+        [EnumMember(Value = "not_text")] NotText,
+        [EnumMember(Value = "not_json")] NotJson,
+        [EnumMember(Value = "not_a_description")] NotADescription,
+    }
+
+    public sealed class WorldRefused
+    {
+        [JsonProperty("code", Required = Required.Always)]
+        public WorldRefusedCode Code { get; set; }
+
+        [JsonProperty("where", Required = Required.AllowNull)]
+        public string? Where { get; set; }
+
+        [JsonProperty("message", Required = Required.Always)]
+        public string Message { get; set; } = default!;
+    }
+
+    public sealed class ProjectWorldView
+    {
+        [JsonProperty("description", Required = Required.AllowNull)]
+        public WorldDescription? Description { get; set; }
+
+        [JsonProperty("refused", Required = Required.AllowNull)]
+        public WorldRefused? Refused { get; set; }
+
+        [JsonProperty("observed_at", Required = Required.Always)]
+        public string ObservedAt { get; set; } = default!;
+    }
+
     public sealed class ProjectView
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -670,6 +831,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("mac_play", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public ProjectViewMacPlay? MacPlay { get; set; }
+
+        [JsonProperty("world", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public ProjectWorldView? World { get; set; }
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
@@ -1766,6 +1930,15 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("reason", Required = Required.Always)]
         public JToken Reason { get; set; } = default!;
+    }
+
+    public sealed class WorldObserved
+    {
+        [JsonProperty("description", Required = Required.AllowNull)]
+        public WorldDescription? Description { get; set; }
+
+        [JsonProperty("refused", Required = Required.AllowNull)]
+        public WorldRefused? Refused { get; set; }
     }
 
     public sealed class WorkstreamCreatedPayload
@@ -2957,6 +3130,7 @@ namespace Halcyonic.Contracts
                 "project.preview.stopped" => new ProjectPreviewStoppedEvent(),
                 "project.mac_play.started" => new ProjectMacPlayStartedEvent(),
                 "project.mac_play.stopped" => new ProjectMacPlayStoppedEvent(),
+                "project.world.observed" => new ProjectWorldObservedEvent(),
                 "workstream.created" => new WorkstreamCreatedEvent(),
                 "execution.created" => new ExecutionCreatedEvent(),
                 "execution.files.observed" => new ExecutionFilesObservedEvent(),
@@ -3128,6 +3302,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectMacPlayStoppedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectWorldObservedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.world.observed";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorldObserved Payload { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreatedEvent : EventEnvelope

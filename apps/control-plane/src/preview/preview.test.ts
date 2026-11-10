@@ -1343,3 +1343,123 @@ describe("the host's checks and previews (ADR 0037)", () => {
     assert.equal(checked.length, 3);
   });
 });
+
+describe('a world project beside a starter app (ADR 0049)', () => {
+  test("a turn that changed a world's files starts no build check, and the app's own turn still does", async (t) => {
+    const { controlPlane, journal, projectId, checked } = plane(t);
+    const now = '2026-11-10T10:00:00.000Z' as never;
+    const worldId = '01a19000-0000-7000-8000-0000000000e1' as ProjectId;
+    const world = { project_id: worldId, workstream_id: null, execution_id: null };
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'project.created',
+        world,
+        {
+          name: 'My World',
+          location: { path: '/Users/someone/dev/world', name: 'world', created: true },
+        },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'project.starter_applied',
+        world,
+        {
+          starter_id: 'world',
+          lockfile: 'a'.repeat(64),
+          files: 2,
+          template: 'b'.repeat(64),
+        } as never,
+        now,
+        NO_CAUSE,
+      ),
+    );
+    /** A task in the project whose one turn changed a file, as the Mac observed it. */
+    const turn = (of: ProjectId, directory: string, tag: string, path: string) => {
+      const scope = {
+        project_id: of,
+        workstream_id: `01a19000-0000-7000-8000-0000000000${tag}1` as never,
+        execution_id: `01a19000-0000-7000-8000-0000000000${tag}2` as never,
+      };
+      controlPlane.recorder.record(
+        controlPlaneDraft(
+          'workstream.created',
+          { ...scope, execution_id: null },
+          { title: 'Change it', objective: null },
+          now,
+          NO_CAUSE,
+        ),
+      );
+      controlPlane.recorder.record(
+        controlPlaneDraft(
+          'execution.created',
+          scope,
+          {
+            runtime: {
+              runtime_id: 'codex',
+              kind: 'codex',
+              display_name: 'Codex',
+              synthetic: false,
+            },
+            instruction: 'Make it night.',
+            directory,
+          } as never,
+          now,
+          NO_CAUSE,
+        ),
+      );
+      for (const [sequence, eventType, payload] of [
+        [1, 'runtime.execution.started', { native_id: tag, confined: true }],
+        [2, 'runtime.turn.started', { turn_id: 'u1' }],
+        [3, 'runtime.turn.completed', { turn_id: 'u1' }],
+      ] as const)
+        controlPlane.recorder.record({
+          ...controlPlaneDraft('execution.created', scope, {} as never, now, NO_CAUSE),
+          event_type: eventType,
+          source: { kind: 'runtime', runtime_id: 'codex' },
+          source_native_id: `${tag}:${sequence}`,
+          sequence,
+          payload,
+        } as never);
+      controlPlane.recorder.record(
+        controlPlaneDraft(
+          'execution.files.observed',
+          scope,
+          {
+            turn_id: 'u1',
+            created: { files: [], total: 0 },
+            changed: { files: [{ path, bytes: 512, lines_before: 10, lines_after: 12 }], total: 1 },
+            deleted: { files: [], total: 0 },
+            not_read: 0,
+            skipped: null,
+          },
+          now,
+          NO_CAUSE,
+        ),
+      );
+    };
+    const checksAsked = () =>
+      journal
+        .read({ after: 0, limit: 1000 })
+        .map((stored) => stored.event)
+        .filter(
+          (event) =>
+            (event.event_type === 'command.accepted' || event.event_type === 'command.rejected') &&
+            event.payload.command.command_type === 'project.check',
+        );
+
+    turn(worldId, '/Users/someone/dev/world', 'a', 'world.json');
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    assert.equal(checked.length, 0, 'no check ran for the world');
+    assert.equal(checksAsked().length, 0, 'none was asked, so none was refused either');
+
+    turn(projectId, '/Users/someone/dev/garden', 'b', 'src/game.ts');
+    await until(() => checked.length === 1, 'the app to be checked after its own turn');
+    assert.deepEqual(
+      checksAsked().map((event) => event.project_id),
+      [projectId],
+    );
+  });
+});

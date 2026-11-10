@@ -101,10 +101,16 @@ client                                   server
   `'unknown'` is stale or unknown, never treated as a passed check of the current files. After a
   turn that changed files in a starter project (`execution.files.observed` with files created,
   changed or deleted), the host submits `project.check` on its own (`received_via: 'internal'`),
-  one check at a time per project, journaled like a client's check (A1). They leave
+  one check at a time per project, journaled like a client's check (A1); never for a world
+  (ADR 0049), which has no build and whose `project.check` is refused. They leave
   the view when their stop does, so a headset that connects after a check still shows it. An absent
   member means there is none, never false. Nothing of a play's viewer (its link, code or session)
   is in the view.
+- **A world project's view holds its world (ADR 0049).** `world` is there once the Mac has read the
+  project's `world.json`: `description` (the newest valid one, kept while a later reading is
+  refused, or null until one was valid), `refused` (why the file as last read is not a description,
+  or null) and `observed_at`. A client validates the description again before it draws, since the
+  generated bindings do not enforce ranges or patterns.
 - **Acknowledgements.** `command_ack` reports `accepted`, `rejected`, `duplicate` or `conflict`.
   Because events are recorded while the command is handled, a client may receive the command's
   events before its acknowledgement; correlate by `command_id`.

@@ -48,6 +48,7 @@ import { ApprovalLevel, ModelRef, RuntimeRef } from './runtime.ts';
 import { StarterId } from './starters.ts';
 import { ToolResult } from './tool-results.ts';
 import { EVENT_SCHEMA_VERSION } from './versions.ts';
+import { WorldObserved } from './world.ts';
 
 const strict = { additionalProperties: false } as const;
 
@@ -379,6 +380,14 @@ export const ProjectMacPlayStopped = projectEvent(
     strict,
   ),
 );
+
+/**
+ * The Mac itself read a world project's description file (ADR 0049): when the world starter was
+ * applied, and after a turn in the project's folder, whenever what it found differs from what it
+ * last recorded. The description is the file's content as the Mac validated it; the agent's own
+ * account of its edit is never the source.
+ */
+export const ProjectWorldObserved = projectEvent('project.world.observed', WorldObserved);
 
 export const WorkstreamCreated = workstreamEvent(
   'workstream.created',
@@ -754,6 +763,7 @@ export const EVENT_VARIANTS = [
   ProjectPreviewStopped,
   ProjectMacPlayStarted,
   ProjectMacPlayStopped,
+  ProjectWorldObserved,
   WorkstreamCreated,
   ExecutionCreated,
   ExecutionFilesObserved,

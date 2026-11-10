@@ -13,6 +13,7 @@ import type {
   RuntimeDescriptor,
   WorkstreamId,
 } from '@halcyonic/contracts';
+import { WORLD_STARTER_ID } from '@halcyonic/contracts';
 import { COMMAND_POLICY } from './policy.ts';
 import type { ExecutionFacts, Projection } from './projection.ts';
 
@@ -174,6 +175,10 @@ export function admitCommand(
             'invalid_state',
             'Only a project made from a starter can be checked.',
           );
+        }
+        // A world is a description, read and validated when it changes (ADR 0049): it has no build.
+        if (project.starter === WORLD_STARTER_ID) {
+          return reject(scope, 'invalid_state', 'A world has no build to check.');
         }
         // A check of files a runtime is still writing would describe neither before nor after.
         const busy = projection.projectBusy(projectId);

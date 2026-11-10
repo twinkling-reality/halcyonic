@@ -202,6 +202,13 @@ import {
   WorkspaceSurface,
   WorkspaceViewStore,
 } from './workspace.ts';
+import {
+  ProjectWorldView,
+  WorldDescription,
+  WorldObserved,
+  WorldPlace,
+  WorldRefused,
+} from './world.ts';
 
 /**
  * Definitions published by name. Wherever a schema with the same shape appears, the schema
@@ -273,6 +280,11 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   FileCreated,
   FileChanged,
   FileDeleted,
+  WorldDescription,
+  WorldPlace,
+  WorldRefused,
+  WorldObserved,
+  ProjectWorldView,
   LocationsResponse,
   LocationRoot,
   LocationFolder,

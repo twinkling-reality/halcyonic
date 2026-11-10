@@ -24,6 +24,7 @@ import type {
   ProjectId,
   ProjectLocation,
   ProjectView,
+  ProjectWorldView,
   QuestionView,
   RuntimeEvent,
   StoredEvent,
@@ -202,6 +203,8 @@ export class Projection {
   readonly #macPlays = new Map<ProjectId, CheckId>();
   /** The failed check whose output an agent was last given in each project (FX1). */
   readonly #checkOutputs = new Map<ProjectId, CheckId>();
+  /** Each world project's description as the Mac last read it (ADR 0049). */
+  readonly #worlds = new Map<ProjectId, ProjectWorldView>();
   readonly #devices = new DeviceRegistry();
   readonly #resultStarts = new Map<
     string,
@@ -611,6 +614,11 @@ export class Projection {
     return this.#macPlays.get(projectId as ProjectId);
   }
 
+  /** The project's world as the Mac last read its description file, or undefined (ADR 0049). */
+  world(projectId: string): ProjectWorldView | undefined {
+    return this.#worlds.get(projectId as ProjectId);
+  }
+
   /** One of the project's checkpoints, or undefined when it is another project's or none. */
   checkpoint(projectId: string, checkpointId: string): CheckpointView | undefined {
     return this.#checkpoints
@@ -937,6 +945,21 @@ export class Projection {
           changes.projects.add(event.project_id);
         }
         return;
+      case 'project.world.observed': {
+        if (!this.#projects.has(event.project_id)) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        // A refused reading keeps the last valid description: a bad edit never empties the world.
+        this.#worlds.set(event.project_id, {
+          description:
+            event.payload.description ?? this.#worlds.get(event.project_id)?.description ?? null,
+          refused: event.payload.refused,
+          observed_at: event.occurred_at,
+        });
+        changes.projects.add(event.project_id);
+        return;
+      }
       case 'project.checkpoint.failed':
       case 'project.restored':
       case 'project.restore_incomplete':
@@ -1410,6 +1433,8 @@ export class Projection {
         files: this.#filesOfCheck(state.projectId, play),
       };
     }
+    const world = this.#worlds.get(state.projectId);
+    if (world !== undefined) view.world = world;
     return view;
   };
 
