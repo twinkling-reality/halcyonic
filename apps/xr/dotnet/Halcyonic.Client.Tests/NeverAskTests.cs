@@ -26,7 +26,8 @@ public class NeverAskTests
     /// <summary>A task whose run on <c>runsOn</c> is at rest (or running), its record carrying <c>recorded</c>, beside the registered runtimes.</summary>
     private sealed class Task
     {
-        public Task(RuntimeDescriptor runsOn, IReadOnlyList<RuntimeDescriptor> registered, ApprovalLevel? recorded = null, ExecutionStatus status = ExecutionStatus.Completed)
+        public Task(RuntimeDescriptor runsOn, IReadOnlyList<RuntimeDescriptor> registered, ApprovalLevel? recorded = null, ExecutionStatus status = ExecutionStatus.Completed,
+            List<CommandPolicy>? policies = null)
         {
             Registered = registered;
             var workstream = Samples.Workstream("w1", WorkstreamStatus.Running, "e1");
@@ -37,7 +38,9 @@ public class NeverAskTests
             var snapshot = Samples.Snapshot(1, new[] { workstream }, new[] { execution });
             snapshot.Runtimes = registered.ToList();
             state.ApplySnapshot(snapshot, new StateChanges());
-            state.ApplyWelcome(Samples.Welcome(resumed: false, head: 1));
+            var welcome = Samples.Welcome(resumed: false, head: 1);
+            if (policies != null) welcome.CommandPolicies = policies;
+            state.ApplyWelcome(welcome);
             var presented = WorkspacePresenter.Present(workstream, state, new ActivityLog(), true);
             var actions = status == ExecutionStatus.Running ? new[] { WorkspaceAction.Instruct, WorkspaceAction.Interrupt } : new[] { WorkspaceAction.Instruct };
             Work = new WorkspacePresentation(presented.Character, presented.Objective, presented.Execution, presented.Runtime, actions,
@@ -154,5 +157,45 @@ public class NeverAskTests
         Assert.That(old.RunNeverAsk, Is.Null, "an older run's record carries no level");
         var working = new Task(offering, new[] { offering }, recorded: ApprovalLevel.NeverAsk, status: ExecutionStatus.Running).Model(null, neverAskChosen: false);
         Assert.That((working.OffersNeverAsk, working.NeverAsk, working.RunNeverAsk), Is.EqualTo((false, false, (bool?)true)), "the run's own record, never the choice");
+    }
+
+    [Test]
+    public void AnArmedStartGoesOnlyOnTheChoiceItWasArmedWith()
+    {
+        var offering = Runtime("codex", true);
+        var policies = new List<CommandPolicy> { new() { CommandType = CommandType.ExecutionSendInstruction, Policy = PolicyCategory.ReviewRequired } };
+
+        // Armed at ask, on the run's own agent: the person then chooses never ask. Confirm sends nothing and says so.
+        RunChoice? now = null;
+        var task = new Task(offering, new[] { offering }, policies: policies);
+        task.Steering.ChoiceNow = () => KitPresenter.NewRunOf(task.Work, now);
+        task.Screen.Instruction.Drawn(Now);
+        Assert.That(task.Steering.SendInstruction(task.Screen.Instruction, task.Work, KitPresenter.NewRunOf(task.Work, now)).Step, Is.EqualTo(SteeringStep.Confirm));
+        now = task.Choice(null, neverAskChosen: true);
+        Assert.That(now, Is.Not.Null);
+        var changed = task.Steering.Confirm(task.Work);
+        Assert.That((changed.Step, changed.Command, changed.Message), Is.EqualTo((SteeringStep.Explain, (CommandEnvelope?)null, "Not Sent · Task Changed · Check and Retry")),
+            "the level chosen since is not the level armed: nothing goes");
+        Assert.That(task.Steering.Armed, Is.Null);
+
+        // Armed at never ask: the person goes back to ask before confirming. Nothing starts at never ask.
+        var armedNever = new Task(offering, new[] { offering }, policies: policies);
+        RunChoice? chosen = armedNever.Choice(null, neverAskChosen: true);
+        armedNever.Steering.ChoiceNow = () => KitPresenter.NewRunOf(armedNever.Work, chosen);
+        armedNever.Screen.Instruction.Drawn(Now);
+        Assert.That(armedNever.Steering.SendInstruction(armedNever.Screen.Instruction, armedNever.Work, KitPresenter.NewRunOf(armedNever.Work, chosen)).Step, Is.EqualTo(SteeringStep.Confirm));
+        chosen = null;
+        Assert.That(armedNever.Steering.Refresh(armedNever.Work), Is.EqualTo("Not Sent · Task Changed · Check and Retry"), "the confirmation drops as soon as the choice is another");
+
+        // The same choice still: Confirm starts the run at the level it was armed with and shown.
+        var kept = new Task(offering, new[] { offering }, policies: policies);
+        var same = kept.Choice(null, neverAskChosen: true);
+        kept.Steering.ChoiceNow = () => KitPresenter.NewRunOf(kept.Work, kept.Choice(null, neverAskChosen: true));
+        kept.Screen.Instruction.Drawn(Now);
+        Assert.That(kept.Steering.SendInstruction(kept.Screen.Instruction, kept.Work, KitPresenter.NewRunOf(kept.Work, same)).Step, Is.EqualTo(SteeringStep.Confirm));
+        kept.Steering.RequestShown(1, 1);
+        var sent = kept.Steering.Confirm(kept.Work);
+        Assert.That(sent.Step, Is.EqualTo(SteeringStep.Send), sent.Message);
+        Assert.That(((ExecutionStartCommand)sent.Command!).Payload.ApprovalLevel, Is.EqualTo(ApprovalLevel.NeverAsk));
     }
 }

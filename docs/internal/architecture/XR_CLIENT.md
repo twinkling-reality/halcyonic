@@ -2686,7 +2686,10 @@ The last unit turns it on by default and removes the kit parts it replaced.
   which means ask (`KitPresenter.RunChoiceOf`, `RunChoice.NeverAsk`, `WorkspaceSteering.Start`,
   `CommandFactory.StartExecution`). The level applies to a start only, so at rest a level that differs from the last
   run's own record makes the next instruction a start on the run's own runtime and model
-  (`KitPresenter.NewRunOf`); a run under way keeps its level whatever is chosen. The model carries what a view may
+  (`KitPresenter.NewRunOf`); a run under way keeps its level whatever is chosen. An instruction armed for its
+  confirmation goes only on the choice it was armed with: where the agent, the model or the level the person
+  chose is another by the time it is confirmed, or while it stands, it lapses with Not Sent · Task Changed · Check
+  and Retry, so the level shown before a start is the level sent (`WorkspaceSteering.ChoiceNow`, set by the file). The model carries what a view may
   show: whether the runtime the next start would use offers it, the level that start will use, shown before it
   goes, and the running or last run's own recorded level, null where its record has none, never the choice
   (`KitWorkModel.OffersNeverAsk`, `NeverAsk`, `RunNeverAsk`). The row lays a third action after Type where the model
