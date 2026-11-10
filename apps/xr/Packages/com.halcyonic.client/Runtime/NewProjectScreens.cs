@@ -154,6 +154,10 @@ namespace Halcyonic.Client
         public const string ChangeTask = "change-task";
 
         public const string ChooseWhere = "choose-where";
+
+        /// <summary>The redesign's recap: Change opens the page of what can be changed (<see cref="RecapChange"/>), and Back leaves it for the facts.</summary>
+        public const string ChangeRecap = "change-recap";
+        public const string BackToRecap = "back-to-recap";
         public const string MoreOptions = "more-options";
         public const string StartBuilding = "start-building";
 
@@ -333,9 +337,24 @@ namespace Halcyonic.Client
                 lines.Add(new PageLine(typed == null ? LineWords.Ours(EntryText.TypeIdea) : LineWords.TheirName(typed), icon: GlazeIcon.Type,
                     action: TypeIdea, choice: true, chosen: chosen == IdeaRow.Typed, rows: typed == null ? 1 : 2));
             }
-            lines.Add(talk
-                ? new PageLine(CompanionText.TalkItThrough, action: ChooseCompanion, choice: true, chosen: chosen == IdeaRow.Companion)
-                : new PageLine(EntryText.AnswerQuestions, action: ChooseQuestions, choice: true, chosen: chosen == IdeaRow.FixedQuestions));
+            if (RoomDesign.Enabled)
+            {
+                // The redesign (the addendum's A2): the way to figure the idea out is one press. With no words yet it is the
+                // main action below; once there are words, Make Recap is, and the way stands here as an action of its own.
+                chosen = typed != null ? IdeaRow.Typed : talk ? IdeaRow.Companion : IdeaRow.FixedQuestions;
+                if (typed != null)
+                {
+                    lines.Add(talk
+                        ? new PageLine(CompanionText.TalkItThroughShort, icon: GlazeIcon.Next, action: BeginCompanion, opens: true, control: LineControl.Action)
+                        : new PageLine(EntryText.StartQuestions, icon: GlazeIcon.Next, action: BeginQuestions, opens: true, control: LineControl.Action));
+                }
+            }
+            else
+            {
+                lines.Add(talk
+                    ? new PageLine(CompanionText.TalkItThrough, action: ChooseCompanion, choice: true, chosen: chosen == IdeaRow.Companion)
+                    : new PageLine(EntryText.AnswerQuestions, action: ChooseQuestions, choice: true, chosen: chosen == IdeaRow.FixedQuestions));
+            }
             if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
             else if (!existing && companion is UnavailableCompanion unavailable)
             {
@@ -586,6 +605,7 @@ namespace Halcyonic.Client
             var existing = idea.ExistingProjectId != null;
             var suggested = idea.NameSuggested || idea.TaskSuggested;
             var proposal = suggested ? idea.Companion?.Proposal : null;
+            if (RoomDesign.Enabled) return RoomRecap(idea, draft, currentFolder, live, notice, problem, buildReached);
             // An existing project's name is not changed here, so its row takes no press.
             if (existing && chosen == RecapFact.Name) chosen = null;
             var lines = new List<PageLine>();
@@ -635,6 +655,60 @@ namespace Halcyonic.Client
             var subject = Subject(idea);
             return new MenuFrame(subject, footer, sections: Sections(NewProjectStep.Recap, idea, buildReached ?? problem == null), lines: lines,
                 source: suggested ? CompanionText.Note : null, side: chosen is RecapFact fact ? Side(fact, idea, draft, currentFolder, live) : null);
+        }
+
+        /// <summary>
+        /// The recap as the redesign draws it (the addendum's A2): what is known, each fact a row that says what it is
+        /// ("Project · ", "First Task · ", the review's own labels; the folder and how it runs in their own words), none of
+        /// them pressed. Start Task opens the review as ever, which shows everything before its Confirm; Change opens the
+        /// page of what can be changed (<see cref="RecapChange"/>), where Start Over stands too.
+        /// </summary>
+        private static MenuFrame RoomRecap(ProjectIdea idea, NewWorkDraft draft, ProjectLocation? currentFolder, bool live, string? notice, string? problem, bool? buildReached)
+        {
+            var suggested = idea.NameSuggested || idea.TaskSuggested;
+            var proposal = suggested ? idea.Companion?.Proposal : null;
+            var lines = new List<PageLine>();
+            if (notice != null) lines.Add(new PageLine(notice, tone: LineTone.Secondary, rows: 2));
+            else if (proposal != null) lines.Add(new PageLine(EntryScreens.Proposed(proposal), rows: 2));
+            else if (EntryScreens.Moves(idea, currentFolder)) lines.Add(new PageLine(EntryText.RebindWarning, tone: LineTone.Secondary, rows: 2));
+            lines.Add(new PageLine(LineWords.Ours(NewWorkReview.ProjectLabel) + (idea.Name.Length > 0 ? LineWords.TheirName(idea.Name) : LineWords.Ours(EntryText.NotNamedYet)),
+                fact: idea.NameSuggested ? LineWords.Ours(CompanionText.SuggestedShort) : null));
+            lines.Add(new PageLine(LineWords.Ours(NewWorkReview.FirstTaskLabel) + LineWords.TheirName(idea.FirstTask),
+                fact: idea.TaskSuggested ? LineWords.Ours(CompanionText.SuggestedShort) : null, rows: 2));
+            lines.Add(new PageLine(EntryText.FolderFactRuns(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true)));
+            lines.Add(new PageLine(EntryText.RunsWithRuns(draft, live)));
+            var footer = new Footer(Close(), rare: new Prompt(ChangeRecap, EntryText.Change, GlazeIcon.Change, safeInPlace: true),
+                farRight: new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true, available: problem == null, reason: problem,
+                    safeInPlace: true));
+            return new MenuFrame(Subject(idea), footer, sections: Sections(NewProjectStep.Recap, idea, buildReached ?? problem == null), lines: lines,
+                source: suggested ? CompanionText.Note : null);
+        }
+
+        /// <summary>
+        /// What the redesign's recap lets a person change, each an action that opens its own page as the recap's rows did:
+        /// the name (never an existing project's), the first task, the folder, how it runs; and Start Over, which arms its
+        /// confirmation here, with all it clears, before its Confirm. Back returns to the facts.
+        /// </summary>
+        /// <param name="words">Words can be written here: the keyboard or the voice is offered.</param>
+        public static MenuFrame RecapChange(ProjectIdea idea, bool startReached, bool confirmingStartOver, string? startOverProblem, bool words)
+        {
+            var existing = idea.ExistingProjectId != null;
+            var lines = new List<PageLine>();
+            if (!existing && words) lines.Add(new PageLine(EntryText.ProjectName, icon: GlazeIcon.Change, action: Rename, opens: true));
+            if (words || ChangeFor(idea) != TaskChange.Words) lines.Add(new PageLine(EntryText.FirstTask, icon: GlazeIcon.Change, action: ChangeTask, opens: true));
+            lines.Add(new PageLine(EntryText.ChooseAnotherFolder, icon: GlazeIcon.Change, action: ChooseWhere, opens: true));
+            lines.Add(new PageLine(EntryText.MoreOptions, icon: GlazeIcon.Change, action: MoreOptions, opens: true));
+            var footer = new Footer(Close(), rare: new Prompt(StartOver, EntryText.StartOver, GlazeIcon.StartOver, available: startOverProblem == null, reason: startOverProblem,
+                    safeInPlace: true),
+                farRight: new Prompt(BackToRecap, EntryText.Back, GlazeIcon.Back));
+            if (confirmingStartOver && startOverProblem == null)
+            {
+                lines.Add(new PageLine(EntryText.StartOverClears(existing), rows: 3));
+                footer = Footer.Confirm(footer, PromptSlot.Rare,
+                    new Prompt(ConfirmStartOver, EntryText.ConfirmStartOver, GlazeIcon.StartOver, PromptKind.Yes, safeInPlace: true),
+                    new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
+            }
+            return new MenuFrame(Subject(idea), footer, sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines);
         }
 
         /// <summary>
