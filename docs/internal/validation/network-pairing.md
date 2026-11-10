@@ -210,6 +210,15 @@ on the same data directory and port is found again with the same pairing, its ce
 The test timings are shortened (pings every 0.3 s, silence after 2 s); the headset's own are 10 and
 30 seconds.
 
+### The listener turned off at run time (2026-11-10, ADR 0047)
+
+Off the headset: the pairing page turns the network listener off while the control plane runs;
+nothing listens after, the paired device is not revoked, and on again the listener serves the same
+certificate and accepts the same credential (`pairing-page.test.ts`). As at shutdown, a connection
+whose TLS handshake completes during the stop is not yet an HTTP connection, so the stop waits for the
+listener's idle timeout, up to 60 seconds, before it finishes; the page shows Turning Off meanwhile.
+Not seen in a run; it follows from the shutdown behaviour recorded above.
+
 ## What needs a headset
 
 - The pinned transports under IL2CPP with the Android build of UnityTLS: pairing, the realtime

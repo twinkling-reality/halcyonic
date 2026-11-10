@@ -116,13 +116,22 @@ which only you can read or change, and Halcyonic reads it when it starts
    pnpm start
    ```
 
+   Or double-click `Start Halcyonic.command` in the repository's folder in Finder: it starts the
+   same in a Terminal window and opens the pairing page once Halcyonic is ready (step 6). What is
+   checked of it (2026-11-10): a login zsh on the owner's Mac, as Terminal starts one for a
+   `.command` file, finds `node` and `pnpm`; `pnpm start` passes `--open-pairing-page` on to the
+   control plane; the file is kept executable in git. Not checked: the double-click itself from
+   Finder; a copy downloaded as a zip, which may lose the executable bit or be stopped by macOS's
+   check of downloaded files, so open it from a clone. The first install (Node.js, pnpm, the clone,
+   `pnpm install`, the agent apps) still needs a terminal.
+
    Settings take effect when it starts. To use changed settings, stop it with Ctrl-C and start it
    again; restarting stops any agent at work, and its task then shows Can't tell yet.
-6. **Connect the headset.** A development build connects over USB
-   ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect"). Pairing over Wi-Fi is your choice
-   ([Pair a headset over Wi-Fi](#pair-a-headset-over-wi-fi)): `pnpm mac-setup pairing on` says what it
-   opens and asks first; then restart Halcyonic, run `pnpm pair`, and in the headset choose Settings,
-   Your computer, Pair with a computer. Until the headset reaches your Mac it plays the recorded
+6. **Connect the headset.** Pairing over Wi-Fi is your choice
+   ([Pair a headset over Wi-Fi](#pair-a-headset-over-wi-fi)): on the pairing page, Turn On Pairing,
+   then Pair Headset, and in the headset choose Settings, then Pair Computer, and type the name and
+   the code the page shows. A development build can also connect over USB
+   ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect"). Until the headset reaches your Mac it plays the recorded
    demo, labelled as one; nothing in it reaches an agent.
 
 ### When the headset says something is wrong
@@ -700,6 +709,37 @@ Devices on the local network reach the control plane through a second listener, 
 is off unless you turn it on ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md),
 [SECURITY.md](../architecture/SECURITY.md)). Loopback serves as before.
 
+### The pairing page
+
+The control plane serves a page on this Mac for pairing, at `http://127.0.0.1:47802/` or the next
+free port up to 47809, which the `control plane ready` line names
+([ADR 0047](../decisions/0047-pairing-starts-from-a-page-on-the-mac.md)). It opens only by a link:
+`pnpm pair` asks the running control plane for one and opens it in your browser, and
+`Start Halcyonic.command` (or `pnpm start --open-pairing-page`) opens one once Halcyonic is ready. A
+link works once, within a minute; run `pnpm pair` again for another. It reaches the browser through a
+file only you can read, in `~/.halcyonic/open-links`, never in a command's arguments, and that file
+goes within a minute; `pnpm pair --print` also prints the link, for a browser it did not open. The
+page needs a browser that says which page each request comes from (current Chrome, Safari 16.4 or
+later, Firefox); an older one is turned away with words that say so.
+
+On the page, nothing happens until you press:
+
+- **Turn On Pairing** starts the network listener now, with no restart, so agents at work keep
+  working, and keeps it on in the settings file for the next start, as `pnpm mac-setup pairing on`
+  does. The page says first that your computer may ask to allow connections.
+- **Pair Headset** opens a five-minute window and shows where pairing is in the headset, the name
+  to type (the Mac's `.local` name, then its numbered addresses) and the eight-digit code, with the
+  time left and the tries left. With no address a headset can reach (no Wi-Fi), it says so and shows
+  no code.
+- **Forget**, then **Yes, Forget**, stops accepting a headset, as `pnpm devices revoke` does.
+- **Turn Off Pairing**, then **Yes, Turn Off**, stops the listener now and in the settings, and ends
+  an open window with it. Paired headsets disconnect and stay paired; they connect again when pairing
+  is on again. A connection that finishes its encryption handshake just then can hold the stop up
+  to a minute, while the page says Turning Off. `HALCYONIC_NETWORK_HOST` set in the environment
+  still turns the listener on at the next start, whatever the page last did.
+
+### In a terminal
+
 ```bash
 HALCYONIC_NETWORK_HOST=0.0.0.0 pnpm dev
 ```
@@ -717,12 +757,14 @@ connections, no device can reach it.
 Then, with the control plane running:
 
 ```bash
-pnpm pair                          # the Mac's addresses and an eight-digit code
+pnpm pair                          # opens the pairing page in your browser
+pnpm pair --here                   # the Mac's addresses and an eight-digit code, here
 pnpm devices                       # every device paired: id, label, when, connected or revoked
 pnpm devices revoke <device id>    # stops accepting it at once and ends what it has open
 ```
 
-`pnpm pair` opens a pairing window for five minutes, for one device; three wrong codes close it.
+`pnpm pair --here` opens a pairing window for five minutes, for one device; three wrong codes close it.
+(`pnpm pair` alone opens the pairing page; against a control plane that serves none it does this.)
 Enter the address and the code on the headset ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md)). It prints
 each refused code, ends when a device pairs, naming it, and closes pairing on `Ctrl-C`. The code
 appears only in its output, never in a log or the journal. Running it again replaces the window

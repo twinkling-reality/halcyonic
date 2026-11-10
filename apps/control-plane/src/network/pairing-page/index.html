@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pairing</title>
+<link rel="stylesheet" href="/page.css">
+<script src="/page.js" defer></script>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Pairing · Headsets on Your Wi-Fi</h1>
+    <p id="status" class="status">Reading</p>
+  </header>
+
+  <section id="off" hidden>
+    <p class="line">Pairing Off · No Headset Can Join</p>
+    <p class="quiet">Your Computer May Ask to Allow Connections · Allow</p>
+    <button id="turn-on" class="primary" type="button">Turn On Pairing</button>
+  </section>
+
+  <section id="on" hidden>
+    <p id="outcome" class="outcome" hidden></p>
+    <button id="pair" class="primary" type="button">Pair Headset</button>
+    <h2>Paired Headsets</h2>
+    <ul id="headsets" class="headsets"></ul>
+    <p id="none" class="quiet" hidden>No Headset Paired Yet</p>
+  </section>
+
+  <section id="window" hidden>
+    <p id="route" class="line"></p>
+    <dl id="pairing" class="pairing">
+      <dt>Computer's Name</dt>
+      <dd id="name" class="name"></dd>
+      <dd id="others" class="others" hidden></dd>
+      <dt>Code</dt>
+      <dd id="code" class="code"></dd>
+    </dl>
+    <p id="unreachable" class="line" hidden>No Wi-Fi Address · Join Wi-Fi to Pair</p>
+    <p id="facts" class="quiet"></p>
+  </section>
+
+  <div id="off-row" class="off-row" hidden>
+    <p id="off-note" class="quiet" hidden>Paired Headsets Disconnect Until Pairing Is On</p>
+    <button id="turn-off" class="quiet-button" type="button">Turn Off Pairing</button>
+  </div>
+
+  <p id="problem" class="problem" hidden></p>
+</main>
+</body>
+</html>

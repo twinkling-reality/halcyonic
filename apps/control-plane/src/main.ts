@@ -1,16 +1,14 @@
 import { execFile } from 'node:child_process';
 import { chmod, mkdir } from 'node:fs/promises';
-import { homedir, networkInterfaces } from 'node:os';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { NetworkListener } from '@halcyonic/contracts';
 import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
-import type { FastifyInstance } from 'fastify';
 import { CheckpointStore } from './checkpoints/store.ts';
 import { Companion } from './companion/companion.ts';
-import { type ControlPlaneConfig, defaultDataDir, loadConfig } from './config.ts';
+import { type ControlPlaneConfig, defaultDataDir, loadConfig, parseNetwork } from './config.ts';
 import { ControlPlane } from './core/control-plane.ts';
 import { OllamaUnloader } from './core/ollama-unload.ts';
 import { registerDeviceRoutes } from './http/device-routes.ts';
@@ -24,11 +22,10 @@ import { seorakEvaluationFor } from './intelligence/evaluation.ts';
 import { salidiumUnderstandingFor } from './intelligence/understanding.ts';
 import { openSqliteJournal } from './journal/sqlite-journal.ts';
 import { createHostLocations } from './locations.ts';
-import { loadOrCreateNetworkIdentity } from './network/certificate.ts';
 import { DeviceAccess } from './network/devices.ts';
-import { describeListener, readLocalName } from './network/listener.ts';
-import { Pairing } from './network/pairing.ts';
-import { createNetworkServer } from './network/server.ts';
+import { OPEN_LINK_KEEP_MS, openLinkPrivately, sweepOpenLinks } from './network/open-link.ts';
+import { PairingPage, pairingControls } from './network/pairing-page.ts';
+import { NetworkSwitch } from './network/switch.ts';
 import { matchesPin, pinsForThisMac } from './pins.ts';
 import { audioOutputFor, outputInTree } from './preview/audio-output.ts';
 import { launcherFor } from './preview/launcher.ts';
@@ -40,7 +37,13 @@ import {
   ripgrepOnPath,
   stopStaleRuntimeServers,
 } from './runtimes.ts';
-import { readHostSettings, SETTINGS_FILE, settingsInUse, withSettings } from './settings.ts';
+import {
+  readHostSettings,
+  rememberNetworkListener,
+  SETTINGS_FILE,
+  settingsInUse,
+  withSettings,
+} from './settings.ts';
 import { spokenNames } from './speech/tidy.ts';
 import { Transcriptions } from './speech/transcriptions.ts';
 import { WhisperEngine } from './speech/whisper.ts';
@@ -259,70 +262,74 @@ async function main(): Promise<void> {
   const devices = new DeviceAccess({ controlPlane, ids, logger: app.log });
 
   // Paired devices reach the control plane only through the network listener, which is off unless
-  // the owner configured it (ADR 0017).
-  let network: { server: FastifyInstance; pairing: Pairing; certificateSha256: string } | null =
-    null;
-  // Where devices reach the listener, read anew each time it is asked, once it listens.
-  let listener: (() => NetworkListener) | null = null;
-  if (config.network !== null) {
-    const { identity, created } = await loadOrCreateNetworkIdentity(config.dataDir, new Date());
-    if (created) {
-      app.log.info(
-        { certificate_sha256: identity.certificateSha256 },
-        'created the network listener certificate',
-      );
-    }
-    const pairing = new Pairing({
-      clock: systemClock,
-      devices,
-      describe: (deviceId) => controlPlane.projection.device(deviceId),
-      certificateSha256: identity.certificateSha256,
-      logger: app.log,
-    });
-    const server = await createNetworkServer({
-      logger: app.log.child({ listener: 'network' }),
-      identity,
-      controlPlane,
-      sources,
-      devices,
-      pairing,
-      clock: systemClock,
-      listener: () => listener?.() ?? null,
-    });
-    network = { server, pairing, certificateSha256: identity.certificateSha256 };
-  }
+  // the owner configured it (ADR 0017) or turns it on from the pairing page (ADR 0047).
+  const network = new NetworkSwitch({
+    dataDir: config.dataDir,
+    controlPlane,
+    sources,
+    devices,
+    clock: systemClock,
+    logger: app.log,
+  });
   registerRoutes(app, controlPlane, sources);
   registerRealtime(app, controlPlane);
+  let page: PairingPage | null = null;
   registerDeviceRoutes(app, {
     controlPlane,
     devices,
-    pairing: network?.pairing ?? null,
-    listener: () => listener?.() ?? null,
+    pairing: () => network.pairing,
+    listener: () => network.listener(),
+    page: () => page,
+    sweepLinks: () => sweepOpenLinks(config.dataDir),
   });
+  // Hand-over files of links whose code has run out go within a minute, whatever opened them.
+  setInterval(() => sweepOpenLinks(config.dataDir), OPEN_LINK_KEEP_MS).unref();
 
   try {
     await app.listen({ host: config.host, port: config.port });
-    if (network !== null && config.network !== null) {
-      await network.server.listen({ host: config.network.host, port: config.network.port });
-      const bound = network.server.server.address();
-      const port = bound !== null && typeof bound === 'object' ? bound.port : config.network.port;
-      const localName = await readLocalName();
-      const { certificateSha256 } = network;
-      const listening = config.network;
-      listener = () =>
-        describeListener(listening, port, certificateSha256, localName, networkInterfaces());
-    }
+    if (config.network !== null) await network.start(config.network);
   } catch (error) {
-    await network?.server.close();
+    await network.stop();
     await app.close();
     workspaceRequests.close();
     await controlPlane.close();
     throw error;
   }
+  // The pairing page (ADR 0047): it serves from the start, and opens nothing and turns nothing on
+  // until the person presses there. The setting is written only once the listener has turned on or
+  // off, so a listener that fails to start never stops the next start.
+  try {
+    page = await PairingPage.open(
+      pairingControls({
+        network,
+        controlPlane,
+        devices,
+        listenOn: () => {
+          const on = parseNetwork(
+            {
+              ...process.env,
+              HALCYONIC_NETWORK_HOST: process.env.HALCYONIC_NETWORK_HOST || '0.0.0.0',
+            },
+            config.port,
+          );
+          if (on === null) throw new Error('the network listener has no address');
+          return on;
+        },
+        remember: (on) => rememberNetworkListener(config.dataDir, on),
+      }),
+    );
+  } catch (error) {
+    app.log.warn({ err: error }, 'the pairing page could not be served');
+  }
+  if (page !== null && process.argv.includes('--open-pairing-page')) {
+    openLinkPrivately(config.dataDir, page.link());
+  }
+
   app.log.info(
     {
       addresses: app.addresses(),
-      network: listener?.() ?? null,
+      pairing_page: page === null ? null : `http://127.0.0.1:${page.port}/`,
+      network: network.listener(),
       data_dir: config.dataDir,
       token_file: access.path,
       journal: controlPlane.journal.info,
@@ -358,7 +365,8 @@ async function main(): Promise<void> {
     app.log.info(cause, 'shutting down');
     // A stdin still being read would keep the process alive after a signal.
     if (config.exitOnStdinEnd) process.stdin.destroy();
-    await network?.server.close();
+    await page?.close();
+    await network.stop();
     await app.close();
     workspaceRequests.close();
     await controlPlane.close();

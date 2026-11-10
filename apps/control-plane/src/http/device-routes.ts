@@ -4,12 +4,14 @@ import {
   type DevicesResponse,
   type NetworkListener,
   type PairingOpenedResponse,
+  type PairingPageResponse,
   type PairingStatus,
 } from '@halcyonic/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { ControlPlane } from '../core/control-plane.ts';
 import type { DeviceAccess } from '../network/devices.ts';
 import { DEFAULT_PAIRING_LIMITS, type Pairing } from '../network/pairing.ts';
+import type { PairingPage } from '../network/pairing-page.ts';
 import { errorBody, LOCAL_PRINCIPAL } from './server.ts';
 
 const validateDeviceId = compileValidator(DeviceId);
@@ -17,10 +19,14 @@ const validateDeviceId = compileValidator(DeviceId);
 export interface DeviceRouteOptions {
   readonly controlPlane: ControlPlane;
   readonly devices: DeviceAccess;
-  /** Null while the network listener is off. */
-  readonly pairing: Pairing | null;
+  /** The listener's pairing windows now; null while the network listener is off. */
+  readonly pairing: () => Pairing | null;
   /** Where devices reach the network listener, once it listens. */
   readonly listener: () => NetworkListener | null;
+  /** The pairing page (ADR 0047), once it serves; null where there is none. */
+  readonly page?: () => PairingPage | null;
+  /** Removes run-out hand-over files of earlier links, as each new one is made (AUDIT S1). */
+  readonly sweepLinks?: () => void;
 }
 
 /**
@@ -29,9 +35,10 @@ export interface DeviceRouteOptions {
  * window's code is in the answer that opens it and nowhere else: never in a log or the journal.
  */
 export function registerDeviceRoutes(app: FastifyInstance, options: DeviceRouteOptions): void {
-  const { controlPlane, devices, pairing } = options;
+  const { controlPlane, devices } = options;
 
   app.post('/api/pairing', async (_request, reply) => {
+    const pairing = options.pairing();
     const listener = options.listener();
     if (pairing === null || listener === null) {
       return reply
@@ -48,9 +55,29 @@ export function registerDeviceRoutes(app: FastifyInstance, options: DeviceRouteO
     return reply.code(201).send(body);
   });
 
-  app.get('/api/pairing', async (): Promise<PairingStatus> => pairing?.status() ?? noWindow());
+  app.get(
+    '/api/pairing',
+    async (): Promise<PairingStatus> => options.pairing()?.status() ?? noWindow(),
+  );
 
-  app.delete('/api/pairing', async (): Promise<PairingStatus> => pairing?.close() ?? noWindow());
+  // A link that opens the pairing page once, for `pnpm pair` to open in the person's browser. It
+  // opens no window and turns nothing on: the page waits for the person's press.
+  app.post('/api/pairing/page', async (_request, reply) => {
+    const page = options.page?.() ?? null;
+    if (page === null) {
+      return reply
+        .code(409)
+        .send(errorBody('page_off', 'The pairing page is not serving on this control plane.'));
+    }
+    options.sweepLinks?.();
+    const body: PairingPageResponse = { link: page.link() };
+    return reply.code(201).send(body);
+  });
+
+  app.delete(
+    '/api/pairing',
+    async (): Promise<PairingStatus> => options.pairing()?.close() ?? noWindow(),
+  );
 
   app.get(
     '/api/devices',
@@ -76,7 +103,7 @@ export function registerDeviceRoutes(app: FastifyInstance, options: DeviceRouteO
   });
 }
 
-function noWindow(): PairingStatus {
+export function noWindow(): PairingStatus {
   return {
     state: 'closed',
     expires_at: null,

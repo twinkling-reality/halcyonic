@@ -16814,6 +16814,21 @@
       },
       "additionalProperties": false
     },
+    "PairingPageResponse": {
+      "type": "object",
+      "required": [
+        "link"
+      ],
+      "properties": {
+        "link": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^http://127\\.0\\.0\\.1:[0-9]+/\\?code=[A-Za-z0-9_-]+$"
+        }
+      },
+      "additionalProperties": false
+    },
     "PairingOpenedResponse": {
       "type": "object",
       "required": [
