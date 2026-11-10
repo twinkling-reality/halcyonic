@@ -12,7 +12,7 @@ import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -1907,12 +1907,88 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
         false,
         'ran before the answer',
       );
+      // A start that names on-request, which never asks under externalSandbox, asks there too (AUDIT
+      // BOX-2 F1): its marker is not made before an answer.
+      const named = await start('CMD:touch named-on-request.txt && echo made', {
+        approval_policy: 'on-request',
+      });
+      assert.ok(
+        (await named.next('runtime.approval.requested')).type === 'runtime.approval.requested',
+      );
+      assert.equal(started(named).approval_level, 'ask');
+      assert.equal(existsSync(join(sandbox.project, 'named-on-request.txt')), false, 'ran unasked');
       // The same folder, never asking: it runs with no press, inside the folder.
       const quiet = await start('CMD:touch quiet.txt && echo made', {}, null, 'never_ask');
       await quiet.next('runtime.turn.completed');
       assert.ok(!quiet.types().includes('runtime.approval.requested'));
       assert.equal(started(quiet).approval_level, 'never_ask');
       assert.ok(existsSync(join(sandbox.project, 'quiet.txt')));
+    },
+  );
+
+  test(
+    "a confined command runs the product's own Node first, not another one on the person's PATH (BOX-2)",
+    SLOW_TEST,
+    async (t) => {
+      const { sandbox, start } = await harness(t, { runtime: confined });
+      const execution = await start(
+        'CMD:command -v node > node-path.txt; node -v > node-version.txt',
+      );
+      await execution.next('runtime.turn.completed');
+      assert.equal(
+        readFileSync(join(sandbox.project, 'node-version.txt'), 'utf8'),
+        `${process.version}\n`,
+      );
+      assert.equal(
+        readFileSync(join(sandbox.project, 'node-path.txt'), 'utf8'),
+        `${join(dirname(process.execPath), 'node')}\n`,
+      );
+    },
+  );
+
+  test(
+    "an asking thread in a confined folder that is not a starter's is re-attached asking, after its server stopped (BOX-2, ADR 0046)",
+    SLOW_TEST,
+    async (t) => {
+      const folder = (box: CodexSandbox): Partial<CodexRuntimeOptions> => ({
+        confinement: {
+          forDirectory: (directory) =>
+            directory === box.project ? { project: directory, readable: [] } : null,
+          toolFolders: toolFoldersFor(process.execPath),
+          loopbackPorts: [Number(new URL(box.provider.baseUrl).port)],
+        },
+      });
+      const { sandbox, runtime, start } = await harness(t, { runtime: folder });
+      const first = await start('Say hello.');
+      await first.next('runtime.turn.completed');
+      const started = first.observations.find((each) => each.type === 'runtime.execution.started');
+      const payload = (started?.payload ?? {}) as { native_id?: string; approval_level?: string };
+      assert.equal(payload.approval_level, 'ask');
+      const last = Math.max(...first.observations.map((each) => each.sequence ?? 0));
+      await runtime.close();
+      const next = new CodexRuntimeAdapter({
+        binaryPath: BINARY,
+        codexHome: sandbox.codexHome,
+        serverRecordFile: sandbox.recordFile,
+        directoryPolicy: allowOnly(sandbox.project),
+        env: sandbox.env,
+        ...folder(sandbox),
+      });
+      t.after(() => next.close());
+      const execution = new Execution();
+      await next.reattach({
+        native_id: payload.native_id ?? '',
+        options: {},
+        model_ref: null,
+        approval_level: 'ask',
+        confined: true,
+        directory: sandbox.project,
+        cut_turn: null,
+        last_sequence: last,
+        execution: execution.context,
+        emit: execution.emit,
+      });
+      assert.equal(execution.observations[0]?.type, 'runtime.connection.restored');
     },
   );
 

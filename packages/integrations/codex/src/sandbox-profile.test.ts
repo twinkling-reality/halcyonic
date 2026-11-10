@@ -395,6 +395,11 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
       writeFileSync(join(original, 'environment.js'), 'env');
       assert.equal((await inside(['/bin/cat', join(original, 'environment.js')])).out, 'env');
       assert.match((await inside(['/bin/ls', '/Users/Shared'])).out, refused);
+      // macOS's own OpenSSL configuration, which a Node build may read to start: that file alone,
+      // never the folder's private keys or certificates beside it (TASKS's run, 2026-11-10).
+      assert.equal((await inside(['/bin/cat', '/System/Library/OpenSSL/openssl.cnf'])).code, 0);
+      for (const beside of ['/System/Library/OpenSSL/private', '/System/Library/OpenSSL/certs'])
+        assert.match((await inside(['/bin/ls', beside])).out, refused, beside);
       // Package managers' data and configuration (databases live in var): listings go nowhere.
       for (const prefix of TOOL_PREFIXES) {
         for (const part of ['var', 'etc']) {

@@ -250,6 +250,15 @@ given, not only a project made from a starter (`codexConfinement` in `apps/contr
     before every command Codex does not know is safe (seen: the same `touch` raised an approval request). A start
     that never asks gets `never` (ADR 0043).
   - The record follows the policy.
+  - A start that names `on-request` itself gets `untrusted` there too (AUDIT BOX-2 F1). Under `externalSandbox`
+    that policy asks nothing, so keeping it would let a start that asks never ask.
+  - A thread re-attached after a restart (ADR 0046) resumes with the same policy and level.
+- **The tools a command gets:**
+  - The product's own Node comes first on its `PATH`, the one the profile's tool folders are for. On this Mac the
+    inherited `PATH` found a Node 20 from another installer, which the profile half reads (TASKS's run: npm warned of
+    v20.10.0).
+  - The profile reads one more system file, `/System/Library/OpenSSL/openssl.cnf`, which a Node build may read to
+    start. It reads that file alone, never the folder's `private` or `certs`.
 - **The trade-off, plainly:** asking, confined, asks before every command. The open server asked only for an
   escalation or a command it judged dangerous. A person who wants fewer presses chooses never-ask, which the sandbox
   bounds to the folder.

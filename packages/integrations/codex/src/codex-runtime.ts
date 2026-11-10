@@ -434,7 +434,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     // Checked at every start, not only at launch: a sign-in may have been put there since.
     await prepareHome(this.#home);
     const slot = this.#slotFor(cwd);
-    const options = askingInside(chosen, slot.confinement, request.options);
+    const options = askingInside(chosen, slot.confinement);
     const connection = await this.#connection(false, slot);
     const local = await this.#onThisMac(connection, options);
     // Asked again right before the folder is handed over: listing and launching wait.
@@ -526,7 +526,12 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       );
     }
     const connection = await this.#connection(false, slot);
-    const local = await this.#onThisMac(connection, { ...parsed.value, cwd });
+    // Resumed with the policy it started with: inside a confined folder that is not a starter's, an
+    // asking thread is untrusted (BOX-2).
+    const local = await this.#onThisMac(
+      connection,
+      askingInside({ ...parsed.value, cwd }, slot.confinement),
+    );
     confirmProjectLocation(this.#directoryPolicy, cwd);
     const thread: HostedThread = {
       threadId: request.native_id,
@@ -558,7 +563,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       if (reported.threadId !== request.native_id) {
         throw refuse(`Codex resumed thread ${reported.threadId}, not ${request.native_id}.`);
       }
-      const level = confined || reported.approvalPolicy === 'never' ? 'never_ask' : 'ask';
+      const level = recordedLevel(slot.confinement, reported.approvalPolicy);
       // No recorded level means ask, as for a start: a thread is never resumed wider than that.
       const recorded = request.approval_level ?? 'ask';
       if (recorded !== level) {
@@ -1116,6 +1121,11 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
               // it is set, which the profile refuses.
               TMPPREFIX: join(confined.temp, 'zsh'),
               ...confinedHomeEnvironment(confined.temp),
+              // The product's own Node first, the one the profile's tool folders are for, so a
+              // command's `node`, `npm` and `npx` are never another installation the profile half reads.
+              PATH: [dirname(process.execPath), this.#environment.PATH ?? process.env.PATH ?? '']
+                .filter(Boolean)
+                .join(':'),
             },
       recordFile: slot.recordFile,
       cwd: confined?.temp ?? tmpdir(),
@@ -1581,18 +1591,13 @@ function managedLayer(layer: unknown): string[] {
 
 /**
  * The policy a thread starts with inside a confined folder that is not a starter's (BOX-2): its turns
- * run under `externalSandbox`, where `on-request` asks nothing, so a start that asks, with no policy of
- * its own, gets `untrusted`, which asks before every command Codex does not know is safe (seen on
+ * run under `externalSandbox`, where `on-request` asks nothing, so a start that asks, by default or by
+ * naming `on-request` (AUDIT BOX-2 F1), gets `untrusted`, which asks before every command (seen on
  * 0.157.0, 2026-11-10). A starter's project keeps ADR 0041's: it asks nothing.
  */
-function askingInside(
-  options: StartOptions,
-  confinement: Confinement | null,
-  asked: RuntimeOptions,
-): StartOptions {
+function askingInside(options: StartOptions, confinement: Confinement | null): StartOptions {
   if (confinement === null || confinement.asksNothing === true) return options;
-  if (options.approvalPolicy !== 'on-request' || asked.approval_policy !== undefined)
-    return options;
+  if (options.approvalPolicy !== 'on-request') return options;
   return { ...options, approvalPolicy: 'untrusted' };
 }
 
