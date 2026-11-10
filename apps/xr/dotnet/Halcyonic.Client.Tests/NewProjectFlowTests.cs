@@ -2347,7 +2347,7 @@ public class NewProjectFlowTests
         Assert.That(flow.Idea!.HasRecap, Is.True, "Confirm before Start Over does nothing");
         Press(flow, NewProjectScreens.StartOver, null);
         var armed = flow.Frame!;
-        Assert.That(Words(flow), Does.Contain(EntryText.StartOverClears(false)), "all it clears is said before its Confirm");
+        Assert.That(armed.Lines.Select(line => line.Words), Is.EqualTo(new[] { EntryText.StartOverClears(false) }), "all it clears stands alone on the page with its Confirm");
         Assert.That((armed.Footer[PromptSlot.Free]!.Id, armed.Footer[PromptSlot.Free]!.Kind), Is.EqualTo((NewProjectScreens.ConfirmStartOver, PromptKind.Yes)));
         Assert.That(armed.Footer[PromptSlot.FarRight], Is.Null, "armed, only Cancel and Confirm stand beside Close");
         Press(flow, NewProjectScreens.Cancel, null);
@@ -2398,5 +2398,144 @@ public class NewProjectFlowTests
         flow.Act(NewProjectScreens.ChangeRecap, null);
         Assert.That(Actions(flow), Does.Contain(NewProjectScreens.ChooseFact), "the recap stays its rows to choose");
         Assert.That(flow.Frame!.Footer.All.Select(each => each.Prompt.Id), Has.None.EqualTo(NewProjectScreens.ChangeRecap));
+    }
+
+    // The redesign's view of these pages (RoomBar.NewProject): each drawn from the frame the flow gives, every action the frame's own.
+
+    private static RoomBar Bar(NewProjectFlow flow)
+    {
+        var frame = flow.Frame!;
+        var bar = RoomBar.NewProject(frame, VoiceStage.Idle);
+        Assert.That(bar, Is.Not.Null, "the redesign draws this page");
+        Assert.That(bar!.Column.All(action => ReferenceEquals(action.Control.Frame, frame) && Shows(frame, action.Control.Action, action.Control.Key)),
+            "every action is one the frame offers: " + string.Join(", ", bar.Column.Select(action => action.Control.Action)));
+        Assert.That(bar.Column.Count(action => action.Main), Is.LessThanOrEqualTo(1), "one main action at most");
+        if (bar.Column.Any(action => action.Main)) Assert.That(bar.Column[0].Main, "the main action stands first");
+        return bar;
+    }
+
+    private static string[] Reads(RoomBar bar) => bar.Column.Select(action => action.Words).ToArray();
+
+    [Test]
+    public void The_redesign_draws_Your_Idea_as_the_field_with_its_way_on() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        var empty = Bar(flow);
+        Assert.That((empty.State, empty.Caret, empty.Body.Text, empty.Sentence), Is.EqualTo((RoomBarState.Draft, true, "", EntryText.IdeaPrompt)));
+        Assert.That(Reads(empty), Is.EqualTo(new[] { EntryText.StartQuestions, RoomBar.Type, EntryText.Close }));
+        Assert.That(empty.Field!.Action, Is.EqualTo(NewProjectScreens.TypeIdea), "the panel is the field: a press on it types");
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        var worded = Bar(flow);
+        Assert.That(worded.Body.Text, Is.EqualTo("A page of race times for my running club"));
+        Assert.That(Reads(worded), Is.EqualTo(new[] { CompanionText.MakeTheRecap, RoomBar.Type, EntryText.StartQuestions, EntryText.Close }));
+        Assert.That(worded.Column[2].Control.Action, Is.EqualTo(NewProjectScreens.BeginQuestions));
+    });
+
+    [Test]
+    public void The_redesign_draws_a_fixed_question_in_the_panel_with_which_it_is_and_its_answers_as_marks() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        Press(flow, NewProjectScreens.BeginQuestions, null);
+        var bar = Bar(flow);
+        Assert.That(bar.State, Is.EqualTo(RoomBarState.Choose));
+        Assert.That(bar.Body.Text, Is.Not.Empty, "the question is Halcyonic's own and stands in the panel");
+        Assert.That(bar.Sentence, Does.StartWith("Question 1 of "));
+        Assert.That(bar.Band, Is.Null);
+        var answers = bar.Column.Where(action => action.Control.Action == NewProjectScreens.ChooseFixedAnswer).ToList();
+        Assert.That(answers, Is.Not.Empty);
+        Assert.That(answers.All(answer => answer.Mark == AnswerMark.Single));
+        Assert.That(Reads(bar).Last(), Is.EqualTo(EntryText.Close));
+    });
+
+    [Test]
+    public void The_redesign_draws_the_recap_as_rows_with_Start_Task_first_and_Change() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        var flow = RoomRecapped(host);
+        var bar = Bar(flow);
+        Assert.That(bar.State, Is.EqualTo(RoomBarState.Choose));
+        Assert.That(bar.Facts, Is.Not.Null.And.Not.Empty, "the facts are rows");
+        Assert.That(bar.Facts!.All(row => row.Mark == RoomRowMark.None));
+        Assert.That(bar.Lines!.Select(line => line.Text), Is.EqualTo(bar.Facts!.Select(row => row.Words.Text)), "a view that draws no rows still holds the words");
+        Assert.That(Pages(flow).Select(page => RoomBar.NewProject(page, VoiceStage.Idle)!).SelectMany(page => page.Facts!).Select(row => row.Words.Text),
+            Does.Contain(NewWorkReview.FirstTaskLabel + "A page of race times for my running club"));
+        Assert.That(bar.Facts!.Select(row => row.Words.Text), Has.None.EqualTo(EntryText.RecapLine));
+        Assert.That(Reads(bar).Take(2), Is.EqualTo(new[] { EntryText.StartBuilding, EntryText.Change }));
+        Assert.That(bar.Column[0].Control.Action, Is.EqualTo(NewProjectScreens.StartBuilding));
+        Assert.That(Reads(bar).Last(), Is.EqualTo(EntryText.Close));
+    });
+
+    [Test]
+    public void The_redesign_draws_what_can_be_changed_in_the_panels_place_and_Start_Over_as_its_own_confirmation() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        var flow = RoomRecapped(host);
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        var page = Bar(flow);
+        Assert.That((page.State, page.Wide, page.Body.Text), Is.EqualTo((RoomBarState.Choose, true, "")), "no panel: the changes take its place");
+        Assert.That(page.Column.Any(action => action.Main), Is.False);
+        Assert.That(Reads(page).First(), Is.EqualTo(EntryText.ProjectName));
+        Assert.That(Reads(page).Skip(Reads(page).Length - 2), Is.EqualTo(new[] { EntryText.StartOver, EntryText.Back }));
+        Press(flow, NewProjectScreens.StartOver, null);
+        var armed = Bar(flow);
+        Assert.That((armed.State, armed.Sentence, armed.Body.Text), Is.EqualTo((RoomBarState.Confirm, RoomBar.StartOverAsks, EntryText.StartOverClears(false))));
+        Assert.That(Reads(armed), Is.EqualTo(new[] { EntryText.ConfirmStartOver, EntryText.Cancel }));
+        Assert.That((armed.Column[0].Locks, armed.Column[0].Main, armed.Column[0].Control.Action), Is.EqualTo((true, true, NewProjectScreens.ConfirmStartOver)));
+    });
+
+    [Test]
+    public void The_redesign_draws_the_review_part_by_part_and_Confirm_only_where_the_flow_offers_it() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        var flow = RoomRecapped(host);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Draw(flow, flow.Frame!);
+        var parts = 0;
+        for (; parts < 50 && flow.Review?.CanConfirm != true; parts++)
+        {
+            var reading = Bar(flow);
+            Assert.That(reading.State, Is.EqualTo(RoomBarState.Confirm));
+            Assert.That(reading.Facts, Is.Not.Null.And.Not.Empty);
+            Assert.That(reading.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { NewProjectScreens.NextPart, NewProjectScreens.Cancel }), "before the last part: Next Part and Cancel alone");
+            Assert.That(reading.Sentence, Is.Null);
+            Assert.That(reading.Facts!.Select(row => row.Words.Text), Has.None.EqualTo(EntryText.ReviewLine));
+            host.Now += 1;
+            Press(flow, NewProjectScreens.NextPart, null);
+            Draw(flow, flow.Frame!);
+        }
+        var last = Bar(flow);
+        Assert.That((last.State, last.Sentence), Is.EqualTo((RoomBarState.Confirm, RoomBar.StartTaskAsks)));
+        Assert.That(last.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { NewProjectScreens.ConfirmStart, NewProjectScreens.Cancel }));
+        Assert.That((last.Column[0].Locks, last.Column[0].Main), Is.EqualTo((true, true)), "Confirm stands behind its lock");
+        Assert.That(host.Sent, Is.Empty, "drawing the review sends nothing");
+    });
+
+    [Test]
+    public void The_redesign_draws_a_start_under_way_as_its_step_sweeping_with_no_action() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        var flow = RoomRecapped(host);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        ReadToTheEnd(flow, host);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
+        Assume.That(host.Sent, Is.Not.Empty, "the start went");
+        var bar = Bar(flow);
+        Assert.That((bar.State, bar.Waits), Is.EqualTo((RoomBarState.Choose, true)));
+        Assert.That(bar.Sentence, Does.Contain(KitMomentWords.Dot), "the step under way, its name and how it stands");
+        Assert.That(bar.Column, Is.Empty, "nothing to press while it starts");
+        Assert.That(bar.Facts!.Select(row => row.Words.Text), Has.None.EqualTo(EntryText.SendingLine));
+    });
+
+    [Test]
+    public void A_page_that_is_not_New_Projects_is_not_drawn_as_one()
+    {
+        var other = new MenuFrame("Appearance", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)),
+            lines: new[] { new PageLine("Restore Default", action: "appearance-read-restore", opens: true) });
+        Assert.That(RoomBar.NewProject(other, VoiceStage.Idle), Is.Null);
     }
 }

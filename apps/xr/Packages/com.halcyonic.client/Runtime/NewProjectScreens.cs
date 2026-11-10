@@ -703,6 +703,9 @@ namespace Halcyonic.Client
                 farRight: new Prompt(BackToRecap, EntryText.Back, GlazeIcon.Back));
             if (confirmingStartOver && startOverProblem == null)
             {
+                // Armed, the page holds only all that starting over clears, so that line always stands with its Confirm,
+                // whatever room the page has.
+                lines.Clear();
                 lines.Add(new PageLine(EntryText.StartOverClears(existing), rows: 3));
                 footer = Footer.Confirm(footer, PromptSlot.Rare,
                     new Prompt(ConfirmStartOver, EntryText.ConfirmStartOver, GlazeIcon.StartOver, PromptKind.Yes, safeInPlace: true),
