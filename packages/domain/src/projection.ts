@@ -1,4 +1,5 @@
 import type {
+  ApprovalLevel,
   ApprovalView,
   CatalogRepositoryRef,
   CheckFilesState,
@@ -27,6 +28,7 @@ import type {
   ProjectWorldView,
   QuestionView,
   RuntimeEvent,
+  RuntimeOptions,
   StoredEvent,
   Timestamp,
   ToolResultSummary,
@@ -138,6 +140,32 @@ interface WorkstreamState {
   readonly executionIds: ExecutionId[];
   readonly createdAt: Timestamp;
   updatedAt: Timestamp;
+}
+
+/**
+ * Why an execution is unknown when the reason is a restart, which stopped every runtime process:
+ * `control_plane_restarted` until its session is re-attached, `session_lost` once it cannot be
+ * (ADR 0046). Neither holds its project busy: nothing of it runs any more.
+ */
+export const RESTART_REASONS: ReadonlySet<string> = new Set([
+  'control_plane_restarted',
+  'session_lost',
+]);
+
+function stoppedByRestart(code: string | undefined): boolean {
+  return code !== undefined && RESTART_REASONS.has(code);
+}
+
+/** What re-attaching an execution after a restart needs from the journal (ADR 0046). */
+export interface ReattachBounds {
+  readonly runtime_id: string;
+  readonly native_id: string;
+  readonly options: RuntimeOptions;
+  readonly model_ref: string | null;
+  readonly approval_level?: ApprovalLevel;
+  readonly confined: boolean;
+  readonly directory: string | null;
+  readonly cut_turn: { readonly turn_id: string | null } | null;
 }
 
 interface CommandState {
@@ -432,6 +460,29 @@ export class Projection {
   executionConfined(executionId: string): boolean {
     return this.#executions.get(executionId as ExecutionId)?.confined === true;
   }
+
+  /**
+   * What re-attaching an execution after a restart needs from the journal (ADR 0046): its native
+   * id, the bounds it started with and the turn in flight, if any. Null when there is no such
+   * execution, the runtime never reported a native id, or its start command is not in the journal.
+   */
+  reattachBounds(executionId: string): ReattachBounds | null {
+    const state = this.#executions.get(executionId as ExecutionId);
+    if (state === undefined || state.nativeId === null || state.startCommandId === null)
+      return null;
+    const start = this.#commands.get(state.startCommandId)?.envelope;
+    if (start?.command_type !== 'execution.start') return null;
+    return {
+      runtime_id: state.runtime.runtime_id,
+      native_id: state.nativeId,
+      options: start.payload.options,
+      model_ref: start.payload.model_ref,
+      ...(state.approvalLevel !== null && { approval_level: state.approvalLevel }),
+      confined: state.confined,
+      directory: state.directory,
+      cut_turn: state.activeTurn === null ? null : { turn_id: state.activeTurn.turnId },
+    };
+  }
   executionResultSummaries(executionId: string): { total: number; summaries: ToolResultSummary[] } {
     const state = this.#results.get(executionId);
     return { total: state?.total ?? 0, summaries: structuredClone(state?.recent ?? []) };
@@ -637,7 +688,7 @@ export class Projection {
       if (state.projectId !== projectId) continue;
       const status = deriveExecutionStatus(state);
       if (ACTIVE_STATUSES.has(status)) return `A task in this project is ${status}.`;
-      if (status === 'unknown' && state.unknownReason?.code !== 'control_plane_restarted')
+      if (status === 'unknown' && !stoppedByRestart(state.unknownReason?.code))
         return 'A task in this project may still be running: its state is unknown.';
     }
     for (const command of this.#commands.values()) {
@@ -884,9 +935,8 @@ export class Projection {
         for (const state of this.#executions.values()) {
           if (state.projectId !== event.project_id || state.directory === null) continue;
           const status = deriveExecutionStatus(state);
-          // No runtime session survives a restart, so a turn one cut short runs no longer (#13).
-          if (status === 'unknown' && state.unknownReason?.code === 'control_plane_restarted')
-            continue;
+          // A restart stops every runtime process, so a turn one cut short runs no longer (#13).
+          if (status === 'unknown' && stoppedByRestart(state.unknownReason?.code)) continue;
           if (state.activeTurn !== null) unobservedTurns.add(state.executionId);
           if (status === 'unknown') tainted = true;
         }
@@ -1033,6 +1083,7 @@ export class Projection {
             instruction: event.payload.instruction,
             directory: event.payload.directory,
             createdAt: event.occurred_at,
+            startCommandId: event.causation_id as CommandId | null,
           }),
         );
         workstream.executionIds.push(event.execution_id);

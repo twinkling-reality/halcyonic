@@ -77,6 +77,36 @@ export interface StartExecutionRequest {
   readonly emit: ObservationSink;
 }
 
+/**
+ * Re-attaches an execution an earlier control plane started, after a restart (ADR 0046). It carries
+ * the bounds the execution started with, from the journal: the start's options and chosen model,
+ * the approval level the runtime confirmed, whether the runtime reported it confined, and its
+ * folder. The adapter re-attaches the session only with exactly those bounds, checking what the
+ * runtime reports as it checks a start, and the folder against the directory policy again;
+ * anything else it refuses, so the session is lost rather than re-attached otherwise.
+ */
+export interface ReattachRequest {
+  readonly execution: ExecutionContext;
+  /** The runtime's own session or thread id, as `runtime.execution.started` reported it. */
+  readonly native_id: string;
+  readonly options: RuntimeOptions;
+  readonly model_ref: string | null;
+  /** The level the runtime confirmed at the start; absent where none was recorded. */
+  readonly approval_level?: ApprovalLevel;
+  /** Whether the runtime reported the execution confined to its project (S2); absent where not recorded. */
+  readonly confined?: boolean;
+  readonly directory: string | null;
+  /**
+   * The turn in flight as the last control plane ended, by the id its start reported, or null when
+   * none was. The restart cut it, and the processes running it were stopped: once re-attached, the
+   * adapter reports it ended as `runtime.turn.interrupted` with this id, marked inferred, which also
+   * ends the approvals, questions and tool calls it left open.
+   */
+  readonly cut_turn: { readonly turn_id: string | null } | null;
+  /** Where the adapter sends every observation about this execution from now on. */
+  readonly emit: ObservationSink;
+}
+
 export interface StartExecutionResult {
   /** The runtime's own session or thread id. */
   readonly native_id: string | null;
@@ -199,6 +229,14 @@ export interface RuntimeAdapter {
     answers: readonly QuestionAnswer[];
   }): Promise<void>;
   interrupt?(request: { execution: ExecutionContext }): Promise<void>;
+  /**
+   * Re-attaches an execution an earlier control plane started (ADR 0046). Present exactly when the
+   * descriptor declares `resumes_after_restart`. Resolves once the runtime has answered for the
+   * session with the bounds it started with, after emitting `runtime.connection.restored` and, for
+   * a turn the restart cut, its end. Rejects with `RuntimeActionError` when it cannot, and the
+   * execution is then lost.
+   */
+  reattach?(request: ReattachRequest): Promise<void>;
   /** Releases native resources. Observations stop after this resolves. */
   close(): Promise<void>;
 }
@@ -243,6 +281,14 @@ export function capabilityProblems(adapter: RuntimeAdapter): string[] {
   }
   if (adapter.descriptor.model_choice === 'listed' && typeof adapter.listModels !== 'function') {
     problems.push('model_choice listed is declared but listModels is not implemented');
+  }
+  const resumes = adapter.descriptor.resumes_after_restart === true;
+  if (resumes !== (typeof adapter.reattach === 'function')) {
+    problems.push(
+      resumes
+        ? 'resumes_after_restart is declared but reattach is not implemented'
+        : 'reattach is implemented but resumes_after_restart is not declared',
+    );
   }
   return problems;
 }

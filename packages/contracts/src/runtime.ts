@@ -84,6 +84,14 @@ export const RuntimeDescriptor = Type.Object(
      * (ADR 0043). Absent means not offered.
      */
     offers_never_ask: Type.Optional(Type.Boolean()),
+    /**
+     * True when the runtime keeps an execution's session after the processes running it end, so
+     * that after the control plane restarts the adapter re-attaches it by its native id, with the
+     * bounds it started with, and it takes instructions again (ADR 0046). The turn a restart cuts
+     * is never carried on. Declared for a runtime only once a runtime test shows it; absent means
+     * a restart loses the runtime's sessions.
+     */
+    resumes_after_restart: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );

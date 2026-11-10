@@ -21,6 +21,7 @@ import type { HostStarters } from '../starters.ts';
 import { type CatalogLinks, CommandService } from './command-service.ts';
 import type { OllamaUnloader } from './ollama-unload.ts';
 import { EventPublisher } from './publisher.ts';
+import { Reattacher } from './reattach.ts';
 import { Recorder } from './recorder.ts';
 import { type HeldSecret, type Redaction, redaction } from './redaction.ts';
 import { RuntimeRegistry } from './runtime-registry.ts';
@@ -101,6 +102,8 @@ export class ControlPlane {
   readonly previews: HostPreviews | null;
   /** Unloads a local Ollama model that Halcyonic loaded once no execution uses it (UL1), or null. */
   readonly ollamaUnload: OllamaUnloader | null;
+  /** Re-attaches what an earlier control plane started (ADR 0046); null for a fixture journal. */
+  readonly reattacher: Reattacher | null;
   readonly locations: HostLocations;
   readonly clock: Clock;
   /** How a runtime's or a provider's text loses credentials before a device sees it. */
@@ -111,6 +114,8 @@ export class ControlPlane {
   readonly #autoCheckNeeded = new Set<ProjectId>();
   #autoCheckScheduled = false;
   #closed = false;
+  /** Settles once every execution the last restart cut is re-attached or recorded lost. */
+  reattached: Promise<void> = Promise.resolve();
 
   constructor(options: ControlPlaneOptions) {
     this.journal = options.journal;
@@ -181,6 +186,20 @@ export class ControlPlane {
       });
     this.ollamaUnload = options.ollamaUnload ?? null;
     this.ollamaUnload?.attach(this.publisher, this.projection);
+    // Fixture journals are historical: nothing in them is re-attached or lost.
+    this.reattacher =
+      this.journal.info.origin === 'live'
+        ? new Reattacher({
+            projection: this.projection,
+            recorder: this.recorder,
+            registry: this.registry,
+            clock: options.clock,
+            scheduler: options.scheduler,
+            logger: options.logger,
+            redaction: this.redaction,
+            timeoutMs: options.commandTimeoutMs,
+          })
+        : null;
     this.commands = new CommandService({
       projection: this.projection,
       recorder: this.recorder,
@@ -198,6 +217,7 @@ export class ControlPlane {
       catalogLinks: options.catalogLinks ?? null,
       previews: this.previews,
       ollamaUnload: this.ollamaUnload,
+      reattacher: this.reattacher,
     });
     this.#rebuild();
     if (this.previews !== null) this.#attachAutoCheck();
@@ -307,13 +327,23 @@ export class ControlPlane {
     );
   }
 
-  /** Records what a restart made unknowable. Fixture journals are historical and left as is. */
+  /**
+   * Records what a restart made unknowable, then re-attaches each execution it cut where the
+   * runtime keeps its session, or records it lost (ADR 0046); `reattached` settles once each has.
+   * Fixture journals are historical and left as is.
+   */
   reconcile(): void {
     if (this.journal.info.origin !== 'live') return;
-    const result = this.commands.reconcileAfterRestart();
+    const { cut, ...result } = this.commands.reconcileAfterRestart();
     if (result.executions > 0 || result.commands > 0) {
       this.#logger.warn(result, 'marked in-flight work unknown after restart');
     }
+    this.reattached =
+      this.reattacher
+        ?.reattachCut(cut)
+        .catch((error: unknown) =>
+          this.#logger.warn({ err: error }, 'executions not re-attached'),
+        ) ?? Promise.resolve();
     // A preview the last run left serving is stopped, and recorded stopped.
     void this.previews
       ?.reconcile()

@@ -90,6 +90,21 @@ describe('runtime adapter capabilities', () => {
     assert.deepEqual(capabilityProblems({ ...base, descriptor: descriptor(false) }), []);
   });
 
+  test('a session kept after a restart is declared exactly when reattach is implemented (ADR 0046)', () => {
+    const resumes = { ...descriptor(false), resumes_after_restart: true };
+    assert.deepEqual(capabilityProblems({ ...base, descriptor: resumes }), [
+      'resumes_after_restart is declared but reattach is not implemented',
+    ]);
+    assert.deepEqual(
+      capabilityProblems({ ...base, descriptor: descriptor(false), reattach: async () => {} }),
+      ['reattach is implemented but resumes_after_restart is not declared'],
+    );
+    assert.deepEqual(
+      capabilityProblems({ ...base, descriptor: resumes, reattach: async () => {} }),
+      [],
+    );
+  });
+
   test('a model choice without its list is reported, and one with it is consistent', () => {
     assert.deepEqual(capabilityProblems({ ...base, descriptor: descriptor(false, 'listed') }), [
       'model_choice listed is declared but listModels is not implemented',
