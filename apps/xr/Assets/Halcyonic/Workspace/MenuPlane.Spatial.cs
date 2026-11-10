@@ -144,7 +144,16 @@ namespace Halcyonic.XR.Workspace
             if (Kit.View.Spine.Switch.ConfirmedCompact) Kit.ShowConfirmed(false, immediately: true);
             KitOwner = ContextBinding;
             Composition = new PlaneComposition(new[] { new PlaneColumn(Kit.Size.x, Kit.Size.y) }, zoom);
-            Placed = PlaceWorkspace(all, looking, surfaceHeight, Composition.Size); Moved = moved; Direction = MenuDrag.Turned(Placed, moved);
+            Placed = PlaceWorkspace(all, looking, surfaceHeight, Composition.Size);
+            if (RoomDesign.Enabled)
+            {
+                // The redesign stands by its foot line, not where the head pitched (BUILD-SPEC-v4 1.1): the plane faces the person
+                // the way they look, tipped so the line the pair stands on is at DESIGN's pitch, the pair growing upward from it
+                // and the row and the band hanging under it. The person's own move still turns it from there.
+                var footed = new PanelDirection(Placed.Yaw, RoomGeometry.FeetPitch - SpatialKit.DegreesTo(Kit.FootLine * zoom), true, false);
+                Placed = new PanelDirection(footed.Yaw, footed.Elevation, WorkspacePlacement.Clears(footed, bodies, Composition.Size), false);
+            }
+            Moved = moved; Direction = MenuDrag.Turned(Placed, moved);
             shown.Clear(); shown.Add((MenuColumn.File, file));
             shownFileColumn = fileColumn;
             MenuAside = false; FileAside = false;

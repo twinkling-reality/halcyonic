@@ -91,16 +91,15 @@ namespace Halcyonic.XR.Workspace.Editor
             };
             if (state == "34-question-more")
                 scheme.Options = new List<QuestionOption> { Option("Light"), Option("Dark"), Option("Sepia", "Warm paper tones"), Option("High Contrast"), Option("Pastel"), Option("Follow the Headset") };
-            // The tallest page today's placement holds at the larger size: four answers that each wrap to two lines, under a
-            // prompt the band reads by parts, with the band's way to its next part. (Answers of three lines reach past the
-            // field's lower margin while the host rests by its top edge; the spec's foot line is the placement that holds them.)
+            // The tallest page: four answers that each wrap to three lines, never cut, under a prompt the band reads by parts,
+            // with the band's way to its next part. The pair stands on its foot line and grows upward, so it holds them.
             if (state == "34-question-tall")
                 scheme.Options = new List<QuestionOption>
                 {
-                    Option("Light", "Dark text on a light background, bright balloons"),
-                    Option("Dark", "Light text on a dark background, dimmer balloons"),
-                    Option("Follow the Headset", "Whichever the headset is set to"),
-                    Option("Ask Each Time", "A choice on the first screen of every game"),
+                    Option("Light", "Dark text on a light background, bright balloons, and the score board in the same light colours as the menu"),
+                    Option("Dark", "Light text on a dark background, dimmer balloons, and the pause screen a shade darker than the game"),
+                    Option("Follow the Headset", "Whichever the headset is set to when the game starts, changing with the room's light as it does"),
+                    Option("Ask Each Time", "A choice on the first screen of every game, kept for that game only and asked again at the next one"),
                 };
             // A question Halcyonic cannot answer (it asks for a secret), its prompt longer than the band's three lines: Stop is the way on.
             if (state == "34-question-stop")
@@ -608,6 +607,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (shown.State is RoomBarState.Sent or RoomBarState.Words)
                 {
                     Whole(bar.Alone, "the words alone");
+                    // On their plate, in its middle: with nothing under them they are lost over a bright wall or a lit screen.
+                    bar.Alone.ForceMeshUpdate(true);
+                    var wordsMiddle = bar.Alone.transform.localPosition + bar.Alone.textBounds.center;
+                    Require(bar.AlonePlate.gameObject.activeSelf && Mathf.Abs(wordsMiddle.x) < RoomType.Units(1f) && Mathf.Abs(wordsMiddle.y) < RoomType.Units(3f),
+                        "the words alone stand " + (wordsMiddle.x / RoomType.Units(1f)).ToString("0.0") + " dp across and " + (wordsMiddle.y / RoomType.Units(1f)).ToString("0.0") + " dp up from their plate's middle");
                     Require(bar.Alone.text == LabelText.ForTextMeshPro(shown.Words.Text), "the words read \"" + bar.Alone.text + "\", not \"" + shown.Words.Text + "\"");
                 }
                 foreach (var button in actions)
@@ -618,10 +622,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
             }
 
-            // Placed as the plane places the kit's host: centred on what it holds, scaled for the text size.
-            shot.Elevation = CentreFor(host.Size.y * GlazeText.Scale);
+            // Placed as the plane places the redesign's host: its foot line on DESIGN's pitch, scaled for the text size.
+            shot.Elevation = RoomGeometry.FeetPitch - SpatialKit.DegreesTo(host.FootLine * GlazeText.Scale);
             shot.Centre = Place(host.transform, eyes, 0f, shot.Elevation);
             host.transform.localScale *= GlazeText.Scale;
+            var footAt = host.transform.TransformPoint(new Vector3(0f, host.FootLine, 0f)) - eyes;
+            var footPitch = Mathf.Atan2(footAt.y, new Vector2(footAt.x, footAt.z).magnitude) * Mathf.Rad2Deg;
+            Require(Mathf.Abs(footPitch - RoomGeometry.FeetPitch) < 0.05f, "the foot line stands at pitch " + footPitch.ToString("0.00") + ", not " + RoomGeometry.FeetPitch);
             Stand(shot, host.transform, eyes, new KitCarrier[0], host.Size * GlazeText.Scale);
             // What must stand inside the field: the instruction, and with a question the band under it (the host's whole extent).
             var half = questioning ? host.Size / 2f : bar.Size / 2f;

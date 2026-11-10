@@ -42,6 +42,13 @@ namespace Halcyonic.XR.UI
         private RoomField field = null!;
         private RoomCursor cursor = null!;
 
+        /// <summary>
+        /// While the redesign draws: where its foot line stands, up from this host's middle, in the host's own units. The
+        /// panel and the column's lowest action stand on it and grow upward; the row and the band hang under it. The
+        /// plane sets the host so this line stands on DESIGN's pitch (<see cref="RoomGeometry.FeetPitch"/>).
+        /// </summary>
+        public float FootLine { get; private set; }
+
         /// <summary>The working field, shown round the panel's place and the character while the agent works (the redesign).</summary>
         public RoomField Field => field;
 
@@ -293,6 +300,7 @@ namespace Halcyonic.XR.UI
                 // Nothing drawn, standing where the row would, so the plane still places a real footprint.
                 var rest = new Vector2(RoomType.Units(RoomGeometry.PanelDp), RoomType.Units(RoomButton.HeightDp)) / zoom;
                 Size = rest;
+                FootLine = -rest.y / 2f + RoomType.Units(RoomBarView.RowFeetDp) / zoom;
                 TextBands = new[] { new TextBand(-rest.x / 2f, rest.x / 2f, -rest.y / 2f, rest.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
                 return;
             }
@@ -310,6 +318,7 @@ namespace Halcyonic.XR.UI
                 size = new Vector2(Mathf.Max(size.x, hangs.x), whole);
             }
             Size = size;
+            FootLine = bar.transform.localPosition.y + bar.Foot / zoom;
             TextBands = new[] { new TextBand(-size.x / 2f, size.x / 2f, -size.y / 2f, size.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
             foreach (var press in bar.Presses) press.Accepting = () => Accepting();
         }

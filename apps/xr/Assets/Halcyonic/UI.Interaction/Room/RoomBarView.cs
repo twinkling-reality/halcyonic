@@ -27,6 +27,13 @@ namespace Halcyonic.XR.UI
         public const float LevelGapDp = 4f;
         public const float CaretSeconds = 0.53f;
 
+        /// <summary>The plate under words that stand alone: its padding beside and over them, in dp (the agent's cursor label's own).</summary>
+        public const float AlonePadXDp = 16f;
+        public const float AlonePadYDp = 6f;
+
+        /// <summary>The plate under words that stand alone.</summary>
+        public RoomSurface AlonePlate => alonePlate;
+
         /// <summary>The row's feet under the pair's foot line, in dp: DESIGN stands the pair on pitch -17.6 and the row's feet on -23.5.</summary>
         public const float RowFeetDp = (RoomGeometry.FeetPitch - RoomGeometry.BarFootPitch) * RoomGeometry.DpPerDegree;
 
@@ -49,6 +56,7 @@ namespace Halcyonic.XR.UI
         private readonly Transform[] levelBars = new Transform[LevelHistory.Bars];
         private Transform levelRoot = null!;
         private TextMeshPro alone = null!;
+        private RoomSurface alonePlate = null!;
         private GlazeShimmer aloneSweep = null!;
         private RoomSurface panel = null!;
         private TextMeshPro body = null!;
@@ -184,6 +192,8 @@ namespace Halcyonic.XR.UI
             view.alone.textWrappingMode = TextWrappingModes.NoWrap;
             view.aloneSweep = GlazeShimmer.On(view.alone);
             view.panel = RoomSurface.Create(go.transform, "Information panel", RoomSurfaceKind.Information, KitType.Order.Plate);
+            view.alonePlate = RoomSurface.Create(go.transform, "Words alone plate", RoomSurfaceKind.Bar, KitType.Order.Plate);
+            view.alonePlate.gameObject.SetActive(false);
             view.body = RoomType.Create(view.panel.transform, "Words", Color.white, KitType.Order.Words);
             view.body.textWrappingMode = TextWrappingModes.Normal;
             view.bodySweep = GlazeShimmer.On(view.body);
@@ -272,6 +282,7 @@ namespace Halcyonic.XR.UI
         private void LayWork(RoomBar bar)
         {
             alone.gameObject.SetActive(false);
+            alonePlate.gameObject.SetActive(false);
             var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
             var gap = RoomType.Units(RoomGeometry.PairGapDp);
             var target = RoomType.Units(RoomButton.HeightDp);
@@ -328,6 +339,7 @@ namespace Halcyonic.XR.UI
             foreach (var button in column) button.Hide();
             panel.gameObject.SetActive(false);
             alone.gameObject.SetActive(false);
+            alonePlate.gameObject.SetActive(false);
             levelRoot.gameObject.SetActive(false);
             gameObject.SetActive(false);
         }
@@ -376,6 +388,7 @@ namespace Halcyonic.XR.UI
         private void LayRow(RoomBar bar, float up)
         {
             alone.gameObject.SetActive(false);
+            alonePlate.gameObject.SetActive(false);
             var listening = bar.State == RoomBarState.Listening && Level() != null;
             var buttons = new List<(RoomButton Button, RoomAction Action, float Width)>();
             foreach (var action in bar.Row)
@@ -417,10 +430,17 @@ namespace Halcyonic.XR.UI
             GlazeText.SetLiteral(alone, bar.Words.Text);
             var width = alone.GetPreferredValues(alone.text).x + RoomType.Units(1f);
             KitType.Lay(alone, width, 1);
-            alone.transform.localPosition = new Vector3(-width / 2f, RoomType.Units(RoomGeometry.LineDp) / 2f, -RoomType.Units(0.5f));
+            // The label is laid about its own middle, which is this view's.
+            alone.transform.localPosition = new Vector3(0f, 0f, -RoomType.Units(0.5f));
             aloneSweep.Waits = bar.State == RoomBarState.Sent;
             alone.gameObject.SetActive(true);
-            Size = new Vector2(width, RoomType.Units(RoomButton.HeightDp));
+            // Words that stand alone stand on a plate of the panel's material, one line, as a name tag does: with nothing
+            // under them they are lost over a bright wall or a lit screen behind the room.
+            var plate = new Vector2(width + 2f * RoomType.Units(AlonePadXDp), RoomType.Units(RoomGeometry.LineDp) + 2f * RoomType.Units(AlonePadYDp));
+            alonePlate.transform.localPosition = Vector3.zero;
+            alonePlate.Draw(plate);
+            alonePlate.gameObject.SetActive(true);
+            Size = new Vector2(plate.x, RoomType.Units(RoomButton.HeightDp));
         }
 
         /// <summary>The width the panel's words wrap in: its 440 dp less its padding at each side, which grows with the text.</summary>
@@ -501,6 +521,7 @@ namespace Halcyonic.XR.UI
             talk.Hide();
             type.Hide();
             alone.gameObject.SetActive(false);
+            alonePlate.gameObject.SetActive(false);
             levelRoot.gameObject.SetActive(false);
             var unit = RoomType.Units(1f);
             var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
