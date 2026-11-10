@@ -2,8 +2,10 @@ import { createHmac, randomBytes } from 'node:crypto';
 import type {
   CatalogRepositoryRef,
   CheckId,
+  CheckpointId,
   CommandEnvelope,
   CommandFailure,
+  CommandId,
   CommandOf,
   CommandResult,
   CommandView,
@@ -38,7 +40,14 @@ import {
   type Scheduler,
 } from '@halcyonic/runtime-core';
 import type { Checkpointer } from '../checkpoints/checkpointer.ts';
-import type { PrepareResult, TaskCopies } from '../checkpoints/task-copies.ts';
+import { pathList } from '../checkpoints/checkpointer.ts';
+import type { MergeConflict } from '../checkpoints/store.ts';
+import type {
+  AddOutcome,
+  FitOutcome,
+  PrepareResult,
+  TaskCopies,
+} from '../checkpoints/task-copies.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
@@ -539,6 +548,140 @@ export class CommandService {
     }
   }
 
+  /** Records what an add did, then its command's outcome (ADR 0045). */
+  #added(
+    command: CommandEnvelope,
+    scope: CommandScope,
+    where: { project_id: ProjectId; workstream_id: WorkstreamId; execution_id: null },
+    outcome: AddOutcome,
+    cause: Cause,
+  ): void {
+    switch (outcome.kind) {
+      case 'nothing':
+        this.#fail(command, scope, {
+          code: 'nothing_to_add',
+          message: 'This task changed nothing the project does not already have.',
+          effect: 'none',
+        });
+        return;
+      case 'conflicted': {
+        const conflicted = conflictedFiles(outcome.conflicts);
+        if (conflicted !== null)
+          this.#deps.recorder.record(
+            controlPlaneDraft(
+              'workstream.add_conflicted',
+              where,
+              { task_tree: outcome.taskTree, project_tree: outcome.projectTree, conflicted },
+              this.#now(),
+              cause,
+            ),
+          );
+        this.#fail(command, scope, {
+          code: 'changed_in_both',
+          message: 'The project and this task changed the same places, so nothing was added.',
+          effect: 'none',
+        });
+        return;
+      }
+      case 'added':
+        this.#deps.recorder.record(
+          controlPlaneDraft(
+            'workstream.added',
+            where,
+            {
+              checkpoint_id: outcome.checkpointId as CheckpointId,
+              task_tree: outcome.taskTree,
+              project_tree: outcome.projectTree,
+              merged_tree: outcome.mergedTree,
+              added: pathList(outcome.added),
+            },
+            this.#now(),
+            cause,
+          ),
+        );
+        this.#complete(command, scope, {
+          kind: 'workstream_added',
+          checkpoint_id: outcome.checkpointId as CheckpointId,
+          files: outcome.added.length,
+        });
+        return;
+      case 'failed':
+        this.#fail(command, scope, {
+          code: outcome.code,
+          message: outcome.message,
+          effect: outcome.written ? 'unknown' : 'none',
+        });
+        return;
+      default: {
+        const unhandled: never = outcome;
+        throw new Error(`unhandled add outcome ${String(unhandled)}`);
+      }
+    }
+  }
+
+  /**
+   * Records a fit, completes its command, then asks the task's agent to fit its work, where its
+   * runtime takes an instruction at rest; otherwise the person starts it (ADR 0045).
+   */
+  #fitted(
+    command: CommandEnvelope,
+    scope: CommandScope,
+    where: { project_id: ProjectId; workstream_id: WorkstreamId; execution_id: null },
+    outcome: FitOutcome,
+    cause: Cause,
+  ): void {
+    if (outcome.kind === 'failed') {
+      this.#fail(command, scope, {
+        code: outcome.code,
+        message: outcome.message,
+        effect: outcome.written ? 'unknown' : 'none',
+      });
+      return;
+    }
+    this.#deps.recorder.record(
+      controlPlaneDraft(
+        'workstream.fitted',
+        where,
+        {
+          project_tree: outcome.projectTree,
+          fitted_tree: outcome.fittedTree,
+          written: pathList(outcome.written),
+        },
+        this.#now(),
+        cause,
+      ),
+    );
+    this.#complete(
+      command,
+      scope,
+      outcome.written.length === 0
+        ? null
+        : { kind: 'workstream_fitted', files: outcome.written.length },
+    );
+    const text = fitInstruction(outcome.conflicts);
+    const current =
+      this.#deps.projection.workstream(where.workstream_id)?.current_execution_id ?? null;
+    if (text === null || current === null) return;
+    const execution = this.#deps.projection.execution(current);
+    if (
+      !execution ||
+      !this.#deps.registry.get(execution.runtime.runtime_id)?.capabilities.instruct_at_rest
+    )
+      return;
+    this.submit(
+      {
+        schema_version: command.schema_version,
+        command_id: this.#deps.ids.next() as CommandId,
+        issued_at: this.#now(),
+        client: { name: 'halcyonic-control-plane', version: null, device_label: null },
+        command_type: 'execution.send_instruction',
+        payload: { execution_id: current as ExecutionId, text },
+      },
+      'internal',
+      null,
+    );
+  }
+
   /** The folder of the task's own copy, or null while it has none (ADR 0045). */
   #ownCopy(workstreamId: string): string | null {
     const copy = this.#deps.projection.workstream(workstreamId)?.copy;
@@ -718,15 +861,47 @@ export class CommandService {
         return;
       }
       case 'workstream.add_to_project':
-      case 'workstream.fit_to_project':
-        // No task has a copy of its own until the host makes them (ADR 0045), so admission refuses
-        // both; should one be admitted, it fails having done nothing.
-        this.#fail(command, admission.scope, {
-          code: 'unavailable',
-          message: "Adding a task's work to its project is not available yet.",
-          effect: 'none',
-        });
+      case 'workstream.fit_to_project': {
+        // The person's own step that brings a task's work into its project (ADR 0045).
+        const scope = admission.scope;
+        const workstream = this.#deps.projection.workstream(command.payload.workstream_id);
+        const copy = workstream?.copy;
+        const folder = this.#projectDirectory(scope);
+        const copies = this.#deps.copies;
+        const checkpoints = this.#deps.checkpoints;
+        if (!copies || !checkpoints || copy?.state !== 'own' || folder === null || !workstream) {
+          this.#fail(command, scope, {
+            code: 'unavailable',
+            message: "This computer does not keep tasks' copies, so there is nothing to add.",
+            effect: 'none',
+          });
+          return;
+        }
+        const request = { copy: copy.directory, base: copy.base_tree, folder };
+        const where = {
+          project_id: workstream.project_id,
+          workstream_id: workstream.workstream_id,
+          execution_id: null,
+        };
+        const unexpected = () =>
+          this.#fail(command, scope, {
+            code: 'store_failed',
+            message: "The task's work could not be added.",
+            effect: 'unknown',
+          });
+        if (command.command_type === 'workstream.add_to_project') {
+          void copies
+            .add(workstream.project_id, workstream.workstream_id, request, () =>
+              checkpoints.beforeAdd(workstream.project_id, folder, cause),
+            )
+            .then((outcome) => this.#added(command, scope, where, outcome, cause), unexpected);
+        } else {
+          void copies
+            .fit(workstream.project_id, workstream.workstream_id, request)
+            .then((outcome) => this.#fitted(command, scope, where, outcome, cause), unexpected);
+        }
         return;
+      }
       case 'project.link_catalog':
       case 'project.unlink_catalog': {
         // The person's own link (ADR 0039): a local fact, complete as soon as it is recorded.
@@ -1473,4 +1648,41 @@ function canonicalJson(value: unknown): string {
 function principalKey(principal: Principal | null): string {
   if (principal === null) return 'internal';
   return principal.kind === 'device' ? `device:${principal.device_id}` : 'local';
+}
+
+/**
+ * The files where a task and its project met, as the contract carries them: those with names it
+ * can list, at most a hundred, and how many there were. Null when none can be listed.
+ */
+function conflictedFiles(
+  conflicts: readonly MergeConflict[],
+): { files: { path: string; kind: MergeConflict['kind'] }[]; total: number } | null {
+  const listed = pathList(conflicts.map((conflict) => conflict.path)).paths;
+  const files = conflicts
+    .filter((conflict) => listed.includes(conflict.path))
+    .map((conflict) => ({ path: conflict.path, kind: conflict.kind }));
+  return files.length === 0 ? null : { files, total: conflicts.length };
+}
+
+/**
+ * What the task's agent is asked after a fit (ADR 0045): the files where its work and the project's
+ * met, how they are marked, and what to keep. Null when they met nowhere. The names are the files'
+ * own, which an agent chose: they are given to the agent, never shown as Halcyonic's words.
+ */
+export function fitInstruction(conflicts: readonly MergeConflict[]): string | null {
+  if (conflicts.length === 0) return null;
+  const marked = conflicts.filter((conflict) => conflict.kind === 'text').map((c) => c.path);
+  const replaced = conflicts.filter((conflict) => conflict.kind !== 'text').map((c) => c.path);
+  const lines = [
+    'The project changed in the same places as your work, and its changes are now in your folder too.',
+  ];
+  if (marked.length > 0)
+    lines.push(
+      `In ${marked.join(', ')}, each place where both changed is marked: your version and the project's sit between <<<<<<<, ======= and >>>>>>> lines. Keep what both meant, remove the marks, and change nothing else.`,
+    );
+  if (replaced.length > 0)
+    lines.push(
+      `${replaced.join(', ')} could not be marked and now hold the project's version. Redo your change to them if it is still needed.`,
+    );
+  return lines.join(' ').slice(0, 32000);
 }

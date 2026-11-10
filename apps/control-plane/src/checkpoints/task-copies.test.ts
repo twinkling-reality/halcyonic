@@ -125,7 +125,7 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     mkdirSync(join(holder, 'data-inside'), { recursive: true });
     const guarded = new TaskCopies({
       directory: join(holder, 'tasks'),
-      store: { take: () => Promise.reject(new Error('never reached')) },
+      store: new CheckpointStore({ git: GIT, directory: join(holder, 'unused') }),
       nextId,
     });
     const refused = await guarded.prepare(PROJECT, TASK, holder);
@@ -160,6 +160,63 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     assert.ok(made.ok);
     assert.equal(existsSync(join(made.directory, 'left.txt')), false);
     assert.equal(lstatSync(join(made.directory, 'a.txt')).isFile(), true);
+  });
+
+  test('an add stops, writing nothing, when the person changes the project after it was read', async () => {
+    write('a.txt', 'one\n');
+    const made = await copies.prepare(PROJECT, TASK, folder);
+    assert.ok(made.ok);
+    writeFileSync(join(made.directory, 'b.txt'), 'from the task\n');
+    const outcome = await copies.add(
+      PROJECT,
+      TASK,
+      { copy: made.directory, base: made.baseTree, folder },
+      async () => {
+        // The person's edit lands between the read and the write.
+        writeFileSync(join(folder, 'a.txt'), 'two\n');
+        return '01920000-0000-7000-8000-0000000000c0';
+      },
+    );
+    assert.equal(outcome.kind === 'failed' && outcome.code, 'folder_changed');
+    assert.equal(outcome.kind === 'failed' && outcome.written, false);
+    assert.equal(readFileSync(join(folder, 'a.txt'), 'utf8'), 'two\n');
+    assert.equal(existsSync(join(folder, 'b.txt')), false);
+    // Read again, the add goes through.
+    const again = await copies.add(
+      PROJECT,
+      TASK,
+      { copy: made.directory, base: made.baseTree, folder },
+      async () => '01920000-0000-7000-8000-0000000000c1',
+    );
+    assert.equal(again.kind, 'added');
+    assert.equal(readFileSync(join(folder, 'b.txt'), 'utf8'), 'from the task\n');
+    assert.equal(readFileSync(join(folder, 'a.txt'), 'utf8'), 'two\n');
+  });
+
+  test('a binary file both changed is named as binary, and a file one deleted as deleted', async () => {
+    write('img.bin', 'base');
+    write('gone.txt', 'keep\n');
+    const made = await copies.prepare(PROJECT, TASK, folder);
+    assert.ok(made.ok);
+    writeFileSync(join(made.directory, 'img.bin'), Buffer.from([0, 1, 2, 3, 0]));
+    writeFileSync(join(folder, 'img.bin'), Buffer.from([0, 9, 9, 9, 0]));
+    rmSync(join(made.directory, 'gone.txt'));
+    writeFileSync(join(folder, 'gone.txt'), 'changed\n');
+    const outcome = await copies.add(
+      PROJECT,
+      TASK,
+      { copy: made.directory, base: made.baseTree, folder },
+      async () => assert.fail('nothing is kept or written when they met'),
+    );
+    assert.equal(outcome.kind, 'conflicted');
+    if (outcome.kind !== 'conflicted') return;
+    assert.deepEqual(
+      [...outcome.conflicts].sort((a, b) => a.path.localeCompare(b.path)),
+      [
+        { path: 'gone.txt', kind: 'deleted' },
+        { path: 'img.bin', kind: 'binary' },
+      ],
+    );
   });
 
   test('a missing folder is refused', async () => {

@@ -368,13 +368,12 @@ export function admitCommand(
           "The project's files are being put back. Try again once that has finished.",
         );
       }
-      if (!adding) return { admitted: true, policy, scope, runtime: null };
       const location = projection.project(workstream.project_id)?.location ?? null;
       if (location === null) {
         return reject(scope, 'location_required', 'The project has no folder to add the work to.');
       }
-      // The project's folder takes one writer: no other add, check or move of it under way, and no
-      // task working in it directly.
+      // The project's folder takes one writer, and a fit reads it whole: no add, check or move of
+      // it under way, and, for an add, no task working in it directly.
       const writing = projection
         .pendingCommands()
         .find(
@@ -389,6 +388,7 @@ export function admitCommand(
           `${commandInWords(writing.command_type)} in this project is still under way. Wait for its outcome, then try again.`,
         );
       }
+      if (!adding) return { admitted: true, policy, scope, runtime: null };
       const refusal = folderRefusal(projection, location.path, workstream.workstream_id, scope);
       if (refusal !== undefined) return refusal;
       return { admitted: true, policy, scope, runtime: null };

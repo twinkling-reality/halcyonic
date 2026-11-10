@@ -278,4 +278,115 @@ describe('several agents on one project (ADR 0045)', {
     assert.equal(readFileSync(join(copy.directory, 'app.txt'), 'utf8'), 'person\n');
     assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person, later\n');
   });
+
+  test("adding brings the task's work into the project beside the person's own, once, and undoing puts it back", async () => {
+    const { folder, controlPlane, projectId, task, start, submit, of, finish } = setup('add');
+    const first = task('Lanterns');
+    start(first, 'lanterns');
+    await until(() => of('runtime.turn.started').length === 1, 'the agent at work');
+    finish();
+    await until(() => of('workstream.copy_changes_read', first).length === 1, 'the copy read');
+    assert.deepEqual(of('workstream.copy_changes_read', first)[0]?.payload.changed, {
+      paths: ['app.txt'],
+      total: 1,
+    });
+    const view = () => controlPlane.projection.workstream(first)?.copy;
+    const read = view();
+    assert.equal(read?.state === 'own' && read.to_add?.total, 1);
+    // The person changes another file of the project meanwhile.
+    writeFileSync(join(folder, 'notes.txt'), 'mine\n');
+    const added = await outcome(submit('workstream.add_to_project', { workstream_id: first }));
+    assert.equal(added?.status, 'completed');
+    assert.equal(added?.result?.kind === 'workstream_added' && added.result.files, 1);
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'lanterns\n');
+    assert.equal(readFileSync(join(folder, 'notes.txt'), 'utf8'), 'mine\n');
+    assert.equal(of('workstream.added', first).length, 1);
+    const copy = view();
+    assert.ok(copy?.state === 'own' && copy.last_added_at !== null);
+    assert.deepEqual(copy.to_add, { paths: [], total: 0 });
+    // Adding again brings nothing: the base moved to what was added.
+    const again = await outcome(submit('workstream.add_to_project', { workstream_id: first }));
+    assert.equal(again?.failure?.code, 'nothing_to_add');
+    // Undo of the add is the project's own checkpoint from just before it.
+    const before = of('project.checkpoint.recorded').find((e) => e.payload.reason === 'before_add');
+    assert.ok(before !== undefined);
+    const undone = await outcome(
+      submit('project.restore', {
+        project_id: projectId,
+        checkpoint_id: before.payload.checkpoint_id as CheckpointId,
+      }),
+    );
+    assert.equal(undone?.status, 'completed');
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person\n');
+    assert.equal(readFileSync(join(folder, 'notes.txt'), 'utf8'), 'mine\n');
+
+    async function outcome(sent: ReturnType<typeof submit>) {
+      const id = sent.command?.command_id;
+      await until(
+        () => controlPlane.projection.command(id ?? '')?.status !== 'accepted',
+        'the outcome',
+      );
+      return controlPlane.projection.command(id ?? '');
+    }
+  });
+
+  test('where both changed one file nothing is added, the files are named, and a fit marks both in the copy', async () => {
+    const { folder, controlPlane, task, start, submit, of, finish } = setup('conflict');
+    const first = task('Lanterns');
+    start(first, 'lanterns');
+    await until(() => of('runtime.turn.started').length === 1, 'the agent at work');
+    finish();
+    await until(() => of('runtime.turn.completed').length === 1, 'the turn to end');
+    writeFileSync(join(folder, 'app.txt'), 'person, later\n');
+    const outcome = async (sent: ReturnType<typeof submit>) => {
+      const id = sent.command?.command_id ?? '';
+      await until(() => controlPlane.projection.command(id)?.status !== 'accepted', 'the outcome');
+      return controlPlane.projection.command(id);
+    };
+    const met = await outcome(submit('workstream.add_to_project', { workstream_id: first }));
+    assert.equal(met?.failure?.code, 'changed_in_both');
+    assert.equal(met?.failure?.effect, 'none');
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person, later\n', 'untouched');
+    const copy = controlPlane.projection.workstream(first)?.copy;
+    assert.ok(copy?.state === 'own');
+    assert.deepEqual(copy.conflict, { files: [{ path: 'app.txt', kind: 'text' }], total: 1 });
+
+    const fitted = await outcome(submit('workstream.fit_to_project', { workstream_id: first }));
+    assert.equal(fitted?.status, 'completed');
+    const marked = readFileSync(join(copy.directory, 'app.txt'), 'utf8');
+    assert.match(
+      marked,
+      /^<<<<<<< [\s\S]*person, later[\s\S]*=======[\s\S]*lanterns[\s\S]*>>>>>>> /,
+    );
+    assert.equal(
+      readFileSync(join(folder, 'app.txt'), 'utf8'),
+      'person, later\n',
+      'still untouched',
+    );
+    const after = controlPlane.projection.workstream(first)?.copy;
+    assert.equal(after?.state === 'own' && after.conflict, null);
+    // The agent fits its work (here, by hand); then the add goes through over the new base.
+    writeFileSync(join(copy.directory, 'app.txt'), 'person, later, with lanterns\n');
+    const added = await outcome(submit('workstream.add_to_project', { workstream_id: first }));
+    assert.equal(added?.status, 'completed');
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person, later, with lanterns\n');
+  });
+
+  test('an ignore rule the agent writes cannot make a file of the project vanish on adding', async () => {
+    const { folder, controlPlane, task, start, submit, of, finish } = setup('ignored');
+    const first = task('Lanterns');
+    start(first, 'lanterns');
+    await until(() => of('runtime.turn.started').length === 1, 'the agent at work');
+    finish();
+    await until(() => of('runtime.turn.completed').length === 1, 'the turn to end');
+    const copy = controlPlane.projection.workstream(first)?.copy;
+    assert.ok(copy?.state === 'own');
+    writeFileSync(join(copy.directory, '.gitignore'), 'app.txt\n');
+    const sent = submit('workstream.add_to_project', { workstream_id: first });
+    const id = sent.command?.command_id ?? '';
+    await until(() => controlPlane.projection.command(id)?.status !== 'accepted', 'the outcome');
+    assert.equal(controlPlane.projection.command(id)?.status, 'completed');
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'lanterns\n', 'kept and added');
+    assert.equal(readFileSync(join(folder, '.gitignore'), 'utf8'), 'app.txt\n');
+  });
 });

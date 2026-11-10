@@ -10,7 +10,7 @@ import { Projection } from '@halcyonic/domain';
 import type { Clock, RuntimeAdapter, Scheduler } from '@halcyonic/runtime-core';
 import { Checkpointer } from '../checkpoints/checkpointer.ts';
 import type { CheckpointStore, RestoreHooks } from '../checkpoints/store.ts';
-import { TaskCopies } from '../checkpoints/task-copies.ts';
+import { readCopiesAfterTurns, TaskCopies } from '../checkpoints/task-copies.ts';
 import type { IdGenerator } from '../ids.ts';
 import {
   CHECKPOINT_EVERY,
@@ -236,6 +236,24 @@ export class ControlPlane {
             timeoutMs: options.commandTimeoutMs,
           })
         : null;
+    const copies =
+      options.checkpoints?.copies === undefined
+        ? null
+        : new TaskCopies({
+            directory: options.checkpoints.copies.directory,
+            store: options.checkpoints.store,
+            nextId: () => options.ids.next(),
+            ...(options.checkpoints.copies.protect === undefined
+              ? {}
+              : { protect: options.checkpoints.copies.protect }),
+          });
+    if (copies !== null)
+      readCopiesAfterTurns(copies, {
+        publisher: this.publisher,
+        recorder: this.recorder,
+        projection: this.projection,
+        now: () => options.clock.now().toISOString(),
+      });
     this.commands = new CommandService({
       projection: this.projection,
       recorder: this.recorder,
@@ -248,17 +266,7 @@ export class ControlPlane {
       commandTimeoutMs: options.commandTimeoutMs,
       redaction: this.redaction,
       checkpoints: this.checkpoints,
-      copies:
-        options.checkpoints?.copies === undefined
-          ? null
-          : new TaskCopies({
-              directory: options.checkpoints.copies.directory,
-              store: options.checkpoints.store,
-              nextId: () => options.ids.next(),
-              ...(options.checkpoints.copies.protect === undefined
-                ? {}
-                : { protect: options.checkpoints.copies.protect }),
-            }),
+      copies,
       starters: this.starters,
       files: this.files,
       catalogLinks: options.catalogLinks ?? null,
