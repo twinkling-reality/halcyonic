@@ -59,6 +59,15 @@ namespace Halcyonic.XR.Workspace.Editor
         /// </summary>
         private static readonly string[] ChooseStates = { "35-choose-rest", "35-choose", "35-choose-chosen" };
 
+        /// <summary>
+        /// At work (DESIGN 2.3): the working field and the agent's cursor with Stop alone; the same where the runtime still
+        /// takes an instruction, the row under the foot line; and Stop's own confirmation.
+        /// </summary>
+        private static readonly string[] WorkStates = { "36-work", "36-work-row", "36-stop-confirm" };
+
+        /// <summary>The file the agent edits in the at-work state, synthetic.</summary>
+        private const string WorkFile = "src/score.js";
+
         /// <summary>The design's own question, synthetic.</summary>
         private const string QuestionPromptWords = "Which colour scheme should the game use?";
 
@@ -148,6 +157,9 @@ namespace Halcyonic.XR.Workspace.Editor
             var choosing = ChooseStates.Contains(state);
             var (voice, sent, expected, caption) = state switch
             {
+                "36-work" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work: the field, the agent's cursor saying its step, Stop alone, synthetic data"),
+                "36-work-row" => (VoiceStage.Idle, false, RoomBarState.Rest, "At work where the agent still takes an instruction: the row under the foot line, synthetic data"),
+                "36-stop-confirm" => (VoiceStage.Idle, false, RoomBarState.Confirm, "Stop pressed: the file's question, Confirm behind its lock, and Cancel, synthetic data"),
                 "35-choose-rest" => (VoiceStage.Idle, false, RoomBarState.Rest, "At rest with no keyboard: Hold to Talk and Choose Instruction, synthetic data"),
                 "35-choose" => (VoiceStage.Idle, false, RoomBarState.Choose, "The instructions to choose from, none chosen, and Cancel, synthetic data"),
                 "35-choose-chosen" => (VoiceStage.Idle, false, RoomBarState.Choose, "One instruction chosen: Review Instruction, synthetic data"),
@@ -191,9 +203,20 @@ namespace Halcyonic.XR.Workspace.Editor
                 "33-ask-tool" or "33-ask-tool-confirm" => SelectedWorkspace(waiting: true, command: AskToolRequest, tool: AskToolName),
                 _ when asking => SelectedWorkspace(waiting: true, command: AskCommand),
                 _ when questioning => SelectedWorkspace(waiting: true, asked: QuestionFor(state), confirmAnswers: state == "34-question-confirm"),
-                _ => Running(ShortReport()),
+                // At work, on an agent that takes no instruction while it works, and on one that does.
+                "36-work" or "36-stop-confirm" => WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()),
+                "36-work-row" => Running(ShortReport()),
+                // Every other moment of the row is at rest: the run has ended, and its next instruction starts the next one.
+                _ => WithActivity(SelectedWorkspace(waiting: false, status: ExecutionStatus.Completed), ShortReport()),
             };
+            if (state == "36-work")
+            {
+                // The runtime reports the file it edits: the cursor says so.
+                workspace.Execution!.ActiveTools = new List<ToolActivityView> { new() { ToolCallId = "synthetic-tool", ToolName = "Edit", Title = WorkFile, StartedAt = Day + "09:04:00.000Z" } };
+                workspace.Execution.ToolActivity = ExecutionViewToolActivity.Running;
+            }
             var steering = new WorkspaceSteering(factory, () => DateTimeOffset.UtcNow);
+            if (state == "36-stop-confirm" && steering.Press(WorkspaceAction.Interrupt, workspace).Step != SteeringStep.Confirm) shot.Failures.Add("Stop did not ask for its confirmation");
             var screen = new FileScreen { Section = asking || questioning ? FileSection.Waiting : FileSection.Activity, Speak = true };
             // The host stands first: under a confirmation the file counts what is read by the panel's own lines, as the director has it do.
             var host = KitWorkspaceHost.Create(root);
@@ -351,7 +374,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var bar = host.Bar;
             // Confirm's lock: on its arrival the ring is part filled and it takes no press; 0.7 s on it is the main action.
             if (state == "33-ask-confirm-arriving") bar.AgeLockForRender(0.42f * RoomBar.ConfirmLockSeconds);
-            if (state is "33-ask-confirm" or "34-question-confirm" or "33-ask-tool-confirm")
+            if (state is "33-ask-confirm" or "34-question-confirm" or "33-ask-tool-confirm" or "36-stop-confirm")
             {
                 // The lock lifted is a new action, which waits as any other before it takes a press: settled again for the render.
                 bar.AgeLockForRender(RoomBar.ConfirmLockSeconds);
@@ -407,6 +430,39 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(Mathf.Abs(gap - RoomType.Units(RoomGeometry.RowGapDp)) < Tolerance, "the row's actions stand " + (gap / RoomType.Units(1f)).ToString("0.0") + " dp apart, not 32");
                     }
                 }
+                // The working field and the agent's cursor stand only at work; Stop's confirmation and every other moment have neither.
+                var working = state is "36-work" or "36-work-row";
+                Require(shown.Working == working, working ? "the agent works and the redesign does not say so" : "at work is shown where nothing works");
+                Require(host.Field.gameObject.activeSelf == working && (host.Field.Shown > 0.999f) == working, working ? "the working field does not stand" : "the working field stands where nothing works");
+                Require(host.Cursor.Words == (state == "36-work" ? RoomWork.Editing + " score.js" : ""), "the cursor reads \"" + host.Cursor.Words + "\"");
+                if (working)
+                {
+                    // No panel; the band says nothing; Stop alone where the column stands, a rest action, its core on the foot line.
+                    Require(!bar.Panel.gameObject.activeSelf && host.Band.Words == null, "a panel or the band stands while the agent works");
+                    var stop = bar.Column[0];
+                    actions.Add(stop);
+                    Require(bar.Column.Count(button => button.gameObject.activeSelf) == 1 && shown.Column.Count == 1 && shown.Column[0].Place == KitPlace.Stop
+                        && stop.LookNow() == RoomButtonLook.Rest, "Stop does not stand alone as a rest action");
+                    Whole(stop.Words, "Stop's words");
+                    var unit = RoomType.Units(1f);
+                    Require(Mathf.Abs(stop.transform.localPosition.y - stop.Core.y / 2f - bar.Foot) < Tolerance, "Stop's core does not stand on the foot line");
+                    Require(Mathf.Abs(stop.transform.localPosition.x - stop.Core.x / 2f - (bar.PanelRight + RoomType.Units(RoomGeometry.PairGapDp))) < Tolerance, "Stop does not stand where the column stands");
+                    // The field's inner box: the panel's place, 12 degrees up from the foot line.
+                    var zoom = GlazeText.Scale;
+                    var middle = (host.Field.transform.localPosition - bar.transform.localPosition) * zoom;
+                    var inner = new Vector2(RoomType.Units(RoomGeometry.PanelDp), RoomType.Units(RoomGeometry.FieldTallDp));
+                    Require(Mathf.Abs(middle.x + inner.x / 2f - bar.PanelRight) < Tolerance && Mathf.Abs(middle.y - inner.y / 2f - bar.Foot) < Tolerance,
+                        "the field's inner box does not end at the panel's place and stand on the foot line");
+                    Require(Vector2.Distance(host.Field.Size, RoomField.Around(inner)) < Tolerance, "the field is " + (host.Field.Size / unit) + " dp, not the design's size round its box");
+                    Require(host.Cursor.transform.localPosition == host.Field.transform.localPosition, "the cursor does not count its stops from the field's middle");
+                    // The row stands only where the file still offers an instruction, its feet 94.4 dp under the foot line.
+                    Require((shown.Row.Count > 0) == (state == "36-work-row"), state == "36-work-row" ? "the row does not stand though the agent takes an instruction" : "a row stands though nothing can be sent");
+                    if (shown.Row.Count > 0)
+                        Require(Mathf.Abs(bar.Foot - (bar.Talk.transform.localPosition.y - RoomType.Units(RoomButton.HeightDp) / 2f) - RoomType.Units(RoomBarView.RowFeetDp)) < Tolerance, "the row's feet are not 94.4 dp under the foot line");
+                }
+                if (state == "36-stop-confirm")
+                    Require(shown.Sentence + KitMomentWords.Dot + bar.Body.GetParsedText() == steering.Prompt(workspace) && shown.Column.Count == 2 && shown.Column[0].Locks,
+                        "Stop's confirmation reads \"" + bar.Body.GetParsedText() + "\" under \"" + shown.Sentence + "\" with " + shown.Column.Count + " actions");
                 if (shown.Pair)
                 {
                     // The panel: DESIGN's translucent tonal material, 440 dp wide, the person's words whole, the sentence in its bar.
@@ -418,7 +474,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(look.FillTop.a < 1f && !look.Shadow && look.EdgeDp > 0f, "the panel is not DESIGN's translucent tonal layer with a hairline and no shadow");
                     Require(shown.Wide || Mathf.Abs(panel.Size.x - RoomType.Units(RoomGeometry.PanelDp)) < Tolerance, "the panel is not 440 dp wide");
                     Whole(bar.Body, "the panel's words");
-                    Require(asking || questioning || bar.Body.text.Length == 0 || bar.Body.text.Contains(BarDraft.Substring(0, 20)), "the panel does not hold the person's words");
+                    // A draft and an instruction's confirmation hold the person's own words; Stop's confirmation holds the file's question.
+                    Require(shown.State is not (RoomBarState.Draft or RoomBarState.Confirm) || state == "36-stop-confirm" || bar.Body.text.Length == 0
+                        || bar.Body.text.Contains(BarDraft.Substring(0, 20)), "the panel does not hold the person's words");
                     if (choosing)
                     {
                         // The product's own instructions by their short names, each with its mark, the chosen one checked; the way on only once one is chosen.

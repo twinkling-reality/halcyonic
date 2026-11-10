@@ -27,6 +27,15 @@ namespace Halcyonic.XR.UI
         public const float LevelGapDp = 4f;
         public const float CaretSeconds = 0.53f;
 
+        /// <summary>The row's feet under the pair's foot line, in dp: DESIGN stands the pair on pitch -17.6 and the row's feet on -23.5.</summary>
+        public const float RowFeetDp = (RoomGeometry.FeetPitch - RoomGeometry.BarFootPitch) * RoomGeometry.DpPerDegree;
+
+        /// <summary>Where the pair's foot line stands, up from this view's middle, in its own units: the line the panel and the column's lowest action stand on.</summary>
+        public float Foot { get; private set; }
+
+        /// <summary>Where the panel's place ends at the right, from this view's middle, in its own units.</summary>
+        public float PanelRight { get; private set; }
+
         /// <summary>
         /// The column's actions at most: a question's page of four answers with the file's way on and back (DESIGN 2.9); a
         /// frame offering more stays the file's own (<see cref="KitWorkspaceHost.Holds"/>). One more place holds the band's
@@ -228,7 +237,7 @@ namespace Halcyonic.XR.UI
         /// <summary>Shows <paramref name="bar"/>, centred on its origin; hides for <see cref="RoomBarState.Hidden"/>.</summary>
         public void Show(RoomBar bar)
         {
-            if (bar.State == RoomBarState.Hidden)
+            if (bar.State == RoomBarState.Hidden && !bar.Working)
             {
                 Hide();
                 return;
@@ -243,9 +252,54 @@ namespace Halcyonic.XR.UI
                 locking = null;
                 panel.gameObject.SetActive(false);
                 foreach (var button in column) button.Hide();
-                if (bar.Row.Count > 0) LayRow(bar);
+                if (bar.Working) LayWork(bar);
+                else if (bar.Row.Count > 0) LayRow(bar, 0f);
                 else LayAlone(bar);
+                if (!bar.Working)
+                {
+                    // With no pair the foot line is still DESIGN's, over the row's feet.
+                    Foot = -Size.y / 2f + RoomType.Units(RowFeetDp);
+                    PanelRight = -(RoomType.Units(RoomGeometry.PanelDp) + RoomType.Units(RoomGeometry.PairGapDp) + RoomType.Units(RoomGeometry.ColumnDp)) / 2f + RoomType.Units(RoomGeometry.PanelDp);
+                }
             }
+        }
+
+        /// <summary>
+        /// At work (DESIGN 2.3): no panel, its place left to the working field; Stop alone where the column stands, its core
+        /// on the foot line, a rest action; and the row, where the file still offers an instruction, centred under the foot
+        /// line with its feet where DESIGN stands them. The whole is centred on this view's middle.
+        /// </summary>
+        private void LayWork(RoomBar bar)
+        {
+            alone.gameObject.SetActive(false);
+            var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
+            var gap = RoomType.Units(RoomGeometry.PairGapDp);
+            var target = RoomType.Units(RoomButton.HeightDp);
+            var stops = bar.Column.Count > 0;
+            var core = stops ? column[0].Measure(bar.Column[0].Words, 0f) : Vector2.zero;
+            var total = panelWidth + gap + Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), core.x);
+            var rowed = bar.Row.Count > 0;
+            // From the foot line: the column's one action above it, the row's feet under it.
+            var above = stops ? Mathf.Max(target, core.y) : 0f;
+            var below = rowed ? RoomType.Units(RowFeetDp) : 0f;
+            var foot = (below - above) / 2f;
+            if (rowed) LayRow(bar, foot - below + target / 2f);
+            else
+            {
+                talk.Hide();
+                type.Hide();
+                levelRoot.gameObject.SetActive(false);
+            }
+            var rowWidth = rowed ? Size.x : 0f;
+            if (stops)
+            {
+                var action = bar.Column[0];
+                column[0].Show(action.Words, action.Icon, action.Main, available: true, new Vector2(-total / 2f + panelWidth + gap + core.x / 2f, foot + core.y / 2f), core.x);
+                controls[column[0]] = action.Control;
+            }
+            Foot = foot;
+            PanelRight = -total / 2f + panelWidth;
+            Size = new Vector2(Mathf.Max(total, rowWidth), above + below);
         }
 
         /// <summary>For renders: the level as it is now, as a person sees it, and the caret standing.</summary>
@@ -319,7 +373,7 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>The row: its actions side by side at home size, 32 dp apart, centred; the level inside Listening's halo.</summary>
-        private void LayRow(RoomBar bar)
+        private void LayRow(RoomBar bar, float up)
         {
             alone.gameObject.SetActive(false);
             var listening = bar.State == RoomBarState.Listening && Level() != null;
@@ -335,7 +389,7 @@ namespace Halcyonic.XR.UI
             var left = -total / 2f;
             foreach (var (button, action, width) in buttons)
             {
-                button.Show(action.Words, action.Icon, action.Main, available: true, new Vector2(left + width / 2f, 0f), width);
+                button.Show(action.Words, action.Icon, action.Main, available: true, new Vector2(left + width / 2f, up), width);
                 if (button != talk) controls[button] = action.Control;
                 left += width + gap;
             }
@@ -347,7 +401,7 @@ namespace Halcyonic.XR.UI
             {
                 // After the words, inside the halo: its right edge where the core's padding starts.
                 var right = talk.transform.localPosition.x + talk.Core.x / 2f - RoomType.Units(talk.RightDp);
-                levelRoot.localPosition = new Vector3(right - RoomType.Units(LevelWidthDp), 0f, -RoomType.Units(1.5f));
+                levelRoot.localPosition = new Vector3(right - RoomType.Units(LevelWidthDp), up, -RoomType.Units(1.5f));
                 FollowLevel();
             }
             Size = new Vector2(total, RoomType.Units(RoomButton.HeightDp));
@@ -603,6 +657,8 @@ namespace Halcyonic.XR.UI
                 lockLifted = false;
             }
             if (locking != null && !lockLifted) FollowLock();
+            Foot = foot;
+            PanelRight = left + panelWidth;
             Size = new Vector2(total, height);
         }
     }

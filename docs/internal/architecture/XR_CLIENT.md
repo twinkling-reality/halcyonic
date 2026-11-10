@@ -2640,10 +2640,35 @@ The last unit turns it on by default and removes the kit parts it replaced.
   Choices where it pages them (each takes one of a page's four places, as an answer does); Review Instruction, the main
   action, once one is chosen; and Cancel. The press that chooses sends nothing: Review Instruction opens the draft
   with the very words, and they go only from there, by the file's own Send. A notice of the file's stands in the panel.
+- **At work** (BUILD-SPEC-v4 2.3): while the run is running or verifying and no other moment stands (no approval, question,
+  draft or confirmation), the binding says so (`KitWorkModel.Working`, with the step the runtime reports,
+  `RoomWork.Of`) and `RoomBar.Tasks` marks what the loop made of the frame `Working`. No panel stands: `RoomBarView.LayWork`
+  leaves the panel's place empty and stands Stop alone where the column stands, its core on the foot line, a rest
+  action (`RoomBar.Column`); the band says nothing; that a request is under way is not said in words. The host owns
+  FIELD's two parts (`KitWorkspaceHost.ShowWork`): the working field round its inner box, which is the panel's place,
+  12 degrees up from the foot line (`RoomGeometry.FieldTallDp`, `RoomField.Around`), and the agent's cursor on the
+  field's middle with the step's words (`RoomCursor.Show`); a runtime that reports no step shows the field alone.
+  DESIGN's page runs the box on to the working character's far side. That part is dropped, BUILD-SPEC-v4 1.1's
+  second choice: the characters stay at 2.4 m, beyond system windows, and the plane stays within the hand's reach, so
+  a field reaching the character would stand in front of it and split in stereo; the panels keep DESIGN's angles.
+  Both leave with the moment (600 ms). The row stands at work only where the file still offers an instruction (a
+  runtime that takes one while it works), centred under the pair with its feet 94.4 dp under the foot line
+  (`RoomBarView.RowFeetDp`, DESIGN's pitch -23.5 under -17.6); where it takes none, DESIGN's page as drawn, Stop alone.
+  The view says where its foot line and its panel's place stand (`RoomBarView.Foot`, `PanelRight`). Stop arms the
+  file's own confirmation (stopping always asks, `WorkspacePresenter.AlwaysConfirmed`), which the binding now binds for
+  the redesign (`KitWorkModel.Stops`): what stopping does in the panel, the file's question in the sentence bar, Confirm
+  behind its lock, and Cancel;
+  `execution.interrupt` goes only on that Yes. The host holds both without measuring anything
+  (`KitWorkspaceHost.Holds`). Checks: `36-work` (an agent that takes no instruction while it works, editing a file:
+  the field, the cursor reading Editing and the file's name, Stop alone), `36-work-row` (one that takes one: the row
+  under the foot line, no step reported, so no cursor) and `36-stop-confirm`; `RoomWorkingTests` drives Stop and its
+  confirmation through a real file column and reads the one command sent.
 - **Where a moment plugs in.** `RoomBar.Of` reads a bound frame in two steps: the task's own loop (`RoomBar.Tasks`:
   the row at rest, talking, a draft, a confirmation, an approval, a question, what was sent), then the moments
   outside that loop (`RoomBar.Moments`, in `RoomBar.Moments.cs`), asked in order with the binding, the voice and
-  what the loop made of the frame; the first that answers draws the frame, and its view says so (`FromMoment`). A
+  what the loop made of the frame; the first that answers draws the frame, and its view says so (`FromMoment`). No
+  moment is asked where the loop made an approval, a question, a confirmation or Sent: what waits on the person
+  always stands. A
   moment is one private static function in a partial of `RoomBar` in a file of its own, with one line in that list;
   the offered instructions are the first (`RoomBar.Choose.cs`). It shows only parts that exist (the row, the pair of
   panel and column, the band) by answering in one of the forms `RoomBarState` names, and every action it shows is a

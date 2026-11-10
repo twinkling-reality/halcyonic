@@ -32,6 +32,14 @@ namespace Halcyonic.Client
         /// <summary>The information panel's width in the pair (27.5 degrees), and the gap to the column of actions beside it (its left edge at yaw +6.75); the column takes the rest, 240 dp.</summary>
         public const float PanelDp = 440f;
 
+        /// <summary>
+        /// The working field's inner box is the panel's place, rising 12 degrees from the foot line (DESIGN 2.3). DESIGN's page
+        /// runs the box on to the working character's far side; that part is dropped (BUILD-SPEC-v4 1.1's second choice, XR
+        /// 2026-11-10): the characters stay at 2.4 m, beyond system windows, and the plane stays within reach of the hand,
+        /// so a field reaching the character would stand in front of it and split in stereo.
+        /// </summary>
+        public const float FieldTallDp = 12f * DpPerDegree;
+
         public const float PairGapDp = 16f;
 
         public const float ColumnDp = PairDegrees * DpPerDegree - PanelDp - PairGapDp;

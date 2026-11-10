@@ -39,6 +39,15 @@ namespace Halcyonic.XR.UI
         /// <summary>The band of the agent's own words low in the view (DESIGN 1.6): a question's prompt while the redesign draws it.</summary>
         public RoomBand Band => band;
 
+        private RoomField field = null!;
+        private RoomCursor cursor = null!;
+
+        /// <summary>The working field, shown round the panel's place and the character while the agent works (the redesign).</summary>
+        public RoomField Field => field;
+
+        /// <summary>The agent's cursor, on the field, saying the step the runtime reports (the redesign).</summary>
+        public RoomCursor Cursor => cursor;
+
         /// <summary>From the pair's foot line to the band's top edge, in dp: pitch -17.6 to -24.5 (DESIGN 1.1, 1.6).</summary>
         public const float BandUnderDp = (RoomWords.TopPitch - RoomGeometry.FeetPitch) * -RoomGeometry.DpPerDegree;
 
@@ -153,6 +162,8 @@ namespace Halcyonic.XR.UI
             host.bar.TalkPressed += host.OnTalkPressed;
             host.bar.TalkReleased += host.OnTalkReleased;
             host.band = RoomBand.Create(go.transform);
+            host.field = RoomField.Create(go.transform);
+            host.cursor = RoomCursor.Create(go.transform);
             host.bar.BandNextPressed += host.OnBandNext;
             var decision = host.view.Decision;
             decision.DenyPressed += () => host.Press(KitPlace.Deny);
@@ -186,6 +197,8 @@ namespace Halcyonic.XR.UI
             // A moment outside the task's loop that draws the pair (the offered instructions, and any in RoomBar.Moments), likewise.
             if (RoomDesign.Enabled && RoomBar.Of(binding, Voice(), AwaitingStart()) is { FromMoment: true, Pair: true } moment)
                 return moment.Column.Count <= RoomBarView.ColumnMost;
+            // At work, and Stop's confirmation: nothing of either is measured, so the redesign always holds them.
+            if (RoomDesign.Enabled && (model.Stops != null || RoomBar.Of(binding, Voice(), AwaitingStart()).Working)) return true;
             if (RoomDesign.Enabled && (model.Instruction != null || model.Need != null))
             {
                 var read = RoomBar.Of(binding, Voice(), AwaitingStart());
@@ -246,6 +259,8 @@ namespace Halcyonic.XR.UI
             if (!RoomDesign.Enabled)
             {
                 band.Hide();
+                field.Hide();
+                cursor.Hide();
                 bar.Hide();
                 view.gameObject.SetActive(true);
                 view.Composer.ShowInstructionParts(true);
@@ -265,6 +280,7 @@ namespace Halcyonic.XR.UI
             else band.Hide();
             bar.BandNext = band.Words?.Next;
             bar.Show(room);
+            ShowWork(room, zoom);
             if (!bar.gameObject.activeSelf)
             {
                 // Nothing drawn, standing where the row would, so the plane still places a real footprint.
@@ -289,6 +305,30 @@ namespace Halcyonic.XR.UI
             Size = size;
             TextBands = new[] { new TextBand(-size.x / 2f, size.x / 2f, -size.y / 2f, size.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
             foreach (var press in bar.Presses) press.Accepting = () => Accepting();
+        }
+
+        /// <summary>
+        /// At work (DESIGN 2.3) the working field stands round the panel's place, 12 degrees up from the foot line (its
+        /// character part dropped, <see cref="RoomGeometry.FieldTallDp"/>), and the agent's cursor stands on the field's
+        /// middle saying the step the runtime reports; a runtime that reports none shows the field alone. Anything else,
+        /// and both leave.
+        /// </summary>
+        private void ShowWork(RoomBar room, float zoom)
+        {
+            if (!room.Working)
+            {
+                field.Leave();
+                cursor.Leave();
+                return;
+            }
+            var inner = new Vector2(RoomType.Units(RoomGeometry.PanelDp), RoomType.Units(RoomGeometry.FieldTallDp));
+            var middle = new Vector3(bar.PanelRight - inner.x / 2f, bar.Foot + inner.y / 2f, 0f) / zoom;
+            field.transform.localScale = Vector3.one / zoom;
+            field.transform.localPosition = bar.transform.localPosition + middle;
+            field.Show(RoomField.Around(inner));
+            cursor.transform.localScale = Vector3.one / zoom;
+            cursor.transform.localPosition = field.transform.localPosition;
+            cursor.Show(room.Step);
         }
 
         /// <summary>
@@ -318,6 +358,8 @@ namespace Halcyonic.XR.UI
             drawn = null;
             compact = true;
             band.Hide();
+            field.Hide();
+            cursor.Hide();
             gameObject.SetActive(true);
             view.gameObject.SetActive(false);
             presence.gameObject.SetActive(true);
@@ -349,6 +391,8 @@ namespace Halcyonic.XR.UI
             drawn = null;
             compact = false;
             band.Hide();
+            field.Hide();
+            cursor.Hide();
             gameObject.SetActive(false);
         }
 
@@ -361,6 +405,8 @@ namespace Halcyonic.XR.UI
             foreach (var press in bar.Presses) press.SettleForRender();
             bar.SettleForRender();
             band.Settle();
+            field.Settle();
+            cursor.Settle();
         }
 
         /// <summary>For the Editor, which runs no frames: every control as if settled, and the frame shown reported drawn as a frame would.</summary>

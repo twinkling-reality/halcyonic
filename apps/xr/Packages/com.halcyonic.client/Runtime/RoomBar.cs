@@ -198,8 +198,17 @@ namespace Halcyonic.Client
         /// </summary>
         public int? Rows { get; }
 
-        /// <summary>The column's actions beside the panel, the main one first.</summary>
-        public IReadOnlyList<RoomAction> Column { get; }
+        /// <summary>The column's actions beside the panel, the main one first; at work, Stop alone beside the panel's empty place.</summary>
+        public IReadOnlyList<RoomAction> Column { get; private set; }
+
+        /// <summary>
+        /// At work (DESIGN 2.3): the agent or its checks are working. No panel stands: the working field holds its place,
+        /// Stop stands alone in the column, a rest action, and the row stands only where the file still offers an instruction.
+        /// </summary>
+        public bool Working { get; private set; }
+
+        /// <summary>At work, the step the runtime reports under way, for the agent's cursor; null where it reports none.</summary>
+        public RoomWorkStep? Step { get; private set; }
 
         /// <summary>The control a press on the panel's field raises (the keyboard again), or null.</summary>
         public KitControl? Field { get; }
@@ -348,6 +357,9 @@ namespace Halcyonic.Client
         public static RoomBar Of(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart)
         {
             var tasks = Tasks(binding, voice, sentAwaitingStart);
+            // What waits on the person, and what was sent, always stands: no moment is asked over an approval, a question,
+            // a confirmation or Sent (AUDIT, 2026-11-10).
+            if (tasks.State is RoomBarState.Request or RoomBarState.Question or RoomBarState.Confirm or RoomBarState.Sent) return tasks;
             foreach (var moment in Moments)
                 if (moment(binding, voice, tasks) is RoomBar own)
                 {
@@ -360,10 +372,39 @@ namespace Halcyonic.Client
         /// <summary>Whether a moment outside the task's own loop made this (<see cref="Moments"/>).</summary>
         public bool FromMoment { get; private set; }
 
-        /// <summary>The task's own loop: the row at rest, talking, a draft, a confirmation, an approval, a question, what was sent.</summary>
+        /// <summary>
+        /// The task's own loop: the row at rest, talking, a draft, a confirmation, an approval, a question, what was sent;
+        /// and, while the agent works and none of those moments stands, at work (<see cref="Working"/>).
+        /// </summary>
         private static RoomBar Tasks(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart)
         {
+            var loop = Loop(binding, voice, sentAwaitingStart);
             var model = binding.Model;
+            if (!model.Working || loop.Pair || loop.State == RoomBarState.Sent) return loop;
+            // That a request is under way is not said in words while the agent works: the field and the cursor say it.
+            if (loop.State == RoomBarState.Words && loop.Words.Text == FileScreens.RequestUnderWay) loop = new RoomBar(RoomBarState.Hidden);
+            loop.Working = true;
+            loop.Step = model.Step;
+            if (binding[KitPlace.Stop] is { Available: true } stop) loop.Column = new[] { new RoomAction(stop, main: false) };
+            return loop;
+        }
+
+        private static RoomBar Loop(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart)
+        {
+            var model = binding.Model;
+            if (model.Stops is string stops)
+            {
+                // Stop's confirmation, in the file's own words: what stopping does in the panel, its question in the sentence
+                // bar (as an approval's stands), Confirm behind its lock, and Cancel. Where the file's line is the question
+                // alone, it is the panel's one line.
+                var answers = new List<RoomAction>();
+                if (binding[KitPlace.Yes] is { Available: true } sure) answers.Add(new RoomAction(sure, main: true, locks: true));
+                if (binding[KitPlace.Cancel] is { Available: true } back) answers.Add(new RoomAction(back, main: false));
+                var cut = stops.IndexOf(KitMomentWords.Dot, System.StringComparison.Ordinal);
+                return cut > 0
+                    ? new RoomBar(RoomBarState.Confirm, body: LineWords.Ours(stops.Substring(cut + KitMomentWords.Dot.Length)), sentence: stops.Substring(0, cut), column: answers)
+                    : new RoomBar(RoomBarState.Confirm, body: LineWords.Ours(stops), column: answers);
+            }
             if (model.Need is KitNeed need) return Asked(binding, need);
             // A question's page as the redesign reads it (its prompt, caption and lines apart); one bound without them stays the file's.
             if (model.Ask is KitAsk ask) return ask.Lines.Count > 0 && (ask.Prompt != null || ask.Caption != null || ask.Body.Count > 0 || ask.Asks != null)
