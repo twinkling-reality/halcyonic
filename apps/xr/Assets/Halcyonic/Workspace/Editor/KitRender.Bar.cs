@@ -50,8 +50,14 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly string[] QuestionStates =
         {
             "34-question", "34-question-review", "34-question-several", "34-question-more", "34-question-confirm", "34-question-sending", "34-question-long",
-            "34-question-tall",
+            "34-question-tall", "34-question-stop",
         };
+
+        /// <summary>
+        /// The redesign's offered instructions (DESIGN 2.1) on the same host: the row where no keyboard is offered (Choose
+        /// Instruction in Type's place), the instructions to choose from, and one chosen with Review Instruction.
+        /// </summary>
+        private static readonly string[] ChooseStates = { "35-choose-rest", "35-choose", "35-choose-chosen" };
 
         /// <summary>The design's own question, synthetic.</summary>
         private const string QuestionPromptWords = "Which colour scheme should the game use?";
@@ -81,6 +87,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     Option("Follow the Headset", "Whichever the headset is set to"),
                     Option("Ask Each Time", "A choice on the first screen of every game"),
                 };
+            // A question Halcyonic cannot answer (it asks for a secret), its prompt longer than the band's three lines: Stop is the way on.
+            if (state == "34-question-stop")
+                scheme = new QuestionPrompt { Key = "token", Header = "Token", Text = QuestionLongWords, FreeText = true, Secret = true };
             var prompts = new List<QuestionPrompt> { scheme };
             if (state == "34-question-several")
                 prompts.Add(new QuestionPrompt
@@ -129,8 +138,12 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             var asking = AskStates.Contains(state);
             var questioning = QuestionStates.Contains(state);
+            var choosing = ChooseStates.Contains(state);
             var (voice, sent, expected, caption) = state switch
             {
+                "35-choose-rest" => (VoiceStage.Idle, false, RoomBarState.Rest, "At rest with no keyboard: Hold to Talk and Choose Instruction, synthetic data"),
+                "35-choose" => (VoiceStage.Idle, false, RoomBarState.Choose, "The instructions to choose from, none chosen, and Cancel, synthetic data"),
+                "35-choose-chosen" => (VoiceStage.Idle, false, RoomBarState.Choose, "One instruction chosen: Review Instruction, synthetic data"),
                 "34-question" => (VoiceStage.Idle, false, RoomBarState.Question, "A question: its prompt on the band, the answers in the panel's place, synthetic data"),
                 "34-question-review" => (VoiceStage.Idle, false, RoomBarState.Question, "The answer given, over Send Answer, synthetic data"),
                 "34-question-several" => (VoiceStage.Idle, false, RoomBarState.Question, "The second of two questions, any number to choose: which it is in the panel, the choices beside it, synthetic data"),
@@ -139,6 +152,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "34-question-sending" => (VoiceStage.Idle, false, RoomBarState.Question, "The answer sent: Sending, no action, synthetic data"),
                 "34-question-long" => (VoiceStage.Idle, false, RoomBarState.Question, "A long question read by parts on the band: Next Part, synthetic data"),
                 "34-question-tall" => (VoiceStage.Idle, false, RoomBarState.Question, "A tall page: four answers that wrap under a long prompt read by parts, synthetic data"),
+                "34-question-stop" => (VoiceStage.Idle, false, RoomBarState.Question, "A question that cannot be answered, its long prompt unread: Stop stands at once, synthetic data"),
                 "33-ask" => (VoiceStage.Idle, false, RoomBarState.Request, "An approval asked: the request in mono, Run Command?, Approve and Deny, synthetic data"),
                 "33-ask-confirm-arriving" => (VoiceStage.Idle, false, RoomBarState.Request, "Approve pressed: Confirm on its arrival behind its lock, and Cancel, synthetic data"),
                 "33-ask-confirm" => (VoiceStage.Idle, false, RoomBarState.Request, "Approve pressed, the lock passed: Confirm and Cancel, synthetic data"),
@@ -237,6 +251,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
             }
+            if (state is "35-choose" or "35-choose-chosen")
+            {
+                // Tell it pressed where no keyboard is offered: the product's own instructions, each a place of the page's four.
+                screen.Presets = WorkspaceText.PresetInstructions;
+                screen.MeasurePresets(WorkspaceText.PresetInstructions.Select(_ => 1).ToList(), new ChoiceBudget(RoomBar.ChoicesAPage));
+                if (state == "35-choose-chosen") screen.ChoosePreset(1);
+            }
             if (state == "33-ask-sending")
             {
                 // The answer went and no acknowledgement came back yet: it may still take effect.
@@ -273,7 +294,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4));
             var binding = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Open ? screen.Instruction.Words : "", new ConnectionStatus(ConnectionPhase.Live),
                 SelectedProject, ProductionSpine(workspace), new KitRowModel("workspace", LineWords.Ours("Move Workspace"), GlazeIcon.Move), roomDesign: true,
-                draftSpoken: screen.Instruction.Open && screen.Instruction.Spoken, requestRows: requestRows);
+                draftSpoken: screen.Instruction.Open && screen.Instruction.Spoken, requestRows: requestRows, chooses: choosing);
             if (binding == null)
             {
                 shot.Failures.Add("the kit has no binding to this frame");
@@ -349,6 +370,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(Mathf.Abs(row[index].Core.y - RoomType.Units(RoomButton.HeightDp)) < Tolerance, row[index].name + "'s core is not the hand target");
                         Whole(row[index].Words, row[index].name + "'s words");
                         Require(row[index].Words.text == LabelText.ForTextMeshPro(shown.Row[index].Words), row[index].name + " reads \"" + row[index].Words.text + "\"");
+                        // Where no keyboard is offered, the action that would open it says what it opens instead.
+                        if (shown.Row[index].Place == KitPlace.Field) Require(shown.Row[index].Words == (choosing ? RoomBar.ChooseInstruction : RoomBar.Type), "the row's second action reads \"" + shown.Row[index].Words + "\"");
                     }
                     for (var index = 1; index < row.Count; index++)
                     {
@@ -368,6 +391,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(shown.Wide || Mathf.Abs(panel.Size.x - RoomType.Units(RoomGeometry.PanelDp)) < Tolerance, "the panel is not 440 dp wide");
                     Whole(bar.Body, "the panel's words");
                     Require(asking || questioning || bar.Body.text.Length == 0 || bar.Body.text.Contains(BarDraft.Substring(0, 20)), "the panel does not hold the person's words");
+                    if (choosing)
+                    {
+                        // The product's own instructions by their short names, each with its mark, the chosen one checked; the way on only once one is chosen.
+                        var names = shown.Column.Where(action => action.Mark != AnswerMark.None).Select(action => action.Words).ToList();
+                        Require(names.SequenceEqual(WorkspaceText.PresetInstructions.Select(preset => preset.Label)), "the instructions offered read " + string.Join(", ", names));
+                        Require(shown.Wide && shown.Band == null && host.Band.Words == null, "the offered instructions stand beside a panel or a band");
+                        Require(shown.Column.Any(action => action.Main) == (state == "35-choose-chosen"), state == "35-choose-chosen" ? "no way on with an instruction chosen" : "a way on before an instruction is chosen");
+                        Require(shown.Column.Count(action => action.Chosen) == (state == "35-choose-chosen" ? 1 : 0), "the chosen mark does not follow the choice");
+                    }
                     Require(bar.BodyWaits == (shown.Waits && shown.Sentence == null && !shown.Mono), "the panel's one line does not sweep with the state under way");
                     if (questioning)
                     {
@@ -379,9 +411,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
                             Require(!(label.text ?? "").Contains(prompt.Substring(0, 16)), "the agent's words stand off the band, in " + label.name);
                         Require(band.transform.localPosition.y < bar.transform.localPosition.y - bar.Size.y / GlazeText.Scale / 2f + 1e-4f, "the band does not hang under the pair's foot line");
-                        var parted = state is "34-question-long" or "34-question-tall";
+                        var parted = state is "34-question-long" or "34-question-tall" or "34-question-stop";
+                        // Stopping never waits for reading: a frame that offers Stop is drawn at once, its prompt's later parts unread.
+                        var stops = state == "34-question-stop";
                         Require((bar.BandNextButton != null) == parted, parted ? "no way to the band's next part" : "a way to a next part the band does not have");
-                        Require((drawnFrames == 0) == parted, parted ? "a question still holding an unread part was reported drawn" : "the question's frame was not reported drawn");
+                        Require((drawnFrames == 0) == (parted && !stops), stops ? "a frame offering Stop waits for the band to be read" : parted ? "a question still holding an unread part was reported drawn" : "the question's frame was not reported drawn");
+                        if (stops) Require(shown.Column.Any(action => action.Place == KitPlace.Stop), "no Stop on a question that cannot be answered");
                         if (parted) Require(bar.BandNextButton!.LookNow() == RoomButtonLook.Main && band.Words!.Next == bar.BandNextButton.Words.text.Replace("\\\\", "\\"), "the next part is not the way on, in the band's words");
                     }
                     if (armedWords != null)

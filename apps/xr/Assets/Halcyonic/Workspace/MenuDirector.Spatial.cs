@@ -102,7 +102,8 @@ namespace Halcyonic.XR.Workspace
             return KitFileBinding.Of(frame, file.Steering.Armed, now, file.Screen.Instruction.Open ? file.Screen.Instruction.Words : "",
                 setup.Session()?.Status ?? ConnectionStatus.Stopped, name, spine, new KitRowModel("workspace", LineWords.Ours("Move Workspace"), GlazeIcon.Move),
                 selectors: selectors, roomDesign: RoomDesign.Enabled, draftSpoken: file.Screen.Instruction.Open && file.Screen.Instruction.Spoken,
-                requestRows: file.Steering.ToRead(now) is string read && file.Screen.Measured(file.Steering, read) ? file.Screen.RequestRows : (int?)null);
+                requestRows: file.Steering.ToRead(now) is string read && file.Screen.Measured(file.Steering, read) ? file.Screen.RequestRows : (int?)null,
+                chooses: file.ChoosesInstruction);
         }
 
         private RuntimeDescriptor? CurrentKitRuntime(WorkspacePresentation? now = null)

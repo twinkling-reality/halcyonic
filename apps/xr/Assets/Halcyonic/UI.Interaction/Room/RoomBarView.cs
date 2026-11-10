@@ -439,7 +439,33 @@ namespace Halcyonic.XR.UI
             body.gameObject.SetActive(false);
             request.gameObject.SetActive(false);
             Set(reading, bar.Body, bar.Mono);
+            if (bar.Lines != null && !bar.Mono)
+            {
+                // The file's own lines, each on a line of its own, literal: no line then ends in a separator (WORDS rule 2).
+                GlazeRuns.Of(reading).Set(LineWords.None);
+                reading.richText = false;
+                reading.parseCtrlCharacters = true;
+                reading.text = string.Join("\n", bar.Lines.Select(each => each.ForTextMeshPro().Text));
+            }
             var laid = KitType.Lay(reading, wordsWidth, 200);
+            // Halcyonic's own words break only between segments and drop the dot there (WORDS rule 2): where a line would end
+            // in the separator, the break stands in its place. Only where no outside words stand in the label, whose places
+            // in its text a changed text would move.
+            if (!bar.Mono && bar.Part == null && GlazeRuns.Of(reading).Theirs.Count == 0)
+                for (var pass = 0; pass < 8; pass++)
+                {
+                    var info = reading.textInfo;
+                    var at = -1;
+                    for (var index = 0; index < info.lineCount - 1 && at < 0; index++)
+                    {
+                        var last = info.characterInfo[info.lineInfo[index].lastVisibleCharacterIndex];
+                        if (last.character == '·') at = last.index;
+                    }
+                    var text = reading.text;
+                    if (at < 1 || at + 1 >= text.Length || text[at - 1] != ' ' || text[at + 1] != ' ') break;
+                    reading.text = text.Substring(0, at - 1) + "\n" + text.Substring(at + 2);
+                    laid = KitType.Lay(reading, wordsWidth, 200);
+                }
             var from = bar.Part?.FromRow ?? 0;
             var most = bar.Part != null ? bar.Part.Rows : bar.Mono ? RoomBar.RequestLines : int.MaxValue;
             if (from > 0 || reading.textInfo.lineCount > most)
