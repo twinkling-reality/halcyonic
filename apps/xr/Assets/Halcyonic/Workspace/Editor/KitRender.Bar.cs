@@ -65,6 +65,9 @@ namespace Halcyonic.XR.Workspace.Editor
         /// </summary>
         private static readonly string[] WorkStates = { "36-work", "36-work-row", "36-stop-confirm" };
 
+        /// <summary>A page of the file with no moment of its own, drawn by the general rule (RoomBar.OfFrame): Checks while its answer is read.</summary>
+        private static readonly string[] PageStates = { "37-page" };
+
         /// <summary>The file the agent edits in the at-work state, synthetic.</summary>
         private const string WorkFile = "src/score.js";
 
@@ -157,6 +160,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var choosing = ChooseStates.Contains(state);
             var (voice, sent, expected, caption) = state switch
             {
+                "37-page" => (VoiceStage.Idle, false, RoomBarState.Page, "A page with no moment of its own: its line in the panel, its actions in the column, synthetic data"),
                 "36-work" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work: the field, the agent's cursor saying its step, Stop alone, synthetic data"),
                 "36-work-row" => (VoiceStage.Idle, false, RoomBarState.Rest, "At work where the agent still takes an instruction: the row under the foot line, synthetic data"),
                 "36-stop-confirm" => (VoiceStage.Idle, false, RoomBarState.Confirm, "Stop pressed: the file's question, Confirm behind its lock, and Cancel, synthetic data"),
@@ -217,7 +221,7 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             var steering = new WorkspaceSteering(factory, () => DateTimeOffset.UtcNow);
             if (state == "36-stop-confirm" && steering.Press(WorkspaceAction.Interrupt, workspace).Step != SteeringStep.Confirm) shot.Failures.Add("Stop did not ask for its confirmation");
-            var screen = new FileScreen { Section = asking || questioning ? FileSection.Waiting : FileSection.Activity, Speak = true };
+            var screen = new FileScreen { Section = asking || questioning ? FileSection.Waiting : state == "37-page" ? FileSection.Checks : FileSection.Activity, Speak = true };
             // The host stands first: under a confirmation the file counts what is read by the panel's own lines, as the director has it do.
             var host = KitWorkspaceHost.Create(root);
             int? requestRows = null;
@@ -346,6 +350,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 draftSpoken: screen.Instruction.Open && screen.Instruction.Spoken, requestRows: requestRows, chooses: choosing,
                 asking: screen.Question.Draft != null && !screen.Question.Reviewing ? screen.Question.Prompt : (int?)null,
                 writing: screen.Question.Writing ? screen.Question.Input : null);
+            // As the director does: a frame the task's binding has no place for is carried plain where a reader of the redesign takes it.
+            if (binding == null && state == "37-page" && RoomBar.OfFrame(frame, VoiceStage.Idle) != null) binding = KitFileBinding.PlainOf(frame);
             if (binding == null)
             {
                 shot.Failures.Add("the kit has no binding to this frame");
@@ -459,6 +465,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require((shown.Row.Count > 0) == (state == "36-work-row"), state == "36-work-row" ? "the row does not stand though the agent takes an instruction" : "a row stands though nothing can be sent");
                     if (shown.Row.Count > 0)
                         Require(Mathf.Abs(bar.Foot - (bar.Talk.transform.localPosition.y - RoomType.Units(RoomButton.HeightDp) / 2f) - RoomType.Units(RoomBarView.RowFeetDp)) < Tolerance, "the row's feet are not 94.4 dp under the foot line");
+                }
+                if (state == "37-page")
+                {
+                    // The page's own line in the panel and nothing else; its prompt, the file's other sections and Close in the column, each the frame's own.
+                    Require(binding.Plain && shown.FromMoment, "the page is not read by the general rule");
+                    Require(bar.Body.GetParsedText() == FileScreens.StillReading(FileSection.Checks) && shown.Band == null && shown.Sentence == null, "the panel reads \"" + bar.Body.GetParsedText() + "\"");
+                    Require(shown.Column.Count == 5 && shown.Column[0].Control.Action == FileScreens.Refresh && shown.Column[4].Control.Action == Footer.Close
+                        && shown.Column.Count(action => action.Place == KitPlace.Section) == 3 && !shown.Column.Any(action => action.Main), "the column holds " + string.Join(", ", shown.Column.Select(action => action.Words)));
+                    Require(shown.Column.All(action => ReferenceEquals(action.Control.Frame, frame)), "an action is not the frame's own");
                 }
                 if (state == "36-stop-confirm")
                     Require(shown.Sentence + KitMomentWords.Dot + bar.Body.GetParsedText() == steering.Prompt(workspace) && shown.Column.Count == 2 && shown.Column[0].Locks,

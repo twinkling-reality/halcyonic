@@ -82,6 +82,17 @@ namespace Halcyonic.XR.Workspace
         /// (WorkspaceContextView): the connection state under Projects, the same up to three projects, More projects past
         /// three, Tasks, and Workspace at its foot. Null where the kit is off or can't draw the frame.
         /// </summary>
+        /// <summary>
+        /// For the redesign: the frame of the column beside the menu, where the task's binding has none for it (a page of
+        /// the file with no place of its own, or another column's frame, as New Project's steps) and a reader of the
+        /// redesign takes it (<see cref="RoomBar.OfFrame"/>). Null otherwise, and the older view draws the frame.
+        /// </summary>
+        private KitFileBinding? PlainBindingOf()
+        {
+            if (!KitWorkspaceHost.Enabled || !RoomDesign.Enabled || !SeparateWorkspace || navigator.IsCompact || navigator.Beside?.Frame is not MenuFrame frame) return null;
+            return RoomBar.OfFrame(frame, VoiceStage.Idle) != null ? KitFileBinding.PlainOf(frame) : null;
+        }
+
         private KitFileBinding? KitBindingOf(FileColumn? file, IReadOnlyList<ProjectView> choices, string? selected)
         {
             if (!KitWorkspaceHost.Enabled || file?.Frame is not MenuFrame frame || file.Now is not WorkspacePresentation now) return null;
@@ -147,7 +158,7 @@ namespace Halcyonic.XR.Workspace
                 contextProject = selected; contextChoices = identities;
             }
             plane.ContextProjects = choices; plane.ContextSelectedProject = selected; plane.ContextBinding = contextOwner;
-            plane.KitBinding = KitBindingOf(activeFile, choices, selected);
+            plane.KitBinding = KitBindingOf(activeFile, choices, selected) ?? PlainBindingOf();
         }
 
         private bool ContextStanding(object owner)
@@ -203,7 +214,7 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Host pressed on the kit's composer: it changes what runs only where the binding says a press can; a locked chip is a fact.</summary>
         private void OnKitEnvironmentPressed()
         {
-            if (!KitStanding() || plane.KitBinding?.Model.EnvironmentChangeable != true) return;
+            if (!KitStanding() || plane.KitBinding is not { Plain: false, Model: { EnvironmentChangeable: true } }) return;
             var current = CurrentKitRuntime();
             setup.Presentation.CycleEnvironment(State?.Runtimes, current?.RuntimeId);
             (navigator.Beside as FileColumn)?.Reflow();
@@ -218,7 +229,7 @@ namespace Halcyonic.XR.Workspace
 
         private void OnKitAgentPressed()
         {
-            if (!KitStanding() || plane.KitBinding?.Model.AgentChangeable != true || State?.Runtimes is not IReadOnlyList<RuntimeDescriptor> runtimes) return;
+            if (!KitStanding() || plane.KitBinding is not { Plain: false, Model: { AgentChangeable: true } } || State?.Runtimes is not IReadOnlyList<RuntimeDescriptor> runtimes) return;
             var current = CurrentKitRuntime();
             var execution = (navigator.Beside as FileColumn)?.Now?.Execution;
             var currentModelRef = setup.Presentation.SelectedModelRef

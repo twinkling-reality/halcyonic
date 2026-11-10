@@ -2673,8 +2673,24 @@ The last unit turns it on by default and removes the kit parts it replaced.
   the offered instructions are the first (`RoomBar.Choose.cs`). It shows only parts that exist (the row, the pair of
   panel and column, the band) by answering in one of the forms `RoomBarState` names, and every action it shows is a
   control of the frame's, so a press raises the frame's own action through the same path as any other. The host takes
-  a moment's pair where its column holds no more than six actions (`KitWorkspaceHost.Holds`). A frame the binding
-  does not bind (a side panel, an armed Stop, New Project's steps, the menu's places) reaches no moment yet.
+  a moment's pair where its column holds no more than six actions (`KitWorkspaceHost.Holds`).
+- **Frames the binding does not bind.** Where the task's binding has no place for the frame of the column beside the
+  menu (a page of the file with no moment of its own, or another column's frame, as New Project's steps), the
+  director carries the frame plain (`MenuDirector.PlainBindingOf`, `KitFileBinding.PlainOf`: no control, no task's
+  model) wherever a reader of the redesign takes it, and `RoomBar.Of` reads it off the frame itself
+  (`RoomBar.OfFrame`). The readers stand in `RoomBar.Frames.cs`, asked in order, each one static function
+  `(MenuFrame frame, VoiceStage voice)` in a partial of `RoomBar` in a file of its own, with one line in that list;
+  each makes its controls from the frame's own lines and prompts, so a press raises the frame's own action through
+  the same path as any other. Last stands the general rule (`RoomBar.Page`, `RoomBarState.Page`): Halcyonic's lines
+  in the panel, each on its own line (a name from outside inside one of its sentences stays with the sentence); the
+  one line wholly of outside words, or an agent's claim, on the band, never in the panel; what keeps the main action
+  waiting in the sentence; and in the column the main action, the lines that act, the other prompts, the sections
+  reached and not showing, then the ways out, a confirmation's Yes behind its lock. It answers only where it shows
+  everything the frame holds, so nothing counts as read that no one saw: not for a side panel, a line that is a
+  field, a text cut in parts, a fact beside a line, a line that acts but cannot now, a held prompt, or a second line
+  of outside words; and the host holds its pair only up to six actions. There the older view still draws the frame.
+  The menu's own places (Tasks, Projects, Usage, Settings) are not beside the menu and reach no reader. Checks:
+  `37-page` (the file's Checks while its answer is read) and `RoomPageTests`.
 - **The level is the microphone's** (the lead's truth rule): `HoldToTalk` reads the last 50 ms it recorded every 50 ms
   into `LevelHistory` (client core: the RMS, -54 to -12 dBFS, 26 bars, newest at the right), and Listening draws 26 bars
   of it 4 dp after its words inside its halo, drawn once and scaled so a frame draws nothing. A release build records

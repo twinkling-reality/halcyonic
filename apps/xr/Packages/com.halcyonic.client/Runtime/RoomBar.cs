@@ -46,6 +46,12 @@ namespace Halcyonic.Client
         /// </summary>
         Choose,
 
+        /// <summary>
+        /// A frame with no moment of its own, by the general rule (<see cref="RoomBar.OfFrame"/>): Halcyonic's lines in the
+        /// panel, the frame's actions in the column, a line of outside words on the band.
+        /// </summary>
+        Page,
+
         /// <summary>"Sending", then "Sent · Awaiting Start", words alone, sweeping: the instruction went and the run has not started.</summary>
         Sent,
 
@@ -214,7 +220,7 @@ namespace Halcyonic.Client
         public KitControl? Field { get; }
 
         /// <summary>Whether the pair (the panel and its column) shows.</summary>
-        public bool Pair => State is RoomBarState.Draft or RoomBarState.Confirm or RoomBarState.Request or RoomBarState.Question or RoomBarState.Choose;
+        public bool Pair => State is RoomBarState.Draft or RoomBarState.Confirm or RoomBarState.Request or RoomBarState.Question or RoomBarState.Choose or RoomBarState.Page;
 
         /// <summary>The words of the action that opens the offered instructions where no keyboard is offered: the product's own.</summary>
         public const string ChooseInstruction = FileScreens.ChooseAnInstruction;
@@ -356,6 +362,8 @@ namespace Halcyonic.Client
         /// </summary>
         public static RoomBar Of(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart)
         {
+            // A frame the task's binding does not bind is read off the frame itself (RoomBar.Frames).
+            if (binding.Plain) return OfFrame(binding.Frame, voice) ?? new RoomBar(RoomBarState.Hidden);
             var tasks = Tasks(binding, voice, sentAwaitingStart);
             // What waits on the person, and what was sent, always stands: no moment is asked over an approval, a question,
             // a confirmation or Sent (AUDIT, 2026-11-10).
