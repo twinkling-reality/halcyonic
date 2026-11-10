@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using System.Linq;
+using Halcyonic.Contracts;
 using NUnit.Framework;
 
 namespace Halcyonic.Client.Tests;
@@ -214,5 +215,115 @@ public sealed class RoomAgentTests
         Assert.That(RoomBar.AgentWords("Glimmer 30B", null), Is.EqualTo("Glimmer 30B"), "a run whose record carries no level names the agent alone");
         Assert.That(RoomBar.AgentWords(null, true), Is.Null);
         Assert.That(RoomBar.AgentWords("  ", false), Is.Null);
+        Assert.That(RoomBar.AgentRuns("Glimmer 30B", true)!.Text, Is.EqualTo("Glimmer 30B · Never Ask"), "the same words, the name marked as the runtime's own");
+        Assert.That(RoomBar.AgentRuns("Glimmer 30B", null)!.Text, Is.EqualTo("Glimmer 30B"));
+        Assert.That(RoomBar.AgentRuns(null, false), Is.Null);
+    }
+
+    // The offer built from the computer's runtimes and the person's choice, and the third action at rest.
+
+    private static RuntimeDescriptor Runtime(string id, bool? offersNeverAsk, bool listsModels = false) => new()
+    {
+        RuntimeId = id, Kind = id, DisplayName = id, Synthetic = false, OffersNeverAsk = offersNeverAsk, ModelChoice = listsModels ? ModelChoice.Listed : default,
+        Capabilities = new RuntimeCapabilities { StartExecution = true, InstructAtRest = true, InstructWhileRunning = true, Interrupt = true },
+    };
+
+    private static readonly RuntimeDescriptor Plain = Runtime("plain", offersNeverAsk: null);
+    private static readonly RuntimeDescriptor Lister = Runtime("lister", offersNeverAsk: true, listsModels: true);
+    private static readonly RuntimeModel[] Listed = { new() { ModelRef = "tide-12b", DisplayName = "Tide 12B" }, new() { ModelRef = "ember-7b", DisplayName = "Ember 7B" } };
+
+    private static IReadOnlyList<RuntimeModel>? ModelsOf(string runtimeId) => runtimeId == "lister" ? Listed : null;
+
+    [Test]
+    public void The_offer_lists_every_runtime_then_its_models_in_the_order_the_choice_turns_and_marks_the_chosen()
+    {
+        var offer = AgentOffer.Of("Tide 12B", new[] { Plain, Lister }, ModelsOf, "lister", "tide-12b", neverAskChosen: true)!;
+        Assert.That(offer.Options.Select(option => option.Key), Is.EqualTo(new[]
+        {
+            AgentOffer.KeyOf("plain", null), AgentOffer.KeyOf("lister", null), AgentOffer.KeyOf("lister", "tide-12b"), AgentOffer.KeyOf("lister", "ember-7b"),
+        }));
+        Assert.That(offer.Options.Select(option => option.Name), Is.EqualTo(new[]
+        {
+            KitPresenter.AgentOf(Plain, null, null), KitPresenter.AgentOf(Lister, null, null), KitPresenter.AgentOf(Lister, null, CaptureNames.ModelName("Tide 12B")),
+            KitPresenter.AgentOf(Lister, null, CaptureNames.ModelName("Ember 7B")),
+        }));
+        Assert.That(offer.Options.Select(option => option.Chosen), Is.EqualTo(new[] { false, false, true, false }));
+        Assert.That((offer.Agent, offer.ListsModels, offer.OffersNeverAsk, offer.NeverAsk, offer.Chooses), Is.EqualTo(("Tide 12B", true, true, true, true)));
+        Assert.That(AgentOffer.Picked(offer.Options[2].Key), Is.EqualTo(("lister", (string?)"tide-12b")));
+        Assert.That(AgentOffer.Picked(offer.Options[0].Key), Is.EqualTo(("plain", (string?)null)));
+    }
+
+    [Test]
+    public void The_offers_level_is_never_ask_only_where_it_was_chosen_and_the_chosen_runtime_offers_it()
+    {
+        var onPlain = AgentOffer.Of("plain", new[] { Plain, Lister }, ModelsOf, "plain", null, neverAskChosen: true)!;
+        Assert.That((onPlain.OffersNeverAsk, onPlain.NeverAsk, onPlain.ListsModels), Is.EqualTo((false, false, false)), "chosen for the project, but this runtime does not offer it: the next start asks");
+        Assert.That(onPlain.Options.Single(option => option.Chosen).Key, Is.EqualTo("plain"));
+        var notChosen = AgentOffer.Of("lister", new[] { Plain, Lister }, ModelsOf, "lister", null, neverAskChosen: false)!;
+        Assert.That((notChosen.OffersNeverAsk, notChosen.NeverAsk, notChosen.ListsModels), Is.EqualTo((true, false, false)));
+        Assert.That(AgentOffer.Of("lister", new[] { Plain, Lister }, ModelsOf, "gone", null, false), Is.Null, "a chosen runtime the computer no longer has: no page");
+        Assert.That(AgentOffer.Of(null, new[] { Plain }, ModelsOf, "plain", null, false), Is.Null);
+        Assert.That(AgentOffer.Of("plain", null, ModelsOf, "plain", null, false), Is.Null);
+        var alone = AgentOffer.Of("plain", new[] { Plain }, ModelsOf, "plain", null, false)!;
+        Assert.That(alone.Chooses, Is.False, "one runtime, no models, no level: nothing to choose");
+    }
+
+    private static KitFileBinding AtRest(KitSelectors? selectors, ApprovalLevel? recorded = null, params WorkspaceAction[] actions)
+    {
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; execution.ApprovalLevel = recorded; }, WorkstreamStatus.Running);
+        var running = work.Present();
+        var offered = actions.Length > 0 ? actions : new[] { WorkspaceAction.Instruct, WorkspaceAction.Interrupt };
+        var workspace = new WorkspacePresentation(running.Character, running.Objective, running.Execution, running.Runtime, offered,
+            offered.Where(running.RequiresConfirmation).ToList(), running.Commands, new ActivityEntry[0]);
+        var steering = new WorkspaceSteering(new CommandFactory(Samples.Client));
+        var frame = FileScreens.Screen(workspace, steering, new FileScreen { Section = FileSection.Activity, Speak = true }, new AnswerRoom(4));
+        return KitFileBinding.Of(frame, steering.Armed, workspace, "", new ConnectionStatus(ConnectionPhase.Live), "Storefront",
+            new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true, selectors: selectors)!;
+    }
+
+    [TestCase(false, "Glimmer 30B · Ask First")]
+    [TestCase(true, "Glimmer 30B · Never Ask")]
+    public void At_rest_the_row_gains_the_action_that_opens_the_agents_page_reading_the_level_the_next_start_carries(bool neverAsk, string words)
+    {
+        var plain = RoomBar.Of(AtRest(null), VoiceStage.Idle, sentAwaitingStart: false);
+        Assume.That(plain.State, Is.EqualTo(RoomBarState.Rest));
+        Assert.That((plain.Row.Count, plain.FromMoment), Is.EqualTo((2, false)), "nothing to choose: the task's own row");
+        var binding = AtRest(new KitSelectors(null, false, "Glimmer 30B", agentChangeable: true, offersNeverAsk: true, neverAsk: neverAsk));
+        var rest = RoomBar.Of(binding, VoiceStage.Idle, sentAwaitingStart: false);
+        Assert.That((rest.State, rest.Pair, rest.FromMoment), Is.EqualTo((RoomBarState.Rest, false, true)));
+        Assert.That(rest.Row.Take(2).Select(action => (action.Place, action.Words, action.Main)), Is.EqualTo(plain.Row.Select(action => (action.Place, action.Words, action.Main))),
+            "Hold to Talk and Type stand as they did");
+        var open = rest.Row[2];
+        Assert.That((open.Words, open.Main, open.Place, open.Control.Action, open.Control.Key), Is.EqualTo((words, false, KitPlace.Step, AgentColumn.Open, (string?)null)));
+        Assert.That(ReferenceEquals(open.Control.Frame, binding.Frame), "its press belongs to the file's own frame");
+    }
+
+    [Test]
+    public void At_rest_a_runtime_with_no_level_names_the_agent_alone_and_nothing_to_choose_adds_no_action()
+    {
+        var changeable = RoomBar.Of(AtRest(new KitSelectors(null, false, "Glimmer 30B", agentChangeable: true)), VoiceStage.Idle, sentAwaitingStart: false);
+        Assert.That(changeable.Row.Count, Is.EqualTo(3));
+        Assert.That((changeable.Row[2].Words, changeable.Row[2].Icon), Is.EqualTo(("Glimmer 30B", (GlazeIcon?)GlazeIcon.CodeFile)));
+        var offersOnly = RoomBar.Of(AtRest(new KitSelectors(null, false, "Glimmer 30B", agentChangeable: false, offersNeverAsk: true, neverAsk: false)), VoiceStage.Idle, sentAwaitingStart: false);
+        Assert.That(offersOnly.Row[2].Words, Is.EqualTo("Glimmer 30B · Ask First"), "one agent, a level to choose");
+        var nothing = RoomBar.Of(AtRest(new KitSelectors(null, false, "Glimmer 30B")), VoiceStage.Idle, sentAwaitingStart: false);
+        Assert.That((nothing.Row.Count, nothing.FromMoment), Is.EqualTo((2, false)));
+        var unnamed = RoomBar.Of(AtRest(new KitSelectors(null, false, null, agentChangeable: true, offersNeverAsk: true)), VoiceStage.Idle, sentAwaitingStart: false);
+        Assert.That(unnamed.Row.Count, Is.EqualTo(2), "no agent to name: no action");
+    }
+
+    [TestCase(ApprovalLevel.NeverAsk, "Glimmer 30B · Never Ask")]
+    [TestCase(ApprovalLevel.Ask, "Glimmer 30B · Ask First")]
+    public void While_the_agent_works_with_no_row_the_plate_reads_the_runs_own_level(ApprovalLevel recorded, string words)
+    {
+        // The choice for the next start says the other level: the plate reads the run's record.
+        var selectors = new KitSelectors(null, false, "Glimmer 30B", agentChangeable: true, offersNeverAsk: true, neverAsk: recorded != ApprovalLevel.NeverAsk);
+        var working = RoomBar.Of(AtRest(selectors, recorded, WorkspaceAction.Interrupt), VoiceStage.Idle, sentAwaitingStart: false);
+        Assume.That((working.Working, working.Row.Count), Is.EqualTo((true, 0)), "at work, its runtime taking no instruction");
+        Assert.That(working.Plate?.Text, Is.EqualTo(words));
+        Assert.That(working.FromMoment, Is.False, "the frame stays the task's own");
+        var rowed = RoomBar.Of(AtRest(selectors, recorded), VoiceStage.Idle, sentAwaitingStart: false);
+        Assert.That(rowed.Plate, Is.Null, "where the row stands there is no plate");
     }
 }

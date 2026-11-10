@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
 {
@@ -58,6 +59,50 @@ namespace Halcyonic.Client
 
         /// <summary>There is something to choose: a level, or another agent or model. Without either the action that opens the page is not drawn.</summary>
         public bool Chooses => OffersNeverAsk || Options.Count > 1;
+
+        /// <summary>
+        /// The offer as the computer's runtimes and the person's choice stand: every runtime that can start, then each
+        /// model it lists, in the order the agent's choice has always turned (<see cref="WorkspacePresentationState.NextAgent"/>),
+        /// each by the name the product shows it by, the chosen one marked. The level is never ask only where it was
+        /// chosen AND the chosen runtime offers it: what the page marks is what the next start carries (ADR 0043).
+        /// Null where there is no agent to name or the chosen runtime is not among them.
+        /// </summary>
+        /// <param name="agent">The agent as the file names it at rest (<see cref="KitPresenter.ChipsOf(WorkspacePresentation, string?)"/>'s agent).</param>
+        public static AgentOffer? Of(string? agent, IReadOnlyList<RuntimeDescriptor>? runtimes, Func<string, IReadOnlyList<RuntimeModel>?> modelsOf, string? chosenRuntimeId,
+            string? chosenModelRef, bool neverAskChosen)
+        {
+            if (string.IsNullOrWhiteSpace(agent) || runtimes == null) return null;
+            var chosen = runtimes.FirstOrDefault(runtime => runtime != null && runtime.RuntimeId == chosenRuntimeId);
+            if (chosen == null) return null;
+            var model = string.IsNullOrWhiteSpace(chosenModelRef) ? null : chosenModelRef;
+            var options = new List<AgentOption>();
+            foreach (var runtime in runtimes)
+            {
+                if (runtime == null || !runtime.Capabilities.StartExecution) continue;
+                var here = runtime.RuntimeId == chosen.RuntimeId;
+                if (KitPresenter.AgentOf(runtime, null, null) is string app) options.Add(new AgentOption(KeyOf(runtime.RuntimeId, null), app, here && model == null));
+                if (runtime.ModelChoice != ModelChoice.Listed) continue;
+                foreach (var listed in modelsOf(runtime.RuntimeId) ?? new RuntimeModel[0])
+                {
+                    if (listed == null) continue;
+                    var name = KitPresenter.AgentOf(runtime, null, CaptureNames.ModelName(listed.DisplayName ?? listed.ModelRef));
+                    if (name != null) options.Add(new AgentOption(KeyOf(runtime.RuntimeId, listed.ModelRef), name, here && model == listed.ModelRef));
+                }
+            }
+            return new AgentOffer(agent!, chosen.ModelChoice == ModelChoice.Listed && model != null, chosen.OffersNeverAsk == true, neverAskChosen, options);
+        }
+
+        /// <summary>An option's key: its runtime, and its model where it is one, parted by a character no id holds.</summary>
+        public static string KeyOf(string runtimeId, string? modelRef) => string.IsNullOrWhiteSpace(modelRef) ? runtimeId : runtimeId + KeyPart + modelRef;
+
+        /// <summary>The runtime and the model a picked option's key names.</summary>
+        public static (string RuntimeId, string? ModelRef) Picked(string key)
+        {
+            var at = key.IndexOf(KeyPart);
+            return at < 0 ? (key, null) : (key.Substring(0, at), key.Substring(at + 1));
+        }
+
+        private const char KeyPart = (char)0x1F;
     }
 
     /// <summary>

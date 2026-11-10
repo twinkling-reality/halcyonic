@@ -32,6 +32,32 @@ namespace Halcyonic.XR.UI
             return facts.Show(bar.Facts, width);
         }
 
+        private RoomTag? plate;
+
+        /// <summary>The plate that names the agent and its level while it works; null where none stands.</summary>
+        public RoomTag? Plate => plate != null && plate.gameObject.activeSelf ? plate : null;
+
+        /// <summary>
+        /// Stands the bar's plate (<see cref="RoomBar.Plate"/>) with its middle at <paramref name="at"/>, where the row stood,
+        /// or hides it where the bar has none. Never pressed: it is a name tag, not an action.
+        /// </summary>
+        private void LayPlate(RoomBar bar, Vector3 at)
+        {
+            if (bar.Plate is not LineWords said)
+            {
+                HidePlate();
+                return;
+            }
+            if (plate == null) plate = RoomTag.Create(transform);
+            plate.Show(said);
+            plate.transform.localPosition = at;
+        }
+
+        private void HidePlate()
+        {
+            if (plate != null) plate.Hide();
+        }
+
         /// <summary>Puts the rows where the body's words start: the panel's top left, inside its padding.</summary>
         private void PlaceFacts(Vector3 bodyAt)
         {
