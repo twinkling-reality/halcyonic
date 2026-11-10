@@ -1,6 +1,6 @@
 # ADR 0030: Workspace requests use a journaled agent tool loop
 
-- Status: Accepted design; implementation and end-to-end acceptance pending
+- Status: Accepted; built in the control plane and run end to end on local models with a real runtime (2026-11-10, [record](../validation/workspace-requests.md)); headset request UI, speech and device evidence pending
 - Date: 2026-10-12
 - Complements ADR 0025. The creation companion remains a separate, transient proposal flow.
 
@@ -75,3 +75,36 @@ with negative cases for malformed calls, changed context, revocation, response l
 restart. Independent review must examine authority and persistence. Headset speech, interruption,
 correction, contextual views and other-app return require device evidence. A passing protocol probe
 or a new request screen alone is not acceptance of the owner's end-to-end agent requirement.
+
+## Amendment, 2026-11-10: a request about a whole project, and the evidence of what a task did
+
+The owner asked for understanding of all kinds, for anyone (2026-11-10). Two gaps stood: a request
+had to name one task and its current execution, and its tools could not see what the Mac observed a
+task change, nor the project's check, so "what did it change and is it working" had no evidence to
+answer from.
+
+- A request may bind a project alone: `workspace.request.submit`'s `workstream_id` and
+  `execution_id` are both null or both set (admission refuses one without the other), as are the
+  request view's and the three request events' scope (a request scope of its own). A whole-project
+  request is read-only: it is offered `read_project`, `read_task` and `ask_person`, never
+  `continue_task` or `observe_task`; to act, the person opens the task.
+- `read_project` lists the project's tasks (at most 64) with their status, agent app, turns, what
+  waits for the person and the failed check sent back on its own (ADR 0044), and the project's
+  latest check. `read_task {index}` reads one task by its index in the list `read_project` last gave
+  this request; the host keeps that list for the request and refuses an index before it or outside
+  it. The model never names a task, so no target comes from model text. A task's request is not
+  offered them: the model's input is bounded at 12 KiB, and they cost room its own tools need.
+- The host's context at every wake of a task's request (`observed_by_the_mac`), and `read_task`, carry
+  the evidence the Mac observed: the files each turn created, changed and deleted (totals, and up to
+  12 paths, newest first), the project's latest check (each
+  step, page errors, whether the files changed since), the chain of ADR 0044, and the model the
+  runtime reported. It sits in the context, not only behind a tool, because the first real run asked
+  "what did it change, and is it working?" and the model answered from the agent's own messages
+  without reading it. `read_events` gives counts for the host's own task events. Paths and page errors
+  are outside text, marked as data. The system prompt asks for plain words, what the Mac saw and did
+  not, and "not checked" where there is no check.
+- Not decided here: a request across projects. It is proposed separately.
+- After work the request sent, the coordinator waits while the project's check is under way, or while a
+  turn's files are not yet read (its check may follow), and wakes when the check ends or the files are
+  read: "does it work" is answered from the Mac's check, never ahead of it. The first real run answered
+  five seconds before its check ended.

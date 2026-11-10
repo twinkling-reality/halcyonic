@@ -12,6 +12,8 @@ export const WORKSPACE_TOOL_ARGUMENTS = {
   observe_task: Type.Object({}, strict),
   ask_person: Type.Object({ message: Text(4000) }, strict),
   read_results: Type.Object({ before: Type.Optional(Position) }, strict),
+  read_project: Type.Object({}, strict),
+  read_task: Type.Object({ index: Type.Integer({ minimum: 0, maximum: 63 }) }, strict),
   read_result: Type.Object(
     {
       event_id: EventId,

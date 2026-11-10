@@ -1,5 +1,46 @@
 # Workspace request verification
 
+## 2026-11-10: What a task changed and whether it works, a whole project, on local models
+
+Setup: an isolated control plane on 127.0.0.1 with its own data directory, Codex 0.157.0 confined to a
+starter project, local Ollama models only, the assistant's model set by `HALCYONIC_COMPANION_MODEL`.
+No hosted model, no change to the owner's host. Each reply below was compared with the journal and the
+project's files.
+
+- The question "What did it change, and is it working?" on a task whose first turn added a cube and left a
+  type error that the host's fix chain then sent back (ADR 0044), fixed in one try, check passed:
+  - `qwen3.5:9b`, first build: one `read_workspace`, a reply whose facts were all true (cube, the type fix,
+    check passed) but which credited the agent's own words to the Mac. After the prompt told the two apart,
+    the model read no tool, answered from the agent's words alone and called the work unverified while the
+    check had passed. That is why the Mac's evidence now sits in the host context at every wake. With it the
+    reply named the passing check, type check and build; it still said both changes came "in the latest turn"
+    (they came in two) and left out the fix chain.
+  - `muse-glimmer:30b-mlx`: read the workspace, the providers (unavailable: `runtime_not_observed`), the
+    receipts and results; kept "the agent reports" apart from the Mac's check, named the fix chain, and
+    claimed nothing the journal or the file contradicts. 48 s.
+- A whole-project request, "What is going on in this project? Is it working?":
+  - `qwen3.5:9b`: one `read_project`; every fact true (one task, Codex, two turns, the check passed with the
+    files current), but it called the project "complete" three times out of three, also after statuses were
+    given to it as `turn_ended`. Nothing in Halcyonic marks a project complete.
+  - `muse-glimmer:30b-mlx`: `read_project` then `read_task {index: 0}`; facts true, provenance kept; it read
+    one key, `complete_read`, as "complete" (renamed `all_turns_read`).
+- A request that continues the task and observes it ("Make the cube blue ... then tell me whether it works"):
+  - `muse-glimmer:30b-mlx`: eight reads, no `continue_task`; interrupted at the planning bound. A failure.
+  - `qwen3.5:9b` on a task whose Codex thread did not survive a restart of the scratch host: `continue_task`
+    refused, `execution_unknown_to_runtime`; the reply said so truly. Threads are not reattached yet (CORE).
+  - `qwen3.5:9b` on a fresh task in the same host process: one `continue_task`, delivery confirmed, the native
+    turn observed to its end, a reply whose colour and line were true. It answered five seconds before the
+    host's automatic check of that turn ended, so it guessed "should work". The coordinator now waits, after
+    work it sent, while the project's check is under way or a turn's files are not yet read, and wakes when the
+    check ends. On the next run it replied two seconds after the check (passed, files current), with true facts,
+    yet said whether it works was not checked: the 9B model did not use the check it was given.
+
+Conclusion: the loop, the evidence, the project request and the wait for the check work with real models and a
+real runtime. Answer quality depends on the model: the 30B model answered both plain questions truly with
+provenance; the 9B model got every fact right but misread statuses and twice failed to use the check. The
+continue-and-observe exchange passed on the 9B model and failed on the 30B one. Not accepted here: the headset's
+request UI, speech, other-app return and device evidence (ADR 0030's own list).
+
 ## 2026-10-13: Typed recorded result reads
 
 The same approved synthetic edit/check witness now consumes observed final command and file-change

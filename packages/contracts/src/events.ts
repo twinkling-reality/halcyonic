@@ -176,6 +176,26 @@ function executionEvent<const T extends string, P extends TSchema>(eventType: T,
   );
 }
 
+/** A workspace request's scope: its task and execution, or neither for a whole-project request. */
+const RequestScope = {
+  project_id: ProjectId,
+  workstream_id: Nullable(WorkstreamId),
+  execution_id: Nullable(ExecutionId),
+};
+
+function requestEvent<const T extends string, P extends TSchema>(eventType: T, payload: P) {
+  return Type.Object(
+    {
+      ...EnvelopeBase,
+      ...RequestScope,
+      event_type: Type.Literal(eventType),
+      source: ControlPlaneSource,
+      payload,
+    },
+    strict,
+  );
+}
+
 function commandEvent<const T extends string, P extends TSchema>(eventType: T, payload: P) {
   return Type.Object(
     {
@@ -580,11 +600,11 @@ export const CommandFailed = commandEvent(
   ),
 );
 
-export const WorkspaceRequestCreated = executionEvent(
+export const WorkspaceRequestCreated = requestEvent(
   'workspace.request.created',
   Type.Object({ request: WorkspaceRequestView, principal: Nullable(Principal) }, strict),
 );
-export const WorkspaceRequestChanged = executionEvent(
+export const WorkspaceRequestChanged = requestEvent(
   'workspace.request.changed',
   Type.Object(
     {
@@ -595,7 +615,7 @@ export const WorkspaceRequestChanged = executionEvent(
     strict,
   ),
 );
-export const WorkspaceRequestStepRecorded = executionEvent(
+export const WorkspaceRequestStepRecorded = requestEvent(
   'workspace.request.step_recorded',
   Type.Object(
     {

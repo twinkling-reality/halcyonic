@@ -204,13 +204,17 @@ export const ExecutionInterruptCommand = defineCommand(
   Type.Object({ execution_id: ExecutionId }, strict),
 );
 
+/**
+ * A request about a project's task and its current execution, or, with both null, about the whole
+ * project, which is read-only (ADR 0030, amended 2026-11-10). Admission refuses one null without the other.
+ */
 export const WorkspaceRequestSubmitCommand = defineCommand(
   'workspace.request.submit',
   Type.Object(
     {
       project_id: ProjectId,
-      workstream_id: WorkstreamId,
-      execution_id: ExecutionId,
+      workstream_id: Nullable(WorkstreamId),
+      execution_id: Nullable(ExecutionId),
       text: Text(32000),
     },
     strict,

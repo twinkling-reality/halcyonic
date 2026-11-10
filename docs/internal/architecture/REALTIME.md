@@ -342,6 +342,11 @@ for privacy, capture and source-memory limits and the coordinator's separate bou
 
 ## Workspace request upgrade order
 
+Since 2026-11-10 `workspace.request.submit` may name a project alone (`workstream_id` and
+`execution_id` both null) for a read-only whole-project request; one null without the other is
+refused. A request view's and request events' task fields are then null, so clients that read them
+need the regenerated bindings first.
+
 The journaled general request coordinator adds `workspace.request.submit`, `.resume` and `.cancel`
 to every welcome policy catalogue, and adds request lifecycle events to realtime/history. An older
 generated C# client can reject these enum variants during welcome before a request is submitted.

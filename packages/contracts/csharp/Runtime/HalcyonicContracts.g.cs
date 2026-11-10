@@ -2442,11 +2442,11 @@ namespace Halcyonic.Contracts
         [JsonProperty("project_id", Required = Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("workstream_id", Required = Required.Always)]
-        public string WorkstreamId { get; set; } = default!;
+        [JsonProperty("workstream_id", Required = Required.AllowNull)]
+        public string? WorkstreamId { get; set; }
 
-        [JsonProperty("execution_id", Required = Required.Always)]
-        public string ExecutionId { get; set; } = default!;
+        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        public string? ExecutionId { get; set; }
 
         [JsonProperty("text", Required = Required.Always)]
         public string Text { get; set; } = default!;
@@ -2902,11 +2902,11 @@ namespace Halcyonic.Contracts
         [JsonProperty("project_id", Required = Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("workstream_id", Required = Required.Always)]
-        public string WorkstreamId { get; set; } = default!;
+        [JsonProperty("workstream_id", Required = Required.AllowNull)]
+        public string? WorkstreamId { get; set; }
 
-        [JsonProperty("execution_id", Required = Required.Always)]
-        public string ExecutionId { get; set; } = default!;
+        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        public string? ExecutionId { get; set; }
 
         [JsonProperty("original_text", Required = Required.Always)]
         public string OriginalText { get; set; } = default!;

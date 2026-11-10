@@ -68,8 +68,9 @@ export const WorkspaceRequestView = Type.Object(
     request_id: WorkspaceRequestId,
     journal_id: JournalId,
     project_id: ProjectId,
-    workstream_id: WorkstreamId,
-    execution_id: ExecutionId,
+    /** Null, with `execution_id`, for a request about the whole project, which is read-only. */
+    workstream_id: Nullable(WorkstreamId),
+    execution_id: Nullable(ExecutionId),
     original_text: Text(32000),
     status: WorkspaceRequestStatus,
     reply: Nullable(WorkspaceRequestReply),
