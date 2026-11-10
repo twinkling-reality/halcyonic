@@ -501,7 +501,11 @@ namespace Halcyonic.XR.UI
         /// <summary>Hold to talk pressed: it starts once held for the hold's time, with the frame's own prompt, as a held prompt does.</summary>
         private void OnTalkPressed()
         {
-            if (binding?[KitPlace.Talk] is not KitControl talk || !talk.Holds) return;
+            // The frame's own held prompt: the binding's, or, for a frame read off itself (New Project's pages), the one
+            // the redesign's view shows at Talk's place.
+            var talk = binding?[KitPlace.Talk]
+                ?? (RoomDesign.Enabled ? bar.Shown?.Column.Concat(bar.Shown.Row).FirstOrDefault(action => action.Place == KitPlace.Talk)?.Control : null);
+            if (binding == null || talk == null || !talk.Holds) return;
             held = binding.Frame.Footer.All.Select(each => each.Prompt).FirstOrDefault(prompt => prompt.Id == talk.Action);
             heldAt = held == null ? -1f : Time.unscaledTime;
             holding = false;
