@@ -224,6 +224,22 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     Draw();
                 }
+                // Confirm behind its lock: drawn locked and taking no press, then, its lock passed, one press. True when pressed.
+                bool ConfirmBehindLock(string what)
+                {
+                    Draw();
+                    if (!plane.KitShows || plane.Kit.Bar.Locking is not RoomButton locked || plane.Kit.Bar.ControlOf(locked) is not KitControl control) return false;
+                    var before = sent.Count;
+                    Moment(what + " confirm locked");
+                    locked.Press.SettleForRender();
+                    locked.Press.PressForRender(993);
+                    Draw();
+                    if (sent.Count != before) failures.Add("judge room: the " + what + "'s Confirm took a press behind its lock");
+                    plane.Kit.Bar.AgeLockForRender(RoomBar.ConfirmLockSeconds);
+                    Draw();
+                    Moment(what + " confirm");
+                    return Press(control.Action, control.Key);
+                }
                 // Where nothing took a press, the walk sends what a judge's press would have, so the recording moves on.
                 void SendInstead(string what, CommandEnvelope command)
                 {
@@ -302,8 +318,23 @@ namespace Halcyonic.XR.Workspace.Editor
                     var directed = Directed()!;
                     director.OpenFile(directed.WorkstreamId, FileSection.Waiting);
                     Moment("question");
-                    var answered = Press(FileScreens.Choose, "0") && Press(FileScreens.NextQuestion) && Press(FileScreens.SendAnswer)
-                        && sent.OfType<ExecutionAnswerQuestionCommand>().Any();
+                    // The prompt on the band, read to its last part where it pages.
+                    for (var part = 2; part < 8 && plane.KitShows && plane.Kit.Bar.BandNextButton is RoomButton turning; part++)
+                    {
+                        turning.Press.SettleForRender();
+                        turning.Press.PressForRender(992);
+                        Draw();
+                        Moment("question part " + part);
+                    }
+                    var answered = Press(FileScreens.Choose, "0");
+                    if (answered) Moment("answer chosen");
+                    if (sent.Count != 0) failures.Add("judge room: choosing an answer sent something");
+                    answered = answered && Press(FileScreens.NextQuestion);
+                    if (answered) Moment("answers reviewed");
+                    answered = answered && Press(FileScreens.SendAnswer);
+                    // Send Answer asks for its confirmation: Confirm behind its lock first, then its press sends the one answer.
+                    if (answered && !sent.OfType<ExecutionAnswerQuestionCommand>().Any()) answered = ConfirmBehindLock("answer");
+                    answered = answered && sent.OfType<ExecutionAnswerQuestionCommand>().Count() == 1;
                     if (!answered && DirectedRun()?.PendingQuestions.FirstOrDefault() is QuestionView question)
                         SendInstead("the answer", commands.AnswerQuestion(DirectedRun()!.ExecutionId, question.QuestionId,
                             question.Prompts.Select(prompt => new QuestionAnswer { Key = prompt.Key, Selected = prompt.Options.Take(1).Select(option => option.Label).ToList() })));
