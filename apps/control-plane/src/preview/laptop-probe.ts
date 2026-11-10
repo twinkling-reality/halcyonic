@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { CheckLaptop, CheckVr } from '@halcyonic/contracts';
 import type { ChromeRun, DevToolsPipe } from './chrome.ts';
 import { changedShare } from './png.ts';
+import { readNoLink } from './scan.ts';
 
 /**
  * The screen changed after a press when more than this share of its pixels did, while at most
@@ -39,7 +40,10 @@ export async function layerState(project: string, template: string): Promise<Che
     const info = await lstat(theirs).catch(() => null);
     if (info === null || info.isSymbolicLink() || !info.isFile() || info.size > 1024 * 1024)
       return 'missing';
-    const [a, b] = await Promise.all([readFile(theirs), readFile(join(template, 'src', file))]);
+    // Read through the handle that opened the file looked at, never a link swapped in after (AUDIT S3).
+    const a = await readNoLink(theirs, info, 1024 * 1024);
+    if (a === null) return 'missing';
+    const b = await readFile(join(template, 'src', file));
     const hash = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
     if (hash(a) !== hash(b)) changed = true;
   }

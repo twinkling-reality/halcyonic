@@ -9,11 +9,12 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { lstat, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { SCAN_LIMITS, scanSource } from './scan.ts';
+import { readNoLink, SCAN_LIMITS, scanSource } from './scan.ts';
 
 function project(t: TestContext, files: Record<string, string>): string {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-scan-')));
@@ -148,5 +149,50 @@ describe("the default world's pattern stays linear (AUDIT W1B-FIX-1)", () => {
     assert.deepEqual((await scanSource(root)).items, [
       { kind: 'default_world', file: 'src/index.ts', line: 1 },
     ]);
+  });
+});
+
+describe('a file the check reads is the one it looked at (AUDIT S3)', () => {
+  test('read through one handle opened without following a link, the same file it looked at', async (t) => {
+    const root = project(t, {
+      'src/game.ts': 'const a = 1;\n',
+      'elsewhere/game.ts': 'const b = 2;\n',
+    });
+    const path = join(root, 'src', 'game.ts');
+    const seen = await lstat(path);
+    assert.equal((await readNoLink(path, seen, 1024))?.toString('utf8'), 'const a = 1;\n');
+    // Swapped for another file after it was looked at: not the one it looked at.
+    writeFileSync(join(root, 'swap.ts'), 'const c = 3;\n');
+    await rename(join(root, 'swap.ts'), path);
+    assert.equal(
+      await readNoLink(path, seen, 1024),
+      null,
+      'a file swapped in after the look is not read',
+    );
+    // Swapped for a link at its end.
+    rmSync(path);
+    symlinkSync(join(root, 'elsewhere', 'game.ts'), path);
+    assert.equal(await readNoLink(path, seen, 1024), null, 'a link at the end is not followed');
+    // Larger than allowed, through the handle.
+    const big = join(root, 'elsewhere', 'game.ts');
+    assert.equal(
+      await readNoLink(big, await lstat(big), 4),
+      null,
+      'a file past the limit is not read',
+    );
+  });
+
+  test('a folder above the file swapped for a link leads nowhere', {
+    skip: process.platform !== 'darwin',
+  }, async (t) => {
+    const root = project(t, {
+      'src/level/game.ts': 'const a = 1;\n',
+      'elsewhere/game.ts': 'const b = 2;\n',
+    });
+    const path = join(root, 'src', 'level', 'game.ts');
+    const seen = await lstat(path);
+    rmSync(join(root, 'src', 'level'), { recursive: true });
+    symlinkSync(join(root, 'elsewhere'), join(root, 'src', 'level'));
+    assert.equal(await readNoLink(path, seen, 1024), null);
   });
 });
