@@ -213,7 +213,12 @@ createInterface({ input: process.stdin }).on('line', (line) => {
         return;
       }
       respond({
-        config: configured,
+        // FAKE_CODEX_MCP_FILE, when that file exists: the home names an MCP server, so one can
+        // appear while a thread runs.
+        config:
+          process.env.FAKE_CODEX_MCP_FILE && existsSync(process.env.FAKE_CODEX_MCP_FILE)
+            ? { ...configured, mcp_servers: { probe: { command: '/bin/true' } } }
+            : configured,
         origins: {},
         // FAKE_CODEX_LAYERS (a JSON array) plays the layers Codex reports from a folder.
         layers: params.includeLayers ? JSON.parse(process.env.FAKE_CODEX_LAYERS ?? '[]') : null,

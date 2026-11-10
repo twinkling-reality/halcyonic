@@ -325,6 +325,30 @@ describe('Codex never asking (ADR 0043)', () => {
     await asking.start('COMPLETE the work.');
   });
 
+  test('a thread that never asks is given up at resume when an MCP server appeared in the home (AUDIT step 2 S2)', async (t) => {
+    const mcp = join(temporary(t), 'mcp');
+    const { runtime, start, observations, received } = fake(
+      t,
+      [],
+      {},
+      { FAKE_CODEX_MCP_FILE: mcp },
+    );
+    await start('COMPLETE the work.', 'never_ask');
+    await until(() => observations.length === 4, 'the turn');
+    writeFileSync(mcp, 'on\n');
+    process.kill(runtime.serverPid ?? 0, 'SIGKILL');
+    await until(
+      () => observations.some((item) => item.type === 'runtime.connection.lost'),
+      'the loss',
+    );
+    const lost = observations.find((item) => item.type === 'runtime.connection.lost');
+    assert.match(
+      lost?.type === 'runtime.connection.lost' ? lost.payload.reason : '',
+      /only with no MCP servers/,
+    );
+    assert.ok(!received().some((message) => message.method === 'thread/resume'), 'resumed');
+  });
+
   test('a thread for which Codex reports never while asking was asked for is refused', async (t) => {
     const { start, observations } = fake(t, ['never']);
     await assert.rejects(start(), actionError('runtime_refused'));
