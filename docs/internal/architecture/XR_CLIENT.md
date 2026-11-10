@@ -2607,8 +2607,9 @@ The last unit turns it on by default and removes the kit parts it replaced.
   lock and Cancel; `execution.answer_question` goes only on that Yes, and while it may still take effect the panel
   reads Sending and no action stands. While the redesign draws the file, the file lays a question for it
   (`FileColumn.QuestionBudgetOf`, a `ChoiceBudget` of `RoomBar.ChoicesAPage`, four): every word counts one row, so no
-  question or answer is cut or sent to a side panel, and four choices make a page, more behind the file's More
-  Choices. A prompt longer than the band's three lines is read by parts there (the band's own Next Part · 2 of 3, the
+  question or answer is cut or sent to a side panel, and four places make a page, the row to write an answer and the
+  row to more choices each taking one, so a page never offers more than the column's six actions; more answers stand
+  behind the file's More Choices. A prompt longer than the band's three lines is read by parts there (the band's own Next Part · 2 of 3, the
   column's last action and the main one while the file offers no way on), and the host reports the frame drawn only
   once the band shows its last part, so the file takes the question as read only then. A page offering more than the
   column's six actions, the page that writes an answer and the page that explains two answers reading alike have no
@@ -2627,7 +2628,8 @@ The last unit turns it on by default and removes the kit parts it replaced.
   `33-ask-confirm-arriving` (the ring part filled, no press taken), `33-ask-confirm`, `33-ask-long`,
   `33-ask-long-part`, `33-ask-deny-only`, `33-ask-sending`, `33-ask-tool` and `33-ask-tool-confirm` for the approval: the request in mono, whole lines, the
   tool's name never in it, the sentence, the sweep, the lock and each press reaching the file's own control; and
-  `34-question`, `-review`, `-several`, `-more`, `-confirm`, `-sending` and `-long` for the question: the prompt on
+  `34-question`, `-review`, `-several`, `-more`, `-confirm`, `-sending`, `-long` and `-tall` (four wrapping answers under a
+  long prompt, the tallest page today's top-resting placement holds inside the field at the larger size) for the question: the prompt on
   the band and in no other label, the band under the pair's foot line, each mark and its check, no panel where the
   computer has nothing to say, and a long prompt's frame not reported drawn until its last part shows.
   `LevelHistoryTests` and `RoomBarTests` in the client suite; `FileColumnTests` drives the redesign's Approve and
