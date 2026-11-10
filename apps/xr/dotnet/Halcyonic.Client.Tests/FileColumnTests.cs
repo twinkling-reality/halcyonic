@@ -2551,6 +2551,7 @@ public class FileColumnTests
             // The product's own instructions by their short names, none chosen: no way on yet, and the way back.
             var offered = Bar();
             Assert.That((offered.State, offered.Wide), Is.EqualTo((RoomBarState.Choose, true)));
+            Assert.That(offered.FromMoment, Is.True, "the offered instructions are a moment of their own (RoomBar.Moments)");
             Assert.That(offered.Column.Select(action => (action.Words, action.Mark != AnswerMark.None, action.Chosen, action.Main)), Is.EqualTo(new[]
             {
                 ("Continue", true, false, false), ("Summarize", true, false, false), ("Run Checks Again", true, false, false), ("Cancel", false, false, false),

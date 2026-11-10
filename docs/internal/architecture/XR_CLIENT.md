@@ -2640,6 +2640,16 @@ The last unit turns it on by default and removes the kit parts it replaced.
   Choices where it pages them (each takes one of a page's four places, as an answer does); Review Instruction, the main
   action, once one is chosen; and Cancel. The press that chooses sends nothing: Review Instruction opens the draft
   with the very words, and they go only from there, by the file's own Send. A notice of the file's stands in the panel.
+- **Where a moment plugs in.** `RoomBar.Of` reads a bound frame in two steps: the task's own loop (`RoomBar.Tasks`:
+  the row at rest, talking, a draft, a confirmation, an approval, a question, what was sent), then the moments
+  outside that loop (`RoomBar.Moments`, in `RoomBar.Moments.cs`), asked in order with the binding, the voice and
+  what the loop made of the frame; the first that answers draws the frame, and its view says so (`FromMoment`). A
+  moment is one private static function in a partial of `RoomBar` in a file of its own, with one line in that list;
+  the offered instructions are the first (`RoomBar.Choose.cs`). It shows only parts that exist (the row, the pair of
+  panel and column, the band) by answering in one of the forms `RoomBarState` names, and every action it shows is a
+  control of the frame's, so a press raises the frame's own action through the same path as any other. The host takes
+  a moment's pair where its column holds no more than six actions (`KitWorkspaceHost.Holds`). A frame the binding
+  does not bind (a side panel, an armed Stop, New Project's steps, the menu's places) reaches no moment yet.
 - **The level is the microphone's** (the lead's truth rule): `HoldToTalk` reads the last 50 ms it recorded every 50 ms
   into `LevelHistory` (client core: the RMS, -54 to -12 dBFS, 26 bars, newest at the right), and Listening draws 26 bars
   of it 4 dp after its words inside its halo, drawn once and scaled so a frame draws nothing. A release build records

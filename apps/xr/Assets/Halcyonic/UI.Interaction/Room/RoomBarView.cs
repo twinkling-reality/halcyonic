@@ -20,7 +20,7 @@ namespace Halcyonic.XR.UI
     /// bar, Sending sweeping there once answered, and Confirm behind its lock, a ring that fills over
     /// <see cref="RoomBar.ConfirmLockSeconds"/>. It raises presses only; its owner turns them into the file's actions.
     /// </summary>
-    public sealed class RoomBarView : MonoBehaviour
+    public sealed partial class RoomBarView : MonoBehaviour
     {
         public const float LevelWidthDp = 150f;
         public const float LevelHeightDp = 28f;
