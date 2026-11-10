@@ -33,6 +33,19 @@ public class RecordedRunTests
         Assert.That(error!.Message, Does.Contain(because));
     }
 
+    /// <summary>The recorded run the judge build bundles, where it has one (ADR 0035): read as one, and naming no brand.</summary>
+    [Test]
+    public void TheBundledRecordedRunIsOneAndNamesNoBrand()
+    {
+        var path = Repository.PathTo("apps/xr/Assets/Halcyonic/Resources/HalcyonicRecordedRun.json");
+        if (!File.Exists(path)) Assert.Ignore("this build bundles no recorded run");
+        var text = File.ReadAllText(path);
+        Assert.That(DemonstrationRecording.Parse(text).IsRecordedRun, Is.True);
+        var words = ((JContainer)JToken.Parse(text)).Descendants().OfType<JValue>().Where(value => value.Type == JTokenType.String)
+            .Select(value => (string)value!).ToList();
+        Assert.That(JudgeWordsTests.Branded(words), Is.Empty);
+    }
+
     [Test]
     public void ARecordedRunIsReadAsOneAndHoldsNothingSimulated()
     {
