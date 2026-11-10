@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { realpathSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { readFileSync, realpathSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, sep } from 'node:path';
 
 /** Where macOS keeps the sandbox launcher; never looked up on PATH. */
 export const SANDBOX_EXEC = '/usr/bin/sandbox-exec';
@@ -414,6 +414,37 @@ const TOOL_SUBFOLDERS = ['Cellar', 'opt', 'lib', 'bin', 'libexec', 'share'] as c
 /** macOS's Perl library: nothing of the person's, read so the system Perl runs. */
 const SYSTEM_PERL = '/System/Library/Perl';
 
+/**
+ * The git data a folder needs from outside itself (BOX), read only: when its `.git` is a file naming
+ * a worktree's (`<repository>/.git/worktrees/<name>`) or a submodule's (`<repository>/.git/modules/...`)
+ * folder, that folder and the repository's `.git` it lives in, which holds the objects and refs it
+ * shares. None for a folder that is its own repository, has no `.git`, or names any other shape, so a
+ * `.git` file cannot open an arbitrary folder: git then fails inside the profile, in its own words.
+ */
+export function gitDataOutside(folder: string): string[] {
+  let pointer: string;
+  try {
+    pointer = readFileSync(join(folder, '.git'), 'utf8');
+  } catch {
+    // No .git, or a folder: its own repository, nothing outside.
+    return [];
+  }
+  const named = /^gitdir: (.+)$/m.exec(pointer)?.[1]?.trim();
+  if (named === undefined || named === '') return [];
+  const own = resolved(isAbsolute(named) ? named : join(folder, named));
+  const parts = own.split(sep);
+  const at = parts.lastIndexOf('.git');
+  const kind = parts[at + 1];
+  if (at < 1 || (kind !== 'worktrees' && kind !== 'modules') || parts.length < at + 3) return [];
+  const common = parts.slice(0, at + 1).join(sep);
+  const project = resolved(folder);
+  // Nothing of the folder's own, and never a folder holding it.
+  if (project === common || project.startsWith(`${common}${sep}`) === false) {
+    return [common, own];
+  }
+  return [];
+}
+
 /** A short, stable name for a project's server: its Codex home and record file carry it. */
 export function confinementKey(project: string): string {
   return createHash('sha256').update(project).digest('hex').slice(0, 16);
@@ -439,6 +470,8 @@ export function confinedProfile(scope: ConfinedScope): string {
   ];
   const originals = scope.originals ?? [];
   const hidden = scope.hidden ?? [];
+  // A worktree's or submodule's own git data, outside its folder: read, never written (BOX).
+  const gitData = gitDataOutside(scope.project);
   // The scope's own folders are allowed again after the hidden ones are refused, so none of them may
   // be or hold a hidden folder, or the re-allow would reopen it (AUDIT M18C1-A-S1).
   for (const folder of own) {
@@ -449,7 +482,7 @@ export function confinedProfile(scope: ConfinedScope): string {
         throw new Error(`the confinement's own folder ${mine} is or holds the hidden ${kept}`);
     }
   }
-  const readable = [...own, ...originals];
+  const readable = [...own, ...originals, ...gitData];
   const each = (filter: string, paths: readonly string[]) =>
     paths.map((path) => `(${filter} ${quote(path)})`).join(' ');
   return [

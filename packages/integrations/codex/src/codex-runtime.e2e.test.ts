@@ -1757,6 +1757,43 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
     },
   );
 
+  test(
+    'git works in a confined project that is its own repository, from a home of its own (BOX)',
+    SLOW_TEST,
+    async (t) => {
+      const { sandbox, start } = await harness(t, { runtime: confined });
+      const host = (...args: string[]) =>
+        execFileSync('git', args, { cwd: sandbox.project, stdio: 'pipe' });
+      host('init', '-q', '-b', 'main');
+      await writeFile(join(sandbox.project, 'README.md'), 'box\n');
+      host('add', '.');
+      host(
+        '-c',
+        'user.email=box@example.invalid',
+        '-c',
+        'user.name=box',
+        'commit',
+        '-q',
+        '-m',
+        'box',
+      );
+      // As a person's home has one: git stops at a configuration file the profile refuses to it.
+      await writeFile(join(sandbox.env.HOME ?? '', '.gitconfig'), '[user]\n\tname = box\n');
+      const execution = await start(
+        'CMD:echo "home=$HOME" > box-home.txt; git status --short --branch; echo status=$?; git log --oneline -1; echo log=$?',
+      );
+      await execution.next('runtime.turn.completed');
+      const output = commandOutput(execution);
+      t.diagnostic(output);
+      assert.match(output, /status=0/);
+      assert.match(output, /log=0/);
+      // Its commands' home is the server's own temporary folder, never the person's.
+      const home = readFileSync(join(sandbox.project, 'box-home.txt'), 'utf8');
+      t.diagnostic(home);
+      assert.match(home, /^home=\S*codex-confined\/[0-9a-f]{16}\/tmp\n$/);
+    },
+  );
+
   test('cannot read the shared temporary folder', SLOW_TEST, async (t) => {
     const { output } = await runAsModel(t, 'ls /private/tmp; echo listed=$?');
     assert.match(output, /Operation not permitted/);
