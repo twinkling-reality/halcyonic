@@ -385,3 +385,99 @@ describe("admitting work on a task's own copy", () => {
     );
   });
 });
+
+describe("checking a task's own copy (ADR 0045)", () => {
+  const findings = (passed: boolean) =>
+    ({
+      tsc: { exit: 0, seconds: 1 },
+      build: { exit: 0, seconds: 10 },
+      page: null,
+      unknown: null,
+      passed,
+      reads_confined: true,
+    }) as never;
+
+  test("a check of one task's copy waits for that task alone, and only work in that copy makes it stale", () => {
+    const { b, projection, project, task, scopeOf, copyMade, running, admit, refusal } = setup();
+    const projectScope = { project_id: project.projectId, workstream_id: null, execution_id: null };
+    projection.apply(
+      b.controlPlane('project.starter_applied', projectScope, {
+        starter_id: 'iwsdk-vr',
+        lockfile: 'a'.repeat(64),
+        files: 12,
+        template: 'b'.repeat(64),
+      } as never),
+    );
+    let n = 0;
+    const check = (workstreamId?: WorkstreamId): CommandEnvelope => {
+      n += 1;
+      return {
+        schema_version: 1,
+        command_id: `00000000-0000-4000-8000-${String(900 + n).padStart(12, '0')}` as CommandId,
+        issued_at: '2026-11-10T10:00:00.000Z',
+        client: { name: 'test', version: null, device_label: null },
+        command_type: 'project.check',
+        payload: {
+          project_id: project.projectId,
+          ...(workstreamId === undefined ? {} : { workstream_id: workstreamId }),
+        },
+      };
+    };
+    const first = task('First');
+    const second = task('Second');
+    copyMade(first);
+    copyMade(second);
+    assert.equal(
+      refusal(check(task('Third'))),
+      "This task works in the project's own folder: check the project.",
+    );
+    // The second task works in its own copy; the first's copy can be checked meanwhile.
+    const elsewhere = running(second, `${COPIES}/${second}/app`);
+    const admitted = admit(check(first));
+    assert.equal(admitted.admitted, true);
+    assert.equal(admitted.scope.workstream_id, first);
+    assert.match(
+      refusal(check()) ?? '',
+      /Check it once it stops/,
+      "the project's own check still waits",
+    );
+    assert.equal(refusal(check(second)), 'This task is running. Check it once it stops.');
+
+    // A recorded check of the first task's copy: the second task's turns do not reach it.
+    projection.apply(
+      b.controlPlane('project.check.recorded', projectScope, {
+        check_id: '01920000-0000-7000-8000-0000000000e1' as never,
+        findings: findings(true),
+        workstream_id: first,
+      }),
+    );
+    assert.equal(projection.latestCheck(project.projectId)?.workstream_id, first);
+    assert.equal(projection.project(project.projectId)?.check?.workstream_id, first);
+    elsewhere.rest();
+    assert.equal(projection.latestCheck(project.projectId)?.files, 'current');
+    // A turn in the first task's copy does.
+    running(first, `${COPIES}/${first}/app`);
+    assert.equal(projection.latestCheck(project.projectId)?.files, 'unknown');
+
+    // A check of the project's own folder is changed by an add, not by a copy's turn.
+    projection.apply(
+      b.controlPlane('project.check.recorded', projectScope, {
+        check_id: '01920000-0000-7000-8000-0000000000e2' as never,
+        findings: findings(true),
+      }),
+    );
+    assert.equal(projection.project(project.projectId)?.check?.workstream_id, undefined);
+    running(second, `${COPIES}/${second}/app`).rest();
+    assert.equal(projection.latestCheck(project.projectId)?.files, 'current');
+    projection.apply(
+      b.controlPlane('workstream.added', scopeOf(second), {
+        checkpoint_id: '01920000-0000-7000-8000-0000000000c2' as never,
+        task_tree: TREE('b'),
+        project_tree: TREE('c'),
+        merged_tree: TREE('d'),
+        added: { paths: ['src/a.ts'], total: 1 },
+      }),
+    );
+    assert.equal(projection.latestCheck(project.projectId)?.files, 'changed');
+  });
+});

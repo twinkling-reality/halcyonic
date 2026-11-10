@@ -1078,7 +1078,7 @@ export class CommandService {
             this.#deps.redaction,
           );
           // A failed check's first lines go after the person's words, once per check (FX1).
-          const checked = this.#checkOutputFor(project_id);
+          const checked = this.#checkOutputFor(project_id, workstream_id);
           const run = () =>
             this.#perform(
               command,
@@ -1153,7 +1153,7 @@ export class CommandService {
         // A failed check's first lines go after the person's words, once per check (FX1).
         const checked =
           command.command_type === 'execution.send_instruction'
-            ? this.#checkOutputFor(execution.project_id)
+            ? this.#checkOutputFor(execution.project_id, execution.workstream_id)
             : null;
         const action = actionFor(command, adapter, execution, checked);
         const outcome: ActionOutcome = {
@@ -1380,10 +1380,10 @@ export class CommandService {
    * The project's failed check's first lines for the next instruction to an agent in it, unless an
    * agent was already given that check's (FX1); null otherwise, or when they cannot be read.
    */
-  #checkOutputFor(projectId: ProjectId): Checked | null {
+  #checkOutputFor(projectId: ProjectId, workstreamId: WorkstreamId | null): Checked | null {
     let found: Checked | null;
     try {
-      found = this.#deps.previews?.failedCheckOutput(projectId) ?? null;
+      found = this.#deps.previews?.failedCheckOutput(projectId, workstreamId) ?? null;
     } catch {
       return null;
     }

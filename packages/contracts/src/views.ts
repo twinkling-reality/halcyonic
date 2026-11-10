@@ -91,6 +91,8 @@ export const ProjectCheckView = Type.Object(
     position: Position,
     files: CheckFilesState,
     findings: CheckFindings,
+    /** The task whose own copy this check checked (ADR 0045); absent, the project's own folder. */
+    workstream_id: Type.Optional(WorkstreamId),
   },
   strict,
 );

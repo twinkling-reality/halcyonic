@@ -371,7 +371,15 @@ export const ProjectRestoreIncomplete = projectEvent(
  */
 export const ProjectCheckRecorded = projectEvent(
   'project.check.recorded',
-  Type.Object({ check_id: CheckId, findings: CheckFindings }, strict),
+  Type.Object(
+    {
+      check_id: CheckId,
+      findings: CheckFindings,
+      /** The task whose own copy was checked (ADR 0045); absent, the project's own folder. */
+      workstream_id: Type.Optional(WorkstreamId),
+    },
+    strict,
+  ),
 );
 
 /**

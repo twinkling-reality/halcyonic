@@ -88,7 +88,17 @@ export const ProjectRestoreCommand = defineCommand(
  */
 export const ProjectCheckCommand = defineCommand(
   'project.check',
-  Type.Object({ project_id: ProjectId }, strict),
+  Type.Object(
+    {
+      project_id: ProjectId,
+      /**
+       * The task whose own copy is checked (ADR 0045), so its work is checked before it is added;
+       * absent, the project's own folder.
+       */
+      workstream_id: Type.Optional(WorkstreamId),
+    },
+    strict,
+  ),
 );
 
 /**

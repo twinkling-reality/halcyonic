@@ -1,6 +1,6 @@
 # ADR 0045: Each task works in a copy of its own, and its work reaches the project only when the person adds it
 
-- Status: Accepted 2026-11-10; contracts, views, admission, the copies made at a task's first start, adding, its conflicts and the fit built, run with Codex and OpenCode at once on 2026-11-10; off by default (`HALCYONIC_TASK_COPIES=1` turns it on) until the headset offers Add To Project; checks per task not yet
+- Status: Accepted 2026-11-10; contracts, views, admission, the copies made at a task's first start, adding, its conflicts and the fit built, run with Codex and OpenCode at once on 2026-11-10; off by default (`HALCYONIC_TASK_COPIES=1` turns it on) until the headset offers Add To Project; a check of a task's own copy built, the automatic check after a turn in a copy not yet
 - Date: 2026-11-10
 - Amends ADR 0020 (a project works in one folder) and ADR 0036 (checkpoints); complements ADR 0037 and ADR 0041
 

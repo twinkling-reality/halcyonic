@@ -48,6 +48,7 @@ import {
   endTurn,
   toExecutionView,
 } from './execution-state.ts';
+import { foldersOverlap } from './folders.ts';
 import { shownQuestions } from './questions.ts';
 
 /** Something in the journal that the projection could not apply as written. */
@@ -108,6 +109,8 @@ export interface ProjectCheck {
   readonly recorded_at: Timestamp;
   readonly position: number;
   readonly files: CheckFilesState;
+  /** The task whose own copy was checked (ADR 0045), or null for the project's own folder. */
+  readonly workstream_id: WorkstreamId | null;
 }
 
 /** A project's running preview, and whether the check it serves still describes the current files (T2). */
@@ -125,6 +128,13 @@ interface CheckState {
   readonly unobservedTurns: Set<ExecutionId>;
   tainted: boolean;
   changed: boolean;
+  /**
+   * The folder checked: a task's own copy or the project's (ADR 0045); null where it was not known,
+   * which every turn in the project reaches, as before copies.
+   */
+  readonly folder: string | null;
+  /** The task whose own copy was checked, or null for the project's own folder. */
+  readonly workstreamId: WorkstreamId | null;
 }
 
 function checkFilesState(state: CheckState): CheckFilesState {
@@ -832,6 +842,7 @@ export class Projection {
           recorded_at: state.recordedAt,
           position: state.position,
           files: checkFilesState(state),
+          workstream_id: state.workstreamId,
         };
   }
 
@@ -1132,8 +1143,16 @@ export class Projection {
         }
         const unobservedTurns = new Set<ExecutionId>();
         let tainted = this.restoreInProgress(event.project_id);
+        const checkedTask = event.payload.workstream_id ?? null;
+        const own = checkedTask === null ? undefined : this.#workstreams.get(checkedTask)?.copy;
+        const folder =
+          own?.state === 'own'
+            ? own.directory
+            : (this.#projects.get(event.project_id)?.location?.path ?? null);
         for (const state of this.#executionsByProject.get(event.project_id) ?? []) {
           if (state.directory === null) continue;
+          // Only work in the folder checked reaches it (ADR 0045).
+          if (folder !== null && !foldersOverlap(folder, state.directory)) continue;
           const status = deriveExecutionStatus(state);
           // A restart stops every runtime process, so a turn one cut short runs no longer (#13).
           if (status === 'unknown' && stoppedByRestart(state.unknownReason?.code)) continue;
@@ -1148,6 +1167,8 @@ export class Projection {
           unobservedTurns,
           tainted,
           changed: false,
+          folder,
+          workstreamId: checkedTask,
         };
         this.#checks.set(event.project_id, checkState);
         const byId = this.#checksById.get(event.project_id) ?? new Map<CheckId, CheckState>();
@@ -1345,15 +1366,20 @@ export class Projection {
           event.payload.changed.total > 0 ||
           event.payload.deleted.total > 0;
         const incompleteRead = event.payload.skipped !== null || event.payload.not_read > 0;
-        this.#updateProjectChecks(event.project_id, changes, (check) => {
-          if (changedFiles) {
-            check.changed = true;
-          } else if (incompleteRead) {
-            check.tainted = true;
-          } else if (execution.activeTurn === null) {
-            check.unobservedTurns.delete(event.execution_id);
-          }
-        });
+        this.#updateProjectChecks(
+          event.project_id,
+          changes,
+          (check) => {
+            if (changedFiles) {
+              check.changed = true;
+            } else if (incompleteRead) {
+              check.tainted = true;
+            } else if (execution.activeTurn === null) {
+              check.unobservedTurns.delete(event.execution_id);
+            }
+          },
+          execution.directory ?? undefined,
+        );
         return;
       }
       case 'execution.start_failed':
@@ -1370,9 +1396,14 @@ export class Projection {
         } else {
           execution.unknownReason = { code: event.payload.code, message: event.payload.message };
           if (execution.directory !== null) {
-            this.#updateProjectChecks(execution.projectId, changes, (check) => {
-              check.tainted = true;
-            });
+            this.#updateProjectChecks(
+              execution.projectId,
+              changes,
+              (check) => {
+                check.tainted = true;
+              },
+              execution.directory,
+            );
           }
         }
         this.#touchExecution(execution, event.ingested_at, changes);
@@ -1514,13 +1545,25 @@ export class Projection {
           copy.to_add = clonePathList(event.payload.changed);
           copy.to_add_read_at = event.occurred_at;
           break;
-        case 'workstream.added':
+        case 'workstream.added': {
+          // The project's folder holds new files: a check of it, or around it, is of files changed.
+          const folder = this.#projects.get(event.project_id)?.location?.path;
+          if (folder !== undefined)
+            this.#updateProjectChecks(
+              event.project_id,
+              changes,
+              (check) => {
+                check.changed = true;
+              },
+              folder,
+            );
           copy.base_tree = event.payload.task_tree;
           copy.to_add = { paths: [], total: 0 };
           copy.to_add_read_at = event.occurred_at;
           copy.last_added_at = event.occurred_at;
           copy.conflict = null;
           break;
+        }
         case 'workstream.add_conflicted':
           copy.conflict = {
             files: event.payload.conflicted.files.map((file) => ({ ...file })),
@@ -1528,6 +1571,14 @@ export class Projection {
           };
           break;
         case 'workstream.fitted':
+          this.#updateProjectChecks(
+            event.project_id,
+            changes,
+            (check) => {
+              check.changed = true;
+            },
+            copy.directory,
+          );
           // What the copy now differs by is read again after the agent's turn.
           copy.base_tree = event.payload.project_tree;
           copy.to_add = null;
@@ -1622,9 +1673,14 @@ export class Projection {
         execution.activeTools.clear();
         execution.startedAt ??= event.occurred_at;
         if (execution.directory !== null) {
-          this.#updateProjectChecks(execution.projectId, changes, (check) => {
-            check.unobservedTurns.add(execution.executionId);
-          });
+          this.#updateProjectChecks(
+            execution.projectId,
+            changes,
+            (check) => {
+              check.unobservedTurns.add(execution.executionId);
+            },
+            execution.directory,
+          );
         }
         break;
       case 'runtime.turn.completed':
@@ -1649,9 +1705,14 @@ export class Projection {
           endTurn(execution, 'interrupted', null);
         }
         if (execution.directory !== null) {
-          this.#updateProjectChecks(execution.projectId, changes, (check) => {
-            check.unobservedTurns.add(execution.executionId);
-          });
+          this.#updateProjectChecks(
+            execution.projectId,
+            changes,
+            (check) => {
+              check.unobservedTurns.add(execution.executionId);
+            },
+            execution.directory,
+          );
         }
         break;
       }
@@ -1724,9 +1785,14 @@ export class Projection {
           message: event.payload.reason,
         };
         if (execution.directory !== null) {
-          this.#updateProjectChecks(execution.projectId, changes, (check) => {
-            check.tainted = true;
-          });
+          this.#updateProjectChecks(
+            execution.projectId,
+            changes,
+            (check) => {
+              check.tainted = true;
+            },
+            execution.directory,
+          );
         }
         break;
       case 'runtime.connection.restored':
@@ -1789,6 +1855,7 @@ export class Projection {
         position: check.position,
         files: check.files,
         findings: check.findings,
+        ...(check.workstream_id === null ? {} : { workstream_id: check.workstream_id }),
       };
     }
     const preview = this.preview(state.projectId);
@@ -1816,10 +1883,15 @@ export class Projection {
     return state === undefined ? 'unknown' : checkFilesState(state);
   }
 
+  /**
+   * `directory`, where given, is the folder the change happened in: only checks of that folder, or
+   * of one inside it or around it, are reached (ADR 0045); a check whose folder is not known always.
+   */
   #updateProjectChecks(
     projectId: ProjectId,
     changes: ChangeSet,
     mutate: (state: CheckState) => void,
+    directory?: string,
   ): void {
     const checks = this.#openChecks.get(projectId);
     if (checks === undefined || checks.size === 0) return;
@@ -1829,6 +1901,12 @@ export class Projection {
     let viewChanged = false;
     for (const state of checks) {
       this.#onCheckVisited?.();
+      if (
+        directory !== undefined &&
+        state.folder !== null &&
+        !foldersOverlap(state.folder, directory)
+      )
+        continue;
       const before = checkFilesState(state);
       mutate(state);
       const after = checkFilesState(state);
