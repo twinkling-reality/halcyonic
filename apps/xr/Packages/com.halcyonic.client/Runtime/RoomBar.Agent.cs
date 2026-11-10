@@ -18,6 +18,50 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// <see cref="AgentWords"/> for a label that tells whose words are whose: the agent's name is its runtime's own,
+        /// the level Halcyonic's. Null where there is no agent to name.
+        /// </summary>
+        public static LineWords? AgentRuns(string? agent, bool? neverAsk)
+        {
+            if (string.IsNullOrWhiteSpace(agent)) return null;
+            var name = LineWords.TheirName(agent);
+            return neverAsk is bool level ? name + LineWords.Ours(KitMomentWords.Dot + AgentColumn.LevelWords(level)) : name;
+        }
+
+        /// <summary>
+        /// While the agent works and the row does not stand (its runtime takes no instruction then), what the plate in
+        /// the row's place reads (the addendum's A1): the agent and the level of the run under way, from the run's own
+        /// record, never from the choice for the next one; the agent alone where the record carries no level. Null
+        /// otherwise, and no plate stands.
+        /// </summary>
+        public LineWords? Plate { get; private set; }
+
+        /// <summary>Gives the task's own bar its plate while the agent works, and answers nothing: the frame stays the task's.</summary>
+        private static RoomBar? AgentAtWork(KitFileBinding binding, VoiceStage voice, RoomBar tasks)
+        {
+            if (tasks.Working && tasks.Row.Count == 0) tasks.Plate = AgentRuns(binding.Model.Agent, binding.Model.RunNeverAsk);
+            return null;
+        }
+
+        /// <summary>
+        /// The row at rest with its third action (the addendum's A1): where the file's model has a level to choose or
+        /// another agent to change to, the task's own row and, after it, the action that opens the agent's page, reading
+        /// the agent and the level the next start will carry (the model's own, never the choice alone: ADR 0043). Where
+        /// the runtime offers no level the action names the agent alone. Null where the row is not at rest or there is
+        /// nothing to choose, so the task's own row stands.
+        /// </summary>
+        private static RoomBar? AgentAtRest(KitFileBinding binding, VoiceStage voice, RoomBar tasks)
+        {
+            if (tasks.State != RoomBarState.Rest || tasks.Row.Count == 0) return null;
+            var model = binding.Model;
+            if (!model.OffersNeverAsk && !model.AgentChangeable) return null;
+            var words = AgentWords(model.Agent, model.OffersNeverAsk ? model.NeverAsk : (bool?)null);
+            if (words == null) return null;
+            var open = new KitControl(KitPlace.Step, binding.Frame, AgentColumn.Open, null, words, GlazeIcon.CodeFile, available: true, reason: null, holds: false);
+            return new RoomBar(RoomBarState.Rest, row: tasks.Row.Concat(new[] { new RoomAction(open, main: false) }).ToList());
+        }
+
+        /// <summary>
         /// The agent and its level as the redesign draws it (the addendum's A1), every action the page's own: the panel's one
         /// line is the page's subject, the computer's fact ("Model · {model}"); the column holds the levels as answers with
         /// their marks, the one chosen marked, then Change, or the agents and models as answers with their way to more of

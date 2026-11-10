@@ -365,6 +365,8 @@ namespace Halcyonic.XR.UI
                 GlazeIcon.Refresh => RoomGlyph.Again,
                 GlazeIcon.Change => RoomGlyph.Pencil,
                 GlazeIcon.CreateProject => RoomGlyph.Plus,
+                // The agent's own, on the action that names it where no level stands after its name.
+                GlazeIcon.CodeFile => RoomGlyph.Agent,
                 _ => RoomGlyph.Continue,
             };
         }

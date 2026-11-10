@@ -18,7 +18,9 @@ namespace Halcyonic.Client
         /// </summary>
         private static readonly RoomMoment[] Moments =
         {
+            AgentAtWork,
             Choose,
+            AgentAtRest,
         };
     }
 }
