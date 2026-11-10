@@ -250,8 +250,14 @@ given, not only a project made from a starter (`codexConfinement` in `apps/contr
     before every command Codex does not know is safe (seen: the same `touch` raised an approval request). A start
     that never asks gets `never` (ADR 0043).
   - The record follows the policy.
-- **The trade-off, plainly:** asking, confined, asks more often than the open server did, which asked only for an
+- **The trade-off, plainly:** asking, confined, asks before every command. The open server asked only for an
   escalation or a command it judged dangerous. A person who wants fewer presses chooses never-ask, which the sandbox
-  bounds to the folder. Which commands `untrusted` treats as safe was not surveyed.
+  bounds to the folder.
+- **Which commands `untrusted` runs unasked: none tried.** Seen on 0.157.0 with the scripted provider through
+  Codex's `exec_command` tool, which is how Halcyonic's threads run commands. Inside a confined folder it asked
+  before each of 37 commands, the read-only ones included: `ls`, `pwd`, `cat`, `grep`, `rg`, `git status`,
+  `git log`, `git diff`, `node -v`, `date`, `echo`. On the open server it asked before `ls`, `cat` and `git status`
+  too. Codex's documentation calls `untrusted` asking for commands not known to be safe; on this path no command was
+  known to be safe.
 - **Elsewhere than macOS:** nothing changes. There is no profile, and the open server's `workspace-write` applies.
 - **Still not confined:** listing models uses the open server, which runs no command.

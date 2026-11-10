@@ -44,6 +44,12 @@ Read on 2026-11-10 from each pinned binary or package on this Mac, no vendor web
   - Not shown under `/tmp`: the test skips there, as `workspace-write` writes `/tmp` (ADR 0041, amendment of
     2026-11-04).
 
+- **What `untrusted` asks before** (BOX-2, 2026-11-10, scripted provider, `exec_command`): every command tried. In a
+  confined folder, 37 of 37, the read-only ones (`ls`, `pwd`, `cat`, `head`, `tail`, `wc`, `grep`, `rg`, `find`,
+  `sed -n`, `nl`, `which`, `git status`, `git log`, `git diff`, `git show`, `git branch`, `date`, `node -v`, `sort`,
+  `diff`, `echo`) included. On the open server, `ls`, `cat`, `git status` and `touch`. So an asking run under
+  `untrusted` asks before every command.
+
 ### OpenCode 2.0.18
 
 - **Rules:** each permission rule is `{action, resource, effect}`, with `effect` `allow`, `ask` or `deny`. The last
