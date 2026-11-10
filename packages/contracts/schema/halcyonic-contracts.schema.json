@@ -16340,7 +16340,7 @@
           "items": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 64
+            "maxLength": 253
           }
         },
         "certificate_sha256": {

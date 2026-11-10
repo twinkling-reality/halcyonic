@@ -18,6 +18,7 @@ namespace Halcyonic.Client
     public sealed class PinnedHttpHandler : HttpMessageHandler
     {
         private readonly string pin;
+        private readonly PairedReach? reach;
         private readonly int maxResponseBytes;
 
         /// <param name="pin">The SHA-256 of the control plane's certificate, in lowercase hex.</param>
@@ -27,18 +28,40 @@ namespace Halcyonic.Client
             this.maxResponseBytes = maxResponseBytes;
         }
 
+        /// <summary>
+        /// To a pairing's control plane wherever it answers (<see cref="PairedReach"/>): each request's
+        /// path, at the first of its addresses that completes the handshake with the pin.
+        /// </summary>
+        public PinnedHttpHandler(PairedReach reach, int maxResponseBytes = 16 * 1024 * 1024)
+            : this(reach.Pin, maxResponseBytes)
+        {
+            this.reach = reach;
+        }
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var uri = request.RequestUri ?? throw new ArgumentException("The request has no URI.", nameof(request));
             if (uri.Scheme != "https") throw new ArgumentException("A pinned request is https://.", nameof(request));
             var body = request.Content == null ? null : await request.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-            var headers = Http1.RequestHeaders(request, uri, body);
 
             Http1Head head;
             byte[] content;
             try
             {
-                using var connection = await PinnedConnection.OpenAsync(WebSocketUpgrade.Host(uri), uri.Port, pin, cancellationToken).ConfigureAwait(false);
+                PinnedConnection connection;
+                var at = uri;
+                if (reach == null)
+                {
+                    connection = await PinnedConnection.OpenAsync(WebSocketUpgrade.Host(uri), uri.Port, pin, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    var (opened, host) = await reach.OpenAsync(cancellationToken).ConfigureAwait(false);
+                    connection = opened;
+                    at = PairedReach.At(uri, host);
+                }
+                using var open = connection;
+                var headers = Http1.RequestHeaders(request, at, body);
                 using var closing = connection.CloseOn(cancellationToken);
                 await Http1.WriteRequestAsync(connection.Stream, request.Method.Method, uri.PathAndQuery, headers, body, cancellationToken).ConfigureAwait(false);
                 head = await Http1.ReadHeadAsync(connection.Stream, cancellationToken).ConfigureAwait(false);

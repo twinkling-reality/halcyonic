@@ -247,6 +247,7 @@ async function startNetworkListener(
     logger: app.log,
     ...(limits === undefined ? {} : { limits }),
   });
+  let described: NetworkListener | null = null;
   const server = await createNetworkServer({
     logger: app.log.child({ listener: 'network' }),
     identity,
@@ -256,20 +257,22 @@ async function startNetworkListener(
     pairing,
     clock: harness.time,
     limits: { ...DEFAULT_NETWORK_LIMITS, ...listener },
+    listener: () => described,
   });
   await server.listen({ host: '127.0.0.1', port: 0 });
   const bound = server.server.address();
   if (bound === null || typeof bound === 'string') throw new Error('network server has no port');
+  described = {
+    host: '127.0.0.1',
+    port: bound.port,
+    addresses: ['127.0.0.1'],
+    certificate_sha256: identity.certificateSha256,
+  };
   return {
     server,
     pairing,
     identity,
     target: { host: '127.0.0.1', port: bound.port },
-    listener: {
-      host: '127.0.0.1',
-      port: bound.port,
-      addresses: ['127.0.0.1'],
-      certificate_sha256: identity.certificateSha256,
-    },
+    listener: described,
   };
 }

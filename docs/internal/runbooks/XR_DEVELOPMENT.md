@@ -737,8 +737,11 @@ opens and asks first, and start the control plane as usual.
 In the headset, with hands only:
 
 1. Open the menu, then Settings; under Your computer, choose **Pairing** and press **Pair with a computer**.
-2. The system keyboard opens: type the address `pnpm pair` printed, such as `192.168.1.23:47801`,
-   and press Enter. The next time, the last address is already there.
+2. The system keyboard opens: type the address `pnpm pair` printed first, the Mac's name such as
+   `studio-mac.local:47801`, or one of the numbered addresses below it, such as
+   `192.168.1.23:47801`, and press Enter. The next time, the last address is already there. Once
+   paired, the headset also keeps where else the Mac said it is, so a new address from the router
+   does not mean pairing again.
 3. The number pad opens: type the eight digits and press Enter.
 4. The stage's banner says "Pairing with ...", then "Paired with your computer at ... Connecting
    over Wi-Fi.", and the stage connects to the control plane. `pnpm pair` names the headset and

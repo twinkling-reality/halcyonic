@@ -184,12 +184,27 @@ One thing the tests showed on the way: a connection whose TLS handshake complete
 listener shuts down is not yet an HTTP connection, so Fastify's forced close misses it, and the
 shutdown waits for the idle timeout, now 60 seconds; without that timeout it waited indefinitely.
 
+### A new address on the network (2026-11-10)
+
+Off the headset, on this Mac (.NET 10 and node tests, nothing on a headset): a pairing whose typed
+address answers nothing finds its computer at an address the computer said it has, over REST and
+the realtime session, with the `Host` header naming the address dialled; another computer at the
+typed address, with another certificate, gets no credential while the search goes on, and when
+nowhere else answers, its certificate is what the device says; a real control plane's
+`GET /api/device/listener` answers a paired device and no one else (401 without a credential,
+404 on loopback, 401 once revoked); the device keeps what it says with the pairing and, given a
+typed address that no longer answers, connects where the control plane said it is; the pairing
+file keeps the addresses, reads a file written before them, and never writes over a pairing
+forgotten or made again. `scutil --get LocalHostName` answers this Mac's Bonjour name, which
+`readLocalName` turns into the `.local` name (not printed here: it can carry a person's name).
+
 ## What needs a headset
 
 - The pinned transports under IL2CPP with the Android build of UnityTLS: pairing, the realtime
   session and REST over Wi-Fi, and a certificate mismatch refused.
 - Reaching the Mac over Wi-Fi at all: the Mac's firewall, the router (client isolation on guest
-  networks blocks it), and whether Horizon OS resolves `.local` names.
+  networks blocks it), and whether Horizon OS resolves `.local` names, for pairing with the name and
+  for finding the Mac again by it (`Dns.GetHostAddressesAsync` under IL2CPP, so `getaddrinfo`).
 - The pairing panel: the system keyboard for the address and the number pad for the code, with
   hands; the second press that forgets; the panel out of the way of the stage and the room
   controls.

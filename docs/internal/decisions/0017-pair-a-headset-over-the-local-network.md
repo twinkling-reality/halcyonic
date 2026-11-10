@@ -194,3 +194,26 @@ security.
   over Wi-Fi, and the pairing panel with the system keyboard.
 - Revisit for a remote relay, for more than one person per control plane, for mDNS, for the
   Keystore, or when a vetted CPace is available on both sides.
+
+## Amendment 2026-11-10: a new address on the network does not mean pairing again
+
+The typed address alone broke a pairing the day the router handed the Mac another address: the
+headset tried that address forever, and the only way on was to forget and pair again. Now the
+listener says where else it is, and the device tries each place under its pin:
+
+- `NetworkListener.addresses` holds IP addresses or `.local` names (up to 253 characters each), for
+  a wildcard host the Mac's `.local` name first, read from its Bonjour name, then the interfaces'
+  addresses as they are now, read on each request. `pnpm pair` prints the name first, so the
+  person can type the name, which no router changes.
+- `GET /api/device/listener`, on the network listener to a paired device only, answers that
+  `NetworkListener`. The device asks after each realtime connection opens, at most every ten
+  minutes, and keeps the answer with its pairing (IP addresses and `.local` names only, at most
+  eight), never over a pairing forgotten or made again meanwhile.
+- Each connection tries the address that answered last, the typed one, then those, each under the
+  same pin, three seconds each while another is left to try, and names the address dialled in
+  `Host`. A wrong computer at an old address gets a handshake it cannot finish.
+
+Still discovery is never trusted: the pin and the credential decide, as before. Unverified on a
+headset: whether Horizon OS resolves `.local` names; if it does not, the stored IP addresses still
+help while the Mac keeps one of them, and a broadcast search answered under the pin is the
+fallback to decide on then. Discovery by mDNS browsing stays as the options table above left it.

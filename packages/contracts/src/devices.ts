@@ -116,14 +116,21 @@ export const PairingStatus = Type.Object(
 );
 export type PairingStatus = Static<typeof PairingStatus>;
 
-/** Where paired devices reach the control plane. */
+/**
+ * Where paired devices reach the control plane: the answer that opens a pairing window, and
+ * `GET /api/device/listener`, from which a paired device learns where else to find it.
+ */
 export const NetworkListener = Type.Object(
   {
     /** The address the listener is bound to, as configured. */
     host: Type.String({ minLength: 1, maxLength: 64 }),
     port: Type.Integer({ minimum: 1, maximum: 65535 }),
-    /** Addresses a device on the network can use; the interfaces' addresses for a wildcard host. */
-    addresses: Type.Array(Type.String({ minLength: 1, maxLength: 64 })),
+    /**
+     * Addresses a device on the network can use, each an IP address or a `.local` name: for a
+     * wildcard host the computer's `.local` name first, when it has one, then the interfaces'
+     * addresses as they are now.
+     */
+    addresses: Type.Array(Type.String({ minLength: 1, maxLength: 253 })),
     certificate_sha256: Sha256Hex,
   },
   strict,

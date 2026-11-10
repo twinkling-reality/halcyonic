@@ -152,8 +152,8 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
     },
     {
       file: 'apps/control-plane/src/main.ts',
-      args: '{ addresses: app.addresses(), network: listener, data_dir: config.dataDir, token_file: access.path, journal: controlPlane.journal.info, runtimes: controlPlane.registry.descriptors().map((runtime) => runtime.runtime_id), project_roots: config.projectRoots, speech: speech?.engine ?? null, settings: { file: join(config.dataDir, SETTINGS_FILE), used: settingsInUse(process.env, settings), }, agent_binaries: agentBinaries, companion: config.companion?.model ?? null, }, "" ,',
-      why: "the ready line: addresses, folders, the token file's path (never the token), setting names and binary paths, as SECURITY.md says",
+      args: '{ addresses: app.addresses(), network: listener?.() ?? null, data_dir: config.dataDir, token_file: access.path, journal: controlPlane.journal.info, runtimes: controlPlane.registry.descriptors().map((runtime) => runtime.runtime_id), project_roots: config.projectRoots, speech: speech?.engine ?? null, settings: { file: join(config.dataDir, SETTINGS_FILE), used: settingsInUse(process.env, settings), }, agent_binaries: agentBinaries, companion: config.companion?.model ?? null, }, "" ,',
+      why: "the ready line: addresses, folders, the token file's path (never the token), setting names and binary paths, as SECURITY.md says; the network listener's addresses include the Mac's .local name, which it announces on its network anyway",
     },
     {
       file: 'apps/control-plane/src/network/pairing.ts',
