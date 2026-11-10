@@ -15,7 +15,10 @@ namespace Halcyonic.XR.UI
     /// stands after its words inside its halo; Type goes. A typed draft or an instruction's confirmation is a pair: the
     /// information panel (<see cref="RoomSurface"/>, 440 dp) holds the person's words, its sentence bar the one thing to say,
     /// and the column beside it the actions, left-aligned at the hand-target pitch, their feet on the panel's foot. Sent, or
-    /// why nothing can be written, stands as words alone. It raises presses only; its owner turns them into the file's actions.
+    /// why nothing can be written, stands as words alone. An approval (DESIGN 2.4) is the same pair: its request in mono, at
+    /// most eight lines before its confirmation and part by part under it, eight of the panel's own lines a part, what it asks in the sentence
+    /// bar, Sending sweeping there once answered, and Confirm behind its lock, a ring that fills over
+    /// <see cref="RoomBar.ConfirmLockSeconds"/>. It raises presses only; its owner turns them into the file's actions.
     /// </summary>
     public sealed class RoomBarView : MonoBehaviour
     {
@@ -36,7 +39,15 @@ namespace Halcyonic.XR.UI
         private GlazeShimmer aloneSweep = null!;
         private RoomSurface panel = null!;
         private TextMeshPro body = null!;
+        private TextMeshPro request = null!;
+        private TextMeshPro measureBody = null!;
+        private TextMeshPro measureRequest = null!;
         private TextMeshPro sentence = null!;
+        private GlazeShimmer sentenceSweep = null!;
+        private RoomButton? locking;
+        private float lockedAt;
+        private float lockAged;
+        private bool lockLifted;
         private Surface caret = null!;
         private KitPress field = null!;
         private readonly List<RoomButton> column = new List<RoomButton>();
@@ -66,6 +77,15 @@ namespace Halcyonic.XR.UI
 
         public TextMeshPro Body => body;
 
+        /// <summary>The request's exact text, in mono, where the panel holds one.</summary>
+        public TextMeshPro Request => request;
+
+        /// <summary>The action standing behind Confirm's lock now, or null.</summary>
+        public RoomButton? Locking => locking != null && !lockLifted ? locking : null;
+
+        /// <summary>Whether the sentence sweeps: a state under way.</summary>
+        public bool SentenceWaits => sentenceSweep.Waits;
+
         public TextMeshPro Sentence => sentence;
 
         public TextMeshPro Alone => alone;
@@ -89,6 +109,14 @@ namespace Halcyonic.XR.UI
         /// <summary>Every press it shows now.</summary>
         public IEnumerable<KitPress> Presses => new[] { talk.Press, type.Press, field }.Concat(column.Select(button => button.Press))
             .Where(press => press.gameObject.activeInHierarchy);
+
+        /// <summary>
+        /// The shown action that raises the file's <paramref name="action"/> (with <paramref name="key"/>, where given), for
+        /// the renders and journeys, which press it as a hand does (<see cref="KitPress.PressForRender"/>); null where none
+        /// shows. Hold to Talk, which is held, is <see cref="Talk"/>.
+        /// </summary>
+        public RoomButton? Button(string action, string? key = null) => controls
+            .FirstOrDefault(each => each.Key.gameObject.activeInHierarchy && each.Value.Action == action && (key == null || each.Value.Key == key)).Key;
 
         /// <summary>The control a shown button raises, for the renders; null where it raises none.</summary>
         public KitControl? ControlOf(RoomButton button) => controls.TryGetValue(button, out var control) ? control : null;
@@ -128,8 +156,21 @@ namespace Halcyonic.XR.UI
             view.panel = RoomSurface.Create(go.transform, "Information panel", RoomSurfaceKind.Information, KitType.Order.Plate);
             view.body = RoomType.Create(view.panel.transform, "Words", Color.white, KitType.Order.Words);
             view.body.textWrappingMode = TextWrappingModes.Normal;
+            view.request = RoomType.CreateMono(view.panel.transform, "Request", Color.white, KitType.Order.Words);
+            view.request.textWrappingMode = TextWrappingModes.Normal;
+            view.request.overflowMode = TextOverflowModes.Overflow;
+            view.request.gameObject.SetActive(false);
+            // Never drawn: what counts the panel's lines for the file, laid exactly as the words above are.
+            view.measureBody = RoomType.Create(go.transform, "Words measure", Color.white, KitType.Order.Words);
+            view.measureBody.textWrappingMode = TextWrappingModes.Normal;
+            view.measureBody.GetComponent<MeshRenderer>().enabled = false;
+            view.measureRequest = RoomType.CreateMono(go.transform, "Request measure", Color.white, KitType.Order.Words);
+            view.measureRequest.textWrappingMode = TextWrappingModes.Normal;
+            view.measureRequest.overflowMode = TextOverflowModes.Overflow;
+            view.measureRequest.GetComponent<MeshRenderer>().enabled = false;
             view.sentence = RoomType.Create(view.panel.transform, "Sentence", Color.white, KitType.Order.Words);
             view.sentence.textWrappingMode = TextWrappingModes.Normal;
+            view.sentenceSweep = GlazeShimmer.On(view.sentence);
             view.caret = Surface.Create(view.panel.transform, "Caret", KitType.Order.Words);
             view.caret.Draw(new Vector2(RoomType.Units(RoomGeometry.CaretDp), RoomType.Units(RoomGeometry.CaretHeightDp)), RoomType.Units(1f), Color.white);
             var fieldGo = new GameObject("Field");
@@ -171,6 +212,7 @@ namespace Halcyonic.XR.UI
             if (bar.Pair) LayPair(bar);
             else
             {
+                locking = null;
                 panel.gameObject.SetActive(false);
                 foreach (var button in column) button.Hide();
                 if (bar.Row.Count > 0) LayRow(bar);
@@ -185,17 +227,42 @@ namespace Halcyonic.XR.UI
             if (shown?.Caret == true) caret.gameObject.SetActive(true);
         }
 
+        /// <summary>For renders, which have no clock: as if <paramref name="seconds"/> more had passed since Confirm arrived.</summary>
+        public void AgeLockForRender(float seconds)
+        {
+            lockAged += seconds;
+            FollowLock();
+        }
+
         public void Hide()
         {
             shown = null;
             controls.Clear();
+            locking = null;
             gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// Confirm's lock: from its arrival its ring fills over <see cref="RoomBar.ConfirmLockSeconds"/> while it takes no press,
+        /// then it is the main action. The time since is taken first, so an unchanged clock gives exactly none.
+        /// </summary>
+        private void FollowLock()
+        {
+            if (locking == null || lockLifted) return;
+            var progress = (Time.unscaledTime - lockedAt + lockAged) / RoomBar.ConfirmLockSeconds;
+            if (progress >= 1f)
+            {
+                lockLifted = true;
+                locking.Lock(null);
+            }
+            else locking.Lock(Mathf.Max(0f, progress));
         }
 
         private void Update()
         {
             if (shown == null) return;
             FollowLevel();
+            FollowLock();
             if (shown.Caret && !GlazeMotion.Still)
             {
                 var on = Mathf.Repeat(Time.unscaledTime, 2f * CaretSeconds) < CaretSeconds;
@@ -266,6 +333,54 @@ namespace Halcyonic.XR.UI
             Size = new Vector2(width, RoomType.Units(RoomButton.HeightDp));
         }
 
+        /// <summary>The width the panel's words wrap in: its 440 dp less its padding at each side, which grows with the text.</summary>
+        private static float BodyWidth => RoomType.Units(RoomGeometry.PanelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp);
+
+        /// <summary>Sets what the panel reads on <paramref name="label"/> as it stands there: a request literal in mono, else words by their runs, as prose.</summary>
+        private static void Set(TextMeshPro label, LineWords words, bool mono)
+        {
+            if (mono)
+            {
+                RoomType.SizeMono(label);
+                GlazeText.SetLiteral(label, words.Text);
+                return;
+            }
+            RoomType.Size(label);
+            var runs = GlazeRuns.Of(label);
+            runs.Set(words);
+            runs.SetProseMode(true);
+        }
+
+        /// <summary>
+        /// The lines the panel wraps <paramref name="words"/> to at the person's text size, as it would stand them (a request in
+        /// mono, else prose): what the file counts a request's or an instruction's rows by while the panel draws its
+        /// confirmation, so the file's parts are the panel's own lines, eight a part.
+        /// </summary>
+        public int Lines(LineWords words, bool mono)
+        {
+            var label = mono ? measureRequest : measureBody;
+            Set(label, words, mono);
+            KitType.Lay(label, BodyWidth, 200);
+            var lines = Mathf.Max(1, label.textInfo.lineCount);
+            // The measure holds no words once it has counted them: it is never drawn, and nothing should read it as shown.
+            if (mono) label.text = "";
+            else GlazeRuns.Of(label).Set(LineWords.None);
+            return lines;
+        }
+
+        /// <summary>The label's own text of its lines from <paramref name="from"/>, <paramref name="rows"/> of them at most, as it is laid now, never cut inside a doubled backslash.</summary>
+        private static string Rows(TextMeshPro label, int from, int rows)
+        {
+            var text = label.text;
+            var info = label.textInfo;
+            var count = Mathf.Max(1, info.lineCount);
+            var first = Mathf.Min(from, count - 1);
+            var last = (int)Mathf.Min((long)from + rows, count);
+            var start = LabelText.CharacterStart(text, info.characterInfo[info.lineInfo[first].firstCharacterIndex].index);
+            var end = last < count ? LabelText.CharacterStart(text, info.characterInfo[info.lineInfo[last].firstCharacterIndex].index) : text.Length;
+            return text.Substring(start, end - start).TrimEnd();
+        }
+
         /// <summary>The pair: the panel at the left with the words and the sentence bar at its foot, the column at its right.</summary>
         private void LayPair(RoomBar bar)
         {
@@ -275,40 +390,51 @@ namespace Halcyonic.XR.UI
             levelRoot.gameObject.SetActive(false);
             var unit = RoomType.Units(1f);
             var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
-            var pad = RoomType.Units(RoomGeometry.PanelPadDp);
-            var inset = RoomType.Units(RoomGeometry.SentenceInsetDp);
+            // Larger text scales every length inside the panel, its padding too; the panel's width stays (DESIGN's units).
+            var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
+            var inset = RoomType.Scaled(RoomGeometry.SentenceInsetDp);
             var line = RoomType.Scaled(RoomGeometry.LineDp);
 
-            // The words, the person's, whole: the draft, or the part of the instruction the file shows now.
-            RoomType.Size(body);
-            // A part comes back as a piece of a label's own text, its backslashes doubled: made words again before the label
-            // takes them, so the person reads exactly the words that will be sent.
-            var words = bar.Part is PageLine part && part.FromRow != null
-                ? LineWords.Theirs(LabelText.FromTextMeshPro(MenuFrameView.PartText(part, Glaze.Menu.FileColumnDegrees))) : bar.Body;
-            var runs = GlazeRuns.Of(body);
-            runs.Set(words);
-            runs.SetProseMode(true);
-            var wordsWidth = panelWidth - 2f * pad;
-            var empty = words.Text.Length == 0;
-            var bodyHeight = empty ? line : KitType.Lay(body, wordsWidth, 200).Height;
-            bodyHeight = Mathf.Max(line, bodyHeight);
+            var wordsWidth = BodyWidth;
+            // What the panel reads: a request in mono, exact and literal, or the person's words; under a confirmation the rows
+            // the file's part names, of the panel's own lines; a request before its answer at most eight of them. Cut between
+            // lines, never inside one.
+            var reading = bar.Mono ? request : body;
+            body.gameObject.SetActive(false);
+            request.gameObject.SetActive(false);
+            Set(reading, bar.Body, bar.Mono);
+            var laid = KitType.Lay(reading, wordsWidth, 200);
+            var from = bar.Part?.FromRow ?? 0;
+            var most = bar.Part != null ? bar.Part.Rows : bar.Mono ? RoomBar.RequestLines : int.MaxValue;
+            if (from > 0 || reading.textInfo.lineCount > most)
+            {
+                // The piece is the label's own spelling, each backslash doubled: made words again before the label takes them, so
+                // the person reads exactly what will be sent or run (AUDIT, 2026-11-10).
+                Set(reading, LineWords.Theirs(LabelText.FromTextMeshPro(Rows(reading, from, most))), bar.Mono);
+                laid = KitType.Lay(reading, wordsWidth, 200);
+            }
+            var empty = bar.Body.Text.Length == 0;
+            var bodyHeight = Mathf.Max(line, empty ? line : laid.Height);
 
             float barHeight = 0f;
             if (bar.Sentence is string said)
             {
                 RoomType.Size(sentence);
                 GlazeText.SetLiteral(sentence, said);
-                var (_, _, saidHeight) = KitType.Lay(sentence, panelWidth - 2f * inset - 2f * RoomType.Units(RoomGeometry.SentencePadXDp), 3);
-                barHeight = Mathf.Max(RoomType.Units(RoomGeometry.SentenceDp), saidHeight + 2f * RoomType.Units(RoomGeometry.SentencePadYDp));
+                var (_, _, saidHeight) = KitType.Lay(sentence, panelWidth - 2f * inset - 2f * RoomType.Scaled(RoomGeometry.SentencePadXDp), 3);
+                barHeight = Mathf.Max(RoomType.Scaled(RoomGeometry.SentenceDp), saidHeight + 2f * RoomType.Scaled(RoomGeometry.SentencePadYDp));
             }
             sentence.gameObject.SetActive(bar.Sentence != null);
+            sentenceSweep.Waits = bar.Sentence != null && bar.Waits;
             // The body 28 dp in from the top and sides; 18 dp under it before the sentence bar, which stands 14 dp in; 28 dp under it with no bar.
-            var panelHeight = pad + bodyHeight + (barHeight > 0f ? RoomType.Units(RoomGeometry.BodyFootDp) + barHeight + inset : pad);
+            var panelHeight = pad + bodyHeight + (barHeight > 0f ? RoomType.Scaled(RoomGeometry.BodyFootDp) + barHeight + inset : pad);
 
-            // The column: the main action first, the hand target's pitch, its foot on the panel's foot.
+            // The column: the main action first, the hand target's pitch, the lowest action's core standing on the panel's foot
+            // line as DESIGN's page stands it (its target reaches 6.4 dp under the line).
             var pitch = RoomType.Units(RoomButton.HeightDp) + KitType.Units(SpatialKit.TargetGapDegrees);
             var count = Mathf.Min(bar.Column.Count, ColumnMost);
-            var columnHeight = count == 0 ? 0f : (count - 1) * pitch + RoomType.Units(RoomButton.HeightDp);
+            var coreHalf = RoomType.Units(RoomButton.CoreDp) / 2f;
+            var columnHeight = count == 0 ? 0f : (count - 1) * pitch + coreHalf + RoomType.Units(RoomButton.HeightDp) / 2f;
             var widest = 0f;
             for (var index = 0; index < count; index++) widest = Mathf.Max(widest, column[index].Measure(bar.Column[index].Words));
             var columnWidth = Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), widest);
@@ -324,14 +450,15 @@ namespace Halcyonic.XR.UI
             panel.gameObject.SetActive(true);
             var top = panelHeight / 2f;
             body.transform.localPosition = new Vector3(-panelWidth / 2f + pad, top - pad, -RoomType.Units(0.5f));
-            body.gameObject.SetActive(!empty);
+            request.transform.localPosition = body.transform.localPosition;
+            reading.gameObject.SetActive(!empty);
             if (bar.Sentence != null)
-                sentence.transform.localPosition = new Vector3(-panelWidth / 2f + inset + RoomType.Units(RoomGeometry.SentencePadXDp),
-                    -panelHeight / 2f + inset + barHeight - RoomType.Units(RoomGeometry.SentencePadYDp), -RoomType.Units(0.5f));
+                sentence.transform.localPosition = new Vector3(-panelWidth / 2f + inset + RoomType.Scaled(RoomGeometry.SentencePadXDp),
+                    -panelHeight / 2f + inset + barHeight - RoomType.Scaled(RoomGeometry.SentencePadYDp), -RoomType.Units(0.5f));
 
             // The caret after the last word, or at the start of an empty field.
             var caretAt = new Vector2(-panelWidth / 2f + pad, top - pad - line / 2f);
-            if (!empty && body.textInfo.characterCount > 0)
+            if (!empty && !bar.Mono && body.textInfo.characterCount > 0)
             {
                 var info = body.textInfo;
                 var last = info.characterInfo[info.characterCount - 1];
@@ -354,7 +481,7 @@ namespace Halcyonic.XR.UI
             }
 
             var columnLeft = left + panelWidth + gap;
-            var columnTop = foot + columnHeight;
+            RoomButton? locks = null;
             for (var index = 0; index < column.Count; index++)
             {
                 var button = column[index];
@@ -365,10 +492,21 @@ namespace Halcyonic.XR.UI
                 }
                 var action = bar.Column[index];
                 var width = button.Measure(action.Words);
-                var y = columnTop - RoomType.Units(RoomButton.HeightDp) / 2f - index * pitch;
+                var y = foot + coreHalf + (count - 1 - index) * pitch;
                 button.Show(action.Words, action.Icon, action.Main, available: true, new Vector2(columnLeft + width / 2f, y), width);
                 controls[button] = action.Control;
+                if (action.Locks) locks = button;
             }
+            // Confirm's lock starts when it arrives and holds through the frames the file draws again while it stands.
+            if (locks == null) locking = null;
+            else if (!ReferenceEquals(locking, locks))
+            {
+                locking = locks;
+                lockedAt = Time.unscaledTime;
+                lockAged = 0f;
+                lockLifted = false;
+            }
+            if (locking != null && !lockLifted) FollowLock();
             Size = new Vector2(total, height);
         }
     }

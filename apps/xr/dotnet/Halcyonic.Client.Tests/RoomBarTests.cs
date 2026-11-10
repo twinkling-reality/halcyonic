@@ -246,11 +246,140 @@ public class RoomBarTests
     }
 
     [Test]
-    public void AnApprovalWaitingHidesItForTheLaterUnits()
+    public void AnApprovalIsThePairItsRequestInMonoWhatItAsksInTheSentenceBarAndApproveThenDenyTheFilesOwn()
     {
         var work = new WaitingWork();
         var steering = new WorkspaceSteering(factory);
-        var binding = Bind(work.Present(), steering, new FileScreen { Section = FileSection.Waiting });
-        Assert.That(RoomBar.Of(binding, VoiceStage.Idle, false).State, Is.EqualTo(RoomBarState.Hidden));
+        var asked = RoomBar.Of(Bind(work.Present(), steering, new FileScreen { Section = FileSection.Waiting }), VoiceStage.Idle, false);
+        Assert.That((asked.State, asked.Pair, asked.Mono, asked.Body.Text, asked.Sentence, asked.Waits),
+            Is.EqualTo((RoomBarState.Request, true, true, "Run the migration", (string?)"Run Command?", false)));
+        Assert.That(Actions(asked.Column), Is.EqualTo(new[] { (KitPlace.Approve, "Approve", true), (KitPlace.Deny, "Deny", false) }));
+        Assert.That(asked.Column.Select(action => (action.Control.Action, action.Locks)), Is.EqualTo(new[] { (FileScreens.Approve, false), (FileScreens.Deny, false) }));
+        Assert.That(asked.Row, Is.Empty, "no Hold to Talk or Type while an approval waits");
+    }
+
+    [Test]
+    public void ConfirmStandsBehindItsLockOnceTheRequestIsReadAndItsPressSendsTheApprovalThenItReadsSendingWithNoAction()
+    {
+        var work = new WaitingWork();
+        var before = work.Present();
+        var steering = new WorkspaceSteering(factory, () => Now);
+        var screen = new FileScreen { Section = FileSection.Waiting };
+        Assert.That(steering.Press(WorkspaceAction.Approve, before).Step, Is.EqualTo(SteeringStep.Confirm));
+        var request = steering.ToRead(before)!;
+        screen.ReadRequest(request, 1, 3, steering);
+
+        var unread = RoomBar.Of(Bind(before, steering, screen), VoiceStage.Idle, false);
+        Assert.That((unread.State, unread.Mono, unread.Sentence, unread.Body.Text),
+            Is.EqualTo((RoomBarState.Request, true, (string?)WorkspaceText.ReadRequestFirst, "Run the migration")), "the request alone, as it stood before its confirmation");
+        Assert.That(unread.Column.Select(action => action.Place), Is.EqualTo(new[] { KitPlace.Cancel }), "no Confirm before the request was drawn");
+        // The rows the file counted reach the panel, which draws the confirmation only where it wraps the same words to as many.
+        var counted = KitFileBinding.Of(FileScreens.Screen(before, steering, screen, new AnswerRoom(4)), steering.Armed, before, "", Live, "Storefront", Spine,
+            roomDesign: true, requestRows: screen.RequestRows)!;
+        Assert.That((unread.Rows, RoomBar.Of(counted, VoiceStage.Idle, false).Rows), Is.EqualTo(((int?)null, (int?)1)));
+
+        screen.RequestDrawn(0, steering, Now);
+        var read = RoomBar.Of(Bind(before, steering, screen), VoiceStage.Idle, false);
+        Assert.That(read.Sentence, Is.EqualTo("Approve Request?"));
+        Assert.That(read.Column.Select(action => (action.Place, action.Words, action.Main, action.Locks, action.Icon)), Is.EqualTo(new[]
+        {
+            (KitPlace.Yes, "Confirm", true, true, (GlazeIcon?)GlazeIcon.Approve), (KitPlace.Cancel, "Cancel", false, false, (GlazeIcon?)GlazeIcon.Close),
+        }));
+
+        // Confirm is the file's own Yes: its press is the steering's Confirm, which sends the answer to the approval.
+        Assert.That(read.Column[0].Control.Action, Is.EqualTo(FileScreens.Yes));
+        var sent = steering.Confirm(before);
+        Assert.That((sent.Step, sent.Command!.CommandType), Is.EqualTo((SteeringStep.Send, "execution.respond_to_approval")));
+
+        // Accepted is not done: until the runtime resolves it, Sending sweeps and the column is empty.
+        var submissions = new CommandSubmissions();
+        _ = submissions.SubmitAsync(_ => new System.Threading.Tasks.TaskCompletionSource<CommandAckMessage>().Task, sent.Command!, "e1");
+        var flying = work.Present(submissions: submissions);
+        Assert.That(flying.ApprovalInFlight, Is.True);
+        var sending = RoomBar.Of(Bind(flying, steering, screen), VoiceStage.Idle, false);
+        Assert.That((sending.State, sending.Sentence, sending.Waits, sending.Column.Count, sending.Body.Text),
+            Is.EqualTo((RoomBarState.Request, (string?)"Sending", true, 0, "Run the migration")));
+        var frame = FileScreens.Screen(flying, steering, screen, new AnswerRoom(4));
+        Assert.That(KitFileBinding.Of(frame, steering.Armed, flying, "", Live, "Storefront", Spine), Is.Null, "without the redesign the file still draws an answer in flight");
+
+        // Resolved, the approval is gone and so is its pair.
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        var after = work.Present();
+        Assert.That(RoomBar.Of(Bind(after, steering, new FileScreen { Section = FileSection.Activity }), VoiceStage.Idle, false).State, Is.Not.EqualTo(RoomBarState.Request));
+    }
+
+    [Test]
+    public void ALongRequestIsReadPartByPartAsTheFileCutsItTheNextPartMainUntilConfirmArrives()
+    {
+        var work = new WaitingWork();
+        var workspace = work.Present();
+        var steering = new WorkspaceSteering(factory, () => Now);
+        var screen = new FileScreen { Section = FileSection.Waiting };
+        steering.Press(WorkspaceAction.Approve, workspace);
+        var request = steering.ToRead(workspace)!;
+        screen.ReadRequest(request, 7, 3, steering);
+
+        var first = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
+        Assert.That((first.Part!.Rows, first.Part.FromRow, first.Sentence), Is.EqualTo((3, (int?)0, (string?)WorkspaceText.ReadRequestFirst)));
+        Assert.That(Actions(first.Column), Is.EqualTo(new[] { (KitPlace.Step, "Next Part · 2 of 3", true), (KitPlace.Cancel, "Cancel", false) }));
+        Assert.That((first.Column[0].Control.Action, first.Column[0].Control.Key), Is.EqualTo((FileScreens.NextPart, (string?)FileScreens.RequestKey)));
+        Assert.That(first.Body.Text, Is.EqualTo("Run the migration"), "the panel reads the request alone, whole, and shows the rows the part names");
+        // What is read, and how: an approval's request without the tool's name its line leads with, in mono; a line that is not
+        // that request, or names no tool, as the file wrote it; an instruction's words as prose.
+        var line = FileScreens.RequestLine(steering, request);
+        Assert.That(RoomBar.Reading(line, "Run the migration", instruction: false), Is.EqualTo((LineWords.Theirs("Run the migration"), true)).Using<(LineWords Words, bool Mono)>(
+            (a, b) => a.Words.Text == b.Words.Text && a.Mono == b.Mono));
+        Assert.That(RoomBar.Reading(line, "another request", instruction: false).Words.Text, Is.EqualTo(request));
+        Assert.That(RoomBar.Reading(line, null, instruction: false), Is.EqualTo((line.Runs, false)));
+        Assert.That(RoomBar.Reading(line, "Run the migration", instruction: true), Is.EqualTo((line.Runs, false)));
+
+        screen.RequestDrawn(0, steering, Now);
+        screen.NextRequestPart(steering, Now + TimeSpan.FromSeconds(1));
+        var second = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
+        Assert.That(second.Part!.FromRow, Is.EqualTo(3));
+        Assert.That(second.Body.Text, Is.EqualTo("Run the migration"), "every part reads from the same whole");
+
+        // A denial may be confirmed at once, as denying runs nothing: Confirm leads, the next part after it.
+        steering.Press(WorkspaceAction.Deny, workspace);
+        screen.ReadRequest(steering.ToRead(workspace)!, 7, 3, steering);
+        var denying = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
+        Assert.That(denying.Sentence, Is.EqualTo("Deny Request?"));
+        Assert.That(denying.Column.Select(action => (action.Place, action.Main, action.Locks, action.Icon)), Is.EqualTo(new[]
+        {
+            (KitPlace.Yes, true, true, (GlazeIcon?)GlazeIcon.Deny), (KitPlace.Step, false, false, (GlazeIcon?)GlazeIcon.Next), (KitPlace.Cancel, false, false, (GlazeIcon?)GlazeIcon.Close),
+        }));
+    }
+
+    [Test]
+    public void ARequestThatCanOnlyBeDeniedSaysWhyInTheSentenceBarAndALapseReadsInTheProductsWords()
+    {
+        var cut = new WaitingWork();
+        cut.Change(execution =>
+        {
+            execution.PendingApprovals.Clear();
+            execution.PendingApprovals.Add(new ApprovalView
+            {
+                ApprovalId = WaitingWork.ApprovalId,
+                Subject = new ToolUseSubject { ToolName = "bash", Summary = "pnpm test --reporter [truncated]" },
+                Approvable = false,
+                RequestedAt = Samples.Time,
+            });
+        });
+        var only = RoomBar.Of(Bind(cut.Present(), new WorkspaceSteering(factory), new FileScreen { Section = FileSection.Waiting }), VoiceStage.Idle, false);
+        Assert.That(only.Sentence, Is.EqualTo(WorkspaceText.TooLongToShow));
+        Assert.That(Actions(only.Column), Is.EqualTo(new[] { (KitPlace.Deny, "Deny", true) }.Select(each => (each.Item1, each.Item2, false))));
+
+        // A confirmation not given in time lapses: the file says so, and the sentence bar reads it with both answers back.
+        var work = new WaitingWork();
+        var workspace = work.Present();
+        var clock = Now;
+        var steering = new WorkspaceSteering(factory, () => clock);
+        var screen = new FileScreen { Section = FileSection.Waiting };
+        steering.Press(WorkspaceAction.Approve, workspace);
+        clock += TimeSpan.FromSeconds(16);
+        var lapsed = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
+        Assert.That(steering.Armed, Is.Null);
+        Assert.That(lapsed.Sentence, Is.EqualTo("Not Sent · Confirm Timed Out · Press Again"));
+        Assert.That(lapsed.Column.Select(action => action.Place), Is.EqualTo(new[] { KitPlace.Approve, KitPlace.Deny }));
     }
 }

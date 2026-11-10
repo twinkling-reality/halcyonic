@@ -625,7 +625,8 @@ namespace Halcyonic.XR.Workspace.Editor
         /// The selected task as the production presenter presents it from a projection: waiting for approval of
         /// <see cref="ApprovalCommand"/>, or running with nothing waiting, the agent app's every action offered.
         /// </summary>
-        private static WorkspacePresentation SelectedWorkspace(bool waiting, QuestionView? asked = null)
+        private static WorkspacePresentation SelectedWorkspace(bool waiting, QuestionView? asked = null, string? command = null, bool approvable = true,
+            CommandSubmissions? submissions = null)
         {
             const string at = Day + "09:03:00.000Z";
             var runtime = new RuntimeDescriptor
@@ -678,8 +679,8 @@ namespace Halcyonic.XR.Workspace.Editor
             else if (waiting) execution.PendingApprovals.Add(new ApprovalView
             {
                 ApprovalId = "synthetic-approval",
-                Subject = new ToolUseSubject { ToolName = "shell", Summary = ApprovalCommand },
-                Approvable = true,
+                Subject = new ToolUseSubject { ToolName = "shell", Summary = command ?? ApprovalCommand },
+                Approvable = approvable,
                 RequestedAt = at,
             });
             var state = new ClientProjection();
@@ -705,7 +706,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     new() { CommandType = CommandType.ExecutionSendInstruction, Policy = PolicyCategory.LowConsequence },
                 },
             });
-            return WorkspacePresenter.Present(workstream, state, new ActivityLog(), live: true);
+            return WorkspacePresenter.Present(workstream, state, new ActivityLog(), live: true, submissions);
         }
 
         private static void RequireAsked(KitWorkView view, Shot shot)

@@ -918,6 +918,10 @@ namespace Halcyonic.Client
             }
             if (notice != null && host.Now > noticeUntil) notice = null;
             if (Screen.Section == FileSection.Waiting && !WorkspaceText.SomethingWaits(presentation) && Steering.Armed == null) Screen.Section = FileSection.Activity;
+            // The redesign has no sections to choose from (DESIGN 2.4, 2.9): what waits for the person shows the moment it waits,
+            // unless they are writing an instruction, which stays until they send or leave it.
+            if (RoomDesign.Enabled && Screen.Section != FileSection.Waiting && WorkspaceText.SomethingWaits(presentation) && Steering.Armed == null
+                && !Screen.Instruction.Open) Screen.Section = FileSection.Waiting;
             Screen.Notice = notice;
             Screen.KeyboardOffered = host.KeyboardOffered;
             Screen.Presets = presets ? (recordedNow?.Count > 0 ? recordedNow : WorkspaceText.PresetInstructions) : null;
@@ -1089,8 +1093,15 @@ namespace Halcyonic.Client
         /// The rows of a request a part shows: what is left of the page beside the part's row and the
         /// tallest question the confirmation may ask, so its parts stay put when that question changes.
         /// </summary>
-        public int RequestPartRows(IEnumerable<string> asking, PageBudget page) =>
-            RequestPartRows(asking.Select(words => host.RowsOf(words, Glaze.Menu.FileColumnDegrees)).DefaultIfEmpty(1).Max(), page);
+        public int RequestPartRows(IEnumerable<string> asking, PageBudget page) => RequestPartRowsOf?.Invoke() is int rows
+            ? Math.Max(1, rows)
+            : RequestPartRows(asking.Select(words => host.RowsOf(words, Glaze.Menu.FileColumnDegrees)).DefaultIfEmpty(1).Max(), page);
+
+        /// <summary>
+        /// The rows a part of a request shows where what draws it gives them itself, as the redesign's panel does (eight of its
+        /// own lines, <see cref="RoomBar.RequestLines"/>); null, or unset, leaves them to the page's room.
+        /// </summary>
+        public Func<int?>? RequestPartRowsOf { get; set; }
 
         /// <summary>The rows of a request a part shows, beside the part's row and a question of <paramref name="askingRows"/> rows, at most two.</summary>
         public static int RequestPartRows(int askingRows, PageBudget page)

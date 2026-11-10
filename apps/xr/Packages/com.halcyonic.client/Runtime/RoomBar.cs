@@ -7,7 +7,7 @@ namespace Halcyonic.Client
     /// <summary>What the redesign shows of the open task's instruction now (DESIGN's FINISH-3, 2026-11-05).</summary>
     public enum RoomBarState
     {
-        /// <summary>Nothing: an approval or a question waits, which the redesign's later units draw.</summary>
+        /// <summary>Nothing: a question waits, which the redesign's next unit draws.</summary>
         Hidden,
 
         /// <summary>The row at rest: Hold to Talk, the main action, and Type, floating with no field.</summary>
@@ -25,6 +25,13 @@ namespace Halcyonic.Client
         /// <summary>An instruction's confirmation: its words in the panel, what it asks in the sentence bar, the column its answers.</summary>
         Confirm,
 
+        /// <summary>
+        /// An approval (DESIGN 2.4): the request in mono in the panel, what it asks in the sentence bar, Approve (main) and Deny in
+        /// the column; once either is pressed, its confirmation, Confirm behind its lock and Cancel; once sent, Sending with the
+        /// column emptied until the runtime resolves it.
+        /// </summary>
+        Request,
+
         /// <summary>"Sending", then "Sent · Awaiting Start", words alone, sweeping: the instruction went and the run has not started.</summary>
         Sent,
 
@@ -35,11 +42,13 @@ namespace Halcyonic.Client
     /// <summary>One floating action of the redesign: the file's own control at its place, with its words and glyph, main or not.</summary>
     public sealed class RoomAction
     {
-        public RoomAction(KitControl control, bool main, string? words = null)
+        public RoomAction(KitControl control, bool main, string? words = null, bool locks = false, GlazeIcon? icon = null)
         {
             Control = control;
             Main = main;
             Words = words ?? control.Words;
+            Locks = locks;
+            Icon = icon ?? control.Icon;
         }
 
         /// <summary>The file's control a press raises, with its frame.</summary>
@@ -49,9 +58,17 @@ namespace Halcyonic.Client
 
         public string Words { get; }
 
-        public GlazeIcon? Icon => Control.Icon;
+        /// <summary>Its glyph: the control's own, or the one its place takes where the file's row carries none.</summary>
+        public GlazeIcon? Icon { get; }
 
         public bool Main { get; }
+
+        /// <summary>
+        /// Confirm's lock (DESIGN 1.4): it arrives a rest action with a ring round its chip that fills over
+        /// <see cref="RoomBar.ConfirmLockSeconds"/>, taking no press, and only then is the main action, so the press that
+        /// answered is never the one that confirms.
+        /// </summary>
+        public bool Locks { get; }
     }
 
     /// <summary>
@@ -73,11 +90,21 @@ namespace Halcyonic.Client
         /// <summary>The words once the instruction went and the run has not started.</summary>
         public const string SentWords = KitMomentWords.SentTitle + KitMomentWords.Dot + KitMomentWords.WaitingToStart;
 
+        /// <summary>How long Confirm stands locked once it could be pressed, its ring filling (DESIGN 1.4, the kit's own lock).</summary>
+        public const float ConfirmLockSeconds = 0.7f;
+
+        /// <summary>The lines of a request the panel shows at most (DESIGN 1.1): a longer one is read whole, part by part, under its confirmation.</summary>
+        public const int RequestLines = 8;
+
         private static readonly RoomAction[] None = new RoomAction[0];
 
         private RoomBar(RoomBarState state, IReadOnlyList<RoomAction>? row = null, LineWords? words = null, LineWords? body = null, PageLine? part = null,
-            bool caret = false, string? sentence = null, IReadOnlyList<RoomAction>? column = null, KitControl? field = null)
+            bool caret = false, string? sentence = null, IReadOnlyList<RoomAction>? column = null, KitControl? field = null, bool mono = false,
+            bool waits = false, int? rows = null)
         {
+            Mono = mono;
+            Waits = waits;
+            Rows = rows;
             State = state;
             Row = row ?? None;
             Words = words ?? LineWords.None;
@@ -100,7 +127,10 @@ namespace Halcyonic.Client
         /// <summary>The information panel's words, the person's: the draft so far, or the instruction under confirmation.</summary>
         public LineWords Body { get; }
 
-        /// <summary>The instruction's line as the file drew it while it is confirmed, its rows and the row its part starts from; null otherwise.</summary>
+        /// <summary>
+        /// Under a confirmation, the file's line of what is read: the rows its part shows and the row it starts from, counted
+        /// in the panel's own lines of <see cref="Body"/>; null otherwise.
+        /// </summary>
         public PageLine? Part { get; }
 
         /// <summary>The panel is the field, with its caret after the words.</summary>
@@ -109,6 +139,18 @@ namespace Halcyonic.Client
         /// <summary>The panel's one sentence, in its sentence bar; null for none.</summary>
         public string? Sentence { get; }
 
+        /// <summary>The body is exact text, a request as the runtime reported it: it stands in mono, literal, at most <see cref="RequestLines"/> lines of it before its confirmation.</summary>
+        public bool Mono { get; }
+
+        /// <summary>The sentence is a state under way (Sending): it sweeps.</summary>
+        public bool Waits { get; }
+
+        /// <summary>
+        /// The rows the file counted for what is read under a confirmation (<see cref="Body"/>, whole), where it has measured
+        /// it: the panel draws the confirmation only where it wraps the same words to as many, so its parts are the file's.
+        /// </summary>
+        public int? Rows { get; }
+
         /// <summary>The column's actions beside the panel, the main one first.</summary>
         public IReadOnlyList<RoomAction> Column { get; }
 
@@ -116,13 +158,63 @@ namespace Halcyonic.Client
         public KitControl? Field { get; }
 
         /// <summary>Whether the pair (the panel and its column) shows.</summary>
-        public bool Pair => State is RoomBarState.Draft or RoomBarState.Confirm;
+        public bool Pair => State is RoomBarState.Draft or RoomBarState.Confirm or RoomBarState.Request;
+
+        /// <summary>
+        /// What the panel reads of a request or an instruction under its confirmation, whole, and whether it stands in mono:
+        /// an instruction's words as the file's line holds them; an approval's request alone, in mono, without the tool's name
+        /// and colon the file's line leads it with (the sentence named the tool before the answer was pressed), or, where no
+        /// tool was named, the file's own line. The panel wraps these words at its own width and shows the rows the file's part
+        /// names (<see cref="Part"/>), and the file counts the same words at the same width (<see cref="Rows"/>), so every part
+        /// together is the whole, no word skipped or read twice.
+        /// </summary>
+        public static (LineWords Words, bool Mono) Reading(PageLine line, string? request, bool instruction)
+        {
+            if (instruction || request == null) return (line.Runs, false);
+            var alone = line.Words == request || line.Words.EndsWith(": " + request, System.StringComparison.Ordinal);
+            return (LineWords.Theirs(alone ? request : line.Words), true);
+        }
+
+        /// <summary>
+        /// An approval (DESIGN 2.4), every action the file's own control. Asked: the request in the panel, what it asks in the
+        /// sentence bar (or why only Deny stands, or what the file says of a lapse), Approve (main) and Deny. Confirming: the
+        /// request as the file shows it part by part, the file's question in the sentence bar, Confirm behind its lock once the
+        /// file offers it, the next part until then, and Cancel. Sent: Sending, sweeping, and no action until the runtime
+        /// resolves the approval.
+        /// </summary>
+        private static RoomBar Asked(KitFileBinding binding, KitNeed need)
+        {
+            KitControl? Available(KitPlace place) => binding[place] is KitControl control && control.Available ? control : null;
+            // With no tool named the panel is Halcyonic's one line, and a panel of one line has no sentence bar.
+            var body = need.Request != null ? LineWords.Theirs(need.Request) : need.Asks;
+            var mono = need.Request != null;
+            var column = new List<RoomAction>();
+            if (need.Confirming is KitConfirmation confirming)
+            {
+                if (need.Part != null) (body, mono) = Reading(need.Part, need.Request, instruction: false);
+                var yes = Available(KitPlace.Yes);
+                if (yes != null) column.Add(new RoomAction(yes, main: true, locks: true));
+                foreach (var step in binding.Controls.Where(control => control.Place == KitPlace.Step && control.Available))
+                    column.Add(new RoomAction(step, main: yes == null && column.Count == 0, icon: GlazeIcon.Next));
+                if (Available(KitPlace.Cancel) is KitControl cancel) column.Add(new RoomAction(cancel, main: false));
+                return new RoomBar(RoomBarState.Request, body: body, part: need.Part, sentence: confirming.Ask, column: column, mono: mono, rows: need.Rows);
+            }
+            if (need.Sending) return new RoomBar(RoomBarState.Request, body: body, sentence: WorkspaceText.Sent, mono: mono, waits: true);
+            if (need.ApproveOffered && Available(KitPlace.Approve) is KitControl approve) column.Add(new RoomAction(approve, main: true));
+            if (need.DenyOffered && Available(KitPlace.Deny) is KitControl deny) column.Add(new RoomAction(deny, main: false));
+            // The sentence: what the file says now (a lapse, why nothing can be answered), else why only Deny stands, else what it asks.
+            var onlyDeny = need.Notes.FirstOrDefault(note => note == WorkspaceText.TooLongToShow || note == WorkspaceText.CommandNotKnown || note == WorkspaceText.RequestNotKnown);
+            var asks = need.Commands ? KitMomentWords.RunThisCommand : need.Asks.Text;
+            var sentence = need.Says ?? onlyDeny ?? (need.Request != null ? asks : null);
+            return new RoomBar(RoomBarState.Request, body: body, sentence: sentence, column: column, mono: mono);
+        }
 
         /// <summary>The redesign's view of <paramref name="binding"/>, the file's frame, with voice as it stands and whether the run waits to start.</summary>
         public static RoomBar Of(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart)
         {
             var model = binding.Model;
-            if (model.Need != null || model.Ask != null) return new RoomBar(RoomBarState.Hidden);
+            if (model.Need is KitNeed need) return Asked(binding, need);
+            if (model.Ask != null) return new RoomBar(RoomBarState.Hidden);
             KitControl? Available(KitPlace place) => binding[place] is KitControl control && control.Available ? control : null;
             var talk = binding[KitPlace.Talk];
             var field = binding[KitPlace.Field];
@@ -138,9 +230,9 @@ namespace Halcyonic.Client
                 var steps = binding.Controls.Where(control => control.Place == KitPlace.Step && control.Available).ToList();
                 var column = new List<RoomAction>();
                 if (yes != null) column.Add(new RoomAction(yes, main: true));
-                column.AddRange(steps.Select(step => new RoomAction(step, main: yes == null && column.Count == 0)));
+                column.AddRange(steps.Select(step => new RoomAction(step, main: yes == null && column.Count == 0, icon: GlazeIcon.Next)));
                 if (Available(KitPlace.Cancel) is KitControl cancel) column.Add(new RoomAction(cancel, main: false));
-                return new RoomBar(RoomBarState.Confirm, part: instruction.Words, sentence: instruction.Asks, column: column);
+                return new RoomBar(RoomBarState.Confirm, part: instruction.Words, sentence: instruction.Asks, column: column, rows: instruction.Rows);
             }
             if (composing)
             {

@@ -13,7 +13,9 @@ namespace Halcyonic.XR.Workspace
     /// opens the installed app straight into a named view, so the device tool can capture a frame on the headset with
     /// nobody wearing it. It reads the launch intent's extras once, at start: <c>halcyonic.open</c> is
     /// <c>task:{execution id}:{section}</c> (activity, waiting, changes or checks), <c>screen:{project id}</c> or
-    /// <c>gallery</c>; <c>halcyonic.compose</c> opens the task's instruction without the keyboard; <c>halcyonic.agent</c>
+    /// <c>gallery</c>; <c>halcyonic.compose</c> opens the task's instruction without the keyboard, empty, and
+    /// <c>halcyonic.draft</c> or <c>halcyonic.heard</c> open it holding one fixed synthetic draft (<see cref="DraftWords"/>),
+    /// typed or as if heard, so a draft's screen can be captured with no keyboard and no voice; <c>halcyonic.agent</c>
     /// chooses a registered runtime by its id; <c>halcyonic.arm</c> arms the waiting approval so its confirming bar shows;
     /// <c>halcyonic.bar</c> opens the screen's bar; <c>halcyonic.generic</c>, on its own or with any of them, draws every agent
     /// app, model, host and sibling source by a generic name (<see cref="CaptureNames"/>), for footage free of product
@@ -45,6 +47,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The words that end what <see cref="Apply"/> returns when it could not arm the approval.</summary>
         public const string NotArmedWords = ", approval not armed";
 
+        /// <summary>The one draft a preset writes, synthetic and fixed: no extra carries words. Nothing sends it; a person's Send would.</summary>
+        public const string DraftWords = "Add a golden balloon worth five points, and remove the old backup file.";
+
         /// <summary>What <see cref="Apply"/> returns where the snapshot holds what the preset names but nothing opened.</summary>
         public const string Nothing = "";
 
@@ -64,6 +69,12 @@ namespace Halcyonic.XR.Workspace
             public string? Project;
             public bool Gallery;
             public bool Compose;
+
+            /// <summary>The instruction opens holding <see cref="DraftWords"/> as typed (the redesign's typed draft).</summary>
+            public bool Draft;
+
+            /// <summary>The instruction opens holding <see cref="DraftWords"/> as heard (the redesign's heard draft).</summary>
+            public bool Heard;
             public string? Runtime;
             public bool Arm;
             public bool Bar;
@@ -80,9 +91,9 @@ namespace Halcyonic.XR.Workspace
             && text.All(c => c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '.' or '_' or ':' or '/' or '-');
 
         /// <summary>The preset the extras ask for; null where <paramref name="open"/> names none, or names one that is not ids and fixed words.</summary>
-        public static Preset? Parse(string? open, bool compose, string? runtime, bool arm, bool bar)
+        public static Preset? Parse(string? open, bool compose, string? runtime, bool arm, bool bar, bool draft = false, bool heard = false)
         {
-            var preset = new Preset { Compose = compose, Arm = arm, Bar = bar, Runtime = IsId(runtime) ? runtime : null };
+            var preset = new Preset { Compose = compose, Arm = arm, Bar = bar, Runtime = IsId(runtime) ? runtime : null, Draft = draft, Heard = heard };
             if (open == "gallery") preset.Gallery = true;
             else if (open != null && open.StartsWith("screen:", StringComparison.Ordinal) && IsId(open.Substring(7))) preset.Project = open.Substring(7);
             else if (open != null && open.StartsWith("task:", StringComparison.Ordinal))
@@ -140,7 +151,8 @@ namespace Halcyonic.XR.Workspace
                 if (intent == null) return null;
                 return Parse(intent.Call<string>("getStringExtra", "halcyonic.open"), intent.Call<bool>("getBooleanExtra", "halcyonic.compose", false),
                     intent.Call<string>("getStringExtra", "halcyonic.agent"), intent.Call<bool>("getBooleanExtra", "halcyonic.arm", false),
-                    intent.Call<bool>("getBooleanExtra", "halcyonic.bar", false));
+                    intent.Call<bool>("getBooleanExtra", "halcyonic.bar", false), intent.Call<bool>("getBooleanExtra", "halcyonic.draft", false),
+                    intent.Call<bool>("getBooleanExtra", "halcyonic.heard", false));
             }
             catch (Exception) { return null; }
 #else
@@ -226,14 +238,16 @@ namespace Halcyonic.XR.Workspace
             if (menu.Navigator.Beside is not FileColumn file || file.Now is not WorkspacePresentation now
                 || now.Execution?.ExecutionId != execution.ExecutionId) return Nothing;
             var words = "task at " + preset.Section!.Value.ToString().ToLowerInvariant() + agent;
-            if (preset.Compose)
+            if (preset.Compose || preset.Draft || preset.Heard)
             {
                 if (now.Actions.Contains(WorkspaceAction.Instruct))
                 {
-                    // The instruction opened as Tell it opens it, without the system keyboard: an empty draft.
-                    file.Screen.Instruction.Restore(execution.ExecutionId, "", false, 0);
+                    // The instruction opened as Tell it opens it, without the system keyboard: an empty draft, or the one fixed
+                    // synthetic draft, typed or as if heard. Only a person's Send, and then its confirmation, would send it.
+                    var worded = preset.Draft || preset.Heard;
+                    file.Screen.Instruction.Restore(execution.ExecutionId, worded ? DraftWords : "", preset.Heard, 0);
                     file.Reflow();
-                    words += ", composing";
+                    words += preset.Heard ? ", heard draft" : preset.Draft ? ", typed draft" : ", composing";
                 }
                 else words += ", not composing";
             }

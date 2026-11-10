@@ -2507,6 +2507,9 @@ the kit and the judge path stand whole between units; a development build turns 
 `--extra-bool halcyonic.redesign=true` (`CapturePresets`), and the redesign's render states turn it on for themselves.
 The last unit turns it on by default and removes the kit parts it replaced.
 
+- **Lengths** are dp times one dp's length on the plane (`RoomType.Units`), as DESIGN's page lays them; larger text
+  scales every length inside a panel, its padding too (`RoomType.Scaled`), while the panel's width stays. Every word
+  is tracked -0.6 percent (`RoomType.Tracking`).
 - **Placement and type** live once in `RoomGeometry` (client core), SYSTEM-v4's numbers in degrees and dp: the pair
   43.5 degrees wide (the panel 440 dp, a 16 dp gap, the column 240 dp), feet at pitch -17.6, the row's foot at -23.5, every word Inter Regular 20 dp on a 28 dp line
   (`RoomType`), larger text times 1.15. `RoomLayout` (ADR 0040's poses) is unchanged.
@@ -2529,8 +2532,8 @@ The last unit turns it on by default and removes the kit parts it replaced.
   60.8 dp at least; the plane stands at 0.46 m, where 12 mm is about 24 dp, so stacked actions stand 84.8 dp apart. The
   glyphs are the product's icon font for now; DESIGN's own glyph set and the words' underlay are not built yet.
 - **The old kit is gone with the switch on** (the owner, 2026-11-05): `KitWorkspaceHost` draws none of its spine,
-  slate or rail; the room shows only the redesign's parts. A frame asking an approval or a question shows nothing until
-  unit 2 and is never reported drawn, so nothing counts as read that no one saw. Off, the kit stands whole.
+  slate or rail; the room shows only the redesign's parts. A frame asking a question shows nothing until its unit
+  and is never reported drawn, so nothing counts as read that no one saw. Off, the kit stands whole.
 - **Unit 1d, the instruction** (DESIGN's FINISH-3, the owner's yes 2026-11-05): `RoomBar` (client core) is a view of
   the open task's own file, never a second instruction: every action is a control the file's frame offers
   (`KitFileBinding`), with its own words, so reading before Send, ADMIT and the voice rules hold. At rest there is no
@@ -2545,13 +2548,41 @@ The last unit turns it on by default and removes the kit parts it replaced.
   panel's body stands 28 dp in, 18 dp above the sentence bar, which stands 14 dp in with 14 by 12 dp of padding. An
   instruction armed to send (a heard one
   always is) is bound for the redesign alone (`KitFileBinding.Of(..., roomDesign: true)`, `KitWorkModel.Instruction`):
-  its words in the panel, part by part as the file cuts them (`MenuFrameView.PartText`, so no word is skipped or read
-  twice; a part is a piece of a label's own text, so `LabelText.FromTextMeshPro` makes it words again before the
-  panel's label takes them, and a backslash reads once, as it will be sent), the file's question in the sentence bar (Read to Part N, then Send Heard Instruction?), and in the column the
+  its words in the panel, part by part, eight of the panel's own lines a part: while the redesign draws the file, the
+  file counts what a confirmation reads by the panel's lines (`MenuDirector.RowsOf` asks `RoomBarView.Lines`,
+  `FileColumn.RequestPartRowsOf` gives eight), the panel wraps the same words (`RoomBar.Reading`) at the same width and
+  shows the rows the file's part names, and it draws the confirmation only where its own count is the file's
+  (`RoomBar.Rows`, `KitWorkspaceHost.Holds`), so no word is skipped or read twice; a part is a piece of a label's own
+  text, so `LabelText.FromTextMeshPro` makes it words again before the label takes them, and a backslash reads once,
+  as it will be sent), the file's question in the sentence bar (Read to Part N, then Send Heard Instruction?), and in the column the
   confirmation's Confirm once all of it was drawn, Next Part while parts remain, and Cancel. The column's actions stand
   left-aligned, the main one first, at the hand-target pitch, the last one's foot on the panel's foot. Sending, then Sent ·
   Awaiting Start while the task's run was asked for and has not started, stands as words alone, sweeping (`GlazeShimmer`), as
   does the reason where no action can act. `RoomBarView` draws all of it centred in the host.
+- **Unit U2, an approval and its Confirm** (BUILD-SPEC-v4 2.4 and 1.4): the same pair, `RoomBarState.Request`, bound
+  to the file's own approval page (`KitNeed`) and sending only through the file's actions. Asked: the request in the
+  panel in mono (JetBrains Mono 19 dp on the 28 dp line, literal, the summary alone), what it asks in the sentence bar
+  (Run Command? for a command, else the product's Use {tool}; with no tool named the panel is the one line Approval
+  Requested and has no bar), and in the column Approve (main) and Deny, the frame's own prompts. A request that can
+  only be denied shows Deny alone and the product's reason in the sentence bar (Command Too Long · Deny Only and its
+  kin). Either answer asks the file for its confirmation, which sends nothing: the panel then reads the request part
+  by part, eight of its own lines a part, by the same count as an instruction's confirmation (`KitNeed.Part`,
+  `KitNeed.Rows`; the request alone, the tool's name the file's line leads it with left out, `RoomBar.Reading`), the
+  sentence bar holds the file's question (Read Full
+  Request, then Approve Request? or Deny Request?), and the column holds Confirm once the file offers its Yes (an
+  approval's only once every part was drawn; a denial's at once), the next part while parts remain (the main action
+  until Confirm arrives), and Cancel. Confirm stands first, with the answer's glyph, behind its lock
+  (`RoomAction.Locks`, `RoomBar.ConfirmLockSeconds` 0.7 s from its arrival): a rest action with a ring round its chip
+  that fills, taking no press (`RoomButton.Lock`), then the main action, a press under way dropped. Its press is the
+  file's Yes, so `WorkspaceSteering.Confirm` sends `execution.respond_to_approval`, and accepted is not done: while
+  the answer may still take effect (`ApprovalInFlight`, the frame's Sending prompt, `KitPlace.Sending`) the sentence
+  bar reads Sending, sweeping, and the column is empty, until `runtime.approval.resolved` takes the approval away. A
+  confirmation that lapses reads in the sentence bar in the product's words (Not Sent · Confirm Timed Out · Press
+  Again and the others), with both answers back. Before its answer a request shows its first eight lines
+  (`RoomBar.RequestLines`), the same lines its confirmation's first part shows; a longer one is read whole under its
+  confirmation, as the file's own page has it. The page's notes (where an approved command runs, how many requests wait) are left out, as the
+  spec leaves them. With the redesign on, `FileColumn` turns the file to Waiting the moment something waits, since
+  the redesign has no sections to choose from.
 - **The level is the microphone's** (the lead's truth rule): `HoldToTalk` reads the last 50 ms it recorded every 50 ms
   into `LevelHistory` (client core: the RMS, -54 to -12 dBFS, 26 bars, newest at the right), and Listening draws 26 bars
   of it 4 dp after its words inside its halo, drawn once and scaled so a frame draws nothing. A release build records
@@ -2562,8 +2593,13 @@ The last unit turns it on by default and removes the kit parts it replaced.
   eight of the file's rows, inside the field at both sizes) and `31-bar-sent`, on the real host bound
   to production frames: state, the old kit not drawn, words whole in the one size, the row's sizes and gap, the panel's
   material and width, the sentence bar, the caret, the column's order, alignment, foot and 12 mm gaps, and presses
-  reaching the file's Tell it, keyboard, Confirm and Cancel; `32-actions` for every look. `LevelHistoryTests` and
-  `RoomBarTests` in the client suite.
+  reaching the file's Tell it, keyboard, Confirm and Cancel; `32-actions` for every look; `33-ask`,
+  `33-ask-confirm-arriving` (the ring part filled, no press taken), `33-ask-confirm`, `33-ask-long`,
+  `33-ask-long-part`, `33-ask-deny-only` and `33-ask-sending` for the approval: the request in mono, whole lines, the
+  tool's name never in it, the sentence, the sweep, the lock and each press reaching the file's own control.
+  `LevelHistoryTests` and `RoomBarTests` in the client suite; `FileColumnTests` drives the redesign's Approve and
+  Confirm through a file column and reads the one command sent. Development builds: `halcyonic.draft` and
+  `halcyonic.heard` (`CapturePresets`) open the instruction holding one fixed synthetic draft, typed or as if heard.
 
 ### The room of projects' placement (2026-10-29)
 
