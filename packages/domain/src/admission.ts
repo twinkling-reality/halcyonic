@@ -15,6 +15,7 @@ import type {
   WorkstreamView,
 } from '@halcyonic/contracts';
 import { WORLD_STARTER_ID } from '@halcyonic/contracts';
+import { foldersOverlap } from './folders.ts';
 import { COMMAND_POLICY } from './policy.ts';
 import type { ExecutionFacts, Projection } from './projection.ts';
 
@@ -200,6 +201,54 @@ export function admitCommand(
         // A world is a description, read and validated when it changes (ADR 0049): it has no build.
         if (project.starter === WORLD_STARTER_ID) {
           return reject(scope, 'invalid_state', 'A world has no build to check.');
+        }
+        const taskId = command.payload.workstream_id;
+        if (taskId !== undefined) {
+          // A check of one task's own copy (ADR 0045) waits for that task alone, and for the
+          // project's own checks and restores; other tasks work in copies of their own.
+          const task = projection.workstream(taskId);
+          if (task === undefined || task.project_id !== projectId)
+            return reject(
+              scope,
+              'workstream_not_found',
+              `Workstream ${taskId} is not this project's.`,
+            );
+          const taskScope = { ...scope, workstream_id: task.workstream_id };
+          if (task.copy?.state !== 'own')
+            return reject(
+              taskScope,
+              'invalid_state',
+              "This task works in the project's own folder: check the project.",
+            );
+          const busy = taskInUse(projection, task.workstream_id, null);
+          if (busy?.kind === 'active')
+            return reject(
+              taskScope,
+              'invalid_state',
+              `This task is ${inWords(busy.status)}. Check it once it stops.`,
+            );
+          if (busy?.kind === 'pending')
+            return reject(
+              taskScope,
+              'invalid_state',
+              `${commandInWords(busy.commandType)} for this task is still under way. Check it once that has finished.`,
+            );
+          const other = projection
+            .pendingCommands()
+            .find(
+              (pending) =>
+                pending.project_id === projectId &&
+                (pending.command_type === 'project.check' ||
+                  pending.command_type === 'project.restore' ||
+                  pending.command_type === 'project.preview.start'),
+            );
+          if (other !== undefined)
+            return reject(
+              taskScope,
+              'invalid_state',
+              `${commandInWords(other.command_type)} in this project is still under way. Check it once that has finished.`,
+            );
+          return { admitted: true, policy, scope: taskScope, runtime: null };
         }
         // A check of files a runtime is still writing would describe neither before nor after.
         const busy = projection.projectBusy(projectId);
@@ -919,13 +968,6 @@ export function folderInUse(
 ): CommandRejection | null {
   const refusal = folderRefusal(projection, folder, workstreamId, NO_SCOPE);
   return refusal === undefined ? null : refusal.rejection;
-}
-
-/** Whether two absolute folders are one, or one holds the other, so that work in one reaches the other. */
-function foldersOverlap(a: string, b: string): boolean {
-  const left = a.endsWith('/') ? a : `${a}/`;
-  const right = b.endsWith('/') ? b : `${b}/`;
-  return left.startsWith(right) || right.startsWith(left);
 }
 
 /** Commands that read or write a project's own folder, which an add must not run beside. */

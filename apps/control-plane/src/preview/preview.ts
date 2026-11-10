@@ -11,6 +11,7 @@ import {
   PREVIEW_PORT_LAST,
   type PreviewStopReason,
   type ProjectId,
+  type WorkstreamId,
 } from '@halcyonic/contracts';
 import type { Projection } from '@halcyonic/domain';
 import type { Clock } from '@halcyonic/runtime-core';
@@ -192,6 +193,13 @@ export class HostPreviews {
     const project = this.#deps.projection.project(projectId);
     if (project?.starter == null || project.location === null)
       throw new Error('not a starter project');
+    // A task's own copy, when the check names its task, so its work is checked before it is added
+    // (ADR 0045); else the project's own folder.
+    const taskId = command.payload.workstream_id;
+    const copy = taskId === undefined ? undefined : this.#deps.projection.workstream(taskId)?.copy;
+    if (taskId !== undefined && copy?.state !== 'own')
+      throw new Error('the task has no copy of its own');
+    const folder = copy?.state === 'own' ? copy.directory : project.location.path;
     if (this.#checking.has(projectId))
       throw new Error('a check of this project is already running');
     if (this.#starting.has(projectId)) throw new Error('a preview of this project is starting');
@@ -227,7 +235,7 @@ export class HostPreviews {
       const cache = this.#cache(projectId, checkId);
       const result = await (this.#deps.runCheck ?? runCheck)({
         ...common,
-        project: project.location.path,
+        project: folder,
         cache,
         port,
         reference,
@@ -243,7 +251,11 @@ export class HostPreviews {
         controlPlaneDraft(
           'project.check.recorded',
           scope(projectId),
-          { check_id: checkId, findings },
+          {
+            check_id: checkId,
+            findings,
+            ...(taskId === undefined ? {} : { workstream_id: taskId }),
+          },
           this.#now(),
           cause,
         ),
@@ -626,9 +638,22 @@ export class HostPreviews {
    * The first lines of the project's latest check where its type check or build failed, from the
    * check's own folder, for the agent with the person's next instruction (FX1); null otherwise.
    */
-  failedCheckOutput(projectId: ProjectId): { checkId: CheckId; output: CheckOutput } | null {
+  failedCheckOutput(
+    projectId: ProjectId,
+    workstreamId: WorkstreamId | null = null,
+  ): { checkId: CheckId; output: CheckOutput } | null {
     const check = this.#deps.projection.latestCheck(projectId);
-    const folder = this.#deps.projection.project(projectId)?.location?.path;
+    // A check of one task's own copy is that task's agent's alone (ADR 0045), and hides that folder.
+    if (check !== undefined && check.workstream_id !== null && check.workstream_id !== workstreamId)
+      return null;
+    const copy =
+      check?.workstream_id == null
+        ? undefined
+        : this.#deps.projection.workstream(check.workstream_id)?.copy;
+    const folder =
+      copy?.state === 'own'
+        ? copy.directory
+        : this.#deps.projection.project(projectId)?.location?.path;
     if (
       check === undefined ||
       check.files !== 'current' ||

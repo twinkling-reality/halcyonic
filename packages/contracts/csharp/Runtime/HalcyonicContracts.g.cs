@@ -605,6 +605,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("findings", Required = Required.Always)]
         public CheckFindings Findings { get; set; } = default!;
+
+        [JsonProperty("workstream_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? WorkstreamId { get; set; }
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
@@ -2086,6 +2089,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("findings", Required = Required.Always)]
         public CheckFindings Findings { get; set; } = default!;
+
+        [JsonProperty("workstream_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? WorkstreamId { get; set; }
     }
 
     public sealed class ProjectPreviewStartedPayload
@@ -2528,6 +2534,9 @@ namespace Halcyonic.Contracts
     {
         [JsonProperty("project_id", Required = Required.Always)]
         public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("workstream_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? WorkstreamId { get; set; }
     }
 
     public sealed class ProjectPreviewStartPayload
