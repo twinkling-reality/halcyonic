@@ -1867,11 +1867,11 @@ describe('a confined project (ADR 0041)', () => {
     skip: process.platform !== 'darwin',
   }, async (t) => {
     const { runtime, received, recordFile, start, directory, observations } = fake(t, [], {
-      ...confinedTo(t, (folder) => ({ project: folder, readable: [] })),
+      ...confinedTo(t, (folder) => ({ project: folder, readable: [], asksNothing: true })),
     });
     await start();
-    // Its start says, as observed, that it runs confined (S2), and that nothing asks, whatever was
-    // chosen: its turns run under externalSandbox (ADR 0041, ADR 0043).
+    // A starter's project: its start says, as observed, that it runs confined (S2), and that nothing
+    // asks, whatever was chosen: its turns run under externalSandbox (ADR 0041, ADR 0043).
     const started = observations.find((entry) => entry.type === 'runtime.execution.started');
     assert.equal((started?.payload as { confined?: boolean } | undefined)?.confined, true);
     assert.equal(
@@ -1895,6 +1895,30 @@ describe('a confined project (ADR 0041)', () => {
     assert.ok(!existsSync(recordFile));
     assert.match(readFileSync(`${own}.sb`, 'utf8'), /\n\(deny default\)\n/);
   });
+
+  for (const [level, policy, recorded] of [
+    [undefined, 'untrusted', 'ask'],
+    ['never_ask', 'never', 'never_ask'],
+  ] as const) {
+    test(`a confined folder that is not a starter's asks when its start asks: ${level ?? 'no level'} runs ${policy} (BOX-2)`, {
+      skip: process.platform !== 'darwin',
+    }, async (t) => {
+      const { start, received, observations } = fake(t, [], {
+        ...confinedTo(t, (folder) => ({ project: folder, readable: [] })),
+      });
+      await start('COMPLETE the work.', level);
+      const threadStart = received().find((message) => message.method === 'thread/start');
+      assert.equal(
+        (threadStart?.params as { approvalPolicy?: string } | undefined)?.approvalPolicy,
+        policy,
+      );
+      const started = observations.find((entry) => entry.type === 'runtime.execution.started');
+      assert.equal(
+        (started?.payload as { approval_level?: string } | undefined)?.approval_level,
+        recorded,
+      );
+    });
+  }
 
   test('its temporary folder is made anew at each launch, is its TMPDIR, TMPPREFIX and working folder, and goes with it at close', {
     skip: process.platform !== 'darwin',

@@ -1795,8 +1795,11 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
   // Nothing outside the project, the server's own Codex home and the tools is readable.
   const confined = (sandbox: CodexSandbox): Partial<CodexRuntimeOptions> => ({
     confinement: {
+      // A starter's project, which asks nothing (ADR 0041).
       forDirectory: (directory) =>
-        directory === sandbox.project ? { project: directory, readable: [] } : null,
+        directory === sandbox.project
+          ? { project: directory, readable: [], asksNothing: true }
+          : null,
       toolFolders: toolFoldersFor(process.execPath),
       loopbackPorts: [Number(new URL(sandbox.provider.baseUrl).port)],
     },
@@ -1873,6 +1876,43 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
       const home = readFileSync(join(sandbox.project, 'box-home.txt'), 'utf8');
       t.diagnostic(home);
       assert.match(home, /^home=\S*codex-confined\/[0-9a-f]{16}\/tmp\n$/);
+    },
+  );
+
+  test(
+    "a confined folder that is not a starter's asks when its start asks, and not when it never asks (BOX-2)",
+    SLOW_TEST,
+    async (t) => {
+      const folder = (sandbox: CodexSandbox): Partial<CodexRuntimeOptions> => ({
+        confinement: {
+          forDirectory: (directory) =>
+            directory === sandbox.project ? { project: directory, readable: [] } : null,
+          toolFolders: toolFoldersFor(process.execPath),
+          loopbackPorts: [Number(new URL(sandbox.provider.baseUrl).port)],
+        },
+      });
+      const { sandbox, start } = await harness(t, { runtime: folder });
+      const asking = await start('CMD:touch asked-first.txt && echo made');
+      const asked = await asking.next('runtime.approval.requested');
+      assert.ok(asked.type === 'runtime.approval.requested');
+      const started = (execution: Execution) =>
+        (execution.observations.find((each) => each.type === 'runtime.execution.started')
+          ?.payload as {
+          approval_level?: string;
+          confined?: boolean;
+        }) ?? {};
+      assert.deepEqual([started(asking).confined, started(asking).approval_level], [true, 'ask']);
+      assert.equal(
+        existsSync(join(sandbox.project, 'asked-first.txt')),
+        false,
+        'ran before the answer',
+      );
+      // The same folder, never asking: it runs with no press, inside the folder.
+      const quiet = await start('CMD:touch quiet.txt && echo made', {}, null, 'never_ask');
+      await quiet.next('runtime.turn.completed');
+      assert.ok(!quiet.types().includes('runtime.approval.requested'));
+      assert.equal(started(quiet).approval_level, 'never_ask');
+      assert.ok(existsSync(join(sandbox.project, 'quiet.txt')));
     },
   );
 

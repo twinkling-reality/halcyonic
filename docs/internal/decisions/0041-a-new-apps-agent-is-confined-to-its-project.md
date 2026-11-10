@@ -234,3 +234,24 @@ profile and the pinned Codex 0.157.0, no model:
 - **Apple's `/usr/bin/git`** is a shim that writes a cache into the person's own temporary folder. Inside the profile
   that cache write is refused and the shim falls back to `xcodebuild`. It works, about three seconds a call, with
   warnings in the command's output. The developer folder's own git (`xcode-select -p`) and Homebrew's run directly.
+
+## Amendment, 2026-11-10: every execution's folder is confined, and asking means asking (BOX-2)
+
+On macOS, every Codex execution now runs on a server of its own inside this profile, for whatever folder it was
+given, not only a project made from a starter (`codexConfinement` in `apps/control-plane/src/runtimes.ts`).
+- **What a folder reads:**
+  - A starter's project also reads the starter's shared dependencies, and a VR version also reads its original, as
+    above.
+  - Any other folder reads only itself, the tool folders and the git data of the amendment above.
+- **Asking, which the lead decided on 2026-11-10:** a confined thread's turns run under `externalSandbox`, where
+  Codex's `on-request` policy asks nothing (seen on 0.157.0: a `touch` ran unasked).
+  - A starter's project keeps this decision: it asks nothing, whatever the start chose, and records `never_ask`.
+  - Any other confined folder asks when its start asks. With no policy of its own, it gets `untrusted`, which asks
+    before every command Codex does not know is safe (seen: the same `touch` raised an approval request). A start
+    that never asks gets `never` (ADR 0043).
+  - The record follows the policy.
+- **The trade-off, plainly:** asking, confined, asks more often than the open server did, which asked only for an
+  escalation or a command it judged dangerous. A person who wants fewer presses chooses never-ask, which the sandbox
+  bounds to the folder. Which commands `untrusted` treats as safe was not surveyed.
+- **Elsewhere than macOS:** nothing changes. There is no profile, and the open server's `workspace-write` applies.
+- **Still not confined:** listing models uses the open server, which runs no command.

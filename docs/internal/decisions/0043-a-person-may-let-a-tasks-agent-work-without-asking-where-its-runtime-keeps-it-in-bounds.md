@@ -130,3 +130,10 @@ for a project with one press, and goes back with the same press.
   copy takes only the level the person chose for its source project.
 - The control plane's default is unchanged: an `execution.start` without a level asks. The default is the headset's.
 
+## Note, 2026-11-10: every Codex folder is confined on macOS (BOX-2)
+
+Decision 6's "Codex on an open project" now holds only off macOS. On macOS every Codex execution's folder runs on a
+confined server of its own ([ADR 0041](0041-a-new-apps-agent-is-confined-to-its-project.md), amendment of 2026-11-10).
+That server writes only the folder, its own home and its own temporary folder; never `/tmp` or the person's `$TMPDIR`.
+Inside it, a start that asks gets `untrusted`, which asks before every command Codex does not know is safe, and
+`never_ask` gets `never`. A starter's project still asks nothing. The decision is otherwise unchanged.

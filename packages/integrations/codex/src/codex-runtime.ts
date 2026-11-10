@@ -186,7 +186,15 @@ interface Slot {
 /** Whether two confinements give a server the same scope, so its profile still holds (AUDIT S2-S1). */
 function sameScope(a: Confinement | null, b: Confinement): boolean {
   const scope = (c: Confinement | null) =>
-    c === null ? null : JSON.stringify([c.project, c.readable, c.originals ?? [], c.hidden ?? []]);
+    c === null
+      ? null
+      : JSON.stringify([
+          c.project,
+          c.readable,
+          c.originals ?? [],
+          c.hidden ?? [],
+          c.asksNothing === true,
+        ]);
   return scope(a) === scope(b);
 }
 
@@ -412,7 +420,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     if (this.#threads.has(request.execution.execution_id)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
-    const options: StartOptions = { ...parsed.value, cwd };
+    const chosen: StartOptions = { ...parsed.value, cwd };
     // A chosen model is checked against a fresh list: Codex itself would take any name.
     if (request.model_ref !== null) {
       const listed = await this.listModels();
@@ -426,6 +434,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     // Checked at every start, not only at launch: a sign-in may have been put there since.
     await prepareHome(this.#home);
     const slot = this.#slotFor(cwd);
+    const options = askingInside(chosen, slot.confinement, request.options);
     const connection = await this.#connection(false, slot);
     const local = await this.#onThisMac(connection, options);
     // Asked again right before the folder is handed over: listing and launching wait.
@@ -464,8 +473,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         {
           native_id: threadId,
           confined: slot.confinement !== null,
-          approval_level:
-            slot.confinement !== null || reported.approvalPolicy === 'never' ? 'never_ask' : 'ask',
+          approval_level: recordedLevel(slot.confinement, reported.approvalPolicy),
         },
         {
           native_event_id: `${threadId}:thread/start`,
@@ -1569,6 +1577,37 @@ function managedLayer(layer: unknown): string[] {
     return [where];
   }
   return [];
+}
+
+/**
+ * The policy a thread starts with inside a confined folder that is not a starter's (BOX-2): its turns
+ * run under `externalSandbox`, where `on-request` asks nothing, so a start that asks, with no policy of
+ * its own, gets `untrusted`, which asks before every command Codex does not know is safe (seen on
+ * 0.157.0, 2026-11-10). A starter's project keeps ADR 0041's: it asks nothing.
+ */
+function askingInside(
+  options: StartOptions,
+  confinement: Confinement | null,
+  asked: RuntimeOptions,
+): StartOptions {
+  if (confinement === null || confinement.asksNothing === true) return options;
+  if (options.approvalPolicy !== 'on-request' || asked.approval_policy !== undefined)
+    return options;
+  return { ...options, approvalPolicy: 'untrusted' };
+}
+
+/**
+ * Whether anything can ask on a thread, as observed (ADR 0043): nothing asks under the `never`
+ * policy, on a starter's confined project (ADR 0041), or under `on-request` inside a confined folder,
+ * where its turns run under `externalSandbox`; otherwise it asks.
+ */
+function recordedLevel(
+  confinement: Confinement | null,
+  policy: StartOptions['approvalPolicy'],
+): 'ask' | 'never_ask' {
+  if (policy === 'never') return 'never_ask';
+  if (confinement === null) return 'ask';
+  return confinement.asksNothing === true || policy === 'on-request' ? 'never_ask' : 'ask';
 }
 
 /**

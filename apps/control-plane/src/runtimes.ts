@@ -106,26 +106,26 @@ export function createRuntimeAdapters(
 }
 
 /**
- * On macOS, a project made from a starter gets a Codex server of its own inside Halcyonic's
- * sandbox (ADR 0041): it reads and writes its folder, reads the starter's shared dependencies its
- * `node_modules` links to and the Node installation that type checks it, and reaches only Ollama.
- * Elsewhere, none.
+ * On macOS, every execution's folder gets a Codex server of its own inside Halcyonic's sandbox (ADR
+ * 0041, BOX-2): it reads and writes that folder, reads the Node installation and the tool folders,
+ * and reaches only Ollama. A project made from a starter also reads the starter's shared dependencies
+ * its `node_modules` links to, and a VR version its original. Elsewhere, none.
  */
 export function codexConfinement(
   dependencies: Pick<RuntimeDependencies, 'starterOf' | 'originalOf' | 'dataDir'>,
   node: string = process.execPath,
 ): Pick<CodexRuntimeOptions, 'confinement'> {
-  const starterOf = dependencies.starterOf;
-  if (process.platform !== 'darwin' || starterOf === undefined) return {};
+  if (process.platform !== 'darwin') return {};
   return {
     confinement: {
       forDirectory: (directory) => {
-        const starter = starterOf(directory);
-        if (starter === null) return null;
+        const starter = dependencies.starterOf?.(directory) ?? null;
         const original = dependencies.originalOf?.(directory) ?? null;
         return {
           project: directory,
-          readable: [join(dependencies.dataDir, 'starters', starter)],
+          readable: starter === null ? [] : [join(dependencies.dataDir, 'starters', starter)],
+          // A starter's project asks nothing (ADR 0041); any other folder asks when its start asks.
+          ...(starter === null ? {} : { asksNothing: true }),
           // Halcyonic's data folder is refused outright (AUDIT M18C1-M1).
           hidden: [dependencies.dataDir],
           ...(original === null ? {} : { originals: [original] }),
