@@ -2654,7 +2654,12 @@ The last unit turns it on by default and removes the kit parts it replaced.
   Both leave with the moment (600 ms). The row stands at work only where the file still offers an instruction (a
   runtime that takes one while it works), centred under the pair with its feet 94.4 dp under the foot line
   (`RoomBarView.RowFeetDp`, DESIGN's pitch -23.5 under -17.6); where it takes none, DESIGN's page as drawn, Stop alone.
-  The view says where its foot line and its panel's place stand (`RoomBarView.Foot`, `PanelRight`). Stop arms the
+  The view says where its foot line and its panel's place stand (`RoomBarView.Foot`, `PanelRight`), and the host
+  where that line stands in it (`KitWorkspaceHost.FootLine`): while the redesign draws, the plane no longer centres
+  the host where the head pitched but tips so the foot line stands on DESIGN's pitch -17.6
+  (`MenuPlane.ShowKitWorkspace`, BUILD-SPEC-v4 1.1), the pair growing upward from it, the row's feet on -23.5 and
+  the band's top on -24.5 under it; the yaw is still the way the person looks, and their own move still turns it.
+  The distances stay today's (the plane at 0.46 m, the characters at 2.4 m). Stop arms the
   file's own confirmation (stopping always asks, `WorkspacePresenter.AlwaysConfirmed`), which the binding now binds for
   the redesign (`KitWorkModel.Stops`): what stopping does in the panel, the file's question in the sentence bar, Confirm
   behind its lock, and Cancel;
@@ -2708,8 +2713,8 @@ The last unit turns it on by default and removes the kit parts it replaced.
   `34-question`, `-review`, `-several`, `-more`, `-confirm`, `-sending`, `-long`, `-stop` (a question that cannot be answered: Stop takes its press
   with the long prompt unread, the frame not reported drawn), `-writing` (an answer written: the panel reads it as
   written, Use Answer arrived), `-alike` (two answers that read alike: the answers on the band, the product's words
-  in the panel) and `-tall` (four wrapping answers under a
-  long prompt, the tallest page today's top-resting placement holds inside the field at the larger size) for the question, and `35-choose-rest`, `35-choose` and `35-choose-chosen` for the offered instructions: the prompt on
+  in the panel) and `-tall` (four answers of three lines each, never cut, under a
+  long prompt: the pair grows upward from its foot line) for the question, and `35-choose-rest`, `35-choose` and `35-choose-chosen` for the offered instructions: the prompt on
   the band and in no other label, the band under the pair's foot line, each mark and its check, no panel where the
   computer has nothing to say, and a long prompt's frame not reported drawn until its last part shows.
   `LevelHistoryTests` and `RoomBarTests` in the client suite; `FileColumnTests` drives the redesign's Approve and
