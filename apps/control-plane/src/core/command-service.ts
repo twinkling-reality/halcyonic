@@ -510,6 +510,7 @@ export class CommandService {
         const options = adapter?.validateStartOptions(
           command.payload.options,
           command.payload.model_ref,
+          command.payload.approval_level,
         );
         if (options === undefined || options.ok) return admission;
         return refuse('invalid_runtime_options', options.message);

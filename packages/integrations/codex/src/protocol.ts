@@ -48,8 +48,11 @@ export interface InitializeResponse {
   readonly codexHome: string;
 }
 
-/** `v2/AskForApproval.ts`, restricted to the policies the adapter accepts. */
-export type ApprovalPolicy = 'on-request' | 'untrusted';
+/**
+ * `v2/AskForApproval.ts`, restricted to the policies the adapter accepts. `never` only through the
+ * approval level `never_ask` (ADR 0043), never as a start option.
+ */
+export type ApprovalPolicy = 'on-request' | 'untrusted' | 'never';
 
 /** `v2/SandboxMode.ts`. */
 export type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access';

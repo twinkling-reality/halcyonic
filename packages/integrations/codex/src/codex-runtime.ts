@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
 import type {
   ApprovalDecision,
+  ApprovalLevel,
   QuestionAnswer,
   RuntimeCapabilities,
   RuntimeDescriptor,
@@ -334,6 +335,10 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       // An approved escalation runs outside Codex's sandbox, and the request does not say whether
       // it is one (codex-capabilities.md, 2026-10-16; ADR 0033).
       approval_may_leave_sandbox: true,
+      // Under the never policy with workspace-write, Codex 0.157.0 refuses an escalation itself and
+      // keeps a dangerous command in its sandbox, asking nothing (codex-runtime.e2e.test.ts,
+      // 2026-11-10; ADR 0043).
+      offers_never_ask: true,
     };
   }
 
@@ -342,8 +347,12 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     return this.#open.current?.server.pid ?? null;
   }
 
-  validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation {
-    const parsed = parseStartOptions(options, modelRef);
+  validateStartOptions(
+    options: RuntimeOptions,
+    modelRef: string | null,
+    approvalLevel?: ApprovalLevel,
+  ): OptionsValidation {
+    const parsed = parseStartOptions(options, modelRef, approvalLevel);
     return parsed.ok ? { ok: true } : { ok: false, message: parsed.message };
   }
 
@@ -392,7 +401,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closing !== null) throw closedError();
-    const parsed = parseStartOptions(request.options, request.model_ref);
+    const parsed = parseStartOptions(request.options, request.model_ref, request.approval_level);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
     // Asked again before anything is launched: the folder may have changed since admission.
     const cwd = confirmProjectLocation(this.#directoryPolicy, request.directory);
@@ -444,8 +453,14 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     this.#emit(thread, [
       observation(
         'runtime.execution.started',
-        // Observed here: the server this execution runs on is the project's confined one or not (S2).
-        { native_id: threadId, confined: slot.confinement !== null },
+        // Observed here: the server this execution runs on is the project's confined one or not (S2),
+        // and the approval policy Codex reports for the thread, which checkSettings has matched to the
+        // one asked for (ADR 0043).
+        {
+          native_id: threadId,
+          confined: slot.confinement !== null,
+          approval_level: reported.approvalPolicy === 'never' ? 'never_ask' : 'ask',
+        },
         {
           native_event_id: `${threadId}:thread/start`,
           sequence: thread.state.sequence,
@@ -1468,7 +1483,13 @@ const SANDBOX_TYPES: Readonly<Record<StartOptions['sandbox'], string>> = {
 function checkSettings(
   result: unknown,
   options: StartOptions,
-): { readonly threadId: string; readonly model: string | null; readonly provider: string | null } {
+): {
+  readonly threadId: string;
+  readonly model: string | null;
+  readonly provider: string | null;
+  /** The approval policy Codex reports for the thread, matched above to the one asked for. */
+  readonly approvalPolicy: StartOptions['approvalPolicy'];
+} {
   const response = isRecord(result) ? result : {};
   const thread = isRecord(response.thread) ? response.thread : {};
   if (typeof thread.id !== 'string' || thread.id === '') {
@@ -1510,7 +1531,7 @@ function checkSettings(
       `Codex did not apply the requested model: it reports model ${JSON.stringify(model)} from provider ${JSON.stringify(provider)}. The thread is not used.`,
     );
   }
-  return { threadId: thread.id, model, provider };
+  return { threadId: thread.id, model, provider, approvalPolicy: options.approvalPolicy };
 }
 
 /** Sends a request and maps its failure to a `RuntimeActionError`. */
