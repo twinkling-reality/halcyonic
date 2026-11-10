@@ -416,14 +416,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (shown.Row.Count > 0)
                 {
                     // The row: home-size actions in its order, the main one first, its core the hand target itself, 32 dp apart.
-                    var row = shown.Row.Select(action => action.Place == KitPlace.Talk ? bar.Talk : bar.Type).ToList();
+                    var row = shown.Row.Select(action => action.Place == KitPlace.Talk ? bar.Talk : action.Place == KitPlace.Field ? bar.Type : bar.More).ToList();
                     actions.AddRange(row);
                     Require(row.All(button => button.gameObject.activeSelf), "a row action is not drawn");
                     Require(!bar.Type.gameObject.activeSelf || shown.Row.Any(action => action.Place == KitPlace.Field), "Type stands while it listens");
+                    Require(bar.More.gameObject.activeSelf == shown.Row.Any(action => action.Place != KitPlace.Talk && action.Place != KitPlace.Field), "the row's third action stands where the model gives none, or does not where it gives one");
                     for (var index = 0; index < row.Count; index++)
                     {
                         Require(row[index].LookNow() == (shown.Row[index].Main ? RoomButtonLook.Main : RoomButtonLook.Rest), row[index].name + " shows " + row[index].LookNow());
-                        Require(Mathf.Abs(row[index].Core.y - RoomType.Units(RoomButton.HeightDp)) < Tolerance, row[index].name + "'s core is not the hand target");
+                        // Hold to Talk and Type are home size; a third action is action size, its target still Meta's.
+                        if (row[index] != bar.More) Require(Mathf.Abs(row[index].Core.y - RoomType.Units(RoomButton.HeightDp)) < Tolerance, row[index].name + "'s core is not the hand target");
                         Whole(row[index].Words, row[index].name + "'s words");
                         Require(row[index].Words.text == LabelText.ForTextMeshPro(shown.Row[index].Words), row[index].name + " reads \"" + row[index].Words.text + "\"");
                         // Where no keyboard is offered, the action that would open it says what it opens instead.
