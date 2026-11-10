@@ -29,6 +29,12 @@ public class JudgeWordsTests
         "Redis", "Docker", "AWS", "npm", "React",
     };
 
+    /// <summary>
+    /// Developers' tools a judge must not read either, kept apart from <see cref="Brands"/>, which the recorded run's
+    /// sanitizer holds word for word (apps/control-plane/src/fixtures/recorded-run.ts) over traces of its own.
+    /// </summary>
+    private static readonly string[] Tools = { "pnpm" };
+
     [Test]
     public void NoBrandIsShownAlongAnyPathOfTheDemonstration()
     {
@@ -45,10 +51,32 @@ public class JudgeWordsTests
             "Needs You · 1 Task", TasksText.Waiting(0), UsageText.Subject, "Part of Recording", UsageLeftPresenter.Recorded,
             SettingsText.Subject, "15% Larger · 3 Rows a Page", SettingsText.YourSpace, "Surroundings", "Room Layout", "Agents", "Agent Shelf", "Menu",
         }), "the walk reached the bar, Tasks, Usage and Settings, Your space with it");
-        Assert.That(words, Has.None.EqualTo("Pairing"), "the demonstration offers no Your computer");
+        Assert.That(words, Is.SupersetOf(new[] { HostText.YourStart, "Pairing", "Not Paired", "Type the Name and Code Your Computer Shows" }),
+            "the walk reached Your computer's Pairing row, unpaired, as every build offers it");
         Assert.That(words, Is.SupersetOf(new[] { GalleryText.SampleProjects, GalleryText.NotInThisRecording, "Star garden", "Review Requested" }),
             "the walk reached the gallery's sample catalog and the recording without one");
         Assert.That(kitFrames, Is.GreaterThan(0), "the walk read the kit's words for the files it draws");
+    }
+
+    /// <summary>Pairing with a computer not yet done, as a release build without a computer stands.</summary>
+    private static readonly PairingNow Unpaired = new PairingNow(null, PairingStep.Idle, keyboard: true);
+
+    /// <summary>
+    /// Every string literal of the pairing panel and the pairing client that can reach the screen (the panel
+    /// shows a refusal's own message): their sources minus the lines that only log, read whole, so a name
+    /// inside a literal is found whatever it is joined to.
+    /// </summary>
+    private static IEnumerable<string> PairingPanelWords()
+    {
+        var source = new[] { "apps/xr/Assets/Halcyonic/Pairing/PairingPanel.cs", "apps/xr/Packages/com.halcyonic.client/Runtime/PairingClient.cs" }
+            .SelectMany(path => System.IO.File.ReadAllLines(Repository.PathTo(path)));
+        var literals = source
+            .Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal) && !line.Contains("Log(") && !line.Contains("Debug."))
+            .SelectMany(line => Regex.Matches(line, "\"((?:[^\"\\\\]|\\\\.)*)\"").Cast<Match>().Select(match => match.Groups[1].Value))
+            .Where(literal => literal.Length > 0)
+            .ToList();
+        Assert.That(literals, Has.Some.Contains("eight-digit code"), "the panel's prompts were read");
+        return literals;
     }
 
     /// <summary>Every distinct string the client core gives the headset along every path of the demonstration.</summary>
@@ -110,9 +138,10 @@ public class JudgeWordsTests
             foreach (var word in WordsOf(usage.Frame!)) Add(word);
             usage.Act(SidePanel.Close, null);
         }
-        // Settings: a page a group, each setting chosen. Comfort through each of its values; Your space as
-        // the demonstration builds it (no Your computer), in every state of the room, and with each
-        // offer and arrangement, since a row's words follow those alone.
+        // Settings: a page a group, each setting chosen. Comfort through each of its values; Your space and
+        // Your computer as the release build gives them, in every state of the room, with each offer and
+        // arrangement, and the pairing at each step a judge can reach without a computer, since a row's
+        // words follow those alone.
         void ScanSettings(IReadOnlyList<MenuSetting> rows, int changes)
         {
             var settings = new SettingsColumn(menuHost, rows);
@@ -146,13 +175,33 @@ public class JudgeWordsTests
         {
             var room = new RoomStatus(space, passthrough, scan, placement, surface);
             standing ??= room;
-            ScanSettings(SpaceSettings.Of(() => new SpaceNow(room, RoomOffer.None, null, null), _ => { }, _ => { }), changes: 0);
+            ScanSettings(SpaceSettings.Of(() => new SpaceNow(room, RoomOffer.None, null, Unpaired), _ => { }, _ => { }, pairing: true), changes: 0);
         }
         foreach (RoomOffer offer in Enum.GetValues(typeof(RoomOffer)))
         foreach (var arrangement in new StageArrangement?[] { null, StageArrangement.InFront, StageArrangement.TurnedAside, StageArrangement.BesideAWindow })
         {
-            ScanSettings(SpaceSettings.Of(() => new SpaceNow(standing!, offer, arrangement, null), _ => { }, _ => { }), changes: 0);
+            ScanSettings(SpaceSettings.Of(() => new SpaceNow(standing!, offer, arrangement, Unpaired), _ => { }, _ => { }, pairing: true), changes: 0);
         }
+        foreach (PairingStep step in Enum.GetValues(typeof(PairingStep)))
+        foreach (var keyboard in new[] { true, false })
+        {
+            var pairing = new PairingNow(null, step, keyboard);
+            ScanSettings(SpaceSettings.Of(() => new SpaceNow(standing!, RoomOffer.None, null, pairing), _ => { }, _ => { }, pairing: true), changes: 0);
+        }
+        ScanSettings(SpaceSettings.Of(() => new SpaceNow(standing!, RoomOffer.None, null, null), _ => { }, _ => { }, pairing: true), changes: 0);
+        // What pairing says on the stage's banner, whatever answered at the typed address: the refusals by
+        // their codes, and the panel's own prompts and lines, read from its source, since the Unity layer
+        // is not built here (each string literal, so a name inside one is found however it is joined).
+        foreach (var code in new[] { "pairing_closed", "wrong_code", "too_many_requests", "busy", "timeout", "unsupported_protocol", null })
+        {
+            Add(PairingClient.WhyRefused(code));
+        }
+        foreach (var line in new[] { PairingClient.ConnectionLost, PairingClient.Refused, PairingClient.TookTooLong, PairingClient.ProtocolError,
+            PairingClient.Failed, PairingClient.NotProven, PairingClient.NotSecure("name.local:47801") })
+        {
+            Add(line);
+        }
+        foreach (var literal in PairingPanelWords()) Add(literal);
         Add(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null));
         Add(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true));
         Add(UsageLeftPresenter.NotInDemo);
@@ -348,7 +397,7 @@ public class JudgeWordsTests
         var found = new SortedDictionary<string, SortedSet<string>>();
         foreach (var text in words)
         {
-            foreach (var brand in Brands)
+            foreach (var brand in Brands.Concat(Tools))
             {
                 if (!Regex.IsMatch(text, @"\b" + Regex.Escape(brand) + @"\b")) continue;
                 if (!found.TryGetValue(brand, out var where)) found[brand] = where = new SortedSet<string>();
@@ -481,7 +530,7 @@ public class JudgeWordsTests
         Assert.That(words, Has.Member("Recorded for Demo · No Account"));
         foreach (var word in words)
         {
-            foreach (var brand in Brands)
+            foreach (var brand in Brands.Concat(Tools))
             {
                 Assert.That(Regex.IsMatch(word, @"\b" + Regex.Escape(brand) + @"\b"), Is.False, "\"" + word + "\" names " + brand);
             }

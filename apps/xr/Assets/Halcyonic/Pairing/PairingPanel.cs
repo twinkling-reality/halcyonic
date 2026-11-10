@@ -95,7 +95,7 @@ namespace Halcyonic.XR.Pairing
             step = Step.Forgetting;
             var forgotten = paired;
             forgetting = Task.Run(() => PairingClient.RevokeAsync(forgotten));
-            Say("Forgetting the " + HostText.Noun + "…");
+            Say("Forgetting the " + HostText.Noun + " now.");
         }
 
         private void BeginPairing()
@@ -107,8 +107,8 @@ namespace Halcyonic.XR.Pairing
             }
             step = Step.Address;
             keyboard = FocusGuard.Track(TouchScreenKeyboard.Open(PlayerPrefs.GetString(AddressPreference, ""), TouchScreenKeyboardType.URL,
-                false, false, false, false, HostText.YourStart + "'s address, as pnpm pair shows it"));
-            Say("Type " + HostText.Your + "'s address, as pnpm pair shows it, such as 192.168.1.23:47801.");
+                false, false, false, false, "The name " + HostText.Your + " shows"));
+            Say("Type the name " + HostText.Your + " shows, such as name.local:47801.");
         }
 
         /// <summary>Reads the keyboard once it closes: first the address, then the code.</summary>
@@ -129,22 +129,22 @@ namespace Halcyonic.XR.Pairing
                 if (!TryParseAddress(typed, out host, out port))
                 {
                     step = Step.Idle;
-                    Say("That is not an address like 192.168.1.23:47801. Pairing canceled.");
+                    Say("That is not a name like name.local:47801. Pairing canceled.");
                     return;
                 }
                 PlayerPrefs.SetString(AddressPreference, typed.Trim());
                 PlayerPrefs.Save();
                 step = Step.Code;
                 keyboard = FocusGuard.Track(TouchScreenKeyboard.Open("", TouchScreenKeyboardType.NumberPad, false, false, false, false,
-                    "The eight-digit code pnpm pair shows"));
-                Say("Type the eight-digit code pnpm pair shows on " + HostText.Your + ".");
+                    "The eight-digit code " + HostText.Your + " shows"));
+                Say("Type the eight-digit code " + HostText.Your + " shows.");
                 return;
             }
             if (step != Step.Code) return;
             step = Step.Pairing;
             var (toHost, toPort, label) = (host, port, DeviceLabel());
             pairing = Task.Run(() => PairAsync(toHost, toPort, typed, label));
-            Say("Pairing with " + Address(host, port) + "…");
+            Say("Pairing with " + Address(host, port) + " now.");
             Log("pairing with the control plane at " + Address(host, port));
         }
 
@@ -177,7 +177,7 @@ namespace Halcyonic.XR.Pairing
                 paired = null;
                 Say(revoked
                     ? "Forgot the " + HostText.Noun + ", which no longer accepts this headset."
-                    : "Forgot the " + HostText.Noun + " on this headset. It could not be reached, so revoke this headset there with pnpm devices.");
+                    : "Forgot the " + HostText.Noun + " on this headset. It could not be reached: Revoke This Headset on Your Computer.");
                 Log(revoked ? "forgot the control plane, which revoked this headset" : "forgot the control plane, which could not be reached to revoke this headset");
                 Reconnect();
             }

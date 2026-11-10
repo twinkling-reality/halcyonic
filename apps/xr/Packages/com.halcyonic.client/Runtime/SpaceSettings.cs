@@ -241,7 +241,7 @@ namespace Halcyonic.Client
             if (pairing.Address == null)
             {
                 return new SettingNow("Not Paired", "Headset Not Paired", Pair,
-                    "Type Address and 8-Digit Code from pnpm pair", Pair,
+                    "Type the Name and Code Your Computer Shows", Pair,
                     pairing.Keyboard ? null : "Needs Headset Keyboard");
             }
             // Forgetting asks first, Settings' own Yes; the address is the person's typing, shown as data.
