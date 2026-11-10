@@ -56,6 +56,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.AddRange(BandMotion());
                     failures.AddRange(FieldMotion());
                     failures.AddRange(CursorMotion());
+                    failures.AddRange(UnderlayHolds());
                 }
                 failures.AddRange(GlazeChecks.AtEachTextSize(variant =>
                 {
@@ -85,6 +86,61 @@ namespace Halcyonic.XR.Workspace.Editor
                 Debug.LogWarning("Halcyonic: parts: narrowed by HALCYONIC_KIT_ONLY=" + only + " (iteration only; exits 2 so a narrowed run is never a full gate pass).");
             else if (failures.Count == 0) Debug.Log("Halcyonic: parts: every check passed.");
             if (exitWhenDone) EditorApplication.Exit(failures.Count > 0 ? 1 : narrowed ? 2 : 0);
+        }
+
+        /// <summary>
+        /// The words' underlay presets (BUILD-SPEC-v4 1.2, 1.4), checked without a render: each is its face's own material with
+        /// TextMeshPro's underlay on, black at 28 percent (35 on an action's words), no offset, on the face's own atlas; the band's
+        /// and the cursor's words carry it; and it changes no line's width.
+        /// </summary>
+        private static List<string> UnderlayHolds()
+        {
+            var failures = new List<string>();
+            void Require(bool condition, string why) { if (!condition) failures.Add("the words' underlay: " + why); }
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Underlay");
+            try
+            {
+                foreach (var (name, role, alpha) in new[] { ("KitReading Underlay", KitRole.Body, 0.28f), ("KitReading Underlay Action", KitRole.Body, 0.35f), ("KitMono Underlay", KitRole.Mono, 0.28f) })
+                {
+                    var preset = Resources.Load<Material>("HalcyonicUI/" + name);
+                    var face = KitType.Face(role);
+                    if (preset == null || face == null)
+                    {
+                        failures.Add("the words' underlay: " + name + " or its face is missing");
+                        continue;
+                    }
+                    Require(preset.shader == face.material.shader && preset.mainTexture == face.material.mainTexture, name + " is not its face's own material on its atlas");
+                    Require(preset.IsKeywordEnabled(ShaderUtilities.Keyword_Underlay), name + " has no underlay on");
+                    var colour = preset.GetColor(ShaderUtilities.ID_UnderlayColor);
+                    Require(colour.r == 0f && colour.g == 0f && colour.b == 0f && Mathf.Abs(colour.a - alpha) < 1e-3f, name + "'s underlay is " + colour + ", not black at " + alpha);
+                    Require(preset.GetFloat(ShaderUtilities.ID_UnderlayOffsetX) == 0f && preset.GetFloat(ShaderUtilities.ID_UnderlayOffsetY) == 0f, name + "'s underlay is offset");
+                    Require(preset.GetFloat(ShaderUtilities.ID_UnderlaySoftness) == 1f, name + "'s underlay is not as soft as its atlas allows");
+                    Require(preset.GetFloat(ShaderUtilities.ID_GradientScale) == face.material.GetFloat(ShaderUtilities.ID_GradientScale), name + " has another gradient scale than its face");
+                }
+                var band = RoomBand.Create(root.transform);
+                band.Show(BandQuestion);
+                band.Settle();
+                Require(band.Label.fontSharedMaterial != null && band.Label.fontSharedMaterial.name == "KitReading Underlay", "the band's words do not carry it");
+                var cursor = RoomCursor.Create(root.transform);
+                cursor.Show("a", "Running Tests");
+                Require(cursor.Label.fontSharedMaterial != null && cursor.Label.fontSharedMaterial.name == "KitReading Underlay", "the cursor's words do not carry it");
+                var plain = RoomType.Create(root.transform, "Plain", Color.white, 0);
+                var under = RoomType.Create(root.transform, "Under", Color.white, 0);
+                Require(RoomBand.Underlay(under) && RoomBand.Underlay(under, action: true), "a label in the reading face takes no underlay");
+                foreach (var each in new[] { plain, under })
+                {
+                    each.textWrappingMode = TextWrappingModes.NoWrap;
+                    GlazeText.SetLiteral(each, BandResult);
+                    each.rectTransform.sizeDelta = new Vector2(10f, 1f);
+                    each.ForceMeshUpdate(true);
+                }
+                Require(Mathf.Abs(RoomCursor.WordsWidth(plain, 0f) - RoomCursor.WordsWidth(under, -1f)) < 1e-5f, "the underlay changes a line's width");
+            }
+            catch (Exception error) { failures.Add("the words' underlay threw " + error); }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+            if (failures.Count == 0) Debug.Log("Halcyonic: parts: the words' underlay presets hold.");
+            return failures;
         }
 
         /// <summary>What one part's render needs: where the head turns, what failed while it was built, and what to read in the pixels.</summary>

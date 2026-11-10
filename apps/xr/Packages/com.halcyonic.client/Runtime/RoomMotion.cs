@@ -56,6 +56,29 @@ namespace Halcyonic.Client
         /// <summary>The working field fades in, and out, over this long, on the standard curve.</summary>
         public const float FieldSeconds = 0.6f;
 
+        /// <summary>The information panel arrives over this long, rising about a degree, ease out; it leaves over the same, on the standard curve.</summary>
+        public const float PanelSeconds = 0.36f;
+
+        public const float PanelRiseDp = 16f;
+
+        /// <summary>The column's first action starts this long after its moment, each next one <see cref="LineApartSeconds"/> later, and takes <see cref="LineSeconds"/>, rising <see cref="RiseDp"/>.</summary>
+        public const float ActionsAfterSeconds = 0.22f;
+
+        /// <summary>An action answers pointing over this long, ease out: its halo, its chip and its scale, to 1.03. Held, it is 0.96 at once.</summary>
+        public const float PointedSeconds = 0.15f;
+
+        public const float PointedScale = 1.03f;
+
+        public const float PressedScale = 0.96f;
+
+        /// <summary>A chosen answer's mark fills, and the one before it empties, over this long, ease out.</summary>
+        public const float MarkSeconds = 0.25f;
+
+        /// <summary>Confirm's ring fills over this long once the request is read, in a straight line; then it fades and the chip lights over <see cref="ConfirmLightsSeconds"/>.</summary>
+        public const float ConfirmRingSeconds = 0.7f;
+
+        public const float ConfirmLightsSeconds = 0.12f;
+
         /// <summary>The agent's cursor glides to its next stop over this long, ease out.</summary>
         public const float CursorSeconds = 0.6f;
 
@@ -107,6 +130,39 @@ namespace Halcyonic.Client
 
         /// <summary>How far the working field is still in view <paramref name="seconds"/> after it starts to fade out.</summary>
         public static float FieldLeaves(float seconds) => 1f - Standard(seconds / FieldSeconds);
+
+        /// <summary>The information panel <paramref name="seconds"/> after it starts to arrive: it rises about a degree to its place and fades in over 360 ms, ease out.</summary>
+        public static RoomMove PanelArrives(float seconds)
+        {
+            var progress = EaseOut(seconds / PanelSeconds);
+            return new RoomMove(progress, (1f - progress) * PanelRiseDp);
+        }
+
+        /// <summary>How far a panel is still in view <paramref name="seconds"/> after it starts to leave: 360 ms, the standard curve.</summary>
+        public static float PanelLeaves(float seconds) => 1f - Standard(seconds / PanelSeconds);
+
+        /// <summary>
+        /// An action of the choices column <paramref name="seconds"/> after its moment starts: action <paramref name="index"/>
+        /// (from 0, the main one first) starts after 220 ms and 60 ms after the one above it, rises 8 dp and fades in over
+        /// 240 ms, ease out. An action that arrives later by itself (Approve, once the request is read) is index 0 of its own moment
+        /// with no wait: <see cref="LineArrives"/> at line 0. It leaves as a line leaves (<see cref="LineLeaves"/>).
+        /// </summary>
+        public static RoomMove ActionArrives(float seconds, int index) => LineArrives(seconds - ActionsAfterSeconds, index);
+
+        /// <summary>How far an action has answered pointing <paramref name="seconds"/> after the pointer came, 0 to 1: 150 ms, ease out. Leaving, it runs back the same way.</summary>
+        public static float Pointed(float seconds) => EaseOut(seconds / PointedSeconds);
+
+        /// <summary>An action's scale at <paramref name="pointed"/> (0 to 1) of its answer to pointing, or held.</summary>
+        public static float ActionScale(float pointed, bool held) => held ? PressedScale : 1f + (PointedScale - 1f) * Clamp01(pointed);
+
+        /// <summary>How full a newly chosen answer's mark is <paramref name="seconds"/> after it is chosen; the one chosen before is as much emptier.</summary>
+        public static float MarkFills(float seconds) => EaseOut(seconds / MarkSeconds);
+
+        /// <summary>How full Confirm's ring is <paramref name="seconds"/> after the request is read: a straight line over 700 ms.</summary>
+        public static float ConfirmRing(float seconds) => Clamp01(seconds / ConfirmRingSeconds);
+
+        /// <summary>How far Confirm's chip has lit, and its ring faded, <paramref name="seconds"/> after the request is read: over the 120 ms after the ring is full.</summary>
+        public static float ConfirmLights(float seconds) => Clamp01((seconds - ConfirmRingSeconds) / ConfirmLightsSeconds);
 
         /// <summary>How far along the way to its next stop the cursor is <paramref name="seconds"/> after a step starts: 600 ms, ease out.</summary>
         public static float CursorGlides(float seconds) => EaseOut(seconds / CursorSeconds);
