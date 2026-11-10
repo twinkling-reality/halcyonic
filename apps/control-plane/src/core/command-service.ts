@@ -289,15 +289,19 @@ export class CommandService {
     // outcome is unknown: no runtime session survives a restart, and the start stops what a crash
     // left recorded, so each is unknown because of the restart, which a project's busy rule reads
     // as stopped. Left as it was, such a task would hold its project busy for good (U5).
-    const executions = this.#deps.projection
-      .executions()
-      .filter(
-        (view) =>
-          ACTIVE_STATUSES.has(view.status) ||
-          (view.status === 'unknown' &&
-            view.status_reason?.code !== 'control_plane_restarted' &&
-            view.status_reason?.code !== SESSION_LOST),
-      );
+    const all = this.#deps.projection.executions();
+    const executions = all.filter(
+      (view) =>
+        ACTIVE_STATUSES.has(view.status) ||
+        (view.status === 'unknown' &&
+          view.status_reason?.code !== 'control_plane_restarted' &&
+          view.status_reason?.code !== SESSION_LOST),
+    );
+    // Ones an earlier start already recorded unknown because of a restart, whose re-attach had not
+    // settled when that control plane ended (ADR 0046): asked again, never recorded again.
+    const unsettled = all.filter(
+      (view) => view.status === 'unknown' && view.status_reason?.code === 'control_plane_restarted',
+    );
     for (const view of executions) {
       this.#deps.recorder.record(
         controlPlaneDraft(
@@ -342,7 +346,11 @@ export class CommandService {
         ),
       );
     }
-    return { executions: executions.length, commands: commands.length, cut: executions };
+    return {
+      executions: executions.length,
+      commands: commands.length,
+      cut: [...executions, ...unsettled],
+    };
   }
 
   /** Rejects a command from a device that is no longer paired, whatever its admission. */
@@ -897,18 +905,22 @@ export class CommandService {
                 this.#deps.projection.execution(execution.execution_id)?.model_ref,
               ) ?? this.#deps.ollamaUnload.modelFor(execution.execution_id))
             : null;
-        // An execution an earlier control plane started is re-attached first, or fails as lost (ADR 0046).
-        const reattacher = this.#deps.reattacher;
+        // An execution an earlier control plane started is re-attached first, before a model is
+        // loaded or the folder read for it, or the action fails as lost, having done nothing (ADR 0046).
+        const reattached = this.#deps.reattacher?.ensure(execution) ?? null;
+        const attached = (work: () => Promise<void>) =>
+          reattached === null ? work() : reattached.then(work, () => undefined);
         const startAction = () =>
-          reattacher == null
+          reattached === null
             ? this.#perform(command, action, outcome)
-            : reattacher.ensure(execution).then(
+            : reattached.then(
                 () => this.#perform(command, action, outcome),
                 (error: unknown) => outcome.failed(toFailure(error, this.#deps.redaction)),
               );
         const before: Promise<void>[] = [];
-        if (ollamaModel !== null && this.#deps.ollamaUnload) {
-          before.push(this.#deps.ollamaUnload.beforeRun(execution.execution_id, ollamaModel));
+        const unloader = this.#deps.ollamaUnload;
+        if (ollamaModel !== null && unloader) {
+          before.push(attached(() => unloader.beforeRun(execution.execution_id, ollamaModel)));
         }
         // An instruction that starts a turn from rest: the folder is read again first, so what
         // changed while no turn ran, a restore or a person's edit, is not the coming turn's (OBS).
@@ -922,7 +934,9 @@ export class CommandService {
         ) {
           const { directory } = view;
           const id = execution.execution_id;
-          before.push(bounded(files.beforeTurn(id, directory), () => files.abandon(id)));
+          before.push(
+            attached(() => bounded(files.beforeTurn(id, directory), () => files.abandon(id))),
+          );
         }
         if (before.length === 0) void startAction();
         else void Promise.all(before).then(startAction, startAction);

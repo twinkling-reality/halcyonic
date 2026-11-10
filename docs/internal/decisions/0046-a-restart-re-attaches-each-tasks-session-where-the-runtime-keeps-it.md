@@ -41,8 +41,11 @@ is the session. Verified on 2026-11-10 on the pinned binaries with fake provider
   `runtime.connection.restored` and, for the cut turn, `runtime.turn.interrupted` with the turn's
   id, marked inferred, which also ends what that turn left open.
 - At start, the control plane records each execution in flight unknown as before, then asks its
-  runtime to re-attach it, one at a time per runtime. An execution at rest is re-attached when the
-  next action on it comes, before the action runs; an execution this process started needs none.
+  runtime to re-attach it, one at a time per runtime; one an earlier start recorded so and left
+  unsettled, its control plane ending before the runtime answered, is asked again and not recorded
+  again. An execution at rest is re-attached when the next action on it comes, before the action
+  runs and before a model is loaded or its folder read for it; an execution this process started
+  needs none. A request without a recorded level means `ask`.
   The projection keeps each execution's start command (`execution.created`'s causation), from which
   the bounds are read.
 - An execution whose runtime does not declare it, that never reported a native id, whose runtime
