@@ -364,7 +364,9 @@ journal never enters the repository; without the journal, a new run is recorded.
 ## General workspace request lifecycle
 
 `workspace.request.created`, `.changed` and `.step_recorded` are control-plane lifecycle facts
-recorded through `Recorder`. They retain the original principal and exact work tuple. Model replies
+recorded through `Recorder`. They retain the original principal and exact work tuple: a project, a
+task and its execution, or a project alone with `workstream_id` and `execution_id` null for a
+read-only whole-project request ([ADR 0030](../decisions/0030-workspace-requests-use-a-journaled-agent-tool-loop.md)'s amendment of 2026-11-10). Model replies
 remain explicitly `reported`; a `responded` request means the conversation settled, not that software
 work completed. Prepared mutation records admit only the supported send-instruction command and
 retain its immutable identity/payload before dispatch. Delivery status stays separate from the

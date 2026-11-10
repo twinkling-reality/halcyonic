@@ -53,11 +53,20 @@ export function admitCommand(
   switch (command.command_type) {
     case 'workspace.request.submit': {
       const { project_id, workstream_id, execution_id } = command.payload;
-      const work = projection.workstream(workstream_id),
-        run = projection.execution(execution_id);
       const scope = { project_id, workstream_id, execution_id };
       if (!projection.project(project_id))
         return reject(scope, 'project_not_found', 'The selected project does not exist.');
+      // A request about the whole project binds no task (ADR 0030, amended 2026-11-10).
+      if (workstream_id === null && execution_id === null)
+        return { admitted: true, policy, scope, runtime: null };
+      if (workstream_id === null || execution_id === null)
+        return reject(
+          { project_id, workstream_id: null, execution_id: null },
+          'invalid_state',
+          "A request names both a task and the task's current execution, or neither.",
+        );
+      const work = workstream_id === null ? undefined : projection.workstream(workstream_id),
+        run = execution_id === null ? undefined : projection.execution(execution_id);
       if (
         !work ||
         work.project_id !== project_id ||
@@ -85,6 +94,7 @@ export function admitCommand(
       };
       if (
         command.command_type === 'workspace.request.resume' &&
+        request.workstream_id !== null &&
         projection.workstream(request.workstream_id)?.current_execution_id !== request.execution_id
       )
         return reject(

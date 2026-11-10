@@ -752,18 +752,22 @@ export class Projection {
           notes.push(note('duplicate_entity', event, 'request already exists'));
           return;
         }
-        const execution = this.#executions.get(view.execution_id);
+        // A whole-project request binds neither a task nor an execution (ADR 0030, 2026-11-10).
+        const wholeProject = view.workstream_id === null && view.execution_id === null;
+        const execution =
+          view.execution_id === null ? undefined : this.#executions.get(view.execution_id);
         if (
           view.steps.length !== 0 ||
           view.earlier_steps !== 0 ||
           view.status !== 'running' ||
           view.reply !== null ||
-          execution?.projectId !== view.project_id ||
-          execution?.workstreamId !== view.workstream_id ||
+          (wholeProject
+            ? !this.#projects.has(view.project_id)
+            : execution?.projectId !== view.project_id ||
+              execution?.workstreamId !== view.workstream_id) ||
           view.project_id !== event.project_id ||
           view.workstream_id !== event.workstream_id ||
-          view.execution_id !== event.execution_id ||
-          !this.#executions.has(event.execution_id)
+          view.execution_id !== event.execution_id
         ) {
           notes.push(note('unknown_entity', event, 'request has inconsistent work binding'));
           return;
@@ -796,7 +800,8 @@ export class Projection {
             command = event.payload.prepared_command;
           if (
             command &&
-            (command.payload.execution_id !== request.view.execution_id ||
+            (request.view.execution_id === null ||
+              command.payload.execution_id !== request.view.execution_id ||
               command.command_id !== step.command_id)
           ) {
             notes.push(note('unknown_entity', event, 'prepared request command does not match'));

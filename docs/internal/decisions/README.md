@@ -41,7 +41,7 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0027](0027-the-headset-moves-only-to-answer-the-person-or-show-a-wait.md) | The headset moves only to answer the person or to show a wait | Accepted; amended 2026-10-08 |
 | [0028](0028-opencode-runs-inside-a-sandbox-of-halcyonics-own.md) | OpenCode runs inside a macOS sandbox of Halcyonic's own | Accepted; amended 2026-10-08 |
 | [0029](0029-workspace-is-complete-without-characters-and-continues-in-a-native-panel.md) | Complete character-free workspace, optional deliberate agent placement and native continuity | Accepted; device acceptance pending; off by default superseded by 0040 |
-| [0030](0030-workspace-requests-use-a-journaled-agent-tool-loop.md) | Open-ended workspace requests use a journaled model/tool/result loop with existing runtime authority | Accepted design; implementation and acceptance pending |
+| [0030](0030-workspace-requests-use-a-journaled-agent-tool-loop.md) | Open-ended workspace requests use a journaled model/tool/result loop with existing runtime authority | Accepted; built and run end to end on local models with a real runtime; headset request UI and device evidence pending |
 | [0031](0031-record-bounded-native-tool-results-in-the-owner-journal.md) | Record bounded final native tool results as owner-journal evidence, with scoped read-only consumers | Accepted design; device acceptance unverified |
 
 | [0032](0032-recover-the-workspace-when-it-leaves-view.md) | Recover the workspace when it leaves view | Accepted direction; candidate thresholds require wearer validation |
