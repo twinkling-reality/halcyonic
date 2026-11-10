@@ -626,7 +626,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <see cref="ApprovalCommand"/>, or running with nothing waiting, the agent app's every action offered.
         /// </summary>
         private static WorkspacePresentation SelectedWorkspace(bool waiting, QuestionView? asked = null, string? command = null, bool approvable = true,
-            CommandSubmissions? submissions = null, bool confirmAnswers = false, string tool = "shell")
+            CommandSubmissions? submissions = null, bool confirmAnswers = false, string tool = "shell", ExecutionStatus? status = null, bool instructWhileRunning = true)
         {
             const string at = Day + "09:03:00.000Z";
             var runtime = new RuntimeDescriptor
@@ -636,7 +636,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 DisplayName = "Synthetic agent app (render)",
                 Synthetic = true,
                 ApprovalMayLeaveSandbox = true,
-                Capabilities = new RuntimeCapabilities { StartExecution = true, InstructAtRest = true, InstructWhileRunning = true, RespondToApproval = true, Interrupt = true, AnswerQuestion = true },
+                Capabilities = new RuntimeCapabilities { StartExecution = true, InstructAtRest = true, InstructWhileRunning = instructWhileRunning, RespondToApproval = true, Interrupt = true, AnswerQuestion = true },
             };
             var workstream = new WorkstreamView
             {
@@ -644,7 +644,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 ProjectId = "synthetic-project-storefront",
                 Title = SelectedTask,
                 Objective = "Limit sign-in attempts per address and per account.",
-                Status = waiting ? WorkstreamStatus.WaitingForHuman : WorkstreamStatus.Running,
+                Status = waiting ? WorkstreamStatus.WaitingForHuman : status == ExecutionStatus.Completed ? WorkstreamStatus.Completed : WorkstreamStatus.Running,
                 Attention = waiting
                     ? new Attention
                     {
@@ -669,7 +669,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 ProjectId = workstream.ProjectId,
                 Runtime = new RuntimeRef { RuntimeId = runtime.RuntimeId, Kind = runtime.Kind, DisplayName = runtime.DisplayName, Synthetic = true },
                 Instruction = "Do the work.",
-                Status = waiting ? ExecutionStatus.WaitingForHuman : ExecutionStatus.Running,
+                Status = status ?? (waiting ? ExecutionStatus.WaitingForHuman : ExecutionStatus.Running),
                 TurnCount = 1,
                 CreatedAt = at,
                 StartedAt = at,

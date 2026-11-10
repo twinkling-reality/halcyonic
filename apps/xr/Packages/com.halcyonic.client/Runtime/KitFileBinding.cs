@@ -191,7 +191,9 @@ namespace Halcyonic.Client
             // The kit shows an approval's, a denial's or the answers' confirmation, and the redesign an instruction's too; any
             // other waits for the file's own drawing.
             var instructing = roomDesign && armed == WorkspaceAction.Instruct;
-            if (armed != null && armed != WorkspaceAction.Approve && armed != WorkspaceAction.Deny && armed != WorkspaceAction.Answer && !instructing) return null;
+            // Stop's own confirmation, for the redesign: the file's question, its Yes and its Cancel, whatever else waits.
+            var stopping = roomDesign && armed == WorkspaceAction.Interrupt;
+            if (armed != null && armed != WorkspaceAction.Approve && armed != WorkspaceAction.Deny && armed != WorkspaceAction.Answer && !instructing && !stopping) return null;
             var controls = new List<KitControl>();
             // The instructions offered to choose from (no keyboard, or a recorded run's own): each a choice, bound for the redesign.
             var offering = roomDesign && frame.Lines.Any(line => line.Action == FileScreens.Preset);
@@ -239,7 +241,13 @@ namespace Halcyonic.Client
             }
             KitNeed? need = null;
             var sending = At(KitPlace.Sending);
-            if (instruction == null && (deny != null || approve != null || cancel != null || sending != null) && KitPresenter.NeedOf(workspace) is KitNeed asked)
+            string? stops = null;
+            if (stopping)
+            {
+                if (cancel == null || frame.Lines.LastOrDefault(line => line.Action == null) is not PageLine asks) return null;
+                stops = asks.Words;
+            }
+            if (instruction == null && !stopping && (deny != null || approve != null || cancel != null || sending != null) && KitPresenter.NeedOf(workspace) is KitNeed asked)
             {
                 KitConfirmation? confirming = null;
                 PageLine? part = null;
@@ -273,10 +281,10 @@ namespace Halcyonic.Client
                 need = new KitNeed(asked.Asks, asked.Request, asked.ScopeNote, asked.Notes, deny?.Words ?? asked.DenyWords, approve?.Words ?? asked.ApproveWords,
                     deny != null && deny.Available, approve != null && approve.Available, confirming, part, says, sending != null, asked.Commands, part != null ? requestRows : null, asked.Line);
             }
-            else if (instruction == null && (cancel != null || At(KitPlace.Yes) != null) && armed != WorkspaceAction.Answer) return null;
+            else if (instruction == null && !stopping && (cancel != null || At(KitPlace.Yes) != null) && armed != WorkspaceAction.Answer) return null;
             // A question's page, wherever the file draws one (never Activity, which says only where it waits): its own lines, as drawn.
             KitAsk? ask = null;
-            if (need == null && instruction == null && workspace.QuestionToAnswer != null
+            if (need == null && instruction == null && !stopping && workspace.QuestionToAnswer != null
                 && !frame.Sections.Any(section => section.Chosen && section.Key == FileScreens.Key(FileSection.Activity)))
             {
                 var words = frame.Lines.Where(line => line.Action == null).ToList();
@@ -332,7 +340,9 @@ namespace Halcyonic.Client
                 send != null && send.Available, send != null ? send.Reason : KitPresenter.WhyNotSendOf(connection), work.Spine, work.SpineFoot,
                 need, ask, work.Notice, work.Avatar, said, selectors != null ? selectors.Environment : work.Environment,
                 selectors != null ? selectors.Agent : work.Agent, selectors?.EnvironmentChangeable ?? false, selectors?.AgentChangeable ?? false, instruction,
-                draftSpoken && draft.Length > 0, chooses);
+                draftSpoken && draft.Length > 0, chooses, stops,
+                working: roomDesign && workspace.Execution?.Status is Halcyonic.Contracts.ExecutionStatus.Running or Halcyonic.Contracts.ExecutionStatus.Verifying,
+                step: roomDesign ? RoomWork.Of(workspace.Execution) : null);
             // Every line the frame shows is words the kit shows too; a line it would leave out, as an attention note,
             // a pointer to Waiting, why nothing can be sent or a notice, keeps the frame on the file's own drawing.
             var shown = ShownWords(model, workspace);
@@ -351,7 +361,7 @@ namespace Halcyonic.Client
                 if (!question && !request && !shown.Contains(words)) return null;
             }
             // A page of Waiting the kit draws is an approval's: anything else waiting there stays the file's.
-            if (need == null && ask == null && frame.Sections.Any(section => section.Chosen && section.Key == FileScreens.Key(FileSection.Waiting))) return null;
+            if (need == null && ask == null && !stopping && frame.Sections.Any(section => section.Chosen && section.Key == FileScreens.Key(FileSection.Waiting))) return null;
             return new KitFileBinding(frame, model, controls);
         }
 

@@ -386,8 +386,12 @@ namespace Halcyonic.Client
             string? whyNotSend, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot,
             KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null, KitAvatar? avatar = null, IReadOnlyList<PageLine>? said = null,
             string? environment = null, string? agent = null, bool environmentChangeable = false, bool agentChangeable = false,
-            KitInstruction? instruction = null, bool draftSpoken = false, bool chooses = false)
+            KitInstruction? instruction = null, bool draftSpoken = false, bool chooses = false, string? stops = null, bool working = false,
+            RoomWorkStep? step = null)
         {
+            Stops = stops;
+            Working = working;
+            Step = step;
             Chooses = chooses;
             Instruction = instruction;
             DraftSpoken = draftSpoken;
@@ -415,6 +419,15 @@ namespace Halcyonic.Client
         }
 
         public string ProjectName { get; }
+
+        /// <summary>What Stop's confirmation asks, the file's own words, while Stop is armed (the redesign); else null.</summary>
+        public string? Stops { get; }
+
+        /// <summary>Whether the agent or its checks are at work now: the run is running or verifying (the redesign's at work, DESIGN 2.3).</summary>
+        public bool Working { get; }
+
+        /// <summary>The step the runtime reports under way, for the agent's cursor; null where it reports none.</summary>
+        public RoomWorkStep? Step { get; }
 
         /// <summary>The execution environment shown in the composer's context selector (such as "This Mac" or "Sandbox"), or null.</summary>
         public string? Environment { get; }
