@@ -153,6 +153,39 @@ public class PairingLiveTests
     }
 
     [Test]
+    public async Task APairedDeviceLearnsWhereElseItsComputerIsAndFindsItThere()
+    {
+        var controlPlane = await StartAsync();
+        var networkPort = controlPlane.NetworkPort!.Value;
+        var (code, _) = await OpenPairingAsync(controlPlane);
+        var paired = await PairingClient.PairAsync("127.0.0.1", networkPort, code, "Quest 3");
+        var store = new FilePairingStore(Path.Combine(TemporaryDirectory(), "pairing.json"));
+        store.Save(paired);
+
+        var first = store.Load()!;
+        Connect(ControlPlaneTarget.Paired(first));
+        await Until(s => s.Status.IsLive, "the session is live over pinned TLS");
+        var learning = PairedReach.For(first).Learning;
+        Assert.That(learning, Is.Not.Null, "a connection asks where else the computer is");
+        await learning!;
+        Assert.That(store.Load()!.Addresses, Is.EqualTo(new[] { "127.0.0.1" }), "what the listener said is kept with the pairing");
+        await session!.StopAsync();
+        session = null;
+
+        // The address typed no longer answers, as after the network handed the computer another one.
+        var moved = store.Load()!.At("::1", networkPort);
+        var target = ControlPlaneTarget.Paired(moved);
+        Connect(target);
+        await Until(s => s.Status.IsLive, "the session finds the computer where it said it is");
+        Assert.That(PairedReach.For(moved).Answered, Is.EqualTo("127.0.0.1"));
+        var project = (ProjectCreatedResult)await RunAsync(commands.CreateProject("Found again"));
+        var workstream = (WorkstreamCreatedResult)await RunAsync(commands.CreateWorkstream(project.ProjectId, "Keep going", null));
+        using var api = target.CreateApi();
+        var history = await api.ReadAsync(workstream.WorkstreamId, 0, 10, System.Threading.CancellationToken.None);
+        Assert.That(history.Events, Is.Not.Empty, "REST reaches it there too");
+    }
+
+    [Test]
     public async Task RefusesWrongCodesAndClosesPairingAfterThree()
     {
         var controlPlane = await StartAsync();

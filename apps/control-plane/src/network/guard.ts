@@ -45,7 +45,12 @@ function hostAllowed(host: string | undefined, port: number): boolean {
   if (!lower.endsWith(suffix)) return false;
   const name = lower.slice(0, -suffix.length);
   if (name.startsWith('[') && name.endsWith(']')) return isIPv6(name.slice(1, -1));
-  return isIPv4(name) || (name.length <= 253 && LOCAL_NAME.test(name));
+  return isIPv4(name) || isLocalName(name);
+}
+
+/** Whether a name, already in lower case, is a `.local` name as mDNS publishes them. */
+export function isLocalName(name: string): boolean {
+  return name.length <= 253 && LOCAL_NAME.test(name);
 }
 
 function deny(code: string, message: string): NetworkDecision {

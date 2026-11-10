@@ -37,6 +37,7 @@ credential instead (below, and [SECURITY.md](SECURITY.md)).
 | `GET /api/devices` | Loopback only. `DevicesResponse`: every device paired, revoked ones included, and which have a realtime connection open |
 | `POST /api/devices/:device_id/revoke` | Loopback only. Revokes the device (again is harmless) and answers its `DeviceView`; 404 for a device never paired |
 | `POST /api/device/revoke` | Network listener only. The calling device revokes its own credential, as forgetting the control plane does; 204 |
+| `GET /api/device/listener` | Network listener only, to a paired device. `NetworkListener`: where it can reach the listener now, the computer's `.local` name first, so it finds the computer again at a new address (below); 503 `unavailable` before the listener listens |
 
 Command submission answers honestly:
 
@@ -238,7 +239,7 @@ core reports it as a rewind (`StateChanges.Rewound`).
 With `HALCYONIC_NETWORK_HOST` set, the control plane also listens for paired devices, TLS only,
 with its own certificate ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)).
 It serves `GET /api/health`, the pairing WebSocket `GET /pair`, and to a paired device's credential
-the REST reads, `POST /api/commands`, `POST /api/device/revoke` and `GET /realtime`, exactly as on
+the REST reads, `POST /api/commands`, `POST /api/device/revoke`, `GET /api/device/listener` and `GET /realtime`, exactly as on
 loopback, with the device as every command's principal. It serves nothing that manages devices,
 and it never accepts the access token. `Host` must be an IP address or a `.local` name with the
 listener's port.
@@ -246,6 +247,19 @@ listener's port.
 A device refuses any certificate but the one it pinned when it paired, before it sends anything.
 A refused upgrade answers with the error shape above, such as 401 `device_revoked`, so a device
 can say why.
+
+**Finding the computer again.** A pairing keeps the address the person typed. The listener's
+addresses (`NetworkListener.addresses`, in the pairing window's answer and in
+`GET /api/device/listener`) are read anew each time: for a wildcard host the computer's `.local`
+name first, its Bonjour name (`scutil --get LocalHostName`) in lower case, when it has one, then
+the interfaces' addresses as they are now; for a listener bound to one address, that address. After
+each realtime connection opens, and at most every ten minutes, the XR client core asks
+`GET /api/device/listener` and keeps what it says with the pairing, IP addresses and `.local` names
+only, at most eight. Each connection, realtime or REST, tries the address that answered last, the
+typed one, then those, in order, each under the same pin, three seconds each while another is left
+to try, and names the address it dialled in `Host`. Something else at an old address gets a TLS
+handshake it cannot complete and nothing more. Whether Horizon OS resolves `.local` names is not
+yet checked on a headset ([network-pairing.md](../validation/network-pairing.md)).
 
 Revoking a device applies to what it already has open, not only to its next request:
 

@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { chmod, mkdir } from 'node:fs/promises';
-import { homedir, type NetworkInterfaceInfo, networkInterfaces } from 'node:os';
+import { homedir, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { NetworkListener } from '@halcyonic/contracts';
@@ -10,12 +10,7 @@ import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
 import type { FastifyInstance } from 'fastify';
 import { CheckpointStore } from './checkpoints/store.ts';
 import { Companion } from './companion/companion.ts';
-import {
-  type ControlPlaneConfig,
-  defaultDataDir,
-  loadConfig,
-  type NetworkListenerConfig,
-} from './config.ts';
+import { type ControlPlaneConfig, defaultDataDir, loadConfig } from './config.ts';
 import { ControlPlane } from './core/control-plane.ts';
 import { OllamaUnloader } from './core/ollama-unload.ts';
 import { registerDeviceRoutes } from './http/device-routes.ts';
@@ -31,6 +26,7 @@ import { openSqliteJournal } from './journal/sqlite-journal.ts';
 import { createHostLocations } from './locations.ts';
 import { loadOrCreateNetworkIdentity } from './network/certificate.ts';
 import { DeviceAccess } from './network/devices.ts';
+import { describeListener, readLocalName } from './network/listener.ts';
 import { Pairing } from './network/pairing.ts';
 import { createNetworkServer } from './network/server.ts';
 import { matchesPin, pinsForThisMac } from './pins.ts';
@@ -266,6 +262,8 @@ async function main(): Promise<void> {
   // the owner configured it (ADR 0017).
   let network: { server: FastifyInstance; pairing: Pairing; certificateSha256: string } | null =
     null;
+  // Where devices reach the listener, read anew each time it is asked, once it listens.
+  let listener: (() => NetworkListener) | null = null;
   if (config.network !== null) {
     const { identity, created } = await loadOrCreateNetworkIdentity(config.dataDir, new Date());
     if (created) {
@@ -289,24 +287,30 @@ async function main(): Promise<void> {
       devices,
       pairing,
       clock: systemClock,
+      listener: () => listener?.() ?? null,
     });
     network = { server, pairing, certificateSha256: identity.certificateSha256 };
   }
-  let listener: NetworkListener | null = null;
   registerRoutes(app, controlPlane, sources);
   registerRealtime(app, controlPlane);
   registerDeviceRoutes(app, {
     controlPlane,
     devices,
     pairing: network?.pairing ?? null,
-    listener: () => listener,
+    listener: () => listener?.() ?? null,
   });
 
   try {
     await app.listen({ host: config.host, port: config.port });
     if (network !== null && config.network !== null) {
       await network.server.listen({ host: config.network.host, port: config.network.port });
-      listener = describeListener(config.network, network.server, network.certificateSha256);
+      const bound = network.server.server.address();
+      const port = bound !== null && typeof bound === 'object' ? bound.port : config.network.port;
+      const localName = await readLocalName();
+      const { certificateSha256 } = network;
+      const listening = config.network;
+      listener = () =>
+        describeListener(listening, port, certificateSha256, localName, networkInterfaces());
     }
   } catch (error) {
     await network?.server.close();
@@ -318,7 +322,7 @@ async function main(): Promise<void> {
   app.log.info(
     {
       addresses: app.addresses(),
-      network: listener,
+      network: listener?.() ?? null,
       data_dir: config.dataDir,
       token_file: access.path,
       journal: controlPlane.journal.info,
@@ -413,30 +417,6 @@ async function checkAgentBinaries(
       };
     }),
   );
-}
-
-/**
- * Where devices on the network can reach the listener: its own address, or for a wildcard, every
- * interface's external addresses (IPv4 for `0.0.0.0`, both families for `::`).
- */
-function describeListener(
-  config: NetworkListenerConfig,
-  server: FastifyInstance,
-  certificateSha256: string,
-): NetworkListener {
-  const bound = server.server.address();
-  const port = bound !== null && typeof bound === 'object' ? bound.port : config.port;
-  const wildcard = config.host === '0.0.0.0' || config.host === '::';
-  const reachable = (entry: NetworkInterfaceInfo) =>
-    !entry.internal &&
-    (entry.family === 'IPv4' || (config.host === '::' && !entry.address.startsWith('fe80:')));
-  const addresses = wildcard
-    ? Object.values(networkInterfaces())
-        .flatMap((entries) => entries ?? [])
-        .filter(reachable)
-        .map((entry) => entry.address)
-    : [config.host];
-  return { host: config.host, port, addresses, certificate_sha256: certificateSha256 };
 }
 
 main().catch((error: unknown) => {

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.WebSockets;
@@ -336,6 +337,97 @@ public class PinnedTransportTests
         Assert.That(paired.SameAs(ControlPlaneTarget.Paired(repaired)), Is.False, "another credential");
         var anotherCertificate = new PairedControlPlane("192.168.1.23", 47801, new string('d', 64), pairing.DeviceId, pairing.Credential);
         Assert.That(paired.SameAs(ControlPlaneTarget.Paired(anotherCertificate)), Is.False, "another pin");
+    }
+
+    private static string DeviceCredential => "hlcd_" + new string('A', 43);
+
+    private static PairedControlPlane PairingAt(string host, int port, string pin, params string[] addresses) =>
+        new(host, port, pin, Guid.NewGuid().ToString(), DeviceCredential, addresses);
+
+    [Test]
+    public async Task APairingFindsItsComputerAtAnotherAddressUnderTheSamePin()
+    {
+        string? head = null;
+        await using var server = TlsTestServer.Start(async stream =>
+        {
+            head = await TlsTestServer.ReadHeadAsync(stream);
+            await stream.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}"));
+        });
+        // Nothing listens at the typed address any more; the computer said it is also at 127.0.0.1.
+        var reach = PairedReach.For(PairingAt("::1", server.Port, server.CertificateSha256, "127.0.0.1"));
+        using var http = new HttpClient(new PinnedHttpHandler(reach));
+        var answer = await http.GetAsync($"https://[::1]:{server.Port}/api/snapshot");
+        Assert.That(answer.StatusCode, Is.EqualTo(System.Net.HttpStatusCode.OK));
+        Assert.That(head, Does.Contain("Host: 127.0.0.1:" + server.Port + "\r\n"), "the Host header names the address dialled");
+        Assert.That(reach.Answered, Is.EqualTo("127.0.0.1"));
+        Assert.That(reach.Candidates()[0], Is.EqualTo("127.0.0.1"), "the address that answered is tried first next time");
+    }
+
+    [Test]
+    public async Task AnotherComputerAtTheTypedAddressGetsNothingAndTheSearchGoesOn()
+    {
+        await using var impostor = TlsTestServer.Start(async stream => await TlsTestServer.ReadHeadAsync(stream));
+        await using var computer = TlsTestServer.StartAt(System.Net.IPAddress.IPv6Loopback, impostor.Port, TlsTestServer.DrainAsync);
+        var reach = PairedReach.For(PairingAt("127.0.0.1", impostor.Port, computer.CertificateSha256, "::1"));
+        var (connection, host) = await reach.OpenAsync(CancellationToken.None);
+        connection.Dispose();
+        Assert.That(host, Is.EqualTo("::1"));
+
+        // The typed address answers nothing in time (TEST-NET-1); the other one shows another certificate.
+        var alone = PairedReach.For(PairingAt("192.0.2.1", impostor.Port, OtherPin, "127.0.0.1"));
+        alone.AddressTimeout = TimeSpan.FromMilliseconds(300);
+        var transport = new PinnedWebSocketTransport(alone);
+        Assert.ThrowsAsync<CertificateMismatchException>(
+            () => transport.ConnectAsync(new Uri($"wss://192.0.2.1:{impostor.Port}/realtime"), DeviceCredential, CancellationToken.None),
+            "with nowhere else answering, the other certificate is what is said");
+        transport.Dispose();
+        await Task.Delay(100);
+        Assert.That(impostor.BytesReceived, Is.Zero, "the credential never reached the other computer");
+    }
+
+    [Test]
+    public void APairingKeepsOnlyAddressesAndNamesItsComputerCouldHave()
+    {
+        var said = new[] { "Studio-Mac.local", "192.168.1.23", "[fd00::5]", "example.com", "", "studio-mac.local" }
+            .Concat(Enumerable.Range(1, 10).Select(n => "10.0.0." + n));
+        var kept = PairedReach.Usable(said);
+        Assert.That(kept.Take(3), Is.EqualTo(new[] { "studio-mac.local", "192.168.1.23", "fd00::5" }));
+        Assert.That(kept, Has.Count.EqualTo(PairedReach.MaxAddresses));
+        Assert.That(kept, Does.Not.Contain("example.com"));
+    }
+
+    [Test]
+    public void APairingFileKeepsWhereElseItsComputerIsAndNeverBringsBackOneForgotten()
+    {
+        var directory = Directory.CreateTempSubdirectory("halcyonic-pairing-").FullName;
+        try
+        {
+            var path = Path.Combine(directory, "pairing.json");
+            var store = new FilePairingStore(path);
+            var pairing = PairingAt("192.168.1.23", 47801, new string('c', 64));
+            store.Save(pairing);
+            Assert.That(File.ReadAllText(path), Does.Not.Contain("addresses"), "a file as earlier builds wrote it");
+            Assert.That(store.Load()!.Addresses, Is.Empty);
+
+            Assert.That(store.Remember(pairing.DeviceId, pairing.Credential, pairing.CertificateSha256, new[] { "studio-mac.local", "192.168.1.40" }), Is.True);
+            var loaded = store.Load()!;
+            Assert.That(loaded.Addresses, Is.EqualTo(new[] { "studio-mac.local", "192.168.1.40" }));
+            Assert.That(loaded.Host, Is.EqualTo("192.168.1.23"), "the typed address stays the pairing's own");
+
+            var again = PairingAt("192.168.1.23", 47801, new string('c', 64));
+            store.Save(again);
+            Assert.That(store.Remember(pairing.DeviceId, pairing.Credential, pairing.CertificateSha256, new[] { "10.0.0.9" }), Is.False);
+            Assert.That(store.Load()!.DeviceId, Is.EqualTo(again.DeviceId), "a pairing made again is not overwritten");
+            Assert.That(store.Load()!.Addresses, Is.Empty);
+
+            store.Forget();
+            Assert.That(store.Remember(again.DeviceId, again.Credential, again.CertificateSha256, new[] { "10.0.0.9" }), Is.False);
+            Assert.That(File.Exists(path), Is.False, "a forgotten pairing is never written back");
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     [Test]

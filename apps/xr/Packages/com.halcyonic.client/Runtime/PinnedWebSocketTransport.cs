@@ -22,6 +22,7 @@ namespace Halcyonic.Client
     public sealed class PinnedWebSocketTransport : IRealtimeTransport
     {
         private readonly string pin;
+        private readonly PairedReach? reach;
         private readonly int maxMessageBytes;
         private readonly SemaphoreSlim sendLock = new SemaphoreSlim(1, 1);
         private readonly byte[] buffer = new byte[16 * 1024];
@@ -35,20 +36,42 @@ namespace Halcyonic.Client
             this.maxMessageBytes = maxMessageBytes;
         }
 
+        /// <summary>
+        /// To a pairing's control plane wherever it answers (<see cref="PairedReach"/>): the endpoint's
+        /// path, at the first of its addresses that completes the handshake with the pin.
+        /// </summary>
+        public PinnedWebSocketTransport(PairedReach reach, int maxMessageBytes = LoopbackWebSocketTransport.DefaultMaxMessageBytes)
+            : this(reach.Pin, maxMessageBytes)
+        {
+            this.reach = reach;
+        }
+
         public string? CloseDescription { get; private set; }
 
         public async Task ConnectAsync(Uri endpoint, string accessToken, CancellationToken cancellationToken)
         {
             if (endpoint.Scheme != "wss") throw new ArgumentException("A pinned connection is wss://.", nameof(endpoint));
-            connection = await PinnedConnection.OpenAsync(WebSocketUpgrade.Host(endpoint), endpoint.Port, pin, cancellationToken).ConfigureAwait(false);
+            var at = endpoint;
+            if (reach == null)
+            {
+                connection = await PinnedConnection.OpenAsync(WebSocketUpgrade.Host(endpoint), endpoint.Port, pin, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                var (opened, host) = await reach.OpenAsync(cancellationToken).ConfigureAwait(false);
+                connection = opened;
+                // The Host header names the address dialled, which the listener checks against its port.
+                at = PairedReach.At(endpoint, host);
+            }
             using (connection.CloseOn(cancellationToken))
             {
                 socket = await WebSocketUpgrade.ConnectAsync(
                     connection.Stream,
-                    endpoint,
+                    at,
                     new[] { new KeyValuePair<string, string>("Authorization", "Bearer " + accessToken) },
                     cancellationToken).ConfigureAwait(false);
             }
+            reach?.LearnSoon();
         }
 
         public async Task SendAsync(string message, CancellationToken cancellationToken)

@@ -696,7 +696,9 @@ What each party can do with the network listener on
   revocation keeps running: revoking stops the device, not work it already set going, which the
   owner can interrupt from loopback. Paired devices cannot see one another: no device reads device
   events. It reaches the control plane only
-  where the listener is reachable, the owner's network. A development build is debuggable, so
+  where the listener is reachable, the owner's network. It learns where else the computer can be
+  reached (`GET /api/device/listener`: the Mac's `.local` name and interface addresses), which it
+  could see on the network anyway, and dials only IP addresses and `.local` names, under its pin. A development build is debuggable, so
   anyone with `adb` access to the unlocked headset can read the credential, or an access token put
   there for USB, with `run-as`; an access token, unlike a device credential, works until the owner
   replaces it on the computer; the

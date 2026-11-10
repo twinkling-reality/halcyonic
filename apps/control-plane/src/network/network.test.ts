@@ -438,6 +438,24 @@ describe('the network listener', () => {
     }
   });
 
+  test('tells a paired device where it reaches the listener, and no one else', async (t) => {
+    const server = await start(t);
+    const paired = await pairDevice(network(server).target, await openWindow(server));
+    const read = await onNetwork(server, 'GET', '/api/device/listener', bearer(paired.credential));
+    assert.equal(read.status, 200);
+    assert.deepEqual(JSON.parse(read.body), network(server).listener);
+    assert.equal((await onNetwork(server, 'GET', '/api/device/listener')).status, 401);
+    assert.equal((await loopback(server, 'GET', '/api/device/listener')).status, 404);
+    await loopback(server, 'POST', `/api/devices/${paired.deviceId}/revoke`);
+    const revoked = await onNetwork(
+      server,
+      'GET',
+      '/api/device/listener',
+      bearer(paired.credential),
+    );
+    assert.equal(revoked.status, 401);
+  });
+
   test('journals who sent each command: the device, or the local token', async (t) => {
     const server = await start(t);
     const paired = await pairDevice(network(server).target, await openWindow(server));

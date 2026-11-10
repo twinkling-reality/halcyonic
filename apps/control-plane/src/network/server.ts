@@ -1,5 +1,9 @@
 import type { Socket } from 'node:net';
-import { PAIRING_PROTOCOL_VERSION, parsePairingClientMessage } from '@halcyonic/contracts';
+import {
+  type NetworkListener,
+  PAIRING_PROTOCOL_VERSION,
+  parsePairingClientMessage,
+} from '@halcyonic/contracts';
 import type { Clock } from '@halcyonic/runtime-core';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import type { RawData, WebSocket } from 'ws';
@@ -68,6 +72,8 @@ export interface NetworkServerOptions {
   readonly pairing: Pairing;
   readonly clock: Clock;
   readonly limits?: NetworkLimits;
+  /** Where devices reach this listener now, once it listens; null before. */
+  readonly listener: () => NetworkListener | null;
 }
 
 /** Paths that answer without a device credential. The pairing path has checks of its own. */
@@ -170,6 +176,23 @@ export async function createNetworkServer(options: NetworkServerOptions): Promis
       return reply.code(204).send();
     },
   );
+
+  // A paired device learns where else to find the control plane, so a new address on the network
+  // does not mean pairing again: it tries them under the same pin (ADR 0017).
+  app.get('/api/device/listener', async (request, reply) => {
+    if (request.principal?.kind !== 'device') {
+      return reply
+        .code(403)
+        .send(errorBody('forbidden', 'Only a paired device reads where it reaches the listener.'));
+    }
+    const listener = options.listener();
+    if (listener === null) {
+      return reply
+        .code(503)
+        .send(errorBody('unavailable', 'The listener is not listening yet; try again.'));
+    }
+    return listener;
+  });
 
   app.get(
     '/pair',

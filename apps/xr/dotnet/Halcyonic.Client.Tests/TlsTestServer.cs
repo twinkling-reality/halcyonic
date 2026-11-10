@@ -26,11 +26,11 @@ internal sealed class TlsTestServer : IAsyncDisposable
     private readonly List<Task> connections = new();
     private int bytesReceived;
 
-    private TlsTestServer(X509Certificate2 certificate, Func<Stream, Task> serve)
+    private TlsTestServer(X509Certificate2 certificate, Func<Stream, Task> serve, IPAddress? address = null, int port = 0)
     {
         this.certificate = certificate;
         this.serve = serve;
-        listener = new TcpListener(IPAddress.Loopback, 0);
+        listener = new TcpListener(address ?? IPAddress.Loopback, port);
         listener.Start();
         accepting = AcceptAsync();
     }
@@ -43,6 +43,9 @@ internal sealed class TlsTestServer : IAsyncDisposable
     public int BytesReceived => Volatile.Read(ref bytesReceived);
 
     public static TlsTestServer Start(Func<Stream, Task> serve) => new(CreateCertificate(), serve);
+
+    /// <summary>A server at this address and port, as one computer found at another address of the network.</summary>
+    public static TlsTestServer StartAt(IPAddress address, int port, Func<Stream, Task> serve) => new(CreateCertificate(), serve, address, port);
 
     /// <summary>A server that answers every connection with this HTTP response, then closes.</summary>
     public static TlsTestServer Answering(string response) =>

@@ -1403,7 +1403,16 @@ launch/return, process recreation and current-frame action behavior need separat
   upgrade over it with the device credential and hands the stream to `WebSocket.CreateFromStream`;
   a refused upgrade reports the control plane's code, such as `device_revoked`.
   `PinnedHttpHandler` sends each REST request as HTTP/1.1 on a connection of its own, for
-  `ControlPlaneApi`. They exist because Unity's Android class libraries ignore
+  `ControlPlaneApi`. For a pairing both reach the control plane through its **`PairedReach`**, one
+  per pairing and shared by the session and the REST client: the address that answered last, the
+  typed one, then the addresses the control plane last said it has (`PairedControlPlane.Addresses`,
+  its `.local` name first), each under the pin, three seconds each while another is left, with the
+  address dialled in `Host` (REALTIME.md, Finding the computer again). After each realtime
+  connection opens, at most every ten minutes, it asks `GET /api/device/listener` in the background
+  and keeps the IP addresses and `.local` names it answers, at most eight, through
+  `FilePairingStore.Remember`, only while the file still holds that same pairing. The typed address
+  stays the pairing's own, so the endpoint, `SameAs` and the workspace's `connection_key` do not
+  change when the Mac moves. They exist because Unity's Android class libraries ignore
   `ClientWebSocketOptions.RemoteCertificateValidationCallback` and throw inside
   `HttpClientHandler.ServerCertificateCustomValidationCallback`.
 - **`ControlPlaneTarget`** is where a session connects and how it proves itself: `Local`, the
@@ -3442,7 +3451,7 @@ choosing a folder deeper than one level inside a place the Mac allows; voice in 
 discovering or attaching work Halcyonic did not
 start; the soundbook's softer repeat of "Waiting for you" once nobody has
 looked at the character for two minutes, and a volume and mute for sound in the headset; finding
-the Mac without typing its address (mDNS), changing a paired Mac's address without pairing again,
+the Mac without typing its address (mDNS),
 and keeping the credential under an Android Keystore key. On a Quest, the control plane is
 reachable over USB with `adb reverse tcp:47800 tcp:47800` and the access token written to it, or over Wi-Fi once
 paired ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).

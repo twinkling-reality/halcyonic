@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Halcyonic.Contracts;
@@ -14,6 +15,12 @@ namespace Halcyonic.Client
     public sealed class PairedControlPlane
     {
         public PairedControlPlane(string host, int port, string certificateSha256, string deviceId, string credential)
+            : this(host, port, certificateSha256, deviceId, credential, null)
+        {
+        }
+
+        /// <param name="addresses">Where else the control plane said it can be reached (<see cref="PairedReach"/>).</param>
+        public PairedControlPlane(string host, int port, string certificateSha256, string deviceId, string credential, IEnumerable<string>? addresses)
         {
             if (string.IsNullOrWhiteSpace(host)) throw new ArgumentException("A host is required.", nameof(host));
             if (port < 1 || port > 65535) throw new ArgumentOutOfRangeException(nameof(port));
@@ -26,6 +33,7 @@ namespace Halcyonic.Client
             CertificateSha256 = ControlPlaneTarget.CheckPin(certificateSha256);
             DeviceId = deviceId;
             Credential = credential;
+            Addresses = PairedReach.Usable(addresses);
         }
 
         /// <summary>The address or name the person typed.</summary>
@@ -40,13 +48,22 @@ namespace Halcyonic.Client
 
         public string Credential { get; }
 
+        /// <summary>
+        /// Where else the control plane last said it can be reached, its <c>.local</c> name first, tried
+        /// under the same pin when the typed address does not answer (<see cref="PairedReach"/>).
+        /// </summary>
+        public IReadOnlyList<string> Addresses { get; }
+
+        /// <summary>The file this pairing was read from, where what it learns is kept; null otherwise.</summary>
+        internal FilePairingStore? Source { get; set; }
+
         public Uri RealtimeEndpoint => new UriBuilder("wss", UriHost(Host), Port, "/realtime").Uri;
 
         /// <summary>The address as a person reads it, such as 192.168.1.23:47801.</summary>
         public string Address => UriHost(Host) + ":" + Port.ToString(CultureInfo.InvariantCulture);
 
         /// <summary>A copy for another address of the same control plane, whose pin still holds.</summary>
-        public PairedControlPlane At(string host, int port) => new PairedControlPlane(host, port, CertificateSha256, DeviceId, Credential);
+        public PairedControlPlane At(string host, int port) => new PairedControlPlane(host, port, CertificateSha256, DeviceId, Credential, Addresses) { Source = Source };
 
         private static string UriHost(string host) => host.Contains(":") && !host.StartsWith("[", StringComparison.Ordinal) ? "[" + host + "]" : host;
     }
@@ -83,7 +100,7 @@ namespace Halcyonic.Client
             new ControlPlaneTarget(pairing.RealtimeEndpoint, pairing.Credential, pairing);
 
         public IRealtimeTransport CreateTransport() =>
-            Pairing == null ? (IRealtimeTransport)new LoopbackWebSocketTransport() : new PinnedWebSocketTransport(Pairing.CertificateSha256);
+            Pairing == null ? (IRealtimeTransport)new LoopbackWebSocketTransport() : new PinnedWebSocketTransport(PairedReach.For(Pairing));
 
         public RealtimeSession CreateSession(ClientInfo client) => new RealtimeSession(SessionOptions(client), CreateTransport);
 
@@ -99,7 +116,7 @@ namespace Halcyonic.Client
         {
             var api = Pairing == null
                 ? new ControlPlaneApi(ControlPlaneApi.BaseUriFor(Endpoint), Credential)
-                : new ControlPlaneApi(ControlPlaneApi.BaseUriFor(Endpoint), Credential, new PinnedHttpHandler(Pairing.CertificateSha256));
+                : new ControlPlaneApi(ControlPlaneApi.BaseUriFor(Endpoint), Credential, new PinnedHttpHandler(PairedReach.For(Pairing)));
             api.AccessRefused = AccessRefused;
             return api;
         }
