@@ -91,9 +91,16 @@ export interface ReattachRequest {
   readonly native_id: string;
   readonly options: RuntimeOptions;
   readonly model_ref: string | null;
-  /** The level the runtime confirmed at the start; absent where none was recorded. */
+  /**
+   * The level the runtime confirmed at the start. Absent where none was recorded, which means
+   * `ask`, as for a start: a session the runtime would resume at any wider level is refused.
+   */
   readonly approval_level?: ApprovalLevel;
-  /** Whether the runtime reported the execution confined to its project (S2); absent where not recorded. */
+  /**
+   * Whether the runtime reported the execution confined to its project (S2). False also where it
+   * was not recorded (executions from before S2), so it never permits less confinement than a new
+   * start would get now: the adapter confines as a new start would, and refuses when that differs.
+   */
   readonly confined?: boolean;
   readonly directory: string | null;
   /**

@@ -995,9 +995,9 @@ class ResumableRuntime implements RuntimeAdapter {
   readonly reattached: Omit<ReattachRequest, 'emit'>[] = [];
   readonly instructions: string[] = [];
   readonly #emits = new Map<string, ObservationSink>();
-  readonly #answer: 'restore' | 'refuse';
+  readonly #answer: 'restore' | 'refuse' | 'hang';
 
-  constructor(answer: 'restore' | 'refuse' = 'restore') {
+  constructor(answer: 'restore' | 'refuse' | 'hang' = 'restore') {
     this.#answer = answer;
   }
 
@@ -1042,6 +1042,7 @@ class ResumableRuntime implements RuntimeAdapter {
   async reattach(request: ReattachRequest): Promise<void> {
     const { emit, ...rest } = request;
     this.reattached.push(rest);
+    if (this.#answer === 'hang') return new Promise(() => {});
     if (this.#answer === 'refuse') {
       throw new RuntimeActionError('session_not_found', 'The runtime has no such session.');
     }
@@ -1444,6 +1445,44 @@ describe('restart', () => {
     assert.deepEqual(again.reattached, []);
     assert.deepEqual(stateUnknownCodes(fourth, cut), ['control_plane_restarted', 'session_lost']);
     await fourth.controlPlane.close();
+  });
+
+  test('work whose re-attach a second restart cut short is asked for again at the next start, never recorded twice (ADR 0046, AUDIT2)', async () => {
+    for (const answer of ['restore', 'refuse'] as const) {
+      const path = join(directory, `restart-reattach-twice-${answer}.db`);
+      const first = createTestControlPlane({ path, adapters: () => [new ResumableRuntime()] });
+      const workstreamId = await createWorkstream(first);
+      startOn(first, workstreamId, 'resumable');
+      await first.time.runUntilIdle();
+      const executionId =
+        first.controlPlane.projection.workstream(workstreamId)?.current_execution_id ?? '';
+      await first.controlPlane.close();
+
+      // The second start asks, and stops before the runtime answers.
+      const silent = new ResumableRuntime('hang');
+      const second = createTestControlPlane({ path, time: first.time, adapters: () => [silent] });
+      second.controlPlane.reconcile();
+      await second.time.advance(0);
+      assert.equal(silent.reattached.length, 1);
+      await second.controlPlane.close();
+
+      const runtime = new ResumableRuntime(answer);
+      const third = createTestControlPlane({ path, time: first.time, adapters: () => [runtime] });
+      third.controlPlane.reconcile();
+      await third.controlPlane.reattached;
+      assert.equal(runtime.reattached.length, 1, 'the third start asks the runtime once');
+      assert.deepEqual(runtime.reattached[0]?.cut_turn, { turn_id: 't1' });
+      const after = third.controlPlane.projection.execution(executionId);
+      if (answer === 'restore') assert.equal(after?.status, 'interrupted');
+      else assert.equal(after?.status_reason?.code, 'session_lost');
+      assert.deepEqual(
+        stateUnknownCodes(third, executionId),
+        answer === 'restore'
+          ? ['control_plane_restarted']
+          : ['control_plane_restarted', 'session_lost'],
+      );
+      await third.controlPlane.close();
+    }
   });
 
   test('a mock runtime started after a restart has every observation journaled', async () => {

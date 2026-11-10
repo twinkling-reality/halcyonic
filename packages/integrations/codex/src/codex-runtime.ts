@@ -551,10 +551,10 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         throw refuse(`Codex resumed thread ${reported.threadId}, not ${request.native_id}.`);
       }
       const level = confined || reported.approvalPolicy === 'never' ? 'never_ask' : 'ask';
-      if (request.approval_level !== undefined && request.approval_level !== level) {
-        throw refuse(
-          `The thread started at the level ${request.approval_level} and would resume at ${level}.`,
-        );
+      // No recorded level means ask, as for a start: a thread is never resumed wider than that.
+      const recorded = request.approval_level ?? 'ask';
+      if (recorded !== level) {
+        throw refuse(`The thread started at the level ${recorded} and would resume at ${level}.`);
       }
       const page = await send(
         connection,
