@@ -454,12 +454,14 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       observation(
         'runtime.execution.started',
         // Observed here: the server this execution runs on is the project's confined one or not (S2),
-        // and the approval policy Codex reports for the thread, which checkSettings has matched to the
-        // one asked for (ADR 0043).
+        // and whether anything can ask (ADR 0043): nothing does on a confined server, whose turns run
+        // under externalSandbox (ADR 0041), nor under the never policy Codex reports for the thread,
+        // which checkSettings has matched to the one asked for.
         {
           native_id: threadId,
           confined: slot.confinement !== null,
-          approval_level: reported.approvalPolicy === 'never' ? 'never_ask' : 'ask',
+          approval_level:
+            slot.confinement !== null || reported.approvalPolicy === 'never' ? 'never_ask' : 'ask',
         },
         {
           native_event_id: `${threadId}:thread/start`,
@@ -815,6 +817,18 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       throw error;
     }
     await this.#noProjectSettings(connection, options.cwd);
+    // An MCP tool runs outside Codex's command sandbox, and what `never` does with one is not
+    // verified, so a thread that never asks has none (ADR 0043, AUDIT's step 2 S1).
+    if (
+      options.approvalPolicy === 'never' &&
+      isRecord(config.mcp_servers) &&
+      Object.keys(config.mcp_servers).length > 0
+    ) {
+      throw new RuntimeActionError(
+        'runtime_refused',
+        `Codex works without asking only with no MCP servers, and Halcyonic's Codex home config.toml names ${Object.keys(config.mcp_servers).length}. Nothing was started.`,
+      );
+    }
     const configured = typeof config.model_provider === 'string' ? config.model_provider : '';
     const provider = options.modelProvider ?? (configured === '' ? 'openai' : configured);
     const served = servedBy(config, provider, this.#environment);
@@ -1452,6 +1466,9 @@ function threadSettings(
       model_auto_compact_token_limit: options.autoCompactTokenLimit,
     }),
     ...(askQuestions && { [QUESTION_FEATURE]: true }),
+    // Above the home's config.toml: no network for commands and no folder but the project's.
+    'sandbox_workspace_write.network_access': false,
+    'sandbox_workspace_write.writable_roots': [],
     projects: untrustedFrom(options.cwd),
   };
   return {
@@ -1506,6 +1523,21 @@ function checkSettings(
     );
   }
   const sandbox = isRecord(response.sandbox) ? response.sandbox.type : undefined;
+  // A workspace-write sandbox must be the project's alone: no network for its commands, and no
+  // writable folder but the project, whatever a configuration said (ADR 0043, AUDIT F1).
+  if (sandbox === 'workspaceWrite' && isRecord(response.sandbox)) {
+    const roots = response.sandbox.writableRoots;
+    const widened =
+      response.sandbox.networkAccess !== false ||
+      !Array.isArray(roots) ||
+      roots.some((root) => root !== options.cwd);
+    if (widened) {
+      throw new RuntimeActionError(
+        'runtime_refused',
+        `Codex reports the thread's sandbox wider than the project: network access ${JSON.stringify(response.sandbox.networkAccess)}, writable folders ${JSON.stringify(roots)}. The thread is not used.`,
+      );
+    }
+  }
   if (
     response.approvalPolicy !== options.approvalPolicy ||
     response.approvalsReviewer !== 'user' ||

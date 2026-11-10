@@ -296,6 +296,35 @@ describe('Codex never asking (ADR 0043)', () => {
     });
   });
 
+  for (const [mode, what] of [
+    ['wide-network', 'network access'],
+    ['wide-roots', 'a writable folder outside the project'],
+  ] as const) {
+    for (const level of ['ask', 'never_ask'] as const) {
+      test(`a thread whose sandbox Codex reports with ${what} is refused, asking or not (AUDIT F1)`, async (t) => {
+        const { start, observations } = fake(t, [mode]);
+        await assert.rejects(start('COMPLETE the work.', level), (error: unknown) => {
+          assert.ok(actionError('runtime_refused')(error));
+          assert.match((error as Error).message, /sandbox wider than the project/);
+          return true;
+        });
+        assert.deepEqual(observations, []);
+      });
+    }
+  }
+
+  test('a thread that never asks is refused while the home names an MCP server; one that asks is not', async (t) => {
+    const config = { ...LOCAL_CONFIG, mcp_servers: { probe: { command: '/bin/true' } } };
+    const quiet = fake(t, [], {}, { FAKE_CODEX_CONFIG: JSON.stringify(config) });
+    await assert.rejects(quiet.start('COMPLETE the work.', 'never_ask'), (error: unknown) => {
+      assert.ok(actionError('runtime_refused')(error));
+      assert.match((error as Error).message, /only with no MCP servers/);
+      return true;
+    });
+    const asking = fake(t, [], {}, { FAKE_CODEX_CONFIG: JSON.stringify(config) });
+    await asking.start('COMPLETE the work.');
+  });
+
   test('a thread for which Codex reports never while asking was asked for is refused', async (t) => {
     const { start, observations } = fake(t, ['never']);
     await assert.rejects(start(), actionError('runtime_refused'));
@@ -651,6 +680,10 @@ describe('Codex runtime against a stand-in binary', () => {
       // The model may ask the person questions (ADR 0022).
       config: {
         'features.default_mode_request_user_input': true,
+        // No network for commands and no writable folder but the project's, above the home's
+        // config.toml (ADR 0043, AUDIT F1).
+        'sandbox_workspace_write.network_access': false,
+        'sandbox_workspace_write.writable_roots': [],
         // The folder and every folder above it, untrusted, so a project's own settings never load.
         projects: untrustedFrom(realpathSync(directory)),
       },
@@ -720,6 +753,8 @@ describe('Codex runtime against a stand-in binary', () => {
         model_context_window: 65536,
         model_auto_compact_token_limit: 52000,
         'features.default_mode_request_user_input': true,
+        'sandbox_workspace_write.network_access': false,
+        'sandbox_workspace_write.writable_roots': [],
         projects: untrustedFrom(realpathSync(directory)),
       },
       threadSource: 'halcyonic',
@@ -1640,6 +1675,8 @@ describe('Codex runtime against a stand-in binary', () => {
     const threadStart = received().find((message) => message.method === 'thread/start');
     assert.ok(threadStart !== undefined);
     assert.deepEqual((threadStart.params as { config?: unknown }).config, {
+      'sandbox_workspace_write.network_access': false,
+      'sandbox_workspace_write.writable_roots': [],
       projects: untrustedFrom(realpathSync(directory)),
     });
   });
@@ -1809,9 +1846,14 @@ describe('a confined project (ADR 0041)', () => {
       ...confinedTo(t, (folder) => ({ project: folder, readable: [] })),
     });
     await start();
-    // Its start says, as observed, that it runs confined (S2).
+    // Its start says, as observed, that it runs confined (S2), and that nothing asks, whatever was
+    // chosen: its turns run under externalSandbox (ADR 0041, ADR 0043).
     const started = observations.find((entry) => entry.type === 'runtime.execution.started');
     assert.equal((started?.payload as { confined?: boolean } | undefined)?.confined, true);
+    assert.equal(
+      (started?.payload as { approval_level?: string } | undefined)?.approval_level,
+      'never_ask',
+    );
     await runtime
       .sendInstruction({ execution: TEST_EXECUTION, text: 'More.' })
       .catch(() => undefined);

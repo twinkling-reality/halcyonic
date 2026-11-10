@@ -1471,6 +1471,27 @@ describe('start options', () => {
     );
   });
 
+  test('working without asking is refused, at the check and at the start, never ignored (ADR 0043)', async () => {
+    const { adapter, runs } = setup();
+    assert.equal(adapter.descriptor.offers_never_ask, undefined);
+    const refused = adapter.validateStartOptions({}, null, 'never_ask');
+    assert.match(refused.ok ? '' : refused.message, /does not work without asking/);
+    assert.deepEqual(adapter.validateStartOptions({}, null, 'ask'), { ok: true });
+    await assert.rejects(
+      adapter.startExecution({
+        execution,
+        instruction: 'Fix the flaky checkout test.',
+        options: {},
+        model_ref: null,
+        approval_level: 'never_ask',
+        directory: WORKDIR,
+        emit: () => undefined,
+      }),
+      actionError('invalid_runtime_options'),
+    );
+    assert.equal(runs.length, 0, 'no session was launched');
+  });
+
   test('model and permission_mode are checked', () => {
     const { adapter } = setup();
     const valid = (options: RuntimeOptions) => adapter.validateStartOptions(options, null).ok;

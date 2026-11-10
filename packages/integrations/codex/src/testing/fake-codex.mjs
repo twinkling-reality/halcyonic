@@ -178,7 +178,22 @@ createInterface({ input: process.stdin }).on('line', (line) => {
         cwd: flags.has('other-cwd') ? '/somewhere/else' : params.cwd,
         approvalPolicy: flags.has('never') ? 'never' : params.approvalPolicy,
         approvalsReviewer: params.approvalsReviewer,
-        sandbox: { type: SANDBOX_TYPES[params.sandbox] },
+        // As Codex 0.157.0 reports a sandbox: a workspace-write one with its network and folders,
+        // from the thread's overrides, unless a mode plays a home that widens them.
+        sandbox:
+          params.sandbox === 'workspace-write'
+            ? {
+                type: 'workspaceWrite',
+                writableRoots: flags.has('wide-roots')
+                  ? ['/somewhere/outside']
+                  : (params.config?.['sandbox_workspace_write.writable_roots'] ?? ['/from/home']),
+                networkAccess: flags.has('wide-network')
+                  ? true
+                  : (params.config?.['sandbox_workspace_write.network_access'] ?? true),
+                excludeTmpdirEnvVar: false,
+                excludeSlashTmp: false,
+              }
+            : { type: SANDBOX_TYPES[params.sandbox] },
       });
       return;
     case 'configRequirements/read':

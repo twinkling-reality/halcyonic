@@ -8,8 +8,9 @@
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn, spawnSync } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
@@ -575,6 +576,79 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       // Inside the project a command runs without a press.
       await finish('CMD:touch inside-never.txt && echo created-inside');
       assert.ok(existsSync(join(sandbox.project, 'inside-never.txt')));
+    },
+  );
+
+  test(
+    "a home that turns on the sandbox's network does not reach a thread that never asks (AUDIT F1)",
+    SLOW_TEST,
+    async (t) => {
+      let reached = 0;
+      const listener = createServer((socket) => {
+        reached += 1;
+        socket.end();
+      });
+      await new Promise<void>((done) => listener.listen(0, '127.0.0.1', done));
+      t.after(() => new Promise<void>((done) => listener.close(() => done())));
+      const port = (listener.address() as { port: number }).port;
+      const { sandbox, start } = await harness(t, {
+        runtime: (box) => {
+          appendFileSync(
+            join(box.codexHome, 'config.toml'),
+            '\n[sandbox_workspace_write]\nnetwork_access = true\n',
+          );
+          return {};
+        },
+      });
+      if (/^\/(private\/)?tmp\//.test(sandbox.root)) {
+        t.skip('the sandbox lives under /tmp, which a workspace-write thread can write');
+        return;
+      }
+      const execution = await start(
+        `CMD:/usr/bin/nc -z -w 2 127.0.0.1 ${port} && echo reached-loopback`,
+        {},
+        null,
+        'never_ask',
+      );
+      await execution.next('runtime.turn.completed');
+      assert.ok(!execution.types().includes('runtime.approval.requested'));
+      // AUDIT's probe of c565c13e reached the listener once with this home; the thread's own
+      // override keeps the sandbox's network off.
+      assert.equal(reached, 0, 'a command reached a loopback listener');
+    },
+  );
+
+  test(
+    'a home that adds a writable folder does not reach a thread that never asks (AUDIT F1)',
+    SLOW_TEST,
+    async (t) => {
+      let outside = '';
+      const { sandbox, start } = await harness(t, {
+        runtime: (box) => {
+          outside = join(box.root, 'outside-writable-never');
+          appendFileSync(
+            join(box.codexHome, 'config.toml'),
+            `\n[sandbox_workspace_write]\nwritable_roots = [${JSON.stringify(outside)}]\n`,
+          );
+          return {};
+        },
+      });
+      if (/^\/(private\/)?tmp\//.test(sandbox.root)) {
+        t.skip('the sandbox lives under /tmp, which a workspace-write thread can write');
+        return;
+      }
+      await mkdir(outside);
+      const marker = join(outside, 'marker-never.txt');
+      const execution = await start(
+        `CMD:touch ${marker} && echo wrote-outside`,
+        {},
+        null,
+        'never_ask',
+      );
+      await execution.next('runtime.turn.completed');
+      assert.ok(!execution.types().includes('runtime.approval.requested'));
+      // AUDIT's probe of c565c13e wrote its marker there; the thread's own override lists no folder.
+      assert.equal(existsSync(marker), false, 'a command wrote to the folder the home listed');
     },
   );
 
