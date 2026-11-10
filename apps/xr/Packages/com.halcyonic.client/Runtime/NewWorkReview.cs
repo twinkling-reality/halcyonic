@@ -116,11 +116,17 @@ namespace Halcyonic.Client
         public const string FirstTaskLabel = "First Task · ";
 
         public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
-            string? folder = null, string? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null)
+            string? folder = null, string? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null, bool neverAsk = false)
             : this(project, title, LineWords.Unspelled(runtime), LineWords.Unspelled(model), LineWords.Written(modelFacts), LineWords.Unspelled(modelRef), objective,
-                folder == null ? null : LineWords.Unspelled(folder), folderBefore == null ? null : LineWords.Unspelled(folderBefore), titleCut, folderChoice)
+                folder == null ? null : LineWords.Unspelled(folder), folderBefore == null ? null : LineWords.Unspelled(folderBefore), titleCut, folderChoice, neverAsk)
         {
         }
+
+        /// <summary>
+        /// The level the reviewed start will use: never ask, or ask (ADR 0043). The page that shows this review shows the
+        /// level with it, and a build confirms only the level its review was made with (<see cref="BuildSequence"/>).
+        /// </summary>
+        public bool NeverAsk { get; }
 
         /// <summary>
         /// The review from runs, as <see cref="EntryScreens.ReviewOf"/> builds it: Halcyonic's own words, as
@@ -128,8 +134,9 @@ namespace Halcyonic.Client
         /// Halcyonic's; outside text, raw, spelled here and leaning.
         /// </summary>
         public NewWorkReview(string project, string title, LineWords runtime, LineWords model, LineWords modelFacts, LineWords modelRef, string objective,
-            LineWords? folder = null, LineWords? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null)
+            LineWords? folder = null, LineWords? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null, bool neverAsk = false)
         {
+            NeverAsk = neverAsk;
             FolderChoice = folderChoice == null ? null : HalcyonicJson.Serialize(folderChoice);
             Add(ProjectLabel, project);
             if (folderBefore != null && folder != null)

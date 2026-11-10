@@ -582,6 +582,58 @@ public class BuildSequenceTests
     }
 
     [Test]
+    public void ABuildStartsAtNeverAskOnlyWhereChosenReviewedAndOffered()
+    {
+        RuntimeDescriptor Runtime(bool? offers) => new()
+        {
+            RuntimeId = "offering", DisplayName = "Offering runtime", Kind = "mock", Synthetic = true, ModelChoice = ModelChoice.None, OffersNeverAsk = offers,
+            Capabilities = new RuntimeCapabilities { StartExecution = true },
+        };
+        ExecutionStartCommand Start(BuildSequence sequence, CommandEnvelope first)
+        {
+            var workstream = (WorkstreamCreateCommand)sequence.Advance(With(Completed(first, new ProjectCreatedResult { ProjectId = "p1" })))!;
+            return (ExecutionStartCommand)sequence.Advance(With(Completed(workstream, new WorkstreamCreatedResult { WorkstreamId = "w1" })))!;
+        }
+
+        // Chosen, on a runtime that offers it, and reviewed at that level: the start asks for never ask.
+        var draft = Draft();
+        draft.Objective = "Plan dinners for the week.";
+        draft.ChooseRuntime(Runtime(true));
+        draft.NeverAsk = true;
+        Assert.That(draft.StartsNeverAsk, Is.True);
+        var sequence = new BuildSequence(draft, Commands, "Dinners");
+        var first = sequence.Begin(Samples.Reviewed(sequence));
+        // Changed after the review was confirmed: what was confirmed goes.
+        draft.NeverAsk = false;
+        Assert.That(Start(sequence, first).Payload.ApprovalLevel, Is.EqualTo(ApprovalLevel.NeverAsk));
+
+        // Chosen where the runtime does not offer it: the start leaves the level out, which means ask.
+        var plain = Draft();
+        plain.Objective = "Plan dinners for the week.";
+        plain.ChooseRuntime(Runtime(null));
+        plain.NeverAsk = true;
+        Assert.That(plain.StartsNeverAsk, Is.False);
+        var asks = new BuildSequence(plain, Commands, "Dinners");
+        Assert.That(Start(asks, asks.Begin(Samples.Reviewed(asks))).Payload.ApprovalLevel, Is.Null);
+
+        // A review made at one level confirms no start at another: the level shown is the level sent.
+        var changed = Draft();
+        changed.Objective = "Plan dinners for the week.";
+        changed.ChooseRuntime(Runtime(true));
+        var refused = new BuildSequence(changed, Commands, "Dinners");
+        var reviewedAtAsk = Samples.Reviewed(refused);
+        changed.NeverAsk = true;
+        Assert.That(() => refused.Begin(reviewedAtAsk), Throws.InvalidOperationException.With.Message.EqualTo("The level is not the one reviewed."));
+
+        // Make VR Version's start: never ask only where asked for and offered.
+        var vr = BuildSequence.ForPrompt("p1", "Make it VR.", Runtime(true), Commands, out var create, neverAsk: true);
+        var vrStart = (ExecutionStartCommand)vr.Advance(With(Completed(create, new WorkstreamCreatedResult { WorkstreamId = "w1" })))!;
+        Assert.That(vrStart.Payload.ApprovalLevel, Is.EqualTo(ApprovalLevel.NeverAsk));
+        var vrPlain = BuildSequence.ForPrompt("p1", "Make it VR.", Runtime(false), Commands, out var createPlain, neverAsk: true);
+        Assert.That(((ExecutionStartCommand)vrPlain.Advance(With(Completed(createPlain, new WorkstreamCreatedResult { WorkstreamId = "w1" })))!).Payload.ApprovalLevel, Is.Null);
+    }
+
+    [Test]
     public void APlaceSharingAnotherPlacesNameIsNotTheFolderReviewed()
     {
         var home = new NewFolderChoice { Root = "/Users/person/Projects", FolderName = "dinners" };

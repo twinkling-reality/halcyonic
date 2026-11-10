@@ -77,7 +77,8 @@ namespace Halcyonic.Client
                 folder,
                 before,
                 titleCut,
-                sends?.ToContract());
+                sends?.ToContract(),
+                draft.StartsNeverAsk);
         }
 
         /// <summary>
