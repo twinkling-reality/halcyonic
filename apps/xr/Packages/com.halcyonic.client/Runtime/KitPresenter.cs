@@ -179,14 +179,36 @@ namespace Halcyonic.Client
         /// or a listed model can be chosen. While the run is active, the execution's own, locked (<see cref="AtRest"/>).
         /// </summary>
         public static KitSelectors ChipsOf(WorkspacePresentation workspace, string? executionModelDisplay, RuntimeDescriptor? chosen,
-            string? chosenModelDisplay, IReadOnlyList<RuntimeDescriptor>? registered)
+            string? chosenModelDisplay, IReadOnlyList<RuntimeDescriptor>? registered, bool neverAskChosen = false)
         {
             if (!AtRest(workspace)) return ChipsOf(workspace, executionModelDisplay);
             var runtime = chosen ?? workspace.Runtime;
             var starters = registered?.Count(each => each != null && each.Capabilities.StartExecution) ?? 0;
+            // Never ask stands only where the runtime the next start would use offers it; the choice alone is not the level.
+            var offers = runtime?.OffersNeverAsk == true;
             return new KitSelectors(EnvironmentOf(runtime), WorkspacePresentationState.EnvironmentCanChange(registered, runtime),
                 AgentOf(runtime, workspace.Execution, chosen != null ? chosenModelDisplay : executionModelDisplay),
-                agentChangeable: starters > 1 || runtime?.ModelChoice == ModelChoice.Listed);
+                agentChangeable: starters > 1 || runtime?.ModelChoice == ModelChoice.Listed, offersNeverAsk: offers, neverAsk: offers && neverAskChosen);
+        }
+
+        /// <summary>Whether <paramref name="execution"/>'s own record says it runs at never ask; an older run, or a runtime that records none, asks.</summary>
+        public static bool RunsNeverAsk(ExecutionView? execution) => execution?.ApprovalLevel == ApprovalLevel.NeverAsk;
+
+        /// <summary>
+        /// What the person chose for the task's next run, from the runtime and model picked (null where none is) and the
+        /// level kept for the task's project: the picked runtime with its model, or, with none picked, the run's own
+        /// runtime and model where only the level differs from the run's own. The level is never ask only where the
+        /// person chose it and that runtime's descriptor offers it. Null with nothing chosen, or a runtime not registered.
+        /// </summary>
+        public static RunChoice? RunChoiceOf(WorkspacePresentation? workspace, string? selectedRuntimeId, string? selectedModelRef,
+            IReadOnlyList<RuntimeDescriptor>? registered, bool neverAskChosen)
+        {
+            var execution = workspace?.Execution;
+            var runtimeId = selectedRuntimeId ?? execution?.Runtime.RuntimeId;
+            if (runtimeId == null || !(registered?.FirstOrDefault(item => item != null && item.RuntimeId == runtimeId) is RuntimeDescriptor runtime)) return null;
+            var neverAsk = neverAskChosen && runtime.OffersNeverAsk == true;
+            if (selectedRuntimeId == null && neverAsk == RunsNeverAsk(execution)) return null;
+            return new RunChoice(runtimeId, selectedRuntimeId != null ? selectedModelRef : execution?.ModelRef, runtime.ModelChoice == ModelChoice.Listed, neverAsk);
         }
 
         /// <summary>
@@ -204,7 +226,8 @@ namespace Halcyonic.Client
         /// </summary>
         public static RunChoice? NewRunOf(WorkspacePresentation workspace, RunChoice? choice) =>
             choice != null && AtRest(workspace) && workspace.Execution is ExecutionView execution
-            && (choice.RuntimeId != execution.Runtime.RuntimeId || choice.ModelRef != null && choice.ModelRef != execution.ModelRef)
+            && (choice.RuntimeId != execution.Runtime.RuntimeId || choice.ModelRef != null && choice.ModelRef != execution.ModelRef
+                || choice.NeverAsk != RunsNeverAsk(execution))
                 ? choice
                 : null;
 

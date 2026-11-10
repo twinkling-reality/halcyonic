@@ -341,8 +341,11 @@ namespace Halcyonic.Client
     /// </summary>
     public sealed class KitSelectors
     {
-        public KitSelectors(string? environment, bool environmentChangeable, string? agent, bool agentChangeable = false)
+        public KitSelectors(string? environment, bool environmentChangeable, string? agent, bool agentChangeable = false, bool offersNeverAsk = false,
+            bool neverAsk = false)
         {
+            OffersNeverAsk = offersNeverAsk;
+            NeverAsk = neverAsk;
             Environment = environment;
             EnvironmentChangeable = environmentChangeable;
             Agent = agent;
@@ -356,16 +359,24 @@ namespace Halcyonic.Client
         public string? Agent { get; }
 
         public bool AgentChangeable { get; }
+
+        /// <summary>At rest: whether the runtime the next start would use offers never ask (its descriptor's own word).</summary>
+        public bool OffersNeverAsk { get; }
+
+        /// <summary>At rest: the level the next start will use is never ask: the person chose it and that runtime offers it.</summary>
+        public bool NeverAsk { get; }
     }
 
     /// <summary>
     /// The runtime, and the model as its list names it, the person chose in the composer for the task's next run;
-    /// <see cref="ModelRequired"/> where that runtime lists its models, so a start without one would be refused.
+    /// <see cref="ModelRequired"/> where that runtime lists its models, so a start without one would be refused;
+    /// <see cref="NeverAsk"/> where that start asks for never ask, only ever on a runtime that offers it.
     /// </summary>
     public sealed class RunChoice
     {
-        public RunChoice(string runtimeId, string? modelRef, bool modelRequired)
+        public RunChoice(string runtimeId, string? modelRef, bool modelRequired, bool neverAsk = false)
         {
+            NeverAsk = neverAsk;
             RuntimeId = runtimeId;
             ModelRef = modelRef;
             ModelRequired = modelRequired;
@@ -376,6 +387,8 @@ namespace Halcyonic.Client
         public string? ModelRef { get; }
 
         public bool ModelRequired { get; }
+
+        public bool NeverAsk { get; }
     }
 
     /// <summary>What the focused work shows: the selected task, what its agent last said, what was recorded, and the person's draft.</summary>
@@ -387,8 +400,11 @@ namespace Halcyonic.Client
             KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null, KitAvatar? avatar = null, IReadOnlyList<PageLine>? said = null,
             string? environment = null, string? agent = null, bool environmentChangeable = false, bool agentChangeable = false,
             KitInstruction? instruction = null, bool draftSpoken = false, bool chooses = false, string? stops = null, bool working = false,
-            RoomWorkStep? step = null)
+            RoomWorkStep? step = null, bool offersNeverAsk = false, bool neverAsk = false, bool? runNeverAsk = null)
         {
+            OffersNeverAsk = offersNeverAsk;
+            NeverAsk = neverAsk;
+            RunNeverAsk = runNeverAsk;
             Stops = stops;
             Working = working;
             Step = step;
@@ -419,6 +435,18 @@ namespace Halcyonic.Client
         }
 
         public string ProjectName { get; }
+
+        /// <summary>At rest: whether the runtime the next start would use offers never ask (ADR 0043).</summary>
+        public bool OffersNeverAsk { get; }
+
+        /// <summary>At rest: the level the next start will use is never ask, shown before that start goes.</summary>
+        public bool NeverAsk { get; }
+
+        /// <summary>
+        /// The level the running or last run's own record carries: true for never ask, false for ask, null where its record
+        /// carries none. Never the choice: what the runtime confirmed.
+        /// </summary>
+        public bool? RunNeverAsk { get; }
 
         /// <summary>What Stop's confirmation asks, the file's own words, while Stop is armed (the redesign); else null.</summary>
         public string? Stops { get; }

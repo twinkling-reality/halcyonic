@@ -2668,6 +2668,18 @@ The last unit turns it on by default and removes the kit parts it replaced.
   the field, the cursor reading Editing and the file's name, Stop alone), `36-work-row` (one that takes one: the row
   under the foot line, no step reported, so no cursor) and `36-stop-confirm`; `RoomWorkingTests` drives Stop and its
   confirmation through a real file column and reads the one command sent.
+- **The level of a task's next start** (ADR 0043), in the client core: the person's choice is kept per project beside
+  the chosen runtime (`WorkspacePresentationState.NeverAskFor`, `ChooseNeverAsk`, cleared where the chosen runtime
+  is). The choice alone is not the level: a start carries `approval_level` never ask only where the person chose it
+  and the runtime it starts on says it offers it (`offers_never_ask` true), and leaves the field out otherwise,
+  which means ask (`KitPresenter.RunChoiceOf`, `RunChoice.NeverAsk`, `WorkspaceSteering.Start`,
+  `CommandFactory.StartExecution`). The level applies to a start only, so at rest a level that differs from the last
+  run's own record makes the next instruction a start on the run's own runtime and model
+  (`KitPresenter.NewRunOf`); a run under way keeps its level whatever is chosen. The model carries what a view may
+  show: whether the runtime the next start would use offers it, the level that start will use, shown before it
+  goes, and the running or last run's own recorded level, null where its record has none, never the choice
+  (`KitWorkModel.OffersNeverAsk`, `NeverAsk`, `RunNeverAsk`). No view draws them yet, and New Project's and Make VR
+  Version's starts (`BuildSequence`) do not carry a level yet. `NeverAskTests`.
 - **Where a moment plugs in.** `RoomBar.Of` reads a bound frame in two steps: the task's own loop (`RoomBar.Tasks`:
   the row at rest, talking, a draft, a confirmation, an approval, a question, what was sent), then the moments
   outside that loop (`RoomBar.Moments`, in `RoomBar.Moments.cs`), asked in order with the binding, the voice and

@@ -64,6 +64,30 @@ namespace Halcyonic.Client
         /// <summary>The model reference selected for a <see cref="ModelChoice.Listed"/> runtime through the composer's agent selector pill, if any.</summary>
         public string? SelectedModelRef { get; private set; }
 
+        private readonly HashSet<string> neverAskProjects = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>
+        /// Whether the person chose never ask for the next start in <paramref name="projectId"/> (ADR 0043). The choice
+        /// alone starts nothing and is not the level a start uses: that also needs the chosen runtime's descriptor to
+        /// offer it (<see cref="KitPresenter.RunChoiceOf"/>). Kept as long as the chosen runtime is, per project.
+        /// </summary>
+        public bool NeverAskFor(string? projectId) => projectId != null && neverAskProjects.Contains(projectId);
+
+        /// <summary>Keeps the level the person chose for the next start in <paramref name="projectId"/>; true where it changed.</summary>
+        public bool ChooseNeverAsk(string projectId, bool neverAsk)
+        {
+            if (changing || NeverAskFor(projectId) == neverAsk) return false;
+            changing = true;
+            try
+            {
+                if (neverAsk) neverAskProjects.Add(projectId);
+                else neverAskProjects.Remove(projectId);
+                Changed?.Invoke();
+                return true;
+            }
+            finally { changing = false; }
+        }
+
         /// <summary>Revokes retained input and command authority before any presentation disappears.</summary>
         public event Action? Suspending;
         public event Action? Changed;
@@ -715,6 +739,7 @@ namespace Halcyonic.Client
             PendingVrConversionSequence = null;
             SelectedRuntimeId = null;
             SelectedModelRef = null;
+            neverAskProjects.Clear();
             runtimeModels.Clear();
         }
 

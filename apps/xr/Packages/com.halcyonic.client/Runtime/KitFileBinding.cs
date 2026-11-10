@@ -354,7 +354,9 @@ namespace Halcyonic.Client
                 selectors != null ? selectors.Agent : work.Agent, selectors?.EnvironmentChangeable ?? false, selectors?.AgentChangeable ?? false, instruction,
                 draftSpoken && draft.Length > 0, chooses, stops,
                 working: roomDesign && workspace.Execution?.Status is Halcyonic.Contracts.ExecutionStatus.Running or Halcyonic.Contracts.ExecutionStatus.Verifying,
-                step: roomDesign ? RoomWork.Of(workspace.Execution) : null);
+                step: roomDesign ? RoomWork.Of(workspace.Execution) : null,
+                offersNeverAsk: selectors?.OffersNeverAsk ?? false, neverAsk: selectors?.NeverAsk ?? false,
+                runNeverAsk: workspace.Execution?.ApprovalLevel is Halcyonic.Contracts.ApprovalLevel level ? level == Halcyonic.Contracts.ApprovalLevel.NeverAsk : (bool?)null);
             // Every line the frame shows is words the kit shows too; a line it would leave out, as an attention note,
             // a pointer to Waiting, why nothing can be sent or a notice, keeps the frame on the file's own drawing.
             var shown = ShownWords(model, workspace);

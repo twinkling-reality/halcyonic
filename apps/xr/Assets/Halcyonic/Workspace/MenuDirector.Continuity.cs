@@ -53,16 +53,18 @@ namespace Halcyonic.XR.Workspace
             storageFailed = !recovery.Available;
         }
 
-        /// <summary>The runtime and model the person chose in the kit's composer for a task's next run, or null with none chosen.</summary>
-        private RunChoice? RunChoiceNow() => setup.Presentation.SelectedRuntimeId is string runtimeId
-            && State?.Runtimes.FirstOrDefault(item => item.RuntimeId == runtimeId) is RuntimeDescriptor runtime
-                ? new RunChoice(runtimeId, setup.Presentation.SelectedModelRef, runtime.ModelChoice == ModelChoice.Listed)
-                : null;
+        /// <summary>
+        /// What the person chose for <paramref name="file"/>'s task's next run (<see cref="KitPresenter.RunChoiceOf"/>): the
+        /// runtime and model picked, and the level kept for the task's project; null with nothing chosen.
+        /// </summary>
+        private RunChoice? RunChoiceNow(FileColumn file) => KitPresenter.RunChoiceOf(file.Now, setup.Presentation.SelectedRuntimeId,
+            setup.Presentation.SelectedModelRef, State?.Runtimes,
+            setup.Presentation.NeverAskFor(file.Now != null && State?.Workstreams.TryGetValue(file.Now.Character.WorkstreamId, out var work) == true ? work.ProjectId : null));
 
         private void BindView(IMenuColumn column, WorkspaceContinuation? origin = null)
         {
             if (column is not FileColumn file) return;
-            file.Choice = RunChoiceNow;
+            file.Choice = () => RunChoiceNow(file);
             // A picked project comes forward as its screen (ADR 0040): Show Screen on the task's Activity, the spatial workspace's,
             // a route on the kit's rail. The file's own views, the kit off, offer none: there the line pushed Activity onto a
             // second page whose paging prompt does not fit beside Close, Stop and Write Instruction at Larger text.

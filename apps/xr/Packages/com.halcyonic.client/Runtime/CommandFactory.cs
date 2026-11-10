@@ -101,14 +101,16 @@ namespace Halcyonic.Client
         /// Starts work on a runtime. <paramref name="modelRef"/> is a model's reference exactly as the
         /// runtime's own list gave it (<see cref="ControlPlaneApi.GetRuntimeModelsAsync"/>), or null to
         /// leave the choice to the runtime; only a runtime whose <c>model_choice</c> is <c>listed</c>
-        /// accepts one.
+        /// accepts one. <paramref name="approvalLevel"/> is how often the agent stops to ask (ADR 0043): left out it
+        /// means ask, as every start before it meant; never ask only for a runtime whose descriptor offers it.
         /// </summary>
         public ExecutionStartCommand StartExecution(
             string workstreamId,
             string runtimeId,
             string instruction,
             IDictionary<string, JToken>? options = null,
-            string? modelRef = null) =>
+            string? modelRef = null,
+            ApprovalLevel? approvalLevel = null) =>
             Stamp(new ExecutionStartCommand
             {
                 Payload = new ExecutionStartPayload
@@ -118,6 +120,7 @@ namespace Halcyonic.Client
                     Instruction = instruction,
                     Options = options == null ? new Dictionary<string, JToken>() : new Dictionary<string, JToken>(options),
                     ModelRef = modelRef,
+                    ApprovalLevel = approvalLevel,
                 },
             });
 
