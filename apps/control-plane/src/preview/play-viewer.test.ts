@@ -152,6 +152,31 @@ describe('the viewer of a play on the Mac: a server of its own, its one play onl
     }
   });
 
+  test('a cookie of its name another port planted ahead of its own keeps no one out, and lets no one in (AUDIT S2)', async () => {
+    const viewer = await PlayViewer.open(standIn().play, { ports: await freePorts() });
+    try {
+      const own = await signIn(viewer);
+      // A page on another 127.0.0.1 port can set the same name for a longer path, which the browser sends first.
+      const planted = `halcyonic_play_${viewer.port}=${'0'.repeat(64)}`;
+      const page = await get(viewer.port, '/', {
+        cookie: `${planted}; ${own}`,
+        'sec-fetch-site': 'same-origin',
+      });
+      assert.equal(
+        page.status,
+        200,
+        'its own session among the cookies of its name lets the person in',
+      );
+      const alone = await get(viewer.port, '/', {
+        cookie: `${planted}; ${planted.replace(/0$/, '1')}`,
+        'sec-fetch-site': 'same-origin',
+      });
+      assert.equal(alone.status, 403, 'planted cookies alone are refused');
+    } finally {
+      await viewer.close();
+    }
+  });
+
   test('another name for it, a page of another port, or a request a page started elsewhere are refused, with the cookie', async () => {
     const viewer = await PlayViewer.open(standIn().play, { ports: await freePorts() });
     try {
