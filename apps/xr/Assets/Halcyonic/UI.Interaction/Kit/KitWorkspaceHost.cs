@@ -207,6 +207,8 @@ namespace Halcyonic.XR.UI
             {
                 shownAt = Time.unscaledTime;
                 foreach (var press in view.Targets) press.Unsettle();
+                // Every action of the redesign too: one that keeps its words and moves on a new frame waits as any other.
+                foreach (var press in bar.Presses) press.Unsettle();
                 bar.Field.Unsettle();
             }
         }

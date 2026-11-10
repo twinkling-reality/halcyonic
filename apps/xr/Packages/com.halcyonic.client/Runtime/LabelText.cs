@@ -345,6 +345,14 @@ namespace Halcyonic.Client
         public static string ForTextMeshPro(string? text) => Plain(text).Replace("\\", "\\\\");
 
         /// <summary>
+        /// The words a piece of label text stands for: <see cref="ForTextMeshPro"/>'s text, or a piece of it cut at
+        /// <see cref="CharacterStart"/>, with each doubled backslash one again. A piece taken from a label's own text and
+        /// handed on as words goes through this first, or setting it on a label would double its backslashes a second time
+        /// and the label would draw two where one was written (AUDIT, 2026-11-10).
+        /// </summary>
+        public static string FromTextMeshPro(string shown) => shown.Replace("\\\\", "\\");
+
+        /// <summary>
         /// Where a character starts in text made for TextMeshPro (<see cref="ForTextMeshPro"/>), whose every
         /// backslash is doubled: <paramref name="index"/>, or one before it where it falls on the second
         /// backslash of a pair, so a part cut there never starts or ends with a lone backslash that would
