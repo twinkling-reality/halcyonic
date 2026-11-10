@@ -51,6 +51,9 @@ namespace Halcyonic.XR.Workspace
         public sealed class Setup
         {
             public WorkspacePresentationState Presentation { get; set; } = new WorkspacePresentationState();
+
+            /// <summary>The turns of a run the computer observed (<see cref="ActivityLog.ObservedFor"/>), for the redesign's result.</summary>
+            public Func<string, IReadOnlyList<ObservedTurn>> Observed { get; set; } = _ => Array.Empty<ObservedTurn>();
             public bool SpatialWorkspace { get; set; }
             public bool ResponsiveWorkspace { get; set; }
             /// <summary>Admits a head pose only with valid wearer tracking and focus, for initial placement and out-of-view recovery.</summary>
@@ -847,6 +850,8 @@ namespace Halcyonic.XR.Workspace
             }
             // The agent's page opens beside the file, from the file's frame as drawn, as any press of the file's is taken.
             if (RoomDesign.Enabled && from == MenuColumn.File && side == null && action == AgentColumn.Open) return OpenAgentPage(frame);
+            // The result's own actions are none of the file's frame's: taken here, by the frame's own rule.
+            if (RoomDesign.Enabled && from == MenuColumn.File && side == null && RoomResult.Actions.Contains(action)) return OnResultActed(action, frame);
             if (!navigator.Act(from, action, key, frame, side)) return false;
             setup.Acted?.Invoke(from, action, key);
             return true;

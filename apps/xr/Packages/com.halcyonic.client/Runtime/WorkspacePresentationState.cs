@@ -64,6 +64,31 @@ namespace Halcyonic.Client
         /// <summary>The model reference selected for a <see cref="ModelChoice.Listed"/> runtime through the composer's agent selector pill, if any.</summary>
         public string? SelectedModelRef { get; private set; }
 
+        private (string Task, string? Run, RoomResultPage Page, int Part)? resultPage;
+
+        /// <summary>
+        /// Which of the redesign's pages over a task at rest shows (<see cref="RoomResult"/>): the result, unless the person
+        /// opened Changes or Checks for this very task and run. A new run, or another task, starts at the result again.
+        /// </summary>
+        public (RoomResultPage Page, int Part) ResultPageFor(string? workstreamId, string? executionId) =>
+            resultPage is (var task, var run, var page, var part) && task == workstreamId && run == executionId
+                ? (page, part) : (RoomResultPage.Result, 0);
+
+        /// <summary>Shows <paramref name="page"/> of the task's result, at <paramref name="part"/> of its rows; true where that changed what shows.</summary>
+        public bool ShowResultPage(string workstreamId, string? executionId, RoomResultPage page, int part = 0)
+        {
+            var next = (workstreamId, executionId, page, Math.Max(0, part));
+            if (changing || ResultPageFor(workstreamId, executionId) == (page, Math.Max(0, part))) return false;
+            changing = true;
+            try
+            {
+                resultPage = page == RoomResultPage.Result ? ((string, string?, RoomResultPage, int)?)null : next;
+                Changed?.Invoke();
+                return true;
+            }
+            finally { changing = false; }
+        }
+
         /// <summary>Where the device keeps the person's choice per project across restarts of the headset app; none, and it is kept for this run only.</summary>
         public IDevicePreferences? Preferences { get; set; }
 
@@ -793,6 +818,7 @@ namespace Halcyonic.Client
             SelectedModelRef = null;
             // What each project keeps stays kept; the next context loads it again.
             ChoiceProjectId = null;
+            resultPage = null;
             runtimeModels.Clear();
         }
 

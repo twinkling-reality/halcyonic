@@ -43,6 +43,9 @@ namespace Halcyonic.XR.UI
         /// <summary>Where the panel's place ends at the right, from this view's middle, in its own units.</summary>
         public float PanelRight { get; private set; }
 
+        /// <summary>How far under the pair's foot line the row's feet stand where a row stands with the pair (the result at rest), in this view's units; else none.</summary>
+        public float RowDrop { get; private set; }
+
         /// <summary>
         /// The column's actions at most: a question's page of four answers with the file's way on and back (DESIGN 2.9); a
         /// frame offering more stays the file's own (<see cref="KitWorkspaceHost.Holds"/>). One more place holds the band's
@@ -254,16 +257,29 @@ namespace Halcyonic.XR.UI
         /// <summary>Shows <paramref name="bar"/>, centred on its origin; hides for <see cref="RoomBarState.Hidden"/>.</summary>
         public void Show(RoomBar bar)
         {
-            if (bar.State == RoomBarState.Hidden && !bar.Working)
+            if (bar.State == RoomBarState.Hidden && !bar.Working && !bar.Result)
             {
                 Hide();
                 return;
             }
+            RowDrop = 0f;
             shown = bar;
             controls.Clear();
             bandNext = null;
             gameObject.SetActive(true);
-            if (bar.Pair) LayPair(bar);
+            if (bar.Pair)
+            {
+                LayPair(bar);
+                if (bar.Row.Count > 0)
+                {
+                    // The result at rest: the row stands under the pair, centred on it, its feet where DESIGN stands them. The
+                    // pair keeps its own box; the row hangs under it, as the band does.
+                    var (pair, foot, right) = (Size, Foot, PanelRight);
+                    LayRow(bar, foot - RoomType.Units(RowFeetDp) + RoomType.Units(RoomButton.HeightDp) / 2f);
+                    (Size, Foot, PanelRight) = (new Vector2(Mathf.Max(pair.x, Size.x), pair.y), foot, right);
+                    RowDrop = RoomType.Units(RowFeetDp);
+                }
+            }
             else
             {
                 locking = null;

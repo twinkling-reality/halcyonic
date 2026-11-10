@@ -400,8 +400,9 @@ namespace Halcyonic.Client
             KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null, KitAvatar? avatar = null, IReadOnlyList<PageLine>? said = null,
             string? environment = null, string? agent = null, bool environmentChangeable = false, bool agentChangeable = false,
             KitInstruction? instruction = null, bool draftSpoken = false, bool chooses = false, string? stops = null, bool working = false,
-            RoomWorkStep? step = null, bool offersNeverAsk = false, bool neverAsk = false, bool? runNeverAsk = null)
+            RoomWorkStep? step = null, bool offersNeverAsk = false, bool neverAsk = false, bool? runNeverAsk = null, RoomResult? result = null)
         {
+            Result = result;
             OffersNeverAsk = offersNeverAsk;
             NeverAsk = neverAsk;
             RunNeverAsk = runNeverAsk;
@@ -435,6 +436,9 @@ namespace Halcyonic.Client
         }
 
         public string ProjectName { get; }
+
+        /// <summary>What the computer knows of the task at rest, for the redesign's result; null where the redesign does not draw or nothing is known.</summary>
+        public RoomResult? Result { get; }
 
         /// <summary>At rest: whether the runtime the next start would use offers never ask (ADR 0043).</summary>
         public bool OffersNeverAsk { get; }

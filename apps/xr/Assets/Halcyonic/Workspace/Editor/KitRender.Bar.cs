@@ -73,6 +73,53 @@ namespace Halcyonic.XR.Workspace.Editor
             new WorkspacePresentation(workspace.Character, workspace.Objective, workspace.Execution, workspace.Runtime, actions,
                 actions.Where(workspace.RequiresConfirmation).ToList(), workspace.Commands, workspace.Activity);
 
+        /// <summary>
+        /// The result at rest (DESIGN 2.5 to 2.8): what the computer knows over the row, the agent's newest message on the
+        /// band; a long message; Changes and its second page's way on; Checks passed and failed; and a project with a
+        /// check and no observed turn.
+        /// </summary>
+        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-project" };
+
+        /// <summary>The agent's newest message in the result's states, DESIGN's own, synthetic.</summary>
+        private const string ResultSays = "I added the golden balloon and removed the old backup file.";
+
+        private const string ResultSaysLong = "I added a golden balloon worth five points that pops with a gold burst. I also removed backup/old-game.js, since nothing used it, "
+            + "and moved the score code into its own file. The menu shows the best score of the day now, and every balloon stays inside the play area at both screen sizes.";
+
+        /// <summary>The turn the computer observed in the result's states: DESIGN's four files, or eleven for the page that turns; synthetic.</summary>
+        private static ObservedTurn ResultTurn(bool many)
+        {
+            var created = "{\"path\":\"assets/golden-balloon.png\",\"lines\":null,\"bytes\":9200}";
+            var changed = "{\"path\":\"src/balloons.js\",\"lines_before\":41,\"lines_after\":54,\"bytes\":2100},{\"path\":\"src/score.js\",\"lines_before\":18,\"lines_after\":21,\"bytes\":800}";
+            if (many)
+            {
+                created += ",{\"path\":\"assets/pop-gold.wav\",\"lines\":null,\"bytes\":40100}";
+                changed += string.Concat(new[] { ("src/sounds.js", 12, 15), ("src/menu.js", 88, 90), ("README.md", 30, 34), ("src/levels.js", 60, 72), ("src/input.js", 25, 27), ("src/pause.js", 14, 19) }
+                    .Select(file => ",{\"path\":\"" + file.Item1 + "\",\"lines_before\":" + file.Item2 + ",\"lines_after\":" + file.Item3 + ",\"bytes\":900}"));
+            }
+            var json = "{\"turn_id\":\"synthetic-turn\",\"created\":{\"files\":[" + created + "],\"total\":" + (many ? 2 : 1) + "},\"changed\":{\"files\":[" + changed + "],\"total\":" + (many ? 8 : 2)
+                + "},\"deleted\":{\"files\":[{\"path\":\"backup/old-game.js\",\"lines_before\":120}],\"total\":1},\"not_read\":0,\"skipped\":null}";
+            return new ObservedTurn(1, Day + "09:05:00.000Z", HalcyonicJson.Deserialize<FilesObserved>(json));
+        }
+
+        /// <summary>What the computer knows in each of the result's states, synthetic.</summary>
+        private static RoomResult? ResultFor(string state)
+        {
+            CheckStepOutcome Step(CheckStepKind step, CheckStepResult result) => new CheckStepOutcome(step, result);
+            var passing = new[] { Step(CheckStepKind.TypeCheck, CheckStepResult.Passed), Step(CheckStepKind.Build, CheckStepResult.Passed), Step(CheckStepKind.PageDrawn, CheckStepResult.Passed), Step(CheckStepKind.VrOffered, CheckStepResult.Passed) };
+            var failing = new[] { Step(CheckStepKind.TypeCheck, CheckStepResult.Passed), Step(CheckStepKind.Build, CheckStepResult.Failed), Step(CheckStepKind.PageDrawn, CheckStepResult.NotRun), Step(CheckStepKind.VrOffered, CheckStepResult.NotRun) };
+            return state switch
+            {
+                "38-result" or "38-result-long" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing),
+                "38-changes" => new RoomResult(false, true, false, true, ResultTurn(false), passing, RoomResultPage.Changes),
+                "38-changes-long" => new RoomResult(false, true, false, true, ResultTurn(true), passing, RoomResultPage.Changes),
+                "38-checks" => new RoomResult(isVr: true, canMakeVr: false, canTry: true, passed: true, ResultTurn(false), passing, RoomResultPage.Checks),
+                "38-checks-failed" => new RoomResult(false, true, false, false, ResultTurn(false), failing, RoomResultPage.Checks),
+                "38-project" => new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, null, passing),
+                _ => null,
+            };
+        }
+
         /// <summary>The file the agent edits in the at-work state, synthetic.</summary>
         private const string WorkFile = "src/score.js";
 
@@ -164,6 +211,13 @@ namespace Halcyonic.XR.Workspace.Editor
             var choosing = ChooseStates.Contains(state);
             var (voice, sent, expected, caption) = state switch
             {
+                "38-result" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result at rest: the files the computer saw change, its check, the agent's message on the band, synthetic data"),
+                "38-result-long" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result with a long message: read by parts on the band, the row not waiting for it, synthetic data"),
+                "38-changes" => (VoiceStage.Idle, false, RoomBarState.Rest, "Changes: a row a file the computer saw change, and Back, synthetic data"),
+                "38-changes-long" => (VoiceStage.Idle, false, RoomBarState.Rest, "Changes with more than a page: eight rows, Next Page and Back, synthetic data"),
+                "38-checks" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks passed: a row a step of the computer's check, Try Build and Back, synthetic data"),
+                "38-checks-failed" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks failed: the steps the check reached, Write Instruction and Back, synthetic data"),
+                "38-project" => (VoiceStage.Idle, false, RoomBarState.Rest, "A project with a check and no observed turn: Build Passed, Make VR Version and Try Build, synthetic data"),
                 "37-page" => (VoiceStage.Idle, false, RoomBarState.Page, "A page with no moment of its own: its line in the panel, its actions in the column, synthetic data"),
                 "36-work" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work: the field, the agent's cursor saying its step, Stop alone, synthetic data"),
                 "36-work-recorded" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work with nothing to press or name, as a recorded run plays: the field alone, synthetic data"),
@@ -217,6 +271,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Nothing to press: no Stop and no instruction while it works, as a recorded run offers.
                 "36-work-recorded" => WithActions(WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()), new WorkspaceAction[0]),
                 "36-work-row" => Running(ShortReport()),
+                // The result: at rest, the agent's newest message its one line of activity.
+                _ when ResultStates.Contains(state) => WithActivity(SelectedWorkspace(waiting: false, status: ExecutionStatus.Completed),
+                    new[] { new ActivityEntry(1, Day + "09:04:00.000Z", ActivityKind.Message, state == "38-result-long" ? ResultSaysLong : ResultSays, true) }),
                 // Every other moment of the row is at rest: the run has ended, and its next instruction starts the next one.
                 _ => WithActivity(SelectedWorkspace(waiting: false, status: ExecutionStatus.Completed), ShortReport()),
             };
@@ -356,7 +413,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 SelectedProject, ProductionSpine(workspace), new KitRowModel("workspace", LineWords.Ours("Move Workspace"), GlazeIcon.Move), roomDesign: true,
                 draftSpoken: screen.Instruction.Open && screen.Instruction.Spoken, requestRows: requestRows, chooses: choosing,
                 asking: screen.Question.Draft != null && !screen.Question.Reviewing ? screen.Question.Prompt : (int?)null,
-                writing: screen.Question.Writing ? screen.Question.Input : null);
+                writing: screen.Question.Writing ? screen.Question.Input : null, result: ResultFor(state));
             // As the director does: a frame the task's binding has no place for is carried plain where a reader of the redesign takes it.
             if (binding == null && state == "37-page" && RoomBar.OfFrame(frame, VoiceStage.Idle) != null) binding = KitFileBinding.PlainOf(frame);
             if (binding == null)
@@ -380,7 +437,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(host.Holds(binding), "the host does not hold the frame");
                 host.Show(binding, MenuColumn.File, new object());
                 // A question's frame is reported drawn as a frame would report it, with the redesign still on: not while the band holds an unread part.
-                if (questioning) host.DrawnForRender();
+                if (questioning || ResultStates.Contains(state)) host.DrawnForRender();
                 else host.SettleForRender();
             }
             finally { RoomDesign.Enabled = was; }
@@ -480,6 +537,42 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require((shown.Row.Count > 0) == (state == "36-work-row"), state == "36-work-row" ? "the row does not stand though the agent takes an instruction" : "a row stands though nothing can be sent");
                     if (shown.Row.Count > 0)
                         Require(Mathf.Abs(bar.Foot - (bar.Talk.transform.localPosition.y - RoomType.Units(RoomButton.HeightDp) / 2f) - RoomType.Units(RoomBarView.RowFeetDp)) < Tolerance, "the row's feet are not 94.4 dp under the foot line");
+                }
+                if (ResultStates.Contains(state))
+                {
+                    var known = ResultFor(state)!;
+                    Require(shown.Result && shown.Pair, "the result does not stand over the row");
+                    // The row stands under the pair, its feet 94.4 dp under the foot line; the frame is drawn though the band may hold more.
+                    Require(shown.Row.Count > 0 && Mathf.Abs(bar.Foot - (bar.Talk.transform.localPosition.y - RoomType.Units(RoomButton.HeightDp) / 2f) - RoomType.Units(RoomBarView.RowFeetDp)) < Tolerance,
+                        "the row's feet are not 94.4 dp under the pair's foot line");
+                    Require(drawnFrames == 1, "the result's frame was reported drawn " + drawnFrames + " times: a message on the band is not read before the row takes a press");
+                    var message = state == "38-result-long" ? ResultSaysLong : ResultSays;
+                    if (known.Page == RoomResultPage.Result)
+                    {
+                        Require(shown.Band == message && host.Band.Words != null && host.Band.Text.Length > 0, "the agent's newest message does not stand on the band");
+                        foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
+                            Require(!(label.text ?? "").Contains(message.Substring(0, 16)), "the agent's words stand off the band, in " + label.name);
+                        Require((bar.BandNextButton != null) == (state == "38-result-long"), state == "38-result-long" ? "no way to the long message's next part" : "a way to a next part the band does not have");
+                        if (state == "38-result-long") Require(bar.BandNextButton!.LookNow() == RoomButtonLook.Rest && shown.Column.Any(action => action.Main), "the message's next part is the main action over the result's own");
+                        Require(bar.Body.GetParsedText() == (state == "38-project" ? "Build Passed" : "4 Files Changed") && shown.Sentence == (state == "38-project" ? null : "Build Passed"),
+                            "the panel reads \"" + bar.Body.GetParsedText() + "\" over \"" + shown.Sentence + "\"");
+                        Require(shown.Column[0].Control.Action == RoomResult.MakeVrVersion && shown.Column[0].Main, "Make VR Version does not lead");
+                    }
+                    else
+                    {
+                        // A page of rows: every row's words in the panel, eight at most, no band and no sentence.
+                        Require(shown.Band == null && host.Band.Words == null && shown.Sentence == null, "a band or a sentence stands on a page of rows");
+                        Require(shown.Facts != null && shown.Facts.Count == (state == "38-changes-long" ? RoomRows.APage : state == "38-checks-failed" ? 2 : 4), "the page holds " + shown.Facts?.Count + " rows");
+                        // Compared without their spaces: a name from outside stands a narrow space off Halcyonic's words.
+                        string Bare(string words) => new string(words.Where(character => !char.IsWhiteSpace(character) && character != '\u202F').ToArray());
+                        var read = Bare(bar.Body.GetParsedText());
+                        foreach (var row in shown.Facts!) Require(read.Contains(Bare(row.Words.Text)), "the row \"" + row.Words.Text + "\" is not in the panel");
+                        Require(shown.Column.Last().Control.Action == RoomResult.Back, "Back does not stand last");
+                        Require(shown.Column[0].Main == (state != "38-changes") && shown.Column[0].Control.Action == state switch
+                        {
+                            "38-changes-long" => RoomResult.NextPage, "38-checks" => RoomResult.TryBuild, "38-checks-failed" => FileScreens.TellIt, _ => RoomResult.Back,
+                        }, "the page's first action is " + shown.Column[0].Words);
+                    }
                 }
                 if (state == "37-page")
                 {
@@ -647,8 +740,9 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(Mathf.Abs(footPitch - RoomGeometry.FeetPitch) < 0.05f, "the foot line stands at pitch " + footPitch.ToString("0.00") + ", not " + RoomGeometry.FeetPitch);
             Stand(shot, host.transform, eyes, new KitCarrier[0], host.Size * GlazeText.Scale);
             // What must stand inside the field: the instruction, and with a question the band under it (the host's whole extent).
-            var half = questioning ? host.Size / 2f : bar.Size / 2f;
-            var extent = questioning ? host.transform : bar.transform;
+            var whole = questioning || ResultStates.Contains(state);
+            var half = whole ? host.Size / 2f : bar.Size / 2f;
+            var extent = whole ? host.transform : bar.transform;
             foreach (var corner in new[] { new Vector3(-half.x, -half.y, 0f), new Vector3(half.x, -half.y, 0f), new Vector3(-half.x, half.y, 0f), new Vector3(half.x, half.y, 0f) })
                 shot.Corners.Add(extent.TransformPoint(corner));
             shot.Targets.Add(("the instruction", bar.transform, bar.Presses.ToList()));

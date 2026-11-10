@@ -208,7 +208,9 @@ namespace Halcyonic.XR.UI
             if (RoomDesign.Enabled && RoomBar.Of(binding, Voice(), AwaitingStart()) is { FromMoment: true, Pair: true } moment)
                 return moment.Column.Count <= RoomBarView.ColumnMost;
             // At work, and Stop's confirmation: nothing of either is measured, so the redesign always holds them.
-            if (RoomDesign.Enabled && (model.Stops != null || RoomBar.Of(binding, Voice(), AwaitingStart()).Working)) return true;
+            if (RoomDesign.Enabled && model.Stops != null) return true;
+            if (RoomDesign.Enabled && RoomBar.Of(binding, Voice(), AwaitingStart()) is RoomBar standing
+                && (standing.Working || standing.Result && standing.Column.Count <= RoomBarView.ColumnMost)) return true;
             if (RoomDesign.Enabled && (model.Instruction != null || model.Need != null))
             {
                 var read = RoomBar.Of(binding, Voice(), AwaitingStart());
@@ -305,14 +307,16 @@ namespace Halcyonic.XR.UI
                 return;
             }
             var size = bar.Size / zoom;
-            if (band.Words != null)
+            // Under the pair's foot line hang the row, where one stands with the pair, and under that the band.
+            var drop = bar.RowDrop / zoom;
+            if (band.Words != null || drop > 0f)
             {
                 // The band hangs under the pair's foot line, centred, and grows downward; the whole is centred on the host.
                 // As the instruction, it lays its words at the person's text size and is scaled back by it, so its width stays.
                 band.transform.localScale = Vector3.one / zoom;
                 var under = RoomType.Units(BandUnderDp) / zoom;
-                var hangs = band.Size / zoom;
-                var whole = size.y + under + hangs.y;
+                var hangs = band.Words != null ? band.Size / zoom : Vector2.zero;
+                var whole = size.y + Mathf.Max(drop, band.Words != null ? under + hangs.y : 0f);
                 bar.transform.localPosition = new Vector3(0f, (whole - size.y) / 2f, 0f);
                 band.transform.localPosition = new Vector3(0f, whole / 2f - size.y - under, 0f);
                 size = new Vector2(Mathf.Max(size.x, hangs.x), whole);
@@ -454,7 +458,7 @@ namespace Halcyonic.XR.UI
             if (RoomDesign.Enabled && !bar.gameObject.activeSelf) return;
             // The agent's words still hold a part not shown: the frame is not read yet. (Stop alone does not wait for this:
             // the navigator takes it from the frame as it shows, MenuNavigator.Taking.)
-            if (RoomDesign.Enabled && band.Words is { More: true }) return;
+            if (RoomDesign.Enabled && band.Words is { More: true } && bar.Shown is { BandIsRead: true }) return;
             drawn = binding.Frame;
             Drawn?.Invoke(column, binding.Frame);
         }

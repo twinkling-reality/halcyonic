@@ -155,7 +155,45 @@ namespace Halcyonic.XR.Workspace
                 requestRows: file.Steering.ToRead(now) is string read && file.Screen.Measured(file.Steering, read) ? file.Screen.RequestRows : (int?)null,
                 chooses: file.ChoosesInstruction,
                 asking: file.Screen.Question.Draft != null && !file.Screen.Question.Reviewing ? file.Screen.Question.Prompt : (int?)null,
-                writing: file.Screen.Question.Writing ? file.Screen.Question.Input : null);
+                writing: file.Screen.Question.Writing ? file.Screen.Question.Input : null, result: ResultOf(now, selected));
+        }
+
+        /// <summary>
+        /// For the redesign: what the computer knows of the task at rest (<see cref="RoomResult"/>), from its project's last
+        /// check and the last turn of its run the computer observed, at the page the person opened; null with no project.
+        /// </summary>
+        private RoomResult? ResultOf(WorkspacePresentation now, string? projectId)
+        {
+            if (!RoomDesign.Enabled || projectId == null || State?.Projects.TryGetValue(projectId, out var project) != true) return null;
+            var run = now.Execution?.ExecutionId;
+            var (page, part) = setup.Presentation.ResultPageFor(now.Character.WorkstreamId, run);
+            return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part);
+        }
+
+        /// <summary>
+        /// A press on one of the result's own actions (<see cref="RoomResult.Actions"/>), taken as any press of the file's is:
+        /// only from the file's frame as drawn and still standing. Changes, Checks, Next Page and Back turn the page shown;
+        /// Make VR Version and Try Build go the way the project's screen sends them (<see cref="OnScreenActed"/>).
+        /// </summary>
+        private bool OnResultActed(string action, MenuFrame? frame)
+        {
+            if (navigator.Taking(MenuColumn.File, action, frame, null) is not FileColumn file || file.Now is not WorkspacePresentation now) return false;
+            var task = now.Character.WorkstreamId;
+            var run = now.Execution?.ExecutionId;
+            if (State?.Workstreams.TryGetValue(task, out var work) != true) return false;
+            var (page, part) = setup.Presentation.ResultPageFor(task, run);
+            switch (action)
+            {
+                case RoomResult.ShowChanges: setup.Presentation.ShowResultPage(task, run, RoomResultPage.Changes); break;
+                case RoomResult.ShowChecks: setup.Presentation.ShowResultPage(task, run, RoomResultPage.Checks); break;
+                case RoomResult.NextPage: setup.Presentation.ShowResultPage(task, run, page, part + 1); break;
+                case RoomResult.Back: setup.Presentation.ShowResultPage(task, run, RoomResultPage.Result); break;
+                case RoomResult.MakeVrVersion: OnScreenActed(KitScreenAction.MakeAVrVersion, work!.ProjectId); break;
+                case RoomResult.TryBuild: OnScreenActed(KitScreenAction.TryIt, work!.ProjectId); break;
+                default: return false;
+            }
+            dirty = true;
+            return true;
         }
 
         private RuntimeDescriptor? CurrentKitRuntime(WorkspacePresentation? now = null)
