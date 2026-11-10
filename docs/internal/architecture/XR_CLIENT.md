@@ -2720,7 +2720,11 @@ The last unit turns it on by default and removes the kit parts it replaced.
   `(MenuFrame frame, VoiceStage voice)` in a partial of `RoomBar` in a file of its own, with one line in that list;
   each makes its controls from the frame's own lines and prompts, so a press raises the frame's own action through
   the same path as any other. FIELD's readers stand first: the page of an agent and its level (`RoomBar.Agent`) and
-  New Project's pages (`RoomBar.NewProject`). A bar may give the panel rows in place of lines (`RoomBar.Facts`, each
+  New Project's pages (`RoomBar.NewProject`). Where the redesign draws New Project the director gives the flow the panel's own line count
+  (`NewProjectFlow.RoomLines`), so its review is cut by those lines, eight a part; and Hold to Talk on its pages, a
+  column action at Talk's place whose control is the frame's own held prompt, starts and ends that frame's hold
+  through the host as the file's does (`KitWorkspaceHost.OnTalkPressed`). A bar may give the panel rows in place of
+  lines (`RoomBar.Facts`, each
   a fact, a step's with a check or a cross): the pair's laying asks FIELD's rows for their height and places them
   (`RoomBarView.LayFacts`, `PlaceFacts`), the reading label hidden where rows stand. Last stands the general rule (`RoomBar.Page`, `RoomBarState.Page`): Halcyonic's lines
   in the panel, each on its own line (a name from outside inside one of its sentences stays with the sentence); the

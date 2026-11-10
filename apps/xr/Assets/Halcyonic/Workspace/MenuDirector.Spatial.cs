@@ -89,9 +89,15 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private KitFileBinding? PlainBindingOf()
         {
-            if (!KitWorkspaceHost.Enabled || !RoomDesign.Enabled || !SeparateWorkspace || navigator.IsCompact || navigator.Beside?.Frame is not MenuFrame frame) return null;
+            var room = KitWorkspaceHost.Enabled && RoomDesign.Enabled && SeparateWorkspace && !navigator.IsCompact;
+            // New Project's review is cut by the redesign's own lines where the redesign draws it, eight a part, so a part
+            // shows exactly its lines; for the older page it is cut as ever (FIELD's flow, NewProjectFlow.RoomLines).
+            if (navigator.Beside is NewProjectFlow flow) flow.RoomLines = room ? (roomLines ??= words => plane.Kit.Bar.Lines(words, false)) : null;
+            if (!room || navigator.Beside?.Frame is not MenuFrame frame) return null;
             return RoomBar.OfFrame(frame, VoiceStage.Idle) != null ? KitFileBinding.PlainOf(frame) : null;
         }
+
+        private Func<LineWords, int>? roomLines;
 
         private KitFileBinding? KitBindingOf(FileColumn? file, IReadOnlyList<ProjectView> choices, string? selected)
         {
