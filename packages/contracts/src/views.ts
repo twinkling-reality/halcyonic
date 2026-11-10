@@ -22,7 +22,7 @@ import {
   WorkstreamId,
 } from './primitives.ts';
 import { QuestionPrompts } from './questions.ts';
-import { ModelRef, RuntimeDescriptor, RuntimeRef } from './runtime.ts';
+import { ApprovalLevel, ModelRef, RuntimeDescriptor, RuntimeRef } from './runtime.ts';
 import { StarterId } from './starters.ts';
 import { CommandStatus, ExecutionStatus, WorkstreamStatus } from './statuses.ts';
 
@@ -222,6 +222,12 @@ export const ExecutionView = Type.Object(
      * reports one (ADR 0016).
      */
     model_ref: Nullable(ModelRef),
+    /**
+     * The approval level the runtime confirmed the execution started with, from
+     * `runtime.execution.started` (ADR 0043), never from the start's choice. Absent where it was not
+     * recorded, which never reads as `ask`.
+     */
+    approval_level: Type.Optional(ApprovalLevel),
     instruction: Text(32000),
     /**
      * The folder the runtime was given to work in, as the host resolved the project's location for

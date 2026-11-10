@@ -317,6 +317,14 @@ export function admitCommand(
           `Runtime ${runtime.runtime_id} does not offer a choice of model.`,
         );
       }
+      // Never asking is a level a runtime offers once verified, never one admission assumes (ADR 0043).
+      if (command.payload.approval_level === 'never_ask' && runtime.offers_never_ask !== true) {
+        return reject(
+          scope,
+          'capability_unsupported',
+          `Runtime ${runtime.runtime_id} does not offer working without asking.`,
+        );
+      }
       // A runtime that lists its models never chooses one by itself, where it could pick a
       // hosted model nobody chose.
       if (command.payload.model_ref === null && runtime.model_choice === 'listed') {

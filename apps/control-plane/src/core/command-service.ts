@@ -818,6 +818,9 @@ export class CommandService {
                 instruction: withCheckOutput(command.payload.instruction, checked),
                 options: command.payload.options,
                 model_ref: command.payload.model_ref,
+                ...(command.payload.approval_level !== undefined && {
+                  approval_level: command.payload.approval_level,
+                }),
                 directory,
                 emit,
               }),

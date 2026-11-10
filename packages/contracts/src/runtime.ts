@@ -35,6 +35,15 @@ export type RuntimeCapabilities = Static<typeof RuntimeCapabilities>;
 export const ModelChoice = Type.Union([Type.Literal('none'), Type.Literal('listed')]);
 export type ModelChoice = Static<typeof ModelChoice>;
 
+/**
+ * How often a run's agent stops to ask the person (ADR 0043). `ask`: as each runtime asks today,
+ * the default. `never_ask`: the agent's actions run without a request to the person, inside the
+ * same bounds as `ask`; it widens asking only, never what the agent may touch. Offered only by a
+ * runtime whose descriptor declares `offers_never_ask`.
+ */
+export const ApprovalLevel = Type.Union([Type.Literal('ask'), Type.Literal('never_ask')]);
+export type ApprovalLevel = Static<typeof ApprovalLevel>;
+
 export const RuntimeDescriptor = Type.Object(
   {
     runtime_id: RuntimeId,
@@ -69,6 +78,12 @@ export const RuntimeDescriptor = Type.Object(
      * Absent when not verified, which means unknown, never false: never shown as staying inside.
      */
     approval_may_leave_sandbox: Type.Optional(Type.Boolean()),
+    /**
+     * True when a start may choose `approval_level` `never_ask`: declared for a runtime only once a
+     * runtime test shows that nothing asks and the agent stays inside the sandbox that bounds it
+     * (ADR 0043). Absent means not offered.
+     */
+    offers_never_ask: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );

@@ -139,6 +139,7 @@ import {
   WorkspaceRequestView,
 } from './requests.ts';
 import {
+  ApprovalLevel,
   ModelChoice,
   ModelServed,
   ModelToolCalling,
@@ -234,6 +235,7 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   RuntimeRef,
   RuntimeModel,
   ModelChoice,
+  ApprovalLevel,
   ModelServed,
   ModelToolCalling,
   JournalInfo,

@@ -837,6 +837,13 @@ namespace Halcyonic.Contracts
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
+    public enum ApprovalLevel
+    {
+        [EnumMember(Value = "ask")] Ask,
+        [EnumMember(Value = "never_ask")] NeverAsk,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
     public enum ExecutionStatus
     {
         [EnumMember(Value = "starting")] Starting,
@@ -1056,6 +1063,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("model_ref", Required = Required.AllowNull)]
         public string? ModelRef { get; set; }
+
+        [JsonProperty("approval_level", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public ApprovalLevel? ApprovalLevel { get; set; }
 
         [JsonProperty("instruction", Required = Required.Always)]
         public string Instruction { get; set; } = default!;
@@ -1372,6 +1382,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("approval_may_leave_sandbox", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public bool? ApprovalMayLeaveSandbox { get; set; }
+
+        [JsonProperty("offers_never_ask", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? OffersNeverAsk { get; set; }
     }
 
     public sealed class Snapshot
@@ -2104,6 +2117,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("model_ref", Required = Required.AllowNull)]
         public string? ModelRef { get; set; }
+
+        [JsonProperty("approval_level", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public ApprovalLevel? ApprovalLevel { get; set; }
     }
 
     public sealed class ExecutionSendInstructionPayload
@@ -2700,6 +2716,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("confined", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public bool? Confined { get; set; }
+
+        [JsonProperty("approval_level", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public ApprovalLevel? ApprovalLevel { get; set; }
     }
 
     public sealed class RuntimeTurnStartedPayload
