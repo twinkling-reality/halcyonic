@@ -2522,6 +2522,67 @@ public class FileColumnTests
     }
 
     [Test]
+    public void WithNoKeyboardTheRedesignOffersInstructionsToChooseAndTheChosenOneSendsOnlyFromItsDraft()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var host = new FileMenuHost { KeyboardOffered = false };
+            var running = new WaitingWork();
+            running.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+            var column = Column(host, () => FileScreensTests.Offering(running.Present(), WorkspaceAction.Instruct));
+            column.QuestionBudgetOf = () => new ChoiceBudget(RoomBar.ChoicesAPage);
+            column.Reflow();
+            RoomBar Bar() => RoomBar.Of(KitFileBinding.Of(column.Frame!, column.Steering.Armed, column.Now!, column.Screen.Instruction.Open ? column.Screen.Instruction.Words : "",
+                new ConnectionStatus(ConnectionPhase.Live), "Storefront", new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true,
+                draftSpoken: column.Screen.Instruction.Open && column.Screen.Instruction.Spoken, chooses: column.ChoosesInstruction)!, VoiceStage.Idle, false);
+            void Press(RoomAction action) => column.Act(action.Control.Action, action.Control.Key);
+
+            // At rest the action that would open the keyboard says what it opens instead.
+            var rest = Bar();
+            Assert.That(rest.State, Is.EqualTo(RoomBarState.Rest));
+            var choose = rest.Row.Single(action => action.Place == KitPlace.Field);
+            Assert.That((choose.Words, choose.Control.Action), Is.EqualTo(("Choose Instruction", FileScreens.TellIt)));
+            Draw(host, column);
+            Press(choose);
+            Assert.That(host.Keyboard, Is.Null, "no keyboard opens");
+
+            // The product's own instructions by their short names, none chosen: no way on yet, and the way back.
+            var offered = Bar();
+            Assert.That((offered.State, offered.Wide), Is.EqualTo((RoomBarState.Choose, true)));
+            Assert.That(offered.Column.Select(action => (action.Words, action.Mark != AnswerMark.None, action.Chosen, action.Main)), Is.EqualTo(new[]
+            {
+                ("Continue", true, false, false), ("Summarize", true, false, false), ("Run Checks Again", true, false, false), ("Cancel", false, false, false),
+            }));
+            Draw(host, column);
+            Press(offered.Column[1]);
+            Assert.That(host.Sent, Is.Empty, "the press that chooses sends nothing");
+            var chosen = Bar();
+            Assert.That(chosen.Column.Select(action => (action.Words, action.Chosen, action.Main)), Is.EqualTo(new[]
+            {
+                ("Continue", false, false), ("Summarize", true, false), ("Run Checks Again", false, false), ("Review Instruction", false, true), ("Cancel", false, false),
+            }));
+
+            // Review Instruction opens the draft with the very words; they go only from there, by the file's own Send.
+            Draw(host, column);
+            Press(chosen.Column.Single(action => action.Main));
+            var steps = new List<string>();
+            for (var step = 0; step < 5 && host.Sent.Count == 0; step++)
+            {
+                Draw(host, column);
+                var bar = Bar();
+                steps.Add(bar.State + ": " + bar.Body.Text + " > " + string.Join(", ", bar.Column.Select(action => action.Words)));
+                if (step == 0) Assert.That((bar.State, bar.Body.Text), Is.EqualTo((RoomBarState.Draft, "Summarize what you changed and why.")), string.Join(" | ", steps));
+                Press(bar.Column.Single(action => action.Main));
+            }
+            Assert.That(host.Sent.Select(command => command.CommandType), Is.EqualTo(new[] { "execution.send_instruction" }), string.Join(" | ", steps));
+            Assert.That(((ExecutionSendInstructionCommand)host.Sent[0]).Payload.Text, Is.EqualTo("Summarize what you changed and why."));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    [Test]
     public void ARequestCutForOneDrawersLinesCountsNoDrawByTheOther()
     {
         var host = new FileMenuHost();

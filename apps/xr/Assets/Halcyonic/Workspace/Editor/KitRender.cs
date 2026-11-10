@@ -68,7 +68,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var size = variant.Length == 0 ? "Standard" : variant;
                     var found = new List<string>();
                     var shown = 0;
-                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" }.Concat(States).Concat(ScreenStates).Concat(MomentStates).Concat(FontStates).Concat(GlassStates).Concat(ChoreographyStates).Concat(ReaderStates).Concat(ReceiptStates).Concat(FigureStates).Concat(ChipStates).Concat(BarStates).Concat(ActionStates).Concat(AskStates).Concat(QuestionStates))
+                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" }.Concat(States).Concat(ScreenStates).Concat(MomentStates).Concat(FontStates).Concat(GlassStates).Concat(ChoreographyStates).Concat(ReaderStates).Concat(ReceiptStates).Concat(FigureStates).Concat(ChipStates).Concat(BarStates).Concat(ActionStates).Concat(AskStates).Concat(QuestionStates).Concat(ChooseStates))
                     {
                         if (narrowed && !state.Contains(only!, StringComparison.OrdinalIgnoreCase)) continue;
                         shown++;
@@ -185,7 +185,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     _ when ReceiptStates.Contains(state) => ReceiptShot(state, root.transform, eyes),
                     _ when FigureStates.Contains(state) => FigureShot(state, root.transform, eyes),
                     _ when ChipStates.Contains(state) => ChipShot(state, root.transform, eyes),
-                    _ when BarStates.Contains(state) || AskStates.Contains(state) || QuestionStates.Contains(state) => BarShot(state, root.transform, eyes),
+                    _ when BarStates.Contains(state) || AskStates.Contains(state) || QuestionStates.Contains(state) || ChooseStates.Contains(state) => BarShot(state, root.transform, eyes),
                     _ when ActionStates.Contains(state) => ActionsShot(state, root.transform, eyes),
                     _ => ControlKit(root.transform, eyes),
                 };

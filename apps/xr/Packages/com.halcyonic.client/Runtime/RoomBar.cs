@@ -39,6 +39,13 @@ namespace Halcyonic.Client
         /// </summary>
         Question,
 
+        /// <summary>
+        /// The instructions offered to choose from where there is no keyboard, or a recorded run plays its own (DESIGN 2.1):
+        /// each a floating action in the panel's place, the one chosen marked, then the file's Review Instruction once one is
+        /// chosen, and Cancel.
+        /// </summary>
+        Choose,
+
         /// <summary>"Sending", then "Sent · Awaiting Start", words alone, sweeping: the instruction went and the run has not started.</summary>
         Sent,
 
@@ -122,8 +129,9 @@ namespace Halcyonic.Client
 
         private RoomBar(RoomBarState state, IReadOnlyList<RoomAction>? row = null, LineWords? words = null, LineWords? body = null, PageLine? part = null,
             bool caret = false, string? sentence = null, IReadOnlyList<RoomAction>? column = null, KitControl? field = null, bool mono = false,
-            bool waits = false, int? rows = null, string? band = null, bool wide = false)
+            bool waits = false, int? rows = null, string? band = null, bool wide = false, IReadOnlyList<LineWords>? lines = null)
         {
+            Lines = lines;
             Mono = mono;
             Waits = waits;
             Rows = rows;
@@ -175,6 +183,12 @@ namespace Halcyonic.Client
         /// </summary>
         public string? Band { get; }
 
+        /// <summary>
+        /// The panel's words as the file's own lines, where it holds more than one (the answers about to go, why a question
+        /// can't be answered): each stands on a line of its own, so none ends in a separator; null where <see cref="Body"/> is one line.
+        /// </summary>
+        public IReadOnlyList<LineWords>? Lines { get; }
+
         /// <summary>No panel: with nothing from the computer to say, the choices take its place, as wide as it (DESIGN 0, rule 3).</summary>
         public bool Wide { get; }
 
@@ -191,7 +205,32 @@ namespace Halcyonic.Client
         public KitControl? Field { get; }
 
         /// <summary>Whether the pair (the panel and its column) shows.</summary>
-        public bool Pair => State is RoomBarState.Draft or RoomBarState.Confirm or RoomBarState.Request or RoomBarState.Question;
+        public bool Pair => State is RoomBarState.Draft or RoomBarState.Confirm or RoomBarState.Request or RoomBarState.Question or RoomBarState.Choose;
+
+        /// <summary>The words of the action that opens the offered instructions where no keyboard is offered: the product's own.</summary>
+        public const string ChooseInstruction = FileScreens.ChooseAnInstruction;
+
+        /// <summary>
+        /// The offered instructions (DESIGN 2.1), every action the file's own control: each instruction a choice, by the
+        /// product's short name where it is one of its own (Continue, Summarize, Run Checks Again), else its words, the one
+        /// chosen marked; the file's row to more of them; Review Instruction, the main action, once one is chosen (it opens
+        /// the draft with the very words, which send only from there); and Cancel. A notice of the file's stands in the panel.
+        /// </summary>
+        private static RoomBar Choosing(KitFileBinding binding, IReadOnlyList<KitControl> offered)
+        {
+            var column = new List<RoomAction>();
+            foreach (var control in offered.Where(control => control.Available))
+            {
+                var own = WorkspaceText.PresetInstructions.FirstOrDefault(preset => WorkspaceText.OneLine(preset.Text) == control.Words);
+                column.Add(new RoomAction(control, main: false, own?.Label, mark: AnswerMark.Single, chosen: control.Chosen));
+            }
+            foreach (var step in binding.Controls.Where(control => control.Place == KitPlace.Step && control.Available))
+                column.Add(new RoomAction(step, main: false, icon: step.Icon ?? GlazeIcon.Next));
+            if (binding[KitPlace.Field] is { Available: true } review) column.Add(new RoomAction(review, main: true));
+            if (binding[KitPlace.Back] is { Available: true } cancel) column.Add(new RoomAction(cancel, main: false));
+            var says = binding.Model.Said.LastOrDefault(line => line.Action == null);
+            return new RoomBar(RoomBarState.Choose, body: says?.Runs, column: column, wide: says == null);
+        }
 
         /// <summary>
         /// A question (DESIGN 2.9), every action the file's own control, in the file's order: each answer with its mark, the
@@ -223,18 +262,21 @@ namespace Halcyonic.Client
             var sending = binding[KitPlace.Sending] != null;
             var body = LineWords.None;
             string? sentence = null;
+            IReadOnlyList<LineWords>? lines = null;
             if (sending) body = LineWords.Ours(WorkspaceText.Sent);
             else if (ask.Body.Count > 0)
             {
                 body = ask.Body[0].Runs;
                 for (var index = 1; index < ask.Body.Count; index++) body = body + LineWords.Ours(KitMomentWords.Dot) + ask.Body[index].Runs;
+                if (ask.Body.Count > 1) lines = ask.Body.Select(line => line.Runs).ToList();
                 if (ask.Confirming) sentence = ask.Asks;
             }
             else if (ask.Confirming && ask.Asks != null) body = LineWords.Ours(ask.Asks);
             else if (ask.Several && ask.Caption != null) body = LineWords.Ours(ask.Caption);
             // Where the way on waits and a panel stands, its sentence bar says why, in the file's words.
             if (!sending && !ask.Confirming && !body.IsEmpty && binding[KitPlace.Forward] is { Available: false, Reason: string why }) sentence = why;
-            return new RoomBar(RoomBarState.Question, body: body, sentence: sentence, column: sending ? None : column, waits: sending, band: ask.Prompt, wide: body.IsEmpty);
+            return new RoomBar(RoomBarState.Question, body: body, sentence: sentence, column: sending ? None : column, waits: sending, band: ask.Prompt, wide: body.IsEmpty,
+                lines: lines);
         }
 
         /// <summary>
@@ -305,6 +347,8 @@ namespace Halcyonic.Client
             if (model.Ask is KitAsk ask) return ask.Lines.Count > 0 && (ask.Prompt != null || ask.Caption != null || ask.Body.Count > 0 || ask.Asks != null)
                 ? Asking(binding, ask) : new RoomBar(RoomBarState.Hidden);
             KitControl? Available(KitPlace place) => binding[place] is KitControl control && control.Available ? control : null;
+            var offered = binding.Controls.Where(control => control.Place == KitPlace.Choice && control.Action == FileScreens.Preset).ToList();
+            if (offered.Count > 0) return Choosing(binding, offered);
             var talk = binding[KitPlace.Talk];
             var field = binding[KitPlace.Field];
             var composing = field != null && field.Action == FileScreens.EditInstruction;
@@ -354,7 +398,8 @@ namespace Halcyonic.Client
             if (sentAwaitingStart) return new RoomBar(RoomBarState.Sent, words: LineWords.Ours(SentWords));
             var row = new List<RoomAction>();
             if (talk != null && talk.Available) row.Add(new RoomAction(talk, main: true));
-            if (field != null && field.Available) row.Add(new RoomAction(field, main: row.Count == 0, Type));
+            // Where the file offers instructions to choose from rather than the keyboard, the action says so.
+            if (field != null && field.Available) row.Add(new RoomAction(field, main: row.Count == 0, model.Chooses ? ChooseInstruction : Type));
             if (row.Count > 0) return new RoomBar(RoomBarState.Rest, row);
             var why = field?.Reason ?? talk?.Reason ?? model.WhyNotSend;
             return why != null ? new RoomBar(RoomBarState.Words, words: LineWords.Ours(why)) : new RoomBar(RoomBarState.Hidden);

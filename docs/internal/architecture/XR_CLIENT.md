@@ -2611,9 +2611,19 @@ The last unit turns it on by default and removes the kit parts it replaced.
   row to more choices each taking one, so a page never offers more than the column's six actions; more answers stand
   behind the file's More Choices. A prompt longer than the band's three lines is read by parts there (the band's own Next Part · 2 of 3, the
   column's last action and the main one while the file offers no way on), and the host reports the frame drawn only
-  once the band shows its last part, so the file takes the question as read only then. A page offering more than the
+  once the band shows its last part, so the file takes the question as read only then; except a frame that offers
+  Stop, which is drawn at once: stopping is the safe action and never waits for reading, on any screen. A page offering more than the
   column's six actions, the page that writes an answer and the page that explains two answers reading alike have no
   place yet and stay the file's own.
+- **Choose Instruction** (BUILD-SPEC-v4 2.1): where Tell it offers instructions to choose from rather than the
+  keyboard (no keyboard, or a recorded run playing its own; `FileColumn.ChoosesInstruction`, `KitWorkModel.Chooses`),
+  the row's second action reads Choose Instruction in Type's place, the same file action. The file's page of offered
+  instructions is `RoomBarState.Choose`, bound for the redesign (each `FileScreens.Preset` row a choice, the page's
+  own Cancel the way back): each instruction a floating action in the panel's place with its mark, by the product's
+  short name where it is one of its own (Continue, Summarize, Run Checks Again), else its words; the file's Next
+  Choices where it pages them (each takes one of a page's four places, as an answer does); Review Instruction, the main
+  action, once one is chosen; and Cancel. The press that chooses sends nothing: Review Instruction opens the draft
+  with the very words, and they go only from there, by the file's own Send. A notice of the file's stands in the panel.
 - **The level is the microphone's** (the lead's truth rule): `HoldToTalk` reads the last 50 ms it recorded every 50 ms
   into `LevelHistory` (client core: the RMS, -54 to -12 dBFS, 26 bars, newest at the right), and Listening draws 26 bars
   of it 4 dp after its words inside its halo, drawn once and scaled so a frame draws nothing. A release build records
@@ -2628,8 +2638,9 @@ The last unit turns it on by default and removes the kit parts it replaced.
   `33-ask-confirm-arriving` (the ring part filled, no press taken), `33-ask-confirm`, `33-ask-long`,
   `33-ask-long-part`, `33-ask-deny-only`, `33-ask-sending`, `33-ask-tool` and `33-ask-tool-confirm` for the approval: the request in mono, whole lines, the
   tool's name never in it, the sentence, the sweep, the lock and each press reaching the file's own control; and
-  `34-question`, `-review`, `-several`, `-more`, `-confirm`, `-sending`, `-long` and `-tall` (four wrapping answers under a
-  long prompt, the tallest page today's top-resting placement holds inside the field at the larger size) for the question: the prompt on
+  `34-question`, `-review`, `-several`, `-more`, `-confirm`, `-sending`, `-long`, `-stop` (a question that cannot be answered: Stop takes its press
+  with the long prompt unread) and `-tall` (four wrapping answers under a
+  long prompt, the tallest page today's top-resting placement holds inside the field at the larger size) for the question, and `35-choose-rest`, `35-choose` and `35-choose-chosen` for the offered instructions: the prompt on
   the band and in no other label, the band under the pair's foot line, each mark and its check, no panel where the
   computer has nothing to say, and a long prompt's frame not reported drawn until its last part shows.
   `LevelHistoryTests` and `RoomBarTests` in the client suite; `FileColumnTests` drives the redesign's Approve and

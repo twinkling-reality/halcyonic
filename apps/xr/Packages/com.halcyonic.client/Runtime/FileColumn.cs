@@ -585,6 +585,12 @@ namespace Halcyonic.Client
             OpenInstructionKeyboard();
         }
 
+        /// <summary>
+        /// Whether Tell it offers instructions to choose from rather than the keyboard: where a recorded run plays its own, or
+        /// no keyboard is offered (<see cref="AskForWords"/>). The redesign names its action for that: Choose Instruction.
+        /// </summary>
+        public bool ChoosesInstruction => Now?.Execution?.ExecutionId is string execution && (recorded(execution)?.Count > 0 || !host.KeyboardOffered);
+
         private bool CurrentInstruction(string execution, int epoch)
         {
             var current = present();
@@ -970,7 +976,10 @@ namespace Halcyonic.Client
             if (Screen.Presets != null)
             {
                 var recordedPresets = !ReferenceEquals(Screen.Presets, WorkspaceText.PresetInstructions);
-                Screen.MeasurePresets(Screen.Presets.Select((preset, index) => Math.Min(2, host.RowsOf(FileScreens.PresetLine(preset, index, recordedPresets), Glaze.Menu.FileColumnDegrees))).ToList(), budget,
+                // Where what draws them stands each offered instruction as an action of its own, whole (QuestionBudgetOf), each
+                // takes one of the page's places, as a question's answers do.
+                if (QuestionBudgetOf?.Invoke() is PageBudget places) Screen.MeasurePresets(Screen.Presets.Select(_ => 1).ToList(), places, notice == null ? 0 : 1);
+                else Screen.MeasurePresets(Screen.Presets.Select((preset, index) => Math.Min(2, host.RowsOf(FileScreens.PresetLine(preset, index, recordedPresets), Glaze.Menu.FileColumnDegrees))).ToList(), budget,
                     notice == null ? 0 : host.RowsOf(new PageLine(notice, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             }
             if (draft != null) ReadQuestion(draft, QuestionBudgetOf?.Invoke() is PageBudget choices ? choices : budget, QuestionBudgetOf?.Invoke() != null);

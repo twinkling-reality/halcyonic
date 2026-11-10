@@ -184,7 +184,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static KitFileBinding? Of(MenuFrame frame, WorkspaceAction? armed, WorkspacePresentation workspace, string draft, ConnectionStatus connection,
             string projectName, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot = null, KitAvatar? avatar = null,
-            KitSelectors? selectors = null, bool roomDesign = false, bool draftSpoken = false, int? requestRows = null)
+            KitSelectors? selectors = null, bool roomDesign = false, bool draftSpoken = false, int? requestRows = null, bool chooses = false)
         {
             if (frame.Side != null) return null;
             // The kit shows an approval's, a denial's or the answers' confirmation, and the redesign an instruction's too; any
@@ -192,9 +192,13 @@ namespace Halcyonic.Client
             var instructing = roomDesign && armed == WorkspaceAction.Instruct;
             if (armed != null && armed != WorkspaceAction.Approve && armed != WorkspaceAction.Deny && armed != WorkspaceAction.Answer && !instructing) return null;
             var controls = new List<KitControl>();
+            // The instructions offered to choose from (no keyboard, or a recorded run's own): each a choice, bound for the redesign.
+            var offering = roomDesign && frame.Lines.Any(line => line.Action == FileScreens.Preset);
             foreach (var (slot, prompt) in frame.Footer.All)
             {
-                var place = roomDesign && prompt.Id == WorkspaceScreens.Sent && !prompt.Available ? KitPlace.Sending : PlaceOf(slot, prompt);
+                // For the redesign: an answer in flight, and the way back from the offered instructions (the page's own Cancel).
+                var place = roomDesign && prompt.Id == WorkspaceScreens.Sent && !prompt.Available ? KitPlace.Sending
+                    : roomDesign && prompt.Id == FileScreens.Cancel && prompt.Kind != PromptKind.Cancel && offering ? KitPlace.Back : PlaceOf(slot, prompt);
                 if (place == null || controls.Any(control => control.Place == place)) return null;
                 controls.Add(new KitControl(place.Value, frame, prompt.Id, null, prompt.Words, prompt.Icon, prompt.Available, prompt.Reason, prompt.Holds));
             }
@@ -204,8 +208,8 @@ namespace Halcyonic.Client
             {
                 var place = line.Action == FileScreens.EditInstruction ? KitPlace.Field : line.Action == Footer.NextPage ? KitPlace.Pager
                     : !composing && RouteActions.Contains(line.Action!) ? KitPlace.Route
-                    : line.Action == FileScreens.Choose ? KitPlace.Choice
-                    : StepActions.Contains(line.Action!) ? KitPlace.Step : (KitPlace?)null;
+                    : line.Action == FileScreens.Choose || (offering && line.Action == FileScreens.Preset) ? KitPlace.Choice
+                    : StepActions.Contains(line.Action!) || (offering && line.Action == FileScreens.NextPresetPage) ? KitPlace.Step : (KitPlace?)null;
                 var several = place is KitPlace.Route or KitPlace.Choice or KitPlace.Step;
                 if (place == null || (!several && controls.Any(control => control.Place == place))) return null;
                 controls.Add(new KitControl(place.Value, frame, line.Action!, line.Key, line.Words, line.Icon, line.Available, null, false, line.Chosen, line.AnswerMark));
@@ -301,11 +305,13 @@ namespace Halcyonic.Client
             else if (armed == WorkspaceAction.Answer) return null;
             // Send says what the frame says of it; with no Send on the frame, only why the connection keeps it.
             var said = Said(frame, workspace);
+            // Under the offered instructions the file's notice is its page's last line: what it says now.
+            if (offering && frame.Lines.Count > 0 && frame.Lines[frame.Lines.Count - 1].Action == null) said = said.Append(frame.Lines[frame.Lines.Count - 1]).ToList();
             var model = new KitWorkModel(work.ProjectName, work.TaskTitle, work.Badge, work.Marks, work.Report, work.Trail, draft, work.VoiceOffered,
                 send != null && send.Available, send != null ? send.Reason : KitPresenter.WhyNotSendOf(connection), work.Spine, work.SpineFoot,
                 need, ask, work.Notice, work.Avatar, said, selectors != null ? selectors.Environment : work.Environment,
                 selectors != null ? selectors.Agent : work.Agent, selectors?.EnvironmentChangeable ?? false, selectors?.AgentChangeable ?? false, instruction,
-                draftSpoken && draft.Length > 0);
+                draftSpoken && draft.Length > 0, chooses);
             // Every line the frame shows is words the kit shows too; a line it would leave out, as an attention note,
             // a pointer to Waiting, why nothing can be sent or a notice, keeps the frame on the file's own drawing.
             var shown = ShownWords(model, workspace);

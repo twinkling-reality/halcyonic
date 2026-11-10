@@ -379,8 +379,9 @@ namespace Halcyonic.Client
             string? whyNotSend, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot,
             KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null, KitAvatar? avatar = null, IReadOnlyList<PageLine>? said = null,
             string? environment = null, string? agent = null, bool environmentChangeable = false, bool agentChangeable = false,
-            KitInstruction? instruction = null, bool draftSpoken = false)
+            KitInstruction? instruction = null, bool draftSpoken = false, bool chooses = false)
         {
+            Chooses = chooses;
             Instruction = instruction;
             DraftSpoken = draftSpoken;
             Environment = environment;
@@ -434,6 +435,9 @@ namespace Halcyonic.Client
         public IReadOnlyList<KitTrailEntry> Trail { get; }
 
         public string Draft { get; }
+
+        /// <summary>Tell it offers instructions to choose from rather than the keyboard (<see cref="FileColumn.ChoosesInstruction"/>).</summary>
+        public bool Chooses { get; }
 
         /// <summary>The draft was heard on the computer, not typed (<see cref="FileInstruction.Spoken"/>).</summary>
         public bool DraftSpoken { get; }

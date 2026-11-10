@@ -183,6 +183,9 @@ namespace Halcyonic.XR.UI
             // A question's page the redesign reads, with no more actions than its column holds; any other stays the file's own.
             if (RoomDesign.Enabled && model.Ask != null)
                 return RoomBar.Of(binding, Voice(), AwaitingStart()) is { State: RoomBarState.Question } asking && asking.Column.Count <= RoomBarView.ColumnMost;
+            // The offered instructions, likewise.
+            if (RoomDesign.Enabled && RoomBar.Of(binding, Voice(), AwaitingStart()) is { State: RoomBarState.Choose } choosing)
+                return choosing.Column.Count <= RoomBarView.ColumnMost;
             if (RoomDesign.Enabled && (model.Instruction != null || model.Need != null))
             {
                 var read = RoomBar.Of(binding, Voice(), AwaitingStart());
@@ -384,8 +387,9 @@ namespace Halcyonic.XR.UI
             if (binding == null || !Settled || ReferenceEquals(drawn, binding.Frame)) return;
             // With the redesign on, a frame is drawn only where the bar shows it: nothing else of it stands in the room yet.
             if (RoomDesign.Enabled && !bar.gameObject.activeSelf) return;
-            // The agent's words still hold a part not shown: the frame is not read yet.
-            if (RoomDesign.Enabled && band.Words is { More: true }) return;
+            // The agent's words still hold a part not shown: the frame is not read yet. But stopping is the safe action and
+            // never waits for reading, on any screen (the lead, 2026-11-10): a frame that offers Stop is drawn at once.
+            if (RoomDesign.Enabled && band.Words is { More: true } && binding[KitPlace.Stop] == null) return;
             drawn = binding.Frame;
             Drawn?.Invoke(column, binding.Frame);
         }
