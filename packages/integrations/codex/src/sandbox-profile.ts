@@ -419,6 +419,9 @@ const TOOL_SUBFOLDERS = ['Cellar', 'opt', 'lib', 'bin', 'libexec', 'share'] as c
 /** macOS's Perl library: nothing of the person's, read so the system Perl runs. */
 const SYSTEM_PERL = '/System/Library/Perl';
 
+/** macOS's OpenSSL configuration file: nothing of the person's, read so a Node build starts. */
+const SYSTEM_OPENSSL_CONFIG = '/System/Library/OpenSSL/openssl.cnf';
+
 /**
  * The git data a folder needs from outside itself (BOX), read only: its worktree's or submodule's own
  * git folder and the repository's `.git` that holds it, with the objects and refs they share. The
@@ -493,6 +496,9 @@ export function confinedProfile(scope: ConfinedScope): string {
     ...scope.toolFolders,
     // macOS's own Perl library, so /usr/bin/perl runs (the launch check binds with it).
     SYSTEM_PERL,
+    // macOS's own OpenSSL configuration, which a Node build may read to start; that file alone, never
+    // the folder's private keys or certificates (TASKS's run, 2026-11-10).
+    SYSTEM_OPENSSL_CONFIG,
   ];
   const originals = scope.originals ?? [];
   const hidden = scope.hidden ?? [];
