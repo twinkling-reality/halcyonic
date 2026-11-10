@@ -10,6 +10,7 @@ import {
 import { EVENT_VARIANTS, type EventEnvelope } from './events.ts';
 import { type ClientMessage, HelloMessage, PingMessage } from './realtime.ts';
 import { toolResultProblem } from './tool-results.ts';
+import { WorldDescription } from './world.ts';
 
 export interface ValidationIssue {
   /** JSON Pointer to the offending value, `/` for the root. */
@@ -125,6 +126,15 @@ function checkEventSemantics(event: EventEnvelope): ValidationIssue[] {
   if (event.event_type === 'runtime.agent_message' && event.provenance.epistemic !== 'reported') {
     issues.push({ path: '/provenance/epistemic', message: 'agent text must be "reported"' });
   }
+  if (
+    event.event_type === 'project.world.observed' &&
+    (event.payload.description === null) === (event.payload.refused === null)
+  ) {
+    issues.push({
+      path: '/payload',
+      message: 'holds a description or why there is none, never both',
+    });
+  }
   if (event.event_type === 'runtime.tool.result') {
     if (event.provenance.epistemic !== 'observed')
       issues.push({
@@ -143,6 +153,17 @@ export function parseEventEnvelope(value: unknown): Validated<EventEnvelope> {
   const event = shape.value as EventEnvelope;
   const issues = checkEventSemantics(event);
   return issues.length === 0 ? { ok: true, value: event } : { ok: false, issues };
+}
+
+const validateWorldDescription = compileValidator(WorldDescription);
+
+/**
+ * Validates a world's description as parsed from its file (ADR 0049): a member it does not name, a
+ * number outside its range, a colour that is not six hexadecimal digits or a list past its cap is
+ * refused, with where.
+ */
+export function parseWorldDescription(value: unknown): Validated<WorldDescription> {
+  return validateWorldDescription(value);
 }
 
 /** How deep a client message may nest objects and arrays; every contract needs far fewer. */

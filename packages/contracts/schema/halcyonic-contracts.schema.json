@@ -2424,6 +2424,115 @@
               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
             },
             "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "project.world.observed"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "$ref": "#/$defs/WorldObserved"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
               "type": "string",
               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
             },
@@ -9122,6 +9231,9 @@
             }
           },
           "additionalProperties": false
+        },
+        "world": {
+          "$ref": "#/$defs/ProjectWorldView"
         }
       },
       "additionalProperties": false
@@ -10184,6 +10296,370 @@
               "type": "null"
             }
           ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorldDescription": {
+      "type": "object",
+      "required": [
+        "format",
+        "sky",
+        "disc",
+        "stars",
+        "clouds",
+        "mist",
+        "water",
+        "ground",
+        "wind",
+        "places"
+      ],
+      "properties": {
+        "format": {
+          "type": "number",
+          "const": 1
+        },
+        "sky": {
+          "type": "object",
+          "required": [
+            "zenith",
+            "band",
+            "horizon"
+          ],
+          "properties": {
+            "zenith": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "band": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^#[0-9A-Fa-f]{6}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "horizon": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "disc": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "bearing",
+                "height",
+                "size",
+                "colour",
+                "glow"
+              ],
+              "properties": {
+                "bearing": {
+                  "type": "number",
+                  "minimum": -180,
+                  "maximum": 180
+                },
+                "height": {
+                  "type": "number",
+                  "minimum": -10,
+                  "maximum": 90
+                },
+                "size": {
+                  "type": "number",
+                  "minimum": 0.25,
+                  "maximum": 15
+                },
+                "colour": {
+                  "type": "string",
+                  "pattern": "^#[0-9A-Fa-f]{6}$"
+                },
+                "glow": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stars": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "clouds": {
+          "type": "object",
+          "required": [
+            "amount",
+            "colour"
+          ],
+          "properties": {
+            "amount": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "colour": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "mist": {
+          "type": "object",
+          "required": [
+            "amount",
+            "colour"
+          ],
+          "properties": {
+            "amount": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "colour": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "water": {
+          "type": "object",
+          "required": [
+            "near",
+            "far",
+            "ripple",
+            "shine"
+          ],
+          "properties": {
+            "near": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "far": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "ripple": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "shine": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "ground": {
+          "type": "object",
+          "required": [
+            "colour",
+            "radius"
+          ],
+          "properties": {
+            "colour": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "radius": {
+              "type": "number",
+              "minimum": 1.5,
+              "maximum": 12
+            }
+          },
+          "additionalProperties": false
+        },
+        "wind": {
+          "type": "object",
+          "required": [
+            "bearing",
+            "strength"
+          ],
+          "properties": {
+            "bearing": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            },
+            "strength": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "places": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorldPlace"
+          },
+          "maxItems": 8
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorldPlace": {
+      "type": "object",
+      "required": [
+        "project",
+        "bearing",
+        "distance"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "bearing": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "distance": {
+          "type": "number",
+          "minimum": 3,
+          "maximum": 80
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorldRefused": {
+      "type": "object",
+      "required": [
+        "code",
+        "where",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "missing"
+            },
+            {
+              "type": "string",
+              "const": "not_a_file"
+            },
+            {
+              "type": "string",
+              "const": "too_large"
+            },
+            {
+              "type": "string",
+              "const": "not_text"
+            },
+            {
+              "type": "string",
+              "const": "not_json"
+            },
+            {
+              "type": "string",
+              "const": "not_a_description"
+            }
+          ]
+        },
+        "where": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(/[a-z_]{1,32}|/[0-9]{1,4}){1,8}$",
+              "maxLength": 120
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorldObserved": {
+      "type": "object",
+      "required": [
+        "description",
+        "refused"
+      ],
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorldDescription"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "refused": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorldRefused"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProjectWorldView": {
+      "type": "object",
+      "required": [
+        "description",
+        "refused",
+        "observed_at"
+      ],
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorldDescription"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "refused": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorldRefused"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
         }
       },
       "additionalProperties": false

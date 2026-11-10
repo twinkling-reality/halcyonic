@@ -25,3 +25,4 @@ export * from './versions.ts';
 export * from './views.ts';
 export * from './workspace.ts';
 export * from './workspace-tools.ts';
+export * from './world.ts';

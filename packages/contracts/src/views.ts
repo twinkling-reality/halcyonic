@@ -25,6 +25,7 @@ import { QuestionPrompts } from './questions.ts';
 import { ApprovalLevel, ModelRef, RuntimeDescriptor, RuntimeRef } from './runtime.ts';
 import { StarterId } from './starters.ts';
 import { CommandStatus, ExecutionStatus, WorkstreamStatus } from './statuses.ts';
+import { ProjectWorldView } from './world.ts';
 
 export { CommandStatus, ExecutionStatus, WorkstreamStatus } from './statuses.ts';
 
@@ -118,6 +119,7 @@ export type ProjectMacPlayView = Static<typeof ProjectMacPlayView>;
 /**
  * `check`, `preview` and `mac_play` hold the facts their events carried, so a client that connects
  * after them still has them; each is absent when there is none, which never reads as false.
+ * `world` is there only for a world project whose description file the Mac has read (ADR 0049).
  */
 export const ProjectView = Type.Object(
   {
@@ -132,6 +134,7 @@ export const ProjectView = Type.Object(
     check: Type.Optional(ProjectCheckView),
     preview: Type.Optional(ProjectPreviewView),
     mac_play: Type.Optional(ProjectMacPlayView),
+    world: Type.Optional(ProjectWorldView),
   },
   strict,
 );

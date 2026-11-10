@@ -23,7 +23,10 @@ import type { StarterView } from '@halcyonic/contracts';
  * `<data dir>/starters/<id>/node_modules`, beside `installed.json`, which names the SHA-256 of the
  * lockfile they were installed from; a starter counts as installed only while that matches the
  * tracked lockfile. A project gets the template's files and a link to the shared dependencies,
- * which sit outside every folder an agent's sandbox can write.
+ * which sit outside every folder an agent's sandbox can write. A starter that says it has no
+ * packages (`"packages": "none"` in `starter.json`: the world's, ADR 0049), and whose lockfile
+ * indeed pins none, needs nothing installed: it counts as installed as it stands, and its projects
+ * get the template's files and no link.
  */
 export interface HostStartersOptions {
   /** The repository's `starters` folder. */
@@ -227,7 +230,8 @@ export class HostStarters {
       mkdirSync(join(folder, relative, '..'), { recursive: true });
       copyFileSync(join(template, relative), join(folder, relative));
     }
-    symlinkSync(join(this.#installed, id, 'node_modules'), join(folder, 'node_modules'), 'dir');
+    if (!this.#installsNothing(id, readFileSync(join(this.#tracked, id, 'package-lock.json'))))
+      symlinkSync(join(this.#installed, id, 'node_modules'), join(folder, 'node_modules'), 'dir');
     return { ok: true, lockfile, files: files.length, template: digest };
   }
 
@@ -248,12 +252,24 @@ export class HostStarters {
     }
   }
 
-  /** The tracked lockfile's SHA-256 when the installed dependencies were made from it, else null. */
+  /** Whether the starter says it has no packages and its lockfile pins none: both, or it installs as any other. */
+  #installsNothing(id: string, lockfile: Buffer): boolean {
+    try {
+      const declared = JSON.parse(
+        readFileSync(join(this.#tracked, id, 'starter.json'), 'utf8'),
+      ) as { packages?: unknown };
+      return declared.packages === 'none' && pinsNothing(lockfile);
+    } catch {
+      return false;
+    }
+  }
+
+  /** The tracked lockfile's SHA-256 when the installed dependencies were made from it, or when the starter installs nothing; else null. */
   #installedLockfile(id: string): string | null {
     try {
-      const tracked = createHash('sha256')
-        .update(readFileSync(join(this.#tracked, id, 'package-lock.json')))
-        .digest('hex');
+      const text = readFileSync(join(this.#tracked, id, 'package-lock.json'));
+      const tracked = createHash('sha256').update(text).digest('hex');
+      if (this.#installsNothing(id, text)) return tracked;
       const record = JSON.parse(
         readFileSync(join(this.#installed, id, 'installed.json'), 'utf8'),
       ) as {
@@ -267,6 +283,22 @@ export class HostStarters {
     } catch {
       return null;
     }
+  }
+}
+
+/** Whether a lockfile pins no package at all, so its starter has nothing to install; false when it cannot be read as one. */
+function pinsNothing(lockfile: Buffer): boolean {
+  try {
+    const parsed = JSON.parse(lockfile.toString('utf8')) as { packages?: unknown };
+    const packages = parsed.packages;
+    return (
+      typeof packages === 'object' &&
+      packages !== null &&
+      !Array.isArray(packages) &&
+      Object.keys(packages).every((path) => path === '')
+    );
+  } catch {
+    return false;
   }
 }
 

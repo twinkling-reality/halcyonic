@@ -4,6 +4,7 @@ import {
   type ProjectId,
   type Snapshot,
   type Timestamp,
+  WORLD_STARTER_ID,
 } from '@halcyonic/contracts';
 import { Projection } from '@halcyonic/domain';
 import type { Clock, RuntimeAdapter, Scheduler } from '@halcyonic/runtime-core';
@@ -14,6 +15,7 @@ import type { EventJournal } from '../journal/journal.ts';
 import { createHostLocations, type HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
 import { FileObserver } from '../observer/file-observer.ts';
+import { attachWorldReader } from '../observer/world-reader.ts';
 import { HostPreviews, type HostPreviewsDeps } from '../preview/preview.ts';
 import type { HostStarters } from '../starters.ts';
 import { type CatalogLinks, CommandService } from './command-service.ts';
@@ -168,6 +170,15 @@ export class ControlPlane {
       clock: options.clock,
       logger: options.logger,
     });
+    // A world's description is read wherever the Mac reads folders at all (ADR 0049).
+    if (this.files !== null)
+      attachWorldReader({
+        publisher: this.publisher,
+        recorder: this.recorder,
+        projection: this.projection,
+        clock: options.clock,
+        logger: options.logger,
+      });
     this.ollamaUnload = options.ollamaUnload ?? null;
     this.ollamaUnload?.attach(this.publisher, this.projection);
     this.commands = new CommandService({
@@ -205,6 +216,8 @@ export class ControlPlane {
         if (created.total === 0 && changed.total === 0 && deleted.total === 0) return;
         const project = this.projection.project(event.project_id);
         if (project?.starter == null || project.location === null) return;
+        // A world has no build: the Mac reads its description instead (ADR 0049).
+        if (project.starter === WORLD_STARTER_ID) return;
         this.#autoCheckNeeded.add(event.project_id);
         this.#scheduleAutoChecks();
         return;
@@ -246,7 +259,11 @@ export class ControlPlane {
     if (this.#closed || this.previews === null) return;
     for (const projectId of [...this.#autoCheckNeeded]) {
       const project = this.projection.project(projectId);
-      if (project?.starter == null || project.location === null) {
+      if (
+        project?.starter == null ||
+        project.starter === WORLD_STARTER_ID ||
+        project.location === null
+      ) {
         this.#autoCheckNeeded.delete(projectId);
         continue;
       }
