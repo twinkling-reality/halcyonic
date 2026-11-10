@@ -5,8 +5,8 @@ namespace Halcyonic.XR.Pairing
 {
     /// <summary>
     /// Adds <see cref="PairingPanel"/> to the stage object at runtime, from this assembly, so that
-    /// neither the stage nor the scene has to know about pairing (ADR 0017). Only development builds
-    /// and the editor get it: a release build, such as the one judges run, offers no pairing.
+    /// neither the stage nor the scene has to know about pairing (ADR 0017). Every build gets it, a
+    /// release build too: without pairing a release build can only show the demonstration.
     /// </summary>
     /// <remarks>
     /// <see cref="HalcyonicBootstrap"/> creates a stage in scenes that lack one, after scene load like
@@ -21,7 +21,6 @@ namespace Halcyonic.XR.Pairing
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Begin()
         {
-            if (!Debug.isDebugBuild) return;
             new GameObject("Halcyonic pairing bootstrap").AddComponent<PairingBootstrap>();
         }
 
