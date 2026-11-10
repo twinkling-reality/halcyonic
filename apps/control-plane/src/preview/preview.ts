@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { closeSync, constants, existsSync, openSync, readSync } from 'node:fs';
-import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
 import {
@@ -664,7 +664,12 @@ export class HostPreviews {
     server: RecordedServer = 'preview',
   ) {
     await mkdir(join(this.#deps.dataDir, 'previews'), { recursive: true, mode: 0o700 });
-    await writeFile(this.#recordFile(projectId, server), JSON.stringify(record), { mode: 0o600 });
+    // Written beside, then renamed, so a reader (a restart's reconcile) never sees half a record.
+    // A crash between the two leaves only the side file, which reconcile reads, cannot use and removes.
+    const file = this.#recordFile(projectId, server);
+    const writing = `${file}.${process.pid}.writing`;
+    await writeFile(writing, JSON.stringify(record), { mode: 0o600 });
+    await rename(writing, file);
   }
 
   async #removeRecord(projectId: ProjectId, server: RecordedServer = 'preview') {
