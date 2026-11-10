@@ -437,12 +437,25 @@ describe("a folder's git data outside it, read only (BOX)", () => {
       const worktree = made('wt');
       writeFileSync(join(worktree, '.git'), `gitdir: ${join(common, 'worktrees', 'wt')}\n`);
       made('repo/.git/worktrees/wt');
+      // Not named back by the repository yet: nothing (AUDIT BOX-1 F1).
+      assert.deepEqual(gitDataOutside(worktree), []);
+      // git names the worktree back, as it does when it makes one.
+      writeFileSync(join(common, 'worktrees', 'wt', 'gitdir'), `${join(worktree, '.git')}\n`);
       assert.deepEqual(gitDataOutside(worktree), [common, join(common, 'worktrees', 'wt')]);
-      // A submodule names its data relatively.
+      // A submodule names its data relatively, and its config names it back.
       const submodule = made('repo/lib');
       made('repo/.git/modules/lib');
       writeFileSync(join(submodule, '.git'), 'gitdir: ../.git/modules/lib\n');
+      assert.deepEqual(gitDataOutside(submodule), []);
+      writeFileSync(
+        join(common, 'modules', 'lib', 'config'),
+        '[core]\n\tworktree = ../../../lib\n',
+      );
       assert.deepEqual(gitDataOutside(submodule), [common, join(common, 'modules', 'lib')]);
+      // Another folder naming the same worktree is not named back.
+      const thief = made('thief');
+      writeFileSync(join(thief, '.git'), `gitdir: ${join(common, 'worktrees', 'wt')}\n`);
+      assert.deepEqual(gitDataOutside(thief), []);
       // Its own repository, no .git at all, or a .git file naming any other folder: nothing.
       assert.deepEqual(gitDataOutside(join(root, 'repo')), []);
       assert.deepEqual(gitDataOutside(made('plain')), []);
@@ -456,6 +469,79 @@ describe("a folder's git data outside it, read only (BOX)", () => {
         const odd = made(`odd-${confinementKey(named)}`);
         writeFileSync(join(odd, '.git'), `gitdir: ${named}\n`);
         assert.deepEqual(gitDataOutside(odd), [], named);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("on this Mac, a .git file the agent writes opens no other repository's data (AUDIT BOX-1 F1)", {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const root = temporary();
+    try {
+      // A repository of the test's own beside the confined project, its config holding a marker.
+      const other = join(root, 'other-private-repo');
+      mkdirSync(other);
+      await run('/usr/bin/git', ['init', '-q', '-b', 'main'], { cwd: other });
+      await run('/usr/bin/git', ['config', 'halcyonic.marker', 'marker-7b3f'], { cwd: other });
+      // A real worktree of it elsewhere, so a named folder that exists is tried too.
+      await run(
+        '/usr/bin/git',
+        [
+          '-c',
+          'user.email=box@example.invalid',
+          '-c',
+          'user.name=box',
+          'commit',
+          '-q',
+          '--allow-empty',
+          '-m',
+          'box',
+        ],
+        { cwd: other },
+      );
+      await run('/usr/bin/git', ['worktree', 'add', '-q', join(root, 'real-wt'), '-b', 'real'], {
+        cwd: other,
+      });
+      const project = join(root, 'project');
+      const home = join(root, 'home');
+      const temp = join(root, 'temp');
+      for (const folder of [project, home, temp]) mkdirSync(folder);
+      for (const pointer of [
+        null,
+        `${join(other, '.git', 'worktrees', 'never-made')}`,
+        `${join(other, '.git', 'modules', 'x')}`,
+        '../other-private-repo/.git/worktrees/z',
+        `${join(other, '.git', 'worktrees', 'real-wt')}`,
+      ]) {
+        rmSync(join(project, '.git'), { force: true });
+        if (pointer !== null) writeFileSync(join(project, '.git'), `gitdir: ${pointer}\n`);
+        assert.deepEqual(gitDataOutside(project), [], String(pointer));
+        const file = join(temp, 'profile.sb');
+        writeFileSync(
+          file,
+          confinedProfile({
+            project,
+            readable: [],
+            codexHome: home,
+            temp,
+            runtimeFolder: home,
+            toolFolders: toolFoldersFor(process.execPath),
+            loopbackPorts: [11434],
+          }),
+        );
+        const read = await run(SANDBOX_EXEC, [
+          '-f',
+          file,
+          '/bin/cat',
+          join(other, '.git', 'config'),
+        ]).then(
+          ({ stdout }) => stdout,
+          (error: { stderr?: string }) => error.stderr ?? '',
+        );
+        assert.match(read, /Operation not permitted/, String(pointer));
+        assert.doesNotMatch(read, /marker-7b3f/, String(pointer));
       }
     } finally {
       rmSync(root, { recursive: true, force: true });
