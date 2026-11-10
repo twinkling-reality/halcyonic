@@ -123,6 +123,30 @@ public class RoomMotionTests
     }
 
     [Test]
+    public void TheCursorGlidesOverSixHundredMillisecondsAndDriftsAtMostAThirdOfADegree()
+    {
+        Assert.That(RoomMotion.CursorGlides(0f), Is.EqualTo(0f));
+        Assert.That(RoomMotion.CursorGlides(0.3f), Is.EqualTo(0.875f).Within(Close));
+        Assert.That(RoomMotion.CursorGlides(0.6f), Is.EqualTo(1f));
+        var widest = 0f;
+        var tallest = 0f;
+        var moved = false;
+        var last = RoomMotion.CursorDrift(0f);
+        for (var step = 1; step <= 2000; step++)
+        {
+            var drift = RoomMotion.CursorDrift(step * 0.05f);
+            widest = Math.Max(widest, Math.Abs(drift.Right));
+            tallest = Math.Max(tallest, Math.Abs(drift.Up));
+            Assert.That(Math.Abs(drift.Right - last.Right), Is.LessThan(0.02f), "it wanders, it never jumps");
+            moved |= drift.Right != last.Right;
+            last = drift;
+        }
+        Assert.That(moved, Is.True);
+        Assert.That(widest, Is.LessThanOrEqualTo(0.35f).And.GreaterThan(0.34f));
+        Assert.That(tallest, Is.LessThanOrEqualTo(0.21f + 1e-5f).And.GreaterThan(0.2f));
+    }
+
+    [Test]
     public void TheBandLeavesOnTheStandardCurve()
     {
         Assert.That(RoomMotion.BandLeaves(0f), Is.EqualTo(1f));

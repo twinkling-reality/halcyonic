@@ -20,7 +20,8 @@ namespace Halcyonic.XR.Workspace.Editor
     /// spirit of the spec's section 6. First the agent's words band (1.6): every word whole in the one type size, at most
     /// three lines a part with the product's way on, nothing on it but the words given, its ground within 6 of 255 of the page
     /// over white and over dark, its words at 4.5 to 1, inside the field where the spec stands it, and its motion at fixed
-    /// times. Then the working field (2.3), in KitRender.Parts.Field.cs. Every word shown is synthetic. In the editor: Halcyonic > Render the Redesign's Parts. In batch mode, with
+    /// times. Then the working field (2.3), in KitRender.Parts.Field.cs, and the
+    /// agent's cursor and its label, in KitRender.Parts.Cursor.cs. Every word shown is synthetic. In the editor: Halcyonic > Render the Redesign's Parts. In batch mode, with
     /// graphics: -executeMethod Halcyonic.XR.Workspace.Editor.KitRender.PartsCheck; it exits 1 when a check fails, and 2 on a
     /// clean pass narrowed by HALCYONIC_KIT_ONLY. Images go to apps/xr/Builds/PartsRenders, which git ignores; they carry no
     /// caption, so a part can be held beside the page's own state.
@@ -54,13 +55,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     failures.AddRange(BandMotion());
                     failures.AddRange(FieldMotion());
+                    failures.AddRange(CursorMotion());
                 }
                 failures.AddRange(GlazeChecks.AtEachTextSize(variant =>
                 {
                     var size = variant.Length == 0 ? "Standard" : variant;
                     var found = new List<string>();
                     var shown = 0;
-                    foreach (var state in BandStates.Concat(FieldStates))
+                    foreach (var state in BandStates.Concat(FieldStates).Concat(CursorStates))
                     {
                         if (narrowed && !state.Contains(only!, StringComparison.OrdinalIgnoreCase)) continue;
                         shown++;
@@ -114,7 +116,9 @@ namespace Halcyonic.XR.Workspace.Editor
             var eyes = new Vector3(0f, EyeHeight, 0f);
             try
             {
-                var shot = FieldStates.Contains(state) ? FieldShot(state, root.transform, eyes, name) : BandShot(state, root.transform, eyes, name);
+                var shot = FieldStates.Contains(state) ? FieldShot(state, root.transform, eyes, name)
+                    : CursorStates.Contains(state) ? CursorShot(state, root.transform, eyes, name)
+                    : BandShot(state, root.transform, eyes, name);
                 failures.AddRange(shot.Failures.Select(failure => name + ": " + failure));
                 SetLayer(root, KitLayer);
                 // Every label built again, as a font atlas change builds them: the part must stand through it.

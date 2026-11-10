@@ -56,6 +56,12 @@ namespace Halcyonic.Client
         /// <summary>The working field fades in, and out, over this long, on the standard curve.</summary>
         public const float FieldSeconds = 0.6f;
 
+        /// <summary>The agent's cursor glides to its next stop over this long, ease out.</summary>
+        public const float CursorSeconds = 0.6f;
+
+        /// <summary>Between steps the cursor drifts at most this far from its stop, in degrees at the eye.</summary>
+        public const float CursorDriftDegrees = 0.35f;
+
         /// <summary>Ease out, cubic: fast first, settling; 0 at 0 and 1 from 1 on.</summary>
         public static float EaseOut(float progress)
         {
@@ -101,6 +107,16 @@ namespace Halcyonic.Client
 
         /// <summary>How far the working field is still in view <paramref name="seconds"/> after it starts to fade out.</summary>
         public static float FieldLeaves(float seconds) => 1f - Standard(seconds / FieldSeconds);
+
+        /// <summary>How far along the way to its next stop the cursor is <paramref name="seconds"/> after a step starts: 600 ms, ease out.</summary>
+        public static float CursorGlides(float seconds) => EaseOut(seconds / CursorSeconds);
+
+        /// <summary>
+        /// The cursor's drift round its stop at <paramref name="seconds"/> on its clock, in degrees at the eye: right, and
+        /// up. A slow wander, never more than 0.35 degrees across and 0.21 up or down.
+        /// </summary>
+        public static (float Right, float Up) CursorDrift(float seconds) =>
+            ((float)Math.Sin(seconds * 0.9) * CursorDriftDegrees, -(float)Math.Cos(seconds * 0.7) * CursorDriftDegrees * 0.6f);
 
         /// <summary>A cubic bezier easing through (x1, y1) and (x2, y2): the value where the curve's time is <paramref name="progress"/>.</summary>
         private static float Bezier(float x1, float y1, float x2, float y2, float progress)
