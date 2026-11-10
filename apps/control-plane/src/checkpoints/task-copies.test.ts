@@ -193,6 +193,22 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     assert.equal(readFileSync(join(folder, 'a.txt'), 'utf8'), 'two\n');
   });
 
+  test('an add never goes through without its checkpoint of the project: nothing is written', async () => {
+    write('a.txt', 'one\n');
+    const made = await copies.prepare(PROJECT, TASK, folder);
+    assert.ok(made.ok);
+    writeFileSync(join(made.directory, 'b.txt'), 'from the task\n');
+    const outcome = await copies.add(
+      PROJECT,
+      TASK,
+      { copy: made.directory, base: made.baseTree, folder },
+      async () => null,
+    );
+    assert.equal(outcome.kind === 'failed' && outcome.code, 'before_add_failed');
+    assert.equal(outcome.kind === 'failed' && outcome.written, false);
+    assert.equal(existsSync(join(folder, 'b.txt')), false);
+  });
+
   test('a binary file both changed is named as binary, and a file one deleted as deleted', async () => {
     write('img.bin', 'base');
     write('gone.txt', 'keep\n');
