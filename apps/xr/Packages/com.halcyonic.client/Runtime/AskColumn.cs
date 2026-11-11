@@ -103,6 +103,8 @@ namespace Halcyonic.Client
             public const string Stopped = "Stopped";
             public const string NoAssistant = "No assistant on your computer";
             public const string Refused = "Your computer refused it";
+            /// <summary>A send whose acknowledgement never came, or failed on the way (AUDIT MUST, 2026-11-11; FIELD to settle).</summary>
+            public const string DidNotReach = "It did not reach your computer";
             public const string AtLimit = "It stopped at a limit";
             public const string CouldNotGoOn = "The assistant could not go on";
             public const string YouStopped = "You stopped it";
@@ -251,6 +253,40 @@ namespace Halcyonic.Client
                 default:
                     return;
             }
+            Changed?.Invoke();
+        }
+
+        /// <summary>
+        /// The send never left the headset (no session to send it through): the Ask is written again, its words kept, and
+        /// nothing is waited for (AUDIT MUST). Only while it stands Sent with no request.
+        /// </summary>
+        public void Unsent()
+        {
+            if (Stage != AskStage.Sent || RequestId != null) return;
+            CommandId = null;
+            Stage = AskStage.Writing;
+            Changed?.Invoke();
+        }
+
+        /// <summary>The send's acknowledgement failed on the way or came empty: Not Sent, with Try Again (AUDIT MUST).</summary>
+        public void NotReached()
+        {
+            if (Stage != AskStage.Sent || RequestId != null) return;
+            NotAnsweredBy(Words.DidNotReach, sent: false);
+        }
+
+        /// <summary>Whether Try Again may write and send the Ask anew: only one that was never sent.</summary>
+        public bool CanTryAgain => Stage == AskStage.NotAnswered && notSent && RequestId == null;
+
+        /// <summary>The Ask written again, its words kept, after a send that did not go.</summary>
+        public void TryAgain()
+        {
+            if (!CanTryAgain) return;
+            CommandId = null;
+            notAnswered = null;
+            notSent = false;
+            stopped = false;
+            Stage = AskStage.Writing;
             Changed?.Invoke();
         }
 

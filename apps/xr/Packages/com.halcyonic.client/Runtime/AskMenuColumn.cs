@@ -25,6 +25,7 @@ namespace Halcyonic.Client
         public const string Stop = "ask-stop";
         public const string Type = "ask-type";
         public const string Talk = "ask-talk";
+        public const string TryAgain = "ask-try-again";
 
         /// <summary>The column's own words, for FIELD to settle with the card's (<see cref="AskColumn.Words"/>).</summary>
         public static class Words
@@ -41,6 +42,9 @@ namespace Halcyonic.Client
             public const string AnswerDidNotGo = "Your answer did not go";
             /// <summary>A refused Stop (AUDIT SHOULD 1; FIELD to settle).</summary>
             public const string StopDidNotGo = "It did not stop";
+            /// <summary>A Send with no session to go through: the question kept (AUDIT MUST; FIELD to settle).</summary>
+            public const string SendDidNotGo = "Your question did not go";
+            public const string TryAgain = "Try Again";
         }
 
         /// <summary>How often the request is read while it is under way.</summary>
@@ -92,7 +96,9 @@ namespace Halcyonic.Client
                 var talk = WordsOpen && host.VoiceOffered ? new Prompt(Talk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null;
                 Prompt? main = null;
                 // Send and Send Answer stand only once there are words to send: an action that cannot act is not drawn.
-                if (Ask.CanSend)
+                if (Ask.CanTryAgain)
+                    main = new Prompt(TryAgain, Words.TryAgain, GlazeIcon.Refresh, main: true);
+                else if (Ask.CanSend)
                     main = new Prompt(Send, Words.Send, GlazeIcon.TellIt, main: true);
                 else if (Ask.Stage == AskStage.NeedsYou && answer.Trim().Length > 0)
                     main = new Prompt(Answer, Words.Answer, GlazeIcon.SendAnswer, main: true);
@@ -114,9 +120,22 @@ namespace Halcyonic.Client
                 case Send when Ask.CanSend:
                 {
                     var command = Ask.Submit();
-                    if (command != null) acknowledgement = host.Submit(command);
+                    if (command == null) return;
+                    acknowledgement = host.Submit(command);
+                    notice = null;
+                    // No session to send through: nothing went, so the question stands written again (AUDIT MUST).
+                    if (acknowledgement == null)
+                    {
+                        Ask.Unsent();
+                        notice = Words.SendDidNotGo;
+                        Changed?.Invoke();
+                    }
                     return;
                 }
+                case TryAgain when Ask.CanTryAgain:
+                    notice = null;
+                    Ask.TryAgain();
+                    return;
                 case Answer when Ask.Stage == AskStage.NeedsYou && Ask.RequestId != null && answer.Trim().Length > 0 && answered == null:
                     // The answer stays until the computer takes it: a refusal keeps it and says so (AUDIT SHOULD 1).
                     sentAnswer = answer;
@@ -210,7 +229,9 @@ namespace Halcyonic.Client
             if (acknowledgement is { IsCompleted: true } acked)
             {
                 acknowledgement = null;
-                Ask.Acknowledge(acked.Status == TaskStatus.RanToCompletion ? acked.Result : null);
+                // A send that failed on the way, or came back empty, did not reach the computer (AUDIT MUST).
+                if (acked.Status != TaskStatus.RanToCompletion || acked.Result == null) Ask.NotReached();
+                else Ask.Acknowledge(acked.Result);
             }
             if (reading is { IsCompleted: true } read)
             {
