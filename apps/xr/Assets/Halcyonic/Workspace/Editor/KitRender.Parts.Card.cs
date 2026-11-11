@@ -96,6 +96,11 @@ namespace Halcyonic.XR.Workspace.Editor
             };
         }
 
+        /// <summary>A review before Start whose first task pages and names a web address, so its warning stands.</summary>
+        private static NewWorkReview CardReview() => new NewWorkReview("Kite Run", "Make a kite", "Agent Studio", "Glimmer 30B", "On This Computer", "glimmer-30b-q4",
+            string.Join(" ", Enumerable.Repeat("Make a kite that follows my hand, climbs when I raise it, and dips when I lower it.", 4))
+            + " Use the wind from https://example.com/wind to pull it.", folder: "kite-run", neverAsk: false);
+
         private static RoomCard CardOf(string state)
         {
             LineWords Theirs(string words) => LineWords.TheirName(words);
@@ -123,13 +128,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     status: new RoomCardStatus("Needs You", "It asks you something below", RoomTone.Attention)),
                 "47-card-share" => new RoomCard(status: new RoomCardStatus("Shared", "Scan the code to play", RoomTone.Good),
                     slots: new[] { new RoomSlot(RoomKind.Wifi, Ours("192.168.1.20:47970")) },
-                    more: Ours("The game has changed since. They still get the last checked build."), code: CardCode()),
+                    more: Ours("They play the last checked build, without your newer changes."), code: CardCode()),
                 "47-card-reading" => new RoomCard(Theirs("tail.js"), slots: new[] { new RoomSlot(RoomKind.Changed, Ours("Edited")), new RoomSlot(RoomKind.Added, Ours("4 Lines")) },
                     reading: CardReading(), more: Ours("Page 1 of 2")),
                 // The review before Start, its first task too long to stand whole: the second of its pages, with a note to check.
-                "47-card-review" => RoomReview.Card(new NewWorkReview("Kite Run", "Make a kite", "Agent Studio", "Glimmer 30B", "On This Computer", "glimmer-30b-q4",
-                    string.Join(" ", Enumerable.Repeat("Make a kite that follows my hand, climbs when I raise it, and dips when I lower it.", 7)) + " Then run make wind to test it.",
-                    folder: "kite-run", neverAsk: false), page: 1),
+                "47-card-review" => RoomReview.Card(CardReview(), page: 1, pages: 2),
                 "47-card-history" => new RoomCard(Ours("History"), Ours("Pick a moment to restore."), list: new[]
                 {
                     new RoomListRow(RoomKind.Worked, Ours("After ") + Theirs("Tail") + Ours(" Worked"), "18:40", press: CardRowControl("c1")),
@@ -155,6 +158,12 @@ namespace Halcyonic.XR.Workspace.Editor
             var panel = Halcyonic.XR.UI.RoomSurface.Create(plane, "Information panel", RoomSurfaceKind.Information, KitType.Order.Plate);
             var view = RoomCardView.Create(panel.transform);
             var tall = view.Show(card, inner);
+            if (state == "47-card-review" && card.More?.Text != RoomReview.PartOf(1, view.DescriptionPages))
+            {
+                // As XR's flow does: the pages the view made at this width and size name the part, then the card is shown again.
+                card = RoomReview.Card(CardReview(), page: 1, pages: view.DescriptionPages);
+                tall = view.Show(card, inner);
+            }
             var size = new Vector2(width, tall + 2f * pad);
             panel.InnerBar = null;
             panel.Draw(size);
@@ -172,6 +181,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (paged != null)
                 {
                     Require(paged.pageToDisplay == asked + 1, "the description shows page " + paged.pageToDisplay + ", not " + (asked + 1));
+                    Require(card.More?.Text == RoomReview.PartOf(asked, view.DescriptionPages), "the foot line does not name this part of " + view.DescriptionPages);
                     var info = paged.textInfo.pageInfo[paged.pageToDisplay - 1];
                     Require(info.firstCharacterIndex <= 0 || char.IsWhiteSpace(paged.textInfo.characterInfo[info.firstCharacterIndex - 1].character), "a page starts inside a word");
                 }
@@ -242,8 +252,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(view.Plates.Count(each => each.What == "reading gap") == card.Reading.Count(row => row.Kind == RoomLineKind.Gap), "a gap has no hairline");
                 Require(card.Reading.Count <= RoomReading.RowsAPage, "the page holds more rows than a page");
             }
-            if (card.Slots.Count > 0)
+            if (card.Slots.Count > 1)
                 Require(Mathf.Abs(Left("slot")) < slack && Mathf.Abs(Right("slot") - inner) < slack, "the slots do not meet the card's two edges");
+            if (card.Slots.Count == 1)
+                Require(Mathf.Abs(Left("slot")) < slack && Right("slot") < inner - slack, "a card's one slot does not stand at its own width at the left");
             if (card.Gauges.Count > 0)
             {
                 Require(Mathf.Abs(Left("gauge tile")) < slack && Mathf.Abs(Right("gauge tile") - inner) < slack, "the gauges do not meet the card's two edges");
