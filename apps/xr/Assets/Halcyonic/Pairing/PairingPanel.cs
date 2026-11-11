@@ -1,6 +1,8 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Halcyonic.Client;
@@ -38,6 +40,9 @@ namespace Halcyonic.XR.Pairing
         private enum Step
         {
             Idle,
+
+            /// <summary>The search for computers with pairing open runs, or what it found waits to be picked (ADR 0017, amendment of 2026-11-11).</summary>
+            Finding,
             Address,
             Code,
             Pairing,
@@ -53,10 +58,13 @@ namespace Halcyonic.XR.Pairing
         private Task<Outcome>? pairing;
         private Task<bool>? forgetting;
         private PairedControlPlane? paired;
+        private Task<IReadOnlyList<FoundComputer>>? finding;
+        private IReadOnlyList<PairingChoice> found = Array.Empty<PairingChoice>();
+        private PairingColumn? column;
 
         public PairingNow Now => new PairingNow(paired?.Address, step switch
         {
-            Step.Address or Step.Code => PairingStep.Typing,
+            Step.Finding or Step.Address or Step.Code => PairingStep.Typing,
             Step.Pairing => PairingStep.Pairing,
             Step.Forgetting => PairingStep.Forgetting,
             _ => PairingStep.Idle,
@@ -85,7 +93,54 @@ namespace Halcyonic.XR.Pairing
         public void Pair()
         {
             if (step != Step.Idle || paired != null) return;
-            BeginPairing();
+            if (!TouchScreenKeyboard.isSupported)
+            {
+                Say("Pairing needs the headset's system keyboard; pair from the headset.");
+                return;
+            }
+            BeginFinding();
+        }
+
+        /// <summary>
+        /// Asks the Wi-Fi once for computers whose pairing is open, beside the menu, before any keyboard opens; what it finds is
+        /// offered to pick, never trusted (ADR 0017, amendment of 2026-11-11).
+        /// </summary>
+        private void BeginFinding()
+        {
+            step = Step.Finding;
+            if (column == null)
+            {
+                column = new PairingColumn(Chosen, () => { if (step == Step.Idle && paired == null) BeginFinding(); });
+                var shown = column;
+                shown.Closed += () => ColumnClosed(shown);
+                director?.Menu.Navigator.ShowBeside(shown, null);
+            }
+            column.Looking();
+            finding = Task.Run(() => ComputerFinder.FindAsync(TimeSpan.FromSeconds(2)));
+        }
+
+        /// <summary>A found computer picked goes straight to its code; none picked, the address is typed as before.</summary>
+        private void Chosen(PairingChoice? choice)
+        {
+            if (step != Step.Finding && !(step == Step.Idle && paired == null)) return;
+            if (choice is not PairingChoice computer)
+            {
+                BeginPairing();
+                return;
+            }
+            if (!TryParseAddress(computer.Address, out host, out port)) return;
+            step = Step.Code;
+            column?.Code(computer.Name, computer.Address);
+            keyboard = FocusGuard.Track(TouchScreenKeyboard.Open("", TouchScreenKeyboardType.NumberPad, false, false, false, false,
+                "The eight-digit code " + HostText.Your + " shows"));
+        }
+
+        /// <summary>The person closed the column: a search still under way is let go; anything typed or pairing goes on.</summary>
+        private void ColumnClosed(PairingColumn closed)
+        {
+            if (!ReferenceEquals(column, closed)) return;
+            column = null;
+            if (step == Step.Finding) step = Step.Idle;
         }
 
         public void Forget(string confirmedAddress)
@@ -120,6 +175,13 @@ namespace Halcyonic.XR.Pairing
             if (open.status != TouchScreenKeyboard.Status.Done)
             {
                 step = Step.Idle;
+                // With the column open, what was found is offered again; without it, as before.
+                if (column != null)
+                {
+                    step = Step.Finding;
+                    column.Found(found);
+                    return;
+                }
                 Say("Pairing canceled; nothing changed.");
                 return;
             }
@@ -135,6 +197,7 @@ namespace Halcyonic.XR.Pairing
                 PlayerPrefs.SetString(AddressPreference, typed.Trim());
                 PlayerPrefs.Save();
                 step = Step.Code;
+                column?.Code(null, typed.Trim());
                 keyboard = FocusGuard.Track(TouchScreenKeyboard.Open("", TouchScreenKeyboardType.NumberPad, false, false, false, false,
                     "The eight-digit code " + HostText.Your + " shows"));
                 Say("Type the eight-digit code " + HostText.Your + " shows.");
@@ -151,6 +214,14 @@ namespace Halcyonic.XR.Pairing
         /// <summary>Applies what the background work found, on the main thread.</summary>
         private void PollWork()
         {
+            if (finding != null && finding.IsCompleted)
+            {
+                // A search that failed (no Wi-Fi, a socket refused) found nothing: the person types the address.
+                var answered = finding.Status == TaskStatus.RanToCompletion ? finding.Result : Array.Empty<FoundComputer>();
+                finding = null;
+                found = answered.Select(computer => new PairingChoice(computer.Name, computer.Address, computer.SharesItsName)).ToList();
+                if (step == Step.Finding) column?.Found(found);
+            }
             if (pairing != null && pairing.IsCompleted)
             {
                 var outcome = pairing.Result;
@@ -158,12 +229,14 @@ namespace Halcyonic.XR.Pairing
                 step = Step.Idle;
                 if (outcome.Paired == null)
                 {
+                    column?.Refused(outcome.Code, outcome.AttemptsLeft);
                     Say(outcome.Message);
                     Log("pairing refused: " + outcome.Code + (outcome.AttemptsLeft == null ? "" : ", " + outcome.AttemptsLeft + " attempts left"));
                     return;
                 }
                 ControlPlaneSettings.PairingStore.Save(outcome.Paired);
                 paired = outcome.Paired;
+                column?.Paired();
                 Say("Paired with " + HostText.Your + " at " + paired.Address + ". Connecting over Wi-Fi.");
                 Log("paired; connecting over the network");
                 Reconnect();
