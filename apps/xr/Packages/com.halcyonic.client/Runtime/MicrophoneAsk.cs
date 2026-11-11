@@ -39,8 +39,9 @@ namespace Halcyonic.Client
     /// When Halcyonic asks for the microphone (ADR 0021, amended 2026-11-11): once, at the first open, after one line
     /// that says why, so the first hold to talk records; never again at an open. A hold asks only where no answer was
     /// ever given, or where the person refused once (the system asks once more); where the system no longer asks, the
-    /// hold's line says how to allow it. Launches that drive the app by settings skip the open's question,
-    /// since nothing may press a system dialog there.
+    /// hold's line says how to allow it. Nothing is asked while no computer is configured or the recorded demonstration
+    /// shows, and launches that drive the app by settings skip the open's question, since nothing may press a system
+    /// dialog there.
     /// </summary>
     public static class MicrophoneAsk
     {
@@ -54,9 +55,17 @@ namespace Halcyonic.Client
             : systemWouldExplain ? MicrophoneAccess.RefusedOnce
             : MicrophoneAccess.RefusedForGood;
 
-        /// <summary>Whether this open asks: only where it was never answered, and not in a launch driven by settings.</summary>
-        public static bool AskAtOpen(MicrophoneAccess access, bool drivenLaunch) =>
+        /// <summary>Whether this open may come to ask at all: only where it was never answered, and not in a launch driven by settings.</summary>
+        public static bool WaitsAtOpen(MicrophoneAccess access, bool drivenLaunch) =>
             access == MicrophoneAccess.NeverAsked && !drivenLaunch;
+
+        /// <summary>
+        /// Whether the open asks now: where it may (<see cref="WaitsAtOpen"/>), a computer is configured to take the voice
+        /// (<paramref name="computerConfigured"/>), and the recorded demonstration is not showing
+        /// (<paramref name="recordedRunShowing"/>; unknown counts as showing). Until then nothing is asked or kept.
+        /// </summary>
+        public static bool AskAtOpen(MicrophoneAccess access, bool drivenLaunch, bool computerConfigured, bool recordedRunShowing) =>
+            WaitsAtOpen(access, drivenLaunch) && computerConfigured && !recordedRunShowing;
 
         /// <summary>Whether an answer is kept as answered: a dismissed question is not, so the next hold asks.</summary>
         public static bool CountsAsAnswer(MicrophoneAnswer answer) => answer != MicrophoneAnswer.Dismissed;

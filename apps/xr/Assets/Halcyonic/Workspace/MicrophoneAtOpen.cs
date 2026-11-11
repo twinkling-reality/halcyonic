@@ -10,7 +10,8 @@ namespace Halcyonic.XR.Workspace
 {
     /// <summary>
     /// The microphone's question at the first open (ADR 0021, amended 2026-11-11; the rules in <see cref="MicrophoneAsk"/>):
-    /// once a computer is configured (<see cref="ControlPlaneSettings.Target"/>), one line that says why
+    /// once a computer is configured (<see cref="ControlPlaneSettings.Target"/>) and the recorded demonstration is not
+    /// showing (<see cref="ControlPlaneConnection.ShowingRecordedRun"/>), one line that says why
     /// (<see cref="Explaining"/>, for the host to show), then, once the app has focus, the system's question. The answer
     /// is kept on the headset, so no later open asks again. Hold to talk reads <see cref="Access"/> before it records.
     /// Every build, as hold to talk is since the owner's decision; a headset with no computer, as a judge's, is never
@@ -41,11 +42,12 @@ namespace Halcyonic.XR.Workspace
         private float targetAt = -TargetSeconds;
         private volatile int answer;
         private bool asked;
+        private ControlPlaneConnection? connection;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
         {
-            if (!MicrophoneAsk.AskAtOpen(Access(), DrivenLaunch())) return;
+            if (!MicrophoneAsk.WaitsAtOpen(Access(), DrivenLaunch())) return;
             var host = new GameObject(nameof(MicrophoneAtOpen)) { hideFlags = HideFlags.HideAndDontSave };
             DontDestroyOnLoad(host);
             host.AddComponent<MicrophoneAtOpen>();
@@ -55,10 +57,10 @@ namespace Halcyonic.XR.Workspace
         {
             if (explainedAt < 0f)
             {
-                // Never asked without a computer to talk to: a judge's headset with none is never asked.
+                // Never asked without a computer to talk to (a judge's headset with none) or over the recorded demonstration.
                 if (Time.unscaledTime - targetAt < TargetSeconds) return;
                 targetAt = Time.unscaledTime;
-                if (ControlPlaneSettings.Target() == null) return;
+                if (!MayAskNow(ControlPlaneSettings.Target() != null)) return;
                 explainedAt = Time.unscaledTime;
                 Explaining?.Invoke(MicrophoneAsk.Why);
                 return;
@@ -67,6 +69,13 @@ namespace Halcyonic.XR.Workspace
             {
                 // Another system dialog (the room's permission, for one) holds focus: wait for it to close.
                 if (Time.unscaledTime - explainedAt < ExplainSeconds || !Application.isFocused) return;
+                if (!MayAskNow(computerConfigured: true))
+                {
+                    // The recorded demonstration began while the line stood: take the line back and wait again.
+                    explainedAt = -1f;
+                    Explaining?.Invoke(null);
+                    return;
+                }
                 asked = true;
                 Ask();
                 return;
@@ -86,6 +95,14 @@ namespace Halcyonic.XR.Workspace
             Explaining?.Invoke(null);
             Answered?.Invoke(result);
             Destroy(gameObject);
+        }
+
+        /// <summary>Whether the open asks now (<see cref="MicrophoneAsk.AskAtOpen"/>); with no connection found, the recorded run counts as showing.</summary>
+        private bool MayAskNow(bool computerConfigured)
+        {
+            if (connection == null) connection = FindAnyObjectByType<ControlPlaneConnection>();
+            var recorded = connection == null || connection.ShowingRecordedRun;
+            return MicrophoneAsk.AskAtOpen(Access(), DrivenLaunch(), computerConfigured, recorded);
         }
 
         private void Ask()

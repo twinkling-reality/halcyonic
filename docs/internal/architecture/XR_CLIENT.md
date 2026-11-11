@@ -3506,7 +3506,8 @@ instruction; typing always stays:
   reports the end of a press.
 - **`HoldToTalk`** owns the microphone while a hold lasts, one clip at a time, at most 30
   seconds, then sends it through `SpeechClip` and `TranscribeAsync`. The microphone is asked once at
-  the first open with a computer configured (ADR 0021, amended 2026-11-11; every build): `MicrophoneAtOpen` shows one line that says why
+  the first open with a computer configured and the recorded demonstration not showing (ADR 0021, amended 2026-11-11;
+  every build; until then nothing is asked or kept): `MicrophoneAtOpen` shows one line that says why
   (`MicrophoneAsk.Why`, through its `Explaining` event for the host to show), waits until it can be read and the
   app has focus, then asks the system and keeps the answer on the headset (`PlayerPrefs`), so the first hold
   records and no later open asks. `MicrophoneAsk` holds the rules: a hold asks only where no answer was given or
