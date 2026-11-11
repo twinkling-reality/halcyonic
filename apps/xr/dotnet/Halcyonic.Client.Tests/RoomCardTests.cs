@@ -79,6 +79,19 @@ public sealed class RoomCardTests
     }
 
     [Test]
+    public void AStepMayBeNamedByTheProjectAndLeansAsItsWords()
+    {
+        var theirs = new RoomCardStep(LineWords.TheirName("typecheck"), RoomTone.Good);
+        var ours = new RoomCardStep("Build", RoomTone.Bad, 1, 2);
+
+        Assert.That(theirs.Name, Is.EqualTo("typecheck"));
+        Assert.That(theirs.Words.Runs.Single().Theirs, Is.True, "a script's name is the project's words");
+        Assert.That(ours.Words.Runs.Single().Theirs, Is.False);
+        Assert.That((ours.TriesUsed, ours.TriesOf), Is.EqualTo((1, 2)));
+        Assert.That(new RoomCard(steps: new[] { theirs, ours }).Words().ToList(), Is.EqualTo(new[] { "typecheck", "Build" }));
+    }
+
+    [Test]
     public void AFactStrungOnTheSeparatorIsCaught()
     {
         var card = new RoomCard(LineWords.Ours("Model" + KitMomentWords.Dot + "Glimmer"));

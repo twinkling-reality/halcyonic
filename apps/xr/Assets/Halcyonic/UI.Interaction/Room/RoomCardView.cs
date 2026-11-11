@@ -557,7 +557,7 @@ namespace Halcyonic.XR.UI
             for (var index = 0; index < steps.Count; index++)
             {
                 var (label, tall) = Text(KitRole.Label, StepNameDp, StepNameLineDp, steps[index].Tone == RoomTone.Skipped ? White(0.50f) : White(0.86f),
-                    LineWords.Ours(steps[index].Name), 0f, 0f, width, 1, TextAlignmentOptions.Top);
+                    steps[index].Words ?? LineWords.Ours(steps[index].Name ?? ""), 0f, 0f, width, 1, TextAlignmentOptions.Top);
                 labels[index] = label;
                 widths[index] = Mathf.Max(S(StepDp), RoomCursor.WordsWidth(label, 0f));
                 tallest = Mathf.Max(tallest, tall);
@@ -681,6 +681,7 @@ namespace Halcyonic.XR.UI
             RoomKind.Passed => RoomGlyph.Check,
             RoomKind.Failed => RoomGlyph.Alert,
             RoomKind.NotRun => RoomGlyph.Wait,
+            RoomKind.Waiting => RoomGlyph.Wait,
             RoomKind.ToAdd => RoomGlyph.File,
             RoomKind.Changed => RoomGlyph.Wave,
             RoomKind.Added => RoomGlyph.Plus,
