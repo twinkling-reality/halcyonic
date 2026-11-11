@@ -208,7 +208,7 @@ public class RoomResultTests
             Assert.That((bar.Result, bar.Body.Text, bar.Sentence, bar.Band), Is.EqualTo((true, "5 Files Changed", (string?)"Build Passed", (string?)"I added the golden balloon.")), Show(bar));
             Assert.That(bar.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.MakeVrVersion, RoomResult.ShowChanges, RoomResult.ShowChecks }));
             var agent = bar.Row.Single(action => action.Control.Action == AgentColumn.Open);
-            Assert.That(agent.Words, Does.Contain("Never Ask"), "the level the next start will use stays shown beside the result");
+            Assert.That(agent.Chip, Is.EqualTo("Never Ask"), "the level the next start will use stays shown beside the result, as the action's chip apart from its words");
             // The agent's moment adds its action to the loop's own bar and answers nothing, so the loop's bar is what stands.
             Assert.That(bar.FromMoment, Is.False);
         }

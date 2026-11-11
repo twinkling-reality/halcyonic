@@ -45,7 +45,7 @@ namespace Halcyonic.Client
 
         public string Agent { get; }
 
-        /// <summary>The name is a model's ("Model · "), not an agent app's ("Agent App · ").</summary>
+        /// <summary>The name is a model's ("Model"), not an agent app's ("Agent App").</summary>
         public bool ListsModels { get; }
 
         /// <summary>The runtime's descriptor offers a start that never asks; without it the levels are not drawn.</summary>
@@ -107,7 +107,8 @@ namespace Halcyonic.Client
 
     /// <summary>
     /// The agent and its level (the redesign's addendum A1, the owner's ask of 2026-11-10): one page whose subject is the
-    /// computer's fact, "Model · {model}", and whose lines are the two levels as answers, Ask First and Never Ask, and
+    /// agent's name alone, its first line what the name is (a model or an agent app, a fact apart, never joined to the
+    /// name on a dot: the addendum's A17), and whose next lines are the two levels as answers, Ask First and Never Ask, and
     /// Change, which turns the page to every agent and model that could run instead. A pick is handed to its owner at
     /// once and the page closes: the action at rest then reads the new choice, which is the sign it took. The page keeps
     /// nothing itself but which of its two faces shows.
@@ -133,9 +134,9 @@ namespace Halcyonic.Client
         public const string ChangeWords = "Change";
         public const string BackWords = "Back";
 
-        /// <summary>The review's own words for the fact (NewWorkReview).</summary>
-        public const string ModelLead = "Model · ";
-        public const string AgentAppLead = "Agent App · ";
+        /// <summary>What the agent's name is, the page's first line: the review's own words for the fact (NewWorkReview), without its separator.</summary>
+        public const string ModelWords = "Model";
+        public const string AgentAppWords = "Agent App";
 
         /// <summary>The agents and models a page holds as answers; more page by Next Choices.</summary>
         public const int OptionsAPage = 3;
@@ -170,9 +171,10 @@ namespace Halcyonic.Client
             get
             {
                 if (offer() is not AgentOffer now || !now.Chooses) return null;
-                var subject = LineWords.Ours(now.ListsModels ? ModelLead : AgentAppLead) + LineWords.TheirName(now.Agent);
+                var subject = LineWords.TheirName(now.Agent);
+                var kind = new PageLine(LineWords.Ours(now.ListsModels ? ModelWords : AgentAppWords), tone: LineTone.Secondary);
                 var footer = new Footer(new Prompt(Footer.Close, BackWords, GlazeIcon.Back, PromptKind.Close));
-                var lines = new List<PageLine>();
+                var lines = new List<PageLine> { kind };
                 if (changing && now.Options.Count > 1)
                 {
                     var pages = Pages(now.Options.Count);

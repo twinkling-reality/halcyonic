@@ -52,7 +52,7 @@ namespace Halcyonic.XR.UI
         /// <summary>Plus: New Project.</summary>
         Plus,
 
-        /// <summary>Pencil: Request Change, Write Instruction.</summary>
+        /// <summary>Pencil: Request Change, Change.</summary>
         Pencil,
 
         /// <summary>Arrow right: Continue.</summary>
@@ -69,6 +69,59 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Two sliders: Settings.</summary>
         Settings,
+
+        /// <summary>A speech bubble: Write Instruction, words for the agent.</summary>
+        Bubble,
+
+        /// <summary>An arrow turning back: Restore.</summary>
+        Undo,
+
+        // The marks of a card's kinds (the addendum's A17): drawn in a slot's tile or before a list row's name, never on an action.
+
+        /// <summary>A short level line: a file removed.</summary>
+        Minus,
+
+        /// <summary>A wave: a file edited.</summary>
+        Wave,
+
+        /// <summary>Two arrows passing: a file changed in both places.</summary>
+        Swap,
+
+        /// <summary>An hourglass: a check waiting to run.</summary>
+        Wait,
+
+        /// <summary>An upright stroke over a point: a check that failed, a status that went wrong.</summary>
+        Alert,
+
+        /// <summary>A wrench: a check being fixed.</summary>
+        Wrench,
+
+        /// <summary>A page with two lines: files.</summary>
+        File,
+
+        /// <summary>A folder.</summary>
+        Folder,
+
+        /// <summary>A screen on its stand: the computer an agent runs on.</summary>
+        Computer,
+
+        /// <summary>A window with its bar: the app an agent runs in.</summary>
+        App,
+
+        /// <summary>A flag: a moment after a task worked.</summary>
+        Flag,
+
+        /// <summary>A pin: a moment before a task started.</summary>
+        Pin,
+
+        /// <summary>A gauge's arc and its needle: how much is left.</summary>
+        Meter,
+
+        /// <summary>A stopwatch: a usage window of hours.</summary>
+        Timer,
+
+        /// <summary>A calendar: a usage window of days.</summary>
+        Calendar,
     }
 
     /// <summary>
@@ -215,6 +268,33 @@ namespace Halcyonic.XR.UI
             [RoomGlyph.Again] = new[] { Arc(12.14f, 11.64f, 6.75f, 162.45f, 150.85f), Line(17.5f, 3.5f, 17.5f, 7.25f), Line(17.5f, 7.25f, 13.75f, 7.25f) },
             // The cursor's arrow, closed: its tip at the upper left, down its long side, in to the notch, out to the right corner and back.
             [RoomGlyph.Agent] = new[] { Line(6.5f, 4.5f, 7f, 19.5f), Line(7f, 19.5f, 11f, 15.5f), Line(11f, 15.5f, 18f, 15f), Line(18f, 15f, 6.5f, 4.5f) },
+            // A rounded box of words, its tail at the lower left.
+            [RoomGlyph.Bubble] = new[] { Outline(4.5f, 5f, 19.5f, 16f, 3f), Line(8f, 16f, 7f, 19.5f), Line(7f, 19.5f, 11.5f, 16f) },
+            // An arrowhead pointing left at the upper left, its shaft running right and turning down and back round a half circle.
+            [RoomGlyph.Undo] = new[] { Line(9f, 6.5f, 5f, 10.5f), Line(5f, 10.5f, 9f, 14.5f), Line(5f, 10.5f, 14f, 10.5f), Arc(14f, 14.75f, 4.25f, 0f, 90f), Line(14f, 19f, 11f, 19f) },
+            [RoomGlyph.Minus] = new[] { Line(6f, 12f, 18f, 12f) },
+            // Two half waves, the left one rising, the right one falling, meeting in the middle.
+            [RoomGlyph.Wave] = new[] { Arc(8.5f, 13.5f, 3.5f, 270f, 70f), Arc(15.5f, 10.5f, 3.5f, 90f, 70f) },
+            // An arrow to the right above, an arrow to the left below.
+            [RoomGlyph.Swap] = new[] { Line(5f, 8.5f, 19f, 8.5f), Line(15.5f, 5f, 19f, 8.5f), Line(15.5f, 12f, 19f, 8.5f), Line(19f, 15.5f, 5f, 15.5f), Line(8.5f, 12f, 5f, 15.5f), Line(8.5f, 19f, 5f, 15.5f) },
+            // Its top and its foot, and the two sides crossing at the waist.
+            [RoomGlyph.Wait] = new[] { Line(7.5f, 4.5f, 16.5f, 4.5f), Line(7.5f, 19.5f, 16.5f, 19.5f), Line(8.5f, 5f, 15.5f, 19f), Line(15.5f, 5f, 8.5f, 19f) },
+            [RoomGlyph.Alert] = new[] { Line(12f, 5.5f, 12f, 13.5f), Line(12f, 18f, 12f, 18f) },
+            // The open jaw at the upper right, its handle down to the lower left.
+            [RoomGlyph.Wrench] = new[] { Arc(15f, 9f, 4.25f, 135f, 130f), Line(12f, 12f, 5.5f, 18.5f) },
+            [RoomGlyph.File] = new[] { Outline(6f, 3.5f, 18f, 20.5f, 2f), Line(9f, 9f, 15f, 9f), Line(9f, 13f, 15f, 13f) },
+            [RoomGlyph.Folder] = new[] { Outline(3.5f, 7.5f, 20.5f, 18.5f, 2f), Line(4.5f, 5f, 9.5f, 5f), Line(9.5f, 5f, 11.5f, 7.5f) },
+            [RoomGlyph.Computer] = new[] { Outline(4f, 5f, 20f, 15.5f, 2f), Line(12f, 15.5f, 12f, 19f), Line(8.5f, 19.5f, 15.5f, 19.5f) },
+            [RoomGlyph.App] = new[] { Outline(5f, 5f, 19f, 19f, 3f), Line(5f, 9f, 19f, 9f) },
+            [RoomGlyph.Flag] = new[] { Line(6.5f, 20.5f, 6.5f, 4f), Line(6.5f, 4.5f, 17.5f, 4.5f), Line(17.5f, 4.5f, 15f, 8.5f), Line(15f, 8.5f, 17.5f, 12.5f), Line(17.5f, 12.5f, 6.5f, 12.5f) },
+            // A round head with its hole, its two sides meeting in the point below.
+            // Half a dial, its needle up and to the right.
+            // A dial with its hand and the stem and button at its top.
+            [RoomGlyph.Timer] = new[] { Circle(12f, 13f, 6.5f), Line(12f, 13f, 12f, 9f), Line(12f, 13f, 14.5f, 14.5f), Line(12f, 6.5f, 12f, 4.5f), Line(9.5f, 3.5f, 14.5f, 3.5f) },
+            // A page with its bar and its two rings.
+            [RoomGlyph.Calendar] = new[] { Outline(4.5f, 6f, 19.5f, 19.5f, 2f), Line(4.5f, 10.5f, 19.5f, 10.5f), Line(8.5f, 4f, 8.5f, 7.5f), Line(15.5f, 4f, 15.5f, 7.5f) },
+            [RoomGlyph.Meter] = new[] { Arc(12f, 16f, 7.5f, 270f, 90f), Line(12f, 16f, 15.5f, 11.5f) },
+            [RoomGlyph.Pin] = new[] { Arc(12f, 10f, 6f, 270f, 125f), Line(7.1f, 13.4f, 12f, 20.5f), Line(16.9f, 13.4f, 12f, 20.5f), Circle(12f, 10f, 2f) },
             // Two tracks, each broken where its knob (a circle) rides: the upper one left of the middle, the lower one right of it.
             [RoomGlyph.Settings] = new[]
             {
@@ -240,8 +320,16 @@ namespace Halcyonic.XR.UI
             ["Discard Draft"] = RoomGlyph.Cross,
             ["Make VR Version"] = RoomGlyph.Cube, ["Changes"] = RoomGlyph.Changes, ["Checks"] = RoomGlyph.Checks, ["Back"] = RoomGlyph.Back, ["Next Part"] = RoomGlyph.Next,
             ["Next Page"] = RoomGlyph.Next, ["Next Choices"] = RoomGlyph.Next, ["Previous Part"] = RoomGlyph.Previous, ["Try Build"] = RoomGlyph.Play,
-            ["New Project"] = RoomGlyph.Plus, ["Request Change"] = RoomGlyph.Pencil, ["Write Instruction"] = RoomGlyph.Pencil, ["Continue"] = RoomGlyph.Continue,
+            ["New Project"] = RoomGlyph.Plus, ["Request Change"] = RoomGlyph.Pencil, ["Write Instruction"] = RoomGlyph.Bubble, ["Continue"] = RoomGlyph.Continue,
             ["Summarize"] = RoomGlyph.Lines, ["Choose Instruction"] = RoomGlyph.Lines, ["Run Checks Again"] = RoomGlyph.Again, ["Settings"] = RoomGlyph.Settings,
+            ["Restore"] = RoomGlyph.Undo, ["Let Agent Fix"] = RoomGlyph.Agent,
+        };
+
+        /// <summary>The card's kind marks (the addendum's A17), which stand in tiles and before list rows and never on an action.</summary>
+        public static readonly RoomGlyph[] Marks =
+        {
+            RoomGlyph.Minus, RoomGlyph.Wave, RoomGlyph.Swap, RoomGlyph.Wait, RoomGlyph.Alert, RoomGlyph.Wrench, RoomGlyph.File, RoomGlyph.Folder,
+            RoomGlyph.Computer, RoomGlyph.App, RoomGlyph.Flag, RoomGlyph.Pin, RoomGlyph.Meter, RoomGlyph.Timer, RoomGlyph.Calendar,
         };
 
         /// <summary>The two levels an agent works at, as the action that names the agent ends: "{agent} · Ask First", "{agent} · Never Ask".</summary>

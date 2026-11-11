@@ -12,13 +12,14 @@ namespace Halcyonic.XR.Workspace.Editor
     /// <summary>
     /// DESIGN's glyph set (BUILD-SPEC-v4 1.4's table) drawn from its geometry: every glyph in an action's chip at rest
     /// (white on the neutral chip) and in the main action's accent chip (#172024), 20 dp across, with the two home-size
-    /// actions at 24 dp; and every glyph alone at 96 dp, for holding against the design's own path data. Each glyph is
+    /// actions at 24 dp; every glyph alone at 96 dp, for holding against the design's own path data; and the card's kind
+    /// marks alone at 96 dp, which stand in tiles and before list rows and never on an action (the addendum's A17). Each glyph is
     /// read in the pixels: its colour on the middle of every one of its shapes and wherever its geometry says ink, and no
     /// ink where its geometry says none.
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] GlyphStates = { "43-glyphs", "43-glyphs-large" };
+        private static readonly string[] GlyphStates = { "43-glyphs", "43-glyphs-large", "43-glyphs-marks" };
 
         /// <summary>Each glyph with an action that carries it, in the product's own words.</summary>
         private static readonly (RoomGlyph Glyph, string Words)[] GlyphActions =
@@ -28,11 +29,11 @@ namespace Halcyonic.XR.Workspace.Editor
             (RoomGlyph.Changes, "Changes"), (RoomGlyph.Checks, "Checks"), (RoomGlyph.Back, "Back"), (RoomGlyph.Next, "Next Part · 2 of 3"),
             (RoomGlyph.Previous, "Previous Part"), (RoomGlyph.Play, "Try Build"), (RoomGlyph.Plus, "New Project"), (RoomGlyph.Pencil, "Request Change"),
             (RoomGlyph.Continue, "Continue"), (RoomGlyph.Lines, "Summarize"), (RoomGlyph.Again, "Run Checks Again"),
-            (RoomGlyph.Agent, "Tide 12B · Ask First"), (RoomGlyph.Settings, "Settings"),
+            (RoomGlyph.Agent, "Tide 12B · Ask First"), (RoomGlyph.Settings, "Settings"), (RoomGlyph.Bubble, "Write Instruction"), (RoomGlyph.Undo, "Restore"),
         };
 
         /// <summary>How many actions stand in each pair of the sheet's columns; the two home-size actions stand under the second pair.</summary>
-        private const int GlyphRows = 11;
+        private const int GlyphRows = 12;
 
         /// <summary>The large sheet: five glyphs a row in the set's order, each 96 dp across in a 120 dp cell.</summary>
         private const float GlyphLargeDp = 96f;
@@ -49,7 +50,9 @@ namespace Halcyonic.XR.Workspace.Editor
             var all = (RoomGlyph[])Enum.GetValues(typeof(RoomGlyph));
 
             // The table itself: every glyph has shapes, no more than the shader holds, all inside the grid with their stroke.
-            Require(GlyphActions.Select(action => action.Glyph).Distinct().Count() == all.Length, "the sheet does not show every glyph once");
+            Require(GlyphActions.Select(action => action.Glyph).Distinct().Count() == all.Length - RoomGlyphs.Marks.Length && GlyphActions.All(action => !RoomGlyphs.Marks.Contains(action.Glyph)),
+                "the sheet does not show every action's glyph once");
+            Require(RoomGlyphs.Marks.Distinct().Count() == RoomGlyphs.Marks.Length, "a mark is listed twice");
             foreach (var glyph in all)
             {
                 var shapes = RoomGlyphs.Of(glyph);
@@ -60,20 +63,21 @@ namespace Halcyonic.XR.Workspace.Editor
                         glyph + " reaches past its 24-unit box");
             }
             foreach (var (glyph, words) in GlyphActions) Require(RoomGlyphs.Named(words) == glyph, "\"" + words + "\" is not named " + glyph);
-            Require(RoomGlyphs.Named("Talk Again") == RoomGlyph.Microphone && RoomGlyphs.Named("Next Page") == RoomGlyph.Next && RoomGlyphs.Named("Write Instruction") == RoomGlyph.Pencil
+            Require(RoomGlyphs.Named("Talk Again") == RoomGlyph.Microphone && RoomGlyphs.Named("Next Page") == RoomGlyph.Next && RoomGlyphs.Named("Write Instruction") == RoomGlyph.Bubble
                 && RoomGlyphs.Named("Choose Instruction") == RoomGlyph.Lines && RoomGlyphs.Named("Send Answer") == RoomGlyph.Send && RoomGlyphs.Named("Confirm") == null, "an action's glyph is misnamed");
             // The agent's own glyph goes with the action that names an agent and its level, whatever the agent is called; a level alone is an answer.
             Require(RoomGlyphs.Named("Kite Run · Never Ask") == RoomGlyph.Agent && RoomGlyphs.Named("Ember 7B · Next · Ask First") == RoomGlyph.Agent && RoomGlyphs.Named("Ask First") == null
                 && RoomGlyphs.Named("Never Ask") == null && RoomGlyphs.Named(" · Ask First") == null && RoomGlyphs.Named("Tide 12B · Ask") == null, "the agent's glyph is misnamed");
 
-            if (state == "43-glyphs-large")
+            if (state == "43-glyphs-large" || state == "43-glyphs-marks")
             {
-                for (var index = 0; index < all.Length; index++)
+                var shown = state == "43-glyphs-marks" ? RoomGlyphs.Marks : all.Where(glyph => !RoomGlyphs.Marks.Contains(glyph)).ToArray();
+                for (var index = 0; index < shown.Length; index++)
                 {
-                    var view = RoomGlyphView.Create(plane, all[index].ToString());
-                    view.Show(all[index], GlyphLargeDp, RoomGlyphs.OnMain);
+                    var view = RoomGlyphView.Create(plane, shown[index].ToString());
+                    view.Show(shown[index], GlyphLargeDp, RoomGlyphs.OnMain);
                     view.transform.localPosition = new Vector3((index % 5 - 2) * GlyphCellDp * unit, (2f - index / 5) * GlyphCellDp * unit, 0f);
-                    drawn.Add((view, all[index], RoomGlyphs.OnMain, all[index] + " at 96 dp"));
+                    drawn.Add((view, shown[index], RoomGlyphs.OnMain, shown[index] + " at 96 dp"));
                 }
             }
             else

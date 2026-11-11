@@ -64,7 +64,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var size = variant.Length == 0 ? "Standard" : variant;
                     var found = new List<string>();
                     var shown = 0;
-                    foreach (var state in BandStates.Concat(FieldStates).Concat(CursorStates).Concat(GlyphStates).Concat(AgentStates).Concat(RowsStates).Concat(TagStates))
+                    foreach (var state in BandStates.Concat(FieldStates).Concat(CursorStates).Concat(GlyphStates).Concat(AgentStates).Concat(RowsStates).Concat(TagStates).Concat(CardStates))
                     {
                         if (narrowed && !state.Contains(only!, StringComparison.OrdinalIgnoreCase)) continue;
                         shown++;
@@ -233,6 +233,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     : AgentStates.Contains(state) ? AgentShot(state, root.transform, eyes, name)
                     : RowsStates.Contains(state) ? RowsShot(state, root.transform, eyes, name)
                     : TagStates.Contains(state) ? TagShot(state, root.transform, eyes, name)
+                    : CardStates.Contains(state) ? CardShot(state, root.transform, eyes, name)
                     : BandShot(state, root.transform, eyes, name);
                 failures.AddRange(shot.Failures.Select(failure => name + ": " + failure));
                 SetLayer(root, KitLayer);

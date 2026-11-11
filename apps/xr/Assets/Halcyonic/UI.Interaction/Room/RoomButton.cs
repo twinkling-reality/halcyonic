@@ -73,8 +73,12 @@ namespace Halcyonic.XR.UI
         /// <summary>An action's words are never cut: no ellipsis, as many lines as they need (this many at the very most), its box and backing as tall as its lines.</summary>
         public const int WordLines = 400;
 
-        /// <summary>Confirm's lock ring round the chip: radius 19 dp, 2 dp wide.</summary>
-        public const float RingRadiusDp = 19f;
+        /// <summary>
+        /// Confirm's lock ring (the addendum's A17, the lead's 0000Z and 0529Z: the ring must not overhang the chip): whole
+        /// outside the chip, 4 dp clear of its squircle's edge on its middle line, 2 dp wide, its track white at 34 percent
+        /// and its fill white, round the main action's own chip.
+        /// </summary>
+        public const float RingGapDp = 4f;
         public const float RingWidthDp = 2f;
 
         private const float DisabledOpacity = 0.45f;
@@ -117,6 +121,12 @@ namespace Halcyonic.XR.UI
         private AnswerMark mark;
         private bool chosen;
         private string? shownWords;
+        private string? shownAside;
+        private Surface asidePlate = null!;
+        private TextMeshPro asideWords = null!;
+        private Surface asideMark = null!;
+        private RoomGlyphView asideCheck = null!;
+        private float asideWidth;
         private bool held;
         private Vector2 core;
         private float chipCentreX;
@@ -168,6 +178,37 @@ namespace Halcyonic.XR.UI
             set => press.Available = value;
         }
 
+        /// <summary>
+        /// A fact of the action's own, as a chip of its own floating beside the action (the addendum's A17: the agent's
+        /// level after its name), never inside its plate and never joined to its words on a dot: 10 dp after the core, on
+        /// its middle line, its word in the label face 15 dp on a 20 dp line, white on its own backing (#282E33 at 78
+        /// percent, a 1 dp edge of white at 12 percent), 10 dp of room beside it and 3 dp above and below, its corner 10 dp.
+        /// It takes no press: the action's target is its core alone.
+        /// </summary>
+        public const float AsideGapDp = 10f;
+        public const float AsidePadXDp = 10f;
+        public const float AsidePadYDp = 3f;
+        public const float AsideTypeDp = 15f;
+        public const float AsideLineDp = 20f;
+        public const float AsideCornerDp = 10f;
+        public const int AsideGround = 0x282E33;
+        public const float AsideAlpha = 0.78f;
+        public const float AsideEdgeDp = 1f;
+        public const float AsideEdgeAlpha = 0.12f;
+
+        /// <summary>The chip holds a chosen fact (the agent's level): before its word, the chosen answer's small mark, neutral at rest, 16 dp, its check 11 dp, 7 dp from the word.</summary>
+        public const float AsideMarkDp = 16f;
+        public const float AsideMarkCheckDp = 11f;
+        public const float AsideMarkGapDp = 7f;
+        public const int AsideMarkColour = 0xE2E7EA;
+
+        /// <summary>The chip after the words as shown, or null where there is none.</summary>
+        public string? Aside => shownAside;
+
+        public Surface AsidePlate => asidePlate;
+
+        public TextMeshPro AsideWords => asideWords;
+
         /// <summary>Whether a hand holds the button now, for hold to talk.</summary>
         public bool Held => held;
 
@@ -212,6 +253,15 @@ namespace Halcyonic.XR.UI
             // Every action's words stand on the soft underlay (DESIGN 1.4): black at 35 percent, no offset.
             RoomBand.Underlay(button.words, action: true);
             button.glyph = RoomGlyphView.Create(button.visual, "Glyph", order + 3);
+            button.asidePlate = Surface.Create(button.visual, "Aside", order + 2);
+            button.asideWords = KitType.Create(button.visual, "Aside words", KitRole.Label, Color.white, order + 3, TextAlignmentOptions.TopLeft, room: true);
+            button.asideWords.textWrappingMode = TextWrappingModes.NoWrap;
+            button.asideMark = Surface.Create(button.visual, "Aside mark", order + 3);
+            button.asideCheck = RoomGlyphView.Create(button.visual, "Aside check", order + 4);
+            button.asidePlate.gameObject.SetActive(false);
+            button.asideMark.gameObject.SetActive(false);
+            button.asideCheck.Hide();
+            button.asideWords.gameObject.SetActive(false);
             var height = RoomType.Units(HeightDp);
             button.press = KitPress.Create(go, new Vector2(height, height));
             button.press.Pressed += () => button.Pressed?.Invoke();
@@ -283,6 +333,21 @@ namespace Halcyonic.XR.UI
             return new Vector2(inner + wordsWidth, RoomType.Units(CoreHeightDp) + (lines - 1) * RoomType.Scaled(RoomGeometry.LineDp));
         }
 
+        /// <summary>The width the action takes with these words and the chip beside it, in the plane's units: its core, then the chip.</summary>
+        public float Measure(string text, string? aside) => Measure(text) + AsideRoom(aside);
+
+        /// <summary>The room a chip of <paramref name="aside"/> takes after the words, its gap with it; none for no chip.</summary>
+        private float AsideRoom(string? aside)
+        {
+            if (string.IsNullOrWhiteSpace(aside)) return 0f;
+            asideWords.text = aside;
+            asideWords.fontSize = GlazeTokens.FontSize(RoomType.Scaled(AsideTypeDp));
+            asideWords.lineSpacing = KitType.LineSpacingFor(asideWords, AsideLineDp / AsideTypeDp);
+            asideWords.rectTransform.sizeDelta = new Vector2(RoomType.Units(2000f), RoomType.Scaled(AsideLineDp));
+            asideWords.ForceMeshUpdate(true);
+            return RoomType.Scaled(AsideGapDp) + RoomType.Scaled(AsideMarkDp + AsideMarkGapDp) + RoomCursor.WordsWidth(asideWords, 0f) + 2f * RoomType.Scaled(AsidePadXDp);
+        }
+
         /// <summary>Where its words end, from its centre, in its parent's units: what stands after them inside the halo starts here.</summary>
         public float WordsEnd => words.transform.localPosition.x + words.GetPreferredValues(words.text).x;
 
@@ -291,7 +356,7 @@ namespace Halcyonic.XR.UI
         /// Its target is the core grown to Meta's hand target.
         /// </summary>
         public void Show(string text, GlazeIcon? icon, bool isMain, bool available, Vector2 centre, float width, AnswerMark mark = AnswerMark.None,
-            bool chosen = false, float wrap = 0f)
+            bool chosen = false, float wrap = 0f, string? aside = null)
         {
             // An action that cannot act yet is not drawn (BUILD-SPEC-v4 1.4, 2026-11-05): no disabled look; it arrives when it can act.
             if (!available)
@@ -300,24 +365,46 @@ namespace Halcyonic.XR.UI
                 return;
             }
             var arrives = !gameObject.activeSelf;
-            var changed = arrives || shownWords != text || main != isMain || this.mark != mark || this.chosen != chosen;
+            aside = string.IsNullOrWhiteSpace(aside) ? null : aside;
+            var changed = arrives || shownWords != text || shownAside != aside || main != isMain || this.mark != mark || this.chosen != chosen;
             shownWords = text;
+            shownAside = aside;
             main = isMain;
             this.mark = mark;
             this.chosen = chosen;
             var target = RoomType.Units(HeightDp);
             var measured = Measure(text, wrap);
-            var coreWidth = Mathf.Max(width, measured.x);
+            asideWidth = AsideRoom(aside);
+            var coreWidth = Mathf.Max(width - asideWidth, measured.x);
             core = new Vector2(coreWidth, measured.y);
             chipCentreX = -coreWidth / 2f + RoomType.Units(ChipPadDp + ChipSizeDp / 2f);
             words.transform.localPosition = new Vector3(chipCentreX + RoomType.Units(ChipSizeDp / 2f + GapDp), 0f, -RoomType.Units(0.5f));
+            asidePlate.gameObject.SetActive(aside != null);
+            asideWords.gameObject.SetActive(aside != null);
+            asideMark.gameObject.SetActive(aside != null);
+            if (aside == null) asideCheck.Hide();
+            if (aside != null)
+            {
+                var plate = new Vector2(asideWidth - RoomType.Scaled(AsideGapDp), RoomType.Scaled(AsideLineDp + 2f * AsidePadYDp));
+                var from = coreWidth / 2f + RoomType.Scaled(AsideGapDp);
+                DrawAside(plate, 1f);
+                asidePlate.transform.localPosition = new Vector3(from + plate.x / 2f, 0f, -RoomType.Units(0.4f));
+                var markAt = from + RoomType.Scaled(AsidePadXDp) + RoomType.Scaled(AsideMarkDp) / 2f;
+                var markColour = new Color(((AsideMarkColour >> 16) & 0xFF) / 255f, ((AsideMarkColour >> 8) & 0xFF) / 255f, (AsideMarkColour & 0xFF) / 255f, 1f);
+                asideMark.Draw(new Vector2(RoomType.Scaled(AsideMarkDp), RoomType.Scaled(AsideMarkDp)), RoomType.Scaled(AsideMarkDp) / 2f, markColour);
+                asideMark.transform.localPosition = new Vector3(markAt, 0f, -RoomType.Units(0.5f));
+                asideCheck.Show(RoomGlyph.Check, AsideMarkCheckDp * GlazeText.Scale, RoomGlyphs.OnMain);
+                asideCheck.transform.localPosition = new Vector3(markAt, 0f, -RoomType.Units(0.6f));
+                asideWords.transform.localPosition = new Vector3(from + RoomType.Scaled(AsidePadXDp + AsideMarkDp + AsideMarkGapDp), RoomType.Scaled(AsideLineDp) / 2f, -RoomType.Units(0.5f));
+            }
             press.Resize(new Vector2(Mathf.Max(target, coreWidth), Mathf.Max(target, core.y)));
             // A mark holds no glyph but its check once chosen.
             if (mark != AnswerMark.None) Lay(chosen ? RoomGlyph.Check : (RoomGlyph?)null, MarkCheckDp * GlazeText.Scale);
             else Lay(GlyphOf(text, icon), (size == RoomButtonSize.Home ? HomeGlyphDp : GlyphDp) * GlazeText.Scale);
             LockProgress = null;
             press.Available = available;
-            transform.localPosition = new Vector3(centre.x, centre.y, -RoomType.Units(1f));
+            // The core stands where it would alone; the chip beside it takes the room after it that the caller laid out.
+            transform.localPosition = new Vector3(centre.x - asideWidth / 2f, centre.y, -RoomType.Units(1f));
             if (changed) press.Unsettle();
             if (arrives)
             {
@@ -414,9 +501,8 @@ namespace Halcyonic.XR.UI
         public const int MainHaloColour = 0x22586A;
         public const int MainPointedHaloColour = 0x296A7F;
 
-        /// <summary>An action's chip at rest, a neutral that shows over a bright room and a dark one (#4A5258), and Confirm's round well while it locks (#2A3035).</summary>
+        /// <summary>An action's chip at rest, a neutral that shows over a bright room and a dark one (#4A5258).</summary>
         public const int RestChipColour = 0x4A5258;
-        public const int LockWellColour = 0x2A3035;
 
         /// <summary>How far the backing's edge feathers each way, in dp.</summary>
         public const float HaloFeatherDp = 6f;
@@ -440,8 +526,7 @@ namespace Halcyonic.XR.UI
             Color chip;
             Color glyphColour;
             if (mark != AnswerMark.None) (chip, glyphColour) = (chosen ? accent : new Color(1f, 1f, 1f, 0f), ink);
-            else if (locked) (chip, glyphColour) = (RoomSurface.Hex(LockWellColour), accent);
-            else if (main) (chip, glyphColour) = (held ? Dim(accent) : accent, ink);
+            else if (main || locked) (chip, glyphColour) = (held ? Dim(accent) : accent, ink);
             else if (held) (chip, glyphColour) = (Dim(light), ink);
             else if (pointed) (chip, glyphColour) = (light, ink);
             else (chip, glyphColour) = (RoomSurface.Hex(RestChipColour), Color.white);
@@ -488,8 +573,8 @@ namespace Halcyonic.XR.UI
             halo.transform.localScale = new Vector3(quadSize.x * unit, quadSize.y * unit, 1f);
             halo.transform.localPosition = new Vector3(0f, 0f, RoomType.Units(0.02f));
             var chipDp = ChipSizeDp;
-            // Behind its lock Confirm's chip is round, its ring just inside its rim.
-            var cornerDp = locked ? chipDp / 2f : (size == RoomButtonSize.Home ? HomeChipCornerDp : ChipCornerDp) * textScale;
+            // Behind its lock Confirm's chip is the main action's own squircle; its ring stands whole outside it.
+            var cornerDp = (size == RoomButtonSize.Home ? HomeChipCornerDp : ChipCornerDp) * textScale;
             var markLine = 0f;
             if (mark != AnswerMark.None)
             {
@@ -505,12 +590,35 @@ namespace Halcyonic.XR.UI
             block.SetVector(QuadId, new Vector4(-quadSize.x / 2f, -quadSize.y / 2f, quadSize.x, quadSize.y));
             block.SetVector(ChipId, new Vector4(chipCentreX / unit, 0f, chipDp, cornerDp));
             block.SetVector(ChipColourId, chipNow);
-            block.SetVector(RingId, new Vector4(chipDp / 2f - RingWidthDp / 2f, RingWidthDp, LockProgress ?? 0f, locked ? 1f : 0f));
+            block.SetVector(RingId, new Vector4(RingRadius(chipDp, cornerDp), RingWidthDp, LockProgress ?? 0f, locked ? 1f : 0f));
             block.SetVector(MarkId, new Vector4(chipDp, cornerDp, MarkLineDp, markLine));
             block.SetFloat(FadeId, fade);
             halo.SetPropertyBlock(block);
             if (glyphShown is RoomGlyph shown) glyph.Show(shown, glyphDp, new Color(glyphNow.r, glyphNow.g, glyphNow.b, glyphNow.a * fade));
             if (!Mathf.Approximately(words.alpha, move.Shown)) words.alpha = move.Shown;
+            if (shownAside != null)
+            {
+                if (!Mathf.Approximately(asideWords.alpha, move.Shown)) asideWords.alpha = move.Shown;
+                DrawAside(asidePlate.Size, fade);
+            }
+        }
+
+        /// <summary>
+        /// The lock ring's radius, in dp, for a chip <paramref name="chipDp"/> across with corners of <paramref name="cornerDp"/>:
+        /// its inner edge <see cref="RingGapDp"/> past the squircle's farthest point, its corner, so it never touches the chip.
+        /// </summary>
+        public static float RingRadius(float chipDp, float cornerDp)
+        {
+            var half = chipDp / 2f;
+            var corner = Mathf.Min(cornerDp, half);
+            var farthest = (half - corner) * Mathf.Sqrt(2f) + corner;
+            return farthest + RingGapDp + RingWidthDp / 2f;
+        }
+
+        private void DrawAside(Vector2 plate, float fade)
+        {
+            var ground = new Color(((AsideGround >> 16) & 0xFF) / 255f, ((AsideGround >> 8) & 0xFF) / 255f, (AsideGround & 0xFF) / 255f, AsideAlpha * fade);
+            asidePlate.Draw(plate, RoomType.Scaled(AsideCornerDp), ground, new Color(1f, 1f, 1f, AsideEdgeAlpha * fade), RoomType.Scaled(AsideEdgeDp));
         }
 
         private static Material Material

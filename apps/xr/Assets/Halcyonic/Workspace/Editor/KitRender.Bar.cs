@@ -532,12 +532,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (state == "36-work-fixing")
                     {
                         Require(bar.Panel.gameObject.activeSelf && host.Band.Words == null, "the panel does not stand while a try runs, or the band does");
-                        Require(bar.Sentence.gameObject.activeSelf && bar.Sentence.text == LabelText.ForTextMeshPro(RoomBar.FixingWords(1, 2)) && bar.SentenceWaits,
-                            "the sentence bar reads \"" + bar.Sentence.text + "\" and does not sweep");
-                        Whole(bar.Sentence, "the try's words");
-                        var failed = bar.Facts;
-                        Require(failed != null && failed.Count == 1 && failed.Label(0).GetParsedText().Trim() == RoomBar.FixingFailed && failed.Mark(0).gameObject.activeSelf,
-                            "the panel's row does not say the check failed, with its mark");
+                        // The fixing card (A17): "Fixing" over its line, the first of two tries a filled pip under its mark, no sentence.
+                        var card = bar.Card;
+                        Require(card != null && card.Shown.Count >= 1 && card.Shown[0].GetParsedText() == RoomBar.FixingTitle && !bar.Sentence.gameObject.activeSelf,
+                            "the panel is not the fixing card: \"" + (card == null ? "no card" : string.Join(" / ", card.Shown.Select(label => label.GetParsedText()))) + "\"");
+                        if (card != null)
+                            Require(card.Plates.Count(each => each.What == "pip used") == 1 && card.Plates.Count(each => each.What == "pip") == 1, "the card's pips are not the first of two tries");
                     }
                     else Require(!bar.Panel.gameObject.activeSelf && host.Band.Words == null, "a panel or the band stands while the agent works");
                     var stop = bar.Column[0];

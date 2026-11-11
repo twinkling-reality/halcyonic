@@ -54,9 +54,13 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             Place(plane, eyes, 0f, shot.Elevation);
 
-            // What the view drew of it: the fact alone in the panel, and the page's own actions down the column, none of them main.
-            Require(view.Panel.gameObject.activeSelf && view.Body.gameObject.activeSelf && string.Join(" ", view.Body.GetParsedText().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)) == "Model · Glimmer 30B",
-                "the panel does not hold the fact alone: \"" + view.Body.GetParsedText() + "\"");
+            // What the view drew of it: the agent's card in the panel (its name as the title, what it is as its line, never
+            // joined on a dot: the addendum's A17), and the page's own actions down the column, none of them main.
+            var card = view.Card;
+            var shownWords = card == null ? new List<string>() : card.Shown.Select(label => label.GetParsedText()).ToList();
+            Require(view.Panel.gameObject.activeSelf && card != null && !view.Body.gameObject.activeSelf && shownWords.Count == 2 && shownWords[0] == "Glimmer 30B"
+                && (shownWords[1] == AgentColumn.ModelWords || shownWords[1] == AgentColumn.AgentAppWords),
+                "the panel does not hold the agent's card alone: \"" + string.Join(" / ", shownWords) + "\"");
             Require(!view.Sentence.gameObject.activeInHierarchy || string.IsNullOrEmpty(view.Sentence.text), "the panel has a sentence the page did not give");
             Require(buttons.Count == expected.Length, buttons.Count + " actions stand for " + expected.Length);
             for (var index = 0; index < buttons.Count && index < expected.Length; index++)
@@ -104,12 +108,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         most = Mathf.Max(most, Light(At(dark, button.Words.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 60f), bounds.center.y, 0f)))));
                     if (most < 170) failures.Add(button.Words.text + ": no words in the pixels, the lightest reads " + most + " of 255");
                 }
+                if (view.Card is RoomCardView shownCard && shownCard.Shown.Count > 0)
                 {
-                    var bounds = view.Body.textBounds;
+                    var title = shownCard.Shown[0];
+                    var bounds = title.textBounds;
                     var most = 0;
                     for (var step = 0; step <= 120; step++)
-                        most = Mathf.Max(most, Light(At(dark, view.Body.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 120f), bounds.center.y, 0f)))));
-                    if (most < 170) failures.Add("the panel's fact is not in the pixels, the lightest reads " + most + " of 255");
+                        most = Mathf.Max(most, Light(At(dark, title.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 120f), bounds.max.y - KitType.LinePitch(title) * 0.5f, 0f)))));
+                    if (most < 170) failures.Add("the agent's name is not in the pixels, the lightest reads " + most + " of 255");
                 }
                 Debug.Log("Halcyonic: parts: " + name + ": " + buttons.Count + " actions beside the fact, each the page's own" + (marks.Count > 0 ? "; marks' middles " + string.Join(", ", marks) : "") + ".");
             };
