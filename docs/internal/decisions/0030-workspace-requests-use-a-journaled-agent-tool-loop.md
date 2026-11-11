@@ -118,7 +118,10 @@ answer from.
   on with my work". It is read-only and offered `read_projects` (the person's projects by index, at most 64,
   with task counts by state, the latest check, and whether a fix chain runs), `read_project_at {index}` (one of
   that list, read as `read_project`; it chooses the project whose tasks `read_task` then reads) and
-  `ask_person`. Only Halcyonic's own projects, from the host's own lists; the model never names one. Answers
+  `ask_person`. `read_projects` also gives `projects_total`, and `read_project` and `read_project_at` give
+  `tasks_total`, the whole count from the host's lists, and the prompt says to give that number rather than count what
+  was read (the 30B model said three of ten projects, 2026-11-11).
+  Only Halcyonic's own projects, from the host's own lists; the model never names one. Answers
   name projects and tasks by the names the host gave. Admission refuses any other mix of null fields.
 - The model: a request runs on the person's chosen local model, the one `pnpm mac-setup local-model` named,
   where one is set, else on the companion's model; never a hosted model (the lead, 2026-11-10). SYSTEM.md
@@ -135,5 +138,6 @@ answer from.
   so (`work_outcome_in`). A model that still answers with a tool call there fails that turn, as for any
   call not offered.
 - On that turn the host also says, in a system message, to answer in plain words; and a reply that is a tool call
-  written as text (function-call or invoke markup, or a bare JSON call) is never kept as the reply: the request is
+  written as text (a reply that starts with function-call or invoke markup, or bare JSON naming one of the assistant's
+  own tools; an answer holding JSON or quoting markup stays an answer, AUDIT2 S1) is never kept as the reply: the request is
   interrupted with a step saying so, and Resume asks again (the 30B model wrote one, 2026-11-11).

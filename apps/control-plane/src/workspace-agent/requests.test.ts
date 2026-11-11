@@ -1723,6 +1723,9 @@ test('a request about all work lists the projects, reads a task of the second, a
       .join('\n');
     assert.match(text, /First garden/);
     assert.match(text, /Second garden task/);
+    // The lists give their whole counts.
+    assert.match(text, /"projects_total":2/);
+    assert.match(text, /"tasks_total":1/);
     assert.match(text, /tool_not_offered/);
   } finally {
     await f.close();
@@ -1839,6 +1842,12 @@ test('a tool call written as text is recognised; plain replies are not', () => {
   assert.equal(looksLikeToolCall('{"name": "observe_task", "arguments": {}}'), true);
   assert.equal(looksLikeToolCall('The sphere is blue now, and the check passed.'), false);
   assert.equal(looksLikeToolCall('I could invoke the check again if you like.'), false);
+  // Answers, not calls (AUDIT2 S1): JSON the person asked for, and markup or code quoted in a sentence.
+  assert.equal(looksLikeToolCall('{"name": "my-app", "version": "1.0.0"}'), false);
+  assert.equal(looksLikeToolCall('I changed `<button onclick=invoke()>` to use a handler.'), false);
+  assert.equal(looksLikeToolCall('Use a `<tool_call>` tag? No.'), false);
+  assert.equal(looksLikeToolCall('The package says {"name": "app"} in its first line.'), false);
+  assert.equal(looksLikeToolCall('  {"tool": "read_projects"}'), true);
 });
 
 test('on the turn offered no tool, the host says to answer, and a written tool call is never the reply', async () => {
