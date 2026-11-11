@@ -162,6 +162,8 @@ export interface SetupState {
     readonly title: string;
     readonly status: SetupStep['status'];
     readonly lines: readonly string[];
+    /** Commands for the person to run in Terminal, shown as text and never run by the page. */
+    readonly next: readonly string[];
     readonly actions: readonly SetupActionView[];
   }[];
   readonly job: {
@@ -490,6 +492,9 @@ export class SetupView {
         title: step.title,
         status: step.status,
         lines: step.lines.map((line) => this.#tilde(line)),
+        // The commands the terminal prints under the step, as it prints them (already written for a
+        // shell, so never turned to ~), for the person to run themselves.
+        next: [...new Set(step.next ?? [])],
         actions: (STEP_ACTIONS[step.id] ?? []).map((view) => {
           const download =
             view.action === 'download' ? this.#downloads.get(view.arg ?? '') : undefined;

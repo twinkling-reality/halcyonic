@@ -43,6 +43,13 @@ import { delimiter, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 import type { DevicesResponse, LocationsResponse, Snapshot } from '@halcyonic/contracts';
+import { OPENCODE_SANDBOX_FOLDER, sandboxedSessionStore } from '@halcyonic/integration-opencode';
+import {
+  defaultSalidiumHome,
+  LAST_OWN_SOURCES_ONLY,
+  readsOtherToolsSources,
+  SalidiumClient,
+} from '@halcyonic/integration-salidium';
 import { isCloudName } from '../companion/ollama.ts';
 import {
   ConfigError,
@@ -64,6 +71,7 @@ import {
   serverProvesToken,
 } from '../http/security.ts';
 import { OMNORIUM_CREDENTIAL_FILE } from '../intelligence/catalog.ts';
+import { CODEX_CONFINED_FOLDER } from '../intelligence/codex-home.ts';
 import { SEORAK_CREDENTIAL_FILE } from '../intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from '../intelligence/understanding.ts';
 import { type PinnedFile, type Pins, pinsForThisMac, sha256File } from '../pins.ts';
@@ -352,7 +360,7 @@ class MacSetup {
     add('sharing', await this.#sharingStep(env));
     add('companion', await this.#companionStep(env, ollama, running));
     add('usage_left', this.#usageLeftStep(running));
-    add('understand', this.#understandStep());
+    add('understand', await this.#understandStep());
     add('catalog', this.#catalogStep());
     add('running', this.#runningStep(env, running));
     add('headset', this.#headsetStep(env, running));
@@ -1145,21 +1153,44 @@ class MacSetup {
         lines: [
           'A Seorak credential is saved. Whether Seorak accepts it shows when Halcyonic runs and you check with pnpm mac-setup --with-token.',
           about,
+          ...this.#seorakOwnSessions(),
         ],
+        next: this.#seorakOwnSessionsNext(),
       };
     }
     if (reading.availability === 'available')
-      return { title, status: 'ready', lines: ['Usage left is set up.', about] };
+      return {
+        title,
+        status: 'ready',
+        lines: ['Usage left is set up.', about, ...this.#seorakOwnSessions()],
+        next: this.#seorakOwnSessionsNext(),
+      };
     return { title, status: 'todo', lines: [usageLeftProblem(reading.code), about] };
   }
 
-  #understandStep(): Step {
+  /**
+   * What Seorak needs to read Halcyonic's own Codex tasks for their Checks: one setting, in a Seorak
+   * that has it (not released on 2026-11-11). Seorak publishes no version to tell by, and whether it
+   * was set this Mac cannot see. Seorak reads no OpenCode tasks.
+   */
+  #seorakOwnSessions(): string[] {
+    return [
+      "For Halcyonic's own Codex tasks, Seorak needs to be told where they are: run the line below in Terminal, with a Seorak that has this setting. It lets Seorak read those sessions beside its own. This Mac can't see whether you ran it: until you do, those tasks' Checks say they aren't set up yet. Seorak doesn't read OpenCode tasks.",
+    ];
+  }
+
+  #seorakOwnSessionsNext(): string[] {
+    const data = this.#forShell(this.#dataDir);
+    return [
+      `SEORAK_CODEX_EXTRA_DIRS="${data}/${CODEX_HOME_FOLDER}/sessions:${data}/${CODEX_CONFINED_FOLDER}/*/sessions" seorak setup`,
+    ];
+  }
+
+  async #understandStep(): Promise<Step> {
     const title = 'What changed and why';
     const path = join(this.#dataDir, SALIDIUM_CREDENTIAL_FILE);
-    // Salidium reads only the person's own Codex home and OpenCode store, never Halcyonic's
-    // (salidium-consumer-contract.md), so only Claude Agent's tasks can be answered.
     const about =
-      "Salidium tells the headset's Understand tab what a task changed and why, for tasks on Claude Agent. Halcyonic keeps its Codex and OpenCode tasks in folders of its own, which Salidium doesn't read, so their Understand tab says it doesn't follow them.";
+      "Salidium tells the headset's Understand tab what a task changed and why. Halcyonic keeps its own Codex and OpenCode tasks in folders of its own, which Salidium reads only once it is told where they are.";
     const state = this.#fileState(SALIDIUM_CREDENTIAL_FILE);
     if (state === 'missing') {
       return {
@@ -1180,14 +1211,66 @@ class MacSetup {
         next: [`chmod 600 ${quote(this.#tilde(path))}`],
       };
     }
+    const own = await this.#salidiumOwnSessions();
     return {
       title,
       status: 'ready',
       lines: [
         "A Salidium credential is saved. Each task's Understand tab says whether Salidium could answer.",
         about,
+        ...own.lines,
+      ],
+      ...(own.next === undefined ? {} : { next: own.next }),
+    };
+  }
+
+  /**
+   * Whether the installed Salidium can read Halcyonic's own Codex and OpenCode tasks, by its version
+   * in the file it publishes (read without the credential): only a Salidium after 0.8.3 can, and only
+   * once told where they are, by the commands given. Whether it was told this Mac cannot see; a task's
+   * Understand tab says "not set up yet" until it is.
+   */
+  async #salidiumOwnSessions(): Promise<{ lines: string[]; next?: string[] }> {
+    const version = await new SalidiumClient({
+      home: defaultSalidiumHome(this.#io.env, this.#io.home),
+      credential: null,
+      timeoutMs: 2_000,
+      budgetMs: 3_000,
+    })
+      .version()
+      .catch(() => null);
+    if (version === null)
+      return {
+        lines: [
+          "Salidium isn't answering on this Mac now, so whether it reads Halcyonic's own Codex and OpenCode tasks can't be told.",
+        ],
+      };
+    if (!readsOtherToolsSources(version))
+      return {
+        lines: [
+          `Salidium ${version}, as installed, doesn't read Halcyonic's own Codex and OpenCode tasks: their Understand tab says so. A Salidium after ${LAST_OWN_SOURCES_ONLY} can.`,
+        ],
+      };
+    const data = this.#forShell(this.#dataDir);
+    return {
+      lines: [
+        `Salidium ${version} can read Halcyonic's own Codex and OpenCode tasks once it is told where they are: run the lines below in Terminal. They let it read those tasks' sessions, read only, beside its own; OpenCode's only while Salidium's OpenCode provider is on.`,
+        "This Mac can't see whether you ran them: until you do, those tasks' Understand tab says it isn't set up yet.",
+      ],
+      next: [
+        `export SALIDIUM_EXTRA_CODEX_HOMES="${data}/${CODEX_HOME_FOLDER}:${data}/${CODEX_CONFINED_FOLDER}/*"`,
+        `export SALIDIUM_EXTRA_OPENCODE_STORES="${sandboxedSessionStore(`${data}/${OPENCODE_SANDBOX_FOLDER}`)}:${sandboxedSessionStore(`${data}/${OPENCODE_SANDBOX_FOLDER}-*`)}"`,
+        'salidium service install',
       ],
     };
+  }
+
+  /** A folder as a shell line names it: under the home folder as `$HOME/...`, quoted by the caller. */
+  #forShell(path: string): string {
+    const home = this.#io.home;
+    return path === home || path.startsWith(`${home}${sep}`)
+      ? `$HOME${path.slice(home.length)}`
+      : path;
   }
 
   #catalogStep(): Step {

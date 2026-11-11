@@ -29,6 +29,15 @@
   color: var(--secondary);
   font-size: 15px;
 }
+.step-next {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--row);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .actions {
   display: flex;
   flex-wrap: wrap;

@@ -108,3 +108,17 @@ by `pnpm mac-setup agent-apps` in a browser on a scratch page.
 - A new setup step gets a button only by adding it to the view's fixed list; a download gets one only
   by adding its pinned command, size and source to `setupDownloads`.
 - Worth revisiting when Halcyonic is packaged: the launcher loop then belongs to the package.
+
+## Amendment, 2026-11-11: commands shown, and the two sources of Halcyonic's own sessions
+
+- The page shows each step's commands, the ones `pnpm mac-setup` prints under it, as text. The page never runs
+  them.
+- What changed and why says whether the running Salidium can read Halcyonic's own Codex and OpenCode tasks. It
+  tells by the version in Salidium's discovery file, read without the credential: only a Salidium after 0.8.3
+  can. For such a Salidium it shows the two settings for the data directory in use, and `salidium service
+  install`.
+- Usage left shows the one Seorak setting for Halcyonic's own Codex tasks. Seorak publishes no version to tell
+  by, and reads no OpenCode tasks.
+- Neither step can see whether the person ran the lines. A task's own answer says "not set up yet" until they
+  have.
+

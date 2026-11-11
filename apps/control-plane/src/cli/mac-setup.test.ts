@@ -17,6 +17,7 @@ import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
+import { FakeSalidium } from '@halcyonic/integration-salidium/testing';
 import { loadConfig } from '../config.ts';
 import { loopbackProof, PROOF_CHALLENGE_HEADER, PROOF_HEADER } from '../http/security.ts';
 import type { Pins } from '../pins.ts';
@@ -824,20 +825,73 @@ describe('pnpm mac-setup', () => {
     assert.match(text(machine), /chmod 600/);
   });
 
-  test("What changed and why says Salidium follows Claude Agent's tasks, not Halcyonic's own Codex and OpenCode ones", async (t) => {
+  test("What changed and why says whether the installed Salidium can read Halcyonic's own tasks, by its version", async (t) => {
     const machine = mac(t);
     await machine.run();
     assert.equal(status(machine, 'What changed and why'), 'Optional');
     const about =
-      "Salidium tells the headset's Understand tab what a task changed and why, for tasks on Claude Agent. Halcyonic keeps its Codex and OpenCode tasks in folders of its own, which Salidium doesn't read, so their Understand tab says it doesn't follow them.";
+      "Salidium tells the headset's Understand tab what a task changed and why. Halcyonic keeps its own Codex and OpenCode tasks in folders of its own, which Salidium reads only once it is told where they are.";
     assert.ok(text(machine).includes(about), 'said while not set up');
-    assert.doesNotMatch(text(machine), /for tasks on Claude Code and Codex/);
-    machine.lines.length = 0;
     mkdirSync(machine.dataDir, { recursive: true, mode: 0o700 });
     writeFileSync(join(machine.dataDir, 'salidium-credential'), 'x', { mode: 0o600 });
+    machine.lines.length = 0;
     await machine.run();
     assert.equal(status(machine, 'What changed and why'), 'Ready');
     assert.ok(text(machine).includes(about), 'said once set up');
+    assert.match(text(machine), /Salidium isn't answering on this Mac now/);
+    const salidium = await FakeSalidium.start();
+    t.after(() => salidium.close());
+    machine.env.SALIDIUM_HOME = salidium.home;
+    salidium.version = '0.8.3';
+    salidium.writeDiscovery();
+    machine.lines.length = 0;
+    await machine.run();
+    assert.match(
+      text(machine),
+      /Salidium 0\.8\.3, as installed, doesn't read Halcyonic's own Codex and OpenCode tasks: their Understand tab says so\. A Salidium after 0\.8\.3 can\./,
+    );
+    assert.doesNotMatch(text(machine), /SALIDIUM_EXTRA/);
+    salidium.version = '0.9.0';
+    salidium.writeDiscovery();
+    machine.lines.length = 0;
+    await machine.run();
+    assert.match(
+      text(machine),
+      /Salidium 0\.9\.0 can read Halcyonic's own Codex and OpenCode tasks once it is told where they are/,
+    );
+    assert.match(text(machine), /This Mac can't see whether you ran them/);
+    assert.ok(
+      text(machine).includes(
+        'export SALIDIUM_EXTRA_CODEX_HOMES="$HOME/.halcyonic/codex-home:$HOME/.halcyonic/codex-confined/*"',
+      ),
+    );
+    assert.ok(
+      text(machine).includes(
+        'export SALIDIUM_EXTRA_OPENCODE_STORES="$HOME/.halcyonic/opencode-sandbox/data/opencode/opencode.db:$HOME/.halcyonic/opencode-sandbox-*/data/opencode/opencode.db"',
+      ),
+    );
+    assert.ok(text(machine).includes('salidium service install'));
+    assert.equal(
+      salidium.requests.some((request) => request.headers.authorization !== undefined),
+      false,
+      'the version is read without the credential',
+    );
+  });
+
+  test("Usage left gives the one line that lets Seorak read Halcyonic's own Codex tasks", async (t) => {
+    const machine = mac(t);
+    mkdirSync(machine.dataDir, { mode: 0o700 });
+    writeFileSync(join(machine.dataDir, 'seorak-credential'), 'x', { mode: 0o600 });
+    running(machine, { usage: { availability: 'available', limits: [] } });
+    await machine.run('--with-token');
+    assert.equal(status(machine, 'Usage left'), 'Ready');
+    assert.match(text(machine), /Seorak needs to be told where they are/);
+    assert.match(text(machine), /Seorak doesn't read OpenCode tasks/);
+    assert.ok(
+      text(machine).includes(
+        'SEORAK_CODEX_EXTRA_DIRS="$HOME/.halcyonic/codex-home/sessions:$HOME/.halcyonic/codex-confined/*/sessions" seorak setup',
+      ),
+    );
   });
 
   test('Usage left says what the Seorak credential lacks, from what the running Halcyonic answers', async (t) => {
