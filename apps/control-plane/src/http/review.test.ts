@@ -88,13 +88,34 @@ function restore(projectId: ProjectId, checkpointId: string, review?: string): C
   };
 }
 
+/**
+ * How long a command may take to settle here. A restore runs git twice (a checkpoint, then the files
+ * back), which took longer than two seconds on a Mac busy with Unity jobs and a model run.
+ */
+const SETTLE_MS = 60_000;
+
+/** The command's view once it settles: woken by every journaled event, never by a short poll. */
 async function settled(server: Awaited<ReturnType<typeof serve>>['server'], commandId: string) {
-  for (let tries = 0; tries < 200; tries += 1) {
-    const view = server.controlPlane.projection.command(commandId);
-    if (view !== undefined && view.status !== 'accepted') return view;
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error('the command did not settle');
+  const { controlPlane } = server;
+  const now = () => {
+    const view = controlPlane.projection.command(commandId);
+    return view !== undefined && view.status !== 'accepted' ? view : undefined;
+  };
+  const already = now();
+  if (already !== undefined) return already;
+  return await new Promise<NonNullable<ReturnType<typeof now>>>((resolve, reject) => {
+    const bound = setTimeout(() => {
+      stop();
+      reject(new Error(`the command did not settle in ${SETTLE_MS / 1000} s`));
+    }, SETTLE_MS);
+    const stop = controlPlane.publisher.subscribe(() => {
+      const view = now();
+      if (view === undefined) return;
+      clearTimeout(bound);
+      stop();
+      resolve(view);
+    });
+  });
 }
 
 describe('a review a command carries back (ADR 0051)', () => {
