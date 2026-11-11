@@ -3477,6 +3477,153 @@
             },
             "event_type": {
               "type": "string",
+              "const": "project.sent_to_github"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "repository",
+                "branch",
+                "base_commit",
+                "new_branch",
+                "commit",
+                "pull_request_url"
+              ],
+              "properties": {
+                "repository": {
+                  "$ref": "#/$defs/RepositoryFullName"
+                },
+                "branch": {
+                  "$ref": "#/$defs/GitBranchName"
+                },
+                "base_commit": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                },
+                "new_branch": {
+                  "$ref": "#/$defs/GitBranchName"
+                },
+                "commit": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                },
+                "pull_request_url": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/PullRequestUrl"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
               "const": "project.world.observed"
             },
             "source": {
@@ -10060,6 +10207,64 @@
             },
             "command_type": {
               "type": "string",
+              "const": "project.send_to_github"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "project_id",
+                "title",
+                "review"
+              ],
+              "properties": {
+                "project_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "pattern": "\\S"
+                },
+                "review": {
+                  "$ref": "#/$defs/ReviewDigest"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "command_id",
+            "issued_at",
+            "client",
+            "command_type",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "command_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "client": {
+              "$ref": "#/$defs/ClientInfo"
+            },
+            "command_type": {
+              "type": "string",
               "const": "project.link_catalog"
             },
             "payload": {
@@ -11057,6 +11262,39 @@
             },
             "way": {
               "$ref": "#/$defs/ShareWay"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "new_branch",
+            "commit",
+            "pull_request_url"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "sent_to_github"
+            },
+            "new_branch": {
+              "$ref": "#/$defs/GitBranchName"
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            "pull_request_url": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PullRequestUrl"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           },
           "additionalProperties": false
@@ -12656,6 +12894,97 @@
         }
       },
       "additionalProperties": false
+    },
+    "GitBranchName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^(?!/)(?!.*//)(?!.*\\.\\.)(?!.*\\.lock$)(?!.*/$)[^\\s~^:?*\\[\\\\\\x00-\\x1f\\x7f]+$"
+    },
+    "PullRequestUrl": {
+      "type": "string",
+      "maxLength": 300,
+      "pattern": "^https://github\\.com/[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}/pull/[0-9]{1,10}$"
+    },
+    "GitHubSendReview": {
+      "type": "object",
+      "required": [
+        "project_id",
+        "repository",
+        "branch",
+        "base_commit",
+        "new_branch",
+        "files",
+        "pull_request",
+        "review"
+      ],
+      "properties": {
+        "project_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "repository": {
+          "$ref": "#/$defs/RepositoryFullName"
+        },
+        "branch": {
+          "$ref": "#/$defs/GitBranchName"
+        },
+        "base_commit": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "new_branch": {
+          "$ref": "#/$defs/GitBranchName"
+        },
+        "files": {
+          "$ref": "#/$defs/ChangedFiles"
+        },
+        "pull_request": {
+          "type": "boolean"
+        },
+        "review": {
+          "$ref": "#/$defs/ReviewDigest"
+        }
+      },
+      "additionalProperties": false
+    },
+    "GitHubSendReviewResponse": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "send"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "available"
+            },
+            "send": {
+              "$ref": "#/$defs/GitHubSendReview"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "RestorePreview": {
       "type": "object",
@@ -19145,6 +19474,10 @@
         {
           "type": "string",
           "const": "project.share.stop"
+        },
+        {
+          "type": "string",
+          "const": "project.send_to_github"
         },
         {
           "type": "string",

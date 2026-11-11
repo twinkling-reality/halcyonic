@@ -1,6 +1,7 @@
 # ADR 0039: The projects gallery reads the person's catalog from Omnorium, and Halcyonic never signs in to GitHub
 
-- Status: Accepted; contract, link, gallery core, route and client built; live read not wired
+- Status: Accepted; contract, link, gallery core, route and client built; live read not wired. Amended
+  2026-11-11: Send to GitHub (below), built and proven against stand-ins only
 - Date: 2026-10-29
 - Complements ADR 0010 and ADR 0020
 
@@ -55,6 +56,42 @@ listens on 127.0.0.1 with a Host header guard. It has no API for a program other
 - **One way.** Halcyonic reads Omnorium and never writes to it.
 - When Omnorium is absent, stopped, refuses the credential or speaks an incompatible version, the
   gallery shows Halcyonic's own projects and one line saying which.
+
+## Amendment, 2026-11-11: Send to GitHub
+
+The owner's bar ("to its fullest potential like bolt/cursor/lovable etc but for VR") asks for what a
+person gets from those: their work on their own GitHub, as a branch and a pull request. The lead
+decided it (lead 11-11b, from TASKS's ASK). This amends only what is said above about `gh`: that
+alternative was turned down for a read-only gallery, whose need is far below the person's write
+access. Here the person uses that access on purpose, each time, after reading what will go.
+
+- **A read, then the person's command.** `POST /api/projects/:id/github-review` says what would go: the
+  repository by owner and name only (never its address, which can carry a user part), the branch the
+  folder is on and its last commit, the new branch, the files with how each changed, and whether a
+  pull request can be opened. It answers a review digest (ADR 0051). `project.send_to_github
+  {project_id, title, review}` is review required and checked against the digest again just before
+  anything leaves: a folder changed since sends nothing (`review_stale`).
+- **The person's own git and gh, never Halcyonic's sign-in.** Halcyonic holds no GitHub credential,
+  passes no token (only `HOME`, `USER`, `LOGNAME`, `LANG`, `LC_ALL`, `TMPDIR` and `SSH_AUTH_SOCK`
+  reach them, never `GH_TOKEN` or `GITHUB_TOKEN`), reads none, and keeps from what they print only an
+  exit code, the commit and the pull request's address. Nothing they print is journaled or logged.
+  `gh` is the one `HALCYONIC_GH_BIN` names, never looked up on PATH; without it a send pushes only.
+- **Nothing of the project's repository runs.** Its `.git/config` and hooks are an agent's to write.
+  So the person's repository is only read: `.git/HEAD` and `origin` as files, and its commits by a
+  fetch. The commit is built in a bare repository of Halcyonic's own, `<data dir>/sending/<project
+  id>.git`, from the folder's files as git sees them (the person's ignore rules), without any file
+  the secret-file list names and without other projects' folders inside it, and pushed from there
+  with no hooks. The person's folder, index, branches and refs are not changed.
+- **One new branch, never a force.** The commit is on top of the folder's branch's last commit, pushed
+  as `halcyonic/<folder>-<tree>`, and a pull request from it into that branch is opened with the
+  person's `gh`, titled as they typed. `project.sent_to_github` records the repository, the branches,
+  the commits and the pull request's address.
+- **Only the person's.** Never from an agent, the automatic check or auto-fix: it is a command a
+  client sends after its review. Refusals in the product's words: no git repository of its own, no
+  origin on GitHub, no branch, no commit, nothing changed, a stale review, no name and email in git,
+  a push GitHub refused.
+- **What has met github.com: nothing.** Every test uses a local bare repository as `origin` and a
+  stand-in `gh` ([record](../validation/sending-to-github.md)). The first real send is the owner's own.
 
 ## Alternatives considered
 

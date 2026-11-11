@@ -28,6 +28,7 @@ import { attachWorldReader } from '../observer/world-reader.ts';
 import { OwnChecks, type OwnChecksDeps } from '../own-check/own-check.ts';
 import { HostPreviews, type HostPreviewsDeps } from '../preview/preview.ts';
 import { ProjectShares, type ProjectSharesDeps } from '../preview/share.ts';
+import { GitHubSender, type GitHubSenderDeps } from '../sending/github.ts';
 import type { HostStarters } from '../starters.ts';
 import { AutoFix } from './auto-fix.ts';
 import { type CatalogLinks, CommandService } from './command-service.ts';
@@ -91,6 +92,8 @@ export interface ControlPlaneOptions {
    * may use as its home. Absent, sharing is refused. Only built where previews are on.
    */
   readonly share?: Omit<ProjectSharesDeps, 'recorder' | 'projection' | 'clock' | 'logger'>;
+  /** Send to GitHub with the person's own git and gh (ADR 0039, amended); absent, it is refused. */
+  readonly github?: GitHubSenderDeps;
   /** The starters a new project can begin from (ADR 0037); none by default. */
   readonly starters?: HostStarters;
   /** The person's catalog as last read, so a link is checked against it (ADR 0039); none by default. */
@@ -168,6 +171,8 @@ export class ControlPlane {
   readonly ownChecks: OwnChecks | null;
   /** Shared links to a project's running preview (F1), where previews and the pinned tunnel are on. */
   readonly shares: ProjectShares | null;
+  /** Send to GitHub (ADR 0039, amended), where the person's git is set up. */
+  readonly github: GitHubSender | null;
   /** Unloads a local Ollama model that Halcyonic loaded once no execution uses it (UL1), or null. */
   readonly ollamaUnload: OllamaUnloader | null;
   /** Re-attaches what an earlier control plane started (ADR 0046); null for a fixture journal. */
@@ -260,6 +265,7 @@ export class ControlPlane {
             logger: options.logger,
           });
     this.protectedFolders = options.observeFiles?.protect ?? [];
+    this.github = options.github === undefined ? null : new GitHubSender(options.github);
     this.shares =
       this.previews === null || options.share === undefined
         ? null
@@ -362,6 +368,7 @@ export class ControlPlane {
       ollamaUnload: this.ollamaUnload,
       reattacher: this.reattacher,
       shares: this.shares,
+      github: this.github,
     });
     this.#checkpointEvery =
       this.journal.info.origin === 'live' ? (options.checkpointEvery ?? CHECKPOINT_EVERY) : null;

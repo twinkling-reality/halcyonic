@@ -424,6 +424,14 @@ Every text in them is outside words, from the project's files or its build, as `
   lines of at most 300 characters, cleaned as the agent's copy is: no terminal sequences or unseen
   characters, the project's folder as `.`, Halcyonic's data folder and the home folder by name.
 
+## Send to GitHub's review
+
+- `POST /api/projects/:project_id/github-review` [ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md): what a send would do, read
+  before the press: `available` with the repository (owner/name only), the branch and its last
+  commit, the new branch, the files with how each changed, whether a pull request can be opened, and
+  the `review` digest `project.send_to_github` carries back; or `unavailable` with why, in the
+  product's words. Nothing leaves the Mac.
+
 ## Sharing reads
 
 Two read-only routes for the headset's Share card ([ADR 0054](../decisions/0054-what-was-made-is-kept-and-shared-only-by-the-persons-press.md)), for the Mac's own client and a paired

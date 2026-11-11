@@ -118,6 +118,12 @@ import {
 } from './events.ts';
 import { FileChanged, FileCreated, FileDeleted, FilesObserved } from './file-changes.ts';
 import {
+  GitBranchName,
+  GitHubSendReview,
+  GitHubSendReviewResponse,
+  PullRequestUrl,
+} from './github.ts';
+import {
   HistoryEntry,
   HistoryFolder,
   ProjectHistoryQuery,
@@ -337,6 +343,10 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   ConflictedFiles,
   ChangedFile,
   ChangedFiles,
+  GitBranchName,
+  PullRequestUrl,
+  GitHubSendReview,
+  GitHubSendReviewResponse,
   RestorePreview,
   CheckpointsResponse,
   CheckpointsResult,

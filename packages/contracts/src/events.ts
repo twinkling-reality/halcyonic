@@ -1,5 +1,5 @@
 import Type, { type Static, type TSchema } from 'typebox';
-import { CatalogRepositoryRef } from './catalog.ts';
+import { CatalogRepositoryRef, RepositoryFullName } from './catalog.ts';
 import {
   CheckpointFailure,
   CheckpointId,
@@ -22,6 +22,7 @@ import {
 import { ChangedFiles, ConflictedFiles, CopyRefusalCode } from './copies.ts';
 import { DeviceLabel, Principal, Sha256Hex } from './devices.ts';
 import { FilesObserved } from './file-changes.ts';
+import { GitBranchName, PullRequestUrl } from './github.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
 import {
   OWN_CHECK_SCRIPT_NAMES,
@@ -480,6 +481,26 @@ export const ProjectShareStarted = projectEvent(
 export const ProjectShareStopped = projectEvent(
   'project.share.stopped',
   Type.Object({ check_id: CheckId, reason: ShareStopReason }, strict),
+);
+
+/**
+ * The project's work was pushed to the person's own GitHub (ADR 0039, amended): `commit`, on top of
+ * `base_commit` of `branch`, as `new_branch` of `repository`, and the pull request `gh` opened, or
+ * null where none was. Nothing the person's git or gh printed is recorded.
+ */
+export const ProjectSentToGitHub = projectEvent(
+  'project.sent_to_github',
+  Type.Object(
+    {
+      repository: RepositoryFullName,
+      branch: GitBranchName,
+      base_commit: GitObjectId,
+      new_branch: GitBranchName,
+      commit: GitObjectId,
+      pull_request_url: Nullable(PullRequestUrl),
+    },
+    strict,
+  ),
 );
 
 /**
@@ -1067,6 +1088,7 @@ export const EVENT_VARIANTS = [
   ProjectMacPlayStopped,
   ProjectShareStarted,
   ProjectShareStopped,
+  ProjectSentToGitHub,
   ProjectWorldObserved,
   WorkstreamCreated,
   WorkstreamCopyMade,

@@ -33,6 +33,7 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   // A shared link lets anyone with it open the game: a deliberate press; stopping it is not.
   'project.share.start': 'review_required',
   'project.share.stop': 'low_consequence',
+  'project.send_to_github': 'review_required',
   // The person's own link between a project and a catalog repository; changes no file.
   'project.link_catalog': 'low_consequence',
   'project.unlink_catalog': 'low_consequence',
