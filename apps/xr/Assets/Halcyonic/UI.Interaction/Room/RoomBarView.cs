@@ -75,7 +75,7 @@ namespace Halcyonic.XR.UI
         private float lockedAt;
         private float lockAged;
         private bool lockLifted;
-        private Surface caret = null!;
+        private RoomShape caret = null!;
         private KitPress field = null!;
         private readonly List<RoomButton> column = new List<RoomButton>();
         private readonly Dictionary<RoomButton, KitControl> controls = new Dictionary<RoomButton, KitControl>();
@@ -190,7 +190,8 @@ namespace Halcyonic.XR.UI
                 var holder = new GameObject("Bar " + index).transform;
                 holder.SetParent(view.levelRoot, false);
                 holder.localPosition = new Vector3(slot * (index + 0.5f), 0f, 0f);
-                var surface = Surface.Create(holder, "Bar", KitType.Order.Control + 4);
+                // The redesign's own shape (FIELD's RoomShape), never the older Surface (the census, JUDGE 2026-11-11).
+                var surface = RoomShape.Create(holder, "Bar", KitType.Order.Control + 4);
                 var barWidth = slot / 2f;
                 surface.Draw(new Vector2(barWidth, full), Mathf.Min(RoomType.Units(2f), barWidth / 2f), new Color(1f, 1f, 1f, 0.9f));
                 holder.localScale = new Vector3(1f, 0.2f, 1f);
@@ -222,7 +223,7 @@ namespace Halcyonic.XR.UI
             view.sentence = RoomType.Create(view.panel.transform, "Sentence", Color.white, KitType.Order.Words);
             view.sentence.textWrappingMode = TextWrappingModes.Normal;
             view.sentenceSweep = GlazeShimmer.On(view.sentence);
-            view.caret = Surface.Create(view.panel.transform, "Caret", KitType.Order.Words);
+            view.caret = RoomShape.Create(view.panel.transform, "Caret", KitType.Order.Words);
             view.caret.Draw(new Vector2(RoomType.Units(RoomGeometry.CaretDp), RoomType.Units(RoomGeometry.CaretHeightDp)), RoomType.Units(1f), Color.white);
             var fieldGo = new GameObject("Field");
             fieldGo.transform.SetParent(view.panel.transform, false);
