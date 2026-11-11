@@ -26,9 +26,10 @@ namespace Halcyonic.Client
     {
         public const string CheckTitle = "Check First";
 
-        public const string CheckAddressLine = "Check the address first.";
-        public const string CheckCommandLine = "Check what it runs first.";
-        public const string CheckBothLine = "Check the address and what it runs.";
+        // A status's line adds to its title, and ends in no full stop (the critic, 2026-11-11).
+        public const string CheckAddressLine = "It names a web address";
+        public const string CheckCommandLine = "It names something to run";
+        public const string CheckBothLine = "It names an address and something to run";
 
         /// <summary>
         /// The sentences of the first task, as the person wrote them, that hold what to check: each sentence the task's
@@ -103,7 +104,9 @@ namespace Halcyonic.Client
                 var command = warnings.Contains(TaskWarnings.Command);
                 var line = address && command ? CheckBothLine : address ? CheckAddressLine : command ? CheckCommandLine : string.Join(" ", warnings);
                 var task = review.Items.FirstOrDefault(each => each.Kind == ReviewItemKind.FirstTask);
-                var naming = task == null ? null : Naming(task.ValueRuns);
+                // The person's sentence where it names something to run, which has no slot of its own; an address alone stands
+                // only in its slot, so it is never shown twice.
+                var naming = task == null || !command ? null : Naming(task.ValueRuns);
                 // The address itself as a name to type, in mono under the link's mark, so it is seen at a glance.
                 var shown = task == null ? new List<RoomSlot>() : Addresses(task.ValueRuns.Text).Take(RoomCard.MostSlots).Select(each => new RoomSlot(RoomKind.Link, LineWords.Theirs(each), mono: true)).ToList();
                 return new RoomCard(title, naming, status: new RoomCardStatus(CheckTitle, line, RoomTone.Attention, RoomKind.Failed), slots: shown, more: foot);

@@ -70,11 +70,11 @@ public sealed class RoomReviewTests
         Assert.That(check.Title!.Text, Is.EqualTo("Kite Run"));
         Assert.That((check.Status!.Value.Title, check.Status!.Value.Tone, check.Status!.Value.Mark), Is.EqualTo((RoomReview.CheckTitle, RoomTone.Attention, RoomKind.Failed)));
         Assert.That(check.Status!.Value.Line, Is.EqualTo(RoomReview.CheckBothLine), "an address and something to run, in one short line");
-        Assert.That(check.Description!.Text, Is.EqualTo("Fetch https://example.com/wind and run npm install."), "what to check is in view, the person's own sentence");
+        Assert.That(check.Description!.Text, Is.EqualTo("Fetch https://example.com/wind and run npm install."), "what it runs is in view, the person's own sentence");
         var onlyAddress = new NewWorkReview("Kite Run", "Make a kite", "Agent Studio", "", "", "", "Make a kite. Use the wind from https://example.com/wind to pull it. Make it red.");
         var addressPart = RoomReview.Card(onlyAddress, part: 2, taskPages: 1);
         Assert.That(addressPart.Status!.Value.Line, Is.EqualTo(RoomReview.CheckAddressLine));
-        Assert.That(addressPart.Description!.Text, Is.EqualTo("Use the wind from https://example.com/wind to pull it."), "only the sentence that holds it");
+        Assert.That(addressPart.Description, Is.Null, "an address alone stands in its slot, never twice");
         Assert.That(addressPart.Slots.Select(slot => (slot.Kind, slot.Value.Text, slot.Mono)), Is.EqualTo(new[] { (RoomKind.Link, "https://example.com/wind", true) }),
             "the address itself, whole, in mono, its sentence's end left off");
         Assert.That(check.More!.Text, Is.EqualTo("Part 4 of 4"));

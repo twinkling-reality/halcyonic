@@ -22,7 +22,7 @@ namespace Halcyonic.XR.UI
     {
         // The design page's numbers (design10's information language), in dp.
         public const float StatusMarkDp = 56f;
-        public const float StatusGlyphDp = 36f;
+        public const float StatusGlyphDp = 40f;
         public const float StatusGapDp = 14f;
         public const float StatusTitleDp = 30f;
         public const float StatusTitleLineDp = 36f;
@@ -173,7 +173,7 @@ namespace Halcyonic.XR.UI
         public const int QuietFill = 0x4A535A;
 
         /// <summary>A mark's glyph stroke, heavier than a row's, so it reads at a glance on a solid fill.</summary>
-        public const float MarkStroke = 3f;
+        public const float MarkStroke = 3.4f;
 
         /// <summary>The tones' mid values, between hue and deep ground: a try's pip, never louder than the mark it hangs on.</summary>
         public const int PassedMid = 0x4C9C67;
@@ -898,7 +898,8 @@ namespace Halcyonic.XR.UI
                 var at = new Vector2(from + index * pitch, centre.y);
                 var spent = index < used;
                 // Filled where used, hollow where left: like a game's lives, in the node's own colour; a squircle, as the node.
-                Plate(new Vector2(S(PipDp), S(PipDp)), S(PipCornerDp), spent ? lit : Color.clear, at, spent ? "pip used" : "pip", lit, spent ? 0f : S(PipLineDp), front: true);
+                // A try left is a ring firm enough to read over the bright room, a try spent the fill.
+                Plate(new Vector2(S(PipDp), S(PipDp)), S(PipCornerDp), spent ? lit : Color.clear, at, spent ? "pip used" : "pip", new Color(lit.r, lit.g, lit.b, 0.9f), spent ? 0f : S(PipLineDp), front: true);
             }
         }
 
