@@ -518,7 +518,7 @@ namespace Halcyonic.XR.UI
             RoomKind.Conflict => RoomGlyph.Swap,
             RoomKind.Started => RoomGlyph.Pin,
             RoomKind.Worked => RoomGlyph.Flag,
-            RoomKind.Reverts => RoomGlyph.Undo,
+            RoomKind.Reverts => RoomGlyph.Rewind,
             RoomKind.Computer => RoomGlyph.Computer,
             RoomKind.Tools => RoomGlyph.Wrench,
             RoomKind.App => RoomGlyph.App,
