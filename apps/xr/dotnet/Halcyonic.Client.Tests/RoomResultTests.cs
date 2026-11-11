@@ -136,16 +136,17 @@ public class RoomResultTests
         }));
         Assert.That(changes.Card.List.All(row => row.Name.AllTheirs), Is.True, "each path is the folder's own name, apart from Halcyonic's words");
         Assert.That((changes.Band, changes.Sentence), Is.EqualTo(((string?)null, (string?)null)), "no band and no sentence on Changes");
-        Assert.That(changes.Column.Where(NotClose).Select(action => (action.Control.Action, action.Main)), Is.EqualTo(new[] { (RoomResult.Back, false) }));
+        // DEVICE's History is Changes' second action (lead, 2026-11-11), then Back.
+        Assert.That(changes.Column.Where(NotClose).Select(action => (action.Control.Action, action.Main)), Is.EqualTo(new[] { (RoomResult.ShowHistory, false), (RoomResult.Back, false) }));
         Assert.That(changes.Row.Count, Is.GreaterThan(0));
 
-        // More than five files: Next Page is the main action, and the last page offers Back alone.
+        // More than five files: Next Page is the main action, and the last page offers History and Back.
         var many = "{\"turn_id\":\"t1\",\"created\":{\"files\":[" + string.Join(",", Enumerable.Range(1, 11).Select(index => "{\"path\":\"src/f" + index + ".ts\",\"lines\":1,\"bytes\":1}")) +
             "],\"total\":11},\"changed\":{\"files\":[],\"total\":0},\"deleted\":{\"files\":[],\"total\":0},\"not_read\":0,\"skipped\":null}";
         var first = Bar(new RoomResult(false, true, false, null, Turn(many), null, RoomResultPage.Changes));
         Assert.That((first.Card!.List.Count, first.Column[0].Control.Action, first.Column[0].Main, first.Column[0].Words), Is.EqualTo((RoomCard.ListAPage, RoomResult.NextPage, true, "Next Page")), "the product's own pager words, from the first page");
         var last = Bar(new RoomResult(false, true, false, null, Turn(many), null, RoomResultPage.Changes, part: 2));
-        Assert.That((last.Card!.List.Count, last.Card.List[0].Name.Text, last.Column.Count(NotClose)), Is.EqualTo((1, "src/f11.ts", 1)));
+        Assert.That((last.Card!.List.Count, last.Card.List[0].Name.Text, last.Column.Count(NotClose)), Is.EqualTo((1, "src/f11.ts", 2)));
 
         // Checks: each step with its mark; failed, the way to an instruction leads; passed with a build to try, Try Build.
         var failed = Bar(new RoomResult(true, false, false, false, null, Steps(buildFails: true), RoomResultPage.Checks));
@@ -391,5 +392,47 @@ public class RoomResultTests
         var nothing = Bar(new RoomResult(false, false, false, null, null, null));
         var back = nothing.Row.Last();
         Assert.That((back.Words, back.Main, back.Control.Place), Is.EqualTo((RoomBar.ProjectsWords, false, KitPlace.Close)), Show(nothing));
+    }
+
+    [Test]
+    public void HistoryShowsItsCardItsRowsPressesAndRestoreBehindItsLock()
+    {
+        // DEVICE's History on the result's own page: the sentence while it reads, the versions as rows picked from by
+        // their own controls (the version's id as the key), and on a review Restore behind its lock, then Cancel.
+        var history = new HistoryColumn("p1", "Kite Run");
+        var reading = Bar(new RoomResult(false, true, false, null, null, null, RoomResultPage.History, history: history));
+        Assert.That(reading.Sentence, Is.EqualTo("Reading History"));
+        Assert.That(reading.Card, Is.Null);
+
+        var version = new CheckpointView
+        {
+            CheckpointId = "01a19000-0000-7000-8000-000000000011", ProjectId = "p1", Reason = CheckpointReason.BeforeTask, ExecutionId = null,
+            RecordedAt = "2026-11-11T08:00:00.000Z", Tree = new string('b', 64), Files = 3,
+        };
+        history.Listed(new CheckpointsResponse { ProjectId = "p1", Result = new AvailableCheckpoints { Checkpoints = new List<CheckpointView> { version } } },
+            null, DateTimeOffset.Parse("2026-11-11T09:00:00Z"), TimeZoneInfo.Utc);
+        var listed = Bar(new RoomResult(false, true, false, null, null, null, RoomResultPage.History, history: history));
+        var row = listed.Card!.List.Single();
+        Assert.That((row.Press!.Action, row.Press.Key), Is.EqualTo((RoomResult.HistoryVersion, version.CheckpointId)));
+        Assert.That(listed.Column.Where(NotClose).Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.HistoryBack }));
+
+        history.Choose(version.CheckpointId);
+        history.Previewed(new RestorePreviewResponse
+        {
+            ProjectId = "p1",
+            Result = new AvailableRestorePreview
+            {
+                Preview = new RestorePreview
+                {
+                    CheckpointId = version.CheckpointId, ChangedBack = new PathList { Paths = new List<string> { "a.ts" }, Total = 1 },
+                    Removed = new PathList(), Returned = new PathList(), ProjectHeadMoved = false,
+                },
+                Review = new string('a', 64),
+            },
+        });
+        var review = Bar(new RoomResult(false, true, false, null, null, null, RoomResultPage.History, history: history));
+        Assert.That(review.Column.Where(NotClose).Select(action => (action.Control.Action, action.Main)), Is.EqualTo(new[] { (RoomResult.HistoryRestore, true), (RoomResult.HistoryCancel, false) }));
+        Assert.That(review.Column[0].Locks, Is.True, "Restore stands behind its lock");
+        Assert.That(review.Card!.AnyDot, Is.False);
     }
 }

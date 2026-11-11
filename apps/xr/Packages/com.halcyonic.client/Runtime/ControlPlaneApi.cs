@@ -379,6 +379,12 @@ namespace Halcyonic.Client
             handler.Dispose();
         }
 
+        /// <summary>
+        /// The JSON body at <paramref name="path"/> (relative, "api/..."), as every read here gets it: for a reader of the
+        /// client core that parses its own contract (DEVICE's <see cref="ProjectHistoryReader"/>).
+        /// </summary>
+        public Task<string> GetDocumentAsync(string path, CancellationToken cancellationToken = default) => GetAsync(path, cancellationToken);
+
         private async Task<string> GetAsync(string path, CancellationToken cancellationToken, HttpClient? client = null)
         {
             HttpResponseMessage response;

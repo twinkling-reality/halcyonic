@@ -186,7 +186,8 @@ namespace Halcyonic.XR.Workspace
             var run = now.Execution?.ExecutionId;
             var (page, part) = setup.Presentation.ResultPageFor(now.Character.WorkstreamId, run);
             var task = State!.Workstreams.TryGetValue(now.Character.WorkstreamId, out var work) ? work : null;
-            return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (ControlPlaneSettings.Target(), Demonstration), task);
+            return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (ControlPlaneSettings.Target(), Demonstration), task,
+                page == RoomResultPage.History ? HistoryFor(projectId) : null);
         }
 
         /// <summary>
@@ -223,6 +224,46 @@ namespace Halcyonic.XR.Workspace
                 case RoomResult.Fit when RoomAdd.Of(work!.Copy, working: false).State == RoomAddState.Conflict:
                     if (!SendCommand(setup.Commands.FitToProject(task))) return false;
                     setup.Presentation.ShowResultPage(task, run, RoomResultPage.Result);
+                    break;
+                // DEVICE's History (gap 2): the versions read on open, a review read on each pick, Restore sent only through
+                // its lock and with the digest of the review shown; Changes and Close leave it.
+                case RoomResult.ShowHistory:
+                    OpenHistory(work!.ProjectId);
+                    setup.Presentation.ShowResultPage(task, run, RoomResultPage.History);
+                    break;
+                case RoomResult.HistoryVersion or RoomResult.HistoryUndo or RoomResult.HistoryAgain
+                    when page == RoomResultPage.History && HistoryFor(work!.ProjectId) is HistoryColumn picking && key != null && picking.Choose(key):
+                    ReadPreview(picking);
+                    break;
+                case RoomResult.HistoryOlder when page == RoomResultPage.History && HistoryFor(work!.ProjectId) is HistoryColumn older:
+                    if (!older.Older()) return false;
+                    break;
+                case RoomResult.HistoryRestore when page == RoomResultPage.History && HistoryFor(work!.ProjectId) is HistoryColumn restoring:
+                    if (!restoring.Armed)
+                    {
+                        if (!restoring.Arm()) return false;
+                        break;
+                    }
+                    if (!Connected || Demonstration || setup.Session() is not RealtimeSession session) return false;
+                    if (setup.Commands is not CommandFactory commands || restoring.Restore(commands) is not ProjectRestoreCommand restore) return false;
+                    setup.Presentation.RecordCommandDispatched(restore);
+                    _ = setup.Submit(session, restore);
+                    break;
+                case RoomResult.HistoryCancel when page == RoomResultPage.History && HistoryFor(work!.ProjectId) is HistoryColumn cancelling:
+                    cancelling.Cancel();
+                    break;
+                case RoomResult.HistoryTryAgain when page == RoomResultPage.History && HistoryFor(work!.ProjectId) is HistoryColumn again:
+                    again.Reread();
+                    ReadVersions(again);
+                    break;
+                case RoomResult.HistoryBack when page == RoomResultPage.History && HistoryFor(work!.ProjectId) is HistoryColumn back:
+                    if (!back.Back()) CloseHistory(work!.ProjectId, task, run, RoomResultPage.Changes);
+                    break;
+                case RoomResult.HistoryChanges when page == RoomResultPage.History:
+                    CloseHistory(work!.ProjectId, task, run, RoomResultPage.Changes);
+                    break;
+                case RoomResult.HistoryClose when page == RoomResultPage.History:
+                    CloseHistory(work!.ProjectId, task, run, RoomResultPage.Result);
                     break;
                 default: return false;
             }
@@ -523,6 +564,82 @@ namespace Halcyonic.XR.Workspace
         {
             if (Away || drag != null || plane.Repositioning || plane.Sliding) return;
             SetProjectScreenBarOpen(true);
+        }
+
+        /// <summary>DEVICE's History, one per project while its page is open (<see cref="HistoryColumn"/>).</summary>
+        private readonly Dictionary<string, HistoryColumn> histories = new Dictionary<string, HistoryColumn>();
+
+        private HistoryColumn? HistoryFor(string projectId) => histories.TryGetValue(projectId, out var history) ? history : null;
+
+        private void OpenHistory(string projectId)
+        {
+            var name = State?.Projects.TryGetValue(projectId, out var project) == true ? project!.Name : "";
+            var history = new HistoryColumn(projectId, name);
+            histories[projectId] = history;
+            ReadVersions(history);
+        }
+
+        private void CloseHistory(string projectId, string task, string? run, RoomResultPage to)
+        {
+            histories.Remove(projectId);
+            setup.Presentation.ShowResultPage(task, run, to);
+        }
+
+        /// <summary>Reads the project's versions into <paramref name="history"/>; unreadable where the computer cannot be asked or did not answer.</summary>
+        private async void ReadVersions(HistoryColumn history)
+        {
+            if (Api is not ControlPlaneApi api)
+            {
+                history.ReadFailed();
+                dirty = true;
+                return;
+            }
+            try { history.Listed(await new ProjectHistoryReader(api.GetDocumentAsync).VersionsAsync(history.ProjectId), State, Clock, Zone); }
+            catch (Exception) { history.ReadFailed(); }
+            dirty = true;
+        }
+
+        /// <summary>Reads what restoring the version picked would do now, with the digest of that review, into <paramref name="history"/>.</summary>
+        private async void ReadPreview(HistoryColumn history)
+        {
+            if (Api is not ControlPlaneApi api || history.Reviewed is not HistoryVersion version)
+            {
+                history.ReadFailed();
+                dirty = true;
+                return;
+            }
+            try { history.Previewed(await new ProjectHistoryReader(api.GetDocumentAsync).PreviewAsync(history.ProjectId, version.View.CheckpointId)); }
+            catch (Exception) { history.ReadFailed(); }
+            dirty = true;
+        }
+
+        /// <summary>
+        /// What the computer said since the last change (WorkspaceDirector): a restore done or incomplete, and the answer
+        /// to a restore sent, for every History open.
+        /// </summary>
+        public void HistoryHeard(StateChanges changes)
+        {
+            if (histories.Count == 0) return;
+            foreach (var stored in changes.Events)
+            {
+                switch (stored.Event)
+                {
+                    case ProjectRestoredEvent restored when restored.ProjectId is string done && HistoryFor(done) is HistoryColumn history:
+                        history.Restored(restored);
+                        dirty = true;
+                        break;
+                    case ProjectRestoreIncompleteEvent incomplete when incomplete.ProjectId is string partial && HistoryFor(partial) is HistoryColumn history:
+                        history.RestoreIncomplete(incomplete);
+                        dirty = true;
+                        break;
+                }
+            }
+            foreach (var history in histories.Values)
+                if (history.SentCommandId is string sent && State?.Commands.TryGetValue(sent, out var answer) == true)
+                {
+                    history.Answered(answer!);
+                    dirty = true;
+                }
         }
 
         /// <summary>

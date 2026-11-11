@@ -166,7 +166,7 @@ public class HistoryColumnTests
         var restore = column.Actions().First();
         Assert.That((restore.Kind, restore.Words, restore.Main, restore.Locked), Is.EqualTo((HistoryActionKind.Restore, "Restore", true, true)));
         Assert.That(column.Actions().Last().Kind, Is.EqualTo(HistoryActionKind.Cancel));
-        Assert.That(column.Restore(Samples.Client, Now), Is.Null, "never sent before its lock is passed");
+        Assert.That(column.Restore(new CommandFactory(Samples.Client)), Is.Null, "never sent before its lock is passed");
         NoDots(column);
         Assert.That(column.Arm(), Is.True);
         Assert.That(column.Actions().First().Locked, Is.False);
@@ -215,7 +215,7 @@ public class HistoryColumnTests
         column.Previewed(Preview(Id(1)));
         Assert.That(column.ReviewDigest, Is.EqualTo(Digest));
         column.Arm();
-        var command = column.Restore(Samples.Client, Now);
+        var command = column.Restore(new CommandFactory(Samples.Client));
         Assert.That(command, Is.Not.Null);
         Assert.That((command!.Payload.ProjectId, command.Payload.CheckpointId, command.Payload.Review), Is.EqualTo((ProjectId, Id(1), Digest)));
         Assert.That(column.Stage, Is.EqualTo(HistoryStage.Sending));
@@ -259,7 +259,7 @@ public class HistoryColumnTests
         column.Previewed(Preview(Id(1), headMoved: true));
         Assert.That(column.Card()!.More!.Text, Is.EqualTo("The project changed since then too."));
         column.Arm();
-        var command = column.Restore(Samples.Client, Now)!;
+        var command = column.Restore(new CommandFactory(Samples.Client))!;
         column.Answered(new CommandView
         {
             CommandId = "another", Status = CommandStatus.Rejected, Rejection = new CommandRejection { Code = RejectionCode.ReviewStale, Message = "x" },
@@ -285,7 +285,7 @@ public class HistoryColumnTests
         refused.Choose(Id(1));
         refused.Previewed(Preview(Id(1)));
         refused.Arm();
-        var command = refused.Restore(Samples.Client, Now)!;
+        var command = refused.Restore(new CommandFactory(Samples.Client))!;
         refused.Answered(new CommandView
         {
             CommandId = command.CommandId, Status = CommandStatus.Rejected, Rejection = new CommandRejection { Code = RejectionCode.ProjectNotFound, Message = "x" },
@@ -299,7 +299,7 @@ public class HistoryColumnTests
         partial.Choose(Id(1));
         partial.Previewed(Preview(Id(1)));
         partial.Arm();
-        partial.Restore(Samples.Client, Now);
+        partial.Restore(new CommandFactory(Samples.Client));
         partial.RestoreIncomplete(new ProjectRestoreIncompleteEvent
         {
             ProjectId = ProjectId,

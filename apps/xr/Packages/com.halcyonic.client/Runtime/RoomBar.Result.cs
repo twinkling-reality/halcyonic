@@ -49,6 +49,8 @@ namespace Halcyonic.Client
                         : new RoomCard(changes.Title, changes.Description, changes.Head, changes.Status, changes.Slots, changes.Steps, changes.TrackAt, changes.TrackOf,
                             changes.List.Skip(result.Part * RoomCard.ListAPage).Take(RoomCard.ListAPage).ToList(), changes.Gauges, changes.More);
                     if (result.Part + 1 < result.Parts) column.Add(Own(RoomResult.NextPage, Footer.NextPageWords(result.Part, result.Parts), main: true, GlazeIcon.Next));
+                    // DEVICE's History, Changes' second action (lead, 2026-11-11): the versions the computer kept, and Restore.
+                    column.Add(Own(RoomResult.ShowHistory, HistoryText.Title, main: false, GlazeIcon.Next));
                     column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
                     break;
                 case RoomResultPage.Add:
@@ -83,6 +85,34 @@ namespace Halcyonic.Client
                         column.Add(Own(RoomResult.Fit, RoomAdd.LetAgentFix, main: true, GlazeIcon.Next));
                     }
                     column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
+                    break;
+                case RoomResultPage.History when result.History is HistoryColumn history:
+                    // DEVICE's History (HistoryColumn, FIELD's A14 in A17's cards): the card where there is one, else the
+                    // sentence that sweeps while it reads or restores; each version row picked from by its own control; the
+                    // column's actions as the column gives them, Restore behind its lock.
+                    card = history.Card(version => new KitControl(KitPlace.Step, frame, RoomResult.HistoryVersion, version.View.CheckpointId,
+                        version.Name.Text, GlazeIcon.Next, true, null, false));
+                    sentence = history.Sentence;
+                    foreach (var action in history.Actions())
+                    {
+                        var (id, icon) = action.Kind switch
+                        {
+                            HistoryActionKind.Older => (RoomResult.HistoryOlder, GlazeIcon.Next),
+                            HistoryActionKind.Restore => (RoomResult.HistoryRestore, GlazeIcon.Next),
+                            HistoryActionKind.Cancel => (RoomResult.HistoryCancel, GlazeIcon.Back),
+                            HistoryActionKind.UndoRestore => (RoomResult.HistoryUndo, GlazeIcon.Next),
+                            HistoryActionKind.ReviewAgain => (RoomResult.HistoryAgain, GlazeIcon.Next),
+                            HistoryActionKind.TryAgain => (RoomResult.HistoryTryAgain, GlazeIcon.Next),
+                            HistoryActionKind.Changes => (RoomResult.HistoryChanges, GlazeIcon.Next),
+                            HistoryActionKind.Back => (RoomResult.HistoryBack, GlazeIcon.Back),
+                            HistoryActionKind.Close => (RoomResult.HistoryClose, GlazeIcon.Back),
+                            _ => ((string?)null, GlazeIcon.Next),
+                        };
+                        // A version is its row's press, not a column action.
+                        if (id == null) continue;
+                        var control = new KitControl(KitPlace.Step, frame, id, action.CheckpointId, action.Words, icon, true, null, false);
+                        column.Add(new RoomAction(control, action.Main, locks: action.Kind == HistoryActionKind.Restore, icon: icon));
+                    }
                     break;
                 case RoomResultPage.Checks:
                     // FIELD's Checks card: the outcome as its status, the steps as nodes, the tries' pips on the failed one.

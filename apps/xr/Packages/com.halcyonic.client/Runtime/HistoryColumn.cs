@@ -279,16 +279,11 @@ namespace Halcyonic.Client
         /// The restore to send once Restore was pressed through its lock: the version reviewed, with the digest of the
         /// review shown. Null where it was not armed. The column then waits for the computer's answer.
         /// </summary>
-        public ProjectRestoreCommand? Restore(ClientInfo client, DateTimeOffset at)
+        public ProjectRestoreCommand? Restore(CommandFactory commands)
         {
+            if (commands == null) throw new ArgumentNullException(nameof(commands));
             if (!Armed || reviewed == null || review == null) return null;
-            var command = new ProjectRestoreCommand
-            {
-                CommandId = Guid.NewGuid().ToString("D"),
-                IssuedAt = HalcyonicJson.FormatTimestamp(at),
-                Client = client,
-                Payload = new ProjectRestorePayload { ProjectId = ProjectId, CheckpointId = reviewed.View.CheckpointId, Review = review },
-            };
+            var command = commands.RestoreProject(ProjectId, reviewed.View.CheckpointId, review);
             sentCommandId = command.CommandId;
             armed = false;
             Stage = HistoryStage.Sending;
@@ -337,10 +332,10 @@ namespace Halcyonic.Client
         }
 
         /// <summary>What History shows now, as a card, never a fact joined to another by a dot; null where it shows only its <see cref="Sentence"/>.</summary>
-        public RoomCard? Card() => Stage switch
+        public RoomCard? Card(Func<HistoryVersion, KitControl?>? press = null) => Stage switch
         {
             HistoryStage.Reading or HistoryStage.Previewing or HistoryStage.Sending => null,
-            HistoryStage.Versions => VersionsCard(),
+            HistoryStage.Versions => VersionsCard(press),
             HistoryStage.NotSetUp => Status(HistoryText.NoHistory, HistoryText.NoneKeptLine, RoomTone.Quiet),
             HistoryStage.Unreadable => Status(HistoryText.NotRead, HistoryText.NotReadLine, RoomTone.Bad),
             HistoryStage.Review => ReviewCard(),
@@ -396,10 +391,11 @@ namespace Halcyonic.Client
 
         private static RoomCard Status(string title, string line, RoomTone tone) => new RoomCard(status: new RoomCardStatus(title, line, tone));
 
-        private RoomCard VersionsCard()
+        private RoomCard VersionsCard(Func<HistoryVersion, KitControl?>? press)
         {
             if (versions.Count == 0) return Status(HistoryText.NoHistory, HistoryText.NoneYetLine, RoomTone.Quiet);
-            var rows = VersionsOnPage().Select(version => new RoomListRow(version.Kind, version.Name, version.When)).ToList();
+            // Each row is picked from: its press is the frame's own control for that version, where the host gives one.
+            var rows = VersionsOnPage().Select(version => new RoomListRow(version.Kind, version.Name, version.When, press: press?.Invoke(version))).ToList();
             return new RoomCard(title: LineWords.Ours(HistoryText.Title), description: LineWords.Ours(HistoryText.Description), list: rows);
         }
 

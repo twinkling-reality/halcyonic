@@ -90,6 +90,10 @@ namespace Halcyonic.Client
         public WorkstreamFitToProjectCommand FitToProject(string workstreamId) =>
             Stamp(new WorkstreamFitToProjectCommand { Payload = new WorkstreamFitToProjectPayload { WorkstreamId = workstreamId } });
 
+        /// <summary>Restores a project's version, carrying the digest of the review the person read (ADR 0051; DEVICE's History).</summary>
+        public ProjectRestoreCommand RestoreProject(string projectId, string checkpointId, string review) =>
+            Stamp(new ProjectRestoreCommand { Payload = new ProjectRestorePayload { ProjectId = projectId, CheckpointId = checkpointId, Review = review } });
+
         public ProjectPreviewStopCommand StopPreview(string projectId) =>
             Stamp(new ProjectPreviewStopCommand { Payload = new ProjectPreviewStopPayload { ProjectId = projectId } });
 
