@@ -9,11 +9,10 @@ import {
   type ProjectId,
   type Timestamp,
 } from '@halcyonic/contracts';
-import { folderInUse, foldersOverlap, type Projection } from '@halcyonic/domain';
+import { fixSteps, folderInUse, foldersOverlap, type Projection } from '@halcyonic/domain';
 import type { Clock } from '@halcyonic/runtime-core';
 import type { IdGenerator } from '../ids.ts';
 import type { Logger } from '../logger.ts';
-import { DRAWN_EDGES } from '../preview/check.ts';
 import type { HostPreviews } from '../preview/preview.ts';
 import type { CommandService } from './command-service.ts';
 import { type Cause, causedBy, controlPlaneDraft, NO_CAUSE } from './drafts.ts';
@@ -345,6 +344,8 @@ export class AutoFix {
 
   /** The host's words and the page's errors; null when the check gave an agent nothing to act on. */
   #instruction(projectId: ProjectId, check: ProjectCheck): string | null {
+    // One rule with the fix view's `failed_steps`: the steps a try is sent for (fixSteps).
+    const steps = fixSteps(check.findings);
     let lines = false;
     try {
       lines = this.#deps.previews.failedCheckOutput(projectId) !== null;
@@ -353,16 +354,13 @@ export class AutoFix {
     }
     const page = check.findings.page;
     let pagePart = '';
-    if (page !== null && page.exceptions.length > 0)
-      pagePart = `\n\nThe page stopped on these errors:\n${page.exceptions.map((line) => `- ${line}`).join('\n')}`;
-    else if (
-      page !== null &&
-      Math.max(page.edges_at_3s ?? 0, page.edges_at_10s ?? 0) <= DRAWN_EDGES
-    )
-      // A blank page is a fault; one that shows only the starter's own scene is a game not made
-      // yet, which no one asked this agent to make (ADR 0044).
-      pagePart = "\n\nThe page showed nothing in the check's 10 seconds.";
-    if (!lines && pagePart === '') return null;
+    if (steps.includes('page') && page !== null)
+      pagePart =
+        page.exceptions.length > 0
+          ? `\n\nThe page stopped on these errors:\n${page.exceptions.map((line) => `- ${line}`).join('\n')}`
+          : "\n\nThe page showed nothing in the check's 10 seconds.";
+    const codeSteps = steps.includes('typecheck') || steps.includes('build');
+    if (!(codeSteps && lines) && pagePart === '') return null;
     return AUTO_FIX_WORDS + pagePart;
   }
 
