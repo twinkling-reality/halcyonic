@@ -99,7 +99,7 @@ runtime.
 | Runtime | Offers `never_ask` | What it is |
 | --- | --- | --- |
 | Codex | yes | policy `never` with `workspace-write`, reviewer `user` |
-| OpenCode | not yet | its one server's sandbox writes every project under the host's roots; the rules above wait for a per-task sandbox |
+| OpenCode | yes, inside Halcyonic's sandbox (since BOX-3) | the rules above, on a server per folder that writes that folder alone; a never-asking shell call could neither overwrite nor create a file in another project under the same root (`overwrite=1`, `create=1`) |
 | Claude Code | no | it needs a sandbox Halcyonic controls first ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)) |
 
 ## Not checked
