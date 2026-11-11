@@ -469,6 +469,8 @@ namespace Halcyonic.Client
             RejectionCode.CheckpointNotFound => "Version Not Kept · Choose Another",
             // One sentence for a revoked pairing, wherever it is said.
             RejectionCode.DeviceRevoked => ConnectionText.PairingRefused,
+            // A move or a restore from this headset without the review it read, or one that changed since (ADR 0051).
+            RejectionCode.ReviewRequired or RejectionCode.ReviewStale => "Not Sent · Project Changed · Check and Retry",
             _ => null,
         };
 

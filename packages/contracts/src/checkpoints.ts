@@ -133,8 +133,18 @@ export const CheckpointsResponse = Type.Object(
 );
 export type CheckpointsResponse = Static<typeof CheckpointsResponse>;
 
+/**
+ * The digest of what a review showed the person: the command it is for, its arguments and the
+ * facts shown (ADR 0051). A command carries it back, and the control plane checks it against what
+ * is true when the command would act. It reveals nothing a client did not read.
+ */
+export const ReviewDigest = Sha256Hex;
+
 export const RestorePreviewResult = Type.Union([
-  Type.Object({ availability: Type.Literal('available'), preview: RestorePreview }, strict),
+  Type.Object(
+    { availability: Type.Literal('available'), preview: RestorePreview, review: ReviewDigest },
+    strict,
+  ),
   Unavailable,
 ]);
 export type RestorePreviewResult = Static<typeof RestorePreviewResult>;

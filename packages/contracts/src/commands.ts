@@ -1,6 +1,6 @@
 import Type, { type Static, type TSchema } from 'typebox';
 import { CatalogRepositoryRef } from './catalog.ts';
-import { CheckpointId } from './checkpoints.ts';
+import { CheckpointId, ReviewDigest } from './checkpoints.ts';
 import { FolderName, HostPath, ProjectLocationChoice } from './locations.ts';
 import { CheckId } from './previews.ts';
 import {
@@ -64,21 +64,30 @@ export const ProjectMakeVrVersionCommand = defineCommand(
 
 /**
  * Binds a project to another folder, for example after its folder was moved, or gives one to a
- * project created without. Executions already started keep the folder they started in.
+ * project created without. Executions already started keep the folder they started in. `review` is
+ * the digest of the location review the person read (ADR 0051): a paired device's rebinding of a
+ * project that has a folder needs it, and it must still describe what is true.
  */
 export const ProjectSetLocationCommand = defineCommand(
   'project.set_location',
-  Type.Object({ project_id: ProjectId, location: ProjectLocationChoice }, strict),
+  Type.Object(
+    { project_id: ProjectId, location: ProjectLocationChoice, review: Type.Optional(ReviewDigest) },
+    strict,
+  ),
 );
 
 /**
  * Puts every file of the project's folder back as one of its checkpoints holds it (ADR 0036). The
  * host does it, never a runtime, and completes it only once it has read every file again and found
- * it equal to the checkpoint.
+ * it equal to the checkpoint. `review` is the digest of the restore preview the person read (ADR
+ * 0051): a paired device needs it, and a restore whose preview no longer matches it changes nothing.
  */
 export const ProjectRestoreCommand = defineCommand(
   'project.restore',
-  Type.Object({ project_id: ProjectId, checkpoint_id: CheckpointId }, strict),
+  Type.Object(
+    { project_id: ProjectId, checkpoint_id: CheckpointId, review: Type.Optional(ReviewDigest) },
+    strict,
+  ),
 );
 
 /**
@@ -368,6 +377,13 @@ export const RejectionCode = Type.Union([
    * it opened before the revocation, as the credential is refused on every new one (ADR 0017).
    */
   Type.Literal('device_revoked'),
+  /**
+   * A paired device sent a command that changes a project's files or folder without the digest of
+   * the review the person read first (ADR 0051).
+   */
+  Type.Literal('review_required'),
+  /** What the person read no longer matches what is true now: read it again (ADR 0051). */
+  Type.Literal('review_stale'),
 ]);
 export type RejectionCode = Static<typeof RejectionCode>;
 

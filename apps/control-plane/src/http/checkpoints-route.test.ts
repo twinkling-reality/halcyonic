@@ -100,8 +100,12 @@ describe('reading checkpoints over HTTP', () => {
     );
     assert.equal(preview.status, 200);
     assert.ok(validPreview(preview.body).ok);
-    assert.deepEqual((preview.body as RestorePreviewResponse).result, {
+    const shown = (preview.body as RestorePreviewResponse).result;
+    // The digest a restore carries back (ADR 0051), checked in review.test.ts.
+    assert.match(shown.availability === 'available' ? shown.review : '', /^[0-9a-f]{64}$/);
+    assert.deepEqual(shown, {
       availability: 'available',
+      review: shown.availability === 'available' ? shown.review : '',
       preview: {
         checkpoint_id: checkpointId,
         changed_back: { paths: ['app.txt'], total: 1 },

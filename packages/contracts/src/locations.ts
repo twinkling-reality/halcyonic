@@ -78,6 +78,25 @@ export const ProjectLocation = Type.Object(
 );
 export type ProjectLocation = Static<typeof ProjectLocation>;
 
+/** Asks what binding a project to another folder would do, before the person confirms it (ADR 0051). */
+export const LocationReviewRequest = Type.Object({ location: ProjectLocationChoice }, strict);
+export type LocationReviewRequest = Static<typeof LocationReviewRequest>;
+
+/**
+ * What binding the project to `next` would do: the folder it works in now, and `review`, the digest
+ * a `project.set_location` carries back (ADR 0051). Work already started keeps its folder.
+ */
+export const LocationReviewResponse = Type.Object(
+  {
+    project_id: ProjectId,
+    current: Nullable(ProjectLocation),
+    next: ProjectLocationChoice,
+    review: Type.String({ pattern: '^[0-9a-f]{64}$' }),
+  },
+  strict,
+);
+export type LocationReviewResponse = Static<typeof LocationReviewResponse>;
+
 /** The most projects a listed folder names as using it. */
 export const MAX_FOLDER_USERS = 100;
 

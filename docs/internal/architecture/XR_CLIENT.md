@@ -1021,7 +1021,9 @@ launch/return, process recreation and current-frame action behavior need separat
   `project.create` for a new project, with the folder chosen, or `project.set_location` first for
   an existing project that is to work in another folder (which completes with no result), then
   `workstream.create` and `execution.start`, each sent only once the control plane recorded the one
-  before it completed, a projected record winning over a lost acknowledgement (`NewWorkSubmission`).
+  before it completed, a projected record winning over a lost acknowledgement (`NewWorkSubmission`). A move of a project that has a folder carries `MoveReview`, the digest of the location review the
+  person read (`ControlPlaneApi.ReviewLocationAsync`, ADR 0051), which a paired headset's move needs;
+  reading it before the confirmation and showing its words there is the entry panel's (not built yet).
   It begins, and sends again, only on a `NewWorkReview` read to its end whose Yes it takes, once
   (`Spend`), and that shows the new project's name, the folder it sends (compared as the command
   carries it, since two places can share a name), the model and the first task; it keeps what that

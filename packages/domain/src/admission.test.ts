@@ -496,7 +496,8 @@ describe('command admission', () => {
       },
     });
     const admitted = admitCommand(setLocation(scope.projectId), projection, catalog());
-    assert.equal(admitted.admitted && admitted.policy, 'low_consequence');
+    // It changes where the project's later work runs: the person reads the review first (ADR 0051).
+    assert.equal(admitted.admitted && admitted.policy, 'review_required');
     assert.equal(admitted.scope.project_id, scope.projectId);
     const missing = admitCommand(
       setLocation('01920000-0000-7000-8000-00000000ffff'),

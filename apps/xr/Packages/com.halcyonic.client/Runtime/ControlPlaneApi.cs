@@ -123,6 +123,44 @@ namespace Halcyonic.Client
             return HalcyonicJson.Deserialize<WorkspaceAgentStatus>(body);
         }
 
+        /// <summary>
+        /// What moving a project to <paramref name="location"/> would do, before the person confirms it
+        /// (ADR 0051): the folder it works in now (its name, or null for none) and the digest the move's
+        /// <c>project.set_location</c> carries back, which the Mac checks is still true when it acts.
+        /// </summary>
+        public async Task<LocationReview> ReviewLocationAsync(string projectId, ProjectLocationChoice location, CancellationToken cancellationToken = default)
+        {
+            HttpResponseMessage response;
+            try
+            {
+                var request = new Newtonsoft.Json.Linq.JObject { ["location"] = Newtonsoft.Json.Linq.JToken.Parse(HalcyonicJson.Serialize(location)) };
+                var message = new HttpRequestMessage(HttpMethod.Post, new Uri(baseUri, "api/projects/" + Uri.EscapeDataString(projectId) + "/location-review"))
+                {
+                    Content = new StringContent(request.ToString(Formatting.None), System.Text.Encoding.UTF8, "application/json"),
+                };
+                response = await http.SendAsync(message, cancellationToken).ConfigureAwait(false);
+            }
+            catch (HttpRequestException error)
+            {
+                throw new ControlPlaneRequestException("The control plane could not be reached: " + error.Message, error);
+            }
+            using (response)
+            {
+                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body), CodeOf(body), (int)response.StatusCode);
+                }
+                var answer = Newtonsoft.Json.Linq.JObject.Parse(body);
+                var review = answer.Value<string>("review");
+                if (review == null || !System.Text.RegularExpressions.Regex.IsMatch(review, "^[0-9a-f]{64}$"))
+                {
+                    throw new ControlPlaneRequestException("The control plane's review cannot be read.", "review_unreadable");
+                }
+                return new LocationReview((answer["current"] as Newtonsoft.Json.Linq.JObject)?.Value<string>("name"), review);
+            }
+        }
+
         /// <summary>Journal-projected request state. A response is never a task-completion claim.</summary>
         public async Task<WorkspaceRequestResponse> ReadWorkspaceRequestAsync(string requestId, CancellationToken cancellationToken = default)
         {
@@ -386,5 +424,22 @@ namespace Halcyonic.Client
                 return ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture);
             }
         }
+    }
+
+    /// <summary>
+    /// What moving a project would do, as the Mac read it (ADR 0051): the name of the folder it works in
+    /// now, or null for none, and the digest its move carries back.
+    /// </summary>
+    public sealed class LocationReview
+    {
+        public LocationReview(string? currentFolder, string digest)
+        {
+            CurrentFolder = currentFolder;
+            Digest = digest;
+        }
+
+        public string? CurrentFolder { get; }
+
+        public string Digest { get; }
     }
 }

@@ -1656,6 +1656,8 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "checkpoint_not_found")] CheckpointNotFound,
         [EnumMember(Value = "demonstration")] Demonstration,
         [EnumMember(Value = "device_revoked")] DeviceRevoked,
+        [EnumMember(Value = "review_required")] ReviewRequired,
+        [EnumMember(Value = "review_stale")] ReviewStale,
     }
 
     public sealed class CommandRejection
@@ -2684,6 +2686,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("location", Required = Required.Always)]
         public ProjectLocationChoice Location { get; set; } = default!;
+
+        [JsonProperty("review", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? Review { get; set; }
     }
 
     public sealed class ProjectRestorePayload
@@ -2693,6 +2698,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("checkpoint_id", Required = Required.Always)]
         public string CheckpointId { get; set; } = default!;
+
+        [JsonProperty("review", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? Review { get; set; }
     }
 
     public sealed class ProjectCheckPayload

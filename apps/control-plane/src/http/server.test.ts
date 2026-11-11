@@ -384,7 +384,8 @@ describe('realtime protocol', () => {
     assert.equal(policies.get('project.preview.start'), 'low_consequence');
     assert.equal(policies.get('project.preview.stop'), 'low_consequence');
     assert.equal(policies.get('project.open_on_mac'), 'low_consequence');
-    assert.equal(policies.get('project.set_location'), 'low_consequence');
+    // Where a project's later work runs: a device carries the review it read (ADR 0051).
+    assert.equal(policies.get('project.set_location'), 'review_required');
     assert.equal(policies.get('project.restore'), 'review_required');
     assert.equal(policies.get('execution.respond_to_approval'), 'review_required');
     assert.equal(policies.get('execution.interrupt'), 'review_required');

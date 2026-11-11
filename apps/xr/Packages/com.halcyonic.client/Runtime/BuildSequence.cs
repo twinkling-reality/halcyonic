@@ -117,6 +117,14 @@ namespace Halcyonic.Client
         /// <summary>The folder it sends, as the command carries it, or null for none.</summary>
         public ProjectLocationChoice? Location => location;
 
+        /// <summary>
+        /// The digest of the location review the person read before moving an existing project
+        /// (<see cref="ControlPlaneApi.ReviewLocationAsync"/>, ADR 0051), set before <see cref="Begin"/> or
+        /// <see cref="Retry"/>; its <c>project.set_location</c> carries it, and the Mac refuses a paired
+        /// headset's move without it, or once what was read has changed. Null sends none.
+        /// </summary>
+        public string? MoveReview { get; set; }
+
         /// <summary>The project it creates first, or null when the work goes to the draft's project.</summary>
         public string? NewProjectName => newProjectName;
 
@@ -384,7 +392,7 @@ namespace Halcyonic.Client
         private CommandEnvelope CommandFor(BuildStepKind kind) => kind switch
         {
             BuildStepKind.CreateProject => commands.CreateProject(newProjectName!, location),
-            BuildStepKind.BindFolder => commands.SetProjectLocation(projectId!, location!),
+            BuildStepKind.BindFolder => commands.SetProjectLocation(projectId!, location!, MoveReview),
             BuildStepKind.CreateWorkstream => commands.CreateWorkstream(projectId!, confirmed!.Title, confirmed.Objective),
             _ => commands.StartExecution(WorkstreamId!, confirmed!.RuntimeId, confirmed.Objective, modelRef: confirmed.ModelRef,
                 approvalLevel: confirmed.NeverAsk ? ApprovalLevel.NeverAsk : (ApprovalLevel?)null),

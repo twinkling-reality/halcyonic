@@ -16,6 +16,7 @@ import { type Clock, checkProjectLocation } from '@halcyonic/runtime-core';
 import { type Cause, causedBy, controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import type { EventPublisher } from '../core/publisher.ts';
 import type { Recorder } from '../core/recorder.ts';
+import { restoreReview } from '../core/review.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
@@ -38,7 +39,7 @@ export type RestoreOutcome =
   | { readonly ok: false; readonly failure: CommandFailure };
 
 export type PreviewOutcome =
-  | { readonly ok: true; readonly preview: RestorePreview }
+  | { readonly ok: true; readonly preview: RestorePreview; readonly review: string }
   | { readonly ok: false; readonly code: string; readonly message: string };
 
 /**
@@ -136,15 +137,11 @@ export class Checkpointer {
     if (!folder.ok) return folder;
     const previewed = await this.#deps.store.preview(projectId, folder.path, checkpointId);
     if (!previewed.ok) return previewed;
+    const preview = shown(checkpointId, previewed);
     return {
       ok: true,
-      preview: {
-        checkpoint_id: checkpointId,
-        changed_back: pathList(previewed.changedBack),
-        removed: pathList(previewed.removed),
-        returned: pathList(previewed.returned),
-        project_head_moved: previewed.projectHeadMoved,
-      },
+      preview,
+      review: restoreReview(projectId, checkpointId, preview, previewed),
     };
   }
 
@@ -170,6 +167,26 @@ export class Checkpointer {
     const previewed = await this.#deps.store.preview(projectId, folder.path, checkpointId);
     if (!previewed.ok)
       return this.#incomplete(projectId, checkpointId, null, false, [], previewed, cause);
+    // A restore carrying the digest of the preview the person read changes nothing once what it
+    // would change is no longer that (ADR 0051), checked here, in the restore's own turn.
+    const review = command.payload.review;
+    if (
+      review !== undefined &&
+      review !== restoreReview(projectId, checkpointId, shown(checkpointId, previewed), previewed)
+    )
+      return this.#incomplete(
+        projectId,
+        checkpointId,
+        null,
+        false,
+        [],
+        {
+          code: 'review_stale',
+          message:
+            'What would change is no longer what was read, so nothing was changed. Read it again.',
+        },
+        cause,
+      );
 
     const before = await this.#take(
       projectId,
@@ -423,6 +440,20 @@ export class Checkpointer {
 
 function projectScope(projectId: ProjectId) {
   return { project_id: projectId, workstream_id: null, execution_id: null } as const;
+}
+
+/** A store's preview as the restore preview shows it, and as its review digest covers it. */
+function shown(
+  checkpointId: CheckpointId,
+  previewed: Extract<Awaited<ReturnType<CheckpointStore['preview']>>, { ok: true }>,
+): RestorePreview {
+  return {
+    checkpoint_id: checkpointId,
+    changed_back: pathList(previewed.changedBack),
+    removed: pathList(previewed.removed),
+    returned: pathList(previewed.returned),
+    project_head_moved: previewed.projectHeadMoved,
+  };
 }
 
 /**

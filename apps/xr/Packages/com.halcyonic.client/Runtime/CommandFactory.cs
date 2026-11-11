@@ -33,10 +33,11 @@ namespace Halcyonic.Client
         /// Binds a project to another folder, for example after its folder was moved or renamed on the
         /// Mac. Work already started keeps the folder it started in.
         /// </summary>
-        public ProjectSetLocationCommand SetProjectLocation(string projectId, ProjectLocationChoice location) =>
+        /// <param name="review">The digest of the location review the person read (ADR 0051), or null for none.</param>
+        public ProjectSetLocationCommand SetProjectLocation(string projectId, ProjectLocationChoice location, string? review = null) =>
             Stamp(new ProjectSetLocationCommand
             {
-                Payload = new ProjectSetLocationPayload { ProjectId = projectId, Location = location },
+                Payload = new ProjectSetLocationPayload { ProjectId = projectId, Location = location, Review = review },
             });
 
         /// <summary>

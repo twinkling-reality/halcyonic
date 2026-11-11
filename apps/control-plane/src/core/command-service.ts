@@ -66,6 +66,7 @@ import { type OllamaUnloader, ollamaModelFrom } from './ollama-unload.ts';
 import { type Reattacher, SESSION_LOST } from './reattach.ts';
 import type { Recorder } from './recorder.ts';
 import { fitted, type Redaction, withinLimit } from './redaction.ts';
+import { locationReview } from './review.ts';
 import type { RuntimeRegistry } from './runtime-registry.ts';
 
 export type SubmitOutcome =
@@ -246,7 +247,11 @@ export class CommandService {
         if (oldest !== undefined) this.#requestDigests.delete(oldest);
       }
     }
-    const admission = this.#authorize(principal, this.#admit(command), command);
+    const admission = this.#reviewed(
+      principal,
+      this.#authorize(principal, this.#admit(command), command),
+      command,
+    );
     const cause = causedBy(command.command_id);
     if (!admission.admitted) {
       this.#deps.recorder.record(
@@ -367,6 +372,49 @@ export class CommandService {
   }
 
   /** Rejects a command from a device that is no longer paired, whatever its admission. */
+  /**
+   * The review a command that changes a project's files or folder rests on (ADR 0051): a paired
+   * device's `project.restore`, or its `project.set_location` that rebinds a project that has a
+   * folder, must carry the digest of what the person read; a rebinding whose digest, from anyone,
+   * no longer matches what is true now is refused. A restore's digest is checked in the restore's
+   * own turn, against what it would change then, since that is read from the files.
+   */
+  #reviewed(
+    principal: Principal | null,
+    admission: Admission,
+    command: CommandEnvelope,
+  ): Admission {
+    if (!admission.admitted) return admission;
+    const refuse = (code: 'review_required' | 'review_stale', message: string): Admission => ({
+      admitted: false,
+      scope: admission.scope,
+      rejection: { code, message },
+    });
+    const device = principal?.kind === 'device';
+    if (command.command_type === 'project.restore') {
+      if (device && command.payload.review === undefined)
+        return refuse(
+          'review_required',
+          'Putting files back from a paired device needs the review the person read first.',
+        );
+      return admission;
+    }
+    if (command.command_type !== 'project.set_location') return admission;
+    const current = this.#deps.projection.project(command.payload.project_id)?.location ?? null;
+    const review = command.payload.review;
+    if (review === undefined) {
+      return device && current !== null
+        ? refuse(
+            'review_required',
+            'Moving a project to another folder from a paired device needs the review the person read first.',
+          )
+        : admission;
+    }
+    return review === locationReview(command.payload.project_id, command.payload.location, current)
+      ? admission
+      : refuse('review_stale', 'The project changed since the review was read. Read it again.');
+  }
+
   #authorize(
     principal: Principal | null,
     admission: Admission,
