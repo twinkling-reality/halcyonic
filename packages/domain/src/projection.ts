@@ -83,6 +83,8 @@ export interface ExecutionFacts {
   hasActiveTurn: boolean;
   pendingApprovals: readonly ApprovalView[];
   pendingQuestions: readonly QuestionView[];
+  /** True while it is a plan: its start recorded one, and it has not been left (PLAN). */
+  inPlan: boolean;
 }
 
 const ACTIVE_STATUSES: ReadonlySet<ExecutionStatus> = new Set([
@@ -203,9 +205,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * task's own copy and a check's folder and task (ADR 0045). 3: each project's shared link (F1).
  * 4: how each file a task's copy would add changed (`to_add_files`). 5: each project's history.
  * 6: the digest of a task's copy's latest reading (`to_add_review`, ADR 0051). 7: whether an
- * execution's start recorded the runtime's plan mode (`plan`, PLAN).
+ * execution's start recorded the runtime's plan mode (`plan`, PLAN). 8: whether it left the plan
+ * (`planLeft`) and why its start was not counted confined (`unconfinedReason`).
  */
-export const PROJECTION_STATE_FORMAT = 7;
+export const PROJECTION_STATE_FORMAT = 8;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -709,7 +712,8 @@ export class Projection {
       options: start.payload.options,
       model_ref: start.payload.model_ref,
       ...(state.approvalLevel !== null && { approval_level: state.approvalLevel }),
-      plan: state.plan,
+      // Still a plan only until it was left: a re-attach then expects the session off its plan mode.
+      plan: state.plan && !state.planLeft,
       confined: state.confined,
       directory: state.directory,
       cut_turn: state.activeTurn === null ? null : { turn_id: state.activeTurn.turnId },
@@ -1637,6 +1641,7 @@ export class Projection {
       case 'runtime.connection.lost':
       case 'runtime.connection.restored':
       case 'runtime.model.used':
+      case 'runtime.plan.left':
         this.#applyRuntime(event, changes, notes);
         return;
       default: {
@@ -1829,6 +1834,7 @@ export class Projection {
         execution.confined = event.payload.confined === true;
         execution.approvalLevel = event.payload.approval_level ?? null;
         execution.plan = event.payload.plan === true;
+        execution.unconfinedReason = event.payload.unconfined_reason ?? null;
         execution.startedAt ??= event.occurred_at;
         break;
       case 'runtime.turn.started':
@@ -1966,6 +1972,9 @@ export class Projection {
         break;
       case 'runtime.model.used':
         execution.modelRef = event.payload.model_ref;
+        break;
+      case 'runtime.plan.left':
+        execution.planLeft = true;
         break;
       default: {
         const unhandled: never = event;
@@ -2172,6 +2181,7 @@ function toFacts(state: ExecutionState): ExecutionFacts {
     pendingApprovals: [...state.pendingApprovals.values()],
     // Only those shown can be answered: one behind them waits its turn.
     pendingQuestions: shownQuestions(state.pendingQuestions),
+    inPlan: state.plan && !state.planLeft,
   };
 }
 

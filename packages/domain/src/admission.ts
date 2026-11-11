@@ -641,6 +641,23 @@ export function admitCommand(
           "The project's files are being put back. Send the instruction once that has finished.",
         );
       }
+      // Carrying a plan out (PLAN): only a plan can be left, once, on a runtime that offers plans.
+      if (command.payload.leave_plan === true) {
+        if (runtime.offers_plan !== true) {
+          return reject(
+            scope,
+            'capability_unsupported',
+            `Runtime ${runtime.runtime_id} does not offer planning, so there is no plan to carry out.`,
+          );
+        }
+        if (!facts.inPlan) {
+          return reject(
+            scope,
+            'invalid_state',
+            'This task is not a plan now, so there is no plan to carry out. Send the instruction without it.',
+          );
+        }
+      }
       switch (facts.status) {
         case 'completed':
         case 'failed':

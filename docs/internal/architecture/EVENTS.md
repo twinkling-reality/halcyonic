@@ -111,6 +111,7 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | `runtime.connection.lost` | execution | runtime | The adapter lost contact with the runtime |
 | `runtime.connection.restored` | execution | runtime | The adapter can observe the runtime again after a loss; what changed meanwhile follows as its own events |
 | `runtime.model.used` | execution | runtime | The model the runtime says the execution runs on (`observed`), by the `model_ref` of the runtime's list; reported when it starts and whenever it changes |
+| `runtime.plan.left` | execution | runtime | The runtime left its plan mode in the execution's session (`observed`), confirmed before the instruction that carries the plan out was sent (PLAN, [agent-plan-modes.md](../validation/agent-plan-modes.md)); the level does not change |
 | `device.paired` | none | control plane | A device proved it saw the pairing code; carries its id, its self-declared label, the SHA-256 of its credential and of the certificate it pinned ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)) |
 | `device.revoked` | none | control plane | The device's credential is no longer accepted; carries who revoked it |
 

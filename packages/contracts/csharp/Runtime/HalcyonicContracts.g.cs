@@ -2159,6 +2159,15 @@ namespace Halcyonic.Contracts
         [JsonProperty("approval_level", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public ApprovalLevel? ApprovalLevel { get; set; }
 
+        [JsonProperty("plan", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Plan { get; set; }
+
+        [JsonProperty("plan_left", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? PlanLeft { get; set; }
+
+        [JsonProperty("unconfined_reason", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? UnconfinedReason { get; set; }
+
         [JsonProperty("instruction", Required = Required.Always)]
         public string Instruction { get; set; } = default!;
 
@@ -3454,6 +3463,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("text", Required = Required.Always)]
         public string Text { get; set; } = default!;
+
+        [JsonProperty("leave_plan", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? LeavePlan { get; set; }
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
@@ -4265,6 +4277,10 @@ namespace Halcyonic.Contracts
         public string ModelRef { get; set; } = default!;
     }
 
+    public sealed class RuntimePlanLeftPayload
+    {
+    }
+
     [JsonConverter(typeof(EventEnvelopeConverter))]
     public abstract class EventEnvelope
     {
@@ -4386,6 +4402,7 @@ namespace Halcyonic.Contracts
                 "runtime.connection.lost" => new RuntimeConnectionLostEvent(),
                 "runtime.connection.restored" => new RuntimeConnectionRestoredEvent(),
                 "runtime.model.used" => new RuntimeModelUsedEvent(),
+                "runtime.plan.left" => new RuntimePlanLeftEvent(),
                 _ => throw new JsonSerializationException(tag == null
                     ? "EventEnvelope has no string event_type."
                     : "Unknown event_type \"" + tag + "\" for EventEnvelope."),
@@ -4876,6 +4893,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public RuntimeModelUsedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class RuntimePlanLeftEvent : EventEnvelope
+    {
+        protected override string Discriminator => "runtime.plan.left";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public RuntimePlanLeftPayload Payload { get; set; } = default!;
     }
 
     public sealed class EntityChanges

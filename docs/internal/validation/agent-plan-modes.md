@@ -76,3 +76,23 @@ The session API takes `agent` at creation (`agent: "plan"`) and reports it back.
 `collaborationMode: { mode: "plan" | "default", settings }`. Halcyonic uses the stable surface (ADR 0011), and a plan
 made of read-only turns would be Halcyonic's mechanism, not the runtime's, so Codex does not offer a plan. A start
 asking for one is refused in admission.
+
+## 2026-11-11: carrying a plan out, in the same session (VRIFY, PLAN 4a)
+
+- **The contract:**
+  - `execution.send_instruction` takes `leave_plan` (optional; only `true` means anything).
+  - The adapter reports `runtime.plan.left` once the runtime confirms the switch, before the instruction is sent.
+  - `ExecutionView` carries `plan`, `plan_left` and `unconfined_reason`.
+- **Admission:** `leave_plan` is refused on a runtime that offers no plan (`capability_unsupported`), and on an
+  execution that is not a plan now, never one or already left (`invalid_state`, "This task is not a plan now, so there
+  is no plan to carry out. Send the instruction without it.").
+- **OpenCode 2.0.18, the adapter's e2e test inside the sandbox:**
+  - A plan's write is refused unasked.
+  - Then an instruction with `leave_plan` switches the session to `build` (`POST /api/session/:id/agent`) and reads it
+    back (`GET /api/session/:id` reports `agent: "build"`).
+  - It records `runtime.plan.left` before the turn starts, and the write goes ahead in the same session.
+  - A read-back that is not `build` refuses the instruction (`runtime_refused`), with nothing sent and nothing
+    recorded. That path is read, not run: the pinned binary always confirmed.
+- **The level** is the start's throughout: leaving a plan changes the agent, never the session's rules.
+- **A re-attach after leaving** expects the session on `build`: the bounds' `plan` is false once it was left.
+

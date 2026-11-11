@@ -867,6 +867,12 @@ export const RUNTIME_EVENT_PAYLOADS = {
    * names it (ADR 0016). Taken from the runtime's own report, never from the model chosen.
    */
   'runtime.model.used': Type.Object({ model_ref: ModelRef }, strict),
+  /**
+   * The runtime left its plan mode in the execution's session (PLAN), as the adapter saw it confirm
+   * before the instruction that carries the plan out was sent. From here the session changes files
+   * as a start that was not a plan would, at the level it started with.
+   */
+  'runtime.plan.left': Type.Object({}, strict),
 } as const;
 
 export type RuntimeEventType = keyof typeof RUNTIME_EVENT_PAYLOADS;
@@ -930,6 +936,7 @@ export const RuntimeConnectionRestored = runtimeEvent(
   P['runtime.connection.restored'],
 );
 export const RuntimeModelUsed = runtimeEvent('runtime.model.used', P['runtime.model.used']);
+export const RuntimePlanLeft = runtimeEvent('runtime.plan.left', P['runtime.plan.left']);
 
 export const EVENT_VARIANTS = [
   ProjectCreated,
@@ -991,6 +998,7 @@ export const EVENT_VARIANTS = [
   RuntimeConnectionLost,
   RuntimeConnectionRestored,
   RuntimeModelUsed,
+  RuntimePlanLeft,
 ] as const;
 
 export const EventEnvelope = Type.Union([...EVENT_VARIANTS]);

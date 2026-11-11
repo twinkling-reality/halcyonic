@@ -128,6 +128,7 @@ const LISTED_EVENT_TYPES: ReadonlySet<string> = new Set<EventEnvelope['event_typ
   'runtime.connection.lost',
   'runtime.connection.restored',
   'runtime.model.used',
+  'runtime.plan.left',
 ]);
 
 /** What a path at or under the project's folder reads as once the folder itself is left out. */

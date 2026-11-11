@@ -51,6 +51,10 @@ export interface ExecutionState {
   approvalLevel: ApprovalLevel | null;
   /** Whether its start recorded the runtime's own plan mode (PLAN); false otherwise or unknown. */
   plan: boolean;
+  /** Whether the runtime has since left the plan to carry it out (`runtime.plan.left`). */
+  planLeft: boolean;
+  /** Why its start was not counted confined, as recorded (BOX-4); null where none was. */
+  unconfinedReason: string | null;
   /** The model the runtime last reported using, as its model list names it. */
   modelRef: string | null;
   /** True once the runtime has reported any activity, meaning a native session exists. */
@@ -93,6 +97,8 @@ export function createExecutionState(init: {
     confined: false,
     approvalLevel: null,
     plan: false,
+    planLeft: false,
+    unconfinedReason: null,
     modelRef: null,
     runtimeStarted: false,
     startedAt: null,
@@ -176,6 +182,9 @@ export function toExecutionView(
     native_id: state.nativeId,
     model_ref: state.modelRef,
     ...(state.approvalLevel !== null && { approval_level: state.approvalLevel }),
+    ...(state.plan && { plan: true }),
+    ...(state.planLeft && { plan_left: true }),
+    ...(state.unconfinedReason !== null && { unconfined_reason: state.unconfinedReason }),
     instruction: state.instruction,
     directory: state.directory,
     status: deriveExecutionStatus(state),
