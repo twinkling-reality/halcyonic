@@ -76,12 +76,16 @@ namespace Halcyonic.XR.Editor
             var output = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
             if (process.ExitCode != 0) return new List<string> { "aapt2 could not read the permissions (exit " + process.ExitCode + ")" };
+            // The first line names the package: package: com.halcyonic.xr
+            var package = output.Split('\n').FirstOrDefault(line => line.StartsWith("package:", StringComparison.Ordinal))?.Substring("package:".Length).Trim();
+            if (string.IsNullOrEmpty(package)) return new List<string> { "aapt2 named no package, so its own receiver permission cannot be told apart" };
             // Lines such as: uses-permission: name='android.permission.INTERNET'
             var asked = output.Split('\n')
                 .Where(line => line.StartsWith("uses-permission", StringComparison.Ordinal))
                 .Select(line => line.Split('\'').ElementAtOrDefault(1) ?? line.Trim())
                 .ToList();
-            return asked.Where(name => !Named.Contains(name) && !name.EndsWith(ReceiverSuffix, StringComparison.Ordinal)).ToList();
+            // AndroidX's receiver permission only under the APK's own package, never any name that merely ends the same way (AUDIT).
+            return asked.Where(name => !Named.Contains(name) && name != package + ReceiverSuffix).ToList();
         }
 
         private static string? Aapt2()
