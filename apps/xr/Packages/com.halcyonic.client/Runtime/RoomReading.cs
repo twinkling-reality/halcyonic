@@ -52,7 +52,9 @@ namespace Halcyonic.Client
     /// <summary>
     /// The measures of a card's page of reading, so a screen wraps and pages a file exactly as the card draws it: the
     /// mono face at 15 dp on a 22 dp pitch, the line number in a 34 dp gutter, the change's mark, the words, a continued
-    /// row hung 16 dp in. The view checks every one of these (KitRender's 47-card-reading).
+    /// row hung 16 dp in, 12 dp kept clear at the right. The view checks every one of these (KitRender's 47-card-reading).
+    /// A screen wraps a line at a space, or after / ? &amp; , ; : but never inside an operator (=&gt;, ==, !=, &lt;=, -&gt;, ::,
+    /// &amp;&amp;, ||) or a name, and gives a long line as many continued rows as it needs.
     /// </summary>
     public static class RoomReading
     {
@@ -66,6 +68,9 @@ namespace Halcyonic.Client
         public const float TextGapDp = 8f;
         public const float HangDp = 16f;
         public const float GapRowDp = 14f;
+
+        /// <summary>The room kept clear at a row's right, inside its band, so no line touches the band's edge.</summary>
+        public const float RightPadDp = 12f;
 
         /// <summary>The mono face's advance, a share of its size: every character the same width.</summary>
         public const float AdvanceEm = 0.6f;
@@ -85,7 +90,7 @@ namespace Halcyonic.Client
         {
             if (textScale <= 0f) throw new ArgumentOutOfRangeException(nameof(textScale), textScale, "A text size is more than nothing.");
             var inner = RoomGeometry.PanelDp - 2f * RoomGeometry.PanelPadDp * textScale;
-            var words = inner - TextLeftDp(textScale, continued);
+            var words = inner - TextLeftDp(textScale, continued) - RightPadDp * textScale;
             return (int)Math.Floor(words / (TypeDp * textScale * AdvanceEm) + 1e-4);
         }
     }
