@@ -78,6 +78,9 @@ namespace Halcyonic.Client
 
         /// <summary>A way to share on the Wi-Fi: its arcs.</summary>
         Wifi,
+
+        /// <summary>Something waiting its turn, as an instruction waits for a turn to end (ADR 0056): the clock, as a check not yet run.</summary>
+        Waiting,
     }
 
     /// <summary>How a card's status, step or row stands: its colour.</summary>
@@ -176,8 +179,18 @@ namespace Halcyonic.Client
     public readonly struct RoomCardStep
     {
         public RoomCardStep(string name, RoomTone tone, int triesUsed = 0, int triesOf = 0)
+            : this(LineWords.Ours(name), tone, triesUsed, triesOf)
         {
-            Name = name;
+        }
+
+        /// <summary>
+        /// A step named in runs: a project's own check is named by its script's name, the project's words, which lean
+        /// (LOOP's own check, ADR 0055).
+        /// </summary>
+        public RoomCardStep(LineWords name, RoomTone tone, int triesUsed = 0, int triesOf = 0)
+        {
+            Words = name;
+            Name = name.Text;
             Tone = tone;
             TriesOf = triesOf < 0 ? 0 : triesOf;
             TriesUsed = triesUsed < 0 ? 0 : triesUsed > TriesOf ? TriesOf : triesUsed;
@@ -188,7 +201,11 @@ namespace Halcyonic.Client
 
         public int TriesUsed { get; }
 
+        /// <summary>The step's name as text: what a view that draws no card shows.</summary>
         public string Name { get; }
+
+        /// <summary>The step's name as runs, ours unless a project named it.</summary>
+        public LineWords Words { get; }
 
         public RoomTone Tone { get; }
     }
@@ -258,9 +275,10 @@ namespace Halcyonic.Client
     ///
     /// Which parts may hold outside words (a name, a path, an agent's or a companion's words) and so are runs
     /// (<see cref="LineWords"/>, theirs leaning, never drawn as the product's own; AUDIT's F1, 2026-11-11): the title, the
-    /// description, each slot's value, each list row's name, the foot line (<see cref="More"/>), and each gauge's label.
+    /// description, each slot's value, each list row's name, the foot line (<see cref="More"/>), each gauge's label, each
+    /// step's name (<see cref="RoomCardStep.Words"/>), and each line of a page of reading.
     /// Plain strings, which are always the product's own words: the status's title and line, each list row's note, each
-    /// step's name, each gauge's note. A card that needs an outside voice in one of those makes that part runs first
+    /// gauge's note. A step's name is ours unless a project named it (<see cref="RoomCardStep.Words"/>). A card that needs an outside voice in one of those makes that part runs first
     /// (ask FIELD).
     /// </summary>
     public sealed class RoomCard
