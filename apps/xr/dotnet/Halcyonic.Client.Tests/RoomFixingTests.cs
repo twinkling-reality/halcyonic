@@ -44,17 +44,18 @@ public sealed class RoomFixingTests
     }
 
     [Test]
-    public void A_try_on_named_steps_shows_each_as_a_node_with_its_tries()
+    public void A_try_on_named_steps_names_them_in_its_line_and_keeps_its_track()
     {
         var fix = Fix(AutoFixViewState.Fixing, 1);
-        fix.FailedSteps = new System.Collections.Generic.List<AutoFixViewFailedStepsItem> { AutoFixViewFailedStepsItem.Build, AutoFixViewFailedStepsItem.Build, AutoFixViewFailedStepsItem.Typecheck };
+        fix.FailedSteps = new System.Collections.Generic.List<AutoFixViewFailedStepsItem> { AutoFixViewFailedStepsItem.Build, AutoFixViewFailedStepsItem.Build };
         var card = RoomBar.FixingCard(fix)!;
         Assert.That(card.Status!.Value.Title, Is.EqualTo(RoomBar.FixingTitle));
-        Assert.That(card.Steps.Select(step => (step.Name, step.Tone, step.TriesUsed, step.TriesOf)), Is.EqualTo(new[]
-        {
-            (RoomResult.StepWords(CheckStepKind.Build), RoomTone.Working, 1, 2), (RoomResult.StepWords(CheckStepKind.TypeCheck), RoomTone.Working, 1, 2),
-        }), "what is being fixed, named, its tries on its node");
-        Assert.That(card.TrackOf, Is.Null, "the tries are on the steps, not the status");
+        Assert.That(card.Status!.Value.Line, Is.EqualTo("Working on Build by itself"), "what is being fixed, named");
+        Assert.That((card.TrackAt, card.TrackOf), Is.EqualTo(((int?)1, (int?)2)));
+        Assert.That(card.Steps, Is.Empty, "no node repeating the mark");
+        fix.FailedSteps.Add(AutoFixViewFailedStepsItem.Typecheck);
+        Assert.That(RoomBar.FixingCard(fix)!.Status!.Value.Line, Is.EqualTo("Working on Build and " + RoomResult.StepWords(CheckStepKind.TypeCheck) + " by itself"));
+        Assert.That(RoomBar.FixingCard(Fix(AutoFixViewState.Fixing, 1))!.Status!.Value.Line, Is.EqualTo(RoomBar.FixingLine), "no step named, the line as before");
     }
 
     [Test]

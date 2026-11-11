@@ -26,9 +26,9 @@ namespace Halcyonic.Client
     {
         public const string CheckTitle = "Check First";
 
-        public const string CheckAddressLine = "It names a web address. Check it first.";
-        public const string CheckCommandLine = "It names something to run. Check it first.";
-        public const string CheckBothLine = "It names a web address and something to run. Check them first.";
+        public const string CheckAddressLine = "Check the address first.";
+        public const string CheckCommandLine = "Check what it runs first.";
+        public const string CheckBothLine = "Check the address and what it runs.";
 
         /// <summary>
         /// The sentences of the first task, as the person wrote them, that hold what to check: each sentence the task's
@@ -48,6 +48,18 @@ namespace Halcyonic.Client
                 start = index + 1;
             }
             return sentences.Count == 0 ? null : LineWords.Theirs(string.Join(" ", sentences));
+        }
+
+        /// <summary>The web addresses the first task names, each whole as written, its sentence's end left off.</summary>
+        public static IReadOnlyList<string> Addresses(string firstTask)
+        {
+            var found = new List<string>();
+            foreach (var word in firstTask.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries))
+            {
+                var bare = word.TrimEnd('.', ',', ';', ':', '!', '?', ')', '"', '\'').TrimStart('(', '"', '\'');
+                if (bare.Length > 0 && TaskWarnings.Of(bare).Contains(TaskWarnings.WebAddress) && !found.Contains(bare)) found.Add(bare);
+            }
+            return found;
         }
 
         /// <summary>The words before the folder a move leaves: "From kite-run".</summary>
@@ -92,7 +104,9 @@ namespace Halcyonic.Client
                 var line = address && command ? CheckBothLine : address ? CheckAddressLine : command ? CheckCommandLine : string.Join(" ", warnings);
                 var task = review.Items.FirstOrDefault(each => each.Kind == ReviewItemKind.FirstTask);
                 var naming = task == null ? null : Naming(task.ValueRuns);
-                return new RoomCard(title, naming, status: new RoomCardStatus(CheckTitle, line, RoomTone.Attention, RoomKind.Failed), more: foot);
+                // The address itself as a name to type, in mono under the link's mark, so it is seen at a glance.
+                var shown = task == null ? new List<RoomSlot>() : Addresses(task.ValueRuns.Text).Take(RoomCard.MostSlots).Select(each => new RoomSlot(RoomKind.Link, LineWords.Theirs(each), mono: true)).ToList();
+                return new RoomCard(title, naming, status: new RoomCardStatus(CheckTitle, line, RoomTone.Attention, RoomKind.Failed), slots: shown, more: foot);
             }
 
             // The model by the exact id the start sends where it has one: the one the person reads is the one that runs.
