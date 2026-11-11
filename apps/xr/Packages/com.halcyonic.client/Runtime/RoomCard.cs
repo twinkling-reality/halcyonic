@@ -208,8 +208,15 @@ namespace Halcyonic.Client
     /// <summary>
     /// The information panel as a card (the addendum's A17, the owner's rejection of facts strung on dots, 2026-11-11): a
     /// thing's name is its title, with a line of description; its facts are slots, each a kind's glyph over its value; a
-    /// status is a title word over a quieter line; tries are a track of their own; a list's rows are a kind's glyph, the
-    /// name, and a quiet note at the right. Every part is optional, and a card holds no words joined on a dot.
+    /// status is a title word over a quieter line; tries are pips; a list's rows are a kind's glyph, the name, and a quiet
+    /// note at the right. Every part is optional, and a card holds no words joined on a dot (test <see cref="AnyDot"/>).
+    ///
+    /// Which parts may hold outside words (a name, a path, an agent's or a companion's words) and so are runs
+    /// (<see cref="LineWords"/>, theirs leaning, never drawn as the product's own; AUDIT's F1, 2026-11-11): the title, the
+    /// description, each slot's value, each list row's name, the foot line (<see cref="More"/>), and each gauge's label.
+    /// Plain strings, which are always the product's own words: the status's title and line, each list row's note, each
+    /// step's name, each gauge's note. A card that needs an outside voice in one of those makes that part runs first
+    /// (ask FIELD).
     /// </summary>
     public sealed class RoomCard
     {

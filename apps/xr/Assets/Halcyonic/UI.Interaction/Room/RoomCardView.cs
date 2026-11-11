@@ -373,8 +373,8 @@ namespace Halcyonic.XR.UI
                 foreach (var index in row)
                 {
                     var slot = slots[index];
-                    // A row of one, wrapped under a fuller row at larger text, keeps its own width rather than stretch into a strip.
-                    var tile = least[index] + (row.Count == 1 && rows.Count > 1 ? 0f : Mathf.Max(0f, share));
+                    // Every row meets both edges, a row of one too (the built frame's critic, 2026-11-11: a lone well at its own width reads as an orphan).
+                    var tile = least[index] + Mathf.Max(0f, share);
                     values[index].Label.rectTransform.sizeDelta = new Vector2(tile - 2f * S(SlotPadDp), values[index].Label.rectTransform.sizeDelta.y);
                     Plate(new Vector2(tile, well), S(TileCornerDp), White(WellAlpha), new Vector2(x + tile / 2f, -(top + well / 2f)), "slot " + slot.Kind, under: true);
                     // The glyph's drawn edge on the value's left edge: its box moved left by where its ink starts.
