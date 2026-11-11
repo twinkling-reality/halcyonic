@@ -184,8 +184,9 @@ It is the runtime's own mode, declared only once verified, never one Halcyonic m
 - **OpenCode** offers it: its built-in `plan` agent refuses the edit tools without asking, and its shell commands
   still ask ([agent-plan-modes.md](../validation/agent-plan-modes.md), run on the pinned 2.0.18).
 - **Codex** does not: its plan mode is on its experimental surface only, and ADR 0011 stands.
-- **Claude Code** does not yet: its start does not report the mode, and its plan bounds a write no differently from a
-  default start.
+- **Claude Code** does not yet: its plan bounds a write no differently from a default start. Its start's mode is
+  reported in `system/init` (corrected 2026-11-11; an earlier probe misread it), so it may declare a plan once that is
+  recorded.
 - **A later instruction** cannot leave a plan yet. On OpenCode the same session can go ahead by switching its agent,
   and on Claude Code by `setPermissionMode`, both seen on the fake hosts. Choosing that from the headset is FIELD's
   and XR's next step.
