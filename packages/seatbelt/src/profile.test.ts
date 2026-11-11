@@ -43,6 +43,7 @@ const ORIGINAL_SECRETS = [
   '.npmrc',
   '.netrc',
   '.pypirc',
+  'tools/.git-credentials',
   'credentials.json',
   'config/secrets.yml',
   'Release/Upload.PEM',

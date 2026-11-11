@@ -15,7 +15,7 @@ export const SECRET_FILE_RULES = {
   /** SSH private keys and their public halves, by their usual names. */
   sshKeys: ['rsa', 'dsa', 'ecdsa', 'ed25519'],
   /** Package and network credentials, whole names. */
-  names: ['.npmrc', '.netrc', '.pypirc'],
+  names: ['.npmrc', '.netrc', '.pypirc', '.git-credentials'],
   /** Files named so, with or without one extension. */
   stems: ['credentials', 'secrets'],
 } as const;
