@@ -451,15 +451,37 @@ export function admitCommand(
           'invalid_state',
           "A world changes as you speak to it, so a task can't start from an older version of it.",
         );
-      if (
-        from !== undefined &&
-        !projection.checkpoints(projectId).some((checkpoint) => checkpoint.checkpoint_id === from)
-      )
+      const version =
+        from === undefined
+          ? undefined
+          : projection
+              .checkpoints(projectId)
+              .find((checkpoint) => checkpoint.checkpoint_id === from);
+      if (from !== undefined && version === undefined)
         return reject(
           { ...NO_SCOPE, project_id: projectId },
           'checkpoint_not_found',
           "That version is not one of this project's.",
         );
+      // A version of another task's own copy holds that task's work; unless that work was added to
+      // the project since, a task started on it would carry work the project never took (AUDIT3 S2).
+      if (version !== undefined && version.execution_id !== null) {
+        const execution = projection.execution(version.execution_id);
+        const copy =
+          execution === undefined
+            ? undefined
+            : projection.workstream(execution.workstream_id)?.copy;
+        if (
+          copy?.state === 'own' &&
+          execution?.directory === copy.directory &&
+          (copy.last_added_at === null || copy.last_added_at < version.recorded_at)
+        )
+          return reject(
+            { ...NO_SCOPE, project_id: projectId },
+            'invalid_state',
+            "That version holds a task's work that was never added to the project. Choose another version, or add that task's work first.",
+          );
+      }
       return {
         admitted: true,
         policy,

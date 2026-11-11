@@ -115,6 +115,12 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
    - The add is unchanged: its merge base is the version's tree, so it brings only what the task
      changed since that version, beside what the project gained since, and a file both changed
      meets as a conflict.
+   - A version of another task's own copy (History lists them) is refused while that task's work
+     has not been added to the project since: a task started on it would carry work the project
+     never took, which its own add would then not bring either (AUDIT3 S2). Once that work is
+     added, the version is one of the project's like any other.
+   - The line telling the agent which version it works on goes with the task's first run that has
+     a turn, so a start that failed first does not lose it (AUDIT3 S3).
    - Refused, in words: another project's version or a missing one (`checkpoint_not_found`); a version
      of a world, which changes in place with no copy to make into it (`invalid_state`);
      creating one with copies or undo off, or starting it where no copy can be made, as for an

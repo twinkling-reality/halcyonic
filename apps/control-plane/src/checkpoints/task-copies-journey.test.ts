@@ -447,6 +447,10 @@ describe('several agents on one project (ADR 0045)', {
     const version = controlPlane.projection
       .checkpoints(projectId)
       .find((checkpoint) => checkpoint.reason === 'after_turn') as CheckpointView;
+    // That turn's work is added first: a version of a copy whose work was never added is refused.
+    await until(() => of('workstream.copy_changes_read', first).length === 1, 'the copy read');
+    submit('workstream.add_to_project', { workstream_id: first });
+    await until(() => of('workstream.added', first).length === 1, 'the add');
     const made = submit('workstream.create', {
       project_id: projectId,
       title: 'Loose',
@@ -462,7 +466,11 @@ describe('several agents on one project (ADR 0045)', {
     assert.equal(controlPlane.projection.command(id)?.failure?.code, 'capability_unsupported');
     assert.equal(of('workstream.copy_made', loose).length, 0);
     assert.equal(of('workstream.copy_refused', loose).length, 0, 'no fallback recorded');
-    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person\n', 'the folder untouched');
+    assert.equal(
+      readFileSync(join(folder, 'app.txt'), 'utf8'),
+      'lanterns\n',
+      'the folder as the add left it, untouched by the refused start',
+    );
   });
 
   test('an add from a paired device carries the review of the reading it was shown; a missing or stale one changes nothing (ADR 0051)', async () => {

@@ -187,6 +187,72 @@ describe("a task from one of the project's versions (ADR 0045)", () => {
   });
 });
 
+describe("a task from a version of another task's own copy (AUDIT3 S2)", () => {
+  test("is refused until that task's work was added to the project", () => {
+    const { b, projection, project } = setup();
+    const copyFolder = '/tasks/p/w/app';
+    const other = b.workstream(project.projectId);
+    projection.apply(other.event);
+    const scope = {
+      project_id: project.projectId,
+      workstream_id: other.workstreamId,
+      execution_id: null,
+    };
+    projection.apply(
+      b.controlPlane('workstream.copy_made', scope, {
+        directory: copyFolder,
+        base_tree: TREE,
+        files: 1,
+      }),
+    );
+    const turn = b.execution(project.projectId, other.workstreamId, copyFolder);
+    projection.apply(turn.event);
+    const version = b.id() as CheckpointId;
+    projection.apply(
+      b.controlPlane(
+        'project.checkpoint.recorded',
+        { project_id: project.projectId, workstream_id: null, execution_id: null },
+        {
+          checkpoint_id: version,
+          reason: 'after_turn',
+          execution_id: turn.executionId,
+          tree: TREE,
+          files: 1,
+          project_head: null,
+        },
+      ),
+    );
+    const create = () =>
+      admitCommand(
+        command('workstream.create', {
+          project_id: project.projectId,
+          title: 'Paths',
+          objective: null,
+          from_checkpoint: version,
+        }),
+        projection,
+        RUNTIMES,
+      );
+    const refused = create();
+    assert.equal(refused.admitted ? null : refused.rejection.code, 'invalid_state');
+    assert.match(refused.admitted ? '' : refused.rejection.message, /never added to the project/);
+    projection.apply(
+      b.controlPlane('workstream.added', scope, {
+        checkpoint_id: b.id() as never,
+        task_tree: TREE,
+        project_tree: TREE,
+        merged_tree: TREE,
+        added: { paths: ['a.txt'], total: 1 },
+      }),
+    );
+    assert.equal(
+      create().admitted,
+      true,
+      'once its work is in the project, its version may be started from',
+    );
+  });
+});
+
 describe('admitting a restore', () => {
   test('is review required: the person reads what would change before confirming', () => {
     assert.equal(COMMAND_POLICY['project.restore'], 'review_required');
