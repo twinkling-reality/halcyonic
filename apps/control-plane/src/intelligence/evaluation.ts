@@ -26,7 +26,7 @@ export interface SeorakEvaluationOptions {
   readonly credentialPath: string;
   /** The port of Seorak's local plane on 127.0.0.1. Defaults to 4317. */
   readonly port?: number;
-  /** Halcyonic's own Codex home, whose sessions Seorak does not read. */
+  /** Halcyonic's own Codex home, whose sessions only a Seorak told about it reads (unit 4b). */
   readonly codexHome: string;
   /** Folder holding confined Codex homes (`<data>/codex-confined/<key>`), defaulting next to `codexHome`. */
   readonly confinedCodexHomes?: string;
@@ -60,14 +60,23 @@ export function seorakEvaluation(options: SeorakEvaluationOptions): EvaluationSo
           confinedHomes,
         )
       ) {
-        return {
-          availability: 'unavailable',
-          reason: {
-            code: 'runtime_not_observed',
-            message:
-              "Seorak, as installed, does not read Halcyonic's own Codex home, where this session is kept.",
-          },
-        };
+        // Seorak names no version a client can read, so a session in Halcyonic's own Codex home is
+        // asked about; a Seorak that has not captured it may not have been told where Halcyonic keeps
+        // them yet (SEORAK_CODEX_EXTRA_DIRS, a Seorak after e3aa039e), or not captured it yet: never
+        // a fault (unit 4b).
+        const credential = readCredential(options.credentialPath, `http://127.0.0.1:${port}`);
+        if (typeof credential !== 'string') return credential;
+        const result = await client.evaluate(runtimeKind, nativeId, { credential });
+        if (result.availability === 'not_found' && result.reason.code === 'not_captured')
+          return {
+            availability: 'not_found',
+            reason: {
+              code: 'own_sources_not_set_up',
+              message:
+                "Seorak has not captured this session, which is in Halcyonic's own Codex home: it may not have been told where Halcyonic keeps them yet (Setup shows the line), or not captured it yet.",
+            },
+          };
+        return result;
       }
       // Sessions Seorak never observes need no credential to say so.
       if (seorakAgentFor(runtimeKind) === null)

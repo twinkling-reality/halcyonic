@@ -525,8 +525,20 @@ token as a field instead of in prose, and `umask 077` creates the file private f
 
 `GET /api/executions/:execution_id/understanding` then answers from Salidium for executions on
 Claude Agent, whose Claude Code sessions Salidium observes. Halcyonic keeps its Codex and OpenCode
-sessions in folders of its own, which Salidium does not read, so those executions answer
-`runtime_not_observed` without asking it. Every answer states its availability, so a missing
+sessions in folders of its own. A Salidium of 0.8.3 or before does not read them, so those executions
+answer `runtime_not_observed` (only its version is read). A later Salidium reads them once told where
+they are, beside its own defaults:
+
+```bash
+export SALIDIUM_EXTRA_CODEX_HOMES="$HOME/.halcyonic/codex-home:$HOME/.halcyonic/codex-confined/*"
+export SALIDIUM_EXTRA_OPENCODE_STORES="$HOME/.halcyonic/opencode-sandbox/data/opencode/opencode.db:$HOME/.halcyonic/opencode-sandbox-*/data/opencode/opencode.db"
+salidium service install
+```
+
+OpenCode stores are read only while `salidium/opencode` is among Salidium's enabled providers. Until
+then those executions answer `not_found` (`own_sources_not_set_up`). Seorak, from e3aa039e, tails
+Halcyonic's Codex sessions once told (`SEORAK_CODEX_EXTRA_DIRS="$HOME/.halcyonic/codex-home/sessions:$HOME/.halcyonic/codex-confined/*/sessions" seorak setup`);
+it has no OpenCode reader, so OpenCode executions stay `runtime_not_observed` for Checks. Every answer states its availability, so a missing
 credential, a stopped Salidium or an unobserved runtime reads as such rather than as an error.
 Salidium's real-wire tests run against its consumer test daemon from a built Salidium checkout:
 

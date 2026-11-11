@@ -51,6 +51,28 @@ const PROVIDER_BY_RUNTIME_KIND: ReadonlyMap<string, SalidiumProvider> = new Map(
  */
 const DECLARED_ONLY: ReadonlySet<SalidiumProvider> = new Set(['salidium/opencode']);
 
+/**
+ * The last Salidium version that reads only its own Codex home and OpenCode store. Later versions
+ * also read the Codex homes and OpenCode stores another local tool names, in
+ * `SALIDIUM_EXTRA_CODEX_HOMES` and `SALIDIUM_EXTRA_OPENCODE_STORES` (Salidium 4aef719; not released
+ * on 2026-11-11). Whether a person set them a consumer cannot see: `not_found` is the only signal.
+ */
+export const LAST_OWN_SOURCES_ONLY = '0.8.3';
+
+/** Whether a Salidium of this version can read another tool's Codex homes and OpenCode stores. */
+export function readsOtherToolsSources(version: string): boolean {
+  const parse = (value: string) => /^(\d+)\.(\d+)\.(\d+)/.exec(value)?.slice(1).map(Number);
+  const given = parse(version);
+  const last = parse(LAST_OWN_SOURCES_ONLY);
+  if (given === undefined || last === undefined) return false;
+  for (let i = 0; i < 3; i++) {
+    const a = given[i] ?? 0,
+      b = last[i] ?? 0;
+    if (a !== b) return a > b;
+  }
+  return false;
+}
+
 export function salidiumProviderFor(runtimeKind: string): SalidiumProvider | null {
   return PROVIDER_BY_RUNTIME_KIND.get(runtimeKind) ?? null;
 }
@@ -81,6 +103,20 @@ export class SalidiumClient {
     this.#timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.#budgetMs = options.budgetMs ?? DEFAULT_BUDGET_MS;
   }
+  /**
+   * The version the running Salidium's discovery document gives, read without a credential, or null
+   * when it is not running, does not say, or cannot be read.
+   */
+  async version(signal?: AbortSignal): Promise<string | null> {
+    const instance = await connect(
+      this.#home,
+      this.#timeoutMs,
+      signal,
+      AbortSignal.timeout(this.#budgetMs),
+    );
+    return isFailure(instance) ? null : (instance.discovery.salidium?.version ?? null);
+  }
+
   /** The credential as configured, read now when it is read on demand. */
   #configured(): string | null | UnderstandingFailure {
     return typeof this.#credential === 'function' ? this.#credential() : this.#credential;

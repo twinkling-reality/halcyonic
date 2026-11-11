@@ -214,10 +214,16 @@ the installation id, the thread and session ids, the sandbox mode, whether analy
 for a workspace that is a git repository, its path, latest commit hash and whether it has
 uncommitted changes; the working directory also reaches the provider in the conversation's
 environment context. Codex writes each thread's rollout to Halcyonic's Codex home, tagged
-`halcyonic`, where neither Salidium nor Seorak reads it. The control plane answers both as not
-observing a Codex execution whose rollout it finds there, without asking them or reading their
-credentials: it checks only that a file of that name exists in the date folders around the
-execution's start, follows no link, and looks only for an id shaped as a thread id. The
+`halcyonic`, where neither Salidium nor Seorak reads it unless the person tells it to: a Salidium
+after 0.8.3 reads the Codex homes and OpenCode stores named in `SALIDIUM_EXTRA_CODEX_HOMES` and
+`SALIDIUM_EXTRA_OPENCODE_STORES`, and a Seorak after e3aa039e tails the Codex sessions folders named
+in `SEORAK_CODEX_EXTRA_DIRS`, each beside its defaults, never instead (both unreleased on
+2026-11-11; the person sets them, Halcyonic changes nothing of theirs). For a Codex execution whose
+rollout it finds there (it checks only that a file of that name exists in the date folders around
+the execution's start, follows no link, and looks only for an id shaped as a thread id), the control
+plane reads Salidium's version from its discovery file without a credential and asks it only past
+0.8.3; Seorak names no version, so it is asked with its credential. A miss there reads as not set up
+yet (`own_sources_not_set_up`), never as a fault. The
 adapter writes no logs. The Codex and OpenCode adapters drain their server's error output without
 keeping it, as the Claude Code adapter does: it may hold secrets, such as a key that verbose
 logging or a configuration error prints, and a start failure is journaled and shown on every
