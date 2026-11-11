@@ -73,6 +73,17 @@ again: interrupted with no reply after 229 s. The text itself is never recorded.
 now offered no tool, and a tool call written as text there is asked again once. Cleanup ran: the plane stopped,
 `ollama ps` empty, the run file removed.
 
+A seventh run, 14:03 to 14:12Z on 2026-11-11 (86% free; no lease held), on the code with the ask-again:
+- "What is going on with my work?" bound to nothing: `read_projects`, then `ask_person`, waiting for the person
+  after 30 s. It said the count right (12) and asked which project, where a summary was wanted.
+- The fresh Codex task ran its 8-minute cap and read `completed` with one turn by the next request.
+- The continue request read `read_workspace`, `read_understanding`, `read_evaluation`, `observe_task`,
+  `read_events` and `read_results`, and never sent the change. On turn 7 (toolless) and turn 8 (toolless, asked
+  again) it wrote a tool call as text: interrupted, no reply, 57 s.
+So a toolless turn is now given an answering conversation with no tool call to copy; a task request's first turn
+offers only `continue_task`, `observe_task` and `ask_person`; and a request about all work is not offered
+`ask_person`.
+
 ## 2026-11-10: What a task changed and whether it works, a whole project, on local models
 
 Setup: an isolated control plane on 127.0.0.1 with its own data directory, Codex 0.157.0 confined to a

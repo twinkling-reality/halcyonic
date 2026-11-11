@@ -25,12 +25,31 @@ import {
   ANSWER_AGAIN,
   ANSWER_LAST,
   ANSWER_NOW,
+  ANSWERING,
   looksLikeToolCall,
   QUOTED_PREFIX,
+  READ_FOR_IT,
   UNREAD_WAIT_MS,
   unreadWaitMs,
   WorkspaceRequests,
 } from './requests.ts';
+
+/**
+ * What the model was given of a tool's result: its tool message on a turn with tools, or its line in the quoted block of
+ * what was read on an answering turn, which carries no tool message.
+ */
+function readOf(messages: readonly ToolMessage[], name: string): string[] {
+  const own = messages.flatMap((message) =>
+    message.role === 'tool' && message.tool_name === name ? [message.content] : [],
+  );
+  const block = messages.find(
+    (message) => message.role === 'user' && message.content.startsWith(QUOTED_PREFIX + READ_FOR_IT),
+  );
+  const lines = (block?.content.split('\n') ?? [])
+    .filter((line) => line.startsWith(`${name}: `))
+    .map((line) => line.slice(name.length + 2));
+  return [...own, ...lines];
+}
 
 const unavailable = {
   availability: 'unavailable' as const,
@@ -1041,11 +1060,8 @@ test('runtime wait preserves bounded prior unavailable reads and includes fresh 
           [{ name: 'continue_task', arguments: { text: 'Synthetic authorized continuation' } }],
           '',
         );
-      sawUnavailable = messages.some(
-        (message) =>
-          message.role === 'tool' &&
-          message.tool_name === 'read_understanding' &&
-          message.content.includes('synthetic_unavailable'),
+      sawUnavailable = readOf(messages, 'read_understanding').some((content) =>
+        content.includes('synthetic_unavailable'),
       );
       sawReport = messages.some(
         (message) =>
@@ -1149,15 +1165,16 @@ test('a pause mid native multi-call batch reports remaining calls as unexecuted 
           ],
           '',
         );
-      const batch = messages.filter((message) => message.role === 'tool');
-      assert.deepEqual(
-        batch.map((message) => message.tool_name),
-        ['continue_task', 'read_events'],
-      );
-      assert.deepEqual(JSON.parse(batch[1]?.content ?? 'null'), {
+      // An answering turn: what was read stands in its quoted block, in order, with no tool message to copy.
+      assert.equal(readOf(messages, 'continue_task').length, 1);
+      assert.deepEqual(JSON.parse(readOf(messages, 'read_events')[0] ?? 'null'), {
         executed: false,
         reason: 'prior_call_paused_batch',
       });
+      assert.equal(
+        messages.some((message) => message.role === 'assistant' || message.role === 'tool'),
+        false,
+      );
       return answer([], 'Reported after the pending action.');
     },
   });
@@ -1195,11 +1212,8 @@ test('rejected busy Resume preserves the existing continuation and does not add 
         );
       await gate;
       assert.equal(
-        messages.some(
-          (message) =>
-            message.role === 'tool' &&
-            message.tool_name === 'read_understanding' &&
-            message.content.includes('synthetic_unavailable'),
+        readOf(messages, 'read_understanding').some((content) =>
+          content.includes('synthetic_unavailable'),
         ),
         true,
       );
@@ -1712,8 +1726,8 @@ test('a request about all work lists the projects, reads a task of the second, a
     );
     assert.equal(request?.project_id, null);
     assert.equal(request?.status, 'responded');
+    // About all work it only reads, and answers: never a question back (ask_person is not offered).
     assert.deepEqual([...new Set(offered.flat())].sort(), [
-      'ask_person',
       'read_project_at',
       'read_projects',
       'read_task',
@@ -1823,9 +1837,12 @@ test('once the work it sent has its outcome, the host context says so, so the mo
     for (let i = 0; i < 10; i++) await settle();
     assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
     assert.deepEqual(flags, [false, true]);
-    // No result list was read, so no single result was offered.
-    assert.ok(!offered[0]?.includes('read_result'));
-    assert.ok(offered[0]?.includes('read_results'));
+    // The first turn of a task request goes straight to the work: the change, the observation, or a question.
+    assert.deepEqual([...(offered[0] ?? [])].sort(), [
+      'ask_person',
+      'continue_task',
+      'observe_task',
+    ]);
     // Once the outcome is in, that turn is offered no tool, so the model answers.
     assert.deepEqual(offered[1], []);
   } finally {
@@ -1954,6 +1971,56 @@ test('a tool call written as text on an answer turn is asked again once, and the
     assert.ok(
       request?.steps.some((step) => step.tool_name === 'model' && step.status === 'rejected'),
     );
+  } finally {
+    await f.close();
+  }
+});
+
+test('a turn offered no tool is given an answering conversation: no tool call to copy, what was read as quoted data', async () => {
+  const seen: ToolMessage[][] = [];
+  const f = await fixture({
+    turn: async (messages, tools) => {
+      seen.push([...messages]);
+      return (tools ?? []).length > 0
+        ? answer([{ name: 'read_workspace', arguments: {} }], '')
+        : answer([], 'Here is what I read.');
+    },
+  });
+  try {
+    const id = f.submit();
+    for (let i = 0; i < 20; i++) await settle();
+    const last = seen.at(-1) ?? [];
+    assert.equal(last[0]?.role, 'system');
+    assert.equal(last[0]?.content, ANSWERING);
+    assert.equal(
+      last.some((message) => message.role === 'assistant' || message.role === 'tool'),
+      false,
+    );
+    assert.ok(readOf(last, 'read_workspace').length > 0, 'what was read reaches the answer');
+    assert.ok(last.some((message) => message.role === 'system' && message.content === ANSWER_LAST));
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.reply?.text, 'Here is what I read.');
+  } finally {
+    await f.close();
+  }
+});
+
+test('one result is offered only after the list read_results gives, and never on the first turn', async () => {
+  const offered: string[][] = [];
+  const f = await fixture({
+    turn: async (_messages, tools) => {
+      offered.push((tools ?? []).map((tool) => tool.function.name));
+      if (offered.length === 1) return answer([{ name: 'observe_task', arguments: {} }], '');
+      if (offered.length === 2) return answer([{ name: 'read_results', arguments: {} }], '');
+      return answer([], 'Read.');
+    },
+  });
+  try {
+    f.submit();
+    for (let i = 0; i < 20; i++) await settle();
+    assert.ok(!offered[0]?.includes('read_results'));
+    assert.ok(offered[1]?.includes('read_results'));
+    assert.ok(!offered[1]?.includes('read_result'));
+    assert.ok(offered[2]?.includes('read_result'));
   } finally {
     await f.close();
   }

@@ -147,3 +147,12 @@ answer from.
 - A reply on a turn offered no tool that is a tool call written as text is asked again once a wake, still offered no
   tool, with a system message saying it was not an answer and was not kept; a second one interrupts the request as
   before. The step records each (the 30B model wrote one on the last turn of both its requests, 2026-11-11).
+- A turn offered no tool is given a conversation of its own for answering: instructions that name no tool, the
+  person's words and the host's context, and what was read as one quoted block, oldest dropped first to fit the input
+  bound. It has no assistant message and no tool result, so the model has no tool call to copy (the 30B model wrote one
+  as text on every toolless turn it was given the whole history, four runs on 2026-11-11).
+- A task request's first turn, where it may send the person's words on, offers only `continue_task`, `observe_task` and
+  `ask_person`: the host's receipts and what the Mac saw are already in its context (the 30B model read six times and
+  never sent the change, 2026-11-11).
+- A request about all work is not offered `ask_person`: it changes nothing, so it is answered with a summary from what
+  the host lists, never a question back (the lead, 2026-11-11).
