@@ -168,6 +168,14 @@ namespace Halcyonic.Client
         public WorkspaceRequestSubmitCommand Request(string projectId, string workstreamId, string executionId, string text) =>
             Stamp(new WorkspaceRequestSubmitCommand { Payload = new WorkspaceRequestSubmitPayload { ProjectId = projectId, WorkstreamId = workstreamId, ExecutionId = executionId, Text = text } });
 
+        /// <summary>A read-only request about a whole project: no task, no execution (ADR 0030, 2026-11-10).</summary>
+        public WorkspaceRequestSubmitCommand RequestAboutProject(string projectId, string text) =>
+            Stamp(new WorkspaceRequestSubmitCommand { Payload = new WorkspaceRequestSubmitPayload { ProjectId = projectId, WorkstreamId = null, ExecutionId = null, Text = text } });
+
+        /// <summary>A read-only request about all of the person's work: no project, task or execution.</summary>
+        public WorkspaceRequestSubmitCommand RequestAboutAllWork(string text) =>
+            Stamp(new WorkspaceRequestSubmitCommand { Payload = new WorkspaceRequestSubmitPayload { ProjectId = null, WorkstreamId = null, ExecutionId = null, Text = text } });
+
         public WorkspaceRequestResumeCommand ResumeRequest(string requestId, string? text = null) =>
             Stamp(new WorkspaceRequestResumeCommand { Payload = new WorkspaceRequestResumePayload { RequestId = requestId, Text = text } });
 
