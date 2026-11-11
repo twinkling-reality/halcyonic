@@ -343,7 +343,7 @@ namespace Halcyonic.XR.UI
             var least = new float[count];
             for (var index = 0; index < count; index++)
             {
-                var laid = Text(KitRole.Label, CaptionTypeDp, CaptionLineDp, Color.white, slots[index].Value, 0f, 0f, RoomType.Units(2000f), 1);
+                var laid = Text(KitRole.Body, CaptionTypeDp, CaptionLineDp, Color.white, slots[index].Value, 0f, 0f, RoomType.Units(2000f), 1);
                 values.Add(laid);
                 least[index] = Mathf.Min(width, Mathf.Max(RoomCursor.WordsWidth(laid.Label, 0f), S(SlotGlyphBoxDp)) + 2f * S(SlotPadDp));
             }
@@ -373,10 +373,15 @@ namespace Halcyonic.XR.UI
                 foreach (var index in row)
                 {
                     var slot = slots[index];
-                    var tile = least[index] + Mathf.Max(0f, share);
+                    // A row of one, wrapped under a fuller row at larger text, keeps its own width rather than stretch into a strip.
+                    var tile = least[index] + (row.Count == 1 && rows.Count > 1 ? 0f : Mathf.Max(0f, share));
                     values[index].Label.rectTransform.sizeDelta = new Vector2(tile - 2f * S(SlotPadDp), values[index].Label.rectTransform.sizeDelta.y);
                     Plate(new Vector2(tile, well), S(TileCornerDp), White(WellAlpha), new Vector2(x + tile / 2f, -(top + well / 2f)), "slot " + slot.Kind, under: true);
-                    var mark = new Vector2(x + S(SlotPadDp) + S(SlotGlyphBoxDp) / 2f, -(top + S(SlotPadDp) + S(SlotGlyphBoxDp) / 2f));
+                    // The glyph's drawn edge on the value's left edge: its box moved left by where its ink starts.
+                    var glyphOf = slot.Kind == RoomKind.Level ? (RoomGlyph?)null : slot.Kind == RoomKind.Passed ? RoomGlyph.Check : slot.Kind == RoomKind.Failed ? RoomGlyph.Alert : GlyphOf(slot.Kind);
+                    var ink = glyphOf is RoomGlyph drawn ? RoomGlyphs.InkLeft(drawn) / RoomGlyphs.Grid * S(SlotGlyphDp) : 0f;
+                    var mark = new Vector2(x + S(SlotPadDp) + S(SlotGlyphDp) / 2f - ink, -(top + S(SlotPadDp) + S(SlotGlyphBoxDp) / 2f));
+                    if (slot.Kind == RoomKind.Level) mark.x = x + S(SlotPadDp) + S(SlotLevelDp) / 2f;
                     switch (slot.Kind)
                     {
                         case RoomKind.Level:

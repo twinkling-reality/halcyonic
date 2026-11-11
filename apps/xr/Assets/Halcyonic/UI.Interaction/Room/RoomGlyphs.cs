@@ -309,6 +309,26 @@ namespace Halcyonic.XR.UI
         /// <summary>The glyph's shapes on the 24-unit grid, y down.</summary>
         public static IReadOnlyList<Shape> Of(RoomGlyph glyph) => shapes[glyph];
 
+        private static readonly Dictionary<RoomGlyph, float> inkLeft = new Dictionary<RoomGlyph, float>();
+
+        /// <summary>
+        /// Where a glyph's ink starts from its box's left, in grid units (0 to 24): what lines a glyph's drawn edge up with
+        /// words beside or under it, rather than its box.
+        /// </summary>
+        public static float InkLeft(RoomGlyph glyph)
+        {
+            if (inkLeft.TryGetValue(glyph, out var left)) return left;
+            left = Grid / 2f;
+            for (var x = 0f; x <= Grid; x += 0.25f)
+            {
+                var found = false;
+                for (var y = 0f; y <= Grid && !found; y += 0.25f) found = Inked(glyph, new Vector2(x, y));
+                if (found) { left = x; break; }
+            }
+            inkLeft[glyph] = left;
+            return left;
+        }
+
         /// <summary>Whether a place on the grid is inked: nearer than half the stroke to a line, or inside a filled shape.</summary>
         public static bool Inked(RoomGlyph glyph, Vector2 place, float slack = 0f)
         {
