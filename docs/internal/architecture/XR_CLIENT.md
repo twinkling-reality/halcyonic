@@ -1419,6 +1419,14 @@ launch/return, process recreation and current-frame action behavior need separat
   access token over `LoopbackWebSocketTransport` as over USB, or `Paired`, the device credential over
   the pinned transports. It creates the session's transports and the `ControlPlaneApi`, and
   `SameAs` tells whether a client made for one target serves another.
+- **`PreviewRelay`** shows a project's preview in the headset's browser with no cable
+  ([ADR 0052](../decisions/0052-a-preview-reaches-a-paired-headset-through-a-loopback-relay.md)): it
+  listens on the headset's 127.0.0.1, takes GET and HEAD for its own `Host`, one request a connection,
+  and asks the paired computer for the same path over the pinned connection; the computer relays it
+  only for a confined, passed check's running preview. A refusal is said by its code
+  (`PreviewRelay.WhyNot`). While a relay is open the Unity layer holds `PreviewRelayService`, a
+  foreground service in the native layer, so the process keeps running with the browser in front; the
+  action that opens it is DEVICE's (not built yet).
 - **`IPairingStore`** keeps the pairing, credential included; `FilePairingStore` writes it as one
   JSON file, replaced whole. The Unity layer chooses where.
 - **The recorded demonstration** is what a device with no control plane shows, so that

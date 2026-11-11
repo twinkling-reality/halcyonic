@@ -16,6 +16,7 @@ import type { DeviceAccess } from './devices.ts';
 import { checkNetworkRequest } from './guard.ts';
 import { WindowCounter } from './limits.ts';
 import { type Pairing, type PairingAnswer, PairingAttempt, refused } from './pairing.ts';
+import { type PreviewTarget, registerPreviewRelay } from './preview-relay.ts';
 
 declare module 'fastify' {
   interface FastifyContextConfig {
@@ -74,6 +75,8 @@ export interface NetworkServerOptions {
   readonly limits?: NetworkLimits;
   /** Where devices reach this listener now, once it listens; null before. */
   readonly listener: () => NetworkListener | null;
+  /** Where a project's preview is relayed from to a paired device, or why not (ADR 0052); none, no relay. */
+  readonly previewTarget?: (projectId: string) => PreviewTarget;
 }
 
 /** Paths that answer without a device credential. The pairing path has checks of its own. */
@@ -160,6 +163,7 @@ export async function createNetworkServer(options: NetworkServerOptions): Promis
 
   registerRoutes(app, controlPlane, options.sources);
   registerRealtime(app, controlPlane, DEFAULT_REALTIME_OPTIONS, devices.track);
+  if (options.previewTarget !== undefined) registerPreviewRelay(app, options.previewTarget);
 
   // A device forgets the control plane: its own credential stops working everywhere.
   app.post(

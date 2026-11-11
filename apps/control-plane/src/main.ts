@@ -26,6 +26,7 @@ import { createHostLocations } from './locations.ts';
 import { DeviceAccess } from './network/devices.ts';
 import { OPEN_LINK_KEEP_MS, openLinkPrivately, sweepOpenLinks } from './network/open-link.ts';
 import { PairingPage, pairingControls } from './network/pairing-page.ts';
+import { confinedPreviewTarget } from './network/preview-relay.ts';
 import { NetworkSwitch } from './network/switch.ts';
 import { matchesPin, pinsForThisMac } from './pins.ts';
 import { audioOutputFor, outputInTree } from './preview/audio-output.ts';
@@ -324,6 +325,9 @@ async function main(): Promise<void> {
     devices,
     clock: systemClock,
     logger: app.log,
+    // A preview reaches a paired headset only when every agent's reads were confined (ADR 0052).
+    previewTarget: (projectId) =>
+      confinedPreviewTarget(controlPlane.projection, config.dataDir, projectId),
   });
   registerRoutes(app, controlPlane, sources);
   registerRealtime(app, controlPlane);

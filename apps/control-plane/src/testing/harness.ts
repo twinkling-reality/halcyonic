@@ -27,6 +27,7 @@ import { createNetworkIdentity, type NetworkIdentity } from '../network/certific
 import { DeviceAccess } from '../network/devices.ts';
 import { Pairing, type PairingLimits } from '../network/pairing.ts';
 import { PairingPage, pairingControls } from '../network/pairing-page.ts';
+import type { PreviewTarget } from '../network/preview-relay.ts';
 import {
   createNetworkServer,
   DEFAULT_NETWORK_LIMITS,
@@ -136,6 +137,8 @@ export interface TestServerOptions extends TestControlPlaneOptions {
   /** Also serve the network listener, on 127.0.0.1, with a certificate of its own (ADR 0017). */
   readonly network?: {
     readonly limits?: PairingLimits;
+    /** Where a project's preview is relayed from to a paired device (ADR 0052). */
+    readonly previewTarget?: (projectId: string) => PreviewTarget;
     /** The listener's own limits, over the defaults. */
     readonly listener?: Partial<NetworkLimits>;
   };
@@ -294,7 +297,7 @@ async function startNetworkListener(
   harness: ReturnType<typeof createTestControlPlane>,
   devices: DeviceAccess,
   sources: Parameters<typeof createNetworkServer>[0]['sources'],
-  { limits, listener }: NonNullable<TestServerOptions['network']>,
+  { limits, listener, previewTarget }: NonNullable<TestServerOptions['network']>,
 ): Promise<TestNetworkListener> {
   const identity = createNetworkIdentity(harness.time.now());
   const pairing = new Pairing({
@@ -316,6 +319,7 @@ async function startNetworkListener(
     clock: harness.time,
     limits: { ...DEFAULT_NETWORK_LIMITS, ...listener },
     listener: () => described,
+    ...(previewTarget === undefined ? {} : { previewTarget }),
   });
   await server.listen({ host: '127.0.0.1', port: 0 });
   const bound = server.server.address();
