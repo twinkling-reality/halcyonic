@@ -64,6 +64,7 @@ const ROOTS: readonly string[] = [
   'ProjectFileResponse',
   'CheckStepOutputResponse',
   'SharingWaysResponse',
+  'OwnCheckFoundResponse',
   'ShareCodeResponse',
   'ToolResultsQuery',
   'ToolResultsResponse',

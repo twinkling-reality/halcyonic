@@ -24,6 +24,12 @@ import { DeviceLabel, Principal, Sha256Hex } from './devices.ts';
 import { FilesObserved } from './file-changes.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
 import {
+  OWN_CHECK_SCRIPT_NAMES,
+  OwnCheckFindings,
+  OwnCheckManager,
+  OwnCheckScript,
+} from './own-checks.ts';
+import {
   AUTO_FIX_CAP_MAX,
   AutoFixEndReason,
   CheckFindings,
@@ -409,6 +415,41 @@ export const ProjectCheckRecorded = projectEvent(
 );
 
 /**
+ * The person chose the project's own check (ADR 0055): the package manager, and each script with its
+ * command as the project's `package.json` wrote it then, the project's own words, and that command's
+ * SHA-256. A later choice replaces it.
+ */
+export const ProjectOwnCheckChosen = projectEvent(
+  'project.own_check.chosen',
+  Type.Object(
+    {
+      manager: OwnCheckManager,
+      scripts: Type.Array(OwnCheckScript, { minItems: 1, maxItems: OWN_CHECK_SCRIPT_NAMES.length }),
+    },
+    strict,
+  ),
+);
+
+/**
+ * The host ran the project's own check (ADR 0055) inside the agents' closed sandbox: what it observed
+ * of each chosen script, and what the check itself wrote. `first` marks the run right after the person
+ * chose it. Never that the software works.
+ */
+export const ProjectOwnCheckRecorded = projectEvent(
+  'project.own_check.recorded',
+  Type.Object(
+    {
+      check_id: CheckId,
+      first: Type.Boolean(),
+      findings: OwnCheckFindings,
+      /** The task whose own copy was checked (ADR 0045); absent, the project's own folder. */
+      workstream_id: Type.Optional(WorkstreamId),
+    },
+    strict,
+  ),
+);
+
+/**
  * The host serves the built copy of a passed check on 127.0.0.1 at `port`: recorded only once the
  * server itself listens there and answers with that copy. Clients open `http://127.0.0.1:port`,
  * never `localhost`, which can resolve to ::1, where another process may listen.
@@ -580,7 +621,8 @@ export const ExecutionFilesObserved = executionEvent('execution.files.observed',
 
 /**
  * The host gave the agent, after the person's words, the first lines of the project's failed check
- * (its type check, its build or both), marked as the Mac's own check (FX1). Which check, which
+ * (its type check, its build or both, or a project's own check's failed script), marked as the Mac's
+ * own check (FX1). Which check, which
  * steps, how many lines and bytes; never the text, which is neither journaled nor logged. Given
  * once per failed check, with the next instruction to an agent in the project.
  */
@@ -589,7 +631,11 @@ export const ExecutionCheckOutputGiven = executionEvent(
   Type.Object(
     {
       check_id: CheckId,
-      parts: Type.Array(Type.Enum(['typecheck', 'build']), { minItems: 1, maxItems: 2 }),
+      /** `own_check`: a project's own check's failed script (ADR 0055). */
+      parts: Type.Array(Type.Enum(['typecheck', 'build', 'own_check']), {
+        minItems: 1,
+        maxItems: 3,
+      }),
       lines: Type.Integer({ minimum: 0, maximum: 80 }),
       bytes: Type.Integer({ minimum: 0, maximum: 16384 }),
     },
@@ -1002,6 +1048,8 @@ export const EVENT_VARIANTS = [
   ProjectRestored,
   ProjectRestoreIncomplete,
   ProjectCheckRecorded,
+  ProjectOwnCheckChosen,
+  ProjectOwnCheckRecorded,
   ProjectPreviewStarted,
   ProjectPreviewStopped,
   ProjectMacPlayStarted,

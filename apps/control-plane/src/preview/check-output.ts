@@ -14,7 +14,7 @@ export interface CheckStepOutput {
 /** What the agent is given after the person's words, and what is recorded of it. */
 export interface CheckOutput {
   readonly text: string;
-  readonly parts: readonly ('typecheck' | 'build')[];
+  readonly parts: readonly ('typecheck' | 'build' | 'own_check')[];
   readonly lines: number;
   readonly bytes: number;
 }
@@ -115,10 +115,48 @@ export function checkOutput(input: {
   readonly dataDir: string;
   readonly home: string;
 }): CheckOutput | null {
-  const steps = [
-    { part: 'typecheck' as const, name: 'type check', step: input.typecheck },
-    { part: 'build' as const, name: 'build', step: input.build },
-  ].filter(({ step }) => step.exit !== null && step.exit !== 0);
+  return stepsOutput(
+    [
+      { part: 'typecheck' as const, name: 'type check', step: input.typecheck },
+      { part: 'build' as const, name: 'build', step: input.build },
+    ],
+    input,
+  );
+}
+
+/**
+ * The first lines of a project's own check's failed script (ADR 0055), as `checkOutput` gives a
+ * starter's: marked as the Mac's own check, bounded, naming no host path. The script's output is the
+ * project's own code's, so each line is marked as the check's. Null when it did not fail.
+ */
+export function ownCheckOutput(
+  input: {
+    readonly script: string;
+    readonly exit: number | null;
+    readonly log: string | null;
+  } & CheckLogPlaces,
+): CheckOutput | null {
+  return stepsOutput(
+    [
+      {
+        part: 'own_check' as const,
+        name: `project's ${input.script} script`,
+        step: { exit: input.exit, log: input.log },
+      },
+    ],
+    input,
+  );
+}
+
+function stepsOutput(
+  all: readonly {
+    readonly part: CheckOutput['parts'][number];
+    readonly name: string;
+    readonly step: CheckStepOutput;
+  }[],
+  input: CheckLogPlaces,
+): CheckOutput | null {
+  const steps = all.filter(({ step }) => step.exit !== null && step.exit !== 0);
   if (steps.length === 0) return null;
   const names = placeNames(input);
   const clean = (line: string) => {

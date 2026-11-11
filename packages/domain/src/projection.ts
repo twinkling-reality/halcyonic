@@ -25,9 +25,13 @@ import type {
   ExecutionView,
   HistoryEntry,
   HistoryFolder,
+  OwnCheckFindings,
+  OwnCheckManager,
+  OwnCheckScript,
   Principal,
   ProjectId,
   ProjectLocation,
+  ProjectOwnCheckView,
   ProjectView,
   ProjectWorldView,
   QuestionView,
@@ -128,9 +132,9 @@ export interface ProjectPreview {
   readonly files: CheckFilesState;
 }
 
-interface CheckState {
+interface CheckState<F extends CheckFindings | OwnCheckFindings = CheckFindings> {
   readonly checkId: CheckId;
-  readonly findings: CheckFindings;
+  readonly findings: F;
   readonly recordedAt: Timestamp;
   readonly position: number;
   readonly unobservedTurns: Set<ExecutionId>;
@@ -145,7 +149,24 @@ interface CheckState {
   readonly workstreamId: WorkstreamId | null;
 }
 
-function checkFilesState(state: CheckState): CheckFilesState {
+/** A check of either kind: the Mac's own of a starter's project, or a project's own check (ADR 0055). */
+type AnyCheckState = CheckState<CheckFindings | OwnCheckFindings>;
+
+/** A project's own check (ADR 0055): what the person chose, and its runs' state. */
+interface OwnCheckState {
+  readonly manager: OwnCheckManager;
+  readonly scripts: readonly OwnCheckScript[];
+  readonly chosenAt: Timestamp;
+  latest: (CheckState<OwnCheckFindings> & { readonly first: boolean }) | null;
+  /** Whether any run of this choice passed, the latest included. */
+  everPassed: boolean;
+  /** Whether the run before the latest passed; null when the latest is the first. */
+  passedBefore: boolean | null;
+  /** Whether any run before the latest passed. */
+  passedEarlier: boolean;
+}
+
+function checkFilesState(state: AnyCheckState): CheckFilesState {
   if (state.changed) return 'changed';
   if (state.tainted || state.unobservedTurns.size > 0) return 'unknown';
   return 'current';
@@ -208,9 +229,9 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * 6: the digest of a task's copy's latest reading (`to_add_review`, ADR 0051). 7: whether an
  * execution's start recorded the runtime's plan mode (`plan`, PLAN). 8: whether it left the plan
  * (`planLeft`) and why its start was not counted confined (`unconfinedReason`). 9: each
- * execution's queued instructions (ADR 0056).
+ * execution's queued instructions (ADR 0056). 10: each project's own check (ADR 0055).
  */
-export const PROJECTION_STATE_FORMAT = 9;
+export const PROJECTION_STATE_FORMAT = 10;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -230,6 +251,7 @@ export interface ProjectionState {
   readonly checks: ReadonlyMap<unknown, unknown>;
   readonly checksById: ReadonlyMap<unknown, unknown>;
   readonly openChecks: ReadonlyMap<unknown, unknown>;
+  readonly ownChecks: ReadonlyMap<unknown, unknown>;
   readonly previews: ReadonlyMap<unknown, unknown>;
   readonly macPlays: ReadonlyMap<unknown, unknown>;
   readonly shares: ReadonlyMap<unknown, unknown>;
@@ -325,7 +347,9 @@ export class Projection {
    * restore can still update. A changed check stays changed, so it leaves, and a round costs the same
    * however many checks came before (#8a).
    */
-  readonly #openChecks = new Map<ProjectId, Set<CheckState>>();
+  readonly #openChecks = new Map<ProjectId, Set<AnyCheckState>>();
+  /** Each project's own check, once the person chose one (ADR 0055). */
+  readonly #ownChecks = new Map<ProjectId, OwnCheckState>();
   /** Each project's running preview, by the check it serves. */
   readonly #previews = new Map<ProjectId, { readonly check_id: CheckId; readonly port: number }>();
   /** The check whose game plays on the Mac now, per project (ADR 0037). */
@@ -401,6 +425,7 @@ export class Projection {
       checks: this.#checks,
       checksById: this.#checksById,
       openChecks: this.#openChecks,
+      ownChecks: this.#ownChecks,
       previews: this.#previews,
       macPlays: this.#macPlays,
       shares: this.#shares,
@@ -476,6 +501,8 @@ export class Projection {
       this.#checksById.set(key, value);
     for (const [key, value] of state.openChecks as Map<never, never>)
       this.#openChecks.set(key, value);
+    for (const [key, value] of state.ownChecks as Map<never, never>)
+      this.#ownChecks.set(key, value);
     for (const [key, value] of state.previews as Map<never, never>) this.#previews.set(key, value);
     for (const [key, value] of state.macPlays as Map<never, never>) this.#macPlays.set(key, value);
     for (const [key, value] of state.shares as Map<never, never>) this.#shares.set(key, value);
@@ -970,6 +997,83 @@ export class Projection {
     return this.#checksById.get(projectId as ProjectId)?.get(checkId as CheckId)?.folder;
   }
 
+  /**
+   * A check's state as it is recorded: the folder it checked, and the turns still running there,
+   * whose changes it cannot have seen.
+   */
+  #freshCheck<F extends CheckFindings | OwnCheckFindings>(
+    projectId: ProjectId,
+    workstreamId: WorkstreamId | null,
+    checkId: CheckId,
+    findings: F,
+    recordedAt: Timestamp,
+  ): CheckState<F> {
+    const unobservedTurns = new Set<ExecutionId>();
+    let tainted = this.restoreInProgress(projectId);
+    const checkedTask = workstreamId;
+    const own = checkedTask === null ? undefined : this.#workstreams.get(checkedTask)?.copy;
+    const folder =
+      own?.state === 'own'
+        ? own.directory
+        : (this.#projects.get(projectId)?.location?.path ?? null);
+    for (const state of this.#executionsByProject.get(projectId) ?? []) {
+      if (state.directory === null) continue;
+      // Only work in the folder checked reaches it (ADR 0045).
+      if (folder !== null && !foldersOverlap(folder, state.directory)) continue;
+      const status = deriveExecutionStatus(state);
+      // A restart stops every runtime process, so a turn one cut short runs no longer (#13).
+      if (status === 'unknown' && stoppedByRestart(state.unknownReason?.code)) continue;
+      if (state.activeTurn !== null) unobservedTurns.add(state.executionId);
+      if (status === 'unknown') tainted = true;
+    }
+    return {
+      checkId,
+      findings,
+      recordedAt,
+      position: this.#position,
+      unobservedTurns,
+      tainted,
+      changed: false,
+      folder,
+      workstreamId: checkedTask,
+    };
+  }
+
+  /**
+   * The project's own check (ADR 0055) as the person chose it, its latest run, and what came before
+   * that run: whether the run before it passed (null for the first), and whether any did.
+   */
+  ownCheck(projectId: string):
+    | (ProjectOwnCheckView & {
+        readonly passed_before: boolean | null;
+        readonly passed_earlier: boolean;
+      })
+    | undefined {
+    const own = this.#ownChecks.get(projectId as ProjectId);
+    if (own === undefined) return undefined;
+    const latest = own.latest;
+    return {
+      manager: own.manager,
+      scripts: [...own.scripts],
+      chosen_at: own.chosenAt,
+      latest:
+        latest === null
+          ? null
+          : {
+              check_id: latest.checkId,
+              recorded_at: latest.recordedAt,
+              position: latest.position,
+              files: checkFilesState(latest),
+              first: latest.first,
+              findings: latest.findings,
+              ...(latest.workstreamId === null ? {} : { workstream_id: latest.workstreamId }),
+            },
+      ever_passed: own.everPassed,
+      passed_before: own.passedBefore,
+      passed_earlier: own.passedEarlier,
+    };
+  }
+
   /** The project's latest check, or undefined when it has none. */
   latestCheck(projectId: string): ProjectCheck | undefined {
     const state = this.#checks.get(projectId as ProjectId);
@@ -1310,43 +1414,63 @@ export class Projection {
         });
         return;
       }
+      case 'project.own_check.chosen': {
+        if (!this.#projects.has(event.project_id)) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        // A new choice starts again: no run of it has passed yet (ADR 0055).
+        this.#ownChecks.set(event.project_id, {
+          manager: event.payload.manager,
+          scripts: event.payload.scripts,
+          chosenAt: event.occurred_at,
+          latest: null,
+          everPassed: false,
+          passedBefore: null,
+          passedEarlier: false,
+        });
+        changes.projects.add(event.project_id);
+        return;
+      }
+      case 'project.own_check.recorded': {
+        const own = this.#ownChecks.get(event.project_id);
+        if (own === undefined) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} has no own check`));
+          return;
+        }
+        const run = this.#freshCheck(
+          event.project_id,
+          event.payload.workstream_id ?? null,
+          event.payload.check_id,
+          event.payload.findings,
+          event.occurred_at,
+        );
+        own.passedBefore = own.latest === null ? null : own.latest.findings.passed;
+        own.passedEarlier = own.everPassed;
+        if (event.payload.findings.passed) own.everPassed = true;
+        const open = this.#openChecks.get(event.project_id) ?? new Set<AnyCheckState>();
+        if (own.latest !== null) open.delete(own.latest);
+        own.latest = { ...run, first: event.payload.first };
+        open.add(own.latest);
+        this.#openChecks.set(event.project_id, open);
+        changes.projects.add(event.project_id);
+        return;
+      }
       case 'project.check.recorded': {
         if (!this.#projects.has(event.project_id)) {
           notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
           return;
         }
-        const unobservedTurns = new Set<ExecutionId>();
-        let tainted = this.restoreInProgress(event.project_id);
-        const checkedTask = event.payload.workstream_id ?? null;
-        const own = checkedTask === null ? undefined : this.#workstreams.get(checkedTask)?.copy;
-        const folder =
-          own?.state === 'own'
-            ? own.directory
-            : (this.#projects.get(event.project_id)?.location?.path ?? null);
-        for (const state of this.#executionsByProject.get(event.project_id) ?? []) {
-          if (state.directory === null) continue;
-          // Only work in the folder checked reaches it (ADR 0045).
-          if (folder !== null && !foldersOverlap(folder, state.directory)) continue;
-          const status = deriveExecutionStatus(state);
-          // A restart stops every runtime process, so a turn one cut short runs no longer (#13).
-          if (status === 'unknown' && stoppedByRestart(state.unknownReason?.code)) continue;
-          if (state.activeTurn !== null) unobservedTurns.add(state.executionId);
-          if (status === 'unknown') tainted = true;
-        }
-        const checkState: CheckState = {
-          checkId: event.payload.check_id,
-          findings: event.payload.findings,
-          recordedAt: event.occurred_at,
-          position: this.#position,
-          unobservedTurns,
-          tainted,
-          changed: false,
-          folder,
-          workstreamId: checkedTask,
-        };
+        const checkState = this.#freshCheck(
+          event.project_id,
+          event.payload.workstream_id ?? null,
+          event.payload.check_id,
+          event.payload.findings,
+          event.occurred_at,
+        );
         this.#checks.set(event.project_id, checkState);
         const byId = this.#checksById.get(event.project_id) ?? new Map<CheckId, CheckState>();
-        const open = this.#openChecks.get(event.project_id) ?? new Set<CheckState>();
+        const open = this.#openChecks.get(event.project_id) ?? new Set<AnyCheckState>();
         const replaced = byId.get(event.payload.check_id);
         if (replaced !== undefined) open.delete(replaced);
         byId.set(event.payload.check_id, checkState);
@@ -1406,7 +1530,17 @@ export class Projection {
         }
         const { check_id, cap } = event.payload;
         const findings = this.#checkFindings(event.project_id, check_id);
-        const failed = findings === undefined ? undefined : fixSteps(findings);
+        // A project's own check (ADR 0055), while it is the latest run the projection keeps.
+        const ownLatest = this.#ownChecks.get(event.project_id)?.latest;
+        const ownRun = ownLatest?.checkId === check_id ? ownLatest : undefined;
+        const failed: ('typecheck' | 'build' | 'page' | 'own_check')[] | undefined =
+          ownRun !== undefined
+            ? ownRun.findings.passed
+              ? []
+              : ['own_check']
+            : findings === undefined
+              ? undefined
+              : fixSteps(findings);
         if (event.event_type === 'execution.auto_fix.sent') {
           this.#autoFixCommands.add(event.payload.command_id);
           execution.autoFix = {
@@ -1421,7 +1555,8 @@ export class Projection {
           const { attempts, reason } = event.payload;
           // A chain that ended on a passing check keeps what it fixed; else the ending check's own.
           const steps =
-            findings?.passed === true && execution.autoFix?.state === 'fixing'
+            (ownRun?.findings.passed ?? findings?.passed) === true &&
+            execution.autoFix?.state === 'fixing'
               ? execution.autoFix.failed_steps
               : failed;
           execution.autoFix = {
@@ -2175,6 +2310,11 @@ export class Projection {
     }
     const world = this.#worlds.get(state.projectId);
     if (world !== undefined) view.world = world;
+    const own = this.ownCheck(state.projectId);
+    if (own !== undefined) {
+      const { passed_before: _before, passed_earlier: _earlier, ...shown } = own;
+      view.own_check = shown;
+    }
     return view;
   };
 
@@ -2190,7 +2330,7 @@ export class Projection {
   #updateProjectChecks(
     projectId: ProjectId,
     changes: ChangeSet,
-    mutate: (state: CheckState) => void,
+    mutate: (state: AnyCheckState) => void,
     directory?: string,
   ): void {
     const checks = this.#openChecks.get(projectId);
@@ -2199,6 +2339,7 @@ export class Projection {
     const previewId = this.#previews.get(projectId)?.check_id;
     const playId = this.#macPlays.get(projectId);
     const shareId = this.#shares.get(projectId)?.checkId;
+    const ownId = this.#ownChecks.get(projectId)?.latest?.checkId;
     let viewChanged = false;
     for (const state of checks) {
       this.#onCheckVisited?.();
@@ -2216,7 +2357,8 @@ export class Projection {
         (state.checkId === latestId ||
           state.checkId === previewId ||
           state.checkId === playId ||
-          state.checkId === shareId)
+          state.checkId === shareId ||
+          state.checkId === ownId)
       ) {
         viewChanged = true;
       }

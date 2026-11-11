@@ -2,6 +2,7 @@ import Type, { type Static, type TSchema } from 'typebox';
 import { CatalogRepositoryRef } from './catalog.ts';
 import { CheckpointId, ReviewDigest } from './checkpoints.ts';
 import { FolderName, HostPath, ProjectLocationChoice } from './locations.ts';
+import { OWN_CHECK_SCRIPT_NAMES, OwnCheckScriptName } from './own-checks.ts';
 import { CheckId, ShareAddress, ShareWay } from './previews.ts';
 import {
   ClientInfo,
@@ -92,7 +93,8 @@ export const ProjectRestoreCommand = defineCommand(
 
 /**
  * Checks a project made from a starter (ADR 0037): type check, build, and the built copy opened for
- * 10 seconds in the host's sandboxed headless browser. The host does it, never a runtime; it
+ * 10 seconds in the host's sandboxed headless browser. In a project not made from a starter, it runs
+ * the project's own check the person chose (ADR 0055). The host does it, never a runtime; it
  * completes once the findings are recorded, whatever they are.
  */
 export const ProjectCheckCommand = defineCommand(
@@ -114,6 +116,27 @@ export const ProjectCheckCommand = defineCommand(
  * Serves the built copy of the project's latest check on a loopback port, only when that check
  * passed. The live folder is never served, so nothing changed after the check reaches the page.
  */
+/**
+ * The person chooses a project's own check (ADR 0055): scripts of the project's own `package.json`,
+ * by name, as the host offered them (`GET /api/projects/:project_id/own-check`). The host records
+ * each script's command as it reads it now, then runs the check once, so the person sees whether it
+ * passes before any agent's turn. Only in a project not made from a starter.
+ */
+export const ProjectOwnCheckChooseCommand = defineCommand(
+  'project.own_check.choose',
+  Type.Object(
+    {
+      project_id: ProjectId,
+      scripts: Type.Array(OwnCheckScriptName, {
+        minItems: 1,
+        maxItems: OWN_CHECK_SCRIPT_NAMES.length,
+        uniqueItems: true,
+      }),
+    },
+    strict,
+  ),
+);
+
 export const ProjectPreviewStartCommand = defineCommand(
   'project.preview.start',
   Type.Object({ project_id: ProjectId }, strict),
@@ -344,6 +367,7 @@ export const COMMAND_VARIANTS = [
   ProjectSetLocationCommand,
   ProjectRestoreCommand,
   ProjectCheckCommand,
+  ProjectOwnCheckChooseCommand,
   ProjectPreviewStartCommand,
   ProjectPreviewStopCommand,
   ProjectOpenOnMacCommand,
@@ -378,6 +402,7 @@ export const CommandType = Type.Union([
   Type.Literal('project.set_location'),
   Type.Literal('project.restore'),
   Type.Literal('project.check'),
+  Type.Literal('project.own_check.choose'),
   Type.Literal('project.preview.start'),
   Type.Literal('project.preview.stop'),
   Type.Literal('project.open_on_mac'),

@@ -17,8 +17,11 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'project.make_vr_version': 'low_consequence',
   // Writes over the project's files: the person reads what would change before confirming.
   'project.restore': 'review_required',
-  // The host's own check and its serving of the checked copy on loopback; change no project file.
+  // The host's own check and its serving of the checked copy on loopback; change no project file. A
+  // project's own check runs the commands the person already chose, confined as an agent (ADR 0055).
   'project.check': 'low_consequence',
+  // Which of the project's own commands the host may run as its check: the person reads them first.
+  'project.own_check.choose': 'review_required',
   'project.preview.start': 'low_consequence',
   'project.preview.stop': 'low_consequence',
   // The checked copy, already run by the check, in the same contained browser shown in Halcyonic's

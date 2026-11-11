@@ -25,6 +25,7 @@ import { createHostLocations, type HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
 import { FileObserver } from '../observer/file-observer.ts';
 import { attachWorldReader } from '../observer/world-reader.ts';
+import { OwnChecks, type OwnChecksDeps } from '../own-check/own-check.ts';
 import { HostPreviews, type HostPreviewsDeps } from '../preview/preview.ts';
 import { ProjectShares, type ProjectSharesDeps } from '../preview/share.ts';
 import type { HostStarters } from '../starters.ts';
@@ -103,6 +104,11 @@ export interface ControlPlaneOptions {
     'recorder' | 'projection' | 'ids' | 'clock' | 'logger' | 'redaction'
   >;
   /**
+   * A project's own check, chosen by the person and run confined as an agent (ADR 0055). Absent, a
+   * project not made from a starter cannot be checked.
+   */
+  readonly ownChecks?: Omit<OwnChecksDeps, 'recorder' | 'projection' | 'ids' | 'clock' | 'logger'>;
+  /**
    * Whether the Mac reads each task's folder and journals what every turn changed (ADR 0038), and
    * the folders of its own data that a task's folder must not hold for it to be read. Off by
    * default, as for recorded traces and most tests; the control plane's own start turns it on.
@@ -158,6 +164,8 @@ export class ControlPlane {
   readonly files: FileObserver | null;
   /** The host's checks and previews of starter projects, or null when off. */
   readonly previews: HostPreviews | null;
+  /** A project's own check (ADR 0055), or null when off. */
+  readonly ownChecks: OwnChecks | null;
   /** Shared links to a project's running preview (F1), where previews and the pinned tunnel are on. */
   readonly shares: ProjectShares | null;
   /** Unloads a local Ollama model that Halcyonic loaded once no execution uses it (UL1), or null. */
@@ -238,6 +246,18 @@ export class ControlPlane {
             clock: options.clock,
             logger: options.logger,
             redaction: this.redaction,
+          });
+    this.ownChecks =
+      options.ownChecks === undefined
+        ? null
+        : new OwnChecks({
+            ...options.ownChecks,
+            redact: (text) => this.redaction.held(text),
+            recorder: this.recorder,
+            projection: this.projection,
+            ids: options.ids,
+            clock: options.clock,
+            logger: options.logger,
           });
     this.protectedFolders = options.observeFiles?.protect ?? [];
     this.shares =
@@ -338,6 +358,7 @@ export class ControlPlane {
       files: this.files,
       catalogLinks: options.catalogLinks ?? null,
       previews: this.previews,
+      ownChecks: this.ownChecks,
       ollamaUnload: this.ollamaUnload,
       reattacher: this.reattacher,
       shares: this.shares,
@@ -348,7 +369,7 @@ export class ControlPlane {
     // Once the journal is folded: a share a restart left recorded as live is recorded stopped.
     this.shares?.attach(this.publisher);
     this.#autoFix =
-      this.previews === null || options.autoFix === false
+      (this.previews === null && this.ownChecks === null) || options.autoFix === false
         ? null
         : new AutoFix({
             projection: this.projection,
@@ -357,6 +378,7 @@ export class ControlPlane {
             commands: this.commands,
             registry: this.registry,
             previews: this.previews,
+            ownChecks: this.ownChecks,
             ids: options.ids,
             clock: options.clock,
             logger: options.logger,
@@ -370,7 +392,7 @@ export class ControlPlane {
       live: this.journal.info.origin === 'live',
     }).attach(this.publisher);
     if (this.#checkpointEvery !== null) this.#attachCheckpoints(this.#checkpointEvery);
-    if (this.previews !== null) this.#attachAutoCheck();
+    if (this.previews !== null || this.ownChecks !== null) this.#attachAutoCheck();
   }
 
   /**
@@ -385,9 +407,8 @@ export class ControlPlane {
         const { created, changed, deleted } = event.payload;
         if (created.total === 0 && changed.total === 0 && deleted.total === 0) return;
         const project = this.projection.project(event.project_id);
-        if (project?.starter == null || project.location === null) return;
-        // A world has no build: the Mac reads its description instead (ADR 0049).
-        if (project.starter === WORLD_STARTER_ID) return;
+        if (!this.#autoChecked(event.project_id)) return;
+        if (project === undefined) return;
         // A turn in a task's own copy needs that copy checked, not the project's folder.
         const copy = this.projection.workstream(event.workstream_id)?.copy;
         const directory = this.projection.execution(event.execution_id)?.directory ?? null;
@@ -427,6 +448,18 @@ export class ControlPlane {
     });
   }
 
+  /**
+   * Whether the project is checked on its own after a turn: a starter's but a world's, which has no
+   * build (ADR 0049), where checks are on; or one whose own check the person chose (ADR 0055).
+   */
+  #autoChecked(projectId: ProjectId): boolean {
+    const project = this.projection.project(projectId);
+    if (project === undefined || project.location === null) return false;
+    if (project.starter === null)
+      return this.ownChecks !== null && this.projection.ownCheck(projectId) !== undefined;
+    return this.previews !== null && project.starter !== WORLD_STARTER_ID;
+  }
+
   #scheduleAutoChecks(): void {
     if (this.#autoCheckScheduled || this.#closed) return;
     this.#autoCheckScheduled = true;
@@ -437,14 +470,10 @@ export class ControlPlane {
   }
 
   #drainAutoChecks(): void {
-    if (this.#closed || this.previews === null) return;
+    if (this.#closed) return;
     for (const [projectId, needed] of [...this.#autoCheckNeeded]) {
       const project = this.projection.project(projectId);
-      if (
-        project?.starter == null ||
-        project.starter === WORLD_STARTER_ID ||
-        project.location === null
-      ) {
+      if (project === undefined || project.location === null || !this.#autoChecked(projectId)) {
         this.#autoCheckNeeded.delete(projectId);
         continue;
       }

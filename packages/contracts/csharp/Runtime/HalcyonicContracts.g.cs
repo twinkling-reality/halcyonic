@@ -726,6 +726,54 @@ namespace Halcyonic.Contracts
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
+    public enum OwnCheckManager
+    {
+        [EnumMember(Value = "npm")] Npm,
+        [EnumMember(Value = "pnpm")] Pnpm,
+        [EnumMember(Value = "yarn")] Yarn,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum OwnCheckScriptName
+    {
+        [EnumMember(Value = "test")] Test,
+        [EnumMember(Value = "check")] Check,
+        [EnumMember(Value = "typecheck")] Typecheck,
+        [EnumMember(Value = "lint")] Lint,
+        [EnumMember(Value = "build")] Build,
+    }
+
+    public sealed class OwnCheckFoundScript
+    {
+        [JsonProperty("name", Required = Required.Always)]
+        public OwnCheckScriptName Name { get; set; }
+
+        [JsonProperty("command", Required = Required.Always)]
+        public string Command { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum OwnCheckNotFound
+    {
+        [EnumMember(Value = "no_manifest")] NoManifest,
+        [EnumMember(Value = "manifest_unreadable")] ManifestUnreadable,
+        [EnumMember(Value = "no_scripts")] NoScripts,
+        [EnumMember(Value = "manager_missing")] ManagerMissing,
+    }
+
+    public sealed class OwnCheckFoundResponse
+    {
+        [JsonProperty("manager", Required = Required.AllowNull)]
+        public OwnCheckManager? Manager { get; set; }
+
+        [JsonProperty("scripts", Required = Required.Always)]
+        public List<OwnCheckFoundScript> Scripts { get; set; } = new List<OwnCheckFoundScript>();
+
+        [JsonProperty("reason", Required = Required.AllowNull)]
+        public OwnCheckNotFound? Reason { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
     public enum ShareWay
     {
         [EnumMember(Value = "link")] Link,
@@ -1076,6 +1124,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "project.set_location")] ProjectSetLocation,
         [EnumMember(Value = "project.restore")] ProjectRestore,
         [EnumMember(Value = "project.check")] ProjectCheck,
+        [EnumMember(Value = "project.own_check.choose")] ProjectOwnCheckChoose,
         [EnumMember(Value = "project.preview.start")] ProjectPreviewStart,
         [EnumMember(Value = "project.preview.stop")] ProjectPreviewStop,
         [EnumMember(Value = "project.open_on_mac")] ProjectOpenOnMac,
@@ -1314,6 +1363,128 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("workstream_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public string? WorkstreamId { get; set; }
+    }
+
+    public sealed class OwnCheckScript
+    {
+        [JsonProperty("name", Required = Required.Always)]
+        public OwnCheckScriptName Name { get; set; }
+
+        [JsonProperty("command", Required = Required.Always)]
+        public string Command { get; set; } = default!;
+
+        [JsonProperty("command_sha256", Required = Required.Always)]
+        public string CommandSha256 { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ProjectOwnCheckRunViewFiles
+    {
+        [EnumMember(Value = "unknown")] Unknown,
+        [EnumMember(Value = "current")] Current,
+        [EnumMember(Value = "changed")] Changed,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum OwnCheckFindingsOutcome
+    {
+        [EnumMember(Value = "ran")] Ran,
+        [EnumMember(Value = "command_changed")] CommandChanged,
+        [EnumMember(Value = "manager_missing")] ManagerMissing,
+        [EnumMember(Value = "manifest_unreadable")] ManifestUnreadable,
+    }
+
+    public sealed class OwnCheckRun
+    {
+        [JsonProperty("name", Required = Required.Always)]
+        public OwnCheckScriptName Name { get; set; }
+
+        [JsonProperty("exit", Required = Required.AllowNull)]
+        public long? Exit { get; set; }
+
+        [JsonProperty("seconds", Required = Required.Always)]
+        public double Seconds { get; set; }
+
+        [JsonProperty("timed_out", Required = Required.Always)]
+        public bool TimedOut { get; set; }
+
+        [JsonProperty("refused", Required = Required.Always)]
+        public bool Refused { get; set; }
+    }
+
+    public sealed class OwnCheckWritten
+    {
+        [JsonProperty("created", Required = Required.Always)]
+        public long Created { get; set; }
+
+        [JsonProperty("changed", Required = Required.Always)]
+        public long Changed { get; set; }
+
+        [JsonProperty("deleted", Required = Required.Always)]
+        public long Deleted { get; set; }
+
+        [JsonProperty("paths", Required = Required.Always)]
+        public List<string> Paths { get; set; } = new List<string>();
+    }
+
+    public sealed class OwnCheckFindings
+    {
+        [JsonProperty("outcome", Required = Required.Always)]
+        public OwnCheckFindingsOutcome Outcome { get; set; }
+
+        [JsonProperty("manager", Required = Required.Always)]
+        public OwnCheckManager Manager { get; set; }
+
+        [JsonProperty("runs", Required = Required.Always)]
+        public List<OwnCheckRun> Runs { get; set; } = new List<OwnCheckRun>();
+
+        [JsonProperty("passed", Required = Required.Always)]
+        public bool Passed { get; set; }
+
+        [JsonProperty("written", Required = Required.AllowNull)]
+        public OwnCheckWritten? Written { get; set; }
+    }
+
+    public sealed class ProjectOwnCheckRunView
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("recorded_at", Required = Required.Always)]
+        public string RecordedAt { get; set; } = default!;
+
+        [JsonProperty("position", Required = Required.Always)]
+        public long Position { get; set; }
+
+        [JsonProperty("files", Required = Required.Always)]
+        public ProjectOwnCheckRunViewFiles Files { get; set; }
+
+        [JsonProperty("first", Required = Required.Always)]
+        public bool First { get; set; }
+
+        [JsonProperty("findings", Required = Required.Always)]
+        public OwnCheckFindings Findings { get; set; } = default!;
+
+        [JsonProperty("workstream_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? WorkstreamId { get; set; }
+    }
+
+    public sealed class ProjectOwnCheckView
+    {
+        [JsonProperty("manager", Required = Required.Always)]
+        public OwnCheckManager Manager { get; set; }
+
+        [JsonProperty("scripts", Required = Required.Always)]
+        public List<OwnCheckScript> Scripts { get; set; } = new List<OwnCheckScript>();
+
+        [JsonProperty("chosen_at", Required = Required.Always)]
+        public string ChosenAt { get; set; } = default!;
+
+        [JsonProperty("latest", Required = Required.AllowNull)]
+        public ProjectOwnCheckRunView? Latest { get; set; }
+
+        [JsonProperty("ever_passed", Required = Required.Always)]
+        public bool EverPassed { get; set; }
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
@@ -1559,6 +1730,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("check", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public ProjectViewCheck? Check { get; set; }
+
+        [JsonProperty("own_check", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public ProjectOwnCheckView? OwnCheck { get; set; }
 
         [JsonProperty("preview", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public ProjectViewPreview? Preview { get; set; }
@@ -2109,6 +2283,9 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "send_failed")] SendFailed,
         [EnumMember(Value = "several_tasks")] SeveralTasks,
         [EnumMember(Value = "host_restarted")] HostRestarted,
+        [EnumMember(Value = "failing_before")] FailingBefore,
+        [EnumMember(Value = "never_passed")] NeverPassed,
+        [EnumMember(Value = "check_refused")] CheckRefused,
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
@@ -2117,6 +2294,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "typecheck")] Typecheck,
         [EnumMember(Value = "build")] Build,
         [EnumMember(Value = "page")] Page,
+        [EnumMember(Value = "own_check")] OwnCheck,
     }
 
     public sealed class AutoFixView
@@ -2898,6 +3076,30 @@ namespace Halcyonic.Contracts
         public string? WorkstreamId { get; set; }
     }
 
+    public sealed class ProjectOwnCheckChosenPayload
+    {
+        [JsonProperty("manager", Required = Required.Always)]
+        public OwnCheckManager Manager { get; set; }
+
+        [JsonProperty("scripts", Required = Required.Always)]
+        public List<OwnCheckScript> Scripts { get; set; } = new List<OwnCheckScript>();
+    }
+
+    public sealed class ProjectOwnCheckRecordedPayload
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("first", Required = Required.Always)]
+        public bool First { get; set; }
+
+        [JsonProperty("findings", Required = Required.Always)]
+        public OwnCheckFindings Findings { get; set; } = default!;
+
+        [JsonProperty("workstream_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? WorkstreamId { get; set; }
+    }
+
     public sealed class ProjectPreviewStartedPayload
     {
         [JsonProperty("check_id", Required = Required.Always)]
@@ -3385,6 +3587,15 @@ namespace Halcyonic.Contracts
         public string? WorkstreamId { get; set; }
     }
 
+    public sealed class ProjectOwnCheckChoosePayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("scripts", Required = Required.Always)]
+        public List<OwnCheckScriptName> Scripts { get; set; } = new List<OwnCheckScriptName>();
+    }
+
     public sealed class ProjectPreviewStartPayload
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -3639,6 +3850,7 @@ namespace Halcyonic.Contracts
                 "project.set_location" => new ProjectSetLocationCommand(),
                 "project.restore" => new ProjectRestoreCommand(),
                 "project.check" => new ProjectCheckCommand(),
+                "project.own_check.choose" => new ProjectOwnCheckChooseCommand(),
                 "project.preview.start" => new ProjectPreviewStartCommand(),
                 "project.preview.stop" => new ProjectPreviewStopCommand(),
                 "project.open_on_mac" => new ProjectOpenOnMacCommand(),
@@ -3718,6 +3930,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectCheckPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectOwnCheckChooseCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.own_check.choose";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectOwnCheckChoosePayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectPreviewStartCommand : CommandEnvelope
@@ -4415,6 +4635,8 @@ namespace Halcyonic.Contracts
                 "project.restored" => new ProjectRestoredEvent(),
                 "project.restore_incomplete" => new ProjectRestoreIncompleteEvent(),
                 "project.check.recorded" => new ProjectCheckRecordedEvent(),
+                "project.own_check.chosen" => new ProjectOwnCheckChosenEvent(),
+                "project.own_check.recorded" => new ProjectOwnCheckRecordedEvent(),
                 "project.preview.started" => new ProjectPreviewStartedEvent(),
                 "project.preview.stopped" => new ProjectPreviewStoppedEvent(),
                 "project.mac_play.started" => new ProjectMacPlayStartedEvent(),
@@ -4594,6 +4816,22 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectCheckRecordedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectOwnCheckChosenEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.own_check.chosen";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectOwnCheckChosenPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectOwnCheckRecordedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.own_check.recorded";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectOwnCheckRecordedPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectPreviewStartedEvent : EventEnvelope

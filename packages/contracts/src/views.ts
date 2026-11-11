@@ -9,6 +9,7 @@ import {
 import { WorkstreamCopy } from './copies.ts';
 import { ApprovalSubject, QUEUED_INSTRUCTIONS_MAX } from './events.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
+import { OwnCheckFindings, OwnCheckManager, OwnCheckScript } from './own-checks.ts';
 import { AutoFixView, CheckFindings, CheckId, ShareAddress, ShareWay } from './previews.ts';
 import {
   ErrorInfo,
@@ -98,6 +99,40 @@ export const ProjectCheckView = Type.Object(
 );
 export type ProjectCheckView = Static<typeof ProjectCheckView>;
 
+/** A project's own check's latest run (ADR 0055), as `project.own_check.recorded` recorded it. */
+export const ProjectOwnCheckRunView = Type.Object(
+  {
+    check_id: CheckId,
+    recorded_at: Timestamp,
+    position: Position,
+    /** Whether the folder changed since: `changed` once a turn changed files in it. */
+    files: CheckFilesState,
+    /** The run right after the person chose the check. */
+    first: Type.Boolean(),
+    findings: OwnCheckFindings,
+    workstream_id: Type.Optional(WorkstreamId),
+  },
+  strict,
+);
+export type ProjectOwnCheckRunView = Static<typeof ProjectOwnCheckRunView>;
+
+/**
+ * A project's own check (ADR 0055): what the person chose (each script's command, the project's own
+ * words), its latest run, and whether any run of this choice passed on this computer. A failure is sent
+ * to an agent on its own only when the run before the agent's turn passed (`passed_before`).
+ */
+export const ProjectOwnCheckView = Type.Object(
+  {
+    manager: OwnCheckManager,
+    scripts: Type.Array(OwnCheckScript, { minItems: 1, maxItems: 5 }),
+    chosen_at: Timestamp,
+    latest: Nullable(ProjectOwnCheckRunView),
+    ever_passed: Type.Boolean(),
+  },
+  strict,
+);
+export type ProjectOwnCheckView = Static<typeof ProjectOwnCheckView>;
+
 /** The preview running now, as `project.preview.started` said: the check it serves, on a loopback port, and whether that check's files are still current (T2). */
 export const ProjectPreviewView = Type.Object(
   {
@@ -142,6 +177,8 @@ export const ProjectView = Type.Object(
     created_at: Timestamp,
     updated_at: Timestamp,
     check: Type.Optional(ProjectCheckView),
+    /** A project's own check, once the person chose one (ADR 0055); never on a starter's project. */
+    own_check: Type.Optional(ProjectOwnCheckView),
     preview: Type.Optional(ProjectPreviewView),
     mac_play: Type.Optional(ProjectMacPlayView),
     /** The project's shared link, when one is live (F1). */

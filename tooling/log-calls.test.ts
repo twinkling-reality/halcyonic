@@ -91,6 +91,11 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
       why: "a checkpoint write's error (SQLite or serialization), which the logger's serializer reduces to its type and where it happened",
     },
     {
+      file: 'apps/control-plane/src/own-check/own-check.ts',
+      args: '{ err: error }, ""',
+      why: "a write of the check's output that failed, which the logger's serializer reduces to its type and where it happened; never the output",
+    },
+    {
       file: 'apps/control-plane/src/preview/preview.ts',
       args: '{ err: error }, ""',
       why: "the error, which the logger's serializer reduces to its type and where it happened",
