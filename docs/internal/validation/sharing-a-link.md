@@ -33,7 +33,10 @@ ever behind a tunnel. The owner approved the download and the use in the TASKS s
    Stopped as asked: `project.share.stopped`, the view lost the link, and 4 s later the address
    answered Cloudflare's 530 (no origin). No tunnel process was left. The address was masked in every
    output and written nowhere.
-5. While it runs, the program also opens a metrics listener on 127.0.0.1 (port 20241), on loopback
+5. The tunnel's profile refuses reads of the system folders it takes a configuration from (its log
+   names them). Unit test: a file in a stand-in folder is readable outside the profile and refused
+   under it ("Operation not permitted"). The real runs used the profile before that rule.
+6. While it runs, the program also opens a metrics listener on 127.0.0.1 (port 20241), on loopback
    only, and an ICMP proxy for the tunnel's own traffic. Neither is reachable through the tunnel.
 
 ## From the documentation, not run here
@@ -54,6 +57,7 @@ Verified in unit tests only, on 127.0.0.1 with a stand-in preview: the listener 
 `HEAD` with the preview's own Host and no cookie, answers `POST` and `PUT` with 405, passes back the
 preview's own headers (its Content Security Policy), is recorded only once its address answered 200,
 and refuses connections once stopped. Off any network it fails `no_network` and records nothing.
+It takes at most 32 connections at once, with a 5 s keep-alive.
 
 Not verified: a real share on the Mac's Wi-Fi address. Whether macOS's application firewall asks
 the person to allow incoming connections the first time, a device on the network reaching it (a

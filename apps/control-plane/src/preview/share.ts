@@ -275,20 +275,7 @@ export class ProjectShares {
     const env = { PATH: '/usr/bin:/bin', HOME: this.#deps.home, LC_ALL: 'C' };
     if (process.platform !== 'darwin')
       return spawn(tunnel, args, { env, stdio: ['ignore', 'ignore', 'pipe'] });
-    const own = [this.#deps.home, dirname(tunnel)];
-    const profile = [
-      '(version 1)',
-      '(allow default)',
-      '(deny file-write*)',
-      `(allow file-write* ${subpaths([this.#deps.home])} (literal "/dev/null"))`,
-      ...(this.#deps.dataDir === undefined
-        ? []
-        : [
-            `(deny file-read* ${subpaths([this.#deps.dataDir])})`,
-            `(allow file-read* ${subpaths(own)})`,
-          ]),
-      '',
-    ].join('\n');
+    const profile = tunnelProfile(this.#deps.home, tunnel, this.#deps.dataDir);
     return spawn(SANDBOX_EXEC, ['-p', profile, tunnel, ...args], {
       env,
       stdio: ['ignore', 'ignore', 'pipe'],
@@ -328,6 +315,44 @@ export class ProjectShares {
   #now(): Timestamp {
     return this.#deps.clock.now().toISOString() as Timestamp;
   }
+}
+
+/**
+ * The places the tunnel looks for a configuration besides its home (its own log names them), none
+ * of which a share may read: a configuration there could add ingress rules or another origin to a
+ * share (AUDIT2 S1). `/etc` is `/private/etc` to the sandbox.
+ */
+export const TUNNEL_CONFIG_FOLDERS = [
+  '/private/etc/cloudflared',
+  '/usr/local/etc/cloudflared',
+  '/opt/homebrew/etc/cloudflared',
+] as const;
+
+/**
+ * The tunnel's Seatbelt profile: it writes only its own home and `/dev/null`, reads no configuration
+ * but its home's (empty), and reads nothing of Halcyonic's data folder but that home and the folder
+ * its binary is in.
+ */
+export function tunnelProfile(
+  home: string,
+  tunnel: string,
+  dataDir?: string,
+  configFolders: readonly string[] = TUNNEL_CONFIG_FOLDERS,
+): string {
+  return [
+    '(version 1)',
+    '(allow default)',
+    '(deny file-write*)',
+    `(allow file-write* ${subpaths([home])} (literal "/dev/null"))`,
+    `(deny file-read* ${configFolders.map((folder) => `(subpath "${folder}")`).join(' ')})`,
+    ...(dataDir === undefined
+      ? []
+      : [
+          `(deny file-read* ${subpaths([dataDir])})`,
+          `(allow file-read* ${subpaths([home, dirname(tunnel)])})`,
+        ]),
+    '',
+  ].join('\n');
 }
 
 /**
@@ -400,8 +425,11 @@ export function readsOnlyTo(port: number): Server {
     res.on('close', () => upstream.destroy());
     upstream.end();
   });
+  // As the network listener bounds its own (AUDIT2 S2): anyone on the network may connect.
   server.requestTimeout = 30_000;
   server.headersTimeout = 10_000;
+  server.keepAliveTimeout = 5_000;
+  server.maxConnections = 32;
   return server;
 }
 

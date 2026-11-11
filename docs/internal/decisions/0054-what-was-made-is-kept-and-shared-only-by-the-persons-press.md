@@ -53,7 +53,10 @@ The owner approved Share on This Wi-Fi and Share a Link, and the download of the
      (`ended`), and when the control plane closes or a restart finds one recorded live
      (`host_stopped`). No tunnel survives a restart.
    - The program runs only when its bytes match the pin, under a Seatbelt profile that lets it write
-     only a home of its own and read nothing of Halcyonic's data folder, with no update of itself. It
+     only a home of its own, read nothing of Halcyonic's data folder, and read none of the system
+     folders it would take a configuration from (`/etc/cloudflared`, `/usr/local/etc/cloudflared`,
+     `/opt/homebrew/etc/cloudflared`), so no configuration can add ingress or an origin to a share;
+     no update of itself. It
      is installed as the runtimes are, by a setup step the person presses, never committed.
 4. **Share on This Wi-Fi** (`wifi`) gives it the Mac's own address on its local network, on the
    same conditions, by the same press and stopped the same ways:
@@ -62,6 +65,8 @@ The owner approved Share on This Wi-Fi and Share a Link, and the download of the
    - It passes only `GET` and `HEAD` to the preview on 127.0.0.1, under the preview's own Host, with
      no body, no cookie and only the headers a page load reads with; anything else is answered 405.
      So it reaches the same one built copy, read only, and nothing else of the Mac.
+   - At most 32 connections at once, a 5 s keep-alive, headers within 10 s and a request within
+     30 s, as the network listener bounds its own.
    - Recorded only once the address answered 200 from the Mac itself.
    - The headset says truly that a game opened from it plays in the browser but cannot enter VR: a
      plain `http://` page is not a secure page.

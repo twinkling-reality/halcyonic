@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,7 +8,15 @@ import { afterEach, describe, test } from 'node:test';
 import type { CheckId, EventEnvelope, ProjectId } from '@halcyonic/contracts';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { capturingLogger, createTestControlPlane } from '../testing/harness.ts';
-import { lanAddress, ProjectShares, pinnedLookup, ShareRefused } from './share.ts';
+import {
+  lanAddress,
+  ProjectShares,
+  pinnedLookup,
+  readsOnlyTo,
+  ShareRefused,
+  TUNNEL_CONFIG_FOLDERS,
+  tunnelProfile,
+} from './share.ts';
 
 // Sharing a checked game at a public address (F1), with a stand-in tunnel: a process that prints
 // an address as the tunnel does and stays up until it is stopped.
@@ -250,5 +258,47 @@ describe('sharing a checked game at an address anyone can open (F1)', () => {
       '172.20.1.2',
     );
     assert.equal(lanAddress({ en0: [entry('172.32.0.1')], lo0: [entry('127.0.0.1', true)] }), null);
+  });
+
+  test('the tunnel reads no configuration outside its own home, and macOS takes its profile', {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-share-home-')));
+    homes.push(home);
+    assert.ok(
+      TUNNEL_CONFIG_FOLDERS.every((folder) =>
+        tunnelProfile(home, '/usr/bin/true').includes(`(subpath "${folder}")`),
+      ),
+    );
+    // A stand-in for a system configuration folder, with a file in it.
+    const etc = join(home, 'etc-cloudflared');
+    mkdirSync(etc);
+    writeFileSync(join(etc, 'config.yml'), 'ingress: []\n');
+    const profile = tunnelProfile(join(home, 'own'), '/usr/bin/true', undefined, [etc]);
+    const run = (command: string[], sandboxed: boolean) =>
+      new Promise<{ code: number | null; err: string }>((resolve) => {
+        const child = sandboxed
+          ? spawn('/usr/bin/sandbox-exec', ['-p', profile, ...command], {
+              stdio: ['ignore', 'ignore', 'pipe'],
+            })
+          : spawn(command[0] as string, command.slice(1), { stdio: ['ignore', 'ignore', 'pipe'] });
+        let err = '';
+        child.stderr?.on('data', (chunk) => {
+          err += chunk;
+        });
+        child.on('exit', (code) => resolve({ code, err }));
+      });
+    const cat = ['/bin/cat', join(etc, 'config.yml')];
+    assert.equal((await run(cat, false)).code, 0, 'readable outside the sandbox');
+    const refused = await run(cat, true);
+    assert.notEqual(refused.code, 0);
+    assert.match(refused.err, /Operation not permitted/);
+    assert.equal((await run(['/usr/bin/true'], true)).code, 0);
+  });
+
+  test('the Wi-Fi listener bounds its connections as the network listener does', () => {
+    const server = readsOnlyTo(47931);
+    assert.equal(server.maxConnections, 32);
+    assert.equal(server.keepAliveTimeout, 5_000);
   });
 });
