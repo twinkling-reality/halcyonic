@@ -1,16 +1,27 @@
 import { type NetworkInterfaceInfo, networkInterfaces } from 'node:os';
+import { join } from 'node:path';
 import type { NetworkListener } from '@halcyonic/contracts';
 import type { Clock } from '@halcyonic/runtime-core';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import type { NetworkListenerConfig } from '../config.ts';
 import type { ControlPlane } from '../core/control-plane.ts';
 import type { RouteSources } from '../http/routes.ts';
+import {
+  type Announcement,
+  type Announcer,
+  dnsSdAnnouncer,
+  endLeftoverAnnouncement,
+  reachableFromTheNetwork,
+} from './announce.ts';
 import { loadOrCreateNetworkIdentity } from './certificate.ts';
 import type { DeviceAccess } from './devices.ts';
 import { describeListener, readLocalName } from './listener.ts';
 import { Pairing, type PairingLimits } from './pairing.ts';
 import type { PreviewTarget } from './preview-relay.ts';
 import { createNetworkServer, type NetworkLimits } from './server.ts';
+
+/** In the data folder while the computer announces itself: the announcing `dns-sd`'s pid. */
+const ANNOUNCING_RECORD = 'announcing.pid';
 
 export interface NetworkSwitchOptions {
   readonly dataDir: string;
@@ -31,6 +42,11 @@ export interface NetworkSwitchOptions {
   readonly interfaces?: () => NodeJS.Dict<NetworkInterfaceInfo[]>;
   /** Where a project's preview is relayed from to a paired device (ADR 0052); none, no relay. */
   readonly previewTarget?: (projectId: string) => PreviewTarget;
+  /**
+   * Makes what announces the computer while a pairing window is open (ADR 0017); macOS's `dns-sd` by
+   * default. Tests give their own.
+   */
+  readonly announcer?: (describe: () => Announcement | null) => Announcer;
 }
 
 interface Listening {
@@ -115,7 +131,15 @@ export class NetworkSwitch {
         'created the network listener certificate',
       );
     }
+    // Read when a window opens: by then the listener has its port.
+    let announced: Announcement | null = null;
+    const record = join(options.dataDir, ANNOUNCING_RECORD);
+    await endLeftoverAnnouncement(record);
+    const announcer = (options.announcer ?? ((describe) => dnsSdAnnouncer(describe, { record })))(
+      () => announced,
+    );
     const pairing = new Pairing({
+      announcer,
       clock: options.clock,
       devices: options.devices,
       describe: (deviceId) => options.controlPlane.projection.device(deviceId),
@@ -149,6 +173,14 @@ export class NetworkSwitch {
     const { certificateSha256 } = identity;
     const described = { ...config, host: options.describeHost ?? config.host };
     describe = () => describeListener(described, port, certificateSha256, localName, interfaces());
+    announced =
+      localName === null || !reachableFromTheNetwork(config.host)
+        ? null
+        : {
+            name: localName.replace(/\.local$/, ''),
+            port,
+            pinPrefix: certificateSha256.slice(0, 16),
+          };
     return { server, pairing, describe };
   }
 }
