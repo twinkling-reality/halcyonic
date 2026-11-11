@@ -68,9 +68,13 @@ export const QUOTED_PREFIX =
 export const ANSWER_NOW =
   "No tool is offered on this turn: the work's outcome and the Mac's check are in your context. Answer the person now in plain words; do not write a tool call.";
 
-/** The host's words on the planning budget's last turn, also offered no tool. */
+/** The host's words on the planning budget's last two turns, also offered no tool. */
 export const ANSWER_LAST =
-  'No tool is offered on this turn: it is your last. Answer the person now in plain words from what you read, and say what you did not read; do not write a tool call.';
+  'No tool is offered on this turn: the reading is over. Answer the person now in plain words from what you read, and say what you did not read; do not write a tool call.';
+
+/** The host's words once, after a reply that was a tool call written as text: no tool still, answer in sentences. */
+export const ANSWER_AGAIN =
+  'No tool is offered on this turn: your last reply was a tool call written as text, which is not an answer and was not kept. Answer the person now in plain sentences from what you read; do not write a tool call.';
 
 /**
  * Whether a model's text is a tool call written out instead of an answer, as the 30B local model wrote one when offered
@@ -625,6 +629,9 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     }
     this.#changed(request, 'running', request.reply);
     const turnsAtWake = budget.turns;
+    // A reply that was a tool call written as text is asked again once a wake, offered no tool (2026-11-11).
+    let askAgain = false;
+    let askedAgain = false;
     while (true) {
       request = this.#current(id, controller);
       if (!request) return;
@@ -668,10 +675,15 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       let result: ToolTurnResult;
       // The first turn after the work's outcome is in is offered no tool, so the model answers from
       // the evidence in its context: the 30B model otherwise read on until its budget ran out.
-      // The budget's last turn is an answer too: the 30B model read all eight turns of an all-work request.
-      const lastTurn = budget.turns >= MAX_TURNS;
+      // The budget's last two turns are answers too, the second for one ask again: the 30B model read all eight
+      // turns of an all-work request, and then wrote a tool call as text on the last (2026-11-11).
+      const lastTurn = budget.turns >= MAX_TURNS - 1;
+      const again = askAgain;
+      askAgain = false;
       const offered =
-        (outcomeIn && budget.turns === turnsAtWake + 1) || lastTurn ? [] : this.#toolsFor(request);
+        (outcomeIn && budget.turns === turnsAtWake + 1) || lastTurn || again
+          ? []
+          : this.#toolsFor(request);
       // Said in words too: the 30B model, offered no tool, wrote one as text instead (2026-11-11).
       const answerNow = messages.findIndex(
         (message) =>
@@ -680,7 +692,10 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       );
       if (answerNow >= 0) messages.splice(answerNow, 1);
       if (offered.length === 0)
-        messages.push({ role: 'system', content: lastTurn ? ANSWER_LAST : ANSWER_NOW });
+        messages.push({
+          role: 'system',
+          content: again ? ANSWER_AGAIN : lastTurn ? ANSWER_LAST : ANSWER_NOW,
+        });
       try {
         result = await this.#o.model.turn(
           this.#boundedHistory(messages, offered),
@@ -708,6 +723,18 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       }
       // A tool call written as text is not an answer, and is never shown as the assistant's reply.
       if (looksLikeToolCall(result.content)) {
+        if (!askedAgain && budget.turns < MAX_TURNS) {
+          askAgain = true;
+          askedAgain = true;
+          this.#step(
+            request,
+            'model',
+            'rejected',
+            'The model wrote a tool call as text instead of answering; it was asked once more to answer in words.',
+          );
+          this.#changed(request, 'running', request.reply);
+          continue;
+        }
         this.#step(
           request,
           'model',

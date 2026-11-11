@@ -62,6 +62,17 @@ run ended there before the continue request. The plane and the model stayed up a
 skipped the driver's cleanup; they were stopped by hand at 08:40:31Z, and the driver's floor watcher now cleans up
 itself.
 
+A sixth run, 08:48 to 09:01Z on 2026-11-11 (82% free at the start; it started while the lead's suites ran, which
+rule 24c now forbids), on the code with the last turn offered no tool: the all-work request read `read_projects`
+twice and `read_project_at` five times, then on the last turn, offered none, wrote a tool call as text, so it ended
+interrupted with no reply after 85 s. The fresh Codex task (a green sphere) ran past its 8-minute cap with its turn
+still open, under the suites' load, and had no check. The continue request read `read_workspace`,
+`read_understanding`, `read_evaluation`, `observe_task`, `read_events` and `read_results`, then `continue_task`
+(delivered, and Codex's next turn observed to its end), then on the turn offered no tool wrote a tool call as text
+again: interrupted with no reply after 229 s. The text itself is never recorded. So the budget's last two turns are
+now offered no tool, and a tool call written as text there is asked again once. Cleanup ran: the plane stopped,
+`ollama ps` empty, the run file removed.
+
 ## 2026-11-10: What a task changed and whether it works, a whole project, on local models
 
 Setup: an isolated control plane on 127.0.0.1 with its own data directory, Codex 0.157.0 confined to a

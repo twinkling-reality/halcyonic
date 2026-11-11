@@ -22,6 +22,7 @@ import { DeviceAccess } from '../network/devices.ts';
 import { capturingLogger, createTestControlPlane } from '../testing/harness.ts';
 import type { ToolDefinition, ToolMessage, ToolTurnResult } from './ollama.ts';
 import {
+  ANSWER_AGAIN,
   ANSWER_LAST,
   ANSWER_NOW,
   looksLikeToolCall,
@@ -1880,8 +1881,17 @@ test('on the turn offered no tool, the host says to answer, and a written tool c
       !(request?.reply?.text ?? '').includes('function_calls'),
       'the markup is not the reply',
     );
+    // Asked once more, offered no tool and told why; a second written call ends it.
+    assert.equal(seen.length, 3);
     assert.ok(
-      request?.steps.some((step) => step.tool_name === 'model' && step.status === 'rejected'),
+      (seen[2] ?? []).some(
+        (message) => message.role === 'system' && message.content === ANSWER_AGAIN,
+      ),
+    );
+    assert.equal(
+      request?.steps.filter((step) => step.tool_name === 'model' && step.status === 'rejected')
+        .length,
+      2,
     );
   } finally {
     await f.close();
@@ -1905,8 +1915,10 @@ test("on the planning budget's last turn the model is offered no tool and answer
     const id = f.submit();
     for (let i = 0; i < 20; i++) await settle();
     const request = f.coordinator.read(id, { kind: 'local' });
-    assert.equal(offered.length, 8);
+    // The last two turns are answers: the first answer ends it.
+    assert.equal(offered.length, 7);
     assert.deepEqual(offered.at(-1), []);
+    assert.ok((offered.at(-2) ?? []).length > 0);
     assert.ok(
       (seen.at(-1) ?? []).some(
         (message) => message.role === 'system' && message.content === ANSWER_LAST,
@@ -1914,6 +1926,34 @@ test("on the planning budget's last turn the model is offered no tool and answer
     );
     assert.equal(request?.status, 'responded');
     assert.equal(request?.reply?.text, 'Here is what I read so far.');
+  } finally {
+    await f.close();
+  }
+});
+
+test('a tool call written as text on an answer turn is asked again once, and the answer then is the reply', async () => {
+  const offered: string[][] = [];
+  const f = await fixture({
+    turn: async (_messages, tools) => {
+      offered.push((tools ?? []).map((tool) => tool.function.name));
+      if ((tools ?? []).length > 0) return answer([{ name: 'read_workspace', arguments: {} }], '');
+      // The 30B model on the last turns of an all-work request and a continue request (2026-11-11).
+      return offered.filter((names) => names.length === 0).length === 1
+        ? answer([], '<function_calls><invoke name="read_projects"></invoke></function_calls>')
+        : answer([], 'The blue change is in, and the check passed.');
+    },
+  });
+  try {
+    const id = f.submit();
+    for (let i = 0; i < 20; i++) await settle();
+    const request = f.coordinator.read(id, { kind: 'local' });
+    assert.equal(offered.length, 8);
+    assert.deepEqual(offered.slice(-2), [[], []]);
+    assert.equal(request?.status, 'responded');
+    assert.equal(request?.reply?.text, 'The blue change is in, and the check passed.');
+    assert.ok(
+      request?.steps.some((step) => step.tool_name === 'model' && step.status === 'rejected'),
+    );
   } finally {
     await f.close();
   }
