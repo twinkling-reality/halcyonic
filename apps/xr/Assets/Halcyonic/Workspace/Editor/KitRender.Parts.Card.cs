@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -75,25 +75,28 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             LineWords Theirs(string words) => LineWords.TheirName(words);
             const string longLine = "return points.map(point => point.lerp(kite.at, wind.pull)).filter(Boolean);";
-            var rows = new List<RoomReadingRow>
+            var rows = new List<RoomReadingRow>();
+            // Every line wrapped as a screen wraps it, so none is cut at either text size.
+            void Line(RoomLineKind kind, int number, string text, int indent)
             {
-                new RoomReadingRow(RoomLineKind.Same, 10, Theirs("export function tail(k, w) {")),
-                new RoomReadingRow(RoomLineKind.Same, 11, Theirs("const points = [];"), indent: 2),
-                new RoomReadingRow(RoomLineKind.Removed, 12, Theirs("points.push(kite.at);"), indent: 2),
-                new RoomReadingRow(RoomLineKind.Added, 12, Theirs("points.push(kite.at, w.at);"), indent: 2),
-                new RoomReadingRow(RoomLineKind.Added, 13, Theirs("// streams behind the kite"), indent: 2),
-            };
-            var first = true;
-            foreach (var part in CardWrap(longLine, 4))
-            {
-                rows.Add(new RoomReadingRow(RoomLineKind.Added, first ? 14 : (int?)null, Theirs(part), continued: !first, indent: 4));
-                first = false;
+                var first = true;
+                foreach (var part in CardWrap(text, indent))
+                {
+                    rows.Add(new RoomReadingRow(kind, first ? number : (int?)null, Theirs(part), continued: !first, indent: indent));
+                    first = false;
+                }
             }
+            Line(RoomLineKind.Same, 10, "export function tail(k, w) {", 0);
+            Line(RoomLineKind.Same, 11, "const points = [];", 2);
+            Line(RoomLineKind.Removed, 12, "points.push(kite.at);", 2);
+            Line(RoomLineKind.Added, 12, "points.push(kite.at, w.at);", 2);
+            Line(RoomLineKind.Added, 13, "// streams behind the kite", 2);
+            Line(RoomLineKind.Added, 14, longLine, 4);
             rows.Add(RoomReadingRow.GapRow);
-            rows.Add(new RoomReadingRow(RoomLineKind.Same, 38, Theirs("return points;"), indent: 2));
-            rows.Add(new RoomReadingRow(RoomLineKind.Same, 39, Theirs("}")));
+            Line(RoomLineKind.Same, 38, "return points;", 2);
+            Line(RoomLineKind.Same, 39, "}", 0);
             rows.Add(new RoomReadingRow(RoomLineKind.Same, 40, null));
-            rows.Add(new RoomReadingRow(RoomLineKind.Same, 41, Theirs("export default tail;")));
+            Line(RoomLineKind.Same, 41, "export default tail;", 0);
             return rows.Take(RoomReading.RowsAPage).ToArray();
         }
 
@@ -165,7 +168,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     },
                     reading: CardReading(), more: Ours("Page 1 of 2"), titleMono: true),
                 // The review before Start, its first task too long to stand whole: the second of its pages, with a note to check.
-                "47-card-review" => RoomReview.Card(CardReview(), page: 1, pages: 2),
+                // The review before Start: the second page of its long first task, and its last part, what else is sent, with a note to check.
+                "47-card-review-task" => RoomReview.Card(CardReview(), part: 1, taskPages: 2),
+                "47-card-review" => RoomReview.Card(CardReview(), part: 2, taskPages: 2),
                 "47-card-history" => new RoomCard(Ours("History"), Ours("Pick a moment to restore."), list: new[]
                 {
                     new RoomListRow(RoomKind.Worked, Ours("After ") + Theirs("Tail") + Ours(" Worked"), "18:40", press: CardRowControl("c1")),
@@ -190,13 +195,15 @@ namespace Halcyonic.XR.Workspace.Editor
             plane.SetParent(root, false);
             var panel = Halcyonic.XR.UI.RoomSurface.Create(plane, "Information panel", RoomSurfaceKind.Information, KitType.Order.Plate);
             var view = RoomCardView.Create(panel.transform);
-            var tall = view.Show(card, inner);
-            if (state == "47-card-review" && card.More?.Text != RoomReview.PartOf(1, view.DescriptionPages))
+            var reviewPages = 0;
+            if (state.StartsWith("47-card-review", StringComparison.Ordinal))
             {
-                // As XR's flow does: the pages the view made at this width and size name the part, then the card is shown again.
-                card = RoomReview.Card(CardReview(), page: 1, pages: view.DescriptionPages);
-                tall = view.Show(card, inner);
+                // As XR's flow does: part 0 shown first measures the task's pages at this width and size; then the part is shown.
+                view.Show(RoomReview.Card(CardReview(), part: 0, taskPages: 1), inner);
+                reviewPages = view.DescriptionPages;
+                card = RoomReview.Card(CardReview(), part: state == "47-card-review" ? reviewPages : 1, taskPages: reviewPages);
             }
+            var tall = view.Show(card, inner);
             var size = new Vector2(width, tall + 2f * pad);
             panel.InnerBar = null;
             panel.Draw(size);
@@ -214,7 +221,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (paged != null)
                 {
                     Require(paged.pageToDisplay == asked + 1, "the description shows page " + paged.pageToDisplay + ", not " + (asked + 1));
-                    Require(card.More?.Text == RoomReview.PartOf(asked, view.DescriptionPages), "the foot line does not name this part of " + view.DescriptionPages);
+                    if (reviewPages > 0) Require(card.More?.Text == RoomReview.PartOf(asked, RoomReview.Parts(view.DescriptionPages)), "the foot line does not name this part");
                     var info = paged.textInfo.pageInfo[paged.pageToDisplay - 1];
                     Require(info.firstCharacterIndex <= 0 || char.IsWhiteSpace(paged.textInfo.characterInfo[info.firstCharacterIndex - 1].character), "a page starts inside a word");
                 }

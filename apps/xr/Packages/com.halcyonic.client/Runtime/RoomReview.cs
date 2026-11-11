@@ -5,19 +5,21 @@ using System.Linq;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// The review before Start as a card (the addendum's A17, XR's drawn check of 0750Z): exactly what will be sent, every
-    /// item of <see cref="NewWorkReview"/> in a part of the card, never a label joined on a dot.
+    /// The review before Start as cards (the addendum's A17, XR's drawn check of 0750Z): exactly what will be sent, every
+    /// item of <see cref="NewWorkReview"/> in a part of a card, never a label joined on a dot. It reads in parts, so no card
+    /// stands taller than a panel can hold in view (the critic and the parts check, 2026-11-11):
     /// <list type="bullet">
-    /// <item>The project's name is the title; the first task, the person's words, is the description, paged where it is long.</item>
-    /// <item>The folder it goes to, the agent (the model where one is named, else the agent app) and the level are the slots.</item>
-    /// <item>What else is sent stands as list rows, each its value alone under its kind's mark: the task's name (the flag),
-    /// the agent app where the model took its slot, where the model runs, the model's id (the model's orb), "From" the
-    /// folder it moves from.</item>
-    /// <item>What the first task names that the person should check is the status, Attention: read it before Yes.</item>
-    /// <item>Where the first task pages, the foot line says which part: "Part 2 of 4".</item>
+    /// <item>First the task, in the person's words: the project's name as the title, the first task as the description,
+    /// four lines a part (<see cref="RoomCard.DescriptionPageLines"/>), as many parts as it takes.</item>
+    /// <item>Last, what else is sent, read right before Yes: what the first task names that the person should check as the
+    /// status (Attention); the project's name with its head; the folder, the agent (the model where one is named, else the
+    /// agent app) and the level as slots; then rows, each its value alone under its kind's mark: the task's name (the
+    /// flag), the agent app where the model took its slot, where the model runs, the model's id (the model's orb), "From"
+    /// the folder it moves from.</item>
     /// </list>
-    /// The card is one part of the review. Each page counts as read when its frame is reported drawn with the card standing
-    /// whole (<c>RoomCardView.LaidWhole</c>).
+    /// Every part's foot line says which it is: "Part 2 of 3". The task's parts are as many as the card's view made of its
+    /// description (<c>RoomCardView.DescriptionPages</c>, shown with part 0), so <see cref="Parts"/> is that and one more.
+    /// Each part counts as read when its frame is reported drawn with the card standing whole (<c>RoomCardView.LaidWhole</c>).
     /// </summary>
     public static class RoomReview
     {
@@ -26,21 +28,32 @@ namespace Halcyonic.Client
         /// <summary>The words before the folder a move leaves: "From kite-run".</summary>
         public const string MovesFrom = "From ";
 
-        /// <summary>The page marker where the first task pages: "Part 2 of 4".</summary>
-        public static string PartOf(int page, int pages) => "Part " + (page + 1) + " of " + pages;
+        /// <summary>The foot line naming a part: "Part 2 of 3".</summary>
+        public static string PartOf(int part, int parts) => "Part " + (part + 1) + " of " + parts;
+
+        /// <summary>The parts of a review whose first task made <paramref name="taskPages"/> pages: those, and the last of what is sent.</summary>
+        public static int Parts(int taskPages) => (taskPages < 1 ? 1 : taskPages) + 1;
 
         /// <summary>
-        /// The review as a card. Where its first task pages, <paramref name="page"/> is the page shown (from 0) and
-        /// <paramref name="pages"/> how many the card's view made of it (<c>RoomCardView.DescriptionPages</c>), so the foot
-        /// line says which part this is; null both where it stands whole.
+        /// The review's part <paramref name="part"/> (from 0) of <see cref="Parts"/>(<paramref name="taskPages"/>): a page of
+        /// the task while <paramref name="part"/> is under <paramref name="taskPages"/>, else the last part, what is sent.
+        /// Measure the task's pages with part 0 at any count, then show each part with the count the view gave.
         /// </summary>
-        public static RoomCard Card(NewWorkReview review, int? page = null, int? pages = null)
+        public static RoomCard Card(NewWorkReview review, int part = 0, int taskPages = 1)
         {
             LineWords? Value(ReviewItemKind kind)
             {
                 var item = review.Items.FirstOrDefault(each => each.Kind == kind);
                 return item == null || item.ValueRuns.IsEmpty ? null : item.ValueRuns;
             }
+            var pages = taskPages < 1 ? 1 : taskPages;
+            var parts = Parts(pages);
+            var at = part < 0 ? 0 : part >= parts ? parts - 1 : part;
+            var foot = LineWords.Ours(PartOf(at, parts));
+            var title = Value(ReviewItemKind.Project);
+            if (at < pages)
+                return new RoomCard(title, Value(ReviewItemKind.FirstTask) ?? LineWords.Ours(""), more: foot, descriptionPage: at);
+
             var slots = new List<RoomSlot>();
             if (Value(ReviewItemKind.Folder) is LineWords folder) slots.Add(new RoomSlot(RoomKind.Folder, folder));
             if ((Value(ReviewItemKind.Model) ?? Value(ReviewItemKind.AgentApp)) is LineWords agent) slots.Add(new RoomSlot(RoomKind.Agent, agent));
@@ -58,11 +71,7 @@ namespace Halcyonic.Client
 
             var warnings = review.Items.Where(each => each.Kind == ReviewItemKind.Warning).Select(each => each.Label.Trim()).Where(each => each.Length > 0).ToList();
             var status = warnings.Count > 0 ? new RoomCardStatus(CheckTitle, string.Join(" ", warnings), RoomTone.Attention) : (RoomCardStatus?)null;
-            var paged = page != null && pages is int of && of > 1;
-            var more = paged ? LineWords.Ours(PartOf(page!.Value, pages!.Value)) : null;
-
-            return new RoomCard(Value(ReviewItemKind.Project), Value(ReviewItemKind.FirstTask), RoomCardHead.Project, status, slots, list: rows, more: more,
-                descriptionPage: page);
+            return new RoomCard(title, null, RoomCardHead.None, status, slots, list: rows, more: foot);
         }
     }
 }
