@@ -64,7 +64,10 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   or `ended`, the check, the try, the cap, the reason), never words: clients choose those. Since
   2026-11-11 it also carries `failed_steps` (`typecheck`, `build`, `page`): while a try runs, what it
   was sent to fix; after `passed`, what got fixed; after a failed check, that check's. So the headset
-  can say what failed without matching the project's latest check, which a newer check replaces.
+  can say what failed without matching the project's latest check, which a newer check replaces. One
+  rule decides both what a try is sent for and these steps (`fixSteps` in the domain): a type check or
+  build that exited other than 0, and a page that threw or showed nothing at all, never the starter's
+  own look (AUDIT2, 2026-11-11).
 - On wherever checks are; `ControlPlaneOptions.autoFix: false` turns it off.
 
 ## Alternatives considered

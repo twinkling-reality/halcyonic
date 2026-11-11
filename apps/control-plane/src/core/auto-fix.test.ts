@@ -10,6 +10,7 @@ import type {
   ProjectId,
   WorkstreamId,
 } from '@halcyonic/contracts';
+import { BLANK_PAGE_EDGES } from '@halcyonic/domain';
 import { MOCK_CAPABILITIES, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import type {
   ExecutionContext,
@@ -18,6 +19,7 @@ import type {
 } from '@halcyonic/runtime-core';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import type { CheckResult } from '../preview/check.ts';
+import { DRAWN_EDGES } from '../preview/check.ts';
 import { createTestControlPlane, SCENARIOS } from '../testing/harness.ts';
 import { AUTO_FIX_WORDS } from './auto-fix.ts';
 import { controlPlaneDraft, NO_CAUSE } from './drafts.ts';
@@ -74,6 +76,8 @@ const page = (edges: number) => ({
 const STARTER_LOOK: CheckResult = { ...UNEXPLAINED, page: page(56_000) };
 /** Type check and build passed; the page showed nothing at all: a fault. */
 const BLANK: CheckResult = { ...UNEXPLAINED, page: page(0) };
+/** A type error, and a page that shows only the starter's scene: the try is sent for the type check alone. */
+const TSC_AND_STARTER_LOOK: CheckResult = { ...FAILED, page: page(56_000) };
 const MARK = 'error TS2304: Cannot find name (the stand-in).';
 
 async function until(check: () => boolean, what: string): Promise<void> {
@@ -462,6 +466,24 @@ describe('a failed check goes back to its agent on its own, within a cap (ADR 00
     assert.equal(p.ended()[0]?.payload.reason, 'nothing_to_send');
     assert.equal(p.ended()[0]?.payload.attempts, 1);
     assert.equal(p.sent().length, 1);
+    // That check's own steps to fix: none, so the view never names the starter's look as a fault.
+    assert.deepEqual(p.controlPlane.projection.execution(executionId)?.auto_fix?.failed_steps, []);
+  });
+
+  test("the view names only the steps a try was sent for, never the starter's look (AUDIT2)", async (t) => {
+    const p = plane(t, [TSC_AND_STARTER_LOOK]);
+    const executionId = await p.start();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 1, 'the try');
+    assert.equal(p.runtime.given[1]?.startsWith(`${AUTO_FIX_WORDS}\n\n`), true);
+    assert.ok(!(p.runtime.given[1] ?? '').includes('The page'), p.runtime.given[1]);
+    assert.deepEqual(p.controlPlane.projection.execution(executionId)?.auto_fix?.failed_steps, [
+      'typecheck',
+    ]);
+  });
+
+  test("the blank page's edge threshold is the check's own", () => {
+    assert.equal(BLANK_PAGE_EDGES, DRAWN_EDGES);
   });
 
   test('a page that showed nothing at all is sent back, in those words', async (t) => {
