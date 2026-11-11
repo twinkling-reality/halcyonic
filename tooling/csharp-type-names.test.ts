@@ -4,14 +4,15 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-// The contracts' generated C# and the client package are compiled together in Unity, and a file that
-// imports both namespaces cannot name a type both declare: CS0104 stops every Unity check and build
-// (1111-b41, `ProjectFolder`). So no generated contract type may share a simple name with a public
-// type of the client package.
+// The contracts' generated C# is compiled in Unity with the client package and the headset's own
+// scripts, and a file that imports two namespaces cannot name a type both declare: CS0104 stops every
+// Unity check and build (1111-b41, `ProjectFolder`). So no generated contract type may share a simple
+// name with a public type of the client package or of the headset's Assets (AUDIT2, 2026-11-11).
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const GENERATED = join(ROOT, 'packages/contracts/csharp/Runtime/HalcyonicContracts.g.cs');
 const CLIENT = join(ROOT, 'apps/xr/Packages/com.halcyonic.client/Runtime');
+const ASSETS = join(ROOT, 'apps/xr/Assets');
 
 /**
  * The public types a C# source declares at namespace level: in a block namespace (four spaces in) or
@@ -61,14 +62,31 @@ test('the reader finds namespace-level types, and a clash by name', () => {
   assert.deepEqual(clashes(generated, [client]), ['ProjectFolder']);
 });
 
-test('no generated contract type shares a name with a public type of the client package', () => {
+test('no generated contract type shares a name with a public type of the client package or the Assets', () => {
   const generated = readFileSync(GENERATED, 'utf8');
-  const client = csharpFiles(CLIENT).map((file) => readFileSync(file, 'utf8'));
+  for (const [folder, least] of [
+    [CLIENT, 50],
+    [ASSETS, 50],
+  ] as const) {
+    const files = csharpFiles(folder);
+    assert.ok(files.length > least, `${folder} is read`);
+    const found = files.flatMap((file) =>
+      clashes(generated, [readFileSync(file, 'utf8')]).map(
+        (name) => `${name} in ${file.slice(ROOT.length)}`,
+      ),
+    );
+    assert.deepEqual(
+      found,
+      [],
+      'rename the generated type (a prefix in packages/contracts/src/csharp.ts UNIONS) or the other one',
+    );
+  }
   assert.ok(namespaceTypes(generated).length > 100, 'the generated types are read');
-  assert.ok(client.length > 50, 'the client package is read');
-  assert.deepEqual(
-    clashes(generated, client),
-    [],
-    'rename the generated type (a prefix in packages/contracts/src/csharp.ts UNIONS) or the client one',
-  );
+});
+
+test('a clash with a headset script is found as with a client type', () => {
+  const generated = '    public sealed class ProjectFolder : HistoryFolder {}';
+  const script =
+    'namespace Halcyonic.XR\n{\n    public sealed class ProjectFolder : MonoBehaviour {}\n}';
+  assert.deepEqual(clashes(generated, [script]), ['ProjectFolder']);
 });
