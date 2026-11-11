@@ -41,7 +41,8 @@ namespace Halcyonic.XR.UI
         public const float DescriptionGapDp = 6f;
         public const float BlockGapDp = 22f;
         public const float TileGapDp = 16f;
-        public const float TileCornerDp = 20f;
+        /// <summary>A well's corner: smaller than the panel's own 20 dp, so a well sits in the panel and never reads as a tile of its own.</summary>
+        public const float TileCornerDp = 14f;
         public const float WellAlpha = 0.045f;
         public const float SlotPadDp = 14f;
         public const float SlotFootDp = 16f;
@@ -588,7 +589,9 @@ namespace Halcyonic.XR.UI
             plate.gameObject.SetActive(true);
             // A tile under the marks; a pip over the mark it hangs on, each laid after the one under it.
             plate.GetComponent<Renderer>().sortingOrder = under ? order - 5 : front ? order + 1 : order - 4;
-            plate.Draw(size, radius, fill, edge, edgeWidth);
+            // The page's alphas are mixed in sRGB; the headset blends in linear light, where the same alpha shows far lighter.
+            // Every faint fill and edge over the panel takes the alpha that shows as the page's (RoomRows.LightAlpha).
+            plate.Draw(size, radius, AsShown(fill), AsShown(edge), edgeWidth);
             plate.transform.localPosition = new Vector3(centre.x, centre.y, -RoomType.Units(under ? 0.2f : front ? 0.6f : 0.3f));
             Plates.Add((plate, what));
         }
@@ -612,6 +615,10 @@ namespace Halcyonic.XR.UI
             for (var index = platesUsed; index < plates.Count; index++) plates[index].gameObject.SetActive(false);
             for (var index = glyphsUsed; index < glyphs.Count; index++) glyphs[index].Hide();
         }
+
+        /// <summary>A colour as the page shows it over the panel, its alpha the one a blend in linear light needs to look the same.</summary>
+        public static Color AsShown(Color colour) =>
+            colour.a <= 0f || colour.a >= 1f ? colour : new Color(colour.r, colour.g, colour.b, RoomRows.LightAlpha(colour.a, RoomRows.PanelGround));
 
         /// <summary>A length in dp at the person's text size, in the plane's units.</summary>
         private static float S(float dp) => RoomType.Scaled(dp);
