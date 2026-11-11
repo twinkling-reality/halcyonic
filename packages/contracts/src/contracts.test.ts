@@ -480,23 +480,131 @@ describe('the language-neutral schema document', () => {
     assert.deepEqual(inlinedDefinitions({ $defs: synthetic.$defs, properties: {} }), []);
   });
 
-  test('shared definitions are referenced rather than repeated', () => {
+  /**
+   * Where the document may grow too large, each bound one that contract changes made apart never
+   * have to move, so two of them never edit the same line. Each event and command repeats its envelope's
+   * fields, so those are bounded once; each variant and each other definition is bounded alone; the
+   * whole document has a ceiling far above today's, a last stop rather than a count. Repetition by
+   * inlining is checked directly, above.
+   */
+  const SCHEMA_BOUNDS = {
+    /** One event variant, envelope and payload: the largest is about 5,100 bytes. */
+    eventVariant: 8_000,
+    /** One command variant: the largest is about 1,900 bytes. */
+    commandVariant: 4_000,
+    /** An event envelope's fields but its type and payload, repeated in every event: at most about 2,000. */
+    eventEnvelopeFields: 2_600,
+    /** A command envelope's fields but its type and payload, repeated in every command: about 400. */
+    commandEnvelopeFields: 600,
+    /** Any other definition: the largest, Understanding, is about 6,200 bytes. */
+    definition: 12_000,
+    /** The whole document, about 500,000 bytes on 2026-11-11. */
+    document: 1_000_000,
+  } as const;
+
+  /** Each bound the document breaks, in words; none when it holds every one. */
+  function schemaOverBounds(
+    document: { $defs: Record<string, unknown> } & Record<string, unknown>,
+    text: string,
+  ): string[] {
+    const size = (value: unknown) => JSON.stringify(value, null, 2).length;
+    const over: string[] = [];
+    if (text.length > SCHEMA_BOUNDS.document) over.push(`the document is ${text.length} bytes`);
+    for (const [envelope, tag, variantBound, fieldsBound] of [
+      [
+        'EventEnvelope',
+        'event_type',
+        SCHEMA_BOUNDS.eventVariant,
+        SCHEMA_BOUNDS.eventEnvelopeFields,
+      ],
+      [
+        'CommandEnvelope',
+        'command_type',
+        SCHEMA_BOUNDS.commandVariant,
+        SCHEMA_BOUNDS.commandEnvelopeFields,
+      ],
+    ] as const) {
+      const variants = (document.$defs[envelope] as { anyOf?: unknown[] } | undefined)?.anyOf ?? [];
+      for (const variant of variants as { properties?: Record<string, { const?: unknown }> }[]) {
+        const properties = variant.properties ?? {};
+        const name = String(properties[tag]?.const ?? '?');
+        if (size(variant) > variantBound) over.push(`${name} is ${size(variant)} bytes`);
+        const fields = Object.fromEntries(
+          Object.entries(properties).filter(([key]) => key !== tag && key !== 'payload'),
+        );
+        if (size(fields) > fieldsBound) {
+          over.push(`${name}'s envelope fields are ${size(fields)} bytes`);
+        }
+      }
+    }
+    for (const [name, body] of Object.entries(document.$defs)) {
+      if (name === 'EventEnvelope' || name === 'CommandEnvelope') continue;
+      if (size(body) > SCHEMA_BOUNDS.definition) over.push(`${name} is ${size(body)} bytes`);
+    }
+    return over;
+  }
+
+  test('each bound on the document finds what breaks it', () => {
+    const fields = (bytes: number) => ({ schema_version: { const: 'x'.repeat(bytes) } });
+    const variant = (tag: string, type: string, payloadBytes: number, fieldBytes = 0) => ({
+      type: 'object',
+      properties: {
+        ...fields(fieldBytes),
+        [tag]: { const: type },
+        payload: { description: 'x'.repeat(payloadBytes) },
+      },
+    });
+    const synthetic = (extra: Partial<{ event: unknown; command: unknown; other: unknown }>) => ({
+      $defs: {
+        EventEnvelope: {
+          anyOf: [variant('event_type', 'small.event', 10), extra.event].filter(Boolean),
+        },
+        CommandEnvelope: {
+          anyOf: [variant('command_type', 'small.command', 10), extra.command].filter(Boolean),
+        },
+        ...(extra.other === undefined ? {} : { Other: extra.other }),
+      },
+    });
+    const holds = synthetic({});
+    assert.deepEqual(schemaOverBounds(holds, JSON.stringify(holds)), []);
+    const cases: [ReturnType<typeof synthetic>, RegExp][] = [
+      [
+        synthetic({ event: variant('event_type', 'big.event', 9_000) }),
+        /^big\.event is \d+ bytes$/,
+      ],
+      [synthetic({ command: variant('command_type', 'big.command', 5_000) }), /^big\.command is/],
+      [
+        synthetic({ event: variant('event_type', 'wide.event', 10, 3_000) }),
+        /^wide\.event's envelope fields are/,
+      ],
+      [
+        synthetic({ command: variant('command_type', 'wide.command', 10, 800) }),
+        /^wide\.command's envelope fields are/,
+      ],
+      [synthetic({ other: { description: 'x'.repeat(13_000) } }), /^Other is \d+ bytes$/],
+    ];
+    for (const [document, expected] of cases) {
+      const over = schemaOverBounds(document, JSON.stringify(document));
+      assert.equal(over.length, 1, over.join('; '));
+      assert.match(over[0] ?? '', expected);
+    }
+    assert.match(
+      schemaOverBounds(holds, 'x'.repeat(1_000_001)).join(),
+      /the document is 1000001 bytes/,
+    );
+  });
+
+  test('shared definitions are referenced rather than repeated, and the document is within its bounds', () => {
     const text = renderSchemaDocument();
     assert.ok(text.includes('"$ref": "#/$defs/CommandEnvelope"'));
-    // Repetition is checked directly; the bound only guards the document's growth (raised from
-    // 400,000 for M1.8b's check findings, which repeat nothing, and from 420,000 for FX1's
-    // execution.check_output_given, whose event envelope repeats as every event's does, and from
-    // 430,000 for ADR 0049's world description and its event, 11,539 bytes that repeat nothing
-    // but that envelope, from 440,000 for ADR 0044's two auto_fix events, for the same reason, and
-    // from 450,000 for ADR 0047's pairing page link, which repeats nothing, and ADR 0030's two list
-    // reads and the request fields that may be null, and from 460,000 for ADR 0045's six events of
-    // a task's own copy, about 5,000 bytes each, for the same reason as every event's, and the project
-    // reads' four responses and their queries, about 10 KB that repeat nothing).
-    assert.deepEqual(
-      inlinedDefinitions(buildSchemaDocument() as { $defs: Record<string, unknown> }),
-      [],
+    const document = buildSchemaDocument() as { $defs: Record<string, unknown> };
+    assert.deepEqual(inlinedDefinitions(document), []);
+    assert.deepEqual(schemaOverBounds(document, text), []);
+    assert.ok(
+      ((document.$defs.EventEnvelope as { anyOf?: unknown[] }).anyOf?.length ?? 0) ===
+        EVENT_VARIANTS.length,
+      'every event variant is bounded',
     );
-    assert.ok(text.length < 520_000, `document is ${text.length} bytes`);
   });
 });
 
@@ -536,47 +644,114 @@ describe('the C# bindings', () => {
     );
   });
 
-  test('optional strings and declaration booleans read as null when missing and are omitted when null', () => {
-    assert.match(
-      generated,
-      /\[JsonProperty\("label", Required = Required\.Default, NullValueHandling = NullValueHandling\.Ignore\)\]\s+public string\? Label \{ get; set; \}/,
+  /**
+   * Every optional member of the bindings, as `Class.json_name`, one per line and sorted, so two
+   * contract changes made apart add different lines. A member made optional by mistake, or one
+   * listed and no longer optional, fails the test by name.
+   */
+  const OPTIONAL_MEMBERS = [
+    'AutoFixView.failed_steps', // the steps that failed in the check a fix chain answered
+    'CheckFindings.laptop', // M1.8b
+    'CheckFindings.notes', // M1.8b
+    'CheckFindings.own_permissions', // whether a check's browser had permissions of its own (S1)
+    'CheckFindings.ready', // M1.8b
+    'CheckFindings.vr', // M1.8b
+    'CheckLaptop.exceptions_during', // M1.8g
+    'CheckLaptop.response_seen', // M1.8g
+    'CheckLaptop.response_unknown', // why a twin read was unknown (M1.8g-b)
+    'CheckPage.own', // a check page's own pixels against the starter's (DRAWN)
+    'Evaluation.activity', // Seorak's activity of a session
+    'ExecutionStartPayload.approval_level', // ADR 0043
+    'ExecutionView.approval_level', // ADR 0043
+    'ExecutionView.auto_fix', // a failed check sent back on its own (ADR 0044)
+    'LocationRoot.label', // a location's label
+    'ProjectCheckPayload.workstream_id', // the task whose copy a check checks (ADR 0045)
+    'ProjectCheckRecordedPayload.workstream_id', // ADR 0045
+    'ProjectCheckedResult.ready', // project_checked's ready
+    'ProjectRestorePayload.review', // the review a restore carries (ADR 0051)
+    'ProjectSetLocationPayload.review', // the review a rebinding carries (ADR 0051)
+    'ProjectView.check', // M1.8e
+    'ProjectView.mac_play', // M1.8e
+    'ProjectView.preview', // M1.8e
+    'ProjectView.share', // a project's shared link (ADR 0054)
+    'ProjectView.world', // a world project's world (ADR 0049)
+    'ProjectViewCheck.workstream_id', // ADR 0045
+    'RuntimeDescriptor.approval_may_leave_sandbox', // a declaration
+    'RuntimeDescriptor.offers_never_ask', // ADR 0043
+    'RuntimeDescriptor.reports_tool_results', // a declaration
+    'RuntimeDescriptor.resumes_after_restart', // ADR 0046
+    'RuntimeExecutionStartedPayload.approval_level', // ADR 0043
+    'RuntimeExecutionStartedPayload.confined', // whether a start recorded it confined (S2)
+    'RuntimeToolCompletedPayload.turn_id', // a completed tool's turn
+    'WorkstreamCopyChangesReadPayload.files', // how each file a copy's reading found changed (ADR 0045)
+    'WorkstreamView.copy', // a task's own copy (ADR 0045)
+  ];
+
+  /** The optional members of generated C#, as `Class.json_name`, each with its attribute and type. */
+  function optionalMembers(
+    source: string,
+  ): { readonly name: string; readonly attribute: string; readonly declaration: string }[] {
+    const lines = source.split('\n');
+    const found: { name: string; attribute: string; declaration: string }[] = [];
+    let owner = '?';
+    lines.forEach((line, index) => {
+      const opened = /^\s*public (?:sealed |abstract |partial )*class (\w+)/.exec(line);
+      if (opened) owner = opened[1] ?? '?';
+      const member = /\[JsonProperty\("(\w+)", Required = Required\.Default/.exec(line);
+      if (member) {
+        found.push({
+          name: `${owner}.${member[1]}`,
+          attribute: line.trim(),
+          declaration: (lines[index + 1] ?? '').trim(),
+        });
+      }
+    });
+    return found;
+  }
+
+  test('the optional members are exactly those listed, each reading null when missing and omitted when null', () => {
+    assert.deepEqual(
+      OPTIONAL_MEMBERS,
+      [...OPTIONAL_MEMBERS].sort(),
+      'keep the list sorted, so changes made apart touch different lines',
     );
-    assert.equal(
-      generated.match(/Required = Required\.Default/g)?.length,
-      35,
-      "the optional members are a location's label, a completed tool's turn, three declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), why a twin read was unknown (M1.8g-b), whether an execution's start recorded it confined (S2), whether a check's browser had permissions of its own (S1), a project's check, preview and play (M1.8e), an evaluation's activity, a check page's own pixels against the starter's (DRAWN), the approval level a start chose, its runtime recorded and its view shows (ADR 0043), a world project's world (ADR 0049), whether a runtime keeps its sessions after a restart (ADR 0046), an execution's failed check sent back on its own (ADR 0044), a task's own copy (ADR 0045), and the task whose copy a check checked, in its command, its event and its view (ADR 0045), and the steps that failed in the check a fix chain answered, the review a restore and a rebinding carry (ADR 0051), a project's shared link (ADR 0054), and how each file a copy's reading found changed",
+    const found = optionalMembers(generated);
+    assert.deepEqual(
+      found.map((member) => member.name).sort(),
+      OPTIONAL_MEMBERS,
+      'a member made optional, or no longer optional, is named here',
     );
-    for (const member of [
-      'Activity',
-      'Laptop',
-      'Vr',
-      'Notes',
-      'Ready',
-      'ResponseSeen',
-      'ExceptionsDuring',
-      'ResponseUnknown',
-      'Confined',
-      'OwnPermissions',
-      'Check',
-      'Preview',
-      'MacPlay',
-      'World',
-      'Own',
-      'ApprovalLevel',
-      'OffersNeverAsk',
-      'ResumesAfterRestart',
-      'Copy',
-      'WorkstreamId',
-      'Review',
-    ])
-      assert.match(generated, new RegExp(`public \\w+\\? ${member} \\{ get; set; \\}`), member);
-    assert.match(
-      generated,
-      /\[JsonProperty\("reports_tool_results", Required = Required\.Default, NullValueHandling = NullValueHandling\.Ignore\)\]\s+public bool\? ReportsToolResults \{ get; set; \}/,
+    for (const member of found) {
+      assert.match(
+        member.attribute,
+        /NullValueHandling = NullValueHandling\.Ignore\)\]$/,
+        member.name,
+      );
+      assert.match(member.declaration, /^public \S+\? \w+ \{ get; set; \}$/, member.name);
+    }
+  });
+
+  test('a member optional by mistake, or one no longer optional, is found by name', () => {
+    const probe = [
+      'public sealed class Probe',
+      '{',
+      '    [JsonProperty("kept", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]',
+      '    public string? Kept { get; set; }',
+      '    [JsonProperty("needed", Required = Required.Always)]',
+      '    public string Needed { get; set; }',
+      '}',
+    ].join('\n');
+    assert.deepEqual(
+      optionalMembers(probe).map((member) => member.name),
+      ['Probe.kept'],
     );
-    assert.match(
-      generated,
-      /\[JsonProperty\("approval_may_leave_sandbox", Required = Required\.Default, NullValueHandling = NullValueHandling\.Ignore\)\]\s+public bool\? ApprovalMayLeaveSandbox \{ get; set; \}/,
+    const loosened = probe.replace(
+      '"needed", Required = Required.Always',
+      '"needed", Required = Required.Default',
+    );
+    assert.deepEqual(
+      optionalMembers(loosened).map((member) => member.name),
+      ['Probe.kept', 'Probe.needed'],
     );
   });
 
