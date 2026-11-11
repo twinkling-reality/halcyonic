@@ -130,7 +130,7 @@ public class RoomResultTests
         var many = "{\"turn_id\":\"t1\",\"created\":{\"files\":[" + string.Join(",", Enumerable.Range(1, 11).Select(index => "{\"path\":\"src/f" + index + ".ts\",\"lines\":1,\"bytes\":1}")) +
             "],\"total\":11},\"changed\":{\"files\":[],\"total\":0},\"deleted\":{\"files\":[],\"total\":0},\"not_read\":0,\"skipped\":null}";
         var first = Bar(new RoomResult(false, true, false, null, Turn(many), null, RoomResultPage.Changes));
-        Assert.That((first.Facts!.Count, first.Column[0].Control.Action, first.Column[0].Main, first.Column[0].Words), Is.EqualTo((8, RoomResult.NextPage, true, Footer.NextPageWords(1, 2))));
+        Assert.That((first.Facts!.Count, first.Column[0].Control.Action, first.Column[0].Main, first.Column[0].Words), Is.EqualTo((8, RoomResult.NextPage, true, "Next Page")), "the product's own pager words, from the first page");
         var last = Bar(new RoomResult(false, true, false, null, Turn(many), null, RoomResultPage.Changes, part: 1));
         Assert.That((last.Facts!.Count, last.Column.Count), Is.EqualTo((3, 1)));
 

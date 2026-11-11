@@ -35,7 +35,7 @@ namespace Halcyonic.Client
             {
                 case RoomResultPage.Changes:
                     facts = result.Shown;
-                    if (result.Part + 1 < result.Parts) column.Add(Own(RoomResult.NextPage, Footer.NextPageWords(result.Part + 1, result.Parts), main: true, GlazeIcon.Next));
+                    if (result.Part + 1 < result.Parts) column.Add(Own(RoomResult.NextPage, Footer.NextPageWords(result.Part, result.Parts), main: true, GlazeIcon.Next));
                     column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
                     break;
                 case RoomResultPage.Checks:
