@@ -280,7 +280,31 @@ headset: a clean resume after the system menu, after sleep, and after another ap
 ## The release APK
 
 Since ADR 0021's amendment of 2026-11-11 a release APK carries hold to talk and asks for
-`RECORD_AUDIO`; the APKs recorded below predate it. A judge's headset, with no computer, is never asked
+`RECORD_AUDIO`; the APKs recorded below predate it.
+
+### Its permissions (verified 2026-11-11)
+
+A release APK asks for exactly: `com.oculus.permission.HAND_TRACKING`, `com.oculus.permission.USE_ANCHOR_API`,
+`com.oculus.permission.USE_SCENE`, `android.permission.INTERNET`, `android.permission.RECORD_AUDIO`, and AndroidX's
+own `<package>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`. `QuestBuild.BuildReleaseApk` reads the built APK's
+permissions with `aapt2 dump permissions` and deletes and fails one that asks for anything else
+(`ChosenPermissions`).
+
+- Unity writes `MODIFY_AUDIO_SETTINGS` and `BLUETOOTH` into its generated manifest beside `RECORD_AUDIO` when the
+  Microphone class is used: the check build of 2026-11-11 on ba9b661b carried all three, and Gradle's merge report
+  names Unity's own generated `unityLibrary/src/main/AndroidManifest.xml` as their source, no package of ours. Hold
+  to talk records the headset's own microphone and changes no audio setting, so `ChosenPermissions` takes both
+  out of that manifest after Gradle generation, in every build.
+- Meta's "Review-requiring Android permissions" (developers.meta.com, last updated 2025-11-26) lists
+  `RECORD_AUDIO` ("Permitted uses include VOIP or other features that need microphone access") and
+  `MODIFY_AUDIO_SETTINGS` (apps "should not change OS-level volume settings"); a submission that requests one is
+  asked to explain its use to app review. It names only `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN` and
+  `BLUETOOTH_ADVERTISE` (third-party devices only), not plain `BLUETOOTH`. It does not say whether a release
+  channel such as Competition is reviewed the same way.
+- Meta's "Remove permissions from your manifest" (last updated 2025-03-25) gives Unity's microphone as the example
+  of a permission Unity adds, and removal by code or by `tools:node="remove"`; it names neither of the two.
+- Not verified: hold to talk on the headset without `MODIFY_AUDIO_SETTINGS` and `BLUETOOTH` (a Bluetooth headset's
+  microphone is then not offered; the headset's own is the only one used). It needs the headset on USB. A judge's headset, with no computer, is never asked
 for the microphone: voice is offered only while a computer is connected and no recording plays.
 
 Built at a214dce with `BuildReleaseApk`: 71,454,487 bytes, `com.halcyonic.xr`, version code 1,

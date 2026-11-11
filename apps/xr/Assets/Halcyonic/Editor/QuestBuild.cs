@@ -150,6 +150,14 @@ namespace Halcyonic.XR.Editor
                     Fail($"Halcyonic: deleted {apkPath}, which does not ask for {MicrophonePermission}: hold to talk could never record (ADR 0021).");
                     return;
                 }
+                // Every permission is one the judge build's record names, so nothing Unity or a package adds slips into a release.
+                var unchosen = ChosenPermissions.Unchosen(apkPath);
+                if (unchosen.Count > 0)
+                {
+                    File.Delete(apkPath);
+                    Fail($"Halcyonic: deleted {apkPath}, which asks for permissions the record does not name: {string.Join("; ", unchosen)}.");
+                    return;
+                }
                 var glance = GlanceInDevelopmentBuilds.FindIn(apkPath);
                 if (glance.Count > 0)
                 {
