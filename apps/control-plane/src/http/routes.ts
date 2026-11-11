@@ -17,6 +17,8 @@ import {
   type EventsResponse,
   ExecutionId,
   type HealthResponse,
+  LocationReviewRequest,
+  type LocationReviewResponse,
   type LocationsResponse,
   ProjectChangesQuery,
   ProjectFileChangeQuery,
@@ -44,6 +46,7 @@ import type { Companion } from '../companion/companion.ts';
 import type { ControlPlane } from '../core/control-plane.ts';
 import { ProjectReads } from '../core/project-reads.ts';
 import { type Redaction, withinLimit } from '../core/redaction.ts';
+import { locationReview } from '../core/review.ts';
 import { MODEL_LIST_TIMEOUT_MS, readRuntimeModels } from '../core/runtime-models.ts';
 import { ToolResults } from '../core/tool-results.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
@@ -72,6 +75,7 @@ const validateCompanionStatus = compileValidator(CompanionStatus);
 const validateCompanionReply = compileValidator(CompanionReplyResponse);
 const validateToolResultsQuery = compileValidator(ToolResultsQuery);
 const validateResultEventId = compileValidator(EventId);
+const validateLocationReview = compileValidator(LocationReviewRequest);
 
 /**
  * The largest request for a companion reply: 24,000 characters of exchange (ADR 0025), each of
@@ -413,7 +417,12 @@ export function registerRoutes(
       const body: RestorePreviewResponse = {
         project_id: projectId as ProjectId,
         result: previewed.ok
-          ? { availability: 'available', preview: previewed.preview }
+          ? {
+              availability: 'available',
+              preview: previewed.preview,
+              // What a restore carries back, so it acts only on what the person read (ADR 0051).
+              review: previewed.review,
+            }
           : {
               availability: 'unavailable',
               reason: {
@@ -779,6 +788,36 @@ export function registerRoutes(
       return answer.body;
     },
   );
+
+  // What binding a project to another folder would do, before the person confirms it, and the
+  // digest a project.set_location carries back (ADR 0051). Reads only.
+  app.post('/api/projects/:project_id/location-review', async (request, reply) => {
+    const projectId = (request.params as { project_id: string }).project_id;
+    if (!validateProjectId(projectId).ok) {
+      return reply.code(400).send(errorBody('invalid_request', 'The project id is invalid.'));
+    }
+    const parsed = validateLocationReview(request.body);
+    if (!parsed.ok) {
+      return reply
+        .code(400)
+        .send(
+          errorBody('invalid_request', 'The request does not match the contract.', parsed.issues),
+        );
+    }
+    const project = controlPlane.projection.project(projectId);
+    if (project === undefined) {
+      return reply
+        .code(404)
+        .send(errorBody('project_not_found', `Project ${projectId} does not exist.`));
+    }
+    const body: LocationReviewResponse = {
+      project_id: project.project_id,
+      current: project.location,
+      next: parsed.value.location,
+      review: locationReview(projectId, parsed.value.location, project.location),
+    };
+    return body;
+  });
 
   app.post('/api/commands', async (request, reply) => {
     const parsed = parseCommandEnvelope(request.body);

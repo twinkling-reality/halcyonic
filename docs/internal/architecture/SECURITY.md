@@ -665,19 +665,27 @@ accepts, and `device`, a paired device, which only the network listener accepts.
 records the principal that sent it, as the control plane authenticated it, beside the client's
 self-declared identity, which is recorded for audit and never trusted. What differs between them
 today is device management: opening a pairing window, listing devices and revoking one are served
-on loopback only, and a device can revoke no credential but its own. Commands are admitted alike
-for both: any authenticated principal, a paired device included, can rebind any project to another
-folder with `project.set_location`, which changes where that project's later work runs, as it can
-start work in any project. Every accepted command records its policy category (`low_consequence`,
-`review_required`, `high_consequence`); categories do not yet restrict anyone. No
+on loopback only, and a device can revoke no credential but its own. Commands are otherwise admitted
+alike for both, with one difference since 2026-11-11 ([ADR 0051](../decisions/0051-a-paired-device-acts-on-files-only-with-the-review-it-read.md)):
+a paired device changes a project's files or folder only with the digest of the review it read. Its
+`project.set_location` that rebinds a project that has a folder, and its `project.restore`, must carry
+`review`, the digest the read that showed the move or the restore answered (the location review, the
+restore preview), and that digest must still describe what is true when the command acts: a move is
+checked at admission, a restore in its own turn before it writes. Without one: `review_required`;
+changed since: `review_stale`. A digest is checked whoever sends it; the local principal may send none,
+as before. The digest proves that what was read still holds, not that a person read it: a device can
+read those facts for itself. A restore's digest covers every path it would change, not only the ones
+the preview lists. A device can still start work in any project. Every accepted command records its policy
+category (`low_consequence`, `review_required`, `high_consequence`); beyond those two commands,
+categories do not restrict anyone. No
 `high_consequence` command exists; merge, deploy, delete and destructive commands must not be added
 until explicit human confirmation and a policy that tells principals apart exist.
 
 `project.restore` is the one command that removes files (ADR 0036). It is admitted because nothing
 is written until a checkpoint of everything it would change or remove has been kept, so a restore
-can itself be put back; when that checkpoint cannot be kept, no file changes. Its `review_required`
-is a client's duty: any authenticated principal, a paired device included, can send it, and the
-control plane cannot tell whether a person read the preview first.
+can itself be put back; when that checkpoint cannot be kept, no file changes. A paired device's restore
+must carry the preview's digest (above), so it acts only on what the client showed; whether the person
+read it, the control plane still cannot tell, and the headset offers no restore.
 
 A conversational model must never turn vague speech into permission for an irreversible action.
 

@@ -186,6 +186,37 @@ public class PairingLiveTests
     }
 
     [Test]
+    public async Task APairedHeadsetMovesAProjectOnlyWithTheReviewItRead()
+    {
+        var root = Path.Combine(TemporaryDirectory(), "projects");
+        Directory.CreateDirectory(Path.Combine(root, "app"));
+        Directory.CreateDirectory(Path.Combine(root, "other"));
+        var process = await ControlPlaneProcess.StartAsync(TemporaryDirectory(), networkPort: 0, projectRoot: root);
+        processes.Add(process);
+        var (code, _) = await OpenPairingAsync(process);
+        var paired = await PairingClient.PairAsync("127.0.0.1", process.NetworkPort!.Value, code, "Quest 3");
+        var target = ControlPlaneTarget.Paired(paired);
+        Connect(target);
+        await Until(s => s.Status.IsLive, "the session is live over pinned TLS");
+        var project = (ProjectCreatedResult)await RunAsync(commands.CreateProject("Garden", new ExistingFolderChoice { Root = root, FolderName = "app" }));
+        var other = new ExistingFolderChoice { Root = root, FolderName = "other" };
+
+        var bare = await session!.SubmitAsync(commands.SetProjectLocation(project.ProjectId, other));
+        Assert.That(bare.Disposition, Is.EqualTo(CommandAckDisposition.Rejected));
+        Assert.That(bare.Command?.Rejection?.Code, Is.EqualTo(RejectionCode.ReviewRequired), "a headset's move needs the review it read");
+
+        using var api = target.CreateApi();
+        var review = await api.ReviewLocationAsync(project.ProjectId, other);
+        Assert.That(review.CurrentFolder, Is.EqualTo("app"));
+        var sequenceCarried = commands.SetProjectLocation(project.ProjectId, other, review.Digest);
+        await RunAsync(sequenceCarried);
+        Assert.That(session.State.Projects[project.ProjectId].Location?.Name, Is.EqualTo("other"));
+
+        var stale = await session.SubmitAsync(commands.SetProjectLocation(project.ProjectId, new ExistingFolderChoice { Root = root, FolderName = "app" }, review.Digest));
+        Assert.That(stale.Command?.Rejection?.Code, Is.EqualTo(RejectionCode.ReviewStale), "what was read has changed since");
+    }
+
+    [Test]
     public async Task RefusesWrongCodesAndClosesPairingAfterThree()
     {
         var controlPlane = await StartAsync();

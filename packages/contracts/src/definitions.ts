@@ -33,6 +33,7 @@ import {
   PathList,
   RestorePreview,
   RestorePreviewResponse,
+  ReviewDigest,
 } from './checkpoints.ts';
 import {
   ApprovalDecision,
@@ -113,6 +114,8 @@ import {
 import { FileChanged, FileCreated, FileDeleted, FilesObserved } from './file-changes.ts';
 import {
   LocationFolder,
+  LocationReviewRequest,
+  LocationReviewResponse,
   LocationRoot,
   LocationsResponse,
   ProjectLocation,
@@ -285,6 +288,8 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   ProjectView,
   ProjectLocation,
   ProjectLocationChoice,
+  LocationReviewRequest,
+  LocationReviewResponse,
   CheckpointView,
   CheckpointReason,
   PathList,
@@ -296,6 +301,7 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   RestorePreview,
   CheckpointsResponse,
   RestorePreviewResponse,
+  ReviewDigest,
   CheckFindings,
   CheckLaptop,
   CheckNotes,

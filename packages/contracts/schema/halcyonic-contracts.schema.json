@@ -714,16 +714,14 @@
                   "pattern": "^[a-z][a-z0-9-]{0,62}$"
                 },
                 "lockfile": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 },
                 "files": {
                   "type": "integer",
                   "minimum": 0
                 },
                 "template": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 }
               },
               "additionalProperties": false
@@ -1237,8 +1235,7 @@
                   ]
                 },
                 "tree": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 },
                 "files": {
                   "type": "integer",
@@ -1560,8 +1557,7 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 },
                 "tree": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 },
                 "files_compared": {
                   "type": "integer",
@@ -2722,8 +2718,7 @@
                   "pattern": "\\S"
                 },
                 "base_tree": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 },
                 "files": {
                   "type": "integer",
@@ -2973,8 +2968,7 @@
               ],
               "properties": {
                 "tree": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 },
                 "changed": {
                   "$ref": "#/$defs/PathList"
@@ -3104,16 +3098,13 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 },
                 "task_tree": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 },
                 "project_tree": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 },
                 "merged_tree": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 },
                 "added": {
                   "$ref": "#/$defs/PathList"
@@ -3237,12 +3228,10 @@
               ],
               "properties": {
                 "task_tree": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 },
                 "project_tree": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 },
                 "conflicted": {
                   "$ref": "#/$defs/ConflictedFiles"
@@ -3366,12 +3355,10 @@
               ],
               "properties": {
                 "project_tree": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 },
                 "fitted_tree": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 },
                 "written": {
                   "$ref": "#/$defs/PathList"
@@ -5050,12 +5037,10 @@
                   "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f]+$"
                 },
                 "credential_sha256": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 },
                 "certificate_sha256": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{64}$"
+                  "$ref": "#/$defs/ReviewDigest"
                 }
               },
               "additionalProperties": false
@@ -8377,6 +8362,9 @@
                 },
                 "location": {
                   "$ref": "#/$defs/ProjectLocationChoice"
+                },
+                "review": {
+                  "$ref": "#/$defs/ReviewDigest"
                 }
               },
               "additionalProperties": false
@@ -8429,6 +8417,9 @@
                 "checkpoint_id": {
                   "type": "string",
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "review": {
+                  "$ref": "#/$defs/ReviewDigest"
                 }
               },
               "additionalProperties": false
@@ -10665,6 +10656,50 @@
         }
       ]
     },
+    "LocationReviewRequest": {
+      "type": "object",
+      "required": [
+        "location"
+      ],
+      "properties": {
+        "location": {
+          "$ref": "#/$defs/ProjectLocationChoice"
+        }
+      },
+      "additionalProperties": false
+    },
+    "LocationReviewResponse": {
+      "type": "object",
+      "required": [
+        "project_id",
+        "current",
+        "next",
+        "review"
+      ],
+      "properties": {
+        "project_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "current": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProjectLocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "next": {
+          "$ref": "#/$defs/ProjectLocationChoice"
+        },
+        "review": {
+          "$ref": "#/$defs/ReviewDigest"
+        }
+      },
+      "additionalProperties": false
+    },
     "CheckpointView": {
       "type": "object",
       "required": [
@@ -10706,8 +10741,7 @@
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
         },
         "tree": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$"
+          "$ref": "#/$defs/ReviewDigest"
         },
         "files": {
           "type": "integer",
@@ -10802,8 +10836,7 @@
               "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
             },
             "base_tree": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{64}$"
+              "$ref": "#/$defs/ReviewDigest"
             },
             "to_add": {
               "anyOf": [
@@ -11082,7 +11115,8 @@
               "type": "object",
               "required": [
                 "availability",
-                "preview"
+                "preview",
+                "review"
               ],
               "properties": {
                 "availability": {
@@ -11091,6 +11125,9 @@
                 },
                 "preview": {
                   "$ref": "#/$defs/RestorePreview"
+                },
+                "review": {
+                  "$ref": "#/$defs/ReviewDigest"
                 }
               },
               "additionalProperties": false
@@ -11116,6 +11153,10 @@
         }
       },
       "additionalProperties": false
+    },
+    "ReviewDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     },
     "CheckFindings": {
       "type": "object",
@@ -11441,8 +11482,7 @@
                 "minimum": 0
               },
               "sha256": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{64}$"
+                "$ref": "#/$defs/ReviewDigest"
               }
             },
             "additionalProperties": false
@@ -17002,6 +17042,14 @@
         {
           "type": "string",
           "const": "device_revoked"
+        },
+        {
+          "type": "string",
+          "const": "review_required"
+        },
+        {
+          "type": "string",
+          "const": "review_stale"
         }
       ]
     },
@@ -18241,8 +18289,7 @@
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
         },
         "certificate_sha256": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$"
+          "$ref": "#/$defs/ReviewDigest"
         },
         "revoked_at": {
           "anyOf": [
@@ -18445,8 +18492,7 @@
           }
         },
         "certificate_sha256": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$"
+          "$ref": "#/$defs/ReviewDigest"
         }
       },
       "additionalProperties": false
@@ -18649,8 +18695,7 @@
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
         },
         "connection_key": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$"
+          "$ref": "#/$defs/ReviewDigest"
         },
         "journal_id": {
           "anyOf": [
