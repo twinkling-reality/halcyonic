@@ -1266,10 +1266,12 @@ namespace Halcyonic.XR.Workspace
         /// <summary>
         /// The rows a line takes where it is drawn: the person's instruction in the kit's composer while the kit draws the file;
         /// and, while the redesign draws it, what a confirmation reads (an approval's request, an armed instruction's words) in
-        /// the panel's own lines, so the file's parts are the panel's (<see cref="RoomBar.Reading"/>).
+        /// the panel's own lines, so the file's parts are the panel's (<see cref="RoomBar.Reading"/>). The person's draft, while
+        /// the redesign draws it, likewise counts by the panel's lines, where it stands in the file's parts.
         /// </summary>
         public int RowsOf(PageLine line, float columnDegrees)
         {
+            if (RoomDesign.Enabled && plane.KitShows && line.Action == FileScreens.EditInstruction) return plane.Kit.Bar.Lines(line.Runs, false);
             if (plane.KitShows && line.Action == FileScreens.EditInstruction) return plane.Kit.RowsOf(line.Words);
             if (RoomDesign.Enabled && plane.KitShows && line.Action == null && navigator.Beside is FileColumn file && file.Now is WorkspacePresentation now
                 && file.Steering.ToRead(now) is string read && line.Words == read)
