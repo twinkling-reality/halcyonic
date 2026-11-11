@@ -25,7 +25,8 @@ import {
 import { matchesPin, type Pins } from '../pins.ts';
 import { plainLine } from '../preview/check-output.ts';
 import { isPinnedTunnel, TUNNEL_PIN } from '../preview/share.ts';
-import { LONGEST_VALUE, nameProblem, type SecretStore, valueProblem } from '../secrets/store.ts';
+import { submitSecretSet } from '../secrets/set.ts';
+import { LONGEST_VALUE, nameProblem, type SecretStore } from '../secrets/store.ts';
 import { VR_STARTER } from '../starters.ts';
 import type { PageRoutes } from './pairing-page.ts';
 
@@ -167,6 +168,14 @@ export function pageSecrets(deps: {
   readonly nextId: () => string;
   readonly now: () => Date;
 }): PageSecrets {
+  /** What a submit's answer says to the person: its refusal or failure, or nothing once done. */
+  const said = (sent: ReturnType<typeof deps.submit>): string | null => {
+    if (sent.disposition !== 'accepted')
+      return sent.command?.rejection?.message ?? "That couldn't be done. Try again.";
+    if (sent.command?.status === 'failed')
+      return sent.command.failure?.message ?? "That couldn't be done. Try again.";
+    return null;
+  };
   const known = (projectId: unknown): projectId is ProjectId =>
     typeof projectId === 'string' &&
     deps.projects().some((project) => project.project_id === projectId);
@@ -193,11 +202,7 @@ export function pageSecrets(deps: {
       'http',
       { kind: 'local' },
     );
-    if (sent.disposition !== 'accepted')
-      return sent.command?.rejection?.message ?? "That couldn't be done. Try again.";
-    if (sent.command?.status === 'failed')
-      return sent.command.failure?.message ?? "That couldn't be done. Try again.";
-    return null;
+    return said(sent);
   };
   return {
     projects: deps.projects,
@@ -205,23 +210,27 @@ export function pageSecrets(deps: {
     outside: deps.outside,
     set: (projectId, name, value) => {
       if (!known(projectId)) return 'That project is not on this Mac.';
-      const problem = nameProblem(name) ?? valueProblem(value);
-      if (problem !== null) return problem;
-      const commandId = deps.nextId();
-      try {
-        deps.store.stage(commandId, projectId, name as SecretName, value as string);
-      } catch {
-        return "The secret couldn't be kept on this Mac. Try again.";
-      }
-      try {
-        return send(commandId, {
+      const named = nameProblem(name);
+      if (named !== null) return named;
+      const set = submitSecretSet(
+        {
+          store: deps.store,
+          submit: (command, via, principal) => deps.submit(command, via, principal),
+        },
+        {
+          schema_version: COMMAND_SCHEMA_VERSION,
+          command_id: deps.nextId() as CommandId,
+          issued_at: deps.now().toISOString() as Timestamp,
+          client: { name: 'halcyonic-setup-page', version: null, device_label: null },
           command_type: 'project.secret.set',
           payload: { project_id: projectId, name: name as SecretName },
-        });
-      } finally {
-        // Committed by an accepted set; anything still staged was refused or failed.
-        deps.store.discard(commandId);
-      }
+        },
+        value,
+        'http',
+        { kind: 'local' },
+      );
+      if (!set.ok) return set.problem;
+      return said(set.outcome);
     },
     remove: (projectId, name) => {
       if (!known(projectId)) return 'That project is not on this Mac.';

@@ -37,7 +37,7 @@ Not proven:
 4. **A removal** deletes the file and the name; a later start gets nothing; removing it again is refused
    in words.
 5. **A set with no value staged for it**, as a local client over the realtime protocol would send it, fails
-   "A secret is typed on this Mac's setup page." and keeps nothing. A paired device's set is refused
+   "A secret is set with its value in its own request, so this command alone sets nothing." and keeps nothing. A paired device's set is refused
    before that, as any command of an unknown device is.
 6. **Refusals in words, nothing left staged**: a reserved name (`PATH`, `OPENCODE_PASSWORD`), a name not in
    capitals, a value under 8 characters, a project not on this Mac, a value over 8 KiB.
@@ -51,6 +51,12 @@ Not proven:
     Remove asks first (`confirm`); a second press of another secret asks again; Cancel forgets it; only a
     second press of the same secret removes it. The test fails when Remove acts on the first press (checked
     by changing the code, then restored).
+13. **The write-only route** (`http/secrets-route.test.ts`): from this Mac with the token and from a paired
+    headset over the network listener's pinned TLS, the value reaches the store and nowhere else; no answer
+    and no journal entry holds it; the command is recorded as the caller, the device for the headset (the
+    test fails when the route submits as the Mac instead, checked by changing the code, then restored); a
+    retried id keeps the first value; a short value, a lower-case or reserved name, an unknown project and a
+    missing credential are refused, the value never repeated.
 12. **Reserved too:** `HTTPS_PROXY`, `ALL_PROXY`, `SSL_CERT_FILE` and `BUN_*` (the domain test).
 8. **The page**: a set or removal without the page's session, or from another site, is refused 403; a
    3,000-character value fits the route's own body limit while the page keeps 1 KiB elsewhere; no answer

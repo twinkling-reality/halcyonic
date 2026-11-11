@@ -208,7 +208,10 @@ describe('project secrets through the control plane (ADR 0057)', () => {
       { kind: 'local' },
     );
     assert.equal(sent.command?.status, 'failed');
-    assert.equal(sent.command?.failure?.message, "A secret is typed on this Mac's setup page.");
+    assert.equal(
+      sent.command?.failure?.message,
+      'A secret is set with its value in its own request, so this command alone sets nothing.',
+    );
     assert.equal(harness.controlPlane.projection.project(projectId)?.secrets, undefined);
     assert.deepEqual(readdirSync(join(dataDir, 'secrets')), []);
     await harness.controlPlane.close();

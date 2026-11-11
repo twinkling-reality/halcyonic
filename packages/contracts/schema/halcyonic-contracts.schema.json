@@ -13900,6 +13900,42 @@
       },
       "maxItems": 32
     },
+    "SecretValue": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 8192
+    },
+    "ProjectSecretSetRequest": {
+      "type": "object",
+      "required": [
+        "command_id",
+        "issued_at",
+        "client",
+        "name",
+        "value"
+      ],
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        },
+        "client": {
+          "$ref": "#/$defs/ClientInfo"
+        },
+        "name": {
+          "$ref": "#/$defs/SecretName"
+        },
+        "value": {
+          "$ref": "#/$defs/SecretValue"
+        }
+      },
+      "additionalProperties": false
+    },
     "RestorePreview": {
       "type": "object",
       "required": [

@@ -989,6 +989,36 @@ namespace Halcyonic.Contracts
         public ShareCode Code { get; set; } = default!;
     }
 
+    public sealed class ClientInfo
+    {
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [JsonProperty("version", Required = Required.AllowNull)]
+        public string? Version { get; set; }
+
+        [JsonProperty("device_label", Required = Required.AllowNull)]
+        public string? DeviceLabel { get; set; }
+    }
+
+    public sealed class ProjectSecretSetRequest
+    {
+        [JsonProperty("command_id", Required = Required.Always)]
+        public string CommandId { get; set; } = default!;
+
+        [JsonProperty("issued_at", Required = Required.Always)]
+        public string IssuedAt { get; set; } = default!;
+
+        [JsonProperty("client", Required = Required.Always)]
+        public ClientInfo Client { get; set; } = default!;
+
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [JsonProperty("value", Required = Required.Always)]
+        public string Value { get; set; } = default!;
+    }
+
     [JsonConverter(typeof(StringEnumConverter))]
     public enum ShareWay
     {
@@ -3760,18 +3790,6 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("message", Required = Required.Always)]
         public string Message { get; set; } = default!;
-    }
-
-    public sealed class ClientInfo
-    {
-        [JsonProperty("name", Required = Required.Always)]
-        public string Name { get; set; } = default!;
-
-        [JsonProperty("version", Required = Required.AllowNull)]
-        public string? Version { get; set; }
-
-        [JsonProperty("device_label", Required = Required.AllowNull)]
-        public string? DeviceLabel { get; set; }
     }
 
     [JsonConverter(typeof(ProjectLocationChoiceConverter))]
