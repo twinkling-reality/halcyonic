@@ -709,6 +709,9 @@ pnpm quest:device -- give-back
     `--extra halcyonic.agent=<runtime id>` chooses a registered runtime; `--extra-bool halcyonic.arm=true`
     arms the waiting approval so its confirming bar shows; an approval is always confirmed, so nothing
     is sent.
+  - `--extra-bool halcyonic.noask=true` skips the microphone's question at the first open
+    (`MicrophoneAtOpen`), so no system dialog holds a driven run; pass it on every launch that takes frames
+    while the headset has no kept answer. Nothing may press that dialog.
   - A preset only presents: it never approves, denies, answers, starts, previews or confirms. It waits
     up to a minute for the live snapshot to hold the id, then `logs` holds one line, "Halcyonic: capture
     preset applied: ..." in fixed words, or "Halcyonic: capture preset found nothing to open; staying on

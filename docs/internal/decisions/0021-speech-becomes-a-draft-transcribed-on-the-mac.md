@@ -65,7 +65,7 @@ bodies only, at most 1 MiB, and logs no instruction or agent text ([SECURITY.md]
 - **Hold to talk on the headset, development builds first.** Capture starts after the button has
   been held for 0.3 s, shows that it is listening, stops on release or at 30 s, and is discarded if
   the app loses input focus or the hand leaves the button. The microphone permission is asked on
-  the first hold, never at launch, and typing always remains. Release and demonstration builds
+  the first hold, never at launch (amended 2026-11-11: asked at the first open, below), and typing always remains. Release and demonstration builds
   carry no voice and no `RECORD_AUDIO` unless the owner decides otherwise.
 
 ## Alternatives considered
@@ -138,3 +138,17 @@ transcribed on the Mac. A headset with no computer, as a judge's, is never asked
 Without voice set up on the Mac the headset reads "Voice Not Set Up · Type Instead". Meta's store
 reviews `RECORD_AUDIO`; whether a release channel then needs a privacy policy that names the
 microphone is not yet checked.
+
+## Amendment of 2026-11-11: the microphone is asked at the first open
+
+Asking on the first hold meant the first hold recorded nothing ("Allow Microphone · Hold Again"), and a person who
+refused had to find Settings alone (JUDGE's beginner's journey; the lead's decision). This replaces the amendment
+above on when it is asked: once, at the first open with a computer connected, after one line that says why, so the
+first hold records. The answer is kept on the headset and no later open asks. A hold asks only where no answer was
+given (the question was dismissed or never shown) or where the person refused once and the system would ask once
+more; where the system no longer asks, the hold records nothing and its line says how to allow it. A launch with
+the setting `halcyonic.noask=true` skips the open's question, since nothing may press a system dialog in a driven
+run. As for voice, it holds in every build (the owner, 2026-11-11: "Yes, with voice"), and a headset with no
+computer, as a judge's, is still never asked. The rules are `MicrophoneAsk` in the client core; the open's question
+is `MicrophoneAtOpen` in the Unity layer. The line's words and the Settings path are FIELD's, and the flow is proven
+on the headset when it is next connected.
