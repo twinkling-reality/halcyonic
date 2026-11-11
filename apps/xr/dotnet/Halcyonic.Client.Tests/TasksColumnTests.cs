@@ -355,5 +355,11 @@ public class TasksColumnTests
         Assert.That(asked.Last().IsAllWork, Is.True);
         Assert.That(host.Sent, Is.Empty, "opening an Ask sends nothing");
         Assert.That(new TasksColumn(host).Frame!.Lines.Any(line => line.Action == TasksColumn.Ask), Is.False, "no Ask without a way to open one");
+        // Never in the demonstration, nor when the computer cannot be reached (AUDIT SHOULD).
+        host.Demonstration = true;
+        Assert.That(column.Frame!.Lines.Any(line => line.Action == TasksColumn.Ask), Is.False, "not in the demonstration");
+        host.Demonstration = false;
+        host.Connected = false;
+        Assert.That(column.Frame!.Lines.Any(line => line.Action == TasksColumn.Ask), Is.False, "not when not connected");
     }
 }

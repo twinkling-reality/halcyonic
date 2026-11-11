@@ -155,4 +155,40 @@ public class AskMenuColumnTests
         column.Ask.Offer(new AvailableWorkspaceAgent { Model = "muse-glimmer:30b-mlx" });
         Assert.That(Ids(column.Frame!), Does.Contain(AskMenuColumn.Talk));
     }
+
+    [Test]
+    public void ASendWithNoSessionStaysWrittenAndSaysItDidNotGo()
+    {
+        // AUDIT MUST: the host gives no task once the session the column was made in is no longer shown.
+        var (column, host) = Make();
+        column.Ask.Write("What is going on?");
+        host.Live = false;
+        column.Act(AskMenuColumn.Send, null);
+        Assert.That(column.Ask.Stage, Is.EqualTo(AskStage.Writing));
+        Assert.That(column.Ask.Draft, Is.EqualTo("What is going on?"));
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Does.Contain(AskMenuColumn.Words.SendDidNotGo));
+        host.Live = true;
+        column.Act(AskMenuColumn.Send, null);
+        Assert.That(host.Sent.Single(), Is.InstanceOf<WorkspaceRequestSubmitCommand>(), "it can be sent again");
+    }
+
+    [Test]
+    public void ASendThatFailsOnTheWayIsNotSentWithTryAgain()
+    {
+        // AUDIT MUST: a faulted acknowledgement.
+        var (column, host) = Make();
+        column.Ask.Write("What is going on?");
+        host.Fault = true;
+        column.Act(AskMenuColumn.Send, null);
+        column.Tick();
+        Assert.That(column.Ask.Stage, Is.EqualTo(AskStage.NotAnswered));
+        Assert.That(column.Ask.Card.Status!.Value.Title, Is.EqualTo(AskColumn.Words.NotSent));
+        Assert.That(column.Ask.Card.Status.Value.Line, Is.EqualTo(AskColumn.Words.DidNotReach));
+        var bar = RoomBar.OfFrame(column.Frame!, VoiceStage.Idle)!;
+        Assert.That(bar.Column[0].Control.Action, Is.EqualTo(AskMenuColumn.TryAgain));
+        column.Act(AskMenuColumn.TryAgain, null);
+        Assert.That(column.Ask.Stage, Is.EqualTo(AskStage.Writing));
+        Assert.That(column.Ask.Draft, Is.EqualTo("What is going on?"));
+        Assert.That(column.Ask.CanSend, Is.True);
+    }
 }
