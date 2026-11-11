@@ -467,6 +467,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 host.SettleForRender();
             }
             const float Tolerance = 1e-4f;
+            // FIELD's card in the panel, every one of its labels laid whole.
+            void CardWhole()
+            {
+                Require(host.Bar.Card != null && host.Bar.Card.gameObject.activeSelf, "the card does not stand in the panel");
+                if (host.Bar.Card == null) return;
+                foreach (var label in host.Bar.Card.GetComponentsInChildren<TMPro.TextMeshPro>(false))
+                {
+                    label.ForceMeshUpdate(true);
+                    Require(!label.isTextTruncated, "the card's \"" + label.text + "\" is cut");
+                }
+            }
             var typeSize = GlazeTokens.FontSize(RoomType.Scaled(RoomGeometry.TypeDp));
             void Whole(TMPro.TextMeshPro words, string what)
             {
@@ -586,10 +597,14 @@ namespace Halcyonic.XR.Workspace.Editor
                             Require(!(label.text ?? "").Contains(message.Substring(0, 16)), "the agent's words stand off the band, in " + label.name);
                         Require((bar.BandNextButton != null) == (state == "38-result-long"), state == "38-result-long" ? "no way to the long message's next part" : "a way to a next part the band does not have");
                         if (state == "38-result-long") Require(bar.BandNextButton!.LookNow() == RoomButtonLook.Rest && shown.Column.Any(action => action.Main), "the message's next part is the main action over the result's own");
+                        // FIELD's result card (A17): the check and the files as slots, an ended chain of tries as its status; no
+                        // sentence, nothing joined on a dot, every label of the card whole.
                         var stopped = state == "38-result-stopped";
-                        var reads = state == "38-project" ? "Build Passed" : stopped ? "Stopped After 2 Tries\n4 Files Changed" : "4 Files Changed";
-                        Require(bar.Body.GetParsedText().Replace("\r", "") == reads && shown.Sentence == (state == "38-project" ? null : stopped ? "Build Failed" : "Build Passed"),
-                            "the panel reads \"" + bar.Body.GetParsedText() + "\" over \"" + shown.Sentence + "\"");
+                        var slots = state == "38-project" ? new[] { "Passed" } : stopped ? new[] { "Failed", "4 Files" } : new[] { "Passed", "4 Files" };
+                        Require(shown.Card != null && !shown.Card.AnyDot && shown.Card.Slots.Select(slot => slot.Value.Text).SequenceEqual(slots) && shown.Sentence == null
+                            && (shown.Card.Status?.Title == (stopped ? RoomBar.StoppedTitle : null)),
+                            "the result's card reads " + string.Join(", ", shown.Card?.Slots.Select(slot => slot.Value.Text) ?? new string[0]) + " under " + shown.Card?.Status?.Title);
+                        CardWhole();
                         // DEVICE's Play in Headset: a pressable action where it stands, nothing where it cannot act.
                         if (state is "38-result-play" or "38-result-play-refused")
                         {
@@ -607,22 +622,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     else
                     {
-                        // A page of rows: every row's words in the panel, eight at most, no band and no sentence.
-                        Require(shown.Band == null && host.Band.Words == null && shown.Sentence == null, "a band or a sentence stands on a page of rows");
-                        Require(shown.Facts != null && shown.Facts.Count == (state == "38-changes-long" ? RoomRows.APage : state == "38-checks-failed" ? 2 : 4), "the page holds " + shown.Facts?.Count + " rows");
-                        // Each row in its own label of the panel's rows, its words whole, a step's mark beside it; compared without their
-                        // spaces, since a name from outside stands a narrow space off Halcyonic's words.
-                        // A wrapping row breaks at its separator, the dot dropped (FIELD's ea71425a): compared without its dots too.
-                        string Bare(string words) => new string(words.Where(character => !char.IsWhiteSpace(character) && character != '\u202F' && character != '·').ToArray());
-                        var rows = bar.Facts;
-                        Require(rows != null && rows.Count == shown.Facts!.Count && !bar.Body.gameObject.activeSelf, "the panel's rows do not stand in the body's place");
-                        for (var index = 0; rows != null && index < Mathf.Min(rows.Count, shown.Facts!.Count); index++)
-                        {
-                            var label = rows.Label(index);
-                            label.ForceMeshUpdate(true);
-                            Require(Bare(label.GetParsedText()) == Bare(shown.Facts[index].Words.Text) && !label.isTextTruncated, "the row \"" + shown.Facts[index].Words.Text + "\" reads \"" + label.GetParsedText() + "\"");
-                            Require(rows.Mark(index).gameObject.activeSelf == (shown.Facts[index].Mark != RoomRowMark.None), "the row \"" + shown.Facts[index].Words.Text + "\" has a mark it should not, or lacks one");
-                        }
+                        // Each page is FIELD's card (A17): Changes a list five a page, Checks the steps as nodes; no band, no
+                        // sentence, nothing joined on a dot, every label of the card whole.
+                        Require(shown.Band == null && host.Band.Words == null && shown.Sentence == null, "a band or a sentence stands on a page");
+                        Require(shown.Card != null && !shown.Card.AnyDot && shown.Facts == null, "the page is not a card, or joins facts on a dot");
+                        if (state is "38-changes" or "38-changes-long")
+                            Require(shown.Card!.List.Count == (state == "38-changes-long" ? RoomCard.ListAPage : known.Changes.Count), "the Changes card lists " + shown.Card.List.Count + " files");
+                        if (state is "38-checks" or "38-checks-failed")
+                            Require(shown.Card!.Steps.Count == known.Steps.Count && shown.Card.Steps.Count(step => step.Tone == RoomTone.Bad) == (state == "38-checks-failed" ? 1 : 0),
+                                "the Checks card's steps are not the check's, the failed one marked");
+                        CardWhole();
                         Require(shown.Column.Last().Control.Action == RoomResult.Back, "Back does not stand last");
                         Require(shown.Column[0].Main == (state != "38-changes") && shown.Column[0].Control.Action == state switch
                         {

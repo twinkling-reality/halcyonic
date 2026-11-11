@@ -54,7 +54,7 @@ namespace Halcyonic.Client
             Observed = observed;
             Steps = steps ?? Array.Empty<CheckStepOutcome>();
             Page = page;
-            Part = Math.Max(0, Math.Min(part, RoomRows.Pages(Rows.Count) - 1));
+            Part = Math.Max(0, Math.Min(part, Parts - 1));
         }
 
         /// <summary>Whether the project is made from a starter, a VR project already.</summary>
@@ -108,7 +108,10 @@ namespace Halcyonic.Client
         /// <summary>The rows the page shows now, eight at most (<see cref="RoomRows.APage"/>).</summary>
         public IReadOnlyList<RoomRow> Shown => RoomRows.Page(Rows, Part);
 
-        public int Parts => RoomRows.Pages(Rows.Count);
+        /// <summary>How many pages the page shown turns through: Changes by the card's list, five a page (FIELD's A17); the rest by rows.</summary>
+        public int Parts => Page == RoomResultPage.Changes
+            ? Math.Max(1, (Changes.Count + RoomCard.ListAPage - 1) / RoomCard.ListAPage)
+            : RoomRows.Pages(Rows.Count);
 
         /// <summary>
         /// Every file the computer saw change, its facts apart for a card's list (FIELD's A17): the kind, the path as the folder
