@@ -134,6 +134,8 @@ export class ControlPlane {
   readonly copies: TaskCopies | null;
   /** The starters a new project can begin from, or null when there are none. */
   readonly starters: HostStarters | null;
+  /** Folders of Halcyonic's own data that no read of a project's files may reach. */
+  readonly protectedFolders: readonly string[];
   /** The Mac's own reading of what each turn changed in its folder (ADR 0038), or null when off. */
   readonly files: FileObserver | null;
   /** The host's checks and previews of starter projects, or null when off. */
@@ -214,6 +216,7 @@ export class ControlPlane {
             logger: options.logger,
             redaction: this.redaction,
           });
+    this.protectedFolders = options.observeFiles?.protect ?? [];
     this.files =
       options.observeFiles === undefined
         ? null

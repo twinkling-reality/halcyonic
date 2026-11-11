@@ -120,6 +120,16 @@ export type RestoreResult =
       readonly message: string;
     };
 
+/** One file that changed between two checkpoints. */
+export interface ComparedFile {
+  readonly path: string;
+  readonly change: 'added' | 'changed' | 'removed';
+  /** Null for a binary file. */
+  readonly addedLines: number | null;
+  readonly removedLines: number | null;
+  readonly binary: boolean;
+}
+
 export interface RestoreHooks {
   /** For tests: runs after every write and before the check, as another writer might. */
   readonly onWritten?: () => void | Promise<void>;
@@ -577,6 +587,136 @@ export class CheckpointStore {
         written: true,
       };
     return { ok: true };
+  }
+
+  /**
+   * What changed between two of a project's checkpoints, file by file, with the lines each gained
+   * and lost (null for a binary file), sorted by path; reads only the store.
+   */
+  async compare(
+    projectId: string,
+    fromId: string,
+    toId: string,
+  ): Promise<
+    | { readonly ok: true; readonly files: readonly ComparedFile[] }
+    | { readonly ok: false; readonly code: 'checkpoint_missing' | 'store_failed' }
+  > {
+    const trees = await this.#trees(projectId, fromId, toId);
+    if (!trees.ok) return trees;
+    const { repository, from, to } = trees;
+    const base = ['diff-tree', '-r', '-z', '--no-renames', '--no-ext-diff', '--no-textconv'];
+    const [statuses, counts] = await Promise.all([
+      this.#run(repository, null, null, [...base, '--name-status', from, to]),
+      this.#run(repository, null, null, [...base, '--numstat', from, to]),
+    ]);
+    if (statuses.code !== 0 || counts.code !== 0) return { ok: false, code: 'store_failed' };
+    const lines = new Map<string, { added: number | null; removed: number | null }>();
+    // With -z, numstat writes "added<TAB>removed<TAB>path<NUL>", "-" for a binary file's counts.
+    for (const record of splitNul(counts.stdout)) {
+      const [added, removed, ...rest] = record.split('\t');
+      const path = rest.join('\t');
+      lines.set(path, {
+        added: added === '-' ? null : Number(added),
+        removed: removed === '-' ? null : Number(removed),
+      });
+    }
+    const parts = splitNul(statuses.stdout);
+    const files: ComparedFile[] = [];
+    for (let index = 0; index + 1 < parts.length; index += 2) {
+      const status = parts[index] as string;
+      const path = parts[index + 1] as string;
+      const counted = lines.get(path) ?? { added: null, removed: null };
+      files.push({
+        path,
+        change: status === 'A' ? 'added' : status === 'D' ? 'removed' : 'changed',
+        addedLines: counted.added,
+        removedLines: counted.removed,
+        binary: counted.added === null,
+      });
+    }
+    files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+    return { ok: true, files };
+  }
+
+  /**
+   * One file's change between two checkpoints as a unified diff, at most `maxBytes`, or null when
+   * the file is binary; reads only the store. Not found when the file did not change between them.
+   */
+  async compareFile(
+    projectId: string,
+    fromId: string,
+    toId: string,
+    path: string,
+    maxBytes: number,
+  ): Promise<
+    | {
+        readonly ok: true;
+        readonly file: ComparedFile;
+        readonly diff: string | null;
+        readonly complete: boolean;
+      }
+    | {
+        readonly ok: false;
+        readonly code: 'checkpoint_missing' | 'not_changed' | 'store_failed';
+      }
+  > {
+    if (!isProjectPath(path)) return { ok: false, code: 'not_changed' };
+    const compared = await this.compare(projectId, fromId, toId);
+    if (!compared.ok) return compared;
+    const file = compared.files.find((item) => item.path === path);
+    if (file === undefined) return { ok: false, code: 'not_changed' };
+    if (file.binary) return { ok: true, file, diff: null, complete: true };
+    const trees = await this.#trees(projectId, fromId, toId);
+    if (!trees.ok) return trees;
+    const patch = await this.#run(trees.repository, null, null, [
+      'diff-tree',
+      '-p',
+      '--no-renames',
+      '--no-ext-diff',
+      '--no-textconv',
+      '--no-color',
+      trees.from,
+      trees.to,
+      '--',
+      path,
+    ]);
+    if (patch.code !== 0) return { ok: false, code: 'store_failed' };
+    const whole = patch.stdout.length <= maxBytes;
+    // Cut at the last whole line inside the bound.
+    let cut = whole ? patch.stdout : patch.stdout.subarray(0, maxBytes);
+    if (!whole) {
+      const lastBreak = cut.lastIndexOf(0x0a);
+      if (lastBreak > 0) cut = cut.subarray(0, lastBreak + 1);
+    }
+    return { ok: true, file, diff: cut.toString('utf8'), complete: whole };
+  }
+
+  async #trees(
+    projectId: string,
+    fromId: string,
+    toId: string,
+  ): Promise<
+    | { readonly ok: true; readonly repository: string; readonly from: string; readonly to: string }
+    | { readonly ok: false; readonly code: 'checkpoint_missing' }
+  > {
+    if (!ID_PATTERN.test(projectId) || !ID_PATTERN.test(fromId) || !ID_PATTERN.test(toId))
+      return { ok: false, code: 'checkpoint_missing' };
+    const repository = this.#repositoryPath(projectId);
+    if (!(await isFolder(repository))) return { ok: false, code: 'checkpoint_missing' };
+    const trees: string[] = [];
+    for (const id of [fromId, toId]) {
+      const resolved = await this.#run(repository, null, null, [
+        'rev-parse',
+        '--verify',
+        '-q',
+        `${treeRef(id)}^{tree}`,
+      ]);
+      const tree = resolved.stdout.toString().trim();
+      if (resolved.code !== 0 || !OBJECT_ID.test(tree))
+        return { ok: false, code: 'checkpoint_missing' };
+      trees.push(tree);
+    }
+    return { ok: true, repository, from: trees[0] as string, to: trees[1] as string };
   }
 
   /** What putting the checkpoint back would change now; reads only. */

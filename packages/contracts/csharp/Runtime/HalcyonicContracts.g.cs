@@ -52,6 +52,159 @@ namespace Halcyonic.Contracts
             instant.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum FileChangeKind
+    {
+        [EnumMember(Value = "added")] Added,
+        [EnumMember(Value = "changed")] Changed,
+        [EnumMember(Value = "removed")] Removed,
+    }
+
+    public sealed class ProjectChangedFile
+    {
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [JsonProperty("change", Required = Required.Always)]
+        public FileChangeKind Change { get; set; }
+
+        [JsonProperty("added_lines", Required = Required.AllowNull)]
+        public long? AddedLines { get; set; }
+
+        [JsonProperty("removed_lines", Required = Required.AllowNull)]
+        public long? RemovedLines { get; set; }
+
+        [JsonProperty("binary", Required = Required.Always)]
+        public bool Binary { get; set; }
+    }
+
+    public sealed class ProjectChangesResponse
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("from", Required = Required.Always)]
+        public string From { get; set; } = default!;
+
+        [JsonProperty("to", Required = Required.Always)]
+        public string To { get; set; } = default!;
+
+        [JsonProperty("files", Required = Required.Always)]
+        public List<ProjectChangedFile> Files { get; set; } = new List<ProjectChangedFile>();
+
+        [JsonProperty("files_total", Required = Required.Always)]
+        public long FilesTotal { get; set; }
+
+        [JsonProperty("complete", Required = Required.Always)]
+        public bool Complete { get; set; }
+
+        [JsonProperty("source", Required = Required.Always)]
+        public string Source { get; set; } = "project_files";
+    }
+
+    public sealed class ProjectFileChangeResponse
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("from", Required = Required.Always)]
+        public string From { get; set; } = default!;
+
+        [JsonProperty("to", Required = Required.Always)]
+        public string To { get; set; } = default!;
+
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [JsonProperty("change", Required = Required.Always)]
+        public FileChangeKind Change { get; set; }
+
+        [JsonProperty("binary", Required = Required.Always)]
+        public bool Binary { get; set; }
+
+        [JsonProperty("withheld", Required = Required.Always)]
+        public bool Withheld { get; set; }
+
+        [JsonProperty("diff", Required = Required.AllowNull)]
+        public string? Diff { get; set; }
+
+        [JsonProperty("complete", Required = Required.Always)]
+        public bool Complete { get; set; }
+
+        [JsonProperty("source", Required = Required.Always)]
+        public string Source { get; set; } = "project_files";
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ProjectFileKind
+    {
+        [EnumMember(Value = "text")] Text,
+        [EnumMember(Value = "binary")] Binary,
+        [EnumMember(Value = "too_large")] TooLarge,
+        [EnumMember(Value = "withheld")] Withheld,
+    }
+
+    public sealed class ProjectFileResponse
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [JsonProperty("kind", Required = Required.Always)]
+        public ProjectFileKind Kind { get; set; }
+
+        [JsonProperty("size_bytes", Required = Required.Always)]
+        public long SizeBytes { get; set; }
+
+        [JsonProperty("text", Required = Required.AllowNull)]
+        public string? Text { get; set; }
+
+        [JsonProperty("lines", Required = Required.AllowNull)]
+        public long? Lines { get; set; }
+
+        [JsonProperty("modified_at", Required = Required.Always)]
+        public string ModifiedAt { get; set; } = default!;
+
+        [JsonProperty("source", Required = Required.Always)]
+        public string Source { get; set; } = "project_files";
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum CheckOutputStep
+    {
+        [EnumMember(Value = "typecheck")] Typecheck,
+        [EnumMember(Value = "build")] Build,
+    }
+
+    public sealed class CheckStepOutputResponse
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("step", Required = Required.Always)]
+        public CheckOutputStep Step { get; set; }
+
+        [JsonProperty("exit", Required = Required.AllowNull)]
+        public long? Exit { get; set; }
+
+        [JsonProperty("lines", Required = Required.Always)]
+        public List<string> Lines { get; set; } = new List<string>();
+
+        [JsonProperty("lines_total", Required = Required.Always)]
+        public long LinesTotal { get; set; }
+
+        [JsonProperty("complete", Required = Required.Always)]
+        public bool Complete { get; set; }
+
+        [JsonProperty("source", Required = Required.Always)]
+        public string Source { get; set; } = "check_output";
+    }
+
     public sealed class ToolResultsQuery
     {
         [JsonProperty("journal_id", Required = Required.Always)]

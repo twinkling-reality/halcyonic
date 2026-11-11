@@ -115,6 +115,16 @@ export class Checkpointer {
     );
   }
 
+  /** What changed between two of the project's checkpoints, by file; reads only the store. */
+  compare(projectId: string, fromId: string, toId: string) {
+    return this.#deps.store.compare(projectId, fromId, toId);
+  }
+
+  /** One file's change between two of the project's checkpoints, at most `maxBytes` of diff. */
+  compareFile(projectId: string, fromId: string, toId: string, path: string, maxBytes: number) {
+    return this.#deps.store.compareFile(projectId, fromId, toId, path, maxBytes);
+  }
+
   /** The project's checkpoints, oldest first. */
   checkpoints(projectId: string): CheckpointView[] {
     return this.#deps.projection.checkpoints(projectId);

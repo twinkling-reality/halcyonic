@@ -490,12 +490,13 @@ describe('the language-neutral schema document', () => {
     // but that envelope, from 440,000 for ADR 0044's two auto_fix events, for the same reason, and
     // from 450,000 for ADR 0047's pairing page link, which repeats nothing, and ADR 0030's two list
     // reads and the request fields that may be null, and from 460,000 for ADR 0045's six events of
-    // a task's own copy, about 5,000 bytes each, for the same reason as every event's).
+    // a task's own copy, about 5,000 bytes each, for the same reason as every event's, and the project
+    // reads' four responses and their queries, about 10 KB that repeat nothing).
     assert.deepEqual(
       inlinedDefinitions(buildSchemaDocument() as { $defs: Record<string, unknown> }),
       [],
     );
-    assert.ok(text.length < 490_000, `document is ${text.length} bytes`);
+    assert.ok(text.length < 505_000, `document is ${text.length} bytes`);
   });
 });
 

@@ -41,6 +41,58 @@ const UNSEEN = /[\p{Cc}\p{Cf}]/gu;
 /** The Unicode line and paragraph separators, which a model may read as a line break (AUDIT FX1-C1). */
 const BREAKS = /[\p{Zl}\p{Zp}]/gu;
 
+/** Where a check's log names the host: the project, its check folder, Halcyonic's data, the home folder. */
+export interface CheckLogPlaces {
+  readonly projectFolder: string;
+  readonly cacheFolder: string;
+  readonly dataDir: string;
+  readonly home: string;
+}
+
+/**
+ * A check step's log as lines a person reads (the parity map's gap 4): the same cleaning the agent's
+ * copy gets (no terminal sequences, no unseen characters, no host paths), without its mark, each line
+ * at most `lineChars`, at most `maxLines` of the non-empty lines.
+ */
+export function checkLogLines(
+  log: string,
+  places: CheckLogPlaces,
+  maxLines: number,
+  lineChars: number,
+): { readonly lines: string[]; readonly total: number } {
+  const names = placeNames(places);
+  const all = log
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter((line) => line !== '');
+  const lines = all.slice(0, maxLines).map((line) => {
+    const out = cleanLine(line, names);
+    return out.length <= lineChars ? out : `${out.slice(0, lineChars - 3)}...`;
+  });
+  return { lines, total: all.length };
+}
+
+/** Longest first, so a folder inside another is named before the one holding it. */
+function placeNames(places: CheckLogPlaces): [string, string][] {
+  return (
+    [
+      [places.projectFolder, '.'],
+      [relative(places.cacheFolder, places.projectFolder), '.'],
+      [places.dataDir, "<Halcyonic's data>"],
+      [places.home, '~'],
+    ] as [string, string][]
+  ).sort((a, b) => b[0].length - a[0].length);
+}
+
+function cleanLine(line: string, names: readonly [string, string][]): string {
+  let out = line
+    .replace(ESCAPES, '')
+    .replace(BREAKS, ' ')
+    .replace(UNSEEN, (char) => (char === '\t' ? char : ''));
+  for (const [path, name] of names) if (path !== '') out = out.split(path).join(name);
+  return out;
+}
+
 /**
  * The first lines of a failed check's type check and build, for the agent with the person's next
  * instruction (FX1): marked as the Mac's own check, bounded, and naming no host path. The project's
@@ -60,21 +112,9 @@ export function checkOutput(input: {
     { part: 'build' as const, name: 'build', step: input.build },
   ].filter(({ step }) => step.exit !== null && step.exit !== 0);
   if (steps.length === 0) return null;
-  // Longest first, so a folder inside another is named before the one holding it.
-  const names: [string, string][] = (
-    [
-      [input.projectFolder, '.'],
-      [relative(input.cacheFolder, input.projectFolder), '.'],
-      [input.dataDir, "<Halcyonic's data>"],
-      [input.home, '~'],
-    ] as [string, string][]
-  ).sort((a, b) => b[0].length - a[0].length);
+  const names = placeNames(input);
   const clean = (line: string) => {
-    let out = line
-      .replace(ESCAPES, '')
-      .replace(BREAKS, ' ')
-      .replace(UNSEEN, (char) => (char === '\t' ? char : ''));
-    for (const [path, name] of names) if (path !== '') out = out.split(path).join(name);
+    const out = cleanLine(line, names);
     const room = CHECK_OUTPUT_LINE_CHARS - MARK.length;
     return MARK + (out.length <= room ? out : `${out.slice(0, room - 3)}...`);
   };

@@ -30,7 +30,7 @@ import {
   runCheck,
   servesCopy,
 } from './check.ts';
-import { type CheckOutput, checkOutput } from './check-output.ts';
+import { type CheckLogPlaces, type CheckOutput, checkOutput } from './check-output.ts';
 import {
   browserBinary,
   browserProblem,
@@ -632,6 +632,37 @@ export class HostPreviews {
       this.#ports.delete(port);
     }
     throw new Error('every preview port is in use');
+  }
+
+  /**
+   * One step of one of the project's checks as its own folder holds it, for a person to read (the
+   * parity map's gap 4): its exit, its log's start (64 KiB, never through a link), and the places
+   * its log names; null when the project or the check is not known.
+   */
+  checkStepLog(
+    projectId: ProjectId,
+    checkId: CheckId,
+    step: 'typecheck' | 'build',
+  ): {
+    readonly exit: number | null;
+    readonly log: string | null;
+    readonly places: CheckLogPlaces;
+  } | null {
+    const findings = this.#deps.projection.checkFindings(projectId, checkId);
+    const folder = this.#deps.projection.project(projectId)?.location?.path;
+    if (findings === undefined || folder === undefined) return null;
+    const cache = this.#cache(projectId, checkId);
+    const exit = step === 'typecheck' ? findings.tsc.exit : findings.build.exit;
+    return {
+      exit,
+      log: readStart(join(cache, step === 'typecheck' ? 'tsc.log' : 'build.log')),
+      places: {
+        projectFolder: folder,
+        cacheFolder: cache,
+        dataDir: this.#deps.dataDir,
+        home: this.#deps.home,
+      },
+    };
   }
 
   /**

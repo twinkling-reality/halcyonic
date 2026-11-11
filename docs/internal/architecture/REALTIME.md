@@ -344,6 +344,31 @@ unavailable; clients must not guess another execution, event or newest result af
 These reads grant no command authority. See [ADR 0031](../decisions/0031-record-bounded-native-tool-results-in-the-owner-journal.md)
 for privacy, capture and source-memory limits and the coordinator's separate bounded selectors.
 
+## Project reads
+
+Four read-only routes let the headset see a project's work for any runtime. Each takes `journal_id`
+(the current journal) and requires an owner-journal principal; a malformed id, path or extra query
+field is 400, and anything not found, not allowed or not set up is the same 404 `read_unavailable`.
+Every text in them is outside words, from the project's files or its build, as `source` says
+(`project_files`, `check_output`), and loses exact copies of the secrets Halcyonic holds (SECURITY.md).
+
+- `GET /api/projects/:project_id/changes?from&to`: the files that changed between two of the
+  project's own checkpoints (both in its journal), each `added`, `changed` or `removed` with its
+  lines added and removed (null for a binary file), sorted by path, at most 200, `files_total` and
+  `complete` saying when there were more. A task's change is its `before_task` checkpoint to its
+  last `after_turn` one. Off without undo (`HALCYONIC_GIT_BIN`).
+- `GET /api/projects/:project_id/changes/file?from&to&path`: one of those files as a unified diff, at
+  most 64 KiB and 2,000 lines, `complete` false when cut; null for a binary file and for a file
+  whose name says it may hold secrets (`withheld`). A file that did not change is 404.
+- `GET /api/projects/:project_id/file?path`: one file of the project's folder as it is now, a
+  project-relative path: `text` (valid UTF-8 without NUL, at most 256 KiB, given whole), `binary`,
+  `too_large` or `withheld`, with its size and modification time; never through a link, outside the
+  folder or inside Halcyonic's own data.
+- `GET /api/projects/:project_id/checks/:check_id/output?step=typecheck|build`: a step of one of the
+  project's checks as its own folder holds it, its exit (null when it did not run) and at most 200
+  lines of at most 300 characters, cleaned as the agent's copy is: no terminal sequences or unseen
+  characters, the project's folder as `.`, Halcyonic's data folder and the home folder by name.
+
 ## Workspace request upgrade order
 
 Since 2026-11-10 `workspace.request.submit` may name a project alone (`workstream_id` and

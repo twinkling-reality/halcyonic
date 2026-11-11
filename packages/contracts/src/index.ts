@@ -11,6 +11,7 @@ export * from './file-changes.ts';
 export * from './locations.ts';
 export * from './previews.ts';
 export * from './primitives.ts';
+export * from './project-reads.ts';
 export * from './questions.ts';
 export * from './realtime.ts';
 export * from './requests.ts';
