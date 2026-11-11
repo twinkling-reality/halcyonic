@@ -107,17 +107,26 @@ asking for one is refused in admission.
 The bundled CLI 2.1.283, a fake Messages API, `plan.e2e.test.ts` (opt-in with `CLAUDE_CODE_BIN`).
 
 - **A plan start:** it runs with `permissionMode: 'plan'`. Its start records `plan: true` from the mode the first
-  `system/init` reports (`plan`); a start that also names another `permission_mode` is refused.
+  `system/init` reports (`plan`); a start that also names another `permission_mode` is refused. A start whose init
+  reports another mode is stopped and refused in words, with effect `unknown` since the instruction was already handed
+  over, and nothing is recorded of it, as OpenCode refuses one off its plan agent (AUDIT3 4b F1).
   - In plan mode a Write asks, as every Claude Code write does, and refused it writes nothing. So Claude Code's plan is
     bounded by the person's answer to each write, plus Claude Code's own planning, which a fake model cannot show.
   - `offers_plan` is declared.
 - **Carrying it out** (`leave_plan`): the adapter asks the running session for `setPermissionMode('default')`, waits
   up to 10 s for a `system/status` message reporting `default`, records `runtime.plan.left`, then sends the
   instruction. In the run the next Write asked, was approved, and was written, in the same session.
-  - No confirmation, or a failed switch: the instruction is refused (`runtime_refused`), nothing is sent and nothing
-    is recorded. That path is read, not run.
+  - **How the bundled CLI orders it (AUDIT3 4b S2):** in the run, the first `system/status` after
+    `setPermissionMode('default')` already reported `default`; no status still reporting `plan` came before it. The
+    adapter counts every reported mode all the same: only `default` is the plan left; any other mode stops the
+    session (it is outside the level the task started at); `plan` reported to the end says it is still a plan.
+  - **No new mode reported** within 10 s, after Claude Code took the switch: refused with effect `unknown`, "the task
+    may have left its plan".
+  - **A switch call that fails:** refused with effect none, "still a plan".
+  - Nothing is sent and nothing is recorded in any of these (unit-tested on the adapter's scripted query; AUDIT3 4b
+    F2).
   - A re-attached session that has not resumed since the restart has no process to confirm the switch, so carrying
     its plan out is refused in words until an instruction resumes it.
-- **Re-attach:** a session whose start recorded a plan resumes in plan mode; one whose plan was left resumes in
-  default mode.
+- **Re-attach:** a session whose start recorded a plan resumes in plan mode, and is stopped if its resumed init reports
+  another (AUDIT3 4b S1); one whose plan was left resumes in default mode.
 

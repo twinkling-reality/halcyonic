@@ -115,6 +115,8 @@ export interface ClaudeAgentRuntimeOptions {
    * absent: every start runs as before.
    */
   readonly confinement?: ClaudeConfinementOptions | null;
+  /** How long carrying a plan out waits for Claude Code to report its new mode; tests shorten it. */
+  readonly planSwitchWaitMs?: number;
 }
 
 /**
@@ -193,6 +195,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   readonly #modelHost: ModelHost;
   readonly #sessions = new Map<ExecutionId, ClaudeSession>();
   readonly #confinement: ClaudeConfinementOptions | null;
+  readonly #planSwitchWaitMs: number;
   /** The one way out of the sandbox, started for the first confined start (BOX-4). */
   #gate: Promise<ApiGate> | null = null;
   #closed = false;
@@ -210,6 +213,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     this.#query = options.query ?? query;
     this.#sessionInfo = options.sessionInfo ?? getSessionInfo;
     this.#confinement = options.confinement ?? null;
+    this.#planSwitchWaitMs = options.planSwitchWaitMs ?? LEAVE_PLAN_WAIT_MS;
     this.descriptor = {
       runtime_id: options.runtimeId ?? ('claude-agent' as RuntimeId),
       kind: 'claude-agent',
@@ -336,6 +340,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       this.#clock,
       false,
       this.#recordFor(scope),
+      this.#planSwitchWaitMs,
     );
     this.#sessions.set(executionId, session);
     let started: Promise<string>;
@@ -358,7 +363,13 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
         wholeError(errorText(error)) ?? 'The SDK refused to start Claude Code.',
       );
     }
-    return { native_id: await started };
+    try {
+      return { native_id: await started };
+    } catch (error) {
+      // A start Claude Code broke before it was confirmed (a plan reported in another mode) is not kept.
+      if (this.#sessions.get(executionId) === session) this.#sessions.delete(executionId);
+      throw error;
+    }
   }
 
   /**
@@ -436,7 +447,14 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     }
     const gate = scope.folder === null ? null : await this.#apiGate();
     if (this.#closed) throw closedError();
-    const session = new ClaudeSession(request.native_id, request.emit, this.#clock, true);
+    const session = new ClaudeSession(
+      request.native_id,
+      request.emit,
+      this.#clock,
+      true,
+      { confined: false },
+      this.#planSwitchWaitMs,
+    );
     session.prepare(
       this.#query,
       this.#options(
@@ -763,6 +781,11 @@ class ClaudeSession {
 
   /** Waits for the mode a `system/status` message reports, while a plan is being left (PLAN 4a). */
   #modeWaiter: ((mode: string) => void) | null = null;
+  /** Whether a plan was asked for, at the start or the resume; then `system/init` must report it. */
+  #planExpected = false;
+  #planChecked = false;
+  /** How long leaving a plan waits for the new mode to be reported. */
+  readonly #planSwitchWaitMs: number;
   /** The permission mode the session's first `system/init` reported (PLAN). */
   #initMode: string | undefined = undefined;
   /** What the session's start records of its confinement (S2, BOX-4). */
@@ -776,9 +799,11 @@ class ClaudeSession {
     record: { readonly confined: boolean; readonly unconfined_reason?: string } = {
       confined: false,
     },
+    planSwitchWaitMs = LEAVE_PLAN_WAIT_MS,
   ) {
     this.id = id;
     this.#record = record;
+    this.#planSwitchWaitMs = planSwitchWaitMs;
     this.#emitObservation = emit;
     this.#clock = clock;
     this.#eventPrefix = reattached ? `${id}:${randomUUID()}` : id;
@@ -789,6 +814,7 @@ class ClaudeSession {
 
   /** Sets the query a re-attached session's next instruction launches, resuming it. */
   prepare(queryFunction: QueryFunction, options: Options): void {
+    this.#planExpected = options.permissionMode === 'plan';
     this.#pending = { query: queryFunction, options };
   }
 
@@ -815,6 +841,7 @@ class ClaudeSession {
 
   /** Launches the query with the first instruction. Resolves with the confirmed session id. */
   start(queryFunction: QueryFunction, options: Options, instruction: string): Promise<string> {
+    this.#planExpected = options.permissionMode === 'plan';
     const turn = this.#deliver(instruction);
     const handle = queryFunction({ prompt: this.#input, options });
     this.#query = handle;
@@ -875,9 +902,20 @@ class ClaudeSession {
         'Claude Agent accepts instructions only between turns.',
       );
     }
-    const reported = new Promise<boolean>((resolve) => {
-      this.#modeWaiter = (mode) => resolve(mode === 'default');
-      setTimeout(() => resolve(false), LEAVE_PLAN_WAIT_MS).unref?.();
+    // Every reported mode counts, not only the first: one still saying `plan` may come before the
+    // change lands (AUDIT3 4b S2). Only `default` is the plan left; any other mode is outside the
+    // level the task started at; only `plan` reported to the end says it is still a plan.
+    let latest: string | undefined;
+    const verdict = new Promise<'left' | 'still_plan' | 'other' | 'unknown'>((resolve) => {
+      this.#modeWaiter = (mode) => {
+        latest = mode;
+        if (mode === 'default') resolve('left');
+        else if (mode !== 'plan') resolve('other');
+      };
+      setTimeout(
+        () => resolve(latest === 'plan' ? 'still_plan' : 'unknown'),
+        this.#planSwitchWaitMs,
+      ).unref?.();
     });
     try {
       await handle.setPermissionMode('default');
@@ -888,12 +926,24 @@ class ClaudeSession {
         'Claude Code did not take the change out of plan mode, so the instruction was not sent and the task is still a plan.',
       );
     }
-    const left = await reported;
+    const outcome = await verdict;
     this.#modeWaiter = null;
-    if (!left) {
+    if (outcome === 'still_plan') {
       throw new RuntimeActionError(
         'runtime_refused',
-        'Claude Code did not report leaving plan mode, so the instruction was not sent and the task is still a plan.',
+        'Claude Code reported the session still in plan mode, so the instruction was not sent and the task is still a plan.',
+      );
+    }
+    if (outcome === 'other') {
+      const reason = `Claude Code reported the ${latest} mode on leaving plan mode, outside the level the task started at, so the session was stopped and the instruction was not sent.`;
+      this.#stopFor(reason);
+      throw new RuntimeActionError('runtime_refused', reason, 'unknown');
+    }
+    if (outcome === 'unknown') {
+      throw new RuntimeActionError(
+        'runtime_refused',
+        'Claude Code took the change out of plan mode but did not report its new mode, so the instruction was not sent, and the task may have left its plan.',
+        'unknown',
       );
     }
     this.#emit('runtime.plan.left', {}, observed('system.status'), 'plan-left');
@@ -1090,6 +1140,19 @@ class ClaudeSession {
           this.#modeWaiter?.(message.permissionMode);
         }
         if (message.subtype === 'init') {
+          // A plan asked for, at a start or a resume, that Claude Code reports in another mode is
+          // stopped before anything is recorded of it (AUDIT3 4b F1 and S1), as OpenCode's is.
+          if (this.#planExpected && !this.#planChecked) {
+            this.#planChecked = true;
+            if (message.permissionMode !== 'plan') {
+              this.#stopFor(
+                this.#nativeId === null
+                  ? `Claude Code started the session in the ${message.permissionMode} mode, not plan mode, so it was stopped and is not used; whether it began the instruction is unknown.`
+                  : `Claude Code resumed the session in the ${message.permissionMode} mode, not the plan mode it was recorded in, so it was stopped.`,
+              );
+              return;
+            }
+          }
           // The mode the start runs in, as Claude Code reports it: a plan is recorded only from this.
           this.#initMode ??= message.permissionMode;
           this.#evidence(message.session_id, 'system.init', message.uuid);
@@ -1252,6 +1315,31 @@ class ClaudeSession {
   }
 
   /** The query ended on its own, so the process is gone. A query that ends without a result has an unknown effect. */
+  /**
+   * Stops the session because what Claude Code reported broke what it was started or resumed with
+   * (PLAN): its turn, if one is waiting, fails with the reason; the session is lost and its process
+   * closed. Effect unknown: Claude Code may have begun before the report came.
+   */
+  #stopFor(reason: string): void {
+    if (this.#state !== 'open') return;
+    this.#state = 'lost';
+    const turn = this.#turn;
+    this.#turn = null;
+    turn?.confirmation.reject(new RuntimeActionError('runtime_refused', reason, 'unknown'));
+    if (this.#nativeId !== null) {
+      this.#emit('runtime.connection.lost', { reason }, observed('system.init'), 'stopped');
+    }
+    this.#approvals.clear();
+    this.#questions.clear();
+    this.#activeTools.clear();
+    this.#input.end();
+    try {
+      this.#query?.close();
+    } catch {
+      // Closing a query that already ended changes nothing.
+    }
+  }
+
   #lose(failure: unknown): void {
     this.#state = 'lost';
     const reason =

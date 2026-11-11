@@ -1861,6 +1861,121 @@ describe("Claude Code's own plan mode (PLAN 4b)", () => {
     assert.ok(types().indexOf('runtime.plan.left') < types().lastIndexOf('runtime.turn.started'));
   });
 
+  const planStart = async (setupOptions: Partial<ClaudeAgentRuntimeOptions> = {}) => {
+    const harness = setup(setupOptions);
+    const starting = harness.adapter.startExecution({
+      execution,
+      instruction: 'Plan the fix.',
+      options: {},
+      model_ref: null,
+      directory: WORKDIR,
+      plan: true,
+      emit: (observation) => harness.observed.push(observation),
+    });
+    return { ...harness, starting, scripted: harness.run() };
+  };
+  const refusedWith = (pattern: RegExp, effect: 'none' | 'unknown') => (error: unknown) =>
+    error instanceof RuntimeActionError &&
+    error.code === 'runtime_refused' &&
+    error.effect === effect &&
+    pattern.test(error.message);
+
+  test('C1: a plan start that Claude Code reports in another mode is stopped, refused and not kept (AUDIT3 4b F1)', async () => {
+    const { adapter, starting, scripted, observed } = await planStart();
+    scripted.emit(init(scripted.sessionId));
+    await assert.rejects(
+      starting,
+      refusedWith(/started the session in the default mode, not plan mode/, 'unknown'),
+    );
+    assert.equal(observed.length, 0, 'something was recorded of it');
+    await assert.rejects(
+      adapter.sendInstruction({ execution, text: 'Go on.' }),
+      (error: unknown) =>
+        error instanceof RuntimeActionError && error.code === 'execution_unknown_to_runtime',
+    );
+  });
+
+  const atRestInPlan = async (setupOptions: Partial<ClaudeAgentRuntimeOptions> = {}) => {
+    const harness = await planStart(setupOptions);
+    harness.scripted.emit(planInit(harness.scripted.sessionId));
+    await harness.starting;
+    harness.scripted.emit(success(harness.scripted.sessionId));
+    await settle();
+    return harness;
+  };
+
+  test('C2: after the switch, another mode than default stops the session, effect unknown (AUDIT3 4b F2)', async () => {
+    const { adapter, scripted, types } = await atRestInPlan();
+    const sending = adapter.sendInstruction({ execution, text: 'Carry it out.', leave_plan: true });
+    await settle();
+    scripted.emit(status(scripted.sessionId, 'acceptEdits'));
+    await assert.rejects(
+      sending,
+      refusedWith(/reported the acceptEdits mode on leaving plan mode/, 'unknown'),
+    );
+    assert.ok(!types().includes('runtime.plan.left'));
+    assert.ok(types().includes('runtime.connection.lost'), 'the session was not stopped');
+    assert.equal(scripted.delivered.length, 1, 'the instruction was sent');
+  });
+
+  test('after the switch, no new mode reported in time says the plan may have been left; only plan reported says still a plan', async () => {
+    const quiet = await atRestInPlan({ planSwitchWaitMs: 50 });
+    await assert.rejects(
+      quiet.adapter.sendInstruction({ execution, text: 'Carry it out.', leave_plan: true }),
+      refusedWith(
+        /did not report its new mode, so the instruction was not sent, and the task may have left its plan/,
+        'unknown',
+      ),
+    );
+    const stale = await atRestInPlan({ planSwitchWaitMs: 50 });
+    const sending = stale.adapter.sendInstruction({
+      execution,
+      text: 'Carry it out.',
+      leave_plan: true,
+    });
+    await settle();
+    stale.scripted.emit(status(stale.scripted.sessionId, 'plan'));
+    await assert.rejects(
+      sending,
+      refusedWith(
+        /still in plan mode, so the instruction was not sent and the task is still a plan/,
+        'none',
+      ),
+    );
+    assert.equal(stale.scripted.delivered.length, 1);
+  });
+
+  test('S1: a re-attached plan that Claude Code resumes in another mode is stopped (AUDIT3 4b S1)', async () => {
+    const { adapter, runs, observed } = setup({ sessionInfo: async () => ({ cwd: WORKDIR }) });
+    const SESSION_ID = '0f0e0d0c-0000-4000-8000-0000000000ff';
+    await adapter.reattach({
+      execution,
+      native_id: SESSION_ID,
+      options: {},
+      model_ref: null,
+      plan: true,
+      confined: false,
+      directory: WORKDIR,
+      cut_turn: null,
+      last_sequence: null,
+      emit: (observation) => observed.push(observation),
+    });
+    const sending = adapter.sendInstruction({ execution, text: 'Go on planning.' });
+    await settle();
+    const resumed = runs[0];
+    assert.ok(resumed !== undefined);
+    assert.equal(resumed.options.permissionMode, 'plan');
+    resumed.emit(init(SESSION_ID));
+    await assert.rejects(
+      sending,
+      refusedWith(
+        /resumed the session in the default mode, not the plan mode it was recorded in/,
+        'unknown',
+      ),
+    );
+    assert.ok(observed.some((o) => o.type === 'runtime.connection.lost'));
+  });
+
   test('a re-attached session that has not resumed cannot confirm leaving its plan, so nothing is sent', async () => {
     const { adapter, runs, observed } = setup({ sessionInfo: async () => ({ cwd: WORKDIR }) });
     await adapter.reattach({
