@@ -606,6 +606,14 @@ describe("a web page's own cards come into VR as pages of their own (VRIFY unit 
     );
   });
 
+  test('the kit lays out at most six pages, as the instruction says, so the arc stays readable (AUDIT pages SHOULD)', () => {
+    const pages = read('src/pages.ts');
+    assert.match(pages, /export const MAX_PAGES = 6;/);
+    assert.match(pages, /const shown = list\.slice\(0, MAX_PAGES\);/);
+    assert.match(pages, /const panels = shown\.map\(/);
+    assert.match(read('AGENTS.md'), /up to six of them/);
+  });
+
   test('the kit gives pages, and the agent is told when a web page becomes pages and how to press one', () => {
     assert.match(
       read('src/kit.ts'),
