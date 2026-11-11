@@ -49,7 +49,10 @@ namespace Halcyonic.XR.UI
         public const float TileGapDp = 16f;
         /// <summary>A well's corner: smaller than the panel's own 20 dp, so a well sits in the panel and never reads as a tile of its own.</summary>
         public const float TileCornerDp = 14f;
-        public const float WellAlpha = 0.045f;
+        public const float WellAlpha = 0.065f;
+
+        /// <summary>A neutral row's tile: a step stronger than a slot's well, so the mark reads as a tile over either room.</summary>
+        public const float RowTileAlpha = 0.09f;
         public const float SlotPadDp = 14f;
         public const float SlotFootDp = 16f;
         public const float SlotGlyphDp = 24f;
@@ -65,14 +68,14 @@ namespace Halcyonic.XR.UI
         public const float StatusCornerDp = 17f;
         public const float StepDp = 38f;
         public const float StepCornerDp = 12f;
-        public const float StepGlyphDp = 20f;
+        public const float StepGlyphDp = 24f;
         public const float StepJoinDp = 3f;
         public const float StepJoinGapDp = 8f;
         public const float StepNameDp = 17f;
         public const float StepNameLineDp = 21f;
         public const float StepNameGapDp = 36f;
-        public const float PipDp = 18f;
-        public const float PipCornerDp = 5f;
+        public const float PipDp = 14f;
+        public const float PipCornerDp = 4f;
         public const float PipGapDp = 4f;
         public const float PipLineDp = 2f;
         /// <summary>How far under its node a pip's foot hangs.</summary>
@@ -125,7 +128,12 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The page of reading's well: the panel's darkest, near solid, its rows 8 dp in from its top and foot.</summary>
         public const int ReadingWell = 0x0E1214;
-        public const float ReadingWellAlpha = 0.86f;
+
+        /// <summary>A changed run's band, the hue a fifth over the well, solid; the removed rule a lighter red so it weighs as the green.</summary>
+        public const int AddedBand = 0x203A2C;
+        public const int RemovedBand = 0x3D2929;
+        public const int RemovedRule = 0xFF8A80;
+        public const float ReadingWellAlpha = 1f;
         public const float ReadingWellPadDp = 8f;
 
         /// <summary>The colours of the language: the pass, failure and accent hues, and their deep grounds.</summary>
@@ -154,6 +162,18 @@ namespace Halcyonic.XR.UI
 
         /// <summary>A status mark stands solid, so nothing of the room shows through it (the critic, 2026-11-11).</summary>
         public const float StatusGroundAlpha = 1f;
+
+        /// <summary>
+        /// One recipe for every status mark and step node (the critics, 2026-11-11): the tone's own hue, solid and saturated,
+        /// its glyph bold and white over it; attention's amber is light, so its glyph is dark.
+        /// </summary>
+        public const int GoodFill = 0x2FA65A;
+        public const int BadFill = 0xD4463B;
+        public const int WorkingFill = 0x1F98C2;
+        public const int QuietFill = 0x4A535A;
+
+        /// <summary>A mark's glyph stroke, heavier than a row's, so it reads at a glance on a solid fill.</summary>
+        public const float MarkStroke = 3f;
 
         /// <summary>The tones' mid values, between hue and deep ground: a try's pip, never louder than the mark it hangs on.</summary>
         public const int PassedMid = 0x4C9C67;
@@ -356,19 +376,20 @@ namespace Halcyonic.XR.UI
             {
                 // Deep grounds of the tone's hue, near solid, the light ink over them: a faint tint vanished over the bright room
                 // (the critic, 2026-11-11), where the recap's solid head held.
-                RoomTone.Good => (Rgb(PassedGround, StatusGroundAlpha), Rgb(PassedInk), RoomGlyph.Check),
-                RoomTone.Bad => (Rgb(FailedGround, StatusGroundAlpha), Rgb(FailedInk), RoomGlyph.Alert),
-                RoomTone.Working => (Rgb(AccentGround, StatusGroundAlpha), Rgb(AccentNote), RoomGlyph.Wrench),
-                // Attention is the one bright mark: amber itself, its glyph dark on it, so it reads as wanted, never as dirt.
-                RoomTone.Attention => (Rgb(Attention, StatusGroundAlpha), Rgb(AttentionInk), RoomGlyph.Bubble),
-                _ => (Rgb(QuietGround, StatusGroundAlpha), White(0.90f), RoomGlyph.Minus),
+                RoomTone.Good => (Rgb(GoodFill), Color.white, RoomGlyph.Check),
+                RoomTone.Bad => (Rgb(BadFill), Color.white, RoomGlyph.Alert),
+                RoomTone.Working => (Rgb(WorkingFill), Color.white, RoomGlyph.Wrench),
+                // Attention's amber is light: its glyph dark on it, so it reads as wanted, never as dirt.
+                RoomTone.Attention => (Rgb(Attention), Rgb(AttentionInk), RoomGlyph.Bubble),
+                _ => (Rgb(QuietFill), Color.white, RoomGlyph.Minus),
             };
             if (status.Mark != RoomKind.None) glyph = GlyphOf(status.Mark);
             var left = S(StatusMarkDp + StatusGapDp);
             var column = width - left;
             var top = down;
             var under = card.Title != null;
-            var (titleLabel, titleTall) = Text(KitRole.Title, under ? UnderTitleStatusDp : StatusTitleDp, under ? UnderTitleStatusLineDp : StatusTitleLineDp, Color.white,
+            // Under a name the state is set in the reading face, so the name stays the heavier of the two.
+            var (titleLabel, titleTall) = Text(under ? KitRole.Body : KitRole.Title, under ? UnderTitleStatusDp : StatusTitleDp, under ? UnderTitleStatusLineDp : StatusTitleLineDp, Color.white,
                 LineWords.Ours(status.Title), left, -down, column, 2);
             var tall = titleTall;
             TextMeshPro? lineLabel = null;
@@ -390,7 +411,7 @@ namespace Halcyonic.XR.UI
             var middle = top + S(StatusMarkDp) / 2f;
             // A squircle, as the check nodes: a disc is only ever an answer.
             Plate(new Vector2(S(StatusMarkDp), S(StatusMarkDp)), S(StatusCornerDp), ground, new Vector2(S(StatusMarkDp) / 2f, -middle), "status mark");
-            Glyph(glyph, StatusGlyphDp, ink, new Vector2(S(StatusMarkDp) / 2f, -middle), "status " + status.Tone);
+            Glyph(glyph, StatusGlyphDp, ink, new Vector2(S(StatusMarkDp) / 2f, -middle), "status " + status.Tone, MarkStroke);
             if (card.TrackOf is int of)
             {
                 var used = Mathf.Clamp(card.TrackAt is int at ? at > of ? of : at : 0, 0, of);
@@ -436,8 +457,9 @@ namespace Halcyonic.XR.UI
             var advance = S(RoomReading.TypeDp) * RoomReading.AdvanceEm;
             var gutter = S(RoomReading.GutterDp);
             var pitch = S(RoomReading.LineDp);
-            foreach (var row in rows)
+            for (var index = 0; index < rows.Count; index++)
             {
+                var row = rows[index];
                 if (row.Kind == RoomLineKind.Gap)
                 {
                     // A hairline across, from the bands' own left edge, one dp at either size; where the gap says how many lines it
@@ -460,12 +482,20 @@ namespace Halcyonic.XR.UI
                 }
                 var middle = down + pitch / 2f;
                 var changed = row.Kind == RoomLineKind.Added || row.Kind == RoomLineKind.Removed;
+                if (changed && (index == 0 || rows[index - 1].Kind != row.Kind))
+                {
+                    // One band for the whole run of rows of this change, so no seam parts them; solid, the hue mixed into the
+                    // well, and a rule of the hue at its left as a diff marks a run (the critic, 2026-11-11).
+                    var run = 0;
+                    for (var next = index; next < rows.Count && rows[next].Kind == row.Kind; next++) run++;
+                    var runTall = run * pitch;
+                    var added = row.Kind == RoomLineKind.Added;
+                    var centreY = -(down + runTall / 2f);
+                    Plate(new Vector2(width, runTall), 0f, added ? Rgb(AddedBand) : Rgb(RemovedBand), new Vector2(width / 2f, centreY), "reading band");
+                    Plate(new Vector2(S(3f), runTall), 0f, added ? Rgb(Passed) : Rgb(RemovedRule), new Vector2(S(1.5f), centreY), "reading rule");
+                }
                 if (changed)
                 {
-                    var hue = row.Kind == RoomLineKind.Added ? Passed : Failed;
-                    // A band of its hue, strong enough over the bright room, and a rule of the hue at its left, as a diff marks a run.
-                    Plate(new Vector2(width, pitch), 0f, Rgb(hue, 0.20f), new Vector2(width / 2f, -middle), "reading band");
-                    Plate(new Vector2(S(2f), pitch), 0f, Rgb(hue, 0.9f), new Vector2(S(1f), -middle), "reading rule");
                     if (!row.Continued)
                         Glyph(row.Kind == RoomLineKind.Added ? RoomGlyph.Plus : RoomGlyph.Minus, RoomReading.MarkDp, Rgb(row.Kind == RoomLineKind.Added ? Passed : Failed),
                             new Vector2(S(RoomReading.GutterDp + RoomReading.MarkGapDp + RoomReading.MarkDp / 2f), -middle), "reading mark");
@@ -604,7 +634,9 @@ namespace Halcyonic.XR.UI
             var least = new float[count];
             for (var index = 0; index < count; index++)
             {
-                var laid = Text(KitRole.Body, CaptionTypeDp, CaptionLineDp, Color.white, slots[index].Value, 0f, 0f, RoomType.Units(2000f), 1);
+                var laid = slots[index].Mono
+                    ? Text(KitRole.Mono, CaptionTypeDp - 1f, CaptionLineDp, Color.white, slots[index].Value, 0f, 0f, RoomType.Units(2000f), 1)
+                    : Text(KitRole.Body, CaptionTypeDp, CaptionLineDp, Color.white, slots[index].Value, 0f, 0f, RoomType.Units(2000f), 1);
                 values.Add(laid);
                 least[index] = Mathf.Min(width, Mathf.Max(RoomCursor.WordsWidth(laid.Label, 0f), S(SlotGlyphBoxDp)) + 2f * S(SlotPadDp));
             }
@@ -644,9 +676,11 @@ namespace Halcyonic.XR.UI
                 {
                     var slot = slots[index];
                     // The first row meets both edges. A card of one slot stands it at its own width: a fact, not a bar across
-                    // the card (the critic, 2026-11-11). A wrapped row keeps the first row's columns, so its wells line up.
+                    // the card (the critic, 2026-11-11). A wrapped row keeps the first row's columns, so its wells line up; a
+                    // wrapped slot alone spans the card, never leaving a hole beside it.
                     var tile = count == 1 ? least[index]
                         : columns.Count < rows[0].Count ? (evenFits ? even : least[index] + Mathf.Max(0f, share))
+                        : row.Count == 1 ? width
                         : Mathf.Min(width - x, Mathf.Max(least[index], columns[Mathf.Min(place, columns.Count - 1)]));
                     if (columns.Count < rows[0].Count) columns.Add(tile);
                     place++;
@@ -695,7 +729,7 @@ namespace Halcyonic.XR.UI
             var tallest = 0f;
             for (var index = 0; index < steps.Count; index++)
             {
-                var (label, tall) = Text(KitRole.Label, StepNameDp, StepNameLineDp, steps[index].Tone == RoomTone.Skipped ? White(0.50f) : White(0.86f),
+                var (label, tall) = Text(KitRole.Label, StepNameDp, StepNameLineDp, steps[index].Tone == RoomTone.Skipped ? White(NoteAlpha) : White(0.90f),
                     steps[index].Words ?? LineWords.Ours(steps[index].Name ?? ""), 0f, 0f, width, 1, TextAlignmentOptions.Top);
                 labels[index] = label;
                 widths[index] = Mathf.Max(S(StepDp), RoomCursor.WordsWidth(label, 0f));
@@ -713,14 +747,15 @@ namespace Halcyonic.XR.UI
                 var centre = new Vector2(x + widths[index] / 2f, middle);
                 var (ground, ink, glyph, edge) = step.Tone switch
                 {
-                    RoomTone.Good => (Rgb(PassedGround), Rgb(PassedInk), (RoomGlyph?)RoomGlyph.Check, Color.clear),
-                    RoomTone.Bad => (Rgb(FailedGround), Rgb(FailedInk), RoomGlyph.Alert, Color.clear),
-                    RoomTone.Working => (Rgb(Accent, 0.22f), Rgb(AccentNote), RoomGlyph.Wrench, Rgb(Accent, 0.70f)),
-                    RoomTone.Skipped => (Color.clear, Color.clear, (RoomGlyph?)null, White(0.14f)),
-                    _ => (Rgb(StepGround), White(0.55f), RoomGlyph.Wait, White(0.18f)),
+                    RoomTone.Good => (Rgb(GoodFill), Color.white, (RoomGlyph?)RoomGlyph.Check, Color.clear),
+                    RoomTone.Bad => (Rgb(BadFill), Color.white, RoomGlyph.Alert, Color.clear),
+                    RoomTone.Working => (Rgb(WorkingFill), Color.white, RoomGlyph.Wrench, Color.clear),
+                    // Not run: an outline that holds over the bright room, nothing in it.
+                    RoomTone.Skipped => (Color.clear, Color.clear, (RoomGlyph?)null, White(0.36f)),
+                    _ => (Rgb(QuietFill), Color.white, RoomGlyph.Wait, Color.clear),
                 };
                 Plate(new Vector2(S(StepDp), S(StepDp)), S(StepCornerDp), ground, centre, "step " + step.Name, edge, edge.a > 0f ? S(2f) : 0f);
-                if (glyph is RoomGlyph shown) Glyph(shown, StepGlyphDp, ink, centre, "step " + step.Name);
+                if (glyph is RoomGlyph shown) Glyph(shown, StepGlyphDp, ink, centre, "step " + step.Name, MarkStroke);
                 if (step.TriesOf > 0) Pips(step.TriesUsed, step.TriesOf, step.Tone, new Vector2(centre.x, centre.y - S(StepDp) / 2f - S(PipDropDp) + S(PipDp) / 2f));
                 // The name centred under its mark.
                 var label = labels[index];
@@ -754,8 +789,8 @@ namespace Halcyonic.XR.UI
                     RoomTone.Bad => (Rgb(FailedGround, ToneTileAlpha * 2f), Rgb(FailedInk), White(NoteAlpha)),
                     RoomTone.Working => (Rgb(Accent, 0.16f), Rgb(Accent), White(NoteAlpha)),
                     RoomTone.Attention => (Rgb(Attention, 0.16f), Rgb(Attention), White(NoteAlpha)),
-                    // A neutral row's mark is a bare glyph, no well, so it never reads as an action's chip.
-                    _ => (Color.clear, White(0.85f), White(NoteAlpha)),
+                    // A neutral row's mark in a quiet tile, as a slot's (the critic, 2026-11-11: a bare glyph read as no mark).
+                    _ => (White(RowTileAlpha), White(0.85f), White(NoteAlpha)),
                 };
                 if (row.Chosen) (ground, ink) = (Rgb(Accent, 0.24f), Rgb(AccentNote));
                 // The note at the right first, so the name knows how far it may run.
@@ -848,7 +883,8 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private void Pips(int used, int of, RoomTone tone, Vector2 centre)
         {
-            var lit = tone switch { RoomTone.Good => Rgb(PassedMid), RoomTone.Bad => Rgb(FailedMid), RoomTone.Attention => Rgb(AttentionMid), _ => Rgb(AccentMid) };
+            // The node's own fill at 60 percent: never louder than the mark it hangs on.
+            var lit = tone switch { RoomTone.Good => Rgb(GoodFill, 0.6f), RoomTone.Bad => Rgb(BadFill, 0.6f), RoomTone.Attention => Rgb(Attention, 0.6f), _ => Rgb(WorkingFill, 0.6f) };
             var pitch = S(PipDp + PipGapDp);
             var from = centre.x - pitch * (of - 1) / 2f;
             for (var index = 0; index < of; index++)
@@ -899,11 +935,11 @@ namespace Halcyonic.XR.UI
             Plates.Add((plate, what));
         }
 
-        private void Glyph(RoomGlyph glyph, float dp, Color colour, Vector2 centre, string what)
+        private void Glyph(RoomGlyph glyph, float dp, Color colour, Vector2 centre, string what, float stroke = RoomGlyphs.Stroke)
         {
             if (glyphsUsed >= glyphs.Count) glyphs.Add(RoomGlyphView.Create(transform, "Mark", order));
             var view = glyphs[glyphsUsed++];
-            view.Show(glyph, dp * GlazeText.Scale, colour);
+            view.Show(glyph, dp * GlazeText.Scale, colour, stroke);
             view.transform.localPosition = new Vector3(centre.x, centre.y, -RoomType.Units(0.5f));
             Glyphs.Add((view, what));
         }

@@ -95,7 +95,7 @@ namespace Halcyonic.XR.Workspace.Editor
             rows.Add(RoomReadingRow.Gap(23));
             Line(RoomLineKind.Same, 38, "return trail;", 2);
             Line(RoomLineKind.Same, 39, "}", 0);
-            Line(RoomLineKind.Same, 41, "export default tail;", 0);
+            Line(RoomLineKind.Same, 40, "export default tail;", 0);
             return rows.Take(RoomReading.RowsAPage).ToArray();
         }
 
@@ -153,13 +153,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     new RoomCardStep("Types", RoomTone.Good), new RoomCardStep("Build", RoomTone.Bad, 2, 2), new RoomCardStep("Page", RoomTone.Skipped), new RoomCardStep("VR", RoomTone.Skipped),
                 }),
                 "47-card-fixing" => RoomBar.FixingCard(new Halcyonic.Contracts.AutoFixView
-                    { State = Halcyonic.Contracts.AutoFixViewState.Fixing, CheckId = "0193b3a0-0000-7000-8000-000000000001", Attempt = 1, Cap = 2 })!,
+                    {
+                        State = Halcyonic.Contracts.AutoFixViewState.Fixing, CheckId = "0193b3a0-0000-7000-8000-000000000001", Attempt = 1, Cap = 2,
+                        FailedSteps = new List<Halcyonic.Contracts.AutoFixViewFailedStepsItem> { Halcyonic.Contracts.AutoFixViewFailedStepsItem.Build },
+                    })!,
                 "47-card-usage" => new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge(Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
                 "47-card-needs-you" => new RoomCard(Theirs("Tail"), Theirs("Should the tail stream left or right?"),
-                    status: new RoomCardStatus("Needs You", "It asks you something below", RoomTone.Attention)),
-                "47-card-share" => new RoomCard(status: new RoomCardStatus("Shared", "Scan the code to play", RoomTone.Good),
+                    status: new RoomCardStatus("Needs You", "Waiting on your answer", RoomTone.Attention)),
+                "47-card-share" => new RoomCard(Theirs("Kite Run"), status: new RoomCardStatus("Shared", "Scan the code to play", RoomTone.Good),
                     slots: new[] { new RoomSlot(RoomKind.Wifi, Ours("192.168.1.20:47970")) },
-                    more: Ours("They play the last checked build, without your newer changes."), code: CardCode()),
+                    more: Ours("Players get the last checked build, not your newer changes."), code: CardCode()),
                 // kite.js as the Changes list has it, edited: three lines added, one removed, each count by its own mark.
                 "47-card-reading" => new RoomCard(Theirs("kite.js"), slots: new[]
                     {
@@ -297,7 +300,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(Mathf.Abs(shown.transform.localPosition.x - want) < slack, row.Text!.Text + " does not stand at its indent");
                     Require(shown.transform.localPosition.x + RoomCursor.WordsWidth(shown, 0f) <= inner - RoomType.Scaled(RoomReading.RightPadDp) + slack, row.Text.Text + " runs into the room kept at the right");
                 }
-                Require(view.Plates.Count(each => each.What == "reading band") == card.Reading.Count(row => row.Kind == RoomLineKind.Added || row.Kind == RoomLineKind.Removed), "a changed row has no band");
+                // One band per run of rows of one change, so no seam parts them.
+                var runs = card.Reading.Where((row, index) => (row.Kind == RoomLineKind.Added || row.Kind == RoomLineKind.Removed) && (index == 0 || card.Reading[index - 1].Kind != row.Kind)).Count();
+                Require(view.Plates.Count(each => each.What == "reading band") == runs, "the page draws " + view.Plates.Count(each => each.What == "reading band") + " bands for " + runs + " changed runs");
                 Require(view.Glyphs.Count(each => each.What == "reading mark") == card.Reading.Count(row => (row.Kind == RoomLineKind.Added || row.Kind == RoomLineKind.Removed) && !row.Continued), "a changed line has no mark");
                 Require(view.Plates.Count(each => each.What == "reading gap") == card.Reading.Count(row => row.Kind == RoomLineKind.Gap), "a gap has no hairline");
                 foreach (var gap in card.Reading.Where(row => row.Kind == RoomLineKind.Gap && row.Number is int))
