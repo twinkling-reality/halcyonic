@@ -38,6 +38,7 @@ credential instead (below, and [SECURITY.md](SECURITY.md)).
 | `GET /api/devices` | Loopback only. `DevicesResponse`: every device paired, revoked ones included, and which have a realtime connection open |
 | `POST /api/devices/:device_id/revoke` | Loopback only. Revokes the device (again is harmless) and answers its `DeviceView`; 404 for a device never paired |
 | `POST /api/device/revoke` | Network listener only. The calling device revokes its own credential, as forgetting the control plane does; 204 |
+| `GET /api/projects/:project_id/preview/...` | Network listener only, to a paired device. The project's preview relayed from its own port on 127.0.0.1, GET and HEAD only, while it serves the latest check, passed, with `reads_confined` ([ADR 0052](../decisions/0052-a-preview-reaches-a-paired-headset-through-a-loopback-relay.md)); 409 with the reason's code otherwise; only the file's own headers come back, with `Cache-Control: no-store` |
 | `GET /api/device/listener` | Network listener only, to a paired device. `NetworkListener`: where it can reach the listener now, the computer's `.local` name first, so it finds the computer again at a new address (below); 503 `unavailable` before the listener listens |
 
 Command submission answers honestly:

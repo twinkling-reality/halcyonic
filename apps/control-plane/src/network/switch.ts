@@ -9,6 +9,7 @@ import { loadOrCreateNetworkIdentity } from './certificate.ts';
 import type { DeviceAccess } from './devices.ts';
 import { describeListener, readLocalName } from './listener.ts';
 import { Pairing, type PairingLimits } from './pairing.ts';
+import type { PreviewTarget } from './preview-relay.ts';
 import { createNetworkServer, type NetworkLimits } from './server.ts';
 
 export interface NetworkSwitchOptions {
@@ -28,6 +29,8 @@ export interface NetworkSwitchOptions {
    */
   readonly describeHost?: string;
   readonly interfaces?: () => NodeJS.Dict<NetworkInterfaceInfo[]>;
+  /** Where a project's preview is relayed from to a paired device (ADR 0052); none, no relay. */
+  readonly previewTarget?: (projectId: string) => PreviewTarget;
 }
 
 interface Listening {
@@ -131,6 +134,7 @@ export class NetworkSwitch {
       clock: options.clock,
       ...(options.limits === undefined ? {} : { limits: options.limits }),
       listener: () => describe?.() ?? null,
+      ...(options.previewTarget === undefined ? {} : { previewTarget: options.previewTarget }),
     });
     try {
       await server.listen({ host: config.host, port: config.port });
