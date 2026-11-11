@@ -38,7 +38,9 @@ namespace Halcyonic.Client
     /// loopback address the computer's <c>adb reverse</c> carries): the preview's own port, which the computer reverses
     /// to its own preview. The app cannot see a reverse; it reads the cable from its target alone.</item>
     /// <item>Over the pairing (a paired target): the port the app's own relay serves on the headset's loopback, which
-    /// forwards to the computer's preview over the paired, pinned connection; null until the relay serves it.</item>
+    /// forwards to the computer's preview over the paired, pinned connection (ADR 0052). The Unity layer starts that relay
+    /// when the address opens, so the action stands where the app can relay (<c>relays</c>), and the port is known only
+    /// then.</item>
     /// </list>
     /// The host decides; this only keeps the action from offering what cannot open. No real instruction is sent.
     /// </summary>
@@ -58,9 +60,10 @@ namespace Halcyonic.Client
         /// reaches (<paramref name="target"/>), whether a demonstration of any kind shows (<paramref name="demonstration"/>,
         /// as the menu's director reads it: the recorded run, or one for a computer that cannot be reached; its projects
         /// and their preview ports are not the person's, so nothing of them opens), and the loopback port the app's relay
-        /// serves this project's preview on, if it does (<paramref name="relayPort"/>).
+        /// serves this project's preview on, if it does (<paramref name="relayPort"/>), or whether the app can start a relay
+        /// for it when it opens (<paramref name="relays"/>, ADR 0052): on a paired computer either lets the action stand.
         /// </summary>
-        public static PlayInHeadset For(ProjectView project, ControlPlaneTarget? target, bool demonstration, int? relayPort = null)
+        public static PlayInHeadset For(ProjectView project, ControlPlaneTarget? target, bool demonstration, int? relayPort = null, bool relays = false)
         {
             if (project == null) throw new ArgumentNullException(nameof(project));
             if (demonstration) return PlayInHeadset.Demonstration;
@@ -70,7 +73,7 @@ namespace Halcyonic.Client
             if (check.Files != ProjectViewCheckFiles.Current) return PlayInHeadset.FilesNotChecked;
             if (!check.Findings.Passed) return PlayInHeadset.CheckNotPassed;
             if (!check.Findings.ReadsConfined) return PlayInHeadset.NotConfined;
-            if (target.Pairing != null && relayPort == null) return PlayInHeadset.NoWayToHeadset;
+            if (target.Pairing != null && relayPort == null && !relays) return PlayInHeadset.NoWayToHeadset;
             if (ProjectPlayFacts.PreviewOfLatestCheck(project) == null) return PlayInHeadset.NoPreviewOfCheck;
             return PlayInHeadset.Offered;
         }
@@ -102,10 +105,11 @@ namespace Halcyonic.Client
         }
 
         /// <summary>The command a press sends for <paramref name="project"/>: the preview's start where none runs, else null (the address opens).</summary>
-        public static CommandEnvelope? CommandFor(ProjectView project, ControlPlaneTarget? target, bool demonstration, CommandFactory commands, int? relayPort = null)
+        public static CommandEnvelope? CommandFor(ProjectView project, ControlPlaneTarget? target, bool demonstration, CommandFactory commands, int? relayPort = null,
+            bool relays = false)
         {
             if (commands == null) throw new ArgumentNullException(nameof(commands));
-            return For(project, target, demonstration, relayPort) == PlayInHeadset.NoPreviewOfCheck
+            return For(project, target, demonstration, relayPort, relays) == PlayInHeadset.NoPreviewOfCheck
                 ? commands.StartPreview(project.ProjectId)
                 : null;
         }
@@ -150,9 +154,11 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The address to open now, once, from <paramref name="state"/>; null while the preview is still starting or
-        /// when the wait ended without one (the project gone, or Play in Headset refused).
+        /// when the wait ended without one (the project gone, or Play in Headset refused). On a paired computer,
+        /// <paramref name="relay"/> starts the app's relay for a project and answers its loopback port (null where it
+        /// could not); it is asked only at the moment the address opens, never while the preview is still starting.
         /// </summary>
-        public Uri? Advance(ClientProjection? state, ControlPlaneTarget? target, bool demonstration, int? relayPort = null)
+        public Uri? Advance(ClientProjection? state, ControlPlaneTarget? target, bool demonstration, int? relayPort = null, Func<string, int?>? relay = null)
         {
             if (ProjectId == null || state == null) return null;
             if (!state.Projects.TryGetValue(ProjectId, out var project))
@@ -160,10 +166,12 @@ namespace Halcyonic.Client
                 ProjectId = null;
                 return null;
             }
-            var play = HeadsetPlay.For(project, target, demonstration, relayPort);
+            var play = HeadsetPlay.For(project, target, demonstration, relayPort, relay != null);
             if (play == PlayInHeadset.NoPreviewOfCheck) return null;
             ProjectId = null;
-            return play == PlayInHeadset.Offered ? HeadsetPlay.AddressOf(project, target, demonstration, relayPort) : null;
+            if (play != PlayInHeadset.Offered) return null;
+            var port = relayPort ?? (target?.Pairing != null ? relay?.Invoke(project.ProjectId) : null);
+            return HeadsetPlay.AddressOf(project, target, demonstration, port);
         }
     }
 }

@@ -27,12 +27,14 @@ namespace Halcyonic.XR.Editor
 
         /// <summary>
         /// The permissions the record names: hands, the room's anchors and scene, the network, the microphone for hold to
-        /// talk, and AndroidX's own receiver permission, which is named after the package.
+        /// talk, the preview relay's foreground service and its special-use type (ADR 0052), and AndroidX's own receiver
+        /// permission, which is named after the package.
         /// </summary>
         internal static readonly string[] Named =
         {
             "com.oculus.permission.HAND_TRACKING", "com.oculus.permission.USE_ANCHOR_API", "com.oculus.permission.USE_SCENE",
             "android.permission.INTERNET", "android.permission.RECORD_AUDIO",
+            "android.permission.FOREGROUND_SERVICE", "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
         };
 
         private const string ReceiverSuffix = ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION";

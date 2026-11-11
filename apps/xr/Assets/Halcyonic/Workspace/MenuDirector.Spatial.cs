@@ -198,9 +198,10 @@ namespace Halcyonic.XR.Workspace
             var run = now.Execution?.ExecutionId;
             var (page, part) = setup.Presentation.ResultPageFor(now.Character.WorkstreamId, run);
             var task = State!.Workstreams.TryGetValue(now.Character.WorkstreamId, out var work) ? work : null;
-            return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (ControlPlaneSettings.Target(), Demonstration), task,
+            var target = ControlPlaneSettings.Target();
+            return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (target, Demonstration), task,
                 page == RoomResultPage.History ? HistoryFor(projectId) : null, page == RoomResultPage.Share ? ShareFor(projectId) : null,
-                canSend: CanSendShare);
+                canSend: CanSendShare, relays: HeadsetRelay.Serves(target));
         }
 
         /// <summary>
@@ -788,14 +789,16 @@ namespace Halcyonic.XR.Workspace
         /// <summary>
         /// DEVICE's Play in Headset pressed on the result: where no preview of the latest check runs, its start is sent and the
         /// press waits for it (<see cref="HeadsetPlayWait"/>); where one runs, Quest Browser opens its loopback address. Nothing
-        /// where Play in Headset does not stand (the refusal's words are not pressable).
+        /// where Play in Headset does not stand (the refusal's words are not pressable). On a paired computer the app's own
+        /// relay serves the preview on the headset's loopback, started as the address opens (<see cref="HeadsetRelay"/>).
         /// </summary>
         private void PlayInHeadset(string projectId)
         {
             if (Demonstration || State?.Projects.TryGetValue(projectId, out var project) != true) return;
             var target = ControlPlaneSettings.Target();
-            if (!HeadsetPlay.Stands(HeadsetPlay.For(project!, target, Demonstration))) return;
-            if (HeadsetPlay.CommandFor(project!, target, Demonstration, setup.Commands) is CommandEnvelope command)
+            var relays = HeadsetRelay.Serves(target);
+            if (!HeadsetPlay.Stands(HeadsetPlay.For(project!, target, Demonstration, relays: relays))) return;
+            if (HeadsetPlay.CommandFor(project!, target, Demonstration, setup.Commands, relays: relays) is CommandEnvelope command)
             {
                 if (!Connected || Demonstration || setup.Session() is not RealtimeSession session) return;
                 setup.Presentation.RecordCommandDispatched(command);
@@ -804,7 +807,8 @@ namespace Halcyonic.XR.Workspace
                 dirty = true;
                 return;
             }
-            HeadsetBrowser.Open(HeadsetPlay.AddressOf(project!, target, Demonstration));
+            var port = target?.Pairing != null ? HeadsetRelay.PortFor(target, projectId) : null;
+            HeadsetBrowser.Open(HeadsetPlay.AddressOf(project!, target, Demonstration, port));
         }
 
         /// <summary>Sends <paramref name="command"/> where the computer is connected and no recording plays; false where it cannot.</summary>
@@ -830,7 +834,9 @@ namespace Halcyonic.XR.Workspace
                 return;
             }
             // HeadsetBrowser opens only an address HeadsetPlay.IsOpenable admits; null opens nothing.
-            HeadsetBrowser.Open(headsetPlay.Advance(State, ControlPlaneSettings.Target(), Demonstration));
+            var target = ControlPlaneSettings.Target();
+            HeadsetBrowser.Open(headsetPlay.Advance(State, target, Demonstration,
+                relay: HeadsetRelay.Serves(target) ? project => HeadsetRelay.PortFor(target, project) : null));
         }
 
         private void OnScreenActed(KitScreenAction action, string? projectId)

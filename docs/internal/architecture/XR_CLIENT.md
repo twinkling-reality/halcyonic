@@ -1716,8 +1716,12 @@ press sends `StartPreview` and `HeadsetPlayWait` opens the address once the view
 `Offered`. Quest Browser always opens a loopback address, `http://127.0.0.1:{port}/`, a secure context there, so
 WebXR can be offered. The way decides the port: with a local target (`ControlPlaneTarget.Pairing` null, the control
 plane reached through the computer's `adb reverse`) the preview's own port, which the computer must reverse too;
-with a paired target the port the app's own relay serves on the headset's loopback (LINK's relay; null until it
-exists). The app cannot see a reverse, so it reads the cable from its target alone. Refusals in the product's
+with a paired target the port the app's own relay serves on the headset's loopback. Since 2026-11-11 the Unity
+layer's `HeadsetRelay` starts that relay (`PreviewRelay`, ADR 0052) as the address opens, at the press or when a
+waited-for preview starts running (`HeadsetPlayWait.Advance` asks its `relay` only then), so on the headset with a
+paired target the action stands (`relays`). The relay holds `PreviewRelayService` in the foreground while it serves, one
+project at a time, and stops when Halcyonic comes back to the front after the browser, when another project's preview
+opens, when the pairing changes and when the app quits. The app cannot see a reverse, so it reads the cable from its target alone. Refusals in the product's
 words: Preview on Your Computer where the check is not confined, Connect by Cable where paired with no relay;
 every other refusal hides the action, as Try Build is hidden. `HeadsetBrowser.Open` (Unity layer) opens only an
 address `HeadsetPlay.IsOpenable` admits (http, 127.0.0.1, a port, the root path, nothing else) with the view intent
