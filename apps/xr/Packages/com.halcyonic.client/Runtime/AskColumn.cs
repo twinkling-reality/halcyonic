@@ -91,8 +91,12 @@ namespace Halcyonic.Client
             public const string WaitingLine = "The agent is doing what it asked";
             public const string NeedsYou = "Needs You";
             public const string NeedsYouLine = "It asks you something below";
+            /// <summary>Waiting for the person with no question of the assistant's on the band (AUDIT MUST 1): it claims nothing the screen lacks.</summary>
+            public const string WaitsLine = "It waits for you";
             public const string Answered = "Answered";
             public const string AnsweredLine = "The assistant's reply is below";
+            /// <summary>Responded with no reply to show (AUDIT MUST 1).</summary>
+            public const string NoReplyLine = "No reply came";
             public const string AnsweredBy = "Answered by ";
             public const string NotAnswered = "Not Answered";
             public const string NotSent = "Not Sent";
@@ -106,7 +110,10 @@ namespace Halcyonic.Client
 
         private readonly CommandFactory commands;
         private string draft = "";
-        private string? model, reply, notAnswered;
+        private string? reply, notAnswered;
+
+        /// <summary>The model that wrote the reply, from the reply alone; never the one offered (AUDIT MUST 2).</summary>
+        private string? repliedBy;
         private bool unavailable, notSent, stopped;
 
         public AskColumn(CommandFactory commands, AskScope scope)
@@ -132,6 +139,9 @@ namespace Halcyonic.Client
         /// <summary>Whether the bar may offer Send now: words to send, an assistant, nothing sent yet.</summary>
         public bool CanSend => Stage == AskStage.Writing && draft.Trim().Length > 0 && !unavailable;
 
+        /// <summary>Whether the computer said it has no assistant, as its latest read of it says.</summary>
+        public bool Unavailable => unavailable;
+
         /// <summary>The words the person writes or speaks, while nothing is sent.</summary>
         public void Write(string? words)
         {
@@ -140,17 +150,15 @@ namespace Halcyonic.Client
             Changed?.Invoke();
         }
 
-        /// <summary>What the computer says of its assistant: its model, or that there is none.</summary>
+        /// <summary>What the computer says of its assistant: that it has one, or that there is none. Its model is not who answered.</summary>
         public void Offer(WorkspaceAgentStatus? status)
         {
             switch (status)
             {
-                case AvailableWorkspaceAgent available:
-                    model = available.Model;
+                case AvailableWorkspaceAgent:
                     unavailable = false;
                     break;
                 case UnavailableWorkspaceAgent:
-                    model = null;
                     unavailable = true;
                     break;
                 default:
@@ -214,7 +222,7 @@ namespace Halcyonic.Client
             if (view.Reply != null)
             {
                 reply = view.Reply.Text;
-                model = view.Reply.Model;
+                repliedBy = view.Reply.Model;
             }
             switch (status)
             {
@@ -274,10 +282,13 @@ namespace Halcyonic.Client
                     case AskStage.Waiting:
                         return Status(Words.Waiting, Words.WaitingLine, RoomTone.Working, asked);
                     case AskStage.NeedsYou:
-                        return Status(Words.NeedsYou, Words.NeedsYouLine, RoomTone.Attention, asked);
+                        // "Below" only where the band holds the assistant's question (AUDIT MUST 1).
+                        return Status(Words.NeedsYou, Band != null ? Words.NeedsYouLine : Words.WaitsLine, RoomTone.Attention, asked);
                     case AskStage.Answered:
                         // An answer is a report, not a passed check: quiet, never green. The model on the foot line, never a slot.
-                        return Status(Words.Answered, Words.AnsweredLine, RoomTone.Quiet, asked, AnsweredBy);
+                        return Band != null
+                            ? Status(Words.Answered, Words.AnsweredLine, RoomTone.Quiet, asked, AnsweredBy)
+                            : Status(Words.Answered, Words.NoReplyLine, RoomTone.Quiet, asked);
                     default:
                         var title = stopped ? Words.Stopped : notSent ? Words.NotSent : Words.NotAnswered;
                         return Status(title, notAnswered, RoomTone.Bad, asked);
@@ -295,12 +306,15 @@ namespace Halcyonic.Client
         /// <summary>The assistant's words, outside and reported, or null before it has any.</summary>
         private LineWords? Reported => reply == null || LineWords.Theirs(reply).Text.Length == 0 ? null : LineWords.Theirs(reply);
 
-        /// <summary>"Answered by" and the model as every model chip names it and as a capture hides it (CaptureNames), or null.</summary>
+        /// <summary>
+        /// "Answered by" and the model that wrote the reply, as every model chip names it and as a capture hides it
+        /// (CaptureNames), or null: only from the reply's own model, never the model the computer offered (AUDIT MUST 2).
+        /// </summary>
         private LineWords? AnsweredBy
         {
             get
             {
-                var named = model == null ? null : CaptureNames.ModelNameOrNull(KitPresenter.ShortModelName(model) ?? model);
+                var named = repliedBy == null ? null : CaptureNames.ModelNameOrNull(KitPresenter.ShortModelName(repliedBy) ?? repliedBy);
                 return named == null ? null : LineWords.Ours(Words.AnsweredBy) + LineWords.TheirName(named);
             }
         }

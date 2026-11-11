@@ -30,8 +30,8 @@ namespace Halcyonic.Client
                     typing.Add(new RoomAction(new KitControl(KitPlace.Step, frame, line.Action, line.Key, line.Words, line.Icon, true, null, false),
                         main: false, icon: line.Icon ?? GlazeIcon.Type));
                 }
-                // The person's answer as written or heard: theirs, which the card's panel does not hold; it stands on its line.
-                else if (line.Action != null || !line.Runs.AllTheirs) return null;
+                // The person's answer as written or heard (theirs), or a word that a press did not go (ours): each on its line.
+                else if (line.Action != null) return null;
             }
             RoomAction? main = null;
             RoomAction? talk = null;
@@ -65,8 +65,9 @@ namespace Halcyonic.Client
             column.AddRange(typing);
             column.AddRange(others);
             column.AddRange(leaving);
-            var answer = frame.Lines.FirstOrDefault(line => line.Action == null && !line.Claim);
-            return new RoomBar(RoomBarState.Page, body: answer?.Runs ?? LineWords.None, column: column, band: band) { Card = card };
+            var loose = frame.Lines.Where(line => line.Action == null && !line.Claim).Select(line => line.Runs).ToList();
+            return new RoomBar(RoomBarState.Page, body: loose.FirstOrDefault() ?? LineWords.None, column: column, band: band,
+                lines: loose.Count > 1 ? loose : null) { Card = card };
         }
     }
 }

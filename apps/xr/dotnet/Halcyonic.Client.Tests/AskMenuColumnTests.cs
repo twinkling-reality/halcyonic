@@ -124,4 +124,35 @@ public class AskMenuColumnTests
         column.Act(Footer.Close, null);
         Assert.That(closed, Is.True);
     }
+
+    [Test]
+    public void ARefusedAnswerIsKeptAndSaysItDidNotGo()
+    {
+        // AUDIT SHOULD 1.
+        var (column, host) = Make();
+        column.Ask.Write("Is it working?");
+        column.Act(AskMenuColumn.Send, null);
+        Held(column, host.Sent.Single().CommandId, View("waiting_for_human", "Which page?"));
+        host.Refuse = true;
+        column.HoldStarted(AskMenuColumn.Talk);
+        column.Heard("The home page");
+        column.Act(AskMenuColumn.Answer, null);
+        column.Tick();
+        Assert.That(column.AnswerDraft, Is.EqualTo("The home page"), "the refused answer is kept");
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Does.Contain(AskMenuColumn.Words.AnswerDidNotGo));
+    }
+
+    [Test]
+    public void WithNoAssistantThereIsNothingToWriteOrSay()
+    {
+        // AUDIT SHOULD 2.
+        var host = new FileMenuHost();
+        var column = new AskMenuColumn(host, commands, AskScope.AllWork());
+        column.Ask.Offer(new UnavailableWorkspaceAgent { Reason = new ErrorInfo { Code = "not_configured", Message = "No model." } });
+        var frame = column.Frame!;
+        Assert.That(Ids(frame), Does.Not.Contain(AskMenuColumn.Talk));
+        Assert.That(frame.Lines.Any(line => line.Action == AskMenuColumn.Type), Is.False);
+        column.Ask.Offer(new AvailableWorkspaceAgent { Model = "muse-glimmer:30b-mlx" });
+        Assert.That(Ids(column.Frame!), Does.Contain(AskMenuColumn.Talk));
+    }
 }

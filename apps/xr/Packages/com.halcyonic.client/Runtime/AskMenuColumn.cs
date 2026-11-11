@@ -37,14 +37,23 @@ namespace Halcyonic.Client
             public const string Close = "Close";
             public const string QuestionPrompt = "Ask the assistant";
             public const string AnswerPrompt = "Answer the assistant";
+            /// <summary>A refused Send Answer, the answer kept (AUDIT SHOULD 1; FIELD to settle).</summary>
+            public const string AnswerDidNotGo = "Your answer did not go";
+            /// <summary>A refused Stop (AUDIT SHOULD 1; FIELD to settle).</summary>
+            public const string StopDidNotGo = "It did not stop";
         }
 
         /// <summary>How often the request is read while it is under way.</summary>
         public const double ReadEverySeconds = 2;
 
+        /// <summary>How often the assistant's availability is read again while there is none (AUDIT SHOULD 2).</summary>
+        public const double OfferEverySeconds = 30;
+
         private readonly IMenuHost host;
         private readonly CommandFactory commands;
-        private Task<CommandAckMessage>? acknowledgement;
+        private Task<CommandAckMessage>? acknowledgement, answered, stopped;
+        private string? sentAnswer, notice;
+        private double nextOffer = double.NegativeInfinity;
         private Task<WorkspaceAgentStatus>? offer;
         private Task<WorkspaceRequestResponse>? reading;
         private bool offerAsked, talking;
@@ -71,7 +80,8 @@ namespace Halcyonic.Client
         private bool Stoppable =>
             Ask.RequestId != null && Ask.Stage is AskStage.Thinking or AskStage.Waiting or AskStage.NeedsYou;
 
-        private bool WordsOpen => Ask.Stage is AskStage.Writing or AskStage.NeedsYou;
+        /// <summary>Words can be written or spoken: while writing or answering, and only while there is an assistant to send them to.</summary>
+        private bool WordsOpen => (Ask.Stage is AskStage.Writing or AskStage.NeedsYou) && !Ask.Unavailable;
 
         public MenuFrame? Frame
         {
@@ -90,6 +100,7 @@ namespace Halcyonic.Client
                 // The assistant's words, its question or its reply: the band's, as a claim, never the panel's.
                 if (Ask.Band is LineWords said) lines.Add(new PageLine(LabelText.Plain(said.Text), wordsAreData: true, claim: true));
                 if (Ask.Stage == AskStage.NeedsYou && answer.Trim().Length > 0) lines.Add(new PageLine(LineWords.Theirs(answer.Trim())));
+                if (notice != null) lines.Add(new PageLine(notice));
                 if (WordsOpen && host.KeyboardOffered)
                     lines.Add(new PageLine(Ask.Stage == AskStage.NeedsYou ? Words.TypeAnswer : Words.TypeQuestion, icon: GlazeIcon.Type, action: Type));
                 return new MenuFrame(Subject, new Footer(close, rare: stop, secondary: talk, farRight: main), lines: lines).WithCard(Ask.Card);
@@ -106,14 +117,18 @@ namespace Halcyonic.Client
                     if (command != null) acknowledgement = host.Submit(command);
                     return;
                 }
-                case Answer when Ask.Stage == AskStage.NeedsYou && Ask.RequestId != null && answer.Trim().Length > 0:
-                    host.Submit(commands.ResumeRequest(Ask.RequestId, answer.Trim()));
+                case Answer when Ask.Stage == AskStage.NeedsYou && Ask.RequestId != null && answer.Trim().Length > 0 && answered == null:
+                    // The answer stays until the computer takes it: a refusal keeps it and says so (AUDIT SHOULD 1).
+                    sentAnswer = answer;
+                    answered = host.Submit(commands.ResumeRequest(Ask.RequestId, answer.Trim()));
                     answer = "";
+                    notice = null;
                     nextRead = double.NegativeInfinity;
                     Changed?.Invoke();
                     return;
-                case Stop when Stoppable:
-                    host.Submit(commands.CancelRequest(Ask.RequestId!));
+                case Stop when Stoppable && stopped == null:
+                    stopped = host.Submit(commands.CancelRequest(Ask.RequestId!));
+                    notice = null;
                     nextRead = double.NegativeInfinity;
                     return;
                 case Type when WordsOpen && host.KeyboardOffered:
@@ -160,10 +175,32 @@ namespace Halcyonic.Client
         public void Tick()
         {
             var api = host.Api;
-            if (!offerAsked && api != null)
+            // Once on opening, and again on a slow beat while there is no assistant, so the column learns it came back.
+            if (offer == null && api != null && (!offerAsked || (Ask.Unavailable && Ask.Stage == AskStage.Writing && host.Now >= nextOffer)))
             {
                 offerAsked = true;
+                nextOffer = host.Now + OfferEverySeconds;
                 offer = api.GetWorkspaceAgentAsync();
+            }
+            if (answered is { IsCompleted: true } resumed)
+            {
+                answered = null;
+                if (Refused(resumed))
+                {
+                    if (answer.Trim().Length == 0) answer = sentAnswer ?? "";
+                    notice = Words.AnswerDidNotGo;
+                    Changed?.Invoke();
+                }
+                sentAnswer = null;
+            }
+            if (stopped is { IsCompleted: true } stopping)
+            {
+                stopped = null;
+                if (Refused(stopping))
+                {
+                    notice = Words.StopDidNotGo;
+                    Changed?.Invoke();
+                }
             }
             if (offer is { IsCompleted: true } offered)
             {
@@ -186,6 +223,11 @@ namespace Halcyonic.Client
                 reading = api.ReadWorkspaceRequestAsync(requestId);
             }
         }
+
+        /// <summary>A press the computer refused, or that never reached it.</summary>
+        private static bool Refused(Task<CommandAckMessage> ack) =>
+            ack.Status != TaskStatus.RanToCompletion || ack.Result == null
+            || ack.Result.Disposition is CommandAckDisposition.Rejected or CommandAckDisposition.Conflict;
 
         public void Drawn(MenuFrame drawn, Footer? sidePanel) { }
         public void FocusLeft() => talking = false;

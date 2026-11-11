@@ -198,4 +198,41 @@ public class AskColumnTests
         ask.Read(View(scope, "failed"));
         Assert.That(ask.Card.AnyDot, Is.False, "failed");
     }
+
+    [Test]
+    public void BelowIsSaidOnlyWhereTheBandHoldsWords()
+    {
+        // AUDIT MUST 1: a responded request with no reply, and a wait with no question of the assistant's.
+        foreach (var (status, title, line) in new[]
+        {
+            ("responded", AskColumn.Words.Answered, AskColumn.Words.NoReplyLine),
+            ("waiting_for_human", AskColumn.Words.NeedsYou, AskColumn.Words.WaitsLine),
+        })
+        {
+            var scope = AskScope.Project(ProjectId, "Kite Run");
+            var ask = new AskColumn(commands, scope);
+            ask.Write("Is it working?");
+            ask.Acknowledge(Created(ask.Submit()!.CommandId));
+            ask.Read(View(scope, status));
+            Assert.That(ask.Band, Is.Null, status);
+            Assert.That(ask.Card.Status!.Value.Title, Is.EqualTo(title), status);
+            Assert.That(ask.Card.Status.Value.Line, Is.EqualTo(line), status);
+            Assert.That(ask.Card.Words(), Has.None.Contains("below"), status);
+        }
+    }
+
+    [Test]
+    public void TheFootLineNamesOnlyTheModelThatWroteTheReply()
+    {
+        // AUDIT MUST 2: the offered model is not who answered.
+        var scope = AskScope.Project(ProjectId, "Kite Run");
+        var ask = new AskColumn(commands, scope);
+        ask.Offer(new AvailableWorkspaceAgent { Model = "offered-model:7b" });
+        ask.Write("Is it working?");
+        ask.Acknowledge(Created(ask.Submit()!.CommandId));
+        ask.Read(View(scope, "responded"));
+        Assert.That(ask.Card.More, Is.Null, "no reply, no foot line");
+        ask.Read(View(scope, "responded", "Yes."));
+        Assert.That(ask.Card.More!.Text, Is.EqualTo("Answered by muse-glimmer:30b-mlx"));
+    }
 }

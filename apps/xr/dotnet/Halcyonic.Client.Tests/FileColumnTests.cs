@@ -18,6 +18,9 @@ internal sealed class FileMenuHost : IMenuHost
 
     public bool KeyboardOffered { get; set; } = true;
 
+    /// <summary>Every command is refused once set, as a busy or changed request is.</summary>
+    public bool Refuse { get; set; }
+
     public (string Text, string Prompt, Action<string> Done)? Keyboard { get; private set; }
 
     public Action? KeyboardDismissed { get; private set; }
@@ -47,7 +50,7 @@ internal sealed class FileMenuHost : IMenuHost
         Task<CommandAckMessage> Send(CommandEnvelope sent)
         {
             Sent.Add(sent);
-            return Task.FromResult(new CommandAckMessage { CommandId = sent.CommandId, Disposition = CommandAckDisposition.Accepted });
+            return Task.FromResult(new CommandAckMessage { CommandId = sent.CommandId, Disposition = Refuse ? CommandAckDisposition.Rejected : CommandAckDisposition.Accepted });
         }
         return Submissions == null ? Send(command) : Submissions.Submit(Send, command, (command as ExecutionAnswerQuestionCommand)?.Payload.ExecutionId ?? "");
     }
