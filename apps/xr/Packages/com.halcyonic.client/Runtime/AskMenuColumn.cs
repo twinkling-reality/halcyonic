@@ -26,6 +26,7 @@ namespace Halcyonic.Client
         public const string Type = "ask-type";
         public const string Talk = "ask-talk";
         public const string TryAgain = "ask-try-again";
+        public const string SendAgain = "ask-send-again";
 
         /// <summary>The column's own words, for FIELD to settle with the card's (<see cref="AskColumn.Words"/>).</summary>
         public static class Words
@@ -45,6 +46,7 @@ namespace Halcyonic.Client
             /// <summary>A Send with no session to go through: the question kept (AUDIT MUST; FIELD to settle).</summary>
             public const string SendDidNotGo = "Your question did not go";
             public const string TryAgain = "Try Again";
+            public const string SendAgain = "Send Again";
         }
 
         /// <summary>How often the request is read while it is under way.</summary>
@@ -98,6 +100,8 @@ namespace Halcyonic.Client
                 // Send and Send Answer stand only once there are words to send: an action that cannot act is not drawn.
                 if (Ask.CanTryAgain)
                     main = new Prompt(TryAgain, Words.TryAgain, GlazeIcon.Refresh, main: true);
+                else if (Ask.OutcomeUnknown && acknowledgement == null)
+                    main = new Prompt(SendAgain, Words.SendAgain, GlazeIcon.Refresh, main: true);
                 else if (Ask.CanSend)
                     main = new Prompt(Send, Words.Send, GlazeIcon.TellIt, main: true);
                 else if (Ask.Stage == AskStage.NeedsYou && answer.Trim().Length > 0)
@@ -130,6 +134,16 @@ namespace Halcyonic.Client
                         notice = Words.SendDidNotGo;
                         Changed?.Invoke();
                     }
+                    return;
+                }
+                case SendAgain when Ask.OutcomeUnknown && acknowledgement == null:
+                {
+                    // The same envelope under its own id: a reused id is answered with the original command (AUDIT).
+                    var again = Ask.SendAgain();
+                    if (again == null) return;
+                    acknowledgement = host.Submit(again);
+                    if (acknowledgement == null) Ask.Unknown();
+                    Changed?.Invoke();
                     return;
                 }
                 case TryAgain when Ask.CanTryAgain:
@@ -229,10 +243,20 @@ namespace Halcyonic.Client
             if (acknowledgement is { IsCompleted: true } acked)
             {
                 acknowledgement = null;
-                // A send that failed on the way, or came back empty, did not reach the computer (AUDIT MUST).
-                if (acked.Status != TaskStatus.RanToCompletion || acked.Result == null) Ask.NotReached();
-                else Ask.Acknowledge(acked.Result);
+                // Only a session that was not there means nothing was sent; any other fault, or no answer, leaves the
+                // outcome unknown, as CommandSubmissions has it (AUDIT, 2026-11-11).
+                if (acked.Status == TaskStatus.RanToCompletion && acked.Result != null) Ask.Acknowledge(acked.Result);
+                else if (acked.Exception?.GetBaseException() is SessionUnavailableException)
+                {
+                    Ask.Unsent();
+                    notice = Words.SendDidNotGo;
+                    Changed?.Invoke();
+                }
+                else Ask.Unknown();
             }
+            // A send whose outcome is unknown moves on once the computer's record of its command shows (ReadCommand).
+            if (Ask.OutcomeUnknown && Ask.CommandId is string commandId && host.State?.Commands.TryGetValue(commandId, out var recorded) == true)
+                Ask.ReadCommand(recorded);
             if (reading is { IsCompleted: true } read)
             {
                 reading = null;

@@ -103,8 +103,8 @@ namespace Halcyonic.Client
             public const string Stopped = "Stopped";
             public const string NoAssistant = "No assistant on your computer";
             public const string Refused = "Your computer refused it";
-            /// <summary>A send whose acknowledgement never came, or failed on the way (AUDIT MUST, 2026-11-11; FIELD to settle).</summary>
-            public const string DidNotReach = "It did not reach your computer";
+            /// <summary>A send whose outcome is not known: it may or may not have reached the computer (AUDIT, 2026-11-11; FIELD to settle).</summary>
+            public const string MayNotHaveReached = "It may not have reached your computer";
             public const string AtLimit = "It stopped at a limit";
             public const string CouldNotGoOn = "The assistant could not go on";
             public const string YouStopped = "You stopped it";
@@ -181,9 +181,41 @@ namespace Halcyonic.Client
                 ? commands.Request(Scope.ProjectId!, Scope.WorkstreamId!, Scope.ExecutionId!, text)
                 : Scope.IsAllWork ? commands.RequestAboutAllWork(text) : commands.RequestAboutProject(Scope.ProjectId!, text);
             CommandId = command.CommandId;
+            sent = command;
+            unknown = false;
             Stage = AskStage.Sent;
             Changed?.Invoke();
             return command;
+        }
+
+        /// <summary>The submit as it was built, kept so a send whose outcome is unknown goes again under its own id.</summary>
+        private WorkspaceRequestSubmitCommand? sent;
+        private bool unknown;
+
+        /// <summary>
+        /// Whether the send may or may not have reached the computer (AUDIT, 2026-11-11): its acknowledgement failed after
+        /// it left, or never came. Unknown stays unknown: the Ask stays Sent, says so, and waits for the command to show.
+        /// </summary>
+        public bool OutcomeUnknown => Stage == AskStage.Sent && unknown && RequestId == null;
+
+        /// <summary>A send whose outcome is not known: the Ask stays Sent and says it may not have reached the computer.</summary>
+        public void Unknown()
+        {
+            if (Stage != AskStage.Sent || RequestId != null) return;
+            unknown = true;
+            Changed?.Invoke();
+        }
+
+        /// <summary>
+        /// The same submit again, its id unchanged, for a send whose outcome is unknown: the computer answers a reused id
+        /// with the original command, never a second request. Null where the outcome is known.
+        /// </summary>
+        public WorkspaceRequestSubmitCommand? SendAgain()
+        {
+            if (!OutcomeUnknown || sent == null) return null;
+            unknown = false;
+            Changed?.Invoke();
+            return sent;
         }
 
         /// <summary>The computer's acknowledgement of the submit: the request it holds, or that it refused it.</summary>
@@ -264,15 +296,10 @@ namespace Halcyonic.Client
         {
             if (Stage != AskStage.Sent || RequestId != null) return;
             CommandId = null;
+            sent = null;
+            unknown = false;
             Stage = AskStage.Writing;
             Changed?.Invoke();
-        }
-
-        /// <summary>The send's acknowledgement failed on the way or came empty: Not Sent, with Try Again (AUDIT MUST).</summary>
-        public void NotReached()
-        {
-            if (Stage != AskStage.Sent || RequestId != null) return;
-            NotAnsweredBy(Words.DidNotReach, sent: false);
         }
 
         /// <summary>Whether Try Again may write and send the Ask anew: only one that was never sent.</summary>
@@ -286,6 +313,8 @@ namespace Halcyonic.Client
             notAnswered = null;
             notSent = false;
             stopped = false;
+            sent = null;
+            unknown = false;
             Stage = AskStage.Writing;
             Changed?.Invoke();
         }
@@ -312,7 +341,7 @@ namespace Halcyonic.Client
                             ? Status(Words.NotAnswered, Words.NoAssistant, RoomTone.Bad, asked)
                             : new RoomCard(Scope.Name, asked, Scope.Head);
                     case AskStage.Sent:
-                        return Status(Words.Sent, Words.SentLine, RoomTone.Working, asked);
+                        return Status(Words.Sent, unknown ? Words.MayNotHaveReached : Words.SentLine, RoomTone.Working, asked);
                     case AskStage.Thinking:
                         return Status(Words.Thinking, Words.ThinkingLine, RoomTone.Working, asked);
                     case AskStage.Waiting:
