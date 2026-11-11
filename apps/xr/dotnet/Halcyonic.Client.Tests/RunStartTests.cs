@@ -1,52 +1,65 @@
 using System.Linq;
+using Halcyonic.Contracts;
 using NUnit.Framework;
 
 namespace Halcyonic.Client.Tests;
 
 /// <summary>
-/// What a run's start was, as the runtime confirmed it (SCREENS's <see cref="RunStart"/>): the activity log keeps the
-/// runtime's started event's plan and the Mac's reason a run is not kept to its folder; the result's card then says
-/// Planning as its status and Not Kept to Folder as a slot, in FIELD's words, and nothing where the runtime said nothing.
+/// What a run's start was, from the task's own record (SCREENS's <see cref="RunStart"/>, the view's plan, plan_left and
+/// unconfined_reason): the result's card says Planning, Plan Ready or nothing, and Not Kept to Folder as a slot, in
+/// FIELD's words; Carry Out Plan stands only for a plan at rest on a runtime that offers plans, and sends leave_plan.
 /// </summary>
 public class RunStartTests
 {
     private const string NotConfined = "Halcyonic's sandbox is on macOS only, so this run is not confined.";
 
-    private static RunStart? Started(string payload)
+    private static ExecutionView Run(ExecutionStatus status, bool? plan = null, bool? left = null, string? reason = null) => new()
     {
-        var log = new ActivityLog();
-        var changed = log.Record(new[] { ActivityLogBoundTests.Journaled(3, "e1", "runtime.execution.started", payload) });
-        Assert.That(changed, Does.Contain("e1"));
-        return log.StartedFor("e1");
+        ExecutionId = "e1", WorkstreamId = "w1", ProjectId = "p1", Instruction = "Plan the kite.", Status = status, Plan = plan, PlanLeft = left, UnconfinedReason = reason,
+        Runtime = new RuntimeRef { RuntimeId = "opencode", Kind = "opencode", DisplayName = "Agent", Synthetic = false },
+    };
+
+    private static readonly RuntimeDescriptor Planning = new() { RuntimeId = "opencode", DisplayName = "Agent", Kind = "opencode", OffersPlan = true, Capabilities = new RuntimeCapabilities() };
+
+    [Test]
+    public void TheRecordSaysWhetherTheTaskIsAPlanAndWhetherItCanBeCarriedOutNow()
+    {
+        Assert.That(RunStart.Of(null), Is.Null);
+        var none = RunStart.Of(Run(ExecutionStatus.Completed))!.Value;
+        Assert.That((none.IsPlan, none.NotConfined, none.CanCarryOut), Is.EqualTo((false, false, false)), "absent never reads as a plan, nor as not kept");
+        var ready = RunStart.Of(Run(ExecutionStatus.Completed, plan: true), Planning)!.Value;
+        Assert.That((ready.IsPlan, ready.AtRest, ready.CanCarryOut), Is.EqualTo((true, true, true)));
+        Assert.That(RunStart.Of(Run(ExecutionStatus.Running, plan: true), Planning)!.Value.CanCarryOut, Is.False, "only at rest");
+        Assert.That(RunStart.Of(Run(ExecutionStatus.Completed, plan: true))!.Value.CanCarryOut, Is.False, "only where the runtime offers plans");
+        var carried = RunStart.Of(Run(ExecutionStatus.Completed, plan: true, left: true), Planning)!.Value;
+        Assert.That((carried.IsPlan, carried.CanCarryOut), Is.EqualTo((false, false)), "carried out: a task as any other");
+        Assert.That(RunStart.Of(Run(ExecutionStatus.Completed, reason: NotConfined))!.Value.NotConfinedReason, Is.EqualTo(NotConfined));
     }
 
     [Test]
-    public void TheActivityLogKeepsWhatTheRuntimeConfirmedOfTheStartAndNothingItDidNotSay()
+    public void TheResultCardSaysPlanReadyOrPlanningAndNotKeptToFolderInFieldsWords()
     {
-        var plain = Started("{\"native_id\":\"n1\"}");
-        Assert.That((plain!.Value.Plan, plain.Value.NotConfined), Is.EqualTo((false, false)), "absent never reads as a plan, nor as not kept");
-        var plan = Started("{\"native_id\":\"n1\",\"plan\":true}");
-        Assert.That(plan!.Value.Plan, Is.True);
-        var loose = Started("{\"native_id\":\"n1\",\"confined\":false,\"unconfined_reason\":\"" + NotConfined + "\"}");
-        Assert.That((loose!.Value.NotConfined, loose.Value.NotConfinedReason), Is.EqualTo((true, NotConfined)));
-        Assert.That(new ActivityLog().StartedFor("e1"), Is.Null, "nothing before the runtime said it started");
-    }
+        RoomCard Card(RunStart start, bool? passed = null) =>
+            RoomPanelCards.Result(new RoomResult(false, false, false, passed, null, null, start: start), LineWords.TheirName("Kite Run"))!;
+        var ready = Card(RunStart.Of(Run(ExecutionStatus.Completed, plan: true), Planning)!.Value).Status!.Value;
+        Assert.That((ready.Title, ready.Line, ready.Tone), Is.EqualTo((RunStart.PlanReady, RunStart.PlanReadyLine, RoomTone.Attention)));
+        var planning = Card(RunStart.Of(Run(ExecutionStatus.Failed, plan: true), Planning)!.Value).Status!.Value;
+        Assert.That((planning.Title, planning.Tone), Is.EqualTo((RunStart.Planning, RoomTone.Working)));
+        Assert.That(new RoomResult(false, false, false, null, null, null, start: RunStart.Of(Run(ExecutionStatus.Completed, plan: true, left: true))).Any, Is.False,
+            "a plan carried out says nothing new");
 
-    [Test]
-    public void TheResultCardSaysPlanningAndNotKeptToFolderInFieldsWords()
-    {
-        var planning = new RoomResult(false, false, false, null, null, null, start: new RunStart(plan: true, notConfinedReason: null));
-        Assert.That(planning.Any, Is.True, "a plan is something to say of the task at rest");
-        var card = RoomPanelCards.Result(planning, LineWords.TheirName("Kite Run"))!;
-        Assert.That((card.Status!.Value.Title, card.Status.Value.Line, card.Status.Value.Tone), Is.EqualTo((RunStart.Planning, RunStart.PlanningLine, RoomTone.Working)));
-        Assert.That(card.AnyDot, Is.False);
-
-        var loose = new RoomResult(false, false, false, true, null, null, start: new RunStart(plan: false, notConfinedReason: NotConfined));
-        var slots = RoomPanelCards.Result(loose, LineWords.TheirName("Kite Run"))!.Slots.Select(slot => (slot.Kind, slot.Value.Text)).ToList();
+        var loose = Card(RunStart.Of(Run(ExecutionStatus.Completed, reason: NotConfined))!.Value, passed: true);
+        var slots = loose.Slots.Select(slot => (slot.Kind, slot.Value.Text)).ToList();
         Assert.That(slots, Does.Contain((RoomKind.Folder, RunStart.NotKeptToFolder)));
-        Assert.That(slots.Select(slot => slot.Text), Has.None.Contains("onfined").And.None.Contains("andbox"), "never the mechanism's words on a screen");
+        Assert.That(loose.Words(), Has.None.Contains("onfined").And.None.Contains("andbox"), "never the mechanism's words on a screen");
+        Assert.That(loose.AnyDot, Is.False);
+    }
 
-        var kept = new RoomResult(false, false, false, true, null, null, start: new RunStart(plan: false, notConfinedReason: null));
-        Assert.That(RoomPanelCards.Result(kept, LineWords.TheirName("Kite Run"))!.Slots.Select(slot => slot.Kind), Has.None.EqualTo(RoomKind.Folder));
+    [Test]
+    public void CarryOutPlanSendsOneInstructionThatLeavesThePlan()
+    {
+        var command = new CommandFactory(Samples.Client).SendInstruction("e1", RunStart.CarryOutInstruction, leavePlan: true);
+        Assert.That((command.Payload.ExecutionId, command.Payload.LeavePlan), Is.EqualTo(("e1", (bool?)true)));
+        Assert.That(new CommandFactory(Samples.Client).SendInstruction("e1", "Go on.").Payload.LeavePlan, Is.Null, "an ordinary instruction leaves nothing");
     }
 }

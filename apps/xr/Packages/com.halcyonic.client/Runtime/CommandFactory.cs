@@ -166,10 +166,12 @@ namespace Halcyonic.Client
         /// The person's words for an execution, with any <paramref name="pictures"/> of the project's folder, as on
         /// <see cref="StartExecution"/> (ADR 0058).
         /// </summary>
+        /// <param name="leavePlan">SCREENS's Carry Out Plan: the runtime leaves its plan mode before the turn (VRIFY's leave_plan).</param>
         public ExecutionSendInstructionCommand SendInstruction(
             string executionId,
             string text,
-            IReadOnlyList<string>? pictures = null) =>
+            IReadOnlyList<string>? pictures = null,
+            bool leavePlan = false) =>
             Stamp(new ExecutionSendInstructionCommand
             {
                 Payload = new ExecutionSendInstructionPayload
@@ -177,6 +179,7 @@ namespace Halcyonic.Client
                     ExecutionId = executionId,
                     Text = text,
                     Attachments = AttachmentsOf(pictures),
+                    LeavePlan = leavePlan ? true : (bool?)null,
                 },
             });
 

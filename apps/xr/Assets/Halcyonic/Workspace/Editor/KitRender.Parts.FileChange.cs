@@ -31,15 +31,15 @@ namespace Halcyonic.XR.Workspace.Editor
             "61-file-too-large", "61-file-empty", "61-file-nothing-to-compare", "61-file-first-version", "61-file-no-history", "61-file-not-read",
             "61-file-unknown",
             // SCREENS's run start on the result's card (RunStart): a task that is a plan, a run not kept to its folder.
-            "62-result-planning", "62-result-not-kept",
+            "62-result-plan-ready", "62-result-not-kept",
         };
 
         /// <summary>The result's card for a run-start state (<see cref="RunStart"/>), as the room's result draws it.</summary>
         private static RoomCard RunStartCard(string state)
         {
-            var start = state == "62-result-planning" ? new RunStart(plan: true, notConfinedReason: null)
+            var start = state == "62-result-plan-ready" ? new RunStart(plan: true, notConfinedReason: null, atRest: true, canCarryOut: true)
                 : new RunStart(plan: false, notConfinedReason: "Halcyonic's sandbox is on macOS only, so this run is not confined.");
-            var result = new RoomResult(false, false, false, state == "62-result-planning" ? (bool?)null : true, null, null, start: start);
+            var result = new RoomResult(false, false, false, state == "62-result-plan-ready" ? (bool?)null : true, null, null, start: start);
             return RoomPanelCards.Result(result, LineWords.TheirName("Kite Run")) ?? throw new InvalidOperationException(state + " has no card");
         }
 
@@ -209,7 +209,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var started = RunStartCard(state);
                     var startShot = CardShot(started, root.transform, eyes, name);
-                    if (state == "62-result-planning" && started.Status?.Title != RunStart.Planning) startShot.Failures.Add("the card does not say Planning");
+                    if (state == "62-result-plan-ready" && started.Status?.Title != RunStart.PlanReady) startShot.Failures.Add("the card does not say Plan Ready");
                     if (state == "62-result-not-kept" && !started.Slots.Any(slot => slot.Value.Text == RunStart.NotKeptToFolder)) startShot.Failures.Add("the card does not say Not Kept to Folder");
                     failures.AddRange(startShot.Failures.Select(failure => name + ": " + failure));
                     failures.AddRange(RenderShot(state, startShot, root, fixture, target, eyes, folder, name));

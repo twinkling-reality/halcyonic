@@ -4567,6 +4567,18 @@ presence, contextual moment cards and the on-demand project screen:
   `StarterId`, and `ToContract()` emits `NewFromStarterChoice` (`kind: "new_from_starter"`) so a
   developer or newcomer in VR can scaffold a starter VR project from an idea and rename its folder
   before confirming the build review.
+- **What a run's start was: a plan, or not kept to its folder (SCREENS 2026-11-11, `RunStart`)**: read from the task's
+  own record (`ExecutionView.plan`, `plan_left`, `unconfined_reason`; `RunStart.Of`, with the run's runtime). The
+  result's card (`RoomPanelCards.Result`) says, in FIELD's words, Plan Ready (the attention tone) over "Read it, then
+  carry it out or change it." where the task is a plan and its run is at rest (completed), Planning (tone working) over
+  "It plans first, then waits for you to carry it out." for a plan whose run is not, and nothing new once the plan was
+  carried out (`plan_left`); and a slot under the folder's mark, Not Kept to Folder, where the Mac gave a reason (the
+  reason's own sentence is not shown: it names the mechanism; FIELD to word a line). Where the task is a plan at rest on
+  a runtime that offers plans, Carry Out Plan leads the result's column as its main action
+  (`RoomResult.CarryOutPlan`); the director sends one instruction with `leave_plan` (`CommandFactory.SendInstruction(
+  leavePlan: true)`), and the card reads the plan carried out only once the runtime confirms it (`plan_left`). Tests:
+  `RunStartTests`, `RoomResultTests`; render check: `62-result-plan-ready`, `62-result-not-kept` in
+  `KitRender.FileChangeCheck`.
 - **What a run's start was: a plan, or not kept to its folder (SCREENS 2026-11-11, `RunStart`)**: the activity log keeps,
   per run, what the runtime confirmed in `runtime.execution.started` (`ActivityLog.StartedFor`): `plan`, and the Mac's
   `unconfined_reason` where a start that asked for Halcyonic's sandbox ran without it or is not counted inside it

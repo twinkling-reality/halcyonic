@@ -605,4 +605,16 @@ public class RoomResultTests
         // Another page shows no reading, though a reading is given.
         Assert.That(Bar(new RoomResult(false, true, false, true, turn, Steps(), RoomResultPage.Changes, file: reading)).Card!.Reading, Is.Empty);
     }
+
+    [Test]
+    public void APlanAtRestLeadsWithCarryOutPlanAndOtherwiseNoneStands()
+    {
+        var plan = new RunStart(plan: true, notConfinedReason: null, atRest: true, canCarryOut: true);
+        var bar = Bar(new RoomResult(true, false, false, true, null, null, start: plan));
+        Assert.That(bar.Column.Where(NotClose).Select(action => (action.Control.Action, action.Words, action.Main)).First(), Is.EqualTo((RoomResult.CarryOutPlan, RunStart.CarryOutPlan, true)), Show(bar));
+        Assert.That(bar.Column.Count(action => action.Main), Is.EqualTo(1), "one main action");
+        Assert.That(bar.Card!.Status!.Value.Title, Is.EqualTo(RunStart.PlanReady));
+        var carried = Bar(new RoomResult(true, false, false, true, null, null, start: new RunStart(plan: true, notConfinedReason: null, planLeft: true, atRest: true, canCarryOut: true)));
+        Assert.That(carried.Column.Select(action => action.Control.Action), Has.None.EqualTo(RoomResult.CarryOutPlan));
+    }
 }

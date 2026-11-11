@@ -76,6 +76,8 @@ namespace Halcyonic.Client
         public const string FileWhole = "room-file-whole";
         public const string FileTryAgain = "room-file-try-again";
         public const string FileBack = "room-file-back";
+        /// <summary>SCREENS's Carry Out Plan on a plan's result (<see cref="RunStart.CanCarryOut"/>).</summary>
+        public const string CarryOutPlan = "room-carry-out-plan";
 
         public const string ChangesWords = "Changes";
         public const string ChecksWords = "Checks";
@@ -91,7 +93,7 @@ namespace Halcyonic.Client
             MakeVrVersion, TryBuild, ShowChanges, ShowChecks, NextPage, Back, PlayInHeadset, ShowAdd, AddConfirm, ShowConflict, Fit,
             ShowHistory, HistoryVersion, HistoryOlder, HistoryRestore, HistoryCancel, HistoryUndo, HistoryAgain, HistoryTryAgain, HistoryChanges, HistoryBack, HistoryClose,
             ShowShare, ShareWayAction, ShareStart, ShareCancel, ShareStop, ShareAgain, ShareCheckGame, ShareStartPreview, ShareBack, ShareClose,
-        }.Concat(new[] { ShowFile, FileNextPage, FilePreviousPage, FileWhole, FileTryAgain, FileBack }).ToArray();
+        }.Concat(new[] { ShowFile, FileNextPage, FilePreviousPage, FileWhole, FileTryAgain, FileBack, CarryOutPlan }).ToArray();
 
         /// <summary>SCREENS's file reading's own action ids.</summary>
         public static readonly IReadOnlyList<string> FileActions = new[] { ShowFile, FileNextPage, FilePreviousPage, FileWhole, FileTryAgain, FileBack };
@@ -193,7 +195,7 @@ namespace Halcyonic.Client
 
         /// <summary>Whether the computer has anything to say of the task at rest.</summary>
         public bool Any => Observed != null || Passed != null || Steps.Count > 0 || Add?.State is RoomAddState.Ready or RoomAddState.Conflict || History != null || Share != null
-            || Start is { Plan: true } or { NotConfined: true };
+            || Start is { IsPlan: true } or { NotConfined: true };
 
         /// <summary>The page's rows: an observed file a row, or a step of the check a row; none on the result itself.</summary>
         public IReadOnlyList<RoomRow> Rows => Page switch

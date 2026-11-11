@@ -166,12 +166,14 @@ namespace Halcyonic.Client
                     // so, with no line, since nothing on the headset can undo it yet; a chain of tries that ended keeps its status.
                     if (result.Add?.State == RoomAddState.Added) card = Said(card, frame.SubjectRuns, new RoomCardStatus(RoomAdd.AddedWords, null, RoomTone.Good));
                     if (ranOut && instruct != null) column.Add(new RoomAction(instruct, main: true, WorkspaceText.Label(WorkspaceAction.Instruct)));
+                    // SCREENS's Carry Out Plan leads a plan at rest (FIELD's words; the glyph FIELD's).
+                    if (result.Start is { CanCarryOut: true } && column.Count == 0) column.Add(Own(RoomResult.CarryOutPlan, RunStart.CarryOutPlan, main: true, GlazeIcon.Next));
                     // A13: the task's work to add to its project leads where there is some; where the project changed the same
                     // files, Let Agent Fix leads to FIELD's card naming them.
                     if (result.Add?.State == RoomAddState.Ready) column.Add(Own(RoomResult.ShowAdd, RoomAdd.AddToProject, main: column.Count == 0, GlazeIcon.Next));
                     else if (result.Add?.State == RoomAddState.Conflict) column.Add(Own(RoomResult.ShowConflict, RoomAdd.LetAgentFix, main: column.Count == 0, GlazeIcon.Next));
                     if (result.CanMakeVr) column.Add(Own(RoomResult.MakeVrVersion, KitScreenModel.Words(KitScreenAction.MakeAVrVersion), main: column.Count == 0, GlazeIcon.Next));
-                    else if (result.IsVr && instruct != null && !ranOut) column.Add(new RoomAction(instruct, main: true, KitScreenModel.Words(KitScreenAction.ChangeIt)));
+                    else if (result.IsVr && instruct != null && !ranOut) column.Add(new RoomAction(instruct, main: column.Count == 0, KitScreenModel.Words(KitScreenAction.ChangeIt)));
                     if (result.CanTry) column.Add(Own(RoomResult.TryBuild, KitScreenModel.Words(KitScreenAction.TryIt), main: column.Count == 0, GlazeIcon.OpenNow));
                     // DEVICE's Play in Headset beside Try Build, where it stands. Where it does not, it is not drawn: an action that
                     // cannot act has no disabled look (BUILD-SPEC-v4 1.4); where its refusal's words stand is FIELD's to say.
