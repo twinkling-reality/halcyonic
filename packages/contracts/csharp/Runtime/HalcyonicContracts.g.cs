@@ -1526,6 +1526,14 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "host_restarted")] HostRestarted,
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum AutoFixViewFailedStepsItem
+    {
+        [EnumMember(Value = "typecheck")] Typecheck,
+        [EnumMember(Value = "build")] Build,
+        [EnumMember(Value = "page")] Page,
+    }
+
     public sealed class AutoFixView
     {
         [JsonProperty("state", Required = Required.Always)]
@@ -1542,6 +1550,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("reason", Required = Required.AllowNull)]
         public AutoFixEndReason? Reason { get; set; }
+
+        [JsonProperty("failed_steps", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public List<AutoFixViewFailedStepsItem>? FailedSteps { get; set; }
     }
 
     public sealed class ExecutionView

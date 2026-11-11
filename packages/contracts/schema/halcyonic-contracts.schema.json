@@ -11640,6 +11640,26 @@
               "type": "null"
             }
           ]
+        },
+        "failed_steps": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "typecheck"
+              },
+              {
+                "type": "string",
+                "const": "build"
+              },
+              {
+                "type": "string",
+                "const": "page"
+              }
+            ]
+          },
+          "maxItems": 3
         }
       },
       "additionalProperties": false

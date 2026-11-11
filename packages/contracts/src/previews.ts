@@ -246,6 +246,19 @@ export const AutoFixView = Type.Object(
     attempt: Type.Integer({ minimum: 0, maximum: AUTO_FIX_CAP_MAX }),
     cap: Type.Integer({ minimum: 1, maximum: AUTO_FIX_CAP_MAX }),
     reason: Nullable(AutoFixEndReason),
+    /**
+     * The steps that failed in the check the chain answered: while a try runs, what it was sent to
+     * fix; once the chain ended `passed`, what got fixed; once it ended on a failed check, that check's.
+     * Absent where the check is not known to the projection. Steps only: clients choose the words.
+     */
+    failed_steps: Type.Optional(
+      Type.Array(
+        Type.Union([Type.Literal('typecheck'), Type.Literal('build'), Type.Literal('page')]),
+        {
+          maxItems: 3,
+        },
+      ),
+    ),
   },
   strict,
 );

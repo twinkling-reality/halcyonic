@@ -343,6 +343,9 @@ describe('a failed check goes back to its agent on its own, within a cap (ADR 00
     });
     assert.equal(p.ofType('execution.check_output_given').length, 1);
     assert.equal(p.controlPlane.projection.execution(executionId)?.auto_fix?.state, 'fixing');
+    assert.deepEqual(p.controlPlane.projection.execution(executionId)?.auto_fix?.failed_steps, [
+      'typecheck',
+    ]);
     await p.time.runUntilIdle();
     p.changedFiles(executionId);
     await until(() => p.ended().length === 1, 'the end of the chain');
@@ -356,6 +359,8 @@ describe('a failed check goes back to its agent on its own, within a cap (ADR 00
       attempt: 1,
       cap: 2,
       reason: 'passed',
+      // What got fixed: the type check the try was sent for.
+      failed_steps: ['typecheck'],
     });
   });
 
@@ -379,6 +384,9 @@ describe('a failed check goes back to its agent on its own, within a cap (ADR 00
     await until(() => p.ended().length === 1, 'the end of the chain');
     await quiet();
     assert.equal(p.ended()[0]?.payload.reason, 'cap_reached');
+    assert.deepEqual(p.controlPlane.projection.execution(executionId)?.auto_fix?.failed_steps, [
+      'typecheck',
+    ]);
     assert.equal(p.ended()[0]?.payload.attempts, 2);
     assert.equal(p.sent().length, 2);
     assert.equal(p.runtime.given.length, 3);
