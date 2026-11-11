@@ -122,6 +122,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>A calendar: a usage window of days.</summary>
         Calendar,
+
+        /// <summary>Two chevrons pointing back: a file that reverts to an earlier moment (never Restore's own arrow).</summary>
+        Rewind,
     }
 
     /// <summary>
@@ -293,6 +296,7 @@ namespace Halcyonic.XR.UI
             [RoomGlyph.Timer] = new[] { Circle(12f, 13f, 6.5f), Line(12f, 13f, 12f, 9f), Line(12f, 13f, 14.5f, 14.5f), Line(12f, 6.5f, 12f, 4.5f), Line(9.5f, 3.5f, 14.5f, 3.5f) },
             // A page with its bar and its two rings.
             [RoomGlyph.Calendar] = new[] { Outline(4.5f, 6f, 19.5f, 19.5f, 2f), Line(4.5f, 10.5f, 19.5f, 10.5f), Line(8.5f, 4f, 8.5f, 7.5f), Line(15.5f, 4f, 15.5f, 7.5f) },
+            [RoomGlyph.Rewind] = new[] { Line(12.5f, 7f, 7.5f, 12f), Line(7.5f, 12f, 12.5f, 17f), Line(18f, 7f, 13f, 12f), Line(13f, 12f, 18f, 17f) },
             [RoomGlyph.Meter] = new[] { Arc(12f, 16f, 7.5f, 270f, 90f), Line(12f, 16f, 15.5f, 11.5f) },
             [RoomGlyph.Pin] = new[] { Arc(12f, 10f, 6f, 270f, 125f), Line(7.1f, 13.4f, 12f, 20.5f), Line(16.9f, 13.4f, 12f, 20.5f), Circle(12f, 10f, 2f) },
             // Two tracks, each broken where its knob (a circle) rides: the upper one left of the middle, the lower one right of it.
@@ -329,7 +333,7 @@ namespace Halcyonic.XR.UI
         public static readonly RoomGlyph[] Marks =
         {
             RoomGlyph.Minus, RoomGlyph.Wave, RoomGlyph.Swap, RoomGlyph.Wait, RoomGlyph.Alert, RoomGlyph.Wrench, RoomGlyph.File, RoomGlyph.Folder,
-            RoomGlyph.Computer, RoomGlyph.App, RoomGlyph.Flag, RoomGlyph.Pin, RoomGlyph.Meter, RoomGlyph.Timer, RoomGlyph.Calendar,
+            RoomGlyph.Computer, RoomGlyph.App, RoomGlyph.Flag, RoomGlyph.Pin, RoomGlyph.Meter, RoomGlyph.Timer, RoomGlyph.Calendar, RoomGlyph.Rewind,
         };
 
         /// <summary>The two levels an agent works at, as the action that names the agent ends: "{agent} · Ask First", "{agent} · Never Ask".</summary>

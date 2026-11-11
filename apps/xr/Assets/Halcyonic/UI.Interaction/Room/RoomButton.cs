@@ -182,7 +182,7 @@ namespace Halcyonic.XR.UI
         /// A fact of the action's own, as a chip of its own floating beside the action (the addendum's A17: the agent's
         /// level after its name), never inside its plate and never joined to its words on a dot: 10 dp after the core, on
         /// its middle line, its word in the label face 15 dp on a 20 dp line, white on its own backing (#282E33 at 78
-        /// percent, a 1 dp edge of white at 12 percent), 10 dp of room beside it and 3 dp above and below, its corner 10 dp.
+        /// percent, a 1 dp edge of white at 6 percent), 10 dp of room beside it and 3 dp above and below, its corner 10 dp.
         /// It takes no press: the action's target is its core alone.
         /// </summary>
         public const float AsideGapDp = 10f;
@@ -194,7 +194,7 @@ namespace Halcyonic.XR.UI
         public const int AsideGround = 0x282E33;
         public const float AsideAlpha = 0.78f;
         public const float AsideEdgeDp = 1f;
-        public const float AsideEdgeAlpha = 0.12f;
+        public const float AsideEdgeAlpha = 0.06f;
 
         /// <summary>The chip holds a chosen fact (the agent's level): before its word, the chosen answer's small mark, neutral at rest, 16 dp, its check 11 dp, 7 dp from the word.</summary>
         public const float AsideMarkDp = 16f;

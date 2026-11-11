@@ -39,10 +39,10 @@ namespace Halcyonic.XR.UI
         public const float ChipEdgeDp = 1f;
         public const int ChipWordsColour = 0xFFD27A;
 
-        /// <summary>A quiet chip, as the plate's level is: white words on #282E33 at 78 percent, a 1 dp edge of white at 12 percent.</summary>
+        /// <summary>A quiet chip, as the plate's level is: white words on #282E33 at 78 percent, a 1 dp edge of white at 6 percent, so the name reads first.</summary>
         public const int QuietChipColour = 0x282E33;
         public const float QuietChipAlpha = 0.78f;
-        public const float QuietEdgeAlpha = 0.12f;
+        public const float QuietEdgeAlpha = 0.06f;
 
         /// <summary>A level's chip holds a chosen fact: before its word, the chosen answer's small mark (as <see cref="RoomButton.AsideMarkDp"/>).</summary>
         public bool Marked => mark.gameObject.activeSelf;
@@ -61,12 +61,12 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// The agent's plate while it works (the addendum's A17): the agent's own glyph, 18 dp, 8 dp before its name, on a quiet
-        /// finish of its own (#101316 at 42 percent, no ring, no edge), so it never reads as a task's tag or a press.
+        /// finish of its own (#101316 at 62 percent, no ring, no edge), so it never reads as a task's tag or a press.
         /// </summary>
         public const float AgentGlyphDp = 18f;
         public const float AgentGlyphGapDp = 8f;
         public const int PlateGround = 0x101316;
-        public const float PlateAlpha = 0.42f;
+        public const float PlateAlpha = 0.62f;
 
         /// <summary>Whether the tag is the agent's plate: its glyph before the name, its quiet finish.</summary>
         public bool IsPlate { get; private set; }
