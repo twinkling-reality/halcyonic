@@ -262,6 +262,8 @@ namespace Halcyonic.Client
             ProjectShareStartCommand _ => CommandType.ProjectShareStart,
             ProjectShareStopCommand _ => CommandType.ProjectShareStop,
             ProjectSendToGithubCommand _ => CommandType.ProjectSendToGithub,
+            ProjectPublishCommand _ => CommandType.ProjectPublish,
+            ProjectUnpublishCommand _ => CommandType.ProjectUnpublish,
             ProjectLinkCatalogCommand _ => CommandType.ProjectLinkCatalog,
             ProjectUnlinkCatalogCommand _ => CommandType.ProjectUnlinkCatalog,
             WorkstreamCreateCommand _ => CommandType.WorkstreamCreate,

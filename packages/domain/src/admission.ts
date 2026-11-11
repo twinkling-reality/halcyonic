@@ -401,6 +401,42 @@ export function admitCommand(
       return { admitted: true, policy, scope, runtime: null };
     }
 
+    case 'project.publish':
+    case 'project.unpublish': {
+      // Publish (ADR 0039, amended): only a passed, current, confined check's built copy, as a share.
+      const projectId = command.payload.project_id;
+      const project = projection.project(projectId);
+      if (project === undefined)
+        return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
+      const scope = { ...NO_SCOPE, project_id: projectId };
+      if (project.location === null)
+        return reject(scope, 'location_required', 'The project has no folder on this computer.');
+      if (command.command_type === 'project.unpublish')
+        return project.published === undefined
+          ? reject(scope, 'invalid_state', 'This game is not published.')
+          : { admitted: true, policy, scope, runtime: null };
+      const check = projection.latestCheck(projectId);
+      if (check === undefined || !check.findings.passed)
+        return reject(
+          scope,
+          'invalid_state',
+          'Only a passed check can be published. Check the game first.',
+        );
+      if (check.files !== 'current')
+        return reject(
+          scope,
+          'invalid_state',
+          "The game's files may have changed since its last check. Check the game again first.",
+        );
+      if (!check.findings.reads_confined)
+        return reject(
+          scope,
+          'invalid_state',
+          'Not every agent run in this project was confined, so it is not published.',
+        );
+      return { admitted: true, policy, scope, runtime: null };
+    }
+
     case 'project.share.start':
     case 'project.share.stop': {
       const projectId = command.payload.project_id;

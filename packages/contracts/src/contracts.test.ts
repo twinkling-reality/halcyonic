@@ -684,6 +684,7 @@ describe('the C# bindings', () => {
     'ProjectView.mac_play', // M1.8e
     'ProjectView.own_check', // a project's own check (ADR 0055)
     'ProjectView.preview', // M1.8e
+    'ProjectView.published', // a project's published game (ADR 0039)
     'ProjectView.share', // a project's shared link (ADR 0054)
     'ProjectView.world', // a world project's world (ADR 0049)
     'ProjectViewCheck.workstream_id', // ADR 0045

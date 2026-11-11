@@ -34,6 +34,8 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'project.share.start': 'review_required',
   'project.share.stop': 'low_consequence',
   'project.send_to_github': 'review_required',
+  'project.publish': 'review_required',
+  'project.unpublish': 'review_required',
   // The person's own link between a project and a catalog repository; changes no file.
   'project.link_catalog': 'low_consequence',
   'project.unlink_catalog': 'low_consequence',

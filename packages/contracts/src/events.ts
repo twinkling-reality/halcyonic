@@ -22,7 +22,7 @@ import {
 import { ChangedFiles, ConflictedFiles, CopyRefusalCode } from './copies.ts';
 import { DeviceLabel, Principal, Sha256Hex } from './devices.ts';
 import { FilesObserved } from './file-changes.ts';
-import { GitBranchName, PullRequestUrl } from './github.ts';
+import { GitBranchName, PagesAddress, PullRequestUrl } from './github.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
 import {
   OWN_CHECK_SCRIPT_NAMES,
@@ -481,6 +481,30 @@ export const ProjectShareStarted = projectEvent(
 export const ProjectShareStopped = projectEvent(
   'project.share.stopped',
   Type.Object({ check_id: CheckId, reason: ShareStopReason }, strict),
+);
+
+/**
+ * The project's game was published (ADR 0039, amended): `check_id`'s built copy as `commit` on
+ * `branch` of `repository`, at `address`, null where GitHub did not say it.
+ */
+export const ProjectPublished = projectEvent(
+  'project.published',
+  Type.Object(
+    {
+      repository: RepositoryFullName,
+      check_id: CheckId,
+      branch: GitBranchName,
+      commit: GitObjectId,
+      address: Nullable(PagesAddress),
+    },
+    strict,
+  ),
+);
+
+/** The published game was taken down: `branch` of `repository` was deleted. */
+export const ProjectUnpublished = projectEvent(
+  'project.unpublished',
+  Type.Object({ repository: RepositoryFullName, branch: GitBranchName }, strict),
 );
 
 /**
@@ -1089,6 +1113,8 @@ export const EVENT_VARIANTS = [
   ProjectShareStarted,
   ProjectShareStopped,
   ProjectSentToGitHub,
+  ProjectPublished,
+  ProjectUnpublished,
   ProjectWorldObserved,
   WorkstreamCreated,
   WorkstreamCopyMade,

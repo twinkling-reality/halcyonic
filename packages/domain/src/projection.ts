@@ -32,6 +32,7 @@ import type {
   ProjectId,
   ProjectLocation,
   ProjectOwnCheckView,
+  ProjectPublishedView,
   ProjectView,
   ProjectWorldView,
   QuestionView,
@@ -242,9 +243,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * (`planLeft`) and why its start was not counted confined (`unconfinedReason`). 9: each
  * execution's queued instructions (ADR 0056). 10: each project's own check (ADR 0055). 11: the
  * version a task starts from (`from_checkpoint`, ADR 0045). 12: what the computer saw of a request
- * that ended with no reply (`observed`, LOOP C).
+ * that ended with no reply (`observed`, LOOP C). 13: each project's published game (ADR 0039,
+ * amended); raised past the base's again at the rebase.
  */
-export const PROJECTION_STATE_FORMAT = 12;
+export const PROJECTION_STATE_FORMAT = 13;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -268,6 +270,7 @@ export interface ProjectionState {
   readonly previews: ReadonlyMap<unknown, unknown>;
   readonly macPlays: ReadonlyMap<unknown, unknown>;
   readonly shares: ReadonlyMap<unknown, unknown>;
+  readonly published: ReadonlyMap<unknown, unknown>;
   readonly checkOutputs: ReadonlyMap<unknown, unknown>;
   readonly resultStarts: ReadonlyMap<unknown, unknown>;
   readonly results: ReadonlyMap<unknown, unknown>;
@@ -368,6 +371,8 @@ export class Projection {
   /** The check whose game plays on the Mac now, per project (ADR 0037). */
   readonly #macPlays = new Map<ProjectId, CheckId>();
   /** Each project's shared link now (F1): the check its preview serves and the public address. */
+  /** Each project's game as last published to the person's GitHub Pages (ADR 0039, amended). */
+  readonly #published = new Map<ProjectId, ProjectPublishedView>();
   readonly #shares = new Map<
     ProjectId,
     { readonly checkId: CheckId; readonly url: string; readonly way: ShareWay }
@@ -442,6 +447,7 @@ export class Projection {
       previews: this.#previews,
       macPlays: this.#macPlays,
       shares: this.#shares,
+      published: this.#published,
       checkOutputs: this.#checkOutputs,
       resultStarts: this.#resultStarts,
       results: this.#results,
@@ -482,6 +488,7 @@ export class Projection {
       !(state.previews instanceof Map) ||
       !(state.macPlays instanceof Map) ||
       !(state.shares instanceof Map) ||
+      !(state.published instanceof Map) ||
       !(state.checkOutputs instanceof Map) ||
       !(state.resultStarts instanceof Map) ||
       !(state.results instanceof Map) ||
@@ -519,6 +526,8 @@ export class Projection {
     for (const [key, value] of state.previews as Map<never, never>) this.#previews.set(key, value);
     for (const [key, value] of state.macPlays as Map<never, never>) this.#macPlays.set(key, value);
     for (const [key, value] of state.shares as Map<never, never>) this.#shares.set(key, value);
+    for (const [key, value] of state.published as Map<never, never>)
+      this.#published.set(key, value);
     for (const [key, value] of state.checkOutputs as Map<never, never>)
       this.#checkOutputs.set(key, value);
     for (const [key, value] of state.resultStarts as Map<never, never>)
@@ -1657,6 +1666,18 @@ export class Projection {
           changes.projects.add(event.project_id);
         }
         return;
+      case 'project.published':
+        this.#published.set(event.project_id, {
+          check_id: event.payload.check_id,
+          commit: event.payload.commit,
+          address: event.payload.address,
+          published_at: event.occurred_at,
+        });
+        if (this.#projects.has(event.project_id)) changes.projects.add(event.project_id);
+        return;
+      case 'project.unpublished':
+        if (this.#published.delete(event.project_id)) changes.projects.add(event.project_id);
+        return;
       case 'project.sent_to_github':
         // The journal's fact (ADR 0039, amended); the command's result carries the pull request.
         return;
@@ -2359,6 +2380,8 @@ export class Projection {
         files: this.#filesOfCheck(state.projectId, play),
       };
     }
+    const published = this.#published.get(state.projectId);
+    if (published !== undefined) view.published = { ...published };
     const share = this.#shares.get(state.projectId);
     if (share !== undefined) {
       view.share = {

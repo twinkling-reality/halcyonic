@@ -708,6 +708,15 @@ export class HostPreviews {
     return output === null ? null : { checkId: check.check_id, output };
   }
 
+  /**
+   * The folder holding `checkId`'s built copy, what its preview serves, or null when it is not on
+   * this Mac (ADR 0039, amended: Publish takes it, never the project's source).
+   */
+  builtCopy(projectId: ProjectId, checkId: CheckId): string | null {
+    const dist = join(this.#cache(projectId, checkId), 'dist');
+    return existsSync(join(dist, 'index.html')) ? dist : null;
+  }
+
   #cache(projectId: ProjectId, checkId: CheckId): string {
     return join(this.#deps.dataDir, 'checks', projectId, checkId);
   }
