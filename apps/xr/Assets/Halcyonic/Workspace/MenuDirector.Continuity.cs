@@ -376,6 +376,13 @@ namespace Halcyonic.XR.Workspace
                 }, pendingReturn?.HandoffId, recovery.IsSaved));
         }
 
-        private void OnApplicationPause(bool paused) { if (paused) KeepViews(); }
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused) KeepViews();
+            // Back in front after Quest Browser showed a relayed preview: the browser has left it, so the relay stops.
+            HeadsetRelay.Paused(paused);
+        }
+
+        private void OnApplicationQuit() => HeadsetRelay.Stop();
     }
 }

@@ -194,6 +194,52 @@ public class HeadsetPlayTests
         Assert.That(wait.ProjectId, Is.Null, "the files changed while it started");
     }
 
+    [Test]
+    public void OnAPairedComputerTheActionStandsWhereTheAppCanRelayAndNotOtherwise()
+    {
+        var project = View(Check(), Preview(port: 47931));
+        Assert.That(HeadsetPlay.For(project, Paired, demonstration: false, relays: true), Is.EqualTo(PlayInHeadset.Offered));
+        Assert.That(HeadsetPlay.For(View(Check()), Paired, demonstration: false, relays: true), Is.EqualTo(PlayInHeadset.NoPreviewOfCheck),
+            "a press starts the preview first, as over the cable");
+        Assert.That(HeadsetPlay.CommandFor(View(Check()), Paired, demonstration: false, new CommandFactory(Samples.Client), relays: true),
+            Is.InstanceOf<ProjectPreviewStartCommand>());
+        Assert.That(HeadsetPlay.AddressOf(project, Paired, demonstration: false), Is.Null, "no relay port yet, nothing opens");
+        Assert.That(HeadsetPlay.AddressOf(project, Paired, demonstration: false, relayPort: 51234), Is.EqualTo(new Uri("http://127.0.0.1:51234/")));
+        // The host's facts still decide first: a relay never serves an unconfined or failed check, or a demonstration.
+        Assert.That(HeadsetPlay.For(View(Check(readsConfined: false), Preview()), Paired, demonstration: false, relays: true), Is.EqualTo(PlayInHeadset.NotConfined));
+        Assert.That(HeadsetPlay.For(View(Check(passed: false), Preview()), Paired, demonstration: false, relays: true), Is.EqualTo(PlayInHeadset.CheckNotPassed));
+        Assert.That(HeadsetPlay.For(project, Paired, demonstration: true, relays: true), Is.EqualTo(PlayInHeadset.Demonstration));
+    }
+
+    [Test]
+    public void AWaitOnAPairedComputerAsksTheRelayOnlyAsTheAddressOpens()
+    {
+        var factory = new CommandFactory(Samples.Client);
+        var asked = new List<string>();
+        int? Relay(string project)
+        {
+            asked.Add(project);
+            return 51234;
+        }
+        var wait = new HeadsetPlayWait();
+        wait.Sent(factory.StartPreview(ProjectId));
+        Assert.That(wait.Advance(State(View(Check())), Paired, demonstration: false, relay: Relay), Is.Null, "still starting");
+        Assert.That(asked, Is.Empty, "no relay while the preview starts");
+        Assert.That(wait.Advance(State(View(Check(), Preview(port: 47932))), Paired, demonstration: false, relay: Relay), Is.EqualTo(new Uri("http://127.0.0.1:51234/")));
+        Assert.That(asked, Is.EqualTo(new[] { ProjectId }));
+
+        wait.Sent(factory.StartPreview(ProjectId));
+        Assert.That(wait.Advance(State(View(Check(readsConfined: false), Preview())), Paired, demonstration: false, relay: Relay), Is.Null);
+        Assert.That(asked.Count, Is.EqualTo(1), "a refused preview asks no relay");
+
+        wait.Sent(factory.StartPreview(ProjectId));
+        Assert.That(wait.Advance(State(View(Check(), Preview())), Paired, demonstration: false), Is.Null, "without a relay a paired wait ends, as before");
+        Assert.That(wait.ProjectId, Is.Null);
+
+        wait.Sent(factory.StartPreview(ProjectId));
+        Assert.That(wait.Advance(State(View(Check(), Preview())), Paired, demonstration: false, relay: _ => null), Is.Null, "a relay that could not start opens nothing");
+    }
+
     private static ClientProjection State(params ProjectView[] projects)
     {
         var snapshot = Samples.Snapshot(1);

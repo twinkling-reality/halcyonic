@@ -201,6 +201,16 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
       why: 'the Log helper passing on its own message; its callers are scanned',
     },
     {
+      file: 'apps/xr/Assets/Halcyonic/Workspace/HeadsetRelay.cs',
+      args: 'LogType.Log, LogOption.NoStacktrace, null, "" , error.GetType().Name',
+      why: "an exception's type name: the preview relay did not start (never its message, the address or the credential)",
+    },
+    {
+      file: 'apps/xr/Assets/Halcyonic/Workspace/HeadsetRelay.cs',
+      args: 'LogType.Log, LogOption.NoStacktrace, null, "" , relaying ? "" : "" , error.GetType().Name',
+      why: "whether the relay's foreground service was starting or stopping, and the exception's type name",
+    },
+    {
       file: 'apps/xr/Assets/Halcyonic/Room/RoomPlacement.cs',
       args: '"" + detail',
       why: "fixed words about the room's anchor, from RoomPlacement itself",

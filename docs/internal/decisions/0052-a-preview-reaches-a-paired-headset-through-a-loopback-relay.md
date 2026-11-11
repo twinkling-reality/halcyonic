@@ -70,3 +70,28 @@ preview's port and nothing else on the Mac.
   only that long (AUDIT2 S2).
 - Not yet verified on a headset: Quest Browser offering WebXR on the relay's address, the foreground
   service under Horizon OS, the manifest entries XR adds.
+
+## Amendment 2026-11-11: wired on the headset
+
+Play in Headset on a paired computer now starts the relay (`HeadsetRelay` in the Unity layer) as the preview's address
+opens, never just to show the action, and opens Quest Browser at its loopback address. `HeadsetPlay` still decides
+first, from the host's facts, so a relay never serves a demonstration or a check that did not pass with every read
+confined. The relay holds the foreground service only while it serves, and stops when Halcyonic comes back to the front
+after the browser.
+
+The manifest declares the service (`exported="false"`, `foregroundServiceType="specialUse"`, with its
+`PROPERTY_SPECIAL_USE_FGS_SUBTYPE`) and two permissions:
+- **`FOREGROUND_SERVICE`**, for any foreground service.
+- **`FOREGROUND_SERVICE_SPECIAL_USE`**, which Android 14, the app's target 34, requires for that type.
+
+What Meta's pages say:
+- Neither permission is on Meta's prohibited (2025-04-30) or review-required (2025-11-26) lists.
+- `START_FOREGROUND_SERVICES_FROM_BACKGROUND` is prohibited. The relay never needs it, since it starts from the app's
+  own press while in front.
+- `POST_NOTIFICATIONS` requires review. The relay does not ask for it, so the service's notice may not show.
+
+Both are in every build, the release build included, with the judge build's named permissions and record.
+
+Not yet verified on a headset: the service keeping the relay serving while the browser is in front, and Quest Browser
+offering WebXR on the relay's address.
+
