@@ -102,7 +102,13 @@ function forPattern(random: Random, pattern: string, pools: Pools): string | und
     () => 'QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=',
     () => pick(random, ['src/index.ts', 'notes.md', 'a/b/c.txt']),
     () =>
-      pick(random, ['https://bright-quiet-garden.trycloudflare.com', 'http://192.168.1.20:47970']),
+      pick(random, [
+        'https://bright-quiet-garden.trycloudflare.com',
+        'http://192.168.1.20:47970',
+        'https://owner.github.io/garden/',
+        'https://github.com/owner/garden/pull/7',
+        'halcyonic-pages',
+      ]),
     () => pick(random, WORDS),
   ];
   const expression = new RegExp(pattern, 'u');

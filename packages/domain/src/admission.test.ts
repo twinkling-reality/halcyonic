@@ -1118,7 +1118,9 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
         | 'project.preview.stop'
         | 'project.open_on_mac'
         | 'project.share.start'
-        | 'project.share.stop',
+        | 'project.share.stop'
+        | 'project.publish'
+        | 'project.unpublish',
     ): CommandEnvelope => {
       n += 1;
       return {
@@ -1250,6 +1252,53 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
       }),
     );
     assert.equal(opens(), true);
+  });
+
+  test('a game is published only from a passed, current, confined check, by the person, and unpublished only once published (ADR 0039)', () => {
+    const { b, projection, scope, command } = setupStarter(true);
+    const result = (type: 'project.publish' | 'project.unpublish') => {
+      const admission = admitCommand(command(type), projection, catalog());
+      return admission.admitted ? admission.policy : admission.rejection.message;
+    };
+    const record = (checkId: string, extra: Record<string, unknown>) =>
+      projection.apply(
+        b.controlPlane('project.check.recorded', scope, {
+          check_id: checkId as never,
+          findings: { ...findings(true), ...extra } as never,
+        }),
+      );
+    assert.equal(result('project.unpublish'), 'This game is not published.');
+    assert.match(result('project.publish'), /Only a passed check/);
+    const first = b.id();
+    record(first, { passed: false });
+    assert.match(result('project.publish'), /Only a passed check/);
+    record(first, { reads_confined: false });
+    assert.match(result('project.publish'), /Not every agent run/);
+    record(first, {});
+    assert.equal(result('project.publish'), 'review_required', 'the person reads what goes');
+    projection.apply(
+      b.controlPlane('project.published', scope, {
+        repository: 'owner/garden',
+        check_id: first as never,
+        branch: 'halcyonic-pages',
+        commit: 'a'.repeat(40),
+        address: 'https://owner.github.io/garden/',
+      }),
+    );
+    assert.deepEqual(projection.project(scope.project_id)?.published, {
+      check_id: first,
+      commit: 'a'.repeat(40),
+      address: 'https://owner.github.io/garden/',
+      published_at: projection.project(scope.project_id)?.published?.published_at,
+    });
+    assert.equal(result('project.unpublish'), 'review_required');
+    projection.apply(
+      b.controlPlane('project.unpublished', scope, {
+        repository: 'owner/garden',
+        branch: 'halcyonic-pages',
+      }),
+    );
+    assert.equal(projection.project(scope.project_id)?.published, undefined);
   });
 
   test('a game is shared only from a passed, confined check its preview serves, once at a time, by the person (F1)', () => {

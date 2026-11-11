@@ -119,8 +119,13 @@ import {
 import { FileChanged, FileCreated, FileDeleted, FilesObserved } from './file-changes.ts';
 import {
   GitBranchName,
+  GitHubPublishReview,
+  GitHubPublishReviewResponse,
   GitHubSendReview,
   GitHubSendReviewResponse,
+  PagesAddress,
+  ProjectPublishedView,
+  PublishedCodeResponse,
   PullRequestUrl,
 } from './github.ts';
 import {
@@ -347,6 +352,11 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   PullRequestUrl,
   GitHubSendReview,
   GitHubSendReviewResponse,
+  PagesAddress,
+  GitHubPublishReview,
+  GitHubPublishReviewResponse,
+  ProjectPublishedView,
+  PublishedCodeResponse,
   RestorePreview,
   CheckpointsResponse,
   CheckpointsResult,

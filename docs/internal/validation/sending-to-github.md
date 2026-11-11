@@ -1,4 +1,4 @@
-# Send to GitHub: what was proven, on stand-ins only (2026-11-11)
+# Send to GitHub and Publish: what was proven, on stand-ins only (2026-11-11)
 
 For [ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md), amended. Run on
 this Mac with `/usr/bin/git` (Xcode's `git version 2.50.1 (Apple Git-155)`), in scratch folders only.
@@ -66,11 +66,25 @@ The first real send to GitHub is the owner's own, with their press.
      github.com address leads to a path that is not there.
    Each of G1, G2, S1 and S2/S3's tests fails on c3d3fe5d's sender and passes on its fix.
 
+## Publish, on the same stand-ins (`sending/pages.test.ts`)
+
+1. **The review** counts the built copy's files (an `index.html` and an `app.js`, never its `.env`), names
+   `owner/garden` and the expected address `https://owner.github.io/garden/`. It refuses without gh
+   (`no_gh`) and without a built copy (`no_built_copy`).
+2. **A publish** pushes one commit holding exactly the built files to `halcyonic-pages`, with no parent
+   the first time. It asks the stand-in gh to turn Pages on for that branch, then for `html_url`, and
+   returns that address. The person's folder keeps its HEAD and status. A stale review publishes nothing.
+3. **A second publish** builds on the first: its parent is the first's commit. One that does not build
+   on what the branch holds is refused (`push_refused`), and the branch keeps its commit: never a force.
+4. **Unpublishing** deletes the branch on the stand-in GitHub.
+
 ## Not proven
 
 - A real push to github.com over https with the macOS keychain's credential helper, or over ssh with an
   agent's key.
 - A real `gh pr create` or its output on success.
+- A real Pages site: turning Pages on through GitHub's API, its `html_url`, the build GitHub runs, a
+  private repository's plan, or a game opened from `github.io` in a headset.
 - A repository whose objects are SHA-256 (read from its config): the bare repository is made to match,
   but no test uses one.
 - Git LFS: refused, never sent. A repository-level `core.excludesFile` in the person's `.git/config` is not read

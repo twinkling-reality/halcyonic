@@ -1,7 +1,14 @@
 import { execFile } from 'node:child_process';
 import { lstat, mkdir, open, realpath, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
-import type { ChangedFiles, GitHubSendReview, ProjectId } from '@halcyonic/contracts';
+import {
+  type ChangedFiles,
+  type CheckId,
+  type GitHubPublishReview,
+  type GitHubSendReview,
+  PAGES_BRANCH,
+  type ProjectId,
+} from '@halcyonic/contracts';
 import { secretShapedPath } from '@halcyonic/runtime-core';
 import { readGitHubOrigin } from '../catalog-match.ts';
 import { changedFileList } from '../checkpoints/checkpointer.ts';
@@ -120,9 +127,7 @@ export class GitHubSender {
     const commit = committed.stdout.trim();
     if (committed.code !== 0 || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit))
       return refuse('send_failed', 'The commit could not be made, so nothing was sent.');
-    const remote = ssh
-      ? `git@github.com:${send.repository}.git`
-      : `https://github.com/${send.repository}.git`;
+    const remote = remoteOf(send.repository, ssh);
     const pushed = await this.#run(
       this.#deps.git,
       [
@@ -179,6 +184,230 @@ export class GitHubSender {
     return { ok: true, send, commit, pullRequestUrl };
   }
 
+  /** Halcyonic's own bare repository for the project, made on first use in the person's object format. */
+  async #repository(projectId: ProjectId, format: 'sha1' | 'sha256'): Promise<string | null> {
+    const repository = join(this.#deps.dataDir, 'sending', `${projectId}.git`);
+    if ((await lstat(repository).catch(() => null)) !== null) return repository;
+    await mkdir(dirname(repository), { recursive: true, mode: 0o700 });
+    const made = await this.#run(this.#deps.git, [
+      'init',
+      '--bare',
+      '--quiet',
+      `--object-format=${format}`,
+      repository,
+    ]);
+    return made.code === 0 ? repository : null;
+  }
+
+  /**
+   * What Publish would do now (ADR 0039, amended): `built`, the check's built copy, as one commit on
+   * the Pages branch on top of `replaces`, the last publish's commit, at the address GitHub Pages
+   * gives the repository. Nothing leaves this Mac.
+   */
+  async publishReview(
+    projectId: ProjectId,
+    folder: string,
+    checkId: CheckId,
+    built: string | null,
+    replaces: string | null,
+  ): Promise<{ readonly ok: true; readonly publish: GitHubPublishReview } | SendFailure> {
+    const prepared = await this.#preparePublish(projectId, folder, checkId, built, replaces);
+    return prepared.ok ? { ok: true, publish: prepared.publish } : prepared;
+  }
+
+  /** Publishes what `publishReview` described, checked again first; never a force. */
+  async publish(
+    projectId: ProjectId,
+    folder: string,
+    checkId: CheckId,
+    built: string | null,
+    replaces: string | null,
+    review: string,
+  ): Promise<
+    | {
+        readonly ok: true;
+        readonly publish: GitHubPublishReview;
+        readonly commit: string;
+        readonly address: string | null;
+      }
+    | SendFailure
+  > {
+    const prepared = await this.#preparePublish(projectId, folder, checkId, built, replaces);
+    if (!prepared.ok) return prepared;
+    const { publish, repository, tree, ssh } = prepared;
+    if (publish.review !== review)
+      return refuse(
+        'review_stale',
+        'The game changed since it was shown, so nothing was published. Look at it again, then publish.',
+      );
+    const committed = await this.#run(this.#deps.git, [
+      '--git-dir',
+      repository,
+      'commit-tree',
+      tree,
+      ...(replaces === null ? [] : ['-p', replaces]),
+      '-m',
+      `Publish the checked game (${checkId})`,
+    ]);
+    const commit = committed.stdout.trim();
+    if (committed.code !== 0 || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit))
+      return refuse('publish_failed', 'The game could not be made ready to publish.');
+    const pushed = await this.#run(
+      this.#deps.git,
+      [
+        '--git-dir',
+        repository,
+        '-c',
+        'core.hooksPath=/dev/null',
+        'push',
+        '--quiet',
+        remoteOf(publish.repository, ssh),
+        `${commit}:refs/heads/${PAGES_BRANCH}`,
+      ],
+      120_000,
+    );
+    if (pushed.code !== 0)
+      return refuse(
+        'push_refused',
+        `GitHub didn't take the publish, so nothing changed there. If the repository has a ${PAGES_BRANCH} branch Halcyonic did not write, remove it first.`,
+      );
+    // Pages turned on for the branch (GitHub answers that it is on already, after the first time),
+    // then its own address, as GitHub says it, or none.
+    const gh = this.#deps.gh as string;
+    await this.#run(
+      gh,
+      [
+        'api',
+        '--method',
+        'POST',
+        `repos/${publish.repository}/pages`,
+        '-f',
+        `source[branch]=${PAGES_BRANCH}`,
+        '-f',
+        'source[path]=/',
+      ],
+      60_000,
+    );
+    const asked = await this.#run(
+      gh,
+      ['api', `repos/${publish.repository}/pages`, '--jq', '.html_url'],
+      60_000,
+    );
+    const said = asked.stdout.trim();
+    const address =
+      asked.code === 0 && PAGES_ADDRESS.test(said)
+        ? said.endsWith('/')
+          ? said
+          : `${said}/`
+        : null;
+    return { ok: true, publish, commit, address };
+  }
+
+  /** Takes the published game down: the Pages branch deleted with the person's own git. */
+  async unpublish(
+    projectId: ProjectId,
+    folder: string,
+  ): Promise<{ readonly ok: true; readonly repository: string } | SendFailure> {
+    const origin = await readGitHubOrigin(folder);
+    if (origin === null)
+      return refuse('no_github_origin', "The project's folder has no origin on GitHub.");
+    const repository = await this.#repository(projectId, await objectFormat(folder));
+    if (repository === null)
+      return refuse('publish_failed', 'Halcyonic could not prepare the change.');
+    const removed = await this.#run(
+      this.#deps.git,
+      [
+        '--git-dir',
+        repository,
+        '-c',
+        'core.hooksPath=/dev/null',
+        'push',
+        '--quiet',
+        remoteOf(origin.fullName, origin.ssh),
+        `:refs/heads/${PAGES_BRANCH}`,
+      ],
+      120_000,
+    );
+    return removed.code === 0
+      ? { ok: true, repository: origin.fullName }
+      : refuse(
+          'push_refused',
+          "GitHub didn't take the change, so the game is still published. Try again.",
+        );
+  }
+
+  async #preparePublish(
+    projectId: ProjectId,
+    folder: string,
+    checkId: CheckId,
+    built: string | null,
+    replaces: string | null,
+  ): Promise<
+    | {
+        readonly ok: true;
+        readonly publish: GitHubPublishReview;
+        readonly repository: string;
+        readonly tree: string;
+        readonly ssh: boolean;
+      }
+    | SendFailure
+  > {
+    const origin = await readGitHubOrigin(folder);
+    if (origin === null)
+      return refuse('no_github_origin', "The project's folder has no origin on GitHub.");
+    if (this.#deps.gh === null)
+      return refuse(
+        'no_gh',
+        "Publishing needs GitHub's own command line tool on this computer, signed in.",
+      );
+    if ((await this.#run(this.#deps.gh, ['auth', 'status'], 15_000)).code !== 0)
+      return refuse(
+        'gh_signed_out',
+        "GitHub's command line tool on this computer isn't signed in.",
+      );
+    if (built === null)
+      return refuse(
+        'no_built_copy',
+        "The checked game's built files aren't on this computer. Check the game again.",
+      );
+    const repository = await this.#repository(projectId, await objectFormat(folder));
+    if (repository === null)
+      return refuse('publish_failed', 'Halcyonic could not prepare the publish.');
+    // A built copy has no commit to start from and no excludes of the person's.
+    const tree = await this.#tree(repository, built, [], null, null);
+    if (!tree.ok)
+      return tree.code === 'uses_filters'
+        ? refuse(
+            'uses_filters',
+            "The built game holds a .gitattributes that names a filter, which Halcyonic doesn't run, so it isn't published.",
+          )
+        : refuse('no_built_copy', "The checked game's built files could not be read.");
+    if (tree.files === 0)
+      return refuse('no_built_copy', "The checked game's built files could not be read.");
+    const [owner = '', name = ''] = origin.fullName.split('/');
+    const address =
+      name === `${owner}.github.io`
+        ? `https://${owner}.github.io/`
+        : `https://${owner}.github.io/${name}/`;
+    const facts = {
+      repository: origin.fullName,
+      check_id: checkId,
+      tree: tree.tree,
+      replaces,
+      branch: PAGES_BRANCH,
+    };
+    const publish: GitHubPublishReview = {
+      project_id: projectId,
+      repository: origin.fullName,
+      check_id: checkId,
+      files: tree.files,
+      replaces,
+      address,
+      review: reviewDigest('project.publish', { project_id: projectId }, facts),
+    };
+    return { ok: true, publish, repository, tree: tree.tree, ssh: origin.ssh };
+  }
+
   async #prepare(
     projectId: ProjectId,
     folder: string,
@@ -193,18 +422,8 @@ export class GitHubSender {
     const branch = await headBranch(folder);
     if (branch === null) return refuse('detached_head', "The project's folder isn't on a branch.");
     const format = await objectFormat(folder);
-    const repository = join(this.#deps.dataDir, 'sending', `${projectId}.git`);
-    if ((await lstat(repository).catch(() => null)) === null) {
-      await mkdir(dirname(repository), { recursive: true, mode: 0o700 });
-      const made = await this.#run(this.#deps.git, [
-        'init',
-        '--bare',
-        '--quiet',
-        `--object-format=${format}`,
-        repository,
-      ]);
-      if (made.code !== 0) return refuse('send_failed', 'Halcyonic could not prepare the send.');
-    }
+    const repository = await this.#repository(projectId, format);
+    if (repository === null) return refuse('send_failed', 'Halcyonic could not prepare the send.');
     // The person's commits, by a fetch: nothing of theirs runs in our repository, nothing of ours in theirs.
     const fetched = await this.#run(this.#deps.git, [
       '--git-dir',
@@ -284,7 +503,7 @@ export class GitHubSender {
     otherFolders: readonly string[],
     base: string | null,
     excludes: string | null = join(folder, '.git', 'info', 'exclude'),
-  ): Promise<{ readonly ok: true; readonly tree: string } | SendFailure> {
+  ): Promise<{ readonly ok: true; readonly tree: string; readonly files: number } | SendFailure> {
     const unreadable = refuse('send_failed', "The project's files could not be read.");
     const real = await realpath(folder);
     const inside: string[] = [];
@@ -432,7 +651,7 @@ export class GitHubSender {
       );
       const tree = written.stdout.trim();
       return written.code === 0 && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(tree)
-        ? { ok: true, tree }
+        ? { ok: true, tree, files: kept.length }
         : unreadable;
     } finally {
       await rm(index, { force: true });
@@ -491,6 +710,13 @@ export class GitHubSender {
     });
   }
 }
+
+/** The origin's address as the person's git reaches it, built from owner/name, never read out. */
+function remoteOf(fullName: string, ssh: boolean): string {
+  return ssh ? `git@github.com:${fullName}.git` : `https://github.com/${fullName}.git`;
+}
+
+const PAGES_ADDRESS = /^https:\/\/[A-Za-z0-9-]{1,39}\.github\.io\/(?:[A-Za-z0-9._-]{1,100}\/?)?$/;
 
 function refuse(code: string, message: string): SendFailure {
   return { ok: false, code, message };

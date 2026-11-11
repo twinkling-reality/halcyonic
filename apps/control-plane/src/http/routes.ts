@@ -16,6 +16,7 @@ import {
   EventsQuery,
   type EventsResponse,
   ExecutionId,
+  type GitHubPublishReviewResponse,
   type GitHubSendReviewResponse,
   type HealthResponse,
   LocationReviewRequest,
@@ -28,6 +29,7 @@ import {
   ProjectHistoryQuery,
   ProjectId,
   type ProjectsResponse,
+  type PublishedCodeResponse,
   parseCommandEnvelope,
   type RestorePreviewResponse,
   RuntimeId,
@@ -850,6 +852,66 @@ export function registerRoutes(
 
   // What binding a project to another folder would do, before the person confirms it, and the
   // digest a project.set_location carries back (ADR 0051). Reads only.
+  // Publish's review and the published address as a code to scan (ADR 0039, amended).
+  app.post(
+    '/api/projects/:project_id/publish-review',
+    async (request): Promise<GitHubPublishReviewResponse> => {
+      const projectId = (request.params as { project_id: string }).project_id;
+      const unavailable = (code: string, message: string): GitHubPublishReviewResponse => ({
+        availability: 'unavailable',
+        reason: { code, message },
+      });
+      if (!validateProjectId(projectId).ok)
+        return unavailable('invalid_request', 'That is not a project.');
+      const project = controlPlane.projection.project(projectId);
+      const folder = project?.location?.path;
+      if (project === undefined || folder === undefined)
+        return unavailable('location_required', 'The project has no folder on this computer.');
+      const github = controlPlane.github;
+      if (github === null)
+        return unavailable('unavailable', "Publishing to GitHub isn't set up on this computer.");
+      const check = controlPlane.projection.latestCheck(projectId);
+      if (check === undefined || !check.findings.passed || check.files !== 'current')
+        return unavailable(
+          'invalid_state',
+          'Only a passed check can be published. Check the game first.',
+        );
+      if (!check.findings.reads_confined)
+        return unavailable(
+          'invalid_state',
+          'Not every agent run in this project was confined, so it is not published.',
+        );
+      try {
+        const reviewed = await github.publishReview(
+          projectId as ProjectId,
+          folder,
+          check.check_id,
+          controlPlane.previews?.builtCopy(projectId as ProjectId, check.check_id) ?? null,
+          project.published?.commit ?? null,
+        );
+        return reviewed.ok
+          ? { availability: 'available', publish: reviewed.publish }
+          : unavailable(reviewed.code, reviewed.message);
+      } catch {
+        return unavailable('publish_failed', "The checked game's built files could not be read.");
+      }
+    },
+  );
+  app.get('/api/projects/:project_id/published/code', async (request, reply) => {
+    const projectId = (request.params as { project_id: string }).project_id;
+    if (!validateProjectId(projectId).ok) return invalid(reply);
+    const published = controlPlane.projection.project(projectId)?.published;
+    if (published === undefined || published.address === null)
+      return reply.code(404).send(errorBody('not_published', 'This game is not published.'));
+    const code = shareCode(published.address);
+    const answer: PublishedCodeResponse = {
+      check_id: published.check_id,
+      address: published.address,
+      code: { size: code.size, rows: [...code.rows] },
+    };
+    return answer;
+  });
+
   // Send to GitHub's review (ADR 0039, amended): what a send would do, read before the press.
   app.post(
     '/api/projects/:project_id/github-review',

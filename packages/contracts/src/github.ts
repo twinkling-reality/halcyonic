@@ -2,7 +2,8 @@ import Type, { type Static } from 'typebox';
 import { RepositoryFullName } from './catalog.ts';
 import { GitObjectId, ReviewDigest } from './checkpoints.ts';
 import { ChangedFiles } from './copies.ts';
-import { ErrorInfo, ProjectId } from './primitives.ts';
+import { CheckId, ShareCode } from './previews.ts';
+import { ErrorInfo, Nullable, ProjectId, Timestamp } from './primitives.ts';
 
 const strict = { additionalProperties: false } as const;
 
@@ -53,3 +54,66 @@ export const GitHubSendReviewResponse = Type.Union([
   Type.Object({ availability: Type.Literal('unavailable'), reason: ErrorInfo }, strict),
 ]);
 export type GitHubSendReviewResponse = Static<typeof GitHubSendReviewResponse>;
+
+/**
+ * A published game's lasting address on the person's own GitHub Pages (ADR 0039, amended: Publish):
+ * `https://<owner>.github.io/<repository>/`, or `https://<owner>.github.io/` for the repository named
+ * so, as GitHub gave it.
+ */
+export const PagesAddress = Type.String({
+  maxLength: 200,
+  pattern: '^https://[A-Za-z0-9-]{1,39}\\.github\\.io/(?:[A-Za-z0-9._-]{1,100}/)?$',
+});
+export type PagesAddress = Static<typeof PagesAddress>;
+
+/** The one branch Publish writes on the person's repository. */
+export const PAGES_BRANCH = 'halcyonic-pages';
+
+/**
+ * What Publish would do, for the person to read before the press: the repository by owner and name,
+ * the check whose built copy goes (never the source), how many files it holds, the commit of the
+ * last publish it builds on (null for a first), the address it is expected at, and the digest the
+ * command carries back (ADR 0051).
+ */
+export const GitHubPublishReview = Type.Object(
+  {
+    project_id: ProjectId,
+    repository: RepositoryFullName,
+    check_id: CheckId,
+    files: Type.Integer({ minimum: 1 }),
+    replaces: Nullable(GitObjectId),
+    address: PagesAddress,
+    review: ReviewDigest,
+  },
+  strict,
+);
+export type GitHubPublishReview = Static<typeof GitHubPublishReview>;
+
+/** `POST /api/projects/:project_id/publish-review`: the review, or why nothing can be published. */
+export const GitHubPublishReviewResponse = Type.Union([
+  Type.Object({ availability: Type.Literal('available'), publish: GitHubPublishReview }, strict),
+  Type.Object({ availability: Type.Literal('unavailable'), reason: ErrorInfo }, strict),
+]);
+export type GitHubPublishReviewResponse = Static<typeof GitHubPublishReviewResponse>;
+
+/**
+ * A project's game as last published: the check it came from, the commit on the Pages branch, and
+ * its address, null where GitHub did not say it.
+ */
+export const ProjectPublishedView = Type.Object(
+  {
+    check_id: CheckId,
+    commit: GitObjectId,
+    address: Nullable(PagesAddress),
+    published_at: Timestamp,
+  },
+  strict,
+);
+export type ProjectPublishedView = Static<typeof ProjectPublishedView>;
+
+/** `GET /api/projects/:project_id/published/code`: the published address as a code to scan. */
+export const PublishedCodeResponse = Type.Object(
+  { check_id: CheckId, address: PagesAddress, code: ShareCode },
+  strict,
+);
+export type PublishedCodeResponse = Static<typeof PublishedCodeResponse>;

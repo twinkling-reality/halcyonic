@@ -371,11 +371,13 @@ describe('realtime protocol', () => {
     const policies = new Map(
       welcome.command_policies.map((entry) => [entry.command_type, entry.policy]),
     );
-    assert.equal(policies.size, 28);
+    assert.equal(policies.size, 30);
     // Dropping an instruction before it is sent changes nothing but the queue (ADR 0056).
     assert.equal(policies.get('execution.drop_queued_instruction'), 'low_consequence');
     // Which of the project's own commands its check runs: the person reads them first (ADR 0055).
     assert.equal(policies.get('project.own_check.choose'), 'review_required');
+    assert.equal(policies.get('project.publish'), 'review_required');
+    assert.equal(policies.get('project.unpublish'), 'review_required');
     assert.equal(policies.get('project.send_to_github'), 'review_required');
     // Showing the project in Finder changes nothing; saving a copy writes a file on the Mac (F3).
     assert.equal(policies.get('project.show_in_finder'), 'low_consequence');

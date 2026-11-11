@@ -3624,6 +3624,271 @@
             },
             "event_type": {
               "type": "string",
+              "const": "project.published"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "repository",
+                "check_id",
+                "branch",
+                "commit",
+                "address"
+              ],
+              "properties": {
+                "repository": {
+                  "$ref": "#/$defs/RepositoryFullName"
+                },
+                "check_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "branch": {
+                  "$ref": "#/$defs/GitBranchName"
+                },
+                "commit": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                },
+                "address": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/PagesAddress"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "project.unpublished"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "repository",
+                "branch"
+              ],
+              "properties": {
+                "repository": {
+                  "$ref": "#/$defs/RepositoryFullName"
+                },
+                "branch": {
+                  "$ref": "#/$defs/GitBranchName"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
               "const": "project.world.observed"
             },
             "source": {
@@ -10265,6 +10530,104 @@
             },
             "command_type": {
               "type": "string",
+              "const": "project.publish"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "project_id",
+                "review"
+              ],
+              "properties": {
+                "project_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "review": {
+                  "$ref": "#/$defs/ReviewDigest"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "command_id",
+            "issued_at",
+            "client",
+            "command_type",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "command_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "client": {
+              "$ref": "#/$defs/ClientInfo"
+            },
+            "command_type": {
+              "type": "string",
+              "const": "project.unpublish"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "project_id"
+              ],
+              "properties": {
+                "project_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "command_id",
+            "issued_at",
+            "client",
+            "command_type",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "command_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "client": {
+              "$ref": "#/$defs/ClientInfo"
+            },
+            "command_type": {
+              "type": "string",
               "const": "project.link_catalog"
             },
             "payload": {
@@ -11262,6 +11625,35 @@
             },
             "way": {
               "$ref": "#/$defs/ShareWay"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "commit",
+            "address"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "published"
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            "address": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PagesAddress"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           },
           "additionalProperties": false
@@ -12313,6 +12705,9 @@
         "share": {
           "$ref": "#/$defs/ProjectShareView"
         },
+        "published": {
+          "$ref": "#/$defs/ProjectPublishedView"
+        },
         "world": {
           "$ref": "#/$defs/ProjectWorldView"
         }
@@ -12985,6 +13380,152 @@
           "additionalProperties": false
         }
       ]
+    },
+    "PagesAddress": {
+      "type": "string",
+      "maxLength": 200,
+      "pattern": "^https://[A-Za-z0-9-]{1,39}\\.github\\.io/(?:[A-Za-z0-9._-]{1,100}/)?$"
+    },
+    "GitHubPublishReview": {
+      "type": "object",
+      "required": [
+        "project_id",
+        "repository",
+        "check_id",
+        "files",
+        "replaces",
+        "address",
+        "review"
+      ],
+      "properties": {
+        "project_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "repository": {
+          "$ref": "#/$defs/RepositoryFullName"
+        },
+        "check_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "replaces": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "address": {
+          "$ref": "#/$defs/PagesAddress"
+        },
+        "review": {
+          "$ref": "#/$defs/ReviewDigest"
+        }
+      },
+      "additionalProperties": false
+    },
+    "GitHubPublishReviewResponse": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "publish"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "available"
+            },
+            "publish": {
+              "$ref": "#/$defs/GitHubPublishReview"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ProjectPublishedView": {
+      "type": "object",
+      "required": [
+        "check_id",
+        "commit",
+        "address",
+        "published_at"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PagesAddress"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "published_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PublishedCodeResponse": {
+      "type": "object",
+      "required": [
+        "check_id",
+        "address",
+        "code"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "address": {
+          "$ref": "#/$defs/PagesAddress"
+        },
+        "code": {
+          "$ref": "#/$defs/ShareCode"
+        }
+      },
+      "additionalProperties": false
     },
     "RestorePreview": {
       "type": "object",
@@ -19478,6 +20019,14 @@
         {
           "type": "string",
           "const": "project.send_to_github"
+        },
+        {
+          "type": "string",
+          "const": "project.publish"
+        },
+        {
+          "type": "string",
+          "const": "project.unpublish"
         },
         {
           "type": "string",

@@ -23,7 +23,7 @@ import type {
   Timestamp,
   WorkstreamId,
 } from '@halcyonic/contracts';
-import { WORLD_STARTER_ID } from '@halcyonic/contracts';
+import { PAGES_BRANCH, WORLD_STARTER_ID } from '@halcyonic/contracts';
 import {
   type Admission,
   admitCommand,
@@ -1167,6 +1167,96 @@ export class CommandService {
                   },
             ),
         );
+        return;
+      }
+      case 'project.publish':
+      case 'project.unpublish': {
+        // The person's own reviewed publish of a checked game (ADR 0039, amended); never automatic.
+        const scope = admission.scope;
+        const projectId = command.payload.project_id;
+        const folder = this.#projectDirectory(scope);
+        const github = this.#deps.github;
+        if (!github || folder === null) {
+          this.#fail(command, scope, {
+            code: 'unavailable',
+            message: "Publishing to GitHub isn't set up on this computer.",
+            effect: 'none',
+          });
+          return;
+        }
+        const where = { project_id: projectId, workstream_id: null, execution_id: null };
+        const lost = () =>
+          this.#fail(command, scope, {
+            code: 'publish_failed',
+            message: 'The change could not be finished. Look on GitHub before trying again.',
+            effect: 'unknown',
+          });
+        if (command.command_type === 'project.unpublish') {
+          void github.unpublish(projectId, folder).then((done) => {
+            if (!done.ok) {
+              this.#fail(command, scope, {
+                code: done.code,
+                message: done.message,
+                effect: 'none',
+              });
+              return;
+            }
+            this.#deps.recorder.record(
+              controlPlaneDraft(
+                'project.unpublished',
+                where,
+                { repository: done.repository, branch: PAGES_BRANCH },
+                this.#now(),
+                cause,
+              ),
+            );
+            this.#complete(command, scope, null);
+          }, lost);
+          return;
+        }
+        const check = this.#deps.projection.latestCheck(projectId);
+        if (check === undefined) {
+          this.#fail(command, scope, {
+            code: 'invalid_state',
+            message: 'Only a passed check can be published. Check the game first.',
+            effect: 'none',
+          });
+          return;
+        }
+        const built = this.#deps.previews?.builtCopy(projectId, check.check_id) ?? null;
+        const replaces = this.#deps.projection.project(projectId)?.published?.commit ?? null;
+        void github
+          .publish(projectId, folder, check.check_id, built, replaces, command.payload.review)
+          .then((done) => {
+            if (!done.ok) {
+              this.#fail(command, scope, {
+                code: done.code,
+                message: done.message,
+                effect: 'none',
+              });
+              return;
+            }
+            this.#deps.recorder.record(
+              controlPlaneDraft(
+                'project.published',
+                where,
+                {
+                  repository: done.publish.repository,
+                  check_id: check.check_id,
+                  branch: PAGES_BRANCH,
+                  commit: done.commit,
+                  address: done.address,
+                },
+                this.#now(),
+                cause,
+              ),
+            );
+            this.#complete(command, scope, {
+              kind: 'published',
+              commit: done.commit,
+              address: done.address,
+            });
+          }, lost);
         return;
       }
       case 'project.send_to_github': {

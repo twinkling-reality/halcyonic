@@ -9,6 +9,7 @@ import {
 } from './commands.ts';
 import { WorkstreamCopy } from './copies.ts';
 import { ApprovalSubject, QUEUED_INSTRUCTIONS_MAX } from './events.ts';
+import { ProjectPublishedView } from './github.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
 import { OwnCheckFindings, OwnCheckManager, OwnCheckScript } from './own-checks.ts';
 import { AutoFixView, CheckFindings, CheckId, ShareAddress, ShareWay } from './previews.ts';
@@ -184,6 +185,8 @@ export const ProjectView = Type.Object(
     mac_play: Type.Optional(ProjectMacPlayView),
     /** The project's shared link, when one is live (F1). */
     share: Type.Optional(ProjectShareView),
+    /** The game as last published to the person's own GitHub Pages (ADR 0039, amended). */
+    published: Type.Optional(ProjectPublishedView),
     world: Type.Optional(ProjectWorldView),
   },
   strict,

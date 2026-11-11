@@ -1,7 +1,7 @@
 # ADR 0039: The projects gallery reads the person's catalog from Omnorium, and Halcyonic never signs in to GitHub
 
 - Status: Accepted; contract, link, gallery core, route and client built; live read not wired. Amended
-  2026-11-11: Send to GitHub (below), built and proven against stand-ins only
+  2026-11-11: Send to GitHub and Publish (below), built and proven against stand-ins only
 - Date: 2026-10-29
 - Complements ADR 0010 and ADR 0020
 
@@ -105,6 +105,33 @@ access. Here the person uses that access on purpose, each time, after reading wh
   filters it would need, an exclude rule it cannot read, work already sent, a push GitHub refused.
 - **What has met github.com: nothing.** Every test uses a local bare repository as `origin` and a
   stand-in `gh` ([record](../validation/sending-to-github.md)). The first real send is the owner's own.
+
+## Amendment, 2026-11-11: Publish to GitHub Pages
+
+A lasting address for a checked game, which stays up when the Mac is off (Share a Link, ADR 0054, lives
+only while the Mac runs). It is built on Send to GitHub's pieces, and the lead decided it with Send.
+
+- **Only a checked build, never the source.** `project.publish {project_id, review}`, review required,
+  is admitted only for the project's latest check that passed, is current and found every agent run
+  confined (as a share). What goes is that check's built copy, the preview's own files
+  (`<data dir>/checks/<project>/<check>/dist`), without secret-shaped files. The starter builds with
+  relative paths (`base: './'`), so it works under the repository's subpath.
+- **A read first.** `POST /api/projects/:id/publish-review` gives the repository (owner/name), the check,
+  how many files go, the commit of the last publish it builds on, the expected address, and a review
+  digest checked again just before the push.
+- **One branch of the person's repository, never forced.** The files are one commit on
+  `halcyonic-pages`, on top of the last publish (recorded in the journal), pushed from Halcyonic's own
+  bare repository with the person's git and no hooks. A branch of that name Halcyonic did not write
+  refuses the push. Then the person's `gh` turns Pages on for that branch (`POST
+  repos/<owner>/<name>/pages`), and its address is read back from GitHub (`html_url`); where GitHub
+  does not say it, the address is recorded as unknown, never guessed.
+- **Taking it down.** `project.unpublish`, review required, deletes the branch with the person's git.
+- **Recorded:** `project.published` (repository, check, branch, commit, address) and
+  `project.unpublished`. The project's view gives `published` (the check, the commit, the address, and
+  when). The headset gets the address only as a code to scan, `GET
+  /api/projects/:id/published/code`, never drawn as text.
+- **Needs** `HALCYONIC_GH_BIN` signed in (`no_gh`, `gh_signed_out` otherwise). A private repository
+  on a plan without Pages fails at GitHub's end, and nothing is recorded as published.
 
 ## Alternatives considered
 

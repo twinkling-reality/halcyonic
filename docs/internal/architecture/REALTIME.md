@@ -432,6 +432,14 @@ Every text in them is outside words, from the project's files or its build, as `
   the `review` digest `project.send_to_github` carries back; or `unavailable` with why, in the
   product's words. Nothing leaves the Mac.
 
+- `POST /api/projects/:project_id/publish-review`: what Publish would do: `available` with the
+  repository (owner/name), the check, how many of its built files go, the commit of the last publish
+  it builds on, the expected address and the `review` digest `project.publish` carries back; or
+  `unavailable` with why. Nothing leaves the Mac.
+- `GET /api/projects/:project_id/published/code`: the published address as a code to scan
+  (`{ check_id, address, code }`), which the headset draws, never the address as text. Not
+  published, or no address known: 404 `not_published`.
+
 ## Sharing reads
 
 Two read-only routes for the headset's Share card ([ADR 0054](../decisions/0054-what-was-made-is-kept-and-shared-only-by-the-persons-press.md)), for the Mac's own client and a paired
