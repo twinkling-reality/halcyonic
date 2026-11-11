@@ -13,7 +13,7 @@ import {
 import type { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import type { DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
-import { type Confinement, toolFoldersFor } from '@halcyonic/seatbelt';
+import { type Confinement, TOOL_PREFIXES, toolFoldersFor } from '@halcyonic/seatbelt';
 import { ConfigError, type ControlPlaneConfig, readPrivateFile } from './config.ts';
 import { type HeldSecret, looksLikeCredential } from './core/redaction.ts';
 import { OMNORIUM_CREDENTIAL_FILE } from './intelligence/catalog.ts';
@@ -250,14 +250,15 @@ export function openCodeSandbox(
   node: string = process.execPath,
 ) {
   // OpenCode searches with the first `rg` on its PATH, which its commands get with the product's Node
-  // first; that `rg`'s own folders are read too, wherever it is installed, not only beside a Homebrew
-  // Node (BOX-3b's open item).
+  // first (BOX-3b's open item). Under Homebrew or /usr/local it reads that prefix's tool parts, as
+  // Node's; anywhere else only the `rg` file itself, never the folder around it, which in the usual
+  // places (~/.local, ~/.cargo, ~/bin) holds the person's credentials (AUDIT VRIFY-4d MUST).
   const rg = ripgrepPath(
     [dirname(node), dependencies.environment?.PATH ?? ''].filter((part) => part !== '').join(':'),
   );
   const toolFolders = [
-    ...new Set([...toolFoldersFor(node), ...(rg === null ? [] : toolFoldersFor(rg))]),
-  ];
+    ...new Set([...toolFoldersFor(node), ...(rg === null ? [] : ripgrepReads(rg))]),
+  ].filter((folder) => !holdsTheHome(folder, dependencies.environment?.HOME));
   return {
     loopbackPorts: [],
     ollama: `http://127.0.0.1:${OLLAMA_PORT}`,
@@ -274,6 +275,37 @@ export function openCodeSandbox(
  */
 export function ripgrepOnPath(path: string | undefined): boolean {
   return ripgrepPath(path) !== null;
+}
+
+/**
+ * What the profile reads for the `rg` OpenCode would run: a Homebrew or /usr/local prefix's tool parts
+ * where it lives in one, else the resolved file alone. ripgrep's release and cargo builds link only
+ * the system's libraries on macOS, so the file is all it needs.
+ */
+export function ripgrepReads(rg: string): string[] {
+  let real = rg;
+  try {
+    real = realpathSync(rg);
+  } catch {
+    return [];
+  }
+  return TOOL_PREFIXES.some((prefix) => real.startsWith(`${prefix}/`))
+    ? toolFoldersFor(real)
+    : [real];
+}
+
+/** True for `/`, the person's home, or any folder above it: never a tool folder, whatever the program. */
+function holdsTheHome(folder: string, home: string | undefined): boolean {
+  if (folder === '/' || folder === '') return true;
+  if (home === undefined || home === '') return false;
+  const realHome = (() => {
+    try {
+      return realpathSync(home);
+    } catch {
+      return home;
+    }
+  })();
+  return realHome === folder || realHome.startsWith(folder.endsWith('/') ? folder : `${folder}/`);
 }
 
 /** The first `rg` on `path` that is a file, as OpenCode would run it, or null. */

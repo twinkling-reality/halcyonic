@@ -213,9 +213,13 @@ reach the download; found by review, 2026-10-08).
 ## Not verified
 
 - `rg` installed outside Homebrew, run inside the profile: not run. Since 2026-11-11 (VRIFY 4d) the control plane
-  finds the first `rg` on the PATH OpenCode's commands get (the product's Node's folder first) and adds that `rg`'s own
-  tool folders to the profile's reads, as it does for Node's (`openCodeSandbox`, unit-tested with an `rg` in a scratch
-  folder). Before, only Node's tool folders were read, which held Homebrew's `rg` only beside a Homebrew Node.
+  finds the first `rg` on the PATH OpenCode's commands get (the product's Node's folder first). Under Homebrew or
+  `/usr/local` it reads that prefix's tool parts, as for Node; anywhere else only the resolved `rg` file, never the
+  folder around it, and no tool folder is ever the person's home, an ancestor of it, or `/` (AUDIT VRIFY-4d: the
+  folder above `~/.local/bin`, `~/.cargo/bin` or `~/bin` holds OpenCode's own `auth.json`, cargo's credentials, or the
+  whole home). Unit-tested under a fake home for those three places: in a real sandbox each marker beside them stays
+  unreadable and the `rg` file is read. Before, only Node's tool folders were read, which held Homebrew's `rg` only
+  beside a Homebrew Node.
 
 - Whether OpenCode's server ever connects to itself on its own port; the port is allowed in case.
 - A command that outlives its server keeps a profile naming the gate's port after the gate has

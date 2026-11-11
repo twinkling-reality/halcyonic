@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import {
   chmodSync,
@@ -19,6 +19,7 @@ import { CodexRuntimeAdapter } from '@halcyonic/integration-codex';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import { RuntimeActionError } from '@halcyonic/runtime-core';
+import { confinedProfile, SANDBOX_EXEC } from '@halcyonic/seatbelt';
 import { ConfigError, loadConfig } from './config.ts';
 import { looksLikeCredential, redaction, redactSecrets } from './core/redaction.ts';
 import { createDirectoryPolicy } from './directory-policy.ts';
@@ -392,27 +393,71 @@ describe("OpenCode's sandbox on this Mac (ADR 0028, 0048)", () => {
     assert.deepEqual(own.readable, []);
   });
 
-  test("reads the folders of the rg OpenCode would run, wherever it is installed, besides Node's", () => {
-    const folder = mkdtempSync(join(base, 'rg-tools-'));
-    mkdirSync(join(folder, 'bin'));
-    writeFileSync(join(folder, 'bin', 'rg'), '#!/bin/sh\n', { mode: 0o755 });
-    const sandbox = openCodeSandbox(
-      { opencodeConfigHome: null },
-      { dataDir: '/d', environment: { PATH: `/nowhere:${join(folder, 'bin')}` } },
-      '/opt/homebrew/Cellar/node/24.0.0/bin/node',
-    );
-    assert.ok(sandbox.toolFolders.includes('/opt/homebrew/Cellar'), "Node's own");
-    assert.ok(sandbox.toolFolders.includes(realpathSync(folder)), "rg's own, outside Homebrew");
+  test('reads the rg OpenCode would run, outside Homebrew the file alone, never the folder around it nor the home (AUDIT VRIFY-4d)', async () => {
+    const home = realpathSync(mkdtempSync(join(base, 'rg-home-')));
+    const data = join(home, '.halcyonic');
+    const project = join(home, 'project');
+    for (const folder of [
+      '.local/bin',
+      '.local/share/opencode',
+      '.cargo/bin',
+      'bin',
+      '.halcyonic',
+      'project',
+      'tmp',
+      'own',
+    ]) {
+      mkdirSync(join(home, folder), { recursive: true });
+    }
+    // Markers of the test's own beside each usual place a person puts rg.
+    writeFileSync(join(home, '.local/share/opencode/auth.json'), 'auth-marker-1');
+    writeFileSync(join(home, '.cargo/credentials.toml'), 'cargo-marker-2');
+    writeFileSync(join(home, 'secret.txt'), 'home-marker-3');
+    const node = '/opt/homebrew/Cellar/node/24.0.0/bin/node';
+    for (const [folder, marker] of [
+      ['.local/bin', '.local/share/opencode/auth.json'],
+      ['.cargo/bin', '.cargo/credentials.toml'],
+      ['bin', 'secret.txt'],
+    ] as const) {
+      const rg = join(home, folder, 'rg');
+      writeFileSync(rg, '#!/bin/sh\n', { mode: 0o755 });
+      const sandbox = openCodeSandbox(
+        { opencodeConfigHome: null },
+        { dataDir: data, environment: { PATH: join(home, folder), HOME: home } },
+        node,
+      );
+      assert.ok(sandbox.toolFolders.includes(rg), `${folder}: the rg file itself`);
+      for (const wider of [join(home, '.local'), join(home, '.cargo'), home, '/']) {
+        assert.ok(!sandbox.toolFolders.includes(wider), `${folder}: ${wider} opened`);
+      }
+      assert.ok(sandbox.toolFolders.includes('/opt/homebrew/Cellar'), "Node's own, as before");
+      if (process.platform !== 'darwin') continue;
+      // The profile builds, and in a real sandbox the marker stays closed while the rg file is read.
+      const profile = confinedProfile({
+        project,
+        readable: [],
+        hidden: sandbox.hidden,
+        home: join(home, 'own'),
+        temp: join(home, 'tmp'),
+        runtimeFolder: '/usr/bin',
+        toolFolders: sandbox.toolFolders,
+        loopbackPorts: [],
+      });
+      const file = join(home, 'tmp', 'profile.sb');
+      writeFileSync(file, profile);
+      const read = (path: string) =>
+        spawnSync(SANDBOX_EXEC, ['-f', file, '/bin/cat', path], { encoding: 'utf8' }).status;
+      assert.equal(read(rg), 0, `${folder}: the rg file is not readable`);
+      assert.notEqual(read(join(home, marker)), 0, `${folder}: ${marker} was read`);
+      rmSync(rg);
+    }
     // With no rg anywhere, Node's folders alone, as before.
     const none = openCodeSandbox(
       { opencodeConfigHome: null },
-      { dataDir: '/d', environment: { PATH: '/nowhere' } },
-      '/opt/homebrew/Cellar/node/24.0.0/bin/node',
+      { dataDir: data, environment: { PATH: '/nowhere', HOME: home } },
+      node,
     );
-    assert.deepEqual(
-      none.toolFolders,
-      sandbox.toolFolders.filter((each) => each !== realpathSync(folder)),
-    );
+    assert.ok(none.toolFolders.every((folder) => folder.startsWith('/opt/homebrew/')));
   });
 
   test('finds ripgrep only as a file on the PATH, since the sandbox refuses its download', () => {
