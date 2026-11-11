@@ -40,7 +40,7 @@ import {
   type Scheduler,
 } from '@halcyonic/runtime-core';
 import type { Checkpointer } from '../checkpoints/checkpointer.ts';
-import { pathList } from '../checkpoints/checkpointer.ts';
+import { changedFileList, pathList } from '../checkpoints/checkpointer.ts';
 import type { ProjectKeeping } from '../checkpoints/keeping.ts';
 import type { MergeConflict } from '../checkpoints/store.ts';
 import type {
@@ -635,7 +635,11 @@ export class CommandService {
           controlPlaneDraft(
             'workstream.copy_changes_read',
             where,
-            { tree: outcome.taskTree, changed: pathList(outcome.changed) },
+            {
+              tree: outcome.taskTree,
+              changed: pathList(outcome.changed),
+              files: changedFileList(outcome.files),
+            },
             this.#now(),
             cause,
           ),

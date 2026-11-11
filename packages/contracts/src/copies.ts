@@ -3,6 +3,7 @@ import { CHECKPOINT_PATHS_LISTED, PathList, ProjectPath } from './checkpoints.ts
 import { Sha256Hex } from './devices.ts';
 import { HostPath } from './locations.ts';
 import { Nullable, Timestamp } from './primitives.ts';
+import { FileChangeKind } from './project-reads.ts';
 
 const strict = { additionalProperties: false } as const;
 
@@ -57,9 +58,30 @@ export const ConflictedFiles = Type.Object(
 export type ConflictedFiles = Static<typeof ConflictedFiles>;
 
 /**
+ * A file of a task's copy and how it differs from the copy's base, as an add would bring it to the
+ * project, in the words a checkpoint's changes use (`FileChangeKind`): `added` a file the base did
+ * not have, `changed` one it had (its content or its kind of file), `removed` one it had that the
+ * copy no longer has.
+ */
+export const ChangedFile = Type.Object({ path: ProjectPath, change: FileChangeKind }, strict);
+export type ChangedFile = Static<typeof ChangedFile>;
+
+/** Some files of a set and how each changed, in git's order, and how many the set holds. */
+export const ChangedFiles = Type.Object(
+  {
+    files: Type.Array(ChangedFile, { maxItems: CHECKPOINT_PATHS_LISTED }),
+    total: Type.Integer({ minimum: 0 }),
+  },
+  strict,
+);
+export type ChangedFiles = Static<typeof ChangedFiles>;
+
+/**
  * A task's own copy of its project's folder (ADR 0045), as its view shows it. `own`: the task works
  * in `directory`, a folder of Halcyonic's own, and its work reaches the project only when the person
- * adds it. `to_add` is what the host last read as differing from the copy's base, null until read.
+ * adds it. `to_add` is what the host last read as differing from the copy's base, null until read;
+ * `to_add_files` the same files with how each changed, null until read and for a reading recorded
+ * before readings carried it.
  * `conflict` is the latest add's overlap, until the agent fitted the work or an add went through.
  * `refused`: the task works in the project's own folder, one task at a time, for `code`.
  */
@@ -71,6 +93,7 @@ export const WorkstreamCopy = Type.Union([
       made_at: Timestamp,
       base_tree: Sha256Hex,
       to_add: Nullable(PathList),
+      to_add_files: Nullable(ChangedFiles),
       to_add_read_at: Nullable(Timestamp),
       last_added_at: Nullable(Timestamp),
       conflict: Nullable(ConflictedFiles),

@@ -1,11 +1,13 @@
 import {
   CHECKPOINT_PATHS_LISTED,
+  type ChangedFiles,
   type CheckpointId,
   type CheckpointReason,
   type CheckpointView,
   type CommandFailure,
   type CommandOf,
   type ExecutionId,
+  type FileChangeKind,
   type PathList,
   type ProjectId,
   type RestorePreview,
@@ -470,6 +472,20 @@ export function pathList(paths: readonly string[]): PathList {
       }),
   );
   return { paths: listable.slice(0, CHECKPOINT_PATHS_LISTED), total: paths.length };
+}
+
+/** As `pathList`, with how each file changed: the same files listed, the same total. */
+export function changedFileList(
+  files: readonly { readonly path: string; readonly change: FileChangeKind }[],
+): ChangedFiles {
+  const listed = new Set(pathList(files.map((file) => file.path)).paths);
+  return {
+    files: files
+      .filter((file) => listed.has(file.path))
+      .slice(0, CHECKPOINT_PATHS_LISTED)
+      .map((file) => ({ path: file.path, change: file.change })),
+    total: files.length,
+  };
 }
 
 /** The host's own words for a folder it no longer allows: the policy's message names the path. */
