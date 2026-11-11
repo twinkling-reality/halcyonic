@@ -400,9 +400,11 @@ namespace Halcyonic.Client
             KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null, KitAvatar? avatar = null, IReadOnlyList<PageLine>? said = null,
             string? environment = null, string? agent = null, bool environmentChangeable = false, bool agentChangeable = false,
             KitInstruction? instruction = null, bool draftSpoken = false, bool chooses = false, string? stops = null, bool working = false,
-            RoomWorkStep? step = null, bool offersNeverAsk = false, bool neverAsk = false, bool? runNeverAsk = null, RoomResult? result = null)
+            RoomWorkStep? step = null, bool offersNeverAsk = false, bool neverAsk = false, bool? runNeverAsk = null, RoomResult? result = null,
+            Halcyonic.Contracts.AutoFixView? autoFix = null)
         {
             Result = result;
+            AutoFix = autoFix;
             OffersNeverAsk = offersNeverAsk;
             NeverAsk = neverAsk;
             RunNeverAsk = runNeverAsk;
@@ -451,6 +453,9 @@ namespace Halcyonic.Client
         /// carries none. Never the choice: what the runtime confirmed.
         /// </summary>
         public bool? RunNeverAsk { get; }
+
+        /// <summary>The task's failed check sent back to its agent on its own (ADR 0044), the latest chain, under way or ended; null where none was recorded.</summary>
+        public Halcyonic.Contracts.AutoFixView? AutoFix { get; }
 
         /// <summary>What Stop's confirmation asks, the file's own words, while Stop is armed (the redesign); else null.</summary>
         public string? Stops { get; }
