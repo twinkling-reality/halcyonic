@@ -8,7 +8,7 @@ namespace Halcyonic.Client
 {
     /// <summary>
     /// The two reads History needs from the computer (gap 2; CORE's note of 2026-11-11): a project's versions
-    /// (<c>GET /api/projects/:id/checkpoints</c>) and what restoring one would do now, with the digest of that review
+    /// (<c>GET /api/projects/:id/checkpoints</c>, read as the relative path "api/projects/..." the control plane's own reads use) and what restoring one would do now, with the digest of that review
     /// (<c>GET /api/projects/:id/checkpoints/:checkpoint_id/restore-preview</c>, ADR 0051). It reads through
     /// <paramref name="get"/>, the control plane's own authorized GET of a path to its JSON body, so it holds no
     /// credential of its own. Both answers parse strictly, as every contract does.
@@ -24,7 +24,7 @@ namespace Halcyonic.Client
 
         /// <summary>The path of a project's versions.</summary>
         public static string VersionsPath(string projectId) =>
-            "/api/projects/" + Uri.EscapeDataString(Required(projectId, nameof(projectId))) + "/checkpoints";
+            "api/projects/" + Uri.EscapeDataString(Required(projectId, nameof(projectId))) + "/checkpoints";
 
         /// <summary>The path of what restoring <paramref name="checkpointId"/> would do now.</summary>
         public static string PreviewPath(string projectId, string checkpointId) =>
