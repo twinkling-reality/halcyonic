@@ -317,6 +317,9 @@ namespace Halcyonic.XR.UI
                 band.transform.localPosition = new Vector3(0f, whole / 2f - size.y - under, 0f);
                 size = new Vector2(Mathf.Max(size.x, hangs.x), whole);
             }
+            // A plane's part always has a height and a width: whatever the bar lays, its footprint is at least the row's.
+            var least = new Vector2(RoomType.Units(RoomGeometry.PanelDp), RoomType.Units(RoomButton.HeightDp)) / zoom;
+            size = new Vector2(Mathf.Max(size.x, least.x), Mathf.Max(size.y, least.y));
             Size = size;
             FootLine = bar.transform.localPosition.y + bar.Foot / zoom;
             TextBands = new[] { new TextBand(-size.x / 2f, size.x / 2f, -size.y / 2f, size.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };

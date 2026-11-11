@@ -63,10 +63,15 @@ namespace Halcyonic.XR.Workspace.Editor
         /// At work (DESIGN 2.3): the working field and the agent's cursor with Stop alone; the same where the runtime still
         /// takes an instruction, the row under the foot line; and Stop's own confirmation.
         /// </summary>
-        private static readonly string[] WorkStates = { "36-work", "36-work-row", "36-stop-confirm" };
+        private static readonly string[] WorkStates = { "36-work", "36-work-row", "36-stop-confirm", "36-work-recorded" };
 
         /// <summary>A page of the file with no moment of its own, drawn by the general rule (RoomBar.OfFrame): Checks while its answer is read.</summary>
         private static readonly string[] PageStates = { "37-page" };
+
+        /// <summary>The workspace with only <paramref name="actions"/> offered, as a recorded run offers none.</summary>
+        private static WorkspacePresentation WithActions(WorkspacePresentation workspace, IReadOnlyList<WorkspaceAction> actions) =>
+            new WorkspacePresentation(workspace.Character, workspace.Objective, workspace.Execution, workspace.Runtime, actions,
+                actions.Where(workspace.RequiresConfirmation).ToList(), workspace.Commands, workspace.Activity);
 
         /// <summary>The file the agent edits in the at-work state, synthetic.</summary>
         private const string WorkFile = "src/score.js";
@@ -161,6 +166,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 "37-page" => (VoiceStage.Idle, false, RoomBarState.Page, "A page with no moment of its own: its line in the panel, its actions in the column, synthetic data"),
                 "36-work" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work: the field, the agent's cursor saying its step, Stop alone, synthetic data"),
+                "36-work-recorded" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work with nothing to press or name, as a recorded run plays: the field alone, synthetic data"),
                 "36-work-row" => (VoiceStage.Idle, false, RoomBarState.Rest, "At work where the agent still takes an instruction: the row under the foot line, synthetic data"),
                 "36-stop-confirm" => (VoiceStage.Idle, false, RoomBarState.Confirm, "Stop pressed: the file's question, Confirm behind its lock, and Cancel, synthetic data"),
                 "35-choose-rest" => (VoiceStage.Idle, false, RoomBarState.Rest, "At rest with no keyboard: Hold to Talk and Choose Instruction, synthetic data"),
@@ -208,6 +214,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 _ when questioning => SelectedWorkspace(waiting: true, asked: QuestionFor(state), confirmAnswers: state == "34-question-confirm"),
                 // At work, on an agent that takes no instruction while it works, and on one that does.
                 "36-work" or "36-stop-confirm" => WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()),
+                // Nothing to press: no Stop and no instruction while it works, as a recorded run offers.
+                "36-work-recorded" => WithActions(WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()), new WorkspaceAction[0]),
                 "36-work-row" => Running(ShortReport()),
                 // Every other moment of the row is at rest: the run has ended, and its next instruction starts the next one.
                 _ => WithActivity(SelectedWorkspace(waiting: false, status: ExecutionStatus.Completed), ShortReport()),
@@ -438,7 +446,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
                 // The working field and the agent's cursor stand only at work; Stop's confirmation and every other moment have neither.
-                var working = state is "36-work" or "36-work-row";
+                var working = state is "36-work" or "36-work-row" or "36-work-recorded";
+                // No frame leaves the plane a part of no height (JUDGE's walk 9): the host's footprint is never empty.
+                Require(host.Size.x > 0f && host.Size.y > 0f, "the host stands " + host.Size.x + " by " + host.Size.y + ": a part of no size");
                 Require(shown.Working == working, working ? "the agent works and the redesign does not say so" : "at work is shown where nothing works");
                 Require(host.Field.gameObject.activeSelf == working && (host.Field.Shown > 0.999f) == working, working ? "the working field does not stand" : "the working field stands where nothing works");
                 Require(host.Cursor.Words == (state == "36-work" ? RoomWork.Editing + " score.js" : ""), "the cursor reads \"" + host.Cursor.Words + "\"");
@@ -447,13 +457,17 @@ namespace Halcyonic.XR.Workspace.Editor
                     // No panel; the band says nothing; Stop alone where the column stands, a rest action, its core on the foot line.
                     Require(!bar.Panel.gameObject.activeSelf && host.Band.Words == null, "a panel or the band stands while the agent works");
                     var stop = bar.Column[0];
+                    if (state == "36-work-recorded") Require(shown.Column.Count == 0 && shown.Row.Count == 0 && bar.Column.All(button => !button.gameObject.activeSelf), "an action stands where nothing can be pressed");
+                    else
+                    {
                     actions.Add(stop);
                     Require(bar.Column.Count(button => button.gameObject.activeSelf) == 1 && shown.Column.Count == 1 && shown.Column[0].Place == KitPlace.Stop
                         && stop.LookNow() == RoomButtonLook.Rest, "Stop does not stand alone as a rest action");
                     Whole(stop.Words, "Stop's words");
-                    var unit = RoomType.Units(1f);
                     Require(Mathf.Abs(stop.transform.localPosition.y - stop.Core.y / 2f - bar.Foot) < Tolerance, "Stop's core does not stand on the foot line");
                     Require(Mathf.Abs(stop.transform.localPosition.x - stop.Core.x / 2f - (bar.PanelRight + RoomType.Units(RoomGeometry.PairGapDp))) < Tolerance, "Stop does not stand where the column stands");
+                    }
+                    var unit = RoomType.Units(1f);
                     // The field's inner box: the panel's place, 12 degrees up from the foot line.
                     var zoom = GlazeText.Scale;
                     var middle = (host.Field.transform.localPosition - bar.transform.localPosition) * zoom;
