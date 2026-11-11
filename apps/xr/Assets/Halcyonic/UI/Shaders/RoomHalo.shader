@@ -1,7 +1,7 @@
 // The redesign's action (DESIGN's BUILD-SPEC-v4 1.4, FINISH-2 and FINISH-3 2026-11-05): no box and no edge, ever. A faint
 // halo of the panel's foot tint #343A3F round the action's core, solid inside, half at its edge, gone 12 dp out (alpha A x (1 - smoothstep(-12, 12, d))
 // on the core's 24 dp squircle); a small squircle chip at the core's left that holds the glyph; and, on Confirm while its
-// lock fills, a 2 dp ring round the chip filling clockwise from 12 o'clock. One quad, signed distances only. The values
+// lock fills, a 2 dp ring whole outside the chip, filling clockwise from 12 o'clock. One quad, signed distances only. The values
 // arrive linear (the spec's linear-space alphas); colours as sRGB, decoded here. RoomButton.cs sets each action's values.
 Shader "Halcyonic/Room Halo"
 {
@@ -139,7 +139,7 @@ Shader "Halcyonic/Room Halo"
                     result = Over(result, float3(1, 1, 1), mark.w * stroke * fade);
                 }
 
-                // Confirm's lock: a ring round the chip, its track white at 20 percent, filled clockwise from 12 o'clock.
+                // Confirm's lock: a ring whole outside the chip, its track white at 34 percent, filled in white clockwise from 12 o'clock.
                 if (ring.w > 0.5)
                 {
                     float r = length(c);
@@ -147,9 +147,9 @@ Shader "Halcyonic/Room Halo"
                     float angle = atan2(c.x, c.y);
                     float turn = frac(angle / 6.2831853 + 1.0);
                     float filled = turn <= ring.z ? 1.0 : 0.0;
-                    result = Over(result, float3(1, 1, 1), 0.2 * 0.5 * band * fade);
-                    // The ring fills in the one accent, #59CFF1.
-                    result = Over(result, Decode(float3(0.349, 0.812, 0.945)), filled * band * fade);
+                    result = Over(result, float3(1, 1, 1), 0.34 * 0.5 * band * fade);
+                    // The ring fills in white, apart from the accent of the chip it stands round.
+                    result = Over(result, float3(1, 1, 1), filled * band * fade);
                 }
                 return result;
             }

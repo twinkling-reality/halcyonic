@@ -30,35 +30,40 @@ public sealed class RoomFixingTests
         new() { State = state, CheckId = "0193b3a0-0000-7000-8000-000000000001", Attempt = attempt, Cap = cap, Reason = reason };
 
     [Test]
-    public void While_a_try_runs_the_bar_at_work_says_which_try_under_the_failure()
+    public void While_a_try_runs_the_bar_at_work_shows_a_status_card_with_its_track()
     {
         var bar = AtWork(Fix(AutoFixViewState.Fixing, 1));
         Assert.That(bar.Working, Is.True);
-        Assert.That(bar.Fixing, Is.EqualTo("Fixing · Try 1 of 2"));
-        Assert.That(bar.Facts!.Select(row => (row.Words.Text, row.Mark)), Is.EqualTo(new[] { (RoomBar.FixingFailed, RoomRowMark.Cross) }));
+        Assert.That(bar.Card!.Status!.Value.Title, Is.EqualTo(RoomBar.FixingTitle));
+        Assert.That(bar.Card.Status!.Value.Tone, Is.EqualTo(RoomTone.Working));
+        Assert.That((bar.Card.TrackAt, bar.Card.TrackOf), Is.EqualTo(((int?)1, (int?)2)), "the try is a track of its own, never a suffix");
+        Assert.That(bar.Card.AnyDot, Is.False);
         Assert.That(bar.FromMoment, Is.False, "the frame stays the task's own");
         Assert.That(bar.Column.Select(action => action.Place), Does.Contain(KitPlace.Stop), "Stop stands as at any work");
-        Assert.That(AtWork(Fix(AutoFixViewState.Fixing, 2)).Fixing, Is.EqualTo("Fixing · Try 2 of 2"));
+        Assert.That(AtWork(Fix(AutoFixViewState.Fixing, 2)).Card!.TrackAt, Is.EqualTo(2));
     }
 
     [Test]
-    public void No_try_under_way_gives_no_fixing_line()
+    public void No_try_under_way_gives_no_fixing_card()
     {
-        Assert.That(AtWork(null).Fixing, Is.Null);
-        Assert.That(AtWork(Fix(AutoFixViewState.Ended, 1, reason: AutoFixEndReason.Passed)).Fixing, Is.Null, "an ended chain is the result's to say");
-        Assert.That(AtWork(Fix(AutoFixViewState.Fixing, 0)).Fixing, Is.Null, "no try sent yet");
-        Assert.That(AtWork(Fix(AutoFixViewState.Fixing, 1), ExecutionStatus.Completed).Fixing, Is.Null, "not at work");
+        Assert.That(AtWork(null).Card, Is.Null);
+        Assert.That(AtWork(Fix(AutoFixViewState.Ended, 1, reason: AutoFixEndReason.Passed)).Card, Is.Null, "an ended chain is the result's to say");
+        Assert.That(AtWork(Fix(AutoFixViewState.Fixing, 0)).Card, Is.Null, "no try sent yet");
+        Assert.That(AtWork(Fix(AutoFixViewState.Fixing, 1), ExecutionStatus.Completed).Card, Is.Null, "not at work");
     }
 
     [Test]
-    public void An_ended_chain_gives_the_result_its_line_only_where_tries_were_made_and_passed_or_ran_out()
+    public void An_ended_chain_gives_a_card_only_where_tries_were_made_and_passed_or_ran_out()
     {
-        Assert.That(RoomBar.FixedWords(Fix(AutoFixViewState.Ended, 2, reason: AutoFixEndReason.Passed)), Is.EqualTo("Fixed · Try 2 of 2"));
-        Assert.That(RoomBar.FixedWords(Fix(AutoFixViewState.Ended, 1, cap: 3, reason: AutoFixEndReason.Passed)), Is.EqualTo("Fixed · Try 1 of 3"));
-        Assert.That(RoomBar.FixedWords(Fix(AutoFixViewState.Ended, 2, reason: AutoFixEndReason.CapReached)), Is.EqualTo("Stopped After 2 Tries"));
-        Assert.That(RoomBar.FixedWords(Fix(AutoFixViewState.Ended, 1, reason: AutoFixEndReason.PersonStopped)), Is.Null);
-        Assert.That(RoomBar.FixedWords(Fix(AutoFixViewState.Ended, 0, reason: AutoFixEndReason.NoChange)), Is.Null, "no try was sent");
-        Assert.That(RoomBar.FixedWords(Fix(AutoFixViewState.Fixing, 1)), Is.Null);
-        Assert.That(RoomBar.FixedWords(null), Is.Null);
+        var fixedCard = RoomBar.FixedCard(Fix(AutoFixViewState.Ended, 2, reason: AutoFixEndReason.Passed))!;
+        Assert.That((fixedCard.Status!.Value.Title, fixedCard.Status.Value.Tone), Is.EqualTo((RoomBar.FixedTitle, RoomTone.Good)));
+        Assert.That((fixedCard.TrackAt, fixedCard.TrackOf), Is.EqualTo(((int?)2, (int?)2)), "the tries it took");
+        Assert.That(RoomBar.FixedCard(Fix(AutoFixViewState.Ended, 1, reason: AutoFixEndReason.Passed))!.TrackAt, Is.EqualTo(1), "passed on the first of two: one used, one left");
+        var stopped = RoomBar.FixedCard(Fix(AutoFixViewState.Ended, 2, reason: AutoFixEndReason.CapReached))!;
+        Assert.That((stopped.Status!.Value.Title, stopped.Status.Value.Tone), Is.EqualTo((RoomBar.StoppedTitle, RoomTone.Bad)));
+        Assert.That(RoomBar.FixedCard(Fix(AutoFixViewState.Ended, 1, reason: AutoFixEndReason.PersonStopped)), Is.Null);
+        Assert.That(RoomBar.FixedCard(Fix(AutoFixViewState.Ended, 0, reason: AutoFixEndReason.NoChange)), Is.Null, "no try was sent");
+        Assert.That(RoomBar.FixedCard(Fix(AutoFixViewState.Fixing, 1)), Is.Null);
+        Assert.That(RoomBar.FixedCard(null), Is.Null);
     }
 }

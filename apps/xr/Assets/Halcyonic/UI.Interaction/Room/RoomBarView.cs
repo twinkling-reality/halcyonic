@@ -282,10 +282,13 @@ namespace Halcyonic.XR.UI
             }
             else
             {
+                // At work the panel's place is the working field's, unless a card says what the work is (a check being fixed).
+                var fixing = bar.Working && bar.Card != null;
+                if (card != null && !fixing) card.Hide();
                 locking = null;
                 panel.gameObject.SetActive(false);
                 foreach (var button in column) button.Hide();
-                if (bar.Working && bar.Fixing != null) LayFixing(bar);
+                if (fixing) LayFixing(bar);
                 else if (bar.Working) LayWork(bar);
                 else if (bar.Row.Count > 0) LayRow(bar, 0f);
                 else LayAlone(bar);
@@ -345,13 +348,13 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// At work while a try at a failed check runs (FIELD's A7): the information panel stands in its place beside Stop, the
-        /// failure as its row over the try's words in its sentence bar, sweeping (<see cref="RoomBar.Fixing"/>), and the working
-        /// field stands round it as at any work. The row, or the agent's plate, hangs under the pair as at rest.
+        /// At work while a try at a failed check runs (FIELD's A7 in A17's language): the information panel stands in its place
+        /// beside Stop, the fixing card in it (<see cref="RoomBar.Card"/>: "Fixing" over its line, its tries as pips under its
+        /// mark), and the working field stands round it as at any work. The row, or the agent's plate, hangs under the pair as at rest.
         /// </summary>
         private void LayFixing(RoomBar bar)
         {
-            LayPair(bar, bar.Fixing, waits: true);
+            LayPair(bar);
             var (pair, foot, right) = (Size, Foot, PanelRight);
             var under = foot - RoomType.Units(RowFeetDp) + RoomType.Units(RoomButton.HeightDp) / 2f;
             if (bar.Row.Count > 0) LayRow(bar, under);
@@ -455,7 +458,7 @@ namespace Halcyonic.XR.UI
             {
                 // Hold to Talk, then Type (or what stands in its place), then a third action where the model gives one.
                 var button = action.Place == KitPlace.Talk ? talk : action.Place == KitPlace.Field ? type : more;
-                var width = button.Measure(action.Words) + (button == talk && listening ? RoomType.Units(LevelGapDp + LevelWidthDp) : 0f);
+                var width = button.Measure(action.Words, action.Chip) + (button == talk && listening ? RoomType.Units(LevelGapDp + LevelWidthDp) : 0f);
                 buttons.Add((button, action, width));
             }
             var gap = RoomType.Units(RoomGeometry.RowGapDp);
@@ -463,7 +466,7 @@ namespace Halcyonic.XR.UI
             var left = -total / 2f;
             foreach (var (button, action, width) in buttons)
             {
-                button.Show(action.Words, action.Icon, action.Main, available: true, new Vector2(left + width / 2f, up), width);
+                button.Show(action.Words, action.Icon, action.Main, available: true, new Vector2(left + width / 2f, up), width, aside: action.Chip);
                 if (button != talk) controls[button] = action.Control;
                 left += width + gap;
             }

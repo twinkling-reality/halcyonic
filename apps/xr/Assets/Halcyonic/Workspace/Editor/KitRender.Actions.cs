@@ -10,8 +10,8 @@ namespace Halcyonic.XR.Workspace.Editor
     /// <summary>
     /// The redesign's actions in every look (DESIGN's BUILD-SPEC-v4 1.4 as F6 changed it on 2026-11-10, after the owner
     /// found the actions camouflaged): the one main action with the accent on its chip and in its backing, a neutral one at
-    /// rest, pointed (its chip light, 6 percent larger), the main one pointed, held, Confirm behind its lock (a round well,
-    /// its ring and glyph in the accent), and an answer's marks, not chosen and chosen. Each is drawn in the room's halo,
+    /// rest, pointed (its chip light, 6 percent larger), the main one pointed, held, Confirm behind its lock (the main action's own chip,
+    /// its ring white and whole outside it), and an answer's marks, not chosen and chosen. Each is drawn in the room's halo,
     /// never a box, with DESIGN's own glyph named by its words; its words whole in the one size, never cut however long;
     /// its target Meta's hand target at least, 12 mm from the next; its glyph at 4.5 to 1 on its chip; and its arrival and
     /// its answer to pointing on RoomMotion's curves at fixed clock times.
@@ -37,7 +37,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 ("Changes", null, false, RoomButtonLook.Pointed, null, AnswerMark.None, false, RoomButtonLook.Pointed, RoomGlyph.Changes, RoomButton.LightColour, RoomButton.InkColour),
                 ("Make VR Version", null, true, RoomButtonLook.MainPointed, null, AnswerMark.None, false, RoomButtonLook.MainPointed, RoomGlyph.Cube, RoomButton.AccentColour, RoomButton.InkColour),
                 ("Checks", null, false, RoomButtonLook.Pressed, null, AnswerMark.None, false, RoomButtonLook.Pressed, RoomGlyph.Checks, -1, RoomButton.InkColour),
-                ("Confirm", GlazeIcon.Approve, false, null, 0.5f, AnswerMark.None, false, RoomButtonLook.Rest, RoomGlyph.Check, RoomButton.LockWellColour, RoomButton.AccentColour),
+                ("Confirm", GlazeIcon.Approve, false, null, 0.5f, AnswerMark.None, false, RoomButtonLook.Rest, RoomGlyph.Check, RoomButton.AccentColour, RoomButton.InkColour),
                 ("Cancel", null, false, null, null, AnswerMark.None, false, RoomButtonLook.Rest, RoomGlyph.Cross, RoomButton.RestChipColour, 0xFFFFFF),
                 ("Light", null, false, null, null, AnswerMark.Single, false, RoomButtonLook.Rest, null, -1, 0),
                 ("Dark", null, false, null, null, AnswerMark.Single, true, RoomButtonLook.Rest, RoomGlyph.Check, RoomButton.AccentColour, RoomButton.InkColour),
@@ -69,7 +69,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(button.Glyph.Glyph == glyph, words + " carries " + (button.Glyph.Glyph?.ToString() ?? "no glyph") + ", not " + (glyph?.ToString() ?? "none"));
                 Require(button.GetComponentsInChildren<TMPro.TMP_Text>(false).All(label => !GlazeIcons.IsIcon(label)), words + " still draws an icon from the font");
             }
-            Require(looks.Count(row => row.Main) == 2 && buttons.Count(button => button.ChipColour == (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.AccentColour) && button.Mark == AnswerMark.None) == 2,
+            // The accent on the main actions' chips and on Confirm's behind its lock, which is the moment's main action waiting (the lead's 0529Z word), and on no other.
+            var leading = looks.Count(row => row.Main || row.Lock != null);
+            Require(leading == 3 && buttons.Count(button => button.ChipColour == (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.AccentColour) && button.Mark == AnswerMark.None) == leading,
                 "the accent is not on the main actions' chips alone");
             for (var index = 1; index < buttons.Count; index++)
             {

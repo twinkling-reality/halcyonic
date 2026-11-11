@@ -63,8 +63,9 @@ namespace Halcyonic.Client
     public sealed class RoomAction
     {
         public RoomAction(KitControl control, bool main, string? words = null, bool locks = false, GlazeIcon? icon = null, AnswerMark mark = AnswerMark.None,
-            bool chosen = false)
+            bool chosen = false, string? chip = null)
         {
+            Chip = string.IsNullOrWhiteSpace(chip) ? null : chip;
             Control = control;
             Main = main;
             Words = words ?? control.Words;
@@ -79,6 +80,12 @@ namespace Halcyonic.Client
         /// number may be chosen; none for an action that is no answer.
         /// </summary>
         public AnswerMark Mark { get; }
+
+        /// <summary>
+        /// A quiet chip after the words, a fact of the action's own (the addendum's A17: the agent's level after its name),
+        /// never joined to the words on a dot. Null for none.
+        /// </summary>
+        public string? Chip { get; }
 
         /// <summary>The answer is chosen: its mark is the light disc with a check.</summary>
         public bool Chosen { get; }

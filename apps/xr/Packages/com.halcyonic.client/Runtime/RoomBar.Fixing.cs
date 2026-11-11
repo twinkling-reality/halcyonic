@@ -6,22 +6,53 @@ namespace Halcyonic.Client
     public sealed partial class RoomBar
     {
         /// <summary>
-        /// While the task's failed check is back with its agent on its own (ADR 0044; the addendum's A7): the failure the
-        /// try answers, as the panel's row with its cross, and "Fixing · Try {n} of {m}" as the sentence under it, sweeping.
-        /// The field and the cursor still say what the agent does. Null where no try is under way.
+        /// The information panel as a card where a moment gives it one (the addendum's A17): a name or a status as its title,
+        /// facts as slots, tries as pips, a list. Null where the panel holds words alone or rows.
         /// </summary>
-        public string? Fixing { get; private set; }
+        public RoomCard? Card { get; private set; }
 
-        /// <summary>The panel's one row while a try is under way: what failed, with its cross.</summary>
-        public const string FixingFailed = "Check Failed";
+        /// <summary>The fixing card's title and its quieter line while a try is under way (the addendum's A7 and A17).</summary>
+        public const string FixingTitle = "Fixing";
+        public const string FixingLine = "The agent works on it by itself";
 
-        /// <summary>The sentence while try <paramref name="attempt"/> of <paramref name="cap"/> is under way.</summary>
-        public static string FixingWords(long attempt, long cap) => "Fixing" + KitMomentWords.Dot + "Try " + attempt + " of " + cap;
+        /// <summary>The ended chain's card: its title and line where the check passed after a try, and where the tries ran out.</summary>
+        public const string FixedTitle = "All Passing";
+        public const string FixedLine = "The agent fixed it by itself";
+        public const string StoppedTitle = "Checks Failed";
+        public const string StoppedLine = "The tries ran out";
 
         /// <summary>
-        /// The line a result at rest adds where a chain of tries ended (the addendum's A7, the lead's words of 2105Z):
-        /// "Fixed · Try {n} of {m}" where the check passed after a try, "Stopped After {m} Tries" where the tries ran out.
-        /// Null for any other end: the result's own lines say the rest, as before any try.
+        /// While the task's failed check is back with its agent on its own (ADR 0044; the addendum's A7 and A17): a status
+        /// card, "Fixing" over its quieter line, its tries as pips under its mark, the one under way filled. The
+        /// field and the cursor still say what the agent does. The title names the outcome, never the check's own name, which
+        /// its node carries. Null where no try is under way.
+        /// </summary>
+        public static RoomCard? FixingCard(AutoFixView? fix)
+        {
+            if (fix == null || fix.State != AutoFixViewState.Fixing || fix.Attempt < 1 || fix.Cap < 1) return null;
+            return new RoomCard(status: new RoomCardStatus(FixingTitle, FixingLine, RoomTone.Working), trackAt: (int)fix.Attempt, trackOf: (int)fix.Cap);
+        }
+
+        /// <summary>
+        /// The card a result at rest shows where a chain of tries ended (the addendum's A7 and A17): "All Passing" over its
+        /// line, the tries it took filled, where the check passed after one; "Checks Failed" where the tries ran out, every try spent. Null for
+        /// any other end: the result says the rest, as before any try.
+        /// </summary>
+        public static RoomCard? FixedCard(AutoFixView? fix)
+        {
+            if (fix == null || fix.State != AutoFixViewState.Ended || fix.Attempt < 1 || fix.Cap < 1) return null;
+            return fix.Reason switch
+            {
+                AutoFixEndReason.Passed => new RoomCard(status: new RoomCardStatus(FixedTitle, FixedLine, RoomTone.Good), trackAt: (int)fix.Attempt, trackOf: (int)fix.Cap),
+                AutoFixEndReason.CapReached => new RoomCard(status: new RoomCardStatus(StoppedTitle, StoppedLine, RoomTone.Bad), trackAt: (int)fix.Cap, trackOf: (int)fix.Cap),
+                _ => null,
+            };
+        }
+
+        /// <summary>
+        /// The line a result at rest adds where a chain of tries ended, as XR's result moment lays it until the result is a
+        /// card of its own (A17's next part): "Fixed · Try {n} of {m}" where the check passed after a try, "Stopped After {m}
+        /// Tries" where the tries ran out. Null for any other end. The card for the same end is <see cref="FixedCard"/>.
         /// </summary>
         public static string? FixedWords(AutoFixView? fix)
         {
@@ -35,16 +66,12 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// Gives the task's bar at work its fixing line where a try is under way, and answers nothing: the frame stays the
+        /// Gives the task's bar at work its fixing card where a try is under way, and answers nothing: the frame stays the
         /// task's (as <see cref="AgentAtWork"/> does).
         /// </summary>
         private static RoomBar? AutoFixing(KitFileBinding binding, VoiceStage voice, RoomBar tasks)
         {
-            if (tasks.Working && binding.Model.AutoFix is { State: AutoFixViewState.Fixing } fix && fix.Attempt >= 1)
-            {
-                tasks.Fixing = FixingWords(fix.Attempt, fix.Cap);
-                tasks.Facts = new[] { new RoomRow(LineWords.Ours(FixingFailed), RoomRowMark.Cross) };
-            }
+            if (tasks.Working && FixingCard(binding.Model.AutoFix) is RoomCard card) tasks.Card = card;
             return null;
         }
     }
