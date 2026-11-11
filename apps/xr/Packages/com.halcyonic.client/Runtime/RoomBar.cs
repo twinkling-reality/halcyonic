@@ -384,14 +384,36 @@ namespace Halcyonic.Client
             var tasks = Tasks(binding, voice, sentAwaitingStart);
             // What waits on the person, and what was sent, always stands: no moment is asked over an approval, a question,
             // a confirmation or Sent (AUDIT, 2026-11-10).
-            if (tasks.State is RoomBarState.Request or RoomBarState.Question or RoomBarState.Confirm or RoomBarState.Sent) return tasks;
+            if (tasks.State is RoomBarState.Request or RoomBarState.Question or RoomBarState.Confirm or RoomBarState.Sent) return WithClose(binding, tasks);
             foreach (var moment in Moments)
                 if (moment(binding, voice, tasks) is RoomBar own)
                 {
                     own.FromMoment = true;
-                    return own;
+                    return WithClose(binding, own);
                 }
-            return tasks;
+            return WithClose(binding, tasks);
+        }
+
+        /// <summary>The most actions a column holds; past it the older view draws the frame (the view lays as many).</summary>
+        public const int ColumnMost = 6;
+
+        /// <summary>The row's way back to the Projects place at rest (FIELD's parts note): "Close" there would read as closing the task.</summary>
+        public const string ProjectsWords = "Projects";
+
+        /// <summary>
+        /// A task's file always offers its way back to the Projects place (FIELD's parts note; JUDGE's census, 2026-11-11):
+        /// the file's own Close, last in the result's column with its cross (the result and its pages, where the census found
+        /// no way out), where the column has room and no Cancel already leads out; at rest with no pair, "Projects" last in
+        /// the row, with the Back glyph, never main. An approval, a question or a confirmation keeps its own ways out.
+        /// </summary>
+        private static RoomBar WithClose(KitFileBinding binding, RoomBar bar)
+        {
+            if (binding[KitPlace.Close] is not { Available: true } close || bar.Column.Concat(bar.Row).Any(action => action.Control.Place is KitPlace.Close or KitPlace.Cancel))
+                return bar;
+            if (bar.Result && bar.Column.Count < ColumnMost) bar.Column = bar.Column.Append(new RoomAction(close, main: false, icon: GlazeIcon.Close)).ToList();
+            else if (!bar.Pair && !bar.Working && bar.State == RoomBarState.Rest)
+                bar.Row = bar.Row.Append(new RoomAction(close, main: false, ProjectsWords, icon: GlazeIcon.Back)).ToList();
+            return bar;
         }
 
         /// <summary>
