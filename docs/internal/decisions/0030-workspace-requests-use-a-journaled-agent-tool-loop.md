@@ -128,3 +128,9 @@ answer from.
 - Text an agent wrote, or that was read from the project (file paths, page errors, the agent's own messages),
   reaches the model in a user-role block that says it is quoted data, neither the person's words nor
   instructions; the host's own receipts stay in a system message (AUDIT2 S3).
+- Once the work a request sent has its outcome (its turn ended, nothing waits, the Mac's check of it in),
+  the next model turn is offered no tool, so the model answers from the evidence already in its
+  context. This changes the earlier rule that a wake never forces a final answer: the 30B local model
+  read on past the outcome until its planning bound, with no reply (2026-11-11). The prompt also says
+  so (`work_outcome_in`). A model that still answers with a tool call there fails that turn, as for any
+  call not offered.

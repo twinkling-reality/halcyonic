@@ -1812,8 +1812,10 @@ test('once the work it sent has its outcome, the host context says so, so the mo
     assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
     assert.deepEqual(flags, [false, true]);
     // No result list was read, so no single result was offered.
-    assert.ok(offered.every((names) => !names.includes('read_result')));
-    assert.ok(offered.every((names) => names.includes('read_results')));
+    assert.ok(!offered[0]?.includes('read_result'));
+    assert.ok(offered[0]?.includes('read_results'));
+    // Once the outcome is in, that turn is offered no tool, so the model answers.
+    assert.deepEqual(offered[1], []);
   } finally {
     await f.close();
   }

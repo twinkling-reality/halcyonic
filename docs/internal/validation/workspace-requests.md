@@ -40,8 +40,9 @@ works." went `read_workspace`, `continue_task` (delivered, Codex's turn observed
 although the Mac's check of the blue change had passed (03:04:54Z, files current). Memory was 25% free just before
 the request (the 30B loaded for Codex and another lane's Unity job running); the run was stopped there and the model
 unloaded. So the host context now says `work_outcome_in: true` once the work the request sent has its outcome, its
-check included, and the prompt says to answer then; and `read_result` is offered only after `read_results`. Not yet
-run on the 30B model.
+check included, and the prompt says to answer then; and `read_result` is offered only after `read_results`. And
+the first model turn after that is offered no tool at all, so the model can only answer. Not yet run on the 30B
+model.
 
 ## 2026-11-10: What a task changed and whether it works, a whole project, on local models
 
