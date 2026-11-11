@@ -34,6 +34,11 @@ const nextId = () => {
   return `01920000-0000-7000-8000-${ids.toString(16).padStart(12, '0')}`;
 };
 
+/** What the person is shown of a copy: its reading, whose tree an add may bring (ADR 0045). */
+async function shown(made: { directory: string; baseTree: string }): Promise<string | null> {
+  return (await copies.readChanges(PROJECT, TASK, made.directory, made.baseTree))?.tree ?? null;
+}
+
 function write(relative: string, content: string, mode?: number): void {
   const path = join(folder, relative);
   mkdirSync(join(path, '..'), { recursive: true });
@@ -112,6 +117,52 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     assert.equal(existsSync(join(folder, 'b.txt')), false);
   });
 
+  test("a copy keeps no token from the person's remotes: the user part goes from every address, in the copy only", async () => {
+    write('a.txt', 'one\n');
+    const env = { PATH: '/usr/bin:/bin', HOME: root, GIT_CONFIG_NOSYSTEM: '1' };
+    const git = (cwd: string, ...args: string[]) =>
+      execFileSync(GIT, args, { cwd, env }).toString().trim();
+    git(folder, 'init', '-q');
+    git(
+      folder,
+      'remote',
+      'add',
+      'origin',
+      'https://person:secret-token@example.invalid/team/app.git',
+    );
+    git(
+      folder,
+      'config',
+      'remote.origin.pushurl',
+      'https://other-token@example.invalid/team/app.git',
+    );
+    git(folder, 'remote', 'add', 'ssh', 'git@example.invalid:team/app.git');
+    git(
+      folder,
+      'config',
+      'url.https://ci-token@example.invalid/.insteadOf',
+      'https://example.invalid/',
+    );
+    const made = await copies.prepare(PROJECT, TASK, folder);
+    assert.ok(made.ok, made.ok ? '' : made.code);
+    const copied = readFileSync(join(made.directory, '.git', 'config'), 'utf8');
+    assert.doesNotMatch(copied, /token/);
+    assert.equal(
+      git(made.directory, 'config', 'remote.origin.url'),
+      'https://example.invalid/team/app.git',
+    );
+    assert.equal(
+      git(made.directory, 'config', 'remote.origin.pushurl'),
+      'https://example.invalid/team/app.git',
+    );
+    assert.equal(
+      git(made.directory, 'config', 'remote.ssh.url'),
+      'git@example.invalid:team/app.git',
+    );
+    // The person's own repository is untouched.
+    assert.match(readFileSync(join(folder, '.git', 'config'), 'utf8'), /secret-token/);
+  });
+
   test('a folder whose .git is a file is refused: its copy would act on the repository it points to', async () => {
     write('a.txt', 'one\n');
     writeFileSync(join(folder, '.git'), 'gitdir: /elsewhere/.git/worktrees/app\n');
@@ -170,7 +221,7 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     const outcome = await copies.add(
       PROJECT,
       TASK,
-      { copy: made.directory, base: made.baseTree, folder },
+      { copy: made.directory, base: made.baseTree, folder, reviewed: await shown(made) },
       async () => {
         // The person's edit lands between the read and the write.
         writeFileSync(join(folder, 'a.txt'), 'two\n');
@@ -185,12 +236,41 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     const again = await copies.add(
       PROJECT,
       TASK,
-      { copy: made.directory, base: made.baseTree, folder },
+      { copy: made.directory, base: made.baseTree, folder, reviewed: await shown(made) },
       async () => '01920000-0000-7000-8000-0000000000c1',
     );
     assert.equal(again.kind, 'added');
     assert.equal(readFileSync(join(folder, 'b.txt'), 'utf8'), 'from the task\n');
     assert.equal(readFileSync(join(folder, 'a.txt'), 'utf8'), 'two\n');
+  });
+
+  test('an add brings only what the person was shown: a file written after it, by anyone, stops it (AUDIT2)', async () => {
+    write('a.txt', 'one\n');
+    const made = await copies.prepare(PROJECT, TASK, folder);
+    assert.ok(made.ok);
+    writeFileSync(join(made.directory, 'b.txt'), 'reviewed\n');
+    const read = await copies.readChanges(PROJECT, TASK, made.directory, made.baseTree);
+    assert.deepEqual(read?.changed, ['b.txt']);
+    // Another writer adds a file the person never saw.
+    writeFileSync(join(made.directory, 'c.txt'), 'never shown\n');
+    const outcome = await copies.add(
+      PROJECT,
+      TASK,
+      { copy: made.directory, base: made.baseTree, folder, reviewed: read?.tree ?? null },
+      async () => assert.fail('nothing is kept or written for a copy the person was not shown'),
+    );
+    assert.equal(outcome.kind, 'unreviewed');
+    assert.deepEqual(outcome.kind === 'unreviewed' && outcome.changed, ['b.txt', 'c.txt']);
+    assert.equal(existsSync(join(folder, 'b.txt')), false);
+    assert.equal(existsSync(join(folder, 'c.txt')), false);
+    // With nothing ever shown, nothing is added either.
+    const never = await copies.add(
+      PROJECT,
+      TASK,
+      { copy: made.directory, base: made.baseTree, folder, reviewed: null },
+      async () => assert.fail('never'),
+    );
+    assert.equal(never.kind, 'unreviewed');
   });
 
   test('an add never goes through without its checkpoint of the project: nothing is written', async () => {
@@ -201,7 +281,7 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     const outcome = await copies.add(
       PROJECT,
       TASK,
-      { copy: made.directory, base: made.baseTree, folder },
+      { copy: made.directory, base: made.baseTree, folder, reviewed: await shown(made) },
       async () => null,
     );
     assert.equal(outcome.kind === 'failed' && outcome.code, 'before_add_failed');
@@ -221,7 +301,7 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     const outcome = await copies.add(
       PROJECT,
       TASK,
-      { copy: made.directory, base: made.baseTree, folder },
+      { copy: made.directory, base: made.baseTree, folder, reviewed: await shown(made) },
       async () => assert.fail('nothing is kept or written when they met'),
     );
     assert.equal(outcome.kind, 'conflicted');

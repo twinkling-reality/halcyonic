@@ -34,22 +34,42 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
 ## Decision
 
 1. Every task of a project with a folder, git or not, works in its own copy of that folder when its
-   runtime uses a folder. The copy is an APFS clone made just before the task's first start, ignored
+   runtime is held to the folder it is given on this computer, so that in a copy it writes only that
+   copy. Runtime by runtime, as built on 2026-11-11:
+   - **Codex** is held where its confinement covers the folder: every execution's folder on macOS
+     since BOX-2 (ADR 0041), and so its copy; elsewhere it is not confined, and gets no copy.
+   - **OpenCode** is held on macOS since BOX-3: every execution's folder has a sandboxed server of
+     its own that writes that folder alone, so in a copy it writes only that copy. Elsewhere it has
+     no sandbox, and gets no copy.
+   - **Claude Code** is not: it runs with no sandbox. It gets no copy.
+   A runtime not held works in the project's folder, one task at a time (FOLDER), its task refused
+   a copy in words (`copy_refused` `runtime_unconfined`), and a task with a copy is never started
+   with one. VRIFY's sandbox for every agent (ADR 0048) is what will hold Claude Code. So the claim
+   "each agent sees and changes only its copy" holds for the writes of a sandboxed Codex or OpenCode
+   agent; each still reads what its sandbox lets it, and a Claude Code agent, working in the
+   project's folder, can read and write anywhere, other tasks' copies included, which is why an add
+   brings only what the person was shown (4). The copy is an APFS clone made just before the task's first start, ignored
    files included so dependencies and builds work, in
    `<HALCYONIC_TASKS_DIR, default ~/.halcyonic-tasks>/<project id>/<task id>/<the folder's own name>`:
    a folder of Halcyonic's own beside its data folder, never inside it and never inside the project.
-   Every later start of the task, with any agent, works in the same copy.
+   Every later start of the task, with any agent held to it, works in the same copy.
 2. The copy's base is the tree of the copy as it was made, kept in the project's checkpoint store
    (`workstream.copy_made`). Halcyonic writes nothing to the person's `.git`: no branch, no ref. The
    copy keeps whatever branch was checked out, and an agent's commits stay in the copy's own `.git`.
+   The copy's own git settings lose the user part of every remote's address (`scheme://user@host`,
+   where a token sits) and any `url.<base>` rewrite that carries one, so no token of the person's
+   persists in the copy; `user@host:path` names an ssh login and stays.
 3. A task that cannot have a copy works in the project's folder under the one-task rule, and says
    why (`workstream.copy_refused`): its `.git` is a file, another repository sits inside it, it is
    larger than a checkpoint keeps, its volume cannot clone, it is missing, or it holds Halcyonic's
-   data.
+   data, or its runtime is not held to the folder (1).
 4. The project's folder changes only when the person adds a task's work (`workstream.add_to_project`,
    review required, admitted only while the task is at rest and nothing else writes the project's
    folder) or restores a checkpoint. Nothing adds by itself, even for the only task at work.
-   The host snapshots the copy and the folder, merges them over the base, keeps a `before_add`
+   The add brings only what the person was shown: the copy's tree must equal the tree of its latest
+   reading (`workstream.copy_changes_read`, whose list the headset shows); a copy changed since, by
+   its agent or anything else, is read again and shown, and the add fails `changed_since_review`
+   with nothing written. The host snapshots the copy and the folder, merges them over the base, keeps a `before_add`
    checkpoint of the folder, applies the merge and reads the folder again; only then is
    `workstream.added` recorded, and the base becomes the task's tree. The changes arrive as plain
    edits in the folder. Files the project ignores stay in the copy.
@@ -90,8 +110,8 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
 - New: commands `workstream.add_to_project` and `workstream.fit_to_project`, six `workstream.*`
   events, the `before_add` checkpoint reason, `WorkstreamView.copy`. The welcome's command policies
   list the two commands, so the committed demonstration's welcome changes by those two entries.
-- The directory policy, OpenCode's sandbox and Codex's confinement must admit the copies' folder,
-  and every lookup of a project by its folder must also know a task's copy.
+- The runtimes' directory policy must admit the copies' folder (each sandbox then holds its run to
+  the copy it is given), and every lookup of a project by its folder must also know a task's copy.
 - Disk: a clone shares blocks until changed, but a project with very many files takes longer to
   copy per new task. A copy is kept while its task exists (Halcyonic has no command that removes a
   task). At every start, before anything can start a task, the host removes each copy no task holds:

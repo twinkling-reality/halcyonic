@@ -20,6 +20,7 @@ import {
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
 import { ControlPlane } from '../core/control-plane.ts';
+import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { createUuidV7Generator } from '../ids.ts';
 import { openSqliteJournal } from '../journal/sqlite-journal.ts';
 import { createHostLocations } from '../locations.ts';
@@ -37,11 +38,11 @@ after(() => rmSync(base, { recursive: true, force: true }));
  * A runtime that works in the folder it is given: on start it writes its instruction into
  * `app.txt`, as an agent would, and keeps its turn open until `finish` is called.
  */
-function writingRuntime() {
+function writingRuntime(runtimeId = 'writer') {
   let observations = 0;
   const sinks: ObservationSink[] = [];
   const descriptor: RuntimeDescriptor = {
-    runtime_id: 'writer' as RuntimeId,
+    runtime_id: runtimeId as RuntimeId,
     kind: 'stub',
     display_name: 'Stub that writes in its folder',
     synthetic: true,
@@ -87,7 +88,7 @@ function writingRuntime() {
   return { adapter, finish };
 }
 
-function setup(name: string, options: { linkedRepository?: boolean } = {}) {
+function setup(name: string, options: { linkedRepository?: boolean; copiesOff?: boolean } = {}) {
   const root = join(base, name);
   const projects = join(root, 'projects');
   const folder = join(projects, 'app');
@@ -100,9 +101,11 @@ function setup(name: string, options: { linkedRepository?: boolean } = {}) {
   const ids = createUuidV7Generator({ now: () => Date.now() });
   const journal = openSqliteJournal({ path: ':memory:', originIfNew: 'live', ids });
   const runtime = writingRuntime();
+  // A runtime this computer does not hold to one folder: it never works in a copy (ADR 0045).
+  const loose = writingRuntime('loose');
   const controlPlane = new ControlPlane({
     journal,
-    adapters: [runtime.adapter],
+    adapters: [runtime.adapter, loose.adapter],
     ids,
     clock: time,
     scheduler: time,
@@ -111,7 +114,9 @@ function setup(name: string, options: { linkedRepository?: boolean } = {}) {
     locations: createHostLocations([projects]),
     checkpoints: {
       store: new CheckpointStore({ git: GIT, directory: join(root, 'checkpoints') }),
-      copies: { directory: tasks },
+      ...(options.copiesOff
+        ? {}
+        : { copies: { directory: tasks, heldToFolder: (runtimeId) => runtimeId === 'writer' } }),
     },
   });
   let commands = 0;
@@ -145,10 +150,10 @@ function setup(name: string, options: { linkedRepository?: boolean } = {}) {
       made.command?.result?.kind === 'workstream_created' ? made.command.result.workstream_id : ''
     ) as WorkstreamId;
   };
-  const start = (workstreamId: WorkstreamId, instruction: string) =>
+  const start = (workstreamId: WorkstreamId, instruction: string, runtimeId = 'writer') =>
     submit('execution.start', {
       workstream_id: workstreamId,
-      runtime_id: 'writer' as RuntimeId,
+      runtime_id: runtimeId as RuntimeId,
       instruction,
       options: {},
       model_ref: null,
@@ -172,6 +177,7 @@ function setup(name: string, options: { linkedRepository?: boolean } = {}) {
     events,
     of,
     ...runtime,
+    finishLoose: loose.finish,
   };
 }
 
@@ -336,7 +342,7 @@ describe('several agents on one project (ADR 0045)', {
     start(first, 'lanterns');
     await until(() => of('runtime.turn.started').length === 1, 'the agent at work');
     finish();
-    await until(() => of('runtime.turn.completed').length === 1, 'the turn to end');
+    await until(() => of('workstream.copy_changes_read', first).length === 1, 'the copy read');
     writeFileSync(join(folder, 'app.txt'), 'person, later\n');
     const outcome = async (sent: ReturnType<typeof submit>) => {
       const id = sent.command?.command_id ?? '';
@@ -365,8 +371,12 @@ describe('several agents on one project (ADR 0045)', {
     );
     const after = controlPlane.projection.workstream(first)?.copy;
     assert.equal(after?.state === 'own' && after.conflict, null);
-    // The agent fits its work (here, by hand); then the add goes through over the new base.
+    // The agent fits its work (here, by hand, so no turn reads it): the first add shows the copy
+    // as it is now and adds nothing; after it, the add goes through over the new base.
     writeFileSync(join(copy.directory, 'app.txt'), 'person, later, with lanterns\n');
+    const unseen = await outcome(submit('workstream.add_to_project', { workstream_id: first }));
+    assert.equal(unseen?.failure?.code, 'changed_since_review');
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person, later\n');
     const added = await outcome(submit('workstream.add_to_project', { workstream_id: first }));
     assert.equal(added?.status, 'completed');
     assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person, later, with lanterns\n');
@@ -378,15 +388,78 @@ describe('several agents on one project (ADR 0045)', {
     start(first, 'lanterns');
     await until(() => of('runtime.turn.started').length === 1, 'the agent at work');
     finish();
-    await until(() => of('runtime.turn.completed').length === 1, 'the turn to end');
+    await until(() => of('workstream.copy_changes_read', first).length === 1, 'the copy read');
     const copy = controlPlane.projection.workstream(first)?.copy;
     assert.ok(copy?.state === 'own');
     writeFileSync(join(copy.directory, '.gitignore'), 'app.txt\n');
-    const sent = submit('workstream.add_to_project', { workstream_id: first });
-    const id = sent.command?.command_id ?? '';
-    await until(() => controlPlane.projection.command(id)?.status !== 'accepted', 'the outcome');
-    assert.equal(controlPlane.projection.command(id)?.status, 'completed');
+    const press = async () => {
+      const sent = submit('workstream.add_to_project', { workstream_id: first });
+      const id = sent.command?.command_id ?? '';
+      await until(() => controlPlane.projection.command(id)?.status !== 'accepted', 'the outcome');
+      return controlPlane.projection.command(id);
+    };
+    // Written without a turn: shown first, then added.
+    assert.equal((await press())?.failure?.code, 'changed_since_review');
+    assert.deepEqual(of('workstream.copy_changes_read', first).at(-1)?.payload.changed, {
+      paths: ['.gitignore', 'app.txt'],
+      total: 2,
+    });
+    assert.equal((await press())?.status, 'completed');
     assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'lanterns\n', 'kept and added');
     assert.equal(readFileSync(join(folder, '.gitignore'), 'utf8'), 'app.txt\n');
+  });
+
+  test("a runtime not held to one folder gets no copy: it works in the project's folder, one task at a time, and never in another task's copy", async () => {
+    const { folder, controlPlane, task, start, of, finish, finishLoose } = setup('loose');
+    const first = task('Lanterns');
+    assert.equal(start(first, 'lanterns', 'loose').disposition, 'accepted');
+    await until(() => of('execution.created', first).length === 1, 'the start');
+    const refused = of('workstream.copy_refused', first)[0];
+    assert.equal(refused?.payload.code, 'runtime_unconfined');
+    assert.equal(of('execution.created', first)[0]?.payload.directory, realpathSync(folder));
+    // Another task's start, held or not, waits for the project's folder.
+    const second = task('Paths');
+    assert.equal(start(second, 'paths', 'loose').disposition, 'rejected');
+
+    // Once the folder is free, a held runtime's task gets its copy; started with a runtime not held
+    // to it, it is refused in words.
+    await until(() => of('runtime.turn.started', first).length === 1, 'the loose agent at work');
+    finishLoose();
+    await until(() => of('runtime.turn.completed', first).length === 1, 'the loose turn to end');
+    const third = task('Ponds');
+    assert.equal(start(third, 'ponds').disposition, 'accepted');
+    await until(() => of('workstream.copy_made', third).length === 1, 'the copy');
+    await until(() => of('runtime.turn.started', third).length === 1, 'the held agent at work');
+    const copy = controlPlane.projection.workstream(third)?.copy;
+    assert.ok(copy?.state === 'own');
+    assert.notEqual(copy.directory, realpathSync(folder));
+    finish();
+    await until(() => of('runtime.turn.completed', third).length === 1, 'the held turn to end');
+    const loose = start(third, 'again', 'loose');
+    assert.equal(loose.disposition, 'rejected');
+    assert.match(
+      loose.command?.rejection?.message ?? '',
+      /not kept to one folder on this computer/,
+    );
+  });
+
+  test('a task that has a copy, started where copies are off, is refused in words, never sent to its copy', () => {
+    const { controlPlane, projectId, task, start } = setup('off', { copiesOff: true });
+    const first = task('Lanterns');
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'workstream.copy_made',
+        { project_id: projectId, workstream_id: first, execution_id: null },
+        { directory: '/elsewhere/copy', base_tree: 'a'.repeat(64), files: 1 },
+        '2026-11-10T10:00:00.000Z' as never,
+        NO_CAUSE,
+      ),
+    );
+    const refused = start(first, 'lanterns');
+    assert.equal(refused.disposition, 'rejected');
+    assert.match(
+      refused.command?.rejection?.message ?? '',
+      /This task's copy is off on this computer/,
+    );
   });
 });

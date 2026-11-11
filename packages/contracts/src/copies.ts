@@ -13,7 +13,9 @@ const strict = { additionalProperties: false } as const;
  * repository sits inside the folder. `too_large`: more files or bytes than one checkpoint keeps.
  * `cannot_clone`: the folder's volume cannot make a copy that shares its blocks. `location_missing`:
  * the folder is not there. `holds_host_data`: the folder holds Halcyonic's own data.
- * `copy_failed`: making the copy or recording its start failed.
+ * `copy_failed`: making the copy or recording its start failed. `runtime_unconfined`: the task's
+ * runtime is not held to the folder it is given on this computer, so in a copy it could still write
+ * other tasks' copies and the project's folder.
  */
 export const CopyRefusalCode = Type.Union([
   Type.Literal('linked_repository'),
@@ -23,6 +25,7 @@ export const CopyRefusalCode = Type.Union([
   Type.Literal('location_missing'),
   Type.Literal('holds_host_data'),
   Type.Literal('copy_failed'),
+  Type.Literal('runtime_unconfined'),
 ]);
 export type CopyRefusalCode = Static<typeof CopyRefusalCode>;
 

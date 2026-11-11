@@ -153,6 +153,11 @@ interface WorkstreamState {
   updatedAt: Timestamp;
   /** The task's own copy of the project's folder, or why it has none; null before either (ADR 0045). */
   copy: WorkstreamCopy | null;
+  /**
+   * The copy's tree its latest reading was of, which its view's `to_add` shows: what the person
+   * reviewed, and all an add may bring (ADR 0045). Null when nothing was read since the base moved.
+   */
+  reviewedTree: string | null;
 }
 
 /**
@@ -634,6 +639,14 @@ export class Projection {
     const state = this.#projects.get(projectId as ProjectId);
     if (state === undefined) return undefined;
     return state.catalog === null ? null : { ...state.catalog };
+  }
+
+  /**
+   * The tree of the task's copy its latest reading was of: what its `to_add` shows, and so what the
+   * person reviewed (ADR 0045); null when there is none. A task kept from before has none.
+   */
+  reviewedTree(workstreamId: string): string | null {
+    return this.#workstreams.get(workstreamId as WorkstreamId)?.reviewedTree ?? null;
   }
 
   workstream(workstreamId: string): WorkstreamView | undefined {
@@ -1306,6 +1319,7 @@ export class Projection {
           createdAt: event.occurred_at,
           updatedAt: event.ingested_at,
           copy: null,
+          reviewedTree: null,
         });
         project.updatedAt = event.ingested_at;
         changes.workstreams.add(event.workstream_id);
@@ -1526,6 +1540,7 @@ export class Projection {
         notes.push(note('duplicate_entity', event, 'the task already has a copy of its own'));
         return;
       }
+      workstream.reviewedTree = null;
       workstream.copy =
         event.event_type === 'workstream.copy_made'
           ? {
@@ -1548,6 +1563,7 @@ export class Projection {
         case 'workstream.copy_changes_read':
           copy.to_add = clonePathList(event.payload.changed);
           copy.to_add_read_at = event.occurred_at;
+          workstream.reviewedTree = event.payload.tree;
           break;
         case 'workstream.added': {
           // The project's folder holds new files: a check of it, or around it, is of files changed.
@@ -1562,6 +1578,7 @@ export class Projection {
               folder,
             );
           copy.base_tree = event.payload.task_tree;
+          workstream.reviewedTree = event.payload.task_tree;
           copy.to_add = { paths: [], total: 0 };
           copy.to_add_read_at = event.occurred_at;
           copy.last_added_at = event.occurred_at;
@@ -1585,6 +1602,7 @@ export class Projection {
           );
           // What the copy now differs by is read again after the agent's turn.
           copy.base_tree = event.payload.project_tree;
+          workstream.reviewedTree = null;
           copy.to_add = null;
           copy.to_add_read_at = null;
           copy.conflict = null;

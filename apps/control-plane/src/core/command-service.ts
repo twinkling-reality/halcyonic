@@ -533,6 +533,24 @@ export class CommandService {
             return refuse('location_required', 'The project has no folder to work in.');
           }
           if (!decision.ok) return refuse(decision.code, decision.message);
+          // A task with a copy of its own works only there (ADR 0045), and only where copies are
+          // on and its agent is held to that folder.
+          const copy =
+            admission.scope.workstream_id === null
+              ? undefined
+              : this.#deps.projection.workstream(admission.scope.workstream_id)?.copy;
+          if (copy?.state === 'own') {
+            if (!this.#deps.copies)
+              return refuse(
+                'invalid_state',
+                "This task's copy is off on this computer. Turn task copies on to go on with it, or start another task.",
+              );
+            if (!this.#deps.copies.holds(command.payload.runtime_id, copy.directory))
+              return refuse(
+                'capability_unsupported',
+                'This task works in its own copy, and this agent is not kept to one folder on this computer. Start it with an agent that is, or start another task.',
+              );
+          }
         }
         const adapter = this.#deps.registry.adapter(command.payload.runtime_id);
         const options = adapter?.validateStartOptions(
@@ -557,6 +575,24 @@ export class CommandService {
     cause: Cause,
   ): void {
     switch (outcome.kind) {
+      case 'unreviewed':
+        // The person sees the copy as it is now, then presses again.
+        this.#deps.recorder.record(
+          controlPlaneDraft(
+            'workstream.copy_changes_read',
+            where,
+            { tree: outcome.taskTree, changed: pathList(outcome.changed) },
+            this.#now(),
+            cause,
+          ),
+        );
+        this.#fail(command, scope, {
+          code: 'changed_since_review',
+          message:
+            "This task's files changed since they were last shown, so nothing was added. Look at them again, then add.",
+          effect: 'none',
+        });
+        return;
       case 'nothing':
         this.#fail(command, scope, {
           code: 'nothing_to_add',
@@ -697,6 +733,7 @@ export class CommandService {
     copies: TaskCopies,
     scope: CommandScope,
     projectFolder: string,
+    runtimeId: string,
     cause: Cause,
   ): Promise<
     | { readonly ok: true; readonly directory: string }
@@ -708,7 +745,15 @@ export class CommandService {
     const where = { project_id, workstream_id, execution_id: null };
     let made: PrepareResult;
     try {
-      made = await copies.prepare(project_id, workstream_id, projectFolder);
+      // A runtime not held to the folder it is given could write other tasks' copies from one.
+      made = copies.holds(runtimeId, projectFolder)
+        ? await copies.prepare(project_id, workstream_id, projectFolder)
+        : {
+            ok: false,
+            code: 'runtime_unconfined',
+            message:
+              "This task's agent is not kept to one folder on this computer, so the task works in the project's folder, one task at a time.",
+          };
     } catch {
       // What failed may name the person's folders, so only the task is logged.
       this.#deps.logger.warn({ workstream_id }, 'task copy failed');
@@ -877,7 +922,12 @@ export class CommandService {
           });
           return;
         }
-        const request = { copy: copy.directory, base: copy.base_tree, folder };
+        const request = {
+          copy: copy.directory,
+          base: copy.base_tree,
+          folder,
+          reviewed: this.#deps.projection.reviewedTree(workstream.workstream_id),
+        };
         const where = {
           project_id: workstream.project_id,
           workstream_id: workstream.workstream_id,
@@ -1135,7 +1185,13 @@ export class CommandService {
         const own = this.#ownCopy(workstream_id);
         const copies = this.#deps.copies;
         if (projectFolder !== null && own === null && copies) {
-          void this.#makeCopy(copies, admission.scope, projectFolder, cause).then((where) => {
+          void this.#makeCopy(
+            copies,
+            admission.scope,
+            projectFolder,
+            runtime.runtime_id,
+            cause,
+          ).then((where) => {
             if (where.ok) begin(where.directory);
             else this.#fail(command, admission.scope, where.failure);
           });

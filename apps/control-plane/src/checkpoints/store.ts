@@ -546,14 +546,25 @@ export class CheckpointStore {
           written: false,
         };
       const moved = await this.#run(repository, folder, index, ['read-tree', '-m', '-u', from, to]);
-      if (moved.code !== 0)
-        return {
-          ok: false,
-          code: 'folder_changed',
-          message:
-            'A file changed while the work was being added, so nothing was written. Try again.',
-          written: false,
-        };
+      if (moved.code !== 0) {
+        // git refuses before writing; a failure while writing could leave part written, so the
+        // folder is read again before saying nothing was (AUDIT2 S3).
+        const now = await this.treeOf(projectId, folder, from);
+        return now.ok && now.tree === from
+          ? {
+              ok: false,
+              code: 'folder_changed',
+              message:
+                'A file changed while the work was being added, so nothing was written. Try again.',
+              written: false,
+            }
+          : {
+              ok: false,
+              code: 'incomplete',
+              message: 'The add stopped part way: the folder may hold some of the work.',
+              written: true,
+            };
+      }
     } finally {
       await rm(index, { force: true });
     }

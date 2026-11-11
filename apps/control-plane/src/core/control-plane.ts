@@ -65,7 +65,12 @@ export interface ControlPlaneOptions {
      * Where every task's own copy of its project's folder lives (ADR 0045), with the folders no
      * copied project may hold. Absent, every task works in its project's folder, one at a time.
      */
-    readonly copies?: { readonly directory: string; readonly protect?: readonly string[] };
+    readonly copies?: {
+      readonly directory: string;
+      readonly protect?: readonly string[];
+      /** Whether a runtime is held to a folder it is given; absent, none is, and no copy is made. */
+      readonly heldToFolder?: (runtimeId: string, directory: string) => boolean;
+    };
   };
   /** The starters a new project can begin from (ADR 0037); none by default. */
   readonly starters?: HostStarters;
@@ -255,6 +260,9 @@ export class ControlPlane {
             ...(options.checkpoints.copies.protect === undefined
               ? {}
               : { protect: options.checkpoints.copies.protect }),
+            ...(options.checkpoints.copies.heldToFolder === undefined
+              ? {}
+              : { heldToFolder: options.checkpoints.copies.heldToFolder }),
           });
     this.copies = copies;
     if (copies !== null)

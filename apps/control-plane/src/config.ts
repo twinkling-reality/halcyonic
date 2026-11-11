@@ -165,7 +165,7 @@ export function loadConfig(
   pins: Pins | null = pinsForThisMac(),
 ): ControlPlaneConfig {
   const { host, port } = loopbackListener(env);
-  return {
+  const config: ControlPlaneConfig = {
     host,
     port,
     network: parseNetwork(env, port),
@@ -206,6 +206,8 @@ export function loadConfig(
     assistant: parseAssistant(env, parseOpenCodeConfigHome(env.HALCYONIC_OPENCODE_CONFIG_HOME)),
     exitOnStdinEnd: parseSwitch('HALCYONIC_EXIT_ON_STDIN_END', env.HALCYONIC_EXIT_ON_STDIN_END),
   };
+  refuseTasksDirInRoots(config);
+  return config;
 }
 
 export function parseNetwork(
@@ -674,6 +676,31 @@ function parseTasksDir(env: NodeJS.ProcessEnv): string {
       "HALCYONIC_TASKS_DIR must be beside Halcyonic's data folder, not inside it or around it: agents work there.",
     );
   return tasks;
+}
+
+/**
+ * Where copies are on, the copies' folder lies in no project root and holds none, where a client
+ * could bind a project to another task's copy (AUDIT2 S1). Asked once the roots are validated.
+ */
+function refuseTasksDirInRoots(config: ControlPlaneConfig): void {
+  if (!config.taskCopies) return;
+  const inside = (base: string, path: string) =>
+    path === base || path.startsWith(base.endsWith(sep) ? base : base + sep);
+  const real = (path: string) => {
+    try {
+      return realpathSync.native(path);
+    } catch {
+      return resolve(path);
+    }
+  };
+  const spellings = [config.tasksDir, real(config.tasksDir)];
+  for (const root of config.projectRoots) {
+    const roots = [resolve(root), real(root)];
+    if (roots.some((r) => spellings.some((t) => inside(r, t) || inside(t, r))))
+      throw new ConfigError(
+        "HALCYONIC_TASKS_DIR must not be inside a project root or hold one: a project could be bound to a task's copy.",
+      );
+  }
 }
 
 function parseProjectRoots(raw: string | undefined, context: FolderContext): string[] {

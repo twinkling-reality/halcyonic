@@ -34,6 +34,7 @@ import { installBrowser } from './preview/play.ts';
 import {
   createRuntimeAdapters,
   heldSecrets,
+  heldToFolder,
   OLLAMA_PORT,
   ripgrepOnPath,
   stopStaleRuntimeServers,
@@ -173,7 +174,18 @@ async function main(): Promise<void> {
               protect: [config.dataDir],
             }),
             ...(config.taskCopies
-              ? { copies: { directory: config.tasksDir, protect: [config.dataDir] } }
+              ? {
+                  copies: {
+                    directory: config.tasksDir,
+                    protect: [config.dataDir],
+                    heldToFolder: heldToFolder(adapters, {
+                      starterOf: (directory) => starterOf(directory),
+                      originalOf: (directory) => originalOf(directory),
+                      dataDir: config.dataDir,
+                      projectFolders: () => projectFolders(),
+                    }),
+                  },
+                }
               : {}),
           },
         }),
