@@ -2863,7 +2863,12 @@ bands are the bar's one band.
   `AskColumn.Band`, for the bar to give the band, outside words and reported. Answered is quiet, never green, and its
   line says only that the reply is below; Needs You takes the attention colour; the model is the foot line on Answered
   ("Answered by" and the model's name, leaning), never a slot. `Submit` builds the command once and sends nothing
-  itself. Not wired into the bar yet (XR). Checks: `AskColumnTests`.
+  itself. Beside the menu it is `AskMenuColumn` (an `IMenuColumn` around the Ask): Send while there are words to send,
+  Send Answer while the assistant asks (sent as `workspace.request.resume`), Stop while it works or waits
+  (`workspace.request.cancel`), Hold to Talk and Type for the words, Close; it reads the request every two seconds while
+  it is under way, and sends only on a press. The redesign draws it by `RoomBar.Ask`: the card in the panel's place, the
+  assistant's words on the band, the main action first and Close last. Not opened by the director yet. Checks:
+  `AskColumnTests`, `AskMenuColumnTests`.
 - **Play in Headset in the result** (DEVICE's `HeadsetPlay`, gap 1): beside Try Build, where `HeadsetPlay.Stands` for
   the project and the way this headset reaches the computer (`RoomResult.Play`, from `RoomResult.Of` given
   `ControlPlaneSettings.Target()`); where it cannot act it is not drawn, as an action has no disabled look
