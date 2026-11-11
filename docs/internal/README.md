@@ -83,6 +83,7 @@ change, so a validation record states when it was true; re-verify before relying
 
 | Record | Subject |
 | --- | --- |
+| [agent-plan-modes.md](validation/agent-plan-modes.md) | What each runtime offers that changes no file: Claude Code's plan mode, Codex's read-only sandbox, OpenCode's Plan agent |
 | [opencode-capabilities.md](validation/opencode-capabilities.md) | OpenCode server API |
 | [opencode-permissions.md](validation/opencode-permissions.md) | OpenCode permission rules, what they cover, and what still reaches the network |
 | [opencode-sandbox.md](validation/opencode-sandbox.md) | OpenCode inside Halcyonic's macOS sandbox |
