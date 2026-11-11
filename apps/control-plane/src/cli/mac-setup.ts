@@ -74,6 +74,7 @@ import { OMNORIUM_CREDENTIAL_FILE } from '../intelligence/catalog.ts';
 import { CODEX_CONFINED_FOLDER } from '../intelligence/codex-home.ts';
 import { SEORAK_CREDENTIAL_FILE } from '../intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from '../intelligence/understanding.ts';
+import { managersOn } from '../own-check/own-check.ts';
 import { type PinnedFile, type Pins, pinsForThisMac, sha256File } from '../pins.ts';
 import { AUDIO_OUTPUT, installAudioOutput } from '../preview/audio-output.ts';
 import {
@@ -183,6 +184,7 @@ export type SetupStepId =
   | 'voice'
   | 'launcher'
   | 'starter'
+  | 'own_checks'
   | 'undo'
   | 'sharing'
   | 'companion'
@@ -356,6 +358,7 @@ class MacSetup {
     add('voice', await this.#voiceStep(env));
     add('launcher', this.#launcherStep(env));
     add('starter', this.#starterStep());
+    add('own_checks', this.#ownChecksStep());
     add('undo', this.#undoStep(env));
     add('sharing', await this.#sharingStep(env));
     add('companion', await this.#companionStep(env, ollama, running));
@@ -716,6 +719,45 @@ class MacSetup {
       status: 'optional',
       lines: ["The starter's pinned set isn't installed, so no new VR app can begin here.", about],
       next: ['pnpm mac-setup starter'],
+    };
+  }
+
+  /**
+   * Whether npm and pnpm are where the host finds a project's package manager: on the PATH it was
+   * started with, read once at its start (`managersOn`, ADR 0055). On the setup page that PATH is
+   * the running Halcyonic's own; in a Terminal it is the Terminal's.
+   */
+  #ownChecksStep(): Step {
+    const title = "Projects' own checks";
+    const about =
+      'A project not made from a starter can run its own checks after each task, with the package manager it names. Halcyonic looks for npm and pnpm once, when it starts, on the PATH it was started with.';
+    const found = managersOn(this.#io.env.PATH);
+    if (found.npm !== null && found.pnpm !== null)
+      return {
+        title,
+        status: 'ready',
+        lines: [
+          `npm and pnpm are where Halcyonic looks: ${this.#tilde(found.npm)} and ${this.#tilde(found.pnpm)}.`,
+          about,
+        ],
+      };
+    const missing = (['npm', 'pnpm'] as const).filter((name) => found[name] === null);
+    const named = missing.join(' and ');
+    const elsewhere = managersOn(['/opt/homebrew/bin', '/usr/local/bin'].join(delimiter));
+    const there = missing.flatMap((name) => {
+      const path = elsewhere[name];
+      return path === null ? [] : [`${name} is at ${path}, a folder that PATH doesn't name.`];
+    });
+    return {
+      title,
+      status: 'optional',
+      lines: [
+        `${named} ${missing.length === 1 ? "isn't" : "aren't"} where Halcyonic looks, so a project that uses ${missing.length === 1 ? 'it' : 'them'} offers no check of its own.`,
+        about,
+        ...there,
+        'The setup page looks where the running Halcyonic looks; a Terminal may find more. To use them, stop Halcyonic and start it again from a Terminal that finds them.',
+      ],
+      next: ['pnpm start'],
     };
   }
 

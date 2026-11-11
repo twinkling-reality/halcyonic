@@ -25,6 +25,10 @@ Facts, read and probed on 2026-11-11 ([own-checks.md](../validation/own-checks.m
   - The host reads that file at the folder's top only, never through a link, at most 256 KiB.
   - The package manager is the lockfile's (`pnpm-lock.yaml`, `yarn.lock`, else npm), and only one found
     on the host's own PATH.
+  - That PATH is read once, when the host starts. A host started without its folder (by launchd, say)
+    offers every such project `manager_missing`, so the setup page's "Projects' own checks" step says
+    whether npm and pnpm are there, and where a usual folder (`/opt/homebrew/bin`, `/usr/local/bin`) has
+    one that PATH does not name (AUDIT3's S4). Yarn is not checked there.
   - Never a command the model or an agent wrote.
 - **Shown before the first run:** `GET /api/projects/:project_id/own-check` gives the offered scripts with
   their commands, the project's own words.

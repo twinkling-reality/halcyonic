@@ -15,7 +15,7 @@ import fs, {
 } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { FakeSalidium } from '@halcyonic/integration-salidium/testing';
 import { loadConfig } from '../config.ts';
@@ -330,6 +330,37 @@ describe('pnpm mac-setup', () => {
     assert.match(output, /Start with “Folders agents may use”\./);
     assert.equal(machine.lines.filter((line) => line.includes('--ignore-scripts')).length, 2);
     assert.equal(existsSync(machine.dataDir), false, 'checking writes nothing');
+  });
+
+  test("says whether npm and pnpm are where Halcyonic looks for a project's own check", async (t) => {
+    const machine = mac(t);
+    const tools = join(machine.home, 'tools');
+    mkdirSync(tools);
+    for (const name of ['npm', 'pnpm']) writeFileSync(join(tools, name), '', { mode: 0o755 });
+    machine.env = { ...machine.env, PATH: ['relative', tools].join(delimiter) };
+    await machine.run();
+    assert.equal(status(machine, "Projects' own checks"), 'Ready');
+    assert.match(
+      text(machine),
+      /npm and pnpm are where Halcyonic looks: ~\/tools\/npm and ~\/tools\/pnpm\./,
+    );
+
+    // A Halcyonic started without pnpm on its PATH, as launchd might start it (AUDIT3's S4).
+    rmSync(join(tools, 'pnpm'));
+    await machine.run();
+    assert.equal(status(machine, "Projects' own checks"), 'Optional');
+    const output = text(machine);
+    assert.match(
+      output,
+      /pnpm isn't where Halcyonic looks, so a project that uses it offers no check of its own\./,
+    );
+    assert.match(output, /stop Halcyonic and start it again from a Terminal that finds them\./);
+    // Where this Mac has it in a usual folder, the step says so; never a folder it did not look in.
+    assert.equal(
+      output.includes("pnpm is at /opt/homebrew/bin/pnpm, a folder that PATH doesn't name."),
+      existsSync('/opt/homebrew/bin/pnpm'),
+    );
+    assert.doesNotMatch(output, /(?<!p)npm is at/, 'npm was found where Halcyonic looks');
   });
 
   test('allow makes ~/HalcyonicProjects once the person says yes, and only they can read the settings', async (t) => {
