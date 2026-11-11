@@ -366,6 +366,7 @@ namespace Halcyonic.XR.UI
             ["Summarize"] = RoomGlyph.Lines, ["Choose Instruction"] = RoomGlyph.Lines, ["Run Checks Again"] = RoomGlyph.Again, ["Settings"] = RoomGlyph.Settings,
             ["Restore"] = RoomGlyph.Undo, ["Let Agent Fix"] = RoomGlyph.Agent, ["History"] = RoomGlyph.Clock,
             ["Previous Page"] = RoomGlyph.Previous, ["Compact"] = RoomGlyph.Next, ["Open Workspace"] = RoomGlyph.Previous, ["Projects"] = RoomGlyph.Back,
+            ["Carry Out Plan"] = RoomGlyph.Continue,
         };
 
         /// <summary>The card's kind marks (the addendum's A17), which stand in tiles and before list rows and never on an action.</summary>
