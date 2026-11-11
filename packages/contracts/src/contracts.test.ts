@@ -660,6 +660,7 @@ describe('the C# bindings', () => {
     'CheckLaptop.response_seen', // M1.8g
     'CheckLaptop.response_unknown', // why a twin read was unknown (M1.8g-b)
     'CheckPage.own', // a check page's own pixels against the starter's (DRAWN)
+    'CheckpointView.turn_id', // the turn an after_turn version follows (History)
     'Evaluation.activity', // Seorak's activity of a session
     'ExecutionStartPayload.approval_level', // ADR 0043
     'ExecutionView.approval_level', // ADR 0043
@@ -668,6 +669,7 @@ describe('the C# bindings', () => {
     'ProjectCheckPayload.workstream_id', // the task whose copy a check checks (ADR 0045)
     'ProjectCheckRecordedPayload.workstream_id', // ADR 0045
     'ProjectCheckedResult.ready', // project_checked's ready
+    'ProjectCheckpointRecordedPayload.turn_id', // History
     'ProjectRestorePayload.review', // the review a restore carries (ADR 0051)
     'ProjectSetLocationPayload.review', // the review a rebinding carries (ADR 0051)
     'ProjectView.check', // M1.8e

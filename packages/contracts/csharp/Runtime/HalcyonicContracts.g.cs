@@ -53,6 +53,505 @@ namespace Halcyonic.Contracts
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
+    public enum CheckpointReason
+    {
+        [EnumMember(Value = "before_task")] BeforeTask,
+        [EnumMember(Value = "after_turn")] AfterTurn,
+        [EnumMember(Value = "before_restore")] BeforeRestore,
+        [EnumMember(Value = "before_add")] BeforeAdd,
+    }
+
+    public sealed class CheckpointView
+    {
+        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        public string CheckpointId { get; set; } = default!;
+
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public CheckpointReason Reason { get; set; }
+
+        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        public string? ExecutionId { get; set; }
+
+        [JsonProperty("recorded_at", Required = Required.Always)]
+        public string RecordedAt { get; set; } = default!;
+
+        [JsonProperty("tree", Required = Required.Always)]
+        public string Tree { get; set; } = default!;
+
+        [JsonProperty("files", Required = Required.Always)]
+        public long Files { get; set; }
+
+        [JsonProperty("project_head", Required = Required.AllowNull)]
+        public string? ProjectHead { get; set; }
+
+        [JsonProperty("turn_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? TurnId { get; set; }
+    }
+
+    [JsonConverter(typeof(HistoryFolderConverter))]
+    public abstract class HistoryFolder
+    {
+        [JsonProperty("kind", Order = -2)]
+        public string Kind => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class HistoryFolderConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(HistoryFolder).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["kind"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            HistoryFolder value = tag switch
+            {
+                "project" => new ProjectFolder(),
+                "task_copy" => new TaskCopyFolder(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "HistoryFolder has no string kind."
+                    : "Unknown kind \"" + tag + "\" for HistoryFolder."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but kind is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class ProjectFolder : HistoryFolder
+    {
+        protected override string Discriminator => "project";
+    }
+
+    public sealed class TaskCopyFolder : HistoryFolder
+    {
+        protected override string Discriminator => "task_copy";
+
+        [JsonProperty("workstream_id", Required = Required.Always)]
+        public string WorkstreamId { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum CheckpointFailureCode
+    {
+        [EnumMember(Value = "location_missing")] LocationMissing,
+        [EnumMember(Value = "nested_repository")] NestedRepository,
+        [EnumMember(Value = "too_large")] TooLarge,
+        [EnumMember(Value = "unreadable")] Unreadable,
+        [EnumMember(Value = "holds_host_data")] HoldsHostData,
+        [EnumMember(Value = "store_failed")] StoreFailed,
+    }
+
+    public sealed class CheckpointFailure
+    {
+        [JsonProperty("code", Required = Required.Always)]
+        public CheckpointFailureCode Code { get; set; }
+
+        [JsonProperty("message", Required = Required.Always)]
+        public string Message { get; set; } = default!;
+    }
+
+    public sealed class ErrorInfo
+    {
+        [JsonProperty("code", Required = Required.Always)]
+        public string Code { get; set; } = default!;
+
+        [JsonProperty("message", Required = Required.Always)]
+        public string Message { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(HistoryEntryConverter))]
+    public abstract class HistoryEntry
+    {
+        [JsonProperty("kind", Order = -2)]
+        public string Kind => Discriminator;
+
+        protected abstract string Discriminator { get; }
+
+        [JsonProperty("entry_id", Required = Required.Always)]
+        public string EntryId { get; set; } = default!;
+
+        [JsonProperty("at", Required = Required.Always)]
+        public string At { get; set; } = default!;
+    }
+
+    public sealed class HistoryEntryConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(HistoryEntry).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["kind"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            HistoryEntry value = tag switch
+            {
+                "version" => new VersionEntry(),
+                "not_kept" => new NotKeptEntry(),
+                "restored" => new RestoredEntry(),
+                "restore_incomplete" => new RestoreIncompleteEntry(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "HistoryEntry has no string kind."
+                    : "Unknown kind \"" + tag + "\" for HistoryEntry."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but kind is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class VersionEntry : HistoryEntry
+    {
+        protected override string Discriminator => "version";
+
+        [JsonProperty("checkpoint", Required = Required.Always)]
+        public CheckpointView Checkpoint { get; set; } = default!;
+
+        [JsonProperty("folder", Required = Required.Always)]
+        public HistoryFolder Folder { get; set; } = default!;
+
+        [JsonProperty("previous", Required = Required.AllowNull)]
+        public string? Previous { get; set; }
+
+        [JsonProperty("changed_files", Required = Required.AllowNull)]
+        public long? ChangedFiles { get; set; }
+    }
+
+    public sealed class NotKeptEntry : HistoryEntry
+    {
+        protected override string Discriminator => "not_kept";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public CheckpointReason Reason { get; set; }
+
+        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        public string? ExecutionId { get; set; }
+
+        [JsonProperty("failure", Required = Required.Always)]
+        public CheckpointFailure Failure { get; set; } = default!;
+    }
+
+    public sealed class RestoredEntry : HistoryEntry
+    {
+        protected override string Discriminator => "restored";
+
+        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        public string CheckpointId { get; set; } = default!;
+
+        [JsonProperty("before_restore_checkpoint_id", Required = Required.Always)]
+        public string BeforeRestoreCheckpointId { get; set; } = default!;
+
+        [JsonProperty("changed_back", Required = Required.Always)]
+        public long ChangedBack { get; set; }
+
+        [JsonProperty("removed", Required = Required.Always)]
+        public long Removed { get; set; }
+
+        [JsonProperty("returned", Required = Required.Always)]
+        public long Returned { get; set; }
+
+        [JsonProperty("project_head_moved", Required = Required.AllowNull)]
+        public bool? ProjectHeadMoved { get; set; }
+    }
+
+    public sealed class RestoreIncompleteEntry : HistoryEntry
+    {
+        protected override string Discriminator => "restore_incomplete";
+
+        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        public string CheckpointId { get; set; } = default!;
+
+        [JsonProperty("before_restore_checkpoint_id", Required = Required.AllowNull)]
+        public string? BeforeRestoreCheckpointId { get; set; }
+
+        [JsonProperty("written", Required = Required.Always)]
+        public bool Written { get; set; }
+
+        [JsonProperty("not_restored", Required = Required.Always)]
+        public long NotRestored { get; set; }
+
+        [JsonProperty("failure", Required = Required.Always)]
+        public ErrorInfo Failure { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(ProjectHistoryResultConverter))]
+    public abstract class ProjectHistoryResult
+    {
+        [JsonProperty("availability", Order = -2)]
+        public string Availability => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class ProjectHistoryResultConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(ProjectHistoryResult).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["availability"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            ProjectHistoryResult value = tag switch
+            {
+                "available" => new AvailableHistory(),
+                "unavailable" => new UnavailableHistory(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "ProjectHistoryResult has no string availability."
+                    : "Unknown availability \"" + tag + "\" for ProjectHistoryResult."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but availability is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class AvailableHistory : ProjectHistoryResult
+    {
+        protected override string Discriminator => "available";
+
+        [JsonProperty("entries", Required = Required.Always)]
+        public List<HistoryEntry> Entries { get; set; } = new List<HistoryEntry>();
+
+        [JsonProperty("more", Required = Required.Always)]
+        public bool More { get; set; }
+
+        [JsonProperty("total", Required = Required.Always)]
+        public long Total { get; set; }
+    }
+
+    public sealed class UnavailableHistory : ProjectHistoryResult
+    {
+        protected override string Discriminator => "unavailable";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class ProjectHistoryResponse
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("result", Required = Required.Always)]
+        public ProjectHistoryResult Result { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(CheckpointsResultConverter))]
+    public abstract class CheckpointsResult
+    {
+        [JsonProperty("availability", Order = -2)]
+        public string Availability => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class CheckpointsResultConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(CheckpointsResult).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["availability"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            CheckpointsResult value = tag switch
+            {
+                "available" => new AvailableCheckpoints(),
+                "unavailable" => new UnavailableCheckpoints(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "CheckpointsResult has no string availability."
+                    : "Unknown availability \"" + tag + "\" for CheckpointsResult."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but availability is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class AvailableCheckpoints : CheckpointsResult
+    {
+        protected override string Discriminator => "available";
+
+        [JsonProperty("checkpoints", Required = Required.Always)]
+        public List<CheckpointView> Checkpoints { get; set; } = new List<CheckpointView>();
+    }
+
+    public sealed class UnavailableCheckpoints : CheckpointsResult
+    {
+        protected override string Discriminator => "unavailable";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class CheckpointsResponse
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("result", Required = Required.Always)]
+        public CheckpointsResult Result { get; set; } = default!;
+    }
+
+    public sealed class PathList
+    {
+        [JsonProperty("paths", Required = Required.Always)]
+        public List<string> Paths { get; set; } = new List<string>();
+
+        [JsonProperty("total", Required = Required.Always)]
+        public long Total { get; set; }
+    }
+
+    public sealed class RestorePreview
+    {
+        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        public string CheckpointId { get; set; } = default!;
+
+        [JsonProperty("changed_back", Required = Required.Always)]
+        public PathList ChangedBack { get; set; } = default!;
+
+        [JsonProperty("removed", Required = Required.Always)]
+        public PathList Removed { get; set; } = default!;
+
+        [JsonProperty("returned", Required = Required.Always)]
+        public PathList Returned { get; set; } = default!;
+
+        [JsonProperty("project_head_moved", Required = Required.AllowNull)]
+        public bool? ProjectHeadMoved { get; set; }
+    }
+
+    [JsonConverter(typeof(RestorePreviewResultConverter))]
+    public abstract class RestorePreviewResult
+    {
+        [JsonProperty("availability", Order = -2)]
+        public string Availability => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class RestorePreviewResultConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(RestorePreviewResult).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["availability"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            RestorePreviewResult value = tag switch
+            {
+                "available" => new AvailableRestorePreview(),
+                "unavailable" => new UnavailableRestorePreview(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "RestorePreviewResult has no string availability."
+                    : "Unknown availability \"" + tag + "\" for RestorePreviewResult."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but availability is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class AvailableRestorePreview : RestorePreviewResult
+    {
+        protected override string Discriminator => "available";
+
+        [JsonProperty("preview", Required = Required.Always)]
+        public RestorePreview Preview { get; set; } = default!;
+
+        [JsonProperty("review", Required = Required.Always)]
+        public string Review { get; set; } = default!;
+    }
+
+    public sealed class UnavailableRestorePreview : RestorePreviewResult
+    {
+        protected override string Discriminator => "unavailable";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class RestorePreviewResponse
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("result", Required = Required.Always)]
+        public RestorePreviewResult Result { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
     public enum FileChangeKind
     {
         [EnumMember(Value = "added")] Added,
@@ -86,8 +585,8 @@ namespace Halcyonic.Contracts
         [JsonProperty("from", Required = Required.Always)]
         public string From { get; set; } = default!;
 
-        [JsonProperty("to", Required = Required.Always)]
-        public string To { get; set; } = default!;
+        [JsonProperty("to", Required = Required.AllowNull)]
+        public string? To { get; set; }
 
         [JsonProperty("files", Required = Required.Always)]
         public List<ProjectChangedFile> Files { get; set; } = new List<ProjectChangedFile>();
@@ -110,8 +609,8 @@ namespace Halcyonic.Contracts
         [JsonProperty("from", Required = Required.Always)]
         public string From { get; set; } = default!;
 
-        [JsonProperty("to", Required = Required.Always)]
-        public string To { get; set; } = default!;
+        [JsonProperty("to", Required = Required.AllowNull)]
+        public string? To { get; set; }
 
         [JsonProperty("path", Required = Required.Always)]
         public string Path { get; set; } = default!;
@@ -1147,15 +1646,6 @@ namespace Halcyonic.Contracts
         public List<AttentionReason> Reasons { get; set; } = new List<AttentionReason>();
     }
 
-    public sealed class PathList
-    {
-        [JsonProperty("paths", Required = Required.Always)]
-        public List<string> Paths { get; set; } = new List<string>();
-
-        [JsonProperty("total", Required = Required.Always)]
-        public long Total { get; set; }
-    }
-
     public sealed class ChangedFile
     {
         [JsonProperty("path", Required = Required.Always)]
@@ -1368,15 +1858,6 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "failed")] Failed,
         [EnumMember(Value = "interrupted")] Interrupted,
         [EnumMember(Value = "unknown")] Unknown,
-    }
-
-    public sealed class ErrorInfo
-    {
-        [JsonProperty("code", Required = Required.Always)]
-        public string Code { get; set; } = default!;
-
-        [JsonProperty("message", Required = Required.Always)]
-        public string Message { get; set; } = default!;
     }
 
     [JsonConverter(typeof(ApprovalSubjectConverter))]
@@ -2230,15 +2711,6 @@ namespace Halcyonic.Contracts
         public CatalogRepositoryRef Previous { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
-    public enum CheckpointReason
-    {
-        [EnumMember(Value = "before_task")] BeforeTask,
-        [EnumMember(Value = "after_turn")] AfterTurn,
-        [EnumMember(Value = "before_restore")] BeforeRestore,
-        [EnumMember(Value = "before_add")] BeforeAdd,
-    }
-
     public sealed class ProjectCheckpointRecordedPayload
     {
         [JsonProperty("checkpoint_id", Required = Required.Always)]
@@ -2258,26 +2730,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("project_head", Required = Required.AllowNull)]
         public string? ProjectHead { get; set; }
-    }
 
-    [JsonConverter(typeof(StringEnumConverter))]
-    public enum ProjectCheckpointFailedPayloadFailureCode
-    {
-        [EnumMember(Value = "location_missing")] LocationMissing,
-        [EnumMember(Value = "nested_repository")] NestedRepository,
-        [EnumMember(Value = "too_large")] TooLarge,
-        [EnumMember(Value = "unreadable")] Unreadable,
-        [EnumMember(Value = "holds_host_data")] HoldsHostData,
-        [EnumMember(Value = "store_failed")] StoreFailed,
-    }
-
-    public sealed class ProjectCheckpointFailedPayloadFailure
-    {
-        [JsonProperty("code", Required = Required.Always)]
-        public ProjectCheckpointFailedPayloadFailureCode Code { get; set; }
-
-        [JsonProperty("message", Required = Required.Always)]
-        public string Message { get; set; } = default!;
+        [JsonProperty("turn_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? TurnId { get; set; }
     }
 
     public sealed class ProjectCheckpointFailedPayload
@@ -2289,7 +2744,7 @@ namespace Halcyonic.Contracts
         public string? ExecutionId { get; set; }
 
         [JsonProperty("failure", Required = Required.Always)]
-        public ProjectCheckpointFailedPayloadFailure Failure { get; set; } = default!;
+        public CheckpointFailure Failure { get; set; } = default!;
     }
 
     public sealed class ProjectRestoredPayload

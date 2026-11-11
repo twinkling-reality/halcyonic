@@ -9,6 +9,8 @@ import type {
   CommandEnvelope,
   CommandId,
   EventEnvelope,
+  EventId,
+  Principal,
   ProjectId,
   RuntimeDescriptor,
   RuntimeId,
@@ -21,6 +23,7 @@ import {
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
 import { ControlPlane } from '../core/control-plane.ts';
+import { ProjectReads } from '../core/project-reads.ts';
 import { createUuidV7Generator } from '../ids.ts';
 import { openSqliteJournal } from '../journal/sqlite-journal.ts';
 import { createHostLocations } from '../locations.ts';
@@ -28,6 +31,7 @@ import { capturingLogger } from '../testing/harness.ts';
 import { CheckpointStore, type RestoreHooks } from './store.ts';
 
 const GIT = '/usr/bin/git';
+const LOCAL: Principal = { kind: 'local' };
 const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-checkpointer-')));
 after(() => rmSync(base, { recursive: true, force: true }));
 
@@ -450,5 +454,123 @@ describe('putting a project back', () => {
       'unknown',
     );
     await reopened.close();
+  });
+});
+
+describe("a project's history and its folder as it is now (the parity map's gap 2)", () => {
+  test('versions with their turn and changed files, the restore, pages, and what changed since a version', async () => {
+    const { folder, start, restore, types, events, controlPlane, projectId } = setup('history');
+    const reads = new ProjectReads(controlPlane);
+    const journal = controlPlane.journal.info.journal_id;
+    start();
+    await until(
+      () => types().filter((type) => type === 'project.checkpoint.recorded').length === 2,
+      'two checkpoints',
+    );
+    const beforeTask = checkpointOf(events(), 'before_task') as CheckpointId;
+    const afterTurn = checkpointOf(events(), 'after_turn') as CheckpointId;
+    restore(beforeTask);
+    await until(() => types().includes('project.restored'), 'the restore');
+
+    const page = await reads.history(projectId, { journal_id: journal }, LOCAL);
+    assert.ok(page?.result.availability === 'available');
+    const entries = page.result.entries;
+    assert.deepEqual(
+      entries.map((entry) => (entry.kind === 'version' ? entry.checkpoint.reason : entry.kind)),
+      ['restored', 'before_restore', 'after_turn', 'before_task'],
+      'newest first, the restore among the versions',
+    );
+    assert.deepEqual([page.result.more, page.result.total], [false, 4]);
+    const [restored, beforeRestore, turned, first] = entries;
+    assert.ok(restored?.kind === 'restored');
+    assert.deepEqual([restored.checkpoint_id, restored.changed_back], [beforeTask, 1]);
+    assert.ok(turned?.kind === 'version' && first?.kind === 'version');
+    assert.deepEqual(
+      [turned.checkpoint.turn_id, turned.previous, turned.changed_files, turned.folder.kind],
+      ['turn-1', beforeTask, 1, 'project'],
+      'the agent changed app.txt in its turn',
+    );
+    assert.deepEqual([first.previous, first.changed_files], [null, null]);
+    assert.ok(beforeRestore?.kind === 'version');
+    assert.deepEqual([beforeRestore.previous, beforeRestore.changed_files], [afterTurn, 0]);
+
+    const older = await reads.history(
+      projectId,
+      { journal_id: journal, limit: '2', before: beforeRestore.entry_id },
+      LOCAL,
+    );
+    assert.ok(older?.result.availability === 'available');
+    assert.deepEqual(
+      older.result.entries.map((entry) => entry.entry_id),
+      [turned.entry_id, first.entry_id],
+    );
+    assert.equal(older.result.more, false);
+    const firstPage = await reads.history(projectId, { journal_id: journal, limit: '1' }, LOCAL);
+    assert.ok(firstPage?.result.availability === 'available');
+    assert.deepEqual([firstPage.result.entries.length, firstPage.result.more], [1, true]);
+    assert.equal(
+      await reads.history(
+        projectId,
+        { journal_id: journal, before: beforeTask as string as EventId },
+        LOCAL,
+      ),
+      undefined,
+      'a cursor that names no entry is the same unavailable read',
+    );
+
+    writeFileSync(join(folder, 'notes.md'), 'new\n');
+    writeFileSync(join(folder, '.env'), 'KEY=value\n');
+    const now = await reads.changes(projectId, { journal_id: journal, from: afterTurn }, LOCAL);
+    assert.equal(now?.to, null, 'compared with the folder as it is now');
+    assert.deepEqual(
+      now?.files.map((file) => [file.path, file.change]),
+      [
+        ['.env', 'added'],
+        ['app.txt', 'changed'],
+        ['notes.md', 'added'],
+      ],
+    );
+    const file = await reads.fileChange(
+      projectId,
+      { journal_id: journal, from: afterTurn, path: 'app.txt' },
+      LOCAL,
+    );
+    assert.equal(file?.to, null);
+    assert.match(file?.diff ?? '', /^-agent$/m);
+    assert.match(file?.diff ?? '', /^\+person$/m);
+    const env = await reads.fileChange(
+      projectId,
+      { journal_id: journal, from: afterTurn, path: '.env' },
+      LOCAL,
+    );
+    assert.deepEqual([env?.withheld, env?.diff], [true, null]);
+    assert.equal(
+      controlPlane.projection.checkpoints(projectId).length,
+      3,
+      'reading the folder now records no version',
+    );
+    rmSync(folder, { recursive: true, force: true });
+    assert.equal(
+      await reads.changes(projectId, { journal_id: journal, from: afterTurn }, LOCAL),
+      undefined,
+      'a folder no longer there reads as unavailable',
+    );
+    await controlPlane.close();
+  });
+
+  test('with undo off the history says so, and no principal reads it', async () => {
+    const { controlPlane, projectId } = setup('history-off', { undo: false });
+    const reads = new ProjectReads(controlPlane);
+    const journal = controlPlane.journal.info.journal_id;
+    const off = await reads.history(projectId, { journal_id: journal }, LOCAL);
+    assert.deepEqual(off?.result, {
+      availability: 'unavailable',
+      reason: {
+        code: 'undo_not_set_up',
+        message: 'Undo is not set up on this computer (HALCYONIC_GIT_BIN).',
+      },
+    });
+    assert.equal(await reads.history(projectId, { journal_id: journal }, null), undefined);
+    await controlPlane.close();
   });
 });

@@ -22,6 +22,8 @@ import type {
   ExecutionId,
   ExecutionStatus,
   ExecutionView,
+  HistoryEntry,
+  HistoryFolder,
   Principal,
   ProjectId,
   ProjectLocation,
@@ -199,9 +201,9 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
 /**
  * Bumped whenever `ProjectionState`'s shape changes, so no older checkpoint is taken for it. 2: a
  * task's own copy and a check's folder and task (ADR 0045). 3: each project's shared link (F1).
- * 4: how each file a task's copy would add changed (`to_add_files`).
+ * 4: how each file a task's copy would add changed (`to_add_files`). 5: each project's history.
  */
-export const PROJECTION_STATE_FORMAT = 4;
+export const PROJECTION_STATE_FORMAT = 5;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -217,6 +219,7 @@ export interface ProjectionState {
   readonly executionsByProject: ReadonlyMap<unknown, unknown>;
   readonly pendingCommands: ReadonlySet<unknown>;
   readonly checkpoints: ReadonlyMap<unknown, unknown>;
+  readonly history: ReadonlyMap<unknown, unknown>;
   readonly checks: ReadonlyMap<unknown, unknown>;
   readonly checksById: ReadonlyMap<unknown, unknown>;
   readonly openChecks: ReadonlyMap<unknown, unknown>;
@@ -299,6 +302,11 @@ export class Projection {
   readonly #pendingCommands = new Set<CommandState>();
   /** Checkpoints the host took, by project, oldest first (ADR 0036). */
   readonly #checkpoints = new Map<ProjectId, CheckpointView[]>();
+  /**
+   * Each project's history, oldest first: its versions, the ones not kept, and its restores, which
+   * nothing else in current state keeps. A version's changed files are counted by its reader.
+   */
+  readonly #history = new Map<ProjectId, HistoryEntry[]>();
   /** Each project's latest check (ADR 0037). */
   readonly #checks = new Map<ProjectId, CheckState>();
   /** Every check recorded for each project, so a preview or play of an older check knows its file state (T2). */
@@ -380,6 +388,7 @@ export class Projection {
       executionsByProject: this.#executionsByProject,
       pendingCommands: this.#pendingCommands,
       checkpoints: this.#checkpoints,
+      history: this.#history,
       checks: this.#checks,
       checksById: this.#checksById,
       openChecks: this.#openChecks,
@@ -419,6 +428,7 @@ export class Projection {
       !(state.executionsByProject instanceof Map) ||
       !(state.pendingCommands instanceof Set) ||
       !(state.checkpoints instanceof Map) ||
+      !(state.history instanceof Map) ||
       !(state.checks instanceof Map) ||
       !(state.checksById instanceof Map) ||
       !(state.openChecks instanceof Map) ||
@@ -451,6 +461,7 @@ export class Projection {
     for (const value of state.pendingCommands as Set<never>) this.#pendingCommands.add(value);
     for (const [key, value] of state.checkpoints as Map<never, never>)
       this.#checkpoints.set(key, value);
+    for (const [key, value] of state.history as Map<never, never>) this.#history.set(key, value);
     for (const [key, value] of state.checks as Map<never, never>) this.#checks.set(key, value);
     for (const [key, value] of state.checksById as Map<never, never>)
       this.#checksById.set(key, value);
@@ -860,6 +871,31 @@ export class Projection {
     return [...(this.#checkpoints.get(projectId as ProjectId) ?? [])];
   }
 
+  /**
+   * The project's history, oldest first. A version's `changed_files` is always null here: counting
+   * needs the checkpoint store, so its reader counts.
+   */
+  history(projectId: string): readonly HistoryEntry[] {
+    return this.#history.get(projectId as ProjectId) ?? [];
+  }
+
+  /** Whose folder an execution's checkpoint holds: a task's own copy where it works in one. */
+  #historyFolder(executionId: ExecutionId | null): HistoryFolder {
+    if (executionId === null) return { kind: 'project' };
+    const execution = this.#executions.get(executionId);
+    const copy =
+      execution === undefined ? undefined : this.#workstreams.get(execution.workstreamId)?.copy;
+    return copy?.state === 'own' && execution?.directory === copy.directory
+      ? { kind: 'task_copy', workstream_id: execution.workstreamId }
+      : { kind: 'project' };
+  }
+
+  #addHistory(projectId: ProjectId, entry: HistoryEntry): void {
+    const list = this.#history.get(projectId) ?? [];
+    list.push(entry);
+    this.#history.set(projectId, list);
+  }
+
   /** A check of the project by its id, the latest or an earlier one, or undefined. */
   checkFindings(projectId: string, checkId: string): CheckFindings | undefined {
     return this.#checksById.get(projectId as ProjectId)?.get(checkId as CheckId)?.findings;
@@ -1173,7 +1209,7 @@ export class Projection {
           return;
         }
         const list = this.#checkpoints.get(event.project_id) ?? [];
-        list.push({
+        const view: CheckpointView = {
           checkpoint_id: event.payload.checkpoint_id,
           project_id: event.project_id,
           reason: event.payload.reason,
@@ -1182,8 +1218,27 @@ export class Projection {
           tree: event.payload.tree,
           files: event.payload.files,
           project_head: event.payload.project_head,
-        });
+          ...(event.payload.turn_id === undefined ? {} : { turn_id: event.payload.turn_id }),
+        };
+        list.push(view);
         this.#checkpoints.set(event.project_id, list);
+        const folder = this.#historyFolder(event.payload.execution_id);
+        const same = (entry: HistoryEntry) =>
+          entry.kind === 'version' &&
+          entry.folder.kind === folder.kind &&
+          (folder.kind === 'project' ||
+            (entry.folder.kind === 'task_copy' &&
+              entry.folder.workstream_id === folder.workstream_id));
+        const previous = (this.#history.get(event.project_id) ?? []).findLast(same);
+        this.#addHistory(event.project_id, {
+          kind: 'version',
+          entry_id: event.event_id,
+          at: event.occurred_at,
+          checkpoint: view,
+          folder,
+          previous: previous?.kind === 'version' ? previous.checkpoint.checkpoint_id : null,
+          changed_files: null,
+        });
         return;
       }
       case 'project.check.recorded': {
@@ -1345,6 +1400,7 @@ export class Projection {
           notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
           return;
         }
+        this.#addHistory(event.project_id, historyEntryOf(event));
         if (
           event.event_type === 'project.restored' &&
           (event.payload.changed_back.total > 0 ||
@@ -2122,4 +2178,45 @@ function cloneCopy(copy: WorkstreamCopy): WorkstreamCopy {
         ? null
         : { files: copy.conflict.files.map((file) => ({ ...file })), total: copy.conflict.total },
   };
+}
+
+/** A history entry of a version not kept or of a restore, as its event says it. */
+function historyEntryOf(
+  event: Extract<
+    EventEnvelope,
+    { event_type: 'project.checkpoint.failed' | 'project.restored' | 'project.restore_incomplete' }
+  >,
+): HistoryEntry {
+  const at = { entry_id: event.event_id, at: event.occurred_at };
+  switch (event.event_type) {
+    case 'project.checkpoint.failed':
+      return {
+        kind: 'not_kept',
+        ...at,
+        reason: event.payload.reason,
+        execution_id: event.payload.execution_id,
+        failure: { ...event.payload.failure },
+      };
+    case 'project.restored':
+      return {
+        kind: 'restored',
+        ...at,
+        checkpoint_id: event.payload.checkpoint_id,
+        before_restore_checkpoint_id: event.payload.before_restore_checkpoint_id,
+        changed_back: event.payload.changed_back.total,
+        removed: event.payload.removed.total,
+        returned: event.payload.returned.total,
+        project_head_moved: event.payload.project_head_moved,
+      };
+    case 'project.restore_incomplete':
+      return {
+        kind: 'restore_incomplete',
+        ...at,
+        checkpoint_id: event.payload.checkpoint_id,
+        before_restore_checkpoint_id: event.payload.before_restore_checkpoint_id,
+        written: event.payload.written,
+        not_restored: event.payload.not_restored.total,
+        failure: { ...event.payload.failure },
+      };
+  }
 }

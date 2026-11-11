@@ -1251,6 +1251,11 @@
                       "type": "null"
                     }
                   ]
+                },
+                "turn_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
                 }
               },
               "additionalProperties": false
@@ -1384,47 +1389,7 @@
                   ]
                 },
                 "failure": {
-                  "type": "object",
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "properties": {
-                    "code": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "const": "location_missing"
-                        },
-                        {
-                          "type": "string",
-                          "const": "nested_repository"
-                        },
-                        {
-                          "type": "string",
-                          "const": "too_large"
-                        },
-                        {
-                          "type": "string",
-                          "const": "unreadable"
-                        },
-                        {
-                          "type": "string",
-                          "const": "holds_host_data"
-                        },
-                        {
-                          "type": "string",
-                          "const": "store_failed"
-                        }
-                      ]
-                    },
-                    "message": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 2000
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/$defs/CheckpointFailure"
                 }
               },
               "additionalProperties": false
@@ -11304,6 +11269,11 @@
               "type": "null"
             }
           ]
+        },
+        "turn_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
         }
       },
       "additionalProperties": false
@@ -11653,48 +11623,51 @@
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
         },
         "result": {
-          "anyOf": [
-            {
-              "type": "object",
-              "required": [
-                "availability",
-                "checkpoints"
-              ],
-              "properties": {
-                "availability": {
-                  "type": "string",
-                  "const": "available"
-                },
-                "checkpoints": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/$defs/CheckpointView"
-                  }
-                }
-              },
-              "additionalProperties": false
-            },
-            {
-              "type": "object",
-              "required": [
-                "availability",
-                "reason"
-              ],
-              "properties": {
-                "availability": {
-                  "type": "string",
-                  "const": "unavailable"
-                },
-                "reason": {
-                  "$ref": "#/$defs/ErrorInfo"
-                }
-              },
-              "additionalProperties": false
-            }
-          ]
+          "$ref": "#/$defs/CheckpointsResult"
         }
       },
       "additionalProperties": false
+    },
+    "CheckpointsResult": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "checkpoints"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "available"
+            },
+            "checkpoints": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CheckpointView"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "RestorePreviewResponse": {
       "type": "object",
@@ -11708,46 +11681,92 @@
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
         },
         "result": {
+          "$ref": "#/$defs/RestorePreviewResult"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RestorePreviewResult": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "preview",
+            "review"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "available"
+            },
+            "preview": {
+              "$ref": "#/$defs/RestorePreview"
+            },
+            "review": {
+              "$ref": "#/$defs/ReviewDigest"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "CheckpointFailure": {
+      "type": "object",
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
           "anyOf": [
             {
-              "type": "object",
-              "required": [
-                "availability",
-                "preview",
-                "review"
-              ],
-              "properties": {
-                "availability": {
-                  "type": "string",
-                  "const": "available"
-                },
-                "preview": {
-                  "$ref": "#/$defs/RestorePreview"
-                },
-                "review": {
-                  "$ref": "#/$defs/ReviewDigest"
-                }
-              },
-              "additionalProperties": false
+              "type": "string",
+              "const": "location_missing"
             },
             {
-              "type": "object",
-              "required": [
-                "availability",
-                "reason"
-              ],
-              "properties": {
-                "availability": {
-                  "type": "string",
-                  "const": "unavailable"
-                },
-                "reason": {
-                  "$ref": "#/$defs/ErrorInfo"
-                }
-              },
-              "additionalProperties": false
+              "type": "string",
+              "const": "nested_repository"
+            },
+            {
+              "type": "string",
+              "const": "too_large"
+            },
+            {
+              "type": "string",
+              "const": "unreadable"
+            },
+            {
+              "type": "string",
+              "const": "holds_host_data"
+            },
+            {
+              "type": "string",
+              "const": "store_failed"
             }
           ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
         }
       },
       "additionalProperties": false
@@ -18517,8 +18536,7 @@
       "type": "object",
       "required": [
         "journal_id",
-        "from",
-        "to"
+        "from"
       ],
       "properties": {
         "journal_id": {
@@ -18557,8 +18575,15 @@
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
         },
         "to": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "files": {
           "type": "array",
@@ -18587,7 +18612,6 @@
       "required": [
         "journal_id",
         "from",
-        "to",
         "path"
       ],
       "properties": {
@@ -18636,8 +18660,15 @@
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
         },
         "to": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "path": {
           "type": "string",
@@ -18797,6 +18828,354 @@
         }
       },
       "additionalProperties": false
+    },
+    "HistoryEntry": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "entry_id",
+            "at",
+            "checkpoint",
+            "folder",
+            "previous",
+            "changed_files"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "version"
+            },
+            "entry_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "checkpoint": {
+              "$ref": "#/$defs/CheckpointView"
+            },
+            "folder": {
+              "$ref": "#/$defs/HistoryFolder"
+            },
+            "previous": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "changed_files": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "entry_id",
+            "at",
+            "reason",
+            "execution_id",
+            "failure"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "not_kept"
+            },
+            "entry_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "reason": {
+              "$ref": "#/$defs/CheckpointReason"
+            },
+            "execution_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "failure": {
+              "$ref": "#/$defs/CheckpointFailure"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "entry_id",
+            "at",
+            "checkpoint_id",
+            "before_restore_checkpoint_id",
+            "changed_back",
+            "removed",
+            "returned",
+            "project_head_moved"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "restored"
+            },
+            "entry_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "checkpoint_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "before_restore_checkpoint_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "changed_back": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "removed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "returned": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "project_head_moved": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "entry_id",
+            "at",
+            "checkpoint_id",
+            "before_restore_checkpoint_id",
+            "written",
+            "not_restored",
+            "failure"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "restore_incomplete"
+            },
+            "entry_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "checkpoint_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "before_restore_checkpoint_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "written": {
+              "type": "boolean"
+            },
+            "not_restored": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "failure": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "HistoryFolder": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "project"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "workstream_id"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "task_copy"
+            },
+            "workstream_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ProjectHistoryQuery": {
+      "type": "object",
+      "required": [
+        "journal_id"
+      ],
+      "properties": {
+        "journal_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "limit": {
+          "type": "string",
+          "pattern": "^(?:[1-9]|[1-4][0-9]|50)$"
+        },
+        "before": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProjectHistoryResponse": {
+      "type": "object",
+      "required": [
+        "project_id",
+        "result"
+      ],
+      "properties": {
+        "project_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "result": {
+          "$ref": "#/$defs/ProjectHistoryResult"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProjectHistoryResult": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "entries",
+            "more",
+            "total"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "available"
+            },
+            "entries": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/HistoryEntry"
+              },
+              "maxItems": 50
+            },
+            "more": {
+              "type": "boolean"
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "ApprovalResolution": {
       "anyOf": [

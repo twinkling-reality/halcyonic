@@ -36,6 +36,9 @@ export interface CheckpointerDeps {
   readonly restoreHooks?: RestoreHooks;
 }
 
+/** How many tree pairs' changed-file counts are kept: a history page counts at most 50. */
+const CHANGED_COUNTS_KEPT = 4_096;
+
 export type RestoreOutcome =
   | { readonly ok: true }
   | { readonly ok: false; readonly failure: CommandFailure };
@@ -55,6 +58,8 @@ export type PreviewOutcome =
 export class Checkpointer {
   readonly #deps: CheckpointerDeps;
   readonly #queues = new Map<string, Promise<unknown>>();
+  /** Changed-file counts between two trees, oldest dropped past `CHANGED_COUNTS_KEPT`. */
+  readonly #counts = new Map<string, number>();
 
   constructor(deps: CheckpointerDeps) {
     this.#deps = deps;
@@ -77,6 +82,7 @@ export class Checkpointer {
         'after_turn',
         event.execution_id,
         NO_CAUSE,
+        event.payload.turn_id,
       ).catch((error: unknown) => this.#unrecorded(error, event.project_id));
     });
   }
@@ -126,6 +132,47 @@ export class Checkpointer {
   /** One file's change between two of the project's checkpoints, at most `maxBytes` of diff. */
   compareFile(projectId: string, fromId: string, toId: string, path: string, maxBytes: number) {
     return this.#deps.store.compareFile(projectId, fromId, toId, path, maxBytes);
+  }
+
+  /**
+   * What changed between a checkpoint and the folder it was taken of, as that folder is now. It
+   * waits its turn behind the project's checkpoints and restores, and reads only a folder a
+   * checkpoint of it could be taken of now.
+   */
+  compareNow(projectId: ProjectId, fromId: CheckpointId) {
+    return this.#serially(projectId, async () => {
+      const folder = await this.#folderFor(projectId, fromId);
+      if (!folder.ok) return { ok: false as const, code: 'folder_unread' as const };
+      return this.#deps.store.compareNow(projectId, fromId, folder.path);
+    });
+  }
+
+  /** One file's change between a checkpoint and its folder as it is now, as `compareNow` reads it. */
+  compareFileNow(projectId: ProjectId, fromId: CheckpointId, path: string, maxBytes: number) {
+    return this.#serially(projectId, async () => {
+      const folder = await this.#folderFor(projectId, fromId);
+      if (!folder.ok) return { ok: false as const, code: 'folder_unread' as const };
+      return this.#deps.store.compareFileNow(projectId, fromId, folder.path, path, maxBytes);
+    });
+  }
+
+  /**
+   * How many files differ between two of the project's trees; null when the store cannot tell.
+   * Trees are named by their contents, so a count once read never changes and is kept.
+   */
+  async changedCount(projectId: string, fromTree: string, toTree: string): Promise<number | null> {
+    const key = `${projectId}:${fromTree}:${toTree}`;
+    const known = this.#counts.get(key);
+    if (known !== undefined) return known;
+    const counted = await this.#deps.store.countChanged(projectId, fromTree, toTree);
+    if (counted === null) return null;
+    this.#counts.set(key, counted);
+    while (this.#counts.size > CHANGED_COUNTS_KEPT) {
+      const oldest = this.#counts.keys().next().value;
+      if (oldest === undefined) break;
+      this.#counts.delete(oldest);
+    }
+    return counted;
   }
 
   /** The project's checkpoints, oldest first. */
@@ -303,9 +350,10 @@ export class Checkpointer {
     reason: CheckpointReason,
     executionId: ExecutionId | null,
     cause: Cause,
+    turnId: string | null = null,
   ): Promise<CheckpointId | null> {
     return this.#serially(projectId, () =>
-      this.#take(projectId, directory, reason, executionId, cause, []),
+      this.#take(projectId, directory, reason, executionId, cause, [], turnId),
     );
   }
 
@@ -316,6 +364,7 @@ export class Checkpointer {
     executionId: ExecutionId | null,
     cause: Cause,
     keepAlso: readonly string[],
+    turnId: string | null = null,
   ): Promise<CheckpointId | null> {
     const checkpointId = this.#deps.ids.next() as CheckpointId;
     const allowed =
@@ -360,6 +409,7 @@ export class Checkpointer {
           tree: taken.tree,
           files: taken.files,
           project_head: taken.projectHead,
+          ...(turnId === null ? {} : { turn_id: turnId }),
         },
         this.#now(),
         cause,
