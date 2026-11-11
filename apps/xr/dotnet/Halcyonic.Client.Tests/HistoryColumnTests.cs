@@ -326,11 +326,11 @@ public class HistoryColumnTests
         Assert.That(((AvailableRestorePreview)read.Result).Review, Is.EqualTo(Digest));
         Assert.That(asked, Is.EqualTo(new[]
         {
-            $"/api/projects/{ProjectId}/checkpoints",
-            $"/api/projects/{ProjectId}/checkpoints/{Id(1)}/restore-preview",
+            $"api/projects/{ProjectId}/checkpoints",
+            $"api/projects/{ProjectId}/checkpoints/{Id(1)}/restore-preview",
         }));
         Assert.ThrowsAsync<FormatException>(() => reader.VersionsAsync(Id(5)));
         Assert.ThrowsAsync<FormatException>(() => reader.PreviewAsync(ProjectId, Id(2)));
-        Assert.That(ProjectHistoryReader.VersionsPath("a/b"), Is.EqualTo("/api/projects/a%2Fb/checkpoints"));
+        Assert.That(ProjectHistoryReader.VersionsPath("a/b"), Is.EqualTo("api/projects/a%2Fb/checkpoints"));
     }
 }

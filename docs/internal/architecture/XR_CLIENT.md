@@ -1680,6 +1680,23 @@ Laptop, and nothing of the play's viewer (its link, code or session) ever reache
 opens on the computer only. Tests: `ProjectPlayFactsTests`, `CommandFactoryTests`, `ClientProjectionTests`,
 and `LiveControlPlaneTests` against a real control plane for the host's refusals.
 
+### History and Restore's core (gap 2, 2026-11-11)
+
+The headset's side of a project's history, core and render check only: no frame offers it yet (XR's History column and
+its ways in, Changes' second action and the project's page, wait), and nothing of it has run on a headset.
+`ProjectHistoryReader` reads a project's versions (`api/projects/:id/checkpoints`) and what restoring one would do now
+with the digest of that review (`.../:checkpoint_id/restore-preview`, ADR 0051), through the control plane's own
+authorized GET, and refuses an answer for another project or version. `HistoryColumn` holds the states as FIELD's
+cards (A14 in A17's terms, `HistoryText` FIELD's words): the versions newest first, five a page, each named from the
+person's task ("After {task} Worked", "Before {task} Started", "Before a Restore", "Before the Add") with its time;
+a version's review, its files as rows (Reverts, Goes, Comes Back), "And {n} More" past five, "The project changed
+since then too." where the project's own head moved, Restore (Undo Add before an add) behind its lock; Restored with
+Undo Restore, which opens the review of the version kept just before the restore, so even the undo is read first;
+Not Restored where the review went out of date (`review_stale`), was refused or ran incomplete; No History Yet; Not
+Read. Reading and sent show only a sentence (`Sentence`). A restore carries the digest of the review shown and is
+built only after its lock (`Arm`, then `Restore`). The C# bindings carry `CheckpointsResponse` and
+`RestorePreviewResponse` for it. Tests: `HistoryColumnTests`; render check: `KitRender.HistoryCheck`.
+
 ### Play in Headset's core (gap 1, 2026-11-11)
 
 The headset's side of opening a project's preview in Quest Browser, core and opener only: no frame offers the
