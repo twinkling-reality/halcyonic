@@ -53,6 +53,15 @@ interrupted with a step saying so. The all-work request did not run: memory was 
 loaded (with another lane's Unity job), and the driver stops under 40%. The model was unloaded and the run file
 removed at 07:49Z.
 
+A fifth run, from 08:30Z on 2026-11-11, under rule 24b (84% free at the start; a run may go on down to 25% free), on
+the code with the whole counts: "What is going on with my work?" bound to nothing went `read_projects`, six
+`read_project_at` and a second `read_projects`, all eight planning turns, and ended at the budget interrupt with no reply
+after 89 s. So the budget's last turn is now offered no tool, with a system message to answer from what was read and
+say what was not. The fresh Codex task then started, and memory fell to 23% free at 08:36:47Z, under the floor, so the
+run ended there before the continue request. The plane and the model stayed up about four minutes, since the stop
+skipped the driver's cleanup; they were stopped by hand at 08:40:31Z, and the driver's floor watcher now cleans up
+itself.
+
 ## 2026-11-10: What a task changed and whether it works, a whole project, on local models
 
 Setup: an isolated control plane on 127.0.0.1 with its own data directory, Codex 0.157.0 confined to a

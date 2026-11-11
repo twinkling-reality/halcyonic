@@ -22,6 +22,7 @@ import { DeviceAccess } from '../network/devices.ts';
 import { capturingLogger, createTestControlPlane } from '../testing/harness.ts';
 import type { ToolDefinition, ToolMessage, ToolTurnResult } from './ollama.ts';
 import {
+  ANSWER_LAST,
   ANSWER_NOW,
   looksLikeToolCall,
   QUOTED_PREFIX,
@@ -1882,6 +1883,37 @@ test('on the turn offered no tool, the host says to answer, and a written tool c
     assert.ok(
       request?.steps.some((step) => step.tool_name === 'model' && step.status === 'rejected'),
     );
+  } finally {
+    await f.close();
+  }
+});
+
+test("on the planning budget's last turn the model is offered no tool and answers, instead of reaching the bound", async () => {
+  const offered: string[][] = [];
+  const seen: ToolMessage[][] = [];
+  const f = await fixture({
+    turn: async (messages, tools) => {
+      offered.push((tools ?? []).map((tool) => tool.function.name));
+      seen.push([...messages]);
+      // A model that would read for ever, as the 30B did on an all-work request.
+      return (tools ?? []).length > 0
+        ? answer([{ name: 'read_workspace', arguments: {} }], '')
+        : answer([], 'Here is what I read so far.');
+    },
+  });
+  try {
+    const id = f.submit();
+    for (let i = 0; i < 20; i++) await settle();
+    const request = f.coordinator.read(id, { kind: 'local' });
+    assert.equal(offered.length, 8);
+    assert.deepEqual(offered.at(-1), []);
+    assert.ok(
+      (seen.at(-1) ?? []).some(
+        (message) => message.role === 'system' && message.content === ANSWER_LAST,
+      ),
+    );
+    assert.equal(request?.status, 'responded');
+    assert.equal(request?.reply?.text, 'Here is what I read so far.');
   } finally {
     await f.close();
   }
