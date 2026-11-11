@@ -496,7 +496,7 @@ describe('the language-neutral schema document', () => {
       inlinedDefinitions(buildSchemaDocument() as { $defs: Record<string, unknown> }),
       [],
     );
-    assert.ok(text.length < 505_000, `document is ${text.length} bytes`);
+    assert.ok(text.length < 520_000, `document is ${text.length} bytes`);
   });
 });
 
@@ -543,8 +543,8 @@ describe('the C# bindings', () => {
     );
     assert.equal(
       generated.match(/Required = Required\.Default/g)?.length,
-      33,
-      "the optional members are a location's label, a completed tool's turn, three declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), why a twin read was unknown (M1.8g-b), whether an execution's start recorded it confined (S2), whether a check's browser had permissions of its own (S1), a project's check, preview and play (M1.8e), an evaluation's activity, a check page's own pixels against the starter's (DRAWN), the approval level a start chose, its runtime recorded and its view shows (ADR 0043), a world project's world (ADR 0049), whether a runtime keeps its sessions after a restart (ADR 0046), an execution's failed check sent back on its own (ADR 0044), a task's own copy (ADR 0045), and the task whose copy a check checked, in its command, its event and its view (ADR 0045), and the steps that failed in the check a fix chain answered, and the review a restore and a rebinding carry (ADR 0051)",
+      34,
+      "the optional members are a location's label, a completed tool's turn, three declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), why a twin read was unknown (M1.8g-b), whether an execution's start recorded it confined (S2), whether a check's browser had permissions of its own (S1), a project's check, preview and play (M1.8e), an evaluation's activity, a check page's own pixels against the starter's (DRAWN), the approval level a start chose, its runtime recorded and its view shows (ADR 0043), a world project's world (ADR 0049), whether a runtime keeps its sessions after a restart (ADR 0046), an execution's failed check sent back on its own (ADR 0044), a task's own copy (ADR 0045), and the task whose copy a check checked, in its command, its event and its view (ADR 0045), and the steps that failed in the check a fix chain answered, the review a restore and a rebinding carry (ADR 0051), and a project's shared link (ADR 0054)",
     );
     for (const member of [
       'Activity',

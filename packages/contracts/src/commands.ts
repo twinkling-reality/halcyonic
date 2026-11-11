@@ -2,7 +2,7 @@ import Type, { type Static, type TSchema } from 'typebox';
 import { CatalogRepositoryRef } from './catalog.ts';
 import { CheckpointId, ReviewDigest } from './checkpoints.ts';
 import { FolderName, HostPath, ProjectLocationChoice } from './locations.ts';
-import { CheckId } from './previews.ts';
+import { CheckId, ShareAddress } from './previews.ts';
 import {
   ClientInfo,
   CommandId,
@@ -139,6 +139,22 @@ export const ProjectOpenOnMacCommand = defineCommand(
  * Shows the project's own folder in Finder on the Mac, selected (keeping what was made, F3): the
  * host does it, never a runtime. Never a task's copy, never Halcyonic's data.
  */
+/**
+ * Shares the checked game the project's preview serves at a public `https://` address anyone can
+ * open, through a temporary tunnel, for as long as the preview runs (keeping and sharing what was
+ * made, F1). Only the checked build is reached, never the source. The person's own step.
+ */
+export const ProjectShareStartCommand = defineCommand(
+  'project.share.start',
+  Type.Object({ project_id: ProjectId }, strict),
+);
+
+/** Stops the project's shared link: the address stops answering at once. */
+export const ProjectShareStopCommand = defineCommand(
+  'project.share.stop',
+  Type.Object({ project_id: ProjectId }, strict),
+);
+
 export const ProjectShowInFinderCommand = defineCommand(
   'project.show_in_finder',
   Type.Object({ project_id: ProjectId }, strict),
@@ -302,6 +318,8 @@ export const COMMAND_VARIANTS = [
   ProjectOpenOnMacCommand,
   ProjectShowInFinderCommand,
   ProjectSaveCopyCommand,
+  ProjectShareStartCommand,
+  ProjectShareStopCommand,
   ProjectLinkCatalogCommand,
   ProjectUnlinkCatalogCommand,
   WorkstreamCreateCommand,
@@ -333,6 +351,8 @@ export const CommandType = Type.Union([
   Type.Literal('project.open_on_mac'),
   Type.Literal('project.show_in_finder'),
   Type.Literal('project.save_copy'),
+  Type.Literal('project.share.start'),
+  Type.Literal('project.share.stop'),
   Type.Literal('project.link_catalog'),
   Type.Literal('project.unlink_catalog'),
   Type.Literal('workstream.create'),
@@ -448,6 +468,11 @@ export const CommandResult = Type.Union([
       files: Type.Integer({ minimum: 0 }),
       bytes: Type.Integer({ minimum: 0 }),
     },
+    strict,
+  ),
+  /** The checked game is shared at `url` while the preview of `check_id` runs. */
+  Type.Object(
+    { kind: Type.Literal('share_started'), check_id: CheckId, url: ShareAddress },
     strict,
   ),
   /** A task's work is in the project's folder; `checkpoint_id` puts back the folder as it was. */

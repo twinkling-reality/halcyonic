@@ -26,6 +26,7 @@ import type { Logger } from '../logger.ts';
 import { FileObserver } from '../observer/file-observer.ts';
 import { attachWorldReader } from '../observer/world-reader.ts';
 import { HostPreviews, type HostPreviewsDeps } from '../preview/preview.ts';
+import { ProjectShares, type ProjectSharesDeps } from '../preview/share.ts';
 import type { HostStarters } from '../starters.ts';
 import { AutoFix } from './auto-fix.ts';
 import { type CatalogLinks, CommandService } from './command-service.ts';
@@ -81,6 +82,11 @@ export interface ControlPlaneOptions {
       readonly reveal?: (path: string) => Promise<boolean>;
     };
   };
+  /**
+   * The pinned tunnel that shares a running preview at a public address (F1), with the folder it
+   * may use as its home. Absent, sharing is refused. Only built where previews are on.
+   */
+  readonly share?: Omit<ProjectSharesDeps, 'recorder' | 'projection' | 'clock' | 'logger'>;
   /** The starters a new project can begin from (ADR 0037); none by default. */
   readonly starters?: HostStarters;
   /** The person's catalog as last read, so a link is checked against it (ADR 0039); none by default. */
@@ -149,6 +155,8 @@ export class ControlPlane {
   readonly files: FileObserver | null;
   /** The host's checks and previews of starter projects, or null when off. */
   readonly previews: HostPreviews | null;
+  /** Shared links to a project's running preview (F1), where previews and the pinned tunnel are on. */
+  readonly shares: ProjectShares | null;
   /** Unloads a local Ollama model that Halcyonic loaded once no execution uses it (UL1), or null. */
   readonly ollamaUnload: OllamaUnloader | null;
   /** Re-attaches what an earlier control plane started (ADR 0046); null for a fixture journal. */
@@ -226,6 +234,16 @@ export class ControlPlane {
             redaction: this.redaction,
           });
     this.protectedFolders = options.observeFiles?.protect ?? [];
+    this.shares =
+      this.previews === null || options.share === undefined
+        ? null
+        : new ProjectShares({
+            ...options.share,
+            recorder: this.recorder,
+            projection: this.projection,
+            clock: options.clock,
+            logger: options.logger,
+          });
     this.files =
       options.observeFiles === undefined
         ? null
@@ -314,10 +332,13 @@ export class ControlPlane {
       previews: this.previews,
       ollamaUnload: this.ollamaUnload,
       reattacher: this.reattacher,
+      shares: this.shares,
     });
     this.#checkpointEvery =
       this.journal.info.origin === 'live' ? (options.checkpointEvery ?? CHECKPOINT_EVERY) : null;
     this.#rebuild();
+    // Once the journal is folded: a share a restart left recorded as live is recorded stopped.
+    this.shares?.attach(this.publisher);
     this.#autoFix =
       this.previews === null || options.autoFix === false
         ? null
@@ -585,6 +606,8 @@ export class ControlPlane {
     this.#closed = true;
     this.#autoCheckNeeded.clear();
     this.#autoFix?.close();
+    // A shared link stops before the preview it reaches.
+    await this.shares?.close();
     await this.previews?.close();
     await this.registry.closeAll(this.#logger);
     await this.ollamaUnload?.close();

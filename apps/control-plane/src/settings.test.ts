@@ -72,6 +72,17 @@ describe('the settings file', () => {
     );
   });
 
+  test('holds the tunnel program sharing runs, which runs only when it matches its pin', () => {
+    const dataDir = join(base, 'tunnel-setting', 'data');
+    writeHostSettings(dataDir, {
+      HALCYONIC_TUNNEL_BIN: '/Users/someone/.halcyonic/tools/cloudflared',
+    });
+    assert.equal(
+      readHostSettings(dataDir).HALCYONIC_TUNNEL_BIN,
+      '/Users/someone/.halcyonic/tools/cloudflared',
+    );
+  });
+
   test("holds the browser's folder, never its hash: the hash is always the repository's pin", () => {
     const dataDir = join(base, 'browser-setting', 'data');
     writeHostSettings(dataDir, {

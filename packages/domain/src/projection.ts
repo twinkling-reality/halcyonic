@@ -196,9 +196,9 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
 
 /**
  * Bumped whenever `ProjectionState`'s shape changes, so no older checkpoint is taken for it. 2: a
- * task's own copy and a check's folder and task (ADR 0045).
+ * task's own copy and a check's folder and task (ADR 0045). 3: each project's shared link (F1).
  */
-export const PROJECTION_STATE_FORMAT = 2;
+export const PROJECTION_STATE_FORMAT = 3;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -219,6 +219,7 @@ export interface ProjectionState {
   readonly openChecks: ReadonlyMap<unknown, unknown>;
   readonly previews: ReadonlyMap<unknown, unknown>;
   readonly macPlays: ReadonlyMap<unknown, unknown>;
+  readonly shares: ReadonlyMap<unknown, unknown>;
   readonly checkOutputs: ReadonlyMap<unknown, unknown>;
   readonly resultStarts: ReadonlyMap<unknown, unknown>;
   readonly results: ReadonlyMap<unknown, unknown>;
@@ -309,6 +310,8 @@ export class Projection {
   readonly #previews = new Map<ProjectId, { readonly check_id: CheckId; readonly port: number }>();
   /** The check whose game plays on the Mac now, per project (ADR 0037). */
   readonly #macPlays = new Map<ProjectId, CheckId>();
+  /** Each project's shared link now (F1): the check its preview serves and the public address. */
+  readonly #shares = new Map<ProjectId, { readonly checkId: CheckId; readonly url: string }>();
   /** The failed check whose output an agent was last given in each project (FX1). */
   readonly #checkOutputs = new Map<ProjectId, CheckId>();
   /** Each world project's description as the Mac last read it (ADR 0049). */
@@ -376,6 +379,7 @@ export class Projection {
       openChecks: this.#openChecks,
       previews: this.#previews,
       macPlays: this.#macPlays,
+      shares: this.#shares,
       checkOutputs: this.#checkOutputs,
       resultStarts: this.#resultStarts,
       results: this.#results,
@@ -414,6 +418,7 @@ export class Projection {
       !(state.openChecks instanceof Map) ||
       !(state.previews instanceof Map) ||
       !(state.macPlays instanceof Map) ||
+      !(state.shares instanceof Map) ||
       !(state.checkOutputs instanceof Map) ||
       !(state.resultStarts instanceof Map) ||
       !(state.results instanceof Map) ||
@@ -447,6 +452,7 @@ export class Projection {
       this.#openChecks.set(key, value);
     for (const [key, value] of state.previews as Map<never, never>) this.#previews.set(key, value);
     for (const [key, value] of state.macPlays as Map<never, never>) this.#macPlays.set(key, value);
+    for (const [key, value] of state.shares as Map<never, never>) this.#shares.set(key, value);
     for (const [key, value] of state.checkOutputs as Map<never, never>)
       this.#checkOutputs.set(key, value);
     for (const [key, value] of state.resultStarts as Map<never, never>)
@@ -901,6 +907,12 @@ export class Projection {
     return this.#checkOutputs.get(projectId as ProjectId);
   }
 
+  /** The project's shared link now, or undefined (F1). */
+  share(projectId: string): { readonly check_id: CheckId; readonly url: string } | undefined {
+    const share = this.#shares.get(projectId as ProjectId);
+    return share === undefined ? undefined : { check_id: share.checkId, url: share.url };
+  }
+
   /** The check whose game plays on the Mac now, or undefined. */
   macPlay(projectId: string): CheckId | undefined {
     return this.#macPlays.get(projectId as ProjectId);
@@ -1273,6 +1285,19 @@ export class Projection {
       case 'project.preview.stopped':
         if (this.#previews.get(event.project_id)?.check_id === event.payload.check_id) {
           this.#previews.delete(event.project_id);
+          changes.projects.add(event.project_id);
+        }
+        return;
+      case 'project.share.started':
+        this.#shares.set(event.project_id, {
+          checkId: event.payload.check_id,
+          url: event.payload.url,
+        });
+        if (this.#projects.has(event.project_id)) changes.projects.add(event.project_id);
+        return;
+      case 'project.share.stopped':
+        if (this.#shares.get(event.project_id)?.checkId === event.payload.check_id) {
+          this.#shares.delete(event.project_id);
           changes.projects.add(event.project_id);
         }
         return;
@@ -1922,6 +1947,14 @@ export class Projection {
         files: this.#filesOfCheck(state.projectId, play),
       };
     }
+    const share = this.#shares.get(state.projectId);
+    if (share !== undefined) {
+      view.share = {
+        check_id: share.checkId,
+        url: share.url,
+        files: this.#filesOfCheck(state.projectId, share.checkId),
+      };
+    }
     const world = this.#worlds.get(state.projectId);
     if (world !== undefined) view.world = world;
     return view;
@@ -1947,6 +1980,7 @@ export class Projection {
     const latestId = this.#checks.get(projectId)?.checkId;
     const previewId = this.#previews.get(projectId)?.check_id;
     const playId = this.#macPlays.get(projectId);
+    const shareId = this.#shares.get(projectId)?.checkId;
     let viewChanged = false;
     for (const state of checks) {
       this.#onCheckVisited?.();
@@ -1961,7 +1995,10 @@ export class Projection {
       const after = checkFilesState(state);
       if (
         before !== after &&
-        (state.checkId === latestId || state.checkId === previewId || state.checkId === playId)
+        (state.checkId === latestId ||
+          state.checkId === previewId ||
+          state.checkId === playId ||
+          state.checkId === shareId)
       ) {
         viewChanged = true;
       }

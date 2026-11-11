@@ -258,6 +258,8 @@ namespace Halcyonic.Client
             ProjectOpenOnMacCommand _ => CommandType.ProjectOpenOnMac,
             ProjectShowInFinderCommand _ => CommandType.ProjectShowInFinder,
             ProjectSaveCopyCommand _ => CommandType.ProjectSaveCopy,
+            ProjectShareStartCommand _ => CommandType.ProjectShareStart,
+            ProjectShareStopCommand _ => CommandType.ProjectShareStop,
             ProjectLinkCatalogCommand _ => CommandType.ProjectLinkCatalog,
             ProjectUnlinkCatalogCommand _ => CommandType.ProjectUnlinkCatalog,
             WorkstreamCreateCommand _ => CommandType.WorkstreamCreate,

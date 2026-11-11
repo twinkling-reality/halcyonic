@@ -28,6 +28,8 @@ import {
   CheckFindings,
   CheckId,
   PreviewStopReason,
+  ShareAddress,
+  ShareStopReason,
 } from './previews.ts';
 import {
   DeviceId,
@@ -396,6 +398,21 @@ export const ProjectPreviewStarted = projectEvent(
 export const ProjectPreviewStopped = projectEvent(
   'project.preview.stopped',
   Type.Object({ check_id: CheckId, reason: PreviewStopReason }, strict),
+);
+
+/**
+ * The checked game the project's preview serves is shared at `url`, a public address anyone can
+ * open, recorded only once the address answers with that game over a verified `https://` (F1).
+ */
+export const ProjectShareStarted = projectEvent(
+  'project.share.started',
+  Type.Object({ check_id: CheckId, url: ShareAddress }, strict),
+);
+
+/** The project's shared link stopped answering, and why. */
+export const ProjectShareStopped = projectEvent(
+  'project.share.stopped',
+  Type.Object({ check_id: CheckId, reason: ShareStopReason }, strict),
 );
 
 /**
@@ -910,6 +927,8 @@ export const EVENT_VARIANTS = [
   ProjectPreviewStopped,
   ProjectMacPlayStarted,
   ProjectMacPlayStopped,
+  ProjectShareStarted,
+  ProjectShareStopped,
   ProjectWorldObserved,
   WorkstreamCreated,
   WorkstreamCopyMade,

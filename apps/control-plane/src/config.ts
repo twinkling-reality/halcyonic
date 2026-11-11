@@ -103,6 +103,11 @@ export interface ControlPlaneConfig {
    */
   readonly gitBinary: string | null;
   /**
+   * The tunnel binary that shares a running preview at a public address (F1), used only when its
+   * SHA-256 is the pinned one. Null leaves sharing off.
+   */
+  readonly tunnelBinary: string | null;
+  /**
    * The chrome-headless-shell folder the check of a new app and a game played on the Mac both run
    * (ADR 0037, S1), and its binary's SHA-256 (always the repository's pin), or null: checks then type check and build but cannot
    * pass, and no game is played. Halcyonic copies it into its data folder and runs only the copy,
@@ -200,6 +205,7 @@ export function loadConfig(
     opencodeConfigHome: parseOpenCodeConfigHome(env.HALCYONIC_OPENCODE_CONFIG_HOME),
     codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
     gitBinary: parseExecutable('HALCYONIC_GIT_BIN', env.HALCYONIC_GIT_BIN),
+    tunnelBinary: parseExecutable('HALCYONIC_TUNNEL_BIN', env.HALCYONIC_TUNNEL_BIN),
     browser: parseBrowser(env, pins),
     speech: parseSpeech(env),
     companion: parseCompanion(env),

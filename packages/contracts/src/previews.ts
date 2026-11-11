@@ -201,6 +201,29 @@ export const PreviewStopReason = Type.Union([
 ]);
 export type PreviewStopReason = Static<typeof PreviewStopReason>;
 
+/**
+ * Why a shared link stopped: `asked` the person stopped it; `preview_stopped` the preview it reached
+ * stopped (a new check stops the preview too); `tunnel_exited` the tunnel ended on its own;
+ * `host_stopped` the control plane closed, or a restart found it.
+ */
+export const ShareStopReason = Type.Union([
+  Type.Literal('asked'),
+  Type.Literal('preview_stopped'),
+  Type.Literal('tunnel_exited'),
+  Type.Literal('host_stopped'),
+]);
+export type ShareStopReason = Static<typeof ShareStopReason>;
+
+/**
+ * A shared link's public address: `https://` and a host name only, no path, no query, no user part,
+ * as the tunnel gave it. Anyone who has it can open the checked game while it is shared.
+ */
+export const ShareAddress = Type.String({
+  pattern:
+    '^https://[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$',
+  maxLength: 253,
+});
+
 /** The most tries a failed check is sent back to its agent on its own, per chain (ADR 0044). */
 export const AUTO_FIX_CAP_MAX = 10;
 
