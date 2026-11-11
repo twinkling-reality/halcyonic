@@ -851,11 +851,6 @@ export class CommandService {
     return copy?.state === 'own' ? copy.directory : null;
   }
 
-  /**
-   * Makes the task's copy and records it, or records why it has none; resolves to the folder the
-   * start works in: the copy, else the project's folder, asked again of the folder rule just before,
-   * since starts beside it were admitted while the copy was being made (FOLDER, ADR 0045).
-   */
   /** The version a task starts from, with its tree, or null for one from the folder as it is. */
   #versionOf(workstreamId: WorkstreamId): {
     readonly checkpointId: string;
@@ -878,6 +873,11 @@ export class CommandService {
     };
   }
 
+  /**
+   * Makes the task's copy and records it, or records why it has none; resolves to the folder the
+   * start works in: the copy, else the project's folder, asked again of the folder rule just before,
+   * since starts beside it were admitted while the copy was being made (FOLDER, ADR 0045).
+   */
   async #makeCopy(
     copies: TaskCopies,
     scope: CommandScope,
@@ -1573,8 +1573,15 @@ export class CommandService {
         const copies = this.#deps.copies;
         // A task from a version works only in its own copy of that version, never the folder as it is.
         const version = this.#versionOf(workstream_id);
-        // Its agent's first start is told which version it works on, once.
-        firstFromVersion = version !== null && own === null ? version.recordedAt : null;
+        // Its agent is told which version it works on, on the task's first run that has a turn: a
+        // start that failed before its turn leaves the next one to say it (AUDIT3 S3).
+        const turnedBefore =
+          this.#deps.projection
+            .workstream(workstream_id)
+            ?.execution_ids.some(
+              (id) => (this.#deps.projection.execution(id)?.turn_count ?? 0) > 0,
+            ) ?? false;
+        firstFromVersion = version !== null && !turnedBefore ? version.recordedAt : null;
         if (version !== null && own === null && (projectFolder === null || !copies)) {
           this.#fail(command, admission.scope, {
             code: 'capability_unsupported',
