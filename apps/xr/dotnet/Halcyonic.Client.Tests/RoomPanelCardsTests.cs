@@ -41,6 +41,22 @@ public sealed class RoomPanelCardsTests
         new() { State = state, CheckId = "0193b3a0-0000-7000-8000-000000000001", Attempt = attempt, Cap = 2, Reason = reason };
 
     [Test]
+    public void Where_Play_in_Headset_is_not_drawn_its_reason_stands_at_the_cards_foot()
+    {
+        RoomCard Card(PlayInHeadset? play) =>
+            RoomPanelCards.Result(new RoomResult(false, true, false, true, Turn(Observed), Steps(), play: play), Task)!;
+        Assert.That(Card(PlayInHeadset.NotInThisBuild).More?.Text, Is.EqualTo("Playing without a cable is not in this build"));
+        Assert.That(Card(PlayInHeadset.NotConfined).More?.Text, Is.EqualTo("This app stays on your computer. Its agents could read outside its folder"));
+        Assert.That(Card(PlayInHeadset.NoWayToHeadset).More?.Text, Is.EqualTo("Connect the headset by cable to play this app in it"));
+        foreach (var play in new[] { PlayInHeadset.NotInThisBuild, PlayInHeadset.NotConfined, PlayInHeadset.NoWayToHeadset })
+            Assert.That(Card(play).More!.Text, Does.Not.EndWith("."), "a foot line takes no full stop (FIELD)");
+        Assert.That(Card(PlayInHeadset.NotInThisBuild).More!.Runs.Any(run => run.Theirs), Is.False, "Halcyonic's own sentence");
+        foreach (var quiet in new PlayInHeadset?[] { null, PlayInHeadset.Offered, PlayInHeadset.NoPreviewOfCheck, PlayInHeadset.NoCheck, PlayInHeadset.Demonstration, PlayInHeadset.CheckNotPassed })
+            Assert.That(Card(quiet).More, Is.Null, quiet?.ToString() ?? "unknown");
+        Assert.That(Card(PlayInHeadset.NotInThisBuild).AnyDot, Is.False);
+    }
+
+    [Test]
     public void The_result_is_the_tasks_name_over_its_check_and_its_count_as_slots()
     {
         var card = RoomPanelCards.Result(new RoomResult(false, true, false, true, Turn(Observed), Steps()), Task)!;

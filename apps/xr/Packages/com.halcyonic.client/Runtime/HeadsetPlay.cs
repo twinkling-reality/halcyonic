@@ -105,6 +105,20 @@ namespace Halcyonic.Client
         };
 
         /// <summary>
+        /// Why Play in Headset is not on the result, as one quiet sentence at the foot of the result's card, where the person
+        /// can do something about it or should know it is so; null where the action stands, or nothing need be said (A17:
+        /// an action that cannot act is not drawn, so its reason stands as words). FIELD's words.
+        /// </summary>
+        public static string? RefusalLine(PlayInHeadset play) => play switch
+        {
+            // FIELD's rule (2026-11-11): a foot line takes no full stop at its end; a stop between two sentences stays.
+            PlayInHeadset.NotConfined => "This app stays on your computer. Its agents could read outside its folder",
+            PlayInHeadset.NoWayToHeadset => "Connect the headset by cable to play this app in it",
+            PlayInHeadset.NotInThisBuild => "Playing without a cable is not in this build",
+            _ => null,
+        };
+
+        /// <summary>
         /// The address Quest Browser opens for <paramref name="project"/>, or null where Play in Headset is not
         /// <see cref="PlayInHeadset.Offered"/>.
         /// </summary>
