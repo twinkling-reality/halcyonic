@@ -501,7 +501,7 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private void PlayInHeadset(string projectId)
         {
-            if (State?.Projects.TryGetValue(projectId, out var project) != true) return;
+            if (Demonstration || State?.Projects.TryGetValue(projectId, out var project) != true) return;
             var target = ControlPlaneSettings.Target();
             if (!HeadsetPlay.Stands(HeadsetPlay.For(project!, target, Demonstration))) return;
             if (HeadsetPlay.CommandFor(project!, target, Demonstration, setup.Commands) is CommandEnvelope command)
@@ -523,6 +523,12 @@ namespace Halcyonic.XR.Workspace
         private void AdvanceHeadsetPlay()
         {
             if (headsetPlay.ProjectId == null) return;
+            // A demonstration showing meanwhile opens nothing.
+            if (Demonstration)
+            {
+                headsetPlay.Clear();
+                return;
+            }
             // HeadsetBrowser opens only an address HeadsetPlay.IsOpenable admits; null opens nothing.
             HeadsetBrowser.Open(headsetPlay.Advance(State, ControlPlaneSettings.Target(), Demonstration));
         }
