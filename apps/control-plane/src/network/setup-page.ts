@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   CHECKED_MODELS,
@@ -10,9 +10,11 @@ import {
   macSetupSteps,
   runMacSetup,
   type SetupStep,
+  tunnelProgram,
 } from '../cli/mac-setup.ts';
 import { matchesPin, type Pins } from '../pins.ts';
 import { plainLine } from '../preview/check-output.ts';
+import { isPinnedTunnel, TUNNEL_PIN } from '../preview/share.ts';
 import { VR_STARTER } from '../starters.ts';
 import type { PageRoutes } from './pairing-page.ts';
 
@@ -192,6 +194,10 @@ const STEP_ACTIONS: Readonly<Record<string, readonly SetupActionView[]>> = {
     { action: 'undo', arg: null, label: 'Turn Undo On' },
     { action: 'undo', arg: 'off', label: 'Turn Undo Off' },
   ],
+  sharing: [
+    { action: 'download', arg: 'tunnel', label: 'Get Link Sharing' },
+    { action: 'tunnel', arg: 'off', label: 'Turn Link Sharing Off' },
+  ],
   companion: [
     {
       action: 'download',
@@ -216,8 +222,14 @@ const ACTIONS: Readonly<Record<string, (arg: string | null) => readonly string[]
   launcher: (arg) => (arg === null ? ['launcher'] : null),
   starter: (arg) => (arg === null ? ['starter'] : null),
   undo: (arg) => (arg === null ? ['undo'] : arg === 'off' ? ['undo', 'off'] : null),
+  tunnel: (arg) => (arg === 'off' ? ['tunnel', 'off'] : null),
   companion: (arg) => (arg === COMPANION_MODEL.name || arg === 'off' ? ['companion', arg] : null),
 };
+
+/** The checked tunnel release's archive, by its address and SHA-256 (validation/sharing-a-link.md). */
+export const TUNNEL_ARCHIVE_URL = `https://github.com/cloudflare/cloudflared/releases/download/${TUNNEL_PIN.version}/cloudflared-darwin-arm64.tgz`;
+export const TUNNEL_ARCHIVE_SHA256 =
+  '3586ccf397e98e5f437e60e7c307ca6ac463e110580503af8bb8e6f9ebf831bd';
 
 /** The downloads the page can run, each exactly what `pnpm mac-setup` prints for it today. */
 export function setupDownloads(
@@ -230,6 +242,9 @@ export function setupDownloads(
   const npm = which('npm') ?? 'npm';
   const ollama = which('ollama') ?? 'ollama';
   const starter = join(dataDir, 'starters', VR_STARTER);
+  const tunnelFolder = dirname(tunnelProgram(dataDir));
+  const tunnelArchive = join(tunnelFolder, 'cloudflared-darwin-arm64.tgz');
+  const tunnelSum = `${tunnelArchive}.sha256`;
   const models = [
     ...CHECKED_MODELS.map((m) => ({ name: m.name, size: `${(m.bytes / 1e9).toFixed(1)} GB` })),
     { name: COMPANION_MODEL.name, size: COMPANION_MODEL.download },
@@ -270,6 +285,39 @@ export function setupDownloads(
       ],
       record: ['agent-apps'],
       verify: pinned('codex'),
+    },
+    {
+      // The tunnel a shared link runs (ADR 0054): the release's archive, checked by its SHA-256
+      // before it is unpacked, and recorded only when the program inside is the checked one.
+      id: 'tunnel',
+      title: 'Get Link Sharing',
+      fetches: `Cloudflare's tunnel program cloudflared ${TUNNEL_PIN.version} for Apple silicon, an 18.9 MB archive, from its GitHub release, checked by its SHA-256 before it is unpacked. Using it means Cloudflare's terms for tunnels without an account.`,
+      prepare: () => {
+        mkdirSync(tunnelFolder, { recursive: true, mode: 0o700 });
+        rmSync(tunnelArchive, { force: true });
+        writeFileSync(tunnelSum, `${TUNNEL_ARCHIVE_SHA256}  ${tunnelArchive}\n`);
+      },
+      commands: [
+        [
+          '/usr/bin/curl',
+          '--fail',
+          '--location',
+          '--silent',
+          '--show-error',
+          '--proto',
+          '=https',
+          '--proto-redir',
+          '=https',
+          '--tlsv1.2',
+          '--output',
+          tunnelArchive,
+          TUNNEL_ARCHIVE_URL,
+        ],
+        ['/usr/bin/shasum', '-a', '256', '-c', tunnelSum],
+        ['/usr/bin/tar', '-xzf', tunnelArchive, '-C', tunnelFolder, 'cloudflared'],
+      ],
+      record: ['tunnel'],
+      verify: () => isPinnedTunnel(tunnelProgram(dataDir)),
     },
     {
       id: 'starter',
