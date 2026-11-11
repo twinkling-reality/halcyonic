@@ -442,6 +442,24 @@ export function admitCommand(
       if (projection.project(projectId) === undefined) {
         return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
       }
+      // A task from a version starts from one of this project's own (ADR 0045).
+      const from = command.payload.from_checkpoint;
+      // A world changes in place as the person speaks, with no copy for a version to be made into.
+      if (from !== undefined && projection.project(projectId)?.starter === WORLD_STARTER_ID)
+        return reject(
+          { ...NO_SCOPE, project_id: projectId },
+          'invalid_state',
+          "A world changes as you speak to it, so a task can't start from an older version of it.",
+        );
+      if (
+        from !== undefined &&
+        !projection.checkpoints(projectId).some((checkpoint) => checkpoint.checkpoint_id === from)
+      )
+        return reject(
+          { ...NO_SCOPE, project_id: projectId },
+          'checkpoint_not_found',
+          "That version is not one of this project's.",
+        );
       return {
         admitted: true,
         policy,

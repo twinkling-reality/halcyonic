@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import type {
   CheckpointId,
+  CheckpointView,
   CommandEnvelope,
   CommandId,
   DeviceId,
@@ -300,6 +301,168 @@ describe('several agents on one project (ADR 0045)', {
     await until(() => of('project.restored').length === 1, 'the restore');
     assert.equal(readFileSync(join(copy.directory, 'app.txt'), 'utf8'), 'person\n');
     assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person, later\n');
+  });
+
+  test('a task from an older version works on that version in its own copy, the project untouched, and its add brings its work beside what the project gained since (ADR 0045)', async () => {
+    const { folder, controlPlane, projectId, task, start, submit, of, finish } = setup('version');
+    writeFileSync(join(folder, '.gitignore'), 'node_modules\n');
+    mkdirSync(join(folder, 'node_modules'), { recursive: true });
+    writeFileSync(join(folder, 'node_modules', 'kept.txt'), 'installed\n');
+    // A first task changes app.txt and its work is added: its copy's turn is a version with it.
+    const first = task('Lanterns');
+    start(first, 'lanterns');
+    await until(() => of('runtime.turn.started').length === 1, 'the first agent at work');
+    finish();
+    await until(
+      () => of('workstream.copy_changes_read', first).length === 1,
+      'the first copy read',
+    );
+    const turnOf = (workstreamId: WorkstreamId) =>
+      controlPlane.projection
+        .checkpoints(projectId)
+        .find(
+          (checkpoint) =>
+            checkpoint.reason === 'after_turn' &&
+            controlPlane.projection.execution(checkpoint.execution_id ?? '')?.workstream_id ===
+              workstreamId,
+        );
+    await until(() => turnOf(first) !== undefined, "the first turn's version");
+    const version = turnOf(first) as CheckpointView;
+    submit('workstream.add_to_project', { workstream_id: first });
+    await until(() => of('workstream.added', first).length === 1, 'the first add');
+    // The project gains a file the version never had.
+    writeFileSync(join(folder, 'later.txt'), 'the person, later\n');
+    // A version that is not one of this project's is refused.
+    const missing = submit('workstream.create', {
+      project_id: projectId,
+      title: 'Nowhere',
+      objective: null,
+      from_checkpoint: '01920000-0000-7000-8000-0000000000ff' as CheckpointId,
+    });
+    assert.equal(missing.command?.rejection?.code, 'checkpoint_not_found');
+    const made = submit('workstream.create', {
+      project_id: projectId,
+      title: 'Paths',
+      objective: null,
+      from_checkpoint: version.checkpoint_id,
+    });
+    const second = (
+      made.command?.result?.kind === 'workstream_created' ? made.command.result.workstream_id : ''
+    ) as WorkstreamId;
+    assert.equal(
+      controlPlane.projection.workstream(second)?.from_checkpoint,
+      version.checkpoint_id,
+    );
+    start(second, 'paths');
+    await until(() => of('workstream.copy_made', second).length === 1, 'the copy from the version');
+    const copyMade = of('workstream.copy_made', second)[0];
+    assert.equal(copyMade?.payload.base_tree, version.tree, "its base is the version's tree");
+    const copy = copyMade?.payload.directory ?? '';
+    await until(() => of('runtime.turn.started').length === 2, 'the second agent at work');
+    assert.equal(
+      existsSync(join(copy, 'later.txt')),
+      false,
+      'the version, not the folder as it is',
+    );
+    assert.equal(
+      readFileSync(join(copy, 'node_modules', 'kept.txt'), 'utf8'),
+      'installed\n',
+      'ignored files kept',
+    );
+    const written = readFileSync(join(copy, 'app.txt'), 'utf8');
+    assert.match(
+      written,
+      /^paths\n\nFrom Halcyonic: this task's folder is a copy of the project as it was/,
+    );
+    assert.ok(written.includes(version.recorded_at), 'the agent is told which version');
+    // The project's own folder is untouched.
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'lanterns\n');
+    assert.equal(readFileSync(join(folder, 'later.txt'), 'utf8'), 'the person, later\n');
+    finish();
+    await until(
+      () => of('workstream.copy_changes_read', second).length === 1,
+      'the second copy read',
+    );
+    submit('workstream.add_to_project', { workstream_id: second });
+    await until(() => of('workstream.added', second).length === 1, 'the second add');
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), written, "the task's work added");
+    assert.equal(
+      readFileSync(join(folder, 'later.txt'), 'utf8'),
+      'the person, later\n',
+      'beside what the project gained since',
+    );
+  });
+
+  test('a task from a version whose file the project changed since meets it in a conflict, nothing written (ADR 0045)', async () => {
+    const { folder, controlPlane, projectId, task, start, submit, of, finish } =
+      setup('version-meet');
+    const first = task('Lanterns');
+    start(first, 'lanterns');
+    await until(() => of('runtime.turn.started').length === 1, 'the first agent at work');
+    finish();
+    await until(
+      () => of('workstream.copy_changes_read', first).length === 1,
+      'the first copy read',
+    );
+    submit('workstream.add_to_project', { workstream_id: first });
+    await until(() => of('workstream.added', first).length === 1, 'the first add');
+    const before = controlPlane.projection
+      .checkpoints(projectId)
+      .find((checkpoint) => checkpoint.reason === 'before_add') as CheckpointView;
+    const made = submit('workstream.create', {
+      project_id: projectId,
+      title: 'Paths',
+      objective: null,
+      from_checkpoint: before.checkpoint_id,
+    });
+    const second = (
+      made.command?.result?.kind === 'workstream_created' ? made.command.result.workstream_id : ''
+    ) as WorkstreamId;
+    start(second, 'paths');
+    await until(() => of('runtime.turn.started').length === 2, 'the second agent at work');
+    finish();
+    await until(
+      () => of('workstream.copy_changes_read', second).length === 1,
+      'the second copy read',
+    );
+    submit('workstream.add_to_project', { workstream_id: second });
+    await until(() => of('workstream.add_conflicted', second).length === 1, 'the meeting');
+    assert.deepEqual(of('workstream.add_conflicted', second)[0]?.payload.conflicted.files, [
+      { path: 'app.txt', kind: 'text' },
+    ]);
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'lanterns\n', 'nothing written');
+  });
+
+  test('a task from a version never falls back to the folder as it is: an agent not kept to one folder is refused at its start', async () => {
+    const { folder, controlPlane, projectId, task, start, submit, of, finish } =
+      setup('version-loose');
+    const first = task('Lanterns');
+    start(first, 'lanterns');
+    await until(() => of('runtime.turn.started').length === 1, 'the first agent at work');
+    finish();
+    await until(
+      () => controlPlane.projection.checkpoints(projectId).some((c) => c.reason === 'after_turn'),
+      'a version',
+    );
+    const version = controlPlane.projection
+      .checkpoints(projectId)
+      .find((checkpoint) => checkpoint.reason === 'after_turn') as CheckpointView;
+    const made = submit('workstream.create', {
+      project_id: projectId,
+      title: 'Loose',
+      objective: null,
+      from_checkpoint: version.checkpoint_id,
+    });
+    const loose = (
+      made.command?.result?.kind === 'workstream_created' ? made.command.result.workstream_id : ''
+    ) as WorkstreamId;
+    const started = start(loose, 'loose work', 'loose');
+    const id = started.command?.command_id ?? '';
+    await until(() => controlPlane.projection.command(id)?.status === 'failed', 'the refusal');
+    assert.equal(controlPlane.projection.command(id)?.failure?.code, 'capability_unsupported');
+    assert.equal(of('workstream.copy_made', loose).length, 0);
+    assert.equal(of('workstream.copy_refused', loose).length, 0, 'no fallback recorded');
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person\n', 'the folder untouched');
   });
 
   test('an add from a paired device carries the review of the reading it was shown; a missing or stale one changes nothing (ADR 0051)', async () => {

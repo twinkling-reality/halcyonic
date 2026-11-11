@@ -3444,6 +3444,10 @@
                       "type": "null"
                     }
                   ]
+                },
+                "from_checkpoint": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 }
               },
               "additionalProperties": false
@@ -10010,6 +10014,10 @@
                       "type": "null"
                     }
                   ]
+                },
+                "from_checkpoint": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 }
               },
               "additionalProperties": false
@@ -14584,6 +14592,10 @@
         },
         "copy": {
           "$ref": "#/$defs/WorkstreamCopy"
+        },
+        "from_checkpoint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
         },
         "created_at": {
           "type": "string",

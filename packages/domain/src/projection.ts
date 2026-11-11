@@ -196,6 +196,8 @@ interface WorkstreamState {
    * reviewed, and all an add may bring (ADR 0045). Null when nothing was read since the base moved.
    */
   reviewedTree: string | null;
+  /** The project's version the task starts from, or null for one from the folder as it is (ADR 0045). */
+  fromCheckpoint: CheckpointId | null;
 }
 
 /**
@@ -238,9 +240,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * 6: the digest of a task's copy's latest reading (`to_add_review`, ADR 0051). 7: whether an
  * execution's start recorded the runtime's plan mode (`plan`, PLAN). 8: whether it left the plan
  * (`planLeft`) and why its start was not counted confined (`unconfinedReason`). 9: each
- * execution's queued instructions (ADR 0056). 10: each project's own check (ADR 0055).
+ * execution's queued instructions (ADR 0056). 10: each project's own check (ADR 0055). 11: the
+ * version a task starts from (`from_checkpoint`, ADR 0045).
  */
-export const PROJECTION_STATE_FORMAT = 10;
+export const PROJECTION_STATE_FORMAT = 11;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -1735,6 +1738,7 @@ export class Projection {
           updatedAt: event.ingested_at,
           copy: null,
           reviewedTree: null,
+          fromCheckpoint: event.payload.from_checkpoint ?? null,
         });
         project.updatedAt = event.ingested_at;
         changes.workstreams.add(event.workstream_id);
@@ -2303,6 +2307,7 @@ export class Projection {
       execution_ids: [...state.executionIds],
       // A task kept from before copies has no copy field at all: as none.
       ...(state.copy == null ? {} : { copy: cloneCopy(state.copy) }),
+      ...(state.fromCheckpoint == null ? {} : { from_checkpoint: state.fromCheckpoint }),
       created_at: state.createdAt,
       updated_at: state.updatedAt,
     };

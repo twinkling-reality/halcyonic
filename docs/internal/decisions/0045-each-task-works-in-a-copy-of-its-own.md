@@ -104,6 +104,23 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
    per project, and a failed check goes back only to the agents that worked in the folder checked
    (ADR 0044). Make VR Version reads the
    project's own folder, without work not yet added.
+8. **A second line of work from an older version** (amended 2026-11-11, the lead's yes to TASKS's
+   ASK). `workstream.create` takes an optional `from_checkpoint`, one of the project's own versions
+   (its checkpoints). It is recorded on `workstream.created` and shown on the task's view.
+   - At the task's first start its copy is made as any other, a clone of the project's folder with
+     its `.git` and ignored files, and then made into that version's tracked files
+     (`store.apply`). The version's tree is the copy's base.
+   - The agent's first instruction says, apart from the person's words, which version its folder
+     holds. The project's own folder is not touched.
+   - The add is unchanged: its merge base is the version's tree, so it brings only what the task
+     changed since that version, beside what the project gained since, and a file both changed
+     meets as a conflict.
+   - Refused, in words: another project's version or a missing one (`checkpoint_not_found`); a version
+     of a world, which changes in place with no copy to make into it (`invalid_state`);
+     creating one with copies or undo off, or starting it where no copy can be made, as for an
+     agent this computer cannot keep to one folder (`capability_unsupported`). It never falls back
+     to the project's folder, which holds another version.
+   - A new project from a version is not part of it.
 
 ## Alternatives considered
 

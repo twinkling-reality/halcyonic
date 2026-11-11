@@ -1,4 +1,5 @@
 import Type, { type Static } from 'typebox';
+import { CheckpointId } from './checkpoints.ts';
 import {
   CommandFailure,
   CommandId,
@@ -206,6 +207,8 @@ export const WorkstreamView = Type.Object(
      * task has not started in a folder since copies began, as in every journal from before.
      */
     copy: Type.Optional(WorkstreamCopy),
+    /** The project's version the task starts from (ADR 0045); absent for a task from the folder as it is. */
+    from_checkpoint: Type.Optional(CheckpointId),
     created_at: Timestamp,
     updated_at: Timestamp,
   },

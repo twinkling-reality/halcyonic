@@ -91,6 +91,34 @@ describe("a world project's description in current state (ADR 0049)", () => {
   });
 });
 
+describe('a task from a version of a world (ADR 0045, 0049)', () => {
+  test('is refused in words: a world changes in place, with no copy for a version to be made into', () => {
+    const { b, projection, projectId } = made('world');
+    // Refused before the version is looked up: any id will do.
+    const checkpointId = b.id();
+    const command = {
+      schema_version: 1,
+      command_id: '00000000-0000-4000-9000-000000000049' as CommandId,
+      issued_at: '2026-11-11T18:00:00.000Z',
+      client: { name: 'test', version: null, device_label: null },
+      command_type: 'workstream.create',
+      payload: {
+        project_id: projectId,
+        title: 'Back to dusk',
+        objective: null,
+        from_checkpoint: checkpointId,
+      },
+    } as CommandEnvelope;
+    const catalog = { descriptor: () => undefined, descriptors: () => [] } as never;
+    const refused = admitCommand(command, projection, catalog);
+    assert.equal(!refused.admitted && refused.rejection.code, 'invalid_state');
+    assert.match(
+      !refused.admitted ? refused.rejection.message : '',
+      /can't start from an older version of it/,
+    );
+  });
+});
+
 describe('checking a world', () => {
   const check = (projectId: string): CommandEnvelope =>
     ({
