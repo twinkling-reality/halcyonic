@@ -107,6 +107,13 @@ explicit review. A returned native draft must be persisted before acknowledging 
 The envelope is a storage contract; it does not establish process-death recovery until its consumer
 and platform lifecycle are verified.
 
+At a plain launch the menu opens at Projects and `MenuDirector.RecoverViews` restores every saved view
+of the current computer and journal. The view that was in front comes back beside Projects only while
+its task is under way (starting, running or verifying) or waits on the person
+(`WorkspaceViewRecovery.FrontsAtLaunch`). A task at rest, or one with no run yet, stays saved, and Tasks
+still offers it, but the launch shows Projects alone. Without this, a task at rest after a restart met
+the person as a row of three buttons with nothing said (the lead, 2026-11-11).
+
 Restored text and page position confer no read proof or action authority. Approval choices,
 question answers, secret answers, armed confirmations, pending input callbacks and automatic-send
 flags are excluded. All runtime actions still require current capability and input checks. A

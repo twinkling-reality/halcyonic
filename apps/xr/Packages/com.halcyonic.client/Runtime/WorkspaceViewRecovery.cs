@@ -15,6 +15,15 @@ namespace Halcyonic.Client
         private WorkspaceViewStore store = new WorkspaceViewStore();
         private readonly Dictionary<string, WorkspaceContinuation> pendingApplied = new Dictionary<string, WorkspaceContinuation>(StringComparer.Ordinal);
         public bool Available { get; }
+
+        /// <summary>
+        /// Whether a plain launch brings the saved view of <paramref name="task"/> back in front, beside Projects: only while
+        /// the task is under way (starting, running or verifying) or waits on the person. A task at rest, or one with no run
+        /// yet, stays saved (Tasks still offers it) and the launch shows Projects alone (the lead, 2026-11-11).
+        /// </summary>
+        public static bool FrontsAtLaunch(WorkstreamView? task) => task?.Status is WorkstreamStatus.Starting or WorkstreamStatus.Running
+            or WorkstreamStatus.Verifying or WorkstreamStatus.WaitingForHuman;
+
         public IReadOnlyList<WorkspaceContinuation> Views => store.Views;
         public string? Selected => store.Selected;
         public bool IsSaved(WorkspaceContinuation record) => Available && store.Views.Any(view =>

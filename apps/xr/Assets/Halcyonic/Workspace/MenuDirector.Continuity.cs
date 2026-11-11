@@ -179,7 +179,10 @@ namespace Halcyonic.XR.Workspace
                 foreach (var record in recovery.Views.OrderBy(record => record.HandoffId != recovery.Selected).ToList())
                 {
                     if (!IsCurrent(record) || record.WorkstreamId == null || memory.Files.ContainsKey(record.WorkstreamId)) continue;
-                    RestoreView(record, record.HandoffId == recovery.Selected);
+                    // Every saved view is restored; the one in front comes back beside Projects only while its task is under
+                    // way or waits on the person, else the launch shows Projects alone.
+                    RestoreView(record, record.HandoffId == recovery.Selected
+                        && WorkspaceViewRecovery.FrontsAtLaunch(State.Workstreams.TryGetValue(record.WorkstreamId, out var task) ? task : null));
                 }
             }
             if (Now < nextReturnRead) return;
