@@ -838,7 +838,11 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         messages.push({
           role: 'tool',
           tool_name: call.function.name,
-          content: this.#toolData(executed.data, call.function.name),
+          content: this.#toolData(
+            executed.data,
+            call.function.name,
+            this.#hostRoom(messages, call.function.name, this.#toolsFor(request)),
+          ),
         });
         if (executed.pause) {
           if (
@@ -1628,14 +1632,36 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     }
     return { text: clipped, complete: clipped === redacted };
   }
-  #toolData(data: unknown, name: string): string {
+  /**
+   * The bytes a host list may take in the next turn's body (AUDIT2, 2026-11-11): the transport's bound, less its reserve,
+   * less what that body always holds beside it. That is the instructions, the person's words and the host context, the
+   * current batch of calls and results, an empty tool message for this result, and every tool this request may be
+   * offered. Without it a whole list beside 4,800 characters of words made a body the transport refuses.
+   */
+  #hostRoom(
+    messages: readonly ToolMessage[],
+    name: string,
+    tools: readonly ToolDefinition[],
+  ): number {
+    const head = messages.filter((message) => message.role === 'system' || message.role === 'user');
+    const last = messages.findLastIndex((message) => message.role === 'assistant');
+    const batch = last < 0 ? [] : messages.slice(last);
+    const around = Buffer.byteLength(
+      JSON.stringify({
+        messages: [...head, ...batch, { role: 'tool', tool_name: name, content: '' }],
+        tools,
+      }),
+    );
+    return TOOL_MODEL_BOUNDS.maxInputBytes - 1024 - around;
+  }
+  #toolData(data: unknown, name: string, room = HOST_LIST_BYTES): string {
     // These values are already recorded after held-value replacement and deliberately chunked.
     // Replacing/shortening their serialized wrapper would invalidate immutable part boundaries.
     if (name === 'read_results' || name === 'read_result') return boundedResultData(data);
     if (name === 'read_workspace' || name === 'read_events')
       return this.#o.controlPlane.redaction.held(JSON.stringify(data));
     if (HOST_LISTS.has(name)) {
-      const whole = this.#hostList(data);
+      const whole = this.#hostList(data, Math.min(HOST_LIST_BYTES, room));
       if (whole !== undefined) return whole;
     }
     if (Array.isArray(data) && (name === 'observe_task' || name === 'continue_task')) {
@@ -1668,13 +1694,13 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     });
   }
   /**
-   * A host list as the model reads it: whole within HOST_LIST_BYTES; past it, rows dropped from the end with the
-   * more_projects or more_tasks count raised to match. Undefined when even that does not fit, which then reads as the
-   * shortened excerpt any large result gets.
+   * A host list as the model reads it: whole within `room` bytes, measured as the content is escaped inside the body;
+   * past it, rows dropped from the end with the more_projects or more_tasks count raised to match. Undefined when even
+   * that does not fit, which then reads as the shortened excerpt any large result gets.
    */
-  #hostList(data: unknown): string | undefined {
+  #hostList(data: unknown, room: number): string | undefined {
     const held = (value: unknown) => this.#o.controlPlane.redaction.held(JSON.stringify(value));
-    const fits = (text: string) => Buffer.byteLength(text) <= HOST_LIST_BYTES;
+    const fits = (text: string) => Buffer.byteLength(JSON.stringify(text)) - 2 <= room;
     const whole = held(data);
     if (fits(whole)) return whole;
     if (typeof data !== 'object' || data === null) return undefined;
