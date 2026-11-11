@@ -42,3 +42,24 @@
     scratch projects.
   - Tests that open a port fail inside the profile, as agents' do (OPEN_QUESTIONS, chosen ports).
   - Other ecosystems are not covered.
+
+## 2026-11-11 (later): what runs, under AUDIT3's probes
+
+- **Question:** do a project's own `pretest`, `posttest` and `.npmrc` `script-shell` decide what an own check
+  runs?
+- **Method:** scratch projects of LOOP's, the same profile; npm 11 and pnpm 11.27.1 from Homebrew. A
+  `pretest` and `posttest` each write a mark; `test` writes a mark and exits 1. A project `.npmrc` holds
+  `script-shell=/usr/bin/true` and `enable-pre-post-scripts=true`.
+- **Results:**
+  - Plain, both managers exited 0 and nothing ran: the shell override made a failing test pass.
+  - With `npm_config_ignore_scripts=true`, `npm_config_script_shell=/bin/sh` and an empty user config:
+    - npm ran `test` alone (exit 1, no pre or post mark);
+    - pnpm ran `test` (exit 1) but also `pretest`.
+  - Adding `npm_config_enable_pre_post_scripts=false`, pnpm ran `test` alone.
+  - npm refuses one file as both the user and the global config ("double-loading config"), so each is its own
+    empty file.
+- **The suite:** own-check.test.ts runs each finding as a test on real runs.
+- **Limits:**
+  - yarn is still not probed.
+  - A child started in a new session is not stopped. It is seen only by a folder change within 2 s.
+

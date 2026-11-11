@@ -9507,11 +9507,10 @@
                 "scripts": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/OwnCheckScriptName"
+                    "$ref": "#/$defs/OwnCheckChoice"
                   },
                   "minItems": 1,
-                  "maxItems": 5,
-                  "uniqueItems": true
+                  "maxItems": 5
                 }
               },
               "additionalProperties": false
@@ -13428,7 +13427,7 @@
         "scripts": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/OwnCheckFoundScript"
+            "$ref": "#/$defs/OwnCheckScript"
           },
           "maxItems": 5
         },
@@ -13445,21 +13444,18 @@
       },
       "additionalProperties": false
     },
-    "OwnCheckFoundScript": {
+    "OwnCheckChoice": {
       "type": "object",
       "required": [
         "name",
-        "command"
+        "command_sha256"
       ],
       "properties": {
         "name": {
           "$ref": "#/$defs/OwnCheckScriptName"
         },
-        "command": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 2000,
-          "pattern": "\\S"
+        "command_sha256": {
+          "$ref": "#/$defs/ReviewDigest"
         }
       },
       "additionalProperties": false
@@ -13507,7 +13503,8 @@
         "exit",
         "seconds",
         "timed_out",
-        "refused"
+        "refused",
+        "left_running"
       ],
       "properties": {
         "name": {
@@ -13531,6 +13528,9 @@
           "type": "boolean"
         },
         "refused": {
+          "type": "boolean"
+        },
+        "left_running": {
           "type": "boolean"
         }
       },

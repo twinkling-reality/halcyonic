@@ -2,7 +2,7 @@ import Type, { type Static, type TSchema } from 'typebox';
 import { CatalogRepositoryRef } from './catalog.ts';
 import { CheckpointId, ReviewDigest } from './checkpoints.ts';
 import { FolderName, HostPath, ProjectLocationChoice } from './locations.ts';
-import { OWN_CHECK_SCRIPT_NAMES, OwnCheckScriptName } from './own-checks.ts';
+import { OWN_CHECK_SCRIPT_NAMES, OwnCheckChoice } from './own-checks.ts';
 import { CheckId, ShareAddress, ShareWay } from './previews.ts';
 import {
   ClientInfo,
@@ -118,7 +118,8 @@ export const ProjectCheckCommand = defineCommand(
  */
 /**
  * The person chooses a project's own check (ADR 0055): scripts of the project's own `package.json`,
- * by name, as the host offered them (`GET /api/projects/:project_id/own-check`). The host records
+ * by name and the SHA-256 of each command as the host offered it (`GET /api/projects/:project_id/own-check`);
+ * a command changed since is refused. The host records
  * each script's command as it reads it now, then runs the check once, so the person sees whether it
  * passes before any agent's turn. Only in a project not made from a starter.
  */
@@ -127,10 +128,10 @@ export const ProjectOwnCheckChooseCommand = defineCommand(
   Type.Object(
     {
       project_id: ProjectId,
-      scripts: Type.Array(OwnCheckScriptName, {
+      /** Each by name and the SHA-256 of the command the person read (`GET .../own-check`). */
+      scripts: Type.Array(OwnCheckChoice, {
         minItems: 1,
         maxItems: OWN_CHECK_SCRIPT_NAMES.length,
-        uniqueItems: true,
       }),
     },
     strict,

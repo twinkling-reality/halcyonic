@@ -1,6 +1,16 @@
-import { type ChildProcess, spawn } from 'node:child_process';
+import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { constants, existsSync, realpathSync, statSync } from 'node:fs';
+import {
+  constants,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { lstat, mkdir, open, rename, rm, writeFile } from 'node:fs/promises';
 import { delimiter, dirname, join } from 'node:path';
 import {
@@ -11,7 +21,6 @@ import {
   OWN_CHECK_WRITTEN_LISTED,
   type OwnCheckFindings,
   type OwnCheckFoundResponse,
-  type OwnCheckFoundScript,
   type OwnCheckManager,
   type OwnCheckRun,
   type OwnCheckScript,
@@ -33,6 +42,16 @@ import { type CheckOutput, ownCheckOutput } from '../preview/check-output.ts';
 import { readStart } from '../preview/preview.ts';
 import { foldersInside } from '../runtimes.ts';
 
+/** A choice the host refuses before anything runs, with its own code and words for the command's failure. */
+export class OwnCheckRefused extends Error {
+  readonly code: 'command_changed' | 'own_check_unavailable';
+
+  constructor(code: 'command_changed' | 'own_check_unavailable', message: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
 /** How long one chosen script may run before it is stopped, its whole process group with it. */
 export const OWN_CHECK_SCRIPT_MS = 10 * 60_000;
 
@@ -53,6 +72,42 @@ const LOCKFILES: readonly [string, OwnCheckManager][] = [
 /** A refusal of the sandbox, as a program reports it: never read as the agent's fault (ADR 0055). */
 const REFUSED = /\bEPERM\b|operation not permitted/i;
 
+/** How many of a failed script's last lines are read for a refusal: a passing test's log above them does not count (AUDIT3 S3). */
+const REFUSED_LAST_LINES = 20;
+
+/** The empty config files the manager is pointed at as the person's and the global one, written fresh each run (npm refuses one file as both). */
+const EMPTY_CONFIG = 'empty-npmrc';
+const EMPTY_GLOBAL_CONFIG = 'empty-global-npmrc';
+
+/** How long trailing output is awaited once a script exited: a pipe still held after it means a child runs on. */
+const AFTER_EXIT_MS = 200;
+
+/** How long after the last script the folder is read again, for writes a child left running made (AUDIT3 3). */
+const SETTLE_MS = 2000;
+
+/**
+ * Settings given in the environment, which outrank a project's own `.npmrc` (AUDIT3 1), so what runs is the chosen
+ * script itself: no pre or post script (npm's ignore-scripts, pnpm's enable-pre-post-scripts), the system shell rather
+ * than one the project names, and no config of the person's or the machine's.
+ */
+function managerEnvironment(home: string, temp: string): Record<string, string> {
+  return {
+    npm_config_ignore_scripts: 'true',
+    npm_config_enable_pre_post_scripts: 'false',
+    npm_config_script_shell: '/bin/sh',
+    npm_config_userconfig: join(home, EMPTY_CONFIG),
+    npm_config_globalconfig: join(home, EMPTY_GLOBAL_CONFIG),
+    npm_config_cache: join(temp, 'npm-cache'),
+    npm_config_update_notifier: 'false',
+  };
+}
+
+/** Whether the last lines of a failed script's output name a refusal of the sandbox. */
+export function refusedAtEnd(log: string): boolean {
+  const lines = log.split('\n').filter((line) => line.trim() !== '');
+  return lines.slice(-REFUSED_LAST_LINES).some((line) => REFUSED.test(line));
+}
+
 export interface OwnChecksDeps {
   readonly dataDir: string;
   readonly projection: Projection;
@@ -68,6 +123,8 @@ export interface OwnChecksDeps {
   readonly managers: Readonly<Record<OwnCheckManager, string | null>>;
   readonly sandboxExec?: string;
   readonly scriptMs?: number;
+  /** How long after the run the folder is read again; 2 s unless a test passes its own. */
+  readonly settleMs?: number;
   /** Takes out any secret Halcyonic holds from a command before it is journaled or shown. */
   readonly redact?: (text: string) => string;
 }
@@ -172,9 +229,81 @@ export function writtenBetween(
 export class OwnChecks {
   readonly #deps: OwnChecksDeps;
   readonly #checking = new Set<ProjectId>();
+  /** Every script running now, so a close stops it (AUDIT3 4). */
+  readonly #running = new Set<ChildProcess>();
+  #closed = false;
 
   constructor(deps: OwnChecksDeps) {
     this.#deps = deps;
+    this.#reap();
+  }
+
+  /** The folder of the records of scripts running, one file per process, so a later start can stop what a crash left. */
+  get #records(): string {
+    return join(this.#deps.dataDir, 'own-checks', 'running');
+  }
+
+  #remember(pid: number | undefined, profile: string): void {
+    if (pid === undefined) return;
+    try {
+      mkdirSync(this.#records, { recursive: true });
+      writeFileSync(join(this.#records, String(pid)), JSON.stringify({ pid, profile }), {
+        mode: 0o600,
+      });
+    } catch (error) {
+      this.#deps.logger.warn({ err: error }, 'own check record not written');
+    }
+  }
+
+  #forget(pid: number | undefined): void {
+    if (pid === undefined) return;
+    rmSync(join(this.#records, String(pid)), { force: true });
+  }
+
+  /**
+   * At start: stops the group of every script an earlier control plane left running, only while that process still runs
+   * this check's own profile, as its command line names it (a pid reused since names another), then drops the record.
+   */
+  #reap(): void {
+    let names: string[];
+    try {
+      names = readdirSync(this.#records);
+    } catch {
+      return;
+    }
+    for (const name of names) {
+      try {
+        const record = JSON.parse(readFileSync(join(this.#records, name), 'utf8')) as {
+          pid?: unknown;
+          profile?: unknown;
+        };
+        if (typeof record.pid === 'number' && typeof record.profile === 'string') {
+          const args = execFileSync('/bin/ps', ['-o', 'args=', '-p', String(record.pid)], {
+            encoding: 'utf8',
+          });
+          if (args.includes(record.profile)) process.kill(-record.pid, 'SIGKILL');
+        }
+      } catch {
+        // Gone already, or not ours.
+      }
+      rmSync(join(this.#records, name), { force: true });
+    }
+  }
+
+  /** Stops every script running now, with its group, when the control plane closes (AUDIT3 4). */
+  close(): void {
+    this.#closed = true;
+    for (const child of this.#running) {
+      try {
+        if (child.pid !== undefined) process.kill(-child.pid, 'SIGKILL');
+      } catch {
+        // Already gone.
+      }
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+      this.#forget(child.pid);
+    }
+    this.#running.clear();
   }
 
   /** The scripts the folder offers now, for the person to read before choosing. */
@@ -193,9 +322,10 @@ export class OwnChecks {
     if (folder === null) return { manager: null, scripts: [], reason: 'no_manifest' };
     const manifest = await readManifest(folder);
     if (!manifest.ok) return { manager: null, scripts: [], reason: manifest.reason };
-    const scripts: OwnCheckFoundScript[] = [...manifest.scripts].map(([name, command]) => ({
+    const scripts: OwnCheckScript[] = [...manifest.scripts].map(([name, command]) => ({
       name,
       command,
+      command_sha256: commandSha256(command),
     }));
     if (scripts.length === 0) return { manager: null, scripts, reason: 'no_scripts' };
     const manager = managerOf(folder);
@@ -214,13 +344,28 @@ export class OwnChecks {
   ): Promise<{ check_id: CheckId; passed: boolean }> {
     const projectId = command.payload.project_id;
     const found = await this.#offered(projectId);
-    if (found.manager === null) throw new Error(`no own check offered (${found.reason})`);
+    if (found.manager === null)
+      throw new OwnCheckRefused(
+        'own_check_unavailable',
+        'This project offers no check of its own now.',
+      );
     const redact = this.#deps.redact ?? ((text: string) => text);
     const scripts: OwnCheckScript[] = [];
     for (const name of OWN_CHECK_SCRIPT_NAMES) {
-      if (!command.payload.scripts.includes(name)) continue;
+      const chosen = command.payload.scripts.find((script) => script.name === name);
+      if (chosen === undefined) continue;
       const script = found.scripts.find((offered) => offered.name === name);
-      if (script === undefined) throw new Error(`script ${name} is not offered`);
+      if (script === undefined)
+        throw new OwnCheckRefused(
+          'own_check_unavailable',
+          `The project's ${name} script is not there now.`,
+        );
+      // The choice is bound to what the person read: a command changed since is refused (AUDIT3 S1).
+      if (script.command_sha256 !== chosen.command_sha256)
+        throw new OwnCheckRefused(
+          'command_changed',
+          `The project's ${name} script changed since it was shown. Read it again before choosing.`,
+        );
       // The hash is of the command as written; what is journaled and shown holds no held secret.
       scripts.push({
         name,
@@ -318,11 +463,22 @@ export class OwnChecks {
     const before = await readFolder(folder);
     const runs: OwnCheckRun[] = [];
     for (const script of chosen) {
+      if (this.#closed) break;
       const run = await this.#script(script.name, folder, binary, place, cache);
       runs.push(run);
       if (run.exit !== 0) break;
     }
     const after = before.ok ? await readFolder(folder, before.reading) : null;
+    // Read again a moment later: a write since then came from something the run left behind (AUDIT3 3).
+    if (after?.ok === true && runs.length > 0 && !this.#closed) {
+      await new Promise((resolve) => setTimeout(resolve, this.#deps.settleMs ?? SETTLE_MS));
+      const later = await readFolder(folder, after.reading);
+      const moved = later.ok ? writtenBetween(after.reading, later.reading) : null;
+      if (moved === null || moved.created + moved.changed + moved.deleted > 0) {
+        const last = runs.length - 1;
+        runs[last] = { ...(runs[last] as OwnCheckRun), left_running: true };
+      }
+    }
     return {
       outcome: 'ran',
       manager,
@@ -344,9 +500,13 @@ export class OwnChecks {
     const base = join(this.#deps.dataDir, 'own-checks', confinementKey(folder));
     const home = join(base, 'home');
     const temp = join(base, 'temp');
+    // Both fresh for every run, so nothing a run leaves there (a ~/.npmrc of its own) reaches the next (AUDIT3 2).
+    await rm(home, { recursive: true, force: true });
     await rm(temp, { recursive: true, force: true });
     await mkdir(home, { recursive: true });
     await mkdir(temp, { recursive: true });
+    await writeFile(join(home, EMPTY_CONFIG), '', { mode: 0o600 });
+    await writeFile(join(home, EMPTY_GLOBAL_CONFIG), '', { mode: 0o600 });
     const real = realpathSync(binary);
     const others = this.#deps.projection
       .projects()
@@ -375,7 +535,12 @@ export class OwnChecks {
     return { profile, home, temp, path };
   }
 
-  /** One script, read over pipes into the check's own folder; its whole group stopped at the limit. */
+  /**
+   * One script, read over pipes into the check's own folder. It settles on the script's own exit, never on its pipes,
+   * so a child holding them cannot keep the command pending (AUDIT3 3): the pipes are given a moment for trailing
+   * output, then closed, and the whole group is stopped. At the limit the group is stopped and the run settles as timed
+   * out. A child that left the group (a new session) escapes this; the folder read again after the run says so.
+   */
   #script(
     name: OwnCheckScriptName,
     folder: string,
@@ -389,6 +554,7 @@ export class OwnChecks {
       const chunks: Buffer[] = [];
       let kept = 0;
       let timedOut = false;
+      let settled = false;
       let child: ChildProcess | undefined;
       const keep = (chunk: Buffer) => {
         if (kept >= LOG_BYTES) return;
@@ -396,15 +562,24 @@ export class OwnChecks {
         chunks.push(part);
         kept += part.length;
       };
-      const finish = (exit: number | null) => {
-        clearTimeout(timer);
-        // Whatever the script left running in its group stops with it: a check leaves nothing behind.
+      const stopGroup = () => {
         try {
           if (child?.pid !== undefined) process.kill(-child.pid, 'SIGKILL');
         } catch {
           // Already gone.
         }
+      };
+      const finish = (exit: number | null, leftRunning: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        stopGroup();
+        child?.stdout?.destroy();
+        child?.stderr?.destroy();
+        if (child !== undefined) this.#running.delete(child);
+        this.#forget(child?.pid);
         const log = Buffer.concat(chunks);
+        const failed = !timedOut && exit !== 0;
         void writeFile(join(cache, `${name}.log`), log, { mode: 0o600 })
           .catch((error: unknown) =>
             this.#deps.logger.warn({ err: error }, 'own check output not kept'),
@@ -415,7 +590,8 @@ export class OwnChecks {
               exit: timedOut ? null : exit,
               seconds: Math.round((Date.now() - started) / 100) / 10,
               timed_out: timedOut,
-              refused: REFUSED.test(log.toString('utf8')),
+              refused: failed && refusedAtEnd(log.toString('utf8')),
+              left_running: leftRunning,
             }),
           );
       };
@@ -429,7 +605,7 @@ export class OwnChecks {
               PATH: place.path,
               HOME: place.home,
               TMPDIR: place.temp,
-              npm_config_cache: join(place.home, 'npm-cache'),
+              ...managerEnvironment(place.home, place.temp),
               CI: '1',
               NO_COLOR: '1',
             },
@@ -438,21 +614,36 @@ export class OwnChecks {
           },
         );
       } catch {
-        resolve({ name, exit: null, seconds: 0, timed_out: false, refused: false });
+        resolve({
+          name,
+          exit: null,
+          seconds: 0,
+          timed_out: false,
+          refused: false,
+          left_running: false,
+        });
         return;
       }
+      this.#running.add(child);
+      this.#remember(child.pid, place.profile);
       const timer = setTimeout(() => {
         timedOut = true;
-        try {
-          if (child?.pid !== undefined) process.kill(-child.pid, 'SIGKILL');
-        } catch {
-          // Already gone.
-        }
+        stopGroup();
+        // A child holding the pipes after its group was stopped does not hold the run.
+        setTimeout(() => finish(null, true), AFTER_EXIT_MS);
       }, limit);
       child.stdout?.on('data', keep);
       child.stderr?.on('data', keep);
-      child.on('error', () => finish(null));
-      child.on('close', (code) => finish(code));
+      child.on('error', () => finish(null, false));
+      child.on('exit', (code) => {
+        const open = () =>
+          child?.stdout?.readableEnded === false || child?.stderr?.readableEnded === false;
+        if (!open()) {
+          finish(code, false);
+          return;
+        }
+        setTimeout(() => finish(code, open()), AFTER_EXIT_MS);
+      });
     });
   }
 

@@ -55,7 +55,7 @@ import type { IdGenerator } from '../ids.ts';
 import type { HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
 import type { FileObserver } from '../observer/file-observer.ts';
-import type { OwnChecks } from '../own-check/own-check.ts';
+import { OwnCheckRefused, type OwnChecks } from '../own-check/own-check.ts';
 import type { CheckOutput } from '../preview/check-output.ts';
 import type { HostPreviews } from '../preview/preview.ts';
 import { type ProjectShares, ShareRefused } from '../preview/share.ts';
@@ -1288,11 +1288,18 @@ export class CommandService {
                   { err: error, command_id: command.command_id },
                   `${command.command_type} failed`,
                 );
-                this.#fail(command, admission.scope, {
-                  code: 'check_failed',
-                  message: 'The check stopped on an error before it could record what it found.',
-                  effect: 'unknown',
-                });
+                this.#fail(
+                  command,
+                  admission.scope,
+                  error instanceof OwnCheckRefused
+                    ? { code: error.code, message: error.message, effect: 'none' }
+                    : {
+                        code: 'check_failed',
+                        message:
+                          'The check stopped on an error before it could record what it found.',
+                        effect: 'unknown',
+                      },
+                );
               },
             )
             .catch((error: unknown) =>

@@ -164,6 +164,15 @@ interface OwnCheckState {
   passedBefore: boolean | null;
   /** Whether any run before the latest passed. */
   passedEarlier: boolean;
+  /**
+   * Each folder's own runs, the project's folder by '' and each task's own copy by its task (AUDIT3 6): whether its
+   * latest run passed, whether the run before that passed, and whether any before the latest did. The baseline a
+   * failure is judged by is the folder's own, never another folder's.
+   */
+  readonly byFolder: Map<
+    string,
+    { latest: boolean | null; before: boolean | null; earlier: boolean; ever: boolean }
+  >;
 }
 
 function checkFilesState(state: AnyCheckState): CheckFilesState {
@@ -1074,6 +1083,21 @@ export class Projection {
     };
   }
 
+  /**
+   * The baseline of the folder a project's own check checked (AUDIT3 6): the project's folder for null, else the task's
+   * own copy. Whether its run before the latest passed (null where the latest is its first), and whether any earlier
+   * run of it passed. A folder with no run of its own has none.
+   */
+  ownCheckBaseline(
+    projectId: string,
+    workstreamId: string | null,
+  ): { readonly passedBefore: boolean | null; readonly passedEarlier: boolean } {
+    const folder = this.#ownChecks.get(projectId as ProjectId)?.byFolder.get(workstreamId ?? '');
+    return folder === undefined
+      ? { passedBefore: null, passedEarlier: false }
+      : { passedBefore: folder.before, passedEarlier: folder.earlier };
+  }
+
   /** The project's latest check, or undefined when it has none. */
   latestCheck(projectId: string): ProjectCheck | undefined {
     const state = this.#checks.get(projectId as ProjectId);
@@ -1428,6 +1452,7 @@ export class Projection {
           everPassed: false,
           passedBefore: null,
           passedEarlier: false,
+          byFolder: new Map(),
         });
         changes.projects.add(event.project_id);
         return;
@@ -1448,6 +1473,19 @@ export class Projection {
         own.passedBefore = own.latest === null ? null : own.latest.findings.passed;
         own.passedEarlier = own.everPassed;
         if (event.payload.findings.passed) own.everPassed = true;
+        const key = event.payload.workstream_id ?? '';
+        const folder = own.byFolder.get(key) ?? {
+          latest: null,
+          before: null,
+          earlier: false,
+          ever: false,
+        };
+        own.byFolder.set(key, {
+          latest: event.payload.findings.passed,
+          before: folder.latest,
+          earlier: folder.ever,
+          ever: folder.ever || event.payload.findings.passed,
+        });
         const open = this.#openChecks.get(event.project_id) ?? new Set<AnyCheckState>();
         if (own.latest !== null) open.delete(own.latest);
         own.latest = { ...run, first: event.payload.first };
