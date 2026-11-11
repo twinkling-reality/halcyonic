@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { deserialize, serialize } from 'node:v8';
-import type { CheckpointId, ExecutionId, WorkstreamId } from '@halcyonic/contracts';
+import type {
+  CheckpointId,
+  CommandEnvelope,
+  ExecutionId,
+  WorkstreamId,
+} from '@halcyonic/contracts';
 import { Projection, type ProjectionState } from './projection.ts';
 import { EventBuilder } from './testing/events.ts';
 
@@ -164,5 +169,84 @@ describe("a project's history", () => {
     assert.equal(restarted.history(project.projectId).length, 2);
     const older = { ...state, history: undefined } as unknown as ProjectionState;
     assert.throws(() => new Projection().restoreState(older), /not one this projection exported/);
+  });
+
+  test('the rule lets go only the oldest checkpoints nothing needs, and a prune is applied', () => {
+    const { b, projection, project, projectScope, task, execution, version } = setup();
+    const own = task('In its own copy');
+    projection.apply(
+      b.controlPlane(
+        'workstream.copy_made',
+        { project_id: project.projectId, workstream_id: own, execution_id: null },
+        { directory: `/copies/${own}/app`, base_tree: TREE('a'), files: 3 },
+      ),
+    );
+    const there = execution(own, `/copies/${own}/app`);
+    const working = execution(task('Still at work'), '/work/app');
+    const old = [0, 1, 2].map(() => version('after_turn', null, TREE('a')));
+    const added = version('before_add', null, TREE('b'));
+    const copied = version('before_task', there, TREE('c'));
+    const atWork = version('before_task', working, TREE('d'));
+    const beforeRestore = version('before_restore', null, TREE('e'));
+    const paths = { paths: [], total: 0 };
+    projection.apply(
+      b.controlPlane('project.restored', projectScope, {
+        checkpoint_id: old[0] as CheckpointId,
+        before_restore_checkpoint_id: beforeRestore,
+        tree: TREE('a'),
+        files_compared: 3,
+        changed_back: paths,
+        removed: paths,
+        returned: paths,
+        project_head_moved: null,
+      }),
+    );
+    const newest = [0, 1].map(() => version('after_turn', null, TREE('f')));
+    assert.deepEqual(
+      projection.prunableCheckpoints(project.projectId, 2, 20),
+      [],
+      'within keep and slack',
+    );
+    assert.deepEqual(
+      projection.prunableCheckpoints(project.projectId, 2, 0),
+      old,
+      "only the oldest, never an add's, a copy's, a working task's or the restore's undo",
+    );
+    assert.ok(
+      ![added, copied, atWork, beforeRestore, ...newest].some((id) =>
+        projection.prunableCheckpoints(project.projectId, 2, 0).includes(id),
+      ),
+    );
+    projection.apply(
+      b.controlPlane('project.checkpoints.pruned', projectScope, {
+        checkpoint_ids: [old[1] as CheckpointId, old[2] as CheckpointId],
+        kept: 8,
+      }),
+    );
+    assert.deepEqual(projection.prunableCheckpoints(project.projectId, 2, 0), [old[0]]);
+    projection.apply(
+      b.command(
+        {
+          schema_version: 1,
+          command_id: '00000000-0000-4000-8000-0000000000a1',
+          issued_at: '2026-11-11T09:00:00.000Z',
+          client: { name: 'test', version: null, device_label: null },
+          command_type: 'project.restore',
+          payload: { project_id: project.projectId, checkpoint_id: old[0] as CheckpointId },
+        } as CommandEnvelope,
+        'accepted',
+      ),
+    );
+    assert.deepEqual(
+      projection.prunableCheckpoints(project.projectId, 2, 0),
+      [],
+      'a checkpoint a restore still waiting to run names is kept',
+    );
+    assert.equal(projection.checkpoint(project.projectId, old[1] as string), undefined);
+    const marked = projection
+      .history(project.projectId)
+      .filter((entry) => entry.kind === 'version' && entry.pruned_at !== undefined)
+      .map((entry) => (entry.kind === 'version' ? entry.checkpoint.checkpoint_id : ''));
+    assert.deepEqual(marked, [old[1], old[2]], 'the history still shows them, marked pruned');
   });
 });

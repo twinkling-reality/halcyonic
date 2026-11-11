@@ -246,6 +246,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("changed_files", Required = Required.AllowNull)]
         public long? ChangedFiles { get; set; }
+
+        [JsonProperty("pruned_at", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? PrunedAt { get; set; }
     }
 
     public sealed class NotKeptEntry : HistoryEntry
@@ -2801,6 +2804,15 @@ namespace Halcyonic.Contracts
         public CheckpointFailure Failure { get; set; } = default!;
     }
 
+    public sealed class ProjectCheckpointsPrunedPayload
+    {
+        [JsonProperty("checkpoint_ids", Required = Required.Always)]
+        public List<string> CheckpointIds { get; set; } = new List<string>();
+
+        [JsonProperty("kept", Required = Required.Always)]
+        public long Kept { get; set; }
+    }
+
     public sealed class ProjectRestoredPayload
     {
         [JsonProperty("checkpoint_id", Required = Required.Always)]
@@ -4351,6 +4363,7 @@ namespace Halcyonic.Contracts
                 "project.catalog_unlinked" => new ProjectCatalogUnlinkedEvent(),
                 "project.checkpoint.recorded" => new ProjectCheckpointRecordedEvent(),
                 "project.checkpoint.failed" => new ProjectCheckpointFailedEvent(),
+                "project.checkpoints.pruned" => new ProjectCheckpointsPrunedEvent(),
                 "project.restored" => new ProjectRestoredEvent(),
                 "project.restore_incomplete" => new ProjectRestoreIncompleteEvent(),
                 "project.check.recorded" => new ProjectCheckRecordedEvent(),
@@ -4485,6 +4498,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectCheckpointFailedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectCheckpointsPrunedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.checkpoints.pruned";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectCheckpointsPrunedPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectRestoredEvent : EventEnvelope

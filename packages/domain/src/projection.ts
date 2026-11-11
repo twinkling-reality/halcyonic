@@ -6,6 +6,7 @@ import type {
   CheckFilesState,
   CheckFindings,
   CheckId,
+  CheckpointId,
   CheckpointView,
   CommandEnvelope,
   CommandFailure,
@@ -888,6 +889,56 @@ export class Projection {
     return this.#history.get(projectId as ProjectId) ?? [];
   }
 
+  /**
+   * The checkpoints the store may stop keeping now, oldest first, by ADR 0036's rule of 2026-11-11:
+   * none until more than `keep + slack` are kept, then every one but the newest `keep`, and never one
+   * that is still needed. Needed are each folder's newest version; every version of a task still at
+   * work, whose undo starts there; the version that undoes the newest restore; every version taken
+   * before an add, which undoes it; every version of a task's copy while it is the task's own; and any
+   * checkpoint a restore still waiting to run names.
+   */
+  prunableCheckpoints(projectId: string, keep: number, slack: number): CheckpointId[] {
+    const id = projectId as ProjectId;
+    const kept = this.#checkpoints.get(id) ?? [];
+    if (kept.length <= keep + slack) return [];
+    const needed = new Set<string>(kept.slice(-keep).map((view) => view.checkpoint_id));
+    const versions = (this.#history.get(id) ?? []).filter(
+      (entry): entry is Extract<HistoryEntry, { kind: 'version' }> =>
+        entry.kind === 'version' && entry.pruned_at === undefined,
+    );
+    const newestOfFolder = new Map<string, string>();
+    for (const version of versions) {
+      const folder =
+        version.folder.kind === 'project' ? 'project' : `copy:${version.folder.workstream_id}`;
+      newestOfFolder.set(folder, version.checkpoint.checkpoint_id);
+      const executionId = version.checkpoint.execution_id;
+      const execution = executionId === null ? undefined : this.#executions.get(executionId);
+      if (execution !== undefined && ACTIVE_STATUSES.has(deriveExecutionStatus(execution)))
+        needed.add(version.checkpoint.checkpoint_id);
+      if (version.checkpoint.reason === 'before_add') needed.add(version.checkpoint.checkpoint_id);
+      if (
+        version.folder.kind === 'task_copy' &&
+        this.#workstreams.get(version.folder.workstream_id)?.copy?.state === 'own'
+      )
+        needed.add(version.checkpoint.checkpoint_id);
+    }
+    for (const newest of newestOfFolder.values()) needed.add(newest);
+    const lastRestore = (this.#history.get(id) ?? []).findLast(
+      (entry) => entry.kind === 'restored' || entry.kind === 'restore_incomplete',
+    );
+    if (
+      lastRestore !== undefined &&
+      (lastRestore.kind === 'restored' || lastRestore.kind === 'restore_incomplete') &&
+      lastRestore.before_restore_checkpoint_id !== null
+    )
+      needed.add(lastRestore.before_restore_checkpoint_id);
+    for (const command of this.#pendingCommands) {
+      if (command.envelope.command_type === 'project.restore')
+        needed.add(command.envelope.payload.checkpoint_id);
+    }
+    return kept.filter((view) => !needed.has(view.checkpoint_id)).map((view) => view.checkpoint_id);
+  }
+
   /** Whose folder an execution's checkpoint holds: a task's own copy where it works in one. */
   #historyFolder(executionId: ExecutionId | null): HistoryFolder {
     if (executionId === null) return { kind: 'project' };
@@ -1407,6 +1458,30 @@ export class Projection {
           observed_at: event.occurred_at,
         });
         changes.projects.add(event.project_id);
+        return;
+      }
+      case 'project.checkpoints.pruned': {
+        if (!this.#projects.has(event.project_id)) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        const gone = new Set<string>(event.payload.checkpoint_ids);
+        const list = this.#checkpoints.get(event.project_id) ?? [];
+        this.#checkpoints.set(
+          event.project_id,
+          list.filter((view) => !gone.has(view.checkpoint_id)),
+        );
+        const history = this.#history.get(event.project_id) ?? [];
+        this.#history.set(
+          event.project_id,
+          history.map((entry) =>
+            entry.kind === 'version' &&
+            entry.pruned_at === undefined &&
+            gone.has(entry.checkpoint.checkpoint_id)
+              ? { ...entry, pruned_at: event.occurred_at }
+              : entry,
+          ),
+        );
         return;
       }
       case 'project.checkpoint.failed':

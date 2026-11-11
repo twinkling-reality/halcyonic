@@ -10,6 +10,7 @@ import type {
   CommandId,
   EventEnvelope,
   EventId,
+  ExecutionId,
   Principal,
   ProjectId,
   RuntimeDescriptor,
@@ -23,6 +24,7 @@ import {
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
 import { ControlPlane } from '../core/control-plane.ts';
+import { NO_CAUSE } from '../core/drafts.ts';
 import { ProjectReads } from '../core/project-reads.ts';
 import { createUuidV7Generator } from '../ids.ts';
 import { openSqliteJournal } from '../journal/sqlite-journal.ts';
@@ -94,6 +96,7 @@ function setup(
     restoreHooks?: RestoreHooks;
     journalPath?: string;
     closeWaitMs?: number;
+    prune?: { keep: number; slack: number };
   } = {},
 ) {
   const root = join(base, name);
@@ -124,6 +127,7 @@ function setup(
             store,
             ...(options.restoreHooks === undefined ? {} : { restoreHooks: options.restoreHooks }),
             ...(options.closeWaitMs === undefined ? {} : { closeWaitMs: options.closeWaitMs }),
+            ...(options.prune === undefined ? {} : { prune: options.prune }),
           },
         }),
   });
@@ -658,6 +662,38 @@ describe("a project's history and its folder as it is now (the parity map's gap 
     } finally {
       process.off('unhandledRejection', onUnhandled);
     }
+    await controlPlane.close();
+  });
+
+  test('old checkpoints are let go by the rule, journaled, and no longer named by the store', async () => {
+    const { folder, controlPlane, projectId, store, ids, events } = setup('prune', {
+      prune: { keep: 2, slack: 1 },
+    });
+    const take = async (content: string) => {
+      writeFileSync(join(folder, 'app.txt'), content);
+      await controlPlane.checkpoints?.beforeTask(
+        projectId,
+        ids.next() as ExecutionId,
+        folder,
+        NO_CAUSE,
+      );
+    };
+    for (const content of ['one\n', 'two\n', 'three\n']) await take(content);
+    assert.equal(controlPlane.projection.checkpoints(projectId).length, 3, 'within keep and slack');
+    await take('four\n');
+    const pruned = events().filter((event) => event.event_type === 'project.checkpoints.pruned');
+    assert.equal(pruned.length, 1);
+    const gone = pruned[0]?.event_type === 'project.checkpoints.pruned' ? pruned[0].payload : null;
+    assert.equal(gone?.checkpoint_ids.length, 2, 'down to the newest two');
+    assert.equal(gone?.kept, 2);
+    const kept = controlPlane.projection.checkpoints(projectId).map((view) => view.checkpoint_id);
+    assert.equal(kept.length, 2);
+    for (const id of gone?.checkpoint_ids ?? []) {
+      assert.equal(await store.folderOf(projectId, id), null, 'the store no longer names it');
+      assert.ok(!kept.includes(id));
+    }
+    for (const id of kept)
+      assert.ok(await store.folderOf(projectId, id), 'the kept ones still are');
     await controlPlane.close();
   });
 

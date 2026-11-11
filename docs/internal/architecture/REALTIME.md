@@ -374,7 +374,9 @@ Every text in them is outside words, from the project's files or its build, as `
   folder's first version or when the store cannot tell), `not_kept` (a checkpoint that failed),
   `restored` (with totals and the `before_restore_checkpoint_id` that undoes it) or
   `restore_incomplete`. Kept in the projection, so a headset that connects later still sees the
-  restores. `unavailable` with `undo_not_set_up` without undo.
+  restores. A version the host no longer keeps (`project.checkpoints.pruned`, ADR 0036) stays in the
+  history with `pruned_at`, and is gone from `/checkpoints`: it can no longer be put back or compared.
+  `unavailable` with `undo_not_set_up` without undo.
 - `GET /api/projects/:project_id/changes?from&to`: the files that changed between two of the
   project's own checkpoints (both in its journal), each `added`, `changed` or `removed` with its
   lines added and removed (null for a binary file), sorted by path, at most 200, `files_total` and

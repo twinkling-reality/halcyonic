@@ -56,7 +56,8 @@ export const HistoryEntry = Type.Union([
   /**
    * A version was kept. `changed_files` counts the files that differ from `previous`, the version
    * before it of the same folder; both are null for a folder's first version, and the count is null
-   * when the store cannot tell.
+   * when the store cannot tell. `pruned_at`, when the host stopped keeping it: it can no longer be
+   * put back or compared.
    */
   Type.Object(
     {
@@ -66,6 +67,7 @@ export const HistoryEntry = Type.Union([
       folder: HistoryFolder,
       previous: Nullable(CheckpointId),
       changed_files: Nullable(Count),
+      pruned_at: Type.Optional(Timestamp),
     },
     strict,
   ),
