@@ -232,8 +232,9 @@ profile and the pinned Codex 0.157.0, no model:
   - The repository's `.git/config` becomes readable to the agent, and a remote's address with a token in it would be
     too.
   - In a task's own copy (ADR 0045) the `.git` is the copy's own, so none of this applies there, and the copy's git
-    settings lose the user part of every remote's address when the copy is made: no token of the person's is readable
-    in a copy. A folder whose `.git` is a file never gets a copy.
+    settings are cleaned when the copy is made: addresses lose their user part, and `http.*.extraheader`, `credential`,
+    `include` and `includeIf` keys and token-carrying `url` rewrites go (ADR 0045 lists them, and what a copy can still
+    hold). A folder whose `.git` is a file never gets a copy.
 - **Apple's `/usr/bin/git`** is a shim that writes a cache into the person's own temporary folder. Inside the profile
   that cache write is refused and the shim falls back to `xcodebuild`. It works, about three seconds a call, with
   warnings in the command's output. The developer folder's own git (`xcode-select -p`) and Homebrew's run directly.
