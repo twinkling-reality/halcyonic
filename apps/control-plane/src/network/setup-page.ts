@@ -95,6 +95,18 @@ export interface SetupPageDeps {
   readonly canRestart: boolean;
   /** Closes the control plane cleanly and has the launcher start it again. */
   readonly restart: () => void;
+  /** Each game shared now, link or Wi-Fi (ADR 0054); none when sharing is off. */
+  readonly shared?: () => readonly SharedNow[];
+  /** Stops a project's share by the person's press; false when it is not shared. */
+  readonly stopShare?: (projectId: string) => boolean;
+}
+
+/** A game shared now, as the control plane's view has it. */
+export interface SharedNow {
+  readonly project_id: string;
+  readonly name: string;
+  readonly way: 'link' | 'wifi';
+  readonly url: string;
 }
 
 /** What the page shows. */
@@ -127,6 +139,18 @@ export interface SetupState {
   /** What the last action printed, as setup prints it. */
   readonly said: readonly string[];
   readonly restarting: boolean;
+  /**
+   * Each game shared now (ADR 0054), for Copy and Stop. `address_text` is the Wi-Fi address to show,
+   * null for a link: a link's address carries the tunnel service's name and is never shown, only
+   * copied (`url`).
+   */
+  readonly shared: readonly {
+    readonly project_id: string;
+    readonly name: string;
+    readonly way: 'link' | 'wifi';
+    readonly address_text: string | null;
+    readonly url: string;
+  }[];
 }
 
 export interface SetupActionView {
@@ -390,7 +414,24 @@ export class SetupView {
       confirm: here.confirm,
       said: here.said,
       restarting: this.#restarting,
+      shared: (this.#deps.shared?.() ?? []).map((share) => ({
+        project_id: share.project_id,
+        name: share.name,
+        way: share.way,
+        address_text: share.way === 'wifi' ? share.url.replace(/^http:\/\//, '') : null,
+        url: share.url,
+      })),
     };
+  }
+
+  /** Stops a shared game by the person's press: one press, since stopping is undone by sharing again. */
+  async stopShare(projectId: unknown, session: string = ONE_SESSION): Promise<SetupState> {
+    const here = this.#press(session);
+    if (typeof projectId !== 'string' || this.#deps.stopShare?.(projectId) !== true)
+      return this.#refused(here, session, 'This game is not shared.');
+    here.confirm = null;
+    here.said = [];
+    return this.state(session);
   }
 
   /**
@@ -610,6 +651,10 @@ export function mountSetup(view: SetupView): (routes: PageRoutes) => void {
       return view.act(body.action, body.arg, body.confirmed, session);
     });
     routes.post('/setup/stop', (_request, session) => view.stop(session));
+    routes.post('/setup/shares/stop', (request, session) => {
+      const body = (request.body ?? {}) as { project_id?: unknown };
+      return view.stopShare(body.project_id, session);
+    });
   };
 }
 

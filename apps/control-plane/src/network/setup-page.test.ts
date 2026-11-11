@@ -25,6 +25,7 @@ import {
   runCommand,
   type SetupState,
   SetupView,
+  type SharedNow,
   settingsForRestart,
   setupDownloads,
 } from './setup-page.ts';
@@ -110,7 +111,13 @@ interface Setup {
 
 function setup(
   t: TestContext,
-  options: { canRestart?: boolean; tasks?: readonly string[]; pins?: Pins } = {},
+  options: {
+    canRestart?: boolean;
+    tasks?: readonly string[];
+    pins?: Pins;
+    shared?: SharedNow[];
+    stopped?: string[];
+  } = {},
 ): Setup {
   const machine = mac(t, options.pins ?? null);
   const { run, runs } = fakeRunner();
@@ -128,6 +135,15 @@ function setup(
       tasksThatPause: () => options.tasks ?? [],
       restart: () => {
         restarts.count += 1;
+      },
+      shared: () => options.shared ?? [],
+      stopShare: (projectId) => {
+        const shared = options.shared ?? [];
+        const at = shared.findIndex((share) => share.project_id === projectId);
+        if (at < 0) return false;
+        shared.splice(at, 1);
+        options.stopped?.push(projectId);
+        return true;
       },
     },
     setupDownloads(machine.dataDir, () => null, options.pins ?? null),
@@ -393,6 +409,37 @@ describe('the setup view', () => {
     assert.equal(restarts.count, 0);
   });
 
+  test('lists each game shared now with its way, never a link as text, and stops one by one press (ADR 0054)', async (t) => {
+    const LINK = 'https://bright-quiet-garden.trycloudflare.com';
+    const shared: SharedNow[] = [
+      { project_id: 'p-link', name: 'Kite Run', way: 'link', url: LINK },
+      { project_id: 'p-wifi', name: 'Tail', way: 'wifi', url: 'http://192.168.1.20:47970' },
+    ];
+    const stopped: string[] = [];
+    const { view } = setup(t, { shared, stopped });
+    const state = await view.state();
+    assert.deepEqual(state.shared, [
+      { project_id: 'p-link', name: 'Kite Run', way: 'link', address_text: null, url: LINK },
+      {
+        project_id: 'p-wifi',
+        name: 'Tail',
+        way: 'wifi',
+        address_text: '192.168.1.20:47970',
+        url: 'http://192.168.1.20:47970',
+      },
+    ]);
+    const after = await view.stopShare('p-wifi');
+    assert.deepEqual(stopped, ['p-wifi'], 'one press stops it');
+    assert.deepEqual(
+      after.shared.map((share) => share.project_id),
+      ['p-link'],
+    );
+    const unknown = await view.stopShare('p-none');
+    assert.deepEqual(unknown.said, ['This game is not shared.']);
+    assert.deepEqual((await view.stopShare(42)).said, ['This game is not shared.']);
+    assert.deepEqual(stopped, ['p-wifi']);
+  });
+
   test('pairing applies live, so turning it on or off asks for no restart', async (t) => {
     const { view, mac: machine } = setup(t);
     rememberNetworkListener(machine.dataDir, true);
@@ -530,6 +577,53 @@ describe('the setup view on the pairing page', () => {
       'a press confirmed from another session is a first press there',
     );
     assert.equal(runs.length, 0);
+  });
+
+  test('a shared game is stopped from the page only behind its session and origin', async (t) => {
+    const shared: SharedNow[] = [
+      { project_id: 'p-wifi', name: 'Tail', way: 'wifi', url: 'http://192.168.1.20:47970' },
+    ];
+    const stopped: string[] = [];
+    const { view } = setup(t, { shared, stopped });
+    const server = await startTestServer({ page: { ports: PORTS, mount: mountSetup(view) } });
+    t.after(() => server.stop());
+    const page = server.page;
+    assert.ok(page);
+    const port = page.port;
+    const link = new URL(page.link());
+    const opened = await call(port, 'GET', `${link.pathname}${link.search}`);
+    const cookie = String(opened.headers['set-cookie']).split(';')[0] ?? '';
+    const headers = {
+      cookie,
+      origin: `http://127.0.0.1:${port}`,
+      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/json',
+    };
+    const body = JSON.stringify({ project_id: 'p-wifi' });
+    assert.equal(
+      (await call(port, 'POST', '/setup/shares/stop', { ...headers, cookie: 'page=forged' }, body))
+        .status,
+      403,
+    );
+    assert.equal(
+      (
+        await call(
+          port,
+          'POST',
+          '/setup/shares/stop',
+          { ...headers, 'sec-fetch-site': 'cross-site' },
+          body,
+        )
+      ).status,
+      403,
+    );
+    assert.deepEqual(stopped, [], 'nothing stopped without the session and origin');
+    const done = await call(port, 'POST', '/setup/shares/stop', headers, body);
+    assert.equal(done.status, 200, done.body);
+    assert.deepEqual((JSON.parse(done.body) as SetupState).shared, []);
+    assert.deepEqual(stopped, ['p-wifi']);
+    const shown = await call(port, 'GET', '/setup', { cookie });
+    assert.match(shown.body, /<h2>Shared Now<\/h2>/);
   });
 
   test('a mounted view may add nothing outside /setup', async () => {

@@ -79,8 +79,10 @@ The owner approved Share on This Wi-Fi and Share a Link, and the download of the
      both ways: a QR code at level M made by an encoder of Halcyonic's own (`share-code.ts`, no
      dependency). The headset draws it with its margin. It never draws a link's address as text,
      since that carries the tunnel service's name; the Wi-Fi address may also show as text.
-   - On the Mac, the setup page beside pairing lists what is shared now, each with Copy and Stop
-     (agreed with CORE, whose page it is).
+   - On the Mac, the setup page beside pairing lists what is shared now under Shared Now (ADR 0053),
+     each game with its way, Copy (its address to the Mac's clipboard) and Stop (`project.share.stop`
+     as the person's press, one press since sharing again undoes it). A link's address is never shown
+     there either, only copied; a Wi-Fi address shows as text.
 
 ## Alternatives considered
 

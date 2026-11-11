@@ -1,6 +1,8 @@
 // The setup page (ADR 0053): reads what stands every two seconds, draws every step with its presses,
 // and sends a press as one POST from this page. A press asks first, with what it will do; only the
-// second press acts. One download runs at a time, with its last lines and a Stop.
+// second press acts. One download runs at a time, with its last lines and a Stop. Below the steps,
+// each game shared now (ADR 0054) with Copy, which puts its address on this Mac's clipboard, and Stop.
+// A link's address is never drawn, only copied.
 
 const CLOSED = 'This page has closed. Open pairing again on this computer.';
 const UNREACHABLE = "This computer's app isn't answering. Check that it is running.";
@@ -38,6 +40,58 @@ async function call(path, body) {
 }
 
 let drawnSteps = '';
+let drawnShared = '';
+
+const WAY = { link: 'Link', wifi: 'This Wi-Fi' };
+
+function drawShared() {
+  const shared = state.shared ?? [];
+  $('shared').hidden = shared.length === 0;
+  // Drawn again only when what is shared changes, so a poll never swaps a button under a press.
+  const drawn = JSON.stringify(shared);
+  if (drawn === drawnShared) return;
+  drawnShared = drawn;
+  const list = $('shared-list');
+  list.replaceChildren();
+  for (const share of shared) {
+    const item = document.createElement('li');
+    const name = document.createElement('span');
+    name.className = 'share-name';
+    name.textContent = share.name;
+    const way = document.createElement('span');
+    way.className = 'share-way';
+    way.textContent = WAY[share.way] ?? share.way;
+    item.append(name, way);
+    if (share.address_text !== null) {
+      const address = document.createElement('span');
+      address.className = 'share-address';
+      address.textContent = share.address_text;
+      item.append(address);
+    }
+    const copy = button(
+      'Copy',
+      async () => {
+        try {
+          await navigator.clipboard.writeText(share.url);
+          copy.textContent = 'Copied';
+        } catch {
+          copy.textContent = "Couldn't Copy";
+        }
+        setTimeout(() => {
+          copy.textContent = 'Copy';
+        }, 2000);
+      },
+      false,
+    );
+    const stop = button(
+      'Stop',
+      () => void call('/setup/shares/stop', { project_id: share.project_id }),
+      false,
+    );
+    item.append(copy, stop);
+    list.append(item);
+  }
+}
 
 function press(action, arg, confirmed) {
   void call('/setup/act', { action, arg, confirmed });
@@ -85,6 +139,7 @@ function draw() {
   }
   $('said').hidden = state.said.length === 0;
   $('said-lines').textContent = state.said.join('\n');
+  drawShared();
   // Drawn again only when the steps change, so a poll never swaps a button under a press.
   const drawn = JSON.stringify([state.steps, running]);
   if (drawn === drawnSteps) return;
