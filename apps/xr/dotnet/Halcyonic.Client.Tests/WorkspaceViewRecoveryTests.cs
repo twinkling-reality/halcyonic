@@ -10,6 +10,17 @@ namespace Halcyonic.Client.Tests;
 
 public class WorkspaceViewRecoveryTests
 {
+    [Test]
+    public void APlainLaunchFrontsASavedTaskOnlyWhileItIsUnderWayOrWaitsOnThePerson()
+    {
+        var fronts = new[] { WorkstreamStatus.Starting, WorkstreamStatus.Running, WorkstreamStatus.Verifying, WorkstreamStatus.WaitingForHuman };
+        var stays = new[] { WorkstreamStatus.Created, WorkstreamStatus.Completed, WorkstreamStatus.Failed, WorkstreamStatus.Interrupted, WorkstreamStatus.Unknown };
+        Assert.That(fronts.Select(status => WorkspaceViewRecovery.FrontsAtLaunch(Samples.Workstream("w1", status))), Is.All.True, "under way or waiting: back beside Projects");
+        Assert.That(stays.Select(status => WorkspaceViewRecovery.FrontsAtLaunch(Samples.Workstream("w1", status))), Is.All.False, "at rest or not started: Projects alone");
+        Assert.That(WorkspaceViewRecovery.FrontsAtLaunch(null), Is.False, "a task the computer no longer has");
+        Assert.That(fronts.Concat(stays).OrderBy(status => status), Is.EqualTo(Enum.GetValues<WorkstreamStatus>().OrderBy(status => status)), "every status decided");
+    }
+
     private string directory = null!;
     private string path = null!;
     [SetUp] public void SetUp() { directory = Path.Combine(Path.GetTempPath(), "halcyonic-workspace-" + Guid.NewGuid()); Directory.CreateDirectory(directory); path = Path.Combine(directory, "unity-views.json"); }
