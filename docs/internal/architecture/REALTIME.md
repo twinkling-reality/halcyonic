@@ -98,8 +98,9 @@ client                                   server
 - **A project's view holds its check, preview and play (M1.8e, T2).** A project's view carries, each
   only when there is one, `check` (its latest check: `check_id`, `recorded_at`, the journal
   `position` at which it was recorded, `files`, and the findings as recorded), `preview` (the check
-  its running preview serves, the loopback port and that check's `files`) and `mac_play` (the check
-  whose game plays on the Mac now and that check's `files`). `files` is `'current'` when recorded
+  its running preview serves, the loopback port and that check's `files`), `mac_play` (the check
+  whose game plays on the Mac now and that check's `files`) and `share` (the check shared at a
+  public address, the address, and that check's `files`; [ADR 0054](../decisions/0054-what-was-made-is-kept-and-shared-only-by-the-persons-press.md)). `files` is `'current'` when recorded
   while no turn is running in the project (a turn a restart cut short runs no longer, since no
   runtime session survives a restart; #13), `'changed'` once a turn's file reading or a restore
   changed files in the project's folder or the project was moved to another folder, and `'unknown'`
@@ -184,6 +185,11 @@ client                                   server
   otherwise as DOMAIN_MODEL.md says. The play stops, and `project.mac_play.stopped` says why, when
   its viewer closes, when no viewer comes within 60 s, with the preview, on a newer check and with
   the host (P-A).
+- **Sharing a link.** `project.share.start` `{project_id}` gives the project's running preview a
+  temporary public `https://` address and completes with `share_started` (`check_id`, `url`) once
+  the address answered; `project.share.stop` ends it. Refused with `capability_unsupported` when no
+  pinned tunnel program is set up, and `invalid_state` otherwise as DOMAIN_MODEL.md says. The share
+  stops with the preview, the program and the host too, and `project.share.stopped` says why.
 - **Choosing a model.** `execution.start` carries `model_ref`: null, or a model's reference exactly
   as `GET /api/runtimes/:runtime_id/models` gave it. A start without one on a runtime whose
   `model_choice` is `listed` is rejected with `model_required`, so a model the person did not

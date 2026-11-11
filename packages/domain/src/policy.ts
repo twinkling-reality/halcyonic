@@ -27,6 +27,9 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   // Opening a Finder window on the Mac changes nothing; a saved copy writes a file there.
   'project.show_in_finder': 'low_consequence',
   'project.save_copy': 'review_required',
+  // A shared link lets anyone with it open the game: a deliberate press; stopping it is not.
+  'project.share.start': 'review_required',
+  'project.share.stop': 'low_consequence',
   // The person's own link between a project and a catalog repository; changes no file.
   'project.link_catalog': 'low_consequence',
   'project.unlink_catalog': 'low_consequence',

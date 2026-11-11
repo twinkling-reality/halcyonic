@@ -533,6 +533,8 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "project.open_on_mac")] ProjectOpenOnMac,
         [EnumMember(Value = "project.show_in_finder")] ProjectShowInFinder,
         [EnumMember(Value = "project.save_copy")] ProjectSaveCopy,
+        [EnumMember(Value = "project.share.start")] ProjectShareStart,
+        [EnumMember(Value = "project.share.stop")] ProjectShareStop,
         [EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
         [EnumMember(Value = "project.unlink_catalog")] ProjectUnlinkCatalog,
         [EnumMember(Value = "workstream.create")] WorkstreamCreate,
@@ -802,6 +804,26 @@ namespace Halcyonic.Contracts
         public ProjectViewMacPlayFiles Files { get; set; }
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ProjectViewShareFiles
+    {
+        [EnumMember(Value = "unknown")] Unknown,
+        [EnumMember(Value = "current")] Current,
+        [EnumMember(Value = "changed")] Changed,
+    }
+
+    public sealed class ProjectViewShare
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("url", Required = Required.Always)]
+        public string Url { get; set; } = default!;
+
+        [JsonProperty("files", Required = Required.Always)]
+        public ProjectViewShareFiles Files { get; set; }
+    }
+
     public sealed class WorldDescriptionSky
     {
         [JsonProperty("zenith", Required = Required.Always)]
@@ -991,6 +1013,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("mac_play", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public ProjectViewMacPlay? MacPlay { get; set; }
+
+        [JsonProperty("share", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public ProjectViewShare? Share { get; set; }
 
         [JsonProperty("world", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public ProjectWorldView? World { get; set; }
@@ -1719,6 +1744,7 @@ namespace Halcyonic.Contracts
                 "execution_created" => new ExecutionCreatedResult(),
                 "project_restored" => new ProjectRestoredResult(),
                 "project_saved" => new ProjectSavedResult(),
+                "share_started" => new ShareStartedResult(),
                 "workstream_added" => new WorkstreamAddedResult(),
                 "workstream_fitted" => new WorkstreamFittedResult(),
                 "project_checked" => new ProjectCheckedResult(),
@@ -1795,6 +1821,17 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("bytes", Required = Required.Always)]
         public long Bytes { get; set; }
+    }
+
+    public sealed class ShareStartedResult : CommandResult
+    {
+        protected override string Discriminator => "share_started";
+
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("url", Required = Required.Always)]
+        public string Url { get; set; } = default!;
     }
 
     public sealed class WorkstreamAddedResult : CommandResult
@@ -2320,6 +2357,33 @@ namespace Halcyonic.Contracts
         public JToken Reason { get; set; } = default!;
     }
 
+    public sealed class ProjectShareStartedPayload
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("url", Required = Required.Always)]
+        public string Url { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ProjectShareStoppedPayloadReason
+    {
+        [EnumMember(Value = "asked")] Asked,
+        [EnumMember(Value = "preview_stopped")] PreviewStopped,
+        [EnumMember(Value = "tunnel_exited")] TunnelExited,
+        [EnumMember(Value = "host_stopped")] HostStopped,
+    }
+
+    public sealed class ProjectShareStoppedPayload
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ProjectShareStoppedPayloadReason Reason { get; set; }
+    }
+
     public sealed class WorldObserved
     {
         [JsonProperty("description", Required = Required.AllowNull)]
@@ -2759,6 +2823,18 @@ namespace Halcyonic.Contracts
         public string ProjectId { get; set; } = default!;
     }
 
+    public sealed class ProjectShareStartPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+    }
+
+    public sealed class ProjectShareStopPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+    }
+
     public sealed class ProjectLinkCatalogPayload
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -2955,6 +3031,8 @@ namespace Halcyonic.Contracts
                 "project.open_on_mac" => new ProjectOpenOnMacCommand(),
                 "project.show_in_finder" => new ProjectShowInFinderCommand(),
                 "project.save_copy" => new ProjectSaveCopyCommand(),
+                "project.share.start" => new ProjectShareStartCommand(),
+                "project.share.stop" => new ProjectShareStopCommand(),
                 "project.link_catalog" => new ProjectLinkCatalogCommand(),
                 "project.unlink_catalog" => new ProjectUnlinkCatalogCommand(),
                 "workstream.create" => new WorkstreamCreateCommand(),
@@ -3066,6 +3144,22 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectSaveCopyPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectShareStartCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.share.start";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectShareStartPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectShareStopCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.share.stop";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectShareStopPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectLinkCatalogCommand : CommandEnvelope
@@ -3690,6 +3784,8 @@ namespace Halcyonic.Contracts
                 "project.preview.stopped" => new ProjectPreviewStoppedEvent(),
                 "project.mac_play.started" => new ProjectMacPlayStartedEvent(),
                 "project.mac_play.stopped" => new ProjectMacPlayStoppedEvent(),
+                "project.share.started" => new ProjectShareStartedEvent(),
+                "project.share.stopped" => new ProjectShareStoppedEvent(),
                 "project.world.observed" => new ProjectWorldObservedEvent(),
                 "workstream.created" => new WorkstreamCreatedEvent(),
                 "workstream.copy_made" => new WorkstreamCopyMadeEvent(),
@@ -3870,6 +3966,22 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectMacPlayStoppedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectShareStartedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.share.started";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectShareStartedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectShareStoppedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.share.stopped";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectShareStoppedPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectWorldObservedEvent : EventEnvelope

@@ -923,7 +923,9 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
         | 'project.check'
         | 'project.preview.start'
         | 'project.preview.stop'
-        | 'project.open_on_mac',
+        | 'project.open_on_mac'
+        | 'project.share.start'
+        | 'project.share.stop',
     ): CommandEnvelope => {
       n += 1;
       return {
@@ -1055,6 +1057,49 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
       }),
     );
     assert.equal(opens(), true);
+  });
+
+  test('a game is shared only from a passed, confined check its preview serves, once at a time, by the person (F1)', () => {
+    const { b, projection, scope, command } = setupStarter(true);
+    const result = (type: 'project.share.start' | 'project.share.stop') => {
+      const admission = admitCommand(command(type), projection, catalog());
+      return admission.admitted ? admission.policy : admission.rejection.message;
+    };
+    const record = (checkId: string, extra: Record<string, unknown>) =>
+      projection.apply(
+        b.controlPlane('project.check.recorded', scope, {
+          check_id: checkId as never,
+          findings: { ...findings(true), ...extra } as never,
+        }),
+      );
+    assert.equal(result('project.share.stop'), 'This game is not shared.');
+    assert.match(result('project.share.start'), /Only a passed check/);
+    const first = b.id();
+    record(first, { passed: false });
+    assert.match(result('project.share.start'), /Only a passed check/);
+    record(first, { reads_confined: false });
+    assert.match(result('project.share.start'), /Not every agent run/);
+    record(first, {});
+    assert.match(result('project.share.start'), /Start the preview/);
+    projection.apply(
+      b.controlPlane('project.preview.started', scope, { check_id: first as never, port: 47930 }),
+    );
+    assert.equal(result('project.share.start'), 'review_required', 'the person reviews a share');
+    const url = 'https://bright-quiet-garden.trycloudflare.com';
+    projection.apply(
+      b.controlPlane('project.share.started', scope, { check_id: first as never, url }),
+    );
+    assert.equal(projection.project(scope.project_id)?.share?.url, url);
+    assert.equal(result('project.share.start'), 'This game is already shared.');
+    assert.equal(result('project.share.stop'), 'low_consequence');
+    projection.apply(
+      b.controlPlane('project.share.stopped', scope, {
+        check_id: first as never,
+        reason: 'asked',
+      }),
+    );
+    assert.equal(projection.share(scope.project_id), undefined);
+    assert.equal(projection.project(scope.project_id)?.share, undefined);
   });
 
   test('once a turn changes files or leaves them unknown, neither the preview nor Play on the Mac is admitted until the new files are checked (T2)', () => {

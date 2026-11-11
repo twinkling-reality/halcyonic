@@ -9,7 +9,7 @@ import {
 import { WorkstreamCopy } from './copies.ts';
 import { ApprovalSubject } from './events.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
-import { AutoFixView, CheckFindings, CheckId } from './previews.ts';
+import { AutoFixView, CheckFindings, CheckId, ShareAddress } from './previews.ts';
 import {
   ErrorInfo,
   ExecutionId,
@@ -119,6 +119,13 @@ export const ProjectMacPlayView = Type.Object(
 );
 export type ProjectMacPlayView = Static<typeof ProjectMacPlayView>;
 
+/** The project's shared link now, as `project.share.started` said, and whether its check's files are still current. */
+export const ProjectShareView = Type.Object(
+  { check_id: CheckId, url: ShareAddress, files: CheckFilesState },
+  strict,
+);
+export type ProjectShareView = Static<typeof ProjectShareView>;
+
 /**
  * `check`, `preview` and `mac_play` hold the facts their events carried, so a client that connects
  * after them still has them; each is absent when there is none, which never reads as false.
@@ -137,6 +144,8 @@ export const ProjectView = Type.Object(
     check: Type.Optional(ProjectCheckView),
     preview: Type.Optional(ProjectPreviewView),
     mac_play: Type.Optional(ProjectMacPlayView),
+    /** The project's shared link, when one is live (F1). */
+    share: Type.Optional(ProjectShareView),
     world: Type.Optional(ProjectWorldView),
   },
   strict,

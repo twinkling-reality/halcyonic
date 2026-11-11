@@ -55,6 +55,7 @@ import type { Logger } from '../logger.ts';
 import type { FileObserver } from '../observer/file-observer.ts';
 import type { CheckOutput } from '../preview/check-output.ts';
 import type { HostPreviews } from '../preview/preview.ts';
+import type { ProjectShares } from '../preview/share.ts';
 import { type HostStarters, VR_STARTER, vrVersionInstruction } from '../starters.ts';
 import {
   type Cause,
@@ -111,6 +112,8 @@ export interface CommandServiceDeps {
   readonly copies?: TaskCopies | null;
   /** Show in Finder and Save a Copy on the Mac (F3); absent, both are refused. */
   readonly keeping?: ProjectKeeping | null;
+  /** Shared links to a running preview (F1); absent, sharing is refused. */
+  readonly shares?: ProjectShares | null;
   /** The host's checks and previews of starter projects (ADR 0037), or null when not set up. */
   readonly previews?: HostPreviews | null;
   /** The starters a new project can begin from (ADR 0037), or null when there are none. */
@@ -954,6 +957,48 @@ export class CommandService {
           ),
         );
         this.#complete(command, admission.scope, null);
+        return;
+      }
+      case 'project.share.start':
+      case 'project.share.stop': {
+        // A public address for the checked build the preview serves (F1), the person's own step.
+        const scope = admission.scope;
+        const shares = this.#deps.shares;
+        const projectId = command.payload.project_id;
+        if (!shares) {
+          this.#fail(command, scope, {
+            code: 'unavailable',
+            message: 'This computer cannot share a game.',
+            effect: 'none',
+          });
+          return;
+        }
+        if (command.command_type === 'project.share.stop') {
+          void shares.stop(projectId, 'asked', cause).then(
+            () => this.#complete(command, scope, null),
+            () =>
+              this.#fail(command, scope, {
+                code: 'share_failed',
+                message: 'The shared link could not be stopped.',
+                effect: 'unknown',
+              }),
+          );
+          return;
+        }
+        void shares.start(projectId, cause).then(
+          (shared) =>
+            this.#complete(command, scope, {
+              kind: 'share_started',
+              check_id: shared.check_id,
+              url: shared.url,
+            }),
+          () =>
+            this.#fail(command, scope, {
+              code: 'share_failed',
+              message: 'The game could not be shared: no link answered. Try again.',
+              effect: 'none',
+            }),
+        );
         return;
       }
       case 'project.show_in_finder':

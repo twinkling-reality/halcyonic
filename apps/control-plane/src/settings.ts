@@ -23,8 +23,8 @@ const MAX_SETTINGS_BYTES = 64 * 1024;
 
 /**
  * The variables a settings file may hold: which folders agents may use, the pinned agent apps,
- * Halcyonic's own OpenCode settings, the git its undo runs, voice, Create's companion and the
- * listener for paired devices.
+ * Halcyonic's own OpenCode settings, the git its undo runs, voice, Create's companion, the
+ * listener for paired devices and the pinned tunnel program sharing runs.
  * Nothing that spends model credit or widens what reaches an agent can be set there: the Claude
  * Agent runtime, its executable and the variables passed through to agents stay in the environment
  * alone, and no setting names a model that can run on a remote service. The companion's model is
@@ -45,6 +45,8 @@ export const SETTING_NAMES = [
   'HALCYONIC_NETWORK_HOST',
   // The browser's folder only: its hash is always the repository's pin (pins.ts), never a setting.
   'HALCYONIC_BROWSER',
+  // The tunnel program Share a Link runs; it runs only when its bytes match the pin (share.ts).
+  'HALCYONIC_TUNNEL_BIN',
 ] as const;
 export type SettingName = (typeof SETTING_NAMES)[number];
 

@@ -101,6 +101,8 @@ function forPattern(random: Random, pattern: string, pools: Pools): string | und
     () => String(between(random, 10_000_000, 99_999_999)),
     () => 'QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=',
     () => pick(random, ['src/index.ts', 'notes.md', 'a/b/c.txt']),
+    () =>
+      pick(random, ['https://bright-quiet-garden.trycloudflare.com', 'http://192.168.1.20:47970']),
     () => pick(random, WORDS),
   ];
   const expression = new RegExp(pattern, 'u');

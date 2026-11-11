@@ -41,6 +41,7 @@ import { matchesPin, pinsForThisMac } from './pins.ts';
 import { audioOutputFor, outputInTree } from './preview/audio-output.ts';
 import { launcherFor } from './preview/launcher.ts';
 import { installBrowser } from './preview/play.ts';
+import { isPinnedTunnel, TUNNEL_PIN } from './preview/share.ts';
 import {
   createRuntimeAdapters,
   heldSecrets,
@@ -162,6 +163,13 @@ async function main(): Promise<void> {
     );
   }
 
+  // The tunnel that shares a game (F1) runs only as the pinned binary; any other leaves sharing off.
+  const sharingTunnel =
+    config.tunnelBinary !== null && (await isPinnedTunnel(config.tunnelBinary))
+      ? config.tunnelBinary
+      : null;
+  if (config.tunnelBinary !== null && sharingTunnel === null)
+    app.log.warn(`the tunnel binary is not the pinned ${TUNNEL_PIN.version}: sharing is off`);
   // The person's catalog (ADR 0039): its last answer checks links, so it exists before the control plane.
   const catalog = omnoriumCatalogFor(config.dataDir);
   const controlPlane = new ControlPlane({
@@ -236,6 +244,16 @@ async function main(): Promise<void> {
                 });
               },
             },
+          },
+        }
+      : {}),
+    // A shared link (F1): the pinned tunnel only, its home in the data folder it may not otherwise read.
+    ...(process.platform === 'darwin' && sharingTunnel !== null
+      ? {
+          share: {
+            tunnel: sharingTunnel,
+            home: join(config.dataDir, 'share-home'),
+            dataDir: config.dataDir,
           },
         }
       : {}),
