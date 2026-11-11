@@ -59,6 +59,9 @@ namespace Halcyonic.Client
         private readonly CommandFactory commands;
         private Task<CommandAckMessage>? acknowledgement, answered, stopped;
         private string? sentAnswer, notice;
+
+        /// <summary>The acknowledgement awaited is a resend's: the first send's outcome is unknown, whatever this one's is.</summary>
+        private bool resending;
         private double nextOffer = double.NegativeInfinity;
         private Task<WorkspaceAgentStatus>? offer;
         private Task<WorkspaceRequestResponse>? reading;
@@ -142,6 +145,7 @@ namespace Halcyonic.Client
                     var again = Ask.SendAgain();
                     if (again == null) return;
                     acknowledgement = host.Submit(again);
+                    resending = acknowledgement != null;
                     if (acknowledgement == null) Ask.Unknown();
                     Changed?.Invoke();
                     return;
@@ -243,10 +247,13 @@ namespace Halcyonic.Client
             if (acknowledgement is { IsCompleted: true } acked)
             {
                 acknowledgement = null;
+                var wasResend = resending;
+                resending = false;
                 // Only a session that was not there means nothing was sent; any other fault, or no answer, leaves the
-                // outcome unknown, as CommandSubmissions has it (AUDIT, 2026-11-11).
+                // outcome unknown, as CommandSubmissions has it (AUDIT, 2026-11-11). A resend that was not sent leaves
+                // the first send's outcome as unknown as it was, its id and envelope kept (AUDIT's reread).
                 if (acked.Status == TaskStatus.RanToCompletion && acked.Result != null) Ask.Acknowledge(acked.Result);
-                else if (acked.Exception?.GetBaseException() is SessionUnavailableException)
+                else if (!wasResend && acked.Exception?.GetBaseException() is SessionUnavailableException)
                 {
                     Ask.Unsent();
                     notice = Words.SendDidNotGo;
