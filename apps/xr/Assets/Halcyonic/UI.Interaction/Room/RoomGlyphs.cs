@@ -40,10 +40,10 @@ namespace Halcyonic.XR.UI
         /// <summary>Chevron left: Back.</summary>
         Back,
 
-        /// <summary>Chevron down: Next Part, Next Page, Next Choices.</summary>
+        /// <summary>Chevron down: Next Part, Next Page, Next Choices, Compact (the room clears below).</summary>
         Next,
 
-        /// <summary>Chevron up: Previous Part.</summary>
+        /// <summary>Chevron up: Previous Part, Previous Page, Open Workspace (the room comes back up).</summary>
         Previous,
 
         /// <summary>Play: Try Build.</summary>
@@ -365,6 +365,7 @@ namespace Halcyonic.XR.UI
             ["New Project"] = RoomGlyph.Plus, ["Request Change"] = RoomGlyph.Pencil, ["Write Instruction"] = RoomGlyph.Bubble, ["Continue"] = RoomGlyph.Continue,
             ["Summarize"] = RoomGlyph.Lines, ["Choose Instruction"] = RoomGlyph.Lines, ["Run Checks Again"] = RoomGlyph.Again, ["Settings"] = RoomGlyph.Settings,
             ["Restore"] = RoomGlyph.Undo, ["Let Agent Fix"] = RoomGlyph.Agent, ["History"] = RoomGlyph.Clock,
+            ["Previous Page"] = RoomGlyph.Previous, ["Compact"] = RoomGlyph.Next, ["Open Workspace"] = RoomGlyph.Previous, ["Projects"] = RoomGlyph.Back,
         };
 
         /// <summary>The card's kind marks (the addendum's A17), which stand in tiles and before list rows and never on an action.</summary>
