@@ -491,6 +491,15 @@ describe("checking a task's own copy (ADR 0045)", () => {
     );
     assert.equal(projection.latestCheck(project.projectId)?.workstream_id, first);
     assert.equal(projection.project(project.projectId)?.check?.workstream_id, first);
+    // The folder it checked is the task's copy, which the person's check log names as ./ (AUDIT2 S1).
+    assert.equal(
+      projection.checkFolder(project.projectId, '01920000-0000-7000-8000-0000000000e1'),
+      `${COPIES}/${first}/app`,
+    );
+    assert.equal(
+      projection.checkFolder(project.projectId, '01920000-0000-7000-8000-0000000000ff'),
+      undefined,
+    );
     elsewhere.rest();
     assert.equal(projection.latestCheck(project.projectId)?.files, 'current');
     // A turn in the first task's copy does.
