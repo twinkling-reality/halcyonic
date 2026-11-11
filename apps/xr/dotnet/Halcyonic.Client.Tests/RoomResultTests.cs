@@ -569,4 +569,40 @@ public class RoomResultTests
             Is.EqualTo(new[] { "Type Check", "Build", "Page Drawn", "VR Offered" }));
         Assert.That(RoomResult.StepWords((CheckStepKind)99), Is.EqualTo("Step Unknown"));
     }
+
+    [Test]
+    public void AChangesRowReadsItsFileAndTheFilePageDrawsTheReadingItsRowsAndItsWayBack()
+    {
+        // SCREENS: every row of Changes is pressed to read that file, its key the path as the folder names it, where the
+        // headset can read it: never in the demonstration or with no computer to ask (AUDIT's F1, 2026-11-12).
+        var changes = Bar(new RoomResult(false, true, false, true, Turn(Observed), Steps(), RoomResultPage.Changes, readsFiles: true));
+        Assert.That(Bar(new RoomResult(false, true, false, true, Turn(Observed), Steps(), RoomResultPage.Changes)).Card!.List.All(row => row.Press == null), Is.True,
+            "a row that cannot be read is not pressed");
+        Assert.That(changes.Card!.List.Select(row => (row.Press?.Action, row.Press?.Key)), Is.EqualTo(new[]
+        {
+            ((string?)RoomResult.ShowFile, (string?)"src/stars.ts"), (RoomResult.ShowFile, "src/game.ts"), (RoomResult.ShowFile, "assets/old.png"),
+        }));
+        Assert.That(RoomResult.Actions, Is.SupersetOf(RoomResult.FileActions), "the director takes each of the reading's presses");
+
+        var turn = Turn(Observed);
+        var reading = new FileChangeColumn("p1", turn.Files.Select(file => new RoomChange(RoomChangeKind.Changed, file.Path, 1, 2)).First(change => change.Path == "src/game.ts"));
+        reading.Located(new TurnVersions(TurnVersionsFound.Found, "a", "b"));
+        var waiting = Bar(new RoomResult(false, true, false, true, turn, Steps(), RoomResultPage.File, file: reading));
+        Assert.That((waiting.Card, waiting.Sentence), Is.EqualTo(((RoomCard?)null, (string?)FileChangeText.Reading)), "the sweep while it reads");
+        Assert.That(waiting.Column.Where(NotClose).Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.FileBack }));
+
+        reading.Changed(new ProjectFileChangeResponse
+        {
+            ProjectId = "p1", From = "a", To = "b", Path = "src/game.ts", Change = FileChangeKind.Changed, Diff = "@@ -1 +1 @@\n-old\n+new\n", Complete = true,
+        });
+        var shown = Bar(new RoomResult(false, true, false, true, turn, Steps(), RoomResultPage.File, file: reading));
+        Assert.That(shown.Card!.Title!.Text, Is.EqualTo("game.ts"));
+        Assert.That(shown.Card.Reading.Select(row => (row.Kind, row.Text!.Text)), Is.EqualTo(new[] { (RoomLineKind.Removed, "old"), (RoomLineKind.Added, "new") }), "FIELD's page of reading, on the card");
+        Assert.That(shown.Column.Where(NotClose).Select(action => (action.Control.Action, action.Words)), Is.EqualTo(new[]
+        {
+            (RoomResult.FileWhole, FileChangeText.WholeFile), (RoomResult.FileBack, "Back"),
+        }));
+        // Another page shows no reading, though a reading is given.
+        Assert.That(Bar(new RoomResult(false, true, false, true, turn, Steps(), RoomResultPage.Changes, file: reading)).Card!.Reading, Is.Empty);
+    }
 }

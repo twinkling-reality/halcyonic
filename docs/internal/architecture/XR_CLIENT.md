@@ -1733,6 +1733,50 @@ Read. Reading and sent show only a sentence (`Sentence`). A restore carries the 
 built only after its lock (`Arm`, then `Restore`). The C# bindings carry `CheckpointsResponse` and
 `RestorePreviewResponse` for it. Tests: `HistoryColumnTests`; render check: `KitRender.HistoryCheck`.
 
+### A file of Changes read: its change, then the whole file (gaps 5 and 10, SCREENS, 2026-11-11)
+
+What Cursor, Bolt and Lovable give as the diff and the code view, from the result's Changes. Every row of Changes is
+pressed (`RoomBar.FileRow`: the result action `room-file`, its key the path as the folder names it) where a computer
+can be asked (`RoomResult.ReadsFiles`: never in the demonstration, whose recording holds no file contents); the director
+(`MenuDirector.File.cs`) takes the press only for a path of the observed turn's own list and opens the result's File
+page (`RoomResultPage.File`) with a `FileChangeColumn`. The reads go through the control plane's own authorized GET
+(`ControlPlaneApi.GetDocumentAsync`) in `FileChangeReader`, each answer parsed strictly and refused when it is for
+another project, version or path:
+- The versions around the observed turn, from the project's history (`api/projects/:id/history?journal_id&limit=50`,
+  newest first, at most four pages): the version kept after the turn, its `turn_id` the observed turn's and its
+  execution the run's, and its `previous`, the version before it of the same folder. Where the observed turn carries
+  no id, the run's newest turn version stands for it, and only where the newest turn's version was kept. A folder's first version is Nothing to Compare over "kept no earlier version"; a version not kept or not among the
+  newest read is Nothing to Compare over "The earlier version was not found" (an older one may be kept); no history at all (undo
+  not set up) is No History Yet. Neither is ever guessed.
+- The file's change between them (`.../changes/file?journal_id&from&to&path`), a unified diff parsed into rows
+  (`FileChangeColumn.ParseDiff`): each line added, removed or the same, a gap between the diff's parts, its headers and
+  git's "No newline" note left out. One gutter numbers the lines as the file is after the change; a removed line
+  carries no number, its minus says what it is. Its kind is a slot (Edited, New, Removed) and, only where the diff came whole, its lines another: an
+  edit's or a new file's added and removed lines each a slot of their own under its mark ("3 Lines", "1 Line"); a diff cut at the Mac's bound says "The rest is too long to show here" at its last page's foot, in place of
+  the page's place.
+- The whole file as it is now (`.../file?journal_id&path`), read once, on Whole File, never for a file the turn removed
+  or one the Mac withholds.
+
+The card's title is the file's own name and the line under it its path where it has folders, both theirs; the whole
+file's line reads "As it is now:" then the path, last (its run carries its own gap). A file whose lines cannot be shown keeps its name as the
+title, in mono, and its path, then says why as a status with its own mark: Not Text (the default dash), Kept Private
+(the folder's mark: its name says it may hold secrets, so the Mac never sends its lines), Too Large to Show (over
+256 KB) and Empty File (the file's mark); a failed read with no answer (the computer not reached, the read given up) is Not Read with Try Again, and one the computer answered but that could not be shown (a refusal, an answer for another file) is Not Read over "The computer's reply can't be shown" with no Try Again (`FileChangeColumn.Answered`). While a read is out the sentence reads "Reading File".
+The lines are FIELD's page of reading on the card (`RoomCard.Reading`, `RoomReadingRow`: kind, the line number on a
+line's first row, the row's words as theirs, the line's leading spaces as its indent, at most half a row), drawn by
+`RoomCardView` with the line number in a gutter, an added line's plus and a removed line's minus over a band of their
+hue, a gap as a hairline that says how many of the file's lines it skips ("36 Lines", `RoomReadingRow.Gap`). They wrap
+to FIELD's measures (`RoomReading.Columns` at the person's text scale, a continued row its own, read from the constants) by FIELD's rule (`FileChangeColumn.Breaks`: at a space,
+after , ; : / ? &, or before a dot or bracket that follows a name; never inside an operator such as => or === or inside
+a name where another break fits; a continued row hung in and numberless), a tab as spaces to the next fourth column, so
+no line is cut or ellipsed; twelve rows a page (`RoomReading.RowsAPage`), a line moved whole to the next page where it would cross one,
+a bare gap never opening or closing a page and a counted one opening the page of the part it leads to, the page's place at the foot ("Page 1 of 2"). The director hands the column
+the text scale at each draw (`AtScale`): the rows wrap again when it changes, and the page shown keeps its first line.
+The column: Next Page (the main action while there is one), Previous Page, Whole File (the main action where there is
+nothing to compare), Try Again where a read failed, and Back: from the whole file to the change on the page it was,
+from the change to Changes. Tests: `FileChangeColumnTests`, `RoomResultTests`; render check:
+`KitRender.FileChangeCheck` (thirteen states at both text sizes, beside SCREENS's run-start cards).
+
 ### Play in Headset's core (gap 1, 2026-11-11)
 
 The headset's side of opening a project's preview in Quest Browser, core and opener only: no frame offers the

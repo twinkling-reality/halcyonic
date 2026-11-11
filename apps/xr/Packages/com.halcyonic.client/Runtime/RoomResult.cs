@@ -20,6 +20,8 @@ namespace Halcyonic.Client
         History,
         /// <summary>Sharing the checked game (DEVICE's <see cref="ShareColumn"/>, ADR 0054), reached from the passed result at rest.</summary>
         Share,
+        /// <summary>SCREENS's file of Changes read: its change over the turn, then the whole file (<see cref="FileChangeColumn"/>).</summary>
+        File,
     }
 
     /// <summary>
@@ -67,6 +69,13 @@ namespace Halcyonic.Client
         public const string ShareStartPreview = "room-share-preview";
         public const string ShareBack = "room-share-back";
         public const string ShareClose = "room-share-close";
+        /// <summary>SCREENS's file reading (<see cref="FileChangeColumn"/>): a row of Changes pressed (its key the path), its pages, Whole File, Try Again, Back.</summary>
+        public const string ShowFile = "room-file";
+        public const string FileNextPage = "room-file-next-page";
+        public const string FilePreviousPage = "room-file-previous-page";
+        public const string FileWhole = "room-file-whole";
+        public const string FileTryAgain = "room-file-try-again";
+        public const string FileBack = "room-file-back";
 
         public const string ChangesWords = "Changes";
         public const string ChecksWords = "Checks";
@@ -82,15 +91,21 @@ namespace Halcyonic.Client
             MakeVrVersion, TryBuild, ShowChanges, ShowChecks, NextPage, Back, PlayInHeadset, ShowAdd, AddConfirm, ShowConflict, Fit,
             ShowHistory, HistoryVersion, HistoryOlder, HistoryRestore, HistoryCancel, HistoryUndo, HistoryAgain, HistoryTryAgain, HistoryChanges, HistoryBack, HistoryClose,
             ShowShare, ShareWayAction, ShareStart, ShareCancel, ShareStop, ShareAgain, ShareCheckGame, ShareStartPreview, ShareBack, ShareClose,
-        };
+        }.Concat(new[] { ShowFile, FileNextPage, FilePreviousPage, FileWhole, FileTryAgain, FileBack }).ToArray();
+
+        /// <summary>SCREENS's file reading's own action ids.</summary>
+        public static readonly IReadOnlyList<string> FileActions = new[] { ShowFile, FileNextPage, FilePreviousPage, FileWhole, FileTryAgain, FileBack };
 
         /// <summary>A result with nothing known of it: no check, no files, no actions, as after a restart before its history is read.</summary>
         public static RoomResult Nothing { get; } = new RoomResult(false, false, false, null, null, null);
 
         public RoomResult(bool isVr, bool canMakeVr, bool canTry, bool? passed, ObservedTurn? observed, IReadOnlyList<CheckStepOutcome>? steps,
             RoomResultPage page = RoomResultPage.Result, int part = 0, Halcyonic.Client.PlayInHeadset? play = null, RoomAdd? add = null, string? addReview = null,
-            HistoryColumn? history = null, ShareColumn? share = null, bool canShare = false, IReadOnlyList<ProjectPlace>? places = null)
+            HistoryColumn? history = null, ShareColumn? share = null, bool canShare = false, IReadOnlyList<ProjectPlace>? places = null, FileChangeColumn? file = null,
+            bool readsFiles = false)
         {
+            ReadsFiles = readsFiles;
+            File = page == RoomResultPage.File ? file : null;
             AddReview = addReview;
             Play = play;
             // The project's one list of places (LINK's ProjectPlaces, the lead's 11:37Z); where none is given, as in a fixed state, the
@@ -110,6 +125,12 @@ namespace Halcyonic.Client
             Page = page;
             Part = Math.Max(0, Math.Min(part, Parts - 1));
         }
+
+        /// <summary>
+        /// Whether a row of Changes may be pressed to read its file: only where a computer can be asked, never in the
+        /// demonstration, whose recording holds no file contents (AUDIT's F1, 2026-11-12: an action that cannot act is not drawn).
+        /// </summary>
+        public bool ReadsFiles { get; }
 
         /// <summary>Whether the project is made from a starter, a VR project already.</summary>
         public bool IsVr { get; }
@@ -134,6 +155,8 @@ namespace Halcyonic.Client
 
         /// <summary>The project's history where the History page shows (DEVICE's <see cref="HistoryColumn"/>); null on every other page.</summary>
         public HistoryColumn? History { get; }
+        /// <summary>The file of Changes being read where the File page shows (SCREENS's <see cref="FileChangeColumn"/>); null on every other page.</summary>
+        public FileChangeColumn? File { get; }
 
         /// <summary>The project's share where the Share page shows (DEVICE's <see cref="ShareColumn"/>); null on every other page.</summary>
         public ShareColumn? Share { get; }
@@ -251,7 +274,8 @@ namespace Halcyonic.Client
         /// </summary>
         public static RoomResult? Of(ProjectView? project, ClientProjection? state, ObservedTurn? observed,
             RoomResultPage page = RoomResultPage.Result, int part = 0, (ControlPlaneTarget? Target, bool Demonstration)? way = null, WorkstreamView? task = null,
-            HistoryColumn? history = null, ShareColumn? share = null, bool canSend = false, bool relays = false, bool relayBuilt = true)
+            HistoryColumn? history = null, ShareColumn? share = null, bool canSend = false, bool relays = false, bool relayBuilt = true,
+            FileChangeColumn? file = null)
         {
             if (project == null || state == null) return null;
             var screen = WorkspacePresentationState.ScreenOf(project, state, barOpen: true);
@@ -266,7 +290,8 @@ namespace Halcyonic.Client
                 // DEVICE's Share stands only where this headset can send to the computer (never in the demonstration; AUDIT reread
                 // MUST 1), and where the host would admit it (TASKS's conditions) or a share stands to stop.
                 canShare: canSend && (way?.Demonstration != true) && (project.Share != null || ShareColumn.Reason(project) == null),
-                places: way is { } at ? ProjectPlaces.Of(project, at.Target, at.Demonstration, relays: relays, relayBuilt: relayBuilt) : Array.Empty<ProjectPlace>());
+                places: way is { } at ? ProjectPlaces.Of(project, at.Target, at.Demonstration, relays: relays, relayBuilt: relayBuilt) : Array.Empty<ProjectPlace>(), file: file,
+                readsFiles: way is { Target: not null, Demonstration: false });
         }
     }
 

@@ -44,7 +44,7 @@ namespace Halcyonic.Client
             {
                 case RoomResultPage.Changes:
                     // FIELD's Changes card (A17): each file its kind's mark, its path, a quiet note; five a page (RoomCard.ListAPage).
-                    var changes = RoomPanelCards.Changes(result, frame.SubjectRuns);
+                    var changes = RoomPanelCards.Changes(result, frame.SubjectRuns, result.ReadsFiles ? change => FileRow(frame, change) : null);
                     card = changes.List.Count <= RoomCard.ListAPage ? changes
                         : new RoomCard(changes.Title, changes.Description, changes.Head, changes.Status, changes.Slots, changes.Steps, changes.TrackAt, changes.TrackOf,
                             changes.List.Skip(result.Part * RoomCard.ListAPage).Take(RoomCard.ListAPage).ToList(), changes.Gauges, changes.More);
@@ -144,6 +144,10 @@ namespace Halcyonic.Client
                         var control = new KitControl(KitPlace.Step, frame, id, action.CheckpointId, action.Words, icon, true, null, false);
                         column.Add(new RoomAction(control, action.Main, locks: action.Kind == HistoryActionKind.Restore, icon: icon));
                     }
+                    break;
+                case RoomResultPage.File when result.File is FileChangeColumn reading:
+                    // SCREENS's file of Changes read: its change, then the whole file, paged, with a way back at each step.
+                    (card, sentence) = FileReading(reading, frame, column);
                     break;
                 case RoomResultPage.Checks:
                     // FIELD's Checks card: the outcome as its status, the steps as nodes, the tries' pips on the failed one.

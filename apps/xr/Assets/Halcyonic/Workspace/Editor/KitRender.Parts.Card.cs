@@ -206,11 +206,13 @@ namespace Halcyonic.XR.Workspace.Editor
             };
         }
 
-        private static PartShot CardShot(string state, Transform root, Vector3 eyes, string name)
+        private static PartShot CardShot(string state, Transform root, Vector3 eyes, string name) => CardShot(CardOf(state), root, eyes, name, state);
+
+        /// <summary>A card given, measured and read as every card state is (SCREENS's file reading's states use it, with no kit state).</summary>
+        private static PartShot CardShot(RoomCard card, Transform root, Vector3 eyes, string name, string state = "")
         {
             var shot = new PartShot { Elevation = 0f };
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
-            var card = CardOf(state);
             Require(!card.AnyDot, "the card joins facts on a dot: " + string.Join(" / ", card.Words()));
             var unit = RoomType.Units(1f);
             var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);

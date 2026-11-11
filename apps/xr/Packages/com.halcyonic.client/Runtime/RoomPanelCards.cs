@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Halcyonic.Contracts;
@@ -60,14 +61,15 @@ namespace Halcyonic.Client
         /// Changes: the title, what the task did as its line, and a list, each file its kind's mark, its path (theirs, mono),
         /// and a quiet note of the kind ("New", "Edited", "Removed"). Where the computer could not say, a status says so.
         /// </summary>
-        public static RoomCard Changes(RoomResult result, LineWords task)
+        /// <param name="press">SCREENS's: a row's own control, so a file is read from its row (<see cref="FileChangeColumn"/>); none where null.</param>
+        public static RoomCard Changes(RoomResult result, LineWords task, Func<RoomChange, KitControl?>? press = null)
         {
             if (result.NotObserved) return new RoomCard(LineWords.Ours(ChangesTitle), status: new RoomCardStatus(NotSeen, NotSeenLine, RoomTone.Quiet));
             var rows = result.Changes.Select(change => new RoomListRow(
                 change.Kind == RoomChangeKind.Made ? RoomKind.Added : change.Kind == RoomChangeKind.Removed ? RoomKind.Removed : RoomKind.Changed,
                 LineWords.Theirs(change.Path),
                 change.Kind == RoomChangeKind.Made ? NewNote : change.Kind == RoomChangeKind.Removed ? RemovedNote : EditedNote,
-                mono: true)).ToList();
+                mono: true, press: press?.Invoke(change))).ToList();
             return new RoomCard(LineWords.Ours(ChangesTitle), LineWords.Ours("What ") + task + LineWords.Ours(" did to the project."), list: rows);
         }
 
