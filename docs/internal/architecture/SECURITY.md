@@ -646,7 +646,8 @@ What a client sees and can do about folders on the host
   Codex home that is a link, another user's, or holds a sign-in.
 - **Binaries and models.** It records the pinned OpenCode and Codex binaries and the voice models only
   when their SHA-256 matches the pins Halcyonic was checked with on Apple silicon; elsewhere it says
-  it cannot check them. It downloads nothing: what needs a download it shows as a command.
+  it cannot check them. It downloads nothing: what needs a download it shows as a command. The
+  setup page (below) runs those same commands, on the person's second press only.
 - **Folders.** Allowing a folder says what it allows and asks first. It refuses what the control
   plane refuses as a root (Controls, "Project roots"), and says a personal folder such as Documents
   holds much more than projects before it asks.
@@ -657,6 +658,26 @@ What a client sees and can do about folders on the host
 - **What it writes.** The settings file, and Halcyonic's own OpenCode settings in
   `<data dir>/opencode-config`, each mode 0600 in directories of mode 0700, through a new file
   renamed into place.
+
+### The setup page
+
+The same check and actions on a page at `/setup` of the pairing page's server
+([ADR 0053](../decisions/0053-the-macs-setup-runs-from-a-page-beside-pairing.md)). What it adds:
+
+- **Reach.** Only what the pairing page reaches: loopback, its one-time link and cookie, its Host,
+  Origin and `Sec-Fetch-Site` checks and its CSP. A view mounted on the page may add routes only
+  under `/setup`, each behind the session.
+- **Presses.** A fixed list of setup actions, each acting only on a second press of the same action
+  and argument; anything else is refused in words. None sets the paid runtime's switches.
+- **Downloads.** Only the pinned commands setup prints (npm with `--ignore-scripts`, the starter's
+  `npm ci` with no user or global npm settings and a fresh cache, `ollama pull` of the checked
+  models), with no shell, in a process group of their own, with `PATH`, `HOME`, `TMPDIR` and `LANG`
+  only: none of the control plane's own environment, its keys among it, reaches a download. One at
+  a time; Stop ends the whole group. Its lines are shown cleaned of terminal sequences and unseen
+  characters, with the home folder as `~`. What a download installs is recorded only through
+  setup's own action, which checks the pins.
+- **Restart.** Restart to Apply closes the control plane as a signal does and exits with code 75,
+  which only `Start Halcyonic.command` starts again; it says first which tasks will pause.
 
 ## Authorization
 

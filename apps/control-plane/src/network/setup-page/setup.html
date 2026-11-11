@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Set Up This Mac</title>
+<link rel="stylesheet" href="/page.css">
+<link rel="stylesheet" href="/setup.css">
+<script src="/setup.js" defer></script>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Set Up This Mac</h1>
+    <a class="page-link" href="/">Pairing</a>
+  </header>
+  <div class="row status-row">
+    <p id="status" class="status">Reading</p>
+    <button id="check" class="quiet-button" type="button">Check Again</button>
+  </div>
+  <section id="restart" class="restart" hidden>
+    <h2>Settings Changed</h2>
+    <p class="line">They apply when Halcyonic starts again.</p>
+    <p id="restart-by-hand" class="line" hidden>Stop Halcyonic and start it again.</p>
+    <button id="restart-button" class="primary" type="button">Restart to Apply</button>
+  </section>
+  <section id="confirm" class="confirm" hidden>
+    <p id="confirm-text" class="line"></p>
+    <div class="row">
+      <button id="confirm-yes" class="primary" type="button">Go On</button>
+      <button id="confirm-no" class="quiet-button" type="button">Cancel</button>
+    </div>
+  </section>
+  <section id="job" class="job" hidden>
+    <div class="job-head">
+      <h2 id="job-title">Download</h2>
+      <span id="job-state" class="job-state"></span>
+      <span id="job-time" class="job-time"></span>
+    </div>
+    <pre id="job-lines" class="lines"></pre>
+    <button id="job-stop" class="quiet-button" type="button">Stop</button>
+  </section>
+  <section id="said" class="said" hidden>
+    <pre id="said-lines" class="lines"></pre>
+  </section>
+  <ol id="steps" class="steps"></ol>
+  <p id="problem" class="problem" hidden></p>
+</main>
+</body>
+</html>

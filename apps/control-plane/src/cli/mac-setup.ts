@@ -112,7 +112,7 @@ export const DEFAULT_PROJECTS_FOLDER = 'HalcyonicProjects';
  * model is not meant for anyone under 18, so the default is the owner's decision; it was clean in
  * 3 of 3 runs of a kid's game where qwen3.6 was clean in 1 of 4.
  */
-const CHECKED_MODELS = [
+export const CHECKED_MODELS = [
   { name: 'qwen3.6:35b-a3b-nvfp4', bytes: 23.6e9 },
   { name: 'muse-glimmer:30b-mlx', bytes: 19.1e9 },
   { name: 'qwen3.8:27b-nvfp4', bytes: 18.2e9 },
@@ -122,7 +122,11 @@ const CHECKED_MODELS = [
  * The companion's own model, the owner's choice after lane C's trial (companion-model.md): a model
  * of its own answers beside a task on the agents' model, where sharing theirs waits for each step.
  */
-const COMPANION_MODEL = { name: 'qwen3.5:9b', download: '6.6 GB', memory: 'about 5.7 GB' } as const;
+export const COMPANION_MODEL = {
+  name: 'qwen3.5:9b',
+  download: '6.6 GB',
+  memory: 'about 5.7 GB',
+} as const;
 
 /** The context Ollama is told to give a model, and OpenCode and Codex to expect (local-models.md). */
 const OLLAMA_CONTEXT = 65_536;
@@ -159,6 +163,39 @@ const STATUS_WORDS: Record<Status, string> = {
   look: 'Look at this',
   unknown: "Can't tell yet",
 };
+
+/** Which step a state is, for a page that offers each step's action (ADR 0053). */
+export type SetupStepId =
+  | 'settings'
+  | 'folders'
+  | 'agent_apps'
+  | 'models'
+  | 'cost'
+  | 'voice'
+  | 'launcher'
+  | 'starter'
+  | 'undo'
+  | 'companion'
+  | 'usage_left'
+  | 'understand'
+  | 'catalog'
+  | 'running'
+  | 'headset';
+
+/** A step of the check as data: what the terminal prints for it. */
+export interface SetupStep extends Step {
+  readonly id: SetupStepId;
+}
+
+export type SetupStatus = Status;
+
+/** Every step's state as data, as `pnpm mac-setup` prints it, for the setup page (ADR 0053). Changes nothing. */
+export function macSetupSteps(
+  io: MacSetupIo,
+  options: { readonly useToken?: boolean } = {},
+): Promise<SetupStep[]> {
+  return new MacSetup(io, { useToken: options.useToken === true, yes: false }).steps();
+}
 
 interface Step {
   readonly title: string;
@@ -281,14 +318,16 @@ class MacSetup {
 
   // The check
 
-  async check(): Promise<number> {
+  /** Every step's state, as the check prints it, each with its id; changes nothing. */
+  async steps(): Promise<SetupStep[]> {
     const io = this.#io;
     const settings = this.#settings();
     const running = await this.#running();
     const ollama = await this.#ollama();
-    const steps: Step[] = [];
+    const steps: SetupStep[] = [];
     if ('error' in settings) {
       steps.push({
+        id: 'settings',
         title: "Halcyonic's settings",
         status: 'todo',
         lines: [`Halcyonic won't start with its settings as they are: ${settings.error}`],
@@ -296,20 +335,27 @@ class MacSetup {
     }
     const values = 'error' in settings ? {} : settings.values;
     const env = withSettings(io.env, values);
-    steps.push(this.#foldersStep(env));
-    steps.push(await this.#agentAppsStep(env, ollama));
-    steps.push(this.#modelsStep(ollama));
-    steps.push(this.#costStep(env, ollama));
-    steps.push(await this.#voiceStep(env));
-    steps.push(this.#launcherStep(env));
-    steps.push(this.#starterStep());
-    steps.push(this.#undoStep(env));
-    steps.push(await this.#companionStep(env, ollama, running));
-    steps.push(this.#usageLeftStep(running));
-    steps.push(this.#understandStep());
-    steps.push(this.#catalogStep());
-    steps.push(this.#runningStep(env, running));
-    steps.push(this.#headsetStep(env, running));
+    const add = (id: SetupStepId, step: Step) => steps.push({ id, ...step });
+    add('folders', this.#foldersStep(env));
+    add('agent_apps', await this.#agentAppsStep(env, ollama));
+    add('models', this.#modelsStep(ollama));
+    add('cost', this.#costStep(env, ollama));
+    add('voice', await this.#voiceStep(env));
+    add('launcher', this.#launcherStep(env));
+    add('starter', this.#starterStep());
+    add('undo', this.#undoStep(env));
+    add('companion', await this.#companionStep(env, ollama, running));
+    add('usage_left', this.#usageLeftStep(running));
+    add('understand', this.#understandStep());
+    add('catalog', this.#catalogStep());
+    add('running', this.#runningStep(env, running));
+    add('headset', this.#headsetStep(env, running));
+    return steps;
+  }
+
+  async check(): Promise<number> {
+    const io = this.#io;
+    const steps = await this.steps();
 
     io.print('Halcyonic on this Mac');
     io.print('');
@@ -2099,6 +2145,25 @@ function which(command: string): string | null {
   return null;
 }
 
+/** This Mac as setup sees it: its environment, home, Ollama, tools, firewall and pins. */
+export function localMacSetupIo(
+  print: (line: string) => void,
+  ask: MacSetupIo['ask'] = null,
+): MacSetupIo {
+  return {
+    env: process.env,
+    home: userInfo().homedir,
+    print,
+    ask,
+    fetch,
+    ollamaUrl: 'http://127.0.0.1:11434',
+    memoryBytes: totalmem(),
+    which,
+    firewall: platform() === 'darwin' ? readFirewall : () => null,
+    pins: pinsForThisMac(),
+  };
+}
+
 if (import.meta.main) {
   const terminal = process.stdin.isTTY === true;
   const ask = terminal
@@ -2111,18 +2176,10 @@ if (import.meta.main) {
         }
       }
     : null;
-  runMacSetup(process.argv.slice(2), {
-    env: process.env,
-    home: userInfo().homedir,
-    print: (line) => process.stdout.write(`${line}\n`),
-    ask,
-    fetch,
-    ollamaUrl: 'http://127.0.0.1:11434',
-    memoryBytes: totalmem(),
-    which,
-    firewall: platform() === 'darwin' ? readFirewall : () => null,
-    pins: pinsForThisMac(),
-  })
+  runMacSetup(
+    process.argv.slice(2),
+    localMacSetupIo((line) => process.stdout.write(`${line}\n`), ask),
+  )
     .then((status) => process.exit(status))
     .catch((error: unknown) => {
       process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

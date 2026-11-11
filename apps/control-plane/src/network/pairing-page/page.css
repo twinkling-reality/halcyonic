@@ -65,6 +65,15 @@ header {
   row-gap: 4px;
   margin-bottom: 20px;
 }
+/* A link between the pairing page and the setup view (ADR 0053). */
+.page-link {
+  color: var(--accent);
+  font-size: 15px;
+  text-decoration: none;
+}
+.page-link:hover {
+  color: var(--accent-hover);
+}
 h1 {
   margin: 0;
   font-size: 20px;

@@ -84,11 +84,19 @@ function placeNames(places: CheckLogPlaces): [string, string][] {
   ).sort((a, b) => b[0].length - a[0].length);
 }
 
-function cleanLine(line: string, names: readonly [string, string][]): string {
-  let out = line
+/**
+ * A line a program printed as plain text: no terminal sequences, no unseen characters but tab, and
+ * line separators as spaces. The setup page's downloads show their lines so too (ADR 0053).
+ */
+export function plainLine(line: string): string {
+  return line
     .replace(ESCAPES, '')
     .replace(BREAKS, ' ')
     .replace(UNSEEN, (char) => (char === '\t' ? char : ''));
+}
+
+function cleanLine(line: string, names: readonly [string, string][]): string {
+  let out = plainLine(line);
   for (const [path, name] of names) if (path !== '') out = out.split(path).join(name);
   return out;
 }

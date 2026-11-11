@@ -7,6 +7,7 @@ import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integ
 import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
 import { CheckpointStore } from './checkpoints/store.ts';
+import { localMacSetupIo } from './cli/mac-setup.ts';
 import { Companion } from './companion/companion.ts';
 import { type ControlPlaneConfig, defaultDataDir, loadConfig, parseNetwork } from './config.ts';
 import { ControlPlane } from './core/control-plane.ts';
@@ -27,6 +28,14 @@ import { DeviceAccess } from './network/devices.ts';
 import { OPEN_LINK_KEEP_MS, openLinkPrivately, sweepOpenLinks } from './network/open-link.ts';
 import { PairingPage, pairingControls } from './network/pairing-page.ts';
 import { confinedPreviewTarget } from './network/preview-relay.ts';
+import {
+  mountSetup,
+  RESTART_EXIT_CODE,
+  runCommand,
+  SetupView,
+  settingsForRestart,
+  setupDownloads,
+} from './network/setup-page.ts';
 import { NetworkSwitch } from './network/switch.ts';
 import { matchesPin, pinsForThisMac } from './pins.ts';
 import { audioOutputFor, outputInTree } from './preview/audio-output.ts';
@@ -375,6 +384,54 @@ async function main(): Promise<void> {
         },
         remember: (on) => rememberNetworkListener(config.dataDir, on),
       }),
+      {
+        // The setup view beside pairing (ADR 0053): every step `pnpm mac-setup` checks, with its presses.
+        mount: mountSetup(
+          new SetupView(
+            {
+              dataDir: config.dataDir,
+              home: homedir(),
+              io: (print) => localMacSetupIo(print),
+              run: runCommand,
+              appliedAtStart: settingsForRestart(settings),
+              appliedNow: () => {
+                try {
+                  return settingsForRestart(readHostSettings(config.dataDir));
+                } catch {
+                  return 'unreadable';
+                }
+              },
+              canRestart: process.argv.includes('--restartable'),
+              tasksThatPause: () =>
+                controlPlane.projection
+                  .executions()
+                  .filter((execution) =>
+                    ['starting', 'running', 'verifying', 'waiting_for_human'].includes(
+                      execution.status,
+                    ),
+                  )
+                  .map(
+                    (execution) =>
+                      controlPlane.projection.workstream(execution.workstream_id)?.title ??
+                      'a task',
+                  ),
+              // Closed cleanly first (the journal's checkpoint, the runtimes stopped), then the
+              // launcher starts Halcyonic again on this exit code; tasks come back through re-attach.
+              restart: () => {
+                // A close that fails exits 1, so the launcher stops rather than start a half-closed one again.
+                void shutdown({ reason: 'restart to apply settings' }).then(
+                  () => process.exit(RESTART_EXIT_CODE),
+                  (error: unknown) => {
+                    app.log.error({ err: error }, 'closing for the restart failed');
+                    process.exit(1);
+                  },
+                );
+              },
+            },
+            setupDownloads(config.dataDir, localMacSetupIo(() => undefined).which),
+          ),
+        ),
+      },
     );
   } catch (error) {
     app.log.warn({ err: error }, 'the pairing page could not be served');

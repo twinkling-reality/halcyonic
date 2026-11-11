@@ -35,6 +35,16 @@ which only you can read or change, and Halcyonic reads it when it starts
 ([ADR 0024](../decisions/0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md)). A
 `HALCYONIC_` variable set in the environment still wins over the file.
 
+With Halcyonic running, the same steps are on a page: **Set Up This Mac** on the pairing page
+(below) opens it ([ADR 0053](../decisions/0053-the-macs-setup-runs-from-a-page-beside-pairing.md)).
+Each step there has the presses its commands make, and each press says first what it will run; a
+download button also says what it fetches, its version, its size and from where, and runs the
+pinned command this section prints, one at a time, with its progress and a Stop. Pairing's own
+setting applies at once. Any other changed setting shows **Restart to Apply**, which says which
+tasks will pause, closes Halcyonic and starts it again with the new settings; they come back
+through re-attach. Only `Start Halcyonic.command` can start it again, so started by hand
+(`pnpm start`, `pnpm dev`) the page says to stop and start it yourself.
+
 1. **Allow a folder for projects.** Agents may read and change anything in a folder you allow, and
    in every folder inside it. A paired headset sees the names of the folders directly inside it, can
    make new empty folders there with no limit on how many, and can move any project to another
