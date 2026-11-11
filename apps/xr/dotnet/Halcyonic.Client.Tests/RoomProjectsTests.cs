@@ -36,7 +36,7 @@ public sealed class RoomProjectsTests
         Assert.That(bar.Card!.AnyDot, Is.False, "no fact joined to another on a dot");
         Assert.That(bar.Card.List.Select(row => (row.Name.Text, row.Note, row.Tone, row.Name.AllTheirs)), Is.EqualTo(new[]
         {
-            ("Alpha", (string?)"Needs You", RoomTone.Attention, true), ("Beta", (string?)"Paused", RoomTone.Quiet, true),
+            ("Alpha", (string?)"Needs You", RoomTone.Attention, true), ("Beta", (string?)"1 Task", RoomTone.Quiet, true),
         }));
         // Each row is picked: its press is the frame's own project choice.
         Assert.That(bar.Card.List.Select(row => (row.Press?.Action, row.Press?.Key)), Is.EqualTo(new[]
@@ -44,9 +44,9 @@ public sealed class RoomProjectsTests
             ((string?)ProjectsScreens.ChooseProject, (string?)"a"), (ProjectsScreens.ChooseProject, "b"),
         }));
         Assert.That(bar.Card.List.All(row => ReferenceEquals(row.Press!.Frame, frame)), Is.True, "every press is of the frame drawn");
-        // New Project leads; the menu's other places stand in the column; the task count is a fact of the state apart.
+        // FIELD's column: New Project leads, Settings, Close last where the frame offers it; nothing else.
         Assert.That((bar.Column[0].Control.Action, bar.Column[0].Main), Is.EqualTo((ProjectsScreens.NewProject, true)));
-        Assert.That(bar.Column.Count(action => action.Control.Action == MenuFrame.ChooseSection), Is.GreaterThan(0));
+        Assert.That(bar.Column.Where(action => action.Control.Action == MenuFrame.ChooseSection).Select(action => action.Control.Key), Is.EqualTo(new[] { MenuPlace.Settings.ToString() }));
         Assert.That(frame.Lines.Select(line => line.ProjectState?.TasksWords), Is.EqualTo(new[] { "1 Task", "1 Task" }));
     }
 
