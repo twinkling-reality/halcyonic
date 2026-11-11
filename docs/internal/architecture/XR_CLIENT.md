@@ -3487,10 +3487,11 @@ instruction; typing always stays:
   instructions and the row has room; a heard instruction always asks "Your computer heard the words above. Send them?" under the words, once all its parts are read.
   Never in the recorded demonstration, and never for approve, deny, stop or any
   confirmation.
-- **Release builds carry none of it.** The microphone code compiles only with `DEVELOPMENT_BUILD`
-  or in the editor, so a release player never uses `Microphone`, which is what makes Unity add
-  `RECORD_AUDIO`; `QuestBuild.BuildReleaseApk` also deletes and fails a release APK whose manifest
-  asks for it.
+- **Every build carries it** (ADR 0021, amended 2026-11-11). The microphone code compiles for every
+  player, so a release APK asks for `RECORD_AUDIO`, and `QuestBuild.BuildReleaseApk` deletes and fails
+  one that does not. Voice is offered only while a computer is connected and no recording plays
+  (`MenuDirector.VoiceOffered`), so a headset with no computer, as a judge's, is never asked for the
+  microphone. Without voice set up on the Mac a clip reads "Voice Not Set Up · Type Instead".
 
 The production native panel also offers held dictation in development APKs only, beside its
 ordinary instruction and workspace-request editors. Its existing debuggable-build gate excludes
