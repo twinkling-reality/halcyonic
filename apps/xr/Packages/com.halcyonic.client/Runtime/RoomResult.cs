@@ -78,6 +78,11 @@ namespace Halcyonic.Client
         public const string FileBack = "room-file-back";
         /// <summary>SCREENS's Carry Out Plan on a plan's result (<see cref="RunStart.CanCarryOut"/>).</summary>
         public const string CarryOutPlan = "room-carry-out-plan";
+        /// <summary>SCREENS's waiting instructions (<see cref="WaitingInstructions"/>): a row opened (its key the command), Drop, Back.</summary>
+        public const string WaitingOpen = "room-waiting-open";
+        public const string WaitingDrop = "room-waiting-drop";
+        public const string WaitingBack = "room-waiting-back";
+        public const string WaitingAgain = "room-waiting-again";
 
         public const string ChangesWords = "Changes";
         public const string ChecksWords = "Checks";
@@ -93,7 +98,7 @@ namespace Halcyonic.Client
             MakeVrVersion, TryBuild, ShowChanges, ShowChecks, NextPage, Back, PlayInHeadset, ShowAdd, AddConfirm, ShowConflict, Fit,
             ShowHistory, HistoryVersion, HistoryOlder, HistoryRestore, HistoryCancel, HistoryUndo, HistoryAgain, HistoryTryAgain, HistoryChanges, HistoryBack, HistoryClose,
             ShowShare, ShareWayAction, ShareStart, ShareCancel, ShareStop, ShareAgain, ShareCheckGame, ShareStartPreview, ShareBack, ShareClose,
-        }.Concat(new[] { ShowFile, FileNextPage, FilePreviousPage, FileWhole, FileTryAgain, FileBack, CarryOutPlan }).ToArray();
+        }.Concat(new[] { ShowFile, FileNextPage, FilePreviousPage, FileWhole, FileTryAgain, FileBack, CarryOutPlan, WaitingOpen, WaitingDrop, WaitingBack, WaitingAgain }).ToArray();
 
         /// <summary>SCREENS's file reading's own action ids.</summary>
         public static readonly IReadOnlyList<string> FileActions = new[] { ShowFile, FileNextPage, FilePreviousPage, FileWhole, FileTryAgain, FileBack };
@@ -103,10 +108,11 @@ namespace Halcyonic.Client
 
         public RoomResult(bool isVr, bool canMakeVr, bool canTry, bool? passed, ObservedTurn? observed, IReadOnlyList<CheckStepOutcome>? steps,
             RoomResultPage page = RoomResultPage.Result, int part = 0, Halcyonic.Client.PlayInHeadset? play = null, RoomAdd? add = null, string? addReview = null,
-            HistoryColumn? history = null, ShareColumn? share = null, bool canShare = false, IReadOnlyList<ProjectPlace>? places = null, FileChangeColumn? file = null, RunStart? start = null,
+            HistoryColumn? history = null, ShareColumn? share = null, bool canShare = false, IReadOnlyList<ProjectPlace>? places = null, FileChangeColumn? file = null, RunStart? start = null, WaitingInstructions? waiting = null,
             bool readsFiles = false)
         {
             ReadsFiles = readsFiles;
+            Waiting = waiting;
             Start = start;
             File = page == RoomResultPage.File ? file : null;
             AddReview = addReview;
@@ -161,6 +167,9 @@ namespace Halcyonic.Client
 
         /// <summary>What the run's start was, as the runtime confirmed it: a plan, or not kept to its folder (SCREENS's <see cref="RunStart"/>).</summary>
         public RunStart? Start { get; }
+
+        /// <summary>Instructions waiting for the running turn to end (SCREENS's <see cref="WaitingInstructions"/>); null where none is read.</summary>
+        public WaitingInstructions? Waiting { get; }
         /// <summary>The file of Changes being read where the File page shows (SCREENS's <see cref="FileChangeColumn"/>); null on every other page.</summary>
         public FileChangeColumn? File { get; }
 
@@ -282,7 +291,7 @@ namespace Halcyonic.Client
         public static RoomResult? Of(ProjectView? project, ClientProjection? state, ObservedTurn? observed,
             RoomResultPage page = RoomResultPage.Result, int part = 0, (ControlPlaneTarget? Target, bool Demonstration)? way = null, WorkstreamView? task = null,
             HistoryColumn? history = null, ShareColumn? share = null, bool canSend = false, bool relays = false, bool relayBuilt = true,
-            FileChangeColumn? file = null, RunStart? start = null)
+            FileChangeColumn? file = null, RunStart? start = null, WaitingInstructions? waiting = null)
         {
             if (project == null || state == null) return null;
             var screen = WorkspacePresentationState.ScreenOf(project, state, barOpen: true);
@@ -297,7 +306,7 @@ namespace Halcyonic.Client
                 // DEVICE's Share stands only where this headset can send to the computer (never in the demonstration; AUDIT reread
                 // MUST 1), and where the host would admit it (TASKS's conditions) or a share stands to stop.
                 canShare: canSend && (way?.Demonstration != true) && (project.Share != null || ShareColumn.Reason(project) == null),
-                places: way is { } at ? ProjectPlaces.Of(project, at.Target, at.Demonstration, relays: relays, relayBuilt: relayBuilt) : Array.Empty<ProjectPlace>(), file: file, start: start,
+                places: way is { } at ? ProjectPlaces.Of(project, at.Target, at.Demonstration, relays: relays, relayBuilt: relayBuilt) : Array.Empty<ProjectPlace>(), file: file, start: start, waiting: waiting,
                 readsFiles: way is { Target: not null, Demonstration: false });
         }
     }

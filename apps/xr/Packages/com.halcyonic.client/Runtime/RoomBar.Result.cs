@@ -28,7 +28,9 @@ namespace Halcyonic.Client
             // only while the folder is as it was checked. That the tries ran out stays true whatever the folder did (AUDIT, 2026-11-11).
             if (binding.Model.AutoFix?.Reason == Halcyonic.Contracts.AutoFixEndReason.Passed && result.Passed != true) fixedLine = null;
             var ranOut = fixedLine != null && binding.Model.AutoFix!.Reason == Halcyonic.Contracts.AutoFixEndReason.CapReached;
-            if (loop.Pair || loop.State is RoomBarState.Sent or RoomBarState.Words || !result.Any && fixedLine == null && binding.Model.Standing == null) return loop;
+            if (loop.Pair || loop.State is RoomBarState.Sent or RoomBarState.Words || !result.Any && fixedLine == null && binding.Model.Standing == null && result.Waiting?.NotSent == null) return loop;
+            // SCREENS's instruction that waited and was not sent leads the result until the person goes Back from it.
+            if (Unsent(binding, result, loop) is RoomBar unsent) return unsent;
             var frame = binding.Frame;
             // The view draws each action's glyph by its words (RoomGlyphs); the icon is the nearest of the product's own.
             RoomAction Own(string action, string words, bool main, GlazeIcon icon) =>
