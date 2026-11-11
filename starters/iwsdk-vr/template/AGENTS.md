@@ -117,6 +117,16 @@ A view from another app, not a game:
   `table.position.set(0, 0.9, -1.8)`, with a light from above. Without `picture` it is coloured by height; pass one only
   when it is a picture of exactly the same ground made to look at (satellite, a shaded map), never a data image whose
   colours are codes. It takes the planet's place in the whole small view.
+- For pages (a lesson, a set of cards or steps, slides, a page of sections, rather than one picture to stand in), the
+  subject is the original's own pages: `pages(list, options)` from `./kit.js` draws each as a readable panel in an arc
+  1.6 m in front of the person. Read the cards' own words from the original's files (its HTML, Markdown, JSON or the
+  component that renders them, never the share image or the landing page's banner) and pass up to six of them, each
+  `{ title, text, picture }`, in the original's order, with `picture` the card's own picture read with
+  `AssetManager.getTexture(...)` where it has one. Give `color`, `ink` and `accent` from the original's own styles.
+  Make each panel pressable and answer with the page coming forward:
+  `book.panels.forEach((panel, i) => onSelect(world.createTransformEntity(panel), () => book.show(i)))`, with
+  `const book = pages(list, options)`; `show(i)` brings that page forward and lights it. It takes the planet's place in
+  the whole small view; keep `setupScene`'s background in the original's own page colour.
 - `setupScene` adds no light. A picture all round (a sky, stars) goes on a `MeshBasicMaterial`, which needs none; a
   `MeshStandardMaterial` draws black until you add the lights the original uses.
 - Put the view around the person: what they look at from 1 m to 4 m away, something large (a planet, a mountain

@@ -574,3 +574,46 @@ describe('land comes into VR as a relief table from its own heights (VRIFY)', ()
     assert.match(section, /never a data image whose\s+colours are codes/);
   });
 });
+
+describe("a web page's own cards come into VR as pages of their own (VRIFY unit 2)", () => {
+  // A lesson, steps or a deck of cards is not one striking view: the worked view showed a share picture on a card.
+  // pages() lays the original's own cards out as readable panels in front of the person, and a press answers.
+  test('pages draws each card, its title, its words wrapped and its picture, on a canvas texture of its own', () => {
+    const pages = read('src/pages.ts');
+    assert.match(
+      pages,
+      /export function pages\(list: readonly Page\[\], options: PagesOptions = \{\}\): Pages/,
+    );
+    assert.match(pages, /export interface Page \{/);
+    assert.match(pages, /readonly title: string;/);
+    assert.match(pages, /readonly text: string;/);
+    assert.match(pages, /readonly picture\?: /);
+    assert.match(pages, /new CanvasTexture\(/);
+    assert.match(pages, /colorSpace = SRGBColorSpace/);
+    assert.match(pages, /needsUpdate = true/);
+    assert.match(pages, /measureText\(/, 'the words are wrapped to the panel');
+    assert.match(pages, /drawImage\(/, 'a picture is drawn on its page');
+  });
+
+  test('a press answers on the game clock: show(i) brings that page forward and lights it, with no timer of its own', () => {
+    const pages = read('src/pages.ts');
+    assert.match(pages, /show\(index: number\): void;/);
+    assert.match(pages, /ambientMotion\(/);
+    assert.match(pages, /gameTime\(\)/);
+    assert.doesNotMatch(
+      pages,
+      /setTimeout|setInterval|Date\.now|performance\.now|requestAnimationFrame/,
+    );
+  });
+
+  test('the kit gives pages, and the agent is told when a web page becomes pages and how to press one', () => {
+    assert.match(
+      read('src/kit.ts'),
+      /export \{ type Page, type Pages, type PagesOptions, pages \} from '\.\/pages\.js';/,
+    );
+    const agents = read('AGENTS.md');
+    assert.match(agents, /pages\(list/);
+    assert.match(agents, /onSelect\(world\.createTransformEntity\(panel\)/);
+    assert.match(agents, /show\(i\)/);
+  });
+});
