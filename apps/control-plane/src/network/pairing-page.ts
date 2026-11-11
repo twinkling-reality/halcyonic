@@ -81,7 +81,26 @@ export interface PairingPageOptions {
   readonly ports?: readonly [number, number];
   readonly linkMs?: number;
   readonly now?: () => number;
+  /**
+   * Another view this page serves beside pairing, under `/setup` only (the setup page, ADR 0053):
+   * the same link, session, Host, Origin and Sec-Fetch-Site checks and the same headers as pairing's
+   * own routes. Nothing it adds reaches pairing's state.
+   */
+  readonly mount?: (routes: PageRoutes) => void;
 }
+
+/** What a view mounted on the page may add: routes behind the page's session and checks, under `/setup`. */
+export interface PageRoutes {
+  /** A GET answered only with a session. */
+  get(path: string, handler: (request: FastifyRequest) => unknown): void;
+  /** A POST from the page's own origin, answered only with a session. */
+  post(path: string, handler: (request: FastifyRequest) => unknown): void;
+  /** A static file behind the session. */
+  asset(path: string, type: string, body: Buffer): void;
+}
+
+/** The only paths a mounted view may add. */
+const MOUNT_PREFIX = '/setup';
 
 /** What the page shows now; the code only while a window it opened is open. */
 export interface PageState {
@@ -143,6 +162,7 @@ export class PairingPage {
   readonly #controls: PairingPageControls;
   readonly #linkMs: number;
   readonly #now: () => number;
+  readonly #mount: ((routes: PageRoutes) => void) | undefined;
   /** Unused link codes, by their hash, with when each runs out. */
   readonly #codes = new Map<string, number>();
   readonly #sessions: string[] = [];
@@ -157,12 +177,14 @@ export class PairingPage {
     controls: PairingPageControls,
     linkMs: number,
     now: () => number,
+    mount?: (routes: PageRoutes) => void,
   ) {
     this.#app = app;
     this.port = port;
     this.#controls = controls;
     this.#linkMs = linkMs;
     this.#now = now;
+    this.#mount = mount;
   }
 
   /** Serves the page on the first free port of its range. */
@@ -179,6 +201,7 @@ export class PairingPage {
         controls,
         options.linkMs ?? PAGE_LINK_MS,
         options.now ?? Date.now,
+        options.mount,
       );
       page.#routes();
       try {
@@ -305,6 +328,43 @@ export class PairingPage {
         this.#problem = "That headset isn't paired with this computer.";
       }
     });
+    if (this.#mount !== undefined) this.#mount(this.#mountedRoutes());
+  }
+
+  /** The routes a mounted view adds, each behind the session, under `/setup` only. */
+  #mountedRoutes(): PageRoutes {
+    const app = this.#app;
+    const under = (path: string) => {
+      if (
+        path !== MOUNT_PREFIX &&
+        !path.startsWith(`${MOUNT_PREFIX}/`) &&
+        !path.startsWith(`${MOUNT_PREFIX}.`)
+      )
+        throw new Error(`a mounted view may add only paths under ${MOUNT_PREFIX}: ${path}`);
+    };
+    return {
+      get: (path, handler) => {
+        under(path);
+        app.get(path, async (request, reply) => {
+          if (!this.#hasSession(request)) return reply.code(403).type('text/plain').send(AGAIN);
+          return handler(request);
+        });
+      },
+      post: (path, handler) => {
+        under(path);
+        app.post(path, async (request, reply) => {
+          if (!this.#hasSession(request)) return reply.code(403).type('text/plain').send(AGAIN);
+          return handler(request);
+        });
+      },
+      asset: (path, type, body) => {
+        under(path);
+        app.get(path, async (request, reply) => {
+          if (!this.#hasSession(request)) return reply.code(403).type('text/plain').send(AGAIN);
+          return reply.type(type).send(body);
+        });
+      },
+    };
   }
 
   async #turn(to: 'on' | 'off'): Promise<void> {

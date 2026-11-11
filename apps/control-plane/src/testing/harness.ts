@@ -26,7 +26,7 @@ import type { Logger } from '../logger.ts';
 import { createNetworkIdentity, type NetworkIdentity } from '../network/certificate.ts';
 import { DeviceAccess } from '../network/devices.ts';
 import { Pairing, type PairingLimits } from '../network/pairing.ts';
-import { PairingPage, pairingControls } from '../network/pairing-page.ts';
+import { type PageRoutes, PairingPage, pairingControls } from '../network/pairing-page.ts';
 import type { PreviewTarget } from '../network/preview-relay.ts';
 import {
   createNetworkServer,
@@ -153,6 +153,8 @@ export interface TestServerOptions extends TestControlPlaneOptions {
       readonly localName: string | null;
       readonly interfaces: NodeJS.Dict<NetworkInterfaceInfo[]>;
     };
+    /** More of the page, as main mounts the setup view (ADR 0053). */
+    readonly mount?: (routes: PageRoutes) => void;
   };
   readonly logLevel?: LogLevel;
   /** Receives both listeners' log lines, for tests that check what is logged. */
@@ -254,7 +256,10 @@ export async function startTestServer(options: TestServerOptions = {}) {
             listenOn: () => ({ host: '127.0.0.1', port: 0 }),
             remember: (on) => rememberNetworkListener(dataDir, on),
           }),
-          { ports: options.page.ports },
+          {
+            ports: options.page.ports,
+            ...(options.page.mount === undefined ? {} : { mount: options.page.mount }),
+          },
         );
   registerRoutes(app, harness.controlPlane, sources);
   registerRealtime(app, harness.controlPlane);

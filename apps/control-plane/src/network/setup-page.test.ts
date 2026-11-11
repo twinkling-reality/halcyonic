@@ -1,0 +1,495 @@
+import assert from 'node:assert/strict';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { request } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, type TestContext, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import type { MacSetupIo } from '../cli/mac-setup.ts';
+import { readHostSettings, rememberNetworkListener, writeHostSettings } from '../settings.ts';
+import { startTestServer } from '../testing/harness.ts';
+import {
+  type CommandRunner,
+  mountSetup,
+  RESTART_EXIT_CODE,
+  runCommand,
+  type SetupState,
+  SetupView,
+  settingsForRestart,
+  setupDownloads,
+} from './setup-page.ts';
+
+/** CORE's scratch block; the page takes the first free port in it. */
+const PORTS = [47900, 47909] as const;
+const STARTER = fileURLToPath(new URL('../../../../starters/iwsdk-vr', import.meta.url));
+
+interface Mac {
+  readonly home: string;
+  readonly dataDir: string;
+  readonly io: (print: (line: string) => void) => MacSetupIo;
+}
+
+/** A Mac of its own in a scratch folder, offline: nothing it checks reaches a network. */
+function mac(t: TestContext): Mac {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-setup-page-')));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const home = join(root, 'home');
+  const dataDir = join(home, '.halcyonic');
+  mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+  return {
+    home,
+    dataDir,
+    io: (print) => ({
+      env: { HOME: home, HALCYONIC_DATA_DIR: dataDir, HALCYONIC_PORT: '47909' },
+      home,
+      print,
+      ask: null,
+      fetch: (async () => {
+        throw new TypeError('fetch failed');
+      }) as typeof fetch,
+      ollamaUrl: 'http://127.0.0.1:47908',
+      memoryBytes: 64 * 1024 ** 3,
+      which: () => null,
+      firewall: () => null,
+      pins: null,
+    }),
+  };
+}
+
+interface Run {
+  readonly argv: string[];
+  readonly cwd: string;
+  readonly line: (line: string) => void;
+  readonly finish: (code: number) => void;
+  stopped: boolean;
+}
+
+/** A runner that runs nothing: each command waits until the test finishes it. Nothing is downloaded. */
+function fakeRunner(): { readonly run: CommandRunner; readonly runs: Run[] } {
+  const runs: Run[] = [];
+  const run: CommandRunner = (argv, options) => {
+    let finish: (code: number) => void = () => undefined;
+    const done = new Promise<number>((resolve) => {
+      finish = resolve;
+    });
+    const entry: Run = {
+      argv: [...argv],
+      cwd: options.cwd,
+      line: options.onLine,
+      finish,
+      stopped: false,
+    };
+    runs.push(entry);
+    return {
+      done,
+      stop: () => {
+        entry.stopped = true;
+        finish(143);
+      },
+    };
+  };
+  return { run, runs };
+}
+
+interface Setup {
+  readonly view: SetupView;
+  readonly runs: Run[];
+  readonly restarts: { count: number };
+  readonly mac: Mac;
+}
+
+function setup(
+  t: TestContext,
+  options: { canRestart?: boolean; tasks?: readonly string[] } = {},
+): Setup {
+  const machine = mac(t);
+  const { run, runs } = fakeRunner();
+  const restarts = { count: 0 };
+  const applied = () => settingsForRestart(readHostSettings(machine.dataDir));
+  const view = new SetupView(
+    {
+      dataDir: machine.dataDir,
+      home: machine.home,
+      io: machine.io,
+      run,
+      appliedAtStart: applied(),
+      appliedNow: applied,
+      canRestart: options.canRestart ?? true,
+      tasksThatPause: () => options.tasks ?? [],
+      restart: () => {
+        restarts.count += 1;
+      },
+    },
+    setupDownloads(machine.dataDir, () => null),
+  );
+  return { view, runs, restarts, mac: machine };
+}
+
+/** The state once the running download has ended. */
+async function ended(view: SetupView): Promise<SetupState> {
+  for (let tries = 0; tries < 500; tries += 1) {
+    const state = await view.state();
+    if (state.job?.state !== 'running') return state;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error('the download never ended');
+}
+
+function step(state: SetupState, id: string) {
+  const found = state.steps.find((entry) => entry.id === id);
+  assert.ok(found, `the page shows the ${id} step`);
+  return found;
+}
+
+describe('the setup view', () => {
+  test('shows every setup step with its presses, and what each download fetches before it', async (t) => {
+    const { view, runs } = setup(t);
+    const state = await view.state();
+    for (const id of ['folders', 'agent_apps', 'models', 'cost', 'starter', 'companion']) {
+      step(state, id);
+    }
+    assert.equal(state.job, null);
+    assert.equal(state.restart_needed, false, 'nothing has changed since the start');
+    assert.equal(state.can_restart, true);
+    const opencode = step(state, 'agent_apps').actions.find((action) => action.arg === 'opencode');
+    assert.match(
+      opencode?.fetches ?? '',
+      /OpenCode 2\.0\.18 .*about 171 MB.*public npm registry, with no install scripts/,
+    );
+    for (const action of step(state, 'models').actions) {
+      assert.match(action.fetches ?? '', /GB, into Ollama on this Mac/);
+    }
+    assert.doesNotMatch(
+      JSON.stringify(state.steps.flatMap((entry) => entry.actions)),
+      /claude|anthropic|AGENT_ENV/i,
+      'no press turns on the paid runtime: its words say it is set up by hand only',
+    );
+    assert.equal(runs.length, 0, 'showing the page runs nothing');
+  });
+
+  test('a press acts only on its second press, on what the page said it would do', async (t) => {
+    const { view, mac: machine } = setup(t);
+    const projects = join(machine.home, 'HalcyonicProjects');
+    const forged = await view.act('allow', null, true);
+    assert.match(forged.confirm?.text ?? '', /pnpm mac-setup allow --yes/);
+    assert.equal(readHostSettings(machine.dataDir).HALCYONIC_PROJECT_ROOTS, undefined);
+    const other = await view.act('undo', null, true);
+    assert.equal(
+      other.confirm?.action,
+      'undo',
+      'a second press of another action is a first press',
+    );
+    assert.equal(readHostSettings(machine.dataDir).HALCYONIC_PROJECT_ROOTS, undefined);
+    await view.act('allow', null, false);
+    assert.equal(existsSync(projects), false, 'the first press changes nothing');
+    const done = await view.act('allow', null, true);
+    assert.equal(done.confirm, null);
+    assert.equal(readHostSettings(machine.dataDir).HALCYONIC_PROJECT_ROOTS, projects);
+    assert.ok(done.said.length > 0, 'the page says what setup said');
+    assert.ok(
+      done.said.every((line) => !line.includes(machine.home)),
+      'and names the home folder as ~',
+    );
+    assert.equal(done.restart_needed, true, 'a new folder applies at the next start');
+  });
+
+  test('refuses every press it does not offer', async (t) => {
+    const { view, runs, mac: machine } = setup(t);
+    for (const [action, arg] of [
+      ['claude_agent', null],
+      ['local_model', 'qwen3-coder:480b-cloud'],
+      ['companion', 'llama3:70b'],
+      ['undo', 'sideways'],
+      ['download', 'left-pad'],
+      [42, null],
+    ] as const) {
+      await view.act(action, arg, false);
+      const state = await view.act(action, arg, true);
+      assert.equal(state.confirm, null, `${String(action)} asks nothing`);
+      assert.match(state.said.join(' '), /not one this page offers/);
+    }
+    assert.equal(runs.length, 0);
+    assert.deepEqual(readHostSettings(machine.dataDir), {});
+  });
+
+  test('runs one download at a time, as setup prints it, shows its progress and stops it', async (t) => {
+    const { view, runs, mac: machine } = setup(t);
+    const asked = await view.act('download', 'opencode', false);
+    assert.match(asked.confirm?.text ?? '', /OpenCode 2\.0\.18 .* Go On downloads it\./);
+    assert.equal(runs.length, 0, 'the first press downloads nothing');
+    const started = await view.act('download', 'opencode', true);
+    assert.equal(started.job?.state, 'running');
+    assert.deepEqual(runs[0]?.argv, [
+      'npm',
+      'install',
+      '--prefix',
+      join(machine.dataDir, 'runtimes', 'opencode-2.0.18'),
+      '@opencode/cli@2.0.18',
+      '--ignore-scripts',
+    ]);
+    const second = await view.act('download', 'codex', false);
+    assert.match(second.said.join(' '), /Another download is running/);
+    assert.equal(second.confirm, null);
+    assert.equal(runs.length, 1, 'never two at once');
+    const run = runs[0] as Run;
+    run.line(`\u001b[32madded\u001b[0m 1 package in ${machine.home}/x\u0007​`);
+    for (let index = 0; index < 20; index += 1) run.line(`line ${index}`);
+    run.line('x'.repeat(500));
+    run.line('   ');
+    const shown = (await view.state()).job;
+    assert.equal(shown?.lines.length, 12, 'the last 12 lines');
+    assert.equal(shown?.lines.at(-1), 'x'.repeat(200), 'each at most 200 characters');
+    assert.equal(shown?.lines[0], 'line 9');
+    const fresh = setup(t);
+    await fresh.view.act('download', 'opencode', false);
+    await fresh.view.act('download', 'opencode', true);
+    fresh.runs[0]?.line(`\u001b[32madded\u001b[0m 1 package in ${fresh.mac.home}/x\u0007​`);
+    assert.deepEqual((await fresh.view.state()).job?.lines, ['added 1 package in ~/x']);
+    await view.stop();
+    assert.equal(run.stopped, true);
+    assert.equal((await ended(view)).job?.state, 'stopped');
+    await view.act('download', 'codex', false);
+    await view.act('download', 'codex', true);
+    assert.equal(runs.length, 2, 'once stopped, another can start');
+    assert.ok(runs[1]?.argv.includes('@openai/codex@0.157.0'));
+    runs[1]?.finish(1);
+    assert.equal((await ended(view)).job?.state, 'failed');
+    fresh.runs[0]?.finish(0);
+    const recorded = await ended(fresh.view);
+    assert.equal(recorded.job?.state, 'done');
+    assert.ok(
+      (recorded.job?.lines.length ?? 0) > 1,
+      'setup checks the agent apps after the download and says what it found',
+    );
+  });
+
+  test('the starter uses its pinned lockfile, none of the person npm settings, and a fresh cache', async (t) => {
+    const { view, runs, mac: machine } = setup(t);
+    await view.act('download', 'starter', false);
+    await view.act('download', 'starter', true);
+    const argv = runs[0]?.argv ?? [];
+    assert.equal(argv[1], 'ci');
+    for (const pair of [
+      ['--userconfig', '/dev/null'],
+      ['--globalconfig', '/dev/null'],
+      ['--registry', 'https://registry.npmjs.org/'],
+    ] as const) {
+      assert.equal(argv[argv.indexOf(pair[0]) + 1], pair[1]);
+    }
+    assert.ok(argv.includes('--ignore-scripts'));
+    const cache = argv[argv.indexOf('--cache') + 1] ?? '';
+    assert.ok(existsSync(cache) && cache.includes('halcyonic-npm-cache-'), 'a cache of its own');
+    const copied = join(machine.dataDir, 'starters', 'iwsdk-vr', 'package-lock.json');
+    assert.equal(
+      readFileSync(copied, 'utf8'),
+      readFileSync(join(STARTER, 'package-lock.json'), 'utf8'),
+    );
+    runs[0]?.finish(0);
+    await ended(view);
+    assert.equal(existsSync(cache), false, 'the cache is removed after');
+  });
+
+  test('a model is pulled through Ollama on this Mac', async (t) => {
+    const { view, runs } = setup(t);
+    const arg = step(await view.state(), 'models').actions[0]?.arg ?? '';
+    assert.ok(arg.startsWith('model:'));
+    await view.act('download', arg, false);
+    await view.act('download', arg, true);
+    assert.deepEqual(runs[0]?.argv, ['ollama', 'pull', arg.slice('model:'.length)]);
+  });
+
+  test('a restart says first which tasks pause, and happens only on the second press', async (t) => {
+    const { view, restarts } = setup(t, { tasks: ['Build the menu', 'Fix the score'] });
+    const asked = await view.act('restart', null, false);
+    assert.match(asked.confirm?.text ?? '', /Build the menu, Fix the score/);
+    assert.equal(restarts.count, 0);
+    const going = await view.act('restart', null, true);
+    assert.equal(going.restarting, true);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(restarts.count, 1);
+    await view.act('restart', null, false);
+    await view.act('restart', null, true);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(restarts.count, 1, 'once');
+    const idle = setup(t);
+    assert.match(
+      (await idle.view.act('restart', null, false)).confirm?.text ?? '',
+      /No task is running/,
+    );
+  });
+
+  test('without the launcher the page cannot restart, and says how', async (t) => {
+    const { view, restarts } = setup(t, { canRestart: false });
+    assert.equal((await view.state()).can_restart, false);
+    await view.act('restart', null, false);
+    const state = await view.act('restart', null, true);
+    assert.match(state.said.join(' '), /cannot start itself again/);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(restarts.count, 0);
+  });
+
+  test('pairing applies live, so turning it on or off asks for no restart', async (t) => {
+    const { view, mac: machine } = setup(t);
+    rememberNetworkListener(machine.dataDir, true);
+    assert.equal((await view.state()).restart_needed, false);
+    rememberNetworkListener(machine.dataDir, false);
+    assert.equal((await view.state()).restart_needed, false);
+    writeHostSettings(machine.dataDir, { HALCYONIC_GIT_BIN: '/usr/bin/git' });
+    assert.equal((await view.state()).restart_needed, true);
+    assert.equal(
+      settingsForRestart({ HALCYONIC_NETWORK_HOST: '0.0.0.0', B: '2', A: '1' }),
+      settingsForRestart({ A: '1', B: '2' }),
+    );
+    assert.equal(RESTART_EXIT_CODE, 75, 'the code Start Halcyonic.command starts again on');
+  });
+});
+
+interface Answer {
+  readonly status: number;
+  readonly headers: Record<string, string | string[] | undefined>;
+  readonly body: string;
+}
+
+function call(
+  port: number,
+  method: string,
+  path: string,
+  headers: Record<string, string> = {},
+  body?: string,
+): Promise<Answer> {
+  return new Promise((resolve, reject) => {
+    const req = request(
+      {
+        host: '127.0.0.1',
+        port,
+        path,
+        method,
+        headers: { host: `127.0.0.1:${port}`, 'sec-fetch-site': 'none', ...headers },
+      },
+      (res) => {
+        let text = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => {
+          text += chunk;
+        });
+        res.on('end', () =>
+          resolve({ status: res.statusCode ?? 0, headers: res.headers, body: text }),
+        );
+      },
+    );
+    req.on('error', reject);
+    if (body !== undefined) req.write(body);
+    req.end();
+  });
+}
+
+describe('the setup view on the pairing page', () => {
+  test('serves only behind the page session and its origin checks', async (t) => {
+    const { view, runs } = setup(t);
+    const server = await startTestServer({ page: { ports: PORTS, mount: mountSetup(view) } });
+    t.after(() => server.stop());
+    const page = server.page;
+    assert.ok(page);
+    const port = page.port;
+    for (const path of ['/setup', '/setup.js', '/setup.css', '/setup/state']) {
+      assert.equal((await call(port, 'GET', path)).status, 403, `${path} needs the session`);
+    }
+    const link = new URL(page.link());
+    const opened = await call(port, 'GET', `${link.pathname}${link.search}`);
+    const cookie = String(opened.headers['set-cookie']).split(';')[0] ?? '';
+    const shown = await call(port, 'GET', '/setup', { cookie });
+    assert.equal(shown.status, 200);
+    assert.match(shown.body, /<h1>Set Up This Mac<\/h1>/);
+    assert.ok(shown.headers['content-security-policy'], 'under the page CSP');
+    const state = await call(port, 'GET', '/setup/state', {
+      cookie,
+      'sec-fetch-site': 'same-origin',
+    });
+    assert.equal(state.status, 200);
+    assert.ok((JSON.parse(state.body) as SetupState).steps.length > 5);
+    const pressHeaders = {
+      cookie,
+      origin: `http://127.0.0.1:${port}`,
+      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/json',
+    };
+    const press = JSON.stringify({ action: 'download', arg: 'opencode', confirmed: false });
+    assert.equal(
+      (
+        await call(
+          port,
+          'POST',
+          '/setup/act',
+          { ...pressHeaders, 'sec-fetch-site': 'cross-site' },
+          press,
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await call(
+          port,
+          'POST',
+          '/setup/act',
+          { ...pressHeaders, origin: 'http://127.0.0.1:1' },
+          press,
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (await call(port, 'POST', '/setup/act', { ...pressHeaders, cookie: 'page=forged' }, press))
+        .status,
+      403,
+    );
+    const asked = await call(port, 'POST', '/setup/act', pressHeaders, press);
+    assert.equal(asked.status, 200, asked.body);
+    assert.match((JSON.parse(asked.body) as SetupState).confirm?.text ?? '', /OpenCode/);
+    assert.equal(runs.length, 0);
+  });
+
+  test('a mounted view may add nothing outside /setup', async () => {
+    await assert.rejects(
+      startTestServer({
+        page: { ports: PORTS, mount: (routes) => routes.get('/state-of-things', () => ({})) },
+      }),
+      /only paths under \/setup/,
+    );
+  });
+});
+
+describe('the download runner', () => {
+  test('runs with no shell and a small environment, line by line', async (t) => {
+    process.env.HALCYONIC_SETUP_PAGE_PROBE = 'kept from downloads';
+    t.after(() => delete process.env.HALCYONIC_SETUP_PAGE_PROBE);
+    const lines: string[] = [];
+    const running = runCommand(
+      [
+        process.execPath,
+        '-e',
+        "console.log('one'); process.stderr.write('two\\r'); console.log(Object.keys(process.env).sort().join(','));",
+      ],
+      { cwd: tmpdir(), onLine: (line) => lines.push(line) },
+    );
+    assert.equal(await running.done, 0);
+    assert.ok(lines.includes('one') && lines.includes('two'));
+    const names = lines.find((line) => line.includes('PATH'))?.split(',') ?? [];
+    // macOS adds its text encoding to every process it starts; nothing else is there.
+    const allowed = ['HOME', 'LANG', 'PATH', 'TMPDIR', '__CF_USER_TEXT_ENCODING'];
+    assert.ok(
+      names.every((name) => allowed.includes(name)),
+      names.join(),
+    );
+  });
+
+  test('stop ends the command and its process group', async () => {
+    const running = runCommand([process.execPath, '-e', 'setInterval(() => {}, 1000)'], {
+      cwd: tmpdir(),
+      onLine: () => undefined,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    running.stop();
+    assert.notEqual(await running.done, 0);
+  });
+});

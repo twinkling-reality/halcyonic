@@ -1,0 +1,87 @@
+# ADR 0053: The Mac's setup runs from a page beside pairing, and a changed setting applies by a restart the page offers
+
+- Status: Accepted
+- Date: 2026-11-11
+
+## Context
+
+Setting up the Mac was a terminal job: `pnpm mac-setup` checks each step and prints the command for
+the next ([ADR 0024](0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md)), and
+every download (the pinned OpenCode and Codex, the VR starter's packages, the local models) was a
+command the person copied. The pairing page ([ADR 0047](0047-pairing-starts-from-a-page-on-the-mac.md))
+already serves the Mac a page of its own: loopback only, opened by a one-time link that becomes a
+cookie, every request checked for its Host, Origin and `Sec-Fetch-Site`, under a strict CSP.
+
+The settings file is read once, at the start. Pairing already applies its own setting live: the
+page starts and stops the network listener and writes the setting after. Every other setting
+(folders, agent apps, voice, the companion, undo, the browser) takes effect at the next start.
+A restart no longer loses work: each task's session is re-attached where its runtime keeps it, and
+said plainly to be lost where it does not
+([ADR 0046](0046-a-restart-re-attaches-each-tasks-session-where-the-runtime-keeps-it.md)).
+
+Verified on this Mac on 2026-11-11: `pnpm start` passes the control plane's exit code through
+(75 came back as 75); the setup view's routes refuse without the page's session, from another
+origin or as a cross-site request; a faked download ran, showed its lines, ended and was recorded
+by `pnpm mac-setup agent-apps` in a browser on a scratch page.
+
+## Decision
+
+1. **One structured check.** `mac-setup.ts` exports `macSetupSteps(io)`: the same steps `pnpm
+   mac-setup` prints, each with an id, a title, a status and its lines. The terminal and the page
+   read the same check, so they cannot disagree.
+2. **A setup view on the pairing page's own server.** `PairingPage` takes a `mount` that may add
+   routes only under `/setup` (`/setup`, `/setup/...`, `/setup.<ext>`; anything else throws at the
+   start). Every mounted route is behind the page's session and its app-wide checks and CSP. The
+   view (`network/setup-page.ts`) shows each step with its presses and a Check Again; it reads the
+   last check (a check hashes pinned files and asks the firewall) and checks again after a press,
+   after a download ends, on Check Again, or after five minutes.
+3. **Presses are the setup actions, nothing else.** Each press maps to one `pnpm mac-setup`
+   subcommand from a fixed list (`allow --yes`, `agent-apps`, `local-model <checked model>`,
+   `voice`, `browser`, `launcher`, `starter`, `undo [off]`, `companion <its model | off>`). The
+   first press says what it will run; only a second press of the same action and argument acts.
+   No press sets the paid runtime's switches (`HALCYONIC_CLAUDE_AGENT`, its executable, the agent
+   environment): the settings file refuses them anyway, and the page says Claude Agent is set up by
+   hand.
+4. **Downloads are presses too, one at a time.** Each download button says before the press what
+   it fetches: name, pinned version, size, and from where. It runs exactly the pinned command the
+   terminal prints: the npm installs with `--ignore-scripts`; the starter's `npm ci` with its
+   tracked lockfile, no user or global npm settings, a fresh cache removed after, and the public
+   registry; `ollama pull` for the checked models. It runs with no shell, in a process group of its
+   own, with only `PATH`, `HOME`, `TMPDIR` and `LANG` in its environment. The page shows its last
+   12 lines, cleaned of terminal sequences and unseen characters, with the home folder as `~`, and
+   Stop ends its whole group. A second download waits for the first. A download never starts on
+   its own. Once it ends well, setup's own action records it (`agent-apps`, `starter`), and that
+   action checks the pins, as in the terminal.
+5. **Restart to Apply.** The page compares the settings that take effect at a start, as the control
+   plane started with them, with the file now, leaving out pairing's setting, which applies live.
+   When they differ it offers Restart to Apply. The first press lists the tasks that will pause
+   (every execution starting, running, verifying or waiting for the person). The second closes the
+   control plane cleanly and exits with code 75. `Start Halcyonic.command` is a loop that starts it
+   again on 75 and on no other code, passing `--restartable`. Without that flag (`pnpm start` or
+   `pnpm dev` by hand) the page offers no restart and says to stop and start Halcyonic. A close that
+   fails exits 1, so the loop stops.
+
+## Alternatives considered
+
+- **Apply every setting live.** Each setting reaches a different part of the control plane (the
+  admission of folders, the adapters' binaries, the speech engine, the companion), most built once
+  at the start. Making each live is a change in each of them, and a half-applied setting is worse
+  than a restart now that a restart keeps the tasks. Pairing stays live because it was built so.
+- **A separate setup server or port.** That would be a second page to open by a link, with its own
+  session and checks. Mounting on the pairing page reuses the one that is already audited.
+- **Have the page run `pnpm mac-setup` as a process.** It would give the page the terminal's text
+  only, and its questions would have no one to answer them. The page calls the same functions with
+  a page-shaped IO instead.
+- **A launcher that restarts on any exit.** A crash would then loop. Only 75 means "start me again".
+
+## Consequences
+
+- The person can set up the Mac without a terminal once Halcyonic is running. Setting up Halcyonic
+  itself (Node, pnpm, the repository) still needs one, as packaging is not decided.
+- `SECURITY.md`'s "It downloads nothing" is now true of `pnpm mac-setup` only: the page downloads on
+  the person's second press, with the same pinned commands.
+- In tests nothing is downloaded: the runner is faked and the Mac is a scratch folder. On the
+  owner's Mac it has not been pressed for real; the first real download is the owner's.
+- A new setup step gets a button only by adding it to the view's fixed list; a download gets one only
+  by adding its pinned command, size and source to `setupDownloads`.
+- Worth revisiting when Halcyonic is packaged: the launcher loop then belongs to the package.
