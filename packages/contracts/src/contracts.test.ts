@@ -663,6 +663,7 @@ describe('the C# bindings', () => {
     'CheckpointView.turn_id', // the turn an after_turn version follows (History)
     'Evaluation.activity', // Seorak's activity of a session
     'ExecutionStartPayload.approval_level', // ADR 0043
+    'ExecutionStartPayload.plan', // a start in the runtime's own plan mode (PLAN)
     'ExecutionView.approval_level', // ADR 0043
     'ExecutionView.auto_fix', // a failed check sent back on its own (ADR 0044)
     'LocationRoot.label', // a location's label
@@ -680,10 +681,12 @@ describe('the C# bindings', () => {
     'ProjectViewCheck.workstream_id', // ADR 0045
     'RuntimeDescriptor.approval_may_leave_sandbox', // a declaration
     'RuntimeDescriptor.offers_never_ask', // ADR 0043
+    'RuntimeDescriptor.offers_plan', // a declaration (PLAN)
     'RuntimeDescriptor.reports_tool_results', // a declaration
     'RuntimeDescriptor.resumes_after_restart', // ADR 0046
     'RuntimeExecutionStartedPayload.approval_level', // ADR 0043
     'RuntimeExecutionStartedPayload.confined', // whether a start recorded it confined (S2)
+    'RuntimeExecutionStartedPayload.plan', // whether a start recorded its plan mode (PLAN)
     'RuntimeToolCompletedPayload.turn_id', // a completed tool's turn
     'WorkstreamAddToProjectPayload.review', // the review an add carries (ADR 0051)
     'WorkstreamCopyChangesReadPayload.files', // how each file a copy's reading found changed (ADR 0045)

@@ -202,9 +202,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * Bumped whenever `ProjectionState`'s shape changes, so no older checkpoint is taken for it. 2: a
  * task's own copy and a check's folder and task (ADR 0045). 3: each project's shared link (F1).
  * 4: how each file a task's copy would add changed (`to_add_files`). 5: each project's history.
- * 6: the digest of a task's copy's latest reading (`to_add_review`, ADR 0051).
+ * 6: the digest of a task's copy's latest reading (`to_add_review`, ADR 0051). 7: whether an
+ * execution's start recorded the runtime's plan mode (`plan`, PLAN).
  */
-export const PROJECTION_STATE_FORMAT = 6;
+export const PROJECTION_STATE_FORMAT = 7;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -246,6 +247,8 @@ export interface ReattachBounds {
   readonly options: RuntimeOptions;
   readonly model_ref: string | null;
   readonly approval_level?: ApprovalLevel;
+  /** Whether its start recorded the runtime's own plan mode (PLAN). */
+  readonly plan: boolean;
   readonly confined: boolean;
   readonly directory: string | null;
   readonly cut_turn: { readonly turn_id: string | null } | null;
@@ -706,6 +709,7 @@ export class Projection {
       options: start.payload.options,
       model_ref: start.payload.model_ref,
       ...(state.approvalLevel !== null && { approval_level: state.approvalLevel }),
+      plan: state.plan,
       confined: state.confined,
       directory: state.directory,
       cut_turn: state.activeTurn === null ? null : { turn_id: state.activeTurn.turnId },
@@ -1816,6 +1820,7 @@ export class Projection {
         execution.nativeId = event.payload.native_id ?? execution.nativeId;
         execution.confined = event.payload.confined === true;
         execution.approvalLevel = event.payload.approval_level ?? null;
+        execution.plan = event.payload.plan === true;
         execution.startedAt ??= event.occurred_at;
         break;
       case 'runtime.turn.started':

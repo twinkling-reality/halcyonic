@@ -2534,6 +2534,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("offers_never_ask", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public bool? OffersNeverAsk { get; set; }
 
+        [JsonProperty("offers_plan", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? OffersPlan { get; set; }
+
         [JsonProperty("resumes_after_restart", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public bool? ResumesAfterRestart { get; set; }
     }
@@ -3439,6 +3442,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("approval_level", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public ApprovalLevel? ApprovalLevel { get; set; }
+
+        [JsonProperty("plan", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Plan { get; set; }
     }
 
     public sealed class ExecutionSendInstructionPayload
@@ -4092,6 +4098,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("approval_level", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public ApprovalLevel? ApprovalLevel { get; set; }
+
+        [JsonProperty("plan", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Plan { get; set; }
     }
 
     public sealed class RuntimeTurnStartedPayload

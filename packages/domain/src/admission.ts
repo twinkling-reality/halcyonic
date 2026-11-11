@@ -556,6 +556,22 @@ export function admitCommand(
           `Runtime ${runtime.runtime_id} does not offer working without asking.`,
         );
       }
+      // A plan is the runtime's own mode, offered once verified, never one admission assumes (PLAN).
+      if (command.payload.plan === true && runtime.offers_plan !== true) {
+        return reject(
+          scope,
+          'capability_unsupported',
+          `Runtime ${runtime.runtime_id} does not offer planning without changing a file.`,
+        );
+      }
+      // Planning asks before every command that could change a file, so it never goes unasked.
+      if (command.payload.plan === true && command.payload.approval_level === 'never_ask') {
+        return reject(
+          scope,
+          'invalid_runtime_options',
+          'A plan asks before every command, so it is not started with working without asking.',
+        );
+      }
       // A runtime that lists its models never chooses one by itself, where it could pick a
       // hosted model nobody chose.
       if (command.payload.model_ref === null && runtime.model_choice === 'listed') {

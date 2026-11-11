@@ -169,3 +169,24 @@ never-asking OpenCode run rewriting it, and a confined Codex run had the same ex
   words, on both runtimes ("Start a new task here to go on"). The next start then gets the bounded profile.
 - **Tests:** on this Mac and on both pinned binaries, with a project inside the task's folder and one beside it,
   neither was read or written by a never-asking run. Each test fails with the deny taken out.
+
+## Amendment, 2026-11-11: a start may be a plan, where the runtime gives one (PLAN)
+
+The lead's decision of 2026-11-11, on VRIFY's question. A plan is talking a change through before any file changes.
+It is the runtime's own mode, declared only once verified, never one Halcyonic makes of its own bounds.
+
+- **The contract:**
+  - `RuntimeDescriptor.offers_plan` is declared only where verified.
+  - `execution.start.plan` is optional; absent means not a plan.
+  - `runtime.execution.started.plan` is observed: true only where the runtime reported the session in its plan mode.
+- **Admission:** a plan is refused for a runtime that does not offer one. A plan with `never_ask` is refused for
+  every runtime: a plan asks before every command that could change a file.
+- **OpenCode** offers it: its built-in `plan` agent refuses the edit tools without asking, and its shell commands
+  still ask ([agent-plan-modes.md](../validation/agent-plan-modes.md), run on the pinned 2.0.18).
+- **Codex** does not: its plan mode is on its experimental surface only, and ADR 0011 stands.
+- **Claude Code** does not yet: its start does not report the mode, and its plan bounds a write no differently from a
+  default start.
+- **A later instruction** cannot leave a plan yet. On OpenCode the same session can go ahead by switching its agent,
+  and on Claude Code by `setPermissionMode`, both seen on the fake hosts. Choosing that from the headset is FIELD's
+  and XR's next step.
+

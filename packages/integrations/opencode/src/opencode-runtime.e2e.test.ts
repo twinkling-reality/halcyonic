@@ -1999,6 +1999,70 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
   skip: SKIP || (process.platform !== 'darwin' ? 'Seatbelt is macOS only' : false),
 }, () => {
   test(
+    'a plan runs on its plan agent: an edit is refused without asking, a shell command asks, and it is recorded a plan; never asking with it is refused (PLAN)',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox } = await harness(t);
+      assert.equal(runtime.descriptor.offers_plan, true);
+      const planned = async (instruction: string) => {
+        const execution = new Execution();
+        await runtime.startExecution({
+          execution: execution.context,
+          instruction,
+          options: {},
+          directory: sandbox.project,
+          model_ref: null,
+          plan: true,
+          emit: execution.emit,
+        });
+        return execution;
+      };
+      // An edit the plan agent refuses: nothing asks, nothing is written.
+      const write = await planned(
+        call('write', { path: join(sandbox.project, 'planned.txt'), content: 'no\n' }),
+      );
+      await write.next('runtime.turn.completed');
+      assert.ok(!write.types().includes('runtime.approval.requested'), 'the edit asked');
+      assert.equal(
+        existsSync(join(sandbox.project, 'planned.txt')),
+        false,
+        'the plan wrote a file',
+      );
+      const started = write.observations.find((each) => each.type === 'runtime.execution.started');
+      assert.equal((started?.payload as { plan?: boolean } | undefined)?.plan, true);
+      // A shell command still asks; refused, it writes nothing.
+      const shell = await planned(call('shell', { command: 'echo made > planned-shell.txt' }));
+      const request = await shell.next('runtime.approval.requested');
+      assert.ok(request.type === 'runtime.approval.requested');
+      await runtime.respondToApproval({
+        execution: shell.context,
+        approval_id: request.payload.approval_id,
+        decision: 'deny',
+        message: null,
+      });
+      await shell.next('runtime.turn.interrupted');
+      assert.equal(existsSync(join(sandbox.project, 'planned-shell.txt')), false);
+      // Never asking with a plan: refused before anything runs.
+      await assert.rejects(
+        runtime.startExecution({
+          execution: new Execution().context,
+          instruction: 'Hello.',
+          options: {},
+          directory: sandbox.project,
+          model_ref: null,
+          plan: true,
+          approval_level: 'never_ask',
+          emit: () => undefined,
+        }),
+        (error: unknown) =>
+          error instanceof RuntimeActionError &&
+          error.code === 'invalid_runtime_options' &&
+          /not started with working without asking/.test(error.message),
+      );
+    },
+  );
+
+  test(
     'a task at rest is refused its next instruction once a project is bound inside its folder, and that project is untouched (AUDIT BOX-3 fix F1)',
     SLOW_TEST,
     async (t) => {

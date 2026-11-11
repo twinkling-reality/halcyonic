@@ -164,6 +164,37 @@ describe('command admission', () => {
     assert.equal(admitCommand(at('ask'), projection, catalog()).admitted, true);
   });
 
+  test('a plan is admitted only for a runtime that offers it, and never with working without asking (PLAN)', () => {
+    const { projection, commands, idle } = setup();
+    const start = commands.start(idle.workstreamId);
+    const at = (extra: Record<string, unknown>) =>
+      ({ ...start, payload: { ...(start.payload as object), ...extra } }) as typeof start;
+    const refused = admitCommand(at({ plan: true }), projection, catalog());
+    assert.deepEqual(refused.admitted ? null : refused.rejection, {
+      code: 'capability_unsupported',
+      message: 'Runtime mock does not offer planning without changing a file.',
+    });
+    const descriptor = catalog().get('mock' as RuntimeId);
+    assert.ok(descriptor);
+    const offers: RuntimeCatalog = {
+      get: (id) =>
+        id === 'mock' ? { ...descriptor, offers_plan: true, offers_never_ask: true } : undefined,
+    };
+    assert.equal(admitCommand(at({ plan: true }), projection, offers).admitted, true);
+    assert.equal(
+      admitCommand(at({ plan: true, approval_level: 'ask' }), projection, offers).admitted,
+      true,
+    );
+    const both = admitCommand(at({ plan: true, approval_level: 'never_ask' }), projection, offers);
+    assert.deepEqual(both.admitted ? null : both.rejection, {
+      code: 'invalid_runtime_options',
+      message:
+        'A plan asks before every command, so it is not started with working without asking.',
+    });
+    // Not a plan: as before.
+    assert.equal(admitCommand(at({ plan: false }), projection, catalog()).admitted, true);
+  });
+
   test('a runtime that works in the project folder is refused for a project without one', () => {
     const { b, projection, commands, idle } = setup();
     const refused = admitCommand(

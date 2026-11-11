@@ -67,6 +67,12 @@ export interface StartExecutionRequest {
    */
   readonly approval_level?: ApprovalLevel;
   /**
+   * True to start in the runtime's own plan mode. Admission passes it only to an adapter whose
+   * descriptor declares `offers_plan`, and never with `never_ask`; the adapter reports in
+   * `runtime.execution.started` whether the runtime confirmed it.
+   */
+  readonly plan?: boolean;
+  /**
    * The project's location: the real path the host's directory policy returned for it when the
    * control plane dispatched the start, or null when the project has none or the runtime does not
    * use one. An adapter whose descriptor declares `uses_project_location` runs its agent here and
@@ -96,6 +102,8 @@ export interface ReattachRequest {
    * `ask`, as for a start: a session the runtime would resume at any wider level is refused.
    */
   readonly approval_level?: ApprovalLevel;
+  /** Whether its start recorded the runtime's own plan mode; absent or false: not a plan. */
+  readonly plan?: boolean;
   /**
    * Whether the runtime reported the execution confined to its project (S2). False also where it
    * was not recorded (executions from before S2), so it never permits less confinement than a new

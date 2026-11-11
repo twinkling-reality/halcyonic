@@ -761,13 +761,15 @@ export const RUNTIME_EVENT_PAYLOADS = {
    * project (ADR 0041), false when not; absent from runtimes that do not record it and from events
    * before it existed, which read as not confined. `approval_level` (ADR 0043) is observed by the
    * adapter too: the level the runtime confirmed it started with; absent where it was not recorded,
-   * which never reads as `ask`.
+   * which never reads as `ask`. `plan` is observed: true when the runtime reported the session in
+   * its own plan mode; absent where it was not recorded, which never reads as a plan.
    */
   'runtime.execution.started': Type.Object(
     {
       native_id: Nullable(NativeId),
       confined: Type.Optional(Type.Boolean()),
       approval_level: Type.Optional(ApprovalLevel),
+      plan: Type.Optional(Type.Boolean()),
     },
     strict,
   ),
