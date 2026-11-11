@@ -216,6 +216,10 @@ namespace Halcyonic.XR.UI
                 var read = RoomBar.Of(binding, Voice(), AwaitingStart());
                 return read.Rows is not int rows || bar.Lines(read.Body, read.Mono) == rows;
             }
+            // Under the redesign the old kit is never asked what it holds (ON-1): the redesign draws what reaches here (the row at
+            // rest, a draft in its field, the agent's words on the band by parts), save a draft longer than the panel's lines.
+            if (RoomDesign.Enabled)
+                return model.Draft.Length == 0 || bar.Lines(LineWords.Theirs(model.Draft), false) <= RoomBar.RequestLines;
             if (model.Draft.Length > 0 && RowsOf(model.Draft) > ComposerRows) return false;
             if (model.Need?.Request is string request && RowsAt(request, SlateInner() - 2f * KitType.Scaled(1f)) > 8) return false;
             var shown = this.binding;
@@ -239,9 +243,11 @@ namespace Halcyonic.XR.UI
             gameObject.SetActive(true);
             presence.gameObject.SetActive(false);
             var zoom = GlazeText.Scale;
-            // A plain binding has nothing for the old kit to show: only the redesign draws it.
-            view.gameObject.SetActive(!binding.Plain);
-            if (!binding.Plain)
+            // A plain binding has nothing for the old kit to show: only the redesign draws it. Under the redesign the old kit
+            // is neither drawn nor laid (ON-1): the rail's rows are the default and the bar sets the size and the bands.
+            view.gameObject.SetActive(!binding.Plain && !RoomDesign.Enabled);
+            if (RoomDesign.Enabled) RailRows = DefaultRailRows;
+            else if (!binding.Plain)
             {
                 view.transform.localScale = Vector3.one / zoom;
                 view.Show(binding.Model, binding);

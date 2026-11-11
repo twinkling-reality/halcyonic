@@ -32,9 +32,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 ViewField.Current = FieldChecks.Quest3S;
                 List<string> found;
+                // Show Task Here is the older file's row and the older shelf holds one character: the redesign offers neither
+                // yet (ON-1 census), so this walks the older views until a reader of the redesign takes the placement.
+                var designWas = RoomDesign.Enabled;
+                RoomDesign.Enabled = false;
                 try { found = RenderTaskPlacement(folder); }
                 catch (Exception error) { found = new List<string> { "actual placement fixture threw " + error.GetBaseException().GetType().Name + ": " + error.GetBaseException().Message }; }
-                finally { ViewField.Current = null; KeepFontAssetsAsCommitted(); }
+                finally { ViewField.Current = null; RoomDesign.Enabled = designWas; KeepFontAssetsAsCommitted(); }
                 foreach (var failure in found) Debug.LogError("Halcyonic: task placement: " + failure);
                 if (found.Count == 0) Debug.Log("Halcyonic: task placement: every check passed; " + folder);
                 return found;

@@ -2541,10 +2541,18 @@ setter, `UseGeneric`, is compiled into development builds, the editor and the te
 
 The owner said yes to DESIGN's v4 (its SYSTEM-v4 and design6, private) and its FINISH-3 (2026-11-05): the shelf with
 plates, one Hold to Talk and Type row, per moment an information panel with a choices panel beside it, one type size, the working field with the agent's
-cursor, Stop in its own panel. It is built unit by unit behind `RoomDesign.Enabled` (client core), off by default, so
-the kit and the judge path stand whole between units; a development build turns it on with the extra
-`--extra-bool halcyonic.redesign=true` (`CapturePresets`), and the redesign's render states turn it on for themselves.
-The last unit turns it on by default and removes the kit parts it replaced.
+cursor, Stop in its own panel. It is built unit by unit behind `RoomDesign.Enabled` (client core). Since ON-1 (2026-11-11)
+it is on in development builds and the editor (`CapturePresets.RedesignByDefault`, from `Debug.isDebugBuild`), so
+every journey runs through it; a release build keeps the older views until every frame a person can reach has a
+reader of the redesign, when the release default flips, and ON-2 removes the kit parts it replaced. Checks that walk
+the older views on purpose turn it off inside themselves until then: `WorkspaceRender.JudgeKitWalkCheck`, the walk of
+the path a release player shows (the judges' build is a release build), KitRender's old-kit states,
+`WorkspaceRender.KitSpatialCheck` and `KitActivityComposerCheck` (the old kit's spine, rail, pills and switch),
+`ShowTaskHereCheck` (the older file's Show Task Here and its one-character shelf) and New Project's older review
+boundary. Under the redesign New Project's steps and the agent's page stand in the workspace, where FIELD's readers
+draw them (`MenuDirector.SeparateWorkspace`); the host never lays or asks the old kit (`KitWorkspaceHost.Holds`,
+`Show`), save that a draft longer than the panel's eight lines stays the file's; and the plane's reading and writing
+bands are the bar's one band.
 
 - **Lengths** are dp times one dp's length on the plane (`RoomType.Units`), as DESIGN's page lays them; larger text
   scales every length inside a panel, its padding too (`RoomType.Scaled`), while the panel's width stays. Every word

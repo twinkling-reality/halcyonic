@@ -164,9 +164,10 @@ namespace Halcyonic.XR.Workspace
             TextBand At(TextBand band) => new TextBand(kitPart.Right + band.Left * zoom, kitPart.Right + band.Right * zoom,
                 kitPart.Up + band.Bottom * zoom, kitPart.Up + band.Top * zoom, band.EmDegrees);
             var bands = Kit.TextBands.Select(At).ToArray();
-            ContextTextBands = bands.Take(1).ToArray();
-            ReaderTextBands = bands.Skip(1).ToArray();
-            ComposerTextBands = bands.Skip(1).Take(1).ToArray();
+            // Under the redesign the bar's one band is what is read and written in; there is no spine (ON-1).
+            ContextTextBands = RoomDesign.Enabled ? Array.Empty<TextBand>() : bands.Take(1).ToArray();
+            ReaderTextBands = RoomDesign.Enabled ? bands : bands.Skip(1).ToArray();
+            ComposerTextBands = RoomDesign.Enabled ? bands : bands.Skip(1).Take(1).ToArray();
             contextAllocation = kitPart; ReaderAllocation = kitPart; ComposerAllocation = null;
             lineTo = null; lineColumn = -1;
             Advance(0f);

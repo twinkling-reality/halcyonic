@@ -54,6 +54,9 @@ namespace Halcyonic.XR.Workspace.Editor
             var failures = new List<string>();
             var previousField = ViewField.Current;
             var previousStill = GlazeMotion.Still;
+            // The kit's own states draw the old kit until ON-2 removes it: each redesign state turns the redesign on itself.
+            var designWas = RoomDesign.Enabled;
+            RoomDesign.Enabled = false;
             var only = Environment.GetEnvironmentVariable("HALCYONIC_KIT_ONLY");
             var narrowed = !string.IsNullOrWhiteSpace(only);
             try
@@ -84,6 +87,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 ViewField.Current = previousField;
                 GlazeMotion.Still = previousStill;
+                RoomDesign.Enabled = designWas;
                 KeepFontsAsCommitted();
             }
             foreach (var failure in failures) Debug.LogError("Halcyonic: spatial kit: " + failure);

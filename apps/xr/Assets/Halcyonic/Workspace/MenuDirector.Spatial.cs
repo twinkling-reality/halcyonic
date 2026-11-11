@@ -28,8 +28,11 @@ namespace Halcyonic.XR.Workspace
         private bool ShelfYieldsChooserAtLarger => TextSize == TextSize.Larger
             && (setup.StageNow().Characters.Any(character => character != null)
                 || navigator.Beside is FileColumn file && (file.HasShowTaskHere || !setup.Presentation.AgentsVisible && CurrentColourSource(out _)));
+        // Under the redesign New Project's steps and the agent's page stand in the workspace too, where FIELD's readers draw
+        // them (RoomBar.Frames); otherwise the older single column drew them and the readers never ran (ON-1 census).
         private bool SeparateWorkspace => setup.SpatialWorkspace && placement == null && !ShelfYieldsChooserAtLarger
             && (navigator.Beside is FileColumn || navigator.Beside is TaskResultsColumn || navigator.Beside is WorkspaceRequestColumn
+                || RoomDesign.Enabled && (navigator.Beside is NewProjectFlow || navigator.Beside is AgentColumn)
                 || navigator.Beside == null && (navigator.Place == MenuPlace.Projects || navigator.Place == MenuPlace.Tasks));
 
         private void ConfigureSpatialComposer()
