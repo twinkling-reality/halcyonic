@@ -107,6 +107,26 @@ describe('taking a checkpoint', () => {
     assert.equal(!taken.ok && taken.code, 'too_large');
   });
 
+  test('reads a folder as it is now only within the bounds a checkpoint has (AUDIT2 S2)', async () => {
+    const small = new CheckpointStore({
+      git: GIT,
+      directory: join(root, 'store-bounded'),
+      limits: { files: 20, bytes: 1_000_000 },
+    });
+    const id = nextId();
+    const taken = await small.take(PROJECT, folder, id);
+    assert.ok(taken.ok);
+    const within = await small.treesNow(PROJECT, id, folder);
+    assert.ok(within.ok && within.from === within.to, 'an unchanged folder reads as the same tree');
+    for (let index = 0; index < 25; index += 1) write(`many/${index}.txt`, `${index}\n`);
+    assert.deepEqual(await small.treesNow(PROJECT, id, folder), {
+      ok: false,
+      code: 'folder_unread',
+    });
+    const roomy = await store.take(PROJECT, folder, nextId());
+    assert.ok(roomy.ok, 'the default store takes the same folder');
+  });
+
   test('refuses a folder that is not there', async () => {
     const taken = await store.take(PROJECT, join(root, 'gone'), nextId());
     assert.equal(!taken.ok && taken.code, 'location_missing');

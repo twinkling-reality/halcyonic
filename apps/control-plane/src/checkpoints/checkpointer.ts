@@ -36,6 +36,27 @@ export interface CheckpointerDeps {
   readonly restoreHooks?: RestoreHooks;
 }
 
+/** A checkpoint's tree and its folder's tree now, or why the folder could not be read. */
+type NowTrees =
+  | { readonly ok: true; readonly from: string; readonly to: string }
+  | { readonly ok: false; readonly code: 'checkpoint_missing' | 'folder_unread' };
+
+/**
+ * A read of a folder as it is now: the journal position it was asked at, when it finished (null while
+ * it runs), and its result.
+ */
+interface NowRead {
+  readonly position: number;
+  readAt: number | null;
+  readonly read: Promise<NowTrees>;
+}
+
+/** How long a finished read of a folder as it is now is kept while nothing new is journaled. */
+const NOW_READ_KEPT_MS = 5_000;
+
+/** How many reads of folders as they are now are kept, one per project and checkpoint. */
+const NOW_READS_KEPT = 64;
+
 /** How many tree pairs' changed-file counts are kept: a history page counts at most 50. */
 const CHANGED_COUNTS_KEPT = 4_096;
 
@@ -60,6 +81,8 @@ export class Checkpointer {
   readonly #queues = new Map<string, Promise<unknown>>();
   /** Changed-file counts between two trees, oldest dropped past `CHANGED_COUNTS_KEPT`. */
   readonly #counts = new Map<string, number>();
+  /** Reads of folders as they are now, by project and checkpoint, with the journal position each was read at. */
+  readonly #nowReads = new Map<string, NowRead>();
 
   constructor(deps: CheckpointerDeps) {
     this.#deps = deps;
@@ -135,25 +158,60 @@ export class Checkpointer {
   }
 
   /**
-   * What changed between a checkpoint and the folder it was taken of, as that folder is now. It
-   * waits its turn behind the project's checkpoints and restores, and reads only a folder a
-   * checkpoint of it could be taken of now.
+   * What changed between a checkpoint and the folder it was taken of, as that folder is now. Reading
+   * the folder hashes every file, so one read per checkpoint is shared by every caller while it runs,
+   * whatever is journaled meanwhile, and once read it is kept for `NOW_READ_KEPT_MS` while nothing new
+   * is journaled (AUDIT2 S1): a change the journal does not see, such as the person's own edit, shows
+   * after that. It waits its turn behind the project's checkpoints and restores, and reads only a
+   * folder a checkpoint of it could be taken of now.
    */
-  compareNow(projectId: ProjectId, fromId: CheckpointId) {
-    return this.#serially(projectId, async () => {
-      const folder = await this.#folderFor(projectId, fromId);
-      if (!folder.ok) return { ok: false as const, code: 'folder_unread' as const };
-      return this.#deps.store.compareNow(projectId, fromId, folder.path);
-    });
+  async compareNow(projectId: ProjectId, fromId: CheckpointId) {
+    const trees = await this.#treesNow(projectId, fromId);
+    if (!trees.ok) return trees;
+    return this.#deps.store.compareTrees(projectId, trees.from, trees.to);
   }
 
-  /** One file's change between a checkpoint and its folder as it is now, as `compareNow` reads it. */
-  compareFileNow(projectId: ProjectId, fromId: CheckpointId, path: string, maxBytes: number) {
-    return this.#serially(projectId, async () => {
-      const folder = await this.#folderFor(projectId, fromId);
-      if (!folder.ok) return { ok: false as const, code: 'folder_unread' as const };
-      return this.#deps.store.compareFileNow(projectId, fromId, folder.path, path, maxBytes);
+  /** One file's change between a checkpoint and its folder as it is now, on `compareNow`'s read. */
+  async compareFileNow(projectId: ProjectId, fromId: CheckpointId, path: string, maxBytes: number) {
+    const trees = await this.#treesNow(projectId, fromId);
+    if (!trees.ok) return trees;
+    return this.#deps.store.compareFileTrees(projectId, trees.from, trees.to, path, maxBytes);
+  }
+
+  #treesNow(projectId: ProjectId, fromId: CheckpointId): Promise<NowTrees> {
+    const key = `${projectId}:${fromId}`;
+    const position = this.#deps.projection.position;
+    const now = this.#deps.clock.now().getTime();
+    const held = this.#nowReads.get(key);
+    if (
+      held !== undefined &&
+      (held.readAt === null ||
+        (held.position === position && now - held.readAt <= NOW_READ_KEPT_MS))
+    )
+      return held.read;
+    const entry: NowRead = {
+      position,
+      readAt: null,
+      read: this.#serially(projectId, async (): Promise<NowTrees> => {
+        const folder = await this.#folderFor(projectId, fromId);
+        if (!folder.ok) return { ok: false, code: 'folder_unread' };
+        return this.#deps.store.treesNow(projectId, fromId, folder.path);
+      }),
+    };
+    const read = entry.read;
+    this.#nowReads.delete(key);
+    this.#nowReads.set(key, entry);
+    while (this.#nowReads.size > NOW_READS_KEPT) {
+      const oldest = this.#nowReads.keys().next().value;
+      if (oldest === undefined) break;
+      this.#nowReads.delete(oldest);
+    }
+    // Kept from when it was read; a failed read is not kept, so the next caller reads again.
+    void read.then((result) => {
+      entry.readAt = this.#deps.clock.now().getTime();
+      if (!result.ok && this.#nowReads.get(key)?.read === read) this.#nowReads.delete(key);
     });
+    return read;
   }
 
   /**

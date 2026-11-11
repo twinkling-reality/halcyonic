@@ -381,9 +381,12 @@ Every text in them is outside words, from the project's files or its build, as `
   `complete` saying when there were more. A task's change is its `before_task` checkpoint to its
   last `after_turn` one. With `to` left out (the response's `to` is then null), `from` is compared
   with the folder it was taken of as it is now: that folder is read into a tree in Halcyonic's
-  checkpoint store, as a checkpoint is, after any checkpoint or restore of the project already
-  under way, and no checkpoint is recorded. A folder no longer there, or no longer allowed, is the
-  404. Off without undo (`HALCYONIC_GIT_BIN`).
+  checkpoint store, as a checkpoint is and within a checkpoint's file and byte bounds, after any
+  checkpoint or restore of the project already under way, and no checkpoint is recorded. A folder
+  no longer there, no longer allowed or past the bounds is the 404. That read hashes every file, so
+  it is shared: callers while one runs get its answer, and a finished one is kept for five seconds
+  while nothing new is journaled (a change the journal does not see shows after that). Ask for it on
+  the person's press, never on each live event. Off without undo (`HALCYONIC_GIT_BIN`).
 - `GET /api/projects/:project_id/changes/file?from&to&path`: one of those files as a unified diff, at
   most 64 KiB and 2,000 lines, `complete` false when cut; null for a binary file and for a file
   whose name says it may hold secrets (`withheld`). A file that did not change is 404. `to` left out

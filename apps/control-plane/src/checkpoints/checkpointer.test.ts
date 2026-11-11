@@ -459,7 +459,8 @@ describe('putting a project back', () => {
 
 describe("a project's history and its folder as it is now (the parity map's gap 2)", () => {
   test('versions with their turn and changed files, the restore, pages, and what changed since a version', async () => {
-    const { folder, start, restore, types, events, controlPlane, projectId } = setup('history');
+    const { folder, start, restore, types, events, controlPlane, projectId, time } =
+      setup('history');
     const reads = new ProjectReads(controlPlane);
     const journal = controlPlane.journal.info.journal_id;
     start();
@@ -550,11 +551,71 @@ describe("a project's history and its folder as it is now (the parity map's gap 
       'reading the folder now records no version',
     );
     rmSync(folder, { recursive: true, force: true });
+    await time.advance(6_000);
     assert.equal(
       await reads.changes(projectId, { journal_id: journal, from: afterTurn }, LOCAL),
       undefined,
-      'a folder no longer there reads as unavailable',
+      'a folder no longer there reads as unavailable once the last read is old',
     );
+    await controlPlane.close();
+  });
+
+  test('one read of the folder now is shared while it runs and kept while nothing is journaled (AUDIT2 S1)', async () => {
+    const { folder, start, types, events, controlPlane, projectId, store, time } =
+      setup('history-shared');
+    const reads = new ProjectReads(controlPlane);
+    const journal = controlPlane.journal.info.journal_id;
+    start();
+    await until(
+      () => types().filter((type) => type === 'project.checkpoint.recorded').length === 2,
+      'two checkpoints',
+    );
+    const afterTurn = checkpointOf(events(), 'after_turn') as CheckpointId;
+    const original = store.treesNow.bind(store);
+    let folderReads = 0;
+    store.treesNow = (...args) => {
+      folderReads += 1;
+      return original(...args);
+    };
+    writeFileSync(join(folder, 'first.txt'), 'one\n');
+    const [list, file] = await Promise.all([
+      reads.changes(projectId, { journal_id: journal, from: afterTurn }, LOCAL),
+      reads.fileChange(
+        projectId,
+        { journal_id: journal, from: afterTurn, path: 'first.txt' },
+        LOCAL,
+      ),
+      reads.changes(projectId, { journal_id: journal, from: afterTurn }, LOCAL),
+    ]);
+    assert.equal(folderReads, 1, 'three reads at once read the folder once');
+    assert.deepEqual(
+      list?.files.map((entry) => entry.path),
+      ['first.txt'],
+    );
+    assert.equal(file?.change, 'added');
+    writeFileSync(join(folder, 'second.txt'), 'two\n');
+    const kept = await reads.changes(projectId, { journal_id: journal, from: afterTurn }, LOCAL);
+    assert.equal(folderReads, 1, 'kept while nothing new is journaled');
+    assert.deepEqual(
+      kept?.files.map((entry) => entry.path),
+      ['first.txt'],
+    );
+    await time.advance(6_000);
+    const later = await reads.changes(projectId, { journal_id: journal, from: afterTurn }, LOCAL);
+    assert.equal(folderReads, 2, 'read again once the last read is older than five seconds');
+    assert.deepEqual(
+      later?.files.map((entry) => entry.path),
+      ['first.txt', 'second.txt'],
+    );
+    start();
+    await until(
+      () => types().filter((type) => type === 'project.checkpoint.recorded').length === 4,
+      'the next task',
+    );
+    writeFileSync(join(folder, 'third.txt'), 'three\n');
+    const fresh = await reads.changes(projectId, { journal_id: journal, from: afterTurn }, LOCAL);
+    assert.equal(folderReads, 3, 'read again once the journal moved');
+    assert.ok(fresh?.files.some((entry) => entry.path === 'third.txt'));
     await controlPlane.close();
   });
 
