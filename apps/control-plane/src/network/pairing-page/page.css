@@ -495,8 +495,7 @@ button:focus-visible,
   outline: 2px solid var(--focus);
   outline-offset: 3px;
 }
-.main,
-.primary {
+.main {
   width: 100%;
   min-height: 56px;
   padding: 14px 22px;
@@ -506,20 +505,17 @@ button:focus-visible,
   font-size: 18px;
   box-shadow: 0 10px 24px -14px rgb(89 207 241 / 0.9);
 }
-.main:hover:not(:disabled),
-.primary:hover:not(:disabled) {
+.main:hover:not(:disabled) {
   background: var(--accent-pointed);
 }
 /* Waiting, the main action is no button: a neutral ground, no colour, no lift. */
-.main:disabled,
-.primary:disabled {
+.main:disabled {
   background: var(--tile);
   color: var(--quiet);
   box-shadow: none;
   opacity: 1;
 }
-.rest,
-.quiet-button {
+.rest {
   min-height: 40px;
   padding: 8px 16px;
   border-radius: 14px;
@@ -535,13 +531,11 @@ button:focus-visible,
   width: 18px;
   height: 18px;
 }
-.rest:hover:not(:disabled),
-.quiet-button:hover:not(:disabled) {
+.rest:hover:not(:disabled) {
   background: var(--rest-pointed);
 }
 /* Armed: the second press acts. It reads as the consequence it is, in the failing tone, never the accent. */
-.rest[data-armed],
-.quiet-button[data-armed] {
+.rest[data-armed] {
   background: var(--bad-ground);
   color: var(--bad-ink);
   box-shadow: inset 0 0 0 1px var(--bad);
@@ -576,46 +570,7 @@ button:focus-visible,
   gap: 10px;
 }
 
-/* What went wrong with the last press, in the failing tone, with its mark. */
-.problem {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-top: 20px;
-  color: var(--bad-ink);
-}
-@media (prefers-color-scheme: light) {
-  .problem {
-    color: var(--bad);
-  }
-}
-.problem .glyph {
-  margin-top: 1px;
-}
-
-/* Kept for the setup page until it is redrawn in this language. */
-:root {
-  --edge: var(--card-edge);
-  --row: var(--well);
-  --success: var(--good);
-  --problem: var(--bad);
-}
-header:not(.head) {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px 16px;
-  margin-bottom: 20px;
-}
-.line {
-  font-weight: 600;
-}
-.quiet {
-  color: var(--secondary);
-}
-
-/* A phone's width: the card nearly edge to edge, the link under the title, the steps two by two. */
+/* A phone's width: the card nearly edge to edge, the link under the title, the steps down one column. */
 @media (max-width: 520px) {
   body {
     padding: 16px 12px 40px;

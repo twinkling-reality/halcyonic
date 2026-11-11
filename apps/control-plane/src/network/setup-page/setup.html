@@ -3,53 +3,111 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>Set Up This Computer</title>
 <link rel="stylesheet" href="/page.css">
 <link rel="stylesheet" href="/setup.css">
 <script src="/setup.js" defer></script>
 </head>
 <body>
-<main>
-  <header>
-    <h1>Set Up This Computer</h1>
-    <a class="page-link" href="/">Pairing</a>
-  </header>
-  <div class="row status-row">
-    <p id="status" class="status">Reading</p>
-    <button id="check" class="quiet-button" type="button">Check Again</button>
-  </div>
-  <section id="restart" class="restart" hidden>
-    <h2>Settings Changed</h2>
-    <p class="line">They apply when Halcyonic starts again.</p>
-    <p id="restart-by-hand" class="line" hidden>Stop Halcyonic and start it again.</p>
-    <button id="restart-button" class="primary" type="button">Restart to Apply</button>
-  </section>
-  <section id="confirm" class="confirm" hidden>
-    <p id="confirm-text" class="line"></p>
-    <div class="row">
-      <button id="confirm-yes" class="primary" type="button">Go On</button>
-      <button id="confirm-no" class="quiet-button" type="button">Cancel</button>
+<!-- The page's glyphs, one meaning each, drawn as the headset's are: strokes on a 24 grid. -->
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="g-wrench" viewBox="0 0 24 24"><path d="M14.5 6.5a4 4 0 0 0-5.3 5.3L4.5 16.5a2.1 2.1 0 0 0 3 3l4.7-4.7a4 4 0 0 0 5.3-5.3l-2.6 2.6-2.4-.6-.6-2.4z"/></symbol>
+  <symbol id="g-tick" viewBox="0 0 24 24"><path d="M5.5 12.5l4.2 4.2 8.8-9.4"/></symbol>
+  <symbol id="g-alert" viewBox="0 0 24 24"><path d="M12 5v9.5"/><path d="M12 19v.1"/></symbol>
+  <symbol id="g-hourglass" viewBox="0 0 24 24"><path d="M7 3.5h10M7 20.5h10"/><path d="M8 3.5c0 4 8 5 8 8.5s-8 4.5-8 8.5"/><path d="M16 3.5c0 4-8 5-8 8.5s8 4.5 8 8.5"/></symbol>
+  <symbol id="g-minus" viewBox="0 0 24 24"><path d="M6.5 12h11"/></symbol>
+  <symbol id="g-eye" viewBox="0 0 24 24"><path d="M2.8 12s3.4-6 9.2-6 9.2 6 9.2 6-3.4 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.6"/></symbol>
+  <symbol id="g-question" viewBox="0 0 24 24"><path d="M9.2 9.3a2.9 2.9 0 1 1 4.3 2.5c-.9.5-1.5 1.2-1.5 2.2v.4"/><path d="M12 18.4v.1"/></symbol>
+  <symbol id="g-refresh" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.1-5"/><path d="M19.5 4.5v4h-4"/></symbol>
+  <symbol id="g-down" viewBox="0 0 24 24"><path d="M12 4.5v11"/><path d="M7.5 11.5l4.5 4.5 4.5-4.5"/><path d="M5 19.5h14"/></symbol>
+  <symbol id="g-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="g-wifi" viewBox="0 0 24 24"><path d="M3.5 9.5a12 12 0 0 1 17 0"/><path d="M6.5 12.8a7.7 7.7 0 0 1 11 0"/><path d="M9.6 16a3.3 3.3 0 0 1 4.8 0"/><path d="M12 19.3v.1"/></symbol>
+  <symbol id="g-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></symbol>
+  <symbol id="g-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></symbol>
+  <symbol id="g-close" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></symbol>
+  <symbol id="g-terminal" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M7.5 9.5l3 2.5-3 2.5M12.5 15h4"/></symbol>
+  <symbol id="g-next" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></symbol>
+  <symbol id="g-back" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></symbol>
+</svg>
+
+<main class="card">
+  <header class="head">
+    <span class="emblem"><svg class="glyph" aria-hidden="true"><use href="#g-wrench"/></svg></span>
+    <div class="head-words">
+      <h1>Set Up This Computer</h1>
+      <p class="description">Each step readies one part of this computer for the headset.</p>
     </div>
+    <a class="page-link" id="pairing-link" href="/"><svg class="glyph" aria-hidden="true"><use href="#g-back"/></svg>Pairing</a>
+  </header>
+
+  <!-- Where setup stands: a title word over a quieter line, beside its mark; the steps as pips under it. -->
+  <section class="state" id="state" data-tone="quiet">
+    <div class="mark-column">
+      <span class="mark"><svg class="glyph" aria-hidden="true"><use id="state-glyph" href="#g-hourglass"/></svg></span>
+    </div>
+    <div class="state-words">
+      <p class="state-title" id="state-title">Reading</p>
+      <p class="state-line" id="state-line" hidden></p>
+    </div>
+    <button id="check" class="rest state-action" type="button"><svg class="glyph" aria-hidden="true"><use href="#g-refresh"/></svg>Check Again</button>
   </section>
-  <section id="job" class="job" hidden>
-    <div class="job-head">
-      <h2 id="job-title">Download</h2>
-      <span id="job-state" class="job-state"></span>
-      <span id="job-time" class="job-time"></span>
+
+  <!-- Settings changed: the one thing to do before anything else. -->
+  <section id="restart" class="panel" hidden>
+    <div class="panel-head">
+      <span class="panel-mark"><svg class="glyph" aria-hidden="true"><use href="#g-refresh"/></svg></span>
+      <div>
+        <p class="panel-title">Settings Changed</p>
+        <p class="panel-line">They apply when Halcyonic starts again.</p>
+        <p id="restart-by-hand" class="panel-line" hidden>Stop Halcyonic and start it again.</p>
+      </div>
+    </div>
+    <button id="restart-button" class="main" type="button"><svg class="glyph" aria-hidden="true"><use href="#g-refresh"/></svg>Restart to Apply</button>
+    <div id="restart-asks" class="asks" hidden></div>
+  </section>
+
+  <!-- A press that asks first, when it is not one of a step's (a restart). -->
+  <section id="confirm-top" class="panel" hidden></section>
+
+  <!-- The one download: its name, how it stands, its time and its last lines. -->
+  <section id="job" class="panel" hidden>
+    <div class="panel-head">
+      <span class="panel-mark" id="job-mark"><svg class="glyph" aria-hidden="true"><use id="job-glyph" href="#g-down"/></svg></span>
+      <div>
+        <p class="panel-title" id="job-title">Download</p>
+        <p class="panel-line" id="job-state"></p>
+      </div>
+      <p class="panel-time" id="job-time"></p>
     </div>
     <pre id="job-lines" class="lines"></pre>
-    <button id="job-stop" class="quiet-button" type="button">Stop</button>
+    <div class="panel-actions" id="job-actions">
+      <button id="job-again" class="rest" type="button" hidden><svg class="glyph" aria-hidden="true"><use href="#g-refresh"/></svg>Try Again</button>
+      <button id="job-stop" class="rest" type="button"><svg class="glyph" aria-hidden="true"><use href="#g-stop"/></svg>Stop</button>
+    </div>
   </section>
-  <section id="said" class="said" hidden>
-    <pre id="said-lines" class="lines"></pre>
+
+  <!-- What setup said after the last press. -->
+  <section id="said" class="panel" hidden>
+    <p class="panel-label"><svg class="glyph" aria-hidden="true"><use href="#g-terminal"/></svg>What Setup Said</p>
+    <div id="said-lines" class="said-lines"></div>
   </section>
+
   <!-- A live share is the most time-bound thing here, so it stands above the steps (CORE). -->
-  <section id="shared" class="shared" hidden>
+  <section id="shared" class="block" hidden>
     <h2>Shared Now</h2>
-    <ul id="shared-list" class="shared-list"></ul>
+    <ul id="shared-list" class="items"></ul>
   </section>
-  <ol id="steps" class="steps"></ol>
-  <p id="problem" class="problem" hidden></p>
+
+  <section class="block" id="steps-block">
+    <h2>Steps</h2>
+    <ol id="steps" class="steps"></ol>
+  </section>
+
+  <section class="block" id="optional-block">
+    <h2>Optional</h2>
+    <ol id="optional-steps" class="steps"></ol>
+  </section>
 </main>
 </body>
 </html>
