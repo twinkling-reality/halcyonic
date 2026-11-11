@@ -63,6 +63,14 @@ public class RoomResultTests
         return RoomBar.Of(binding!, VoiceStage.Idle, false);
     }
 
+    /// <summary>The card's slots as the person reads them, apart (A17); the card never joins facts on a dot.</summary>
+    private static string[] Slots(RoomBar bar)
+    {
+        Assert.That(bar.Card, Is.Not.Null, "the panel is a card");
+        Assert.That(bar.Card!.AnyDot, Is.False, "no fact joined to another on a dot");
+        return bar.Card.Slots.Select(slot => slot.Value.Text).ToArray();
+    }
+
     private static string Show(RoomBar bar) => bar.State + " | panel: " + bar.Body.Text + " | says: " + bar.Sentence + " | band: " + bar.Band + " | row " + bar.Row.Count + " | " +
         string.Join(", ", bar.Column.Select(action => action.Words + (action.Main ? "*" : "")));
 
@@ -72,7 +80,7 @@ public class RoomResultTests
         var bar = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()));
         Assert.That((bar.Result, bar.Pair, bar.State, bar.Wide), Is.EqualTo((true, true, RoomBarState.Rest, false)), Show(bar));
         Assert.That(bar.Row.Count, Is.GreaterThan(0), "the row still stands under the pair");
-        Assert.That((bar.Body.Text, bar.Sentence), Is.EqualTo(("5 Files Changed", (string?)"Build Passed")), "the totals the computer counted, and its own check");
+        Assert.That((Slots(bar), bar.Sentence), Is.EqualTo((new[] { "Passed", "5 Files" }, (string?)null)), "its own check and the totals the computer counted, as slots");
         Assert.That(bar.Band, Is.EqualTo("I added the golden balloon."), "the agent's newest message, on the band and nowhere in the panel");
         Assert.That(bar.BandIsRead, Is.False, "a message is not something to read before the row takes a press");
         Assert.That(bar.Column.Select(action => (action.Control.Action, action.Words, action.Main)), Is.EqualTo(new[]
@@ -83,7 +91,7 @@ public class RoomResultTests
         // One file, and a VR project: the file's own way to an instruction leads, as Request Change.
         var one = "{\"turn_id\":\"t1\",\"created\":{\"files\":[{\"path\":\"a.ts\",\"lines\":1,\"bytes\":1}],\"total\":1},\"changed\":{\"files\":[],\"total\":0},\"deleted\":{\"files\":[],\"total\":0},\"not_read\":0,\"skipped\":null}";
         var vr = Bar(new RoomResult(isVr: true, canMakeVr: false, canTry: true, passed: true, Turn(one), Steps()));
-        Assert.That(vr.Body.Text, Is.EqualTo("1 File Changed"));
+        Assert.That(Slots(vr), Is.EqualTo(new[] { "Passed", "1 File" }));
         Assert.That(vr.Column.Select(action => (action.Words, action.Main, action.Place)), Is.EqualTo(new[]
         {
             ("Request Change", true, KitPlace.Field), ("Try Build", false, KitPlace.Step), ("Changes", false, KitPlace.Step), ("Checks", false, KitPlace.Step),
@@ -100,46 +108,49 @@ public class RoomResultTests
 
         // A check and no observation: the check is the panel's one line; no count is guessed, and no Changes.
         var checkedOnly = Bar(new RoomResult(false, false, false, false, null, Steps(buildFails: true)));
-        Assert.That((checkedOnly.Body.Text, checkedOnly.Sentence), Is.EqualTo(("Build Failed", (string?)null)));
+        Assert.That((Slots(checkedOnly), checkedOnly.Sentence), Is.EqualTo((new[] { "Failed" }, (string?)null)));
         Assert.That(checkedOnly.Column.Select(action => action.Words), Is.EqualTo(new[] { "Checks" }));
 
         // A turn the computer could not read: no count, and Changes says so honestly.
         var skipped = new RoomResult(false, false, false, null, Turn(Skipped), null);
         Assert.That((skipped.FilesChanged, skipped.CountLine), Is.EqualTo(((long?)null, (string?)null)));
         var page = Bar(new RoomResult(false, false, false, null, Turn(Skipped), null, RoomResultPage.Changes));
-        Assert.That(page.Facts!.Select(row => row.Words.Text), Is.EqualTo(new[] { "Not Observed" }), "never an empty list read as no changes");
+        Assert.That((page.Card?.Status?.Title, page.Card?.List.Count), Is.EqualTo(((string?)RoomPanelCards.NotSeen, (int?)0)), "never an empty list read as no changes");
 
         // The agent at work, or a draft standing: no result.
         Assert.That(Bar(new RoomResult(false, true, false, true, Turn(Observed), Steps()), status: ExecutionStatus.Running).Result, Is.False);
     }
 
     [Test]
-    public void ChangesIsARowAFileEightAPageAndChecksARowAStep()
+    public void ChangesIsAListAFileFiveAPageAndChecksANodeAStep()
     {
         var changes = Bar(new RoomResult(false, true, false, true, Turn(Observed), Steps(), RoomResultPage.Changes));
-        Assert.That(changes.Facts!.Select(row => (row.Words.Text, row.Mark)), Is.EqualTo(new[]
+        Slots(changes);
+        Assert.That(changes.Card!.List.Select(row => (row.Kind, row.Name.Text, row.Note)), Is.EqualTo(new[]
         {
-            ("Made · src/stars.ts", RoomRowMark.None), ("Changed · 120 to 131 Lines · src/game.ts", RoomRowMark.None), ("Removed · assets/old.png", RoomRowMark.None),
+            (RoomKind.Added, "src/stars.ts", (string?)RoomPanelCards.NewNote), (RoomKind.Changed, "src/game.ts", (string?)RoomPanelCards.EditedNote),
+            (RoomKind.Removed, "assets/old.png", (string?)RoomPanelCards.RemovedNote),
         }));
-        Assert.That(changes.Facts![0].Words.AnyTheirs && !changes.Facts[0].Words.AllTheirs, Is.True, "the path is the folder's own name inside Halcyonic's line");
-        Assert.That(changes.Facts.All(row => row.Words.Runs.Last().Theirs && !row.Words.OursAfterTheirs), Is.True, "the name stands last: none of Halcyonic's words follow it");
+        Assert.That(changes.Card.List.All(row => row.Name.AllTheirs), Is.True, "each path is the folder's own name, apart from Halcyonic's words");
         Assert.That((changes.Band, changes.Sentence), Is.EqualTo(((string?)null, (string?)null)), "no band and no sentence on Changes");
         Assert.That(changes.Column.Select(action => (action.Control.Action, action.Main)), Is.EqualTo(new[] { (RoomResult.Back, false) }));
         Assert.That(changes.Row.Count, Is.GreaterThan(0));
 
-        // More than eight files: Next Page is the main action, and the last page offers Back alone.
+        // More than five files: Next Page is the main action, and the last page offers Back alone.
         var many = "{\"turn_id\":\"t1\",\"created\":{\"files\":[" + string.Join(",", Enumerable.Range(1, 11).Select(index => "{\"path\":\"src/f" + index + ".ts\",\"lines\":1,\"bytes\":1}")) +
             "],\"total\":11},\"changed\":{\"files\":[],\"total\":0},\"deleted\":{\"files\":[],\"total\":0},\"not_read\":0,\"skipped\":null}";
         var first = Bar(new RoomResult(false, true, false, null, Turn(many), null, RoomResultPage.Changes));
-        Assert.That((first.Facts!.Count, first.Column[0].Control.Action, first.Column[0].Main, first.Column[0].Words), Is.EqualTo((8, RoomResult.NextPage, true, "Next Page")), "the product's own pager words, from the first page");
-        var last = Bar(new RoomResult(false, true, false, null, Turn(many), null, RoomResultPage.Changes, part: 1));
-        Assert.That((last.Facts!.Count, last.Column.Count), Is.EqualTo((3, 1)));
+        Assert.That((first.Card!.List.Count, first.Column[0].Control.Action, first.Column[0].Main, first.Column[0].Words), Is.EqualTo((RoomCard.ListAPage, RoomResult.NextPage, true, "Next Page")), "the product's own pager words, from the first page");
+        var last = Bar(new RoomResult(false, true, false, null, Turn(many), null, RoomResultPage.Changes, part: 2));
+        Assert.That((last.Card!.List.Count, last.Card.List[0].Name.Text, last.Column.Count), Is.EqualTo((1, "src/f11.ts", 1)));
 
         // Checks: each step with its mark; failed, the way to an instruction leads; passed with a build to try, Try Build.
         var failed = Bar(new RoomResult(true, false, false, false, null, Steps(buildFails: true), RoomResultPage.Checks));
-        Assert.That(failed.Facts!.Select(row => (row.Words.Text, row.Mark)), Is.EqualTo(new[]
+        Slots(failed);
+        Assert.That(failed.Card!.Status?.Title, Is.EqualTo(RoomPanelCards.ChecksFailed));
+        Assert.That(failed.Card.Steps.Select(step => (step.Name, step.Tone)), Is.EqualTo(new[]
         {
-            ("Type Check", RoomRowMark.Check), ("Build", RoomRowMark.Cross), ("Page Drawn", RoomRowMark.Check), ("VR Offered", RoomRowMark.Check),
+            ("Type Check", RoomTone.Good), ("Build", RoomTone.Bad), ("Page Drawn", RoomTone.Good), ("VR Offered", RoomTone.Good),
         }));
         Assert.That(failed.Column.Select(action => (action.Words, action.Main, action.Place)), Is.EqualTo(new[] { ("Write Instruction", true, KitPlace.Field), ("Back", false, KitPlace.Step) }),
             "the file's own way to an instruction, in the product's words");
@@ -192,7 +203,7 @@ public class RoomResultTests
         Assert.That((result.CheckLine, result.Steps.Count > 0), Is.EqualTo((stands ? "Build Passed" : null, stands)));
         var bar = Bar(result);
         Assert.That(bar.Column.Any(action => action.Control.Action == RoomResult.ShowChecks), Is.EqualTo(stands), "no Checks page for a check of other files");
-        Assert.That(bar.Body.Text, Is.EqualTo("5 Files Changed"), "what the computer observed still stands");
+        Assert.That(Slots(bar), Does.Contain("5 Files"), "what the computer observed still stands");
     }
 
     [Test]
@@ -205,7 +216,7 @@ public class RoomResultTests
         {
             var selectors = new KitSelectors("This Mac", false, "Codex", agentChangeable: true, offersNeverAsk: true, neverAsk: true);
             var bar = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()), selectors: selectors);
-            Assert.That((bar.Result, bar.Body.Text, bar.Sentence, bar.Band), Is.EqualTo((true, "5 Files Changed", (string?)"Build Passed", (string?)"I added the golden balloon.")), Show(bar));
+            Assert.That((bar.Result, Slots(bar), bar.Band), Is.EqualTo((true, new[] { "Passed", "5 Files" }, (string?)"I added the golden balloon.")), Show(bar));
             Assert.That(bar.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.MakeVrVersion, RoomResult.ShowChanges, RoomResult.ShowChecks }));
             var agent = bar.Row.Single(action => action.Control.Action == AgentColumn.Open);
             Assert.That(agent.Chip, Is.EqualTo("Never Ask"), "the level the next start will use stays shown beside the result, as the action's chip apart from its words");
@@ -225,33 +236,33 @@ public class RoomResultTests
         try
         {
             var fixedBar = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()), fix: Ended(2, AutoFixEndReason.Passed));
-            Assert.That((fixedBar.Body.Text, fixedBar.Sentence), Is.EqualTo(("Fixed · Try 2 of 2 · 5 Files Changed", (string?)"Build Passed")), Show(fixedBar));
-            Assert.That(fixedBar.Lines!.Select(line => line.Text), Is.EqualTo(new[] { "Fixed · Try 2 of 2", "5 Files Changed" }), "each on a line of its own");
+            Assert.That((fixedBar.Card?.Status?.Title, Slots(fixedBar)), Is.EqualTo(((string?)RoomBar.FixedTitle, new[] { "Passed", "5 Files" })), Show(fixedBar));
+            Assert.That((fixedBar.Card!.TrackAt, fixedBar.Card.TrackOf), Is.EqualTo(((int?)2, (int?)2)), "the tries as pips, apart from the words");
             Assert.That(fixedBar.Column[0].Control.Action, Is.EqualTo(RoomResult.MakeVrVersion), "a fixed check leaves the result's own way on");
             Assert.That(fixedBar.Column[0].Main, Is.True);
 
             var stopped = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: false, Turn(Observed), Steps(buildFails: true)), fix: Ended(2, AutoFixEndReason.CapReached));
-            Assert.That((stopped.Body.Text, stopped.Sentence), Is.EqualTo(("Stopped After 2 Tries · 5 Files Changed", (string?)"Build Failed")), Show(stopped));
+            Assert.That((stopped.Card?.Status?.Title, Slots(stopped)), Is.EqualTo(((string?)RoomBar.StoppedTitle, new[] { "Failed", "5 Files" })), Show(stopped));
             Assert.That((stopped.Column[0].Place, stopped.Column[0].Main), Is.EqualTo((KitPlace.Field, true)), "where the tries ran out, an instruction leads");
             Assert.That(stopped.Column.Count(action => action.Main), Is.EqualTo(1));
             Assert.That(stopped.Column.Select(action => action.Control.Action), Does.Contain(RoomResult.MakeVrVersion));
 
-            // A check alone, no observed turn: the chain's line is the panel's, the check stays in the sentence bar.
+            // A check alone, no observed turn: the chain's status, the check its one slot.
             var alone = Bar(new RoomResult(false, true, false, false, null, Steps(buildFails: true)), fix: Ended(2, AutoFixEndReason.CapReached));
-            Assert.That((alone.Body.Text, alone.Sentence, alone.Lines), Is.EqualTo(("Stopped After 2 Tries", (string?)"Build Failed", (IReadOnlyList<LineWords>?)null)), Show(alone));
+            Assert.That((alone.Card?.Status?.Title, Slots(alone)), Is.EqualTo(((string?)RoomBar.StoppedTitle, new[] { "Failed" })), Show(alone));
 
             // A fix the check passed, then the folder changed: the check no longer speaks for these files, so neither does
             // "Fixed" (AUDIT's probe, 2026-11-11); the result stands as before any try.
             var changedSince = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: null, Turn(Observed), null), fix: Ended(1, AutoFixEndReason.Passed));
-            Assert.That((changedSince.Body.Text, changedSince.Sentence, changedSince.Lines), Is.EqualTo(("5 Files Changed", (string?)null, (IReadOnlyList<LineWords>?)null)), Show(changedSince));
+            Assert.That((changedSince.Card?.Status, Slots(changedSince)), Is.EqualTo(((RoomCardStatus?)null, new[] { "5 Files" })), Show(changedSince));
             Assert.That(changedSince.Column[0].Control.Action, Is.EqualTo(RoomResult.MakeVrVersion));
             // That the tries ran out stays true after the folder changed.
             var ranOutSince = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: null, Turn(Observed), null), fix: Ended(2, AutoFixEndReason.CapReached));
-            Assert.That(ranOutSince.Body.Text, Is.EqualTo("Stopped After 2 Tries · 5 Files Changed"), Show(ranOutSince));
+            Assert.That((ranOutSince.Card?.Status?.Title, Slots(ranOutSince)), Is.EqualTo(((string?)RoomBar.StoppedTitle, new[] { "5 Files" })), Show(ranOutSince));
 
             // Any other end, or none: the result as before any try.
             var other = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()), fix: Ended(1, AutoFixEndReason.PersonStopped));
-            Assert.That((other.Body.Text, other.Sentence), Is.EqualTo(("5 Files Changed", (string?)"Build Passed")));
+            Assert.That((other.Card?.Status, Slots(other)), Is.EqualTo(((RoomCardStatus?)null, new[] { "Passed", "5 Files" })));
         }
         finally { RoomDesign.Enabled = was; }
     }

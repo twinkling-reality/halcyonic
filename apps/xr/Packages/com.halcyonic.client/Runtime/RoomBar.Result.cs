@@ -39,32 +39,29 @@ namespace Halcyonic.Client
             string? sentence = null;
             string? band = null;
             IReadOnlyList<RoomRow>? facts = null;
-            IReadOnlyList<LineWords>? lines = null;
+            RoomCard? card = null;
             switch (result.Page)
             {
                 case RoomResultPage.Changes:
-                    facts = result.Shown;
+                    // FIELD's Changes card (A17): each file its kind's mark, its path, a quiet note; five a page (RoomCard.ListAPage).
+                    var changes = RoomPanelCards.Changes(result, frame.SubjectRuns);
+                    card = changes.List.Count <= RoomCard.ListAPage ? changes
+                        : new RoomCard(changes.Title, changes.Description, changes.Head, changes.Status, changes.Slots, changes.Steps, changes.TrackAt, changes.TrackOf,
+                            changes.List.Skip(result.Part * RoomCard.ListAPage).Take(RoomCard.ListAPage).ToList(), changes.Gauges, changes.More);
                     if (result.Part + 1 < result.Parts) column.Add(Own(RoomResult.NextPage, Footer.NextPageWords(result.Part, result.Parts), main: true, GlazeIcon.Next));
                     column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
                     break;
                 case RoomResultPage.Checks:
-                    facts = result.Shown;
+                    // FIELD's Checks card: the outcome as its status, the steps as nodes, the tries' pips on the failed one.
+                    card = RoomPanelCards.Checks(result, binding.Model.AutoFix);
                     if (result.CanTry) column.Add(Own(RoomResult.TryBuild, KitScreenModel.Words(KitScreenAction.TryIt), main: true, GlazeIcon.OpenNow));
                     else if (result.Passed == false && instruct != null) column.Add(new RoomAction(instruct, main: true, WorkspaceText.Label(WorkspaceAction.Instruct)));
                     column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
                     break;
                 default:
-                    if (result.CountLine is string count) body = LineWords.Ours(count);
-                    sentence = result.CheckLine;
-                    if (fixedLine != null)
-                    {
-                        // The chain's line first, each on a line of its own; the check stays in the sentence bar.
-                        var counted = body;
-                        body = counted.IsEmpty ? LineWords.Ours(fixedLine) : LineWords.Ours(fixedLine + KitMomentWords.Dot) + counted;
-                        if (!counted.IsEmpty) lines = new[] { LineWords.Ours(fixedLine), counted };
-                    }
-                    // With a check and no count, the check is the panel's one line.
-                    else if (body.IsEmpty && sentence != null) (body, sentence) = (LineWords.Ours(sentence), null);
+                    // FIELD's result card (A17): the task's name as its title, the check and the files changed (or waiting to be
+                    // added) as slots, an ended chain of tries as its status first. No sentence: the check is a slot now.
+                    card = RoomPanelCards.Result(result, frame.SubjectRuns, binding.Model.AutoFix);
                     if (ranOut && instruct != null) column.Add(new RoomAction(instruct, main: true, WorkspaceText.Label(WorkspaceAction.Instruct)));
                     if (result.CanMakeVr) column.Add(Own(RoomResult.MakeVrVersion, KitScreenModel.Words(KitScreenAction.MakeAVrVersion), main: column.Count == 0, GlazeIcon.Next));
                     else if (result.IsVr && instruct != null && !ranOut) column.Add(new RoomAction(instruct, main: true, KitScreenModel.Words(KitScreenAction.ChangeIt)));
@@ -83,12 +80,13 @@ namespace Halcyonic.Client
                 // The rows' words, joined, are the body's: a view that draws no rows still shows every word, each on its own line.
                 foreach (var row in facts) body = body.IsEmpty ? row.Words : body + LineWords.Ours(KitMomentWords.Dot) + row.Words;
             }
-            return new RoomBar(loop.State, row: loop.Row, body: body, sentence: sentence, column: column, band: band, wide: body.IsEmpty,
-                lines: facts != null && facts.Count > 1 ? facts.Select(row => row.Words).ToList() : lines)
+            return new RoomBar(loop.State, row: loop.Row, body: body, sentence: sentence, column: column, band: band, wide: body.IsEmpty && card == null,
+                lines: facts != null && facts.Count > 1 ? facts.Select(row => row.Words).ToList() : null)
             {
                 Result = true,
                 Facts = facts,
                 Known = result,
+                Card = card,
                 Ended = fixedLine,
             };
         }

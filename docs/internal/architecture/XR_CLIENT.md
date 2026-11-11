@@ -2771,6 +2771,13 @@ bands are the bar's one band.
   hairline, a step's with its check or cross. With nothing known of the task, the row stands alone as before. Not
   drawn yet: the check or cross beside Build Passed or Build Failed in the sentence bar. Checks: `38-result`, `38-result-long`, `38-changes`, `38-changes-long`, `38-checks`,
   `38-checks-failed`, `38-project`; `RoomResultTests`.
+- **The result's panels as FIELD's cards** (A17, 2026-11-11, the owner's rejection of dot-joined rows): the result at
+  rest is `RoomPanelCards.Result` (the task's name as its title, the check and the files changed, or waiting to be
+  added, as slots, an ended chain of tries as its status first; no sentence bar), Changes is `RoomPanelCards.Changes`
+  (each file its kind's mark, its path, a quiet note), five a page (`RoomCard.ListAPage`, `RoomResult.Parts`), and
+  Checks is `RoomPanelCards.Checks` (the outcome as its status, the steps as nodes, the tries' pips on the failed one),
+  each the bar's `Card`, drawn in the panel's place (`RoomBarView.LayCard`). Every card is checked for no dot
+  (`RoomCard.AnyDot`) in `RoomResultTests` and in the render states, every label of the card whole.
 - **Facts apart for FIELD's cards** (A17, 2026-11-11: no information strung on separators): the result gives its facts
   apart (`RoomBar.Known`, the `RoomResult`: `FilesChanged`, `Passed`, `Changes` as `RoomChange` with kind, path and
   lines before and after, `NotObserved`, `StepFacts` as `RoomStep` with the step, its name and its tone, those never
