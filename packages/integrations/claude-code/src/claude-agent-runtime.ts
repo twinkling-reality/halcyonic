@@ -74,7 +74,7 @@ export const CLAUDE_AGENT_CAPABILITIES: RuntimeCapabilities = {
 
 /** The part of a running SDK query the adapter uses. The SDK's `Query` satisfies it. */
 export type QueryHandle = AsyncIterable<SDKMessage> &
-  Pick<Query, 'interrupt' | 'close' | 'supportedModels'>;
+  Pick<Query, 'interrupt' | 'close' | 'supportedModels' | 'setPermissionMode'>;
 
 /**
  * The shape of the SDK's `query()` as the adapter calls it: streaming input, explicit options.
@@ -140,6 +140,9 @@ const START_OPTIONS = ['model', 'permission_mode'];
  * Claude Code does not offer working without asking (ADR 0043): Halcyonic gives it no sandbox of its
  * own, so nothing would bound a command it ran unasked.
  */
+/** How long leaving a plan waits for Claude Code to report its new mode (PLAN 4a). */
+const LEAVE_PLAN_WAIT_MS = 10_000;
+
 /**
  * Why a run inside the sandbox is not counted confined (AUDIT BOX-4 F1): its sign-in key is in its
  * environment. Keeping the key out, in a gate of Halcyonic's that adds it to each request, is the
@@ -221,6 +224,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       reports_tool_results: false,
       // A session's transcript outlives its process, and `resume` continues it (restart-reattach.md).
       resumes_after_restart: true,
+      // Its own plan mode, which `system/init` reports back; every write still asks, as on every Claude
+      // Code start (agent-plan-modes.md, the bundled 2.1.283's run on a fake host).
+      offers_plan: true,
     };
   }
 
@@ -297,8 +303,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     if (request.approval_level === 'never_ask') {
       throw new RuntimeActionError('invalid_runtime_options', NEVER_ASK_REFUSED);
     }
-    const parsed = parseStartOptions(request.options, request.model_ref);
-    if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
+    const planned = withPlan(parseStartOptions(request.options, request.model_ref), request.plan);
+    if (!planned.ok) throw new RuntimeActionError('invalid_runtime_options', planned.message);
+    const parsed = planned;
     // Asked again before anything is launched: the folder may have changed since admission.
     const cwd = confirmProjectLocation(this.#directoryPolicy, request.directory);
     // A chosen model is checked against a fresh list before a session is launched for it.
@@ -369,7 +376,8 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
         `The session started at the level ${request.approval_level}; ${NEVER_ASK_REFUSED}`,
       );
     }
-    const parsed = parseStartOptions(request.options, request.model_ref);
+    // Resumed in plan mode where its start recorded one (PLAN).
+    const parsed = withPlan(parseStartOptions(request.options, request.model_ref), request.plan);
     if (!parsed.ok) throw refuse(parsed.message);
     if (!SESSION_ID.test(request.native_id)) {
       throw refuse(`${request.native_id} is not a session id Halcyonic chose.`);
@@ -442,8 +450,14 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     session.restored(request.cut_turn);
   }
 
-  async sendInstruction(request: { execution: ExecutionContext; text: string }): Promise<void> {
-    await this.#session(request.execution).instruct(request.text);
+  async sendInstruction(request: {
+    execution: ExecutionContext;
+    text: string;
+    leave_plan?: true;
+  }): Promise<void> {
+    const session = this.#session(request.execution);
+    if (request.leave_plan === true) await session.leavePlan();
+    await session.instruct(request.text);
   }
 
   async respondToApproval(request: {
@@ -598,6 +612,23 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
  * Checks the start options of a Claude Agent execution. Where the session works is not an option:
  * it is the project's folder, which the host resolves and checks (`confirmProjectLocation`).
  */
+/**
+ * A plan start (PLAN) runs in Claude Code's own `plan` permission mode; a start that also names
+ * another mode is refused rather than either choice dropped.
+ */
+function withPlan(
+  parsed: ReturnType<typeof parseStartOptions>,
+  plan: boolean | undefined,
+): ReturnType<typeof parseStartOptions> {
+  if (!parsed.ok || plan !== true) return parsed;
+  if (parsed.value.permissionMode !== undefined && parsed.value.permissionMode !== 'plan') {
+    return invalid(
+      `A plan runs in Claude Code's plan mode, so it is not started with the permission mode ${parsed.value.permissionMode}.`,
+    );
+  }
+  return { ok: true, value: { ...parsed.value, permissionMode: 'plan' } };
+}
+
 function parseStartOptions(
   options: RuntimeOptions,
   modelRef: string | null = null,
@@ -730,6 +761,10 @@ class ClaudeSession {
   /** For a re-attached session, the query its next instruction launches, resuming it. */
   #pending: { readonly query: QueryFunction; readonly options: Options } | null = null;
 
+  /** Waits for the mode a `system/status` message reports, while a plan is being left (PLAN 4a). */
+  #modeWaiter: ((mode: string) => void) | null = null;
+  /** The permission mode the session's first `system/init` reported (PLAN). */
+  #initMode: string | undefined = undefined;
   /** What the session's start records of its confinement (S2, BOX-4). */
   readonly #record: { readonly confined: boolean; readonly unconfined_reason?: string };
 
@@ -817,6 +852,51 @@ class ClaudeSession {
       );
     }
     await this.#deliver(text).confirmation.promise;
+  }
+
+  /**
+   * Carries a plan out (PLAN 4a): switches the running session from Claude Code's plan mode to its
+   * default one and reports `runtime.plan.left` only once Claude Code reports the new mode in a
+   * `system/status` message. Anything else refuses the instruction, with nothing sent. A
+   * re-attached session that has not resumed has no process to confirm it, so it is refused too.
+   */
+  async leavePlan(): Promise<void> {
+    this.#assertOpen();
+    const handle = this.#query;
+    if (handle === null) {
+      throw new RuntimeActionError(
+        'runtime_refused',
+        'Claude Code has not resumed this session since the restart, so it cannot confirm leaving the plan. Send it an instruction first, then carry the plan out.',
+      );
+    }
+    if (this.#turn !== null) {
+      throw new RuntimeActionError(
+        'turn_in_progress',
+        'Claude Agent accepts instructions only between turns.',
+      );
+    }
+    const reported = new Promise<boolean>((resolve) => {
+      this.#modeWaiter = (mode) => resolve(mode === 'default');
+      setTimeout(() => resolve(false), LEAVE_PLAN_WAIT_MS).unref?.();
+    });
+    try {
+      await handle.setPermissionMode('default');
+    } catch {
+      this.#modeWaiter = null;
+      throw new RuntimeActionError(
+        'runtime_refused',
+        'Claude Code did not take the change out of plan mode, so the instruction was not sent and the task is still a plan.',
+      );
+    }
+    const left = await reported;
+    this.#modeWaiter = null;
+    if (!left) {
+      throw new RuntimeActionError(
+        'runtime_refused',
+        'Claude Code did not report leaving plan mode, so the instruction was not sent and the task is still a plan.',
+      );
+    }
+    this.#emit('runtime.plan.left', {}, observed('system.status'), 'plan-left');
   }
 
   /** Answers a pending permission request. The runtime receives the decision as it is resolved. */
@@ -1006,7 +1086,12 @@ class ClaudeSession {
   #handle(message: SDKMessage): void {
     switch (message.type) {
       case 'system':
+        if (message.subtype === 'status' && message.permissionMode !== undefined) {
+          this.#modeWaiter?.(message.permissionMode);
+        }
         if (message.subtype === 'init') {
+          // The mode the start runs in, as Claude Code reports it: a plan is recorded only from this.
+          this.#initMode ??= message.permissionMode;
           this.#evidence(message.session_id, 'system.init', message.uuid);
           this.#reportModel(message.model);
         }
@@ -1047,7 +1132,7 @@ class ClaudeSession {
       this.#nativeId = sessionId;
       this.#emit(
         'runtime.execution.started',
-        { native_id: sessionId, ...this.#record },
+        { native_id: sessionId, ...this.#record, ...(this.#initMode === 'plan' && { plan: true }) },
         observed(nativeType),
         'session',
       );
