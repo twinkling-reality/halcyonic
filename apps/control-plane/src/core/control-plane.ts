@@ -30,6 +30,7 @@ import { ProjectShares, type ProjectSharesDeps } from '../preview/share.ts';
 import type { HostStarters } from '../starters.ts';
 import { AutoFix } from './auto-fix.ts';
 import { type CatalogLinks, CommandService } from './command-service.ts';
+import { InstructionQueue } from './instruction-queue.ts';
 import type { OllamaUnloader } from './ollama-unload.ts';
 import { EventPublisher } from './publisher.ts';
 import { Reattacher } from './reattach.ts';
@@ -311,6 +312,8 @@ export class ControlPlane {
       projection: this.projection,
       recorder: this.recorder,
       registry: this.registry,
+      // The queue below runs only on the person's own journal (ADR 0056).
+      queuesInstructions: this.journal.info.origin === 'live',
       locations: this.locations,
       ids: options.ids,
       clock: options.clock,
@@ -360,6 +363,12 @@ export class ControlPlane {
             live: this.journal.info.origin === 'live',
           });
     this.#autoFix?.attach();
+    // The person's instructions held for a runtime that cannot steer (ADR 0056).
+    new InstructionQueue({
+      projection: this.projection,
+      commands: this.commands,
+      live: this.journal.info.origin === 'live',
+    }).attach(this.publisher);
     if (this.#checkpointEvery !== null) this.#attachCheckpoints(this.#checkpointEvery);
     if (this.previews !== null) this.#attachAutoCheck();
   }

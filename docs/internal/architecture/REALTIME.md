@@ -148,6 +148,24 @@ client                                   server
   their options; the execution's `directory` says where it runs ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)).
   `location` was added as an explicit null without a new protocol or schema version: a development
   build generated before it sends `project.create` without it and gets 400 until it is rebuilt.
+- **An instruction while a turn runs, to a runtime that cannot steer** (Claude Code today, ADR 0056).
+  `execution.send_instruction` is accepted and waits; it is not sent to the runtime then. Only on the
+  person's own journal (`origin: live`), where the queue runs; on a recording's journal it is refused
+  with `capability_unsupported`, as before.
+  - At most 3 wait per execution; a fourth is refused with `invalid_state`.
+  - `execution.instruction.queued` (`command_id`, `position`) records it. `ExecutionView.queued_instructions`
+    lists the waiting ones, oldest first, as `{command_id, queued_at}` without the words, and is absent when
+    none waits.
+  - After a turn that completed, the first is sent as an instruction at rest, and its command completes once
+    the runtime confirms. The next waits for that turn.
+  - Every one still waiting fails unsent, effect `none`: `queued_turn_failed` after a failed turn;
+    `queued_stopped` after a Stop, or a turn interrupted or cut by a restart; `queued_session_lost`;
+    `queued_files_restored` after a restore is accepted.
+  - `execution.drop_queued_instruction` `{execution_id, command_id}` (low consequence) fails one that waits,
+    with `queued_dropped`; one not waiting is refused with `invalid_state`.
+  - While one waits, the project has a pending command, so the automatic check and the fix loop wait for the
+    turn that takes the last one. A runtime that steers (Codex, OpenCode) takes the instruction in its running
+    turn, as before.
 - **Putting a project back.** `project.restore` `{project_id, checkpoint_id, review?}` is
   `review_required`: a client sends it only after the person has read the preview, with the
   preview's `review`, which a paired device must carry; a restore whose preview no longer matches its

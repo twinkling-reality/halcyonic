@@ -207,9 +207,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * 4: how each file a task's copy would add changed (`to_add_files`). 5: each project's history.
  * 6: the digest of a task's copy's latest reading (`to_add_review`, ADR 0051). 7: whether an
  * execution's start recorded the runtime's plan mode (`plan`, PLAN). 8: whether it left the plan
- * (`planLeft`) and why its start was not counted confined (`unconfinedReason`).
+ * (`planLeft`) and why its start was not counted confined (`unconfinedReason`). 9: each
+ * execution's queued instructions (ADR 0056).
  */
-export const PROJECTION_STATE_FORMAT = 8;
+export const PROJECTION_STATE_FORMAT = 9;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -1362,6 +1363,22 @@ export class Projection {
         }
         this.#checkOutputs.set(event.project_id, event.payload.check_id);
         return;
+      case 'execution.instruction.queued': {
+        // The person's instruction waits for the turn to end (ADR 0056); its words are in its command.
+        const execution = this.#executions.get(event.execution_id);
+        if (execution === undefined) {
+          notes.push(
+            note('unknown_entity', event, `execution ${event.execution_id} does not exist`),
+          );
+          return;
+        }
+        execution.queued = [
+          ...(execution.queued ?? []),
+          { command_id: event.payload.command_id, queued_at: event.occurred_at },
+        ];
+        this.#touchExecution(execution, event.ingested_at, changes);
+        return;
+      }
       case 'execution.auto_fix.sent':
       case 'execution.auto_fix.ended': {
         // A failed check sent back to its agent on its own (ADR 0044).
@@ -1678,6 +1695,15 @@ export class Projection {
           return;
         }
         this.#pendingCommands.delete(command);
+        // A queued instruction leaves the queue once sent and confirmed, or once it is not sent.
+        const waiting =
+          command.executionId === null ? undefined : this.#executions.get(command.executionId);
+        if (waiting?.queued?.some((queued) => queued.command_id === event.payload.command_id)) {
+          waiting.queued = waiting.queued.filter(
+            (queued) => queued.command_id !== event.payload.command_id,
+          );
+          this.#touchExecution(waiting, event.ingested_at, changes);
+        }
         if (event.event_type === 'command.completed') {
           command.status = 'completed';
           command.result = event.payload.result;

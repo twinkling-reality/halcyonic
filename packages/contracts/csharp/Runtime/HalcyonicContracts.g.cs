@@ -1093,6 +1093,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "execution.respond_to_approval")] ExecutionRespondToApproval,
         [EnumMember(Value = "execution.answer_question")] ExecutionAnswerQuestion,
         [EnumMember(Value = "execution.interrupt")] ExecutionInterrupt,
+        [EnumMember(Value = "execution.drop_queued_instruction")] ExecutionDropQueuedInstruction,
         [EnumMember(Value = "workspace.request.submit")] WorkspaceRequestSubmit,
         [EnumMember(Value = "workspace.request.resume")] WorkspaceRequestResume,
         [EnumMember(Value = "workspace.request.cancel")] WorkspaceRequestCancel,
@@ -2139,6 +2140,15 @@ namespace Halcyonic.Contracts
         public List<AutoFixViewFailedStepsItem>? FailedSteps { get; set; }
     }
 
+    public sealed class ExecutionViewQueuedInstructionsItem
+    {
+        [JsonProperty("command_id", Required = Required.Always)]
+        public string CommandId { get; set; } = default!;
+
+        [JsonProperty("queued_at", Required = Required.Always)]
+        public string QueuedAt { get; set; } = default!;
+    }
+
     public sealed class ExecutionView
     {
         [JsonProperty("execution_id", Required = Required.Always)]
@@ -2206,6 +2216,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("auto_fix", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public AutoFixView? AutoFix { get; set; }
+
+        [JsonProperty("queued_instructions", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public List<ExecutionViewQueuedInstructionsItem>? QueuedInstructions { get; set; }
 
         [JsonProperty("created_at", Required = Required.Always)]
         public string CreatedAt { get; set; } = default!;
@@ -2811,6 +2824,15 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("kept", Required = Required.Always)]
         public long Kept { get; set; }
+    }
+
+    public sealed class ExecutionInstructionQueuedPayload
+    {
+        [JsonProperty("command_id", Required = Required.Always)]
+        public string CommandId { get; set; } = default!;
+
+        [JsonProperty("position", Required = Required.Always)]
+        public long Position { get; set; }
     }
 
     public sealed class ProjectRestoredPayload
@@ -3532,6 +3554,15 @@ namespace Halcyonic.Contracts
         public string ExecutionId { get; set; } = default!;
     }
 
+    public sealed class ExecutionDropQueuedInstructionPayload
+    {
+        [JsonProperty("execution_id", Required = Required.Always)]
+        public string ExecutionId { get; set; } = default!;
+
+        [JsonProperty("command_id", Required = Required.Always)]
+        public string CommandId { get; set; } = default!;
+    }
+
     public sealed class WorkspaceRequestSubmitPayload
     {
         [JsonProperty("project_id", Required = Required.AllowNull)]
@@ -3619,6 +3650,7 @@ namespace Halcyonic.Contracts
                 "execution.respond_to_approval" => new ExecutionRespondToApprovalCommand(),
                 "execution.answer_question" => new ExecutionAnswerQuestionCommand(),
                 "execution.interrupt" => new ExecutionInterruptCommand(),
+                "execution.drop_queued_instruction" => new ExecutionDropQueuedInstructionCommand(),
                 "workspace.request.submit" => new WorkspaceRequestSubmitCommand(),
                 "workspace.request.resume" => new WorkspaceRequestResumeCommand(),
                 "workspace.request.cancel" => new WorkspaceRequestCancelCommand(),
@@ -3816,6 +3848,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ExecutionInterruptPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionDropQueuedInstructionCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "execution.drop_queued_instruction";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ExecutionDropQueuedInstructionPayload Payload { get; set; } = default!;
     }
 
     public sealed class WorkspaceRequestSubmitCommand : CommandEnvelope
@@ -4364,6 +4404,7 @@ namespace Halcyonic.Contracts
                 "project.checkpoint.recorded" => new ProjectCheckpointRecordedEvent(),
                 "project.checkpoint.failed" => new ProjectCheckpointFailedEvent(),
                 "project.checkpoints.pruned" => new ProjectCheckpointsPrunedEvent(),
+                "execution.instruction.queued" => new ExecutionInstructionQueuedEvent(),
                 "project.restored" => new ProjectRestoredEvent(),
                 "project.restore_incomplete" => new ProjectRestoreIncompleteEvent(),
                 "project.check.recorded" => new ProjectCheckRecordedEvent(),
@@ -4506,6 +4547,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectCheckpointsPrunedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionInstructionQueuedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.instruction.queued";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ExecutionInstructionQueuedPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectRestoredEvent : EventEnvelope

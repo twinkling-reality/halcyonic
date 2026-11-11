@@ -270,6 +270,7 @@ namespace Halcyonic.Client
             ExecutionSendInstructionCommand _ => CommandType.ExecutionSendInstruction,
             ExecutionRespondToApprovalCommand _ => CommandType.ExecutionRespondToApproval,
             ExecutionInterruptCommand _ => CommandType.ExecutionInterrupt,
+            ExecutionDropQueuedInstructionCommand _ => CommandType.ExecutionDropQueuedInstruction,
             WorkspaceRequestSubmitCommand _ => CommandType.WorkspaceRequestSubmit,
             WorkspaceRequestResumeCommand _ => CommandType.WorkspaceRequestResume,
             WorkspaceRequestCancelCommand _ => CommandType.WorkspaceRequestCancel,

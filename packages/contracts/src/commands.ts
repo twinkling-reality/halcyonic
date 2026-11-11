@@ -304,6 +304,15 @@ export const ExecutionInterruptCommand = defineCommand(
 );
 
 /**
+ * Drops one of the person's instructions that is waiting for the turn to end (ADR 0056), before it
+ * is sent: its command fails with effect `none`, `queued_dropped`. Only a waiting one can be dropped.
+ */
+export const ExecutionDropQueuedInstructionCommand = defineCommand(
+  'execution.drop_queued_instruction',
+  Type.Object({ execution_id: ExecutionId, command_id: CommandId }, strict),
+);
+
+/**
  * A request about a project's task and its current execution; with both null, about the whole
  * project; with all three null, about all of the person's work. The last two are read-only (ADR 0030,
  * amended 2026-11-10). Admission refuses any other mix.
@@ -352,6 +361,7 @@ export const COMMAND_VARIANTS = [
   ExecutionRespondToApprovalCommand,
   ExecutionAnswerQuestionCommand,
   ExecutionInterruptCommand,
+  ExecutionDropQueuedInstructionCommand,
   WorkspaceRequestSubmitCommand,
   WorkspaceRequestResumeCommand,
   WorkspaceRequestCancelCommand,
@@ -385,6 +395,7 @@ export const CommandType = Type.Union([
   Type.Literal('execution.respond_to_approval'),
   Type.Literal('execution.answer_question'),
   Type.Literal('execution.interrupt'),
+  Type.Literal('execution.drop_queued_instruction'),
   Type.Literal('workspace.request.submit'),
   Type.Literal('workspace.request.resume'),
   Type.Literal('workspace.request.cancel'),

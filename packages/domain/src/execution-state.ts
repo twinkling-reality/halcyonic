@@ -9,6 +9,7 @@ import type {
   ExecutionView,
   ProjectId,
   QuestionView,
+  QueuedInstructionView,
   RuntimeRef,
   TestRunResultView,
   TestRunView,
@@ -79,6 +80,8 @@ export interface ExecutionState {
   autoFix: AutoFixView | null;
   /** Whether its latest accepted instruction was one the host sent on its own (ADR 0044). */
   autoFixDriven: boolean;
+  /** The person's instructions waiting for the turn to end, oldest first (ADR 0056). */
+  queued: QueuedInstructionView[];
 }
 
 export function createExecutionState(init: {
@@ -116,6 +119,7 @@ export function createExecutionState(init: {
     lastSequence: null,
     autoFix: null,
     autoFixDriven: false,
+    queued: [],
   };
 }
 
@@ -197,6 +201,10 @@ export function toExecutionView(
     last_test_run: state.lastTestRun,
     turn_count: state.turnCount,
     ...(state.autoFix !== null && { auto_fix: { ...state.autoFix } }),
+    // A state from before the queue (ADR 0056) has none.
+    ...((state.queued ?? []).length > 0 && {
+      queued_instructions: state.queued.map((queued) => ({ ...queued })),
+    }),
     created_at: state.createdAt,
     started_at: state.startedAt,
     updated_at: state.updatedAt,

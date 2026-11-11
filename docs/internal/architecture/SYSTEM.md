@@ -92,7 +92,11 @@ client ── command ──> CommandService ── admit (domain) ──> Recor
    check fails and exactly one task's turn changed the files, the control plane sends the failure
    back to that task's agent as its next instruction (`received_via: 'internal'`), up to two tries,
    journaling each try and why it stopped; the person's Stop or their own words end it at once
-   ([ADR 0044](../decisions/0044-a-failed-check-goes-back-to-its-agent-on-its-own-within-a-cap.md)).
+   ([ADR 0044](../decisions/0044-a-failed-check-goes-back-to-its-agent-on-its-own-within-a-cap.md)). An instruction the person sends
+   while a turn runs, to a runtime that cannot steer, waits for the turn (at most three), is sent
+   after a turn that completed and fails unsent after any other end, a Stop or a restore; while one
+   waits, the check and the fix loop wait too
+   ([ADR 0056](../decisions/0056-an-instruction-sent-during-a-turn-waits-for-it-on-a-runtime-that-cannot-steer.md)).
 7. Before starting a turn on a local `ollama/<model>` execution, if no active execution in
    Halcyonic is already using that model, the control plane reads `GET /api/ps` on loopback Ollama
    (`127.0.0.1:11434`); when the execution's turn ends (or fails, is interrupted, becomes unknown

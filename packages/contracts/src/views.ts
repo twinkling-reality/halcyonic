@@ -7,7 +7,7 @@ import {
   CommandType,
 } from './commands.ts';
 import { WorkstreamCopy } from './copies.ts';
-import { ApprovalSubject } from './events.ts';
+import { ApprovalSubject, QUEUED_INSTRUCTIONS_MAX } from './events.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
 import { AutoFixView, CheckFindings, CheckId, ShareAddress, ShareWay } from './previews.ts';
 import {
@@ -229,6 +229,13 @@ export const TestRunResultView = Type.Object(
 );
 export type TestRunResultView = Static<typeof TestRunResultView>;
 
+/** An instruction waiting for its execution's turn to end: its command and when it was queued. */
+export const QueuedInstructionView = Type.Object(
+  { command_id: CommandId, queued_at: Timestamp },
+  { additionalProperties: false },
+);
+export type QueuedInstructionView = Static<typeof QueuedInstructionView>;
+
 export const ExecutionView = Type.Object(
   {
     execution_id: ExecutionId,
@@ -291,6 +298,14 @@ export const ExecutionView = Type.Object(
      * under way or ended. Absent where none was ever recorded.
      */
     auto_fix: Type.Optional(AutoFixView),
+    /**
+     * Instructions the person sent while a turn ran, to a runtime that cannot steer, waiting for the
+     * turn to end (ADR 0056): oldest first, at most `QUEUED_INSTRUCTIONS_MAX`. Each is sent only after
+     * a turn that completed, one per turn; the headset holds their words. Absent when none waits.
+     */
+    queued_instructions: Type.Optional(
+      Type.Array(QueuedInstructionView, { minItems: 1, maxItems: QUEUED_INSTRUCTIONS_MAX }),
+    ),
     created_at: Timestamp,
     started_at: Nullable(Timestamp),
     updated_at: Timestamp,
