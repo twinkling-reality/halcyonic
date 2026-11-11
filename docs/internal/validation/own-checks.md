@@ -63,3 +63,28 @@
   - yarn is still not probed.
   - A child started in a new session is not stopped. It is seen only by a folder change within 2 s.
 
+## 2026-11-11 (AUDIT3's reread): node-options, and the keys that change what runs
+
+- **Probe:** npm 11 and pnpm 11.27.1, scratch projects, the same profile. A project `.npmrc` with
+  `node-options=--require=<folder>/pre.cjs`, where `pre.cjs` is `process.exit(0)`, and a `test` that writes a mark
+  and exits 1.
+- **With the earlier overrides:** both exited 0 and the mark was not written. An empty `npm_config_node_options`
+  changed nothing. `npm_config_node_options=--stack-trace-limit=10` (Node's default) gave exit 1, with the mark
+  written, on both.
+- **The keys that change what `run` runs, and how each is overridden in the run's environment:**
+
+  | Key | Override |
+  | --- | --- |
+  | `script-shell` | `/bin/sh` |
+  | `node-options` | `--stack-trace-limit=10`, a no-op |
+  | `ignore-scripts` | `true`: npm skips pre and post scripts and runs the named one |
+  | `enable-pre-post-scripts` (pnpm) | `false` |
+  | `shell-emulator` (pnpm) | `false` |
+  | `userconfig` and `globalconfig` | an empty file each, the run's own |
+
+  The person's environment does not reach the script (`env -i`), so no `NODE_OPTIONS` or `npm_config_*` of theirs
+  does either.
+- **Not overridden:** pnpm's `use-node-version`, which downloads a Node and so fails inside the profile, a failure
+  and not a pass; and a project's own `node_modules/.bin`, the project's own commands, which run as the script
+  names them.
+

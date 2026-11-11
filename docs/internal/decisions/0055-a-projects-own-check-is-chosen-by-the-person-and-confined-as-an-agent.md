@@ -132,3 +132,16 @@ Facts, read and probed on 2026-11-11 ([own-checks.md](../validation/own-checks.m
 - **Format.** PROJECTION_STATE_FORMAT is taken at this unit's rebase, by hand, past the base's (9 as the lead
   names it).
 
+## Amendment, 2026-11-11 (AUDIT3's reread)
+
+- **`node-options` is overridden too.** A project's `node-options` would become `NODE_OPTIONS` for the script. An
+  empty `npm_config_node_options` does not clear it on npm 11 or pnpm 11 (probed), so the environment gives Node's
+  own default as a no-op, `--stack-trace-limit=10`. pnpm's `shell-emulator` is set off.
+  [own-checks.md](../validation/own-checks.md) lists each key that changes what a script runs, with its override.
+- **The restart match.** A running script's record holds its pid and its start time from `ps -o lstart`.
+  `sandbox-exec` execs the manager, so the profile is not in its arguments. At the next start the group is stopped
+  only while that pid still has that start time; a pid since reused started later and is left alone. The record
+  goes either way.
+- **Passed needs nothing left running.** Passed means every chosen script exited 0 and none has `left_running`.
+- **The settle window is 2 s.** A child in a new session that writes later than 2 s after the run is not seen.
+

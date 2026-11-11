@@ -95,11 +95,28 @@ function managerEnvironment(home: string, temp: string): Record<string, string> 
     npm_config_ignore_scripts: 'true',
     npm_config_enable_pre_post_scripts: 'false',
     npm_config_script_shell: '/bin/sh',
+    // A project's node-options would become NODE_OPTIONS for the script (a --require that exits 0 makes a failing
+    // test pass, AUDIT3 reread 2). An empty value does not clear it, so a no-op one does: Node's own default.
+    npm_config_node_options: '--stack-trace-limit=10',
+    // pnpm's own way of running scripts, in place of the system shell.
+    npm_config_shell_emulator: 'false',
     npm_config_userconfig: join(home, EMPTY_CONFIG),
     npm_config_globalconfig: join(home, EMPTY_GLOBAL_CONFIG),
     npm_config_cache: join(temp, 'npm-cache'),
     npm_config_update_notifier: 'false',
   };
+}
+
+/** When the process `pid` started, as `ps` says it, or null when no process has that pid. */
+function startOf(pid: number): string | null {
+  try {
+    const started = execFileSync('/bin/ps', ['-o', 'lstart=', '-p', String(pid)], {
+      encoding: 'utf8',
+    }).trim();
+    return started === '' ? null : started;
+  } catch {
+    return null;
+  }
 }
 
 /** Whether the last lines of a failed script's output name a refusal of the sandbox. */
@@ -243,11 +260,16 @@ export class OwnChecks {
     return join(this.#deps.dataDir, 'own-checks', 'running');
   }
 
+  /**
+   * The record of a running script: its pid and when that process started, as `ps` gives it. `sandbox-exec` execs the
+   * manager, so the process keeps its pid and start time but not the profile in its arguments (AUDIT3 reread 1).
+   */
   #remember(pid: number | undefined, profile: string): void {
     if (pid === undefined) return;
     try {
+      const started = startOf(pid);
       mkdirSync(this.#records, { recursive: true });
-      writeFileSync(join(this.#records, String(pid)), JSON.stringify({ pid, profile }), {
+      writeFileSync(join(this.#records, String(pid)), JSON.stringify({ pid, profile, started }), {
         mode: 0o600,
       });
     } catch (error) {
@@ -272,21 +294,27 @@ export class OwnChecks {
       return;
     }
     for (const name of names) {
+      const path = join(this.#records, name);
+      let record: { pid?: unknown; started?: unknown };
       try {
-        const record = JSON.parse(readFileSync(join(this.#records, name), 'utf8')) as {
-          pid?: unknown;
-          profile?: unknown;
-        };
-        if (typeof record.pid === 'number' && typeof record.profile === 'string') {
-          const args = execFileSync('/bin/ps', ['-o', 'args=', '-p', String(record.pid)], {
-            encoding: 'utf8',
-          });
-          if (args.includes(record.profile)) process.kill(-record.pid, 'SIGKILL');
-        }
+        record = JSON.parse(readFileSync(path, 'utf8')) as typeof record;
       } catch {
-        // Gone already, or not ours.
+        rmSync(path, { force: true });
+        continue;
       }
-      rmSync(join(this.#records, name), { force: true });
+      // The same process only while its pid still has the start time recorded: a pid reused since started later.
+      if (
+        typeof record.pid === 'number' &&
+        typeof record.started === 'string' &&
+        startOf(record.pid) === record.started
+      ) {
+        try {
+          process.kill(-record.pid, 'SIGKILL');
+        } catch {
+          // Its group is gone.
+        }
+      }
+      rmSync(path, { force: true });
     }
   }
 
@@ -483,7 +511,9 @@ export class OwnChecks {
       outcome: 'ran',
       manager,
       runs,
-      passed: runs.length === chosen.length && runs.every((run) => run.exit === 0),
+      // Passed only where every chosen script exited 0 and nothing it started outlived the run (AUDIT3 reread S1).
+      passed:
+        runs.length === chosen.length && runs.every((run) => run.exit === 0 && !run.left_running),
       written: writtenBetween(
         before.ok ? before.reading : null,
         after?.ok === true ? after.reading : null,

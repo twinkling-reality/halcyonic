@@ -34,6 +34,7 @@ import {
   commandSha256,
   managerOf,
   managersOn,
+  OwnChecks,
   readManifest,
   refusedAtEnd,
   writtenBetween,
@@ -514,6 +515,57 @@ describe("a project's own check, run inside the agents' sandbox on this Mac (ADR
     const run = p.recorded()[0]?.payload.findings.runs[0];
     assert.equal(run?.exit, 0);
     assert.equal(run?.left_running, true, 'the late write is seen');
+  });
+
+  test("a project .npmrc's node-options cannot make a failing check pass (AUDIT3 reread 2)", async (t) => {
+    const p = plane(t);
+    p.choose();
+    await until(() => p.recorded().length === 1, 'the first run');
+    writeFileSync(join(p.folder, 'fail.flag'), '');
+    rmSync(join(p.folder, 'out.txt'), { force: true });
+    writeFileSync(join(p.folder, 'pre.cjs'), 'process.exit(0)\n');
+    writeFileSync(
+      join(p.folder, '.npmrc'),
+      `node-options=--require=${join(p.folder, 'pre.cjs')}\n`,
+    );
+    p.check();
+    await until(() => p.recorded().length === 2, 'the second run');
+    assert.equal(p.recorded()[1]?.payload.findings.passed, false);
+    assert.ok(readdirSync(p.folder).includes('out.txt'), "the chosen command's body ran");
+  });
+
+  test('a check a crashed control plane left running is stopped at the next start (AUDIT3 reread 1)', async (t) => {
+    const p = plane(
+      t,
+      { test: "node -e \"setInterval(()=>require('fs').appendFileSync('tick.txt','x'),200)\"" },
+      {
+        scriptMs: 60_000,
+      },
+    );
+    p.choose();
+    await until(() => readdirSync(p.folder).includes('tick.txt'), 'the script ticking');
+    // The next start, on the same data folder, before this control plane has stopped anything.
+    new OwnChecks({
+      dataDir: p.dataDir,
+      projection: p.controlPlane.projection,
+      recorder: p.controlPlane.recorder,
+      ids: { next: () => '01a19000-0000-7000-8000-0000000000d1' } as never,
+      clock: p.controlPlane.clock,
+      logger: { info() {}, warn() {}, error() {}, debug() {} } as never,
+      home: '/Users/someone',
+      node: process.execPath,
+      managers,
+    });
+    const size = () => readFileSync(join(p.folder, 'tick.txt'), 'utf8').length;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const at = size();
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    assert.equal(size(), at, 'the left check stopped');
+    assert.deepEqual(
+      readdirSync(join(p.dataDir, 'own-checks', 'running')),
+      [],
+      'its record is gone',
+    );
   });
 
   test('a check running when the control plane closes stops with it (AUDIT3 4)', async (t) => {
