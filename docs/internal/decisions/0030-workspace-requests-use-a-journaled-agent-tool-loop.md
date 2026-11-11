@@ -134,3 +134,6 @@ answer from.
   read on past the outcome until its planning bound, with no reply (2026-11-11). The prompt also says
   so (`work_outcome_in`). A model that still answers with a tool call there fails that turn, as for any
   call not offered.
+- On that turn the host also says, in a system message, to answer in plain words; and a reply that is a tool call
+  written as text (function-call or invoke markup, or a bare JSON call) is never kept as the reply: the request is
+  interrupted with a step saying so, and Resume asks again (the 30B model wrote one, 2026-11-11).

@@ -21,7 +21,14 @@ import { createUuidV7Generator } from '../ids.ts';
 import { DeviceAccess } from '../network/devices.ts';
 import { capturingLogger, createTestControlPlane } from '../testing/harness.ts';
 import type { ToolDefinition, ToolMessage, ToolTurnResult } from './ollama.ts';
-import { QUOTED_PREFIX, UNREAD_WAIT_MS, unreadWaitMs, WorkspaceRequests } from './requests.ts';
+import {
+  ANSWER_NOW,
+  looksLikeToolCall,
+  QUOTED_PREFIX,
+  UNREAD_WAIT_MS,
+  unreadWaitMs,
+  WorkspaceRequests,
+} from './requests.ts';
 
 const unavailable = {
   availability: 'unavailable' as const,
@@ -1816,6 +1823,56 @@ test('once the work it sent has its outcome, the host context says so, so the mo
     assert.ok(offered[0]?.includes('read_results'));
     // Once the outcome is in, that turn is offered no tool, so the model answers.
     assert.deepEqual(offered[1], []);
+  } finally {
+    await f.close();
+  }
+});
+
+test('a tool call written as text is recognised; plain replies are not', () => {
+  // As the 30B local model wrote it on the turn offered no tool (2026-11-11).
+  assert.equal(
+    looksLikeToolCall(
+      '<atem:function_calls>\n<atem:invoke name="observe_task">\n</atem:invoke>\n</atem:function_calls>',
+    ),
+    true,
+  );
+  assert.equal(looksLikeToolCall('{"name": "observe_task", "arguments": {}}'), true);
+  assert.equal(looksLikeToolCall('The sphere is blue now, and the check passed.'), false);
+  assert.equal(looksLikeToolCall('I could invoke the check again if you like.'), false);
+});
+
+test('on the turn offered no tool, the host says to answer, and a written tool call is never the reply', async () => {
+  const seen: ToolMessage[][] = [];
+  const f = await fixture({
+    turn: async (messages) => {
+      seen.push([...messages]);
+      return seen.length === 1
+        ? answer([{ name: 'continue_task', arguments: { text: 'Make it blue.' } }])
+        : answer(
+            [],
+            '<atem:function_calls>\n<atem:invoke name="observe_task">\n</atem:invoke>\n</atem:function_calls>',
+          );
+    },
+  });
+  try {
+    const id = f.submit();
+    for (let i = 0; i < 10; i++) await settle();
+    f.emit('runtime.turn.completed', { turn_id: 'existing-turn' });
+    for (let i = 0; i < 10; i++) await settle();
+    assert.ok(
+      (seen[1] ?? []).some(
+        (message) => message.role === 'system' && message.content === ANSWER_NOW,
+      ),
+    );
+    const request = f.coordinator.read(id, { kind: 'local' });
+    assert.equal(request?.status, 'interrupted');
+    assert.ok(
+      !(request?.reply?.text ?? '').includes('function_calls'),
+      'the markup is not the reply',
+    );
+    assert.ok(
+      request?.steps.some((step) => step.tool_name === 'model' && step.status === 'rejected'),
+    );
   } finally {
     await f.close();
   }

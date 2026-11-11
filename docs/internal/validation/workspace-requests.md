@@ -41,8 +41,17 @@ although the Mac's check of the blue change had passed (03:04:54Z, files current
 the request (the 30B loaded for Codex and another lane's Unity job running); the run was stopped there and the model
 unloaded. So the host context now says `work_outcome_in: true` once the work the request sent has its outcome, its
 check included, and the prompt says to answer then; and `read_result` is offered only after `read_results`. And
-the first model turn after that is offered no tool at all, so the model can only answer. Not yet run on the 30B
-model.
+the first model turn after that is offered no tool at all, so the model can only answer.
+
+A fourth run, 07:40 to 07:49Z on 2026-11-11, under rule 24a (no LEAD Unity slot; 77% free at the start), with the
+no-tool turn: a fresh Codex task (a green sphere, check passed), then "Make the sphere blue instead of green. Then tell
+me what changed and whether it works.": `read_workspace`, `continue_task` (delivered, Codex's turn observed), then the
+no-tool turn, where the model wrote a tool call as text (`<atem:function_calls>` naming `observe_task`), which the
+request took as its reply: `responded` with that markup. So now the no-tool turn also says, as a system message, to
+answer in plain words, and a reply that is a tool call written as text is never kept as the reply: the request is
+interrupted with a step saying so. The all-work request did not run: memory was 37% free once Codex and the model were
+loaded (with another lane's Unity job), and the driver stops under 40%. The model was unloaded and the run file
+removed at 07:49Z.
 
 ## 2026-11-10: What a task changed and whether it works, a whole project, on local models
 
