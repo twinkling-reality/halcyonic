@@ -93,6 +93,14 @@ public sealed class RoomCardTests
     }
 
     [Test]
+    public void AStatusMayNameItsOwnMarkAndACardHoldsFourSlots()
+    {
+        Assert.That(new RoomCardStatus("Empty File", null, RoomTone.Quiet, RoomKind.File).Mark, Is.EqualTo(RoomKind.File));
+        Assert.That(new RoomCardStatus("Shared", "Scan the code to play", RoomTone.Good).Mark, Is.EqualTo(RoomKind.None), "the tone's own mark by default");
+        Assert.That(RoomCard.MostSlots, Is.EqualTo(4), "a new folder from a starter has four facts: folder, starter, agent, level");
+    }
+
+    [Test]
     public void AFactStrungOnTheSeparatorIsCaught()
     {
         var card = new RoomCard(LineWords.Ours("Model" + KitMomentWords.Dot + "Glimmer"));

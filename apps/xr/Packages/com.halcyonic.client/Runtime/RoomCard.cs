@@ -13,8 +13,14 @@ namespace Halcyonic.Client
         /// <summary>No kind: a dash.</summary>
         None,
 
-        /// <summary>What a project starts from: the headset.</summary>
+        /// <summary>What a project starts from: the pin, where a thing starts.</summary>
         Starter,
+
+        /// <summary>The project itself: the cube, as the project's head.</summary>
+        Project,
+
+        /// <summary>A file, as a file's state names it: the file.</summary>
+        File,
 
         /// <summary>The agent or model: its orb.</summary>
         Agent,
@@ -164,12 +170,20 @@ namespace Halcyonic.Client
     /// <summary>A card's status: a title word, and the quieter line under it, in its tone.</summary>
     public readonly struct RoomCardStatus
     {
-        public RoomCardStatus(string title, string? line, RoomTone tone)
+        /// <param name="mark">
+        /// The kind whose glyph stands in the status's mark in place of its tone's own (a file's state its file, a waiting
+        /// turn its clock); <see cref="RoomKind.None"/> for the tone's: a check, an alert, a wrench, a bubble, or for Quiet a
+        /// neutral dash, never an hourglass, since quiet is not waiting (SCREENS's critic, 2026-11-11).
+        /// </param>
+        public RoomCardStatus(string title, string? line, RoomTone tone, RoomKind mark = RoomKind.None)
         {
             Title = title;
             Line = line;
             Tone = tone;
+            Mark = mark;
         }
+
+        public RoomKind Mark { get; }
 
         public string Title { get; }
 
@@ -308,8 +322,8 @@ namespace Halcyonic.Client
             More = more == null || more.IsEmpty ? null : more;
         }
 
-        /// <summary>The slots a loadout holds at most: more do not fit the panel's width.</summary>
-        public const int MostSlots = 3;
+        /// <summary>The slots a loadout holds at most: three in a row, or four as two rows of two (a new folder from a starter).</summary>
+        public const int MostSlots = 4;
 
         /// <summary>The rows a list shows at most on one page.</summary>
         public const int ListAPage = 5;

@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-recap-starter", "47-card-file-state" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -171,6 +171,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The review before Start: the second page of its long first task, and its last part, what else is sent, with a note to check.
                 "47-card-review-task" => RoomReview.Card(CardReview(), part: 1, taskPages: 2),
                 "47-card-review" => RoomReview.Card(CardReview(), part: 2, taskPages: 2),
+                // A new folder from a starter: four facts, two rows of two.
+                "47-card-recap-starter" => new RoomCard(Theirs("Kite Run"), Theirs("Make a kite that follows my hand."), RoomCardHead.Project, slots: new[]
+                {
+                    new RoomSlot(RoomKind.Folder, Theirs("kite-run")), new RoomSlot(RoomKind.Starter, Ours("VR Game")),
+                    new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")), new RoomSlot(RoomKind.Level, Ours("Ask First")),
+                }),
+                // A file's state with no line: its own mark, its title centred on it.
+                "47-card-file-state" => new RoomCard(Theirs("sky.png"), status: new RoomCardStatus("Picture or Data File", null, RoomTone.Quiet, RoomKind.File), titleMono: true),
                 "47-card-history" => new RoomCard(Ours("History"), Ours("Pick a moment to restore."), list: new[]
                 {
                     new RoomListRow(RoomKind.Worked, Ours("After ") + Theirs("Tail") + Ours(" Worked"), "18:40", press: CardRowControl("c1")),
@@ -295,6 +303,24 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(view.Plates.Where(each => each.What == "reading gap").All(each => Mathf.Abs(each.Plate.transform.localPosition.x - each.Plate.Size.x / 2f) < slack && Mathf.Abs(each.Plate.Size.y - unit) < slack * 0.2f),
                     "a gap's hairline does not start at the bands' edge, one dp tall");
                 Require(card.Reading.Count <= RoomReading.RowsAPage, "the page holds more rows than a page");
+            }
+            if (card.Slots.Count == 4)
+            {
+                // Two rows of two, each row meeting both edges, the second on the first's columns.
+                var tiles = view.Plates.Where(each => each.What.StartsWith("slot ", StringComparison.Ordinal)).Select(each => each.Plate).ToList();
+                Require(tiles.Count == 4, "a card of four slots draws " + tiles.Count);
+                if (tiles.Count == 4)
+                    Require(Mathf.Abs(tiles[0].transform.localPosition.x - tiles[2].transform.localPosition.x) < slack && Mathf.Abs(tiles[1].transform.localPosition.x - tiles[3].transform.localPosition.x) < slack
+                        && tiles[0].transform.localPosition.y > tiles[2].transform.localPosition.y + slack, "four slots do not stand as two rows of two on one grid");
+            }
+            if (card.Status is RoomCardStatus shownStatus && shownStatus.Line == null)
+            {
+                // A title alone stands centred on its mark.
+                var mark = view.Plates.First(each => each.What == "status mark").Plate;
+                var title = view.Shown.First(label => label.GetParsedText() == shownStatus.Title);
+                title.ForceMeshUpdate(true);
+                var middle = title.transform.localPosition.y + (title.textInfo.lineInfo[0].ascender + title.textInfo.lineInfo[title.textInfo.lineCount - 1].descender) / 2f;
+                Require(Mathf.Abs(middle - mark.transform.localPosition.y) < unit * 3f, "a status's title alone stands " + ((middle - mark.transform.localPosition.y) / unit).ToString("0.0") + " dp off its mark's middle");
             }
             if (card.Slots.Count > 1)
                 Require(Mathf.Abs(Left("slot")) < slack && Mathf.Abs(Right("slot") - inner) < slack, "the slots do not meet the card's two edges");
