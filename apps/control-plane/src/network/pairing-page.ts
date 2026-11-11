@@ -91,10 +91,13 @@ export interface PairingPageOptions {
 
 /** What a view mounted on the page may add: routes behind the page's session and checks, under `/setup`. */
 export interface PageRoutes {
-  /** A GET answered only with a session. */
-  get(path: string, handler: (request: FastifyRequest) => unknown): void;
-  /** A POST from the page's own origin, answered only with a session. */
-  post(path: string, handler: (request: FastifyRequest) => unknown): void;
+  /**
+   * A GET answered only with a session. `session` is an opaque key for the caller's session (a hash
+   * of it, never the cookie), so a view can keep each session's own state.
+   */
+  get(path: string, handler: (request: FastifyRequest, session: string) => unknown): void;
+  /** A POST from the page's own origin, answered only with a session; `session` as for `get`. */
+  post(path: string, handler: (request: FastifyRequest, session: string) => unknown): void;
   /** A static file behind the session. */
   asset(path: string, type: string, body: Buffer): void;
 }
@@ -346,15 +349,17 @@ export class PairingPage {
       get: (path, handler) => {
         under(path);
         app.get(path, async (request, reply) => {
-          if (!this.#hasSession(request)) return reply.code(403).type('text/plain').send(AGAIN);
-          return handler(request);
+          const session = this.#sessionKey(request);
+          if (session === null) return reply.code(403).type('text/plain').send(AGAIN);
+          return handler(request, session);
         });
       },
       post: (path, handler) => {
         under(path);
         app.post(path, async (request, reply) => {
-          if (!this.#hasSession(request)) return reply.code(403).type('text/plain').send(AGAIN);
-          return handler(request);
+          const session = this.#sessionKey(request);
+          if (session === null) return reply.code(403).type('text/plain').send(AGAIN);
+          return handler(request, session);
         });
       },
       asset: (path, type, body) => {
@@ -454,15 +459,22 @@ export class PairingPage {
    * ahead of the person's own, which must not keep them out (AUDIT S2).
    */
   #hasSession(request: FastifyRequest): boolean {
+    return this.#sessionKey(request) !== null;
+  }
+
+  /** The caller's session as an opaque key (a hash, never the cookie itself), or null without one. */
+  #sessionKey(request: FastifyRequest): string | null {
     const prefix = `${this.#cookieName}=`;
     const values = (request.headers.cookie ?? '')
       .split(';')
       .map((part) => part.trim())
       .filter((part) => part.startsWith(prefix))
       .map((part) => Buffer.from(part.slice(prefix.length)));
-    return values.some((given) =>
-      this.#sessions.some((session) => same(given, Buffer.from(session))),
-    );
+    for (const given of values) {
+      const found = this.#sessions.find((session) => same(given, Buffer.from(session)));
+      if (found !== undefined) return createHash('sha256').update(found).digest('hex');
+    }
+    return null;
   }
 }
 

@@ -72,6 +72,7 @@ function draw() {
     const words = {
       running: 'Downloading',
       done: 'Done',
+      not_set_up: 'Not Set Up',
       failed: "Didn't Finish",
       stopped: 'Stopped',
     };

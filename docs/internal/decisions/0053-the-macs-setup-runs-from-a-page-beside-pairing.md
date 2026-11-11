@@ -51,7 +51,15 @@ by `pnpm mac-setup agent-apps` in a browser on a scratch page.
    12 lines, cleaned of terminal sequences and unseen characters, with the home folder as `~`, and
    Stop ends its whole group. A second download waits for the first. A download never starts on
    its own. Once it ends well, setup's own action records it (`agent-apps`, `starter`), and that
-   action checks the pins, as in the terminal.
+   action checks the pins, as in the terminal. The job reads Done only when that action recorded it
+   and, for OpenCode and Codex, the download's own binary matches its pin: a copy that does not match
+   is left out of the settings, setup's words say why, and the job reads Not Set Up. OpenCode's and
+   Codex's `npm install` use the person's npm settings, as the printed commands do, so the pin is what
+   keeps a changed package out. A model is pulled by name and tag only: Halcyonic pins no model
+   digest, and the model's button says so ([mac-host-setup.md](../validation/mac-host-setup.md)).
+   The pending second press is kept per session of the page (an opaque key the page hands the
+   view, a hash of the session, never its cookie), so a press made in one browser is not confirmed
+   from another.
 5. **Restart to Apply.** The page compares the settings that take effect at a start, as the control
    plane started with them, with the file now, leaving out pairing's setting, which applies live.
    When they differ it offers Restart to Apply. The first press lists the tasks that will pause

@@ -80,7 +80,8 @@
 .job-state {
   font-weight: 600;
 }
-.job-state.failed {
+.job-state.failed,
+.job-state.not_set_up {
   color: var(--problem);
 }
 .job-time {

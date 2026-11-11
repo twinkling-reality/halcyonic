@@ -11,6 +11,7 @@ import {
   runMacSetup,
   type SetupStep,
 } from '../cli/mac-setup.ts';
+import { matchesPin, type Pins } from '../pins.ts';
 import { plainLine } from '../preview/check-output.ts';
 import { VR_STARTER } from '../starters.ts';
 import type { PageRoutes } from './pairing-page.ts';
@@ -54,6 +55,11 @@ export interface SetupDownload {
   readonly record: readonly string[];
   /** Work before the commands, such as copying the starter's lockfile into place. */
   readonly prepare?: () => void;
+  /**
+   * Whether what it installed is the copy Halcyonic was checked with: true only on a pin match, null
+   * where Halcyonic has no pin to check it by. Without it, the record's own exit says.
+   */
+  readonly verify?: () => Promise<boolean | null>;
 }
 
 /** A running command, as the page's runner starts it. */
@@ -103,7 +109,8 @@ export interface SetupState {
   readonly job: {
     readonly id: string;
     readonly title: string;
-    readonly state: 'running' | 'done' | 'failed' | 'stopped';
+    /** `not_set_up`: downloaded, but setup did not record it (a pin that does not match, say). */
+    readonly state: 'running' | 'done' | 'not_set_up' | 'failed' | 'stopped';
     readonly lines: readonly string[];
     readonly seconds: number;
   } | null;
@@ -192,7 +199,10 @@ const ACTIONS: Readonly<Record<string, (arg: string | null) => readonly string[]
 export function setupDownloads(
   dataDir: string,
   which: (command: string) => string | null,
+  pins: Pins | null,
 ): SetupDownload[] {
+  const pinned = (app: 'opencode' | 'codex') => () =>
+    pins === null ? Promise.resolve(null) : matchesPin(join(dataDir, pins[app].path), pins[app]);
   const npm = which('npm') ?? 'npm';
   const ollama = which('ollama') ?? 'ollama';
   const starter = join(dataDir, 'starters', VR_STARTER);
@@ -217,6 +227,7 @@ export function setupDownloads(
         ],
       ],
       record: ['agent-apps'],
+      verify: pinned('opencode'),
     },
     {
       id: 'codex',
@@ -234,6 +245,7 @@ export function setupDownloads(
         ],
       ],
       record: ['agent-apps'],
+      verify: pinned('codex'),
     },
     {
       id: 'starter',
@@ -270,7 +282,8 @@ export function setupDownloads(
     ...models.map((model) => ({
       id: `model:${model.name}`,
       title: `Get ${model.name}`,
-      fetches: `The model ${model.name}, ${model.size}, into Ollama on this Mac, from Ollama's own library.`,
+      // By name and tag only: Halcyonic has no digest pinned for a model (mac-host-setup.md).
+      fetches: `The model ${model.name}, ${model.size}, into Ollama on this Mac, from Ollama's own library, by its name: Halcyonic doesn't check which build of it arrives.`,
       commands: [[ollama, 'pull', model.name]],
       record: [],
     })),
@@ -281,7 +294,7 @@ export function setupDownloads(
 interface SetupJob {
   readonly id: string;
   readonly title: string;
-  state: 'running' | 'done' | 'failed' | 'stopped';
+  state: 'running' | 'done' | 'not_set_up' | 'failed' | 'stopped';
   readonly lines: string[];
   readonly started: number;
   ended: number | null;
@@ -289,13 +302,25 @@ interface SetupJob {
   stopped: boolean;
 }
 
+/** What one session of the page has pressed and been told. */
+interface Press {
+  confirm: SetupState['confirm'];
+  said: string[];
+}
+
+/** The most sessions whose presses are kept; the pairing page keeps fewer sessions than this. */
+const MAX_PRESSES = 16;
+
+/** The session key for a caller with no page session, as the tests drive the view. */
+const ONE_SESSION = 'one';
+
 /** The setup view: its state, its presses, and one download at a time. */
 export class SetupView {
   readonly #deps: SetupPageDeps;
   readonly #downloads: Map<string, SetupDownload>;
   #job: SetupJob | null = null;
-  #confirm: SetupState['confirm'] = null;
-  #said: string[] = [];
+  /** Each session's pending press and last words, so a press is confirmed only where it was made. */
+  readonly #presses = new Map<string, Press>();
   #restarting = false;
   #steps: { readonly at: number; readonly value: Promise<SetupStep[]> } | null = null;
 
@@ -318,7 +343,24 @@ export class SetupView {
     return this.#steps.value;
   }
 
-  async state(): Promise<SetupState> {
+  /** A session's presses, made on its first use; the oldest session's are let go past the bound. */
+  #press(session: string): Press {
+    let press = this.#presses.get(session);
+    if (press === undefined) {
+      press = { confirm: null, said: [] };
+      this.#presses.set(session, press);
+      while (this.#presses.size > MAX_PRESSES) {
+        const oldest = this.#presses.keys().next().value;
+        if (oldest === undefined) break;
+        this.#presses.delete(oldest);
+      }
+    }
+    return press;
+  }
+
+  /** What the page shows to one session: the shared steps and download, its own pending press and words. */
+  async state(session: string = ONE_SESSION): Promise<SetupState> {
+    const here = this.#press(session);
     const steps = await this.#checked();
     const job = this.#job;
     return {
@@ -345,8 +387,8 @@ export class SetupView {
             },
       restart_needed: this.#deps.appliedNow() !== this.#deps.appliedAtStart,
       can_restart: this.#deps.canRestart,
-      confirm: this.#confirm,
-      said: this.#said,
+      confirm: here.confirm,
+      said: here.said,
       restarting: this.#restarting,
     };
   }
@@ -355,32 +397,40 @@ export class SetupView {
    * A press. The first asks for a second with what it will do; only the second, `confirmed`, acts.
    * Anything not offered is refused in words.
    */
-  async act(action: unknown, arg: unknown, confirmed: unknown): Promise<SetupState> {
+  async act(
+    action: unknown,
+    arg: unknown,
+    confirmed: unknown,
+    session: string = ONE_SESSION,
+  ): Promise<SetupState> {
+    const here = this.#press(session);
     const given = typeof arg === 'string' ? arg : null;
-    if (typeof action !== 'string') return this.#refused('That press is not one this page offers.');
+    if (typeof action !== 'string')
+      return this.#refused(here, session, 'That press is not one this page offers.');
     // A second press acts only on what the page last said it would do; any other is a first press.
-    const pending = this.#confirm;
+    const pending = here.confirm;
     const second =
       confirmed === true && pending !== null && pending.action === action && pending.arg === given;
     if (action === 'check') {
-      this.#confirm = null;
-      this.#said = [];
+      here.confirm = null;
+      here.said = [];
       await this.#checked(true);
-      return this.state();
+      return this.state(session);
     }
-    if (action === 'restart') return this.#restart(second);
-    if (action === 'download') return this.#download(given, second);
+    if (action === 'restart') return this.#restart(here, session, second);
+    if (action === 'download') return this.#download(here, session, given, second);
     const args = ACTIONS[action]?.(given) ?? null;
-    if (args === null) return this.#refused('That press is not one this page offers.');
+    if (args === null)
+      return this.#refused(here, session, 'That press is not one this page offers.');
     if (!second) {
-      this.#confirm = {
+      here.confirm = {
         action,
         arg: given,
         text: `This runs "pnpm mac-setup ${args.join(' ')}" on this Mac. Go On runs it.`,
       };
-      return this.state();
+      return this.state(session);
     }
-    this.#confirm = null;
+    here.confirm = null;
     const printed: string[] = [];
     try {
       await runMacSetup(
@@ -390,35 +440,41 @@ export class SetupView {
     } catch (error) {
       printed.push(this.#tilde(error instanceof Error ? error.message : String(error)));
     }
-    this.#said = printed.filter((line) => line.trim() !== '');
+    here.said = printed.filter((line) => line.trim() !== '');
     await this.#checked(true);
-    return this.state();
+    return this.state(session);
   }
 
   /** Stops the running download: its whole process group. */
-  stop(): Promise<SetupState> {
+  stop(session: string = ONE_SESSION): Promise<SetupState> {
     const job = this.#job;
     if (job !== null && job.state === 'running') {
       job.stopped = true;
       job.running?.stop();
     }
-    return this.state();
+    return this.state(session);
   }
 
-  async #download(id: string | null, confirmed: boolean): Promise<SetupState> {
+  async #download(
+    here: Press,
+    session: string,
+    id: string | null,
+    confirmed: boolean,
+  ): Promise<SetupState> {
     const download = id === null ? undefined : this.#downloads.get(id);
-    if (download === undefined) return this.#refused('That download is not one this page offers.');
+    if (download === undefined)
+      return this.#refused(here, session, 'That download is not one this page offers.');
     if (this.#job?.state === 'running')
-      return this.#refused('Another download is running. Wait for it, or stop it.');
+      return this.#refused(here, session, 'Another download is running. Wait for it, or stop it.');
     if (!confirmed) {
-      this.#confirm = {
+      here.confirm = {
         action: 'download',
         arg: download.id,
         text: `${download.fetches} Go On downloads it.`,
       };
-      return this.state();
+      return this.state(session);
     }
-    this.#confirm = null;
+    here.confirm = null;
     const job: SetupJob = {
       id: download.id,
       title: download.title,
@@ -431,7 +487,7 @@ export class SetupView {
     };
     this.#job = job;
     void this.#runDownload(download, job);
-    return this.state();
+    return this.state(session);
   }
 
   async #runDownload(download: SetupDownload, job: SetupJob): Promise<void> {
@@ -467,13 +523,17 @@ export class SetupView {
         job.ended = Date.now();
         return;
       }
-      if (download.record.length > 0) {
-        await runMacSetup(
-          download.record,
-          this.#deps.io((line) => add(line)),
-        );
-      }
-      job.state = 'done';
+      // Recorded only by setup's own action, which checks the pins; a copy that does not match is
+      // left out of the settings, setup's words say why, and the job says Not Set Up.
+      const recorded =
+        download.record.length === 0
+          ? 0
+          : await runMacSetup(
+              download.record,
+              this.#deps.io((line) => add(line)),
+            );
+      const verified = download.verify === undefined ? true : (await download.verify()) === true;
+      job.state = recorded === 0 && verified ? 'done' : 'not_set_up';
     } catch (error) {
       add(error instanceof Error ? error.message : String(error));
       job.state = 'failed';
@@ -484,16 +544,18 @@ export class SetupView {
     }
   }
 
-  async #restart(confirmed: boolean): Promise<SetupState> {
+  async #restart(here: Press, session: string, confirmed: boolean): Promise<SetupState> {
     if (!this.#deps.canRestart) {
       return this.#refused(
+        here,
+        session,
         'Halcyonic was not started from Start Halcyonic, so it cannot start itself again. Stop it and start it again to apply the settings.',
       );
     }
-    if (this.#restarting) return this.state();
+    if (this.#restarting) return this.state(session);
     if (!confirmed) {
       const tasks = this.#deps.tasksThatPause();
-      this.#confirm = {
+      here.confirm = {
         action: 'restart',
         arg: null,
         text:
@@ -501,19 +563,19 @@ export class SetupView {
             ? 'Halcyonic closes and starts again, with the new settings. No task is running. Go On restarts it.'
             : `Halcyonic closes and starts again, with the new settings. These tasks stop where they are and come back after the restart: ${tasks.join(', ')}. Go On restarts it.`,
       };
-      return this.state();
+      return this.state(session);
     }
-    this.#confirm = null;
+    here.confirm = null;
     this.#restarting = true;
-    const state = await this.state();
+    const state = await this.state(session);
     setImmediate(() => this.#deps.restart());
     return state;
   }
 
-  async #refused(text: string): Promise<SetupState> {
-    this.#confirm = null;
-    this.#said = [text];
-    return this.state();
+  async #refused(here: Press, session: string, text: string): Promise<SetupState> {
+    here.confirm = null;
+    here.said = [text];
+    return this.state(session);
   }
 
   /** The home folder as ~, as setup says it. */
@@ -542,12 +604,12 @@ export function mountSetup(view: SetupView): (routes: PageRoutes) => void {
     routes.asset('/setup', 'text/html; charset=utf-8', asset('setup.html'));
     routes.asset('/setup.js', 'text/javascript; charset=utf-8', asset('setup.js'));
     routes.asset('/setup.css', 'text/css; charset=utf-8', asset('setup.css'));
-    routes.get('/setup/state', () => view.state());
-    routes.post('/setup/act', (request) => {
+    routes.get('/setup/state', (_request, session) => view.state(session));
+    routes.post('/setup/act', (request, session) => {
       const body = (request.body ?? {}) as { action?: unknown; arg?: unknown; confirmed?: unknown };
-      return view.act(body.action, body.arg, body.confirmed);
+      return view.act(body.action, body.arg, body.confirmed, session);
     });
-    routes.post('/setup/stop', () => view.stop());
+    routes.post('/setup/stop', (_request, session) => view.stop(session));
   };
 }
 

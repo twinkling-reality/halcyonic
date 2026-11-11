@@ -428,7 +428,11 @@ async function main(): Promise<void> {
                 );
               },
             },
-            setupDownloads(config.dataDir, localMacSetupIo(() => undefined).which),
+            setupDownloads(
+              config.dataDir,
+              localMacSetupIo(() => undefined).which,
+              localMacSetupIo(() => undefined).pins,
+            ),
           ),
         ),
       },
