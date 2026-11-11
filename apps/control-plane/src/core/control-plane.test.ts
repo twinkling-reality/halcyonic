@@ -489,8 +489,17 @@ describe('command lifecycle', () => {
       command_type: 'execution.send_instruction' as const,
       payload: { execution_id: executionId as never, text },
     });
+    // The mock cannot steer: an instruction while the turn runs waits for it (ADR 0056), and is
+    // not sent to the runtime then.
     const whileRunning = controlPlane.commands.submit(instruct('Also check lint.'), 'internal');
-    assert.equal(whileRunning.command?.rejection?.code, 'capability_unsupported');
+    assert.equal(whileRunning.disposition, 'accepted');
+    assert.equal(whileRunning.command?.status, 'accepted');
+    assert.deepEqual(
+      controlPlane.projection
+        .execution(executionId)
+        ?.queued_instructions?.map((queued) => queued.command_id),
+      [whileRunning.command?.command_id],
+    );
     await time.runUntilIdle();
     const atRest = controlPlane.commands.submit(
       instruct('Look at the three failures.'),
@@ -499,8 +508,13 @@ describe('command lifecycle', () => {
     assert.equal(atRest.disposition, 'accepted');
     await time.runUntilIdle();
     const execution = controlPlane.projection.execution(executionId);
-    assert.equal(execution?.turn_count, 2);
+    // The first turn, the waiting instruction's turn after it, and the one sent at rest.
+    assert.equal(execution?.turn_count, 3);
     assert.equal(execution?.status, 'completed');
+    assert.equal(
+      controlPlane.projection.command(whileRunning.command?.command_id ?? '')?.status,
+      'completed',
+    );
     await controlPlane.close();
   });
 });

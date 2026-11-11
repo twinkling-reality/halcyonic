@@ -597,6 +597,25 @@ export const ExecutionCheckOutputGiven = executionEvent(
   ),
 );
 
+/** The most instructions that may wait for one execution's turn to end (ADR 0056). */
+export const QUEUED_INSTRUCTIONS_MAX = 3;
+
+/**
+ * The person's instruction is waiting for this execution's turn to end, on a runtime that cannot
+ * steer (ADR 0056): it is sent after a turn that completed, `position` in line, or its command fails
+ * with effect `none`, never sent. The words stay in the command's own `command.accepted`.
+ */
+export const ExecutionInstructionQueued = executionEvent(
+  'execution.instruction.queued',
+  Type.Object(
+    {
+      command_id: CommandId,
+      position: Type.Integer({ minimum: 1, maximum: QUEUED_INSTRUCTIONS_MAX }),
+    },
+    strict,
+  ),
+);
+
 /**
  * The host, not the person, sent the project's failed check back to this execution's agent as
  * its next instruction (ADR 0044): which check, which try of how many, and the instruction's own
@@ -968,6 +987,7 @@ export const EVENT_VARIANTS = [
   ProjectCheckpointRecorded,
   ProjectCheckpointFailed,
   ProjectCheckpointsPruned,
+  ExecutionInstructionQueued,
   ProjectRestored,
   ProjectRestoreIncomplete,
   ProjectCheckRecorded,

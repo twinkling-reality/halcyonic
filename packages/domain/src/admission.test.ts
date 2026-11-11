@@ -725,8 +725,57 @@ describe('command admission', () => {
   test('a declared-unsupported capability is rejected, never emulated', () => {
     const { b, projection, scope, commands } = setup();
     projection.apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
-    const admission = admitCommand(commands.instruct(), projection, catalog());
+    // Neither steering nor instructions at rest: nothing could ever send it, so it is refused.
+    const admission = admitCommand(
+      commands.instruct(),
+      projection,
+      catalog({ ...FULL, instruct_while_running: false, instruct_at_rest: false }),
+    );
     assert.equal(admission.admitted ? null : admission.rejection.code, 'capability_unsupported');
+  });
+
+  test('an instruction while a turn runs waits for it on a runtime that cannot steer, at most three (ADR 0056)', () => {
+    const { b, projection, scope, commands } = setup();
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    const queues = { ...catalog(), queuesInstructions: true };
+    const refused = admitCommand(commands.instruct(), projection, catalog());
+    assert.equal(
+      refused.admitted ? null : refused.rejection.code,
+      'capability_unsupported',
+      'where no queue runs, as in a recording, it is refused as the runtime declares',
+    );
+    const held = admitCommand(commands.instruct(), projection, queues);
+    assert.ok(held.admitted);
+    assert.equal(held.queued, true, 'held for the turn to end, not sent to the runtime');
+    const steering = admitCommand(commands.instruct(), projection, {
+      ...catalog({ ...FULL, instruct_while_running: true }),
+      queuesInstructions: true,
+    });
+    assert.ok(steering.admitted);
+    assert.equal(steering.queued, undefined, 'a runtime that steers takes it now');
+    for (let position = 1; position <= 3; position += 1) {
+      projection.apply(
+        b.controlPlane(
+          'execution.instruction.queued',
+          {
+            project_id: scope.projectId,
+            workstream_id: scope.workstreamId,
+            execution_id: scope.executionId,
+          },
+          {
+            command_id:
+              `00000000-0000-4000-8000-00000000c${String(position).padStart(3, '0')}` as CommandId,
+            position,
+          },
+        ),
+      );
+    }
+    const fourth = admitCommand(commands.instruct(), projection, queues);
+    assert.equal(fourth.admitted ? null : fourth.rejection.code, 'invalid_state');
+    assert.match(
+      fourth.admitted ? '' : fourth.rejection.message,
+      /3 instructions are already waiting/,
+    );
   });
 
   test('instructions are admitted at rest when supported, and refused before any session exists', () => {

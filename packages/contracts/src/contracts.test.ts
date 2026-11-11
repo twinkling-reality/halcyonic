@@ -669,6 +669,7 @@ describe('the C# bindings', () => {
     'ExecutionView.auto_fix', // a failed check sent back on its own (ADR 0044)
     'ExecutionView.plan', // whether its start recorded a plan (PLAN 4a)
     'ExecutionView.plan_left', // whether the plan was left to carry it out (PLAN 4a)
+    'ExecutionView.queued_instructions', // instructions waiting for the turn to end (ADR 0056)
     'ExecutionView.unconfined_reason', // why its start was not counted confined (BOX-4, PLAN 4a)
     'LocationRoot.label', // a location's label
     'ProjectCheckPayload.workstream_id', // the task whose copy a check checks (ADR 0045)

@@ -97,6 +97,8 @@ export interface CatalogLinks {
 export interface CommandServiceDeps {
   readonly projection: Projection;
   readonly recorder: Recorder;
+  /** Whether the instruction queue runs, so an instruction during a turn may wait for it (ADR 0056). */
+  readonly queuesInstructions?: boolean;
   readonly registry: RuntimeRegistry;
   /** Where projects may live on the host, and the directory policy runtimes ask. */
   readonly locations: HostLocations;
@@ -535,7 +537,10 @@ export class CommandService {
           message: 'Playing on this Mac is not set up: no browser for it.',
         },
       };
-    const admission = admitCommand(command, this.#deps.projection, this.#deps.registry);
+    const admission = admitCommand(command, this.#deps.projection, {
+      get: (runtimeId) => this.#deps.registry.get(runtimeId),
+      queuesInstructions: this.#deps.queuesInstructions === true,
+    });
     if (!admission.admitted) return admission;
     const refuse = (code: RejectionCode, message: string): Admission => ({
       admitted: false,
@@ -1402,10 +1407,38 @@ export class CommandService {
         begin(projectFolder === null ? null : (own ?? projectFolder));
         return;
       }
+      case 'execution.drop_queued_instruction': {
+        // Dropped before it was sent: its own command fails with nothing done (ADR 0056).
+        const dropped = this.#deps.projection.commandEnvelope(command.payload.command_id);
+        if (dropped !== undefined)
+          this.#fail(dropped, admission.scope, {
+            code: 'queued_dropped',
+            message: 'You dropped this instruction before it was sent.',
+            effect: 'none',
+          });
+        this.#complete(command, admission.scope, null);
+        return;
+      }
       case 'execution.send_instruction':
       case 'execution.respond_to_approval':
       case 'execution.answer_question':
       case 'execution.interrupt': {
+        if (command.command_type === 'execution.send_instruction' && admission.queued === true) {
+          // Held for the turn to end (ADR 0056): the instruction queue sends it, or fails it unsent.
+          const waiting =
+            this.#deps.projection.execution(command.payload.execution_id)?.queued_instructions ??
+            [];
+          recorder.record(
+            controlPlaneDraft(
+              'execution.instruction.queued',
+              toExecutionContext(admission.scope),
+              { command_id: command.command_id, position: waiting.length + 1 },
+              this.#now(),
+              causedBy(command.command_id),
+            ),
+          );
+          return;
+        }
         const { adapter } = this.#runtimeFor(admission);
         const execution = toExecutionContext(admission.scope);
         // A failed check's first lines go after the person's words, once per check (FX1).
@@ -1665,6 +1698,62 @@ export class CommandService {
         this.#now(),
         cause,
       ),
+    );
+  }
+
+  /**
+   * Sends an instruction that waited for its turn to end (ADR 0056), as an instruction at rest is
+   * sent: the same reads before the turn and the same completion once the runtime confirms. False
+   * when it is no longer waiting or its runtime is gone, and then it is failed unsent.
+   */
+  deliverQueued(commandId: string): boolean {
+    const command = this.#deps.projection.commandEnvelope(commandId);
+    if (command?.command_type !== 'execution.send_instruction') return false;
+    const view = this.#deps.projection.execution(command.payload.execution_id);
+    const scope: CommandScope = {
+      project_id: view?.project_id ?? null,
+      workstream_id: view?.workstream_id ?? null,
+      execution_id: command.payload.execution_id,
+    };
+    const runtime =
+      view === undefined ? undefined : this.#deps.registry.get(view.runtime.runtime_id);
+    if (
+      view === undefined ||
+      runtime === undefined ||
+      !(view.queued_instructions ?? []).some((queued) => queued.command_id === commandId)
+    ) {
+      if (view !== undefined)
+        this.failQueued(
+          commandId,
+          'queued_runtime_gone',
+          'Its agent is no longer here, so it was not sent.',
+        );
+      return false;
+    }
+    this.#dispatch(
+      command,
+      { admitted: true, policy: 'low_consequence', scope, runtime },
+      causedBy(command.command_id),
+      null,
+    );
+    return true;
+  }
+
+  /** Fails an instruction that waited for its turn, never sent, with why (ADR 0056). */
+  failQueued(commandId: string, code: string, message: string): void {
+    const command = this.#deps.projection.commandEnvelope(commandId);
+    if (command?.command_type !== 'execution.send_instruction') return;
+    const view = this.#deps.projection.execution(command.payload.execution_id);
+    if (!(view?.queued_instructions ?? []).some((queued) => queued.command_id === commandId))
+      return;
+    this.#fail(
+      command,
+      {
+        project_id: view?.project_id ?? null,
+        workstream_id: view?.workstream_id ?? null,
+        execution_id: command.payload.execution_id,
+      },
+      { code, message, effect: 'none' },
     );
   }
 

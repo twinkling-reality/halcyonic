@@ -41,6 +41,8 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'execution.respond_to_approval': 'review_required',
   'execution.answer_question': 'low_consequence',
   'execution.interrupt': 'review_required',
+  // Dropping an instruction before it is sent changes nothing but the queue (ADR 0056).
+  'execution.drop_queued_instruction': 'low_consequence',
   'workspace.request.submit': 'low_consequence',
   'workspace.request.resume': 'low_consequence',
   'workspace.request.cancel': 'low_consequence',

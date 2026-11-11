@@ -371,7 +371,9 @@ describe('realtime protocol', () => {
     const policies = new Map(
       welcome.command_policies.map((entry) => [entry.command_type, entry.policy]),
     );
-    assert.equal(policies.size, 25);
+    assert.equal(policies.size, 26);
+    // Dropping an instruction before it is sent changes nothing but the queue (ADR 0056).
+    assert.equal(policies.get('execution.drop_queued_instruction'), 'low_consequence');
     // Showing the project in Finder changes nothing; saving a copy writes a file on the Mac (F3).
     assert.equal(policies.get('project.show_in_finder'), 'low_consequence');
     assert.equal(policies.get('project.save_copy'), 'review_required');

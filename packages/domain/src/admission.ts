@@ -14,7 +14,7 @@ import type {
   WorkstreamId,
   WorkstreamView,
 } from '@halcyonic/contracts';
-import { WORLD_STARTER_ID } from '@halcyonic/contracts';
+import { QUEUED_INSTRUCTIONS_MAX, WORLD_STARTER_ID } from '@halcyonic/contracts';
 import { foldersOverlap } from './folders.ts';
 import { COMMAND_POLICY } from './policy.ts';
 import type { ExecutionFacts, Projection } from './projection.ts';
@@ -32,11 +32,22 @@ export type Admission =
       scope: CommandScope;
       /** The runtime the command will be dispatched to, when it targets one. */
       runtime: RuntimeDescriptor | null;
+      /**
+       * An instruction to a runtime that cannot steer, admitted to wait for the turn to end (ADR
+       * 0056): the host holds it and sends it after a turn that completed.
+       */
+      queued?: true;
     }
   | { admitted: false; rejection: CommandRejection; scope: CommandScope };
 
 export interface RuntimeCatalog {
   get(runtimeId: string): RuntimeDescriptor | undefined;
+  /**
+   * Whether the host holds instructions sent during a turn to a runtime that cannot steer, and
+   * sends them after it (ADR 0056): only where its instruction queue runs, on the person's own
+   * journal. Elsewhere, as in a recording, such an instruction is refused as the runtime declares.
+   */
+  readonly queuesInstructions?: boolean;
 }
 
 const NO_SCOPE: CommandScope = { project_id: null, workstream_id: null, execution_id: null };
@@ -695,8 +706,23 @@ export function admitCommand(
         case 'running':
         case 'verifying':
         case 'waiting_for_human': {
-          const missing = requireCapability(runtime, 'instruct_while_running', scope);
-          return missing ?? { admitted: true, policy, scope, runtime };
+          if (runtime.capabilities.instruct_while_running || runtimes.queuesInstructions !== true) {
+            const missing = requireCapability(runtime, 'instruct_while_running', scope);
+            return missing ?? { admitted: true, policy, scope, runtime };
+          }
+          // A runtime that cannot steer: the host holds the instruction until the turn ends, then
+          // sends it as an instruction at rest (ADR 0056). Not where nothing could send it then.
+          const missing = requireCapability(runtime, 'instruct_at_rest', scope);
+          if (missing !== undefined) return missing;
+          const waiting = projection.execution(facts.executionId)?.queued_instructions?.length ?? 0;
+          if (waiting >= QUEUED_INSTRUCTIONS_MAX) {
+            return reject(
+              scope,
+              'invalid_state',
+              `${QUEUED_INSTRUCTIONS_MAX} instructions are already waiting for this turn to end. Wait for it, or drop one.`,
+            );
+          }
+          return { admitted: true, policy, scope, runtime, queued: true };
         }
         case 'starting':
         case 'unknown':
@@ -787,6 +813,21 @@ export function admitCommand(
       }
       const problem = answerProblem(question.prompts, command.payload.answers);
       if (problem !== null) return reject(scope, 'invalid_answer', problem);
+      return { admitted: true, policy, scope, runtime };
+    }
+
+    case 'execution.drop_queued_instruction': {
+      const target = resolveExecution(command.payload.execution_id, projection, runtimes);
+      if (!target.found) return target.rejection;
+      const { scope, runtime } = target;
+      const waiting = projection.execution(command.payload.execution_id)?.queued_instructions ?? [];
+      if (!waiting.some((queued) => queued.command_id === command.payload.command_id)) {
+        return reject(
+          scope,
+          'invalid_state',
+          'That instruction is not waiting: it was sent already, or never queued.',
+        );
+      }
       return { admitted: true, policy, scope, runtime };
     }
 

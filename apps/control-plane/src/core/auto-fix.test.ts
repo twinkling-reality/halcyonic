@@ -510,7 +510,7 @@ describe('a failed check goes back to its agent on its own, within a cap (ADR 00
 });
 
 describe('what AUDIT2 found (2026-11-10)', () => {
-  test("the person's words, refused while a try runs, end the chain and no try follows them", async (t) => {
+  test("the person's words while a try runs end the chain; the next try comes only after them", async (t) => {
     const p = plane(t, [FAILED, FAILED]);
     const executionId = await p.start();
     p.changedFiles(executionId);
@@ -519,16 +519,28 @@ describe('what AUDIT2 found (2026-11-10)', () => {
       () => p.controlPlane.projection.execution(executionId)?.status === 'running',
       'the try running',
     );
-    // The mock takes no instruction while a turn runs, as Claude Agent: the person's words are refused.
-    assert.equal(p.instruct(executionId, 'No, do something else instead.').disposition, 'rejected');
+    // The mock takes no instruction while a turn runs, as Claude Agent: the person's words wait for
+    // the try's turn to end (ADR 0056), and end the chain all the same.
+    const words = p.instruct(executionId, 'No, do something else instead.');
+    assert.equal(words.disposition, 'accepted');
+    assert.equal(p.ofType('execution.instruction.queued').length, 1);
     await until(() => p.ended().length === 1, 'the end of the chain');
     assert.equal(p.ended()[0]?.payload.reason, 'person_instructed');
+    // The try's turn ends; the person's words are sent before anything of the host's.
     await p.time.runUntilIdle();
+    await quiet();
+    await p.time.runUntilIdle();
+    assert.equal(p.runtime.given.at(-1), 'No, do something else instead.');
+    // Their turn changed files: the check that follows it may begin a new chain, after their words.
     p.changedFiles(executionId);
     await until(() => p.checksDone() === 2, 'the second check');
     await quiet();
-    assert.equal(p.sent().length, 1);
-    assert.equal(p.ended().length, 1);
+    assert.equal(p.runtime.given.indexOf('No, do something else instead.'), 2);
+    // The second check failed as the first did: a new chain's first try, after the person's words.
+    await until(() => p.sent().length === 2, 'the new chain');
+    assert.equal(p.sent()[1]?.payload.attempt, 1, 'a new chain, not the old one');
+    assert.equal(p.runtime.given.length >= 4, true);
+    assert.equal(p.runtime.given.indexOf('No, do something else instead.') < 3, true);
   });
 
   test('a chain under way at a restart ends once, and no try follows until the person speaks', async (t) => {
@@ -619,5 +631,123 @@ describe("the automatic check of a task's own copy (ADR 0045)", () => {
     p.changedFiles(executionIdHere);
     await until(() => p.checksDone() === 2, "the project's automatic check");
     assert.equal(p.ofType('project.check.recorded')[1]?.payload.workstream_id, undefined);
+  });
+});
+
+describe('instructions held for a runtime that cannot steer (ADR 0056)', () => {
+  /** Plays virtual time and the host's own work until `check` holds. */
+  async function settle(p: ReturnType<typeof plane>, check: () => boolean, what: string) {
+    for (let round = 0; round < 50 && !check(); round += 1) {
+      await quiet();
+      await p.time.runUntilIdle();
+    }
+    assert.ok(check(), `timed out waiting for ${what}`);
+  }
+  const position = (p: ReturnType<typeof plane>, match: (event: EventEnvelope) => boolean) =>
+    p.ofType('command.accepted').length === 0
+      ? -1
+      : p.controlPlane.journal
+          .read({ after: 0, limit: 5000 })
+          .findIndex((stored) => match(stored.event));
+
+  test('each waits for a completed turn, in order, and the check waits until none is left', async (t) => {
+    const p = plane(t, [PASSED]);
+    const executionId = await p.start();
+    // A turn running: the person's words at rest set it going.
+    assert.equal(p.instruct(executionId, 'Grow tulips.').disposition, 'accepted');
+    await until(
+      () => p.controlPlane.projection.execution(executionId)?.status === 'running',
+      'the turn running',
+    );
+    const first = p.instruct(executionId, 'Paint them blue.');
+    const second = p.instruct(executionId, 'And the fence.');
+    assert.equal(first.disposition, 'accepted');
+    assert.equal(first.command?.status, 'accepted', 'waiting, not sent');
+    assert.equal(p.ofType('execution.instruction.queued').length, 2);
+    assert.deepEqual(
+      p.controlPlane.projection
+        .execution(executionId)
+        ?.queued_instructions?.map((queued) => queued.command_id),
+      [first.command?.command_id, second.command?.command_id],
+    );
+    // The turn's files are seen; the check is needed, and waits for the queue.
+    p.changedFiles(executionId);
+    await settle(
+      p,
+      () => p.runtime.given.length === 4 && p.checksDone() === 1,
+      'both sent, then the check',
+    );
+    assert.deepEqual(p.runtime.given, [
+      'Make a garden game.',
+      'Grow tulips.',
+      'Paint them blue.',
+      'And the fence.',
+    ]);
+    const lastSent = position(
+      p,
+      (event) =>
+        event.event_type === 'command.completed' &&
+        event.payload.command_id === second.command?.command_id,
+    );
+    const checkAccepted = position(
+      p,
+      (event) =>
+        event.event_type === 'command.accepted' &&
+        event.payload.command.command_type === 'project.check',
+    );
+    assert.ok(lastSent > 0 && checkAccepted > lastSent, 'no check before the last one was sent');
+    assert.equal(p.controlPlane.projection.execution(executionId)?.queued_instructions, undefined);
+  });
+
+  test('Stop fails what waits, never sent; a dropped one is not sent either', async (t) => {
+    const p = plane(t, []);
+    const executionId = await p.start();
+    p.instruct(executionId, 'Grow tulips.');
+    await until(
+      () => p.controlPlane.projection.execution(executionId)?.status === 'running',
+      'the turn running',
+    );
+    const dropped = p.instruct(executionId, 'Paint them blue.');
+    const stopped = p.instruct(executionId, 'And the fence.');
+    const drop = p.controlPlane.commands.submit(
+      {
+        ...p.ofType('command.accepted')[0]?.payload.command,
+        command_id: '01a19000-0000-7000-8000-0000000000d1',
+        command_type: 'execution.drop_queued_instruction',
+        payload: { execution_id: executionId, command_id: dropped.command?.command_id },
+      } as CommandEnvelope,
+      'websocket',
+    );
+    assert.equal(drop.disposition, 'accepted');
+    await quiet();
+    const failure = (id: string | undefined) =>
+      p.ofType('command.failed').find((event) => event.payload.command_id === id)?.payload.failure;
+    assert.deepEqual(
+      { ...failure(dropped.command?.command_id), message: undefined },
+      { code: 'queued_dropped', effect: 'none', message: undefined },
+    );
+    assert.equal(p.stop(executionId).disposition, 'accepted');
+    await quiet();
+    assert.deepEqual(
+      { ...failure(stopped.command?.command_id), message: undefined },
+      { code: 'queued_stopped', effect: 'none', message: undefined },
+    );
+    await settle(
+      p,
+      () => p.controlPlane.projection.execution(executionId)?.status !== 'running',
+      'the stop',
+    );
+    await quiet();
+    assert.deepEqual(p.runtime.given, ['Make a garden game.', 'Grow tulips.'], 'neither was sent');
+    const again = p.controlPlane.commands.submit(
+      {
+        ...p.ofType('command.accepted')[0]?.payload.command,
+        command_id: '01a19000-0000-7000-8000-0000000000d2',
+        command_type: 'execution.drop_queued_instruction',
+        payload: { execution_id: executionId, command_id: stopped.command?.command_id },
+      } as CommandEnvelope,
+      'websocket',
+    );
+    assert.equal(again.disposition, 'rejected', 'only a waiting one can be dropped');
   });
 });

@@ -93,7 +93,7 @@ A runtime integration implements `RuntimeAdapter` (`packages/runtime-core/src/ad
 | --- | --- |
 | `start_execution` | Create an execution and run its first turn from an instruction |
 | `instruct_at_rest` | Start a new turn on an execution whose last turn ended |
-| `instruct_while_running` | Deliver an instruction while a turn runs |
+| `instruct_while_running` | Deliver an instruction while a turn runs. Without it, a runtime with `instruct_at_rest` has the instruction held by the host and sent after a turn that completed ([ADR 0056](../decisions/0056-an-instruction-sent-during-a-turn-waits-for-it-on-a-runtime-that-cannot-steer.md)); nothing is emulated in the runtime |
 | `respond_to_approval` | Answer an approval the runtime raised |
 | `answer_question` | Answer a question the agent asked through the runtime's own surface |
 | `interrupt` | Stop the running turn; the execution remains |
