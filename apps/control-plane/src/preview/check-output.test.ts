@@ -4,6 +4,7 @@ import {
   CHECK_OUTPUT_LINE_CHARS,
   CHECK_OUTPUT_LINES,
   CHECK_OUTPUT_PART_BYTES,
+  checkLogLines,
   checkOutput,
 } from './check-output.ts';
 
@@ -126,5 +127,28 @@ describe("a failed check's output for the agent (FX1)", () => {
     assert.ok(given.includes('| rightto left, zerowidth, nul, c1, tab\tkept'), output.text);
     for (const char of [esc, bel, '\u202e', '\u200b', '\u0000', '\u009b', '\u2028', '\u2029'])
       assert.ok(!output.text.includes(char), JSON.stringify(char));
+  });
+});
+
+describe("a check step's output for a person (the parity map's gap 4)", () => {
+  test('cleaned as the agent is given it, without its mark, bounded by lines and characters', () => {
+    const log = [
+      `${where.projectFolder}/src/main.ts(3,1): error TS2304: Cannot find name 'x'.`,
+      '',
+      `\u001b[31mred\u001b[0m at ${where.dataDir}/checks/x and ${where.home}/notes`,
+      `bidi\u202Etext\u2028break`,
+      'y'.repeat(400),
+      'last',
+    ].join('\n');
+    const { lines, total } = checkLogLines(log, where, 4, 100);
+    assert.equal(total, 5, 'empty lines are not counted');
+    assert.deepEqual(lines.slice(0, 3), [
+      "./src/main.ts(3,1): error TS2304: Cannot find name 'x'.",
+      "red at <Halcyonic's data>/checks/x and ~/notes",
+      'biditext break',
+    ]);
+    assert.equal(lines[3]?.length, 100);
+    assert.ok(lines[3]?.endsWith('...'));
+    assert.equal(lines.length, 4);
   });
 });

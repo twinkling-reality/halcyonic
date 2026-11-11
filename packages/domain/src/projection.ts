@@ -847,6 +847,11 @@ export class Projection {
     return [...(this.#checkpoints.get(projectId as ProjectId) ?? [])];
   }
 
+  /** A check of the project by its id, the latest or an earlier one, or undefined. */
+  checkFindings(projectId: string, checkId: string): CheckFindings | undefined {
+    return this.#checksById.get(projectId as ProjectId)?.get(checkId as CheckId)?.findings;
+  }
+
   /** The project's latest check, or undefined when it has none. */
   latestCheck(projectId: string): ProjectCheck | undefined {
     const state = this.#checks.get(projectId as ProjectId);

@@ -131,6 +131,21 @@ import {
   PreviewStopReason,
 } from './previews.ts';
 import { ClientInfo, ErrorInfo } from './primitives.ts';
+import {
+  CheckOutputStep,
+  CheckStepOutputQuery,
+  CheckStepOutputResponse,
+  FileChangeKind,
+  ProjectChangedFile,
+  ProjectChangesQuery,
+  ProjectChangesResponse,
+  ProjectFileChangeQuery,
+  ProjectFileChangeResponse,
+  ProjectFileKind,
+  ProjectFileQuery,
+  ProjectFileResponse,
+  ProjectReadQuery,
+} from './project-reads.ts';
 import { QuestionAnswer, QuestionOption, QuestionPrompt } from './questions.ts';
 import {
   ClientMessage,
@@ -413,6 +428,19 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   ToolResultSummary,
   ToolResultsResponse,
   ToolResultResponse,
+  CheckOutputStep,
+  CheckStepOutputQuery,
+  CheckStepOutputResponse,
+  FileChangeKind,
+  ProjectChangedFile,
+  ProjectChangesQuery,
+  ProjectChangesResponse,
+  ProjectFileChangeQuery,
+  ProjectFileChangeResponse,
+  ProjectFileKind,
+  ProjectFileQuery,
+  ProjectFileResponse,
+  ProjectReadQuery,
   ApprovalResolution: RUNTIME_EVENT_PAYLOADS['runtime.approval.resolved'].properties.decision,
   FailureEffect: CommandFailure.properties.effect,
   StateUnknownCode: ExecutionStateUnknown.properties.payload.properties.code,

@@ -1,7 +1,9 @@
 import {
   CatalogResponse,
+  CheckId,
   CheckpointId,
   type CheckpointsResponse,
+  CheckStepOutputQuery,
   CommandId,
   type CommandSubmissionResponse,
   CompanionReplyResponse,
@@ -16,6 +18,9 @@ import {
   ExecutionId,
   type HealthResponse,
   type LocationsResponse,
+  ProjectChangesQuery,
+  ProjectFileChangeQuery,
+  ProjectFileQuery,
   ProjectId,
   type ProjectsResponse,
   parseCommandEnvelope,
@@ -37,6 +42,7 @@ import type { FastifyInstance } from 'fastify';
 import type { FolderOrigin } from '../catalog-match.ts';
 import type { Companion } from '../companion/companion.ts';
 import type { ControlPlane } from '../core/control-plane.ts';
+import { ProjectReads } from '../core/project-reads.ts';
 import { type Redaction, withinLimit } from '../core/redaction.ts';
 import { MODEL_LIST_TIMEOUT_MS, readRuntimeModels } from '../core/runtime-models.ts';
 import { ToolResults } from '../core/tool-results.ts';
@@ -52,6 +58,11 @@ const validateProjectId = compileValidator(ProjectId);
 const validateExecutionId = compileValidator(ExecutionId);
 const validateRuntimeId = compileValidator(RuntimeId);
 const validateCheckpointId = compileValidator(CheckpointId);
+const validateCheckId = compileValidator(CheckId);
+const validateProjectChangesQuery = compileValidator(ProjectChangesQuery);
+const validateProjectFileChangeQuery = compileValidator(ProjectFileChangeQuery);
+const validateProjectFileQuery = compileValidator(ProjectFileQuery);
+const validateCheckStepOutputQuery = compileValidator(CheckStepOutputQuery);
 const validateWorkspaceRequestId = compileValidator(WorkspaceRequestId);
 const validateWorkspaceCommandId = compileValidator(CommandId);
 const validateUnderstandingResponse = compileValidator(UnderstandingResponse);
@@ -296,6 +307,48 @@ export function registerRoutes(
       message: 'Undo is not set up on this computer (HALCYONIC_GIT_BIN).',
     },
   } as const;
+
+  // Reads of a project's files for the headset (the parity map's gaps 5, 10 and 4): read only,
+  // bounded, owner-journal principals only; anything not found or not allowed is the same 404.
+  const reads = new ProjectReads(controlPlane);
+  const unavailable = (reply: { code(code: number): { send(body: unknown): unknown } }) =>
+    reply
+      .code(404)
+      .send(errorBody('read_unavailable', 'This read is unavailable for this selection.'));
+  const invalid = (reply: { code(code: number): { send(body: unknown): unknown } }) =>
+    reply.code(400).send(errorBody('invalid_request', 'The project, scope or path is invalid.'));
+  app.get('/api/projects/:project_id/changes', async (request, reply) => {
+    const projectId = (request.params as { project_id: string }).project_id;
+    const query = validateProjectChangesQuery(request.query);
+    if (!validateProjectId(projectId).ok || !query.ok) return invalid(reply);
+    return (await reads.changes(projectId, query.value, request.principal)) ?? unavailable(reply);
+  });
+  app.get('/api/projects/:project_id/changes/file', async (request, reply) => {
+    const projectId = (request.params as { project_id: string }).project_id;
+    const query = validateProjectFileChangeQuery(request.query);
+    if (!validateProjectId(projectId).ok || !query.ok) return invalid(reply);
+    return (
+      (await reads.fileChange(projectId, query.value, request.principal)) ?? unavailable(reply)
+    );
+  });
+  app.get('/api/projects/:project_id/file', async (request, reply) => {
+    const projectId = (request.params as { project_id: string }).project_id;
+    const query = validateProjectFileQuery(request.query);
+    if (!validateProjectId(projectId).ok || !query.ok) return invalid(reply);
+    return (await reads.file(projectId, query.value, request.principal)) ?? unavailable(reply);
+  });
+  app.get('/api/projects/:project_id/checks/:check_id/output', async (request, reply) => {
+    const { project_id: projectId, check_id: checkId } = request.params as {
+      project_id: string;
+      check_id: string;
+    };
+    const query = validateCheckStepOutputQuery(request.query);
+    if (!validateProjectId(projectId).ok || !validateCheckId(checkId).ok || !query.ok)
+      return invalid(reply);
+    return (
+      reads.checkOutput(projectId, checkId, query.value, request.principal) ?? unavailable(reply)
+    );
+  });
 
   app.get('/api/projects/:project_id/checkpoints', async (request, reply) => {
     const projectId = (request.params as { project_id: string }).project_id;

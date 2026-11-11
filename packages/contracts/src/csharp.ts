@@ -45,6 +45,10 @@ const UNIONS: Readonly<Record<string, UnionNaming>> = {
 
 /** The documents a C# client reads or writes. Everything they reference is generated too. */
 const ROOTS: readonly string[] = [
+  'ProjectChangesResponse',
+  'ProjectFileChangeResponse',
+  'ProjectFileResponse',
+  'CheckStepOutputResponse',
   'ToolResultsQuery',
   'ToolResultsResponse',
   'ToolResultResponse',

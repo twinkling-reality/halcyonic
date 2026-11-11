@@ -1,5 +1,18 @@
 # Security
 
+## Reads of a project's files
+
+The headset may read a project's files (REALTIME.md, "Project reads"): what changed between two of
+its checkpoints and one file's diff, one file of its folder as it is now, and a check step's output.
+Owner-journal principals only (the local owner or a still-paired device, of the current journal), as
+the tool result reads; a paired device so reads what an agent of the project could, never more. A
+file is opened once without following a link anywhere in its path (`O_NOFOLLOW_ANY` on macOS), judged
+and read through that handle, only inside the project's folder and never inside Halcyonic's own data;
+a file whose name says it may hold secrets (version control's own, `.env*`, private keys and stores,
+SSH keys, package and network credentials, files named credentials or secrets, by the rules agents
+are kept from them) is listed but never read or diffed. Every text loses exact copies of the secrets
+Halcyonic holds; secrets Halcyonic does not hold, written into ordinary files, are not found by name.
+
 ## Recorded tool-result work content
 
 Observed final command output and per-file patch fields follow the established tool-title owner
