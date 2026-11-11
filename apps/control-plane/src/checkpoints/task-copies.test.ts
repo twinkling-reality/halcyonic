@@ -117,7 +117,7 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     assert.equal(existsSync(join(folder, 'b.txt')), false);
   });
 
-  test("a copy keeps no token from the person's remotes: the user part goes from every address, in the copy only", async () => {
+  test("a copy keeps no token of the person's in its git settings: addresses lose their user part, headers, helpers and includes go, in the copy only", async () => {
     write('a.txt', 'one\n');
     const env = { PATH: '/usr/bin:/bin', HOME: root, GIT_CONFIG_NOSYSTEM: '1' };
     const git = (cwd: string, ...args: string[]) =>
@@ -143,6 +143,18 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
       'url.https://ci-token@example.invalid/.insteadOf',
       'https://example.invalid/',
     );
+    const set = (key: string, value: string) => git(folder, 'config', key, value);
+    set('url.https://example.invalid/mirror/.insteadOf', 'https://value-token@example.invalid/');
+    set('http.https://example.invalid/.extraHeader', 'Authorization: Bearer header-token');
+    set('http.extraHeader', 'Authorization: Basic plain-token');
+    set('credential.helper', '!f() { echo password=helper-token; }; f');
+    set('credential.https://example.invalid.username', 'person');
+    set('include.path', '/elsewhere/with-token.gitconfig');
+    set('includeIf.gitdir:/elsewhere/.path', '/elsewhere/other-token.gitconfig');
+    set('http.proxy', 'http://proxy-user:proxy-token@proxy.invalid:3128');
+    set('submodule.lib.url', 'https://sub-token@example.invalid/lib.git');
+    set('lfs.url', 'https://lfs-token@example.invalid/team/app.git/info/lfs');
+    set('user.name', 'Person');
     const made = await copies.prepare(PROJECT, TASK, folder);
     assert.ok(made.ok, made.ok ? '' : made.code);
     const copied = readFileSync(join(made.directory, '.git', 'config'), 'utf8');
@@ -159,6 +171,10 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
       git(made.directory, 'config', 'remote.ssh.url'),
       'git@example.invalid:team/app.git',
     );
+    assert.equal(git(made.directory, 'config', 'http.proxy'), 'http://proxy.invalid:3128');
+    assert.doesNotMatch(copied, /extraheader|credential|include|helper/i);
+    // What carries no token stays.
+    assert.equal(git(made.directory, 'config', 'user.name'), 'Person');
     // The person's own repository is untouched.
     assert.match(readFileSync(join(folder, '.git', 'config'), 'utf8'), /secret-token/);
   });

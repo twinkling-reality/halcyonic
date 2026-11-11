@@ -56,9 +56,16 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
 2. The copy's base is the tree of the copy as it was made, kept in the project's checkpoint store
    (`workstream.copy_made`). Halcyonic writes nothing to the person's `.git`: no branch, no ref. The
    copy keeps whatever branch was checked out, and an agent's commits stay in the copy's own `.git`.
-   The copy's own git settings lose the user part of every remote's address (`scheme://user@host`,
-   where a token sits) and any `url.<base>` rewrite that carries one, so no token of the person's
-   persists in the copy; `user@host:path` names an ssh login and stays.
+   The copy's own `.git/config` keeps no token of the person's: every address of a key ending in
+   `.url`, `.pushurl` or `.proxy` (remotes, submodules, LFS, a proxy) loses its user part
+   (`scheme://user[:password]@host`); every `http.extraheader` and `http.<url>.extraheader`, every
+   `credential` and `credential.<url>` key, every `include` and `includeIf` key, and every
+   `url.<base>` rewrite whose base or value carries a user part are removed; `user@host:path` names
+   an ssh login and stays. What a copy can still hold that carries one, as the project's folder does:
+   its working files, ignored ones included (a `.env`, a key file), the scripts in `.git/hooks`, any
+   other file under `.git` a tool of the person's wrote, a key of the person's own tool that is not
+   an address (a token stored under another name), and a program `core.sshCommand` or
+   `core.askPass` names.
 3. A task that cannot have a copy works in the project's folder under the one-task rule, and says
    why (`workstream.copy_refused`): its `.git` is a file, another repository sits inside it, it is
    larger than a checkpoint keeps, its volume cannot clone, it is missing, or it holds Halcyonic's

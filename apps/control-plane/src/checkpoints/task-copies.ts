@@ -334,52 +334,57 @@ export class TaskCopies {
   }
 
   /**
-   * Takes the user part, where a token sits, out of every remote's address in the copy's own git
-   * settings (`remote.*.url`, `remote.*.pushurl`), and removes any `url.<base>` rewrite whose base
-   * carries one, so an agent in the copy cannot read or push with the person's token. Only the
-   * URL form `scheme://user[:password]@host` carries one; `user@host:path` names an ssh login and is
-   * left as it is. Only the copy's own file is read and written, with none of the person's
-   * settings. True when there is nothing to do or it is done.
+   * Leaves no token of the person's in the copy's own git settings (ADR 0045), reading every key
+   * of the copy's `.git/config` only, with none of the person's settings:
+   * - every `http.extraheader` and `http.<url>.extraheader` goes (an `Authorization` header);
+   * - every `credential` and `credential.<url>` section goes (a helper may hold or print one);
+   * - every `include` and `includeIf` section goes (it pulls in a file elsewhere that may hold one);
+   * - every address of a key ending in `.url`, `.pushurl` or `.proxy` (remotes, submodules, LFS, a
+   *   proxy) loses its user part,
+   *   where the URL form `scheme://user[:password]@host` keeps one; `user@host:path` names an
+   *   ssh login and stays;
+   * - a `url.<base>` rewrite whose base or value carries a user part goes.
+   * True when there is nothing to do or it is done; false leaves the copy to be removed.
    */
   async #withoutCredentials(copy: string): Promise<boolean> {
     const gitDir = join(copy, '.git');
     if (!((await lstat(gitDir).catch(() => null))?.isDirectory() === true)) return true;
     const file = join(gitDir, 'config');
     if ((await lstat(file).catch(() => null))?.isFile() !== true) return true;
-    const listed = await this.#gitConfig(file, [
-      '--null',
-      '--get-regexp',
-      '^(remote\\..*\\.(url|pushurl)|url\\..*\\.(insteadof|pushinsteadof))$',
-    ]);
-    // Exit 1: no such keys.
-    if (listed.code === 1) return true;
+    const listed = await this.#gitConfig(file, ['--null', '--list']);
     if (listed.code !== 0) return false;
     const entries = listed.stdout
       .split('\0')
       .filter((entry) => entry !== '')
       .map((entry) => {
         const newline = entry.indexOf('\n');
-        return { key: entry.slice(0, newline), value: entry.slice(newline + 1) };
+        return newline === -1
+          ? { key: entry, value: '' }
+          : { key: entry.slice(0, newline), value: entry.slice(newline + 1) };
       });
+    // Keys are unset one by one: git matches their names whatever their case, and drops a section
+    // left empty, where `--remove-section` takes only the spelling the file uses.
+    const unset = new Set<string>();
+    const rewrites: { key: string; from: string; to: string }[] = [];
     for (const { key, value } of entries) {
-      if (/^url\./i.test(key)) {
+      const lower = key.toLowerCase();
+      if (/^http\.(.*\.)?extraheader$/.test(lower)) unset.add(key);
+      else if (/^(credential|include|includeif)\./.test(lower)) unset.add(key);
+      else if (/^url\..*\.(insteadof|pushinsteadof)$/.test(lower)) {
         const base = key.slice(4, key.lastIndexOf('.'));
-        if (withoutUser(base) !== base) {
-          const removed = await this.#gitConfig(file, ['--remove-section', `url.${base}`]);
-          if (removed.code !== 0 && removed.code !== 128) return false;
-        }
-        continue;
+        if (withoutUser(base) !== base || withoutUser(value) !== value) unset.add(key);
+      } else if (/\.(url|pushurl|proxy)$/.test(lower)) {
+        const safe = withoutUser(value);
+        if (safe !== value) rewrites.push({ key, from: value, to: safe });
       }
-      const safe = withoutUser(value);
-      if (safe === value) continue;
-      const replaced = await this.#gitConfig(file, [
-        '--fixed-value',
-        '--replace-all',
-        key,
-        safe,
-        value,
-      ]);
-      if (replaced.code !== 0) return false;
+    }
+    for (const key of unset) {
+      const done = await this.#gitConfig(file, ['--unset-all', key]);
+      if (done.code !== 0 && done.code !== 5) return false;
+    }
+    for (const { key, from, to } of rewrites) {
+      const done = await this.#gitConfig(file, ['--fixed-value', '--replace-all', key, to, from]);
+      if (done.code !== 0) return false;
     }
     return true;
   }
