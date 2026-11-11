@@ -3505,8 +3505,15 @@ instruction; typing always stays:
   turning into Yes, nor while it takes no press. `PointerTarget.Released`
   reports the end of a press.
 - **`HoldToTalk`** owns the microphone while a hold lasts, one clip at a time, at most 30
-  seconds, then sends it through `SpeechClip` and `TranscribeAsync`. The microphone permission is
-  asked on the first hold, which records nothing; the person holds again once they allow it.
+  seconds, then sends it through `SpeechClip` and `TranscribeAsync`. The microphone is asked once at
+  the first open with a computer configured (ADR 0021, amended 2026-11-11; every build): `MicrophoneAtOpen` shows one line that says why
+  (`MicrophoneAsk.Why`, through its `Explaining` event for the host to show), waits until it can be read and the
+  app has focus, then asks the system and keeps the answer on the headset (`PlayerPrefs`), so the first hold
+  records and no later open asks. `MicrophoneAsk` holds the rules: a hold asks only where no answer was given or
+  the person refused once (`MicrophoneAtHold.Ask`), and where the system no longer asks it records nothing and says
+  how to allow it (`Explain`); a launch with the setting `halcyonic.noask=true` skips the open's
+  question. Wiring `HoldToTalk` to `MicrophoneAsk.AtHold` and the host's line to `Explaining` waits for XR; until
+  then the first hold still asks as before. Tests: `MicrophoneAskTests`.
   Capture stops and the clip is discarded, never sent, the frame input is suspended (the rule
   agreed with the focus work), and a hold that starts while suspended is ignored.
 - **Where it shows.** In New project's footer wherever words are given (Your idea, a question,
