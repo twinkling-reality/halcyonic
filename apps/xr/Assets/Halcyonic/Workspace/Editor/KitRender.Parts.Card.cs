@@ -130,7 +130,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>A review before Start whose first task pages and names a web address, so its warning stands.</summary>
         private static NewWorkReview CardReview() => new NewWorkReview("Kite Run", "Make a kite", "Agent Studio", "Glimmer 30B", "On This Computer", "glimmer-30b-q4",
             string.Join(" ", Enumerable.Repeat("Make a kite that follows my hand, climbs when I raise it, and dips when I lower it.", 4))
-            + " Use the wind from https://example.com/wind to pull it.", folder: "kite-run", neverAsk: false);
+            + " Use the wind from https://example.com/wind.json to pull it.", folder: "kite-run", neverAsk: false);
 
         private static RoomCard CardOf(string state)
         {

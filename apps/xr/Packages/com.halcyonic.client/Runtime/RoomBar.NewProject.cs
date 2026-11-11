@@ -10,6 +10,23 @@ namespace Halcyonic.Client
         public const string StartTaskAsks = "Start Task?";
         public const string StartOverAsks = "Start Over?";
 
+        /// <summary>The page of what can be changed, as a list card: its title.</summary>
+        public const string ChangeTitle = "Change";
+
+        /// <summary>
+        /// The mark of a thing on the page of changes: the project's name its cube, the first task its flag, where it starts
+        /// from its pin, the folder its folder, how it runs the agent's orb; anything else a dash.
+        /// </summary>
+        public static RoomKind ChangeKind(string action) => action switch
+        {
+            NewProjectScreens.Rename => RoomKind.Project,
+            NewProjectScreens.ChangeTask => RoomKind.Task,
+            NewProjectScreens.ChooseWhere => RoomKind.Folder,
+            NewProjectScreens.MoreOptions => RoomKind.Agent,
+            _ when action.IndexOf("start", System.StringComparison.OrdinalIgnoreCase) >= 0 && action.IndexOf("from", System.StringComparison.OrdinalIgnoreCase) >= 0 => RoomKind.Starter,
+            _ => RoomKind.None,
+        };
+
         /// <summary>
         /// The panel's words as rows parted by hairlines, each with its mark (<see cref="RoomRows"/>), where a moment
         /// gives them so: the recap's facts, a start's steps. <see cref="Lines"/> holds the same words for a view that
@@ -156,11 +173,17 @@ namespace Halcyonic.Client
                     return new RoomBar(RoomBarState.Confirm, body: plain.LastOrDefault()?.Runs, sentence: StartOverAsks, column: Confirming());
                 if (prompts.Any(prompt => prompt.Id == NewProjectScreens.BackToRecap))
                 {
-                    // What can be changed, in the panel's place: each an action, then Start Over and Back.
-                    var column = frame.Lines.Where(line => line.Action != null && line.Available).Select(line => Line(line)).ToList();
+                    // What can be changed as a list picked from (A17, FIELD's call of 2026-11-11): each thing a row, its kind's
+                    // mark, its words and a chevron, five a page, so the page never runs past a column's six. The levels are
+                    // answers, so they stand in the column, marked, as A1's moment has them; then Start Over and Back.
+                    var changes = frame.Lines.Where(line => line.Action != null && line.Available && !line.Choice).ToList();
+                    var rows = changes.Take(RoomCard.ListAPage).Select(line => new RoomListRow(ChangeKind(line.Action!), line.Runs, null, press: Line(line).Control)).ToList();
+                    var column = frame.Lines.Where(line => line.Action != null && line.Available && line.Choice).Select(line => Line(line)).ToList();
                     if (Offered(NewProjectScreens.StartOver) is Prompt over) column.Add(Of(over, KitPlace.Route));
                     column.Add(Of(prompts.First(prompt => prompt.Id == NewProjectScreens.BackToRecap), KitPlace.Back));
-                    return new RoomBar(RoomBarState.Choose, column: column, wide: true);
+                    var page = new RoomBar(RoomBarState.Choose, column: column, lines: changes.Select(line => line.Runs).ToList());
+                    page.Card = new RoomCard(LineWords.Ours(ChangeTitle), list: rows);
+                    return page;
                 }
                 // A page that changes one fact: what it is in the panel, its choices and actions in the column, Done last.
                 var done = Offered(NewProjectScreens.Done);

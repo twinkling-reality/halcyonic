@@ -2494,10 +2494,16 @@ public class NewProjectFlowTests
         var flow = RoomRecapped(host);
         Press(flow, NewProjectScreens.ChangeRecap, null);
         var page = Bar(flow);
-        Assert.That((page.State, page.Wide, page.Body.Text), Is.EqualTo((RoomBarState.Choose, true, "")), "no panel: the changes take its place");
+        Assert.That((page.State, page.Wide), Is.EqualTo((RoomBarState.Choose, false)), "the changes stand as a list card in the panel");
+        Assert.That(page.Card!.Title!.Text, Is.EqualTo(RoomBar.ChangeTitle));
+        Assert.That(page.Card.List.Select(row => (row.Kind, row.Name.Text, row.Press!.Action)), Is.EqualTo(new[]
+        {
+            (RoomKind.Project, EntryText.ProjectName, NewProjectScreens.Rename), (RoomKind.Task, EntryText.FirstTask, NewProjectScreens.ChangeTask),
+            (RoomKind.Folder, EntryText.ChooseAnotherFolder, NewProjectScreens.ChooseWhere), (RoomKind.Agent, EntryText.MoreOptions, NewProjectScreens.MoreOptions),
+        }), "each thing a row picked from, its own control");
+        Assert.That(page.Card.AnyDot, Is.False);
         Assert.That(page.Column.Any(action => action.Main), Is.False);
-        Assert.That(Reads(page).First(), Is.EqualTo(EntryText.ProjectName));
-        Assert.That(Reads(page).Skip(Reads(page).Length - 2), Is.EqualTo(new[] { EntryText.StartOver, EntryText.Back }));
+        Assert.That(Reads(page), Is.EqualTo(new[] { EntryText.StartOver, EntryText.Back }), "with no levels offered, the column is Start Over and Back");
         Press(flow, NewProjectScreens.StartOver, null);
         var armed = Bar(flow);
         Assert.That((armed.State, armed.Sentence, armed.Body.Text), Is.EqualTo((RoomBarState.Confirm, RoomBar.StartOverAsks, EntryText.StartOverClears(false))));

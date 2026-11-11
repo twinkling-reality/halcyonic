@@ -19,7 +19,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] RecapStates = { "48-recap-built" };
+        private static readonly string[] RecapStates = { "48-recap-built", "48-recap-change" };
 
         private static PartShot RecapShot(string state, Transform root, Vector3 eyes, string name)
         {
@@ -48,14 +48,24 @@ namespace Halcyonic.XR.Workspace.Editor
                     Result = new AvailableModels { Models = new List<RuntimeModel> { new() { ModelRef = "render/glimmer-30b", DisplayName = "Glimmer 30B", Served = ModelServed.ThisMac, ToolCalling = ModelToolCalling.Declared } } },
                 });
                 draft.NeverAsk = true;
-                frame = NewProjectScreens.Recap(idea, draft, null, true, null, null);
+                // The recap, or its page of what can be changed: a list card picked from, the levels as answers in the column.
+                frame = state == "48-recap-change"
+                    ? NewProjectScreens.RecapChange(idea, true, false, null, true, draft)
+                    : NewProjectScreens.Recap(idea, draft, null, true, null, null);
             }
             finally { RoomDesign.Enabled = was; }
             var bar = RoomBar.NewProject(frame, VoiceStage.Idle);
             Require(bar != null && bar.Card != null, "New Project's recap gives the redesign no card");
             if (bar == null) return shot;
             Require(bar.Card != null && !bar.Card.AnyDot, "the recap's card joins facts on a dot: " + (bar.Card == null ? "" : string.Join(" | ", bar.Card.Words())));
-            Require(bar.Column.Count > 0 && bar.Column[0].Main && bar.Column.Count(action => action.Main) == 1, "Start Task is not the one main action, first");
+            var changing = state == "48-recap-change";
+            if (changing)
+            {
+                Require(bar.Card != null && bar.Card.List.Count >= 4 && bar.Card.List.All(row => row.Press != null && row.Kind != RoomKind.None), "the page of changes is not a list of marked rows picked from");
+                Require(bar.Column.Count <= RoomBar.ColumnMost && bar.Column.Count(action => action.Main) == 0, "the page of changes' column holds " + bar.Column.Count + " actions or a main one");
+                Require(bar.Column.Count(action => action.Control.Place == KitPlace.Choice) == 2, "the levels do not stand in the column as answers");
+            }
+            else Require(bar.Column.Count > 0 && bar.Column[0].Main && bar.Column.Count(action => action.Main) == 1, "Start Task is not the one main action, first");
 
             var plane = new GameObject("Plane").transform;
             plane.SetParent(root, false);
@@ -82,6 +92,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(!words.Contains(KitMomentWords.Dot.Trim()), "\"" + words + "\" joins facts on a dot");
                 }
                 Require(card.Plates.Count(each => each.What.StartsWith("slot", StringComparison.Ordinal)) == bar.Card!.Slots.Count, "the card does not lay each fact as a slot");
+                if (changing) Require(card.RowTargets.Count() == bar.Card!.List.Count, "a row of the page of changes takes no press");
             }
             Require(buttons.Count == bar.Column.Count, "the column draws " + buttons.Count + " of " + bar.Column.Count + " actions");
 
