@@ -336,63 +336,132 @@ function drawShared() {
   );
 }
 
+/** Names as one phrase: "A", "A and B", "A, B and C". */
+function listed(names) {
+  if (names.length <= 1) return names.join('');
+  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+}
+
+/** Each project card's status line and each secret's question, by project and name, updated in place. */
+const secretParts = new Map();
+
 function drawSecrets() {
   const secrets = state.secrets ?? null;
   $('secrets').hidden = secrets === null || secrets.projects.length === 0;
   if (secrets === null) return;
-  $('secrets-some').hidden = secrets.every_agent;
-  $('secrets-open').hidden = !secrets.unconfined_agent;
+  const without = secrets.without ?? [];
+  $('secrets-some').hidden = without.length === 0;
+  $('secrets-some').textContent =
+    `${listed(without)} ${without.length === 1 ? 'starts' : 'start'} without these secrets. ` +
+    'Start a task that needs one on another agent.';
+  const outside = secrets.outside ?? [];
+  $('secrets-open').hidden = outside.length === 0;
+  $('secrets-open-line').textContent =
+    `${listed(outside)}, on a folder you connected, ${outside.length === 1 ? 'runs' : 'run'} ` +
+    "outside the sandbox and can read every project's secrets on this computer. Give it test keys only.";
   // Drawn again only when the names change, so a poll never clears a field being typed in.
   const drawn = JSON.stringify(secrets.projects);
-  if (drawn === drawnSecrets) return;
-  drawnSecrets = drawn;
-  $('secrets-list').replaceChildren(
-    ...secrets.projects.map((project) => {
-      const item = element('li', 'secret-project');
-      item.append(element('p', 'secret-project-name', project.name));
-      for (const name of project.secrets) {
-        const row = element('div', 'secret-row');
-        row.append(
-          element('code', 'secret-name', name),
-          button(
-            'Remove',
-            () => void call('/setup/secrets/remove', { project_id: project.project_id, name }),
-            false,
-            'close',
-          ),
-        );
-        item.append(row);
-      }
-      const form = element('form', 'secret-form');
-      const named = element('input');
-      named.type = 'text';
-      named.placeholder = 'API_KEY';
-      named.autocomplete = 'off';
-      named.spellcheck = false;
-      named.setAttribute('aria-label', 'Name');
-      const value = element('input');
-      value.type = 'password';
-      value.placeholder = 'Secret';
-      value.autocomplete = 'new-password';
-      value.setAttribute('aria-label', 'Secret');
-      const set = button('Set', () => undefined, false, 'key');
-      set.type = 'submit';
-      form.append(named, value, set);
-      form.addEventListener('submit', (event) => {
-        event.preventDefault();
-        const typed = value.value;
-        // Cleared before it is sent, whatever the answer: the page never keeps a value.
-        value.value = '';
-        void call('/setup/secrets/set', {
-          project_id: project.project_id,
-          name: named.value.trim(),
-          value: typed,
-        });
-      });
-      item.append(form);
-      return item;
-    }),
-  );
+  if (drawn !== drawnSecrets) {
+    drawnSecrets = drawn;
+    secretParts.clear();
+    $('secrets-list').replaceChildren(...secrets.projects.map(secretProject));
+  }
+  // What a press said, and a Remove that asks first: in place, never by drawing the card again.
+  for (const [projectId, parts] of secretParts) {
+    const problem = secrets.problem?.project_id === projectId ? secrets.problem.text : null;
+    parts.status.hidden = problem === null;
+    parts.status.textContent = problem ?? '';
+    for (const [name, asked] of parts.rows) {
+      const confirm =
+        secrets.confirm?.project_id === projectId && secrets.confirm.name === name
+          ? secrets.confirm
+          : null;
+      asked.panel.hidden = confirm === null;
+      asked.line.textContent = confirm?.text ?? '';
+    }
+  }
+}
+
+function secretProject(project) {
+  const item = element('li', 'secret-project');
+  item.append(element('p', 'secret-project-name', project.name));
+  const rows = new Map();
+  for (const name of project.secrets) {
+    const row = element('div', 'secret-row');
+    row.append(
+      element('code', 'secret-name', name),
+      button(
+        'Remove',
+        () =>
+          void call('/setup/secrets/remove', {
+            project_id: project.project_id,
+            name,
+            confirmed: false,
+          }),
+        false,
+        'close',
+      ),
+    );
+    item.append(row);
+    // The question stands right under the press, as the steps' do.
+    const panel = element('div', 'question');
+    panel.hidden = true;
+    const words = element('div', 'question-words');
+    const line = element('p', 'question-line', '');
+    words.append(element('p', 'question-title', `Remove ${name}?`), line);
+    const actions = element('div', 'question-actions');
+    actions.append(
+      button(
+        'Remove',
+        () =>
+          void call('/setup/secrets/remove', {
+            project_id: project.project_id,
+            name,
+            confirmed: true,
+          }),
+        false,
+        'close',
+      ),
+      button('Cancel', () => void call('/setup/secrets/cancel', {}), false, 'back'),
+    );
+    panel.append(words, actions);
+    item.append(panel);
+    rows.set(name, { panel, line });
+  }
+  const form = element('form', 'secret-form');
+  const named = element('input');
+  named.type = 'text';
+  named.placeholder = 'API_KEY';
+  named.autocomplete = 'off';
+  named.spellcheck = false;
+  named.setAttribute('aria-label', 'Name');
+  const value = element('input');
+  value.type = 'password';
+  value.placeholder = 'Secret';
+  value.autocomplete = 'new-password';
+  value.setAttribute('aria-label', 'Secret');
+  const set = button('Set', () => undefined, false, 'key');
+  set.type = 'submit';
+  form.append(named, value, set);
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const typed = value.value;
+    // Cleared before it is sent, whatever the answer: the page never keeps a value. The name stays.
+    value.value = '';
+    void call('/setup/secrets/set', {
+      project_id: project.project_id,
+      name: named.value.trim(),
+      value: typed,
+    });
+  });
+  item.append(form);
+  // A refusal is said here, under the fields, where the person pressed Set.
+  const status = element('p', 'secret-status', '');
+  status.hidden = true;
+  status.setAttribute('role', 'status');
+  item.append(status);
+  secretParts.set(project.project_id, { status, rows });
+  return item;
 }
 
 function stepItem(step, running, main, open) {

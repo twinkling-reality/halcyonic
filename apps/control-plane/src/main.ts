@@ -472,15 +472,21 @@ async function main(): Promise<void> {
                           name: project.name,
                           secrets: project.secrets ?? [],
                         })),
-                      everyAgent: () =>
+                      // Each agent by its own name, as the page's steps name OpenCode and Codex.
+                      without: () =>
                         controlPlane.registry
                           .descriptors()
-                          .every((descriptor) => descriptor.secret_environment === true),
+                          .filter(
+                            (descriptor) =>
+                              !descriptor.synthetic && descriptor.secret_environment !== true,
+                          )
+                          .map((descriptor) => descriptor.display_name),
                       // Claude Code runs outside Halcyonic's sandbox on a folder the person connected.
-                      unconfinedAgent: () =>
+                      outside: () =>
                         controlPlane.registry
                           .descriptors()
-                          .some((descriptor) => descriptor.kind === 'claude-agent'),
+                          .filter((descriptor) => descriptor.kind === 'claude-agent')
+                          .map((descriptor) => descriptor.display_name),
                       nextId: () => ids.next(),
                       now: () => systemClock.now(),
                     }),

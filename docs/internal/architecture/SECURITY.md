@@ -712,7 +712,9 @@ The same check and actions on a page at `/setup` of the pairing page's server
   the view, never the cookie), so another session's `confirmed` press is a first press there.
 - **Project secrets.** [ADR 0057](../decisions/0057-a-projects-secrets-are-kept-on-the-mac-and-given-to-a-tasks-commands-at-its-start.md). A name and a hidden field per project; the value is cleared as it is
   sent and no answer of the page holds it. Its route alone takes up to 8 KiB of value plus JSON's
-  escaping; every other route keeps the page's 1 KiB. Remove deletes it.
+  escaping; every other route keeps the page's 1 KiB. A refusal is said in that project's card, the typed
+  name kept and the value cleared. Remove asks first and deletes only on a second press of the same secret
+  (LINK's critic, decided by the lead 2026-11-11).
 - **Restart.** Restart to Apply closes the control plane as a signal does and exits with code 75,
   which only `Start Halcyonic.command` starts again; it says first which tasks will pause.
 

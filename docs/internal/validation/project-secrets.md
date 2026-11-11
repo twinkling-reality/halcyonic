@@ -45,8 +45,12 @@ Not proven:
 10. **A task still running with a value** (AUDIT3's probe, kept as a test): a message repeating it is
     redacted while it is set, after the secret is set to another value, and after Remove. Without the retired
     values the test fails (checked by changing the code, then restored).
-11. **The page** says an agent working on a folder the person connected runs outside the sandbox and can read
-    every project's secrets, while such an agent is set up (`unconfined_agent`).
+11. **The page** names, from the runtimes' own names, the agents that start without the secrets (`without`)
+    and those that run outside the sandbox on a connected folder and can read every project's (`outside`, a
+    row with the alert mark). A refusal is said in that project's card (`problem`), not in What Setup Said.
+    Remove asks first (`confirm`); a second press of another secret asks again; Cancel forgets it; only a
+    second press of the same secret removes it. The test fails when Remove acts on the first press (checked
+    by changing the code, then restored).
 12. **Reserved too:** `HTTPS_PROXY`, `ALL_PROXY`, `SSL_CERT_FILE` and `BUN_*` (the domain test).
 8. **The page**: a set or removal without the page's session, or from another site, is refused 403; a
    3,000-character value fits the route's own body limit while the page keeps 1 KiB elsewhere; no answer

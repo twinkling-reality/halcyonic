@@ -97,8 +97,8 @@ function setUp() {
         name: each.name,
         secrets: each.secrets ?? [],
       })),
-    everyAgent: () => false,
-    unconfinedAgent: () => false,
+    without: () => ['Claude Agent'],
+    outside: () => [],
     nextId: () => {
       ids += 1;
       return `01a19000-0000-7000-8000-${String(ids).padStart(12, '0')}`;
@@ -280,8 +280,8 @@ describe('project secrets through the control plane (ADR 0057)', () => {
           name: each.name,
           secrets: each.secrets ?? [],
         })),
-      everyAgent: () => true,
-      unconfinedAgent: () => false,
+      without: () => [],
+      outside: () => [],
       nextId: () => {
         ids += 1;
         return `01a19000-0000-7000-8000-${String(ids).padStart(12, '0')}`;

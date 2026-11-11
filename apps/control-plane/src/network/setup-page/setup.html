@@ -115,8 +115,10 @@
     <h2>Project Secrets</h2>
     <p class="secrets-note">A task gets its project's secrets as variables when it starts. A task already running keeps what it started with.</p>
     <p class="secrets-note">An agent given a key can use it, print it, and send it wherever its commands reach. Give it test keys.</p>
-    <p id="secrets-some" class="secrets-note" hidden>Some agents on this computer start without them.</p>
-    <p id="secrets-open" class="secrets-note" hidden>An agent working on a folder you connected runs outside the sandbox on this computer, and can read every project's secrets here.</p>
+    <!-- Who starts without them, by name, and what to do (LINK's critic). -->
+    <p id="secrets-some" class="secrets-note" hidden></p>
+    <!-- An agent outside the sandbox changes the advice above: a row with the alert mark, never the accent. -->
+    <div id="secrets-open" class="secret-alert" hidden><svg class="glyph" aria-hidden="true"><use href="#g-alert"/></svg><p id="secrets-open-line"></p></div>
     <ul id="secrets-list" class="items"></ul>
   </section>
 </main>

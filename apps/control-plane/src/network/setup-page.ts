@@ -131,13 +131,13 @@ export interface SecretsProject {
 /** The page's secrets (ADR 0057): what each set or remove says when it is refused, or null. */
 export interface PageSecrets {
   readonly projects: () => readonly SecretsProject[];
-  /** Whether every agent on this Mac declares `secret_environment`. */
-  readonly everyAgent: () => boolean;
+  /** The agents here, by their own names, that do not declare `secret_environment`: they start without. */
+  readonly without: () => readonly string[];
   /**
-   * Whether an agent here can run outside Halcyonic's sandbox (Claude Code on a folder the person
-   * connected), so its commands can read every project's secrets on this Mac (AUDIT3).
+   * The agents here, by their own names, that can run outside Halcyonic's sandbox (Claude Code on a
+   * folder the person connected), so their commands can read every project's secrets here (AUDIT3).
    */
-  readonly unconfinedAgent: () => boolean;
+  readonly outside: () => readonly string[];
   readonly set: (projectId: unknown, name: unknown, value: unknown) => string | null;
   readonly remove: (projectId: unknown, name: unknown) => string | null;
 }
@@ -162,8 +162,8 @@ export function pageSecrets(deps: {
   };
   readonly store: SecretStore;
   readonly projects: () => readonly SecretsProject[];
-  readonly everyAgent: () => boolean;
-  readonly unconfinedAgent: () => boolean;
+  readonly without: () => readonly string[];
+  readonly outside: () => readonly string[];
   readonly nextId: () => string;
   readonly now: () => Date;
 }): PageSecrets {
@@ -201,8 +201,8 @@ export function pageSecrets(deps: {
   };
   return {
     projects: deps.projects,
-    everyAgent: deps.everyAgent,
-    unconfinedAgent: deps.unconfinedAgent,
+    without: deps.without,
+    outside: deps.outside,
     set: (projectId, name, value) => {
       if (!known(projectId)) return 'That project is not on this Mac.';
       const problem = nameProblem(name) ?? valueProblem(value);
@@ -320,14 +320,23 @@ export interface SetupState {
     readonly url: string;
   }[];
   /**
-   * Each project's secrets by name (ADR 0057), and whether every agent here takes them; null where
-   * none are kept. A value is never in the page's state.
+   * Each project's secrets by name (ADR 0057); null where none are kept. A value is never in the
+   * page's state.
    */
   readonly secrets: {
     readonly projects: readonly SecretsProject[];
-    readonly every_agent: boolean;
-    /** An agent here can run outside the sandbox and read every project's secrets. */
-    readonly unconfined_agent: boolean;
+    /** The agents that start without them, by name. */
+    readonly without: readonly string[];
+    /** The agents that run outside the sandbox on a connected folder and can read every project's. */
+    readonly outside: readonly string[];
+    /** What this session's last set or remove was refused with, said in that project's card. */
+    readonly problem: { readonly project_id: string; readonly text: string } | null;
+    /** A Remove waiting for its second press: which secret, and what it will do. */
+    readonly confirm: {
+      readonly project_id: string;
+      readonly name: string;
+      readonly text: string;
+    } | null;
   } | null;
 }
 
@@ -559,6 +568,10 @@ interface SetupJob {
 interface Press {
   confirm: SetupState['confirm'];
   said: string[];
+  /** The last refusal of a secret's set or remove, said in its project's card (LINK's critic). */
+  secretProblem: { project_id: string; text: string } | null;
+  /** A Remove asked once, acting only on a second press of the same secret. */
+  secretConfirm: { project_id: string; name: string; text: string } | null;
 }
 
 /** The most sessions whose presses are kept; the pairing page keeps fewer sessions than this. */
@@ -600,7 +613,7 @@ export class SetupView {
   #press(session: string): Press {
     let press = this.#presses.get(session);
     if (press === undefined) {
-      press = { confirm: null, said: [] };
+      press = { confirm: null, said: [], secretProblem: null, secretConfirm: null };
       this.#presses.set(session, press);
       while (this.#presses.size > MAX_PRESSES) {
         const oldest = this.#presses.keys().next().value;
@@ -658,13 +671,18 @@ export class SetupView {
           ? null
           : {
               projects: this.#deps.secrets.projects(),
-              every_agent: this.#deps.secrets.everyAgent(),
-              unconfined_agent: this.#deps.secrets.unconfinedAgent(),
+              without: this.#deps.secrets.without(),
+              outside: this.#deps.secrets.outside(),
+              problem: here.secretProblem,
+              confirm: here.secretConfirm,
             },
     };
   }
 
-  /** Sets a project secret by the person's press (ADR 0057): one press, the value typed for it. */
+  /**
+   * Sets a project secret by the person's press (ADR 0057): one press, the value typed for it. A refusal
+   * is said in that project's card, where the person is looking, not in What Setup Said.
+   */
   async setSecret(
     projectId: unknown,
     name: unknown,
@@ -672,30 +690,54 @@ export class SetupView {
     session: string = ONE_SESSION,
   ): Promise<SetupState> {
     const here = this.#press(session);
+    here.secretConfirm = null;
     const secrets = this.#deps.secrets;
-    if (secrets === undefined)
-      return this.#refused(here, session, "This Mac doesn't keep secrets.");
-    const problem = secrets.set(projectId, name, value);
-    if (problem !== null) return this.#refused(here, session, problem);
-    here.confirm = null;
-    here.said = [];
+    const problem =
+      secrets === undefined
+        ? "This computer doesn't keep secrets."
+        : secrets.set(projectId, name, value);
+    here.secretProblem =
+      problem === null
+        ? null
+        : { project_id: typeof projectId === 'string' ? projectId : '', text: problem };
     return this.state(session);
   }
 
-  /** Removes a project secret by the person's press: later tasks no longer get it. */
+  /**
+   * Removes a project secret on the second press of the same secret, as Forget and Turn Off ask first:
+   * a removed value can never be seen or put back. The first press says what it will do.
+   */
   async removeSecret(
     projectId: unknown,
     name: unknown,
+    confirmed: unknown,
     session: string = ONE_SESSION,
   ): Promise<SetupState> {
     const here = this.#press(session);
+    here.secretProblem = null;
     const secrets = this.#deps.secrets;
-    if (secrets === undefined)
-      return this.#refused(here, session, "This Mac doesn't keep secrets.");
+    if (typeof projectId !== 'string' || typeof name !== 'string' || secrets === undefined) {
+      here.secretConfirm = null;
+      return this.state(session);
+    }
+    const pending = here.secretConfirm;
+    if (confirmed !== true || pending?.project_id !== projectId || pending.name !== name) {
+      here.secretConfirm = {
+        project_id: projectId,
+        name,
+        text: `Tasks started after this won't get ${name}, and its value can't be seen or put back.`,
+      };
+      return this.state(session);
+    }
+    here.secretConfirm = null;
     const problem = secrets.remove(projectId, name);
-    if (problem !== null) return this.#refused(here, session, problem);
-    here.confirm = null;
-    here.said = [];
+    here.secretProblem = problem === null ? null : { project_id: projectId, text: problem };
+    return this.state(session);
+  }
+
+  /** Forgets a Remove asked once, by the person's Cancel. */
+  async cancelSecret(session: string = ONE_SESSION): Promise<SetupState> {
+    this.#press(session).secretConfirm = null;
     return this.state(session);
   }
 
@@ -946,9 +988,14 @@ export function mountSetup(view: SetupView): (routes: PageRoutes) => void {
       { bodyLimit: SECRET_BODY_LIMIT },
     );
     routes.post('/setup/secrets/remove', (request, session) => {
-      const body = (request.body ?? {}) as { project_id?: unknown; name?: unknown };
-      return view.removeSecret(body.project_id, body.name, session);
+      const body = (request.body ?? {}) as {
+        project_id?: unknown;
+        name?: unknown;
+        confirmed?: unknown;
+      };
+      return view.removeSecret(body.project_id, body.name, body.confirmed, session);
     });
+    routes.post('/setup/secrets/cancel', (_request, session) => view.cancelSecret(session));
   };
 }
 

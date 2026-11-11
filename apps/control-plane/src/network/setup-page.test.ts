@@ -820,8 +820,8 @@ describe('the setup view on the pairing page', () => {
           name: project.name,
           secrets: project.secrets ?? [],
         })),
-      everyAgent: () => false,
-      unconfinedAgent: () => true,
+      without: () => ['Claude Agent'],
+      outside: () => ['Claude Agent'],
       nextId: () => {
         ids += 1;
         return `01a19000-0000-7000-8000-${String(ids).padStart(12, '0')}`;
@@ -859,8 +859,10 @@ describe('the setup view on the pairing page', () => {
     const state = JSON.parse(done.body) as SetupState;
     assert.deepEqual(state.secrets, {
       projects: [{ project_id: projectId, name: 'Garden', secrets: ['PROJECT_TEST_KEY'] }],
-      every_agent: false,
-      unconfined_agent: true,
+      without: ['Claude Agent'],
+      outside: ['Claude Agent'],
+      problem: null,
+      confirm: null,
     });
     const read = await call(port, 'GET', '/setup/state', { cookie });
     assert.equal(read.body.includes('test-value-not-real'), false);
@@ -873,21 +875,52 @@ describe('the setup view on the pairing page', () => {
     const refused = JSON.parse(
       (await call(port, 'POST', '/setup/secrets/set', headers, huge)).body,
     );
-    assert.deepEqual((refused as SetupState).said, ['That secret is too long to keep.']);
-    const removed = await call(
-      port,
-      'POST',
-      '/setup/secrets/remove',
-      headers,
-      JSON.stringify({ project_id: projectId, name: 'PROJECT_TEST_KEY' }),
+    // Said in that project's card, where the person is looking, not in What Setup Said (LINK's critic).
+    assert.deepEqual((refused as SetupState).secrets?.problem, {
+      project_id: projectId,
+      text: 'That secret is too long to keep.',
+    });
+    assert.deepEqual((refused as SetupState).said, []);
+    // Remove asks first; only a second press of the same secret removes it.
+    const remove = (confirmed: boolean, name = 'PROJECT_TEST_KEY') =>
+      call(
+        port,
+        'POST',
+        '/setup/secrets/remove',
+        headers,
+        JSON.stringify({ project_id: projectId, name, confirmed }),
+      ).then((answer) => JSON.parse(answer.body) as SetupState);
+    const asked = await remove(false);
+    assert.equal(asked.secrets?.projects[0]?.secrets.length, 1, 'the first press removes nothing');
+    assert.match(asked.secrets?.confirm?.text ?? '', /can't be seen or put back/);
+    assert.equal(asked.secrets?.problem, null, 'a new press clears the last refusal');
+    const other = await remove(true, 'ANOTHER_KEY');
+    assert.equal(
+      other.secrets?.projects[0]?.secrets.length,
+      1,
+      'a second press of another secret asks again',
     );
-    assert.deepEqual((JSON.parse(removed.body) as SetupState).secrets?.projects[0]?.secrets, []);
+    assert.equal(other.secrets?.confirm?.name, 'ANOTHER_KEY');
+    const cancelled = JSON.parse(
+      (await call(port, 'POST', '/setup/secrets/cancel', headers, '{}')).body,
+    ) as SetupState;
+    assert.equal(cancelled.secrets?.confirm, null);
+    await remove(false);
+    const removed = await remove(true);
+    assert.deepEqual(removed.secrets?.projects[0]?.secrets, []);
+    assert.equal(removed.secrets?.confirm, null);
     const shown = await call(port, 'GET', '/setup', { cookie });
     assert.match(shown.body, /<h2>Project Secrets<\/h2>/);
     assert.match(shown.body, /An agent given a key can use it, print it, and send it/);
+    // The two extra lines are written from the state's names; their places are on the page.
+    assert.match(shown.body, /id="secrets-some"/);
+    assert.match(shown.body, /id="secrets-open" class="secret-alert"/);
+    const script = readFileSync(new URL('./setup-page/setup.js', import.meta.url), 'utf8');
+    assert.match(script, /without these secrets\. /);
+    assert.match(script, /Start a task that needs one on another agent\./);
     assert.match(
-      shown.body,
-      /runs outside the sandbox on this computer, and can read every project's secrets here/,
+      script,
+      /can read every project's secrets on this computer\. Give it test keys only\./,
     );
   });
 
