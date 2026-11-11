@@ -156,6 +156,13 @@ function stoppedByRestart(code: string | undefined): boolean {
   return code !== undefined && RESTART_REASONS.has(code);
 }
 
+/**
+ * How many of a task's tool results stay readable by their event id: the last 256, about 0.4 KB
+ * each, oldest dropped (core audit 2026-11-03). The headset is only handed ids from the list of
+ * the last 16, so none a person saw is gone this soon.
+ */
+export const TOOL_RESULT_HISTORY = 256;
+
 /** A busy task's status in words, for the busy rule's refusals (core audit 2026-11-03). */
 const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
   starting: 'starting',
@@ -517,6 +524,11 @@ export class Projection {
       };
       state.recent.unshift(summary);
       state.history.set(event.event_id, summary);
+      // Only the last results of a task stay readable by id; an older one reads as not found.
+      if (state.history.size > TOOL_RESULT_HISTORY) {
+        const oldest = state.history.keys().next().value;
+        if (oldest !== undefined) state.history.delete(oldest);
+      }
       state.recent.length = Math.min(state.recent.length, TOOL_RESULT_RECENT);
       this.#results.set(event.execution_id, state);
     }

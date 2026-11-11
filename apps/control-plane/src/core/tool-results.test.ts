@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { ToolResult } from '@halcyonic/contracts';
-import { Projection } from '@halcyonic/domain';
+import { Projection, TOOL_RESULT_HISTORY } from '@halcyonic/domain';
 import { EventBuilder } from '../../../../packages/domain/src/testing/events.ts';
 import { createTestControlPlane } from '../testing/harness.ts';
 import { ToolResults } from './tool-results.ts';
@@ -165,4 +165,71 @@ test('only accepted fully correlated evidence is readable, including after recen
     replay.executionResultSummary(scope.executionId, first),
     h.controlPlane.projection.executionResultSummary(scope.executionId, first),
   );
+});
+
+test('only the last 256 tool results of a task stay readable by id; an older one reads as not found (core audit 2026-11-03)', async (t) => {
+  const h = createTestControlPlane();
+  t.after(() => h.controlPlane.close());
+  const b = new EventBuilder(),
+    project = b.project(),
+    work = b.workstream(project.projectId),
+    run = b.execution(project.projectId, work.workstreamId);
+  const put = (event: ReturnType<typeof b.project>['event']) =>
+    h.controlPlane.recorder.import(event.event);
+  for (const event of [project.event, work.event, run.event]) put(event);
+  const scope = {
+    projectId: project.projectId,
+    workstreamId: work.workstreamId,
+    executionId: run.executionId,
+  };
+  put(b.runtimeEvent(scope, 'runtime.execution.started', { native_id: 'native' }));
+  put(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 'turn' }));
+  const ids: string[] = [];
+  for (let i = 0; i < TOOL_RESULT_HISTORY + 4; i++) {
+    const id = `tool${i}`;
+    put(
+      b.runtimeEvent(scope, 'runtime.tool.started', {
+        tool_call_id: id,
+        tool_name: 'shell',
+        title: null,
+      }),
+    );
+    const event = b.runtimeEvent(scope, 'runtime.tool.result', {
+      kind: 'command',
+      tool_call_id: id,
+      turn_id: 'turn',
+      completion: 'completed',
+      exit_code: 0,
+      redaction: { policy: 'known_held_values', replacements: 0 },
+      output: { text: 'out', availability: 'available', complete: true, truncation: 'none' },
+    });
+    put(event);
+    ids.push(event.event.event_id);
+    put(
+      b.runtimeEvent(scope, 'runtime.tool.completed', {
+        tool_call_id: id,
+        turn_id: 'turn',
+        outcome: 'succeeded',
+      }),
+    );
+  }
+  const query = {
+    journal_id: h.journal.info.journal_id,
+    project_id: scope.projectId,
+    workstream_id: scope.workstreamId,
+  };
+  const reader = new ToolResults(h.controlPlane);
+  assert.equal(
+    reader.list(scope.executionId, query, { kind: 'local' })?.total,
+    TOOL_RESULT_HISTORY + 4,
+  );
+  for (const id of ids.slice(0, 4)) {
+    assert.equal(reader.read(scope.executionId, id, query, { kind: 'local' }), undefined);
+  }
+  for (const id of [ids[4], ids.at(-1)] as string[]) {
+    assert.equal(
+      reader.read(scope.executionId, id, query, { kind: 'local' })?.result.kind,
+      'command',
+    );
+  }
 });

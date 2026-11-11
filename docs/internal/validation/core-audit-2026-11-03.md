@@ -94,8 +94,9 @@ it. Work on the audit stopped on 2026-11-04; those marked "next" were the ones i
   subscribers, with no trend in the cost. Usually two clients are connected. Serializing once per event was next.
   Fixed on 2026-11-10 (CORE): an event's message is serialized once and the same text sent on every connection.
 - **A summary of every tool result is kept per execution.** Verified in the code, not measured: the scale bench
-  sends no tool results. Still open on 2026-11-11 (CORE): about 0.4 KB a result, never trimmed, now also in every
-  checkpoint of the projection; a bound waits on a decision.
+  sends no tool results. Fixed on 2026-11-11 (CORE): about 0.4 KB a result, which was never trimmed and rode in
+  every checkpoint of the projection; now only the last 256 results of each execution stay readable by id, the
+  oldest dropped, an older id read as not found (REALTIME.md).
 - **Not attacked in this audit:** `folder-safety.ts` against case and hard-link games, and error text and URLs in
   journal fields other than those above. No defect is suspected in them. `reads_confined` is recorded by each check
   and Play on the Mac refuses without it (tested); a Mac preview may serve an unconfined copy, its record saying so
