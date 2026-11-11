@@ -268,6 +268,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
           env: { ...this.#environment },
           spawnClaudeCodeProcess: (options) => this.#guard.spawn(options, label),
           systemPrompt: { type: 'preset', preset: 'claude_code' },
+          // As for a start: the temporary folder's own `.claude` settings, which anything may
+          // write, never load.
+          settingSources: ['user'],
           ...(this.#executable !== undefined && { pathToClaudeCodeExecutable: this.#executable }),
         },
       });
@@ -605,8 +608,13 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
         ),
       // Claude Code's own system prompt. Without this option the SDK sends an empty one.
       systemPrompt: { type: 'preset', preset: 'claude_code' },
-      // settingSources stays unset: every settings source loads, so the user's hooks run and
-      // Salidium and Seorak observe the session.
+      // The person's own settings only: their hooks run, so Salidium and Seorak observe the
+      // session. A project's own CLAUDE.md, its AGENTS.md and the hooks, servers and permissions in
+      // its `.claude` settings never load by themselves: they are the repository's words, and a
+      // hook there would run a command for every task (E5). Where the start is confined, none
+      // at all: the 'user' source there is the folder's own configuration, which the agent inside
+      // can write, so its hooks or allow rules would load at the next start (AUDIT2 S1, BOX-4).
+      settingSources: confined === null || settings === null ? ['user'] : [],
       ...(start.model !== undefined && { model: start.model }),
       ...(start.permissionMode !== undefined && { permissionMode: start.permissionMode }),
       ...(this.#executable !== undefined && { pathToClaudeCodeExecutable: this.#executable }),
