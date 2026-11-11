@@ -130,6 +130,8 @@ function goEnvironment(home: string, temp: string): Record<string, string> {
     GOPATH: join(home, 'go'),
     GOMODCACHE: join(home, 'go', 'pkg', 'mod'),
     GOENV: 'off',
+    // The module alone, never a go.work around it, in its folder or above (AUDIT3 S2).
+    GOWORK: 'off',
     GOTOOLCHAIN: 'local',
     GOPROXY: 'off',
     GOSUMDB: 'off',
