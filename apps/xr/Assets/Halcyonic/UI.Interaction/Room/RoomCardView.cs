@@ -179,6 +179,9 @@ namespace Halcyonic.XR.UI
         /// <summary>Every tile, mark and plate the card shows now, with what it is: for checks.</summary>
         public List<(RoomShape Plate, string What)> Plates { get; } = new List<(RoomShape, string)>();
 
+        /// <summary>The labels of the card's page of reading now, a file's own lines: for checks, which read no separator in them.</summary>
+        public List<TextMeshPro> ReadingShown { get; } = new List<TextMeshPro>();
+
         /// <summary>The code to scan the card shows now; null where it shows none. For checks.</summary>
         public RoomCodeView? CodeShown => codeUsed ? codeView : null;
 
@@ -208,6 +211,7 @@ namespace Halcyonic.XR.UI
             rowPressesUsed = 0;
             codeUsed = false;
             Shown.Clear();
+            ReadingShown.Clear();
             Plates.Clear();
             Glyphs.Clear();
             var down = 0f;
@@ -240,6 +244,11 @@ namespace Halcyonic.XR.UI
             {
                 Gap(BlockGapDp);
                 down = LaySlots(card.Slots, width, down);
+            }
+            if (card.Reading.Count > 0)
+            {
+                Gap(BlockGapDp);
+                down = LayReading(card.Reading, width, down);
             }
             if (card.Steps.Count > 0)
             {
@@ -312,6 +321,53 @@ namespace Halcyonic.XR.UI
             codeView.transform.localPosition = new Vector3(centre.x, centre.y, -RoomType.Units(0.4f));
             codeUsed = true;
             return down + well;
+        }
+
+        /// <summary>
+        /// A page of a file's lines (<see cref="RoomReading"/>'s measures): each row its line number at the gutter's right,
+        /// quiet; an added line's plus in green and a removed line's minus in red, small and bare, over a faint band of its
+        /// hue the card's width, so a run of changed lines reads as one block; the words mono, theirs, stood their indent in,
+        /// a line the change left a step quieter; a continued row hung in under its start; a gap a hairline across.
+        /// </summary>
+        private float LayReading(IReadOnlyList<RoomReadingRow> rows, float width, float down)
+        {
+            var advance = S(RoomReading.TypeDp) * RoomReading.AdvanceEm;
+            var gutter = S(RoomReading.GutterDp);
+            var pitch = S(RoomReading.LineDp);
+            foreach (var row in rows)
+            {
+                if (row.Kind == RoomLineKind.Gap)
+                {
+                    var from = S(RoomReading.GutterDp + RoomReading.MarkGapDp);
+                    Plate(new Vector2(width - from, Mathf.Max(S(1f), RoomType.Units(1f))), 0f, White(0.16f), new Vector2(from + (width - from) / 2f, -(down + S(RoomReading.GapRowDp) / 2f)), "reading gap");
+                    down += S(RoomReading.GapRowDp);
+                    continue;
+                }
+                var middle = down + pitch / 2f;
+                var changed = row.Kind == RoomLineKind.Added || row.Kind == RoomLineKind.Removed;
+                if (changed)
+                {
+                    var hue = row.Kind == RoomLineKind.Added ? Passed : Failed;
+                    Plate(new Vector2(width, pitch), S(4f), Rgb(hue, 0.10f), new Vector2(width / 2f, -middle), "reading band", under: true);
+                    if (!row.Continued)
+                        Glyph(row.Kind == RoomLineKind.Added ? RoomGlyph.Plus : RoomGlyph.Minus, RoomReading.MarkDp, Rgb(row.Kind == RoomLineKind.Added ? Passed : Failed),
+                            new Vector2(S(RoomReading.GutterDp + RoomReading.MarkGapDp + RoomReading.MarkDp / 2f), -middle), "reading mark");
+                }
+                if (row.Number is int number)
+                {
+                    var (label, _) = Text(KitRole.Mono, RoomReading.NumberDp, RoomReading.LineDp, White(NoteAlpha), LineWords.Ours(number.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                        0f, -down, gutter, 1);
+                    label.transform.localPosition = new Vector3(gutter - RoomCursor.WordsWidth(label, 0f), -(down + S(RoomReading.TypeDp - RoomReading.NumberDp) * 0.6f), -RoomType.Units(0.5f));
+                }
+                if (row.Text != null && !row.Text.IsEmpty)
+                {
+                    var left = S(RoomReading.TextLeftDp(1f, row.Continued)) + row.Indent * advance;
+                    var (label, _) = Text(KitRole.Mono, RoomReading.TypeDp, RoomReading.LineDp, White(changed ? 0.96f : 0.80f), row.Text, left, -down, Mathf.Max(width - left, advance), 1);
+                    ReadingShown.Add(label);
+                }
+                down += pitch;
+            }
+            return down;
         }
 
         private float LayHead(RoomCard card, float width, float down)

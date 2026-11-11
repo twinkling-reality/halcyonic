@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -66,6 +66,35 @@ namespace Halcyonic.XR.Workspace.Editor
             return new RoomCode(side, dark);
         }
 
+        /// <summary>
+        /// A change to a file as SCREENS's reader pages it: lines kept, one removed and the one that took its place, a line as
+        /// long as a row holds at this text size wrapped onto a continued row, a gap, and an indent kept as a count.
+        /// </summary>
+        private static RoomReadingRow[] CardReading()
+        {
+            LineWords Theirs(string words) => LineWords.TheirName(words);
+            var columns = RoomReading.Columns(GlazeText.Scale);
+            const string longLine = "return points.map(point => point.lerp(kite.at, wind.pull)).filter(Boolean).slice(0, 40);";
+            var first = longLine.Substring(0, columns - 4);
+            var rest = longLine.Substring(columns - 4);
+            var hung = rest.Substring(0, Math.Min(rest.Length, RoomReading.Columns(GlazeText.Scale, continued: true) - 4));
+            return new[]
+            {
+                new RoomReadingRow(RoomLineKind.Same, 10, Theirs("export function tail(kite, wind) {")),
+                new RoomReadingRow(RoomLineKind.Same, 11, Theirs("const points = [];"), indent: 2),
+                new RoomReadingRow(RoomLineKind.Removed, 12, Theirs("points.push(kite.at);"), indent: 2),
+                new RoomReadingRow(RoomLineKind.Added, 12, Theirs("points.push(kite.at, wind.at);"), indent: 2),
+                new RoomReadingRow(RoomLineKind.Added, 13, Theirs("// streams behind the kite"), indent: 2),
+                new RoomReadingRow(RoomLineKind.Added, 14, Theirs(first), indent: 4),
+                new RoomReadingRow(RoomLineKind.Added, null, Theirs(hung), continued: true, indent: 4),
+                RoomReadingRow.GapRow,
+                new RoomReadingRow(RoomLineKind.Same, 38, Theirs("return points;"), indent: 2),
+                new RoomReadingRow(RoomLineKind.Same, 39, Theirs("}")),
+                new RoomReadingRow(RoomLineKind.Same, 40, null),
+                new RoomReadingRow(RoomLineKind.Same, 41, Theirs("export default tail;")),
+            };
+        }
+
         private static RoomCard CardOf(string state)
         {
             LineWords Theirs(string words) => LineWords.TheirName(words);
@@ -94,6 +123,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 "47-card-share" => new RoomCard(status: new RoomCardStatus("Shared", "Scan the code to play", RoomTone.Good),
                     slots: new[] { new RoomSlot(RoomKind.Wifi, Ours("192.168.1.20:47970")) },
                     more: Ours("The game has changed since. They still get the last checked build."), code: CardCode()),
+                "47-card-reading" => new RoomCard(Theirs("tail.js"), slots: new[] { new RoomSlot(RoomKind.Changed, Ours("Edited")), new RoomSlot(RoomKind.Added, Ours("4 Lines")) },
+                    reading: CardReading(), more: Ours("Page 1 of 2")),
                 "47-card-history" => new RoomCard(Ours("History"), Ours("Pick a moment to restore."), list: new[]
                 {
                     new RoomListRow(RoomKind.Worked, Ours("After ") + Theirs("Tail") + Ours(" Worked"), "18:40", press: CardRowControl("c1")),
@@ -133,7 +164,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 label.ForceMeshUpdate(true);
                 var words = label.GetParsedText();
                 Require(label.textInfo.characterCount > 0 && !label.isTextOverflowing && !words.Contains("…"), "\"" + words + "\" is cut");
-                Require(!words.Contains(KitMomentWords.Dot.Trim()), "\"" + words + "\" joins facts on a dot");
+                // A file's own line may hold any character: only the card's own words are read for the separator.
+                Require(view.ReadingShown.Contains(label) || !words.Contains(KitMomentWords.Dot.Trim()), "\"" + words + "\" joins facts on a dot");
                 var bounds = label.textBounds;
                 var left = label.transform.localPosition.x + bounds.min.x;
                 var right = label.transform.localPosition.x + bounds.max.x;
@@ -163,6 +195,24 @@ namespace Halcyonic.XR.Workspace.Editor
                     Debug.Log("Halcyonic: parts: " + name + ": the code " + code.Side + " cells a side, its well " + (ground.Size.x / unit).ToString("0", CultureInfo.InvariantCulture)
                         + " dp across, a cell " + (GlazeTokens.DegreesOf(cell)).ToString("0.000", CultureInfo.InvariantCulture) + " degrees at a metre.");
                 }
+            }
+            if (card.Reading.Count > 0)
+            {
+                // Each line's words at the card's text column plus their indent, a continued row hung in; one band per changed
+                // row, one mark per changed line (not its continued rows), one hairline per gap; the longest row whole.
+                var advance = RoomType.Scaled(RoomReading.TypeDp) * RoomReading.AdvanceEm;
+                var texts = card.Reading.Where(row => row.Text != null && !row.Text.IsEmpty).ToList();
+                Require(view.ReadingShown.Count == texts.Count, "the page draws " + view.ReadingShown.Count + " lines for " + texts.Count);
+                for (var index = 0; index < Math.Min(texts.Count, view.ReadingShown.Count); index++)
+                {
+                    var row = texts[index];
+                    var want = RoomType.Scaled(RoomReading.TextLeftDp(1f, row.Continued)) + row.Indent * advance;
+                    Require(Mathf.Abs(view.ReadingShown[index].transform.localPosition.x - want) < slack, row.Text!.Text + " does not stand at its indent");
+                }
+                Require(view.Plates.Count(each => each.What == "reading band") == card.Reading.Count(row => row.Kind == RoomLineKind.Added || row.Kind == RoomLineKind.Removed), "a changed row has no band");
+                Require(view.Glyphs.Count(each => each.What == "reading mark") == card.Reading.Count(row => (row.Kind == RoomLineKind.Added || row.Kind == RoomLineKind.Removed) && !row.Continued), "a changed line has no mark");
+                Require(view.Plates.Count(each => each.What == "reading gap") == card.Reading.Count(row => row.Kind == RoomLineKind.Gap), "a gap has no hairline");
+                Require(card.Reading.Count <= RoomReading.RowsAPage, "the page holds more rows than a page");
             }
             if (card.Slots.Count > 0)
                 Require(Mathf.Abs(Left("slot")) < slack && Mathf.Abs(Right("slot") - inner) < slack, "the slots do not meet the card's two edges");

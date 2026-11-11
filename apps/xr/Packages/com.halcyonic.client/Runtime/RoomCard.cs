@@ -267,9 +267,11 @@ namespace Halcyonic.Client
     {
         public RoomCard(LineWords? title = null, LineWords? description = null, RoomCardHead head = RoomCardHead.None, RoomCardStatus? status = null,
             IReadOnlyList<RoomSlot>? slots = null, IReadOnlyList<RoomCardStep>? steps = null, int? trackAt = null, int? trackOf = null,
-            IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, LineWords? more = null, RoomCode? code = null)
+            IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, LineWords? more = null, RoomCode? code = null,
+            IReadOnlyList<RoomReadingRow>? reading = null)
         {
             Code = code;
+            Reading = reading ?? new RoomReadingRow[0];
             Title = title;
             Description = description;
             Head = head;
@@ -305,6 +307,13 @@ namespace Halcyonic.Client
         /// </summary>
         public RoomCode? Code { get; }
 
+        /// <summary>
+        /// A page of a file's lines (<see cref="RoomReading"/>): each its number, its change's mark and its words, theirs and
+        /// mono, laid under the slots. A screen wraps and pages them to <see cref="RoomReading.Columns"/> and
+        /// <see cref="RoomReading.RowsAPage"/>. Empty for none.
+        /// </summary>
+        public IReadOnlyList<RoomReadingRow> Reading { get; }
+
         public IReadOnlyList<RoomCardStep> Steps { get; }
 
         /// <summary>
@@ -330,7 +339,9 @@ namespace Halcyonic.Client
         /// Every word the card shows, in its order: what a view that draws no card shows, and what a check of the
         /// separator rule reads.
         /// </summary>
-        public IEnumerable<string> Words()
+        public IEnumerable<string> Words() => Words(reading: true);
+
+        private IEnumerable<string> Words(bool reading)
         {
             if (Status is RoomCardStatus status)
             {
@@ -345,6 +356,9 @@ namespace Halcyonic.Client
                 if (gauge.Note != null) yield return gauge.Note;
             }
             foreach (var slot in Slots) yield return slot.Value.Text;
+            if (reading)
+                foreach (var row in Reading)
+                    if (row.Text != null) yield return row.Text.Text;
             foreach (var step in Steps) yield return step.Name;
             foreach (var row in List)
             {
@@ -354,7 +368,10 @@ namespace Halcyonic.Client
             if (More != null) yield return More.Text;
         }
 
-        /// <summary>Whether any of the card's words joins two facts on the separator: never, in the card's language.</summary>
-        public bool AnyDot => Words().Any(words => words.Contains(KitMomentWords.Dot.Trim()));
+        /// <summary>
+        /// Whether any of the card's words joins two facts on the separator: never, in the card's language. A file's own lines
+        /// are not the card's facts and may hold any character, so a page of reading is not read for it.
+        /// </summary>
+        public bool AnyDot => Words(reading: false).Any(words => words.Contains(KitMomentWords.Dot.Trim()));
     }
 }

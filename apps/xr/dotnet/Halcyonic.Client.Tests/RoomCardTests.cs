@@ -47,6 +47,38 @@ public sealed class RoomCardTests
     }
 
     [Test]
+    public void APageOfReadingIsTheFilesOwnWordsAndNeverReadForTheSeparator()
+    {
+        var reading = new[]
+        {
+            new RoomReadingRow(RoomLineKind.Same, 11, LineWords.TheirName("const tail = [];")),
+            new RoomReadingRow(RoomLineKind.Added, 12, LineWords.TheirName("label = a" + KitMomentWords.Dot.Trim() + "b;")),
+            new RoomReadingRow(RoomLineKind.Added, 99, LineWords.TheirName(".join();"), continued: true, indent: 2),
+            RoomReadingRow.GapRow,
+        };
+        var card = new RoomCard(LineWords.TheirName("kite.js"), slots: new[] { new RoomSlot(RoomKind.Changed, LineWords.Ours("Edited")) }, reading: reading);
+
+        Assert.That(card.Words().ToList(), Is.EqualTo(new[] { "kite.js", "Edited", "const tail = [];", "label = a" + KitMomentWords.Dot.Trim() + "b;", ".join();" }));
+        Assert.That(card.AnyDot, Is.False, "a file's line may hold any character; only the card's own facts are read for the separator");
+        Assert.That(reading[2].Number, Is.Null, "a continued row carries no number");
+        Assert.That(reading[2].Indent, Is.EqualTo(2), "a line's leading space is kept as a count, since outside words lose it");
+        Assert.That(reading[3].Text, Is.Null);
+        Assert.That(new RoomReadingRow(RoomLineKind.Same, 1, LineWords.TheirName("x"), indent: -3).Indent, Is.EqualTo(0));
+        Assert.That(new RoomCard().Reading, Is.Empty);
+    }
+
+    [Test]
+    public void AScreenWrapsAFileToTheColumnsTheCardDraws()
+    {
+        // 384 dp of card less 60 of gutter and mark, at 9 dp a character; at larger text 375.6 less 69, at 10.35.
+        Assert.That(RoomReading.Columns(1f), Is.EqualTo(36));
+        Assert.That(RoomReading.Columns(1f, continued: true), Is.EqualTo(34));
+        Assert.That(RoomReading.Columns(Comfort.LargerTextScale), Is.EqualTo(29));
+        Assert.That(RoomReading.Columns(Comfort.LargerTextScale, continued: true), Is.EqualTo(27));
+        Assert.Throws<System.ArgumentOutOfRangeException>(() => RoomReading.Columns(0f));
+    }
+
+    [Test]
     public void AFactStrungOnTheSeparatorIsCaught()
     {
         var card = new RoomCard(LineWords.Ours("Model" + KitMomentWords.Dot + "Glimmer"));
