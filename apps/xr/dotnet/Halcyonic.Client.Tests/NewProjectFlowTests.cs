@@ -2611,4 +2611,86 @@ public class NewProjectFlowTests
         var bar = Bar(flow);
         Assert.That(bar.Facts!.All(row => row.FromLine == 0 && row.Lines == null), "each item whole: never less than its part");
     });
+
+    // The level before the start (AUDIT's finding on XR's default, 2026-11-11): the recap and the review name it.
+
+    private static RuntimeDescriptor Offering(bool? offersNeverAsk)
+    {
+        var runtime = Runtime("real");
+        runtime.Synthetic = false;
+        runtime.DisplayName = "Glimmer";
+        runtime.OffersNeverAsk = offersNeverAsk;
+        return runtime;
+    }
+
+    [TestCase(true, true, " · Never Ask")]
+    [TestCase(false, true, " · Ask First")]
+    [TestCase(true, false, " · Ask First")]
+    [TestCase(true, null, " · Ask First")]
+    public void The_recaps_row_and_the_reviews_Model_row_name_the_level_the_start_will_use(bool chosen, bool? offered, string level)
+    {
+        var draft = new NewWorkDraft(Commands);
+        draft.Objective = "A page of race times for my running club";
+        draft.ChooseRuntime(Offering(offered));
+        draft.NeverAsk = chosen;
+        Assert.That(NewProjectScreens.RunsWithLevel(draft, live: true).Text, Does.EndWith(level), "the recap's row");
+        var idea = new ProjectIdea();
+        var review = EntryScreens.ReviewOf(idea, draft, null, live: true);
+        var model = review.Items.Single(item => item.Label == "Model · ");
+        Assert.That(model.Value, Does.EndWith(level), "the review's Model row");
+        Assert.That(review.NeverAsk, Is.EqualTo(draft.StartsNeverAsk), "the row and the level the start is confirmed at are one");
+    }
+
+    [Test]
+    public void A_practice_run_names_no_level()
+    {
+        var draft = new NewWorkDraft(Commands);
+        draft.Objective = "A page of race times for my running club";
+        draft.ChooseRuntime(Samples.MockRuntime());
+        draft.NeverAsk = true;
+        Assert.That(NewProjectScreens.RunsWithLevel(draft, live: true).Text, Does.Not.Contain("Ask"));
+        var model = EntryScreens.ReviewOf(new ProjectIdea(), draft, null, live: true).Items.Single(item => item.Label == "Model · ");
+        Assert.That(model.Value, Does.Not.Contain("Ask"));
+    }
+
+    [Test]
+    public void Through_the_flow_the_redesigns_recap_names_the_level() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false, State = WithRuntimes(Offering(true)) };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        PressOn(flow, NewProjectScreens.MoreOptions);
+        Press(flow, NewProjectScreens.ChooseRuntime, "real");
+        Press(flow, NewProjectScreens.Done, null);
+        Assert.That(Words(flow).Any(words => words.EndsWith(" · Ask First", StringComparison.Ordinal)), "until the person or the default chooses never ask, it asks: " + string.Join(" | ", Words(flow)));
+    });
+
+    [Test]
+    public void A_review_cut_for_one_view_counts_no_draw_by_the_other_and_is_cut_again() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        var flow = RoomRecapped(host, string.Join(" ", Enumerable.Repeat("A page of race times for my running club, newest first.", 6)));
+        static int Lines(LineWords words) => Math.Max(1, (words.Text.Length + 23) / 24);
+        flow.RoomLines = Lines;
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Draw(flow, flow.Frame!);
+        Assert.That(flow.Frame!.Lines.First().Words, Is.Not.EqualTo(EntryText.ReviewLine), "cut for the redesign's rows");
+        // The older view draws it now: the draw counts for nothing, and the review is cut for the older page.
+        flow.RoomLines = null;
+        var before = flow.Review!.AllDrawn;
+        Draw(flow, flow.Frame!);
+        Assert.That(flow.Review!.AllDrawn, Is.EqualTo(before));
+        Assert.That(flow.Frame!.Lines.First().Words, Is.EqualTo(EntryText.ReviewLine), "cut again for the older page");
+        // Read to its end there, then the redesign's view draws it again: cut again, and its Confirm waits for a part drawn there.
+        ReadToTheEnd(flow, host);
+        Assert.That(flow.Review!.CanConfirm, Is.True);
+        flow.RoomLines = Lines;
+        Draw(flow, flow.Frame!);
+        Assert.That(flow.Frame!.Lines.First().Words, Is.Not.EqualTo(EntryText.ReviewLine), "cut again for the rows");
+        Assert.That(host.Sent, Is.Empty);
+    });
 }
