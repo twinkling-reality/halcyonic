@@ -63,7 +63,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// At work (DESIGN 2.3): the working field and the agent's cursor with Stop alone; the same where the runtime still
         /// takes an instruction, the row under the foot line; and Stop's own confirmation.
         /// </summary>
-        private static readonly string[] WorkStates = { "36-work", "36-work-row", "36-stop-confirm", "36-work-recorded" };
+        private static readonly string[] WorkStates = { "36-work", "36-work-row", "36-stop-confirm", "36-work-recorded", "36-work-fixing" };
 
         /// <summary>A page of the file with no moment of its own, drawn by the general rule (RoomBar.OfFrame): Checks while its answer is read.</summary>
         private static readonly string[] PageStates = { "37-page" };
@@ -78,7 +78,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// band; a long message; Changes and its second page's way on; Checks passed and failed; and a project with a
         /// check and no observed turn.
         /// </summary>
-        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-project", "38-result-agent" };
+        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-project", "38-result-agent", "38-result-stopped" };
 
         /// <summary>The agent's newest message in the result's states, DESIGN's own, synthetic.</summary>
         private const string ResultSays = "I added the golden balloon and removed the old backup file.";
@@ -115,6 +115,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-changes-long" => new RoomResult(false, true, false, true, ResultTurn(true), passing, RoomResultPage.Changes),
                 "38-checks" => new RoomResult(isVr: true, canMakeVr: false, canTry: true, passed: true, ResultTurn(false), passing, RoomResultPage.Checks),
                 "38-checks-failed" => new RoomResult(false, true, false, false, ResultTurn(false), failing, RoomResultPage.Checks),
+                "38-result-stopped" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: false, ResultTurn(false), failing),
                 "38-project" => new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, null, passing),
                 _ => null,
             };
@@ -218,6 +219,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-checks" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks passed: a row a step of the computer's check, Try Build and Back, synthetic data"),
                 "38-checks-failed" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks failed: the steps the check reached, Write Instruction and Back, synthetic data"),
                 "38-result-agent" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the agent offers never ask: the agent and its level in the row beside it, synthetic data"),
+                "38-result-stopped" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the agent's tries at a failed check ran out: that line first, Write Instruction leading, synthetic data"),
+                "36-work-fixing" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work while the agent's first try at a failed check runs: the failure and the try in the panel beside Stop, synthetic data"),
                 "38-project" => (VoiceStage.Idle, false, RoomBarState.Rest, "A project with a check and no observed turn: Build Passed, Make VR Version and Try Build, synthetic data"),
                 "37-page" => (VoiceStage.Idle, false, RoomBarState.Page, "A page with no moment of its own: its line in the panel, its actions in the column, synthetic data"),
                 "36-work" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work: the field, the agent's cursor saying its step, Stop alone, synthetic data"),
@@ -268,7 +271,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 _ when asking => SelectedWorkspace(waiting: true, command: AskCommand),
                 _ when questioning => SelectedWorkspace(waiting: true, asked: QuestionFor(state), confirmAnswers: state == "34-question-confirm"),
                 // At work, on an agent that takes no instruction while it works, and on one that does.
-                "36-work" or "36-stop-confirm" => WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()),
+                "36-work" or "36-stop-confirm" or "36-work-fixing" => WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()),
                 // Nothing to press: no Stop and no instruction while it works, as a recorded run offers.
                 "36-work-recorded" => WithActions(WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()), new WorkspaceAction[0]),
                 "36-work-row" => Running(ShortReport()),
@@ -284,6 +287,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 workspace.Execution!.ActiveTools = new List<ToolActivityView> { new() { ToolCallId = "synthetic-tool", ToolName = "Edit", Title = WorkFile, StartedAt = Day + "09:04:00.000Z" } };
                 workspace.Execution.ToolActivity = ExecutionViewToolActivity.Running;
             }
+            // The task's failed check back with its agent on its own (ADR 0044): the first try under way, or both tries spent.
+            if (state is "36-work-fixing" or "38-result-stopped")
+                workspace.Execution!.AutoFix = new AutoFixView
+                {
+                    State = state == "36-work-fixing" ? AutoFixViewState.Fixing : AutoFixViewState.Ended, CheckId = "0193b3a0-0000-7000-8000-000000000001",
+                    Attempt = state == "36-work-fixing" ? 1 : 2, Cap = 2, Reason = state == "36-work-fixing" ? null : AutoFixEndReason.CapReached,
+                };
             var steering = new WorkspaceSteering(factory, () => DateTimeOffset.UtcNow);
             if (state == "36-stop-confirm" && steering.Press(WorkspaceAction.Interrupt, workspace).Step != SteeringStep.Confirm) shot.Failures.Add("Stop did not ask for its confirmation");
             var screen = new FileScreen { Section = asking || questioning ? FileSection.Waiting : state == "37-page" ? FileSection.Checks : FileSection.Activity, Speak = true };
@@ -505,7 +515,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
                 // The working field and the agent's cursor stand only at work; Stop's confirmation and every other moment have neither.
-                var working = state is "36-work" or "36-work-row" or "36-work-recorded";
+                var working = state is "36-work" or "36-work-row" or "36-work-recorded" or "36-work-fixing";
                 // No frame leaves the plane a part of no height (JUDGE's walk 9): the host's footprint is never empty.
                 Require(host.Size.x > 0f && host.Size.y > 0f, "the host stands " + host.Size.x + " by " + host.Size.y + ": a part of no size");
                 Require(shown.Working == working, working ? "the agent works and the redesign does not say so" : "at work is shown where nothing works");
@@ -513,8 +523,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(host.Cursor.Words == (state == "36-work" ? RoomWork.Editing + " score.js" : ""), "the cursor reads \"" + host.Cursor.Words + "\"");
                 if (working)
                 {
-                    // No panel; the band says nothing; Stop alone where the column stands, a rest action, its core on the foot line.
-                    Require(!bar.Panel.gameObject.activeSelf && host.Band.Words == null, "a panel or the band stands while the agent works");
+                    // No panel, save while a try at a failed check runs; the band says nothing; Stop alone where the column stands, a
+                    // rest action, its core on the foot line.
+                    if (state == "36-work-fixing")
+                    {
+                        Require(bar.Panel.gameObject.activeSelf && host.Band.Words == null, "the panel does not stand while a try runs, or the band does");
+                        Require(bar.Sentence.gameObject.activeSelf && bar.Sentence.text == LabelText.ForTextMeshPro(RoomBar.FixingWords(1, 2)) && bar.SentenceWaits,
+                            "the sentence bar reads \"" + bar.Sentence.text + "\" and does not sweep");
+                        Whole(bar.Sentence, "the try's words");
+                        var failed = bar.Facts;
+                        Require(failed != null && failed.Count == 1 && failed.Label(0).GetParsedText().Trim() == RoomBar.FixingFailed && failed.Mark(0).gameObject.activeSelf,
+                            "the panel's row does not say the check failed, with its mark");
+                    }
+                    else Require(!bar.Panel.gameObject.activeSelf && host.Band.Words == null, "a panel or the band stands while the agent works");
                     var stop = bar.Column[0];
                     if (state == "36-work-recorded") Require(shown.Column.Count == 0 && shown.Row.Count == 0 && bar.Column.All(button => !button.gameObject.activeSelf), "an action stands where nothing can be pressed");
                     else
@@ -560,9 +581,12 @@ namespace Halcyonic.XR.Workspace.Editor
                             Require(!(label.text ?? "").Contains(message.Substring(0, 16)), "the agent's words stand off the band, in " + label.name);
                         Require((bar.BandNextButton != null) == (state == "38-result-long"), state == "38-result-long" ? "no way to the long message's next part" : "a way to a next part the band does not have");
                         if (state == "38-result-long") Require(bar.BandNextButton!.LookNow() == RoomButtonLook.Rest && shown.Column.Any(action => action.Main), "the message's next part is the main action over the result's own");
-                        Require(bar.Body.GetParsedText() == (state == "38-project" ? "Build Passed" : "4 Files Changed") && shown.Sentence == (state == "38-project" ? null : "Build Passed"),
+                        var stopped = state == "38-result-stopped";
+                        var reads = state == "38-project" ? "Build Passed" : stopped ? "Stopped After 2 Tries\n4 Files Changed" : "4 Files Changed";
+                        Require(bar.Body.GetParsedText().Replace("\r", "") == reads && shown.Sentence == (state == "38-project" ? null : stopped ? "Build Failed" : "Build Passed"),
                             "the panel reads \"" + bar.Body.GetParsedText() + "\" over \"" + shown.Sentence + "\"");
-                        Require(shown.Column[0].Control.Action == RoomResult.MakeVrVersion && shown.Column[0].Main, "Make VR Version does not lead");
+                        if (stopped) Require(shown.Column[0].Place == KitPlace.Field && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1, "Write Instruction does not lead where the tries ran out");
+                        else Require(shown.Column[0].Control.Action == RoomResult.MakeVrVersion && shown.Column[0].Main, "Make VR Version does not lead");
                     }
                     else
                     {

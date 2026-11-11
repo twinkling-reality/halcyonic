@@ -296,9 +296,9 @@ namespace Halcyonic.XR.UI
             else band.Hide();
             bar.BandNext = band.Words?.Next;
             bar.Show(room);
-            ShowWork(room, zoom);
             if (!bar.gameObject.activeSelf)
             {
+                ShowWork(room, zoom);
                 // Nothing drawn, standing where the row would, so the plane still places a real footprint.
                 var rest = new Vector2(RoomType.Units(RoomGeometry.PanelDp), RoomType.Units(RoomButton.HeightDp)) / zoom;
                 Size = rest;
@@ -327,6 +327,8 @@ namespace Halcyonic.XR.UI
             Size = size;
             FootLine = bar.transform.localPosition.y + bar.Foot / zoom;
             TextBands = new[] { new TextBand(-size.x / 2f, size.x / 2f, -size.y / 2f, size.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
+            // The working field stands round the panel's place where the bar now stands (a plate or row under it moves it up).
+            ShowWork(room, zoom);
             foreach (var press in bar.Presses) press.Accepting = () => Accepting();
         }
 

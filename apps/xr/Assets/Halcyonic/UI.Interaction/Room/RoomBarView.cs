@@ -285,7 +285,8 @@ namespace Halcyonic.XR.UI
                 locking = null;
                 panel.gameObject.SetActive(false);
                 foreach (var button in column) button.Hide();
-                if (bar.Working) LayWork(bar);
+                if (bar.Working && bar.Fixing != null) LayFixing(bar);
+                else if (bar.Working) LayWork(bar);
                 else if (bar.Row.Count > 0) LayRow(bar, 0f);
                 else LayAlone(bar);
                 if (!bar.Working)
@@ -341,6 +342,29 @@ namespace Halcyonic.XR.UI
             Foot = foot;
             PanelRight = -total / 2f + panelWidth;
             Size = new Vector2(Mathf.Max(total, rowWidth), above + below);
+        }
+
+        /// <summary>
+        /// At work while a try at a failed check runs (FIELD's A7): the information panel stands in its place beside Stop, the
+        /// failure as its row over the try's words in its sentence bar, sweeping (<see cref="RoomBar.Fixing"/>), and the working
+        /// field stands round it as at any work. The row, or the agent's plate, hangs under the pair as at rest.
+        /// </summary>
+        private void LayFixing(RoomBar bar)
+        {
+            LayPair(bar, bar.Fixing, waits: true);
+            var (pair, foot, right) = (Size, Foot, PanelRight);
+            var under = foot - RoomType.Units(RowFeetDp) + RoomType.Units(RoomButton.HeightDp) / 2f;
+            if (bar.Row.Count > 0) LayRow(bar, under);
+            else
+            {
+                talk.Hide();
+                type.Hide();
+                more.Hide();
+                levelRoot.gameObject.SetActive(false);
+                LayPlate(bar, new Vector3(0f, under, -RoomType.Units(0.5f)));
+            }
+            (Size, Foot, PanelRight) = (new Vector2(Mathf.Max(pair.x, bar.Row.Count > 0 ? Size.x : 0f), pair.y), foot, right);
+            if (bar.Row.Count > 0 || bar.Plate != null) RowDrop = RoomType.Units(RowFeetDp);
         }
 
         /// <summary>For renders: the level as it is now, as a person sees it, and the caret standing.</summary>
@@ -555,8 +579,11 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>The pair: the panel at the left with the words and the sentence bar at its foot, the column at its right.</summary>
-        private void LayPair(RoomBar bar)
+        private void LayPair(RoomBar bar, string? fixing = null, bool waits = false)
         {
+            // At work while a try runs, the sentence bar says which try, sweeping; anywhere else the bar's own sentence.
+            var said = fixing ?? bar.Sentence;
+            var saidWaits = fixing != null ? waits : bar.Waits;
             talk.Hide();
             type.Hide();
             more.Hide();
@@ -605,18 +632,18 @@ namespace Halcyonic.XR.UI
             // Where the bar gives rows, FIELD's rows draw them (each under a hairline, a mark before a step's words) and decide the height.
             var rowsTall = LayFacts(bar, wordsWidth);
             if (rowsTall is float tall) bodyHeight = Mathf.Max(line, tall);
-            bodySweep.Waits = bar.Waits && bar.Sentence == null && !bar.Mono && !empty;
+            bodySweep.Waits = bar.Waits && said == null && !bar.Mono && !empty;
 
             float barHeight = 0f;
-            if (bar.Sentence is string said)
+            if (said != null)
             {
                 RoomType.Size(sentence);
                 GlazeText.SetLiteral(sentence, said);
                 var saidHeight = BreakAtSeparators(sentence, panelWidth - 2f * inset - 2f * RoomType.Scaled(RoomGeometry.SentencePadXDp), 3).Height;
                 barHeight = Mathf.Max(RoomType.Scaled(RoomGeometry.SentenceDp), saidHeight + 2f * RoomType.Scaled(RoomGeometry.SentencePadYDp));
             }
-            sentence.gameObject.SetActive(bar.Sentence != null);
-            sentenceSweep.Waits = bar.Sentence != null && bar.Waits;
+            sentence.gameObject.SetActive(said != null);
+            sentenceSweep.Waits = said != null && saidWaits;
             // The body 28 dp in from the top and sides; 18 dp under it before the sentence bar, which stands 14 dp in; 28 dp under it with no bar.
             // With nothing from the computer to say there is no panel: the choices take its place.
             var panelHeight = bar.Wide ? 0f : pad + bodyHeight + (barHeight > 0f ? RoomType.Scaled(RoomGeometry.BodyFootDp) + barHeight + inset : pad);
@@ -661,7 +688,7 @@ namespace Halcyonic.XR.UI
             request.transform.localPosition = body.transform.localPosition;
             reading.gameObject.SetActive(!empty && rowsTall == null);
             PlaceFacts(body.transform.localPosition);
-            if (bar.Sentence != null)
+            if (said != null)
                 sentence.transform.localPosition = new Vector3(-panelWidth / 2f + inset + RoomType.Scaled(RoomGeometry.SentencePadXDp),
                     -panelHeight / 2f + inset + barHeight - RoomType.Scaled(RoomGeometry.SentencePadYDp), -RoomType.Units(0.5f));
 

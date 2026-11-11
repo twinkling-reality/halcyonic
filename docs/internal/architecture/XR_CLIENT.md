@@ -2723,6 +2723,13 @@ The last unit turns it on by default and removes the kit parts it replaced.
   hairline, a step's with its check or cross. With nothing known of the task, the row stands alone as before. Not
   drawn yet: the check or cross beside Build Passed or Build Failed in the sentence bar. Checks: `38-result`, `38-result-long`, `38-changes`, `38-changes-long`, `38-checks`,
   `38-checks-failed`, `38-project`; `RoomResultTests`.
+- **A failed check back with its agent** (ADR 0044; the addendum's A7; FIELD's `RoomBar.Fixing.cs`): at work while a
+  try runs, the information panel stands in its place beside Stop, its one row "Check Failed" with its cross over
+  "Fixing · Try {n} of {m}" in the sentence bar, sweeping, the working field round it (`RoomBarView.LayFixing`; check
+  `36-work-fixing`). Once the tries end, the result's panel has that chain's line first, over its own, each on a line of
+  its own: "Fixed · Try {n} of {m}" (only while the result has the computer's check, so only while the folder is as it
+  was checked) or "Stopped After {m} Tries"; where they ran out, the file's own way to an instruction
+  leads the column (`RoomBar.Resulting`; check `38-result-stopped`; `RoomResultTests`, `RoomFixingTests`).
 - **The level of a task's next start** (ADR 0043 and its amendment of 2026-11-10), in the client core: never ask by
   default wherever the runtime the start uses offers it AND the level is shown before the start goes; Ask First by
   default anywhere else (AUDIT, 2026-11-11). For a task's next start that is the redesign, whose row names the agent
