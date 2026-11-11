@@ -190,7 +190,9 @@ It is the runtime's own mode, declared only once verified, never one Halcyonic m
 - **Carrying a plan out (PLAN 4a, the lead's yes of 2026-11-11):** an instruction with `leave_plan` makes the same
   task, and the same session, carry the plan out once the runtime confirms it left its plan mode
   (`runtime.plan.left`). Built for OpenCode; Claude Code joins when it declares a plan. `ExecutionView` carries `plan`,
-  `plan_left` and `unconfined_reason`.
+  `plan_left` and `unconfined_reason`. Carrying a plan out is admitted only at rest. A headset built before these
+  bindings meets an unknown event type, `runtime.plan.left`: it is rebuilt with the regenerated bindings before a host
+  that sends it (AUDIT3 4a S4).
 - **Before PLAN 4a**, a later instruction could not leave a plan. On OpenCode the same session can go ahead by switching its agent,
   and on Claude Code by `setPermissionMode`, both seen on the fake hosts. Choosing that from the headset is FIELD's
   and XR's next step.

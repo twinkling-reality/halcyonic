@@ -97,6 +97,17 @@ const NEW_PROJECT_INSIDE =
 /** OpenCode 2.0.18's built-in read-only agent, "for exploring the codebase and planning work" (PLAN). */
 const PLAN_AGENT = 'plan';
 
+/**
+ * What a session read back after a switch to `build` says (PLAN 4a): left, still on the plan agent,
+ * or unknown, where it could not be read or names another agent.
+ */
+export function planSwitchOutcome(info: unknown): 'left' | 'still_plan' | 'unknown' {
+  if (!isRecord(info)) return 'unknown';
+  if (info.agent === BUILD_AGENT) return 'left';
+  if (info.agent === PLAN_AGENT) return 'still_plan';
+  return 'unknown';
+}
+
 /** OpenCode 2.0.18's default primary agent, which a plan is carried out on (PLAN). */
 const BUILD_AGENT = 'build';
 
@@ -987,10 +998,20 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     } catch {
       info = null;
     }
-    if (!isRecord(info) || info.agent !== BUILD_AGENT) {
+    // OpenCode took the switch: only a read-back naming the plan agent says it is still a plan
+    // (AUDIT3 4a S1); one that cannot be read leaves it unknown, never "still a plan".
+    const outcome = planSwitchOutcome(info);
+    if (outcome === 'still_plan') {
       throw new RuntimeActionError(
         'runtime_refused',
-        'OpenCode did not report the session off its plan agent, so the instruction was not sent and the task is still a plan.',
+        'OpenCode reported the session still on its plan agent, so the instruction was not sent and the task is still a plan.',
+      );
+    }
+    if (outcome === 'unknown') {
+      throw new RuntimeActionError(
+        'runtime_refused',
+        "OpenCode took the switch off the plan agent but did not report the session's agent, so the instruction was not sent, and the task may have left its plan.",
+        'unknown',
       );
     }
     this.#emit(session, [
