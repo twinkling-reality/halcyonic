@@ -692,7 +692,8 @@ namespace Halcyonic.Client
         /// its facts as slots, each its value alone with its kind's glyph, never a label joined on a dot: the folder (its name,
         /// or where the work goes directly, or that none is chosen), the agent (the model's name where the runtime lists models,
         /// else the agent app's), and the level the start will use, where its runtime offers one. A notice, a proposal or the
-        /// warning that the folder moves stands as the card's quiet foot line.
+        /// warning that the folder moves stands as the card's quiet foot line, its runs as given: a companion's words stay
+        /// its own, leaning (AUDIT's F1).
         /// </summary>
         public static RoomCard RecapCard(ProjectIdea idea, NewWorkDraft draft, ProjectLocation? currentFolder, bool live, LineWords? note)
         {
@@ -711,7 +712,7 @@ namespace Halcyonic.Client
                 slots.Add(new RoomSlot(RoomKind.Agent, agent));
                 if (!runtime.Synthetic) slots.Add(new RoomSlot(RoomKind.Level, LineWords.Ours(AgentColumn.LevelWords(draft.StartsNeverAsk))));
             }
-            return new RoomCard(title, idea.FirstTask.Length > 0 ? LineWords.TheirName(idea.FirstTask) : null, RoomCardHead.Project, slots: slots, more: note?.Text);
+            return new RoomCard(title, idea.FirstTask.Length > 0 ? LineWords.TheirName(idea.FirstTask) : null, RoomCardHead.Project, slots: slots, more: note);
         }
 
         /// <summary>

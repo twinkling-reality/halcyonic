@@ -194,7 +194,7 @@ namespace Halcyonic.XR.UI
             if (card.More != null)
             {
                 Gap(8f);
-                var (_, tall) = Text(KitRole.Body, MoreDp, MoreLineDp, White(0.66f), LineWords.Ours(card.More), 0f, -down, width, 2);
+                var (_, tall) = Text(KitRole.Body, MoreDp, MoreLineDp, White(0.66f), card.More, 0f, -down, width, 2);
                 down += tall;
             }
             HideUnused();
@@ -321,7 +321,7 @@ namespace Halcyonic.XR.UI
                 var (number, _) = Text(KitRole.Title, GaugeNumberDp, GaugeNumberLineDp, Color.white, LineWords.Ours(gauge.PercentLeft + "%"), x, -line, inner, 1);
                 x += RoomCursor.WordsWidth(number, 0f) + S(10f);
                 // The window's word on the number's baseline: its line's foot against the number's.
-                Text(KitRole.Label, GaugeLabelDp, GaugeLabelLineDp, White(0.66f), LineWords.Ours(gauge.Label), x, -(line + S(GaugeNumberLineDp) - S(GaugeLabelLineDp) - S(4f)), inner, 1);
+                Text(KitRole.Label, GaugeLabelDp, GaugeLabelLineDp, White(0.66f), gauge.Label, x, -(line + S(GaugeNumberLineDp) - S(GaugeLabelLineDp) - S(4f)), inner, 1);
                 var middle = line + S(GaugeNumberLineDp) + S(14f) + Mathf.Max(S(TrackTallDp), S(GaugeResetLineDp)) / 2f;
                 Plate(new Vector2(bar, S(TrackTallDp)), S(TrackTallDp) / 2f, White(0.10f), new Vector2(S(GaugePadXDp) + bar / 2f, -middle), "gauge track");
                 var filled = bar * gauge.PercentLeft / 100f;

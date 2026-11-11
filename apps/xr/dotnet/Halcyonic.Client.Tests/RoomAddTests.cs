@@ -39,7 +39,7 @@ public sealed class RoomAddTests
         var add = RoomAdd.Of(Copy(waiting), false);
         Assert.That((add.Count, add.Slot!.Value.Value.Text), Is.EqualTo((140L, "140 Files")));
         var review = add.ReviewCard(LineWords.TheirName("Tail"), null);
-        Assert.That((review.List.Count, review.More, review.Description!.Text), Is.EqualTo((2, "And 138 Files More", "You can undo this.")));
+        Assert.That((review.List.Count, review.More!.Text, review.Description!.Text), Is.EqualTo((2, "And 138 Files More", "You can undo this.")));
     }
 
     [Test]
