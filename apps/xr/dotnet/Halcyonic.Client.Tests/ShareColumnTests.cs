@@ -63,19 +63,24 @@ public class ShareColumnTests
     {
         foreach (var (view, reason) in new[]
         {
-            (View(passed: false), "Check the game first"),
-            (View(files: "changed"), "Check it again first"),
-            (View(files: "unknown"), "Check it again first"),
-            (View(confined: false), "Not every agent run was confined"),
-            (View(preview: false), "Start its preview first"),
+            (View(passed: false), ShareText.CheckFirst),
+            (View(files: "changed"), ShareText.CheckAgain),
+            (View(files: "unknown"), ShareText.CheckAgain),
+            (View(confined: false), ShareText.NotConfined),
+            (View(preview: false), ShareText.PreviewFirst),
         })
         {
             var column = new ShareColumn(view);
             Assert.That(column.Stage, Is.EqualTo(ShareStage.NotShareable), reason);
+            Assert.That(column.Card()!.Status!.Value.Title, Is.EqualTo("Not Shared Yet"));
             Assert.That(column.Card()!.Status!.Value.Line, Is.EqualTo(reason));
-            Assert.That(column.Actions().Single().Kind, Is.EqualTo(ShareActionKind.Back));
+            Assert.That(column.Card()!.Words().Any(words => words.Contains("confined", StringComparison.OrdinalIgnoreCase)), Is.False, "never on screen");
+            Assert.That(column.Actions().Last().Kind, Is.EqualTo(ShareActionKind.Back));
             NoDots(column);
         }
+        Assert.That(new ShareColumn(View(passed: false)).Actions().First().Kind, Is.EqualTo(ShareActionKind.CheckGame));
+        Assert.That(new ShareColumn(View(preview: false)).Actions().First().Kind, Is.EqualTo(ShareActionKind.StartPreview));
+        Assert.That(new ShareColumn(View(confined: false)).Actions().Single().Kind, Is.EqualTo(ShareActionKind.Back), "no fix exists there");
         Assert.That(new ShareColumn(View()).Stage, Is.EqualTo(ShareStage.Choose));
     }
 
@@ -84,15 +89,21 @@ public class ShareColumnTests
     {
         var column = new ShareColumn(View());
         Assert.That(column.Choose(ShareWay.Link), Is.False, "nothing is offered before the ways are read");
-        column.WaysRead(Ways(link: ShareWayState.NotSetUp));
+        column.WaysRead(Ways());
         var card = column.Card()!;
         Assert.That(card.Title!.Text, Is.EqualTo("Kite Run"));
-        Assert.That(card.List.Select(row => (row.Name.Text, row.Note)), Is.EqualTo(new[] { ("Share a Link", "Set Up on Computer"), ("Share on This Wi-Fi", "This Wi-Fi Only") }));
-        Assert.That(column.Actions().Where(action => action.Kind == ShareActionKind.Way).Select(action => action.Way), Is.EqualTo(new ShareWay?[] { ShareWay.Wifi }));
-        Assert.That(column.Choose(ShareWay.Link), Is.False);
-        Assert.That(column.Choose(ShareWay.Wifi), Is.True);
-        Assert.That(column.Stage, Is.EqualTo(ShareStage.Confirm));
+        Assert.That(card.Description!.Text, Is.EqualTo("Pick who can open it."));
+        Assert.That(card.List.Select(row => (row.Name.Text, row.Note)), Is.EqualTo(new[] { ("Anyone With the Link", "Plays in VR"), ("Anyone on This Wi-Fi", "In a Browser") }));
         NoDots(column);
+
+        // A way this computer cannot use is not a row, and with one way left the choice is skipped to its confirmation.
+        var one = new ShareColumn(View());
+        one.WaysRead(Ways(link: ShareWayState.NotSetUp));
+        Assert.That(one.Stage, Is.EqualTo(ShareStage.Confirm));
+        Assert.That(one.Way, Is.EqualTo(ShareWay.Wifi));
+        Assert.That(one.Choose(ShareWay.Link), Is.False);
+        Assert.That(one.Card()!.Description!.Text, Is.EqualTo(ShareText.ConfirmWifi));
+        // TODO(FIELD's next kit commit): the rows' marks become RoomKind.Link and RoomKind.Wifi.
     }
 
     [Test]
@@ -101,7 +112,7 @@ public class ShareColumnTests
         var column = new ShareColumn(View());
         column.WaysRead(Ways());
         column.Choose(ShareWay.Link);
-        Assert.That(column.Card()!.Description!.Text, Is.EqualTo("Anyone with the code can play it until you stop."));
+        Assert.That(column.Card()!.Description!.Text, Is.EqualTo(ShareText.ConfirmLink));
         var share = column.Actions().First();
         Assert.That((share.Kind, share.Main, share.Locked), Is.EqualTo((ShareActionKind.Share, true, true)));
         Assert.That(column.Start(Samples.Client, Now), Is.Null, "never sent before its lock");
@@ -109,16 +120,17 @@ public class ShareColumnTests
         var command = column.Start(Samples.Client, Now)!;
         Assert.That((command.Payload.ProjectId, command.Payload.Way), Is.EqualTo((ProjectId, ShareWay.Link)));
         Assert.That(column.Stage, Is.EqualTo(ShareStage.Starting));
-        Assert.That(column.Card(), Is.Null);
-        Assert.That(column.Sentence, Is.EqualTo("Getting the Link Ready"));
-        Assert.That(column.Actions(), Is.Empty);
+        Assert.That(column.Card()!.Status!.Value.Title, Is.EqualTo("Sharing"));
+        Assert.That(column.Card()!.Status!.Value.Line, Is.EqualTo("Getting the link ready"));
+        Assert.That(column.Actions().Single().Kind, Is.EqualTo(ShareActionKind.Cancel));
 
         column.Viewed(View(share: Share("link", "https://example-name.invalid/")));
         Assert.That(column.Stage, Is.EqualTo(ShareStage.Shared));
         var card = column.Card()!;
-        Assert.That(card.Status!.Value.Title, Is.EqualTo("Shared"));
+        Assert.That((card.Status!.Value.Title, card.Status.Value.Tone), Is.EqualTo(("Shared", RoomTone.Working)));
+        Assert.That(card.Status.Value.Line, Is.EqualTo(ShareText.SharedLink));
         Assert.That(card.Words().Any(words => words.Contains("example-name") || words.Contains("https")), Is.False, "a link's address is never text");
-        Assert.That(column.Actions().First().Kind, Is.EqualTo(ShareActionKind.Stop));
+        Assert.That(column.Actions().Select(action => action.Kind), Is.EqualTo(new[] { ShareActionKind.Stop, ShareActionKind.Close }));
         var stop = column.Stop(Samples.Client, Now);
         Assert.That(stop!.Payload.ProjectId, Is.EqualTo(ProjectId));
         NoDots(column);
@@ -130,8 +142,8 @@ public class ShareColumnTests
         var column = new ShareColumn(View(share: Share("wifi", "http://192.168.1.20:47970/", files: "changed")));
         Assert.That(column.Stage, Is.EqualTo(ShareStage.Shared));
         var card = column.Card()!;
-        Assert.That(card.Slots.Select(slot => slot.Value.Text), Is.EqualTo(new[] { "Share on This Wi-Fi", "192.168.1.20:47970" }));
-        Assert.That(card.More!.Text, Is.EqualTo("This is the last checked build."));
+        Assert.That(card.Status!.Value.Line, Is.EqualTo(ShareText.SharedWifi));
+        Assert.That(card.More!.Text, Is.EqualTo(ShareText.ChangedSince + " 192.168.1.20:47970"), "the change since, then the address to type");
         NoDots(column);
 
         Assert.That(column.Cells, Is.Null);
@@ -172,12 +184,12 @@ public class ShareColumnTests
         column.Choose(ShareWay.Wifi);
         column.Arm();
         var command = column.Start(Samples.Client, Now)!;
-        Assert.That(column.Sentence, Is.EqualTo("Sharing on This Wi-Fi"));
+        Assert.That(column.Card()!.Status!.Value.Line, Is.EqualTo("Opening it on the Wi-Fi"));
         column.Answered(new CommandView { CommandId = "another", Status = CommandStatus.Failed, Failure = new CommandFailure { Code = "no_network", Message = "x" } });
         Assert.That(column.Stage, Is.EqualTo(ShareStage.Starting), "another command's answer changes nothing");
         column.Answered(new CommandView { CommandId = command.CommandId, Status = CommandStatus.Failed, Failure = new CommandFailure { Code = "no_network", Message = "x" } });
         Assert.That(column.Stage, Is.EqualTo(ShareStage.NotShared));
-        Assert.That(column.Card()!.Status!.Value.Line, Is.EqualTo("Your computer is not on a Wi-Fi network"));
+        Assert.That(column.Card()!.Status!.Value.Line, Is.EqualTo(ShareText.NoNetwork));
         Assert.That(column.Card()!.Words(), Does.Not.Contain("x"), "the computer's message is not shown as Halcyonic's words");
         Assert.That(column.Actions().First().Kind, Is.EqualTo(ShareActionKind.TryAgain));
         NoDots(column);
@@ -188,14 +200,15 @@ public class ShareColumnTests
         shared.Viewed(View());
         shared.ShareStopped(new ProjectShareStoppedEvent { ProjectId = ProjectId, Payload = new ProjectShareStoppedPayload { CheckId = CheckId, Reason = ShareStopReason.Ended } });
         Assert.That(shared.Stage, Is.EqualTo(ShareStage.Stopped));
-        Assert.That(shared.Card()!.Status!.Value.Line, Is.EqualTo("The link stopped working"));
-        Assert.That(shared.Actions().First().Kind, Is.EqualTo(ShareActionKind.ShareAgain));
+        Assert.That(shared.Card()!.Status!.Value.Line, Is.EqualTo(ShareText.LinkEnded));
+        Assert.That(shared.Actions().Select(action => action.Kind), Is.EqualTo(new[] { ShareActionKind.ShareAgain, ShareActionKind.Close }));
         NoDots(shared);
 
         var asked = new ShareColumn(View(share: Share("link", "https://example-name.invalid/")));
         asked.Viewed(View());
         asked.ShareStopped(new ProjectShareStoppedEvent { ProjectId = ProjectId, Payload = new ProjectShareStoppedPayload { CheckId = CheckId, Reason = ShareStopReason.Asked } });
-        Assert.That(asked.Stage, Is.EqualTo(ShareStage.Choose), "the person's own Stop goes back to the choice");
+        Assert.That(asked.Stage, Is.EqualTo(ShareStage.Stopped));
+        Assert.That(asked.Card()!.Status!.Value.Line, Is.EqualTo("You stopped it."));
     }
 
     [Test]

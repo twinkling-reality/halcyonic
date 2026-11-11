@@ -40,7 +40,12 @@ namespace Halcyonic.Client
         Stop,
         TryAgain,
         ShareAgain,
+        /// <summary>The way to fix what keeps the game from being shared: check it (again).</summary>
+        CheckGame,
+        /// <summary>The way to fix what keeps the game from being shared: start the preview of its latest check.</summary>
+        StartPreview,
         Back,
+        Close,
     }
 
     /// <summary>One action Share offers now, with its words, whether it is the main one, and whether it waits behind its lock.</summary>
@@ -171,7 +176,7 @@ namespace Halcyonic.Client
         public string ProjectId => project.ProjectId;
 
         /// <summary>The way chosen or shared; null at the choice.</summary>
-        public ShareWay? Way => project.Share?.Way ?? chosen;
+        public ShareWay? Way => project.Share?.Way ?? chosen ?? (Ways().Count == 1 ? Ways()[0] : (ShareWay?)null);
 
         /// <summary>The live share's code, once read for the share standing now; null until then.</summary>
         public ShareCells? Cells => project.Share != null && cellsCheckId == project.Share.CheckId ? cells : null;
@@ -188,12 +193,12 @@ namespace Halcyonic.Client
                 if (failure != null) return ShareStage.NotShared;
                 if (stopped != null) return ShareStage.Stopped;
                 if (Reason(project) != null) return ShareStage.NotShareable;
-                return chosen == null ? ShareStage.Choose : ShareStage.Confirm;
+                return chosen == null && Ways().Count != 1 ? ShareStage.Choose : ShareStage.Confirm;
             }
         }
 
         /// <summary>What Share says in the column's sentence where it shows no card (starting), else null.</summary>
-        public string? Sentence => Stage == ShareStage.Starting ? (chosen == ShareWay.Wifi ? ShareText.StartingWifi : ShareText.StartingLink) : null;
+        public string? Sentence => null;
 
         /// <summary>The project's view as the host sent it now: a live share appears, or goes, from here.</summary>
         public void Viewed(ProjectView view)
@@ -213,6 +218,10 @@ namespace Halcyonic.Client
 
         /// <summary>Which ways this computer can share now, read when the column opens.</summary>
         public void WaysRead(SharingWaysResponse response) => ways = response ?? throw new ArgumentNullException(nameof(response));
+
+        /// <summary>The ways offered now, link first: where only one stands, the choice is skipped and its confirmation shows (FIELD).</summary>
+        public IReadOnlyList<ShareWay> Ways() =>
+            new[] { ShareWay.Link, ShareWay.Wifi }.Where(Offers).ToList();
 
         /// <summary>Whether <paramref name="way"/> is offered now: only where the computer said it is ready.</summary>
         public bool Offers(ShareWay way) =>
@@ -241,9 +250,10 @@ namespace Halcyonic.Client
         /// <summary>The start to send once Share was pressed through its lock; null where it was not armed or is no longer admitted.</summary>
         public ProjectShareStartCommand? Start(ClientInfo client, DateTimeOffset at)
         {
-            if (!Armed || chosen is not ShareWay way || Reason(project) != null) return null;
+            if (!Armed || Way is not ShareWay way || Reason(project) != null) return null;
             var command = Stamp(new ProjectShareStartCommand { Payload = new ProjectShareStartPayload { ProjectId = ProjectId, Way = way } }, client, at);
             sentCommandId = command.CommandId;
+            chosen = way;
             armed = false;
             return command;
         }
@@ -292,12 +302,7 @@ namespace Halcyonic.Client
             if (stoppedEvent.ProjectId != ProjectId) return;
             cells = null;
             cellsCheckId = null;
-            if (stoppedEvent.Payload.Reason == ShareStopReason.Asked)
-            {
-                stopped = null;
-                chosen = null;
-            }
-            else stopped = stoppedEvent.Payload.Reason;
+            stopped = stoppedEvent.Payload.Reason;
         }
 
         /// <summary>The live share's code, read once it stands; a code for another check or way than the share's is dropped.</summary>
@@ -310,37 +315,36 @@ namespace Halcyonic.Client
             cellsCheckId = cells == null ? null : share.CheckId;
         }
 
-        /// <summary>What Share shows now, as a card, never facts joined on a dot; null where it shows only its <see cref="Sentence"/>.</summary>
+        /// <summary>What Share shows now, as a card, never facts joined on a dot (FIELD's parts note of 2026-11-11).</summary>
         public RoomCard? Card()
         {
+            var way = Way;
             switch (Stage)
             {
                 case ShareStage.NotShareable:
-                    return Status(ShareText.NotShareable, Reason(project)!, RoomTone.Quiet);
+                    return Status(ShareText.NotSharedYet, Reason(project)!, RoomTone.Quiet);
                 case ShareStage.Choose:
-                    return new RoomCard(title: LineWords.TheirName(project.Name), description: LineWords.Ours(ShareText.ChooseLine), list: new[]
-                    {
-                        new RoomListRow(RoomKind.App, LineWords.Ours(ShareText.Link), Offers(ShareWay.Link) ? ShareText.LinkNote : ShareText.LinkNotReady,
-                            Offers(ShareWay.Link) ? RoomTone.Quiet : RoomTone.Skipped),
-                        new RoomListRow(RoomKind.Computer, LineWords.Ours(ShareText.Wifi), Offers(ShareWay.Wifi) ? ShareText.WifiNote : ShareText.WifiNotReady,
-                            Offers(ShareWay.Wifi) ? RoomTone.Quiet : RoomTone.Skipped),
-                    });
+                    // Only the ways this computer can use are rows; each row is picked from.
+                    return new RoomCard(title: LineWords.TheirName(project.Name), description: LineWords.Ours(ShareText.ChooseLine),
+                        list: Ways().Select(each => new RoomListRow(Kind(each), LineWords.Ours(each == ShareWay.Link ? ShareText.LinkRow : ShareText.WifiRow),
+                            each == ShareWay.Link ? ShareText.LinkNote : ShareText.WifiNote)).ToList());
                 case ShareStage.Confirm:
-                    return new RoomCard(title: LineWords.TheirName(project.Name),
-                        description: LineWords.Ours(chosen == ShareWay.Wifi ? ShareText.ConfirmWifi : ShareText.ConfirmLink));
+                    return new RoomCard(title: LineWords.TheirName(project.Name), description: LineWords.Ours(way == ShareWay.Wifi ? ShareText.ConfirmWifi : ShareText.ConfirmLink));
                 case ShareStage.Starting:
-                    return null;
+                    return Status(ShareText.Sharing, way == ShareWay.Wifi ? ShareText.StartingWifi : ShareText.StartingLink, RoomTone.Working);
                 case ShareStage.Shared:
                     var share = project.Share!;
-                    var slots = new List<RoomSlot> { new RoomSlot(share.Way == ShareWay.Wifi ? RoomKind.Computer : RoomKind.App, LineWords.Ours(share.Way == ShareWay.Wifi ? ShareText.Wifi : ShareText.Link)) };
-                    // The Wi-Fi address carries no brand and may show as text; a link's never does.
-                    if (share.Way == ShareWay.Wifi && WifiAddress(share.Url) is string address) slots.Add(new RoomSlot(RoomKind.Computer, LineWords.Ours(address)));
-                    return new RoomCard(status: new RoomCardStatus(ShareText.Shared, ShareText.SharedLine, RoomTone.Good), slots: slots,
-                        more: share.Files == ProjectShareViewFiles.Current ? null : LineWords.Ours(ShareText.LastChecked));
+                    // The code is the card's centre (FIELD's RoomCard.Code, to come; the host draws it under the card till then).
+                    // The Wi-Fi address carries no brand and stands on the foot line; a link's never does.
+                    var feet = new List<string>();
+                    if (share.Files != ProjectShareViewFiles.Current) feet.Add(ShareText.ChangedSince);
+                    if (share.Way == ShareWay.Wifi && WifiAddress(share.Url) is string address) feet.Add(address);
+                    return new RoomCard(status: new RoomCardStatus(ShareText.Shared, share.Way == ShareWay.Wifi ? ShareText.SharedWifi : ShareText.SharedLink, RoomTone.Working),
+                        more: feet.Count == 0 ? null : LineWords.Ours(string.Join(" ", feet)));
                 case ShareStage.NotShared:
-                    return Status(ShareText.NotShared, FailureLine(failure!), RoomTone.Bad);
+                    return Status(ShareText.NotShared, FailureLine(failure!, way), RoomTone.Bad);
                 default:
-                    return Status(ShareText.Stopped, StopLine(stopped!.Value), RoomTone.Quiet);
+                    return Status(ShareText.Stopped, StopLine(stopped!.Value, way), RoomTone.Quiet);
             }
         }
 
@@ -350,29 +354,48 @@ namespace Halcyonic.Client
             var actions = new List<ShareAction>();
             switch (Stage)
             {
+                case ShareStage.NotShareable:
+                    if (Fix(project) is ShareActionKind fix) actions.Add(new ShareAction(fix, fix == ShareActionKind.CheckGame ? ShareText.CheckGame : ShareText.StartPreview, main: true));
+                    actions.Add(new ShareAction(ShareActionKind.Back, ShareText.Back));
+                    break;
                 case ShareStage.Choose:
-                    if (Offers(ShareWay.Link)) actions.Add(new ShareAction(ShareActionKind.Way, ShareText.Link, way: ShareWay.Link));
-                    if (Offers(ShareWay.Wifi)) actions.Add(new ShareAction(ShareActionKind.Way, ShareText.Wifi, way: ShareWay.Wifi));
+                    foreach (var each in Ways()) actions.Add(new ShareAction(ShareActionKind.Way, each == ShareWay.Link ? ShareText.LinkRow : ShareText.WifiRow, way: each));
+                    actions.Add(new ShareAction(ShareActionKind.Back, ShareText.Back));
                     break;
                 case ShareStage.Confirm:
-                    actions.Add(new ShareAction(ShareActionKind.Share, ShareText.Share, main: true, locked: !armed, way: chosen));
+                    actions.Add(new ShareAction(ShareActionKind.Share, ShareText.Share, main: true, locked: !armed, way: Way));
                     actions.Add(new ShareAction(ShareActionKind.Cancel, ShareText.Cancel));
-                    return actions;
+                    break;
                 case ShareStage.Starting:
-                    return actions;
+                    actions.Add(new ShareAction(ShareActionKind.Cancel, ShareText.Cancel));
+                    break;
                 case ShareStage.Shared:
                     actions.Add(new ShareAction(ShareActionKind.Stop, ShareText.Stop, main: true));
+                    actions.Add(new ShareAction(ShareActionKind.Close, ShareText.Close));
                     break;
                 case ShareStage.NotShared:
                     actions.Add(new ShareAction(ShareActionKind.TryAgain, ShareText.TryAgain, main: true));
+                    actions.Add(new ShareAction(ShareActionKind.Back, ShareText.Back));
                     break;
                 case ShareStage.Stopped:
                     actions.Add(new ShareAction(ShareActionKind.ShareAgain, ShareText.ShareAgain, main: true));
+                    actions.Add(new ShareAction(ShareActionKind.Close, ShareText.Close));
                     break;
             }
-            actions.Add(new ShareAction(ShareActionKind.Back, ShareText.Back));
             return actions;
         }
+
+        /// <summary>The way to fix what keeps the game from being shared, where one exists: check it (again), or start its preview.</summary>
+        public static ShareActionKind? Fix(ProjectView view)
+        {
+            var reason = Reason(view);
+            if (reason == ShareText.CheckFirst || reason == ShareText.CheckAgain) return ShareActionKind.CheckGame;
+            if (reason == ShareText.PreviewFirst) return ShareActionKind.StartPreview;
+            return null;
+        }
+
+        /// <summary>A way's mark. FIELD's RoomKind.Link and RoomKind.Wifi come in its next kit commit; until then the nearest marks (TODO).</summary>
+        private static RoomKind Kind(ShareWay way) => way == ShareWay.Link ? RoomKind.App : RoomKind.Computer;
 
         /// <summary>
         /// Why the host would refuse to share <paramref name="view"/> now, in the product's words, or null where it would
@@ -397,18 +420,19 @@ namespace Halcyonic.Client
             return uri.Host + ":" + uri.Port.ToString(CultureInfo.InvariantCulture);
         }
 
-        private static string FailureLine(CommandFailure failure) => failure.Code switch
+        private static string FailureLine(CommandFailure failure, ShareWay? way) => failure.Code switch
         {
-            "unavailable" => ShareText.NotSetUp,
+            "unavailable" => way == ShareWay.Link ? ShareText.NoLinkProgram : ShareText.CannotShare,
             "no_network" => ShareText.NoNetwork,
             "rejected" => ShareText.Refused,
-            _ => ShareText.NoAnswer,
+            _ => way == ShareWay.Wifi ? ShareText.NoWifiAnswer : ShareText.NoLinkAnswer,
         };
 
-        private static string StopLine(ShareStopReason reason) => reason switch
+        private static string StopLine(ShareStopReason reason, ShareWay? way) => reason switch
         {
+            ShareStopReason.Asked => ShareText.YouStopped,
             ShareStopReason.PreviewStopped => ShareText.StoppedByCheck,
-            ShareStopReason.Ended => ShareText.StoppedWorking,
+            ShareStopReason.Ended => way == ShareWay.Wifi ? ShareText.WifiEnded : ShareText.LinkEnded,
             _ => ShareText.StoppedByComputer,
         };
 
@@ -423,42 +447,50 @@ namespace Halcyonic.Client
         }
     }
 
-    /// <summary>Share's words: placeholders until FIELD's parts note (FIELD/FROM-DEVICE-share-states-2026-11-11T0830Z.md).</summary>
+    /// <summary>Share's words, FIELD's parts note of 2026-11-11 (FROM-FIELD-share-parts.md) and TASKS's host sentences.</summary>
     public static class ShareText
     {
-        public const string Link = "Share a Link";
-        public const string Wifi = "Share on This Wi-Fi";
-        public const string ChooseLine = "Who should be able to open it?";
-        public const string LinkNote = "Anyone With the Code";
-        public const string WifiNote = "This Wi-Fi Only";
-        public const string LinkNotReady = "Set Up on Computer";
-        public const string WifiNotReady = "No Wi-Fi";
-        public const string ConfirmLink = "Anyone with the code can play it until you stop.";
-        public const string ConfirmWifi = "Anyone on this Wi-Fi can play it until you stop.";
-        public const string StartingLink = "Getting the Link Ready";
-        public const string StartingWifi = "Sharing on This Wi-Fi";
+        public const string ChooseLine = "Pick who can open it.";
+        public const string LinkRow = "Anyone With the Link";
+        public const string WifiRow = "Anyone on This Wi-Fi";
+        public const string LinkNote = "Plays in VR";
+        public const string WifiNote = "In a Browser";
+        public const string ConfirmLink = "Anyone with the link can play the last checked build. Stop ends it at once.";
+        public const string ConfirmWifi = "Anyone on this Wi-Fi can play the last checked build in a browser. Stop ends it at once.";
+        public const string Sharing = "Sharing";
+        public const string StartingLink = "Getting the link ready";
+        public const string StartingWifi = "Opening it on the Wi-Fi";
         public const string Shared = "Shared";
-        public const string SharedLine = "Scan the code to play";
-        public const string LastChecked = "This is the last checked build.";
-        public const string NotShareable = "Not Shareable";
-        public const string CheckFirst = "Check the game first";
-        public const string CheckAgain = "Check it again first";
-        public const string NotConfined = "Not every agent run was confined";
-        public const string PreviewFirst = "Start its preview first";
+        public const string SharedLink = "Anyone with the link can play the last checked build.";
+        public const string SharedWifi = "Anyone on this Wi-Fi can play the last checked build in a browser.";
+        public const string ChangedSince = "The game has changed since. They still get the last checked build.";
+        public const string NotSharedYet = "Not Shared Yet";
+        public const string CheckFirst = "Only a passed check can be shared. Check the game first.";
+        public const string CheckAgain = "The game's files may have changed since its last check. Check the game again first.";
+        /// <summary>TASKS's sentence without the word FIELD keeps off the screen; placeholder until FIELD words it.</summary>
+        public const string NotConfined = "Not every agent run in this project stayed in its folder, so it is not shared.";
+        public const string PreviewFirst = "Start the preview of the latest check first.";
         public const string NotShared = "Not Shared";
-        public const string NotSetUp = "Set up a link on your computer";
-        public const string NoNetwork = "Your computer is not on a Wi-Fi network";
-        public const string NoAnswer = "No link answered";
-        public const string Refused = "Your computer refused it";
-        public const string Stopped = "Sharing Stopped";
-        public const string StoppedByCheck = "A new check stopped it";
-        public const string StoppedWorking = "The link stopped working";
-        public const string StoppedByComputer = "Your computer stopped it";
+        public const string NoLinkProgram = "This computer has no program for a shared link.";
+        public const string CannotShare = "This computer cannot share a game.";
+        public const string NoNetwork = "This computer isn't on a Wi-Fi network.";
+        public const string NoLinkAnswer = "The game could not be shared: no link answered. Try again.";
+        public const string NoWifiAnswer = "The game could not be shared on the Wi-Fi: its address did not answer. Try again.";
+        public const string Refused = "Your computer refused it.";
+        public const string Stopped = "Stopped";
+        public const string YouStopped = "You stopped it.";
+        public const string StoppedByCheck = "A new check or the preview's end stopped it.";
+        public const string LinkEnded = "The link stopped working. Share again for a new one.";
+        public const string WifiEnded = "The Wi-Fi share ended.";
+        public const string StoppedByComputer = "The computer restarted. Nothing stays shared.";
         public const string Share = "Share";
         public const string Cancel = "Cancel";
         public const string Stop = "Stop";
         public const string TryAgain = "Try Again";
         public const string ShareAgain = "Share Again";
+        public const string CheckGame = "Check Game";
+        public const string StartPreview = "Start Preview";
         public const string Back = "Back";
+        public const string Close = "Close";
     }
 }
