@@ -9,7 +9,7 @@ import {
   type ProjectId,
   type Timestamp,
 } from '@halcyonic/contracts';
-import type { Projection } from '@halcyonic/domain';
+import { folderInUse, foldersOverlap, type Projection } from '@halcyonic/domain';
 import type { Clock } from '@halcyonic/runtime-core';
 import type { IdGenerator } from '../ids.ts';
 import type { Logger } from '../logger.ts';
@@ -88,11 +88,36 @@ export class AutoFix {
     this.#unsubscribe = this.#deps.publisher.subscribe(({ event }) => this.#on(event));
   }
 
-  /** The control plane's automatic check of the project is about to be submitted as `commandId`. */
-  checkQueued(projectId: ProjectId, commandId: CommandId): void {
-    const executions = this.#changed.get(projectId) ?? new Set<ExecutionId>();
-    this.#changed.delete(projectId);
-    this.#checks.set(commandId, { projectId, executions });
+  /**
+   * The control plane's automatic check of `folder`, a task's own copy or the project's folder
+   * (ADR 0045), is about to be submitted as `commandId`: it follows the executions whose turns
+   * changed files there, and leaves those that worked in another task's copy for that one's check.
+   */
+  checkQueued(projectId: ProjectId, commandId: CommandId, folder: string | null = null): void {
+    this.#checks.set(commandId, { projectId, executions: this.#take(projectId, folder) });
+  }
+
+  /** Takes the executions of the project that changed files in `folder`, or all for null. */
+  #take(projectId: ProjectId, folder: string | null): Set<ExecutionId> {
+    const all = this.#changed.get(projectId) ?? new Set<ExecutionId>();
+    const taken = new Set<ExecutionId>();
+    const rest = new Set<ExecutionId>();
+    for (const id of all) {
+      const directory = this.#deps.projection.execution(id)?.directory ?? null;
+      const here = folder === null || directory === null || foldersOverlap(directory, folder);
+      (here ? taken : rest).add(id);
+    }
+    if (rest.size > 0) this.#changed.set(projectId, rest);
+    else this.#changed.delete(projectId);
+    return taken;
+  }
+
+  /** The folder a check checks: the named task's own copy, else the project's folder. */
+  #checkedFolder(projectId: ProjectId, workstreamId: string | undefined): string | null {
+    const copy =
+      workstreamId === undefined ? undefined : this.#deps.projection.workstream(workstreamId)?.copy;
+    if (copy?.state === 'own') return copy.directory;
+    return this.#deps.projection.project(projectId)?.location?.path ?? null;
   }
 
   close(): void {
@@ -140,9 +165,13 @@ export class AutoFix {
         const accepted = event.event_type === 'command.accepted';
         switch (command.command_type) {
           case 'project.check':
-            // A check the person asked for takes the automatic one's place, as A1 does.
+            // A check the person asked for takes the automatic one's place, as A1 does, for the
+            // folder it checks (ADR 0045).
             if (accepted && !this.#checks.has(command.command_id))
-              this.#changed.delete(command.payload.project_id);
+              this.#take(
+                command.payload.project_id,
+                this.#checkedFolder(command.payload.project_id, command.payload.workstream_id),
+              );
             if (!accepted && this.#checks.has(command.command_id)) {
               // A refused automatic check ends the chains it followed: no check, no next try.
               const executions = this.#checks.get(command.command_id)?.executions ?? new Set();
@@ -303,7 +332,13 @@ export class AutoFix {
     }
     if (this.#deps.registry.get(view.runtime.runtime_id)?.capabilities.instruct_at_rest !== true)
       return 'runtime_cannot';
-    if (this.#deps.projection.projectBusy(view.project_id) !== null) return 'project_busy';
+    // A task in its own copy waits only for work in that folder, as admission does (ADR 0045).
+    const copy = this.#deps.projection.workstream(view.workstream_id)?.copy;
+    const busy =
+      copy?.state === 'own' && view.directory === copy.directory
+        ? folderInUse(this.#deps.projection, copy.directory, view.workstream_id)
+        : this.#deps.projection.projectBusy(view.project_id);
+    if (busy !== null) return 'project_busy';
     if (attempts >= this.#cap) return 'cap_reached';
     return null;
   }
