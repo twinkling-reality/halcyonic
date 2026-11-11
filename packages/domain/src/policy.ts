@@ -36,6 +36,10 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'project.send_to_github': 'review_required',
   'project.publish': 'review_required',
   'project.unpublish': 'review_required',
+  // Gives the project's later tasks a key their agents can use and repeat (ADR 0057): a deliberate
+  // press on this Mac's own page, which holds the value; removing one gives them nothing.
+  'project.secret.set': 'review_required',
+  'project.secret.remove': 'low_consequence',
   // The person's own link between a project and a catalog repository; changes no file.
   'project.link_catalog': 'low_consequence',
   'project.unlink_catalog': 'low_consequence',

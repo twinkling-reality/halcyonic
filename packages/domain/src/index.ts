@@ -7,3 +7,4 @@ export * from './folders.ts';
 export * from './policy.ts';
 export * from './projection.ts';
 export * from './questions.ts';
+export * from './secrets.ts';

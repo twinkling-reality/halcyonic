@@ -20,6 +20,7 @@ export * from './realtime.ts';
 export * from './requests.ts';
 export * from './runtime.ts';
 export * from './schema-document.ts';
+export * from './secrets.ts';
 export * from './starters.ts';
 export * from './tool-results.ts';
 export * from './transcription.ts';

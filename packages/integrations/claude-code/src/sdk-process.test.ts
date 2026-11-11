@@ -162,6 +162,7 @@ function fakeEnvironment(directory: string): Record<string, string> {
 /** Starts an execution and waits until the fake Claude Code has completed its turn. */
 async function runTurn(
   adapter: ClaudeAgentRuntimeAdapter,
+  environment?: Readonly<Record<string, string>>,
 ): Promise<{ nativeId: string | null; observed: RuntimeObservation[] }> {
   const observed: RuntimeObservation[] = [];
   const { native_id } = await adapter.startExecution({
@@ -170,6 +171,7 @@ async function runTurn(
     options: {},
     model_ref: null,
     directory: WORKDIR,
+    ...(environment !== undefined && { environment }),
     emit: (observation) => observed.push(observation),
   });
   await waitFor(
@@ -235,6 +237,19 @@ async function startHost(
 }
 
 describe('the adapter through the real Agent SDK', () => {
+  test("a start's project secrets are in the launched process's environment, its own variables kept (ADR 0057)", async () => {
+    const directory = scratch('secrets');
+    const adapter = adapterFor(directory);
+    try {
+      await runTurn(adapter, { PROJECT_TEST_KEY: 'test-value-not-real-0002', HOME: '/elsewhere' });
+      const recorded = onlyRecord(directory);
+      assert.ok(recorded.env_names.includes('PROJECT_TEST_KEY'), recorded.env_names.join(' '));
+      assert.equal(recorded.home, HOME, "a secret never replaces the adapter's HOME");
+    } finally {
+      await adapter.close();
+    }
+  });
+
   test("the process gets the chosen session id, the built environment and the person's own settings only", async () => {
     const directory = scratch('launch');
     const adapter = adapterFor(directory);

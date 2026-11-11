@@ -98,6 +98,8 @@ export interface TestControlPlaneOptions {
   readonly ownChecks?: ControlPlaneOptions['ownChecks'];
   /** A failed check sent back to its agent on its own (ADR 0044); on wherever checks are. */
   readonly autoFix?: boolean;
+  /** The person's project secrets (ADR 0057), in a scratch folder; off by default. */
+  readonly projectSecrets?: ControlPlaneOptions['projectSecrets'];
 }
 
 /** A control plane on virtual time with the mock runtime, so tests decide when work progresses. */
@@ -125,6 +127,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     ...(options.checkpoints !== undefined && { checkpoints: options.checkpoints }),
     ...(options.starters !== undefined && { starters: options.starters }),
     ...(options.github !== undefined && { github: options.github }),
+    ...(options.projectSecrets !== undefined && { projectSecrets: options.projectSecrets }),
     ...(options.catalogLinks !== undefined && { catalogLinks: options.catalogLinks }),
     ...(options.previews !== undefined && { previews: options.previews }),
     ...(options.ownChecks !== undefined && { ownChecks: options.ownChecks }),

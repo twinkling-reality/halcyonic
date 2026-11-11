@@ -17,6 +17,13 @@ Codex 0.157.0 declares true: an approved escalation runs outside its sandbox, an
 request does not say whether it is one. OpenCode declares false only inside Halcyonic's sandbox.
 Claude Code, the mock and OpenCode without that sandbox leave it absent.
 
+The optional `secret_environment` declaration says whether a start can give the agent's commands the
+project's secrets as variables, and the adapter does [ADR 0057](../decisions/0057-a-projects-secrets-are-kept-on-the-mac-and-given-to-a-tasks-commands-at-its-start.md), [record](../validation/project-secrets.md)).
+Absent means a task on that runtime starts without them, and the setup page says some agents do. Claude
+Code declares it (the session's process environment), OpenCode (the session's own command environment,
+no server restart) and Codex 0.157.0 (`shell_environment_policy.set` in the thread's `config`, at its start
+and every resume). A secret never replaces an adapter's own variable. The mock declares nothing.
+
 The optional `offers_never_ask` declaration says whether a start may choose the approval level
 `never_ask`, under which the agent's actions run without a request to the person inside the same
 bounds as `ask` ([ADR 0043](../decisions/0043-a-person-may-let-a-tasks-agent-work-without-asking-where-its-runtime-keeps-it-in-bounds.md),

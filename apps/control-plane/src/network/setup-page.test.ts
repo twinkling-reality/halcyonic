@@ -22,6 +22,8 @@ import { capturingLogger, createTestControlPlane, startTestServer } from '../tes
 import {
   type CommandRunner,
   mountSetup,
+  type PageSecrets,
+  pageSecrets,
   pageStopShare,
   RESTART_EXIT_CODE,
   runCommand,
@@ -122,6 +124,7 @@ function setup(
     shared?: SharedNow[];
     stopped?: string[];
     refuseStop?: boolean;
+    secrets?: PageSecrets;
   } = {},
 ): Setup {
   const machine = mac(t, options.pins ?? null);
@@ -151,6 +154,7 @@ function setup(
         options.stopped?.push(projectId);
         return 'stopped';
       },
+      ...(options.secrets === undefined ? {} : { secrets: options.secrets }),
     },
     setupDownloads(machine.dataDir, () => null, options.pins ?? null),
   );
@@ -793,6 +797,92 @@ describe('the setup view on the pairing page', () => {
       shown.body.indexOf('id="shared"') < shown.body.indexOf('id="steps"'),
       'a live share stands above the steps',
     );
+  });
+
+  test('a project secret is set and removed from the page only behind its session and origin, and its value is never sent back (ADR 0057)', async (t) => {
+    const dataDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-setup-secrets-')));
+    t.after(() => rmSync(dataDir, { recursive: true, force: true }));
+    const harness = createTestControlPlane({ projectSecrets: { dataDir } });
+    const { controlPlane, commands } = harness;
+    t.after(() => controlPlane.close());
+    const store = controlPlane.projectSecrets;
+    assert.ok(store !== null);
+    const made = controlPlane.commands.submit(commands.createProject('Garden'), 'internal');
+    if (made.command?.result?.kind !== 'project_created') throw new Error('no project');
+    const projectId = made.command.result.project_id;
+    let ids = 0;
+    const secrets = pageSecrets({
+      submit: (command, via, principal) => controlPlane.commands.submit(command, via, principal),
+      store,
+      projects: () =>
+        controlPlane.projection.projects().map((project) => ({
+          project_id: project.project_id,
+          name: project.name,
+          secrets: project.secrets ?? [],
+        })),
+      everyAgent: () => false,
+      nextId: () => {
+        ids += 1;
+        return `01a19000-0000-7000-8000-${String(ids).padStart(12, '0')}`;
+      },
+      now: () => harness.time.now(),
+    });
+    const { view } = setup(t, { secrets });
+    const server = await startTestServer({ page: { ports: PORTS, mount: mountSetup(view) } });
+    t.after(() => server.stop());
+    const page = server.page;
+    assert.ok(page);
+    const port = page.port;
+    const link = new URL(page.link());
+    const opened = await call(port, 'GET', `${link.pathname}${link.search}`);
+    const cookie = String(opened.headers['set-cookie']).split(';')[0] ?? '';
+    const headers = {
+      cookie,
+      origin: `http://127.0.0.1:${port}`,
+      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/json',
+    };
+    // A long test key, as a private key in PEM is, beyond the page's own 1 KiB.
+    const value = `test-value-not-real-${'x'.repeat(3000)}`;
+    const body = JSON.stringify({ project_id: projectId, name: 'PROJECT_TEST_KEY', value });
+    for (const forged of [
+      { ...headers, cookie: 'page=forged' },
+      { ...headers, 'sec-fetch-site': 'cross-site' },
+    ]) {
+      assert.equal((await call(port, 'POST', '/setup/secrets/set', forged, body)).status, 403);
+    }
+    assert.equal(controlPlane.projection.project(projectId)?.secrets, undefined);
+    const done = await call(port, 'POST', '/setup/secrets/set', headers, body);
+    assert.equal(done.status, 200, done.body);
+    assert.equal(done.body.includes('test-value-not-real'), false, 'the value is never sent back');
+    const state = JSON.parse(done.body) as SetupState;
+    assert.deepEqual(state.secrets, {
+      projects: [{ project_id: projectId, name: 'Garden', secrets: ['PROJECT_TEST_KEY'] }],
+      every_agent: false,
+    });
+    const read = await call(port, 'GET', '/setup/state', { cookie });
+    assert.equal(read.body.includes('test-value-not-real'), false);
+    // Too long for the store is refused in words; nothing else is kept.
+    const huge = JSON.stringify({
+      project_id: projectId,
+      name: 'HUGE_KEY',
+      value: 'y'.repeat(9000),
+    });
+    const refused = JSON.parse(
+      (await call(port, 'POST', '/setup/secrets/set', headers, huge)).body,
+    );
+    assert.deepEqual((refused as SetupState).said, ['That secret is too long to keep.']);
+    const removed = await call(
+      port,
+      'POST',
+      '/setup/secrets/remove',
+      headers,
+      JSON.stringify({ project_id: projectId, name: 'PROJECT_TEST_KEY' }),
+    );
+    assert.deepEqual((JSON.parse(removed.body) as SetupState).secrets?.projects[0]?.secrets, []);
+    const shown = await call(port, 'GET', '/setup', { cookie });
+    assert.match(shown.body, /<h2>Project Secrets<\/h2>/);
+    assert.match(shown.body, /An agent given a key can use it, print it, and send it/);
   });
 
   test('a mounted view may add nothing outside /setup', async () => {

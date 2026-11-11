@@ -91,6 +91,12 @@ export const RuntimeDescriptor = Type.Object(
      */
     offers_plan: Type.Optional(Type.Boolean()),
     /**
+     * True when a start can give the agent's commands the project's secrets as variables, and the
+     * adapter does (ADR 0057): declared for a runtime only once a runtime test shows a command reading
+     * one. Absent means a task on it starts without them.
+     */
+    secret_environment: Type.Optional(Type.Boolean()),
+    /**
      * True when the runtime keeps an execution's session after the processes running it end, so
      * that after the control plane restarts the adapter re-attaches it by its native id, with the
      * bounds it started with, and it takes instructions again (ADR 0046). The turn a restart cuts

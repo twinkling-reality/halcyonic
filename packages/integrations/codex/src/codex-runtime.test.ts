@@ -113,13 +113,18 @@ function fake(
           .filter((line) => line !== '')
           .map((line) => JSON.parse(line) as Record<string, unknown>)
       : [];
-  const start = (instruction = 'Do the work.', approvalLevel?: ApprovalLevel) =>
+  const start = (
+    instruction = 'Do the work.',
+    approvalLevel?: ApprovalLevel,
+    environment?: Readonly<Record<string, string>>,
+  ) =>
     runtime.startExecution({
       execution: TEST_EXECUTION,
       instruction,
       options: {},
       model_ref: null,
       ...(approvalLevel !== undefined && { approval_level: approvalLevel }),
+      ...(environment !== undefined && { environment }),
       directory,
       emit: (observation) => observations.push(observation),
     });
@@ -690,6 +695,27 @@ describe('Codex runtime against a stand-in binary', () => {
     assert.deepEqual(observations, []);
     assert.deepEqual(received(), []);
     assert.equal(existsSync(recordFile), false);
+  });
+
+  test("a start's project secrets go in its thread's shell environment alone (ADR 0057)", async (t) => {
+    const { runtime, start, received } = fake(t);
+    assert.equal(runtime.descriptor.secret_environment, true);
+    await start('COMPLETE the work.', undefined, { PROJECT_TEST_KEY: 'test-value-not-real-0004' });
+    const threadStart = received().find((message) => message.method === 'thread/start');
+    const config = (threadStart?.params as { config?: Record<string, unknown> } | undefined)
+      ?.config;
+    assert.equal(
+      config?.['shell_environment_policy.set.PROJECT_TEST_KEY'],
+      'test-value-not-real-0004',
+    );
+    // Never on the server's own launch, which every thread shares.
+    assert.ok(
+      !received().some(
+        (message) =>
+          message.method !== 'thread/start' &&
+          JSON.stringify(message).includes('test-value-not-real-0004'),
+      ),
+    );
   });
 
   test('refuses a server whose user agent reports another version, and stops it', async (t) => {

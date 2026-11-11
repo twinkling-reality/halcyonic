@@ -353,13 +353,18 @@ function setup(options: Partial<ClaudeAgentRuntimeOptions> = {}) {
     ...options,
   });
   const observed: RuntimeObservation[] = [];
-  const start = (startOptions: RuntimeOptions = {}, directory: string | null = WORKDIR) =>
+  const start = (
+    startOptions: RuntimeOptions = {},
+    directory: string | null = WORKDIR,
+    environment?: Readonly<Record<string, string>>,
+  ) =>
     adapter.startExecution({
       execution,
       instruction: 'Fix the flaky checkout test.',
       options: startOptions,
       model_ref: null,
       directory,
+      ...(environment !== undefined && { environment }),
       emit: (observation) => observed.push(observation),
     });
   const run = (): ScriptedRun => {
@@ -489,6 +494,19 @@ describe('starting an execution', () => {
     assert.equal(env.SALIDIUM_INTERNAL, undefined);
     assert.equal(env.UNRELATED_SECRET, undefined);
     assert.ok((env.PATH ?? '').split(delimiter).includes(dirname(process.execPath)));
+  });
+
+  test("a start's project secrets reach the session's process, never over the adapter's own variables (ADR 0057)", async () => {
+    const { adapter, start, run } = setup();
+    assert.equal(adapter.descriptor.secret_environment, true);
+    void start({}, WORKDIR, { PROJECT_TEST_KEY: 'test-value-not-real-0001', HOME: '/elsewhere' });
+    const env = run().options.env ?? {};
+    assert.equal(env.PROJECT_TEST_KEY, 'test-value-not-real-0001');
+    assert.equal(env.HOME, '/home/tester', "a secret never replaces the adapter's own variable");
+    // A start without secrets gets none, and the listing of models never does.
+    const { start: plain, run: plainRun } = setup();
+    void plain();
+    assert.equal(plainRun().options.env?.PROJECT_TEST_KEY, undefined);
   });
 
   test('each start chooses a new session id', async () => {

@@ -264,6 +264,8 @@ namespace Halcyonic.Client
             ProjectSendToGithubCommand _ => CommandType.ProjectSendToGithub,
             ProjectPublishCommand _ => CommandType.ProjectPublish,
             ProjectUnpublishCommand _ => CommandType.ProjectUnpublish,
+            ProjectSecretSetCommand _ => CommandType.ProjectSecretSet,
+            ProjectSecretRemoveCommand _ => CommandType.ProjectSecretRemove,
             ProjectLinkCatalogCommand _ => CommandType.ProjectLinkCatalog,
             ProjectUnlinkCatalogCommand _ => CommandType.ProjectUnlinkCatalog,
             WorkstreamCreateCommand _ => CommandType.WorkstreamCreate,

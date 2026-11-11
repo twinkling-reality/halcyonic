@@ -170,6 +170,11 @@ interface StartOptions {
   readonly cwd: string;
   readonly model: string | undefined;
   readonly permissionMode: PermissionMode | undefined;
+  /**
+   * The project's secrets for this session's process (ADR 0057), under the adapter's own variables,
+   * which a secret never replaces.
+   */
+  readonly secrets?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -231,6 +236,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       // Its own plan mode, which `system/init` reports back; every write still asks, as on every Claude
       // Code start (agent-plan-modes.md, the bundled 2.1.283's run on a fake host).
       offers_plan: true,
+      // Each session's own process takes the project's secrets as variables, which its tool
+      // commands inherit (ADR 0057, project-secrets.md).
+      secret_environment: true,
     };
   }
 
@@ -351,7 +359,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       started = session.start(
         this.#query,
         this.#options(
-          { ...parsed.value, cwd },
+          { ...parsed.value, cwd, secrets: request.environment ?? {} },
           session,
           false,
           scope.folder === null || gate === null ? null : { folder: scope.folder, gate },
@@ -461,7 +469,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     session.prepare(
       this.#query,
       this.#options(
-        { ...parsed.value, cwd },
+        { ...parsed.value, cwd, secrets: request.environment ?? {} },
         session,
         true,
         scope.folder === null || gate === null ? null : { folder: scope.folder, gate },
@@ -593,7 +601,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     const settings = this.#confinement;
     return {
       cwd: start.cwd,
-      env: { ...this.#environment },
+      env: { ...start.secrets, ...this.#environment },
       // A resumed session keeps its id: `resume` and `sessionId` together would fork it.
       ...(resume ? { resume: session.id } : { sessionId: session.id }),
       canUseTool: session.canUseTool,
