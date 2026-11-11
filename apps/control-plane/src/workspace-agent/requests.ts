@@ -32,7 +32,7 @@ import { ToolResults } from '../core/tool-results.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
-import { hostDetails, taskEvidence, turnStatus } from './evidence.ts';
+import { checkOfTask, hostDetails, taskEvidence, turnStatus } from './evidence.ts';
 import {
   TOOL_MODEL_BOUNDS,
   type ToolCall,
@@ -1776,9 +1776,9 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
   ): void {
     // A request that ends with no new reply carries what the computer itself saw, so it never ends with nothing
     // (the lead, 2026-11-11). Never beside a new reply.
+    // Only where the request holds no reply at all, so it never stands beside one, an earlier one included (AUDIT2 2).
     const ending = status === 'interrupted' || status === 'failed' || status === 'stopped';
-    const fresh = reply !== null && reply.text !== request.reply?.text;
-    const observed = ending && !fresh ? this.#observed(request) : undefined;
+    const observed = ending && reply === null ? this.#observed(request) : undefined;
     this.#o.controlPlane.recorder.record(
       controlPlaneDraft(
         'workspace.request.changed',
@@ -1824,7 +1824,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         this.#outside(value, maximum),
       );
       const changes = 'changes' in evidence ? evidence.changes : null;
-      const check = plane.projection.latestCheck(request.project_id);
+      const check = checkOfTask(plane, request.project_id, request.workstream_id);
       return {
         task:
           run === undefined

@@ -830,7 +830,7 @@ export const WorkspaceRequestChanged = requestEvent(
       request_id: WorkspaceRequestId,
       status: WorkspaceRequestStatus,
       reply: Nullable(WorkspaceRequestReply),
-      /** Only on the change that ends a request with no new reply: what the computer saw (`WorkspaceRequestView.observed`). */
+      /** Only on the change that ends a request holding no reply at all: what the computer saw (`WorkspaceRequestView.observed`). */
       observed: Type.Optional(WorkspaceRequestObserved),
     },
     strict,

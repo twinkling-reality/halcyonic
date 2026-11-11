@@ -95,7 +95,7 @@ export function taskEvidence(plane: ControlPlane, executionId: string, outside: 
   const sum = (key: 'created' | 'changed' | 'deleted') =>
     turns.reduce((total, turn) => total + turn[key], 0);
   const latest = turns.at(-1);
-  const check = plane.projection.latestCheck(run.project_id);
+  const check = checkOfTask(plane, run.project_id, run.workstream_id);
   const findings = check?.findings;
   return {
     observed_by: 'the Mac, not the agent',
@@ -166,4 +166,19 @@ export function hostDetails(event: EventEnvelope): string | null {
     default:
       return null;
   }
+}
+
+/**
+ * The project's latest check where it is this task's own folder's (AUDIT2, 2026-11-11): the task's own copy's check for a
+ * task in a copy of its own (ADR 0045), the project folder's for a task working there. Another task's copy's check is
+ * not this task's, and reads as none.
+ */
+export function checkOfTask(plane: ControlPlane, projectId: string, workstreamId: string) {
+  const check = plane.projection.latestCheck(projectId);
+  if (check === undefined) return undefined;
+  const copy = plane.projection.workstream(workstreamId)?.copy;
+  const own = copy?.state === 'own';
+  return (own ? check.workstream_id === workstreamId : check.workstream_id === null)
+    ? check
+    : undefined;
 }

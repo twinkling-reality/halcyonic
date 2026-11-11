@@ -76,11 +76,12 @@ export const WorkspaceRequestTaskCounts = Type.Object(
 export type WorkspaceRequestTaskCounts = Static<typeof WorkspaceRequestTaskCounts>;
 
 /**
- * What the computer itself saw, recorded only when a request ends with no new reply (interrupted, failed or
- * stopped), so the person is never left with nothing (the lead, 2026-11-11). Facts, never sentences: the clients
+ * What the computer itself saw, recorded only when a request ends (interrupted, failed or stopped) holding no reply
+ * at all, never beside one, an earlier one included, so the person is never left with nothing (the lead, 2026-11-11). Facts, never sentences: the clients
  * choose the words, and draw them apart from the assistant's reply, as the computer's own. No model text, no path,
  * no agent words. For a task: its execution's state, its turns, the files the Mac saw its turns change, the
- * project's latest check, and whether the person's words reached the agent (`sent`). For a project: its tasks by
+ * check of this task's own folder (its own copy's, or the project folder's where it works there; null for another
+ * task's), and whether the person's words reached the agent (`sent`). For a project: its tasks by
  * where they stand, and whether its latest check failed. For all work: the projects and the tasks across them.
  */
 export const WorkspaceRequestObserved = Type.Object(
@@ -143,8 +144,8 @@ export const WorkspaceRequestView = Type.Object(
     status: WorkspaceRequestStatus,
     reply: Nullable(WorkspaceRequestReply),
     /**
-     * What the computer saw, where the request ended with no new reply; absent otherwise, and never beside a reply
-     * that came after it. The computer's own facts, never the assistant's.
+     * What the computer saw, where the request ended holding no reply at all; absent otherwise, and never beside a
+     * reply. The computer's own facts, never the assistant's.
      */
     observed: Type.Optional(WorkspaceRequestObserved),
     steps: Type.Array(WorkspaceRequestStep, { maxItems: 64 }),

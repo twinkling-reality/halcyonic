@@ -2086,3 +2086,84 @@ test('a request about all work that ends with no reply carries the projects and 
     await f.close();
   }
 });
+
+test("the computer's facts give a check only where it is this task's own folder's, never another task's copy (AUDIT2 1)", async () => {
+  const text = '<function_calls><invoke name="read_workspace"></invoke></function_calls>';
+  const f = await fixture({
+    turn: async (_messages, tools) =>
+      (tools ?? []).length > 0
+        ? answer([{ name: 'observe_task', arguments: {} }], '')
+        : answer([], text),
+  });
+  const findings = (passed: boolean) => ({
+    tsc: { exit: passed ? 0 : 2, seconds: 1 },
+    build: { exit: 0, seconds: 1 },
+    page: null,
+    unknown: null,
+    passed,
+    reads_confined: true,
+  });
+  const check = (passed: boolean, workstreamId?: string) =>
+    f.controlPlane.recorder.record(
+      controlPlaneDraft(
+        'project.check.recorded',
+        { project_id: f.projectId, workstream_id: null, execution_id: null },
+        {
+          check_id: f.ids.next() as never,
+          findings: findings(passed) as never,
+          ...(workstreamId === undefined ? {} : { workstream_id: workstreamId as never }),
+        },
+        '2026-11-11T10:00:00.000Z' as never,
+        NO_CAUSE,
+      ),
+    );
+  try {
+    // Another task's own copy passed its check: not this task's.
+    check(true, '01a19000-0000-7000-8000-0000000000e1');
+    const first = f.submit();
+    for (let i = 0; i < 30; i++) await settle();
+    assert.equal(f.controlPlane.projection.workspaceRequest(first)?.observed?.task?.check, null);
+    // The project folder's own check, where this task works: this task's.
+    check(false);
+    const second = f.submit();
+    for (let i = 0; i < 30; i++) await settle();
+    assert.deepEqual(f.controlPlane.projection.workspaceRequest(second)?.observed?.task?.check, {
+      passed: false,
+      files: f.controlPlane.projection.latestCheck(f.projectId)?.files,
+    });
+  } finally {
+    await f.close();
+  }
+});
+
+test("the computer's facts never stand beside a reply, an earlier one included (AUDIT2 2)", async () => {
+  let resumed = false;
+  const f = await fixture({
+    turn: async (_messages, tools) => {
+      if (!resumed) return answer([], 'The first answer.');
+      return (tools ?? []).length > 0
+        ? answer([{ name: 'observe_task', arguments: {} }], '')
+        : answer([], '{"name": "read_workspace"}');
+    },
+  });
+  try {
+    const id = f.submit();
+    for (let i = 0; i < 10; i++) await settle();
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
+    resumed = true;
+    f.controlPlane.commands.submit(f.command('resume', id, 'And whether it works?'), 'http', {
+      kind: 'local',
+    });
+    for (let i = 0; i < 30; i++) await settle();
+    const ended = f.controlPlane.projection.workspaceRequest(id);
+    assert.equal(ended?.status, 'interrupted');
+    assert.equal(ended?.reply?.text, 'The first answer.');
+    assert.equal(
+      ended?.observed,
+      undefined,
+      'answered, resumed, then interrupted: no facts beside the reply',
+    );
+  } finally {
+    await f.close();
+  }
+});
