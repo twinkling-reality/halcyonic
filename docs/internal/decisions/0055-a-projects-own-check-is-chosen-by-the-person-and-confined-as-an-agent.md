@@ -145,3 +145,17 @@ Facts, read and probed on 2026-11-11 ([own-checks.md](../validation/own-checks.m
 - **Passed needs nothing left running.** Passed means every chosen script exited 0 and none has `left_running`.
 - **The settle window is 2 s.** A child in a new session that writes later than 2 s after the run is not seen.
 
+## Amendment, 2026-11-11 (later): a Go module
+
+- **What is offered.** A folder with no `package.json` and a regular `go.mod` at its top (read without following a
+  link, at most 256 KiB) offers Halcyonic's own two commands, `test` (`go test ./...`) and `check`
+  (`go vet ./...`). These are fixed and are never the project's words; the person reads and chooses them as any
+  other, hashes included.
+- **The manager** is `go`, the binary on the host's own PATH.
+- **The environment:** its build cache in the run's fresh temporary folder, its module cache in the run's fresh home,
+  `GOPROXY=off`, `GOSUMDB=off`, `GOTOOLCHAIN=local`, `GOENV=off`, `GOTELEMETRY=off`, and no `GOFLAGS`.
+  - So nothing is downloaded, and the person's go env file is not read.
+  - A module whose dependencies are not vendored fails here: the profile refuses the network anyway.
+- **Probed inside the profile** (Go 1.26.5): `go test ./...` passes with exit 0, and a failing test exits 1 with
+  its FAIL line, which the agent is given.
+

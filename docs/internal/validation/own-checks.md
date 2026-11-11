@@ -88,3 +88,15 @@
   and not a pass; and a project's own `node_modules/.bin`, the project's own commands, which run as the script
   names them.
 
+## 2026-11-11 (later): a Go module
+
+- **Setup:** Go 1.26.5 from Homebrew, a scratch module with no dependencies, the same profile with
+  `toolFoldersFor` of Node and of go's real path. The environment held only PATH, HOME, TMPDIR, the caches in the
+  run's own folders, `GOTOOLCHAIN=local`, `GOPROXY=off`, `GOSUMDB=off` and `GOENV=off`.
+- **Results:** `go test ./...` printed "ok", exit 0. With the test changed to fail, it exited 1 with
+  `--- FAIL: TestAdd` and the test's line.
+- **The suite:** own-check.test.ts runs both through the control plane, the failure sent to the agent with its
+  FAIL line.
+- **Limits:** not probed are a module with dependencies (the module cache is the run's own and empty, and there
+  is no network) and a vendored one.
+
