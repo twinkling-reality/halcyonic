@@ -64,7 +64,9 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             foreach (var (glyph, words) in GlyphActions) Require(RoomGlyphs.Named(words) == glyph, "\"" + words + "\" is not named " + glyph);
             Require(RoomGlyphs.Named("Talk Again") == RoomGlyph.Microphone && RoomGlyphs.Named("Next Page") == RoomGlyph.Next && RoomGlyphs.Named("Write Instruction") == RoomGlyph.Bubble
-                && RoomGlyphs.Named("Choose Instruction") == RoomGlyph.Lines && RoomGlyphs.Named("Send Answer") == RoomGlyph.Send && RoomGlyphs.Named("Confirm") == null, "an action's glyph is misnamed");
+                && RoomGlyphs.Named("Choose Instruction") == RoomGlyph.Lines && RoomGlyphs.Named("Send Answer") == RoomGlyph.Send && RoomGlyphs.Named("Confirm") == null
+                && RoomGlyphs.Named("Compact") == RoomGlyph.Next && RoomGlyphs.Named("Open Workspace") == RoomGlyph.Previous && RoomGlyphs.Named("Previous Page") == RoomGlyph.Previous
+                && RoomGlyphs.Named("Projects") == RoomGlyph.Back, "an action's glyph is misnamed");
             // The agent's own glyph goes with the action that names an agent and its level, whatever the agent is called; a level alone is an answer.
             Require(RoomGlyphs.Named("Kite Run · Never Ask") == RoomGlyph.Agent && RoomGlyphs.Named("Ember 7B · Next · Ask First") == RoomGlyph.Agent && RoomGlyphs.Named("Ask First") == null
                 && RoomGlyphs.Named("Never Ask") == null && RoomGlyphs.Named(" · Ask First") == null && RoomGlyphs.Named("Tide 12B · Ask") == null, "the agent's glyph is misnamed");
