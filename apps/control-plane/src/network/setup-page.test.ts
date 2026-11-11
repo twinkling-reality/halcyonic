@@ -197,6 +197,10 @@ describe('the setup view', () => {
       'no press turns on the paid runtime: its words say it is set up by hand only',
     );
     assert.equal(runs.length, 0, 'showing the page runs nothing');
+    assert.ok(
+      state.steps.every((entry) => Array.isArray(entry.next)),
+      'every step carries the commands setup prints under it, none run by the page',
+    );
   });
 
   test('a press acts only on its second press, on what the page said it would do', async (t) => {

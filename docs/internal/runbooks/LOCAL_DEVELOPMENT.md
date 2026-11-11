@@ -545,6 +545,11 @@ export SALIDIUM_EXTRA_OPENCODE_STORES="$HOME/.halcyonic/opencode-sandbox/data/op
 salidium service install
 ```
 
+`pnpm mac-setup` and the setup page show these lines under What changed and why, for the data
+directory in use, once a Salidium credential is saved and the running Salidium's version (read
+without the credential) is after 0.8.3; for an earlier one they say it does not read them. Usage
+left shows Seorak's line once its credential is saved. Neither can see whether you ran the lines.
+
 OpenCode stores are read only while `salidium/opencode` is among Salidium's enabled providers. Until
 then those executions answer `not_found` (`own_sources_not_set_up`). Seorak, from e3aa039e, tails
 Halcyonic's Codex sessions once told (`SEORAK_CODEX_EXTRA_DIRS="$HOME/.halcyonic/codex-home/sessions:$HOME/.halcyonic/codex-confined/*/sessions" seorak setup`);

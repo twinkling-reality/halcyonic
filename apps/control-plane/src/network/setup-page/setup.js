@@ -161,6 +161,13 @@ function draw() {
     lines.className = 'step-lines';
     lines.textContent = step.lines.join(' ');
     item.append(lines);
+    if ((step.next ?? []).length > 0) {
+      // Commands for the person to run in Terminal, as setup prints them: text, never run from here.
+      const commands = document.createElement('pre');
+      commands.className = 'step-next';
+      commands.textContent = step.next.join('\n');
+      item.append(commands);
+    }
     if (step.actions.length > 0) {
       const actions = document.createElement('div');
       actions.className = 'actions';
