@@ -3,12 +3,6 @@ import { chmod, mkdir } from 'node:fs/promises';
 import { homedir, userInfo } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  COMMAND_SCHEMA_VERSION,
-  type CommandId,
-  type ProjectId,
-  type Timestamp,
-} from '@halcyonic/contracts';
 import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
@@ -36,6 +30,7 @@ import { PairingPage, pairingControls } from './network/pairing-page.ts';
 import { confinedPreviewTarget } from './network/preview-relay.ts';
 import {
   mountSetup,
+  pageStopShare,
   RESTART_EXIT_CODE,
   runCommand,
   SetupView,
@@ -437,22 +432,13 @@ async function main(): Promise<void> {
                     ? []
                     : [{ project_id: project.project_id, name: project.name, ...share }];
                 }),
-              stopShare: (projectId) => {
-                if (controlPlane.projection.share(projectId) === undefined) return false;
-                controlPlane.commands.submit(
-                  {
-                    schema_version: COMMAND_SCHEMA_VERSION,
-                    command_id: ids.next() as CommandId,
-                    issued_at: systemClock.now().toISOString() as Timestamp,
-                    client: { name: 'halcyonic-setup-page', version: null, device_label: null },
-                    command_type: 'project.share.stop',
-                    payload: { project_id: projectId as ProjectId },
-                  },
-                  'internal',
-                  null,
-                );
-                return true;
-              },
+              stopShare: pageStopShare({
+                submit: (command, via, principal) =>
+                  controlPlane.commands.submit(command, via, principal),
+                isShared: (projectId) => controlPlane.projection.share(projectId) !== undefined,
+                nextId: () => ids.next(),
+                now: () => systemClock.now(),
+              }),
               tasksThatPause: () =>
                 controlPlane.projection
                   .executions()

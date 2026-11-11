@@ -4,6 +4,15 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  COMMAND_SCHEMA_VERSION,
+  type CommandEnvelope,
+  type CommandId,
+  type Principal,
+  type ProjectId,
+  type ReceivedVia,
+  type Timestamp,
+} from '@halcyonic/contracts';
+import {
   CHECKED_MODELS,
   COMPANION_MODEL,
   type MacSetupIo,
@@ -99,8 +108,43 @@ export interface SetupPageDeps {
   readonly restart: () => void;
   /** Each game shared now, link or Wi-Fi (ADR 0054); none when sharing is off. */
   readonly shared?: () => readonly SharedNow[];
-  /** Stops a project's share by the person's press; false when it is not shared. */
-  readonly stopShare?: (projectId: string) => boolean;
+  /**
+   * Stops a project's share by the person's press: `stopped` once the stop is accepted, `not_shared`
+   * when it is not shared, `refused` when the stop was not accepted (the share ending just then, say).
+   */
+  readonly stopShare?: (projectId: string) => 'stopped' | 'not_shared' | 'refused';
+}
+
+/**
+ * The person's Stop from the page, submitted as what it is: a local press over HTTP on this Mac,
+ * never a host-made stop (AUDIT2 S1). `stopped` once accepted.
+ */
+export function pageStopShare(deps: {
+  readonly submit: (
+    command: CommandEnvelope,
+    via: ReceivedVia,
+    principal: Principal | null,
+  ) => { readonly disposition: string };
+  readonly isShared: (projectId: string) => boolean;
+  readonly nextId: () => string;
+  readonly now: () => Date;
+}): (projectId: string) => 'stopped' | 'not_shared' | 'refused' {
+  return (projectId) => {
+    if (!deps.isShared(projectId)) return 'not_shared';
+    const sent = deps.submit(
+      {
+        schema_version: COMMAND_SCHEMA_VERSION,
+        command_id: deps.nextId() as CommandId,
+        issued_at: deps.now().toISOString() as Timestamp,
+        client: { name: 'halcyonic-setup-page', version: null, device_label: null },
+        command_type: 'project.share.stop',
+        payload: { project_id: projectId as ProjectId },
+      },
+      'http',
+      { kind: 'local' },
+    );
+    return sent.disposition === 'accepted' ? 'stopped' : 'refused';
+  };
 }
 
 /** A game shared now, as the control plane's view has it. */
@@ -300,6 +344,8 @@ export function setupDownloads(
       commands: [
         [
           '/usr/bin/curl',
+          // First, so none of the person's own curl settings (~/.curlrc) apply (AUDIT2 S1).
+          '-q',
           '--fail',
           '--location',
           '--silent',
@@ -309,6 +355,9 @@ export function setupDownloads(
           '--proto-redir',
           '=https',
           '--tlsv1.2',
+          // About one and a half times the archive: a redirect to anything larger stops (AUDIT2 S2).
+          '--max-filesize',
+          '30000000',
           '--output',
           tunnelArchive,
           TUNNEL_ARCHIVE_URL,
@@ -475,8 +524,10 @@ export class SetupView {
   /** Stops a shared game by the person's press: one press, since stopping is undone by sharing again. */
   async stopShare(projectId: unknown, session: string = ONE_SESSION): Promise<SetupState> {
     const here = this.#press(session);
-    if (typeof projectId !== 'string' || this.#deps.stopShare?.(projectId) !== true)
-      return this.#refused(here, session, 'This game is not shared.');
+    const stopped = typeof projectId === 'string' ? this.#deps.stopShare?.(projectId) : undefined;
+    if (stopped === 'refused')
+      return this.#refused(here, session, "This game couldn't be stopped. Try again.");
+    if (stopped !== 'stopped') return this.#refused(here, session, 'This game is not shared.');
     here.confirm = null;
     here.said = [];
     return this.state(session);

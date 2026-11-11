@@ -15,12 +15,14 @@ import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { type MacSetupIo, tunnelProgram } from '../cli/mac-setup.ts';
+import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { APPLE_SILICON_PINS, type Pins } from '../pins.ts';
 import { readHostSettings, rememberNetworkListener, writeHostSettings } from '../settings.ts';
-import { startTestServer } from '../testing/harness.ts';
+import { capturingLogger, createTestControlPlane, startTestServer } from '../testing/harness.ts';
 import {
   type CommandRunner,
   mountSetup,
+  pageStopShare,
   RESTART_EXIT_CODE,
   runCommand,
   type SetupState,
@@ -119,6 +121,7 @@ function setup(
     pins?: Pins;
     shared?: SharedNow[];
     stopped?: string[];
+    refuseStop?: boolean;
   } = {},
 ): Setup {
   const machine = mac(t, options.pins ?? null);
@@ -140,12 +143,13 @@ function setup(
       },
       shared: () => options.shared ?? [],
       stopShare: (projectId) => {
+        if (options.refuseStop === true) return 'refused';
         const shared = options.shared ?? [];
         const at = shared.findIndex((share) => share.project_id === projectId);
-        if (at < 0) return false;
+        if (at < 0) return 'not_shared';
         shared.splice(at, 1);
         options.stopped?.push(projectId);
-        return true;
+        return 'stopped';
       },
     },
     setupDownloads(machine.dataDir, () => null, options.pins ?? null),
@@ -335,6 +339,7 @@ describe('the setup view', () => {
     const archive = join(folder, 'cloudflared-darwin-arm64.tgz');
     assert.deepEqual(runs[0]?.argv, [
       '/usr/bin/curl',
+      '-q',
       '--fail',
       '--location',
       '--silent',
@@ -344,10 +349,13 @@ describe('the setup view', () => {
       '--proto-redir',
       '=https',
       '--tlsv1.2',
+      '--max-filesize',
+      '30000000',
       '--output',
       archive,
       TUNNEL_ARCHIVE_URL,
     ]);
+    assert.equal(runs[0]?.argv[1], '-q', "first, so the person's own curl settings never apply");
     assert.equal(
       readFileSync(`${archive}.sha256`, 'utf8'),
       `${TUNNEL_ARCHIVE_SHA256}  ${archive}\n`,
@@ -540,6 +548,57 @@ describe('the setup view', () => {
     assert.deepEqual(unknown.said, ['This game is not shared.']);
     assert.deepEqual((await view.stopShare(42)).said, ['This game is not shared.']);
     assert.deepEqual(stopped, ['p-wifi']);
+    // A stop the control plane did not accept says so, never that the game is not shared (CORE).
+    const refusing = setup(t, { shared: [...shared], refuseStop: true });
+    assert.deepEqual((await refusing.view.stopShare('p-link')).said, [
+      "This game couldn't be stopped. Try again.",
+    ]);
+  });
+
+  test("the person's Stop is recorded as theirs, a local press over HTTP, never a host-made stop (AUDIT2)", () => {
+    const { controlPlane } = createTestControlPlane({ logger: capturingLogger().logger });
+    const project = '01a19000-0000-7000-8000-00000000aa31';
+    const check = '01a19000-0000-7000-8000-00000000cc31';
+    const scope = { project_id: project, workstream_id: null, execution_id: null };
+    const record = (type: string, payload: unknown) =>
+      controlPlane.recorder.record(
+        controlPlaneDraft(
+          type as never,
+          scope as never,
+          payload as never,
+          '2026-11-11T10:00:00.000Z' as never,
+          NO_CAUSE,
+        ),
+      );
+    record('project.created', { name: 'Tail', location: null });
+    record('project.preview.started', { check_id: check, port: 47931 });
+    record('project.share.started', {
+      check_id: check,
+      url: 'http://192.168.1.20:47970',
+      way: 'wifi',
+    });
+    let n = 0;
+    const stop = pageStopShare({
+      submit: (command, via, principal) => controlPlane.commands.submit(command, via, principal),
+      isShared: (id) => controlPlane.projection.share(id) !== undefined,
+      nextId: () => {
+        n += 1;
+        return `01a19000-0000-7000-8000-${String(n).padStart(12, '0')}`;
+      },
+      now: () => new Date('2026-11-11T10:00:01.000Z'),
+    });
+    assert.equal(stop('01a19000-0000-7000-8000-00000000aa99'), 'not_shared');
+    assert.equal(stop(project), 'stopped');
+    const accepted = [...controlPlane.journal.readAll()]
+      .map((stored) => stored.event)
+      .find(
+        (event) =>
+          event.event_type === 'command.accepted' &&
+          event.payload.command.command_type === 'project.share.stop',
+      );
+    assert.ok(accepted?.event_type === 'command.accepted');
+    assert.equal(accepted.payload.received_via, 'http');
+    assert.deepEqual(accepted.payload.principal, { kind: 'local' });
   });
 
   test('pairing applies live, so turning it on or off asks for no restart', async (t) => {
@@ -726,6 +785,10 @@ describe('the setup view on the pairing page', () => {
     assert.deepEqual(stopped, ['p-wifi']);
     const shown = await call(port, 'GET', '/setup', { cookie });
     assert.match(shown.body, /<h2>Shared Now<\/h2>/);
+    assert.ok(
+      shown.body.indexOf('id="shared"') < shown.body.indexOf('id="steps"'),
+      'a live share stands above the steps',
+    );
   });
 
   test('a mounted view may add nothing outside /setup', async () => {
