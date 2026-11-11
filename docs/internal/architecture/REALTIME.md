@@ -185,11 +185,13 @@ client                                   server
   otherwise as DOMAIN_MODEL.md says. The play stops, and `project.mac_play.stopped` says why, when
   its viewer closes, when no viewer comes within 60 s, with the preview, on a newer check and with
   the host (P-A).
-- **Sharing a link.** `project.share.start` `{project_id}` gives the project's running preview a
-  temporary public `https://` address and completes with `share_started` (`check_id`, `url`) once
-  the address answered; `project.share.stop` ends it. Refused with `capability_unsupported` when no
-  pinned tunnel program is set up, and `invalid_state` otherwise as DOMAIN_MODEL.md says. The share
-  stops with the preview, the program and the host too, and `project.share.stopped` says why.
+- **Sharing a game.** `project.share.start` `{project_id, way}` gives the project's running preview
+  an address: `link`, a temporary public `https://` one; `wifi`, the Mac's own on its local network,
+  over plain `http://`, from which a game cannot enter VR. It completes with `share_started`
+  (`check_id`, `url`, `way`) once the address answered; `project.share.stop` ends it. It fails
+  `unavailable` when no previews or, for a link, no pinned tunnel program is set up, `no_network`
+  off any network, and is refused `invalid_state` otherwise as DOMAIN_MODEL.md says. The share stops
+  with the preview, its tunnel or listener and the host too, and `project.share.stopped` says why.
 - **Choosing a model.** `execution.start` carries `model_ref`: null, or a model's reference exactly
   as `GET /api/runtimes/:runtime_id/models` gave it. A start without one on a runtime whose
   `model_choice` is `listed` is rejected with `model_required`, so a model the person did not

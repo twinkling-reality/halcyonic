@@ -55,7 +55,7 @@ import type { Logger } from '../logger.ts';
 import type { FileObserver } from '../observer/file-observer.ts';
 import type { CheckOutput } from '../preview/check-output.ts';
 import type { HostPreviews } from '../preview/preview.ts';
-import type { ProjectShares } from '../preview/share.ts';
+import { type ProjectShares, ShareRefused } from '../preview/share.ts';
 import { type HostStarters, VR_STARTER, vrVersionInstruction } from '../starters.ts';
 import {
   type Cause,
@@ -961,7 +961,7 @@ export class CommandService {
       }
       case 'project.share.start':
       case 'project.share.stop': {
-        // A public address for the checked build the preview serves (F1), the person's own step.
+        // An address for the checked build the preview serves (F1, ADR 0054), the person's own step.
         const scope = admission.scope;
         const shares = this.#deps.shares;
         const projectId = command.payload.project_id;
@@ -985,19 +985,30 @@ export class CommandService {
           );
           return;
         }
-        void shares.start(projectId, cause).then(
+        const way = command.payload.way;
+        void shares.start(projectId, way, cause).then(
           (shared) =>
             this.#complete(command, scope, {
               kind: 'share_started',
               check_id: shared.check_id,
               url: shared.url,
+              way: shared.way,
             }),
-          () =>
-            this.#fail(command, scope, {
-              code: 'share_failed',
-              message: 'The game could not be shared: no link answered. Try again.',
-              effect: 'none',
-            }),
+          (error: unknown) =>
+            this.#fail(
+              command,
+              scope,
+              error instanceof ShareRefused
+                ? { code: error.code, message: error.message, effect: 'none' }
+                : {
+                    code: 'share_failed',
+                    message:
+                      way === 'link'
+                        ? 'The game could not be shared: no link answered. Try again.'
+                        : 'The game could not be shared on the Wi-Fi: its address did not answer. Try again.',
+                    effect: 'none',
+                  },
+            ),
         );
         return;
       }

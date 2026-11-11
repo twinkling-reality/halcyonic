@@ -1087,7 +1087,11 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
     assert.equal(result('project.share.start'), 'review_required', 'the person reviews a share');
     const url = 'https://bright-quiet-garden.trycloudflare.com';
     projection.apply(
-      b.controlPlane('project.share.started', scope, { check_id: first as never, url }),
+      b.controlPlane('project.share.started', scope, {
+        check_id: first as never,
+        url,
+        way: 'link',
+      }),
     );
     assert.equal(projection.project(scope.project_id)?.share?.url, url);
     assert.equal(result('project.share.start'), 'This game is already shared.');

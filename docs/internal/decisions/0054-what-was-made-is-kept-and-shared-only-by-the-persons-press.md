@@ -1,7 +1,7 @@
 # ADR 0054: What was made is kept and shared only by the person's press
 
-- Status: Accepted; Show in Finder, Save a Copy and Share a Link built and tested off the headset;
-  Share on This Wi-Fi to build; the headset's buttons pending
+- Status: Accepted; Show in Finder, Save a Copy, Share a Link and Share on This Wi-Fi built and
+  tested off the headset; the headset's buttons pending
 - Date: 2026-11-11
 
 ## Context
@@ -36,8 +36,9 @@ The owner approved Share on This Wi-Fi and Share a Link, and the download of the
    whatever the case of its name), or another project's folder inside this one. Refused while a
    task in the project is at work, or a restore of it or an add to it awaits its outcome. The list
    goes by names only: a token kept in a file of another name is in the copy.
-3. **Share a Link** (`project.share.start`, review required; `project.share.stop`, low consequence)
-   gives the project's running preview a temporary public `https://` address:
+3. **Sharing** (`project.share.start` with a `way`, review required; `project.share.stop`, low
+   consequence) gives the project's running preview an address, one share per project at a time.
+   **Share a Link** (`link`) gives it a temporary public `https://` address:
    - Only the latest check, passed, still current, and `reads_confined` (an agent that could read
      outside its folder may have put the person's files in the build), and only when the running
      preview serves that check. Otherwise it is refused in the product's words.
@@ -49,13 +50,21 @@ The owner approved Share on This Wi-Fi and Share a Link, and the download of the
      program.
    - It stops, recorded as `project.share.stopped` with why, on the person's press (`asked`), when
      the preview stops (`preview_stopped`, so a new check ends it), when the program ends
-     (`tunnel_exited`), and when the control plane closes or a restart finds one recorded live
+     (`ended`), and when the control plane closes or a restart finds one recorded live
      (`host_stopped`). No tunnel survives a restart.
    - The program runs only when its bytes match the pin, under a Seatbelt profile that lets it write
      only a home of its own and read nothing of Halcyonic's data folder, with no update of itself. It
      is installed as the runtimes are, by a setup step the person presses, never committed.
-4. **Share on This Wi-Fi** serves the same one built copy to the local network, read only, on the
-   same conditions and by the same press, and says truly that a game opened from it cannot enter VR.
+4. **Share on This Wi-Fi** (`wifi`) gives it the Mac's own address on its local network, on the
+   same conditions, by the same press and stopped the same ways:
+   - A listener on the Mac's private IPv4 address (10/8, 172.16/12, 192.168/16, the Wi-Fi's own
+     first), at a port of 47970 to 47979, never every interface.
+   - It passes only `GET` and `HEAD` to the preview on 127.0.0.1, under the preview's own Host, with
+     no body, no cookie and only the headers a page load reads with; anything else is answered 405.
+     So it reaches the same one built copy, read only, and nothing else of the Mac.
+   - Recorded only once the address answered 200 from the Mac itself.
+   - The headset says truly that a game opened from it plays in the browser but cannot enter VR: a
+     plain `http://` page is not a secure page.
 
 ## Alternatives considered
 

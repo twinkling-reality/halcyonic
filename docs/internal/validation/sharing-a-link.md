@@ -48,6 +48,18 @@ ever behind a tunnel. The owner approved the download and the use in the TASKS s
 - WebXR needs a secure context. A link over `https://` is one, so another headset can enter VR from
   it; a plain `http://` address on the Wi-Fi is not one (Share on This Wi-Fi says so).
 
+## Share on This Wi-Fi (2026-11-11)
+
+Verified in unit tests only, on 127.0.0.1 with a stand-in preview: the listener passes `GET` and
+`HEAD` with the preview's own Host and no cookie, answers `POST` and `PUT` with 405, passes back the
+preview's own headers (its Content Security Policy), is recorded only once its address answered 200,
+and refuses connections once stopped. Off any network it fails `no_network` and records nothing.
+
+Not verified: a real share on the Mac's Wi-Fi address. Whether macOS's application firewall asks
+the person to allow incoming connections the first time, a device on the network reaching it (a
+router that isolates its clients blocks it), and on the headset that a page at a LAN `http://`
+address has no immersive session (asked of FIELD).
+
 ## Not verified
 
 - A real project's preview behind the tunnel on the owner's Mac (by design: never before AUDIT2).

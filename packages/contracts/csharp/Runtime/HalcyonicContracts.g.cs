@@ -805,6 +805,13 @@ namespace Halcyonic.Contracts
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
+    public enum ProjectViewShareWay
+    {
+        [EnumMember(Value = "link")] Link,
+        [EnumMember(Value = "wifi")] Wifi,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
     public enum ProjectViewShareFiles
     {
         [EnumMember(Value = "unknown")] Unknown,
@@ -819,6 +826,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("url", Required = Required.Always)]
         public string Url { get; set; } = default!;
+
+        [JsonProperty("way", Required = Required.Always)]
+        public ProjectViewShareWay Way { get; set; }
 
         [JsonProperty("files", Required = Required.Always)]
         public ProjectViewShareFiles Files { get; set; }
@@ -1715,6 +1725,13 @@ namespace Halcyonic.Contracts
         public FailureEffect Effect { get; set; }
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ShareStartedWay
+    {
+        [EnumMember(Value = "link")] Link,
+        [EnumMember(Value = "wifi")] Wifi,
+    }
+
     [JsonConverter(typeof(CommandResultConverter))]
     public abstract class CommandResult
     {
@@ -1832,6 +1849,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("url", Required = Required.Always)]
         public string Url { get; set; } = default!;
+
+        [JsonProperty("way", Required = Required.Always)]
+        public ShareStartedWay Way { get; set; }
     }
 
     public sealed class WorkstreamAddedResult : CommandResult
@@ -2357,6 +2377,13 @@ namespace Halcyonic.Contracts
         public JToken Reason { get; set; } = default!;
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ProjectShareStartedPayloadWay
+    {
+        [EnumMember(Value = "link")] Link,
+        [EnumMember(Value = "wifi")] Wifi,
+    }
+
     public sealed class ProjectShareStartedPayload
     {
         [JsonProperty("check_id", Required = Required.Always)]
@@ -2364,6 +2391,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("url", Required = Required.Always)]
         public string Url { get; set; } = default!;
+
+        [JsonProperty("way", Required = Required.Always)]
+        public ProjectShareStartedPayloadWay Way { get; set; }
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
@@ -2371,7 +2401,7 @@ namespace Halcyonic.Contracts
     {
         [EnumMember(Value = "asked")] Asked,
         [EnumMember(Value = "preview_stopped")] PreviewStopped,
-        [EnumMember(Value = "tunnel_exited")] TunnelExited,
+        [EnumMember(Value = "ended")] Ended,
         [EnumMember(Value = "host_stopped")] HostStopped,
     }
 
@@ -2823,10 +2853,20 @@ namespace Halcyonic.Contracts
         public string ProjectId { get; set; } = default!;
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ProjectShareStartPayloadWay
+    {
+        [EnumMember(Value = "link")] Link,
+        [EnumMember(Value = "wifi")] Wifi,
+    }
+
     public sealed class ProjectShareStartPayload
     {
         [JsonProperty("project_id", Required = Required.Always)]
         public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("way", Required = Required.Always)]
+        public ProjectShareStartPayloadWay Way { get; set; }
     }
 
     public sealed class ProjectShareStopPayload
