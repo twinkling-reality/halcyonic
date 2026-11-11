@@ -1,8 +1,11 @@
 # ADR 0049: A person's world is a project whose description the Mac reads and the headset draws
 
 - Status: Proposed. Built and tested on this Mac: the description's contract, the Mac's own reading of it after
-  a turn, the event and the project's view that carry it, and the world starter. Not built: the headset's
-  drawing of it. Not run with a model. Not seen on a headset
+  a turn, the event and the project's view that carry it, and the world starter; the headset's own check of a
+  description, its night and its places, and its sound composed in code; the headset's showing of a world rendered
+  offline (decision 8), checked in Editor renders against the picture. Run once with a local model: a spoken
+  change to the night, end to end. No world picture has passed its critique yet, so the build holds none. Not seen
+  on a headset
 - Date: 2026-11-10
 - Builds on [ADR 0037](0037-new-vr-apps-start-from-a-host-vetted-web-starter.md) (starters; agent-written code
   runs only in the headset's browser), [ADR 0038](0038-the-mac-observes-each-turns-file-changes-itself.md) (the
@@ -55,7 +58,17 @@ Read from the code and from current public documentation on 2026-11-10:
    projects get the template's files and no dependency link. Every other starter installs as before.
 7. **A client validates again and draws only with parts of its own.** The generated bindings do not enforce
    ranges or patterns, so a client checks every value before it draws, eases from the old values to the new, and
-   draws nothing the description does not name. This part is not built yet.
+   draws nothing the description does not name. Built in the client core (`WorldOf`, `WorldScore`).
+8. **The world is shown as a picture rendered offline, mixed live** (amended 2026-11-11, from measured evidence:
+   a standalone headset draws about 100,000 Gaussian splats at its frame rate, a generated world holds millions,
+   and browser splat renderers cannot run inside the native app). A film renderer on the Mac (Blender Cycles)
+   renders the person's world from where their eyes are, as a full panorama with its depth, in pictures that the
+   headset mixes live: dusk and night, each with and without the one place lit. The headset shows it on a shell
+   shaped by the depth, centred on the eyes, opening outward as it arrives; the night follows the description as
+   the Mac read it, and the place lights while its project's agent works; nothing from the recorded demonstration
+   moves it. A build without the pictures keeps the stock Virtual Space. Changes that need a new picture (the
+   land, the season, the hour) are a re-render on the Mac, minutes, not seconds; their vocabulary is a later
+   contract change.
 
 ## Alternatives considered
 
