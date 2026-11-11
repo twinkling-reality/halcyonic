@@ -53,6 +53,9 @@ importers:
       '@halcyonic/runtime-core':
         specifier: workspace:*
         version: link:../../packages/runtime-core
+      '@halcyonic/seatbelt':
+        specifier: workspace:*
+        version: link:../../packages/seatbelt
       fastify:
         specifier: ^5.12.5
         version: 5.12.5
@@ -93,6 +96,9 @@ importers:
       '@halcyonic/runtime-core':
         specifier: workspace:*
         version: link:../../runtime-core
+      '@halcyonic/seatbelt':
+        specifier: workspace:*
+        version: link:../../seatbelt
 
   packages/integrations/mock:
     dependencies:
@@ -147,6 +153,12 @@ importers:
       '@halcyonic/contracts':
         specifier: workspace:*
         version: link:../contracts
+
+  packages/seatbelt:
+    dependencies:
+      '@halcyonic/runtime-core':
+        specifier: workspace:*
+        version: link:../runtime-core
 
 packages:
 

@@ -28,6 +28,7 @@ import {
   RuntimeActionError,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
+import { confinementKey, TOOL_PREFIXES, toolFoldersFor } from '@halcyonic/seatbelt';
 import {
   CodexRuntimeAdapter,
   type CodexRuntimeOptions,
@@ -36,7 +37,6 @@ import {
 } from './codex-runtime.ts';
 import { isRecord } from './events.ts';
 import { RpcConnection } from './rpc.ts';
-import { confinementKey, TOOL_PREFIXES, toolFoldersFor } from './sandbox-profile.ts';
 import { APP_SERVER_ARGUMENTS, buildEnvironment, unappliedSettings } from './server.ts';
 import { readProcessIdentity } from './server-record.ts';
 import { allowOnly } from './testing/directory-policy.ts';

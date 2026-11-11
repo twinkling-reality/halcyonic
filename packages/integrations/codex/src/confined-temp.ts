@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
-import { SANDBOX_EXEC } from './sandbox-profile.ts';
+import { SANDBOX_EXEC } from '@halcyonic/seatbelt';
 
 /**
  * A confined server's temporary folder (ADR 0041): `tmp` in its own Codex home, given to the server

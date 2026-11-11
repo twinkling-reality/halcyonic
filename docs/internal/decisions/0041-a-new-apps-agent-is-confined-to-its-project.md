@@ -120,7 +120,7 @@ agent's profile refuses Halcyonic's data folder outright, through an original or
 confinement's own folders in it (its Codex home, the starters) again. A confined agent cannot hard-link a file it may not read into its own folder (tried, refused); but the
 original's own files are readable whatever they hold, including anything an earlier agent of the original, which may
 not have been confined, copied or linked into it. Tested on this Mac with the real profile on marker files
-(`sandbox-profile.test.ts`).
+(`packages/seatbelt/src/profile.test.ts`).
 
 ## Amendment, 2026-10-30: confinement recorded per execution (S2)
 
@@ -208,7 +208,7 @@ which writes the project and also `/tmp`.
 
 ## Amendment, 2026-11-10: a home of its own for commands, and a worktree's git data read only (BOX-1)
 
-The first step of a sandbox of Halcyonic's for every agent (ADR 0048, to be written). Seen on this Mac with the real
+The first step of a sandbox of Halcyonic's for every agent ([ADR 0048](0048-every-agent-runs-inside-one-closed-sandbox-of-halcyonics.md)). Seen on this Mac with the real
 profile and the pinned Codex 0.157.0, no model:
 
 - **git stopped inside the profile.** A confined server's commands inherited the person's own `HOME`, and git stops
@@ -225,8 +225,8 @@ profile and the pinned Codex 0.157.0, no model:
   - a worktree: `<repository>/.git/worktrees/<name>/gitdir` resolves to this folder's `.git`;
   - a submodule: its `config`'s `core.worktree` resolves to this folder.
 
-  That is enough for `git status` and `git log`. A commit, which writes
-  the shared objects and refs, is refused, in git's own words, and changes nothing (`sandbox-profile.test.ts`).
+  That is enough for `git status` and `git log`. A commit, which writes the shared objects and refs, is refused, in
+  git's own words, and changes nothing (`packages/seatbelt/src/profile.test.ts`).
   - The repository's own working files stay unreadable.
   - A `.git` file naming any other shape opens nothing.
   - The repository's `.git/config` becomes readable to the agent, and a remote's address with a token in it would be
@@ -280,3 +280,11 @@ given, not only a project made from a starter (`codexConfinement` in `apps/contr
 A confined folder's profile denies reads, writes and links of every other bound project's folder inside it, after
 every allowance (`Confinement.inner`). See [ADR 0043](0043-a-person-may-let-a-tasks-agent-work-without-asking-where-its-runtime-keeps-it-in-bounds.md),
 note of 2026-11-11.
+
+## Amendment, 2026-11-11: the profile lives in a package of its own (BOX-3b)
+
+The confined profile, its base policy (Codex 0.157.0's own, Apache-2.0, as above), the git data rule and the tool
+folders moved from the Codex adapter to `packages/seatbelt` (`@halcyonic/seatbelt`), the owner's choice of
+2026-11-11, so that OpenCode and Claude Code can be confined by the same profile
+([ADR 0048](0048-every-agent-runs-inside-one-closed-sandbox-of-halcyonics.md)). The scope's `codexHome` is now `home`,
+the server's own home folder. Nothing about what a confined Codex server may reach changed.

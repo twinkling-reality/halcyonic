@@ -2,9 +2,9 @@ import { type ChildProcess, type ExecFileException, execFile, spawn } from 'node
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { RuntimeActionError } from '@halcyonic/runtime-core';
+import { SANDBOX_EXEC } from '@halcyonic/seatbelt';
 import type { ClientInfo, InitializeParams } from './protocol.ts';
 import { RpcConnection, type RpcHandlers } from './rpc.ts';
-import { SANDBOX_EXEC } from './sandbox-profile.ts';
 import {
   killWithDescendants,
   readDescendants,

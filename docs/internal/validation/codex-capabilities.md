@@ -428,7 +428,7 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
 - **Changed:** literal `file-read-metadata` and `file-test-existence` on each folder between a refused folder and an
   own folder in it (ADR 0041, amendment of 2026-10-31). With it the pinned app-server, started from the project with
   its home under `data/codex-confined`, runs and exits 0 when its input closes; without it the same test fails with the
-  canonicalize error (`sandbox-profile.test.ts`, opt-in with `HALCYONIC_TEST_CODEX_BIN`).
+  canonicalize error (`packages/seatbelt/src/profile.test.ts`, opt-in with `HALCYONIC_TEST_CODEX_BIN`).
 - **Still refused, tried with the denial in place on markers of our own and confirmed in the kernel's log:** a listing
   of the data folder and of `codex-confined` (`file-read-data`), a read, `stat` or existence test of a file in the data
   folder, the open server's home and its settings, and a listing of the person's home folder and of `~/.codex`.

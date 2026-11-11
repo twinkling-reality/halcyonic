@@ -17,8 +17,8 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
+import { SANDBOX_EXEC } from '@halcyonic/seatbelt';
 import { makeTemp, removeTemp, tempFolder, tempProfile } from './confined-temp.ts';
-import { SANDBOX_EXEC } from './sandbox-profile.ts';
 
 const MAC = { skip: process.platform !== 'darwin' && 'Seatbelt is macOS only' };
 

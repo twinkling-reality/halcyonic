@@ -41,8 +41,11 @@ export interface Confinement {
 
 /** Everything one confined server may touch; nothing else is readable, writable or reachable. */
 export interface ConfinedScope extends Confinement {
-  /** The server's own Codex home (`CODEX_HOME`), read and written; never the open server's. */
-  readonly codexHome: string;
+  /**
+   * The server's own home, read and written: Codex's `CODEX_HOME` beside the open server's, never
+   * inside it, or OpenCode's own data, state, cache and temporary folders.
+   */
+  readonly home: string;
   /** The server's temporary folder, read and written. */
   readonly temp: string;
   /** The folder holding the pinned binary and the tools Codex runs from beside it, read only. */
@@ -502,7 +505,7 @@ export function confinementKey(project: string): string {
  */
 export function confinedProfile(scope: ConfinedScope): string {
   const quote = (path: string) => JSON.stringify(resolved(path));
-  const writable = [scope.project, scope.codexHome, scope.temp];
+  const writable = [scope.project, scope.home, scope.temp];
   const own = [
     ...writable,
     scope.runtimeFolder,

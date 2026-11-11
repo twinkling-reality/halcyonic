@@ -1,4 +1,4 @@
-import { toolFoldersFor } from '@halcyonic/integration-codex';
+import { toolFoldersFor } from '@halcyonic/seatbelt';
 import { ancestors, SYSTEM_READS, subpaths } from '../seatbelt.ts';
 
 export { SANDBOX_EXEC } from '../seatbelt.ts';

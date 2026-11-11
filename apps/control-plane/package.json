@@ -15,11 +15,12 @@
     "@halcyonic/integration-claude-code": "workspace:*",
     "@halcyonic/integration-codex": "workspace:*",
     "@halcyonic/integration-mock": "workspace:*",
-    "@halcyonic/integration-opencode": "workspace:*",
     "@halcyonic/integration-omnorium": "workspace:*",
+    "@halcyonic/integration-opencode": "workspace:*",
     "@halcyonic/integration-salidium": "workspace:*",
     "@halcyonic/integration-seorak": "workspace:*",
     "@halcyonic/runtime-core": "workspace:*",
+    "@halcyonic/seatbelt": "workspace:*",
     "fastify": "^5.12.5"
   },
   "devDependencies": {
