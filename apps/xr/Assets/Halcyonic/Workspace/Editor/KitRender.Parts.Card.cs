@@ -159,6 +159,17 @@ namespace Halcyonic.XR.Workspace.Editor
             // The measures. Every label whole, inside the card's column; every tile and mark inside it; a block that spans
             // the card meets both its edges.
             var slack = unit * 0.05f;
+            Require(view.LaidWhole, "the card does not say it stands whole, though it is shown");
+            if (state == "47-card-recap")
+            {
+                // A card that cannot stand whole says so: a description far past its four lines is cut, and LaidWhole is false.
+                var probe = RoomCardView.Create(panel.transform);
+                probe.Show(new RoomCard(LineWords.TheirName("Kite Run"), LineWords.TheirName(string.Join(" ", Enumerable.Repeat("a kite that climbs when I raise my hand", 30)))), inner);
+                Require(!probe.LaidWhole, "a card cut short still says it stands whole");
+                probe.Hide();
+                Require(!probe.LaidWhole, "a hidden card says it stands whole");
+                UnityEngine.Object.DestroyImmediate(probe.gameObject);
+            }
             foreach (var label in view.Shown)
             {
                 label.ForceMeshUpdate(true);

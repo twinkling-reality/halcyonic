@@ -179,6 +179,26 @@ namespace Halcyonic.XR.UI
         /// <summary>Every tile, mark and plate the card shows now, with what it is: for checks.</summary>
         public List<(RoomShape Plate, string What)> Plates { get; } = new List<(RoomShape, string)>();
 
+        /// <summary>
+        /// Whether the card as last shown stands whole: every label it laid (the title, the line, each slot's value, each
+        /// row, each line of reading, the foot line) shows all its words, none cut or ellipsed. XR's host reports a frame
+        /// drawn only while this holds, so nothing counts as read that was cut (XR, 0750Z; the review before Start).
+        /// </summary>
+        public bool LaidWhole
+        {
+            get
+            {
+                if (!gameObject.activeInHierarchy) return false;
+                foreach (var label in Shown)
+                {
+                    label.ForceMeshUpdate(true);
+                    if (label.isTextOverflowing) return false;
+                    if (!string.IsNullOrEmpty(label.text) && label.textInfo.characterCount == 0) return false;
+                }
+                return true;
+            }
+        }
+
         /// <summary>The labels of the card's page of reading now, a file's own lines: for checks, which read no separator in them.</summary>
         public List<TextMeshPro> ReadingShown { get; } = new List<TextMeshPro>();
 
