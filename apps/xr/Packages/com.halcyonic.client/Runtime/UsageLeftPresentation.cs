@@ -16,8 +16,11 @@ namespace Halcyonic.Client
 
         /// <param name="title">The provider's label for the limit, leaning, then Halcyonic's word for its window.</param>
         /// <param name="agent">The agent the reading belongs to, as Seorak names it; null where not known.</param>
-        public UsageLeftRow(LineWords title, string text, int left, string seen = "", string resets = "", string? agent = null)
+        public UsageLeftRow(LineWords title, string text, int left, string seen = "", string resets = "", string? agent = null,
+            LineWords? label = null, string? window = null)
         {
+            Label = label ?? title;
+            Window = window;
             TitleRuns = title;
             Title = title.Text;
             Agent = agent;
@@ -26,6 +29,12 @@ namespace Halcyonic.Client
             Seen = seen;
             Resets = resets;
         }
+
+        /// <summary>The provider's label for the limit alone, leaning, apart from the window (a gauge's label, A17).</summary>
+        public LineWords Label { get; }
+
+        /// <summary>Halcyonic's word for the window alone: "5-Hour Window" or "Weekly"; null where not given.</summary>
+        public string? Window { get; }
 
         /// <summary>The agent's name as the control plane gives it, plain text, and the window.</summary>
         public string Title { get; }
@@ -131,6 +140,10 @@ namespace Halcyonic.Client
             }
         }
 
+        /// <summary>Halcyonic's words for a limit's window (a gauge's label, A17).</summary>
+        public const string FiveHourWindow = "5-Hour Window";
+        public const string Weekly = "Weekly";
+
         /// <summary>The glance when this device could not reach the control plane at all.</summary>
         public static UsageLeftPresentation Unreachable() => Failure("Computer Unreachable · Refresh");
 
@@ -148,12 +161,14 @@ namespace Halcyonic.Client
                     continue;
                 // Rounded up, so that "at most" stays true.
                 var left = (int)Math.Ceiling(100 - reading.UsedPercent);
+                var label = LineWords.TheirName(IntelligenceText.Truncate(IntelligenceText.Plain(CaptureNames.AgentName(reading.Label)), LabelLimit));
+                var window = reading.Window == UsageLimitWindow.Rolling5h ? FiveHourWindow : Weekly;
                 rows.Add(new UsageLeftRow(
-                    LineWords.TheirName(IntelligenceText.Truncate(IntelligenceText.Plain(CaptureNames.AgentName(reading.Label)), LabelLimit))
-                        + LineWords.Ours(" · " + (reading.Window == UsageLimitWindow.Rolling5h ? "5-Hour Window" : "Weekly")),
+                    label + LineWords.Ours(" · " + window),
                     "Up to " + left.ToString(CultureInfo.InvariantCulture) + "% Left · Seen " + When(observed, now, zone)
                         + " · Resets " + When(resets, now, zone),
-                    left, When(observed, now, zone), When(resets, now, zone), CaptureNames.Generic && reading.Agent != null ? CaptureNames.Agent : reading.Agent));
+                    left, When(observed, now, zone), When(resets, now, zone), CaptureNames.Generic && reading.Agent != null ? CaptureNames.Agent : reading.Agent,
+                    label, window));
             }
             return rows.Count == 0
                 ? Quiet(NoReadingSinceReset)

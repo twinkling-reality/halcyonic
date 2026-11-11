@@ -277,4 +277,35 @@ public class RoomResultTests
         }
         finally { RoomDesign.Enabled = was; }
     }
+
+    [Test]
+    public void TheResultGivesItsFactsApartForACard()
+    {
+        // A17: the count, the check, each change and each step apart, never joined on a separator.
+        var result = new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: false, Turn(Observed), Steps(buildFails: true), RoomResultPage.Changes);
+        Assert.That(result.Changes.Select(change => (change.Kind, change.KindWords, change.Path, change.Note)), Is.EqualTo(new[]
+        {
+            (RoomChangeKind.Made, RoomResult.Made, "src/stars.ts", (string?)null),
+            (RoomChangeKind.Changed, RoomResult.Changed, "src/game.ts", (string?)"120 to 131 Lines"),
+            (RoomChangeKind.Removed, RoomResult.Removed, "assets/old.png", (string?)null),
+        }));
+        Assert.That(result.NotObserved, Is.False);
+        Assert.That(result.StepFacts.Select(step => step.Tone), Does.Contain(RoomStepTone.Failed));
+        Assert.That(result.StepFacts.Single(step => step.Tone == RoomStepTone.Failed).Name, Is.EqualTo(RoomResult.StepWords(result.StepFacts.Single(step => step.Tone == RoomStepTone.Failed).Step)));
+        Assert.That(result.StepFacts.Count, Is.EqualTo(result.Steps.Count), "steps never reached are named too, so marks hang on the one that failed");
+        var skipped = new RoomResult(false, false, false, null, Turn(Skipped), null);
+        Assert.That((skipped.Changes.Count, skipped.NotObserved), Is.EqualTo((0, true)));
+
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var bar = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()));
+            Assert.That((bar.Known?.FilesChanged, bar.Known?.Passed, bar.Ended), Is.EqualTo(((long?)5, (bool?)true, (string?)null)), "the bar hands the card its result");
+            var ended = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()),
+                fix: new AutoFixView { State = AutoFixViewState.Ended, CheckId = "0193b3a0-0000-7000-8000-000000000001", Attempt = 2, Cap = 2, Reason = AutoFixEndReason.Passed });
+            Assert.That(ended.Ended, Is.EqualTo("Fixed · Try 2 of 2"), "the tries' line apart from the result's own");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
 }

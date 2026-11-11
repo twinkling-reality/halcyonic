@@ -387,6 +387,15 @@ namespace Halcyonic.Client
             return tasks;
         }
 
+        /// <summary>
+        /// The result at rest this bar shows, its facts apart for FIELD's cards (A17): the count, the check, each change and
+        /// each step (<see cref="RoomResult"/>); null where the bar is no result.
+        /// </summary>
+        public RoomResult? Known { get; private set; }
+
+        /// <summary>Where a chain of tries at a failed check ended, its line (<see cref="FixedWords"/>), apart from the result's own; null otherwise.</summary>
+        public string? Ended { get; private set; }
+
         /// <summary>Whether a moment outside the task's own loop made this (<see cref="Moments"/>).</summary>
         public bool FromMoment { get; private set; }
 

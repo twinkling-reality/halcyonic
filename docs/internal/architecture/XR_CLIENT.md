@@ -2761,6 +2761,14 @@ bands are the bar's one band.
   hairline, a step's with its check or cross. With nothing known of the task, the row stands alone as before. Not
   drawn yet: the check or cross beside Build Passed or Build Failed in the sentence bar. Checks: `38-result`, `38-result-long`, `38-changes`, `38-changes-long`, `38-checks`,
   `38-checks-failed`, `38-project`; `RoomResultTests`.
+- **Facts apart for FIELD's cards** (A17, 2026-11-11: no information strung on separators): the result gives its facts
+  apart (`RoomBar.Known`, the `RoomResult`: `FilesChanged`, `Passed`, `Changes` as `RoomChange` with kind, path and
+  lines before and after, `NotObserved`, `StepFacts` as `RoomStep` with the step, its name and its tone, those never
+  reached included), and the tries' line apart (`RoomBar.Ended`). A review item carries its kind and its value apart
+  (`ReviewItem.Kind`, `ValueRuns`); the folder fact gives its kind, name, place and the folder it moves from apart
+  (`EntryText.FolderFactPartsOf`); a usage window gives its gauge apart (`UsageLeftRow.Label`, `Window`, `Left`,
+  `Resets`). The agent and the level were already apart (`KitSelectors`, `AgentColumn.LevelWords`). The joined forms
+  stay until FIELD's cards replace them.
 - **Play in Headset in the result** (DEVICE's `HeadsetPlay`, gap 1): beside Try Build, where `HeadsetPlay.Stands` for
   the project and the way this headset reaches the computer (`RoomResult.Play`, from `RoomResult.Of` given
   `ControlPlaneSettings.Target()`); where it cannot act it is not drawn, as an action has no disabled look

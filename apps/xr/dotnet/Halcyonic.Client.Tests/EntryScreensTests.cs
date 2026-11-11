@@ -101,4 +101,37 @@ public class EntryScreensTests
             "First Task · Add a search page.",
         }), "every name spelled once, by the review");
     }
+
+    [Test]
+    public void ReviewItemsCarryTheirKindAndValueApart()
+    {
+        // A17: a card lays the project as its title, the task as its line, the rest as slots, from each item's kind.
+        var review = new NewWorkReview("Recipes", "Recipes", "Codex", "a model", "on your computer", "ollama/m", "Make a page of recipes.");
+        Assert.That(review.Items.Take(7).Select(item => item.Kind), Is.EqualTo(new[]
+        {
+            ReviewItemKind.Project, ReviewItemKind.TaskName, ReviewItemKind.AgentApp, ReviewItemKind.Model,
+            ReviewItemKind.ModelLocation, ReviewItemKind.ModelId, ReviewItemKind.FirstTask,
+        }));
+        var project = review.Items.First();
+        Assert.That((project.ValueRuns.Text, project.ValueRuns.AnyTheirs), Is.EqualTo(("Recipes", true)), "the value alone, leaning, no label");
+        var moved = new NewWorkReview("Recipes", "Recipes", "Codex", "a model", "on your computer", "ollama/m", "Make a page.", folder: "next", folderBefore: "before");
+        Assert.That(moved.Items.Where(item => item.Kind is ReviewItemKind.FolderNow or ReviewItemKind.Folder).Select(item => (item.Kind, item.ValueRuns.Text)),
+            Is.EqualTo(new[] { (ReviewItemKind.FolderNow, "before"), (ReviewItemKind.Folder, "next") }));
+    }
+
+    [Test]
+    public void TheFolderFactGivesItsNameAndWhetherItIsNewApart()
+    {
+        var made = ProjectFolder.Restore("/Users/someone/Projects", "Projects", "kite-run", isNew: true);
+        var parts = EntryText.FolderFactPartsOf(null, made, needed: true);
+        Assert.That((parts.Kind, parts.IsNew, parts.Name?.Text, parts.Place?.Text, parts.Now), Is.EqualTo((FolderFactKind.NewFolder, true, "kite-run", "Projects", (LineWords?)null)));
+        var starter = EntryText.FolderFactPartsOf(null, ProjectFolder.Restore("/p", "Projects", "vr-run", isNew: true, starterId: "starter"), needed: true);
+        Assert.That((starter.Kind, starter.IsNew), Is.EqualTo((FolderFactKind.NewStarter, true)));
+        var existing = EntryText.FolderFactPartsOf(new ProjectLocation { Path = "/p/old", Name = "old", Created = false },
+            ProjectFolder.Restore("/p", "Projects", "shop", isNew: false), needed: true);
+        Assert.That((existing.Kind, existing.IsNew, existing.Name?.Text, existing.Now?.Text), Is.EqualTo((FolderFactKind.Existing, false, "shop", "old")));
+        Assert.That(EntryText.FolderFactPartsOf(new ProjectLocation { Path = "/p/old", Name = "old", Created = false }, null, needed: true).Kind, Is.EqualTo(FolderFactKind.ProjectFolder));
+        Assert.That(EntryText.FolderFactPartsOf(null, null, needed: true).Kind, Is.EqualTo(FolderFactKind.NotChosen));
+        Assert.That(EntryText.FolderFactPartsOf(null, null, needed: false).Kind, Is.EqualTo(FolderFactKind.NotNeeded));
+    }
 }

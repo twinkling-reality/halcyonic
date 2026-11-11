@@ -88,6 +88,8 @@ namespace Halcyonic.Client
             {
                 Result = true,
                 Facts = facts,
+                Known = result,
+                Ended = fixedLine,
             };
         }
     }

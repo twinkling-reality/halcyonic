@@ -147,6 +147,24 @@ namespace Halcyonic.Client
         /// project's own, or what is still to choose. <paramref name="current"/> is an existing
         /// project's folder; <paramref name="needed"/> says whether what runs it works in a project folder.
         /// </summary>
+        /// <summary>
+        /// The folder fact apart, for a card's slots (FIELD's A17): what kind of choice it is, the folder's name, the place it
+        /// is in and, where the request moves the project, the folder it is in now. Names lean; nothing is joined.
+        /// </summary>
+        public static FolderFactParts FolderFactPartsOf(ProjectLocation? current, ProjectFolder? chosen, bool needed)
+        {
+            var now = current != null && chosen != null ? LineWords.TheirName(current.Name) : (LineWords?)null;
+            if (chosen != null)
+            {
+                var kind = chosen.IsNew ? (string.IsNullOrEmpty(chosen.StarterId) ? FolderFactKind.NewFolder : FolderFactKind.NewStarter)
+                    : chosen.FolderName == null ? FolderFactKind.Directly : FolderFactKind.Existing;
+                var place = chosen.PlaceGone ? LineWords.Ours(ProjectFolder.PlaceUnlisted) : LineWords.TheirName(chosen.RootName);
+                return new FolderFactParts(kind, chosen.FolderName == null ? null : LineWords.TheirName(chosen.FolderName), place, now);
+            }
+            if (current != null) return new FolderFactParts(FolderFactKind.ProjectFolder, LineWords.TheirName(current.Name), null, null);
+            return new FolderFactParts(needed ? FolderFactKind.NotChosen : FolderFactKind.NotNeeded, null, null, null);
+        }
+
         /// <summary>The folder fact as runs (<see cref="FolderFact"/>): Halcyonic's words upright and first, names leaning.</summary>
         public static LineWords FolderFactRuns(ProjectLocation? current, ProjectFolder? chosen, bool needed)
         {
@@ -479,5 +497,48 @@ namespace Halcyonic.Client
         }
 
         private static string Count(int value) => value.ToString(CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>What a folder fact says the project's folder is (<see cref="EntryText.FolderFactPartsOf"/>).</summary>
+    public enum FolderFactKind
+    {
+        /// <summary>A folder the host makes when the project is created.</summary>
+        NewFolder,
+        /// <summary>A new folder made from the VR starter.</summary>
+        NewStarter,
+        /// <summary>A folder the host listed.</summary>
+        Existing,
+        /// <summary>Directly in a place, no folder inside it.</summary>
+        Directly,
+        /// <summary>The project's own folder, unchanged.</summary>
+        ProjectFolder,
+        NotChosen,
+        NotNeeded,
+    }
+
+    /// <summary>A folder fact apart: its kind, the folder's name, its place and the folder now where it moves (A17).</summary>
+    public sealed class FolderFactParts
+    {
+        public FolderFactParts(FolderFactKind kind, LineWords? name, LineWords? place, LineWords? now)
+        {
+            Kind = kind;
+            Name = name;
+            Place = place;
+            Now = now;
+        }
+
+        public FolderFactKind Kind { get; }
+
+        /// <summary>Whether the host makes the folder.</summary>
+        public bool IsNew => Kind is FolderFactKind.NewFolder or FolderFactKind.NewStarter;
+
+        /// <summary>The folder's name, leaning; null directly in a place or where none is chosen.</summary>
+        public LineWords? Name { get; }
+
+        /// <summary>The place it is in, leaning (or Place Unlisted, ours); null where there is no choice.</summary>
+        public LineWords? Place { get; }
+
+        /// <summary>Where the request moves the project: the folder it is in now, leaning; null otherwise.</summary>
+        public LineWords? Now { get; }
     }
 }

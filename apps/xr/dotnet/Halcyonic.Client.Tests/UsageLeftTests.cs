@@ -189,6 +189,19 @@ public class UsageLeftTests
         Assert.That(readings[0].Freshness, Is.EqualTo(UsageLimitFreshness.Stale));
         Assert.That(readings[0].Account.State, Is.EqualTo("unidentified"));
     }
+
+    [Test]
+    public void EachWindowGivesItsGaugeApart()
+    {
+        // A17: a gauge's percent, label and note apart, never joined on a separator.
+        var glance = Present(Available);
+        Assert.That(glance.Rows.Select(row => (row.Label.Text, row.Window, row.Left, row.Resets)), Is.EqualTo(new[]
+        {
+            ("Codex", (string?)UsageLeftPresenter.FiveHourWindow, 60, "Today 21:05"),
+            ("Codex", (string?)UsageLeftPresenter.Weekly, 39, "6 Oct 09:00"),
+        }));
+        Assert.That(glance.Rows[0].Label.AnyTheirs, Is.True, "the provider's label leans");
+    }
 }
 
 public class UsageLeftScreensTests
@@ -292,4 +305,5 @@ public class UsageLeftScreensTests
         var model = UsageLeftScreens.Screen(shown, reading: false, canRead: true);
         Assert.That(model.Actions.All.Single().Id, Is.EqualTo(UsageLeftScreens.Refresh), "Refresh plays the recording's limits again");
     }
+
 }
