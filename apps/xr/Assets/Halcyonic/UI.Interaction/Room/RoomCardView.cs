@@ -349,8 +349,9 @@ namespace Halcyonic.XR.UI
             TextMeshPro? lineLabel = null;
             if (status.Line != null)
             {
-                (lineLabel, var lineTall) = Text(KitRole.Body, LineTypeDp, LineLineDp, White(0.66f), LineWords.Ours(status.Line), left, -(down + tall + S(2f)), column, 3);
-                tall += S(2f) + lineTall;
+                var laidLine = Text(KitRole.Body, LineTypeDp, LineLineDp, White(0.66f), LineWords.Ours(status.Line), left, -(down + tall + S(2f)), column, 3);
+                lineLabel = laidLine.Label;
+                tall += S(2f) + laidLine.Tall;
             }
             var block = Mathf.Max(S(StatusMarkDp), tall);
             // Words shorter than the mark stand centred on it, a title alone too (SCREENS's critic, 2026-11-11).
