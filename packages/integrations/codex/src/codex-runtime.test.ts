@@ -349,6 +349,22 @@ describe('Codex never asking (ADR 0043)', () => {
     assert.ok(!received().some((message) => message.method === 'thread/resume'), 'resumed');
   });
 
+  test('on the open server, a start that never asks in a folder holding another project is refused (AUDIT BOX-3 F1)', async (t) => {
+    const holding = fake(t, [], { foldersInside: (folder) => [join(folder, 'inner')] });
+    await assert.rejects(holding.start('COMPLETE the work.', 'never_ask'), (error: unknown) => {
+      assert.ok(actionError('invalid_runtime_options')(error));
+      assert.match(
+        (error as Error).message,
+        /keeps it out of the other projects inside this folder/,
+      );
+      return true;
+    });
+    // Asking is still started there: the person answers for what reaches the other project.
+    await holding.start('COMPLETE the work.');
+    const none = fake(t, [], { foldersInside: () => [] });
+    await none.start('COMPLETE the work.', 'never_ask');
+  });
+
   test('a thread for which Codex reports never while asking was asked for is refused', async (t) => {
     const { start, observations } = fake(t, ['never']);
     await assert.rejects(start(), actionError('runtime_refused'));

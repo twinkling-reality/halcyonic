@@ -327,6 +327,11 @@ export interface OpenCodeRuntimeOptions {
    * right after it starts. By default 10 s.
    */
   readonly modelWaitMs?: number;
+  /**
+   * The bound project folders inside a folder (AUDIT BOX-3 F1): its server's profile denies them to
+   * reads and writes, so a task there never reaches another project.
+   */
+  readonly foldersInside?: (folder: string) => readonly string[];
   readonly clock?: Clock;
   /**
    * Runs the server, and everything it starts, in a Seatbelt sandbox of Halcyonic's own (ADR
@@ -370,6 +375,8 @@ interface Slot {
   /** The one project folder the server may write; null for the listing server. */
   readonly folder: string | null;
   readonly recordFile: string;
+  /** The other projects inside the folder that its running server's profile denies (BOX-3 F1). */
+  inner: readonly string[];
   current: Connection | null;
   launching: Promise<Connection> | null;
 }
@@ -463,6 +470,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   readonly #snapshotRetryDelaysMs: readonly number[];
   readonly #recoveryDelaysMs: readonly number[];
   readonly #modelWaitMs: number;
+  readonly #foldersInside: (folder: string) => readonly string[];
   readonly #clock: Clock;
   readonly #sessions = new Map<string, HostedSession>();
   readonly #bySessionId = new Map<string, HostedSession>();
@@ -490,6 +498,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     this.#snapshotRetryDelaysMs = options.snapshotRetryDelaysMs ?? [1000, 3000];
     this.#recoveryDelaysMs = options.recoveryDelaysMs ?? [5000, 15_000, 30_000, 60_000, 300_000];
     this.#modelWaitMs = options.modelWaitMs ?? 10_000;
+    this.#foldersInside = options.foldersInside ?? (() => []);
     this.#clock = options.clock ?? systemClock;
     this.descriptor = {
       runtime_id: options.runtimeId ?? ('opencode' as RuntimeId),
@@ -625,7 +634,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     if (this.#sessions.has(request.execution.execution_id)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
-    const connection = await this.#connection(this.#slot(directory));
+    const connection = await this.#connection(await this.#bounded(this.#slot(directory)));
     // Asked again before each model read that carries the folder (in #awaitModel), and right
     // before the session is made there: launching and waiting take seconds.
     await this.#awaitModel(connection, directory, parsed.value.model);
@@ -844,10 +853,45 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       key,
       folder: sandboxed ? directory : null,
       recordFile: key === MODELS_SLOT ? this.#recordFile : `${this.#recordFile}-${key}`,
+      inner: [],
       current: null,
       launching: null,
     };
     this.#slots.set(key, slot);
+    return slot;
+  }
+
+  /**
+   * The slot, its profile bounded by the other projects now inside its folder (AUDIT BOX-3 F1). A
+   * project bound inside the folder after its server started is not in that server's profile, so the
+   * server is replaced when none of its tasks still runs there, and the start is refused otherwise.
+   */
+  async #bounded(slot: Slot): Promise<Slot> {
+    if (slot.folder === null) return slot;
+    const inner = [...this.#foldersInside(slot.folder)].sort();
+    if (isDeepStrictEqual(inner, slot.inner)) return slot;
+    const current = slot.current ?? (await slot.launching?.catch(() => null)) ?? null;
+    if (current !== null) {
+      const running = [...this.#sessions.values()].some(
+        (session) =>
+          session.connection === current &&
+          !session.lost &&
+          (session.state.turn !== null || session.state.awaitingStart),
+      );
+      if (running) {
+        throw new RuntimeActionError(
+          'runtime_refused',
+          "Another project's folder was added inside this one while a task runs here. Once it stops, start again, so OpenCode keeps out of that project.",
+        );
+      }
+      // Its tasks at rest go with it: OpenCode 2.0.18 resumes no session on another server.
+      await this.#giveUp(
+        current,
+        "Another project's folder was added inside this one, so OpenCode's server here was replaced to keep out of it. This task's session cannot continue.",
+      );
+      await current.gone;
+    }
+    slot.inner = inner;
     return slot;
   }
 
@@ -912,6 +956,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       writable: [...(slot.folder === null ? [] : [slot.folder]), ...openCodeFolders(environment)],
       unreadable: this.#sandbox.unreadable,
       readable: [...(this.#sandbox.readable ?? []), folder],
+      inner: slot.inner,
     });
     // Written whole under a new name, then moved into place, never through a link at its path.
     const profile = `${folder}.sb`;

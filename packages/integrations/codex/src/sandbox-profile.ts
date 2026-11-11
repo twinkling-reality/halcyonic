@@ -31,6 +31,11 @@ export interface Confinement {
    * start chose. Any other confined folder asks when its start asks (BOX-2).
    */
   readonly asksNothing?: boolean;
+  /**
+   * Other bound projects' folders inside this one (AUDIT BOX-3 F1): refused to reads and writes after
+   * every allowance, the project's own included, so a run here never reaches another project.
+   */
+  readonly inner?: readonly string[];
 }
 
 /** Everything one confined server may touch; nothing else is readable, writable or reachable. */
@@ -544,6 +549,12 @@ export function confinedProfile(scope: ConfinedScope): string {
             : [
                 `(allow file-read-metadata file-test-existence ${each('literal', between(hidden, own))})`,
               ]),
+        ]),
+    // Every other project inside this one, last, so no allowance above reopens it (AUDIT BOX-3 F1).
+    ...((scope.inner ?? []).length === 0
+      ? []
+      : [
+          `(deny file-read* file-write* file-test-existence ${each('subpath', scope.inner ?? [])})`,
         ]),
     // Closed by default already; said again so no later allowance can reopen them: opening another
     // app through LaunchServices, the pasteboard, and Apple events to other apps.

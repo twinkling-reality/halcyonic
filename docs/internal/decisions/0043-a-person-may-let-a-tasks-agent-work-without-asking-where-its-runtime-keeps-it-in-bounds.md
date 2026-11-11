@@ -149,3 +149,20 @@ check and again at the start.
 The end to end test now holds AUDIT's case, another project under the same root as the task's, which a never-asking
 shell call could neither overwrite nor add to. It fails when the server's writable folder is widened to that root.
 Decision 6's line for OpenCode now reads: its folder and its own folders. Reads stay open until BOX-3b.
+
+## Note, 2026-11-11: a folder that holds another project (AUDIT BOX-3 F1)
+
+The control plane binds a root as a project and each folder inside it as another, so a task's folder can hold
+another bound project's folder. A sandbox that writes its folder would write that project too: AUDIT showed a
+never-asking OpenCode run rewriting it, and a confined Codex run had the same exposure.
+
+- **Codex and OpenCode alike:** a run's profile now denies reads and writes of every other bound project's folder
+  inside its own, last, so no allowance reopens them. The list is read from the journal at each start
+  (`foldersInside` in `apps/control-plane/src/runtimes.ts`).
+- **OpenCode:** a project bound inside a folder after that folder's server started replaces the server at the next
+  start, once no turn runs there. Its tasks at rest are reported lost, in words, since OpenCode resumes no session
+  on another server. While a turn runs, the start is refused in words.
+- **Where a sandbox cannot do it** (Codex on the open server, off macOS): a start that never asks is refused for a
+  folder that holds another project.
+- **Tests:** on this Mac and on both pinned binaries, with a project inside the task's folder and one beside it,
+  neither was read or written by a never-asking run. Each test fails with the deny taken out.

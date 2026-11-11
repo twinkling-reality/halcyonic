@@ -1913,6 +1913,64 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
   skip: SKIP || (process.platform !== 'darwin' ? 'Seatbelt is macOS only' : false),
 }, () => {
   test(
+    'never asking in a folder that holds another project, or beside one, reaches neither, also when the inner one is bound after its server started (AUDIT BOX-3 F1)',
+    SLOW_TEST,
+    async (t) => {
+      let bound: string[] = [];
+      const { runtime, sandbox, start } = await harness(t, {
+        runtime: { foldersInside: () => bound },
+      });
+      const inner = join(sandbox.project, 'inner-project');
+      mkdirSync(inner);
+      writeFileSync(join(inner, 'kept.txt'), 'kept\n');
+      const beside = join(sandbox.root, 'beside-project');
+      mkdirSync(beside);
+      writeFileSync(join(beside, 'kept.txt'), 'kept\n');
+      const results = join(sandbox.project, 'inner-results.txt');
+      const attempt = (label: string) =>
+        call('shell', {
+          command: [
+            `echo removed > ${inner}/kept.txt; echo "${label}-inner-overwrite=$?" >> ${results}`,
+            `echo made > ${inner}/marker.txt; echo "${label}-inner-create=$?" >> ${results}`,
+            `echo removed > ${beside}/kept.txt; echo "${label}-beside-overwrite=$?" >> ${results}`,
+            `echo made > own-${label}.txt`,
+          ].join('\n'),
+        });
+      // The inner folder is not a bound project yet: the first server's profile does not know it,
+      // and the run writes it, as it may write any folder of its own.
+      const first = await start('Hello.', {}, 'never_ask');
+      await first.next('runtime.turn.completed');
+      const firstPid = runtime.serverPid;
+      // Now it is bound as a project: the next start replaces the server, whose profile denies it.
+      bound = [realpathSync(inner)];
+      writeFileSync(join(inner, 'kept.txt'), 'kept\n');
+      const execution = await start(attempt('bound'), {}, 'never_ask');
+      await execution.next('runtime.turn.completed');
+      assert.ok(!execution.types().includes('runtime.approval.requested'));
+      assert.notEqual(runtime.serverPid, firstPid, 'the server was not replaced');
+      // The task at rest on the replaced server is said lost, in words, never left as if it ran on.
+      const lost = first.observations.find((each) => each.type === 'runtime.connection.lost');
+      assert.match(
+        lost?.type === 'runtime.connection.lost' ? lost.payload.reason : '',
+        /was replaced to keep out of it/,
+      );
+      t.diagnostic(readFileSync(results, 'utf8'));
+      assert.equal(readFileSync(join(sandbox.project, 'own-bound.txt'), 'utf8'), 'made\n');
+      assert.equal(
+        readFileSync(join(inner, 'kept.txt'), 'utf8'),
+        'kept\n',
+        'the inner project changed',
+      );
+      assert.equal(existsSync(join(inner, 'marker.txt')), false, 'the inner project was written');
+      assert.equal(
+        readFileSync(join(beside, 'kept.txt'), 'utf8'),
+        'kept\n',
+        'the project beside changed',
+      );
+    },
+  );
+
+  test(
     'never asking: nothing asks, a command runs in its folder, and nothing outside it is written or read, another project under the same root included (ADR 0043, BOX-3)',
     SLOW_TEST,
     async (t) => {

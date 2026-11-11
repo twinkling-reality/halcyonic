@@ -31,6 +31,7 @@ import {
   codexConfinement,
   codexEnvironment,
   createRuntimeAdapters,
+  foldersInside,
   heldSecrets,
   OLLAMA_PORT,
   openCodeEnvironment,
@@ -710,6 +711,33 @@ describe("Codex's confinement of a project made from a starter (ADR 0041)", () =
       '/opt/homebrew/etc/openssl@3/openssl.cnf',
     ]);
     assert.deepEqual(confinement.loopbackPorts, [OLLAMA_PORT]);
+  });
+
+  test('denies every other bound project inside a folder, never its own or one beside it (AUDIT BOX-3 F1)', {
+    skip: process.platform !== 'darwin',
+  }, () => {
+    const folders = [
+      '/Users/someone/dev/outer',
+      '/Users/someone/dev/outer/inner',
+      '/Users/someone/dev/outer/inner/deeper',
+      '/Users/someone/dev/outer-two',
+      '/Users/someone/dev/beside',
+    ];
+    assert.deepEqual(foldersInside('/Users/someone/dev/outer', folders), [
+      '/Users/someone/dev/outer/inner',
+      '/Users/someone/dev/outer/inner/deeper',
+    ]);
+    assert.deepEqual(foldersInside('/Users/someone/dev/beside', folders), []);
+    const { confinement } = codexConfinement({
+      dataDir: '/Users/someone/.halcyonic',
+      projectFolders: () => folders,
+    });
+    assert.deepEqual(confinement?.forDirectory('/Users/someone/dev/outer'), {
+      project: '/Users/someone/dev/outer',
+      readable: [],
+      hidden: ['/Users/someone/.halcyonic'],
+      inner: ['/Users/someone/dev/outer/inner', '/Users/someone/dev/outer/inner/deeper'],
+    });
   });
 
   test('confines every folder on macOS, without a way to tell starter projects apart too (BOX-2)', () => {
