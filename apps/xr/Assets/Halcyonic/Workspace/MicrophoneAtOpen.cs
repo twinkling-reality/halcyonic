@@ -38,51 +38,70 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The system answered the open's question.</summary>
         public static event Action<MicrophoneAnswer>? Answered;
 
-        private float explainedAt = -1f;
-        private float lookedAt = -LookSeconds;
+        /// <summary>How often a question asked looks for the system's answer, in seconds.</summary>
+        public const float AnswerSeconds = 0.25f;
+
         private volatile int answer;
-        private bool asked;
         private MenuDirector? director;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
         {
+            // Read once here, never per frame: a headset never asked and not driven by settings. In the Editor access
+            // reads allowed, so nothing installs there, nor in any render check.
             if (!MicrophoneAsk.WaitsAtOpen(Access(), DrivenLaunch())) return;
             var host = new GameObject(nameof(MicrophoneAtOpen)) { hideFlags = HideFlags.HideAndDontSave };
             DontDestroyOnLoad(host);
             host.AddComponent<MicrophoneAtOpen>();
         }
 
-        private void Update()
+        // No Update: every wait is one scheduled callback, so no frame does any work for this.
+        private void Start() => InvokeRepeating(nameof(Look), LookSeconds, LookSeconds);
+
+        /// <summary>
+        /// Every few seconds until voice is offered: never with no computer connected (a judge's headset with none), nor
+        /// over any demonstration, recorded or for a computer that cannot be reached. Then the line, and the question
+        /// once it can be read.
+        /// </summary>
+        private void Look()
         {
-            if (explainedAt < 0f)
+            if (!VoiceOffered()) return;
+            CancelInvoke(nameof(Look));
+            Explaining?.Invoke(MicrophoneAsk.Why);
+            Invoke(nameof(AskWhenFocused), ExplainSeconds);
+        }
+
+        private void AskWhenFocused()
+        {
+            if (!VoiceOffered())
             {
-                // Asked only where voice is offered: never with no computer connected (a judge's headset with none), nor over
-                // any demonstration, recorded or for a computer that cannot be reached.
-                if (Time.unscaledTime - lookedAt < LookSeconds) return;
-                lookedAt = Time.unscaledTime;
-                if (!MayAskNow()) return;
-                explainedAt = Time.unscaledTime;
-                Explaining?.Invoke(MicrophoneAsk.Why);
+                // Voice stopped being offered while the line stood (a demonstration began): take the line back and wait.
+                Explaining?.Invoke(null);
+                InvokeRepeating(nameof(Look), LookSeconds, LookSeconds);
                 return;
             }
-            if (!asked)
+            // Another system dialog (the room's permission, for one) holds focus: wait for it to close.
+            if (!Application.isFocused)
             {
-                // Another system dialog (the room's permission, for one) holds focus: wait for it to close.
-                if (Time.unscaledTime - explainedAt < ExplainSeconds || !Application.isFocused) return;
-                if (!MayAskNow())
-                {
-                    // Voice stopped being offered while the line stood (a demonstration began): take the line back and wait.
-                    explainedAt = -1f;
-                    Explaining?.Invoke(null);
-                    return;
-                }
-                asked = true;
-                Ask();
+                Invoke(nameof(AskWhenFocused), LookSeconds);
                 return;
             }
+            if (!MicrophoneAsk.WaitsAtOpen(Access(), drivenLaunch: false))
+            {
+                // Allowed or answered meanwhile (at a hold, for one): nothing to ask.
+                Explaining?.Invoke(null);
+                Destroy(gameObject);
+                return;
+            }
+            Ask();
+            InvokeRepeating(nameof(TakeAnswer), AnswerSeconds, AnswerSeconds);
+        }
+
+        private void TakeAnswer()
+        {
             var given = answer;
             if (given == 0) return;
+            CancelInvoke(nameof(TakeAnswer));
             var result = (MicrophoneAnswer)(given - 1);
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (result == MicrophoneAnswer.Denied && !Permission.ShouldShowRequestPermissionRationale(Permission.Microphone))
@@ -99,23 +118,23 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// Whether the open asks now (<see cref="MicrophoneAsk.AskAtOpen"/>): only where the menu's director offers voice
-        /// (<see cref="MenuDirector.VoiceOffered"/>); with no director found, voice counts as not offered.
+        /// Whether the menu's director offers voice now (<see cref="MenuDirector.VoiceOffered"/>, the rule
+        /// <see cref="MicrophoneAsk.AskAtOpen"/> takes); with no director found, voice counts as not offered. Nothing of
+        /// the system is read here.
         /// </summary>
-        private bool MayAskNow()
+        private bool VoiceOffered()
         {
             if (director == null) director = FindAnyObjectByType<MenuDirector>();
-            var offered = director != null && director.VoiceOffered;
-            return MicrophoneAsk.AskAtOpen(Access(), DrivenLaunch(), offered);
+            return MicrophoneAsk.AskAtOpen(MicrophoneAccess.NeverAsked, drivenLaunch: false, director != null && director.VoiceOffered);
         }
 
         private void Ask()
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
             var callbacks = new PermissionCallbacks();
-            // Answered on Android's thread; read in Update.
+            // Answered on Android's thread; read in TakeAnswer.
             callbacks.PermissionGranted += _ => answer = 1 + (int)MicrophoneAnswer.Granted;
-            // Unity 6000.3 marks PermissionDeniedAndDontAskAgain unreliable: a denial is told apart in Update, on the
+            // Unity 6000.3 marks PermissionDeniedAndDontAskAgain unreliable: a denial is told apart in TakeAnswer, on the
             // main thread, by the rationale.
             callbacks.PermissionDenied += _ => answer = 1 + (int)MicrophoneAnswer.Denied;
             callbacks.PermissionRequestDismissed += _ => answer = 1 + (int)MicrophoneAnswer.Dismissed;
