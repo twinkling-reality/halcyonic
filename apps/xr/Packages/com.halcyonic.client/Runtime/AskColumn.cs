@@ -68,8 +68,9 @@ namespace Halcyonic.Client
     /// <summary>
     /// One Ask from the headset (gap 7; ADR 0030; FIELD's A12), walked from writing the question to its answer, each state
     /// as a <see cref="RoomCard"/> in the card language (the addendum's A17): the thing asked about is the title, a state is
-    /// a status, and no fact is joined to another by a dot. The assistant's words are outside words, reported, never the
-    /// product's own. This holds no network: the bar sends <see cref="Submit"/>'s command and feeds back what the
+    /// a status, the person's own question is the description, and no fact is joined to another by a dot. The assistant's
+    /// words never stand in the card (FIELD, 2026-11-11): its question and its reply are <see cref="Band"/>, for the band low
+    /// in the view, outside words and reported, never the product's own. This holds no network: the bar sends <see cref="Submit"/>'s command and feeds back what the
     /// computer answers (<see cref="Offer"/>, <see cref="Acknowledge"/>, <see cref="ReadCommand"/>, <see cref="Read"/>).
     /// Nothing is sent by itself.
     /// </summary>
@@ -89,9 +90,10 @@ namespace Halcyonic.Client
             public const string Waiting = "Waiting";
             public const string WaitingLine = "The agent is doing what it asked";
             public const string NeedsYou = "Needs You";
-            public const string NeedsYouLine = "It asks you something";
+            public const string NeedsYouLine = "It asks you something below";
             public const string Answered = "Answered";
-            public const string AnsweredLine = "The assistant's reply, from what your computer saw";
+            public const string AnsweredLine = "The assistant's reply is below";
+            public const string AnsweredBy = "Answered by ";
             public const string NotAnswered = "Not Answered";
             public const string NotSent = "Not Sent";
             public const string Stopped = "Stopped";
@@ -259,38 +261,53 @@ namespace Halcyonic.Client
             {
                 var question = LineWords.Theirs(draft.Trim());
                 var asked = question.Text.Length == 0 ? Empty : question;
-                // The model as every model chip names it, and as a capture hides it (CaptureNames).
-                var named = model == null ? null : CaptureNames.ModelNameOrNull(KitPresenter.ShortModelName(model) ?? model);
-                RoomSlot[] agent = named == null ? new RoomSlot[0] : new[] { new RoomSlot(RoomKind.Agent, LineWords.TheirName(named)) };
                 switch (Stage)
                 {
                     case AskStage.Writing:
                         return unavailable
-                            ? Status(Words.NotAnswered, Words.NoAssistant, RoomTone.Bad, asked, null)
-                            : new RoomCard(Scope.Name, asked, Scope.Head, slots: agent);
+                            ? Status(Words.NotAnswered, Words.NoAssistant, RoomTone.Bad, asked)
+                            : new RoomCard(Scope.Name, asked, Scope.Head);
                     case AskStage.Sent:
-                        return Status(Words.Sent, Words.SentLine, RoomTone.Working, asked, agent);
+                        return Status(Words.Sent, Words.SentLine, RoomTone.Working, asked);
                     case AskStage.Thinking:
-                        return Status(Words.Thinking, Words.ThinkingLine, RoomTone.Working, asked, agent);
+                        return Status(Words.Thinking, Words.ThinkingLine, RoomTone.Working, asked);
                     case AskStage.Waiting:
-                        return Status(Words.Waiting, Words.WaitingLine, RoomTone.Working, asked, agent);
+                        return Status(Words.Waiting, Words.WaitingLine, RoomTone.Working, asked);
                     case AskStage.NeedsYou:
-                        return Status(Words.NeedsYou, Words.NeedsYouLine, RoomTone.Working, Reported ?? asked, agent);
+                        return Status(Words.NeedsYou, Words.NeedsYouLine, RoomTone.Attention, asked);
                     case AskStage.Answered:
-                        return Status(Words.Answered, Words.AnsweredLine, RoomTone.Good, Reported ?? asked, agent);
+                        // An answer is a report, not a passed check: quiet, never green. The model on the foot line, never a slot.
+                        return Status(Words.Answered, Words.AnsweredLine, RoomTone.Quiet, asked, AnsweredBy);
                     default:
                         var title = stopped ? Words.Stopped : notSent ? Words.NotSent : Words.NotAnswered;
-                        return Status(title, notAnswered, RoomTone.Bad, asked, null);
+                        return Status(title, notAnswered, RoomTone.Bad, asked);
                 }
             }
         }
 
+        /// <summary>
+        /// The assistant's words for the band low in the view, read part by part as the band reads: its question while it
+        /// needs the person, its reply once it answered. Outside words, reported. Null on every other state, and before it
+        /// has any. The bar gives them to the band; the card never holds them.
+        /// </summary>
+        public LineWords? Band => Stage == AskStage.NeedsYou || Stage == AskStage.Answered ? Reported : null;
+
         /// <summary>The assistant's words, outside and reported, or null before it has any.</summary>
         private LineWords? Reported => reply == null || LineWords.Theirs(reply).Text.Length == 0 ? null : LineWords.Theirs(reply);
 
+        /// <summary>"Answered by" and the model as every model chip names it and as a capture hides it (CaptureNames), or null.</summary>
+        private LineWords? AnsweredBy
+        {
+            get
+            {
+                var named = model == null ? null : CaptureNames.ModelNameOrNull(KitPresenter.ShortModelName(model) ?? model);
+                return named == null ? null : LineWords.Ours(Words.AnsweredBy) + LineWords.TheirName(named);
+            }
+        }
+
         private LineWords Empty => LineWords.Ours(Scope.IsTask ? Words.EmptyTask : Scope.IsAllWork ? Words.EmptyAllWork : Words.EmptyProject);
 
-        private RoomCard Status(string title, string? line, RoomTone tone, LineWords description, RoomSlot[]? slots) =>
-            new RoomCard(Scope.Name, description, Scope.Head, new RoomCardStatus(title, line, tone), slots: slots);
+        private RoomCard Status(string title, string? line, RoomTone tone, LineWords description, LineWords? more = null) =>
+            new RoomCard(Scope.Name, description, Scope.Head, new RoomCardStatus(title, line, tone), more: more);
     }
 }

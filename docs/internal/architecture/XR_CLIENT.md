@@ -2855,6 +2855,15 @@ bands are the bar's one band.
   result; the host refuses a copy changed since it was shown. Not yet: the added and refused cards on the result (the
   result's own card, with FIELD), Undo (LINK's ADR 0051). Checks: `38-result-add`, `38-add`, `38-conflict`;
   `RoomResultTests`, FIELD's `RoomAddTests`.
+- **Ask, as cards** (`AskColumn`, `AskScope`, `AskStage`; ADR 0030; gap 7): one Ask about a task and its current
+  run, a whole project, or all work, walked Writing, Sent, Thinking, Waiting, Needs You, Answered or Not Answered,
+  each from the computer's own record (the submit's ack and result, then the request's status). The title is the thing
+  asked about (the task's or project's name, leaning; All Work, ours), the description the person's own question,
+  leaning. The assistant's words never stand in the card (FIELD, 2026-11-11): its question and its reply are
+  `AskColumn.Band`, for the bar to give the band, outside words and reported. Answered is quiet, never green, and its
+  line says only that the reply is below; Needs You takes the attention colour; the model is the foot line on Answered
+  ("Answered by" and the model's name, leaning), never a slot. `Submit` builds the command once and sends nothing
+  itself. Not wired into the bar yet (XR). Checks: `AskColumnTests`.
 - **Play in Headset in the result** (DEVICE's `HeadsetPlay`, gap 1): beside Try Build, where `HeadsetPlay.Stands` for
   the project and the way this headset reaches the computer (`RoomResult.Play`, from `RoomResult.Of` given
   `ControlPlaneSettings.Target()`); where it cannot act it is not drawn, as an action has no disabled look
