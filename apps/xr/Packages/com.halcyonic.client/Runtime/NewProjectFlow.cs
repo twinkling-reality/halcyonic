@@ -134,6 +134,12 @@ namespace Halcyonic.Client
         /// <summary>The rows a part of the review holds, read once for the review and again only when the text size changes.</summary>
         private (NewWorkReview Review, TextSize Size, bool ForRoom, int Rows)? reviewRows;
 
+        /// <summary>
+        /// The level the person chose for this start on the redesign's page of changes; null where they chose none, and the
+        /// start then takes the default (<see cref="LevelOfDraft"/>).
+        /// </summary>
+        private bool? levelChosen;
+
         /// <summary>The review's parts were cut by the redesign's rows' own lines, not the older page's (AUDIT, 2026-11-10).</summary>
         private bool reviewCutForRoom;
 
@@ -442,8 +448,8 @@ namespace Halcyonic.Client
                             showModels, Live),
                         RecapPage.Words => NewProjectScreens.Words(current, reached, wordsFor, written, writtenHeard, Voice, Said(step), wordsRoot, host.KeyboardOffered),
                         RecapPage.Change when RoomDesign.Enabled => NewProjectScreens.RecapChange(current, reached, confirmingStartOver,
-                            Building() || OutcomeUnknown ? problem : null, WordsOffered),
-                        _ => NewProjectScreens.Recap(current, draft, CurrentFolder(), Live, Said(step), problem, fact, confirmingStartOver, reached,
+                            Building() || OutcomeUnknown ? problem : null, WordsOffered, LevelOfDraft()),
+                        _ => NewProjectScreens.Recap(current, LevelOfDraft(), CurrentFolder(), Live, Said(step), problem, fact, confirmingStartOver, reached,
                             Building() || OutcomeUnknown ? problem : null, WordsOffered).Focus(),
                     };
                 default:
@@ -678,6 +684,12 @@ namespace Halcyonic.Client
                     confirmingStartOver = false;
                     Show(NewProjectStep.Recap, page: RecapPage.Change);
                     break;
+                // A level on the page of changes is kept at once, and the page leaves for the facts, whose row reads it.
+                case NewProjectScreens.ChooseLevel when RoomDesign.Enabled && step == NewProjectStep.Recap && recapPage == RecapPage.Change && !confirmingStartOver
+                    && (key == AgentColumn.Ask || key == AgentColumn.Never):
+                    levelChosen = key == AgentColumn.Never;
+                    Show(NewProjectStep.Recap);
+                    break;
                 case NewProjectScreens.BackToRecap when step == NewProjectStep.Recap && recapPage == RecapPage.Change:
                     confirmingStartOver = false;
                     Show(NewProjectStep.Recap);
@@ -687,6 +699,7 @@ namespace Halcyonic.Client
                     && (!RoomDesign.Enabled || recapPage == RecapPage.Change):
                     fact = null;
                     idea = new ProjectIdea(current.ExistingProjectId, current.ExistingProjectId == null ? null : current.Name);
+                    levelChosen = null;
                     LeaveCompanion(exchange);
                     review = null;
                     sequence = null;
@@ -789,6 +802,7 @@ namespace Halcyonic.Client
                     // Cleared by the person's two presses: whichever start it was, kept here or by an earlier run.
                     unknownOutcome.Id = null;
                     ownId = null;
+                    levelChosen = null;
                     idea = new ProjectIdea();
                     said = (NewProjectStep.YourIdea, EntryText.Cleared);
                     Show(NewProjectStep.YourIdea);
@@ -1553,7 +1567,8 @@ namespace Halcyonic.Client
         {
             var current = idea;
             if (current == null || StartProblem() != null || Building()) return;
-            review = EntryScreens.ReviewOf(current, draft, CurrentFolder(), Live);
+            // The level the review names is the level the start is confirmed at (BuildSequence); it is set here, before the review.
+            review = EntryScreens.ReviewOf(current, LevelOfDraft(), CurrentFolder(), Live);
             measuredPartRows = 0;
             Show(NewProjectStep.Build, BuildPage.Review);
         }
@@ -1589,6 +1604,18 @@ namespace Halcyonic.Client
         public Func<LineWords, int>? RoomLines { get; set; }
 
         private bool ReviewForRoom => RoomDesign.Enabled && RoomLines != null;
+
+        /// <summary>
+        /// The draft with the level its start will ask for (ADR 0043's amendment): where the level is shown before the start,
+        /// which the redesign's recap and review do, never ask by default unless the person chose Ask First; elsewhere it asks.
+        /// The runtime must offer it too (<see cref="NewWorkDraft.StartsNeverAsk"/>). Set only while the recap or the review
+        /// is made, never between a review and its Confirm, which confirms the level the review was made with.
+        /// </summary>
+        private NewWorkDraft LevelOfDraft()
+        {
+            if (step != NewProjectStep.Build) draft.NeverAsk = levelChosen ?? RoomDesign.Enabled;
+            return draft;
+        }
 
         /// <summary>
         /// The rows of the request a part of the review holds: the page's height standing alone, as the

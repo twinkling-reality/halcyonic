@@ -2653,10 +2653,9 @@ public class NewProjectFlowTests
         Assert.That(model.Value, Does.Not.Contain("Ask"));
     }
 
-    [Test]
-    public void Through_the_flow_the_redesigns_recap_names_the_level() => InTheRedesign(() =>
+    private static NewProjectFlow OnOffering(Host host, bool? offers = true)
     {
-        var host = new Host { VoiceOffered = false, State = WithRuntimes(Offering(true)) };
+        host.State = WithRuntimes(Offering(offers));
         var flow = Flow(host);
         flow.Open(null, null);
         host.Typed.Enqueue("A page of race times for my running club");
@@ -2666,8 +2665,78 @@ public class NewProjectFlowTests
         PressOn(flow, NewProjectScreens.MoreOptions);
         Press(flow, NewProjectScreens.ChooseRuntime, "real");
         Press(flow, NewProjectScreens.Done, null);
-        Assert.That(Words(flow).Any(words => words.EndsWith(" · Ask First", StringComparison.Ordinal)), "until the person or the default chooses never ask, it asks: " + string.Join(" | ", Words(flow)));
+        return flow;
+    }
+
+    [Test]
+    public void In_the_redesign_a_new_start_is_never_ask_by_default_where_offered_and_its_review_says_so() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        var flow = OnOffering(host);
+        Assert.That(Words(flow).Any(words => words.EndsWith(" · Never Ask", StringComparison.Ordinal)), "the recap's row: " + string.Join(" | ", Words(flow)));
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(flow.Review!.NeverAsk, Is.True, "the review is made at the level the recap named");
+        Assert.That(flow.Review!.Items.Single(item => item.Label == "Model · ").Value, Does.EndWith(" · Never Ask"));
+        Assert.That(host.Sent, Is.Empty);
     });
+
+    [Test]
+    public void In_the_redesign_Ask_First_is_one_press_on_the_page_of_changes_and_the_recap_reads_it() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        var flow = OnOffering(host);
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        var levels = Pages(flow).SelectMany(frame => frame.Lines).Where(line => line.Action == NewProjectScreens.ChooseLevel).ToList();
+        Assert.That(levels.Select(line => (line.Words, line.Key, line.Chosen, line.AnswerMark)), Is.EqualTo(new[]
+        {
+            (AgentColumn.AskFirstWords, (string?)AgentColumn.Ask, false, AnswerMark.Single), (AgentColumn.NeverAskWords, (string?)AgentColumn.Never, true, AnswerMark.Single),
+        }));
+        Assert.That(RoomBar.NewProject(flow.Frame!, VoiceStage.Idle)!.Column.Where(action => action.Control.Action == NewProjectScreens.ChooseLevel).Select(action => action.Mark),
+            Is.All.EqualTo(AnswerMark.Single), "the redesign draws them as answers with their marks");
+        Press(flow, NewProjectScreens.ChooseLevel, AgentColumn.Ask);
+        Assert.That(Actions(flow), Is.Empty, "kept at once: back on the facts");
+        Assert.That(Words(flow).Any(words => words.EndsWith(" · Ask First", StringComparison.Ordinal)), "the recap's row reads the new level");
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(flow.Review!.NeverAsk, Is.False);
+        // Starting over forgets the choice: the default stands again.
+        Press(flow, NewProjectScreens.Cancel, null);
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        Press(flow, NewProjectScreens.StartOver, null);
+        Press(flow, NewProjectScreens.ConfirmStartOver, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.YourIdea));
+    });
+
+    [Test]
+    public void Where_the_runtime_does_not_offer_it_no_level_is_offered_and_the_start_asks() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        var flow = OnOffering(host, offers: null);
+        Assert.That(Words(flow).Any(words => words.EndsWith(" · Ask First", StringComparison.Ordinal)));
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        Assert.That(Actions(flow), Has.None.EqualTo(NewProjectScreens.ChooseLevel));
+        Press(flow, NewProjectScreens.BackToRecap, null);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(flow.Review!.NeverAsk, Is.False);
+    });
+
+    [Test]
+    public void Without_the_redesign_a_new_start_asks()
+    {
+        Assume.That(RoomDesign.Enabled, Is.False);
+        var host = new Host { VoiceOffered = false, State = WithRuntimes(Offering(true)) };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        Press(flow, NewProjectScreens.MoreOptions, null);
+        Press(flow, NewProjectScreens.ChooseRuntime, "real");
+        Press(flow, NewProjectScreens.Done, null);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(flow.Review!.NeverAsk, Is.False, "the older pages do not show the level as the default needs, so it asks");
+        Assert.That(flow.Review!.Items.Single(item => item.Label == "Model · ").Value, Does.EndWith(" · Ask First"), "and the review says so");
+    }
 
     [Test]
     public void A_review_cut_for_one_view_counts_no_draw_by_the_other_and_is_cut_again() => InTheRedesign(() =>
