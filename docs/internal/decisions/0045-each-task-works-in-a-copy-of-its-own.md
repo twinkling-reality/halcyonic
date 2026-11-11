@@ -1,6 +1,6 @@
 # ADR 0045: Each task works in a copy of its own, and its work reaches the project only when the person adds it
 
-- Status: Accepted 2026-11-10; contracts, views, admission, the copies made at a task's first start, adding, its conflicts and the fit built, run with Codex and OpenCode at once on 2026-11-10; off by default (`HALCYONIC_TASK_COPIES=1` turns it on) until the headset offers Add To Project; a check of a task's own copy built, the automatic check after a turn in a copy not yet
+- Status: Accepted 2026-11-10; contracts, views, admission, the copies made at a task's first start, adding, its conflicts and the fit built, run with Codex and OpenCode at once on 2026-11-10; off by default (`HALCYONIC_TASK_COPIES=1` turns it on) until the headset offers Add To Project; a check of a task's own copy and the automatic check after a turn in it, which a failed check's fix follows, built
 - Date: 2026-11-10
 - Amends ADR 0020 (a project works in one folder) and ADR 0036 (checkpoints); complements ADR 0037 and ADR 0041
 
@@ -65,7 +65,10 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
 7. Checkpoints follow the folder they were taken of: a task's turns are kept from its copy and a
    restore puts a checkpoint back where it was taken, so undoing a turn restores the copy and
    undoing an add restores the project. The computer's check, previews and Play run per task, on
-   its copy, so the person can try a task's change before adding it. Make VR Version reads the
+   its copy, so the person can try a task's change before adding it. The automatic check after a
+   turn checks the folder the turn changed, the task's copy or the project's, one check at a time
+   per project, and a failed check goes back only to the agents that worked in the folder checked
+   (ADR 0044). Make VR Version reads the
    project's own folder, without work not yet added.
 
 ## Alternatives considered

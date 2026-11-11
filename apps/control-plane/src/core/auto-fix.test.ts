@@ -235,6 +235,9 @@ function plane(
   const ended = () => ofType('execution.auto_fix.ended');
   return {
     dataDir,
+    folder,
+    projectId,
+    now,
     controlPlane,
     time,
     runtime,
@@ -524,5 +527,67 @@ describe('what AUDIT2 found (2026-11-10)', () => {
     await quiet();
     assert.equal(second.sent().length, 1);
     assert.equal(second.ended().length, 1);
+  });
+});
+
+describe("the automatic check of a task's own copy (ADR 0045)", () => {
+  test("a turn that changed a task's copy has that copy checked, a turn in the project's folder the project", async (t) => {
+    const p = plane(t, [PASSED, PASSED]);
+    const { controlPlane, projectId, now } = p;
+    const workstreamId = p.task();
+    const where = { project_id: projectId, workstream_id: workstreamId, execution_id: null };
+    const copy = join(p.dataDir, 'tasks', projectId, workstreamId, 'garden');
+    mkdirSync(copy, { recursive: true });
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'workstream.copy_made',
+        where,
+        { directory: copy, base_tree: 'a'.repeat(64), files: 1 },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    // An execution of the task that worked in its copy and is at rest: recorded here directly,
+    // as the mock runtime works in no folder.
+    const executionId = '01a19000-0000-7000-8000-0000000000e1' as ExecutionId;
+    const scope = { ...where, execution_id: executionId };
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.created',
+        scope,
+        {
+          runtime: {
+            runtime_id: 'mock' as never,
+            kind: 'mock',
+            display_name: 'Mock',
+            synthetic: true,
+          },
+          instruction: 'Make a garden game.',
+          directory: copy,
+        },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.start_failed',
+        scope,
+        { error: { code: 'test', message: 'Recorded at rest for the test.' } },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    p.changedFiles(executionId);
+    await until(() => p.checksDone() === 1, "the copy's automatic check");
+    const first = p.ofType('project.check.recorded')[0];
+    assert.equal(first?.payload.workstream_id, workstreamId, "the task's copy was checked");
+    assert.equal(controlPlane.projection.project(projectId)?.check?.workstream_id, workstreamId);
+
+    // A task working in the project's own folder has the project checked.
+    const executionIdHere = await p.start();
+    p.changedFiles(executionIdHere);
+    await until(() => p.checksDone() === 2, "the project's automatic check");
+    assert.equal(p.ofType('project.check.recorded')[1]?.payload.workstream_id, undefined);
   });
 });

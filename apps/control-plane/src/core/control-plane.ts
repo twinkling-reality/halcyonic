@@ -5,6 +5,7 @@ import {
   type Snapshot,
   type Timestamp,
   WORLD_STARTER_ID,
+  type WorkstreamId,
 } from '@halcyonic/contracts';
 import { Projection } from '@halcyonic/domain';
 import type { Clock, RuntimeAdapter, Scheduler } from '@halcyonic/runtime-core';
@@ -34,6 +35,8 @@ import { Recorder } from './recorder.ts';
 import { type HeldSecret, type Redaction, redaction } from './redaction.ts';
 import { RuntimeRegistry } from './runtime-registry.ts';
 
+/** The key of a project's own folder among the folders that need an automatic check. */
+const PROJECT_FOLDER = '';
 export interface ControlPlaneOptions {
   readonly journal: EventJournal;
   readonly adapters: readonly RuntimeAdapter[];
@@ -141,7 +144,11 @@ export class ControlPlane {
   readonly #ids: IdGenerator;
   readonly #logger: Logger;
   readonly #snapshotFinishedCommands: number;
-  readonly #autoCheckNeeded = new Set<ProjectId>();
+  /**
+   * Per project, the folders that need an automatic check: a task's id for its own copy (ADR 0045),
+   * or `PROJECT_FOLDER` for the project's own.
+   */
+  readonly #autoCheckNeeded = new Map<ProjectId, Set<string>>();
   #autoCheckScheduled = false;
   readonly #autoFix: AutoFix | null;
   #closed = false;
@@ -315,7 +322,16 @@ export class ControlPlane {
         if (project?.starter == null || project.location === null) return;
         // A world has no build: the Mac reads its description instead (ADR 0049).
         if (project.starter === WORLD_STARTER_ID) return;
-        this.#autoCheckNeeded.add(event.project_id);
+        // A turn in a task's own copy needs that copy checked, not the project's folder.
+        const copy = this.projection.workstream(event.workstream_id)?.copy;
+        const directory = this.projection.execution(event.execution_id)?.directory ?? null;
+        const key =
+          copy?.state === 'own' && directory === copy.directory
+            ? event.workstream_id
+            : PROJECT_FOLDER;
+        const needed = this.#autoCheckNeeded.get(event.project_id) ?? new Set<string>();
+        needed.add(key);
+        this.#autoCheckNeeded.set(event.project_id, needed);
         this.#scheduleAutoChecks();
         return;
       }
@@ -324,7 +340,9 @@ export class ControlPlane {
         event.payload.command.command_type === 'project.check' &&
         event.project_id !== null
       ) {
-        this.#autoCheckNeeded.delete(event.project_id);
+        const needed = this.#autoCheckNeeded.get(event.project_id);
+        needed?.delete(event.payload.command.payload.workstream_id ?? PROJECT_FOLDER);
+        if (needed?.size === 0) this.#autoCheckNeeded.delete(event.project_id);
         return;
       }
       if (
@@ -354,7 +372,7 @@ export class ControlPlane {
 
   #drainAutoChecks(): void {
     if (this.#closed || this.previews === null) return;
-    for (const projectId of [...this.#autoCheckNeeded]) {
+    for (const [projectId, needed] of [...this.#autoCheckNeeded]) {
       const project = this.projection.project(projectId);
       if (
         project?.starter == null ||
@@ -364,23 +382,63 @@ export class ControlPlane {
         this.#autoCheckNeeded.delete(projectId);
         continue;
       }
-      if (this.projection.projectBusy(projectId) !== null) continue;
-      this.#autoCheckNeeded.delete(projectId);
-      const commandId = this.#ids.next() as CommandId;
-      this.#autoFix?.checkQueued(projectId, commandId);
-      this.commands.submit(
-        {
-          schema_version: COMMAND_SCHEMA_VERSION,
-          command_id: commandId,
-          issued_at: this.clock.now().toISOString() as Timestamp,
-          client: { name: 'halcyonic-control-plane', version: null, device_label: null },
-          command_type: 'project.check',
-          payload: { project_id: projectId },
-        },
-        'internal',
-        null,
-      );
+      // One check at a time per project: the next waits for this one's outcome.
+      for (const key of [...needed]) {
+        const copy = key === PROJECT_FOLDER ? undefined : this.projection.workstream(key)?.copy;
+        if (key !== PROJECT_FOLDER && copy?.state !== 'own') {
+          needed.delete(key);
+          continue;
+        }
+        const busy =
+          copy?.state === 'own'
+            ? this.#copyBusy(projectId, key as WorkstreamId)
+            : this.projection.projectBusy(projectId) !== null;
+        if (busy) continue;
+        needed.delete(key);
+        if (needed.size === 0) this.#autoCheckNeeded.delete(projectId);
+        const commandId = this.#ids.next() as CommandId;
+        this.#autoFix?.checkQueued(
+          projectId,
+          commandId,
+          copy?.state === 'own' ? copy.directory : project.location.path,
+        );
+        this.commands.submit(
+          {
+            schema_version: COMMAND_SCHEMA_VERSION,
+            command_id: commandId,
+            issued_at: this.clock.now().toISOString() as Timestamp,
+            client: { name: 'halcyonic-control-plane', version: null, device_label: null },
+            command_type: 'project.check',
+            payload: {
+              project_id: projectId,
+              ...(copy?.state === 'own' ? { workstream_id: key as WorkstreamId } : {}),
+            },
+          },
+          'internal',
+          null,
+        );
+        break;
+      }
     }
+  }
+
+  /**
+   * Whether a check of a task's own copy must wait, as its admission says: its task at work, or
+   * anything of it, or a check, restore or preview start of the project, without its outcome.
+   */
+  #copyBusy(projectId: ProjectId, workstreamId: WorkstreamId): boolean {
+    if (this.projection.executionsAtWork().some((facts) => facts.workstreamId === workstreamId))
+      return true;
+    return this.projection
+      .pendingCommands()
+      .some(
+        (pending) =>
+          pending.workstream_id === workstreamId ||
+          (pending.project_id === projectId &&
+            (pending.command_type === 'project.check' ||
+              pending.command_type === 'project.restore' ||
+              pending.command_type === 'project.preview.start')),
+      );
   }
 
   #rebuild(): void {
