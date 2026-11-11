@@ -234,7 +234,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static RoomResult? Of(ProjectView? project, ClientProjection? state, ObservedTurn? observed,
             RoomResultPage page = RoomResultPage.Result, int part = 0, (ControlPlaneTarget? Target, bool Demonstration)? way = null, WorkstreamView? task = null,
-            HistoryColumn? history = null, ShareColumn? share = null)
+            HistoryColumn? history = null, ShareColumn? share = null, bool canSend = false)
         {
             if (project == null || state == null) return null;
             var screen = WorkspacePresentationState.ScreenOf(project, state, barOpen: true);
@@ -246,8 +246,9 @@ namespace Halcyonic.Client
                 // Play in Headset by how this headset reaches the computer and whether a demonstration shows (DEVICE's rule); unknown without.
                 way is { } reach ? HeadsetPlay.For(project, reach.Target, reach.Demonstration) : (Halcyonic.Client.PlayInHeadset?)null, task != null ? RoomAdd.Of(task.Copy, working: false) : null, (task?.Copy as OwnCopy)?.ToAddReview,
                 history, share,
-                // DEVICE's Share stands where the host would admit it (TASKS's conditions), or where a share stands to stop.
-                canShare: project.Share != null || ShareColumn.Reason(project) == null);
+                // DEVICE's Share stands only where this headset can send to the computer (never in the demonstration; AUDIT reread
+                // MUST 1), and where the host would admit it (TASKS's conditions) or a share stands to stop.
+                canShare: canSend && (way?.Demonstration != true) && (project.Share != null || ShareColumn.Reason(project) == null));
         }
     }
 

@@ -199,7 +199,8 @@ namespace Halcyonic.XR.Workspace
             var (page, part) = setup.Presentation.ResultPageFor(now.Character.WorkstreamId, run);
             var task = State!.Workstreams.TryGetValue(now.Character.WorkstreamId, out var work) ? work : null;
             return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (ControlPlaneSettings.Target(), Demonstration), task,
-                page == RoomResultPage.History ? HistoryFor(projectId) : null, page == RoomResultPage.Share ? ShareFor(projectId) : null);
+                page == RoomResultPage.History ? HistoryFor(projectId) : null, page == RoomResultPage.Share ? ShareFor(projectId) : null,
+                canSend: CanSendShare);
         }
 
         /// <summary>
@@ -292,12 +293,14 @@ namespace Halcyonic.XR.Workspace
                         if (!starting.Arm()) return false;
                         break;
                     }
-                    if (setup.Commands is not CommandFactory startCommands || starting.Start(startCommands) is not ProjectShareStartCommand start) return false;
+                    // What SendShare checks is checked first, as Restore does: nothing is built that cannot be sent (AUDIT reread MUST 1).
+                    if (!CanSendShare || setup.Commands is not CommandFactory startCommands || starting.Start(startCommands) is not ProjectShareStartCommand start) return false;
                     if (!SendShare(start)) return false;
                     break;
                 case RoomResult.ShareStop when page == RoomResultPage.Share && ShareFor(work!.ProjectId) is ShareColumn stopping:
-                    if (setup.Commands is not CommandFactory stopCommands || stopping.Stop(stopCommands) is not ProjectShareStopCommand stop) return false;
+                    if (!CanSendShare || setup.Commands is not CommandFactory stopCommands || stopping.Stop(stopCommands) is not ProjectShareStopCommand stop) return false;
                     if (!SendShare(stop)) return false;
+                    stopping.StopSent();
                     break;
                 case RoomResult.ShareCancel when page == RoomResultPage.Share && ShareFor(work!.ProjectId) is ShareColumn cancelling:
                     cancelling.Cancel();
@@ -314,7 +317,8 @@ namespace Halcyonic.XR.Workspace
                     if (setup.Commands is not CommandFactory previewCommands || !SendShare(previewCommands.StartPreview(work!.ProjectId))) return false;
                     break;
                 case RoomResult.ShareBack or RoomResult.ShareClose when page == RoomResultPage.Share:
-                    shares.Remove(work!.ProjectId);
+                    // A column with a start under way or a stop to send is kept, so nothing is dropped (AUDIT reread MUST 2).
+                    if (ShareFor(work!.ProjectId) is not { KeepAfterLeaving: true }) shares.Remove(work!.ProjectId);
                     setup.Presentation.ShowResultPage(task, run, RoomResultPage.Result);
                     break;
                 default: return false;
@@ -625,12 +629,21 @@ namespace Halcyonic.XR.Workspace
         private bool OpenShare(string projectId)
         {
             if (State?.Projects.TryGetValue(projectId, out var project) != true) return false;
+            // The project's column where one stands (a start under way, a stop to send), else a new one (AUDIT reread MUST 2).
+            if (ShareFor(projectId) is ShareColumn kept)
+            {
+                kept.Viewed(project!);
+                return true;
+            }
             var share = new ShareColumn(project!);
             shares[projectId] = share;
             ReadWays(share);
             if (project!.Share != null) ReadCode(share);
             return true;
         }
+
+        /// <summary>Whether a Share command can be sent now: the computer connected, no recording plays, a session to send through.</summary>
+        private bool CanSendShare => Connected && !Demonstration && setup.Session() is RealtimeSession;
 
         /// <summary>Sends a Share command where the computer is connected and no recording plays; false where it cannot.</summary>
         private bool SendShare(CommandEnvelope command)
@@ -644,9 +657,15 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Reads which ways this computer can share now; none offered where it cannot be asked or did not answer.</summary>
         private async void ReadWays(ShareColumn share)
         {
-            if (Api is not ControlPlaneApi api) return;
+            if (Api is not ControlPlaneApi api)
+            {
+                share.WaysFailed();
+                dirty = true;
+                return;
+            }
             try { share.WaysRead(await new ShareReader(api.GetDocumentAsync).WaysAsync()); }
-            catch (Exception) { /* No way is offered: the ways stay unread, so the choice offers none. */ }
+            // The computer could not tell: said so, with Try Again (AUDIT reread SHOULD 2).
+            catch (Exception) { share.WaysFailed(); }
             dirty = true;
         }
 
@@ -675,7 +694,9 @@ namespace Halcyonic.XR.Workspace
                 }
                 if (share.SentCommandId is string sent && State?.Commands.TryGetValue(sent, out var answer) == true) share.Answered(answer!);
                 // Cancel was pressed while it started: stop it the moment it stands (AUDIT MUST 1).
-                if (share.StopNow && setup.Commands is CommandFactory stopCommands && share.Stop(stopCommands) is ProjectShareStopCommand stopNow) SendShare(stopNow);
+                if (share.StopNow && CanSendShare && setup.Commands is CommandFactory stopCommands && share.Stop(stopCommands) is ProjectShareStopCommand stopNow
+                    && SendShare(stopNow))
+                    share.StopSent();
                 dirty = true;
             }
             foreach (var stored in changes.Events)
