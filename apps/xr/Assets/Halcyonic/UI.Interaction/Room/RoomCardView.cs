@@ -391,8 +391,8 @@ namespace Halcyonic.XR.UI
             {
                 if (row.Kind == RoomLineKind.Gap)
                 {
-                    var from = S(RoomReading.GutterDp + RoomReading.MarkGapDp);
-                    Plate(new Vector2(width - from, Mathf.Max(S(1f), RoomType.Units(1f))), 0f, White(0.16f), new Vector2(from + (width - from) / 2f, -(down + S(RoomReading.GapRowDp) / 2f)), "reading gap");
+                    // A hairline across, from the bands' own left edge, one dp at either size.
+                    Plate(new Vector2(width, RoomType.Units(1f)), 0f, White(0.18f), new Vector2(width / 2f, -(down + S(RoomReading.GapRowDp) / 2f)), "reading gap");
                     down += S(RoomReading.GapRowDp);
                     continue;
                 }
@@ -401,7 +401,9 @@ namespace Halcyonic.XR.UI
                 if (changed)
                 {
                     var hue = row.Kind == RoomLineKind.Added ? Passed : Failed;
-                    Plate(new Vector2(width, pitch), S(4f), Rgb(hue, 0.10f), new Vector2(width / 2f, -middle), "reading band", under: true);
+                    // A band of its hue, strong enough over the bright room, and a rule of the hue at its left, as a diff marks a run.
+                    Plate(new Vector2(width, pitch), S(4f), Rgb(hue, 0.16f), new Vector2(width / 2f, -middle), "reading band", under: true);
+                    Plate(new Vector2(S(2f), pitch), 0f, Rgb(hue, 0.9f), new Vector2(S(1f), -middle), "reading rule");
                     if (!row.Continued)
                         Glyph(row.Kind == RoomLineKind.Added ? RoomGlyph.Plus : RoomGlyph.Minus, RoomReading.MarkDp, Rgb(row.Kind == RoomLineKind.Added ? Passed : Failed),
                             new Vector2(S(RoomReading.GutterDp + RoomReading.MarkGapDp + RoomReading.MarkDp / 2f), -middle), "reading mark");
@@ -415,7 +417,8 @@ namespace Halcyonic.XR.UI
                 if (row.Text != null && !row.Text.IsEmpty)
                 {
                     var left = S(RoomReading.TextLeftDp(1f, row.Continued)) + row.Indent * advance;
-                    var (label, _) = Text(KitRole.Mono, RoomReading.TypeDp, RoomReading.LineDp, White(changed ? 0.96f : 0.80f), row.Text, left, -down, Mathf.Max(width - left, advance), 1);
+                    var (label, _) = Text(KitRole.Mono, RoomReading.TypeDp, RoomReading.LineDp, White(changed ? 0.96f : 0.80f), row.Text, left, -down,
+                        Mathf.Max(width - left - S(RoomReading.RightPadDp), advance), 1);
                     ReadingShown.Add(label);
                 }
                 down += pitch;
@@ -435,16 +438,18 @@ namespace Halcyonic.XR.UI
                 // A name is never cut: two lines at the title's size, else three a step smaller, else four smaller still (a long
                 // task's name beside its picture at larger text, the gate's 38-result).
                 (float Dp, float Line, int Lines) chosen = (FinalTitleTypeDp, FinalTitleLineDp, 4);
+                // A file's name in the mono face, as the list of changes sets it.
+                var titleRole = card.TitleMono ? KitRole.Mono : KitRole.Title;
                 foreach (var (dp, line, lines) in new[] { (TitleTypeDp, TitleLineDp, 2), (LongTitleTypeDp, LongTitleLineDp, 3) })
                 {
-                    var (probe, _) = Text(KitRole.Title, dp, line, Color.white, card.Title, left, 0f, column, lines);
+                    var (probe, _) = Text(titleRole, dp, line, Color.white, card.Title, left, 0f, column, lines);
                     var fits = !probe.isTextOverflowing;
                     probe.gameObject.SetActive(false);
                     Shown.Remove(probe);
-                    textsUsed[KitRole.Title]--;
+                    textsUsed[titleRole]--;
                     if (fits) { chosen = (dp, line, lines); break; }
                 }
-                words.Add((KitRole.Title, chosen.Dp, chosen.Line, Color.white, card.Title, chosen.Lines, 0f));
+                words.Add((titleRole, chosen.Dp, chosen.Line, Color.white, card.Title, chosen.Lines, 0f));
             }
             // Measure first, then stand the words in the middle of the head's height where it has one.
             var laid = new List<(TextMeshPro Label, float Tall, float Before)>();
@@ -596,6 +601,11 @@ namespace Halcyonic.XR.UI
                             break;
                         case RoomKind.Failed:
                             Glyph(RoomGlyph.Alert, SlotGlyphDp, Rgb(Failed), mark, "failed");
+                            break;
+                        case RoomKind.Added:
+                        case RoomKind.Removed:
+                            // A count of lines added or removed carries the change's own hue, as its rows' marks do.
+                            Glyph(GlyphOf(slot.Kind), SlotGlyphDp, Rgb(slot.Kind == RoomKind.Added ? Passed : Failed), mark, "slot " + slot.Kind);
                             break;
                         default:
                             Glyph(GlyphOf(slot.Kind), SlotGlyphDp, Rgb(TileInk, 0.86f), mark, "slot " + slot.Kind);

@@ -70,11 +70,12 @@ public sealed class RoomCardTests
     [Test]
     public void AScreenWrapsAFileToTheColumnsTheCardDraws()
     {
-        // 384 dp of card less 60 of gutter and mark, at 9 dp a character; at larger text 375.6 less 69, at 10.35.
-        Assert.That(RoomReading.Columns(1f), Is.EqualTo(36));
-        Assert.That(RoomReading.Columns(1f, continued: true), Is.EqualTo(34));
-        Assert.That(RoomReading.Columns(Comfort.LargerTextScale), Is.EqualTo(29));
-        Assert.That(RoomReading.Columns(Comfort.LargerTextScale, continued: true), Is.EqualTo(27));
+        // 384 dp of card less 60 of gutter and mark and 12 kept clear at the right, at 9 dp a character; at larger text
+        // 375.6 less 69 and 13.8, at 10.35.
+        Assert.That(RoomReading.Columns(1f), Is.EqualTo(34));
+        Assert.That(RoomReading.Columns(1f, continued: true), Is.EqualTo(32));
+        Assert.That(RoomReading.Columns(Comfort.LargerTextScale), Is.EqualTo(28));
+        Assert.That(RoomReading.Columns(Comfort.LargerTextScale, continued: true), Is.EqualTo(26));
         Assert.Throws<System.ArgumentOutOfRangeException>(() => RoomReading.Columns(0f));
     }
 

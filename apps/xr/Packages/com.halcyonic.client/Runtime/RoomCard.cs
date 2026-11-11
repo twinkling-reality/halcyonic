@@ -289,8 +289,9 @@ namespace Halcyonic.Client
         public RoomCard(LineWords? title = null, LineWords? description = null, RoomCardHead head = RoomCardHead.None, RoomCardStatus? status = null,
             IReadOnlyList<RoomSlot>? slots = null, IReadOnlyList<RoomCardStep>? steps = null, int? trackAt = null, int? trackOf = null,
             IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, LineWords? more = null, RoomCode? code = null,
-            IReadOnlyList<RoomReadingRow>? reading = null, int? descriptionPage = null)
+            IReadOnlyList<RoomReadingRow>? reading = null, int? descriptionPage = null, bool titleMono = false)
         {
+            TitleMono = titleMono;
             DescriptionPage = descriptionPage is int page && page >= 0 ? page : (int?)null;
             Code = code;
             Reading = reading ?? new RoomReadingRow[0];
@@ -316,6 +317,9 @@ namespace Halcyonic.Client
         public LineWords? Title { get; }
 
         public LineWords? Description { get; }
+
+        /// <summary>The title is a file's name or path, set in the mono face as a list sets one (the critic, 2026-11-11).</summary>
+        public bool TitleMono { get; }
 
         /// <summary>
         /// Where the description is too long to stand whole (a first task of many lines, in the review before Start), the page

@@ -74,26 +74,55 @@ namespace Halcyonic.XR.Workspace.Editor
         private static RoomReadingRow[] CardReading()
         {
             LineWords Theirs(string words) => LineWords.TheirName(words);
-            var columns = RoomReading.Columns(GlazeText.Scale);
-            const string longLine = "return points.map(point => point.lerp(kite.at, wind.pull)).filter(Boolean).slice(0, 40);";
-            var first = longLine.Substring(0, columns - 4);
-            var rest = longLine.Substring(columns - 4);
-            var hung = rest.Substring(0, Math.Min(rest.Length, RoomReading.Columns(GlazeText.Scale, continued: true) - 4));
-            return new[]
+            const string longLine = "return points.map(point => point.lerp(kite.at, wind.pull)).filter(Boolean);";
+            var rows = new List<RoomReadingRow>
             {
                 new RoomReadingRow(RoomLineKind.Same, 10, Theirs("export function tail(k, w) {")),
                 new RoomReadingRow(RoomLineKind.Same, 11, Theirs("const points = [];"), indent: 2),
                 new RoomReadingRow(RoomLineKind.Removed, 12, Theirs("points.push(kite.at);"), indent: 2),
                 new RoomReadingRow(RoomLineKind.Added, 12, Theirs("points.push(kite.at, w.at);"), indent: 2),
                 new RoomReadingRow(RoomLineKind.Added, 13, Theirs("// streams behind the kite"), indent: 2),
-                new RoomReadingRow(RoomLineKind.Added, 14, Theirs(first), indent: 4),
-                new RoomReadingRow(RoomLineKind.Added, null, Theirs(hung), continued: true, indent: 4),
-                RoomReadingRow.GapRow,
-                new RoomReadingRow(RoomLineKind.Same, 38, Theirs("return points;"), indent: 2),
-                new RoomReadingRow(RoomLineKind.Same, 39, Theirs("}")),
-                new RoomReadingRow(RoomLineKind.Same, 40, null),
-                new RoomReadingRow(RoomLineKind.Same, 41, Theirs("export default tail;")),
             };
+            var first = true;
+            foreach (var part in CardWrap(longLine, 4))
+            {
+                rows.Add(new RoomReadingRow(RoomLineKind.Added, first ? 14 : (int?)null, Theirs(part), continued: !first, indent: 4));
+                first = false;
+            }
+            rows.Add(RoomReadingRow.GapRow);
+            rows.Add(new RoomReadingRow(RoomLineKind.Same, 38, Theirs("return points;"), indent: 2));
+            rows.Add(new RoomReadingRow(RoomLineKind.Same, 39, Theirs("}")));
+            rows.Add(new RoomReadingRow(RoomLineKind.Same, 40, null));
+            rows.Add(new RoomReadingRow(RoomLineKind.Same, 41, Theirs("export default tail;")));
+            return rows.Take(RoomReading.RowsAPage).ToArray();
+        }
+
+        /// <summary>
+        /// A line wrapped as a screen wraps it (RoomReading's rule): to the columns a row holds at this text size, its indent
+        /// counted, at a space or before a dot or a bracket, never inside an operator or a name; every part kept.
+        /// </summary>
+        private static List<string> CardWrap(string line, int indent)
+        {
+            var parts = new List<string>();
+            var rest = line;
+            var continued = false;
+            while (rest.Length > 0)
+            {
+                var room = RoomReading.Columns(GlazeText.Scale, continued) - indent;
+                if (rest.Length <= room) { parts.Add(rest); break; }
+                var cut = -1;
+                for (var at = room; at > 0; at--)
+                {
+                    var before = rest[at - 1];
+                    var after = rest[at];
+                    if (before == ' ' || before == ',' || ((after == '.' || after == '(') && char.IsLetterOrDigit(before))) { cut = at; break; }
+                }
+                if (cut <= 0) cut = room;
+                parts.Add(rest.Substring(0, cut).TrimEnd());
+                rest = rest.Substring(cut).TrimStart();
+                continued = true;
+            }
+            return parts;
         }
 
         /// <summary>A review before Start whose first task pages and names a web address, so its warning stands.</summary>
@@ -129,8 +158,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 "47-card-share" => new RoomCard(status: new RoomCardStatus("Shared", "Scan the code to play", RoomTone.Good),
                     slots: new[] { new RoomSlot(RoomKind.Wifi, Ours("192.168.1.20:47970")) },
                     more: Ours("They play the last checked build, without your newer changes."), code: CardCode()),
-                "47-card-reading" => new RoomCard(Theirs("tail.js"), slots: new[] { new RoomSlot(RoomKind.Changed, Ours("Edited")), new RoomSlot(RoomKind.Added, Ours("4 Lines")) },
-                    reading: CardReading(), more: Ours("Page 1 of 2")),
+                // kite.js as the Changes list has it, edited: three lines added, one removed, each count by its own mark.
+                "47-card-reading" => new RoomCard(Theirs("kite.js"), slots: new[]
+                    {
+                        new RoomSlot(RoomKind.Changed, Ours("Edited")), new RoomSlot(RoomKind.Added, Ours("3 Lines")), new RoomSlot(RoomKind.Removed, Ours("1 Line")),
+                    },
+                    reading: CardReading(), more: Ours("Page 1 of 2"), titleMono: true),
                 // The review before Start, its first task too long to stand whole: the second of its pages, with a note to check.
                 "47-card-review" => RoomReview.Card(CardReview(), page: 1, pages: 2),
                 "47-card-history" => new RoomCard(Ours("History"), Ours("Pick a moment to restore."), list: new[]
@@ -245,11 +278,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var row = texts[index];
                     var want = RoomType.Scaled(RoomReading.TextLeftDp(1f, row.Continued)) + row.Indent * advance;
-                    Require(Mathf.Abs(view.ReadingShown[index].transform.localPosition.x - want) < slack, row.Text!.Text + " does not stand at its indent");
+                    var shown = view.ReadingShown[index];
+                    Require(Mathf.Abs(shown.transform.localPosition.x - want) < slack, row.Text!.Text + " does not stand at its indent");
+                    Require(shown.transform.localPosition.x + RoomCursor.WordsWidth(shown, 0f) <= inner - RoomType.Scaled(RoomReading.RightPadDp) + slack, row.Text.Text + " runs into the room kept at the right");
                 }
                 Require(view.Plates.Count(each => each.What == "reading band") == card.Reading.Count(row => row.Kind == RoomLineKind.Added || row.Kind == RoomLineKind.Removed), "a changed row has no band");
                 Require(view.Glyphs.Count(each => each.What == "reading mark") == card.Reading.Count(row => (row.Kind == RoomLineKind.Added || row.Kind == RoomLineKind.Removed) && !row.Continued), "a changed line has no mark");
                 Require(view.Plates.Count(each => each.What == "reading gap") == card.Reading.Count(row => row.Kind == RoomLineKind.Gap), "a gap has no hairline");
+                Require(view.Plates.Where(each => each.What == "reading gap").All(each => Mathf.Abs(each.Plate.transform.localPosition.x - each.Plate.Size.x / 2f) < slack && Mathf.Abs(each.Plate.Size.y - unit) < slack * 0.2f),
+                    "a gap's hairline does not start at the bands' edge, one dp tall");
                 Require(card.Reading.Count <= RoomReading.RowsAPage, "the page holds more rows than a page");
             }
             if (card.Slots.Count > 1)
