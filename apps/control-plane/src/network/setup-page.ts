@@ -10,6 +10,7 @@ import {
   type Principal,
   type ProjectId,
   type ReceivedVia,
+  type SecretName,
   type Timestamp,
 } from '@halcyonic/contracts';
 import {
@@ -24,6 +25,7 @@ import {
 import { matchesPin, type Pins } from '../pins.ts';
 import { plainLine } from '../preview/check-output.ts';
 import { isPinnedTunnel, TUNNEL_PIN } from '../preview/share.ts';
+import { LONGEST_VALUE, nameProblem, type SecretStore, valueProblem } from '../secrets/store.ts';
 import { VR_STARTER } from '../starters.ts';
 import type { PageRoutes } from './pairing-page.ts';
 
@@ -53,6 +55,8 @@ const JOB_LINES = 12;
  */
 const STEPS_STAND_MS = 5 * 60 * 1000;
 const JOB_LINE_CHARS = 200;
+/** The most a secret's set may send: the longest value, escaped as JSON escapes it, and its names. */
+const SECRET_BODY_LIMIT = LONGEST_VALUE * 6 + 1024;
 
 /** A download: what it fetches, said before the press, and how it runs. */
 export interface SetupDownload {
@@ -113,6 +117,115 @@ export interface SetupPageDeps {
    * when it is not shared, `refused` when the stop was not accepted (the share ending just then, say).
    */
   readonly stopShare?: (projectId: string) => 'stopped' | 'not_shared' | 'refused';
+  /** Each project's secrets by name, with Set and Remove (ADR 0057); absent where none are kept. */
+  readonly secrets?: PageSecrets;
+}
+
+/** A project as the page's secrets section lists it: its name and its secrets' names, never a value. */
+export interface SecretsProject {
+  readonly project_id: string;
+  readonly name: string;
+  readonly secrets: readonly string[];
+}
+
+/** The page's secrets (ADR 0057): what each set or remove says when it is refused, or null. */
+export interface PageSecrets {
+  readonly projects: () => readonly SecretsProject[];
+  /** Whether every agent on this Mac declares `secret_environment`. */
+  readonly everyAgent: () => boolean;
+  readonly set: (projectId: unknown, name: unknown, value: unknown) => string | null;
+  readonly remove: (projectId: unknown, name: unknown) => string | null;
+}
+
+/**
+ * The person's Set and Remove from the page (ADR 0057), submitted as what they are: a local press
+ * over HTTP on this Mac. A set stages the value in the store under the command's id, then submits
+ * the command with the name alone; a set refused or failed leaves nothing kept.
+ */
+export function pageSecrets(deps: {
+  readonly submit: (
+    command: CommandEnvelope,
+    via: ReceivedVia,
+    principal: Principal | null,
+  ) => {
+    readonly disposition: string;
+    readonly command: {
+      readonly status: string;
+      readonly rejection?: { readonly message: string } | null;
+      readonly failure?: { readonly message: string } | null;
+    } | null;
+  };
+  readonly store: SecretStore;
+  readonly projects: () => readonly SecretsProject[];
+  readonly everyAgent: () => boolean;
+  readonly nextId: () => string;
+  readonly now: () => Date;
+}): PageSecrets {
+  const known = (projectId: unknown): projectId is ProjectId =>
+    typeof projectId === 'string' &&
+    deps.projects().some((project) => project.project_id === projectId);
+  const send = (
+    commandId: string,
+    command:
+      | {
+          readonly command_type: 'project.secret.set';
+          readonly payload: { project_id: ProjectId; name: SecretName };
+        }
+      | {
+          readonly command_type: 'project.secret.remove';
+          readonly payload: { project_id: ProjectId; name: SecretName };
+        },
+  ): string | null => {
+    const sent = deps.submit(
+      {
+        schema_version: COMMAND_SCHEMA_VERSION,
+        command_id: commandId as CommandId,
+        issued_at: deps.now().toISOString() as Timestamp,
+        client: { name: 'halcyonic-setup-page', version: null, device_label: null },
+        ...command,
+      } as CommandEnvelope,
+      'http',
+      { kind: 'local' },
+    );
+    if (sent.disposition !== 'accepted')
+      return sent.command?.rejection?.message ?? "That couldn't be done. Try again.";
+    if (sent.command?.status === 'failed')
+      return sent.command.failure?.message ?? "That couldn't be done. Try again.";
+    return null;
+  };
+  return {
+    projects: deps.projects,
+    everyAgent: deps.everyAgent,
+    set: (projectId, name, value) => {
+      if (!known(projectId)) return 'That project is not on this Mac.';
+      const problem = nameProblem(name) ?? valueProblem(value);
+      if (problem !== null) return problem;
+      const commandId = deps.nextId();
+      try {
+        deps.store.stage(commandId, projectId, name as SecretName, value as string);
+      } catch {
+        return "The secret couldn't be kept on this Mac. Try again.";
+      }
+      try {
+        return send(commandId, {
+          command_type: 'project.secret.set',
+          payload: { project_id: projectId, name: name as SecretName },
+        });
+      } finally {
+        // Committed by an accepted set; anything still staged was refused or failed.
+        deps.store.discard(commandId);
+      }
+    },
+    remove: (projectId, name) => {
+      if (!known(projectId)) return 'That project is not on this Mac.';
+      const problem = nameProblem(name);
+      if (problem !== null) return 'That project has no secret by that name.';
+      return send(deps.nextId(), {
+        command_type: 'project.secret.remove',
+        payload: { project_id: projectId, name: name as SecretName },
+      });
+    },
+  };
 }
 
 /**
@@ -199,6 +312,14 @@ export interface SetupState {
     readonly address_text: string | null;
     readonly url: string;
   }[];
+  /**
+   * Each project's secrets by name (ADR 0057), and whether every agent here takes them; null where
+   * none are kept. A value is never in the page's state.
+   */
+  readonly secrets: {
+    readonly projects: readonly SecretsProject[];
+    readonly every_agent: boolean;
+  } | null;
 }
 
 export interface SetupActionView {
@@ -523,7 +644,49 @@ export class SetupView {
         address_text: share.way === 'wifi' ? share.url.replace(/^http:\/\//, '') : null,
         url: share.url,
       })),
+      secrets:
+        this.#deps.secrets === undefined
+          ? null
+          : {
+              projects: this.#deps.secrets.projects(),
+              every_agent: this.#deps.secrets.everyAgent(),
+            },
     };
+  }
+
+  /** Sets a project secret by the person's press (ADR 0057): one press, the value typed for it. */
+  async setSecret(
+    projectId: unknown,
+    name: unknown,
+    value: unknown,
+    session: string = ONE_SESSION,
+  ): Promise<SetupState> {
+    const here = this.#press(session);
+    const secrets = this.#deps.secrets;
+    if (secrets === undefined)
+      return this.#refused(here, session, "This Mac doesn't keep secrets.");
+    const problem = secrets.set(projectId, name, value);
+    if (problem !== null) return this.#refused(here, session, problem);
+    here.confirm = null;
+    here.said = [];
+    return this.state(session);
+  }
+
+  /** Removes a project secret by the person's press: later tasks no longer get it. */
+  async removeSecret(
+    projectId: unknown,
+    name: unknown,
+    session: string = ONE_SESSION,
+  ): Promise<SetupState> {
+    const here = this.#press(session);
+    const secrets = this.#deps.secrets;
+    if (secrets === undefined)
+      return this.#refused(here, session, "This Mac doesn't keep secrets.");
+    const problem = secrets.remove(projectId, name);
+    if (problem !== null) return this.#refused(here, session, problem);
+    here.confirm = null;
+    here.said = [];
+    return this.state(session);
   }
 
   /** Stops a shared game by the person's press: one press, since stopping is undone by sharing again. */
@@ -758,6 +921,23 @@ export function mountSetup(view: SetupView): (routes: PageRoutes) => void {
     routes.post('/setup/shares/stop', (request, session) => {
       const body = (request.body ?? {}) as { project_id?: unknown };
       return view.stopShare(body.project_id, session);
+    });
+    // Room for a value as long as the store keeps, and no more (ADR 0057).
+    routes.post(
+      '/setup/secrets/set',
+      (request, session) => {
+        const body = (request.body ?? {}) as {
+          project_id?: unknown;
+          name?: unknown;
+          value?: unknown;
+        };
+        return view.setSecret(body.project_id, body.name, body.value, session);
+      },
+      { bodyLimit: SECRET_BODY_LIMIT },
+    );
+    routes.post('/setup/secrets/remove', (request, session) => {
+      const body = (request.body ?? {}) as { project_id?: unknown; name?: unknown };
+      return view.removeSecret(body.project_id, body.name, session);
     });
   };
 }

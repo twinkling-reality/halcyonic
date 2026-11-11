@@ -4,7 +4,9 @@
 // each game shared now (ADR 0054) with Copy, which puts its address on this Mac's clipboard, and Stop.
 // A link's address is never drawn, only copied. Drawn in the headset's card language (A17): one
 // accent, on the page's one main action; each step a row that opens, one open at a time unless the
-// person opens more; a press's question stands right under the press.
+// person opens more; a press's question stands right under the press. Below the steps, each
+// project's secrets by name with Remove, and a name and a hidden field to set one (ADR 0057): a
+// value is sent once and never drawn.
 
 const CLOSED = 'This page has closed. Open pairing again on this computer.';
 const UNREACHABLE = "This computer's app isn't answering. Check that it is running.";
@@ -285,6 +287,7 @@ function said(lines) {
 }
 
 let drawnShared = '';
+let drawnSecrets = '';
 function drawShared() {
   const shared = state.shared ?? [];
   $('shared').hidden = shared.length === 0;
@@ -328,6 +331,64 @@ function drawShared() {
       );
       actions.append(copy, stop);
       item.append(tile, words, actions);
+      return item;
+    }),
+  );
+}
+
+function drawSecrets() {
+  const secrets = state.secrets ?? null;
+  $('secrets').hidden = secrets === null || secrets.projects.length === 0;
+  if (secrets === null) return;
+  $('secrets-some').hidden = secrets.every_agent;
+  // Drawn again only when the names change, so a poll never clears a field being typed in.
+  const drawn = JSON.stringify(secrets.projects);
+  if (drawn === drawnSecrets) return;
+  drawnSecrets = drawn;
+  $('secrets-list').replaceChildren(
+    ...secrets.projects.map((project) => {
+      const item = element('li', 'secret-project');
+      item.append(element('p', 'secret-project-name', project.name));
+      for (const name of project.secrets) {
+        const row = element('div', 'secret-row');
+        row.append(
+          element('code', 'secret-name', name),
+          button(
+            'Remove',
+            () => void call('/setup/secrets/remove', { project_id: project.project_id, name }),
+            false,
+            'close',
+          ),
+        );
+        item.append(row);
+      }
+      const form = element('form', 'secret-form');
+      const named = element('input');
+      named.type = 'text';
+      named.placeholder = 'API_KEY';
+      named.autocomplete = 'off';
+      named.spellcheck = false;
+      named.setAttribute('aria-label', 'Name');
+      const value = element('input');
+      value.type = 'password';
+      value.placeholder = 'Secret';
+      value.autocomplete = 'new-password';
+      value.setAttribute('aria-label', 'Secret');
+      const set = button('Set', () => undefined, false, 'key');
+      set.type = 'submit';
+      form.append(named, value, set);
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const typed = value.value;
+        // Cleared before it is sent, whatever the answer: the page never keeps a value.
+        value.value = '';
+        void call('/setup/secrets/set', {
+          project_id: project.project_id,
+          name: named.value.trim(),
+          value: typed,
+        });
+      });
+      item.append(form);
       return item;
     }),
   );
@@ -442,6 +503,7 @@ function draw() {
   $('said').hidden = state.said.length === 0;
   $('said-lines').replaceChildren(...said(state.said));
   drawShared();
+  drawSecrets();
 
   // Drawn again only when the steps change, so a poll never swaps a button under a press.
   const drawn = JSON.stringify([state.steps, running, state.confirm, main, [...opened]]);

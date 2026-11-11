@@ -7,6 +7,7 @@ import {
   type Scheduler,
 } from '@halcyonic/runtime-core';
 import type { Logger } from '../logger.ts';
+import { givenSecrets, type SecretStore } from '../secrets/store.ts';
 import { controlPlaneDraft, createObservationSink, NO_CAUSE } from './drafts.ts';
 import type { Recorder } from './recorder.ts';
 import { type Redaction, withinLimit } from './redaction.ts';
@@ -20,6 +21,8 @@ export interface ReattacherDeps {
   readonly scheduler: Scheduler;
   readonly logger: Logger;
   readonly redaction: Redaction;
+  /** The person's project secrets (ADR 0057), given again to a re-attached task's agent. */
+  readonly projectSecrets?: SecretStore | null;
   /** How long a runtime may take to answer for a session before it counts as lost. */
   readonly timeoutMs: number;
 }
@@ -127,6 +130,12 @@ export class Reattacher {
       workstream_id: view.workstream_id,
       project_id: view.project_id,
     };
+    const given = givenSecrets(
+      this.#deps.projectSecrets,
+      this.#deps.projection,
+      view.project_id,
+      adapter.descriptor,
+    );
     const halt = new AbortController();
     try {
       const timedOut = this.#deps.scheduler.sleep(this.#deps.timeoutMs, halt.signal).then(() => {
@@ -145,6 +154,7 @@ export class Reattacher {
           ...(bounds.plan && { plan: true }),
           confined: bounds.confined,
           directory: bounds.directory,
+          ...(Object.keys(given).length > 0 && { environment: given }),
           cut_turn: bounds.cut_turn,
           last_sequence: bounds.last_sequence,
           emit: createObservationSink(

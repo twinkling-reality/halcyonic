@@ -592,6 +592,9 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       // A session outlives its server in that folder's store, and a new server continues it by its
       // id (restart-reattach.md; ADR 0046).
       resumes_after_restart: true,
+      // Each session's own command environment, set before its first prompt, takes the project's
+      // secrets: no server restarts for them (ADR 0057, project-secrets.md).
+      secret_environment: true,
     };
   }
 
@@ -803,11 +806,12 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     // Shell commands get this environment instead of the server's own, so the server's password,
     // which the adapter passes in OPENCODE_PASSWORD, is not in theirs. Defence in depth only: any
     // process of this user can read the server's starting environment (opencode-permissions.md).
+    // The project's secrets go in this session's alone (ADR 0057), under the commands' own variables.
     await send(
       connection,
       'PUT',
       `/api/session/${encodeURIComponent(session.sessionId)}/environment`,
-      { variables: connection.commands },
+      { variables: { ...request.environment, ...connection.commands } },
       'runtime_refused',
     );
     await this.#prompt(session, request.instruction);
@@ -907,12 +911,13 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     this.#bySessionId.set(session.sessionId, session);
     try {
       // As at a start: the session's commands get the folder server's command environment, with its
-      // own home inside the sandbox (BOX-3b), not the new server's own.
+      // own home inside the sandbox (BOX-3b), not the new server's own, and the project's secrets
+      // as they are now (ADR 0057).
       await send(
         connection,
         'PUT',
         `${base}/environment`,
-        { variables: connection.commands },
+        { variables: { ...request.environment, ...connection.commands } },
         'runtime_refused',
       );
     } catch (error) {

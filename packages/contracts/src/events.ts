@@ -64,6 +64,7 @@ import {
   WorkspaceRequestView,
 } from './requests.ts';
 import { ApprovalLevel, ModelRef, RuntimeRef } from './runtime.ts';
+import { SecretName, SecretNames } from './secrets.ts';
 import { StarterId } from './starters.ts';
 import { ToolResult } from './tool-results.ts';
 import { EVENT_SCHEMA_VERSION } from './versions.ts';
@@ -508,6 +509,21 @@ export const ProjectUnpublished = projectEvent(
 );
 
 /**
+ * A project secret was set by the person (ADR 0057): its name, and whether it replaced one of that
+ * name. Its value is in Halcyonic's own store only, never here.
+ */
+export const ProjectSecretStored = projectEvent(
+  'project.secret.stored',
+  Type.Object({ name: SecretName, replaced: Type.Boolean() }, strict),
+);
+
+/** A project secret was removed: its value was deleted from the store. */
+export const ProjectSecretRemoved = projectEvent(
+  'project.secret.removed',
+  Type.Object({ name: SecretName }, strict),
+);
+
+/**
  * The project's work was pushed to the person's own GitHub (ADR 0039, amended): `commit`, on top of
  * `base_commit` of `branch`, as `new_branch` of `repository`, and the pull request `gh` opened, or
  * null where none was. Nothing the person's git or gh printed is recorded.
@@ -661,6 +677,12 @@ export const ExecutionCreated = executionEvent(
        * to work in; null for a runtime that uses no folder.
        */
       directory: Nullable(HostPath),
+      /**
+       * The project's secrets, by name, given to the agent's commands as variables at this start
+       * (ADR 0057): absent when none was given, as for a runtime that does not declare
+       * `secret_environment`.
+       */
+      secret_names: Type.Optional(SecretNames),
     },
     strict,
   ),
@@ -1115,6 +1137,8 @@ export const EVENT_VARIANTS = [
   ProjectSentToGitHub,
   ProjectPublished,
   ProjectUnpublished,
+  ProjectSecretStored,
+  ProjectSecretRemoved,
   ProjectWorldObserved,
   WorkstreamCreated,
   WorkstreamCopyMade,

@@ -662,6 +662,7 @@ describe('the C# bindings', () => {
     'CheckPage.own', // a check page's own pixels against the starter's (DRAWN)
     'CheckpointView.turn_id', // the turn an after_turn version follows (History)
     'Evaluation.activity', // Seorak's activity of a session
+    'ExecutionCreatedPayload.secret_names', // the project secrets a start gave (ADR 0057)
     'ExecutionSendInstructionPayload.leave_plan', // carrying a plan out (PLAN 4a)
     'ExecutionStartPayload.approval_level', // ADR 0043
     'ExecutionStartPayload.plan', // a start in the runtime's own plan mode (PLAN)
@@ -685,6 +686,7 @@ describe('the C# bindings', () => {
     'ProjectView.own_check', // a project's own check (ADR 0055)
     'ProjectView.preview', // M1.8e
     'ProjectView.published', // a project's published game (ADR 0039)
+    'ProjectView.secrets', // a project's secrets by name (ADR 0057)
     'ProjectView.share', // a project's shared link (ADR 0054)
     'ProjectView.world', // a world project's world (ADR 0049)
     'ProjectViewCheck.workstream_id', // ADR 0045
@@ -693,6 +695,7 @@ describe('the C# bindings', () => {
     'RuntimeDescriptor.offers_plan', // a declaration (PLAN)
     'RuntimeDescriptor.reports_tool_results', // a declaration
     'RuntimeDescriptor.resumes_after_restart', // ADR 0046
+    'RuntimeDescriptor.secret_environment', // ADR 0057
     'RuntimeExecutionStartedPayload.approval_level', // ADR 0043
     'RuntimeExecutionStartedPayload.confined', // whether a start recorded it confined (S2)
     'RuntimeExecutionStartedPayload.plan', // whether a start recorded its plan mode (PLAN)

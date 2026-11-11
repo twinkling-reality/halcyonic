@@ -79,6 +79,12 @@ export interface StartExecutionRequest {
    * nowhere else, after asking the policy again (`confirmProjectLocation`).
    */
   readonly directory: string | null;
+  /**
+   * The project's secrets, as variables for the agent's commands (ADR 0057), given only to an
+   * adapter whose descriptor declares `secret_environment`; absent or empty means none. The adapter
+   * never logs, records or reports a value, and never lets one override a variable of its own.
+   */
+  readonly environment?: Readonly<Record<string, string>>;
   /** Where the adapter sends every observation about this execution, for as long as it can observe it. */
   readonly emit: ObservationSink;
 }
@@ -111,6 +117,12 @@ export interface ReattachRequest {
    */
   readonly confined?: boolean;
   readonly directory: string | null;
+  /**
+   * The project's secrets as they are now, as variables for the agent's commands (ADR 0057), given only to an
+   * adapter whose descriptor declares `secret_environment`; absent or empty means none. The adapter
+   * never logs, records or reports a value, and never lets one override a variable of its own.
+   */
+  readonly environment?: Readonly<Record<string, string>>;
   /**
    * The turn in flight as the last control plane ended, by the id its start reported, or null when
    * none was. The restart cut it, and the processes running it were stopped: once re-attached, the

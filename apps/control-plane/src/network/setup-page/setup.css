@@ -407,3 +407,61 @@
     padding: 2px 14px 16px;
   }
 }
+/* Each project's secrets by name (ADR 0057): a row per secret with Remove, and a name and a hidden
+   field to set one. A value is never drawn. */
+.secrets-note {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--quiet);
+}
+.secret-project {
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--well);
+}
+.secret-project + .secret-project {
+  margin-top: 8px;
+}
+.secret-project-name {
+  margin: 0 0 6px;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.secret-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+}
+.secret-name {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--secondary);
+  overflow-wrap: anywhere;
+}
+.secret-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.secret-form input {
+  flex: 1 1 140px;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--rest-edge);
+  border-radius: 12px;
+  background: var(--tile);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+}
+.secret-form input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}

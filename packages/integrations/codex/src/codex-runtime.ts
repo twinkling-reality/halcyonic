@@ -361,6 +361,9 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       // A thread outlives its server in the Codex home, and thread/resume continues it
       // (codex-capabilities.md, restart-reattach.md; ADR 0046).
       resumes_after_restart: true,
+      // A thread's shell_environment_policy.set, given at its start and every resume, reaches its
+      // commands (project-secrets.md; ADR 0057).
+      secret_environment: true,
     };
   }
 
@@ -430,7 +433,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     if (this.#threads.has(request.execution.execution_id)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
-    const chosen: StartOptions = { ...parsed.value, cwd };
+    const chosen: StartOptions = { ...parsed.value, cwd, secrets: request.environment ?? {} };
     // A chosen model is checked against a fresh list: Codex itself would take any name.
     if (request.model_ref !== null) {
       const listed = await this.listModels();
@@ -551,7 +554,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     // asking thread is untrusted (BOX-2).
     const local = await this.#onThisMac(
       connection,
-      askingInside({ ...parsed.value, cwd }, slot.confinement),
+      askingInside({ ...parsed.value, cwd, secrets: request.environment ?? {} }, slot.confinement),
     );
     confirmProjectLocation(this.#directoryPolicy, cwd);
     const thread: HostedThread = {
@@ -1690,6 +1693,14 @@ function threadSettings(
     'sandbox_workspace_write.network_access': false,
     'sandbox_workspace_write.writable_roots': [],
     projects: untrustedFrom(options.cwd),
+    // The project's secrets, for this thread's commands alone (ADR 0057; a runtime test of 0.157.0,
+    // project-secrets.md): set on every start and resume, never kept in Codex's home.
+    ...Object.fromEntries(
+      Object.entries(options.secrets ?? {}).map(([name, value]) => [
+        `shell_environment_policy.set.${name}`,
+        value,
+      ]),
+    ),
   };
   return {
     cwd: options.cwd,

@@ -1342,6 +1342,8 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "project.send_to_github")] ProjectSendToGithub,
         [EnumMember(Value = "project.publish")] ProjectPublish,
         [EnumMember(Value = "project.unpublish")] ProjectUnpublish,
+        [EnumMember(Value = "project.secret.set")] ProjectSecretSet,
+        [EnumMember(Value = "project.secret.remove")] ProjectSecretRemove,
         [EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
         [EnumMember(Value = "project.unlink_catalog")] ProjectUnlinkCatalog,
         [EnumMember(Value = "workstream.create")] WorkstreamCreate,
@@ -1964,6 +1966,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("published", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public ProjectPublishedView? Published { get; set; }
+
+        [JsonProperty("secrets", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public List<string>? Secrets { get; set; }
 
         [JsonProperty("world", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public ProjectWorldView? World { get; set; }
@@ -2974,6 +2979,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("offers_plan", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public bool? OffersPlan { get; set; }
 
+        [JsonProperty("secret_environment", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? SecretEnvironment { get; set; }
+
         [JsonProperty("resumes_after_restart", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public bool? ResumesAfterRestart { get; set; }
     }
@@ -3454,6 +3462,21 @@ namespace Halcyonic.Contracts
         public string Branch { get; set; } = default!;
     }
 
+    public sealed class ProjectSecretStoredPayload
+    {
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [JsonProperty("replaced", Required = Required.Always)]
+        public bool Replaced { get; set; }
+    }
+
+    public sealed class ProjectSecretRemovedPayload
+    {
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+    }
+
     public sealed class WorldObserved
     {
         [JsonProperty("description", Required = Required.AllowNull)]
@@ -3563,6 +3586,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("directory", Required = Required.AllowNull)]
         public string? Directory { get; set; }
+
+        [JsonProperty("secret_names", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public List<string>? SecretNames { get; set; }
     }
 
     public sealed class FileCreated
@@ -3965,6 +3991,24 @@ namespace Halcyonic.Contracts
         public string Commit { get; set; } = default!;
     }
 
+    public sealed class ProjectSecretSetPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+    }
+
+    public sealed class ProjectSecretRemovePayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+    }
+
     public sealed class ProjectLinkCatalogPayload
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -4188,6 +4232,8 @@ namespace Halcyonic.Contracts
                 "project.send_to_github" => new ProjectSendToGithubCommand(),
                 "project.publish" => new ProjectPublishCommand(),
                 "project.unpublish" => new ProjectUnpublishCommand(),
+                "project.secret.set" => new ProjectSecretSetCommand(),
+                "project.secret.remove" => new ProjectSecretRemoveCommand(),
                 "project.link_catalog" => new ProjectLinkCatalogCommand(),
                 "project.unlink_catalog" => new ProjectUnlinkCatalogCommand(),
                 "workstream.create" => new WorkstreamCreateCommand(),
@@ -4348,6 +4394,22 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectUnpublishPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectSecretSetCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.secret.set";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectSecretSetPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectSecretRemoveCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.secret.remove";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectSecretRemovePayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectLinkCatalogCommand : CommandEnvelope
@@ -5089,6 +5151,8 @@ namespace Halcyonic.Contracts
                 "project.sent_to_github" => new ProjectSentToGithubEvent(),
                 "project.published" => new ProjectPublishedEvent(),
                 "project.unpublished" => new ProjectUnpublishedEvent(),
+                "project.secret.stored" => new ProjectSecretStoredEvent(),
+                "project.secret.removed" => new ProjectSecretRemovedEvent(),
                 "project.world.observed" => new ProjectWorldObservedEvent(),
                 "workstream.created" => new WorkstreamCreatedEvent(),
                 "workstream.copy_made" => new WorkstreamCopyMadeEvent(),
@@ -5350,6 +5414,22 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectUnpublishedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectSecretStoredEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.secret.stored";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectSecretStoredPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectSecretRemovedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.secret.removed";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectSecretRemovedPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectWorldObservedEvent : EventEnvelope

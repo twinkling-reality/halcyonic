@@ -30,6 +30,7 @@ import { PairingPage, pairingControls } from './network/pairing-page.ts';
 import { confinedPreviewTarget } from './network/preview-relay.ts';
 import {
   mountSetup,
+  pageSecrets,
   pageStopShare,
   RESTART_EXIT_CODE,
   runCommand,
@@ -282,6 +283,8 @@ async function main(): Promise<void> {
           },
         }
       : {}),
+    // The person's project secrets (ADR 0057), set on this Mac's setup page only.
+    projectSecrets: { dataDir: config.dataDir },
     secrets: heldSecrets(
       config,
       { environment: process.env, dataDir: config.dataDir },
@@ -455,6 +458,28 @@ async function main(): Promise<void> {
                     ? []
                     : [{ project_id: project.project_id, name: project.name, ...share }];
                 }),
+              // Each project's secrets by name, with Set and Remove (ADR 0057).
+              ...(controlPlane.projectSecrets === null
+                ? {}
+                : {
+                    secrets: pageSecrets({
+                      submit: (command, via, principal) =>
+                        controlPlane.commands.submit(command, via, principal),
+                      store: controlPlane.projectSecrets,
+                      projects: () =>
+                        controlPlane.projection.projects().map((project) => ({
+                          project_id: project.project_id,
+                          name: project.name,
+                          secrets: project.secrets ?? [],
+                        })),
+                      everyAgent: () =>
+                        controlPlane.registry
+                          .descriptors()
+                          .every((descriptor) => descriptor.secret_environment === true),
+                      nextId: () => ids.next(),
+                      now: () => systemClock.now(),
+                    }),
+                  }),
               stopShare: pageStopShare({
                 submit: (command, via, principal) =>
                   controlPlane.commands.submit(command, via, principal),

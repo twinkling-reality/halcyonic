@@ -20,6 +20,7 @@ import {
 } from './primitives.ts';
 import { QuestionAnswer } from './questions.ts';
 import { ApprovalLevel, ModelRef, RuntimeOptions } from './runtime.ts';
+import { SecretName } from './secrets.ts';
 import { COMMAND_SCHEMA_VERSION } from './versions.ts';
 
 const strict = { additionalProperties: false } as const;
@@ -212,6 +213,24 @@ export const ProjectPublishCommand = defineCommand(
 export const ProjectUnpublishCommand = defineCommand(
   'project.unpublish',
   Type.Object({ project_id: ProjectId, commit: GitObjectId }, strict),
+);
+
+/**
+ * Records that the person set a project secret on this Mac's setup page (ADR 0057). The command
+ * names the secret only: the page wrote its value into Halcyonic's own store, outside the journal,
+ * before submitting it, and a set whose value the store does not hold for this command fails. A
+ * task started after it gets the secret as a variable of its agent's commands, where the agent's
+ * runtime declares `secret_environment`.
+ */
+export const ProjectSecretSetCommand = defineCommand(
+  'project.secret.set',
+  Type.Object({ project_id: ProjectId, name: SecretName }, strict),
+);
+
+/** Removes a project secret: its value is deleted from the store, and later tasks no longer get it. */
+export const ProjectSecretRemoveCommand = defineCommand(
+  'project.secret.remove',
+  Type.Object({ project_id: ProjectId, name: SecretName }, strict),
 );
 
 export const ProjectShowInFinderCommand = defineCommand(
@@ -426,6 +445,8 @@ export const COMMAND_VARIANTS = [
   ProjectSendToGitHubCommand,
   ProjectPublishCommand,
   ProjectUnpublishCommand,
+  ProjectSecretSetCommand,
+  ProjectSecretRemoveCommand,
   ProjectLinkCatalogCommand,
   ProjectUnlinkCatalogCommand,
   WorkstreamCreateCommand,
@@ -464,6 +485,8 @@ export const CommandType = Type.Union([
   Type.Literal('project.send_to_github'),
   Type.Literal('project.publish'),
   Type.Literal('project.unpublish'),
+  Type.Literal('project.secret.set'),
+  Type.Literal('project.secret.remove'),
   Type.Literal('project.link_catalog'),
   Type.Literal('project.unlink_catalog'),
   Type.Literal('workstream.create'),

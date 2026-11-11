@@ -109,6 +109,7 @@ function forPattern(random: Random, pattern: string, pools: Pools): string | und
         'https://github.com/owner/garden/pull/7',
         'halcyonic-pages',
       ]),
+    () => pick(random, ['API_KEY', 'STRIPE_TEST_KEY', 'TOKEN']),
     () => pick(random, WORDS),
   ];
   const expression = new RegExp(pattern, 'u');

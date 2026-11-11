@@ -14,10 +14,15 @@ import type {
   WorkstreamId,
   WorkstreamView,
 } from '@halcyonic/contracts';
-import { QUEUED_INSTRUCTIONS_MAX, WORLD_STARTER_ID } from '@halcyonic/contracts';
+import {
+  MAX_PROJECT_SECRETS,
+  QUEUED_INSTRUCTIONS_MAX,
+  WORLD_STARTER_ID,
+} from '@halcyonic/contracts';
 import { foldersOverlap } from './folders.ts';
 import { COMMAND_POLICY } from './policy.ts';
 import type { ExecutionFacts, Projection } from './projection.ts';
+import { reservedSecretName } from './secrets.ts';
 
 export interface CommandScope {
   project_id: ProjectId | null;
@@ -193,6 +198,31 @@ export function admitCommand(
         const busy = projection.projectBusy(projectId);
         if (busy !== null) return reject(scope, 'invalid_state', `${busy} ${after}`);
       }
+      return { admitted: true, policy, scope, runtime: null };
+    }
+
+    case 'project.secret.set':
+    case 'project.secret.remove': {
+      // Names only (ADR 0057): the setup page put the value in the store before it submitted this.
+      const projectId = command.payload.project_id;
+      const project = projection.project(projectId);
+      if (project === undefined)
+        return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
+      const scope = { ...NO_SCOPE, project_id: projectId };
+      const name = command.payload.name;
+      const held = project.secrets ?? [];
+      if (command.command_type === 'project.secret.remove')
+        return held.includes(name)
+          ? { admitted: true, policy, scope, runtime: null }
+          : reject(scope, 'invalid_state', `This project has no secret named ${name}.`);
+      const reserved = reservedSecretName(name);
+      if (reserved !== null) return reject(scope, 'invalid_state', reserved);
+      if (!held.includes(name) && held.length >= MAX_PROJECT_SECRETS)
+        return reject(
+          scope,
+          'invalid_state',
+          `A project keeps at most ${MAX_PROJECT_SECRETS} secrets. Remove one first.`,
+        );
       return { admitted: true, policy, scope, runtime: null };
     }
 

@@ -82,6 +82,11 @@ export interface ThreadConfigOverrides {
    * `load_with_cli_overrides`, and codex-rs/config/src/loader/mod.rs at rust-v0.157.0).
    */
   readonly projects?: Readonly<Record<string, { readonly trust_level: 'untrusted' }>>;
+  /**
+   * A variable for the thread's shell commands, one key per name: `shell_environment_policy.set`
+   * applies to the one thread (a runtime test of 0.157.0, project-secrets.md; ADR 0057).
+   */
+  readonly [secret: `shell_environment_policy.set.${string}`]: string;
 }
 
 /** `v2/ThreadStartParams.ts`. */

@@ -28,6 +28,7 @@ import { attachWorldReader } from '../observer/world-reader.ts';
 import { OwnChecks, type OwnChecksDeps } from '../own-check/own-check.ts';
 import { HostPreviews, type HostPreviewsDeps } from '../preview/preview.ts';
 import { ProjectShares, type ProjectSharesDeps } from '../preview/share.ts';
+import { SecretStore } from '../secrets/store.ts';
 import { GitHubSender, type GitHubSenderDeps } from '../sending/github.ts';
 import type { HostStarters } from '../starters.ts';
 import { AutoFix } from './auto-fix.ts';
@@ -129,6 +130,11 @@ export interface ControlPlaneOptions {
    */
   readonly secrets?: () => Iterable<HeldSecret>;
   /**
+   * Where the person's project secrets are kept (ADR 0057): `<dataDir>/secrets`. Absent, a set is
+   * refused and no task gets a secret, as for recorded traces and most tests.
+   */
+  readonly projectSecrets?: { readonly dataDir: string };
+  /**
    * Unloads a local Ollama model that Halcyonic loaded once no active execution in Halcyonic uses
    * it (UL1); none by default, so tests do not touch loopback Ollama unless they pass one.
    */
@@ -173,6 +179,8 @@ export class ControlPlane {
   readonly shares: ProjectShares | null;
   /** Send to GitHub (ADR 0039, amended), where the person's git is set up. */
   readonly github: GitHubSender | null;
+  /** The person's project secrets (ADR 0057), or null where none are kept. */
+  readonly projectSecrets: SecretStore | null;
   /** Unloads a local Ollama model that Halcyonic loaded once no execution uses it (UL1), or null. */
   readonly ollamaUnload: OllamaUnloader | null;
   /** Re-attaches what an earlier control plane started (ADR 0046); null for a fixture journal. */
@@ -207,7 +215,13 @@ export class ControlPlane {
     this.locations = options.locations ?? createHostLocations([]);
     this.#ids = options.ids;
     this.#logger = options.logger;
-    this.redaction = redaction(options.secrets);
+    this.projectSecrets =
+      options.projectSecrets === undefined ? null : new SecretStore(options.projectSecrets.dataDir);
+    // A project secret is known to redaction from the moment the page stages it (ADR 0057).
+    this.redaction = redaction(() => [
+      ...(options.secrets?.() ?? []),
+      ...(this.projectSecrets?.held() ?? []),
+    ]);
     this.#snapshotFinishedCommands = options.snapshotFinishedCommands ?? 50;
     this.#closeWaitMs = options.checkpoints?.closeWaitMs ?? 10_000;
     this.publisher = new EventPublisher(options.logger);
@@ -309,6 +323,7 @@ export class ControlPlane {
             scheduler: options.scheduler,
             logger: options.logger,
             redaction: this.redaction,
+            projectSecrets: this.projectSecrets,
             timeoutMs: options.commandTimeoutMs,
           })
         : null;
@@ -369,10 +384,13 @@ export class ControlPlane {
       reattacher: this.reattacher,
       shares: this.shares,
       github: this.github,
+      projectSecrets: this.projectSecrets,
     });
     this.#checkpointEvery =
       this.journal.info.origin === 'live' ? (options.checkpointEvery ?? CHECKPOINT_EVERY) : null;
     this.#rebuild();
+    // Once the journal is folded: only the values of names it lists are kept.
+    this.projectSecrets?.open((projectId) => this.projection.project(projectId)?.secrets ?? []);
     // Once the journal is folded: a share a restart left recorded as live is recorded stopped.
     this.shares?.attach(this.publisher);
     this.#autoFix =

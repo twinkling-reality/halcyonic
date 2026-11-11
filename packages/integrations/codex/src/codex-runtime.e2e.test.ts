@@ -7,6 +7,7 @@
  */
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
@@ -167,6 +168,7 @@ interface Harness {
     options?: Record<string, unknown>,
     modelRef?: string | null,
     approvalLevel?: ApprovalLevel,
+    environment?: Readonly<Record<string, string>>,
   ): Promise<Execution>;
 }
 
@@ -196,7 +198,13 @@ async function harness(
   return {
     sandbox,
     runtime,
-    async start(instruction, options = {}, modelRef = null, approvalLevel = undefined) {
+    async start(
+      instruction,
+      options = {},
+      modelRef = null,
+      approvalLevel = undefined,
+      environment = undefined,
+    ) {
       const execution = new Execution();
       const result = await runtime.startExecution({
         execution: execution.context,
@@ -205,6 +213,7 @@ async function harness(
         directory: sandbox.project,
         model_ref: modelRef,
         ...(approvalLevel !== undefined && { approval_level: approvalLevel }),
+        ...(environment !== undefined && { environment }),
         emit: execution.emit,
       });
       assert.match(result.native_id ?? '', /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-/);
@@ -487,6 +496,34 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       assert.ok(counts.length > 0, 'no token count');
       // Codex keeps 5% of the window in reserve (0.157.0 reports 258,400 of 272,000).
       assert.equal(counts.at(-1)?.model_context_window, Math.floor(65536 * 0.95));
+    },
+  );
+
+  test(
+    "a command reads the project's secret its thread was started with, a name holding KEY included, and another thread's does not (ADR 0057)",
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      assert.equal(runtime.descriptor.secret_environment, true);
+      // A test value. The command prints its SHA-256's first 16 hex digits, never the value.
+      const value = 'test-value-not-real-0005';
+      const digest = createHash('sha256').update(value).digest('hex').slice(0, 16);
+      const empty = createHash('sha256').update('').digest('hex').slice(0, 16);
+      const command =
+        'CMD:printf "key=%s" "$(printf %s "$PROJECT_TEST_KEY" | shasum -a 256 | cut -c1-16)"';
+      const given = await start(command, {}, null, 'never_ask', { PROJECT_TEST_KEY: value });
+      await given.next('runtime.turn.completed');
+      const other = await start(command, {}, null, 'never_ask');
+      await other.next('runtime.turn.completed');
+      const bodies = sandbox.provider.requests.map((request) => JSON.stringify(request.body));
+      assert.ok(
+        bodies.some((body) => body.includes(`key=${digest}`)),
+        'the command did not read the secret',
+      );
+      assert.ok(
+        bodies.some((body) => body.includes(`key=${empty}`)),
+        "the other thread's command read the secret",
+      );
     },
   );
 

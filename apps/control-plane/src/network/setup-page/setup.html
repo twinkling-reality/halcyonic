@@ -29,6 +29,7 @@
   <symbol id="g-terminal" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M7.5 9.5l3 2.5-3 2.5M12.5 15h4"/></symbol>
   <symbol id="g-next" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></symbol>
   <symbol id="g-back" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></symbol>
+  <symbol id="g-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="3.5"/><path d="M11.5 12h9M17.5 12v3M20.5 12v2"/></symbol>
 </svg>
 
 <main class="card">
@@ -107,6 +108,15 @@
   <section class="block" id="optional-block">
     <h2>Optional</h2>
     <ol id="optional-steps" class="steps"></ol>
+  </section>
+
+  <!-- Each project's secrets by name (ADR 0057): a value is typed here and never shown again. -->
+  <section class="block" id="secrets" hidden>
+    <h2>Project Secrets</h2>
+    <p class="secrets-note">A task gets its project's secrets as variables when it starts. A task already running keeps what it started with.</p>
+    <p class="secrets-note">An agent given a key can use it, print it, and send it wherever its commands reach. Give it test keys.</p>
+    <p id="secrets-some" class="secrets-note" hidden>Some agents on this computer start without them.</p>
+    <ul id="secrets-list" class="items"></ul>
   </section>
 </main>
 </body>

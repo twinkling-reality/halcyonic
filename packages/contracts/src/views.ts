@@ -27,6 +27,7 @@ import {
 } from './primitives.ts';
 import { QuestionPrompts } from './questions.ts';
 import { ApprovalLevel, ModelRef, RuntimeDescriptor, RuntimeRef } from './runtime.ts';
+import { SecretNames } from './secrets.ts';
 import { StarterId } from './starters.ts';
 import { CommandStatus, ExecutionStatus, WorkstreamStatus } from './statuses.ts';
 import { ProjectWorldView } from './world.ts';
@@ -187,6 +188,10 @@ export const ProjectView = Type.Object(
     share: Type.Optional(ProjectShareView),
     /** The game as last published to the person's own GitHub Pages (ADR 0039, amended). */
     published: Type.Optional(ProjectPublishedView),
+    /**
+     * The project's secrets by name, sorted (ADR 0057); absent when it has none. Never a value.
+     */
+    secrets: Type.Optional(SecretNames),
     world: Type.Optional(ProjectWorldView),
   },
   strict,

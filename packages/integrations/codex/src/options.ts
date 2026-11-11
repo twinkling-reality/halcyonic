@@ -22,6 +22,11 @@ export interface StartOptions {
   readonly autoCompactTokenLimit: number | undefined;
   readonly sandbox: SandboxMode;
   readonly approvalPolicy: ApprovalPolicy;
+  /**
+   * The project's secrets for the thread's commands (ADR 0057), from the start or the re-attach;
+   * never parsed from a start's options, and never compared with what Codex reports.
+   */
+  readonly secrets?: Readonly<Record<string, string>>;
 }
 
 export type ParsedStartOptions =

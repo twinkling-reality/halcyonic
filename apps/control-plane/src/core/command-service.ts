@@ -59,6 +59,7 @@ import { OwnCheckRefused, type OwnChecks } from '../own-check/own-check.ts';
 import type { CheckOutput } from '../preview/check-output.ts';
 import type { HostPreviews } from '../preview/preview.ts';
 import { type ProjectShares, ShareRefused } from '../preview/share.ts';
+import { givenSecrets, type SecretStore } from '../secrets/store.ts';
 import type { GitHubSender } from '../sending/github.ts';
 import { type HostStarters, VR_STARTER, vrVersionInstruction } from '../starters.ts';
 import {
@@ -122,6 +123,8 @@ export interface CommandServiceDeps {
   readonly shares?: ProjectShares | null;
   /** Send to GitHub with the person's own git and gh (ADR 0039, amended); absent, it is refused. */
   readonly github?: GitHubSender | null;
+  /** The person's project secrets (ADR 0057); absent, a set fails and no start gets a secret. */
+  readonly projectSecrets?: SecretStore | null;
   /** The host's checks and previews of starter projects (ADR 0037), or null when not set up. */
   readonly previews?: HostPreviews | null;
   /** A project's own check, chosen by the person (ADR 0055), or null when not set up. */
@@ -1433,6 +1436,42 @@ export class CommandService {
         }
         return;
       }
+      case 'project.secret.set':
+      case 'project.secret.remove': {
+        // Names only (ADR 0057): the value is the store's, staged by this Mac's page for this command.
+        const scope = admission.scope;
+        const { project_id: projectId, name } = command.payload;
+        const store = this.#deps.projectSecrets;
+        const where = { project_id: projectId, workstream_id: null, execution_id: null };
+        if (command.command_type === 'project.secret.remove') {
+          store?.remove(projectId, name);
+          recorder.record(
+            controlPlaneDraft('project.secret.removed', where, { name }, this.#now(), cause),
+          );
+          this.#complete(command, scope, null);
+          return;
+        }
+        const kept = store?.commit(command.command_id, projectId, name) ?? null;
+        if (kept === null) {
+          this.#fail(command, scope, {
+            code: 'unavailable',
+            message: "A secret is typed on this Mac's setup page.",
+            effect: 'none',
+          });
+          return;
+        }
+        recorder.record(
+          controlPlaneDraft(
+            'project.secret.stored',
+            where,
+            { name, replaced: kept.replaced },
+            this.#now(),
+            cause,
+          ),
+        );
+        this.#complete(command, scope, null);
+        return;
+      }
       case 'project.link_catalog':
       case 'project.unlink_catalog': {
         // The person's own link (ADR 0039): a local fact, complete as soon as it is recorded.
@@ -1651,6 +1690,14 @@ export class CommandService {
         let firstFromVersion: string | null = null;
         // Admission checked it; the adapter asks the host's policy again before anything runs.
         const begin = (directory: string | null): void => {
+          // The project's secrets as they are at this start, for a runtime that takes them (ADR 0057).
+          const given = givenSecrets(
+            this.#deps.projectSecrets,
+            this.#deps.projection,
+            project_id,
+            runtime,
+          );
+          const names = Object.keys(given).sort();
           recorder.record(
             controlPlaneDraft(
               'execution.created',
@@ -1659,6 +1706,7 @@ export class CommandService {
                 runtime: toRuntimeRef(runtime),
                 instruction: command.payload.instruction,
                 directory,
+                ...(names.length > 0 && { secret_names: names }),
               },
               this.#now(),
               cause,
@@ -1696,6 +1744,7 @@ export class CommandService {
                   }),
                   ...(command.payload.plan === true && { plan: true }),
                   directory,
+                  ...(names.length > 0 && { environment: given }),
                   emit,
                 }),
               {

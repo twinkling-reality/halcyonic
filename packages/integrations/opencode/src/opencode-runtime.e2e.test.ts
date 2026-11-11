@@ -6,6 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import {
   existsSync,
@@ -176,6 +177,7 @@ interface Harness {
     instruction: string,
     options?: Record<string, unknown>,
     approvalLevel?: ApprovalLevel,
+    environment?: Readonly<Record<string, string>>,
   ): Promise<Execution>;
 }
 
@@ -200,7 +202,7 @@ async function harness(
   return {
     sandbox,
     runtime,
-    async start(instruction, options = {}, approvalLevel = undefined) {
+    async start(instruction, options = {}, approvalLevel = undefined, environment = undefined) {
       const execution = new Execution();
       const result = await runtime.startExecution({
         execution: execution.context,
@@ -209,6 +211,7 @@ async function harness(
         directory: sandbox.project,
         model_ref: null,
         ...(approvalLevel !== undefined && { approval_level: approvalLevel }),
+        ...(environment !== undefined && { environment }),
         emit: execution.emit,
       });
       assert.match(result.native_id ?? '', /^ses/);
@@ -1656,6 +1659,39 @@ describe('OpenCode tasks stop when something other than Halcyonic changes what t
       assert.equal(tampered(execution), undefined, 'its own approval was taken as tampering');
       const sent = sandbox.provider.requests.map((request) => request.body).join('\n');
       assert.ok(sent.includes('len=0'), 'the command saw the password');
+    },
+  );
+
+  test(
+    "a shell command reads the project's secret given at the start, and the next task's does not (ADR 0057)",
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      assert.equal(runtime.descriptor.secret_environment, true);
+      // A test value. The command prints its SHA-256's first 16 hex digits, never the value.
+      const value = 'test-value-not-real-0003';
+      const digest = createHash('sha256').update(value).digest('hex').slice(0, 16);
+      const command =
+        'printf "key=%s home=%s" "$(printf %s "$PROJECT_TEST_KEY" | shasum -a 256 | cut -c1-16)" "$HOME"';
+      const run = async (environment?: Readonly<Record<string, string>>) => {
+        const execution = await start(call('shell', { command }), {}, undefined, environment);
+        const asked = await execution.next('runtime.approval.requested');
+        assert.ok(asked.type === 'runtime.approval.requested');
+        await runtime.respondToApproval({
+          execution: execution.context,
+          approval_id: asked.payload.approval_id,
+          decision: 'approve',
+          message: null,
+        });
+        await execution.next('runtime.turn.completed');
+      };
+      await run({ PROJECT_TEST_KEY: value, HOME: '/elsewhere' });
+      await run();
+      const sent = sandbox.provider.requests.map((request) => request.body).join('\n');
+      assert.ok(sent.includes(`key=${digest}`), 'the command did not read the secret');
+      assert.ok(!sent.includes('home=/elsewhere'), "a secret replaced the commands' own HOME");
+      const empty = createHash('sha256').update('').digest('hex').slice(0, 16);
+      assert.ok(sent.includes(`key=${empty}`), "the next task's command read the secret");
     },
   );
 });

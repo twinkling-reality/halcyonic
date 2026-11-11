@@ -96,8 +96,15 @@ export interface PageRoutes {
    * of it, never the cookie), so a view can keep each session's own state.
    */
   get(path: string, handler: (request: FastifyRequest, session: string) => unknown): void;
-  /** A POST from the page's own origin, answered only with a session; `session` as for `get`. */
-  post(path: string, handler: (request: FastifyRequest, session: string) => unknown): void;
+  /**
+   * A POST from the page's own origin, answered only with a session; `session` as for `get`. A
+   * route may take a body larger than the page's own limit (1 KiB), up to `bodyLimit`.
+   */
+  post(
+    path: string,
+    handler: (request: FastifyRequest, session: string) => unknown,
+    options?: { readonly bodyLimit?: number },
+  ): void;
   /** A static file behind the session. */
   asset(path: string, type: string, body: Buffer): void;
 }
@@ -354,9 +361,10 @@ export class PairingPage {
           return handler(request, session);
         });
       },
-      post: (path, handler) => {
+      post: (path, handler, options) => {
         under(path);
-        app.post(path, async (request, reply) => {
+        const limits = options?.bodyLimit === undefined ? {} : { bodyLimit: options.bodyLimit };
+        app.post(path, limits, async (request, reply) => {
           const session = this.#sessionKey(request);
           if (session === null) return reply.code(403).type('text/plain').send(AGAIN);
           return handler(request, session);
