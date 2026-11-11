@@ -240,23 +240,48 @@ function question(title) {
 }
 
 /**
- * What setup said, as it printed it for a terminal: lines it indented carry on the sentence before them, so they are
- * joined back into one paragraph each, never wrapped twice.
+ * What setup said, as it printed it for a terminal, read back into its parts. A line it did not indent is a sentence.
+ * Lines its `wrap()` broke (indented two or three spaces) are joined back into the sentence they carry on, so it is never
+ * wrapped twice: a line joins the one before it at the same indent only while that one is prose (it holds a space) and
+ * has not ended its sentence, so a list of names, one a line, stays a list. A line indented four or more is a command,
+ * kept exactly as printed, each on its own line, since the person may copy it. Pure, so a test reads it.
  */
-function said(lines) {
-  const paragraphs = [];
+function saidParts(lines) {
+  const parts = [];
   for (const raw of lines) {
-    const indented = /^\s/.test(raw);
-    const line = raw.trim();
-    if (line === '') continue;
-    const last = paragraphs.at(-1);
-    if (indented && last?.indented && !/[.:!?]$/.test(last.text))
-      last.text = `${last.text} ${line}`;
-    else paragraphs.push({ text: line, indented });
+    const indent = raw.length - raw.trimStart().length;
+    const text = raw.trim();
+    if (text === '') continue;
+    const kind = indent === 0 ? 'line' : indent >= 4 ? 'command' : 'quiet';
+    const last = parts.at(-1);
+    const carriesOn =
+      (indent === 2 || indent === 3) &&
+      last?.indent === indent &&
+      last.text.includes(' ') &&
+      !/[.:!?]$/.test(last.text);
+    if (carriesOn) last.text = `${last.text} ${text}`;
+    else parts.push({ text, kind, indent });
   }
-  return paragraphs.map(({ text, indented }) =>
-    element('p', indented ? 'said-line quiet-line' : 'said-line', text),
-  );
+  return parts.map(({ text, kind }) => ({ text, kind }));
+}
+
+/** What setup said, drawn: sentences, quieter wrapped ones, and each run of commands in its own well. */
+function said(lines) {
+  const shown = [];
+  let well = null;
+  for (const { text, kind } of saidParts(lines)) {
+    if (kind === 'command') {
+      if (well === null) {
+        well = element('div', 'commands');
+        shown.push(well);
+      }
+      well.append(breakable(element('code', 'command'), text));
+      continue;
+    }
+    well = null;
+    shown.push(element('p', kind === 'quiet' ? 'said-line quiet-line' : 'said-line', text));
+  }
+  return shown;
 }
 
 let drawnShared = '';
