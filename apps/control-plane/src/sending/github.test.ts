@@ -8,6 +8,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -271,6 +272,54 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     const sent = await sender().send(PROJECT, folder, [], 'Lanterns', reviewed.send.review);
     assert.ok(sent.ok);
     assert.equal(git(origin, 'ls-tree', '-r', '--name-only', sent.commit), '.gitignore\napp.txt');
+  });
+
+  test("an exclude rule Halcyonic can't read stops the send: a linked or oversized info/exclude, an unreadable excludes file (AUDIT3 reread G5)", async () => {
+    writeFileSync(join(folder, 'private-notes.txt'), 'only mine\n');
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    const rules = join(root, 'rules');
+    writeFileSync(rules, 'private-notes.txt\n');
+    const exclude = join(folder, '.git', 'info', 'exclude');
+    rmSync(exclude, { force: true });
+    symlinkSync(rules, exclude);
+    assert.equal(git(folder, 'status', '--porcelain'), 'M app.txt', "the person's git hides it");
+    const linked = await sender().review(PROJECT, folder, []);
+    assert.equal(linked.ok ? null : linked.code, 'unreadable_excludes');
+    rmSync(exclude);
+    writeFileSync(exclude, `${'# padding\n'.repeat(7000)}private-notes.txt\n`);
+    const large = await sender().review(PROJECT, folder, []);
+    assert.equal(large.ok ? null : large.code, 'unreadable_excludes');
+    assert.match(large.ok ? '' : large.message, /sends nothing/);
+    rmSync(exclude);
+    // The person's own excludes file, named but not a file Halcyonic can read.
+    mkdirSync(join(home, 'not-a-file'));
+    git(folder, 'config', '--global', 'core.excludesFile', join(home, 'not-a-file'));
+    const unreadable = await sender().review(PROJECT, folder, []);
+    assert.equal(unreadable.ok ? null : unreadable.code, 'unreadable_excludes');
+  });
+
+  test("the person's excludes file is read where git reads it: its default place, and through a link from their dotfiles (AUDIT3 reread S1)", async () => {
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    writeFileSync(join(folder, 'scratch.log'), 'mine\n');
+    mkdirSync(join(home, '.config', 'git'), { recursive: true });
+    writeFileSync(join(home, '.config', 'git', 'ignore'), 'scratch.log\n');
+    assert.equal(git(folder, 'status', '--porcelain'), 'M app.txt');
+    const byDefault = await sender().review(PROJECT, folder, []);
+    assert.ok(byDefault.ok, byDefault.ok ? '' : byDefault.message);
+    assert.deepEqual(
+      byDefault.send.files.files.map((file) => file.path),
+      ['app.txt'],
+    );
+    rmSync(join(home, '.config', 'git', 'ignore'));
+    writeFileSync(join(root, 'dotfiles-ignore'), 'scratch.log\n');
+    symlinkSync(join(root, 'dotfiles-ignore'), join(home, 'linked-ignore'));
+    git(folder, 'config', '--global', 'core.excludesFile', join(home, 'linked-ignore'));
+    const linked = await sender().review(PROJECT, folder, []);
+    assert.ok(linked.ok, linked.ok ? '' : linked.message);
+    assert.deepEqual(
+      linked.send.files.files.map((file) => file.path),
+      ['app.txt'],
+    );
   });
 
   test("no filter runs, the repository's or the person's own, and a repository that names one is refused (AUDIT3 S1)", async () => {
