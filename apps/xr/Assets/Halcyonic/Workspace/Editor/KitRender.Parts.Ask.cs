@@ -19,23 +19,23 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] AskStates =
+        private static readonly string[] AskColumnStates =
         {
             "50-ask-writing", "50-ask-thinking", "50-ask-needs-you", "50-ask-answered", "50-ask-not-answered",
         };
 
-        private const string AskTime = "2026-11-11T09:00:00.000Z";
-        private const string AskRequest = "01a19000-0000-7000-8000-0000000000a4";
-        private const string AskQuestion = "Which page do you mean?";
-        private const string AskReply = "The sphere is blue now, and the check passed.";
+        private const string AskColumnTime = "2026-11-11T09:00:00.000Z";
+        private const string AskColumnRequest = "01a19000-0000-7000-8000-0000000000a4";
+        private const string AskColumnQuestion = "Which page do you mean?";
+        private const string AskColumnReply = "The sphere is blue now, and the check passed.";
 
-        private static PartShot AskShot(string state, Transform root, Vector3 eyes, string name)
+        private static PartShot AskColumnShot(string state, Transform root, Vector3 eyes, string name)
         {
             var shot = new PartShot { Elevation = 0f };
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
-            var host = new AskRenderHost();
+            var host = new AskColumnRenderHost();
             var commands = new CommandFactory(new ClientInfo { Name = "render", Version = null, DeviceLabel = null },
-                () => DateTimeOffset.Parse(AskTime, CultureInfo.InvariantCulture));
+                () => DateTimeOffset.Parse(AskColumnTime, CultureInfo.InvariantCulture));
             var column = new AskMenuColumn(host, commands, AskScope.Project("01a19000-0000-7000-8000-0000000000a1", "Kite Run"));
             column.Ask.Offer(new AvailableWorkspaceAgent { Model = "muse-glimmer:30b-mlx" });
             column.Ask.Write("Make the sphere blue, then tell me whether it works.");
@@ -46,23 +46,23 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     CommandId = sent.CommandId,
                     Disposition = CommandAckDisposition.Accepted,
-                    Command = new CommandView { CommandId = sent.CommandId, Status = CommandStatus.Completed, Result = new WorkspaceRequestCreatedResult { RequestId = AskRequest } },
+                    Command = new CommandView { CommandId = sent.CommandId, Status = CommandStatus.Completed, Result = new WorkspaceRequestCreatedResult { RequestId = AskColumnRequest } },
                 });
                 WorkspaceRequestView View(string status, string? reply) => new()
                 {
-                    RequestId = AskRequest,
+                    RequestId = AskColumnRequest,
                     JournalId = "render",
                     ProjectId = column.Ask.Scope.ProjectId,
                     OriginalText = column.Ask.Draft,
                     Status = new JValue(status),
                     Reply = reply == null ? null : new WorkspaceRequestReply { Text = reply, Model = "muse-glimmer:30b-mlx" },
-                    CreatedAt = AskTime,
-                    UpdatedAt = AskTime,
+                    CreatedAt = AskColumnTime,
+                    UpdatedAt = AskColumnTime,
                 };
                 switch (state)
                 {
-                    case "50-ask-needs-you": column.Ask.Read(View("waiting_for_human", AskQuestion)); column.Heard("The home page"); break;
-                    case "50-ask-answered": column.Ask.Read(View("responded", AskReply)); break;
+                    case "50-ask-needs-you": column.Ask.Read(View("waiting_for_human", AskColumnQuestion)); column.Heard("The home page"); break;
+                    case "50-ask-answered": column.Ask.Read(View("responded", AskColumnReply)); break;
                     case "50-ask-not-answered": column.Ask.Read(View("interrupted", null)); break;
                     default: column.Ask.Read(View("running", null)); break;
                 }
@@ -75,7 +75,7 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(bar.Column.Count > 0 && bar.Column[bar.Column.Count - 1].Place == KitPlace.Close, "Close is not the last action");
             Require(bar.Column.Count(action => action.Main) <= 1, "more than one main action");
             Require(!bar.Column.Any(action => action.Main) || bar.Column[0].Main, "the main action is not first");
-            var said = state switch { "50-ask-needs-you" => AskQuestion, "50-ask-answered" => AskReply, _ => null };
+            var said = state switch { "50-ask-needs-you" => AskColumnQuestion, "50-ask-answered" => AskColumnReply, _ => null };
             Require(bar.Band == said, "the band holds " + (bar.Band ?? "nothing") + " where it should hold " + (said ?? "nothing"));
             if (said != null && bar.Card != null)
                 Require(!bar.Card.Words().Any(words => words.Contains(said)), "the assistant's words stand in the card");
@@ -134,13 +134,13 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>The Ask's host in a render: the production font's measures, voice and the keyboard offered, nothing sent.</summary>
-        private sealed class AskRenderHost : IMenuHost
+        private sealed class AskColumnRenderHost : IMenuHost
         {
             public ClientProjection State { get; } = new();
             public bool Connected => true;
             public bool Demonstration => false;
             public double Now => 0;
-            public DateTimeOffset Clock => DateTimeOffset.Parse(AskTime, CultureInfo.InvariantCulture);
+            public DateTimeOffset Clock => DateTimeOffset.Parse(AskColumnTime, CultureInfo.InvariantCulture);
             public TimeZoneInfo Zone => TimeZoneInfo.Utc;
             public TextSize TextSize => GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard;
             public bool VoiceOffered => true;
