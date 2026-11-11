@@ -28,6 +28,9 @@ namespace Halcyonic.Client
         public const string ProjectDetails = "tasks-project-details";
         public const string AllProjects = "tasks-all-projects";
         public const string NewTask = "tasks-new-task";
+
+        /// <summary>Ask the assistant about this project, or about all work where no project is chosen (gap 7).</summary>
+        public const string Ask = "tasks-ask";
         private int rows;
         private TextSize rowsAt;
         private bool rowsWithNewTask;
@@ -35,10 +38,12 @@ namespace Halcyonic.Client
         private string? showing;
         private long position = -1;
 
+        /// <param name="ask">Opens an Ask about the chosen project, or about all work (gap 7); no Ask line where null.</param>
         public TasksColumn(IMenuHost host, Func<int>? savedViews = null, Action? openSavedViews = null,
-            Func<string?>? project = null, Action? openProjectDetails = null, Action? allProjects = null)
+            Func<string?>? project = null, Action? openProjectDetails = null, Action? allProjects = null, Action<AskScope>? ask = null)
         {
             this.host = host;
+            this.ask = ask;
             this.savedViews = savedViews;
             this.openSavedViews = openSavedViews;
             this.project = project;
@@ -51,7 +56,7 @@ namespace Halcyonic.Client
         private void Measure()
         {
             var height = host.PageHeight(1, besideMenu: true);
-            var reserved = (project?.Invoke() != null && allProjects != null ? 1 : 0) + (NewTaskProject() != null ? 1 : 0);
+            var reserved = (project?.Invoke() != null && allProjects != null ? 1 : 0) + (NewTaskProject() != null ? 1 : 0) + (AskOffered ? 1 : 0);
             var most = Math.Max(1, host.PageRows(sourceLine: false) - reserved);
             rows = Math.Max(1, Enumerable.Range(1, most).LastOrDefault(count => MenuPage.Rows(count + reserved) <= height));
             rowsAt = host.TextSize;
@@ -61,6 +66,22 @@ namespace Halcyonic.Client
         public event Action? Changed;
 
         public event Action? Closed;
+
+        private readonly Action<AskScope>? ask;
+
+        /// <summary>
+        /// Whether the Ask line stands: where the director gave a way to open one, the computer can be asked, and the page
+        /// still holds at least one task row beside the other rows that act, as New Task's own room is judged.
+        /// </summary>
+        private bool AskOffered
+        {
+            get
+            {
+                if (ask == null || !host.Connected || host.Demonstration) return false;
+                var needed = (project?.Invoke() != null && allProjects != null ? 1 : 0) + (NewTaskProject() != null ? 1 : 0) + 2;
+                return host.PageRows(false) >= needed && MenuPage.Rows(needed) <= host.PageHeight(1, besideMenu: true);
+            }
+        }
 
         /// <summary>The rows a page holds on this stage, read again when the text size changes, so a page never stands taller than fits.</summary>
         public int Rows
@@ -96,6 +117,8 @@ namespace Halcyonic.Client
                 var projects = tasks.Select(task => task.ProjectId).Distinct().Count();
                 var lines = tasks.Skip(page * rows).Take(rows).Select(task => Row(task, projects > 1)).ToList();
                 if (lines.Count == 0) lines.Add(new PageLine(TasksText.None, tone: LineTone.Secondary));
+                // Ask first among the rows that act: about the chosen project, or about all work.
+                if (AskOffered) lines.Insert(0, new PageLine(TasksText.Ask, icon: GlazeIcon.TellIt, action: Ask, key: SelectedProject()?.ProjectId));
                 var close = new Prompt(Footer.Close, TasksText.Close, GlazeIcon.Close, PromptKind.Close);
                 var footer = pages > 1
                     ? new Footer(close).WithNext(new Prompt(Footer.NextPage, Footer.NextPageWords(page, pages), GlazeIcon.Next, PromptKind.NextPage))
@@ -138,6 +161,14 @@ namespace Halcyonic.Client
                 case AllProjects when project?.Invoke() != null:
                     allProjects?.Invoke();
                     break;
+                case Ask when AskOffered:
+                {
+                    var chosen = SelectedProject();
+                    // Only the project the page shows, as the press named it; else all work.
+                    if (key != (chosen?.ProjectId)) return;
+                    ask!(chosen == null ? AskScope.AllWork() : AskScope.Project(chosen.ProjectId, chosen.Name));
+                    return;
+                }
                 case NewTask:
                     var selected = SelectedProject();
                     if (selected == null || key == null || key != drawnNewTaskProject || key != selected.ProjectId
@@ -245,6 +276,7 @@ namespace Halcyonic.Client
     {
         public const string Close = "Close";
         public const string NewTask = "New Task";
+        public const string Ask = "Ask";
 
         /// <summary>A page with no tasks on it.</summary>
         public const string None = "No Tasks";

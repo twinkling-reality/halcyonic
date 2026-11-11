@@ -324,4 +324,36 @@ public class TasksColumnTests
         Assert.That(host.Sent, Is.Empty);
     }
 
+
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void AskStandsFirstAndOpensAnAskAboutTheProjectOrAllWork(TextSize size)
+    {
+        var own = Enumerable.Range(0, 8).Select(index => Task("t" + index, WorkstreamStatus.Running, index)).ToList();
+        var host = new FakeMenuHost { State = StateWith(own, twoProjects: true), TextSize = size };
+        string? selected = Samples.ProjectId;
+        var asked = new List<AskScope>();
+        var column = new TasksColumn(host, project: () => selected, allProjects: () => selected = null, ask: asked.Add);
+        var frame = column.Frame!;
+        Assert.That(frame.Lines.Count, Is.LessThanOrEqualTo(host.PageRows(false)), "Ask reserves a real measured row");
+        Assert.That(frame.Lines.Any(line => line.Action == TasksColumn.OpenTask), Is.True, "a task row still stands");
+        if (frame.Lines.All(line => line.Action != TasksColumn.Ask))
+        {
+            // Where the page has no room left, Ask stands elsewhere (all work has fewer rows that act).
+            selected = null;
+            frame = column.Frame!;
+        }
+        var ask = frame.Lines.Single(line => line.Action == TasksColumn.Ask);
+        if (ask.Key == null) { Assert.Pass("at this size Ask stands only on all work"); return; }
+        Assert.That(ask.Key, Is.EqualTo(Samples.ProjectId));
+        column.Act(TasksColumn.Ask, "another-project");
+        Assert.That(asked, Is.Empty, "only the project the page shows");
+        column.Act(TasksColumn.Ask, Samples.ProjectId);
+        Assert.That(asked.Single().ProjectId, Is.EqualTo(Samples.ProjectId));
+        selected = null;
+        column.Act(TasksColumn.Ask, null);
+        Assert.That(asked.Last().IsAllWork, Is.True);
+        Assert.That(host.Sent, Is.Empty, "opening an Ask sends nothing");
+        Assert.That(new TasksColumn(host).Frame!.Lines.Any(line => line.Action == TasksColumn.Ask), Is.False, "no Ask without a way to open one");
+    }
 }
