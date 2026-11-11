@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Halcyonic.Client;
+using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
 using Halcyonic.XR.UI.Editor;
 using UnityEditor;
@@ -15,7 +16,8 @@ namespace Halcyonic.XR.Workspace.Editor
     {
         /// <summary>
         /// The redesign's shelf (DESIGN 2.2), at both text sizes: a character's name tag in the panel's material, one line
-        /// of its task's name 0.8 degrees under its feet, the older label not standing, and the picked one ringed. The
+        /// of its task's name 0.8 degrees under its feet, the older label not standing, and the picked one ringed; a task that
+        /// needs the person says so beside its name (FIELD's dot and Needs You). The
         /// renders are in Builds/RoomShelfRenders for a look beside DESIGN's page.
         /// </summary>
         public static void RoomShelfCheck()
@@ -25,6 +27,9 @@ namespace Halcyonic.XR.Workspace.Editor
             if (failures.Count == 0) Debug.Log("Halcyonic: room shelf: every check passed.");
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
+
+        /// <summary>The tag's words with runs of spaces as one: the renderer sets a space apart before a separator after outside words.</summary>
+        private static string Squeezed(string words) => System.Text.RegularExpressions.Regex.Replace(words, " {2,}", " ");
 
         private static List<string> RoomShelf(string variant)
         {
@@ -38,9 +43,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 RoomDesign.Enabled = true;
                 ViewField.Current = FieldChecks.Quest3S;
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                foreach (var picked in new[] { false, true })
+                foreach (var (name, picked, needs) in new[] { ("rest", false, false), ("picked", true, false), ("needs", false, true) })
                 {
-                    var name = picked ? "picked" : "rest";
                     var root = new GameObject("Room shelf " + name);
                     var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
                     try
@@ -48,7 +52,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         var eyes = new Vector3(0f, EyeHeight, 0f);
                         var camera = WorkspaceRender.MakeCamera(root.transform, eyes, texture);
                         var plane = CharacterConsole(root.transform, eyes);
-                        var shown = Shown("room-shelf-witness", CharacterActivity.Idle);
+                        // A task waiting on two approvals: its need stands in words on the tag, not by its light alone (ADR 0023).
+                        var shown = needs
+                            ? new CharacterPresentation("room-shelf-needs", "A task", CharacterActivity.WaitingForHuman,
+                                CharacterPresenter.LabelOf(CharacterActivity.WaitingForHuman), AttentionLevel.ActionRequired, Array.Empty<string>(), 2, false, false, false)
+                            : Shown("room-shelf-witness", CharacterActivity.Idle);
                         var character = WorkspaceRender.ConfirmedPlaneAgent(root.transform, plane, eyes, shown, failures, name);
                         var view = character.View;
                         var nameTag = RoomNameTag.On(view);
@@ -58,7 +66,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         Advance(view, 1f);
                         WorkspaceRender.ForceMeshes(root);
                         if (nameTag.Tag is not RoomTag tag) { failures.Add(name + ": no name tag stands under the character"); continue; }
-                        if (tag.Words.GetParsedText() != shown.Title) failures.Add(name + ": the tag reads \"" + tag.Words.GetParsedText() + "\", not the task's name");
+                        var reads = needs ? shown.Title + " · Needs You" : shown.Title;
+                        if (Squeezed(tag.Words.GetParsedText()) != reads) failures.Add(name + ": the tag reads \"" + tag.Words.GetParsedText() + "\", not \"" + reads + "\"");
+                        if (tag.NeedsYou != needs) failures.Add(name + ": the tag's dot " + (needs ? "does not stand though the task needs the person" : "stands though nothing waits"));
                         if (tag.Picked != picked) failures.Add(name + ": the tag " + (picked ? "wears no ring though picked" : "wears the ring though not picked"));
                         if (tag.Words.isTextTruncated || tag.Words.textInfo.lineCount != 1) failures.Add(name + ": the tag's words are not one whole line");
                         foreach (var label in view.GetComponentsInChildren<CharacterLabelView>(true))

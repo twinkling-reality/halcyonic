@@ -308,4 +308,16 @@ public class CharacterPresenterTests
         state.ApplySnapshot(Samples.Snapshot(1, new[] { ran }, new[] { Samples.Execution("e1", "w1", ExecutionStatus.Completed, synthetic: false) }), new StateChanges());
         Assert.That(CharacterPresenter.Present(ran, state, live: true).Synthetic, Is.False);
     }
+
+    [Test]
+    public void ALabelSaysWhetherItsTaskNeedsThePerson()
+    {
+        static CharacterPresentation Of(CharacterActivity activity, AttentionLevel attention, int pending) =>
+            new CharacterPresentation("w1", "Balloon Game", activity, CharacterPresenter.LabelOf(activity), attention, Array.Empty<string>(), pending, false, false, false);
+        // The shelf's tag says it in words where it does (ADR 0023: never by colour or motion alone).
+        Assert.That(CharacterLabel.Of(Of(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired, 2)).NeedsPerson, Is.True);
+        Assert.That(CharacterLabel.Of(Of(CharacterActivity.Working, AttentionLevel.ActionRequired, 1)).NeedsPerson, Is.True);
+        Assert.That(CharacterLabel.Of(Of(CharacterActivity.Working, AttentionLevel.None, 0)).NeedsPerson, Is.False);
+        Assert.That(CharacterLabel.Of(Of(CharacterActivity.TurnFinished, AttentionLevel.Notice, 0)).NeedsPerson, Is.False);
+    }
 }

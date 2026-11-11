@@ -2682,7 +2682,9 @@ The last unit turns it on by default and removes the kit parts it replaced.
 - **The shelf's name tags** (BUILD-SPEC-v4 2.2): under the redesign each character on the shelf is named by FIELD's tag
   in the panel's material, one line of its task's name 0.8 degrees under its feet, and the one whose task stands open
   beside the menu wears the ring (`RoomNameTag`, attached by `WorkspaceDirector.Attach`, ringed in `FollowBeside`);
-  the character's older label (badge, plate and marks) does not stand. With the redesign off nothing changes. The
+  the character's older label (badge, plate and marks) does not stand. A task that needs the person says so on its tag,
+  FIELD's dot before the name and Needs You after it, so its need is never told by colour or motion alone (ADR 0023;
+  `CharacterLabel.NeedsPerson`; check state `needs`). With the redesign off nothing changes. The
   character says what it shows (`CharacterView.Shown`, `Title`, `Labels`), since its own assembly cannot see the
   room's parts. Check: `StageRender.RoomShelfCheck`. Under the redesign two characters stand at once, a page of the
   shelf's order holding the picked one, and paging turns a page at a time (`AgentShelfPages.PerPage`, `Shown`); the
