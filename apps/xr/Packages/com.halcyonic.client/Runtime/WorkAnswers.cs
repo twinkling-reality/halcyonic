@@ -704,6 +704,25 @@ namespace Halcyonic.Client
     /// </summary>
     public static class CheckedPresenter
     {
+        /// <summary>
+        /// The recorded run's simulated checks as a card (FIELD's parts note, the census): the outcome as the status's title
+        /// ("All Passing", "Checks Failed"), its line saying they were simulated and when, as a sentence ("Simulated in the
+        /// recording, at 05:00:12"), and the latest run's own summary on the foot line, theirs and whole. Only a simulated
+        /// source has it, so a recording never reads as a real run; a real source's checks stay its page.
+        /// </summary>
+        public static RoomCard? SimulatedCard(IntelligenceFeed<UnderstandingResponse> understanding, TimeZoneInfo zone)
+        {
+            if (understanding.Last is not IntelligenceRead<UnderstandingResponse> read || read.Response.Result is not AvailableUnderstanding observed
+                || !observed.Understanding.Source.Synthetic) return null;
+            var runs = UnderstandingPresenter.Runs(observed.Understanding);
+            if (runs.Count == 0) return null;
+            var failed = runs.Any(run => run.Outcome != UnderstandingVerificationRunOutcome.Pass);
+            var line = read.Recorded ? "Simulated in the recording, at " + IntelligenceText.Clock(read.ReadAt, zone, seconds: true) : "Simulated";
+            var latest = UnderstandingPresenter.Run(runs[runs.Count - 1], observed.Understanding.Changes.Files, zone).First();
+            return new RoomCard(status: new RoomCardStatus(failed ? RoomPanelCards.ChecksFailed : RoomPanelCards.AllPassing, line, failed ? RoomTone.Bad : RoomTone.Good),
+                more: latest.Runs);
+        }
+
         public static SectionPresentation Present(
             IntelligenceFeed<UnderstandingResponse> understanding,
             IntelligenceFeed<EvaluationResponse> evaluation,

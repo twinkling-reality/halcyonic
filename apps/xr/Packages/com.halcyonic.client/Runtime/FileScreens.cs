@@ -151,6 +151,8 @@ namespace Halcyonic.Client
                 sourceIsData: page.SourceIsData,
                 side: page.Side,
                 sourceRuns: page.SourceRuns, identityKind: MenuIdentityKind.Task);
+            // The recorded run's simulated checks as a card (FIELD's parts note): the redesign draws it, the older page reads the lines.
+            if (!focused && steering.Armed == null && screen.Section == FileSection.Checks && screen.Checked?.Card is RoomCard checkedCard) frame = frame.WithCard(checkedCard);
             return focused ? frame.Focus() : frame;
         }
 

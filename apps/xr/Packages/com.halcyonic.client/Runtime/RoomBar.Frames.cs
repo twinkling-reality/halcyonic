@@ -23,6 +23,7 @@ namespace Halcyonic.Client
             NewProject,
             Projects,
             Pairing,
+            Carded,
             Page,
         };
 

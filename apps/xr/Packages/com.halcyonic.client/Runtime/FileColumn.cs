@@ -1029,7 +1029,8 @@ namespace Halcyonic.Client
             {
                 Screen.Checked = understanding.Last == null && understanding.Error == null ? null : new FileAnswer(
                     CheckedPresenter.Present(understanding, evaluation, clock, host.Zone, room, AnswerDepth.Brief),
-                    CheckedPresenter.Present(understanding, evaluation, clock, host.Zone, AnswerRoom.Unlimited, AnswerDepth.Full));
+                    CheckedPresenter.Present(understanding, evaluation, clock, host.Zone, AnswerRoom.Unlimited, AnswerDepth.Full),
+                    CheckedPresenter.SimulatedCard(understanding, host.Zone));
             }
             if (!host.Connected || Screen.Section != FileSection.Waiting || Steering.Armed != null || WorkspaceText.NeedFromYou(presentation) != null
                 || !presentation.Actions.Contains(WorkspaceAction.Answer))
