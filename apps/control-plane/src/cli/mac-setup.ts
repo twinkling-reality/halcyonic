@@ -75,6 +75,7 @@ import {
   programProblem,
 } from '../preview/launcher.ts';
 import { browserProblem, installBrowser } from '../preview/play.ts';
+import { isPinnedTunnel, TUNNEL_PIN } from '../preview/share.ts';
 import { ANTHROPIC_KEY_FILE, CODEX_HOME_FOLDER } from '../runtimes.ts';
 import {
   type HostSettings,
@@ -175,6 +176,7 @@ export type SetupStepId =
   | 'launcher'
   | 'starter'
   | 'undo'
+  | 'sharing'
   | 'companion'
   | 'usage_left'
   | 'understand'
@@ -253,6 +255,8 @@ export async function runMacSetup(args: readonly string[], io: MacSetupIo): Prom
       return argument === undefined ? setup.starter() : usage(io);
     case 'undo':
       return setup.undo(argument);
+    case 'tunnel':
+      return setup.tunnel(argument);
     default:
       return usage(io);
   }
@@ -273,6 +277,7 @@ function usage(io: MacSetupIo): number {
     "  pnpm mac-setup launcher             build what starts new apps' browser without this app's permissions",
     "  pnpm mac-setup starter              record the VR starter's pinned set, or say how to install it",
     '  pnpm mac-setup undo [git|off]       let Halcyonic undo a task, with /usr/bin/git or the git you name',
+    '  pnpm mac-setup tunnel [path|off]    record the checked tunnel program that shares a game at a link',
     'Add --with-token to ask the running Halcyonic what it uses: the check then reads its access',
     'token, and sends it only after Halcyonic proves it holds it.',
   ]) {
@@ -344,6 +349,7 @@ class MacSetup {
     add('launcher', this.#launcherStep(env));
     add('starter', this.#starterStep());
     add('undo', this.#undoStep(env));
+    add('sharing', await this.#sharingStep(env));
     add('companion', await this.#companionStep(env, ollama, running));
     add('usage_left', this.#usageLeftStep(running));
     add('understand', this.#understandStep());
@@ -732,6 +738,71 @@ class MacSetup {
         ? `Undo uses ${this.#tilde(git)}.`
         : `Undo uses ${this.#tilde(git)}. It isn't the system's own git, ${SYSTEM_GIT}.`;
     return { title, status: 'ready', lines: [named, about] };
+  }
+
+  async #sharingStep(env: NodeJS.ProcessEnv): Promise<Step> {
+    const title = 'Share a Link';
+    const about =
+      'With it, a checked game can be shared at a link anyone can open, through a temporary tunnel. The link reaches only the checked build, and stops when you stop it.';
+    const tunnel = env.HALCYONIC_TUNNEL_BIN;
+    if (!present(tunnel))
+      return {
+        title,
+        status: 'optional',
+        lines: ['Sharing a link is off.', about],
+        next: ['pnpm mac-setup tunnel'],
+      };
+    if (!(await isPinnedTunnel(tunnel)))
+      return {
+        title,
+        status: 'look',
+        lines: [
+          `${this.#tilde(tunnel)} isn't the checked tunnel program ${TUNNEL_PIN.version}, so sharing a link stays off.`,
+          about,
+        ],
+        next: ['pnpm mac-setup tunnel'],
+      };
+    return {
+      title,
+      status: 'ready',
+      lines: [`Sharing a link uses the checked tunnel program ${TUNNEL_PIN.version}.`, about],
+    };
+  }
+
+  /**
+   * Records the tunnel program a shared link runs (ADR 0054), only when its bytes are the checked
+   * release's, by default where the setup page downloads it; `off` stops sharing a link. Nothing is
+   * downloaded here.
+   */
+  async tunnel(argument: string | undefined): Promise<number> {
+    const io = this.#io;
+    const settings = this.#settingsOrPrint();
+    if (settings === null) return 1;
+    if (argument === 'off') {
+      const next = { ...settings, HALCYONIC_TUNNEL_BIN: undefined };
+      this.#save(next);
+      io.print("Sharing a link is off from Halcyonic's next start.");
+      await this.#afterChange(next);
+      return 0;
+    }
+    const program = argument ?? tunnelProgram(this.#dataDir);
+    if (!isAbsolute(program)) {
+      io.print('Name the tunnel program by its full path.');
+      return 1;
+    }
+    if (!(await isPinnedTunnel(program))) {
+      io.print(
+        `${this.#tilde(program)} isn't the checked tunnel program ${TUNNEL_PIN.version}, so sharing a link stays off. Download it from the setup page.`,
+      );
+      return 1;
+    }
+    const next = { ...settings, HALCYONIC_TUNNEL_BIN: program };
+    this.#save(next);
+    io.print(
+      `Sharing a link is on from Halcyonic's next start, with the checked tunnel program ${TUNNEL_PIN.version}. A game is shared only when you press Share, and only its checked build.`,
+    );
+    await this.#afterChange(next);
+    return 0;
   }
 
   /**
@@ -2185,4 +2256,9 @@ if (import.meta.main) {
       process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
       process.exit(1);
     });
+}
+
+/** Where the setup page puts the checked tunnel program (ADR 0054). */
+export function tunnelProgram(dataDir: string): string {
+  return join(dataDir, 'tools', `cloudflared-${TUNNEL_PIN.version}`, 'cloudflared');
 }

@@ -74,6 +74,13 @@ by `pnpm mac-setup agent-apps` in a browser on a scratch page.
    the Wi-Fi address as text, Copy and Stop. A link's address goes only to the clipboard, never on
    the page. Stop is `POST /setup/shares/stop`, behind the page's session and origin like every
    press, and submits `project.share.stop` as the person's press. Written by TASKS, read by CORE.
+7. **Link sharing's tunnel** (ADR 0054). A step, Share a Link, with Get Link Sharing and Turn Link
+   Sharing Off. The download is the checked release's archive from its GitHub release
+   (`/usr/bin/curl`, https only), checked by its SHA-256 with `/usr/bin/shasum` before
+   `/usr/bin/tar` unpacks the program alone. `pnpm mac-setup tunnel` then records
+   `HALCYONIC_TUNNEL_BIN` only when the program's bytes match the pin, and the job says Done only
+   then. It applies through Restart to Apply. The owner's yes to this download is on record. Written
+   by TASKS, read by CORE.
 
 ## Alternatives considered
 

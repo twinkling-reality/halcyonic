@@ -77,6 +77,14 @@ The test renders 8 pixels a cell with a 4-cell margin. Not verified: a real phon
 reading one from the headset's panel, which waits for the owner (size on the panel, glare, the
 headset's own scanner).
 
+## The setup step (2026-11-11)
+
+Unit tests run the page's Get Link Sharing with a fake runner: nothing is fetched. They check the exact
+commands (curl over https only, the SHA-256 check, tar of the program alone), that a failed check
+never unpacks, and that a program that is not the checked one is never recorded. By hand, with a
+scratch data folder, `pnpm mac-setup tunnel <the checked binary>` recorded it and said so. Not run: the
+page's download from GitHub itself.
+
 ## Not verified
 
 - A real project's preview behind the tunnel on the owner's Mac (by design: never before AUDIT2).

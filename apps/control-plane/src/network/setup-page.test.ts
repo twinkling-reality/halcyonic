@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import type { MacSetupIo } from '../cli/mac-setup.ts';
+import { type MacSetupIo, tunnelProgram } from '../cli/mac-setup.ts';
 import { APPLE_SILICON_PINS, type Pins } from '../pins.ts';
 import { readHostSettings, rememberNetworkListener, writeHostSettings } from '../settings.ts';
 import { startTestServer } from '../testing/harness.ts';
@@ -28,6 +28,8 @@ import {
   type SharedNow,
   settingsForRestart,
   setupDownloads,
+  TUNNEL_ARCHIVE_SHA256,
+  TUNNEL_ARCHIVE_URL,
 } from './setup-page.ts';
 
 /** CORE's scratch block; the page takes the first free port in it. */
@@ -307,6 +309,106 @@ describe('the setup view', () => {
       'with no pins to check it by, nothing is recorded',
     );
     assert.match(unchecked.job?.lines.at(-1) ?? '', /checksums for Apple silicon Macs only/);
+  });
+
+  test('link sharing downloads the checked tunnel release, checks the archive before unpacking it, and is recorded only when the program inside is the checked one (ADR 0054)', async (t) => {
+    const { view, runs, mac: machine } = setup(t);
+    const before = await view.state();
+    const sharing = step(before, 'sharing');
+    assert.equal(sharing.status, 'optional', 'off until the person turns it on');
+    assert.deepEqual(
+      sharing.actions.map((action) => [action.action, action.arg]),
+      [
+        ['download', 'tunnel'],
+        ['tunnel', 'off'],
+      ],
+    );
+    const asked = await view.act('download', 'tunnel', false);
+    assert.match(
+      asked.confirm?.text ?? '',
+      /cloudflared 2026\.10\.7 .*18\.9 MB.* Go On downloads it\./,
+    );
+    assert.equal(runs.length, 0, 'the first press downloads nothing');
+    await view.act('download', 'tunnel', true);
+    const program = tunnelProgram(machine.dataDir);
+    const folder = join(program, '..');
+    const archive = join(folder, 'cloudflared-darwin-arm64.tgz');
+    assert.deepEqual(runs[0]?.argv, [
+      '/usr/bin/curl',
+      '--fail',
+      '--location',
+      '--silent',
+      '--show-error',
+      '--proto',
+      '=https',
+      '--proto-redir',
+      '=https',
+      '--tlsv1.2',
+      '--output',
+      archive,
+      TUNNEL_ARCHIVE_URL,
+    ]);
+    assert.equal(
+      readFileSync(`${archive}.sha256`, 'utf8'),
+      `${TUNNEL_ARCHIVE_SHA256}  ${archive}\n`,
+      'the release archive by its pin',
+    );
+    const next = async (count: number) => {
+      for (let tries = 0; tries < 500 && runs.length < count; tries += 1)
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      return runs[count - 1] as Run;
+    };
+    (runs[0] as Run).finish(0);
+    assert.deepEqual((await next(2)).argv, [
+      '/usr/bin/shasum',
+      '-a',
+      '256',
+      '-c',
+      `${archive}.sha256`,
+    ]);
+    (runs[1] as Run).finish(0);
+    assert.deepEqual((await next(3)).argv, [
+      '/usr/bin/tar',
+      '-xzf',
+      archive,
+      '-C',
+      folder,
+      'cloudflared',
+    ]);
+    // A program that is not the checked release, as a tampered archive would unpack.
+    writeFileSync(program, 'not the checked program');
+    (runs[2] as Run).finish(0);
+    const done = await ended(view);
+    assert.equal(done.job?.state, 'not_set_up');
+    assert.match(done.job?.lines.join(' ') ?? '', /isn't the checked tunnel program 2026\.10\.7/);
+    assert.equal(
+      readHostSettings(machine.dataDir).HALCYONIC_TUNNEL_BIN,
+      undefined,
+      'never recorded',
+    );
+    // An archive whose SHA-256 is not the pin is never unpacked.
+    const fresh = setup(t);
+    await fresh.view.act('download', 'tunnel', false);
+    await fresh.view.act('download', 'tunnel', true);
+    (fresh.runs[0] as Run).finish(0);
+    for (let tries = 0; tries < 500 && fresh.runs.length < 2; tries += 1)
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    (fresh.runs[1] as Run).finish(1);
+    assert.equal((await ended(fresh.view)).job?.state, 'failed');
+    assert.equal(fresh.runs.length, 2, 'tar never ran');
+  });
+
+  test('a recorded tunnel program that is not the checked one is named, and link sharing turns off', async (t) => {
+    const { view, mac: machine } = setup(t);
+    const program = tunnelProgram(machine.dataDir);
+    mkdirSync(join(program, '..'), { recursive: true });
+    writeFileSync(program, 'not the checked program');
+    writeHostSettings(machine.dataDir, { HALCYONIC_TUNNEL_BIN: program });
+    assert.equal(step(await view.act('check', null, false), 'sharing').status, 'look');
+    await view.act('tunnel', 'off', false);
+    await view.act('tunnel', 'off', true);
+    assert.equal(readHostSettings(machine.dataDir).HALCYONIC_TUNNEL_BIN, undefined);
+    assert.equal(step(await view.act('check', null, false), 'sharing').status, 'optional');
   });
 
   test('a downloaded agent app is set up only when it is the copy Halcyonic was checked with', async (t) => {
