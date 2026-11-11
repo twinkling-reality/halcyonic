@@ -162,6 +162,9 @@
             }
           ]
         },
+        "observed": {
+          "$ref": "#/$defs/WorkspaceRequestObserved"
+        },
         "steps": {
           "type": "array",
           "items": {
@@ -182,6 +185,148 @@
           "type": "string",
           "format": "date-time",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorkspaceRequestObserved": {
+      "type": "object",
+      "required": [
+        "task",
+        "tasks",
+        "projects"
+      ],
+      "properties": {
+        "task": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "status",
+                "turns",
+                "files",
+                "check",
+                "sent"
+              ],
+              "properties": {
+                "status": {
+                  "$ref": "#/$defs/ExecutionStatus"
+                },
+                "turns": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "files": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "created",
+                        "changed",
+                        "deleted"
+                      ],
+                      "properties": {
+                        "created": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "changed": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "deleted": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "check": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "passed",
+                        "files"
+                      ],
+                      "properties": {
+                        "passed": {
+                          "type": "boolean"
+                        },
+                        "files": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "const": "unknown"
+                            },
+                            {
+                              "type": "string",
+                              "const": "current"
+                            },
+                            {
+                              "type": "string",
+                              "const": "changed"
+                            }
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sent": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tasks": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkspaceRequestTaskCounts"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projects": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "total",
+                "checks_failed"
+              ],
+              "properties": {
+                "total": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "checks_failed": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -214,6 +359,34 @@
         "served": {
           "type": "string",
           "const": "this_mac"
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorkspaceRequestTaskCounts": {
+      "type": "object",
+      "required": [
+        "total",
+        "running",
+        "waiting_on_you",
+        "failed"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "running": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "waiting_on_you": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "additionalProperties": false
@@ -6335,6 +6508,9 @@
                       "type": "null"
                     }
                   ]
+                },
+                "observed": {
+                  "$ref": "#/$defs/WorkspaceRequestObserved"
                 }
               },
               "additionalProperties": false

@@ -188,11 +188,13 @@ import {
 } from './realtime.ts';
 import {
   WorkspaceAgentStatus,
+  WorkspaceRequestObserved,
   WorkspaceRequestReply,
   WorkspaceRequestResponse,
   WorkspaceRequestStatus,
   WorkspaceRequestStep,
   WorkspaceRequestStepStatus,
+  WorkspaceRequestTaskCounts,
   WorkspaceRequestView,
 } from './requests.ts';
 import {
@@ -280,7 +282,9 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   WorkspaceAgentStatus,
   WorkspaceRequestResponse,
   WorkspaceRequestView,
+  WorkspaceRequestObserved,
   WorkspaceRequestReply,
+  WorkspaceRequestTaskCounts,
   WorkspaceRequestStatus,
   WorkspaceRequestStep,
   WorkspaceRequestStepStatus,

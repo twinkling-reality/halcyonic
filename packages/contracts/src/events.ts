@@ -56,6 +56,7 @@ import {
 import { QuestionPrompts } from './questions.ts';
 import {
   WorkspaceRequestId,
+  WorkspaceRequestObserved,
   WorkspaceRequestReply,
   WorkspaceRequestStatus,
   WorkspaceRequestStep,
@@ -829,6 +830,8 @@ export const WorkspaceRequestChanged = requestEvent(
       request_id: WorkspaceRequestId,
       status: WorkspaceRequestStatus,
       reply: Nullable(WorkspaceRequestReply),
+      /** Only on the change that ends a request with no new reply: what the computer saw (`WorkspaceRequestView.observed`). */
+      observed: Type.Optional(WorkspaceRequestObserved),
     },
     strict,
   ),

@@ -11,6 +11,7 @@ import {
   WORKSPACE_TOOL_ARGUMENTS,
   type WorkspaceAgentStatus,
   type WorkspaceRequestId,
+  type WorkspaceRequestObserved,
   type WorkspaceRequestReply,
   type WorkspaceRequestStatus,
   type WorkspaceRequestStep,
@@ -1773,15 +1774,97 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     status: WorkspaceRequestStatus,
     reply: WorkspaceRequestReply | null,
   ): void {
+    // A request that ends with no new reply carries what the computer itself saw, so it never ends with nothing
+    // (the lead, 2026-11-11). Never beside a new reply.
+    const ending = status === 'interrupted' || status === 'failed' || status === 'stopped';
+    const fresh = reply !== null && reply.text !== request.reply?.text;
+    const observed = ending && !fresh ? this.#observed(request) : undefined;
     this.#o.controlPlane.recorder.record(
       controlPlaneDraft(
         'workspace.request.changed',
         this.#scope(request),
-        { request_id: request.request_id, status, reply },
+        { request_id: request.request_id, status, reply, ...(observed ? { observed } : {}) },
         this.#now(),
         NO_CAUSE,
       ),
     );
+  }
+
+  /**
+   * What the computer saw, for a request that ends with no new reply: facts the host holds, never model or agent text and
+   * never a path. A task: its run's state, its turns, the files the Mac saw its turns change, the project's latest check,
+   * and whether this request's words reached the agent. A project: its tasks by where they stand. All work: the
+   * projects, and the tasks across them.
+   */
+  #observed(request: WorkspaceRequestView): WorkspaceRequestObserved {
+    const plane = this.#o.controlPlane;
+    const counts = (projectIds: readonly string[]) => {
+      const runs = projectIds.flatMap((projectId) =>
+        plane.projection
+          .workstreams(projectId)
+          .map((task) =>
+            task.current_execution_id === null
+              ? undefined
+              : plane.projection.execution(task.current_execution_id),
+          ),
+      );
+      const count = (test: (run: (typeof runs)[number]) => boolean) => runs.filter(test).length;
+      return {
+        total: runs.length,
+        running: count((run) => ['starting', 'running', 'verifying'].includes(run?.status ?? '')),
+        waiting_on_you: count(
+          (run) => (run?.pending_approvals.length ?? 0) + (run?.pending_questions.length ?? 0) > 0,
+        ),
+        failed: count((run) => run?.status === 'failed'),
+      };
+    };
+    if (bound(request)) {
+      const run = plane.projection.execution(request.execution_id);
+      const evidence = taskEvidence(plane, request.execution_id, (value, maximum) =>
+        this.#outside(value, maximum),
+      );
+      const changes = 'changes' in evidence ? evidence.changes : null;
+      const check = plane.projection.latestCheck(request.project_id);
+      return {
+        task:
+          run === undefined
+            ? null
+            : {
+                status: run.status,
+                turns: run.turn_count,
+                files:
+                  changes === null || changes.turns_observed === 0
+                    ? null
+                    : {
+                        created: changes.created,
+                        changed: changes.changed,
+                        deleted: changes.deleted,
+                      },
+                check:
+                  check === undefined
+                    ? null
+                    : { passed: check.findings.passed, files: check.files },
+                sent: request.steps.some(
+                  (step) => step.tool_name === 'continue_task' && step.status === 'confirmed',
+                ),
+              },
+        tasks: null,
+        projects: null,
+      };
+    }
+    if (request.project_id !== null)
+      return { task: null, tasks: counts([request.project_id]), projects: null };
+    const projects = plane.projection.projects();
+    return {
+      task: null,
+      tasks: counts(projects.map((project) => project.project_id)),
+      projects: {
+        total: projects.length,
+        checks_failed: projects.filter(
+          (project) => plane.projection.latestCheck(project.project_id)?.findings.passed === false,
+        ).length,
+      },
+    };
   }
   #scope(request: WorkspaceRequestView) {
     return {

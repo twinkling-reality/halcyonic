@@ -1285,6 +1285,10 @@ export class Projection {
         if (event.event_type === 'workspace.request.changed') {
           request.view.status = event.payload.status;
           request.view.reply = structuredClone(event.payload.reply);
+          // What the computer saw stands only on the change that ended the request with no new reply; any later
+          // change (a resume, a reply) takes it away, so it never stands beside a reply.
+          if (event.payload.observed === undefined) delete request.view.observed;
+          else request.view.observed = structuredClone(event.payload.observed);
         } else {
           const step = event.payload.step,
             command = event.payload.prepared_command;
