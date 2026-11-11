@@ -1913,6 +1913,42 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
   skip: SKIP || (process.platform !== 'darwin' ? 'Seatbelt is macOS only' : false),
 }, () => {
   test(
+    'a task at rest is refused its next instruction once a project is bound inside its folder, and that project is untouched (AUDIT BOX-3 fix F1)',
+    SLOW_TEST,
+    async (t) => {
+      let bound: string[] = [];
+      const { runtime, sandbox, start } = await harness(t, {
+        runtime: { foldersInside: () => bound },
+      });
+      const inner = join(sandbox.project, 'inner-project');
+      mkdirSync(inner);
+      writeFileSync(join(inner, 'kept.txt'), 'kept\n');
+      const execution = await start('Hello.', {}, 'never_ask');
+      await execution.next('runtime.turn.completed');
+      bound = [realpathSync(inner)];
+      await assert.rejects(
+        runtime.sendInstruction({
+          execution: execution.context,
+          text: call('shell', {
+            command: `echo removed > ${inner}/kept.txt; echo made > ${inner}/marker.txt`,
+          }),
+        }),
+        (error: unknown) =>
+          error instanceof RuntimeActionError &&
+          error.code === 'runtime_refused' &&
+          /added inside this one since this task started/.test(error.message),
+      );
+      await delay(1000);
+      assert.equal(
+        readFileSync(join(inner, 'kept.txt'), 'utf8'),
+        'kept\n',
+        'the inner project changed',
+      );
+      assert.equal(existsSync(join(inner, 'marker.txt')), false, 'the inner project was written');
+    },
+  );
+
+  test(
     'never asking in a folder that holds another project, or beside one, reaches neither, also when the inner one is bound after its server started (AUDIT BOX-3 F1)',
     SLOW_TEST,
     async (t) => {

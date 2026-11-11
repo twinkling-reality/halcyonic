@@ -164,5 +164,8 @@ never-asking OpenCode run rewriting it, and a confined Codex run had the same ex
   on another server. While a turn runs, the start is refused in words.
 - **Where a sandbox cannot do it** (Codex on the open server, off macOS): a start that never asks is refused for a
   folder that holds another project.
+- **A task already at rest** (AUDIT BOX-3 fix F1): its server keeps the profile it was made with, so each instruction
+  looks again. Where a project was bound inside the folder since the server started, the instruction is refused in
+  words, on both runtimes ("Start a new task here to go on"). The next start then gets the bounded profile.
 - **Tests:** on this Mac and on both pinned binaries, with a project inside the task's folder and one beside it,
   neither was read or written by a never-asking run. Each test fails with the deny taken out.

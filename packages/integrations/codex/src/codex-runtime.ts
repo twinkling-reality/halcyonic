@@ -636,11 +636,28 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   /** Starts a turn at rest, or steers the running turn. */
   async sendInstruction(request: { execution: ExecutionContext; text: string }): Promise<void> {
     const thread = this.#hosted(request.execution);
+    this.#stillBounded(thread);
     await this.#act(thread, () =>
       thread.state.activeTurnId === null
         ? this.#startTurn(thread, request.text)
         : this.#steer(thread, request.text),
     );
+  }
+
+  /**
+   * Refuses an instruction to a thread whose folder now holds another bound project that its server's
+   * profile does not deny (AUDIT BOX-3 fix F1): projects are bound while a task rests, and the server
+   * keeps the profile it was launched with. On the open server, a thread that never asks is refused
+   * once its folder holds another project at all.
+   */
+  #stillBounded(thread: HostedThread): void {
+    const now = [...this.#foldersInside(thread.options.cwd)].sort();
+    const confinement = thread.connection.slot.confinement;
+    const unbounded =
+      confinement === null
+        ? thread.options.approvalPolicy === 'never' && now.length > 0
+        : now.some((folder) => !(confinement.inner ?? []).includes(folder));
+    if (unbounded) throw new RuntimeActionError('runtime_refused', NEW_PROJECT_INSIDE);
   }
 
   /**
@@ -1669,6 +1686,10 @@ export function confinedHomeEnvironment(temp: string): Readonly<Record<string, s
     GIT_CONFIG_NOSYSTEM: '1',
   };
 }
+
+/** Why an instruction is refused once another project was bound inside its folder (BOX-3 fix F1). */
+const NEW_PROJECT_INSIDE =
+  "Another project's folder was added inside this one since this task started, so this task's agent no longer keeps out of it. Start a new task here to go on.";
 
 /** The settings every thread is started and resumed with. */
 function threadSettings(
