@@ -819,7 +819,7 @@ async function stopRecorded(pid: number, mark: string): Promise<void> {
 }
 
 /** The first 64 KB of a file the host wrote, never through a link; null when it cannot be read. */
-function readStart(path: string): string | null {
+export function readStart(path: string): string | null {
   let fd: number | undefined;
   try {
     fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);

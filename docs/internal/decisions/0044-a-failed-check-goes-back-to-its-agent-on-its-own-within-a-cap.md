@@ -85,7 +85,9 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
 - Real instructions reach an agent with no person present. Every one is journaled and marked as
   the host's own, admission checks each, and the cap bounds them. An auditor reads each change here.
 - Only starter projects are checked, so only they fix themselves. Other projects need a check of
-  their own first.
+  their own first. Since 2026-11-11 a project not made from a starter has one, chosen by the person
+  ([ADR 0055](0055-a-projects-own-check-is-chosen-by-the-person-and-confined-as-an-agent.md)), and fixes
+  itself too, only after a run that passed.
 - An older generated C# client fails on the two new event types; the headset must be rebuilt with
   the regenerated bindings before a host that sends them (REALTIME.md's upgrade order).
 - The headset should show a try under way and how a chain ended. Draft words, for the FIELD lane to

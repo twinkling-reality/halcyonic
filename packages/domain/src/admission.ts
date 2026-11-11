@@ -236,11 +236,14 @@ export function admitCommand(
       }
       const scope = { ...NO_SCOPE, project_id: projectId };
       if (command.command_type === 'project.check') {
-        if (project.starter === null || project.location === null) {
+        if (project.location === null)
+          return reject(scope, 'invalid_state', 'This project has no folder to check.');
+        // A project not made from a starter runs the check the person chose (ADR 0055).
+        if (project.starter === null && projection.ownCheck(projectId) === undefined) {
           return reject(
             scope,
             'invalid_state',
-            'Only a project made from a starter can be checked.',
+            'Choose a check for this project first: its own commands, from its package.json.',
           );
         }
         // A world is a description, read and validated when it changes (ADR 0049): it has no build.
@@ -284,6 +287,7 @@ export function admitCommand(
               (pending) =>
                 pending.project_id === projectId &&
                 (pending.command_type === 'project.check' ||
+                  pending.command_type === 'project.own_check.choose' ||
                   pending.command_type === 'project.restore' ||
                   pending.command_type === 'project.preview.start'),
             );
@@ -851,6 +855,27 @@ export function admitCommand(
       return { admitted: true, policy, scope, runtime };
     }
 
+    case 'project.own_check.choose': {
+      const projectId = command.payload.project_id;
+      const project = projection.project(projectId);
+      if (project === undefined)
+        return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
+      const scope = { ...NO_SCOPE, project_id: projectId };
+      if (project.starter !== null)
+        return reject(
+          scope,
+          'invalid_state',
+          'A project made from a starter is checked by your computer itself.',
+        );
+      if (project.location === null)
+        return reject(scope, 'invalid_state', 'This project has no folder to check.');
+      // Choosing runs the check once: never over files a runtime is still writing.
+      const busy = projection.projectBusy(projectId);
+      if (busy !== null)
+        return reject(scope, 'invalid_state', `${busy} Choose its check once it stops.`);
+      return { admitted: true, policy, scope, runtime: null };
+    }
+
     default: {
       const unhandled: never = command;
       throw new Error(
@@ -1020,6 +1045,8 @@ function commandInWords(type: CommandType): string {
       return 'Putting files back';
     case 'project.check':
       return 'A check';
+    case 'project.own_check.choose':
+      return 'Choosing a check';
     default:
       return 'A command';
   }
@@ -1128,6 +1155,7 @@ const PROJECT_FOLDER_COMMANDS: ReadonlySet<CommandType> = new Set<CommandType>([
   'workstream.add_to_project',
   'project.restore',
   'project.check',
+  'project.own_check.choose',
   'project.set_location',
   'project.make_vr_version',
 ]);

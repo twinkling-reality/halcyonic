@@ -294,7 +294,11 @@ export const AUTO_FIX_CAP_MAX = 10;
  * `no_change` the try's turn changed no file, so no check followed; `nothing_to_send` the check gave
  * nothing an agent could act on; `check_unavailable` the check itself did not finish; `send_failed`
  * the try was refused or not delivered; `several_tasks` more than one task changed the project
- * before the check, so no one of them is sent it; `host_restarted` the host restarted meanwhile.
+ * before the check, so no one of them is sent it; `host_restarted` the host restarted meanwhile. For a
+ * project's own check (ADR 0055): `failing_before` the run before the turn had failed too, and
+ * `never_passed` no run of the chosen check has passed on this computer, so the failure is not sent as
+ * the agent's; `check_refused` a script timed out, could not start, or met a refusal of the sandbox, or
+ * the chosen command changed, so there is nothing an agent is known to have broken.
  */
 export const AutoFixEndReason = Type.Union([
   Type.Literal('passed'),
@@ -311,6 +315,9 @@ export const AutoFixEndReason = Type.Union([
   Type.Literal('send_failed'),
   Type.Literal('several_tasks'),
   Type.Literal('host_restarted'),
+  Type.Literal('failing_before'),
+  Type.Literal('never_passed'),
+  Type.Literal('check_refused'),
 ]);
 export type AutoFixEndReason = Static<typeof AutoFixEndReason>;
 
@@ -333,10 +340,14 @@ export const AutoFixView = Type.Object(
      */
     failed_steps: Type.Optional(
       Type.Array(
-        Type.Union([Type.Literal('typecheck'), Type.Literal('build'), Type.Literal('page')]),
-        {
-          maxItems: 3,
-        },
+        Type.Union([
+          Type.Literal('typecheck'),
+          Type.Literal('build'),
+          Type.Literal('page'),
+          /** A project's own check (ADR 0055): one of its chosen scripts failed. */
+          Type.Literal('own_check'),
+        ]),
+        { maxItems: 4 },
       ),
     ),
   },

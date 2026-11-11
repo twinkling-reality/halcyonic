@@ -20,6 +20,7 @@ import {
   LocationReviewRequest,
   type LocationReviewResponse,
   type LocationsResponse,
+  type OwnCheckFoundResponse,
   ProjectChangesQuery,
   ProjectFileChangeQuery,
   ProjectFileQuery,
@@ -494,6 +495,30 @@ export function registerRoutes(
       way: share.way,
       code: { size: code.size, rows: [...code.rows] },
     };
+    return answer;
+  });
+
+  // A project's own check (ADR 0055): the scripts its package.json offers now, read before choosing.
+  app.get('/api/projects/:project_id/own-check', async (request, reply) => {
+    const projectId = (request.params as { project_id: string }).project_id;
+    if (!validateProjectId(projectId).ok) return invalid(reply);
+    const project = controlPlane.projection.project(projectId);
+    if (project === undefined)
+      return reply.code(404).send(errorBody('project_not_found', 'This project does not exist.'));
+    if (controlPlane.ownChecks === null || project.starter !== null)
+      return reply
+        .code(404)
+        .send(
+          errorBody(
+            'own_check_unavailable',
+            project.starter !== null
+              ? 'A project made from a starter is checked by your computer itself.'
+              : "A project's own check is not set up on this computer.",
+          ),
+        );
+    const answer: OwnCheckFoundResponse = await controlPlane.ownChecks.found(
+      projectId as ProjectId,
+    );
     return answer;
   });
 

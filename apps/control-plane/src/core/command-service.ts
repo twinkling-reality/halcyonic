@@ -55,6 +55,7 @@ import type { IdGenerator } from '../ids.ts';
 import type { HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
 import type { FileObserver } from '../observer/file-observer.ts';
+import type { OwnChecks } from '../own-check/own-check.ts';
 import type { CheckOutput } from '../preview/check-output.ts';
 import type { HostPreviews } from '../preview/preview.ts';
 import { type ProjectShares, ShareRefused } from '../preview/share.ts';
@@ -120,6 +121,8 @@ export interface CommandServiceDeps {
   readonly shares?: ProjectShares | null;
   /** The host's checks and previews of starter projects (ADR 0037), or null when not set up. */
   readonly previews?: HostPreviews | null;
+  /** A project's own check, chosen by the person (ADR 0055), or null when not set up. */
+  readonly ownChecks?: OwnChecks | null;
   /** The starters a new project can begin from (ADR 0037), or null when there are none. */
   readonly starters?: HostStarters | null;
   /** The Mac's own reading of what each turn changed (ADR 0038); none, as in some tests. */
@@ -526,8 +529,30 @@ export class CommandService {
           message: 'Undo is not set up on this computer (HALCYONIC_GIT_BIN).',
         },
       };
+    if (command.command_type === 'project.own_check.choose' && !this.#deps.ownChecks)
+      return {
+        admitted: false,
+        scope: { project_id: command.payload.project_id, workstream_id: null, execution_id: null },
+        rejection: {
+          code: 'capability_unsupported',
+          message: "A project's own check is not set up on this computer.",
+        },
+      };
+    // A project not made from a starter runs its own check, which needs no starter (ADR 0055).
+    const ownCheck =
+      command.command_type === 'project.check' &&
+      this.#deps.projection.project(command.payload.project_id)?.starter === null;
+    if (ownCheck && !this.#deps.ownChecks)
+      return {
+        admitted: false,
+        scope: { project_id: command.payload.project_id, workstream_id: null, execution_id: null },
+        rejection: {
+          code: 'capability_unsupported',
+          message: "A project's own check is not set up on this computer.",
+        },
+      };
     if (
-      (command.command_type === 'project.check' ||
+      ((command.command_type === 'project.check' && !ownCheck) ||
         command.command_type.startsWith('project.preview.')) &&
       !this.#deps.previews
     )
@@ -1233,10 +1258,53 @@ export class CommandService {
           );
         return;
       }
+      case 'project.own_check.choose':
       case 'project.check':
       case 'project.preview.start':
       case 'project.preview.stop':
       case 'project.open_on_mac': {
+        const own = this.#deps.ownChecks;
+        // A project's own check (ADR 0055): the host's own work too, bounded by each script's limit.
+        if (
+          own &&
+          (command.command_type === 'project.own_check.choose' ||
+            (command.command_type === 'project.check' &&
+              this.#deps.projection.project(command.payload.project_id)?.starter === null))
+        ) {
+          const run =
+            command.command_type === 'project.own_check.choose'
+              ? own.choose(command)
+              : own.check(command as CommandOf<'project.check'>);
+          void run
+            .then(
+              ({ check_id, passed }) =>
+                this.#complete(command, admission.scope, {
+                  kind: 'project_checked',
+                  check_id,
+                  passed,
+                }),
+              (error: unknown) => {
+                this.#deps.logger.error(
+                  { err: error, command_id: command.command_id },
+                  `${command.command_type} failed`,
+                );
+                this.#fail(command, admission.scope, {
+                  code: 'check_failed',
+                  message: 'The check stopped on an error before it could record what it found.',
+                  effect: 'unknown',
+                });
+              },
+            )
+            .catch((error: unknown) =>
+              this.#deps.logger.error(
+                { err: error, command_id: command.command_id },
+                'outcome not recorded',
+              ),
+            );
+          return;
+        }
+        if (command.command_type === 'project.own_check.choose')
+          throw new Error('admitted project.own_check.choose with own checks off');
         const previews = this.#deps.previews;
         if (!previews) throw new Error(`admitted ${command.command_type} with checks off`);
         const work =
@@ -1685,7 +1753,11 @@ export class CommandService {
   #checkOutputFor(projectId: ProjectId, workstreamId: WorkstreamId | null): Checked | null {
     let found: Checked | null;
     try {
-      found = this.#deps.previews?.failedCheckOutput(projectId, workstreamId) ?? null;
+      // A project not made from a starter has its own check's lines, if any (ADR 0055).
+      found =
+        this.#deps.projection.project(projectId)?.starter === null
+          ? (this.#deps.ownChecks?.failedOutput(projectId, workstreamId) ?? null)
+          : (this.#deps.previews?.failedCheckOutput(projectId, workstreamId) ?? null);
     } catch {
       return null;
     }

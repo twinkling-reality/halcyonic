@@ -2298,6 +2298,264 @@
             },
             "event_type": {
               "type": "string",
+              "const": "project.own_check.chosen"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "manager",
+                "scripts"
+              ],
+              "properties": {
+                "manager": {
+                  "$ref": "#/$defs/OwnCheckManager"
+                },
+                "scripts": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/OwnCheckScript"
+                  },
+                  "minItems": 1,
+                  "maxItems": 5
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "project.own_check.recorded"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "check_id",
+                "first",
+                "findings"
+              ],
+              "properties": {
+                "check_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "first": {
+                  "type": "boolean"
+                },
+                "findings": {
+                  "$ref": "#/$defs/OwnCheckFindings"
+                },
+                "workstream_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
               "const": "project.preview.started"
             },
             "source": {
@@ -4344,11 +4602,12 @@
                   "items": {
                     "enum": [
                       "typecheck",
-                      "build"
+                      "build",
+                      "own_check"
                     ]
                   },
                   "minItems": 1,
-                  "maxItems": 2
+                  "maxItems": 3
                 },
                 "lines": {
                   "type": "integer",
@@ -9232,6 +9491,63 @@
             },
             "command_type": {
               "type": "string",
+              "const": "project.own_check.choose"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "project_id",
+                "scripts"
+              ],
+              "properties": {
+                "project_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "scripts": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/OwnCheckScriptName"
+                  },
+                  "minItems": 1,
+                  "maxItems": 5,
+                  "uniqueItems": true
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "command_id",
+            "issued_at",
+            "client",
+            "command_type",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "command_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "client": {
+              "$ref": "#/$defs/ClientInfo"
+            },
+            "command_type": {
+              "type": "string",
               "const": "project.preview.start"
             },
             "payload": {
@@ -11504,6 +11820,9 @@
           },
           "additionalProperties": false
         },
+        "own_check": {
+          "$ref": "#/$defs/ProjectOwnCheckView"
+        },
         "preview": {
           "type": "object",
           "required": [
@@ -12944,6 +13263,18 @@
         {
           "type": "string",
           "const": "host_restarted"
+        },
+        {
+          "type": "string",
+          "const": "failing_before"
+        },
+        {
+          "type": "string",
+          "const": "never_passed"
+        },
+        {
+          "type": "string",
+          "const": "check_refused"
         }
       ]
     },
@@ -13008,10 +13339,374 @@
               {
                 "type": "string",
                 "const": "page"
+              },
+              {
+                "type": "string",
+                "const": "own_check"
               }
             ]
           },
-          "maxItems": 3
+          "maxItems": 4
+        }
+      },
+      "additionalProperties": false
+    },
+    "OwnCheckFindings": {
+      "type": "object",
+      "required": [
+        "outcome",
+        "manager",
+        "runs",
+        "passed",
+        "written"
+      ],
+      "properties": {
+        "outcome": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "ran"
+            },
+            {
+              "type": "string",
+              "const": "command_changed"
+            },
+            {
+              "type": "string",
+              "const": "manager_missing"
+            },
+            {
+              "type": "string",
+              "const": "manifest_unreadable"
+            }
+          ]
+        },
+        "manager": {
+          "$ref": "#/$defs/OwnCheckManager"
+        },
+        "runs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OwnCheckRun"
+          },
+          "maxItems": 5
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "written": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OwnCheckWritten"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "OwnCheckFoundResponse": {
+      "type": "object",
+      "required": [
+        "manager",
+        "scripts",
+        "reason"
+      ],
+      "properties": {
+        "manager": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OwnCheckManager"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scripts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OwnCheckFoundScript"
+          },
+          "maxItems": 5
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OwnCheckNotFound"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "OwnCheckFoundScript": {
+      "type": "object",
+      "required": [
+        "name",
+        "command"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/OwnCheckScriptName"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "pattern": "\\S"
+        }
+      },
+      "additionalProperties": false
+    },
+    "OwnCheckManager": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "npm"
+        },
+        {
+          "type": "string",
+          "const": "pnpm"
+        },
+        {
+          "type": "string",
+          "const": "yarn"
+        }
+      ]
+    },
+    "OwnCheckNotFound": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "no_manifest"
+        },
+        {
+          "type": "string",
+          "const": "manifest_unreadable"
+        },
+        {
+          "type": "string",
+          "const": "no_scripts"
+        },
+        {
+          "type": "string",
+          "const": "manager_missing"
+        }
+      ]
+    },
+    "OwnCheckRun": {
+      "type": "object",
+      "required": [
+        "name",
+        "exit",
+        "seconds",
+        "timed_out",
+        "refused"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/OwnCheckScriptName"
+        },
+        "exit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "timed_out": {
+          "type": "boolean"
+        },
+        "refused": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "OwnCheckScript": {
+      "type": "object",
+      "required": [
+        "name",
+        "command",
+        "command_sha256"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/OwnCheckScriptName"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "pattern": "\\S"
+        },
+        "command_sha256": {
+          "$ref": "#/$defs/ReviewDigest"
+        }
+      },
+      "additionalProperties": false
+    },
+    "OwnCheckScriptName": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "test"
+        },
+        {
+          "type": "string",
+          "const": "check"
+        },
+        {
+          "type": "string",
+          "const": "typecheck"
+        },
+        {
+          "type": "string",
+          "const": "lint"
+        },
+        {
+          "type": "string",
+          "const": "build"
+        }
+      ]
+    },
+    "OwnCheckWritten": {
+      "type": "object",
+      "required": [
+        "created",
+        "changed",
+        "deleted",
+        "paths"
+      ],
+      "properties": {
+        "created": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "changed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deleted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "maxItems": 20
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProjectOwnCheckRunView": {
+      "type": "object",
+      "required": [
+        "check_id",
+        "recorded_at",
+        "position",
+        "files",
+        "first",
+        "findings"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "unknown"
+            },
+            {
+              "type": "string",
+              "const": "current"
+            },
+            {
+              "type": "string",
+              "const": "changed"
+            }
+          ]
+        },
+        "first": {
+          "type": "boolean"
+        },
+        "findings": {
+          "$ref": "#/$defs/OwnCheckFindings"
+        },
+        "workstream_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProjectOwnCheckView": {
+      "type": "object",
+      "required": [
+        "manager",
+        "scripts",
+        "chosen_at",
+        "latest",
+        "ever_passed"
+      ],
+      "properties": {
+        "manager": {
+          "$ref": "#/$defs/OwnCheckManager"
+        },
+        "scripts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OwnCheckScript"
+          },
+          "minItems": 1,
+          "maxItems": 5
+        },
+        "chosen_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        },
+        "latest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProjectOwnCheckRunView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ever_passed": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -18226,6 +18921,10 @@
         {
           "type": "string",
           "const": "project.check"
+        },
+        {
+          "type": "string",
+          "const": "project.own_check.choose"
         },
         {
           "type": "string",

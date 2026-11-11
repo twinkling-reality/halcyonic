@@ -38,6 +38,7 @@ import {
   setupDownloads,
 } from './network/setup-page.ts';
 import { NetworkSwitch } from './network/switch.ts';
+import { managersOn } from './own-check/own-check.ts';
 import { matchesPin, pinsForThisMac } from './pins.ts';
 import { audioOutputFor, outputInTree } from './preview/audio-output.ts';
 import { launcherFor } from './preview/launcher.ts';
@@ -245,6 +246,17 @@ async function main(): Promise<void> {
                 });
               },
             },
+          },
+        }
+      : {}),
+    // A project's own check (ADR 0055), in the agents' closed Seatbelt profile: macOS only.
+    ...(process.platform === 'darwin'
+      ? {
+          ownChecks: {
+            dataDir: config.dataDir,
+            home: homedir(),
+            node: process.execPath,
+            managers: managersOn(process.env.PATH),
           },
         }
       : {}),

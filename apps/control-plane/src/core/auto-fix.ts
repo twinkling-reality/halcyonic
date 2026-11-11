@@ -13,6 +13,7 @@ import { fixSteps, folderInUse, foldersOverlap, type Projection } from '@halcyon
 import type { Clock } from '@halcyonic/runtime-core';
 import type { IdGenerator } from '../ids.ts';
 import type { Logger } from '../logger.ts';
+import type { OwnChecks } from '../own-check/own-check.ts';
 import type { HostPreviews } from '../preview/preview.ts';
 import type { CommandService } from './command-service.ts';
 import { type Cause, causedBy, controlPlaneDraft, NO_CAUSE } from './drafts.ts';
@@ -41,7 +42,9 @@ export interface AutoFixDeps {
   readonly publisher: EventPublisher;
   readonly commands: Pick<CommandService, 'submit'>;
   readonly registry: Pick<RuntimeRegistry, 'get'>;
-  readonly previews: Pick<HostPreviews, 'failedCheckOutput'>;
+  readonly previews: Pick<HostPreviews, 'failedCheckOutput'> | null;
+  /** A project's own check (ADR 0055), or null where it is not set up. */
+  readonly ownChecks?: Pick<OwnChecks, 'failedOutput'> | null;
   readonly ids: IdGenerator;
   readonly clock: Clock;
   readonly logger: Logger;
@@ -152,7 +155,13 @@ export class AutoFix {
           return;
         }
         const project = this.#deps.projection.project(event.project_id);
-        if (project?.starter == null || project.location === null) return;
+        if (project === undefined || project.location === null) return;
+        // A starter's project, or one whose own check the person chose (ADR 0055).
+        if (
+          project.starter === null &&
+          this.#deps.projection.ownCheck(event.project_id) === undefined
+        )
+          return;
         const set = this.#changed.get(event.project_id) ?? new Set<ExecutionId>();
         set.add(event.execution_id);
         this.#changed.set(event.project_id, set);
@@ -275,8 +284,12 @@ export class AutoFix {
     this.#checks.delete(commandId);
     if (entry === undefined) return;
     const { projection } = this.#deps;
-    const check = commandFailed ? undefined : projection.latestCheck(entry.projectId);
     const executions = [...entry.executions].filter((id) => projection.execution(id) !== undefined);
+    if (projection.project(entry.projectId)?.starter === null) {
+      this.#evaluateOwn(entry.projectId, commandId, commandFailed, executions);
+      return;
+    }
+    const check = commandFailed ? undefined : projection.latestCheck(entry.projectId);
     if (check === undefined) {
       for (const id of executions) this.#end(id, 'check_unavailable', null);
       return;
@@ -308,6 +321,82 @@ export class AutoFix {
       return;
     }
     this.#send(view, check, attempts + 1, text, causedBy(commandId));
+  }
+
+  /**
+   * A project's own check (ADR 0055): as a starter's, except whose fault a failure is. A failure starts a
+   * chain only when the run before the turn passed; one that timed out, met the sandbox's refusal, or
+   * found the chosen command changed is not sent at all, since no agent is known to have broken it.
+   */
+  #evaluateOwn(
+    projectId: ProjectId,
+    commandId: CommandId,
+    commandFailed: boolean,
+    executions: ExecutionId[],
+  ): void {
+    const { projection } = this.#deps;
+    const own = commandFailed ? undefined : projection.ownCheck(projectId);
+    const latest = own?.latest ?? null;
+    if (own === undefined || latest === null) {
+      for (const id of executions) this.#end(id, 'check_unavailable', null);
+      return;
+    }
+    if (latest.findings.passed) {
+      for (const id of executions) if (this.#fixing(id)) this.#end(id, 'passed', latest.check_id);
+      return;
+    }
+    if (executions.length !== 1) {
+      for (const id of executions) this.#end(id, 'several_tasks', latest.check_id);
+      return;
+    }
+    const [executionId] = executions as [ExecutionId];
+    const view = projection.execution(executionId);
+    if (view === undefined) return;
+    const chain = view.auto_fix?.state === 'fixing' ? view.auto_fix : null;
+    if (chain === null && projection.autoFixDriven(executionId)) return;
+    const failed = latest.findings.runs.find((run) => run.exit !== 0);
+    if (
+      latest.findings.outcome !== 'ran' ||
+      failed === undefined ||
+      failed.exit === null ||
+      failed.timed_out ||
+      failed.refused
+    ) {
+      this.#end(executionId, 'check_refused', latest.check_id);
+      return;
+    }
+    // Whose fault it is: only a failure right after a run that passed is the turn's to fix.
+    if (chain === null && own.passed_before !== true) {
+      this.#end(
+        executionId,
+        own.passed_earlier ? 'failing_before' : 'never_passed',
+        latest.check_id,
+      );
+      return;
+    }
+    const attempts = chain?.attempt ?? 0;
+    const blocked = this.#blocked(view, attempts);
+    if (blocked !== null) {
+      this.#end(executionId, blocked, latest.check_id);
+      return;
+    }
+    let lines = false;
+    try {
+      lines = this.#deps.ownChecks?.failedOutput(projectId, view.workstream_id) != null;
+    } catch {
+      lines = false;
+    }
+    if (!lines) {
+      this.#end(executionId, 'nothing_to_send', latest.check_id);
+      return;
+    }
+    this.#send(
+      view,
+      { check_id: latest.check_id },
+      attempts + 1,
+      AUTO_FIX_WORDS,
+      causedBy(commandId),
+    );
   }
 
   #blocked(view: ExecutionView, attempts: number): AutoFixEndReason | null {
@@ -348,7 +437,7 @@ export class AutoFix {
     const steps = fixSteps(check.findings);
     let lines = false;
     try {
-      lines = this.#deps.previews.failedCheckOutput(projectId) !== null;
+      lines = (this.#deps.previews?.failedCheckOutput(projectId) ?? null) !== null;
     } catch {
       lines = false;
     }
@@ -366,7 +455,7 @@ export class AutoFix {
 
   #send(
     view: ExecutionView,
-    check: ProjectCheck,
+    check: Pick<ProjectCheck, 'check_id'>,
     attempt: number,
     text: string,
     cause: Cause,

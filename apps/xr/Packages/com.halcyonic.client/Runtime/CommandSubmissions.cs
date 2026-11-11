@@ -253,6 +253,7 @@ namespace Halcyonic.Client
             ProjectMakeVrVersionCommand _ => CommandType.ProjectMakeVrVersion,
             ProjectRestoreCommand _ => CommandType.ProjectRestore,
             ProjectCheckCommand _ => CommandType.ProjectCheck,
+            ProjectOwnCheckChooseCommand _ => CommandType.ProjectOwnCheckChoose,
             ProjectPreviewStartCommand _ => CommandType.ProjectPreviewStart,
             ProjectPreviewStopCommand _ => CommandType.ProjectPreviewStop,
             ProjectOpenOnMacCommand _ => CommandType.ProjectOpenOnMac,
