@@ -33,6 +33,16 @@ assistant now reads `/api/ps` before each turn and, when its model is already lo
 context (and at most 262,144), asks for that same context; otherwise for its own 8,192. Its input bound (12 KiB)
 is unchanged. What context Codex loads the model with was not read here.
 
+A third rerun, 02:51 to 03:06Z on 2026-11-11, on the code with the reused context: no timeout. On a fresh Codex
+task (a green sphere, check passed), "Make the sphere blue instead of green. Then tell me what changed and whether it
+works." went `read_workspace`, `continue_task` (delivered, Codex's turn observed to its end), `observe_task`, then two
+`read_results`, two refused `read_result`, one `read_events`, and the planning bound: interrupted with no reply,
+although the Mac's check of the blue change had passed (03:04:54Z, files current). Memory was 25% free just before
+the request (the 30B loaded for Codex and another lane's Unity job running); the run was stopped there and the model
+unloaded. So the host context now says `work_outcome_in: true` once the work the request sent has its outcome, its
+check included, and the prompt says to answer then; and `read_result` is offered only after `read_results`. Not yet
+run on the 30B model.
+
 ## 2026-11-10: What a task changed and whether it works, a whole project, on local models
 
 Setup: an isolated control plane on 127.0.0.1 with its own data directory, Codex 0.157.0 confined to a

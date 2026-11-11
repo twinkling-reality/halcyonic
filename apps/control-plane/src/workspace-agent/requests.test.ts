@@ -1779,3 +1779,42 @@ test('read_project_at refuses an index before the list and one outside it; half 
     await f.close();
   }
 });
+
+test('once the work it sent has its outcome, the host context says so, so the model answers', async () => {
+  const flags: (boolean | undefined)[] = [];
+  const offered: string[][] = [];
+  const f = await fixture({
+    turn: async (messages, tools) => {
+      offered.push((tools ?? []).map((tool) => tool.function.name));
+      const fresh = messages.find(
+        (message) => message.role === 'system' && message.content.startsWith('Fresh host receipts'),
+      );
+      flags.push(
+        fresh
+          ? (
+              JSON.parse(fresh.content.slice(fresh.content.indexOf('{'))) as {
+                work_outcome_in?: boolean;
+              }
+            ).work_outcome_in
+          : undefined,
+      );
+      return flags.length === 1
+        ? answer([{ name: 'continue_task', arguments: { text: 'Make it blue.' } }])
+        : answer([], 'It is blue now, the agent says.');
+    },
+  });
+  try {
+    const id = f.submit();
+    for (let i = 0; i < 10; i++) await settle();
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'waiting_for_runtime');
+    f.emit('runtime.turn.completed', { turn_id: 'existing-turn' });
+    for (let i = 0; i < 10; i++) await settle();
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
+    assert.deepEqual(flags, [false, true]);
+    // No result list was read, so no single result was offered.
+    assert.ok(offered.every((names) => !names.includes('read_result')));
+    assert.ok(offered.every((names) => names.includes('read_results')));
+  } finally {
+    await f.close();
+  }
+});
