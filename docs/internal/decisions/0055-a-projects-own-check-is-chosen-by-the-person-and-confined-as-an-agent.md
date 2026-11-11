@@ -158,4 +158,12 @@ Facts, read and probed on 2026-11-11 ([own-checks.md](../validation/own-checks.m
   - A module whose dependencies are not vendored fails here: the profile refuses the network anyway.
 - **Probed inside the profile** (Go 1.26.5): `go test ./...` passes with exit 0, and a failing test exits 1 with
   its FAIL line, which the agent is given.
+- **`GOWORK=off`**, so the check judges the module, never a workspace file in its folder or above (AUDIT3 S2).
+- **A cgo module is slow inside the profile** (AUDIT3 S1): a one-line C function took 88 s to pass, against
+  about 2 s for a pure Go package. `xcrun` keeps its cache in the per-user temporary folder macOS names, which the
+  profile refuses, so the compiler's tools start again and again. A real cgo module may meet the 10-minute limit
+  and read as timed out.
+- **A module with dependencies** (AUDIT3 S3) fails on `module lookup disabled by GOPROXY=off`. Its first run fails,
+  so auto-fix never sends it (`never_passed`). The card shows a plain failure, and words of its own are FIELD's,
+  later.
 
