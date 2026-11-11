@@ -6,7 +6,7 @@
 - **Date:** 2026-10-08.
 - **Versions:** macOS 26.7 on Apple silicon, `/usr/bin/sandbox-exec`; `@opencode/cli` 2.0.18, the
   pinned binary.
-- **Method:** the adapter writes a profile (`sandbox-profile.ts`) and launches the server through
+- **Method:** the adapter writes a profile (since 2026-11-11 the closed one in `packages/seatbelt`, below) and launches the server through
   `sandbox-exec -f <profile> <binary> serve …`, which runs the binary in its own place, so the
   process id and the `ps` identity check are unchanged. Runtime tests: the OpenCode end to end suite
   in its sandbox (private HOME, XDG and TMPDIR, a scripted provider and a proxy trap on loopback),
@@ -14,7 +14,7 @@
   hand. No model was loaded; no hosted call was made.
 - **Status:** runtime verified, as below.
 
-## The profile
+## The profile, until 2026-11-11
 
 `(allow default)`, then: outbound network denied but to the Ollama gate's port on loopback (below)
 and the server's own; writes denied but in the project roots,
@@ -175,6 +175,32 @@ as `application/json`. Node's server refuses a request without `Host` itself (40
 
 Not run: a real browser page against a running gate, and the real Ollama.
 
+## Closed by default (BOX-3b), 2026-11-11
+
+- **Question:** does the pinned server, and what it starts, run whole turns inside the closed profile Codex's confined
+  servers use, and what does it need there?
+- **Versions:** macOS 26.7 on Apple silicon; `@opencode/cli` 2.0.18; Node 24.15.0 from Homebrew. No model; no hosted
+  call.
+- **Method:** VRIFY's experiment, then the adapter. The scripted provider and the proxy trap on loopback, the end to
+  end suite, and the kernel's refusals read while narrowing.
+- **What it needs, seen:**
+  - Its own port to listen on: without `network-bind` and `network-inbound` on it, the server fails at once.
+  - A home of its own, or a listing of the person's home and every folder above it: OpenCode looks for `AGENTS.md` from
+    the session's folder up to the home, and a refused lookup fails every turn ("Instruction initialization blocked by
+    unavailable sources: core/instructions"). With `HOME` inside its own folder it lists only its own.
+  - Halcyonic's OpenCode settings readable, which name the model's provider (in the suite, the scripted one). Not tried
+    without them.
+  - Its working folder readable: OpenCode answers a request that names no location (the model list, the saved rules)
+    at the folder it started in, and refused there it answers 500. Each server starts in its own folder, the listing
+    server in an empty one of its own, never the system's temporary folder (seen in the suite: three tests failed
+    until then).
+  - Nothing else of the person's home. Not needed, each dropped in turn: `AGENTS.md` reads, the `FSEvents` service,
+    mapping and reading Bun's native module.
+- **Seen in the suite:** the folder's own file is read, git runs in a fresh repository with a `.gitconfig` in the
+  test's home, and none of the test's home, a project beside the task's or `/private/tmp` is read or listed; the
+  start records `confined: true`.
+- **Status:** runtime verified, as above.
+
 ## ripgrep
 
 OpenCode 2.0.18 searches files with the first `rg` on its PATH, then one in its cache's `bin`, and
@@ -185,6 +211,10 @@ and mac-setup says it (source reading; on this Mac `rg` is on the PATH, so the r
 reach the download; found by review, 2026-10-08).
 
 ## Not verified
+
+- `rg` under the closed profile when Node is not Homebrew's: the profile reads the tool folders of the product's own
+  Node, which hold Homebrew's `rg` only when that Node is Homebrew's, as on this Mac. Elsewhere `rg` on the PATH may sit
+  in a closed folder, and OpenCode's search then fails (inference, not run).
 
 - Whether OpenCode's server ever connects to itself on its own port; the port is allowed in case.
 - A command that outlives its server keeps a profile naming the gate's port after the gate has

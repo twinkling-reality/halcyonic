@@ -266,9 +266,12 @@ outbound network only to the server's own port and a gate of Halcyonic's own in 
 so no connection beyond the Mac or to another program listening on it, Ollama's own port included; data, state, cache and temporary folders of its own
 under the data directory, never the person's own OpenCode folders; writes only there and in the
 one folder it serves (since BOX-3 each execution's folder has a server of its own, and a server
-that lists models writes no project); nothing of Halcyonic's data directory read but the pinned binaries, those folders
-and its own OpenCode settings, and none of a listed set of the person's credentials (keys, cloud,
-container and package registries' tokens, the keychains). The adapter refuses to launch OpenCode on
+that lists models writes no project). Since BOX-3b the profile is closed by default, the one Codex's
+confined servers use ([ADR 0048](../decisions/0048-every-agent-runs-inside-one-closed-sandbox-of-halcyonics.md)): it
+reads that folder, its own folders, Halcyonic's own OpenCode settings, the pinned binary, the tool folders and what the
+folder names (a starter's dependencies, a VR version's original without its secret-shaped files), and nothing else of
+the disk: never the person's home, their own OpenCode settings included, another project or Halcyonic's data
+directory. The server and its commands get a home of their own, and the server listens on its own port alone. The adapter refuses to launch OpenCode on
 macOS without it, and the control plane warns where it runs unsandboxed. What stays reachable from
 inside: its folder; the server's own data folder, one per folder since BOX-3, where a command can
 read that folder's other OpenCode sessions and change their saved rules without the API, but never

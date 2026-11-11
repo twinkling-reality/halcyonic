@@ -4,9 +4,9 @@ import { type AddressInfo, createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { RuntimeActionError } from '@halcyonic/runtime-core';
+import { SANDBOX_EXEC } from '@halcyonic/seatbelt';
 import { OpenCodeClient, TransportError } from './client.ts';
 import { isRecord } from './events.ts';
-import { SANDBOX_EXEC } from './sandbox-profile.ts';
 import {
   readProcessIdentity,
   removeServerRecord,

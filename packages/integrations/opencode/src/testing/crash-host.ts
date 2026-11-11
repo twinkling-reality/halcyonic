@@ -4,7 +4,7 @@
  * that the server it launched does not outlive it. It exits when its own stdin ends, so it does
  * not outlive its test either; its exit ends the watchdog's input, as a kill does, and the watchdog
  * stops the server. Usage: `node crash-host.ts <json options>` with `binaryPath`, `recordFile`,
- * `env` and `directory`.
+ * `env`, `directory` and `sandbox`.
  */
 import { OpenCodeRuntimeAdapter } from '../opencode-runtime.ts';
 import { allowOnly } from './directory-policy.ts';
@@ -22,8 +22,13 @@ const options = JSON.parse(process.argv[2] ?? '{}') as {
   recordFile: string;
   env: Record<string, string>;
   directory: string;
-  /** The loopback ports the sandboxed server may reach: the scripted provider's and the trap's. */
-  loopbackPorts?: number[];
+  /** The sandbox the test's own adapters get (ADR 0028, 0048), null off macOS. */
+  sandbox: {
+    loopbackPorts: number[];
+    readable: string[];
+    hidden: string[];
+    toolFolders: string[];
+  } | null;
 };
 const runtime = new OpenCodeRuntimeAdapter({
   binaryPath: options.binaryPath,
@@ -31,13 +36,7 @@ const runtime = new OpenCodeRuntimeAdapter({
   directoryPolicy: allowOnly(options.directory),
   env: options.env,
   // On macOS the adapter launches OpenCode only inside its sandbox (ADR 0028).
-  sandbox:
-    process.platform === 'darwin'
-      ? {
-          loopbackPorts: options.loopbackPorts ?? [],
-          unreadable: [],
-        }
-      : null,
+  sandbox: options.sandbox,
 });
 await runtime.startExecution({
   execution: TEST_EXECUTION,

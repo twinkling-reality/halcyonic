@@ -33,6 +33,7 @@ import {
   RuntimeActionError,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
+import { toolFoldersFor } from '@halcyonic/seatbelt';
 import { OpenCodeClient } from './client.ts';
 import {
   folderKey,
@@ -40,7 +41,6 @@ import {
   type OpenCodeRuntimeOptions,
   openCodeSandboxFolder,
 } from './opencode-runtime.ts';
-import { personalSecrets } from './sandbox-profile.ts';
 import { buildEnvironment, launchServer } from './server.ts';
 import { readProcessIdentity } from './server-record.ts';
 import { allowOnly } from './testing/directory-policy.ts';
@@ -66,15 +66,17 @@ const SLOW_TEST = { timeout: 120_000 };
 let executionCount = 0;
 
 /**
- * The Seatbelt sandbox the adapter runs the server in on macOS (ADR 0028), as the control plane
- * gives it: the project folder writable, and the sandbox home's secrets and Halcyonic's stand-in
- * credentials unreadable.
+ * The closed Seatbelt sandbox the adapter runs each server in on macOS (ADR 0028, 0048), as the
+ * control plane gives it: the test's OpenCode settings and the tools readable, and the folder of
+ * Halcyonic's stand-in credentials hidden. Nothing else of the disk is opened (BOX-3b).
  */
 function sandboxOf(sandbox: OpenCodeSandbox) {
   return process.platform === 'darwin'
     ? {
         loopbackPorts: loopbackPorts(sandbox),
-        unreadable: [...personalSecrets(sandbox.env.HOME ?? ''), join(sandbox.root, 'halcyonic')],
+        readable: [sandbox.env.XDG_CONFIG_HOME ?? ''],
+        hidden: [join(sandbox.root, 'halcyonic')],
+        toolFolders: toolFoldersFor(process.execPath),
       }
     : null;
 }
@@ -235,7 +237,7 @@ async function crashHost(t: TestContext, sandbox: OpenCodeSandbox) {
         recordFile: sandbox.recordFile,
         env: sandbox.env,
         directory: sandbox.project,
-        loopbackPorts: loopbackPorts(sandbox),
+        sandbox: sandboxOf(sandbox),
       }),
     ],
     { stdio: ['pipe', 'pipe', 'inherit'] },
@@ -773,7 +775,10 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         started?.type === 'runtime.execution.started' ? started.payload.native_id : null;
       const level =
         started?.type === 'runtime.execution.started' ? started.payload.approval_level : undefined;
+      const confined =
+        started?.type === 'runtime.execution.started' ? started.payload.confined : undefined;
       assert.ok(nativeId !== null);
+      assert.equal(confined, process.platform === 'darwin', 'confined inside the sandbox (BOX-3b)');
       await runtime.sendInstruction({
         execution: execution.context,
         text: 'SLOW turn the restart cuts MARKER-TWO.',
@@ -801,15 +806,17 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         options: {},
         model_ref: null,
         ...(level !== undefined && { approval_level: level }),
-        confined: false,
+        confined: confined === true,
         directory: sandbox.project,
         cut_turn: { turn_id: cutTurn },
         last_sequence: null,
       };
-      // A session OpenCode does not have, and one recorded at another level, are refused.
+      // A session OpenCode does not have, one recorded at another level, and one recorded with
+      // another confinement than its server's (BOX-3b), are refused.
       for (const [other, code] of [
         [{ native_id: 'ses_not_there' }, 'session_not_found'],
         [{ approval_level: level === 'never_ask' ? 'ask' : 'never_ask' }, 'reattach_refused'],
+        [{ confined: confined !== true }, 'reattach_refused'],
       ] as const) {
         const refused = new Execution();
         await assert.rejects(
@@ -2145,6 +2152,51 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
   );
 
   test(
+    "reads are closed (BOX-3b): a command reads its folder and nothing of the person's home or another project, runs with a home of its own where git works, and the start records it confined",
+    SLOW_TEST,
+    async (t) => {
+      const { sandbox, start } = await harness(t);
+      // Markers of the test's own: in the person's home, beside it a .gitconfig git would stop at,
+      // and another project beside the task's.
+      const home = sandbox.env.HOME ?? '';
+      writeFileSync(join(home, 'marker.txt'), 'home-marker-5e1a\n');
+      writeFileSync(join(home, '.gitconfig'), '[user]\n  name = Someone\n');
+      const other = join(sandbox.root, 'other-project');
+      mkdirSync(other);
+      writeFileSync(join(other, 'kept.txt'), 'other-marker-0b7c\n');
+      writeFileSync(join(sandbox.project, 'inside.txt'), 'inside-marker-71f4\n');
+      const results = join(sandbox.project, 'reads.txt');
+      const command = [
+        `cat inside.txt >> ${results}; echo "inside=$?" >> ${results}`,
+        `cat ${home}/marker.txt >> ${results} 2>/dev/null; echo "home=$?" >> ${results}`,
+        `ls ${home} > /dev/null 2>&1; echo "list-home=$?" >> ${results}`,
+        `cat ${other}/kept.txt >> ${results} 2>/dev/null; echo "other=$?" >> ${results}`,
+        `ls /private/tmp > /dev/null 2>&1; echo "tmp=$?" >> ${results}`,
+        `echo "own-home=$([ "$HOME" != ${home} ] && echo yes)" >> ${results}`,
+        `git init -q . > /dev/null 2>&1; git status > /dev/null 2>&1; echo "git=$?" >> ${results}`,
+      ].join('\n');
+      const execution = await start(call('shell', { command }), {}, 'never_ask');
+      await execution.next('runtime.turn.completed');
+      const said = readFileSync(results, 'utf8');
+      t.diagnostic(said);
+      // The controls: the folder's own file was read, and git ran.
+      assert.match(said, /inside-marker-71f4\ninside=0/);
+      assert.match(said, /git=0/);
+      assert.match(said, /own-home=yes/);
+      assert.doesNotMatch(said, /home-marker-5e1a/, "read the person's home");
+      assert.doesNotMatch(said, /home=0|list-home=0/, "reached the person's home");
+      assert.doesNotMatch(said, /other-marker-0b7c|other=0/, 'read another project');
+      assert.match(said, /tmp=[1-9]/, 'listed the shared temporary folder');
+      const started = execution.observations.find(
+        (each) => each.type === 'runtime.execution.started',
+      );
+      assert.equal((started?.payload as { confined?: boolean } | undefined)?.confined, true);
+      const sent = sandbox.provider.requests.map((request) => request.body).join('\n');
+      assert.ok(!sent.includes('home-marker-5e1a'), "the person's home reached the model");
+    },
+  );
+
+  test(
     'an approved command cannot write outside the project, read a credential, reach another program or beyond this Mac, or loosen the sandbox',
     SLOW_TEST,
     async (t) => {
@@ -2194,11 +2246,7 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
       assert.ok(!said.includes('stand-in-credential'), 'read the credential');
       assert.match(said, /net=000/, 'reached beyond loopback');
       assert.match(said, /local=000/, 'reached another program listening on this Mac');
-      assert.match(
-        readFileSync(profile, 'utf8'),
-        /\(deny network-outbound\)/,
-        'rewrote its profile',
-      );
+      assert.match(readFileSync(profile, 'utf8'), /\n\(deny default\)\n/, 'rewrote its profile');
       // Readable by the user only, and naming the server's own port among the few it may reach.
       assert.equal(statSync(profile).mode & 0o777, 0o600);
       const { port } = JSON.parse(readFileSync(recordOf(sandbox), 'utf8')) as { port: number };

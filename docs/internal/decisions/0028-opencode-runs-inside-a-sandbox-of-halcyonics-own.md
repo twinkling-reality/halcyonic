@@ -168,3 +168,32 @@ inside its own profile:
 Each folder's server also denies reads and writes of every other bound project's folder inside its own. A project
 bound there after the server started replaces the server at the next start, as [ADR 0043](0043-a-person-may-let-a-tasks-agent-work-without-asking-where-its-runtime-keeps-it-in-bounds.md)'s
 note of 2026-11-11 says.
+
+## Amendment, 2026-11-11: reads closed, one profile with Codex (BOX-3b)
+
+Each folder's server now runs inside the closed profile Codex's confined servers use, from `packages/seatbelt`
+([ADR 0048](0048-every-agent-runs-inside-one-closed-sandbox-of-halcyonics.md)), instead of the profile above that
+allowed by default.
+- **What a folder's server reads:** its folder, its own folders, Halcyonic's own OpenCode settings, the pinned binary's
+  package, the tool folders, what the folder names (a starter's shared dependencies, a VR version's original without its
+  secret-shaped files, as for Codex), a worktree's back-linked git data, and system paths. Nothing else: never the
+  person's home, another project, `/private/tmp` or Halcyonic's data folder, which is hidden.
+- **A home of its own:** `HOME` is `home` in the server's own folder. Without one OpenCode needs a listing of the
+  person's home and every folder above it, where it looks for instructions (VRIFY's experiment, 2026-11-11). Its shell
+  commands get the same home, with XDG folders under it, git's system configuration off, a `TMPPREFIX` in its own
+  temporary folder, and the product's Node first on the `PATH`, as Codex's confined commands do.
+- **Its own port:** the profile lets the server listen and be reached on its own port alone, on loopback.
+- **Its own starting folder:** each server starts in its folder, the listing server in an empty folder of its own,
+  since OpenCode answers a request that names no location at the folder it started in.
+- **The person's own OpenCode settings stay closed** with the rest of their home. Without Halcyonic's own settings
+  (`HALCYONIC_OPENCODE_CONFIG_HOME`), OpenCode runs without either.
+- **Recorded:** a start inside the profile records `confined: true` on `runtime.execution.started`, so a project's
+  preview reads `reads_confined` where every run in it was Codex's or OpenCode's on macOS.
+  A re-attach after a restart ([ADR 0046](0046-a-restart-re-attaches-each-tasks-session-where-the-runtime-keeps-it.md))
+  goes on only with the confinement it was recorded with: a session from before BOX-3b, recorded unconfined, is not
+  moved into the closed sandbox.
+- **The list of the person's credentials is gone:** nothing of the home is open, so none needs naming.
+- **Tests:** the profile's in `packages/seatbelt/src/profile.test.ts` (a bind on its own port works, on any other is
+  refused); the adapter's whole end to end suite on the pinned binary, with a test that a command reads its folder and
+  nothing of the test's home or a project beside it, that its home is its own, that git works, and that the start
+  records it confined.

@@ -81,5 +81,6 @@
 ## Status of the steps, 2026-11-11
 
 - BOX-1, BOX-2 and BOX-3 built and landed. The move to `@halcyonic/seatbelt` built.
-- BOX-3b: proven by experiment, not built.
+- BOX-3b built: OpenCode's folder servers inside the profile, each with a home of its own and listening on its own port
+  ([ADR 0028](0028-opencode-runs-inside-a-sandbox-of-halcyonics-own.md), amendment of 2026-11-11).
 - BOX-4: not built. Never asking for Claude Code stays undeclared until a real run, which needs the owner's own key.

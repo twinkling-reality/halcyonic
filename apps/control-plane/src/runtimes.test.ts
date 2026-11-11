@@ -360,31 +360,35 @@ describe("which runtimes may work in a task's own copy (ADR 0045)", () => {
   });
 });
 
-describe("OpenCode's sandbox on this Mac (ADR 0028)", () => {
-  test("names no project root, since each folder's server writes that folder alone (BOX-3), and reads nothing of the data directory but its settings and binary, nor the person's credentials", () => {
+describe("OpenCode's sandbox on this Mac (ADR 0028, 0048)", () => {
+  test("is closed (BOX-3b): names no project root, hides the data directory, reads Halcyonic's OpenCode settings, the tools and what a folder names, and nothing of the person's home", () => {
     const sandbox = openCodeSandbox(
+      { opencodeConfigHome: '/d/opencode-config' },
       {
-        opencodeConfigHome: '/d/opencode-config',
-        opencodeBinary: '/d/runtimes/opencode-2.0.18/bin/opencode',
+        dataDir: '/d',
+        starterOf: (folder) => (folder === '/p/garden' ? 'web-game' : null),
+        originalOf: (folder) => (folder === '/p/game.vr' ? '/p/game' : null),
       },
-      '/d',
-      '/Users/someone',
+      '/opt/homebrew/Cellar/node/24.0.0/bin/node',
     );
     assert.equal('projectRoots' in sandbox, false);
+    assert.equal(
+      'unreadable' in sandbox,
+      false,
+      'closed by default: nothing to list as unreadable',
+    );
     assert.deepEqual(sandbox.loopbackPorts, [], 'no port on loopback but those the adapter adds');
     assert.equal(sandbox.ollama, 'http://127.0.0.1:11434', 'Ollama, through the gate');
-    assert.equal(sandbox.unreadable[0], '/d');
-    for (const secret of ['/Users/someone/.ssh', '/Users/someone/Library/Keychains']) {
-      assert.ok(sandbox.unreadable.includes(secret), secret);
-    }
-    assert.deepEqual(sandbox.readable, [
-      '/d/runtimes',
-      '/d/opencode-config',
-      '/d/runtimes/opencode-2.0.18/bin/opencode',
-    ]);
-    // Without Halcyonic's own OpenCode settings, the person's are read, outside the data directory.
-    const own = openCodeSandbox({ opencodeConfigHome: null, opencodeBinary: null }, '/d', '/h');
-    assert.deepEqual(own.readable, ['/d/runtimes']);
+    assert.deepEqual(sandbox.hidden, ['/d']);
+    assert.deepEqual(sandbox.readable, ['/d/opencode-config']);
+    assert.ok(sandbox.toolFolders.includes('/opt/homebrew/Cellar'));
+    // The same reads Codex's confinement gives a folder (ADR 0041).
+    assert.deepEqual(sandbox.forFolder('/p/garden'), { readable: ['/d/starters/web-game'] });
+    assert.deepEqual(sandbox.forFolder('/p/game.vr'), { readable: [], originals: ['/p/game'] });
+    assert.deepEqual(sandbox.forFolder('/p/other'), { readable: [] });
+    // Without Halcyonic's own OpenCode settings, the person's stay closed with the rest of their home.
+    const own = openCodeSandbox({ opencodeConfigHome: null }, { dataDir: '/d' });
+    assert.deepEqual(own.readable, []);
   });
 
   test('finds ripgrep only as a file on the PATH, since the sandbox refuses its download', () => {

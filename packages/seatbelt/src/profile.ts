@@ -54,6 +54,11 @@ export interface ConfinedScope extends Confinement {
   readonly toolFolders: readonly string[];
   /** The only loopback ports it may connect to: the model's. */
   readonly loopbackPorts: readonly number[];
+  /**
+   * The only loopback ports it may listen on and be reached at: an HTTP server's own, such as
+   * OpenCode's (BOX-3b). None for a server spoken to over its standard input, as Codex's is.
+   */
+  readonly listenPorts?: readonly number[];
 }
 
 /**
@@ -423,6 +428,24 @@ export function toolFoldersFor(executable: string): string[] {
   return [dirname(dirname(real))];
 }
 
+/**
+ * The home a confined server's commands get (BOX): Codex's is its temporary folder, OpenCode's a
+ * folder beside its data (BOX-3b). The person's home is closed to the profile, and git stops at a
+ * configuration file it may not read (`~/.gitconfig`, Homebrew's `etc/gitconfig`, tried on this
+ * Mac), where a missing one is fine. So `HOME` and the XDG folders point inside that home, and
+ * git's system configuration is off.
+ */
+export function confinedHomeEnvironment(home: string): Readonly<Record<string, string>> {
+  return {
+    HOME: home,
+    XDG_CONFIG_HOME: join(home, '.config'),
+    XDG_DATA_HOME: join(home, '.local', 'share'),
+    XDG_STATE_HOME: join(home, '.local', 'state'),
+    XDG_CACHE_HOME: join(home, '.cache'),
+    GIT_CONFIG_NOSYSTEM: '1',
+  };
+}
+
 /** Package managers' prefixes whose tools load their libraries from beside them. */
 export const TOOL_PREFIXES = ['/opt/homebrew', '/usr/local'] as const;
 
@@ -543,6 +566,9 @@ export function confinedProfile(scope: ConfinedScope): string {
     `(allow file-write* ${each('subpath', writable)})`,
     ...scope.loopbackPorts.map(
       (port) => `(allow network-outbound (remote ip "localhost:${port}"))`,
+    ),
+    ...(scope.listenPorts ?? []).map(
+      (port) => `(allow network-bind network-inbound (local ip "localhost:${port}"))`,
     ),
     // Later rules win: an original's secret shapes, then the hidden folders, are refused after the
     // allowances above; the scope's own folders are allowed again last, so nothing of theirs is lost.
