@@ -405,6 +405,10 @@ h2 {
   background: var(--bad);
   box-shadow: none;
 }
+/* Under the status's mark the pips take no margin of their own: the column's gap places them. */
+.mark-column > .pips {
+  margin: 0;
+}
 .state-pips .pip {
   width: 14px;
   height: 14px;
@@ -429,13 +433,13 @@ h2 {
 .item + .item {
   margin-top: 8px;
 }
+/* A neutral row's mark is a bare glyph, as on the headset: only a toned mark would sit in a well. */
 .item-tile {
   display: grid;
   place-items: center;
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: var(--tile);
   color: var(--secondary);
 }
 .item-words {
@@ -631,7 +635,8 @@ button:focus-visible,
   .item {
     grid-template-columns: auto 1fr 124px;
   }
-  .item .rest .glyph {
+  /* Asking again, the longer words need the glyph's room; at rest Forget keeps its glyph. */
+  .item .rest[data-armed] .glyph {
     display: none;
   }
   .foot {
