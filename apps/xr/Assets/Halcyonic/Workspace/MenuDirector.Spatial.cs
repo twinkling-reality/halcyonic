@@ -90,15 +90,17 @@ namespace Halcyonic.XR.Workspace
         {
             if (!RoomDesign.Enabled || !SeparateWorkspace || navigator.IsCompact || navigator.Beside is not FileColumn file
                 || file.Now is not WorkspacePresentation now) return;
-            if (file.Screen.Section == FileSection.Checks && KitPresenter.AtRest(now))
+            var section = file.Screen.Section;
+            var checkedByComputer = false;
+            if (section == FileSection.Checks && KitPresenter.AtRest(now))
             {
                 var projectId = State?.Workstreams.TryGetValue(now.Character.WorkstreamId, out var work) == true ? work!.ProjectId : null;
-                if (!(ResultOf(now, projectId)?.Steps.Count > 0)) return;
-                file.ShowSection(FileSection.Activity);
-                setup.Presentation.ShowResultPage(now.Character.WorkstreamId, now.Execution?.ExecutionId, RoomResultPage.Checks);
+                checkedByComputer = ResultOf(now, projectId)?.Steps.Count > 0;
             }
-            else if (file.Screen.Section == FileSection.Waiting && !WorkspaceText.SomethingWaits(now) && file.Steering.Armed == null)
-                file.ShowSection(FileSection.Activity);
+            if (KitPresenter.RedesignSection(section, now, file.Steering.Armed != null, checkedByComputer) is not FileSection turned) return;
+            file.ShowSection(turned);
+            if (section == FileSection.Checks)
+                setup.Presentation.ShowResultPage(now.Character.WorkstreamId, now.Execution?.ExecutionId, RoomResultPage.Checks);
         }
 
         private bool KitDraws(FileColumn file) => plane.KitShows && ReferenceEquals(navigator.Beside, file);
