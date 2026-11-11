@@ -3192,6 +3192,9 @@
                 },
                 "files": {
                   "$ref": "#/$defs/ChangedFiles"
+                },
+                "review": {
+                  "$ref": "#/$defs/ReviewDigest"
                 }
               },
               "additionalProperties": false
@@ -9237,6 +9240,9 @@
                 "workstream_id": {
                   "type": "string",
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "review": {
+                  "$ref": "#/$defs/ReviewDigest"
                 }
               },
               "additionalProperties": false
@@ -11333,6 +11339,7 @@
             "base_tree",
             "to_add",
             "to_add_files",
+            "to_add_review",
             "to_add_read_at",
             "last_added_at",
             "conflict"
@@ -11370,6 +11377,16 @@
               "anyOf": [
                 {
                   "$ref": "#/$defs/ChangedFiles"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "to_add_review": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ReviewDigest"
                 },
                 {
                   "type": "null"

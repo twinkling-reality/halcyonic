@@ -705,15 +705,16 @@ today is device management: opening a pairing window, listing devices and revoki
 on loopback only, and a device can revoke no credential but its own. Commands are otherwise admitted
 alike for both, with one difference since 2026-11-11 ([ADR 0051](../decisions/0051-a-paired-device-acts-on-files-only-with-the-review-it-read.md)):
 a paired device changes a project's files or folder only with the digest of the review it read. Its
-`project.set_location` that rebinds a project that has a folder, and its `project.restore`, must carry
-`review`, the digest the read that showed the move or the restore answered (the location review, the
-restore preview), and that digest must still describe what is true when the command acts: a move is
-checked at admission, a restore in its own turn before it writes. Without one: `review_required`;
+`project.set_location` that rebinds a project that has a folder, its `project.restore`, and its
+`workstream.add_to_project`, must carry `review`, the digest the read that showed the move, the
+restore or the add answered (the location review, the restore preview, the copy's latest reading in
+the task's view), and that digest must still describe what is true when the command acts: a move is
+checked at admission, as is an add, a restore in its own turn before it writes. Without one: `review_required`;
 changed since: `review_stale`. A digest is checked whoever sends it; the local principal may send none,
 as before. The digest proves that what was read still holds, not that a person read it: a device can
 read those facts for itself. A restore's digest covers every path it would change, not only the ones
 the preview lists. A device can still start work in any project. Every accepted command records its policy
-category (`low_consequence`, `review_required`, `high_consequence`); beyond those two commands,
+category (`low_consequence`, `review_required`, `high_consequence`); beyond those three commands,
 categories do not restrict anyone. No
 `high_consequence` command exists; merge, deploy, delete and destructive commands must not be added
 until explicit human confirmation and a policy that tells principals apart exist.

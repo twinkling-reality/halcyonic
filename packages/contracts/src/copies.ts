@@ -1,5 +1,5 @@
 import Type, { type Static } from 'typebox';
-import { CHECKPOINT_PATHS_LISTED, PathList, ProjectPath } from './checkpoints.ts';
+import { CHECKPOINT_PATHS_LISTED, PathList, ProjectPath, ReviewDigest } from './checkpoints.ts';
 import { Sha256Hex } from './devices.ts';
 import { HostPath } from './locations.ts';
 import { Nullable, Timestamp } from './primitives.ts';
@@ -81,7 +81,8 @@ export type ChangedFiles = Static<typeof ChangedFiles>;
  * in `directory`, a folder of Halcyonic's own, and its work reaches the project only when the person
  * adds it. `to_add` is what the host last read as differing from the copy's base, null until read;
  * `to_add_files` the same files with how each changed, null until read and for a reading recorded
- * before readings carried it.
+ * before readings carried it; `to_add_review` the digest of that reading (ADR 0051), which an add
+ * from a paired device carries back, null where there is none.
  * `conflict` is the latest add's overlap, until the agent fitted the work or an add went through.
  * `refused`: the task works in the project's own folder, one task at a time, for `code`.
  */
@@ -94,6 +95,7 @@ export const WorkstreamCopy = Type.Union([
       base_tree: Sha256Hex,
       to_add: Nullable(PathList),
       to_add_files: Nullable(ChangedFiles),
+      to_add_review: Nullable(ReviewDigest),
       to_add_read_at: Nullable(Timestamp),
       last_added_at: Nullable(Timestamp),
       conflict: Nullable(ConflictedFiles),

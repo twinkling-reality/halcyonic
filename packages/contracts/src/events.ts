@@ -6,6 +6,7 @@ import {
   CheckpointReason,
   GitObjectId,
   PathList,
+  ReviewDigest,
 } from './checkpoints.ts';
 import {
   CommandEnvelope,
@@ -476,11 +477,20 @@ export const WorkstreamCopyRefused = workstreamEvent(
 /**
  * The host read the task's copy (its tree `tree`) and found `changed` differing from the copy's
  * base: what an add would bring to the project, as far as the copy goes. `files` lists the same
- * files with how each changed; a reading recorded before it carried none.
+ * files with how each changed, and `review` is the digest of the reading (ADR 0051), which an add
+ * from a paired device carries back; a reading recorded before either carried neither.
  */
 export const WorkstreamCopyChangesRead = workstreamEvent(
   'workstream.copy_changes_read',
-  Type.Object({ tree: Sha256Hex, changed: PathList, files: Type.Optional(ChangedFiles) }, strict),
+  Type.Object(
+    {
+      tree: Sha256Hex,
+      changed: PathList,
+      files: Type.Optional(ChangedFiles),
+      review: Type.Optional(ReviewDigest),
+    },
+    strict,
+  ),
 );
 
 /**

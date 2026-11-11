@@ -202,8 +202,9 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * Bumped whenever `ProjectionState`'s shape changes, so no older checkpoint is taken for it. 2: a
  * task's own copy and a check's folder and task (ADR 0045). 3: each project's shared link (F1).
  * 4: how each file a task's copy would add changed (`to_add_files`). 5: each project's history.
+ * 6: the digest of a task's copy's latest reading (`to_add_review`, ADR 0051).
  */
-export const PROJECTION_STATE_FORMAT = 5;
+export const PROJECTION_STATE_FORMAT = 6;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -1668,6 +1669,7 @@ export class Projection {
               base_tree: event.payload.base_tree,
               to_add: null,
               to_add_files: null,
+              to_add_review: null,
               to_add_read_at: null,
               last_added_at: null,
               conflict: null,
@@ -1684,6 +1686,7 @@ export class Projection {
           // A reading recorded before readings said how each file changed leaves it unknown.
           copy.to_add_files =
             event.payload.files === undefined ? null : cloneChangedFiles(event.payload.files);
+          copy.to_add_review = event.payload.review ?? null;
           copy.to_add_read_at = event.occurred_at;
           workstream.reviewedTree = event.payload.tree;
           break;
@@ -1703,6 +1706,8 @@ export class Projection {
           workstream.reviewedTree = event.payload.task_tree;
           copy.to_add = { paths: [], total: 0 };
           copy.to_add_files = { files: [], total: 0 };
+          // Nothing is left to add, so there is nothing to review.
+          copy.to_add_review = null;
           copy.to_add_read_at = event.occurred_at;
           copy.last_added_at = event.occurred_at;
           copy.conflict = null;
@@ -1728,6 +1733,7 @@ export class Projection {
           workstream.reviewedTree = null;
           copy.to_add = null;
           copy.to_add_files = null;
+          copy.to_add_review = null;
           copy.to_add_read_at = null;
           copy.conflict = null;
           break;

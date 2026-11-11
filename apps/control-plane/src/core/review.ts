@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
-import type { ProjectLocation, ProjectLocationChoice, RestorePreview } from '@halcyonic/contracts';
+import type {
+  ChangedFiles,
+  ProjectLocation,
+  ProjectLocationChoice,
+  RestorePreview,
+} from '@halcyonic/contracts';
 
 /**
  * The digest of a review (ADR 0051): the command type it is for, the command's arguments and the
@@ -53,6 +58,24 @@ export function locationReview(
   current: ProjectLocation | null,
 ): string {
   return reviewDigest('project.set_location', { project_id: projectId, location }, { current });
+}
+
+/**
+ * What an add's review covers (ADR 0051 for an add, ADR 0045): the task, the base the copy's work
+ * applies to, the copy's tree as read, which fixes every file it would write, and the files shown
+ * with how each changed. A reading of another tree, or over another base, is another review.
+ */
+export function addReview(
+  workstreamId: string,
+  baseTree: string,
+  tree: string,
+  files: ChangedFiles,
+): string {
+  return reviewDigest(
+    'workstream.add_to_project',
+    { workstream_id: workstreamId },
+    { base_tree: baseTree, tree, files },
+  );
 }
 
 function canonical(value: unknown): string {

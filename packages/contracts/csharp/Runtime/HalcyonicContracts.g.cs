@@ -1807,6 +1807,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("to_add_files", Required = Required.AllowNull)]
         public ChangedFiles? ToAddFiles { get; set; }
 
+        [JsonProperty("to_add_review", Required = Required.AllowNull)]
+        public string? ToAddReview { get; set; }
+
         [JsonProperty("to_add_read_at", Required = Required.AllowNull)]
         public string? ToAddReadAt { get; set; }
 
@@ -2964,6 +2967,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("files", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public ChangedFiles? Files { get; set; }
+
+        [JsonProperty("review", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? Review { get; set; }
     }
 
     public sealed class WorkstreamAddedPayload
@@ -3403,6 +3409,9 @@ namespace Halcyonic.Contracts
     {
         [JsonProperty("workstream_id", Required = Required.Always)]
         public string WorkstreamId { get; set; } = default!;
+
+        [JsonProperty("review", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? Review { get; set; }
     }
 
     public sealed class WorkstreamFitToProjectPayload
