@@ -1837,6 +1837,61 @@ test('a projects list past the host-list bound drops its last rows and keeps the
   }
 });
 
+test('a projects list fits the room long words leave, so the transport never refuses the next turn (AUDIT2)', async () => {
+  const bodies: number[] = [];
+  const seen: ToolMessage[][] = [];
+  const name = 'A garden with a long name '.repeat(3);
+  const words = 'Tell me what is going on with all my work today. '.repeat(98).slice(0, 4800);
+  const f = await fixture({
+    projectName: name,
+    turn: async (messages, tools) => {
+      seen.push([...messages]);
+      const body = Buffer.byteLength(JSON.stringify({ messages, tools: tools ?? [] }));
+      bodies.push(body);
+      // As ollama.ts refuses a body over its bound.
+      if (body > 12_288)
+        return {
+          kind: 'failed',
+          code: 'context_limit',
+          message: 'This request needs less context before it can continue.',
+        };
+      return seen.length === 1
+        ? answer([{ name: 'read_projects', arguments: {} }])
+        : answer([], 'Seventy projects.');
+    },
+  });
+  try {
+    for (let i = 1; i < 70; i++)
+      f.controlPlane.commands.submit(f.commands.createProject(`${name}${i}`), 'internal');
+    const outcome = submitAllWork(f, words);
+    assert.equal(outcome.disposition, 'accepted', JSON.stringify(outcome.command?.rejection));
+    for (let i = 0; i < 8; i++) await settle();
+    const created = outcome.command?.result;
+    const request = f.controlPlane.projection.workspaceRequest(
+      created?.kind === 'workspace_request_created' ? created.request_id : '',
+    );
+    assert.equal(request?.status, 'responded', JSON.stringify(bodies));
+    assert.ok(
+      bodies.every((body) => body <= 12_288),
+      JSON.stringify(bodies),
+    );
+    const read = (seen[1] ?? []).find(
+      (message) => message.role === 'tool' && message.tool_name === 'read_projects',
+    );
+    assert.ok(read);
+    const list = JSON.parse(read.content) as {
+      projects_total: number;
+      projects: unknown[];
+      more_projects: number;
+    };
+    assert.equal(list.projects_total, 70);
+    assert.ok(list.projects.length > 0);
+    assert.equal(list.projects.length + list.more_projects, 70);
+  } finally {
+    await f.close();
+  }
+});
+
 test("the wait for the Mac's reading of a turn ends a minute after the task's last activity (AUDIT2 S2)", () => {
   const at = Date.parse('2026-11-10T10:00:00.000Z');
   const facts = { files: 'unknown', status: 'completed', lastActivity: '2026-11-10T10:00:00.000Z' };

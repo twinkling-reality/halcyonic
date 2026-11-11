@@ -169,4 +169,6 @@ answer from.
 - The host's own lists and one task's view (`read_projects`, `read_project`, `read_project_at`, `read_task`) reach the
   model whole within 4 KiB, not as the short excerpt a large outside result gets. Past that, the last rows are left out
   and `more_projects` or `more_tasks` counts them, so the totals stay whole (the 30B model saw 13 projects as a partial
-  excerpt and could not summarize them, 2026-11-11).
+  excerpt and could not summarize them, 2026-11-11). The 4 KiB shrinks to the room the next turn's body leaves beside
+  the instructions, the person's words, the host context, the current batch and every tool the request may be offered,
+  measured as the transport measures it, so long words never make a body it refuses (AUDIT2, 2026-11-11).
