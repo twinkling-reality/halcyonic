@@ -102,6 +102,11 @@ client ── command ──> CommandService ── admit (domain) ──> Recor
    ([ADR 0056](../decisions/0056-an-instruction-sent-during-a-turn-waits-for-it-on-a-runtime-that-cannot-steer.md)).
    A project's own check is sent back only when the run before the turn passed, and never when a
    script timed out, met the sandbox's refusal, or its command changed.
+   An instruction may carry up to four pictures of the project's folder, for a runtime that declares
+   `takes_pictures` (Claude Code, Codex, OpenCode): the host reads each once, refuses one that is not a
+   whole PNG, JPEG or WebP, and hands the runtime those bytes, never a path; the journal keeps each
+   picture's digest, never its bytes
+   ([ADR 0058](../decisions/0058-an-instructions-pictures-come-from-the-projects-folder-and-reach-the-runtime-as-the-bytes-the-host-read.md)).
 7. Before starting a turn on a local `ollama/<model>` execution, if no active execution in
    Halcyonic is already using that model, the control plane reads `GET /api/ps` on loopback Ollama
    (`127.0.0.1:11434`); when the execution's turn ends (or fails, is interrupted, becomes unknown

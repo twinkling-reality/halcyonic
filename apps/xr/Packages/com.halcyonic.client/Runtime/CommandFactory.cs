@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Halcyonic.Contracts;
 using Newtonsoft.Json.Linq;
 
@@ -125,6 +126,9 @@ namespace Halcyonic.Client
         /// leave the choice to the runtime; only a runtime whose <c>model_choice</c> is <c>listed</c>
         /// accepts one. <paramref name="approvalLevel"/> is how often the agent stops to ask (ADR 0043): left out it
         /// means ask, as every start before it meant; never ask only for a runtime whose descriptor offers it.
+        /// <paramref name="pictures"/> are paths of the project's folder, as its pictures read lists them, that go with
+        /// the instruction (ADR 0058): at most four, only for a runtime whose descriptor has <c>takes_pictures</c>;
+        /// null or empty sends none.
         /// </summary>
         public ExecutionStartCommand StartExecution(
             string workstreamId,
@@ -132,7 +136,8 @@ namespace Halcyonic.Client
             string instruction,
             IDictionary<string, JToken>? options = null,
             string? modelRef = null,
-            ApprovalLevel? approvalLevel = null) =>
+            ApprovalLevel? approvalLevel = null,
+            IReadOnlyList<string>? pictures = null) =>
             Stamp(new ExecutionStartCommand
             {
                 Payload = new ExecutionStartPayload
@@ -143,14 +148,33 @@ namespace Halcyonic.Client
                     Options = options == null ? new Dictionary<string, JToken>() : new Dictionary<string, JToken>(options),
                     ModelRef = modelRef,
                     ApprovalLevel = approvalLevel,
+                    Attachments = AttachmentsOf(pictures),
                 },
             });
 
-        public ExecutionSendInstructionCommand SendInstruction(string executionId, string text) =>
+        /// <summary>
+        /// The person's words for an execution, with any <paramref name="pictures"/> of the project's folder, as on
+        /// <see cref="StartExecution"/> (ADR 0058).
+        /// </summary>
+        public ExecutionSendInstructionCommand SendInstruction(
+            string executionId,
+            string text,
+            IReadOnlyList<string>? pictures = null) =>
             Stamp(new ExecutionSendInstructionCommand
             {
-                Payload = new ExecutionSendInstructionPayload { ExecutionId = executionId, Text = text },
+                Payload = new ExecutionSendInstructionPayload
+                {
+                    ExecutionId = executionId,
+                    Text = text,
+                    Attachments = AttachmentsOf(pictures),
+                },
             });
+
+        /// <summary>Each path as a picture attachment, or null for none, so the field is left out.</summary>
+        private static List<InstructionAttachment>? AttachmentsOf(IReadOnlyList<string>? pictures) =>
+            pictures == null || pictures.Count == 0
+                ? null
+                : pictures.Select(path => new InstructionAttachment { Path = path, Kind = "image" }).ToList();
 
         public ExecutionRespondToApprovalCommand RespondToApproval(
             string executionId,

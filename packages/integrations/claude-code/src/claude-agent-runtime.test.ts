@@ -412,6 +412,38 @@ function assertContractValid(observations: RuntimeObservation[]): void {
 }
 
 describe('starting an execution', () => {
+  test("an instruction's pictures go first, as base64 image blocks of the bytes the host read (A4)", async () => {
+    const { adapter, run } = setup();
+    assert.equal(adapter.descriptor.takes_pictures, true);
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2]);
+    void adapter.startExecution({
+      execution,
+      instruction: 'Paint it like this.',
+      pictures: [
+        { path: 'art/tree.png', media_type: 'image/png', bytes: png, sha256: 'a'.repeat(64) },
+      ],
+      options: {},
+      model_ref: null,
+      directory: WORKDIR,
+      emit: () => {},
+    });
+    await settle();
+    assert.deepEqual(run().delivered[0]?.message, {
+      role: 'user',
+      content: [
+        {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: 'image/png',
+            data: Buffer.from(png).toString('base64'),
+          },
+        },
+        { type: 'text', text: 'Paint it like this.' },
+      ],
+    });
+  });
+
   test('the instruction is delivered, and nothing is claimed until Claude Code confirms the chosen session id', async () => {
     const { start, run, observed, types } = setup();
     const starting = start();

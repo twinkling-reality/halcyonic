@@ -1574,6 +1574,9 @@ export class Projection {
         this.#touchExecution(execution, event.ingested_at, changes);
         return;
       }
+      case 'execution.instruction.pictures_read':
+        // A record of what the host read and handed on (A4); the command's own events end it.
+        return;
       case 'execution.instruction.queued': {
         // The person's instruction waits for the turn to end (ADR 0056); its words are in its command.
         const execution = this.#executions.get(event.execution_id);

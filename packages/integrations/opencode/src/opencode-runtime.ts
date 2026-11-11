@@ -22,6 +22,8 @@ import {
   confirmProjectLocation,
   type DirectoryPolicy,
   type ExecutionContext,
+  type InstructionPicture,
+  type InstructionRequest,
   type ObservationSink,
   type OptionsValidation,
   type ReattachRequest,
@@ -52,6 +54,8 @@ import {
 } from './events.ts';
 import {
   type ModelRef,
+  modelRefOf,
+  type OpenCodeModel,
   readDefaultModel,
   readModels,
   sameModel,
@@ -595,6 +599,9 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       // Each session's own command environment, set before its first prompt, takes the project's
       // secrets: no server restarts for them (ADR 0057, project-secrets.md).
       secret_environment: true,
+      // A prompt's `data:` file reaches the provider as an image_url of the same bytes, for a model
+      // listed as taking images; the adapter refuses one listed as text only (picture-and-file-input.md).
+      takes_pictures: true,
     };
   }
 
@@ -814,7 +821,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       { variables: { ...request.environment, ...connection.commands } },
       'runtime_refused',
     );
-    await this.#prompt(session, request.instruction);
+    await this.#prompt(session, request.instruction, request.pictures ?? []);
     return { native_id: session.sessionId };
   }
 
@@ -961,11 +968,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     ]);
   }
 
-  async sendInstruction(request: {
-    execution: ExecutionContext;
-    text: string;
-    leave_plan?: true;
-  }): Promise<void> {
+  async sendInstruction(request: InstructionRequest): Promise<void> {
     const session = this.#hosted(request.execution);
     // A project bound inside the folder since its server started is not in that server's profile,
     // and the running server cannot be replaced under its session, so the turn is refused (AUDIT BOX-3 fix F1).
@@ -979,7 +982,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     // Its first event should be observed, so the turn starts on a connected stream.
     await ready(session.connection);
     if (request.leave_plan === true) await this.#leavePlan(session);
-    await this.#prompt(session, request.text);
+    await this.#prompt(session, request.text, request.pictures ?? []);
   }
 
   /**
@@ -1736,6 +1739,43 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     }
   }
 
+  /**
+   * Refuses, with nothing sent, a picture for a session whose model OpenCode does not list as taking
+   * one: OpenCode would put an error line in the picture's place and send the words alone (A4).
+   */
+  async #modelTakesPictures(session: HostedSession): Promise<void> {
+    const client = session.connection.server.client;
+    const folder = session.connection.slot.folder;
+    const where = folder === null ? '' : `?location%5Bdirectory%5D=${encodeURIComponent(folder)}`;
+    let model: OpenCodeModel | undefined;
+    let named = 'its model';
+    try {
+      const read = await client.request(
+        'GET',
+        `/api/session/${encodeURIComponent(session.sessionId)}${where}`,
+        { timeoutMs: READ_TIMEOUT_MS },
+      );
+      const data = isRecord(read.body) && isRecord(read.body.data) ? read.body.data : {};
+      const ref = isRecord(data.model) ? data.model : {};
+      if (typeof ref.providerID === 'string' && typeof ref.id === 'string') {
+        const wanted = { providerID: ref.providerID, id: ref.id };
+        named = `the model ${modelRefOf(wanted)}`;
+        model = (await readModels(client, folder, READ_TIMEOUT_MS)).find((entry) =>
+          sameModel(entry, wanted),
+        );
+      }
+    } catch {
+      model = undefined;
+    }
+    if (model?.input?.includes('image') === true) return;
+    throw new RuntimeActionError(
+      'runtime_refused',
+      model === undefined
+        ? `OpenCode could not say whether ${named} takes pictures, so the instruction was not sent.`
+        : `OpenCode lists ${named} as taking text only, so the instruction and its pictures were not sent. Send the words without the pictures, or choose a model that takes them.`,
+    );
+  }
+
   #hosted(execution: ExecutionContext): HostedSession {
     if (this.#closing !== null) throw closedError();
     const session = this.#sessions.get(execution.execution_id);
@@ -1770,11 +1810,17 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
    * which traces the start of a turn at rest. A steered instruction waits in the inbox until the
    * running step ends and is then delivered into the same turn.
    */
-  async #prompt(session: HostedSession, text: string): Promise<void> {
+  async #prompt(
+    session: HostedSession,
+    text: string,
+    pictures: readonly InstructionPicture[] = [],
+  ): Promise<void> {
     const state = session.state;
+    const files = pictures.map(pictureFile);
     await this.#act(session, async () => {
+      if (files.length > 0) await this.#modelTakesPictures(session);
       if (state.turn !== null || state.awaitingStart) {
-        await this.#steer(session, text);
+        await this.#steer(session, text, files);
         return;
       }
       // Set before sending: the execution can start before the response arrives.
@@ -1785,7 +1831,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
           session.connection,
           'POST',
           `/api/session/${encodeURIComponent(session.sessionId)}/prompt`,
-          { text },
+          files.length > 0 ? { text, files } : { text },
           'execution_unknown_to_runtime',
         );
       } catch (error) {
@@ -1815,12 +1861,16 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
    * accepts it into the session's inbox and hands it to the model when the running step ends,
    * never cutting a model stream. Resolves once OpenCode has accepted it.
    */
-  async #steer(session: HostedSession, text: string): Promise<void> {
+  async #steer(
+    session: HostedSession,
+    text: string,
+    files: readonly PromptFile[] = [],
+  ): Promise<void> {
     const response = await send(
       session.connection,
       'POST',
       `/api/session/${encodeURIComponent(session.sessionId)}/prompt`,
-      { text, delivery: 'steer' },
+      files.length > 0 ? { text, delivery: 'steer', files } : { text, delivery: 'steer' },
       'execution_unknown_to_runtime',
     );
     const item = isRecord(response.body) && isRecord(response.body.data) ? response.body.data : {};
@@ -2086,4 +2136,17 @@ function unreachableError(): RuntimeActionError {
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** A picture as OpenCode's prompt takes it: a `data:` URI of the bytes the host read, never a path (A4). */
+interface PromptFile {
+  readonly uri: string;
+  readonly name: string;
+}
+
+function pictureFile(picture: InstructionPicture): PromptFile {
+  return {
+    uri: `data:${picture.media_type};base64,${Buffer.from(picture.bytes).toString('base64')}`,
+    name: picture.path.split('/').at(-1) ?? picture.path,
+  };
 }

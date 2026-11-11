@@ -1,5 +1,6 @@
 import Type, { type Static } from 'typebox';
 import { CheckpointId, ProjectPath } from './checkpoints.ts';
+import { Sha256Hex } from './devices.ts';
 import { CheckId } from './previews.ts';
 import { JournalId, Nullable, ProjectId, Text, Timestamp } from './primitives.ts';
 
@@ -160,3 +161,64 @@ export const CheckStepOutputResponse = Type.Object(
   strict,
 );
 export type CheckStepOutputResponse = Static<typeof CheckStepOutputResponse>;
+
+/** The most pictures one instruction carries (A4). */
+export const PICTURES_PER_INSTRUCTION = 4;
+/** The largest picture an instruction carries, in bytes. */
+export const PICTURE_BYTES = 5_242_880;
+/** The most pictures the project's list names; `pictures_total` counts them all. */
+export const PROJECT_PICTURES = 200;
+
+/** What a picture is, read from its first bytes, never from its name. */
+export const PictureMediaType = Type.Union([
+  Type.Literal('image/png'),
+  Type.Literal('image/jpeg'),
+  Type.Literal('image/webp'),
+]);
+export type PictureMediaType = Static<typeof PictureMediaType>;
+
+/**
+ * A picture of the project's folder that goes with an instruction (A4). The host reads it once, as
+ * the project's own read does, and hands the runtime those bytes; never a path, never a file outside.
+ */
+export const InstructionAttachment = Type.Object(
+  { path: ProjectPath, kind: Type.Literal('image') },
+  strict,
+);
+export type InstructionAttachment = Static<typeof InstructionAttachment>;
+
+export const InstructionAttachments = Type.Array(InstructionAttachment, {
+  minItems: 1,
+  maxItems: PICTURES_PER_INSTRUCTION,
+});
+export type InstructionAttachments = Static<typeof InstructionAttachments>;
+
+/** One picture as the host read it for an instruction: what the journal keeps, never the bytes. */
+export const PictureRead = Type.Object(
+  { path: ProjectPath, media_type: PictureMediaType, size_bytes: Count, sha256: Sha256Hex },
+  strict,
+);
+export type PictureRead = Static<typeof PictureRead>;
+
+/** One picture of the project's folder, as the list names it. */
+export const ProjectPicture = Type.Object(
+  { path: ProjectPath, media_type: PictureMediaType, size_bytes: Count, modified_at: Timestamp },
+  strict,
+);
+export type ProjectPicture = Static<typeof ProjectPicture>;
+
+/**
+ * The pictures of a project's folder that an instruction may carry: PNG, JPEG or WebP by their first
+ * bytes, at most `PICTURE_BYTES` each, never a link, a hidden or withheld name, or a folder the host
+ * keeps out (`node_modules`, version control's own). Sorted by path; at most `PROJECT_PICTURES`.
+ */
+export const ProjectPicturesResponse = Type.Object(
+  {
+    project_id: ProjectId,
+    pictures: Type.Array(ProjectPicture, { maxItems: PROJECT_PICTURES }),
+    pictures_total: Count,
+    source: Type.Literal('project_files'),
+  },
+  strict,
+);
+export type ProjectPicturesResponse = Static<typeof ProjectPicturesResponse>;

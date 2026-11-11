@@ -349,6 +349,8 @@ export class ControlPlane {
         projection: this.projection,
         now: () => options.clock.now().toISOString(),
       });
+    // Said to clients on each runtime that cannot steer, from the same rule as the queue (ADR 0056).
+    this.registry.holdsInstructions = this.journal.info.origin === 'live';
     this.commands = new CommandService({
       projection: this.projection,
       recorder: this.recorder,
@@ -356,6 +358,7 @@ export class ControlPlane {
       // The queue below runs only on the person's own journal (ADR 0056).
       queuesInstructions: this.journal.info.origin === 'live',
       locations: this.locations,
+      protectedFolders: this.protectedFolders,
       ids: options.ids,
       clock: options.clock,
       scheduler: options.scheduler,

@@ -50,9 +50,38 @@ export type RuntimeObservation = {
 /** Receives observations for one execution. It never throws back into the adapter. */
 export type ObservationSink = (observation: RuntimeObservation) => void;
 
+/**
+ * A picture that goes with an instruction (A4), as the host read it once from the project's folder:
+ * its kind from its first bytes, and the bytes themselves. The adapter hands these bytes on, never
+ * the path, so the runtime is given exactly what the host read and recorded.
+ */
+export interface InstructionPicture {
+  /** Relative to the project's folder, for words only. */
+  readonly path: string;
+  readonly media_type: 'image/png' | 'image/jpeg' | 'image/webp';
+  readonly bytes: Uint8Array;
+  readonly sha256: string;
+}
+
+/** An instruction for a running or resting execution, with any pictures that go with it. */
+export interface InstructionRequest {
+  readonly execution: ExecutionContext;
+  readonly text: string;
+  /** As on `StartExecutionRequest.pictures`. */
+  readonly pictures?: readonly InstructionPicture[];
+  /** Leave the runtime's plan mode first (PLAN); see `sendInstruction`. */
+  readonly leave_plan?: true;
+}
+
 export interface StartExecutionRequest {
   readonly execution: ExecutionContext;
   readonly instruction: string;
+  /**
+   * Pictures that go with the instruction, in the person's order. Passed only to an adapter whose
+   * descriptor declares `takes_pictures`; absent or empty means none. An adapter refuses, with no
+   * effect, a model its runtime says takes no picture, rather than send the words alone.
+   */
+  readonly pictures?: readonly InstructionPicture[];
   readonly options: RuntimeOptions;
   /**
    * A model from the adapter's own list, or null to leave the choice to the runtime. The adapter
@@ -246,15 +275,11 @@ export interface RuntimeAdapter {
   listModels?(): Promise<readonly RuntimeModel[]>;
   startExecution?(request: StartExecutionRequest): Promise<StartExecutionResult>;
   /**
-   * `leave_plan` (PLAN): leave the runtime's plan mode in the same session first, confirmed by the
-   * runtime and reported as `runtime.plan.left`, else refuse with nothing sent. Admission passes it
-   * only for an execution that started as a plan and has not left it.
+   * `leave_plan` (PLAN), on the request: leave the runtime's plan mode in the same session first,
+   * confirmed by the runtime and reported as `runtime.plan.left`, else refuse with nothing sent.
+   * Admission passes it only for an execution that started as a plan and has not left it.
    */
-  sendInstruction?(request: {
-    execution: ExecutionContext;
-    text: string;
-    leave_plan?: true;
-  }): Promise<void>;
+  sendInstruction?(request: InstructionRequest): Promise<void>;
   respondToApproval?(request: {
     execution: ExecutionContext;
     approval_id: string;

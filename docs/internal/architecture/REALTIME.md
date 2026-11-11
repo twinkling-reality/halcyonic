@@ -153,6 +153,9 @@ client                                   server
   person's own journal (`origin: live`), where the queue runs; on a recording's journal it is refused
   with `capability_unsupported`, as before.
   - At most 3 wait per execution; a fourth is refused with `invalid_state`.
+  - The host says it on the runtime's descriptor: `RuntimeDescriptor.holds_instructions` is true where the
+    queue runs (a live journal) for a runtime that cannot steer but can be instructed at rest, and is never
+    taken from an adapter.
   - `execution.instruction.queued` (`command_id`, `position`) records it. `ExecutionView.queued_instructions`
     lists the waiting ones, oldest first, as `{command_id, queued_at}` without the words, and is absent when
     none waits.
@@ -168,6 +171,18 @@ client                                   server
   - While one waits, the project has a pending command, so the automatic check and the fix loop wait for the
     turn that takes the last one. A runtime that steers (Codex, OpenCode) takes the instruction in its running
     turn, as before.
+- **Pictures with an instruction** (ADR 0058). `execution.start` and `execution.send_instruction` take
+  `attachments`: at most 4, each `{path, kind: "image"}`, a path of the project's folder.
+  - Admission refuses them with `capability_unsupported` for a runtime whose descriptor lacks
+    `takes_pictures`, and with `location_required` for a project without a folder.
+  - The host reads each once when the instruction is sent: PNG, JPEG or WebP by its first bytes, whole by its
+    structure, at most 5 MB, never through a link, a withheld name or Halcyonic's own data.
+  - One it cannot read fails the command, effect `none`, nothing sent, with `picture_not_found`,
+    `picture_withheld`, `picture_too_large` or `picture_not_a_picture` and words that name it.
+  - `execution.instruction.pictures_read` (`command_id`, and each picture's `path`, `media_type`, `size_bytes`,
+    `sha256`) records what was read, never the bytes, before the runtime is given them.
+  - `RuntimeModel.picture_input` says whether the runtime's list says a model takes pictures; OpenCode refuses,
+    with no effect, a model it lists as text only.
 - **Putting a project back.** `project.restore` `{project_id, checkpoint_id, review?}` is
   `review_required`: a client sends it only after the person has read the preview, with the
   preview's `review`, which a paired device must carry; a restore whose preview no longer matches its
@@ -419,6 +434,10 @@ Every text in them is outside words, from the project's files or its build, as `
   folder or inside Halcyonic's own data. It reads the project's own folder only, never a task's copy
   (ADR 0045): a task's work not yet added is not there, so a screen must not show this file as the
   task's.
+- `GET /api/projects/:project_id/pictures`: the pictures of the project's folder an instruction may carry
+  (ADR 0058), sorted by path: the first 200 with their path, `media_type` (PNG, JPEG or WebP by their first
+  bytes), size and modification time, and `pictures_total`. Never larger than 5 MB, through a link, a hidden
+  or withheld name, `node_modules`, or Halcyonic's own data.
 - `GET /api/projects/:project_id/checks/:check_id/output?step=typecheck|build`: a step of one of the
   project's checks as its own folder holds it, its exit (null when it did not run) and at most 200
   lines of at most 300 characters, cleaned as the agent's copy is: no terminal sequences or unseen

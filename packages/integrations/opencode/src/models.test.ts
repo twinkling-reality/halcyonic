@@ -43,6 +43,7 @@ describe('OpenCode model listing', () => {
         name: 'qwen3.6:35b-a3b-nvfp4',
         tools: true,
         contextTokens: 65536,
+        input: ['text', 'image'],
         baseUrl: 'http://127.0.0.1:11434/v1',
         package: '@opencode/ai/providers/openai-compatible',
       },
@@ -52,6 +53,7 @@ describe('OpenCode model listing', () => {
         name: 'Big Pickle',
         tools: true,
         contextTokens: 200000,
+        input: ['text'],
         baseUrl: 'https://opencode.ai/zen/v1',
         package: null,
       },
@@ -107,6 +109,7 @@ describe('OpenCode model listing', () => {
         name: 'local-model',
         tools: null,
         contextTokens: null,
+        input: null,
         baseUrl: null,
         package: null,
       },
@@ -116,6 +119,7 @@ describe('OpenCode model listing', () => {
         name: 'served',
         tools: null,
         contextTokens: null,
+        input: null,
         baseUrl: null,
         package: null,
       },
@@ -151,6 +155,7 @@ describe('OpenCode model listing', () => {
       served: 'this_mac',
       tool_calling: 'declared',
       context_tokens: 131072,
+      picture_input: 'not_declared',
     });
     assert.deepEqual(toRuntimeModel(hosted), {
       model_ref: 'openai/gpt-4o',
@@ -169,6 +174,7 @@ describe('OpenCode model listing', () => {
         name: id,
         tools: null,
         contextTokens: null,
+        input: null,
         baseUrl,
         package: null,
       });
@@ -192,6 +198,7 @@ describe('OpenCode model listing', () => {
       name: 'Model',
       tools: null,
       contextTokens: null,
+      input: null,
       baseUrl: null,
       package: null,
     });
@@ -236,6 +243,7 @@ describe('OpenCode model listing', () => {
         served: 'this_mac',
         tool_calling: 'declared',
         context_tokens: 65536,
+        picture_input: 'declared',
       },
       {
         model_ref: 'ollama/llama3.3:70b',
@@ -243,6 +251,7 @@ describe('OpenCode model listing', () => {
         served: 'this_mac',
         tool_calling: 'declared',
         context_tokens: 131072,
+        picture_input: 'not_declared',
       },
     ]);
   });

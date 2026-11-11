@@ -24,12 +24,15 @@ import {
   type ProjectHistoryQuery,
   type ProjectHistoryResponse,
   type ProjectId,
+  type ProjectPicturesResponse,
+  type ProjectReadQuery,
   type Timestamp,
 } from '@halcyonic/contracts';
 import { secretShapedPath } from '@halcyonic/runtime-core';
 import { NO_LINK } from '../observer/file-observer.ts';
 import { checkLogLines } from '../preview/check-output.ts';
 import type { ControlPlane } from './control-plane.ts';
+import { listPictures } from './pictures.ts';
 
 /**
  * Reads of a project's files for the headset (the parity map's gaps 5, 10 and 4): what changed
@@ -176,6 +179,24 @@ export class ProjectReads {
     }
   }
 
+  /** The pictures of the project's folder an instruction may carry (A4), as `listPictures` finds them. */
+  async pictures(
+    projectId: string,
+    query: ProjectReadQuery,
+    principal: Principal | null,
+  ): Promise<ProjectPicturesResponse | undefined> {
+    if (!this.#allowed(projectId, query.journal_id, principal)) return undefined;
+    const folder = this.#plane.projection.project(projectId)?.location?.path;
+    if (folder === undefined) return undefined;
+    const { pictures, total } = await listPictures(folder, this.#plane.protectedFolders);
+    return {
+      project_id: projectId as ProjectId,
+      pictures: [...pictures],
+      pictures_total: total,
+      source: 'project_files',
+    };
+  }
+
   checkOutput(
     projectId: string,
     checkId: string,
@@ -294,7 +315,7 @@ export class ProjectReads {
 export const withheldPath = secretShapedPath;
 
 /** A relative path inside the folder: no leading `/`, no `.` or `..` part, no empty part, no NUL. */
-function safeRelative(path: string): boolean {
+export function safeRelative(path: string): boolean {
   return (
     path.length > 0 &&
     !path.startsWith('/') &&
@@ -313,7 +334,7 @@ function utf8(bytes: Buffer): string | null {
   }
 }
 
-function realpathOr(path: string): string | null {
+export function realpathOr(path: string): string | null {
   try {
     return realpathSync(path);
   } catch {

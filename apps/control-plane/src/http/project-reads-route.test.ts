@@ -28,6 +28,9 @@ test('the project reads refuse a malformed scope or path with 400, and anything 
     `/api/projects/${project}/history?journal_id=${journal}&before=not-an-id`,
     `/api/projects/${project}/history?journal_id=${journal}&page=2`,
     `/api/projects/not-an-id/history?journal_id=${journal}`,
+    `/api/projects/${project}/pictures`,
+    `/api/projects/${project}/pictures?journal_id=${journal}&path=a.png`,
+    `/api/projects/not-an-id/pictures?journal_id=${journal}`,
   ]) {
     assert.equal((await get(path)).status, 400, path);
   }
@@ -40,6 +43,7 @@ test('the project reads refuse a malformed scope or path with 400, and anything 
     `/api/projects/${project}/history?journal_id=${journal}&limit=50&before=${checkpoint}`,
     `/api/projects/${project}/changes/file?journal_id=${journal}&from=${checkpoint}&to=${checkpoint}&path=a.ts`,
     `/api/projects/${project}/checks/${checkpoint}/output?journal_id=${journal}&step=build`,
+    `/api/projects/${project}/pictures?journal_id=${journal}`,
   ]) {
     const response = await get(path);
     assert.equal(response.status, 404, path);

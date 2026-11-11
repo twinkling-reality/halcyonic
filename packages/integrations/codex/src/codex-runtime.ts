@@ -17,6 +17,8 @@ import {
   confirmProjectLocation,
   type DirectoryPolicy,
   type ExecutionContext,
+  type InstructionPicture,
+  type InstructionRequest,
   type ObservationSink,
   type OptionsValidation,
   type ReattachRequest,
@@ -70,6 +72,7 @@ import type {
   TurnInterruptParams,
   TurnStartParams,
   TurnSteerParams,
+  UserInput,
 } from './protocol.ts';
 import { RpcError, type RpcHandlers, RpcUnanswered } from './rpc.ts';
 import {
@@ -364,6 +367,9 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       // A thread's shell_environment_policy.set, given at its start and every resume, reaches its
       // commands (project-secrets.md; ADR 0057).
       secret_environment: true,
+      // An image item's data URL reaches the provider as an input_image of the same bytes, for a
+      // model outside Codex's own catalog too (picture-and-file-input.md).
+      takes_pictures: true,
     };
   }
 
@@ -511,7 +517,9 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     if (connection.halted.signal.aborted) {
       this.#lose(thread, 'The Codex server stopped while the execution was starting.');
     }
-    await this.#act(thread, () => this.#startTurn(thread, request.instruction));
+    await this.#act(thread, () =>
+      this.#startTurn(thread, request.instruction, request.pictures ?? []),
+    );
     return { native_id: threadId };
   }
 
@@ -638,13 +646,14 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   }
 
   /** Starts a turn at rest, or steers the running turn. */
-  async sendInstruction(request: { execution: ExecutionContext; text: string }): Promise<void> {
+  async sendInstruction(request: InstructionRequest): Promise<void> {
     const thread = this.#hosted(request.execution);
     this.#stillBounded(thread);
+    const pictures = request.pictures ?? [];
     await this.#act(thread, () =>
       thread.state.activeTurnId === null
-        ? this.#startTurn(thread, request.text)
-        : this.#steer(thread, request.text),
+        ? this.#startTurn(thread, request.text, pictures)
+        : this.#steer(thread, request.text, pictures),
     );
   }
 
@@ -833,11 +842,15 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
   // Turns --------------------------------------------------------------------------------------
 
-  async #startTurn(thread: HostedThread, text: string): Promise<void> {
+  async #startTurn(
+    thread: HostedThread,
+    text: string,
+    pictures: readonly InstructionPicture[] = [],
+  ): Promise<void> {
     const running = thread.state.activeTurnId;
     const params: TurnStartParams = {
       threadId: thread.threadId,
-      input: [textInput(text)],
+      input: userInput(text, pictures),
       // Given with every turn, so a thread resumed on a relaunched server keeps it too.
       ...(thread.connection.slot.confinement !== null && { sandboxPolicy: EXTERNAL_SANDBOX }),
     };
@@ -853,13 +866,17 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     acceptTurnStart(thread.state, turnId, running);
   }
 
-  async #steer(thread: HostedThread, text: string): Promise<void> {
+  async #steer(
+    thread: HostedThread,
+    text: string,
+    pictures: readonly InstructionPicture[] = [],
+  ): Promise<void> {
     const expectedTurnId = thread.state.activeTurnId;
     if (expectedTurnId === null) throw noRunningTurn();
     const params: TurnSteerParams = {
       threadId: thread.threadId,
       expectedTurnId,
-      input: [textInput(text)],
+      input: userInput(text, pictures),
     };
     try {
       await thread.connection.server.rpc.request('turn/steer', params, this.#requestTimeoutMs);
@@ -1829,6 +1846,17 @@ function actionError(error: unknown): RuntimeActionError {
     );
   }
   return new RuntimeActionError('runtime_error', message(error), 'unknown');
+}
+
+/** The words, then each picture as a `data:` URL of the bytes the host read (A4). */
+function userInput(text: string, pictures: readonly InstructionPicture[]): UserInput[] {
+  return [
+    textInput(text),
+    ...pictures.map((picture) => ({
+      type: 'image' as const,
+      url: `data:${picture.media_type};base64,${Buffer.from(picture.bytes).toString('base64')}`,
+    })),
+  ];
 }
 
 function textInput(text: string): TextInput {

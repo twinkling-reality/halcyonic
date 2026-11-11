@@ -8,6 +8,12 @@ const validateDescriptor = compileValidator(RuntimeDescriptor);
 /** The runtime adapters this control plane hosts, keyed by runtime id. */
 export class RuntimeRegistry implements RuntimeCatalog {
   readonly #adapters = new Map<string, RuntimeAdapter>();
+  /**
+   * Whether the host's instruction queue runs (ADR 0056): on the person's own journal only. Where it
+   * does, a runtime that cannot steer but can be instructed at rest is described with
+   * `holds_instructions`, the host's own declaration; an adapter's own is never taken.
+   */
+  holdsInstructions = false;
 
   /** Refuses an adapter whose descriptor is malformed or claims capabilities it does not implement. */
   register(adapter: RuntimeAdapter): void {
@@ -29,7 +35,8 @@ export class RuntimeRegistry implements RuntimeCatalog {
   }
 
   get(runtimeId: string): RuntimeDescriptor | undefined {
-    return this.#adapters.get(runtimeId)?.descriptor;
+    const adapter = this.#adapters.get(runtimeId);
+    return adapter === undefined ? undefined : this.#described(adapter.descriptor);
   }
 
   adapter(runtimeId: string): RuntimeAdapter | undefined {
@@ -37,7 +44,17 @@ export class RuntimeRegistry implements RuntimeCatalog {
   }
 
   descriptors(): RuntimeDescriptor[] {
-    return [...this.#adapters.values()].map((adapter) => adapter.descriptor);
+    return [...this.#adapters.values()].map((adapter) => this.#described(adapter.descriptor));
+  }
+
+  #described(descriptor: RuntimeDescriptor): RuntimeDescriptor {
+    const { holds_instructions: _theirs, ...own } = descriptor;
+    const { capabilities } = descriptor;
+    return this.holdsInstructions &&
+      !capabilities.instruct_while_running &&
+      capabilities.instruct_at_rest
+      ? { ...own, holds_instructions: true }
+      : own;
   }
 
   async closeAll(logger: Logger): Promise<void> {
