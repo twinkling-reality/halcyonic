@@ -24,6 +24,9 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   // The checked copy, already run by the check, in the same contained browser shown in Halcyonic's
   // own viewer; it changes no project file and reaches nothing but the preview's port (ADR 0037).
   'project.open_on_mac': 'low_consequence',
+  // Opening a Finder window on the Mac changes nothing; a saved copy writes a file there.
+  'project.show_in_finder': 'low_consequence',
+  'project.save_copy': 'review_required',
   // The person's own link between a project and a catalog repository; changes no file.
   'project.link_catalog': 'low_consequence',
   'project.unlink_catalog': 'low_consequence',

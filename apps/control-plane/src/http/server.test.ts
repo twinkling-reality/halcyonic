@@ -371,7 +371,10 @@ describe('realtime protocol', () => {
     const policies = new Map(
       welcome.command_policies.map((entry) => [entry.command_type, entry.policy]),
     );
-    assert.equal(policies.size, 21);
+    assert.equal(policies.size, 23);
+    // Showing the project in Finder changes nothing; saving a copy writes a file on the Mac (F3).
+    assert.equal(policies.get('project.show_in_finder'), 'low_consequence');
+    assert.equal(policies.get('project.save_copy'), 'review_required');
     // Adding a task's work writes the person's folder, as a restore does; fitting writes only the
     // task's own copy (ADR 0045).
     assert.equal(policies.get('workstream.add_to_project'), 'review_required');

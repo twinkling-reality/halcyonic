@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
@@ -97,6 +105,8 @@ function setup(name: string, options: { linkedRepository?: boolean; copiesOff?: 
   if (options.linkedRepository)
     writeFileSync(join(folder, '.git'), 'gitdir: /elsewhere/.git/worktrees/app\n');
   const tasks = join(root, 'tasks');
+  const downloads = join(root, 'Downloads');
+  mkdirSync(downloads, { recursive: true });
   const time = createVirtualTime(new Date('2026-11-10T10:00:00.000Z'));
   const ids = createUuidV7Generator({ now: () => Date.now() });
   const journal = openSqliteJournal({ path: ':memory:', originIfNew: 'live', ids });
@@ -114,6 +124,7 @@ function setup(name: string, options: { linkedRepository?: boolean; copiesOff?: 
     locations: createHostLocations([projects]),
     checkpoints: {
       store: new CheckpointStore({ git: GIT, directory: join(root, 'checkpoints') }),
+      keeping: { downloads, reveal: async () => true },
       ...(options.copiesOff
         ? {}
         : { copies: { directory: tasks, heldToFolder: (runtimeId) => runtimeId === 'writer' } }),
@@ -178,6 +189,7 @@ function setup(name: string, options: { linkedRepository?: boolean; copiesOff?: 
     of,
     ...runtime,
     finishLoose: loose.finish,
+    downloads,
   };
 }
 
@@ -461,5 +473,21 @@ describe('several agents on one project (ADR 0045)', {
       refused.command?.rejection?.message ?? '',
       /This task's copy is off on this computer/,
     );
+  });
+
+  test("Save a Copy puts a zip of the project's files in Downloads, and Show in Finder shows the folder (F3)", async () => {
+    const { controlPlane, projectId, submit, downloads } = setup('keep');
+    const outcome = async (sent: ReturnType<typeof submit>) => {
+      const id = sent.command?.command_id ?? '';
+      await until(() => controlPlane.projection.command(id)?.status !== 'accepted', 'the outcome');
+      return controlPlane.projection.command(id);
+    };
+    const saved = await outcome(submit('project.save_copy', { project_id: projectId }));
+    assert.equal(saved?.status, 'completed');
+    assert.ok(saved?.result?.kind === 'project_saved');
+    assert.equal(saved.result.files, 1, 'app.txt');
+    assert.ok(existsSync(join(downloads, saved.result.file)));
+    const shown = await outcome(submit('project.show_in_finder', { project_id: projectId }));
+    assert.equal(shown?.status, 'completed');
   });
 });

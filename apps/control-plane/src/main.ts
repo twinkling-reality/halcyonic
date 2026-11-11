@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { chmod, mkdir } from 'node:fs/promises';
-import { homedir } from 'node:os';
+import { homedir, userInfo } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
@@ -183,6 +183,8 @@ async function main(): Promise<void> {
               // A project folder holding the journal and token is never checkpointed.
               protect: [config.dataDir],
             }),
+            // A saved copy goes in the account's own Downloads folder (F3).
+            keeping: { downloads: join(userInfo().homedir, 'Downloads') },
             ...(config.taskCopies
               ? {
                   copies: {

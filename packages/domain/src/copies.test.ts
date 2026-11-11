@@ -481,3 +481,65 @@ describe("checking a task's own copy (ADR 0045)", () => {
     assert.equal(projection.latestCheck(project.projectId)?.files, 'changed');
   });
 });
+
+describe("keeping a project's work (F3)", () => {
+  test("showing and saving need the project's folder; a save waits for a turn at work, a restore or an add of it", () => {
+    const {
+      b,
+      projection,
+      project,
+      task,
+      scopeOf,
+      copyMade,
+      add,
+      accept,
+      admit,
+      refusal,
+      running,
+    } = setup();
+    let n = 0;
+    const keep = (
+      command_type: 'project.show_in_finder' | 'project.save_copy',
+      projectId = project.projectId,
+    ) => {
+      n += 1;
+      return {
+        schema_version: 1 as const,
+        command_id: `00000000-0000-4000-8000-${String(700 + n).padStart(12, '0')}` as CommandId,
+        issued_at: '2026-11-11T10:00:00.000Z',
+        client: { name: 'test', version: null, device_label: null },
+        command_type,
+        payload: { project_id: projectId },
+      } as CommandEnvelope;
+    };
+    const shown = admit(keep('project.show_in_finder'));
+    assert.equal(shown.admitted && shown.policy, 'low_consequence');
+    const saved = admit(keep('project.save_copy'));
+    assert.equal(saved.admitted && saved.policy, 'review_required', 'a deliberate press');
+    // A turn at work may leave a file half written in the copy (AUDIT2 S1), as a restore waits.
+    const busy = task('Busy');
+    const turn = running(busy, '/work/app');
+    assert.equal(
+      refusal(keep('project.save_copy')),
+      'A task in this project is running. Save a copy once it has finished.',
+    );
+    assert.equal(admit(keep('project.show_in_finder')).admitted, true);
+    turn.rest();
+    assert.equal(admit(keep('project.save_copy')).admitted, true);
+    const elsewhere = b.project('Elsewhere');
+    projection.apply(elsewhere.event);
+    assert.equal(
+      refusal(keep('project.save_copy', elsewhere.projectId)),
+      'The project has no folder on this computer.',
+    );
+    const other = task('Other');
+    copyMade(other);
+    accept(add(other), other);
+    assert.equal(
+      refusal(keep('project.save_copy')),
+      'Adding to the project in this project is still under way. Save a copy once it has finished.',
+    );
+    assert.equal(admit(keep('project.show_in_finder')).admitted, true, 'showing changes nothing');
+    void scopeOf;
+  });
+});

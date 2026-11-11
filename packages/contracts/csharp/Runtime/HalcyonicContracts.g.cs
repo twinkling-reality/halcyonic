@@ -531,6 +531,8 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "project.preview.start")] ProjectPreviewStart,
         [EnumMember(Value = "project.preview.stop")] ProjectPreviewStop,
         [EnumMember(Value = "project.open_on_mac")] ProjectOpenOnMac,
+        [EnumMember(Value = "project.show_in_finder")] ProjectShowInFinder,
+        [EnumMember(Value = "project.save_copy")] ProjectSaveCopy,
         [EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
         [EnumMember(Value = "project.unlink_catalog")] ProjectUnlinkCatalog,
         [EnumMember(Value = "workstream.create")] WorkstreamCreate,
@@ -1716,6 +1718,7 @@ namespace Halcyonic.Contracts
                 "workstream_created" => new WorkstreamCreatedResult(),
                 "execution_created" => new ExecutionCreatedResult(),
                 "project_restored" => new ProjectRestoredResult(),
+                "project_saved" => new ProjectSavedResult(),
                 "workstream_added" => new WorkstreamAddedResult(),
                 "workstream_fitted" => new WorkstreamFittedResult(),
                 "project_checked" => new ProjectCheckedResult(),
@@ -1778,6 +1781,20 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("checkpoint_id", Required = Required.Always)]
         public string CheckpointId { get; set; } = default!;
+    }
+
+    public sealed class ProjectSavedResult : CommandResult
+    {
+        protected override string Discriminator => "project_saved";
+
+        [JsonProperty("file", Required = Required.Always)]
+        public string File { get; set; } = default!;
+
+        [JsonProperty("files", Required = Required.Always)]
+        public long Files { get; set; }
+
+        [JsonProperty("bytes", Required = Required.Always)]
+        public long Bytes { get; set; }
     }
 
     public sealed class WorkstreamAddedResult : CommandResult
@@ -2730,6 +2747,18 @@ namespace Halcyonic.Contracts
         public string ProjectId { get; set; } = default!;
     }
 
+    public sealed class ProjectShowInFinderPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+    }
+
+    public sealed class ProjectSaveCopyPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+    }
+
     public sealed class ProjectLinkCatalogPayload
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -2924,6 +2953,8 @@ namespace Halcyonic.Contracts
                 "project.preview.start" => new ProjectPreviewStartCommand(),
                 "project.preview.stop" => new ProjectPreviewStopCommand(),
                 "project.open_on_mac" => new ProjectOpenOnMacCommand(),
+                "project.show_in_finder" => new ProjectShowInFinderCommand(),
+                "project.save_copy" => new ProjectSaveCopyCommand(),
                 "project.link_catalog" => new ProjectLinkCatalogCommand(),
                 "project.unlink_catalog" => new ProjectUnlinkCatalogCommand(),
                 "workstream.create" => new WorkstreamCreateCommand(),
@@ -3019,6 +3050,22 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectOpenOnMacPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectShowInFinderCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.show_in_finder";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectShowInFinderPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectSaveCopyCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.save_copy";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectSaveCopyPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectLinkCatalogCommand : CommandEnvelope

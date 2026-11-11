@@ -147,6 +147,40 @@ export function admitCommand(
       return { admitted: true, policy, scope, runtime: null };
     }
 
+    case 'project.show_in_finder':
+    case 'project.save_copy': {
+      // Keeping what was made (F3): the project's own folder, shown or saved by the host.
+      const projectId = command.payload.project_id;
+      const project = projection.project(projectId);
+      if (project === undefined)
+        return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
+      const scope = { ...NO_SCOPE, project_id: projectId };
+      if (project.location === null)
+        return reject(scope, 'location_required', 'The project has no folder on this computer.');
+      if (command.command_type === 'project.save_copy') {
+        // A copy taken while the folder is being written would hold half of it.
+        const writing = projection
+          .pendingCommands()
+          .find(
+            (pending) =>
+              pending.project_id === projectId &&
+              (pending.command_type === 'project.restore' ||
+                pending.command_type === 'workstream.add_to_project'),
+          );
+        if (writing !== undefined)
+          return reject(
+            scope,
+            'invalid_state',
+            `${commandInWords(writing.command_type)} in this project is still under way. Save a copy once it has finished.`,
+          );
+        // A turn at work may leave a file half written (AUDIT2 S1), as a restore waits for it.
+        const busy = projection.projectBusy(projectId);
+        if (busy !== null)
+          return reject(scope, 'invalid_state', `${busy} Save a copy once it has finished.`);
+      }
+      return { admitted: true, policy, scope, runtime: null };
+    }
+
     case 'project.link_catalog':
     case 'project.unlink_catalog': {
       const projectId = command.payload.project_id;
