@@ -15,10 +15,13 @@ import type {
   CheckpointId,
   CommandEnvelope,
   CommandId,
+  DeviceId,
   EventEnvelope,
+  Principal,
   ProjectId,
   RuntimeDescriptor,
   RuntimeId,
+  Timestamp,
   WorkstreamId,
 } from '@halcyonic/contracts';
 import {
@@ -134,6 +137,7 @@ function setup(name: string, options: { linkedRepository?: boolean; copiesOff?: 
   const submit = <T extends CommandEnvelope['command_type']>(
     commandType: T,
     payload: Extract<CommandEnvelope, { command_type: T }>['payload'],
+    principal: Principal | null = null,
   ) => {
     commands += 1;
     return controlPlane.commands.submit(
@@ -146,6 +150,7 @@ function setup(name: string, options: { linkedRepository?: boolean; copiesOff?: 
         payload,
       } as CommandEnvelope,
       'internal',
+      principal,
     );
   };
   const created = submit('project.create', {
@@ -295,6 +300,63 @@ describe('several agents on one project (ADR 0045)', {
     await until(() => of('project.restored').length === 1, 'the restore');
     assert.equal(readFileSync(join(copy.directory, 'app.txt'), 'utf8'), 'person\n');
     assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person, later\n');
+  });
+
+  test('an add from a paired device carries the review of the reading it was shown; a missing or stale one changes nothing (ADR 0051)', async () => {
+    const { folder, controlPlane, task, start, submit, of, finish } = setup('review');
+    const first = task('Lanterns');
+    start(first, 'lanterns');
+    await until(() => of('runtime.turn.started').length === 1, 'the agent at work');
+    finish();
+    await until(() => of('workstream.copy_changes_read', first).length === 1, 'the copy read');
+    const recorded = of('workstream.copy_changes_read', first)[0]?.payload.review;
+    const copy = controlPlane.projection.workstream(first)?.copy;
+    const review = copy?.state === 'own' ? copy.to_add_review : null;
+    assert.match(review ?? '', /^[0-9a-f]{64}$/);
+    assert.equal(review, recorded, 'the view shows the reading the journal holds');
+    // A paired device, as pairing records it.
+    const deviceId = '01a19000-0000-7000-8000-00000000dd01' as DeviceId;
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'device.paired',
+        { project_id: null, workstream_id: null, execution_id: null },
+        {
+          device_id: deviceId,
+          label: 'Headset',
+          credential_sha256: 'a'.repeat(64),
+          certificate_sha256: 'b'.repeat(64),
+        },
+        controlPlane.clock.now().toISOString() as Timestamp,
+        NO_CAUSE,
+      ),
+    );
+    const device: Principal = { kind: 'device', device_id: deviceId };
+    const missing = submit('workstream.add_to_project', { workstream_id: first }, device);
+    assert.equal(missing.command?.rejection?.code, 'review_required');
+    const stale = submit(
+      'workstream.add_to_project',
+      { workstream_id: first, review: 'f'.repeat(64) },
+      device,
+    );
+    assert.equal(stale.command?.rejection?.code, 'review_stale');
+    // A local sender's stale review is refused too; without one it adds as before (ADR 0051).
+    assert.equal(
+      submit('workstream.add_to_project', { workstream_id: first, review: 'f'.repeat(64) }).command
+        ?.rejection?.code,
+      'review_stale',
+    );
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person\n', 'nothing written');
+    assert.equal(of('workstream.added', first).length, 0);
+    const added = submit(
+      'workstream.add_to_project',
+      { workstream_id: first, review: review as string },
+      device,
+    );
+    assert.equal(added.disposition, 'accepted');
+    await until(() => of('workstream.added', first).length === 1, 'the add');
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'lanterns\n');
+    const after = controlPlane.projection.workstream(first)?.copy;
+    assert.equal(after?.state === 'own' && after.to_add_review, null, 'nothing left to review');
   });
 
   test("adding brings the task's work into the project beside the person's own, once, and undoing puts it back", async () => {

@@ -40,14 +40,15 @@ import {
   type Scheduler,
 } from '@halcyonic/runtime-core';
 import type { Checkpointer } from '../checkpoints/checkpointer.ts';
-import { changedFileList, pathList } from '../checkpoints/checkpointer.ts';
+import { pathList } from '../checkpoints/checkpointer.ts';
 import type { ProjectKeeping } from '../checkpoints/keeping.ts';
 import type { MergeConflict } from '../checkpoints/store.ts';
-import type {
-  AddOutcome,
-  FitOutcome,
-  PrepareResult,
-  TaskCopies,
+import {
+  type AddOutcome,
+  type FitOutcome,
+  type PrepareResult,
+  readingOf,
+  type TaskCopies,
 } from '../checkpoints/task-copies.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { HostLocations } from '../locations.ts';
@@ -68,7 +69,7 @@ import { type OllamaUnloader, ollamaModelFrom } from './ollama-unload.ts';
 import { type Reattacher, SESSION_LOST } from './reattach.ts';
 import type { Recorder } from './recorder.ts';
 import { fitted, type Redaction, withinLimit } from './redaction.ts';
-import { locationReview } from './review.ts';
+import { addReview, locationReview } from './review.ts';
 import type { RuntimeRegistry } from './runtime-registry.ts';
 
 export type SubmitOutcome =
@@ -405,6 +406,30 @@ export class CommandService {
         );
       return admission;
     }
+    if (command.command_type === 'workstream.add_to_project') {
+      // The add's review is the latest reading of the task's copy, which its view shows.
+      const workstreamId = command.payload.workstream_id;
+      const copy = this.#deps.projection.workstream(workstreamId)?.copy;
+      const tree = this.#deps.projection.reviewedTree(workstreamId);
+      const current =
+        copy?.state === 'own' && copy.to_add_files !== null && tree !== null
+          ? addReview(workstreamId, copy.base_tree, tree, copy.to_add_files)
+          : null;
+      const review = command.payload.review;
+      if (review === undefined)
+        return device
+          ? refuse(
+              'review_required',
+              "Adding a task's work from a paired device needs the review of its files the person read first.",
+            )
+          : admission;
+      return review === current
+        ? admission
+        : refuse(
+            'review_stale',
+            "The task's files changed since they were shown. Look at them again, then add.",
+          );
+    }
     if (command.command_type !== 'project.set_location') return admission;
     const current = this.#deps.projection.project(command.payload.project_id)?.location ?? null;
     const review = command.payload.review;
@@ -635,11 +660,13 @@ export class CommandService {
           controlPlaneDraft(
             'workstream.copy_changes_read',
             where,
-            {
-              tree: outcome.taskTree,
-              changed: pathList(outcome.changed),
-              files: changedFileList(outcome.files),
-            },
+            readingOf(
+              where.workstream_id,
+              outcome.base,
+              outcome.taskTree,
+              outcome.changed,
+              outcome.files,
+            ),
             this.#now(),
             cause,
           ),

@@ -1,11 +1,18 @@
 import { execFile } from 'node:child_process';
 import { lstat, mkdir, readdir, realpath, rmdir } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import type { ChangedFile, CopyRefusalCode, Timestamp } from '@halcyonic/contracts';
+import type {
+  ChangedFile,
+  ChangedFiles,
+  CopyRefusalCode,
+  PathList,
+  Timestamp,
+} from '@halcyonic/contracts';
 import type { Projection } from '@halcyonic/domain';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import type { EventPublisher } from '../core/publisher.ts';
 import type { Recorder } from '../core/recorder.ts';
+import { addReview } from '../core/review.ts';
 import { changedFileList, pathList } from './checkpointer.ts';
 import type { CheckpointStore, MergeConflict } from './store.ts';
 import { removeInside, within } from './store.ts';
@@ -228,6 +235,7 @@ export class TaskCopies {
         if (files === null) return failed('store_failed', 'The changes could not be read.');
         return {
           kind: 'unreviewed',
+          base: request.base,
           taskTree: task,
           changed: files.map((file) => file.path),
           files,
@@ -453,6 +461,8 @@ export type AddOutcome =
   /** The copy is not the tree the person was shown: `changed` is what it differs by now. */
   | {
       readonly kind: 'unreviewed';
+      /** The copy's base the new reading is over. */
+      readonly base: string;
       readonly taskTree: string;
       readonly changed: readonly string[];
       readonly files: readonly ChangedFile[];
@@ -568,11 +578,7 @@ export function readCopiesAfterTurns(
               workstream_id: event.workstream_id,
               execution_id: null,
             },
-            {
-              tree: read.tree,
-              changed: pathList(read.changed),
-              files: changedFileList(read.files),
-            },
+            readingOf(event.workstream_id, copy.base_tree, read.tree, read.changed, read.files),
             deps.now(),
             NO_CAUSE,
           ),
@@ -580,4 +586,25 @@ export function readCopiesAfterTurns(
       })
       .catch(() => undefined);
   });
+}
+
+/**
+ * A reading of a task's copy as `workstream.copy_changes_read` records it: what differs, how each
+ * file changed, and the digest of the review it is (ADR 0051), which an add from a paired device
+ * carries back.
+ */
+export function readingOf(
+  workstreamId: string,
+  base: string,
+  tree: string,
+  changed: readonly string[],
+  files: readonly ChangedFile[],
+): { tree: string; changed: PathList; files: ChangedFiles; review: string } {
+  const listed = changedFileList(files);
+  return {
+    tree,
+    changed: pathList(changed),
+    files: listed,
+    review: addReview(workstreamId, base, tree, listed),
+  };
 }

@@ -685,7 +685,9 @@ describe('the C# bindings', () => {
     'RuntimeExecutionStartedPayload.approval_level', // ADR 0043
     'RuntimeExecutionStartedPayload.confined', // whether a start recorded it confined (S2)
     'RuntimeToolCompletedPayload.turn_id', // a completed tool's turn
+    'WorkstreamAddToProjectPayload.review', // the review an add carries (ADR 0051)
     'WorkstreamCopyChangesReadPayload.files', // how each file a copy's reading found changed (ADR 0045)
+    'WorkstreamCopyChangesReadPayload.review', // the review a copy's reading is, for an add (ADR 0051)
     'WorkstreamView.copy', // a task's own copy (ADR 0045)
   ];
 

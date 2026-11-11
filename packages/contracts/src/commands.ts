@@ -197,11 +197,13 @@ export const WorkstreamCreateCommand = defineCommand(
  * copy with what changed in the project's folder since the copy's base, keeps a checkpoint of the
  * project first, and writes the result into the project's folder. The person's own step; nothing
  * else ever adds. When both changed the same places the project is not touched and the command
- * fails with the files named.
+ * fails with the files named. `review` is the digest of the copy's reading the person was shown
+ * (`to_add_review`, ADR 0051): a paired device needs it, and an add whose reading is no longer that
+ * one changes nothing.
  */
 export const WorkstreamAddToProjectCommand = defineCommand(
   'workstream.add_to_project',
-  Type.Object({ workstream_id: WorkstreamId }, strict),
+  Type.Object({ workstream_id: WorkstreamId, review: Type.Optional(ReviewDigest) }, strict),
 );
 
 /**

@@ -160,6 +160,7 @@ describe("a task's own copy in the projection", () => {
       base_tree: TREE('a'),
       to_add: null,
       to_add_files: null,
+      to_add_review: null,
       to_add_read_at: null,
       last_added_at: null,
       conflict: null,
@@ -175,6 +176,7 @@ describe("a task's own copy in the projection", () => {
     const older = view();
     assert.equal(older?.state === 'own' && older.to_add?.total, 1);
     assert.equal(older?.state === 'own' && older.to_add_files, null);
+    assert.equal(older?.state === 'own' && older.to_add_review, null, 'no review to carry');
     projection.apply(
       b.controlPlane('workstream.copy_changes_read', scope, {
         tree: TREE('b'),
@@ -187,7 +189,12 @@ describe("a task's own copy in the projection", () => {
           ],
           total: 3,
         },
+        review: 'c'.repeat(64),
       }),
+    );
+    assert.equal(
+      view()?.state === 'own' && (view() as { to_add_review: string }).to_add_review,
+      'c'.repeat(64),
     );
     const read = view();
     assert.equal(read?.state === 'own' && read.to_add?.total, 3);
@@ -224,6 +231,7 @@ describe("a task's own copy in the projection", () => {
     assert.equal(fitted?.state === 'own' && fitted.conflict, null);
     assert.equal(fitted?.state === 'own' && fitted.to_add, null, 'unknown until read again');
     assert.equal(fitted?.state === 'own' && fitted.to_add_files, null);
+    assert.equal(fitted?.state === 'own' && fitted.to_add_review, null);
     projection.apply(
       b.controlPlane('workstream.added', scope, {
         checkpoint_id: '01920000-0000-7000-8000-0000000000c1' as never,
@@ -237,6 +245,7 @@ describe("a task's own copy in the projection", () => {
     assert.equal(added?.state === 'own' && added.base_tree, TREE('e'));
     assert.deepEqual(added?.state === 'own' && added.to_add, { paths: [], total: 0 });
     assert.deepEqual(added?.state === 'own' && added.to_add_files, { files: [], total: 0 });
+    assert.equal(added?.state === 'own' && added.to_add_review, null, 'nothing left to review');
     assert.ok(
       added?.state === 'own' && added.last_added_at !== null && added.last_added_at > made.made_at,
     );
