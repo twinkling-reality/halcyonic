@@ -49,15 +49,15 @@ namespace Halcyonic.XR.UI
 
         private RoomSurface plate = null!;
         private TextMeshPro words = null!;
-        private Surface chip = null!;
+        private RoomShape chip = null!;
         private TextMeshPro chipWords = null!;
-        private Surface mark = null!;
+        private RoomShape mark = null!;
         private RoomGlyphView check = null!;
         private RoomGlyphView agent = null!;
-        private Surface ground = null!;
+        private RoomShape ground = null!;
 
         /// <summary>The agent's plate's own quiet ground, where the tag's glass is hidden.</summary>
-        public Surface Ground => ground;
+        public RoomShape Ground => ground;
 
         /// <summary>
         /// The agent's plate while it works (the addendum's A17): the agent's own glyph, 18 dp, 8 dp before its name, on a quiet
@@ -86,7 +86,7 @@ namespace Halcyonic.XR.UI
         /// <summary>Whether a chip stands after the name: Needs You, or the plate's level.</summary>
         public bool Chipped => chip.gameObject.activeSelf;
 
-        public Surface Chip => chip;
+        public RoomShape Chip => chip;
 
         public TextMeshPro ChipWords => chipWords;
 
@@ -101,13 +101,13 @@ namespace Halcyonic.XR.UI
             var tag = go.AddComponent<RoomTag>();
             tag.plate = RoomSurface.Create(go.transform, "Plate", RoomSurfaceKind.Tag, order);
             tag.words = RoomType.Create(go.transform, "Words", Color.white, KitType.Order.Words);
-            tag.chip = Surface.Create(go.transform, "Needs you", KitType.Order.Words);
+            tag.chip = RoomShape.Create(go.transform, "Needs you", KitType.Order.Words);
             tag.chipWords = KitType.Create(go.transform, "Chip words", KitRole.Label, Hex(ChipWordsColour), KitType.Order.ControlWords, TextAlignmentOptions.TopLeft, room: true);
             tag.agent = RoomGlyphView.Create(go.transform, "Agent", KitType.Order.Words);
             tag.agent.Hide();
-            tag.ground = Surface.Create(go.transform, "Plate ground", order);
+            tag.ground = RoomShape.Create(go.transform, "Plate ground", order);
             tag.ground.gameObject.SetActive(false);
-            tag.mark = Surface.Create(go.transform, "Level mark", KitType.Order.ControlWords);
+            tag.mark = RoomShape.Create(go.transform, "Level mark", KitType.Order.ControlWords);
             tag.check = RoomGlyphView.Create(go.transform, "Level check", KitType.Order.ControlWords + 1);
             tag.mark.gameObject.SetActive(false);
             tag.check.Hide();
