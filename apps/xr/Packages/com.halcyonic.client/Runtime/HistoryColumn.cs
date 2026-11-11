@@ -410,7 +410,7 @@ namespace Halcyonic.Client
             var more = preview!.ProjectHeadMoved == true ? HistoryText.ChangedSince
                 : Files() > rows.Count ? HistoryText.AndMore(Files() - rows.Count)
                 : null;
-            return new RoomCard(title: reviewed!.Name, description: LineWords.Ours(HistoryText.CanUndo), list: rows, more: more);
+            return new RoomCard(title: reviewed!.Name, description: LineWords.Ours(HistoryText.CanUndo), list: rows, more: more == null ? null : LineWords.Ours(more));
         }
 
         private List<RoomListRow> ReviewRows()
