@@ -173,22 +173,58 @@ public class AskMenuColumnTests
     }
 
     [Test]
-    public void ASendThatFailsOnTheWayIsNotSentWithTryAgain()
+    public void ASendWhoseOutcomeIsUnknownStaysSentAndGoesAgainUnderItsOwnId()
     {
-        // AUDIT MUST: a faulted acknowledgement.
+        // AUDIT's reread MUST: the acknowledgement fails after the command left; it may have reached the computer.
         var (column, host) = Make();
         column.Ask.Write("What is going on?");
-        host.Fault = true;
+        host.Fault = new CommandOutcomeUnknownException("unknown", "The command may or may not have arrived.");
         column.Act(AskMenuColumn.Send, null);
         column.Tick();
-        Assert.That(column.Ask.Stage, Is.EqualTo(AskStage.NotAnswered));
-        Assert.That(column.Ask.Card.Status!.Value.Title, Is.EqualTo(AskColumn.Words.NotSent));
-        Assert.That(column.Ask.Card.Status.Value.Line, Is.EqualTo(AskColumn.Words.DidNotReach));
+        Assert.That(column.Ask.Stage, Is.EqualTo(AskStage.Sent), "unknown stays unknown, never Not Sent");
+        Assert.That(column.Ask.Card.Status!.Value.Line, Is.EqualTo(AskColumn.Words.MayNotHaveReached));
         var bar = RoomBar.OfFrame(column.Frame!, VoiceStage.Idle)!;
-        Assert.That(bar.Column[0].Control.Action, Is.EqualTo(AskMenuColumn.TryAgain));
-        column.Act(AskMenuColumn.TryAgain, null);
-        Assert.That(column.Ask.Stage, Is.EqualTo(AskStage.Writing));
-        Assert.That(column.Ask.Draft, Is.EqualTo("What is going on?"));
-        Assert.That(column.Ask.CanSend, Is.True);
+        Assert.That(bar.Column[0].Control.Action, Is.EqualTo(AskMenuColumn.SendAgain));
+        host.Fault = null;
+        column.Act(AskMenuColumn.SendAgain, null);
+        Assert.That(host.Sent.Count, Is.EqualTo(2));
+        Assert.That(host.Sent[1].CommandId, Is.EqualTo(host.Sent[0].CommandId), "the same command, never a second request");
+    }
+
+    [Test]
+    public void ASendWithNoSessionAtAllIsWrittenAgain()
+    {
+        var (column, host) = Make();
+        column.Ask.Write("What is going on?");
+        host.Fault = new SessionUnavailableException("The command was not sent.");
+        column.Act(AskMenuColumn.Send, null);
+        column.Tick();
+        Assert.That(column.Ask.Stage, Is.EqualTo(AskStage.Writing), "nothing was sent");
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Does.Contain(AskMenuColumn.Words.SendDidNotGo));
+    }
+
+    [Test]
+    public void AnUnknownSendMovesOnOnceItsCommandShowsInTheSession()
+    {
+        var (column, host) = Make();
+        column.Ask.Write("What is going on?");
+        host.Fault = new CommandOutcomeUnknownException("unknown", "No acknowledgement in time.");
+        column.Act(AskMenuColumn.Send, null);
+        column.Tick();
+        var commandId = host.Sent.Single().CommandId;
+        var state = new ClientProjection();
+        state.ApplySnapshot(new Snapshot
+        {
+            Journal = new JournalInfo { JournalId = "j", Origin = JournalOrigin.Live },
+            Position = 1,
+            Commands = new System.Collections.Generic.List<CommandView>
+            {
+                new() { CommandId = commandId, Status = CommandStatus.Completed, Result = new WorkspaceRequestCreatedResult { RequestId = RequestId } },
+            },
+        }, new StateChanges());
+        host.Projection = state;
+        column.Tick();
+        Assert.That(column.Ask.Stage, Is.EqualTo(AskStage.Thinking));
+        Assert.That(column.Ask.RequestId, Is.EqualTo(RequestId));
     }
 }

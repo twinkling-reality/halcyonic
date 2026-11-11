@@ -21,8 +21,8 @@ internal sealed class FileMenuHost : IMenuHost
     /// <summary>Every command is refused once set, as a busy or changed request is.</summary>
     public bool Refuse { get; set; }
 
-    /// <summary>Every send fails on the way once set, as a dropped socket does.</summary>
-    public bool Fault { get; set; }
+    /// <summary>Every send fails with this once set, as a dropped socket or a closed session does.</summary>
+    public Exception? Fault { get; set; }
 
     public (string Text, string Prompt, Action<string> Done)? Keyboard { get; private set; }
 
@@ -53,7 +53,7 @@ internal sealed class FileMenuHost : IMenuHost
         Task<CommandAckMessage> Send(CommandEnvelope sent)
         {
             Sent.Add(sent);
-            if (Fault) return Task.FromException<CommandAckMessage>(new System.IO.IOException("The socket dropped."));
+            if (Fault != null) return Task.FromException<CommandAckMessage>(Fault);
             return Task.FromResult(new CommandAckMessage { CommandId = sent.CommandId, Disposition = Refuse ? CommandAckDisposition.Rejected : CommandAckDisposition.Accepted });
         }
         return Submissions == null ? Send(command) : Submissions.Submit(Send, command, (command as ExecutionAnswerQuestionCommand)?.Payload.ExecutionId ?? "");
