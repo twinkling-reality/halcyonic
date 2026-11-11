@@ -6,7 +6,8 @@ namespace Halcyonic.XR.UI
 {
     /// <summary>
     /// The redesign's name tag under a character on the shelf (DESIGN's BUILD-SPEC-v4 2.2): FIELD's tag in the panel's
-    /// material, one line of the task's name 0.8 degrees under the character's feet, the picked one ringed. While the
+    /// material, one line of the task's name 0.8 degrees under the character's feet, saying Needs You beside it where the
+    /// task needs the person (<see cref="CharacterLabel.NeedsPerson"/>), the picked one ringed. While the
     /// redesign draws, the character's older label (badge, plate and marks) does not stand; off, the older label stands as
     /// ever and the tag does not.
     /// </summary>
@@ -58,7 +59,8 @@ namespace Halcyonic.XR.UI
             }
             view.Label.gameObject.SetActive(false);
             tag ??= RoomTag.Create(view.Labels);
-            tag.Show(LineWords.TheirName(view.Title), picked);
+            // Where the task needs the person the tag says so in words beside the name (ADR 0023; AUDIT, 2026-11-11).
+            tag.Show(LineWords.TheirName(view.Title), picked, needsYou: view.Presentation is CharacterPresentation shown && CharacterLabel.Of(shown).NeedsPerson);
             tag.transform.localRotation = Quaternion.identity;
             tag.transform.localPosition = new Vector3(0f, -tag.Size.y / 2f - RoomType.Units(UnderDegrees * RoomGeometry.DpPerDegree), 0f);
         }

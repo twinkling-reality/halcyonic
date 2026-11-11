@@ -33,6 +33,12 @@ namespace Halcyonic.Client
         public CharacterLabel Saying(string word) =>
             new CharacterLabel(Title, new StateBadge(Badge.State, word, Badge.Tone, Badge.Icon, Badge.Fill, Badge.Edge, false, false, Badge.Count, Badge.LastKnown), Marks);
 
+        /// <summary>
+        /// Whether the task waits on the person (an approval or a question): the redesign's name tag on the shelf then says so in
+        /// words beside the name, so the need is never told by colour or motion alone (ADR 0023; FIELD's <c>RoomTag</c>).
+        /// </summary>
+        public bool NeedsPerson => Badge.State == WorkState.WaitingForYou;
+
         public static CharacterLabel Of(CharacterPresentation presentation)
         {
             if (presentation == null) throw new ArgumentNullException(nameof(presentation));
