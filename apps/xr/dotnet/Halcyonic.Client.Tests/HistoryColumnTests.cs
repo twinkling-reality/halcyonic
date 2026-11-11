@@ -73,20 +73,25 @@ public class HistoryColumnTests
         return column;
     }
 
-    private static void NoDots(HistoryColumn column) =>
-        Assert.That(column.Card().AnyDot, Is.False, string.Join(" | ", column.Card().Words()));
+    private static void NoDots(HistoryColumn column)
+    {
+        var card = column.Card();
+        if (card == null) Assert.That(column.Sentence, Is.Not.Null.And.Not.Contain("·"));
+        else Assert.That(card.AnyDot, Is.False, string.Join(" | ", card.Words()));
+    }
 
     [Test]
     public void TheVersionsStandNewestFirstNamedFromThePersonsTasks()
     {
         var column = Column(out _);
         Assert.That(column.Stage, Is.EqualTo(HistoryStage.Versions));
-        var card = column.Card();
+        var card = column.Card()!;
         Assert.That(card.Title!.Text, Is.EqualTo("History"));
-        Assert.That(card.List.Select(row => row.Name.Text), Is.EqualTo(new[] { "After Work on Tail", "Before Starting Tail" }));
-        Assert.That(card.List.Select(row => row.Note), Is.EqualTo(new[] { "Today 18:40", "Today 18:12" }));
+        Assert.That(card.Description!.Text, Is.EqualTo("Pick a moment to restore."));
+        Assert.That(card.List.Select(row => row.Name.Text), Is.EqualTo(new[] { "After Tail Worked", "Before Tail Started" }));
+        Assert.That(card.List.Select(row => row.Note), Is.EqualTo(new[] { "18:40", "18:12" }));
         Assert.That(card.List.Select(row => row.Kind), Is.EqualTo(new[] { RoomKind.Worked, RoomKind.Started }));
-        Assert.That(card.List[0].Name.Runs.Last().Theirs, Is.True, "the task's name is the person's, so it leans");
+        Assert.That(card.List[0].Name.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true, false }), "the task's name is the person's, so it leans");
         Assert.That(column.Actions().Where(action => action.Kind == HistoryActionKind.Version).Select(action => action.CheckpointId),
             Is.EqualTo(new[] { Id(2), Id(1) }));
         Assert.That(column.Actions().Last().Kind, Is.EqualTo(HistoryActionKind.Back));
@@ -100,14 +105,19 @@ public class HistoryColumnTests
         var many = Enumerable.Range(1, 7).Select(n => Checkpoint(n, CheckpointReason.AfterTurn, $"2026-11-10T1{n}:00:00.000Z", Id(900))).ToArray();
         column.Listed(Listed(many), null, Now, TimeZoneInfo.Utc);
         Assert.That(column.PageCount, Is.EqualTo(2));
-        Assert.That(column.Card().List.Count, Is.EqualTo(RoomCard.ListAPage));
-        Assert.That(column.Card().List[0].Name.Text, Is.EqualTo("After a Task Worked"));
-        Assert.That(column.Card().List[0].Note, Is.EqualTo("Yesterday 17:00"));
-        Assert.That(column.Actions().Select(action => action.Kind), Does.Contain(HistoryActionKind.NextPage));
-        Assert.That(column.NextPage(), Is.True);
-        Assert.That(column.Card().List.Count, Is.EqualTo(2));
-        Assert.That(column.Actions().Select(action => action.Kind), Does.Contain(HistoryActionKind.PreviousPage).And.Not.Contain(HistoryActionKind.NextPage));
+        Assert.That(column.Card()!.List.Count, Is.EqualTo(RoomCard.ListAPage));
+        Assert.That(column.Card()!.List[0].Name.Text, Is.EqualTo("After a Task Worked"));
+        Assert.That(column.Card()!.List[0].Note, Is.EqualTo("Yesterday 17:00"));
+        Assert.That(column.Card()!.List.Last().Note, Is.EqualTo("Yesterday 13:00"));
+        Assert.That(column.Actions().Select(action => action.Kind), Does.Contain(HistoryActionKind.Older));
+        Assert.That(column.Older(), Is.True);
+        Assert.That(column.Card()!.List.Count, Is.EqualTo(2));
+        Assert.That(column.Actions().Select(action => action.Kind), Does.Not.Contain(HistoryActionKind.Older));
         NoDots(column);
+        Assert.That(column.Back(), Is.True, "Back on a later page shows the newer one");
+        Assert.That(column.Page, Is.EqualTo(0));
+        Assert.That(column.Back(), Is.False, "Back on the first page leaves History");
+        Assert.That(HistoryText.When("2026-11-08T09:00:00.000Z", Now, TimeZoneInfo.Utc), Is.EqualTo("8 Nov 09:00"));
     }
 
     [Test]
@@ -117,49 +127,67 @@ public class HistoryColumnTests
         off.Listed(new CheckpointsResponse { ProjectId = ProjectId, Result = new UnavailableCheckpoints { Reason = new ErrorInfo { Code = "undo_unavailable", Message = "Undo is off." } } },
             null, Now, TimeZoneInfo.Utc);
         Assert.That(off.Stage, Is.EqualTo(HistoryStage.NotSetUp));
-        Assert.That(off.Card().Status!.Value.Title, Is.EqualTo("No History Kept"));
-        Assert.That(off.Card().Words(), Does.Not.Contain("Undo is off."), "the computer's own reason is not shown as Halcyonic's words");
+        Assert.That(off.Card()!.Status!.Value.Title, Is.EqualTo("No History Yet"));
+        Assert.That(off.Card()!.Status!.Value.Line, Is.EqualTo("The computer keeps none for this project"));
+        Assert.That(off.Card()!.Words(), Does.Not.Contain("Undo is off."), "the computer's own reason is not shown as Halcyonic's words");
         NoDots(off);
 
         var none = new HistoryColumn(ProjectId, "Kite Run");
         none.Listed(Listed(), null, Now, TimeZoneInfo.Utc);
-        Assert.That(none.Card().Status!.Value.Title, Is.EqualTo("No Versions Yet"));
+        Assert.That(none.Card()!.Status!.Value.Title, Is.EqualTo("No History Yet"));
         NoDots(none);
 
         var unread = new HistoryColumn(ProjectId, "Kite Run");
+        Assert.That(unread.Card(), Is.Null);
+        Assert.That(unread.Sentence, Is.EqualTo("Reading History"));
         unread.ReadFailed();
+        Assert.That(unread.Card()!.Status!.Value.Title, Is.EqualTo("Not Read"));
         Assert.That(unread.Actions().First().Kind, Is.EqualTo(HistoryActionKind.TryAgain));
         NoDots(unread);
     }
 
     [Test]
-    public void AReviewListsWhatRestoringDoesWithRestoreBehindItsLockOnTheFirstPartOnly()
+    public void AReviewListsWhatRestoringDoesWithRestoreBehindItsLock()
     {
         var column = Column(out _);
         Assert.That(column.Choose(Id(1)), Is.True);
         Assert.That(column.Stage, Is.EqualTo(HistoryStage.Previewing));
+        Assert.That(column.Sentence, Is.EqualTo("Reading Changes"));
         var changed = Paths(6, "a.ts", "b.ts", "c.ts", "d.ts", "e.ts", "f.ts");
         column.Previewed(Preview(Id(1), changed: changed));
         Assert.That(column.Stage, Is.EqualTo(HistoryStage.Review));
-        var card = column.Card();
-        Assert.That(card.Title!.Text, Is.EqualTo("Before Starting Tail"));
-        Assert.That(card.Description!.Text, Is.EqualTo("Restore puts 8 files back as they were today at 18:12. You can undo it."));
-        Assert.That(card.Slots.Single().Value.Text, Is.EqualTo("8 Files"));
+        var card = column.Card()!;
+        Assert.That(card.Title!.Text, Is.EqualTo("Before Tail Started"));
+        Assert.That(card.Description!.Text, Is.EqualTo("You can undo this."));
         Assert.That(card.List.Count, Is.EqualTo(RoomCard.ListAPage));
         Assert.That(card.List.All(row => row.Mono), Is.True);
         Assert.That(card.List[0].Note, Is.EqualTo("Reverts"));
+        Assert.That(card.More, Is.EqualTo("And 3 More"), "eight files, five shown");
         var restore = column.Actions().First();
-        Assert.That((restore.Kind, restore.Main, restore.Locked), Is.EqualTo((HistoryActionKind.Restore, true, true)));
+        Assert.That((restore.Kind, restore.Words, restore.Main, restore.Locked), Is.EqualTo((HistoryActionKind.Restore, "Restore", true, true)));
+        Assert.That(column.Actions().Last().Kind, Is.EqualTo(HistoryActionKind.Cancel));
         Assert.That(column.Restore(Samples.Client, Now), Is.Null, "never sent before its lock is passed");
         NoDots(column);
-
-        Assert.That(column.NextPage(), Is.True);
-        Assert.That(column.Card().List.Select(row => row.Note), Is.EqualTo(new[] { "Reverts", "Removed", "Comes Back" }));
-        Assert.That(column.Actions().Select(action => action.Kind), Does.Not.Contain(HistoryActionKind.Restore), "Restore stands on the first part only");
-        Assert.That(column.Arm(), Is.False);
-        column.PreviousPage();
         Assert.That(column.Arm(), Is.True);
         Assert.That(column.Actions().First().Locked, Is.False);
+
+        column.Cancel();
+        column.Choose(Id(1));
+        column.Previewed(Preview(Id(1)));
+        Assert.That(column.Card()!.List.Select(row => row.Note), Is.EqualTo(new[] { "Reverts", "Reverts", "Goes", "Comes Back" }));
+        Assert.That(column.Card()!.More, Is.Null);
+    }
+
+    [Test]
+    public void TheVersionBeforeAnAddIsUndoneByUndoAdd()
+    {
+        var column = new HistoryColumn(ProjectId, "Kite Run");
+        column.Listed(Listed(Checkpoint(4, CheckpointReason.BeforeAdd, "2026-11-11T18:30:00.000Z")), null, Now, TimeZoneInfo.Utc);
+        Assert.That(column.Card()!.List.Single().Name.Text, Is.EqualTo("Before the Add"));
+        column.Choose(Id(4));
+        column.Previewed(Preview(Id(4)));
+        Assert.That(column.Card()!.Title!.Text, Is.EqualTo("Before the Add"));
+        Assert.That(column.Actions().First().Words, Is.EqualTo("Undo Add"));
     }
 
     [Test]
@@ -175,7 +203,8 @@ public class HistoryColumnTests
         Assert.That((command!.Payload.ProjectId, command.Payload.CheckpointId, command.Payload.Review), Is.EqualTo((ProjectId, Id(1), Digest)));
         Assert.That(column.Stage, Is.EqualTo(HistoryStage.Sending));
         Assert.That(column.SentCommandId, Is.EqualTo(command.CommandId));
-        Assert.That(column.Card().Status!.Value.Title, Is.EqualTo("Restoring"));
+        Assert.That(column.Card(), Is.Null, "sent shows only the sentence");
+        Assert.That(column.Sentence, Is.EqualTo("Restoring 4 Files"));
         Assert.That(column.Actions(), Is.Empty, "nothing is pressed while it restores");
         NoDots(column);
 
@@ -191,13 +220,16 @@ public class HistoryColumnTests
             },
         });
         Assert.That(column.Stage, Is.EqualTo(HistoryStage.Done));
-        Assert.That(column.Card().Status!.Value.Title, Is.EqualTo("Restored"));
+        Assert.That(column.Card()!.Status!.Value.Title, Is.EqualTo("Restored"));
+        Assert.That(column.Card()!.Status!.Value.Line, Is.EqualTo("4 files are as they were"));
         var undo = column.Actions().First();
         Assert.That((undo.Kind, undo.Main, undo.CheckpointId), Is.EqualTo((HistoryActionKind.UndoRestore, true, Id(3))));
+        Assert.That(column.Actions().Select(action => action.Kind), Is.EqualTo(new[] { HistoryActionKind.UndoRestore, HistoryActionKind.Changes, HistoryActionKind.Close }));
         NoDots(column);
 
         Assert.That(column.Choose(Id(3)), Is.True, "Undo Restore opens the review of the version kept just before");
-        Assert.That(column.Card().Title!.Text, Is.EqualTo("Before Restoring"));
+        Assert.That(column.Sentence, Is.EqualTo("Reading Changes"));
+        Assert.That(column.Reviewed!.Name.Text, Is.EqualTo("Before a Restore"));
         column.Previewed(Preview(Id(3)));
         Assert.That(column.Stage, Is.EqualTo(HistoryStage.Review));
     }
@@ -208,7 +240,7 @@ public class HistoryColumnTests
         var column = Column(out _);
         column.Choose(Id(1));
         column.Previewed(Preview(Id(1), headMoved: true));
-        Assert.That(column.Card().More, Is.EqualTo("Also changed outside Halcyonic since."));
+        Assert.That(column.Card()!.More, Is.EqualTo("The project changed since then too."));
         column.Arm();
         var command = column.Restore(Samples.Client, Now)!;
         column.Answered(new CommandView
@@ -221,7 +253,8 @@ public class HistoryColumnTests
             CommandId = command.CommandId, Status = CommandStatus.Rejected, Rejection = new CommandRejection { Code = RejectionCode.ReviewStale, Message = "x" },
         });
         Assert.That(column.Stage, Is.EqualTo(HistoryStage.Stale));
-        Assert.That(column.Card().Status!.Value.Title, Is.EqualTo("Nothing Changed"));
+        Assert.That(column.Card()!.Status!.Value.Title, Is.EqualTo("Not Restored"));
+        Assert.That(column.Card()!.Status!.Value.Line, Is.EqualTo("The project changed while you looked"));
         Assert.That(column.Actions().First().Kind, Is.EqualTo(HistoryActionKind.ReviewAgain));
         NoDots(column);
         Assert.That(column.Choose(Id(1)), Is.True);
@@ -241,6 +274,8 @@ public class HistoryColumnTests
             CommandId = command.CommandId, Status = CommandStatus.Rejected, Rejection = new CommandRejection { Code = RejectionCode.ProjectNotFound, Message = "x" },
         });
         Assert.That(refused.Stage, Is.EqualTo(HistoryStage.Refused));
+        Assert.That(refused.Card()!.Status!.Value.Line, Is.EqualTo("Nothing changed"));
+        Assert.That(refused.Actions().Single().Kind, Is.EqualTo(HistoryActionKind.Close));
         NoDots(refused);
 
         var partial = Column(out _);
@@ -257,7 +292,8 @@ public class HistoryColumnTests
             },
         });
         Assert.That(partial.Stage, Is.EqualTo(HistoryStage.Incomplete));
-        Assert.That(partial.Card().Status!.Value.Line, Is.EqualTo("2 files could not be put back."));
+        Assert.That(partial.Card()!.Status!.Value.Line, Is.EqualTo("Some files changed: check Changes"));
+        Assert.That(partial.Actions().Select(action => action.Kind), Is.EqualTo(new[] { HistoryActionKind.Changes, HistoryActionKind.Close }));
         NoDots(partial);
     }
 
