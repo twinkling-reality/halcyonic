@@ -29,6 +29,8 @@ namespace Halcyonic.Client
         public const string ShowChecks = "room-checks";
         public const string NextPage = "room-next-page";
         public const string Back = "room-back";
+        /// <summary>DEVICE's Play in Headset (<see cref="HeadsetPlay"/>): the project's checked preview opened in Quest Browser.</summary>
+        public const string PlayInHeadset = "room-play-in-headset";
 
         public const string ChangesWords = "Changes";
         public const string ChecksWords = "Checks";
@@ -39,11 +41,12 @@ namespace Halcyonic.Client
         public const string Removed = "Removed";
 
         /// <summary>Every action id of the result's own.</summary>
-        public static readonly IReadOnlyList<string> Actions = new[] { MakeVrVersion, TryBuild, ShowChanges, ShowChecks, NextPage, Back };
+        public static readonly IReadOnlyList<string> Actions = new[] { MakeVrVersion, TryBuild, ShowChanges, ShowChecks, NextPage, Back, PlayInHeadset };
 
         public RoomResult(bool isVr, bool canMakeVr, bool canTry, bool? passed, ObservedTurn? observed, IReadOnlyList<CheckStepOutcome>? steps,
-            RoomResultPage page = RoomResultPage.Result, int part = 0)
+            RoomResultPage page = RoomResultPage.Result, int part = 0, Halcyonic.Client.PlayInHeadset? play = null)
         {
+            Play = play;
             IsVr = isVr;
             CanMakeVr = canMakeVr;
             CanTry = canTry;
@@ -62,6 +65,9 @@ namespace Halcyonic.Client
 
         /// <summary>Whether Try Build may stand (<see cref="KitScreenModel.CanTry"/>): a passed check of the computer's own, nothing changed since, no turn running.</summary>
         public bool CanTry { get; }
+
+        /// <summary>Whether Play in Headset stands for the project, and if not why (<see cref="HeadsetPlay.For"/>); null where unknown.</summary>
+        public Halcyonic.Client.PlayInHeadset? Play { get; }
 
         /// <summary>The computer's own last check of the project: passed, failed, or null where it ran none or its outcome is unknown.</summary>
         public bool? Passed { get; }
@@ -137,7 +143,7 @@ namespace Halcyonic.Client
         /// <paramref name="observed"/>, the last turn of the task's run the computer observed; null with no project.
         /// </summary>
         public static RoomResult? Of(ProjectView? project, ClientProjection? state, ObservedTurn? observed,
-            RoomResultPage page = RoomResultPage.Result, int part = 0)
+            RoomResultPage page = RoomResultPage.Result, int part = 0, (ControlPlaneTarget? Target, bool Demonstration)? way = null)
         {
             if (project == null || state == null) return null;
             var screen = WorkspacePresentationState.ScreenOf(project, state, barOpen: true);
@@ -145,7 +151,9 @@ namespace Halcyonic.Client
             // them, so neither its line nor its steps stand (AUDIT2, 2026-11-11).
             var check = screen.LastCheck is { Kind: KitMomentKind.HostCheck } host && project.Check?.Files == ProjectViewCheckFiles.Current ? host : null;
             var canMakeVr = !screen.IsVr && ProjectPlayFacts.TryVrVersionTarget(project, out _, out _);
-            return new RoomResult(screen.IsVr, canMakeVr, screen.CanTry, check?.Passed, observed, check?.Steps, page, part);
+            return new RoomResult(screen.IsVr, canMakeVr, screen.CanTry, check?.Passed, observed, check?.Steps, page, part,
+                // Play in Headset by how this headset reaches the computer and whether a demonstration shows (DEVICE's rule); unknown without.
+                way is { } reach ? HeadsetPlay.For(project, reach.Target, reach.Demonstration) : (Halcyonic.Client.PlayInHeadset?)null);
         }
     }
 }

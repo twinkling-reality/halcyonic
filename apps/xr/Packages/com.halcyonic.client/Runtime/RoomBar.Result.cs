@@ -69,6 +69,10 @@ namespace Halcyonic.Client
                     if (result.CanMakeVr) column.Add(Own(RoomResult.MakeVrVersion, KitScreenModel.Words(KitScreenAction.MakeAVrVersion), main: column.Count == 0, GlazeIcon.Next));
                     else if (result.IsVr && instruct != null && !ranOut) column.Add(new RoomAction(instruct, main: true, KitScreenModel.Words(KitScreenAction.ChangeIt)));
                     if (result.CanTry) column.Add(Own(RoomResult.TryBuild, KitScreenModel.Words(KitScreenAction.TryIt), main: column.Count == 0, GlazeIcon.OpenNow));
+                    // DEVICE's Play in Headset beside Try Build, where it stands. Where it does not, it is not drawn: an action that
+                    // cannot act has no disabled look (BUILD-SPEC-v4 1.4); where its refusal's words stand is FIELD's to say.
+                    if (result.Play is PlayInHeadset play && HeadsetPlay.Stands(play))
+                        column.Add(Own(RoomResult.PlayInHeadset, HeadsetPlay.ActionWords, main: column.Count == 0, GlazeIcon.OpenNow));
                     if (result.Observed != null) column.Add(Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next));
                     if (result.Steps.Count > 0) column.Add(Own(RoomResult.ShowChecks, RoomResult.ChecksWords, main: false, GlazeIcon.Next));
                     band = binding.Model.Report?.Text;
