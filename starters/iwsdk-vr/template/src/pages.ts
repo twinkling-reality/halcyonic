@@ -45,6 +45,8 @@ const HEIGHT = 0.8;
 const PIXELS = 1600;
 /** The panels' centres, at the height a standing person reads at. */
 const EYE = 1.45;
+/** The most pages laid out: more would widen the arc past where a person reads without turning. */
+export const MAX_PAGES = 6;
 /** How far the pressed page comes toward the person, and how much bigger it grows. */
 const FORWARD = 0.32;
 const GROW = 0.18;
@@ -53,6 +55,7 @@ const GROW = 0.18;
  * Lays the original's own cards out as readable pages in a shallow arc in front of the person, facing them, each drawn
  * from its title, words and picture on a canvas of its own. Pressing one should answer: call `show(i)` from
  * `onSelect`, and that page comes forward and brightens while the rest step back, on the game's own clock.
+ * Only the first `MAX_PAGES` (six) are laid out; pass the ones that matter most.
  */
 export function pages(list: readonly Page[], options: PagesOptions = {}): Pages {
   const color = options.color ?? '#FFF8EC';
@@ -60,10 +63,11 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
   const accent = options.accent ?? '#E8743B';
   const distance = options.distance ?? 1.6;
   const group = new Group();
-  const count = Math.max(list.length, 1);
+  const shown = list.slice(0, MAX_PAGES);
+  const count = Math.max(shown.length, 1);
   // Side by side with a 6 cm gap, bent round the person so each faces them.
   const step = (WIDTH + 0.06) / distance;
-  const panels = list.map((page, index) => {
+  const panels = shown.map((page, index) => {
     const material = new MeshBasicMaterial({
       map: drawPage(page, color, ink, accent),
       toneMapped: false,
