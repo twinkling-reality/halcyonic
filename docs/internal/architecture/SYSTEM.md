@@ -30,6 +30,7 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | A person's world: a project begun from the `world` starter holds one description file, `world.json` (a sky, a sun or moon, stars, clouds, mist, water, the ground, wind and up to 8 places for projects; data only), which the Mac reads and validates itself after each turn and carries on the project's view | `packages/contracts/src/world.ts`, `apps/control-plane/src/observer/world-reader.ts`, `starters/world/` | Contract, the Mac's reading, the event, the view and the starter built and tested with a stand-in runtime; the headset does not read or draw it yet, so Virtual Space is still the engine's stock sky; not run with a model; [ADR 0049](../decisions/0049-a-persons-world-is-a-project-whose-description-the-mac-reads.md) |
 | Checks and previews of a new app: type check, build, the built copy opened for 10 s in a sandboxed copy of chrome-headless-shell, started through Halcyonic's launcher so it has none of the app's macOS permissions (S1) (exceptions, console errors, whether anything is drawn), and the checked copy served on loopback | `apps/control-plane/src/preview` | Built and tested; the check run end to end on this Mac against an installed starter and Chrome (opt-in tests); not yet driven from the headset, and "drawn" is not "works" ([ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)) |
 | Playing a checked game on the Mac: the copy the preview serves runs in the same contained chrome-headless-shell, through the launcher, its frames streamed to a viewer server of its own on 127.0.0.1 (47940 to 47949) and only mouse and key input sent back | `apps/control-plane/src/preview/play.ts`, `play-viewer.ts` | Built and tested with a stand-in browser (start, frames through the viewer, input filter, every stop path, a crash's leftover stopped at start; the viewer's code, cookie, Host and Origin rules over real HTTP and WebSocket); the browser's profile and settings probed on this Mac; the viewer page (P-B) shows the frames, takes a mouse and keys, comes back after a reload within 5 s, says why a game ended and whether it plays sound; an opt-in test runs the real browser end to end ([iwsdk-starter.md](../validation/iwsdk-starter.md)) (P-A, P-B, [ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)) |
+| Keeping and sharing what was made: Show in Finder, Save a Copy (a zip in Downloads without the files the secret-file list names), and a checked game shared at a temporary public link (the pinned tunnel) or on this Wi-Fi (a listener on the Mac's own address passing only reads to the preview), each by the person's press; which ways work (`GET /api/sharing`) and a live share's code to scan (`GET /api/projects/:project_id/share/code`) for the headset ([ADR 0054](../decisions/0054-what-was-made-is-kept-and-shared-only-by-the-persons-press.md)) | `apps/control-plane/src/checkpoints/keeping.ts`, `apps/control-plane/src/preview/share.ts`, `share-code.ts` | Built and tested off the headset; the headset's cards pending |
 | The Mac's reading of each turn's file changes: created, changed and deleted files with line counts, for every execution started in a folder | `apps/control-plane/src/observer` | Built and tested with a stub runtime, and run with a real runtime on 2026-11-03 (the same Codex run, [local-models.md](../validation/local-models.md)), which showed a restore between two turns credited to the second turn until the reading before a turn from rest (OBS); not yet shown on the headset; [ADR 0038](../decisions/0038-the-mac-observes-each-turns-file-changes-itself.md) |
 | Remote relay | none | Not started; see [SECURITY.md](SECURITY.md) |
 
@@ -128,6 +129,19 @@ stopped, and an action on it fails having done nothing
 Nor does a turn the restart cut short hold the project's later checks unknown: a check recorded
 after the restart starts current, while one recorded before it stays unknown, since the cut turn
 may have changed files unread (#13).
+
+## Ports
+
+What listens on the Mac, and where. Test suites use their own ports, on loopback only.
+
+| Ports | Interface | What |
+| --- | --- | --- |
+| 47800 (`HALCYONIC_PORT`) | loopback | The control plane: HTTP and WebSocket |
+| 47801 (`HALCYONIC_NETWORK_PORT`) | `HALCYONIC_NETWORK_HOST` | The TLS listener for paired devices, when turned on |
+| 47802 to 47809 | loopback | The pairing page ([ADR 0047](../decisions/0047-pairing-starts-from-a-page-on-the-mac.md)) |
+| 47930 to 47939 | loopback | A project's preview, and a check's own server |
+| 47940 to 47949 | loopback | The viewer of a game played on the Mac |
+| 47970 to 47979 | the Mac's own Wi-Fi address, never every interface | A game shared on this Wi-Fi, while it is shared ([ADR 0054](../decisions/0054-what-was-made-is-kept-and-shared-only-by-the-persons-press.md)) |
 
 ## Configuration
 

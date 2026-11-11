@@ -18,6 +18,7 @@ import type {
   ProjectId,
   ShareStopReason,
   ShareWay,
+  ShareWayState,
   Timestamp,
 } from '@halcyonic/contracts';
 import type { Projection } from '@halcyonic/domain';
@@ -195,6 +196,23 @@ export class ProjectShares {
     await share.end();
     this.#recordStopped(projectId, share.checkId, reason, cause);
     return true;
+  }
+
+  /**
+   * Which ways of sharing work on this Mac now, as far as it can tell before a start: a link where
+   * the pinned tunnel program is set up, the Wi-Fi where the Mac has a private network address.
+   * Never a promise: a start that fails still says why.
+   */
+  ways(): { link: ShareWayState; wifi: ShareWayState } {
+    const link: ShareWayState =
+      this.#deps.tunnel !== null || this.#deps.spawnTunnel !== undefined ? 'ready' : 'not_set_up';
+    let wifi: ShareWayState;
+    try {
+      wifi = (this.#deps.lanAddress ?? lanAddress)() === null ? 'no_network' : 'ready';
+    } catch {
+      wifi = 'unknown';
+    }
+    return { link, wifi };
   }
 
   /** Stops every share as the control plane closes. */

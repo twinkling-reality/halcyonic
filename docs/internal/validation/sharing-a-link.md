@@ -64,6 +64,19 @@ the person to allow incoming connections the first time, a device on the network
 router that isolates its clients blocks it), and on the headset that a page at a LAN `http://`
 address has no immersive session (asked of FIELD).
 
+## The code to scan (2026-11-11)
+
+Verified on this Mac: `share-code.ts` encodes the address as a QR code (byte mode, level M, versions
+1 to 13, the smallest that holds it), and macOS's own detector (Core Image's `CIDetector` of type QR
+code, through JavaScript for Automation, nothing installed) reads back exactly the text it was given:
+- a link, a Wi-Fi address, and UTF-8 text;
+- each version from 1 to 13 at its full capacity, so every version's block table, alignment
+  positions and, from version 7, version information are right.
+
+The test renders 8 pixels a cell with a 4-cell margin. Not verified: a real phone or headset camera
+reading one from the headset's panel, which waits for the owner (size on the panel, glare, the
+headset's own scanner).
+
 ## Not verified
 
 - A real project's preview behind the tunnel on the owner's Mac (by design: never before AUDIT2).

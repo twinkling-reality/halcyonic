@@ -144,8 +144,12 @@ import {
   CheckStep,
   CheckVr,
   PreviewStopReason,
+  ShareCode,
+  ShareCodeResponse,
   ShareStopReason,
   ShareWay,
+  ShareWayState,
+  SharingWaysResponse,
 } from './previews.ts';
 import { ClientInfo, ErrorInfo } from './primitives.ts';
 import {
@@ -333,6 +337,10 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   PreviewStopReason,
   ShareWay,
   ShareStopReason,
+  ShareWayState,
+  SharingWaysResponse,
+  ShareCode,
+  ShareCodeResponse,
   AutoFixEndReason,
   AutoFixView,
   StarterView,

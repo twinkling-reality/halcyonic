@@ -12224,6 +12224,89 @@
         }
       ]
     },
+    "ShareWayState": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "ready"
+        },
+        {
+          "type": "string",
+          "const": "not_set_up"
+        },
+        {
+          "type": "string",
+          "const": "no_network"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "SharingWaysResponse": {
+      "type": "object",
+      "required": [
+        "link",
+        "wifi"
+      ],
+      "properties": {
+        "link": {
+          "$ref": "#/$defs/ShareWayState"
+        },
+        "wifi": {
+          "$ref": "#/$defs/ShareWayState"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ShareCode": {
+      "type": "object",
+      "required": [
+        "size",
+        "rows"
+      ],
+      "properties": {
+        "size": {
+          "type": "integer",
+          "minimum": 21,
+          "maximum": 69
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[01]+$",
+            "minLength": 21,
+            "maxLength": 69
+          },
+          "minItems": 21,
+          "maxItems": 69
+        }
+      },
+      "additionalProperties": false
+    },
+    "ShareCodeResponse": {
+      "type": "object",
+      "required": [
+        "check_id",
+        "way",
+        "code"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "way": {
+          "$ref": "#/$defs/ShareWay"
+        },
+        "code": {
+          "$ref": "#/$defs/ShareCode"
+        }
+      },
+      "additionalProperties": false
+    },
     "AutoFixEndReason": {
       "anyOf": [
         {

@@ -31,6 +31,8 @@ import {
   RuntimeId,
   type RuntimeModelsResponse,
   type RuntimesResponse,
+  type ShareCodeResponse,
+  type SharingWaysResponse,
   type Snapshot,
   type StartersResponse,
   ToolResultsQuery,
@@ -52,6 +54,7 @@ import { MODEL_LIST_TIMEOUT_MS, readRuntimeModels } from '../core/runtime-models
 import { ToolResults } from '../core/tool-results.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
+import { shareCode } from '../preview/share-code.ts';
 import type { Transcriptions } from '../speech/transcriptions.ts';
 import type { WorkspaceRequests } from '../workspace-agent/requests.ts';
 import { errorBody } from './server.ts';
@@ -470,6 +473,28 @@ export function registerRoutes(
       }),
     };
     return body;
+  });
+
+  // Sharing a checked game (ADR 0054): which ways work on this Mac, read when the Share card opens,
+  // and a live share's address as a code to scan, which the headset draws, never the address itself.
+  app.get(
+    '/api/sharing',
+    async (): Promise<SharingWaysResponse> =>
+      controlPlane.shares?.ways() ?? { link: 'not_set_up', wifi: 'not_set_up' },
+  );
+  app.get('/api/projects/:project_id/share/code', async (request, reply) => {
+    const projectId = (request.params as { project_id: string }).project_id;
+    if (!validateProjectId(projectId).ok) return invalid(reply);
+    const share = controlPlane.projection.share(projectId);
+    if (share === undefined)
+      return reply.code(404).send(errorBody('share_not_found', 'This game is not shared.'));
+    const code = shareCode(share.url);
+    const answer: ShareCodeResponse = {
+      check_id: share.check_id,
+      way: share.way,
+      code: { size: code.size, rows: [...code.rows] },
+    };
+    return answer;
   });
 
   // Provider usage limits, account wide: read through on request, never journaled (ADR 0010).
