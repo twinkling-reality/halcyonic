@@ -122,7 +122,7 @@ and [review-required][review] 2025-11-26 permissions; [removing permissions][rem
 | `targetSdkVersion`, `compileSdkVersion` | 36, 36 | 34, 34 | 34, 34 |
 | `minSdkVersion` | 32 | 32 | 32 |
 | Debuggable | yes | yes | no |
-| Permissions | HAND_TRACKING, INTERNET, FOREGROUND_SERVICE, FOREGROUND_SERVICE_MEDIA_PROJECTION, receiver | the same | HAND_TRACKING, INTERNET, receiver; since 2026-11-11 also FOREGROUND_SERVICE and FOREGROUND_SERVICE_SPECIAL_USE, the preview relay's (ADR 0052) |
+| Permissions | HAND_TRACKING, INTERNET, FOREGROUND_SERVICE, FOREGROUND_SERVICE_MEDIA_PROJECTION, receiver | the same | HAND_TRACKING, INTERNET, receiver (the preview relay's FOREGROUND_SERVICE and FOREGROUND_SERVICE_SPECIAL_USE are in development builds only, ADR 0052) |
 | `com.oculus.experimental.enabled` (optional) | yes | yes | no |
 | `AgenticMediaProjectionActivity` and `AgenticMediaProjectionService` | yes | yes | no |
 | Operator library, its helper library and implicit API layer | yes | yes | no |

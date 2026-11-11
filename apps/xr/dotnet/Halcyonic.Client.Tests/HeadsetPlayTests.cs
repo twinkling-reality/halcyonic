@@ -212,6 +212,18 @@ public class HeadsetPlayTests
     }
 
     [Test]
+    public void ABuildWithoutTheRelaySaysPlayingWithoutACableIsNotInIt()
+    {
+        var project = View(Check(), Preview(port: 47931));
+        Assert.That(HeadsetPlay.For(project, Paired, demonstration: false, relayBuilt: false), Is.EqualTo(PlayInHeadset.NotInThisBuild));
+        Assert.That(HeadsetPlay.Stands(PlayInHeadset.NotInThisBuild), Is.False, "no service to start, so no action");
+        Assert.That(HeadsetPlay.Refusal(PlayInHeadset.NotInThisBuild), Is.EqualTo(HeadsetPlay.NotInThisBuildWords));
+        Assert.That(HeadsetPlay.AddressOf(project, Paired, demonstration: false), Is.Null);
+        Assert.That(HeadsetPlay.For(project, Cable, demonstration: false, relayBuilt: false), Is.EqualTo(PlayInHeadset.Offered),
+            "over the cable the build's relay plays no part");
+    }
+
+    [Test]
     public void AWaitOnAPairedComputerAsksTheRelayOnlyAsTheAddressOpens()
     {
         var factory = new CommandFactory(Samples.Client);

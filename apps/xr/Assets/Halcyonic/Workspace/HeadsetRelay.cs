@@ -22,11 +22,17 @@ namespace Halcyonic.XR.Workspace
         private static ControlPlaneTarget? relayedTarget;
         private static bool wentAway;
 
-        /// <summary>Whether the app can relay a preview to <paramref name="target"/>: a paired computer, on the headset.</summary>
+        /// <summary>
+        /// Whether this build carries the relay: a development build only (ADR 0052, the lead's decision of 2026-11-11), as
+        /// its service and permissions are only in a development build's manifest (RelayInDevelopmentBuilds).
+        /// </summary>
+        public static bool Built => Debug.isDebugBuild;
+
+        /// <summary>Whether the app can relay a preview to <paramref name="target"/>: a paired computer, on the headset, in a build that carries it.</summary>
         public static bool Serves(ControlPlaneTarget? target)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
-            return target?.Pairing != null;
+            return Built && target?.Pairing != null;
 #else
             return false;
 #endif

@@ -300,10 +300,10 @@ Since ADR 0021's amendment of 2026-11-11 a release APK carries hold to talk and 
 ### Its permissions (verified 2026-11-11)
 
 A release APK asks for exactly: `com.oculus.permission.HAND_TRACKING`, `com.oculus.permission.USE_ANCHOR_API`,
-`com.oculus.permission.USE_SCENE`, `android.permission.INTERNET`, `android.permission.RECORD_AUDIO`, since 2026-11-11
-the preview relay's `android.permission.FOREGROUND_SERVICE` and `android.permission.FOREGROUND_SERVICE_SPECIAL_USE`
-(ADR 0052: Play in Headset over the pairing; neither is on Meta's prohibited or review-required lists, read 2026-11-11),
-and AndroidX's own `<package>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`. `QuestBuild.BuildReleaseApk` reads the built APK's
+`com.oculus.permission.USE_SCENE`, `android.permission.INTERNET`, `android.permission.RECORD_AUDIO`, and AndroidX's
+own `<package>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`. The preview relay's `FOREGROUND_SERVICE` and
+`FOREGROUND_SERVICE_SPECIAL_USE` (ADR 0052) are in development builds only (`RelayInDevelopmentBuilds`), so a release
+APK asks for neither. `QuestBuild.BuildReleaseApk` reads the built APK's
 permissions with `aapt2 dump permissions` and deletes and fails one that asks for anything else
 (`ChosenPermissions`).
 

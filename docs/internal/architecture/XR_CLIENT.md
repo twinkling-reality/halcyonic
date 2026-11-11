@@ -1721,7 +1721,9 @@ layer's `HeadsetRelay` starts that relay (`PreviewRelay`, ADR 0052) as the addre
 waited-for preview starts running (`HeadsetPlayWait.Advance` asks its `relay` only then), so on the headset with a
 paired target the action stands (`relays`). The relay holds `PreviewRelayService` in the foreground while it serves, one
 project at a time, and stops when Halcyonic comes back to the front after the browser, when another project's preview
-opens, when the pairing changes and when the app quits. The app cannot see a reverse, so it reads the cable from its target alone. Refusals in the product's
+opens, when the pairing changes and when the app quits. In development builds only (`HeadsetRelay.Built`, and the
+service and permissions written by `RelayInDevelopmentBuilds`): a release build refuses Play in Headset on a paired
+computer as `NotInThisBuild` ("Not in This Build"). The app cannot see a reverse, so it reads the cable from its target alone. Refusals in the product's
 words: Preview on Your Computer where the check is not confined, Connect by Cable where paired with no relay;
 every other refusal hides the action, as Try Build is hidden. `HeadsetBrowser.Open` (Unity layer) opens only an
 address `HeadsetPlay.IsOpenable` admits (http, 127.0.0.1, a port, the root path, nothing else) with the view intent

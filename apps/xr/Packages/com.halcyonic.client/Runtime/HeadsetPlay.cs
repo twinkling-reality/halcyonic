@@ -22,6 +22,11 @@ namespace Halcyonic.Client
         NotConfined,
         /// <summary>The headset reaches the computer over the network and nothing on it serves the preview yet.</summary>
         NoWayToHeadset,
+        /// <summary>
+        /// The headset reaches the computer over the network and this build carries no relay: the relay is in development
+        /// builds only (ADR 0052, the lead's decision of 2026-11-11), and a release build cannot use the cable either.
+        /// </summary>
+        NotInThisBuild,
         /// <summary>No control plane is configured.</summary>
         NoControlPlane,
         /// <summary>A demonstration shows (the recorded run, or one for a computer that cannot be reached): nothing of it opens.</summary>
@@ -55,6 +60,9 @@ namespace Halcyonic.Client
         /// <summary>The refusal where the headset is paired and no relay serves the preview yet.</summary>
         public const string ConnectByCable = "Connect by Cable";
 
+        /// <summary>The refusal where the headset is paired and this build carries no relay: playing without a cable is not in it.</summary>
+        public const string NotInThisBuildWords = "Not in This Build";
+
         /// <summary>
         /// Whether Play in Headset is offered for <paramref name="project"/>, given the control plane this headset
         /// reaches (<paramref name="target"/>), whether a demonstration of any kind shows (<paramref name="demonstration"/>,
@@ -63,7 +71,9 @@ namespace Halcyonic.Client
         /// serves this project's preview on, if it does (<paramref name="relayPort"/>), or whether the app can start a relay
         /// for it when it opens (<paramref name="relays"/>, ADR 0052): on a paired computer either lets the action stand.
         /// </summary>
-        public static PlayInHeadset For(ProjectView project, ControlPlaneTarget? target, bool demonstration, int? relayPort = null, bool relays = false)
+        /// <param name="relayBuilt">This build carries the relay (a development build); false says so where it is refused.</param>
+        public static PlayInHeadset For(ProjectView project, ControlPlaneTarget? target, bool demonstration, int? relayPort = null, bool relays = false,
+            bool relayBuilt = true)
         {
             if (project == null) throw new ArgumentNullException(nameof(project));
             if (demonstration) return PlayInHeadset.Demonstration;
@@ -73,7 +83,7 @@ namespace Halcyonic.Client
             if (check.Files != ProjectViewCheckFiles.Current) return PlayInHeadset.FilesNotChecked;
             if (!check.Findings.Passed) return PlayInHeadset.CheckNotPassed;
             if (!check.Findings.ReadsConfined) return PlayInHeadset.NotConfined;
-            if (target.Pairing != null && relayPort == null && !relays) return PlayInHeadset.NoWayToHeadset;
+            if (target.Pairing != null && relayPort == null && !relays) return relayBuilt ? PlayInHeadset.NoWayToHeadset : PlayInHeadset.NotInThisBuild;
             if (ProjectPlayFacts.PreviewOfLatestCheck(project) == null) return PlayInHeadset.NoPreviewOfCheck;
             return PlayInHeadset.Offered;
         }
@@ -90,6 +100,7 @@ namespace Halcyonic.Client
         {
             PlayInHeadset.NotConfined => PreviewOnYourComputer,
             PlayInHeadset.NoWayToHeadset => ConnectByCable,
+            PlayInHeadset.NotInThisBuild => NotInThisBuildWords,
             _ => null,
         };
 
