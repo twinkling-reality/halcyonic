@@ -172,3 +172,16 @@ answer from.
   excerpt and could not summarize them, 2026-11-11). The 4 KiB shrinks to the room the next turn's body leaves beside
   the instructions, the person's words, the host context, the current batch and every tool the request may be offered,
   measured as the transport measures it, so long words never make a body it refuses (AUDIT2, 2026-11-11).
+- No request the contract accepts fails for its length (the lead, 2026-11-11; 9,600 characters of words made a first
+  turn of 13,742 bytes, past the transport's 12,288, while the contract allows 32,000):
+  - The model reads the person's words within 2,560 bytes as the body escapes them, and each continuation within
+    1,024: whole where they fit; otherwise the first two thirds and the last third of that room, cut between
+    characters, around a gap in which the computer says how many characters it left out and that the words go to the
+    task whole.
+  - Words on their way to an agent are never shortened. `continue_task` sends the person's whole words, by the host,
+    never retyped by the model. Where the host's framing and the model's follow-up would push them past the
+    instruction limit, the person's words go alone and whole (a request alone is within that limit by its contract).
+    Only continuations that together pass the limit still pause for the person, with nothing sent and nothing cut.
+  - A reply written from a shortened view ends with the host's own sentence: how many of how many characters the
+    answer read, the beginning and the end, and, once the host confirmed a `continue_task` step, that all of them
+    went to the agent. The host writes it, since the host knows what it cut; the reply stays `reported`.
