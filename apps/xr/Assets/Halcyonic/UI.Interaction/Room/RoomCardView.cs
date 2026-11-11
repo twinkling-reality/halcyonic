@@ -637,7 +637,7 @@ namespace Halcyonic.XR.UI
             for (var index = 0; index < count; index++)
             {
                 var laid = slots[index].Mono
-                    ? Text(KitRole.Mono, CaptionTypeDp - 1f, CaptionLineDp, Color.white, slots[index].Value, 0f, 0f, RoomType.Units(2000f), 1)
+                    ? Text(KitRole.Mono, CaptionTypeDp, CaptionLineDp, Color.white, slots[index].Value, 0f, 0f, RoomType.Units(2000f), 1)
                     : Text(KitRole.Body, CaptionTypeDp, CaptionLineDp, Color.white, slots[index].Value, 0f, 0f, RoomType.Units(2000f), 1);
                 values.Add(laid);
                 least[index] = Mathf.Min(width, Mathf.Max(RoomCursor.WordsWidth(laid.Label, 0f), S(SlotGlyphBoxDp)) + 2f * S(SlotPadDp));
