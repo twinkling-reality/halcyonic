@@ -1398,6 +1398,16 @@ launch/return, process recreation and current-frame action behavior need separat
   lost its connection when that closed or failed partway (`connection_lost`, `ConnectionLost`: check
   the address and that pairing is open); and otherwise reads as one that doesn't pair the way the
   computer does (`protocol_error`, `ProtocolError`).
+- **`PairingCards`** says where pairing is as cards in the card language (A17): Looking while the
+  headset asks the Wi-Fi; one computer found (Your Computer) or several (Pick Your Computer), each a
+  neutral list row with the computer's mark and its announced name leaning as outside text, noted
+  only with Same Name Twice in red where another answer used the name (with a line under the list);
+  None Found, whose line says to press Pair Headset on the computer or type its address; the code,
+  titled by the computer's name or the address as typed, with no host or port beside it and the
+  code's eight places left to the field; Paired;
+  and a refusal by its code, never its message, with the window's three tries as pips after a wrong
+  code. A found computer comes in as a `PairingChoice` (name, address, whether its name came twice),
+  which the Unity layer makes from what the finder answered. The actions stay the bar's.
 - **The pinned transports.** `PinnedConnection` opens TCP and TLS with `SslStream`, whose own
   validation callback compares the certificate's SHA-256 with the pin, so another certificate ends
   the handshake before anything is sent (`CertificateMismatchException`); without a pin, for
