@@ -177,6 +177,7 @@ namespace Halcyonic.XR.Workspace
             menu = MenuDirector.Create(transform, new MenuDirector.Setup
             {
                 Observed = run => activity.ObservedFor(run),
+                Started = run => activity.StartedFor(run),
                 SpatialWorkspace = true,
                 ResponsiveWorkspace = true,
                 Presentation = Presentation,
