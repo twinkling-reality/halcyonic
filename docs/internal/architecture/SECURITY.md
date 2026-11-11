@@ -10,8 +10,14 @@ file is opened once without following a link anywhere in its path (`O_NOFOLLOW_A
 and read through that handle, only inside the project's folder and never inside Halcyonic's own data;
 a file whose name says it may hold secrets (version control's own, `.env*`, private keys and stores,
 SSH keys, package and network credentials, files named credentials or secrets, by the rules agents
-are kept from them) is listed but never read or diffed. Every text loses exact copies of the secrets
-Halcyonic holds; secrets Halcyonic does not hold, written into ordinary files, are not found by name.
+are kept from them, one list in runtime-core's `secret-files.ts` that the sandbox, these reads and a
+project's export all use) is listed but never read or diffed. The list is by name only: a file such
+as `.kube/config`, `.docker/config.json` or a `*.tfstate` is read like any other. Every text loses
+exact copies of the secrets Halcyonic holds; secrets Halcyonic does not hold, written into ordinary
+files, are not found. A hard link inside the folder to a file elsewhere on the volume is read as an
+ordinary file: refusing files with more than one link would refuse pnpm's hard-linked packages, and
+only something able to write the folder, which could read that file itself, can plant one. Halcyonic's
+own data is compared by real path and without case.
 
 ## Recorded tool-result work content
 

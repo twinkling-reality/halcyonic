@@ -176,6 +176,26 @@ describe('reading a project (the parity map, gaps 5 and 10)', () => {
     );
   });
 
+  test('a diff past its bound is cut at a line and marked incomplete, git stopped there (AUDIT2 S3)', async (t) => {
+    const { folder, controlPlane, projectId, journal, checkpoint, reads } = setup('long-diff');
+    t.after(() => controlPlane.close());
+    writeFileSync(join(folder, 'long.txt'), 'a\n'.repeat(10));
+    const from = await checkpoint();
+    writeFileSync(
+      join(folder, 'long.txt'),
+      `${'line of new text that is long enough\n'.repeat(4000)}`,
+    );
+    const to = await checkpoint();
+    const diff = await reads.fileChange(
+      projectId,
+      { journal_id: journal, from, to, path: 'long.txt' },
+      LOCAL,
+    );
+    assert.equal(diff?.complete, false);
+    assert.ok(Buffer.byteLength(diff?.diff ?? '') <= 65_536);
+    assert.ok((diff?.diff ?? '').endsWith('\n'), 'cut at a whole line');
+  });
+
   test('one file as it is now: text whole, binary, too large and secret-shaped by kind; never a link, outside or Halcyonic data', async (t) => {
     const { root, folder, controlPlane, projectId, journal, reads } = setup('file');
     t.after(() => controlPlane.close());
@@ -203,6 +223,8 @@ describe('reading a project (the parity map, gaps 5 and 10)', () => {
       'link.txt',
       'linked/secret.txt',
       'halcyonic-data/access-token',
+      // Halcyonic's data named in another case, which the Mac's volume ignores (AUDIT2 S4).
+      'HALCYONIC-DATA/access-token',
       'src',
       'missing.ts',
       '../outside/secret.txt',

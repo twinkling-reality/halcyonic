@@ -154,6 +154,8 @@ interface GitResult {
   readonly code: number;
   readonly stdout: Buffer;
   readonly stderr: string;
+  /** Set when git was stopped past the most of its output the caller reads. */
+  readonly truncated?: boolean;
 }
 
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -668,20 +670,27 @@ export class CheckpointStore {
     if (file.binary) return { ok: true, file, diff: null, complete: true };
     const trees = await this.#trees(projectId, fromId, toId);
     if (!trees.ok) return trees;
-    const patch = await this.#run(trees.repository, null, null, [
-      'diff-tree',
-      '-p',
-      '--no-renames',
-      '--no-ext-diff',
-      '--no-textconv',
-      '--no-color',
-      trees.from,
-      trees.to,
-      '--',
-      path,
-    ]);
-    if (patch.code !== 0) return { ok: false, code: 'store_failed' };
-    const whole = patch.stdout.length <= maxBytes;
+    const patch = await this.#run(
+      trees.repository,
+      null,
+      null,
+      [
+        'diff-tree',
+        '-p',
+        '--no-renames',
+        '--no-ext-diff',
+        '--no-textconv',
+        '--no-color',
+        trees.from,
+        trees.to,
+        '--',
+        path,
+      ],
+      undefined,
+      maxBytes,
+    );
+    if (patch.code !== 0 && patch.truncated !== true) return { ok: false, code: 'store_failed' };
+    const whole = patch.truncated !== true && patch.stdout.length <= maxBytes;
     // Cut at the last whole line inside the bound.
     let cut = whole ? patch.stdout : patch.stdout.subarray(0, maxBytes);
     if (!whole) {
@@ -993,6 +1002,7 @@ export class CheckpointStore {
     index: string | null,
     args: readonly string[],
     input?: Buffer,
+    maxStdout?: number,
   ): Promise<GitResult> {
     return this.#spawn(
       [
@@ -1004,6 +1014,7 @@ export class CheckpointStore {
       { repository, project: folder },
       index,
       input,
+      maxStdout,
     );
   }
 
@@ -1027,6 +1038,7 @@ export class CheckpointStore {
     scope: { readonly repository: string; readonly project: string | null },
     index: string | null,
     input?: Buffer,
+    maxStdout?: number,
   ): Promise<GitResult> {
     const { git, tools } = await this.#runnable();
     const home = join(this.#directory, '.home');
@@ -1074,7 +1086,18 @@ export class CheckpointStore {
       const timer = setTimeout(() => child.kill('SIGKILL'), GIT_TIMEOUT_MS);
       const out: Buffer[] = [];
       const err: Buffer[] = [];
-      child.stdout.on('data', (chunk: Buffer) => out.push(chunk));
+      let outBytes = 0;
+      let truncated = false;
+      child.stdout.on('data', (chunk: Buffer) => {
+        if (truncated) return;
+        out.push(chunk);
+        outBytes += chunk.length;
+        // Past the most the caller reads, git is stopped rather than read to its end.
+        if (maxStdout !== undefined && outBytes > maxStdout) {
+          truncated = true;
+          child.kill('SIGKILL');
+        }
+      });
       child.stderr.on('data', (chunk: Buffer) => err.push(chunk));
       // Writing to a git that already exited is that git's failure, which `close` reports.
       child.stdin.on('error', () => {});
@@ -1088,6 +1111,7 @@ export class CheckpointStore {
           code: code ?? -1,
           stdout: Buffer.concat(out),
           stderr: Buffer.concat(err).toString(),
+          ...(truncated && { truncated: true }),
         });
       });
       child.stdin.end(input ?? Buffer.alloc(0));
