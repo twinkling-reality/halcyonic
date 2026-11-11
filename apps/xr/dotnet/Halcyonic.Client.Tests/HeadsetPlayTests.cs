@@ -64,34 +64,34 @@ public class HeadsetPlayTests
     public void OverTheCableItOpensThePreviewsOwnPortOnLoopback()
     {
         var project = View(Check(), Preview(port: 47931));
-        Assert.That(HeadsetPlay.For(project, Cable), Is.EqualTo(PlayInHeadset.Offered));
+        Assert.That(HeadsetPlay.For(project, Cable, demonstration: false), Is.EqualTo(PlayInHeadset.Offered));
         Assert.That(HeadsetPlay.Stands(PlayInHeadset.Offered), Is.True);
-        var address = HeadsetPlay.AddressOf(project, Cable);
+        var address = HeadsetPlay.AddressOf(project, Cable, demonstration: false);
         Assert.That(address, Is.EqualTo(new Uri("http://127.0.0.1:47931/")));
         Assert.That(HeadsetPlay.IsOpenable(address), Is.True);
-        Assert.That(HeadsetPlay.CommandFor(project, Cable, new CommandFactory(Samples.Client)), Is.Null, "an offered press opens, it sends nothing");
+        Assert.That(HeadsetPlay.CommandFor(project, Cable, demonstration: false, new CommandFactory(Samples.Client)), Is.Null, "an offered press opens, it sends nothing");
     }
 
     [Test]
     public void OverThePairingItOpensTheRelaysPortAndWithoutARelayAsksForTheCable()
     {
         var project = View(Check(), Preview(port: 47931));
-        Assert.That(HeadsetPlay.For(project, Paired), Is.EqualTo(PlayInHeadset.NoWayToHeadset));
+        Assert.That(HeadsetPlay.For(project, Paired, demonstration: false), Is.EqualTo(PlayInHeadset.NoWayToHeadset));
         Assert.That(HeadsetPlay.Refusal(PlayInHeadset.NoWayToHeadset), Is.EqualTo("Connect by Cable"));
-        Assert.That(HeadsetPlay.AddressOf(project, Paired), Is.Null);
-        Assert.That(HeadsetPlay.For(project, Paired, relayPort: 47935), Is.EqualTo(PlayInHeadset.Offered));
-        Assert.That(HeadsetPlay.AddressOf(project, Paired, relayPort: 47935), Is.EqualTo(new Uri("http://127.0.0.1:47935/")));
+        Assert.That(HeadsetPlay.AddressOf(project, Paired, demonstration: false), Is.Null);
+        Assert.That(HeadsetPlay.For(project, Paired, demonstration: false, relayPort: 47935), Is.EqualTo(PlayInHeadset.Offered));
+        Assert.That(HeadsetPlay.AddressOf(project, Paired, demonstration: false, relayPort: 47935), Is.EqualTo(new Uri("http://127.0.0.1:47935/")));
     }
 
     [Test]
     public void ACheckThatDidNotConfineItsReadsKeepsThePreviewOnTheComputer()
     {
         var project = View(Check(readsConfined: false), Preview());
-        Assert.That(HeadsetPlay.For(project, Cable), Is.EqualTo(PlayInHeadset.NotConfined));
+        Assert.That(HeadsetPlay.For(project, Cable, demonstration: false), Is.EqualTo(PlayInHeadset.NotConfined));
         Assert.That(HeadsetPlay.Stands(PlayInHeadset.NotConfined), Is.False);
         Assert.That(HeadsetPlay.Refusal(PlayInHeadset.NotConfined), Is.EqualTo("Preview on Your Computer"));
-        Assert.That(HeadsetPlay.AddressOf(project, Cable), Is.Null);
-        Assert.That(HeadsetPlay.CommandFor(project, Cable, new CommandFactory(Samples.Client)), Is.Null);
+        Assert.That(HeadsetPlay.AddressOf(project, Cable, demonstration: false), Is.Null);
+        Assert.That(HeadsetPlay.CommandFor(project, Cable, demonstration: false, new CommandFactory(Samples.Client)), Is.Null);
     }
 
     [Test]
@@ -99,10 +99,10 @@ public class HeadsetPlayTests
     {
         foreach (var project in new[] { View(Check()), View(Check(), Preview(checkId: OlderCheckId)) })
         {
-            Assert.That(HeadsetPlay.For(project, Cable), Is.EqualTo(PlayInHeadset.NoPreviewOfCheck));
+            Assert.That(HeadsetPlay.For(project, Cable, demonstration: false), Is.EqualTo(PlayInHeadset.NoPreviewOfCheck));
             Assert.That(HeadsetPlay.Stands(PlayInHeadset.NoPreviewOfCheck), Is.True);
-            Assert.That(HeadsetPlay.AddressOf(project, Cable), Is.Null);
-            var command = HeadsetPlay.CommandFor(project, Cable, new CommandFactory(Samples.Client));
+            Assert.That(HeadsetPlay.AddressOf(project, Cable, demonstration: false), Is.Null);
+            var command = HeadsetPlay.CommandFor(project, Cable, demonstration: false, new CommandFactory(Samples.Client));
             Assert.That(command, Is.TypeOf<ProjectPreviewStartCommand>());
             Assert.That(((ProjectPreviewStartCommand)command!).Payload.ProjectId, Is.EqualTo(ProjectId));
         }
@@ -121,12 +121,32 @@ public class HeadsetPlayTests
         };
         foreach (var (project, target, expected) in cases)
         {
-            var play = HeadsetPlay.For(project, target);
+            var play = HeadsetPlay.For(project, target, demonstration: false);
             Assert.That(play, Is.EqualTo(expected));
             Assert.That(HeadsetPlay.Stands(play), Is.False);
             Assert.That(HeadsetPlay.Refusal(play), Is.Null);
-            Assert.That(HeadsetPlay.AddressOf(project, target), Is.Null);
+            Assert.That(HeadsetPlay.AddressOf(project, target, demonstration: false), Is.Null);
         }
+    }
+
+    [Test]
+    public void NothingOfADemonstrationOpens()
+    {
+        // AUDIT's case: the recorded run's projects carry a preview port too; over any demonstration (recorded, or for a
+        // computer that cannot be reached) Play in Headset is neither offered nor started, and a wait it began ends.
+        var project = View(Check(), Preview(port: 47931));
+        var factory = new CommandFactory(Samples.Client);
+        Assert.That(HeadsetPlay.For(project, Cable, demonstration: true), Is.EqualTo(PlayInHeadset.Demonstration));
+        Assert.That(HeadsetPlay.Stands(PlayInHeadset.Demonstration), Is.False);
+        Assert.That(HeadsetPlay.Refusal(PlayInHeadset.Demonstration), Is.Null);
+        Assert.That(HeadsetPlay.AddressOf(project, Cable, demonstration: true), Is.Null);
+        Assert.That(HeadsetPlay.For(View(Check()), Cable, demonstration: true), Is.EqualTo(PlayInHeadset.Demonstration));
+        Assert.That(HeadsetPlay.CommandFor(View(Check()), Cable, demonstration: true, factory), Is.Null, "no preview is started for it");
+
+        var wait = new HeadsetPlayWait();
+        wait.Sent(factory.StartPreview(ProjectId));
+        Assert.That(wait.Advance(State(project), Cable, demonstration: true), Is.Null);
+        Assert.That(wait.ProjectId, Is.Null, "a demonstration that began during the wait ends it");
     }
 
     [Test]
@@ -150,14 +170,14 @@ public class HeadsetPlayTests
         var wait = new HeadsetPlayWait();
         wait.Sent(factory.OpenOnMac(ProjectId));
         Assert.That(wait.ProjectId, Is.Null, "only a preview's start begins a wait");
-        wait.Sent(HeadsetPlay.CommandFor(View(Check()), Cable, factory));
+        wait.Sent(HeadsetPlay.CommandFor(View(Check()), Cable, demonstration: false, factory));
         Assert.That(wait.ProjectId, Is.EqualTo(ProjectId));
 
-        Assert.That(wait.Advance(State(View(Check())), Cable), Is.Null, "still starting");
+        Assert.That(wait.Advance(State(View(Check())), Cable, demonstration: false), Is.Null, "still starting");
         Assert.That(wait.ProjectId, Is.EqualTo(ProjectId));
-        Assert.That(wait.Advance(State(View(Check(), Preview(port: 47932))), Cable), Is.EqualTo(new Uri("http://127.0.0.1:47932/")));
+        Assert.That(wait.Advance(State(View(Check(), Preview(port: 47932))), Cable, demonstration: false), Is.EqualTo(new Uri("http://127.0.0.1:47932/")));
         Assert.That(wait.ProjectId, Is.Null);
-        Assert.That(wait.Advance(State(View(Check(), Preview(port: 47932))), Cable), Is.Null, "opened once");
+        Assert.That(wait.Advance(State(View(Check(), Preview(port: 47932))), Cable, demonstration: false), Is.Null, "opened once");
     }
 
     [Test]
@@ -166,11 +186,11 @@ public class HeadsetPlayTests
         var factory = new CommandFactory(Samples.Client);
         var wait = new HeadsetPlayWait();
         wait.Sent(factory.StartPreview(ProjectId));
-        Assert.That(wait.Advance(State(), Cable), Is.Null);
+        Assert.That(wait.Advance(State(), Cable, demonstration: false), Is.Null);
         Assert.That(wait.ProjectId, Is.Null, "the project is gone");
 
         wait.Sent(factory.StartPreview(ProjectId));
-        Assert.That(wait.Advance(State(View(Check(files: "changed"), Preview())), Cable), Is.Null);
+        Assert.That(wait.Advance(State(View(Check(files: "changed"), Preview())), Cable, demonstration: false), Is.Null);
         Assert.That(wait.ProjectId, Is.Null, "the files changed while it started");
     }
 

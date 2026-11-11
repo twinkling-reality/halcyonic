@@ -24,6 +24,8 @@ namespace Halcyonic.Client
         NoWayToHeadset,
         /// <summary>No control plane is configured.</summary>
         NoControlPlane,
+        /// <summary>A demonstration shows (the recorded run, or one for a computer that cannot be reached): nothing of it opens.</summary>
+        Demonstration,
     }
 
     /// <summary>
@@ -53,12 +55,15 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Whether Play in Headset is offered for <paramref name="project"/>, given the control plane this headset
-        /// reaches (<paramref name="target"/>) and the loopback port the app's relay serves this project's preview on,
-        /// if it does (<paramref name="relayPort"/>).
+        /// reaches (<paramref name="target"/>), whether a demonstration of any kind shows (<paramref name="demonstration"/>,
+        /// as the menu's director reads it: the recorded run, or one for a computer that cannot be reached; its projects
+        /// and their preview ports are not the person's, so nothing of them opens), and the loopback port the app's relay
+        /// serves this project's preview on, if it does (<paramref name="relayPort"/>).
         /// </summary>
-        public static PlayInHeadset For(ProjectView project, ControlPlaneTarget? target, int? relayPort = null)
+        public static PlayInHeadset For(ProjectView project, ControlPlaneTarget? target, bool demonstration, int? relayPort = null)
         {
             if (project == null) throw new ArgumentNullException(nameof(project));
+            if (demonstration) return PlayInHeadset.Demonstration;
             if (target == null) return PlayInHeadset.NoControlPlane;
             var check = project.Check;
             if (check == null) return PlayInHeadset.NoCheck;
@@ -89,18 +94,18 @@ namespace Halcyonic.Client
         /// The address Quest Browser opens for <paramref name="project"/>, or null where Play in Headset is not
         /// <see cref="PlayInHeadset.Offered"/>.
         /// </summary>
-        public static Uri? AddressOf(ProjectView project, ControlPlaneTarget? target, int? relayPort = null)
+        public static Uri? AddressOf(ProjectView project, ControlPlaneTarget? target, bool demonstration, int? relayPort = null)
         {
-            if (For(project, target, relayPort) != PlayInHeadset.Offered) return null;
+            if (For(project, target, demonstration, relayPort) != PlayInHeadset.Offered) return null;
             var port = target!.Pairing == null ? ProjectPlayFacts.PreviewOfLatestCheck(project)!.Port : relayPort!.Value;
             return LoopbackAddress(port);
         }
 
         /// <summary>The command a press sends for <paramref name="project"/>: the preview's start where none runs, else null (the address opens).</summary>
-        public static CommandEnvelope? CommandFor(ProjectView project, ControlPlaneTarget? target, CommandFactory commands, int? relayPort = null)
+        public static CommandEnvelope? CommandFor(ProjectView project, ControlPlaneTarget? target, bool demonstration, CommandFactory commands, int? relayPort = null)
         {
             if (commands == null) throw new ArgumentNullException(nameof(commands));
-            return For(project, target, relayPort) == PlayInHeadset.NoPreviewOfCheck
+            return For(project, target, demonstration, relayPort) == PlayInHeadset.NoPreviewOfCheck
                 ? commands.StartPreview(project.ProjectId)
                 : null;
         }
@@ -147,7 +152,7 @@ namespace Halcyonic.Client
         /// The address to open now, once, from <paramref name="state"/>; null while the preview is still starting or
         /// when the wait ended without one (the project gone, or Play in Headset refused).
         /// </summary>
-        public Uri? Advance(ClientProjection? state, ControlPlaneTarget? target, int? relayPort = null)
+        public Uri? Advance(ClientProjection? state, ControlPlaneTarget? target, bool demonstration, int? relayPort = null)
         {
             if (ProjectId == null || state == null) return null;
             if (!state.Projects.TryGetValue(ProjectId, out var project))
@@ -155,10 +160,10 @@ namespace Halcyonic.Client
                 ProjectId = null;
                 return null;
             }
-            var play = HeadsetPlay.For(project, target, relayPort);
+            var play = HeadsetPlay.For(project, target, demonstration, relayPort);
             if (play == PlayInHeadset.NoPreviewOfCheck) return null;
             ProjectId = null;
-            return play == PlayInHeadset.Offered ? HeadsetPlay.AddressOf(project, target, relayPort) : null;
+            return play == PlayInHeadset.Offered ? HeadsetPlay.AddressOf(project, target, demonstration, relayPort) : null;
         }
     }
 }
