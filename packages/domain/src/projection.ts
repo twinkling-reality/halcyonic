@@ -241,9 +241,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * execution's start recorded the runtime's plan mode (`plan`, PLAN). 8: whether it left the plan
  * (`planLeft`) and why its start was not counted confined (`unconfinedReason`). 9: each
  * execution's queued instructions (ADR 0056). 10: each project's own check (ADR 0055). 11: the
- * version a task starts from (`from_checkpoint`, ADR 0045).
+ * version a task starts from (`from_checkpoint`, ADR 0045). 12: what the computer saw of a request
+ * that ended with no reply (`observed`, LOOP C).
  */
-export const PROJECTION_STATE_FORMAT = 11;
+export const PROJECTION_STATE_FORMAT = 12;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
