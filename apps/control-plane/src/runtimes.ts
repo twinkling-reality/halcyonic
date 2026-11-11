@@ -140,20 +140,19 @@ export function codexConfinement(
 /**
  * What OpenCode's sandbox lets it reach on this Mac (ADR 0028): Ollama only through the adapter's
  * gate, which passes the model list, model details and chat with a model on this Mac, and no other
- * port on loopback but the server's and the gate's own, which the adapter adds; it writes only in
- * the project roots (and its own folders, which the adapter adds), and reads nothing of Halcyonic's
+ * port on loopback but the server's and the gate's own, which the adapter adds; each folder's server
+ * writes only that folder and its own folders, which the adapter adds (BOX-3), and reads nothing of Halcyonic's
  * data directory, its journal and every credential in it, but its own settings and the pinned
  * binary, nor the person's own credentials.
  */
 export function openCodeSandbox(
-  config: Pick<ControlPlaneConfig, 'projectRoots' | 'opencodeConfigHome' | 'opencodeBinary'>,
+  config: Pick<ControlPlaneConfig, 'opencodeConfigHome' | 'opencodeBinary'>,
   dataDir: string,
   home: string,
 ) {
   return {
     loopbackPorts: [],
     ollama: `http://127.0.0.1:${OLLAMA_PORT}`,
-    projectRoots: config.projectRoots,
     unreadable: [dataDir, ...(home === '' ? [] : personalSecrets(home))],
     readable: [
       join(dataDir, 'runtimes'),

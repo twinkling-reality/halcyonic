@@ -1,7 +1,7 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, rename, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdir, readdir, rename, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { isDeepStrictEqual } from 'node:util';
 import type {
@@ -87,6 +87,26 @@ export const TAMPERED = 'runtime_tampered';
  */
 export const OPENCODE_SANDBOX_FOLDER = 'opencode-sandbox';
 
+/** The listing server's slot key (BOX-3). */
+const MODELS_SLOT = 'models';
+
+/** A short, stable name for a folder's server (BOX-3): its record, sandbox folder and profile carry it. */
+export function folderKey(folder: string): string {
+  return createHash('sha256').update(folder).digest('hex').slice(0, 16);
+}
+
+/**
+ * Where a server's sandbox keeps its own data, state, cache and temporary folders, beside its record
+ * (`base`): the listing server's, or one with no folder, at `opencode-sandbox`; each folder's at
+ * `opencode-sandbox-<key>` (BOX-3), so no folder's server can reach another's sessions.
+ */
+export function openCodeSandboxFolder(base: string, folder: string | null): string {
+  return join(
+    base,
+    folder === null ? OPENCODE_SANDBOX_FOLDER : `${OPENCODE_SANDBOX_FOLDER}-${folderKey(folder)}`,
+  );
+}
+
 /** The sandbox's data folder, the server's `XDG_DATA_HOME`. */
 const SANDBOX_DATA = 'data';
 
@@ -97,6 +117,30 @@ const SANDBOX_DATA = 'data';
  */
 export function sandboxedSessionStore(sandboxFolder: string): string {
   return join(sandboxFolder, SANDBOX_DATA, 'opencode', 'opencode.db');
+}
+
+/** Stops a server an earlier run recorded at `recordFile`, when that process is still that server. */
+async function stopStale(recordFile: string): Promise<StaleServerResult> {
+  const record = await readServerRecord(recordFile);
+  if (record === null) return { outcome: 'none' };
+  const outcome = await stopRecordedProcess(record);
+  await removeServerRecord(recordFile, record.pid);
+  return { outcome, pid: record.pid, port: record.port };
+}
+
+/** The record file and every folder server's record beside it (`<record>-<key>`, BOX-3). */
+async function recordFilesBeside(recordFile: string): Promise<string[]> {
+  const name = basename(recordFile);
+  let names: string[];
+  try {
+    names = await readdir(dirname(recordFile));
+  } catch {
+    return [recordFile];
+  }
+  const keyed = names.filter(
+    (each) => each.startsWith(name) && /^-[0-9a-f]{16}$/.test(each.slice(name.length)),
+  );
+  return [recordFile, ...keyed.sort().map((each) => join(dirname(recordFile), each))];
 }
 
 /** A permission rule, as OpenCode 2.0.18 takes it (schema/src/permission.ts). */
@@ -278,7 +322,6 @@ export interface OpenCodeRuntimeOptions {
      * own (`ollama-gate.ts`), never directly. Null when OpenCode is given no Ollama.
      */
     readonly ollama?: string | null;
-    readonly projectRoots: readonly string[];
     readonly unreadable: readonly string[];
     /** Paths inside an unreadable folder that stay readable: OpenCode's settings, its binary. */
     readonly readable?: readonly string[];
@@ -297,7 +340,23 @@ interface Readiness {
 }
 
 /** A launched server and the adapter's subscription to its events. */
+/**
+ * One server and what it is for (BOX-3): a folder's own, which writes that folder alone, or the one
+ * that lists models, which writes no project. Each has its own record file, sandbox folder, profile,
+ * port and gate to Ollama, so no command one server runs can reach another folder or its sessions.
+ */
+interface Slot {
+  /** `models` for the listing server, else the folder's key (`folderKey`). */
+  readonly key: string;
+  /** The one project folder the server may write; null for the listing server. */
+  readonly folder: string | null;
+  readonly recordFile: string;
+  current: Connection | null;
+  launching: Promise<Connection> | null;
+}
+
 interface Connection {
+  readonly slot: Slot;
   readonly server: OpenCodeServer;
   /**
    * When the models of the server's own location were first asked for, by `Date.now()`. OpenCode
@@ -393,8 +452,10 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   readonly #made = new Set<string>();
   /** Sessions the server reported created that no creation of the adapter's has claimed yet. */
   readonly #unclaimed = new Map<string, Connection>();
-  #current: Connection | null = null;
-  #launching: Promise<Connection> | null = null;
+  /** Every server's slot, by key: the listing server's and each folder's (BOX-3). */
+  readonly #slots = new Map<string, Slot>();
+  /** The server launched last that still runs, for diagnostics. */
+  #latest: Connection | null = null;
   #closing: Promise<void> | null = null;
 
   constructor(options: OpenCodeRuntimeOptions) {
@@ -434,7 +495,16 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   }
 
   get serverPid(): number | null {
-    return this.#current?.server.pid ?? null;
+    return this.#latest?.server.pid ?? null;
+  }
+
+  /**
+   * Where the server for `directory` keeps its record (BOX-3): the listing server's, which writes no
+   * project, at the configured record file; each folder's beside it, named by the folder's key.
+   * Without Halcyonic's sandbox one server serves every folder, at the configured record file.
+   */
+  serverRecordFileFor(directory: string | null): string {
+    return this.#slot(directory).recordFile;
   }
 
   /**
@@ -442,7 +512,9 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
    * journaled; nothing while no server runs.
    */
   secrets(): readonly string[] {
-    return this.#current === null ? [] : [this.#current.server.secret];
+    return [...this.#slots.values()].flatMap((slot) =>
+      slot.current === null ? [] : [slot.current.server.secret],
+    );
   }
 
   validateStartOptions(
@@ -462,7 +534,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
    * and discover local models.
    */
   async listModels(): Promise<readonly RuntimeModel[]> {
-    const connection = await this.#connection();
+    const connection = await this.#connection(this.#slot(null));
     const read = async () => {
       if (connection.halted.signal.aborted) throw unreachableError();
       try {
@@ -500,10 +572,17 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
    * first execution. It does nothing once this adapter has launched a server.
    */
   async stopStaleServer(): Promise<StaleServerResult> {
-    if (this.#current !== null || this.#launching !== null || this.#closing !== null) {
-      return { outcome: 'none' };
+    const busy = [...this.#slots.values()].some(
+      (slot) => slot.current !== null || slot.launching !== null,
+    );
+    if (busy || this.#closing !== null) return { outcome: 'none' };
+    // Every server an earlier run recorded: the listing server's record and each folder's beside it.
+    let first: StaleServerResult = { outcome: 'none' };
+    for (const recordFile of await recordFilesBeside(this.#recordFile)) {
+      const result = await stopStale(recordFile);
+      if (first.outcome === 'none') first = result;
     }
-    return this.#stopStale();
+    return first;
   }
 
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
@@ -521,7 +600,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     if (this.#sessions.has(request.execution.execution_id)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
-    const connection = await this.#connection();
+    const connection = await this.#connection(this.#slot(directory));
     // Asked again before each model read that carries the folder (in #awaitModel), and right
     // before the session is made there: launching and waiting take seconds.
     await this.#awaitModel(connection, directory, parsed.value.model);
@@ -699,13 +778,17 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     // Halting first also releases a launch that is still waiting for its event stream.
     const stopping: Connection[] = [];
     const halt = () => {
-      const connection = this.#current;
-      if (connection === null) return;
-      stopping.push(connection);
-      this.#halt(connection);
+      for (const slot of this.#slots.values()) {
+        const connection = slot.current;
+        if (connection === null) continue;
+        stopping.push(connection);
+        this.#halt(connection);
+      }
     };
     halt();
-    await this.#launching?.catch(() => undefined);
+    await Promise.all(
+      [...this.#slots.values()].map((slot) => slot.launching?.catch(() => undefined)),
+    );
     halt();
     await Promise.all(
       stopping.map(async (connection) => {
@@ -717,17 +800,37 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
 
   // Server lifecycle ---------------------------------------------------------------------------
 
-  async #connection(): Promise<Connection> {
+  /**
+   * The slot of the server that serves `directory`, made on first use: with Halcyonic's sandbox, one
+   * per folder and one, `models`, for listing (null); without it, one for everything.
+   */
+  #slot(directory: string | null): Slot {
+    const sandboxed = this.#sandbox !== null && this.#sandbox !== undefined;
+    const key = !sandboxed || directory === null ? MODELS_SLOT : folderKey(directory);
+    const known = this.#slots.get(key);
+    if (known !== undefined) return known;
+    const slot: Slot = {
+      key,
+      folder: sandboxed ? directory : null,
+      recordFile: key === MODELS_SLOT ? this.#recordFile : `${this.#recordFile}-${key}`,
+      current: null,
+      launching: null,
+    };
+    this.#slots.set(key, slot);
+    return slot;
+  }
+
+  async #connection(slot: Slot): Promise<Connection> {
     if (this.#closing !== null) throw closedError();
-    const current = this.#current;
+    const current = slot.current;
     if (current !== null) {
       await ready(current);
       return current;
     }
-    this.#launching ??= this.#launch().finally(() => {
-      this.#launching = null;
+    slot.launching ??= this.#launch(slot).finally(() => {
+      slot.launching = null;
     });
-    return this.#launching;
+    return slot.launching;
   }
 
   /**
@@ -738,6 +841,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
    * OpenCode uses outside the sandbox, nor the system's temporary folder every app shares.
    */
   async #sandboxFor(
+    slot: Slot,
     port: number,
     gate: OllamaGate | null,
   ): Promise<{ readonly profile: string; readonly environment: Record<string, string> } | null> {
@@ -752,7 +856,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       }
       return null;
     }
-    const folder = join(dirname(this.#recordFile), OPENCODE_SANDBOX_FOLDER);
+    const folder = openCodeSandboxFolder(dirname(this.#recordFile), slot.folder);
     for (const name of [SANDBOX_DATA, 'state', 'cache', 'tmp']) {
       await mkdir(join(folder, name), { recursive: true, mode: 0o700 });
     }
@@ -772,21 +876,23 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     }
     const text = sandboxProfile({
       loopbackPorts: [...this.#sandbox.loopbackPorts, ...(gate === null ? [] : [gate.port]), port],
-      writable: [...this.#sandbox.projectRoots, ...openCodeFolders(environment)],
+      // The slot's own folder and nothing else of the person's: never the other projects under the
+      // host's roots (AUDIT MODES-step3 F1, BOX-3). The listing server writes no project at all.
+      writable: [...(slot.folder === null ? [] : [slot.folder]), ...openCodeFolders(environment)],
       unreadable: this.#sandbox.unreadable,
       readable: [...(this.#sandbox.readable ?? []), folder],
     });
     // Written whole under a new name, then moved into place, never through a link at its path.
-    const profile = join(dirname(this.#recordFile), 'opencode-sandbox.sb');
+    const profile = `${folder}.sb`;
     const draft = `${profile}.${process.pid}.${randomUUID()}`;
     await writeFile(draft, text, { mode: 0o600, flag: 'wx' });
     await rename(draft, profile);
     return { profile, environment };
   }
 
-  async #launch(): Promise<Connection> {
+  async #launch(slot: Slot): Promise<Connection> {
     try {
-      await this.#stopStale();
+      await stopStale(slot.recordFile);
     } catch (error) {
       throw new RuntimeActionError(
         'runtime_unavailable',
@@ -794,12 +900,13 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       );
     }
     // Chosen here, since the sandbox's profile names the server's own port.
-    const port = this.#port ?? (await freeLoopbackPort());
+    // A configured port is the listing server's; every folder's server takes a free one.
+    const port = (slot.key === MODELS_SLOT ? this.#port : null) ?? (await freeLoopbackPort());
     const ollama = this.#sandbox?.ollama ?? null;
     let gate: OllamaGate | null = null;
     if (ollama !== null) {
       try {
-        gate = await startOllamaGate({ ollama, maxChats: () => this.#runningTurns() });
+        gate = await startOllamaGate({ ollama, maxChats: () => this.#runningTurns(slot) });
       } catch (error) {
         throw new RuntimeActionError(
           'runtime_unavailable',
@@ -809,11 +916,11 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     }
     let server: OpenCodeServer;
     try {
-      const sandbox = await this.#sandboxFor(port, gate);
+      const sandbox = await this.#sandboxFor(slot, port, gate);
       server = await launchServer({
         binaryPath: this.#binaryPath,
         environment: sandbox?.environment ?? this.#environment,
-        recordFile: this.#recordFile,
+        recordFile: slot.recordFile,
         port,
         cwd: tmpdir(),
         startupTimeoutMs: this.#startupTimeoutMs,
@@ -830,6 +937,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       throw closedError();
     }
     const connection: Connection = {
+      slot,
       server,
       listingSince: null,
       halted: new AbortController(),
@@ -838,7 +946,8 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       stream: null,
       recovery: { timer: null, attempts: 0 },
     };
-    this.#current = connection;
+    slot.current = connection;
+    this.#latest = connection;
     void server.exited.then((status) => this.#onExit(connection, status));
     void this.#follow(connection);
     await ready(connection);
@@ -849,12 +958,12 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
    * Turns running or starting on the current server: OpenCode 2.0.18 asks Ollama for one reply at
    * a time for each, so the gate lets no more chats through at once.
    */
-  #runningTurns(): number {
+  #runningTurns(slot: Slot): number {
     let count = 0;
     for (const session of this.#sessions.values()) {
       const state = session.state;
       if (
-        session.connection === this.#current &&
+        session.connection === slot.current &&
         !session.lost &&
         (state.turn !== null || state.awaitingStart)
       ) {
@@ -862,14 +971,6 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       }
     }
     return count;
-  }
-
-  async #stopStale(): Promise<StaleServerResult> {
-    const record = await readServerRecord(this.#recordFile);
-    if (record === null) return { outcome: 'none' };
-    const outcome = await stopRecordedProcess(record);
-    await removeServerRecord(this.#recordFile, record.pid);
-    return { outcome, pid: record.pid, port: record.port };
   }
 
   /** The server died. Its sessions go with it: OpenCode 2.0.18 recovers nothing after a restart. */
@@ -888,7 +989,8 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     if (connection.recovery.timer !== null) clearTimeout(connection.recovery.timer);
     connection.recovery.timer = null;
     connection.readiness.reject(unreachableError());
-    if (this.#current === connection) this.#current = null;
+    if (connection.slot.current === connection) connection.slot.current = null;
+    if (this.#latest === connection) this.#latest = null;
   }
 
   async #giveUp(connection: Connection, reason: string): Promise<void> {

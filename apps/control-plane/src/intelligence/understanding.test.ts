@@ -159,6 +159,44 @@ describe('Salidium as the understanding source', () => {
       assert.equal(salidium.requests.length, 0, 'neither discovery nor a lookup was asked');
     });
 
+    test("a session in a folder's own server's store is not observed either (BOX-3)", async () => {
+      const { source, folder } = await observing('opencode-folder-store');
+      // Each folder's server keeps its store beside the listing server's, named by the folder's key.
+      const own = join(
+        folder,
+        '..',
+        '..',
+        '..',
+        'opencode-sandbox-0123456789abcdef',
+        'data',
+        'opencode',
+      );
+      mkdirSync(own, { recursive: true });
+      writeFileSync(join(own, 'opencode.db'), '');
+      const startedAfter = new Date(Date.now() + 60_000).toISOString();
+      assert.deepEqual(reason(await source.understand('opencode', SESSION, startedAfter)), [
+        'unavailable',
+        'runtime_not_observed',
+      ]);
+      // A folder beside it that is not a key's is not taken for a store.
+      const odd = await observing('opencode-odd-folder');
+      const not = join(
+        odd.folder,
+        '..',
+        '..',
+        '..',
+        'opencode-sandbox-notakey',
+        'data',
+        'opencode',
+      );
+      mkdirSync(not, { recursive: true });
+      writeFileSync(join(not, 'opencode.db'), '');
+      assert.deepEqual(reason(await odd.source.understand('opencode', SESSION, startedAfter)), [
+        'not_found',
+        'not_observed',
+      ]);
+    });
+
     test('a session from before the store, as before the sandbox, is asked about as before', async () => {
       const { source, folder, store } = await observing('opencode-older-session');
       mkdirSync(folder, { recursive: true });
