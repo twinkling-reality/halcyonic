@@ -202,7 +202,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 var card = column.Card() ?? throw new InvalidOperationException(state + " has no card: " + column.Sentence);
                 var expected = state switch
                 {
-                    "61-share-choose" or "61-share-choose-no-link" => ShareStage.Choose,
+                    "61-share-choose" => ShareStage.Choose,
+                    // With one way ready the choice is skipped to its confirmation (FIELD).
+                    "61-share-choose-no-link" => ShareStage.Confirm,
                     "61-share-confirm-link" or "61-share-confirm-wifi" => ShareStage.Confirm,
                     "61-share-shared-link" or "61-share-shared-wifi" => ShareStage.Shared,
                     "61-share-not-shareable" => ShareStage.NotShareable,
