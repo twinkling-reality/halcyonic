@@ -256,11 +256,12 @@ public class ShareColumnTests
         column.Cancel();
         Assert.That(column.StopWhenItStands, Is.True);
         Assert.That(column.Card()!.Status!.Value.Line, Is.EqualTo(ShareText.StoppingWhenReady), "the card says so");
-        Assert.That(column.Actions(), Is.Empty, "nothing more to press while it stops");
+        Assert.That(column.Actions().Select(action => action.Kind), Is.EqualTo(new[] { ShareActionKind.Close }), "only a way off the page while it stops");
         Assert.That(column.StopNow, Is.False, "nothing stands yet");
         column.Viewed(View(share: Share("link", "https://example-name.invalid/")));
         Assert.That(column.StopNow, Is.True, "the host stops it now");
         Assert.That(column.Stop(new CommandFactory(Samples.Client)), Is.Not.Null);
+        column.StopSent();
         Assert.That(column.StopNow, Is.False, "the stop is sent once");
         column.ShareStopped(new ProjectShareStoppedEvent { ProjectId = ProjectId, Payload = new ProjectShareStoppedPayload { CheckId = CheckId, Reason = ShareStopReason.Asked } });
         Assert.That(column.StopWhenItStands, Is.False);
@@ -316,5 +317,39 @@ public class ShareColumnTests
         Assert.That(column.Cells, Is.Null, "a read begun for the old link");
         column.CodeRead(new ShareCodeResponse { CheckId = CheckId, Way = ShareWay.Link, Code = Code(21) }, column.ShareGeneration);
         Assert.That(column.Cells, Is.Not.Null, "a read begun for the share standing now");
+    }
+
+    // AUDIT's reread (AUDIT/DEVICE-share-reread-VERDICT.md), the column's part of each fix.
+
+    [Test]
+    public void AuditRereadAColumnWithAStartOrAStopToSendIsKeptAndCancelledHasAWayOff()
+    {
+        var column = new ShareColumn(View());
+        column.WaysRead(Ways(wifi: ShareWayState.NotSetUp));
+        Assert.That(column.KeepAfterLeaving, Is.False, "nothing under way");
+        column.Arm();
+        column.Start(new CommandFactory(Samples.Client));
+        Assert.That(column.KeepAfterLeaving, Is.True, "a start under way is kept when the page is left");
+        column.Cancel();
+        Assert.That(column.KeepAfterLeaving, Is.True, "and a stop still to send");
+        Assert.That(column.Actions().Select(action => action.Kind), Is.EqualTo(new[] { ShareActionKind.Close }), "a way off the page after Cancelled");
+        column.Viewed(View(share: Share("link", "https://example-name.invalid/")));
+        Assert.That(column.StopNow, Is.True);
+        Assert.That(column.Stop(new CommandFactory(Samples.Client)), Is.Not.Null);
+        Assert.That(column.StopNow, Is.True, "the wish stays until the host says the stop went (SHOULD 1)");
+        column.StopSent();
+        Assert.That(column.StopNow, Is.False);
+    }
+
+    [Test]
+    public void AuditRereadAFailedWaysReadSaysTheComputerCannotTellWithTryAgain()
+    {
+        var column = new ShareColumn(View());
+        column.WaysFailed();
+        Assert.That(column.Stage, Is.EqualTo(ShareStage.NoWay));
+        Assert.That(column.Card()!.Status!.Value.Line, Is.EqualTo(ShareText.CannotTell), "never still asking");
+        Assert.That(column.Actions().Select(action => action.Kind), Is.EqualTo(new[] { ShareActionKind.TryAgain, ShareActionKind.Back }));
+        column.Again();
+        Assert.That(column.Stage, Is.EqualTo(ShareStage.Reading), "Try Again reads again");
     }
 }

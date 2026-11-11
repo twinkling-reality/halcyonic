@@ -471,4 +471,30 @@ public class RoomResultTests
         Assert.That(confirming.Column[0].Locks, Is.True, "Share stands behind its lock");
         Assert.That(confirming.Card!.AnyDot, Is.False);
     }
+
+    [Test]
+    public void ShareStandsOnlyWhereThisHeadsetCanSendAndNeverInTheDemonstration()
+    {
+        // AUDIT's reread MUST 1: Share is offered only where it can act.
+        var json = new Newtonsoft.Json.Linq.JObject
+        {
+            ["project_id"] = "p1", ["name"] = "Star Catcher", ["location"] = null, ["starter"] = "iwsdk-vr",
+            ["created_at"] = "2026-11-11T05:00:00.000Z", ["updated_at"] = "2026-11-11T05:00:00.000Z",
+            ["check"] = new Newtonsoft.Json.Linq.JObject
+            {
+                ["check_id"] = "01a19000-0000-7000-8000-0000000000c1", ["recorded_at"] = "2026-11-11T05:00:00.000Z", ["position"] = 4, ["files"] = "current",
+                ["findings"] = new Newtonsoft.Json.Linq.JObject
+                {
+                    ["tsc"] = new Newtonsoft.Json.Linq.JObject { ["exit"] = 0, ["seconds"] = 1 }, ["build"] = new Newtonsoft.Json.Linq.JObject { ["exit"] = 0, ["seconds"] = 2 },
+                    ["page"] = null, ["unknown"] = null, ["passed"] = true, ["reads_confined"] = true,
+                },
+            },
+            ["preview"] = new Newtonsoft.Json.Linq.JObject { ["check_id"] = "01a19000-0000-7000-8000-0000000000c1", ["port"] = 47931, ["files"] = "current" },
+        };
+        var project = HalcyonicJson.Deserialize<ProjectView>(json.ToString(), strict: true);
+        var state = new ClientProjection();
+        Assert.That(RoomResult.Of(project, state, null, canSend: true)!.CanShare, Is.True);
+        Assert.That(RoomResult.Of(project, state, null, canSend: false)!.CanShare, Is.False, "the session cannot send");
+        Assert.That(RoomResult.Of(project, state, null, way: (null, true), canSend: true)!.CanShare, Is.False, "the demonstration");
+    }
 }

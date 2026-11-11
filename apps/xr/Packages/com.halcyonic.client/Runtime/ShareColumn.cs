@@ -309,10 +309,21 @@ namespace Halcyonic.Client
         {
             if (commands == null) throw new ArgumentNullException(nameof(commands));
             if (project.Share == null) return null;
-            // Sent once: a stop asked for while it started is now on its way (AUDIT MUST 1).
-            stopWhenItStands = false;
+            // The wish to stop is cleared only once the host says the stop went (StopSent; AUDIT reread SHOULD 1).
             return commands.StopShare(ProjectId);
         }
+
+        /// <summary>The host sent the stop: a stop asked for while it started is now on its way, so it is not sent again.</summary>
+        public void StopSent() => stopWhenItStands = false;
+
+        /// <summary>
+        /// Whether the host must keep this column when the person leaves the page: a start is under way, or a stop is still to
+        /// be sent (AUDIT reread MUST 2), so opening Share again finds the same column and nothing is dropped.
+        /// </summary>
+        public bool KeepAfterLeaving => sentCommandId != null || stopWhenItStands;
+
+        /// <summary>The ways could not be read: the column says the computer cannot tell, with Try Again (AUDIT reread SHOULD 2).</summary>
+        public void WaysFailed() => ways = new SharingWaysResponse { Link = ShareWayState.Unknown, Wifi = ShareWayState.Unknown };
 
         /// <summary>The sent start's id, so the host can match its answer; null where none is out.</summary>
         public string? SentCommandId => sentCommandId;
@@ -331,6 +342,7 @@ namespace Halcyonic.Client
         /// <summary>Try Again or Share Again: back to the choice, the old outcome forgotten.</summary>
         public void Again()
         {
+            if (Stage == ShareStage.NoWay) ways = null;
             failure = null;
             stopped = null;
             chosen = null;
@@ -438,11 +450,17 @@ namespace Halcyonic.Client
                     actions.Add(new ShareAction(ShareActionKind.Cancel, ShareText.Cancel));
                     break;
                 case ShareStage.Starting:
-                    // Cancel once: then the share is stopped the moment it stands, and nothing more is offered.
+                    // Cancel once: then the share is stopped the moment it stands, wherever the person goes, and Close leaves
+                    // the page (AUDIT reread MUST 1, item 3).
                     if (!stopWhenItStands) actions.Add(new ShareAction(ShareActionKind.Cancel, ShareText.Cancel));
+                    else actions.Add(new ShareAction(ShareActionKind.Close, ShareText.Close));
                     break;
                 case ShareStage.Reading:
+                    actions.Add(new ShareAction(ShareActionKind.Back, ShareText.Back));
+                    break;
                 case ShareStage.NoWay:
+                    // Ask again: a way may stand once the computer is set up or on a network.
+                    actions.Add(new ShareAction(ShareActionKind.TryAgain, ShareText.TryAgain, main: true));
                     actions.Add(new ShareAction(ShareActionKind.Back, ShareText.Back));
                     break;
                 case ShareStage.Shared:
