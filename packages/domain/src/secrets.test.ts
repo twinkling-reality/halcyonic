@@ -84,6 +84,10 @@ describe('admitting a secret set or removal (ADR 0057)', () => {
       'DYLD_INSERT_LIBRARIES',
       'NODE_OPTIONS',
       'GIT_DIR',
+      'HTTPS_PROXY',
+      'ALL_PROXY',
+      'SSL_CERT_FILE',
+      'BUN_CONFIG_REGISTRY',
     ]) {
       const refused = admitCommand(
         command('project.secret.set', projectId, name),

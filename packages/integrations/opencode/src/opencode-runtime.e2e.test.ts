@@ -71,6 +71,18 @@ let executionCount = 0;
  * control plane gives it: the test's OpenCode settings and the tools readable, and the folder of
  * Halcyonic's stand-in credentials hidden. Nothing else of the disk is opened (BOX-3b).
  */
+/** Every file under `root` whose bytes hold `text`: none expected for a secret's value (AUDIT3 S2). */
+function filesHolding(root: string, text: string): string[] {
+  try {
+    return execFileSync('/usr/bin/grep', ['-rlF', '--', text, root], { encoding: 'utf8' })
+      .split('\n')
+      .filter(Boolean);
+  } catch (error) {
+    if ((error as { status?: number }).status === 1) return [];
+    throw error;
+  }
+}
+
 function sandboxOf(sandbox: OpenCodeSandbox) {
   return process.platform === 'darwin'
     ? {
@@ -1692,6 +1704,13 @@ describe('OpenCode tasks stop when something other than Halcyonic changes what t
       assert.ok(!sent.includes('home=/elsewhere'), "a secret replaced the commands' own HOME");
       const empty = createHash('sha256').update('').digest('hex').slice(0, 16);
       assert.ok(sent.includes(`key=${empty}`), "the next task's command read the secret");
+      // The runtime's own files, its store and logs, hold no value after the runs (AUDIT3 S2).
+      // The control: the command itself, which the runtime keeps, is found by the same search.
+      assert.ok(
+        filesHolding(sandbox.root, 'PROJECT_TEST_KEY').length > 0,
+        'the search reaches its files',
+      );
+      assert.deepEqual(filesHolding(sandbox.root, value), [], 'a runtime file holds the value');
     },
   );
 });

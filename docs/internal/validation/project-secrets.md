@@ -16,6 +16,10 @@ checked against `pins.ts` first, never a copy from the owner's data folder. Each
 change is taken out ("the command did not read the secret"), checked by changing the code, then restored.
 Commands print a digest of the value, never the value.
 
+After both end to end runs, a search of the runtime's own sandbox folder (its store, its home, its logs)
+finds no file holding the value, while the same search finds the variable's name in the command each kept,
+the control (AUDIT3 S2).
+
 Not proven:
 - Codex inside Halcyonic's confined server, and a resumed thread after a restart (the adapter passes the
   secrets again on every resume; not run).
@@ -38,6 +42,12 @@ Not proven:
 6. **Refusals in words, nothing left staged**: a reserved name (`PATH`, `OPENCODE_PASSWORD`), a name not in
    capitals, a value under 8 characters, a project not on this Mac, a value over 8 KiB.
 7. **A restart** keeps only the values the journal lists, and deletes what a press left staged.
+10. **A task still running with a value** (AUDIT3's probe, kept as a test): a message repeating it is
+    redacted while it is set, after the secret is set to another value, and after Remove. Without the retired
+    values the test fails (checked by changing the code, then restored).
+11. **The page** says an agent working on a folder the person connected runs outside the sandbox and can read
+    every project's secrets, while such an agent is set up (`unconfined_agent`).
+12. **Reserved too:** `HTTPS_PROXY`, `ALL_PROXY`, `SSL_CERT_FILE` and `BUN_*` (the domain test).
 8. **The page**: a set or removal without the page's session, or from another site, is refused 403; a
    3,000-character value fits the route's own body limit while the page keeps 1 KiB elsewhere; no answer
    of the page, the set's or the state's, holds the value.

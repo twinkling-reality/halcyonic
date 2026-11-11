@@ -821,6 +821,7 @@ describe('the setup view on the pairing page', () => {
           secrets: project.secrets ?? [],
         })),
       everyAgent: () => false,
+      unconfinedAgent: () => true,
       nextId: () => {
         ids += 1;
         return `01a19000-0000-7000-8000-${String(ids).padStart(12, '0')}`;
@@ -859,6 +860,7 @@ describe('the setup view on the pairing page', () => {
     assert.deepEqual(state.secrets, {
       projects: [{ project_id: projectId, name: 'Garden', secrets: ['PROJECT_TEST_KEY'] }],
       every_agent: false,
+      unconfined_agent: true,
     });
     const read = await call(port, 'GET', '/setup/state', { cookie });
     assert.equal(read.body.includes('test-value-not-real'), false);
@@ -883,6 +885,10 @@ describe('the setup view on the pairing page', () => {
     const shown = await call(port, 'GET', '/setup', { cookie });
     assert.match(shown.body, /<h2>Project Secrets<\/h2>/);
     assert.match(shown.body, /An agent given a key can use it, print it, and send it/);
+    assert.match(
+      shown.body,
+      /runs outside the sandbox on this computer, and can read every project's secrets here/,
+    );
   });
 
   test('a mounted view may add nothing outside /setup', async () => {

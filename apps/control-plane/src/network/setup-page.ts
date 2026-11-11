@@ -133,6 +133,11 @@ export interface PageSecrets {
   readonly projects: () => readonly SecretsProject[];
   /** Whether every agent on this Mac declares `secret_environment`. */
   readonly everyAgent: () => boolean;
+  /**
+   * Whether an agent here can run outside Halcyonic's sandbox (Claude Code on a folder the person
+   * connected), so its commands can read every project's secrets on this Mac (AUDIT3).
+   */
+  readonly unconfinedAgent: () => boolean;
   readonly set: (projectId: unknown, name: unknown, value: unknown) => string | null;
   readonly remove: (projectId: unknown, name: unknown) => string | null;
 }
@@ -158,6 +163,7 @@ export function pageSecrets(deps: {
   readonly store: SecretStore;
   readonly projects: () => readonly SecretsProject[];
   readonly everyAgent: () => boolean;
+  readonly unconfinedAgent: () => boolean;
   readonly nextId: () => string;
   readonly now: () => Date;
 }): PageSecrets {
@@ -196,6 +202,7 @@ export function pageSecrets(deps: {
   return {
     projects: deps.projects,
     everyAgent: deps.everyAgent,
+    unconfinedAgent: deps.unconfinedAgent,
     set: (projectId, name, value) => {
       if (!known(projectId)) return 'That project is not on this Mac.';
       const problem = nameProblem(name) ?? valueProblem(value);
@@ -319,6 +326,8 @@ export interface SetupState {
   readonly secrets: {
     readonly projects: readonly SecretsProject[];
     readonly every_agent: boolean;
+    /** An agent here can run outside the sandbox and read every project's secrets. */
+    readonly unconfined_agent: boolean;
   } | null;
 }
 
@@ -650,6 +659,7 @@ export class SetupView {
           : {
               projects: this.#deps.secrets.projects(),
               every_agent: this.#deps.secrets.everyAgent(),
+              unconfined_agent: this.#deps.secrets.unconfinedAgent(),
             },
     };
   }

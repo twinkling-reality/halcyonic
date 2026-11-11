@@ -476,6 +476,11 @@ async function main(): Promise<void> {
                         controlPlane.registry
                           .descriptors()
                           .every((descriptor) => descriptor.secret_environment === true),
+                      // Claude Code runs outside Halcyonic's sandbox on a folder the person connected.
+                      unconfinedAgent: () =>
+                        controlPlane.registry
+                          .descriptors()
+                          .some((descriptor) => descriptor.kind === 'claude-agent'),
                       nextId: () => ids.next(),
                       now: () => systemClock.now(),
                     }),

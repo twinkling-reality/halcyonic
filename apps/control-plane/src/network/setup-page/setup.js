@@ -341,6 +341,7 @@ function drawSecrets() {
   $('secrets').hidden = secrets === null || secrets.projects.length === 0;
   if (secrets === null) return;
   $('secrets-some').hidden = secrets.every_agent;
+  $('secrets-open').hidden = !secrets.unconfined_agent;
   // Drawn again only when the names change, so a poll never clears a field being typed in.
   const drawn = JSON.stringify(secrets.projects);
   if (drawn === drawnSecrets) return;
