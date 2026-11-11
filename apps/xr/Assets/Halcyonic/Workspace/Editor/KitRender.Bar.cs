@@ -78,7 +78,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// band; a long message; Changes and its second page's way on; Checks passed and failed; and a project with a
         /// check and no observed turn.
         /// </summary>
-        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-project" };
+        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-project", "38-result-agent" };
 
         /// <summary>The agent's newest message in the result's states, DESIGN's own, synthetic.</summary>
         private const string ResultSays = "I added the golden balloon and removed the old backup file.";
@@ -110,7 +110,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var failing = new[] { Step(CheckStepKind.TypeCheck, CheckStepResult.Passed), Step(CheckStepKind.Build, CheckStepResult.Failed), Step(CheckStepKind.PageDrawn, CheckStepResult.NotRun), Step(CheckStepKind.VrOffered, CheckStepResult.NotRun) };
             return state switch
             {
-                "38-result" or "38-result-long" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing),
+                "38-result" or "38-result-long" or "38-result-agent" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing),
                 "38-changes" => new RoomResult(false, true, false, true, ResultTurn(false), passing, RoomResultPage.Changes),
                 "38-changes-long" => new RoomResult(false, true, false, true, ResultTurn(true), passing, RoomResultPage.Changes),
                 "38-checks" => new RoomResult(isVr: true, canMakeVr: false, canTry: true, passed: true, ResultTurn(false), passing, RoomResultPage.Checks),
@@ -217,6 +217,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-changes-long" => (VoiceStage.Idle, false, RoomBarState.Rest, "Changes with more than a page: eight rows, Next Page and Back, synthetic data"),
                 "38-checks" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks passed: a row a step of the computer's check, Try Build and Back, synthetic data"),
                 "38-checks-failed" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks failed: the steps the check reached, Write Instruction and Back, synthetic data"),
+                "38-result-agent" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the agent offers never ask: the agent and its level in the row beside it, synthetic data"),
                 "38-project" => (VoiceStage.Idle, false, RoomBarState.Rest, "A project with a check and no observed turn: Build Passed, Make VR Version and Try Build, synthetic data"),
                 "37-page" => (VoiceStage.Idle, false, RoomBarState.Page, "A page with no moment of its own: its line in the panel, its actions in the column, synthetic data"),
                 "36-work" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work: the field, the agent's cursor saying its step, Stop alone, synthetic data"),
@@ -413,7 +414,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 SelectedProject, ProductionSpine(workspace), new KitRowModel("workspace", LineWords.Ours("Move Workspace"), GlazeIcon.Move), roomDesign: true,
                 draftSpoken: screen.Instruction.Open && screen.Instruction.Spoken, requestRows: requestRows, chooses: choosing,
                 asking: screen.Question.Draft != null && !screen.Question.Reviewing ? screen.Question.Prompt : (int?)null,
-                writing: screen.Question.Writing ? screen.Question.Input : null, result: ResultFor(state));
+                writing: screen.Question.Writing ? screen.Question.Input : null, result: ResultFor(state),
+                selectors: state == "38-result-agent" ? new KitSelectors("This Mac", false, "Synthetic Agent", agentChangeable: true, offersNeverAsk: true, neverAsk: true) : null);
             // As the director does: a frame the task's binding has no place for is carried plain where a reader of the redesign takes it.
             if (binding == null && state == "37-page" && RoomBar.OfFrame(frame, VoiceStage.Idle) != null) binding = KitFileBinding.PlainOf(frame);
             if (binding == null)
@@ -547,6 +549,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         "the row's feet are not 94.4 dp under the pair's foot line");
                     Require(drawnFrames == 1, "the result's frame was reported drawn " + drawnFrames + " times: a message on the band is not read before the row takes a press");
                     var message = state == "38-result-long" ? ResultSaysLong : ResultSays;
+                    // Where the agent offers never ask the row names it and its level, and the result still stands over it.
+                    if (state == "38-result-agent")
+                        Require(shown.Row.Any(action => action.Control.Action == AgentColumn.Open && action.Words.Contains("Never Ask")) && bar.More.gameObject.activeSelf,
+                            "the agent and its level do not stand in the row beside the result");
                     if (known.Page == RoomResultPage.Result)
                     {
                         Require(shown.Band == message && host.Band.Words != null && host.Band.Text.Length > 0, "the agent's newest message does not stand on the band");

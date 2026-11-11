@@ -44,7 +44,8 @@ public class RoomResultTests
     }
 
     /// <summary>The redesign's view of a task at rest holding <c>result</c>, its agent having said <c>says</c>.</summary>
-    private static RoomBar Bar(RoomResult? result, string? says = "I added the golden balloon.", ExecutionStatus status = ExecutionStatus.Completed, Action<FileScreen>? prepare = null)
+    private static RoomBar Bar(RoomResult? result, string? says = "I added the golden balloon.", ExecutionStatus status = ExecutionStatus.Completed, Action<FileScreen>? prepare = null,
+        KitSelectors? selectors = null)
     {
         var work = new WaitingWork();
         work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = status; }, status == ExecutionStatus.Completed ? WorkstreamStatus.Completed : WorkstreamStatus.Running);
@@ -57,7 +58,7 @@ public class RoomResultTests
         prepare?.Invoke(screen);
         var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4));
         var binding = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Open ? screen.Instruction.Words : "", new ConnectionStatus(ConnectionPhase.Live), "Storefront",
-            new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true, result: result);
+            new[] { new KitSpineSection(new KitRowModel[0]) }, selectors: selectors, roomDesign: true, result: result);
         Assert.That(binding, Is.Not.Null, "the redesign binds the frame");
         return RoomBar.Of(binding!, VoiceStage.Idle, false);
     }
@@ -175,5 +176,42 @@ public class RoomResultTests
         Assert.That(state.ResultPageFor("w3", null), Is.EqualTo((RoomResultPage.Result, 0)));
         // A page past the rows' last shows the last.
         Assert.That(new RoomResult(false, false, false, null, Turn(Observed), null, RoomResultPage.Changes, part: 9).Part, Is.EqualTo(0));
+    }
+
+    [TestCase(ProjectViewCheckFiles.Current, true)] [TestCase(ProjectViewCheckFiles.Changed, false)] [TestCase(ProjectViewCheckFiles.Unknown, false)]
+    public void TheComputersCheckStandsOnlyForTheFilesItChecked(ProjectViewCheckFiles files, bool stands)
+    {
+        // A passed check, then the folder changed after it: the check says nothing of the files it never saw (AUDIT2).
+        var project = new ProjectView { ProjectId = "p1", Name = "Balloon Pop", CreatedAt = Samples.Time, UpdatedAt = Samples.Time,
+            Check = new ProjectViewCheck { CheckId = "c1", RecordedAt = Samples.Time, Position = 1, Files = files, Findings = HalcyonicJson.Deserialize<CheckFindings>(Passing, strict: true) } };
+        var state = new ClientProjection();
+        var snapshot = Samples.Snapshot(1, new WorkstreamView[0], new ExecutionView[0]);
+        snapshot.Projects.Add(project);
+        state.ApplySnapshot(snapshot, new StateChanges());
+        var result = RoomResult.Of(project, state, Turn(Observed))!;
+        Assert.That((result.CheckLine, result.Steps.Count > 0), Is.EqualTo((stands ? "Build Passed" : null, stands)));
+        var bar = Bar(result);
+        Assert.That(bar.Column.Any(action => action.Control.Action == RoomResult.ShowChecks), Is.EqualTo(stands), "no Checks page for a check of other files");
+        Assert.That(bar.Body.Text, Is.EqualTo("5 Files Changed"), "what the computer observed still stands");
+    }
+
+    [Test]
+    public void TheResultStandsBesideTheAgentsActionWhereTheAgentOffersNeverAsk()
+    {
+        // Codex, the main path, offers never ask: the row names the agent and its level, and the result still stands over it.
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var selectors = new KitSelectors("This Mac", false, "Codex", agentChangeable: true, offersNeverAsk: true, neverAsk: true);
+            var bar = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()), selectors: selectors);
+            Assert.That((bar.Result, bar.Body.Text, bar.Sentence, bar.Band), Is.EqualTo((true, "5 Files Changed", (string?)"Build Passed", (string?)"I added the golden balloon.")), Show(bar));
+            Assert.That(bar.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.MakeVrVersion, RoomResult.ShowChanges, RoomResult.ShowChecks }));
+            var agent = bar.Row.Single(action => action.Control.Action == AgentColumn.Open);
+            Assert.That(agent.Words, Does.Contain("Never Ask"), "the level the next start will use stays shown beside the result");
+            // The agent's moment adds its action to the loop's own bar and answers nothing, so the loop's bar is what stands.
+            Assert.That(bar.FromMoment, Is.False);
+        }
+        finally { RoomDesign.Enabled = was; }
     }
 }
