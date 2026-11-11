@@ -75,6 +75,8 @@ public sealed class RoomReviewTests
         var addressPart = RoomReview.Card(onlyAddress, part: 2, taskPages: 1);
         Assert.That(addressPart.Status!.Value.Line, Is.EqualTo(RoomReview.CheckAddressLine));
         Assert.That(addressPart.Description!.Text, Is.EqualTo("Use the wind from https://example.com/wind to pull it."), "only the sentence that holds it");
+        Assert.That(addressPart.Slots.Select(slot => (slot.Kind, slot.Value.Text, slot.Mono)), Is.EqualTo(new[] { (RoomKind.Link, "https://example.com/wind", true) }),
+            "the address itself, whole, in mono, its sentence's end left off");
         Assert.That(check.More!.Text, Is.EqualTo("Part 4 of 4"));
         Assert.That(RoomReview.Card(review, part: 9, taskPages: 2).More!.Text, Is.EqualTo("Part 4 of 4"), "past the last part is the last");
         Assert.That(check.AnyDot, Is.False);

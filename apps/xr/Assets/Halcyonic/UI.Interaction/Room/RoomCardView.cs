@@ -307,8 +307,9 @@ namespace Halcyonic.XR.UI
             }
             if (card.Description != null)
             {
-                // Under a head a block's gap, as every other block; under a title alone, its own small gap.
-                down += S(card.Head != RoomCardHead.None ? BlockGapDp : DescriptionGapDp);
+                // Under a head or a status a block's gap, as every other block, so another's words never read as the status's
+                // line (the critic, 2026-11-11); under a title alone, its own small gap.
+                down += S(card.Head != RoomCardHead.None || card.Status != null ? BlockGapDp : DescriptionGapDp);
                 if (card.DescriptionPage is int page)
                 {
                     // Paged: four lines a page, broken between lines; the page asked for, or the last there is.
@@ -388,8 +389,9 @@ namespace Halcyonic.XR.UI
             var column = width - left;
             var top = down;
             var under = card.Title != null;
-            // Under a name the state is set in the reading face, so the name stays the heavier of the two.
-            var (titleLabel, titleTall) = Text(under ? KitRole.Body : KitRole.Title, under ? UnderTitleStatusDp : StatusTitleDp, under ? UnderTitleStatusLineDp : StatusTitleLineDp, Color.white,
+            // Under a name the state is a step smaller in the status's own weight; under a file's mono name, whose face is regular,
+            // in the reading face, so the name stays the heavier of the two.
+            var (titleLabel, titleTall) = Text(under && card.TitleMono ? KitRole.Body : KitRole.Title, under ? UnderTitleStatusDp : StatusTitleDp, under ? UnderTitleStatusLineDp : StatusTitleLineDp, Color.white,
                 LineWords.Ours(status.Title), left, -down, column, 2);
             var tall = titleTall;
             TextMeshPro? lineLabel = null;
@@ -492,7 +494,7 @@ namespace Halcyonic.XR.UI
                     var added = row.Kind == RoomLineKind.Added;
                     var centreY = -(down + runTall / 2f);
                     Plate(new Vector2(width, runTall), 0f, added ? Rgb(AddedBand) : Rgb(RemovedBand), new Vector2(width / 2f, centreY), "reading band");
-                    Plate(new Vector2(S(3f), runTall), 0f, added ? Rgb(Passed) : Rgb(RemovedRule), new Vector2(S(1.5f), centreY), "reading rule");
+                    Plate(new Vector2(S(3f), runTall), 0f, added ? Rgb(Passed) : Rgb(RemovedRule), new Vector2(S(1.5f), centreY), "reading rule", front: true);
                 }
                 if (changed)
                 {
@@ -735,8 +737,12 @@ namespace Halcyonic.XR.UI
                 widths[index] = Mathf.Max(S(StepDp), RoomCursor.WordsWidth(label, 0f));
                 tallest = Mathf.Max(tallest, tall);
             }
-            var sum = 0f;
-            foreach (var each in widths) sum += each;
+            // Equal columns, each as wide as the widest name or mark, so every node stands the same pitch from the next and
+            // each join runs the same inset (the critic, 2026-11-11).
+            var widest = 0f;
+            foreach (var each in widths) widest = Mathf.Max(widest, each);
+            for (var index = 0; index < widths.Length; index++) widths[index] = widest;
+            var sum = widest * widths.Length;
             var joins = steps.Count - 1;
             var join = joins > 0 ? Mathf.Max(S(10f), (width - sum - 2f * S(StepJoinGapDp) * joins) / joins) : 0f;
             var x = 0f;
@@ -751,7 +757,7 @@ namespace Halcyonic.XR.UI
                     RoomTone.Bad => (Rgb(BadFill), Color.white, RoomGlyph.Alert, Color.clear),
                     RoomTone.Working => (Rgb(WorkingFill), Color.white, RoomGlyph.Wrench, Color.clear),
                     // Not run: an outline that holds over the bright room, nothing in it.
-                    RoomTone.Skipped => (Color.clear, Color.clear, (RoomGlyph?)null, White(0.36f)),
+                    RoomTone.Skipped => (Color.clear, Color.clear, (RoomGlyph?)null, White(0.46f)),
                     _ => (Rgb(QuietFill), Color.white, RoomGlyph.Wait, Color.clear),
                 };
                 Plate(new Vector2(S(StepDp), S(StepDp)), S(StepCornerDp), ground, centre, "step " + step.Name, edge, edge.a > 0f ? S(2f) : 0f);
@@ -765,7 +771,7 @@ namespace Halcyonic.XR.UI
                 if (index < joins)
                 {
                     var joined = step.Tone == RoomTone.Good;
-                    Plate(new Vector2(join, S(StepJoinDp)), S(StepJoinDp) / 2f, joined ? Rgb(Passed, 0.55f) : White(0.16f),
+                    Plate(new Vector2(join, S(StepJoinDp)), S(StepJoinDp) / 2f, joined ? Rgb(GoodFill, 0.70f) : White(0.28f),
                         new Vector2(x + S(StepJoinGapDp) + join / 2f, middle), "join");
                     x += join + 2f * S(StepJoinGapDp);
                 }

@@ -1,4 +1,5 @@
 #nullable enable
+using System.Collections.Generic;
 using System.Linq;
 using Halcyonic.Contracts;
 
@@ -31,13 +32,17 @@ namespace Halcyonic.Client
         public static RoomCard? FixingCard(AutoFixView? fix)
         {
             if (fix == null || fix.State != AutoFixViewState.Fixing || fix.Attempt < 1 || fix.Cap < 1) return null;
-            var status = new RoomCardStatus(FixingTitle, FixingLine, RoomTone.Working);
-            // What is being fixed, named: each failed step a node, its tries as pips on it, as the checks card hangs them
-            // (the critic, 2026-11-11: pips under the status said nothing of what they counted). Where the view names no
-            // step, the tries hang on the status's mark as before.
-            if (fix.FailedSteps is { Count: > 0 } failed)
-                return new RoomCard(status: status, steps: failed.Distinct().Select(step => new RoomCardStep(FailedStepWords(step), RoomTone.Working, (int)fix.Attempt, (int)fix.Cap)).ToList());
-            return new RoomCard(status: status, trackAt: (int)fix.Attempt, trackOf: (int)fix.Cap);
+            // What is being fixed, named in the line ("Working on Build by itself"), the tries as pips on the status's mark:
+            // a node of its own under the mark repeated the mark (the critics, 2026-11-11).
+            var line = fix.FailedSteps is { Count: > 0 } failed ? FixingOn(failed.Distinct().Select(FailedStepWords).ToList()) : FixingLine;
+            return new RoomCard(status: new RoomCardStatus(FixingTitle, line, RoomTone.Working), trackAt: (int)fix.Attempt, trackOf: (int)fix.Cap);
+        }
+
+        /// <summary>The fixing line naming its steps: "Working on Build by itself", "Working on Type Check and Build by itself".</summary>
+        public static string FixingOn(IReadOnlyList<string> steps)
+        {
+            var named = steps.Count == 1 ? steps[0] : string.Join(", ", steps.Take(steps.Count - 1)) + " and " + steps[steps.Count - 1];
+            return "Working on " + named + " by itself";
         }
 
         /// <summary>A failed step's name, as the checks card names its steps (<see cref="RoomResult.StepWords"/>).</summary>
