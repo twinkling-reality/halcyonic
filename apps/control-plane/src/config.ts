@@ -69,9 +69,9 @@ export interface ControlPlaneConfig {
    */
   readonly tasksDir: string;
   /**
-   * Whether every task works in its own copy (ADR 0045), with `HALCYONIC_TASK_COPIES=1`. Off by
-   * default until the headset offers Add To Project: with copies on, nothing an agent does reaches
-   * the project until the person adds it.
+   * Whether every task works in its own copy (ADR 0045): on by default since the headset offers Add
+   * to Project, so nothing an agent does reaches the project until the person adds it;
+   * `HALCYONIC_TASK_COPIES=0` turns it off, and every task works in the project's folder.
    */
   readonly taskCopies: boolean;
   readonly logLevel: LogLevel;
@@ -176,7 +176,7 @@ export function loadConfig(
     network: parseNetwork(env, port),
     dataDir: defaultDataDir(env),
     tasksDir: parseTasksDir(env),
-    taskCopies: parseSwitch('HALCYONIC_TASK_COPIES', env.HALCYONIC_TASK_COPIES),
+    taskCopies: parseSwitch('HALCYONIC_TASK_COPIES', env.HALCYONIC_TASK_COPIES, true),
     logLevel: parseLogLevel(env.HALCYONIC_LOG_LEVEL),
     commandTimeoutMs: parseInteger(
       'HALCYONIC_COMMAND_TIMEOUT_MS',
@@ -247,8 +247,9 @@ export function parseNetwork(
   return { host, port };
 }
 
-function parseSwitch(name: string, raw: string | undefined): boolean {
-  if (raw === undefined || raw === '' || raw === '0') return false;
+function parseSwitch(name: string, raw: string | undefined, unset = false): boolean {
+  if (raw === undefined || raw === '') return unset;
+  if (raw === '0') return false;
   if (raw === '1') return true;
   throw new ConfigError(`${name} must be 1 or 0, got "${raw}".`);
 }

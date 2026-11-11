@@ -906,6 +906,14 @@ export class Projection {
     return this.#checksById.get(projectId as ProjectId)?.get(checkId as CheckId)?.findings;
   }
 
+  /**
+   * The folder a check checked, a task's own copy or the project's (ADR 0045); null where it was not
+   * known, and undefined for a check not held here.
+   */
+  checkFolder(projectId: string, checkId: string): string | null | undefined {
+    return this.#checksById.get(projectId as ProjectId)?.get(checkId as CheckId)?.folder;
+  }
+
   /** The project's latest check, or undefined when it has none. */
   latestCheck(projectId: string): ProjectCheck | undefined {
     const state = this.#checks.get(projectId as ProjectId);

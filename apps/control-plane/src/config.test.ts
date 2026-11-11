@@ -57,12 +57,16 @@ describe('configuration', () => {
       loadConfig({
         HALCYONIC_PROJECT_ROOTS: projects,
         HALCYONIC_TASKS_DIR: join(projects, 'tasks'),
+        HALCYONIC_TASK_COPIES: '0',
       }).taskCopies,
       false,
     );
-    // Off until the headset can add a task's work: then nothing an agent does is held back.
-    assert.equal(loadConfig({}).taskCopies, false);
+    // On by default since the headset can add a task's work (ADR 0045); 0 turns it off.
+    assert.equal(loadConfig({}).taskCopies, true);
+    assert.equal(loadConfig({ HALCYONIC_TASK_COPIES: '' }).taskCopies, true);
     assert.equal(loadConfig({ HALCYONIC_TASK_COPIES: '1' }).taskCopies, true);
+    assert.equal(loadConfig({ HALCYONIC_TASK_COPIES: '0' }).taskCopies, false);
+    assert.throws(() => loadConfig({ HALCYONIC_TASK_COPIES: 'yes' }), /must be 1 or 0/);
     for (const tasks of ['/d/data/tasks', '/d/data', '/d'])
       assert.throws(
         () => loadConfig({ HALCYONIC_DATA_DIR: '/d/data', HALCYONIC_TASKS_DIR: tasks }),

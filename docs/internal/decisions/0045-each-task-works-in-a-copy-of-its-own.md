@@ -1,6 +1,6 @@
 # ADR 0045: Each task works in a copy of its own, and its work reaches the project only when the person adds it
 
-- Status: Accepted 2026-11-10; contracts, views, admission, the copies made at a task's first start, adding, its conflicts and the fit built, run with Codex and OpenCode at once on 2026-11-10; off by default (`HALCYONIC_TASK_COPIES=1` turns it on) until the headset offers Add To Project; a check of a task's own copy and the automatic check after a turn in it, which a failed check's fix follows, built
+- Status: Accepted 2026-11-10; contracts, views, admission, the copies made at a task's first start, adding, its conflicts and the fit built, run with Codex and OpenCode at once on 2026-11-10; on by default since the headset offers Add to Project (`HALCYONIC_TASK_COPIES=0` turns it off); a check of a task's own copy and the automatic check after a turn in it, which a failed check's fix follows, built
 - Date: 2026-11-10
 - Amends ADR 0020 (a project works in one folder) and ADR 0036 (checkpoints); complements ADR 0037 and ADR 0041
 
@@ -70,6 +70,12 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
    why (`workstream.copy_refused`): its `.git` is a file, another repository sits inside it, it is
    larger than a checkpoint keeps, its volume cannot clone, it is missing, or it holds Halcyonic's
    data, or its runtime is not held to the folder (1).
+   - **A world's tasks get no copy** (amended 2026-11-11, AUDIT2's finding on copies by default; the
+     lead's choice). A world is the one starter whose tasks change the project in place: the person
+     speaks to it, and the world the headset shows follows each turn (ADR 0049), which reads the
+     project's own folder. In a copy, no turn would change the world shown, and only an add would.
+     So a world project's tasks work in its folder, one at a time, with nothing recorded as refused:
+     their view has no copy, and the headset offers no Add to Project for them.
 4. The project's folder changes only when the person adds a task's work (`workstream.add_to_project`,
    review required, admitted only while the task is at rest and nothing else writes the project's
    folder) or restores a checkpoint. Nothing adds by itself, even for the only task at work.

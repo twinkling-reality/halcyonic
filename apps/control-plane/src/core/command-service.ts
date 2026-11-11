@@ -23,6 +23,7 @@ import type {
   Timestamp,
   WorkstreamId,
 } from '@halcyonic/contracts';
+import { WORLD_STARTER_ID } from '@halcyonic/contracts';
 import {
   type Admission,
   admitCommand,
@@ -828,6 +829,15 @@ export class CommandService {
     if (project_id === null || workstream_id === null)
       return { ok: true, directory: projectFolder };
     const where = { project_id, workstream_id, execution_id: null };
+    // A world changes when the person speaks to it (ADR 0049): its tasks change the project in place,
+    // so the world the headset shows follows each turn. They get no copy, and work in the project's
+    // folder one at a time, as before copies (ADR 0045).
+    if (this.#deps.projection.project(project_id)?.starter === WORLD_STARTER_ID) {
+      const busy = folderInUse(this.#deps.projection, projectFolder, workstream_id);
+      return busy === null
+        ? { ok: true, directory: projectFolder }
+        : { ok: false, failure: { code: 'folder_in_use', message: busy.message, effect: 'none' } };
+    }
     let made: PrepareResult;
     try {
       // A runtime not held to the folder it is given could write other tasks' copies from one.

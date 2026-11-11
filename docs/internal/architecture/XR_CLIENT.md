@@ -2841,7 +2841,7 @@ bands are the bar's one band.
   (`EntryText.FolderFactPartsOf`); a usage window gives its gauge apart (`UsageLeftRow.Label`, `Window`, `Left`,
   `Resets`). The agent and the level were already apart (`KitSelectors`, `AgentColumn.LevelWords`). The joined forms
   stay until FIELD's cards replace them.
-- **Add to Project in the result** (ADR 0045, FIELD's A13 in A17's language; copies off by default on the host): read
+- **Add to Project in the result** (ADR 0045, FIELD's A13 in A17's language; copies on by default on the host): read
   only from the task's copy through FIELD's `RoomAdd.Of`. Where work waits, Add to Project leads the result; its page is a
   card (the task as its title, where its work goes, the files as its list), five files a page, Next Page through them,
   and Add to Project behind its lock on the last page alone, only where the host listed every file, so every file is

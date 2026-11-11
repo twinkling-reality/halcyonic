@@ -649,7 +649,11 @@ export class HostPreviews {
     readonly places: CheckLogPlaces;
   } | null {
     const findings = this.#deps.projection.checkFindings(projectId, checkId);
-    const folder = this.#deps.projection.project(projectId)?.location?.path;
+    // The folder the check checked, a task's own copy where it was one (AUDIT2 S1), as
+    // failedCheckOutput names it, so the person's log names its paths as `./`.
+    const folder =
+      this.#deps.projection.checkFolder(projectId, checkId) ??
+      this.#deps.projection.project(projectId)?.location?.path;
     if (findings === undefined || folder === undefined) return null;
     const cache = this.#cache(projectId, checkId);
     const exit = step === 'typecheck' ? findings.tsc.exit : findings.build.exit;

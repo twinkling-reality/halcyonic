@@ -394,7 +394,9 @@ Every text in them is outside words, from the project's files or its build, as `
 - `GET /api/projects/:project_id/file?path`: one file of the project's folder as it is now, a
   project-relative path: `text` (valid UTF-8 without NUL, at most 256 KiB, given whole), `binary`,
   `too_large` or `withheld`, with its size and modification time; never through a link, outside the
-  folder or inside Halcyonic's own data.
+  folder or inside Halcyonic's own data. It reads the project's own folder only, never a task's copy
+  (ADR 0045): a task's work not yet added is not there, so a screen must not show this file as the
+  task's.
 - `GET /api/projects/:project_id/checks/:check_id/output?step=typecheck|build`: a step of one of the
   project's checks as its own folder holds it, its exit (null when it did not run) and at most 200
   lines of at most 300 characters, cleaned as the agent's copy is: no terminal sequences or unseen
