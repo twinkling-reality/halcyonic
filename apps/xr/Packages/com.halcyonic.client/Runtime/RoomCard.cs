@@ -120,11 +120,15 @@ namespace Halcyonic.Client
     /// <summary>One fact of a card's loadout: the glyph of its kind in a tile, its value under it, and no label.</summary>
     public readonly struct RoomSlot
     {
-        public RoomSlot(RoomKind kind, LineWords value)
+        /// <param name="mono">The value is a name to type (a folder's name, a model's exact id), set in the mono face.</param>
+        public RoomSlot(RoomKind kind, LineWords value, bool mono = false)
         {
             Kind = kind;
             Value = value;
+            Mono = mono;
         }
+
+        public bool Mono { get; }
 
         public RoomKind Kind { get; }
 

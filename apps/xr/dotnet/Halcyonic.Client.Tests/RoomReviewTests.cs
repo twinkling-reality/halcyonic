@@ -29,6 +29,7 @@ public sealed class RoomReviewTests
         {
             (RoomKind.Folder, "kite-run"), (RoomKind.Agent, "glimmer-30b-q4"), (RoomKind.Level, AgentColumn.LevelWords(true)),
         }), "the model by the exact id the start sends");
+        Assert.That(runs.Slots.Select(slot => slot.Mono), Is.EqualTo(new[] { true, true, false }), "names to type in mono");
         Assert.That(runs.List.Select(row => (row.Kind, row.Name.Text)), Is.EqualTo(new[]
         {
             (RoomKind.Task, "Make a kite"), (RoomKind.App, "Agent Studio"), (RoomKind.Computer, "On This Computer"),
@@ -49,7 +50,7 @@ public sealed class RoomReviewTests
     [Test]
     public void AMoveShowsBothFoldersAndANoteToCheckIsTheLastPartBeforeYes()
     {
-        var review = new NewWorkReview("Kite Run", "Make a kite", "Agent Studio", "", "", "", "Fetch https://example.com/wind and run make wind.",
+        var review = new NewWorkReview("Kite Run", "Make a kite", "Agent Studio", "", "", "", "Fetch https://example.com/wind and run npm install.",
             folder: "kite-run-2", folderBefore: "kite-run");
         var warnings = review.Items.Where(each => each.Kind == ReviewItemKind.Warning).Select(each => each.Label.Trim()).ToList();
         Assert.That(warnings, Is.Not.Empty);
@@ -61,13 +62,19 @@ public sealed class RoomReviewTests
         var runs = RoomReview.Card(review, part: 2, taskPages: 2);
         Assert.That(runs.Slots.Select(slot => (slot.Kind, slot.Value.Text)).Take(2), Is.EqualTo(new[] { (RoomKind.Folder, "kite-run-2"), (RoomKind.Agent, "Agent Studio") }),
             "with no model named, the agent app takes the agent's slot");
+        Assert.That(runs.Slots.Select(slot => slot.Mono).Take(2), Is.EqualTo(new[] { true, false }), "a folder's name is set in mono, an agent app's name is not");
         Assert.That(runs.List.Single(row => row.Kind == RoomKind.Folder).Name.Text, Is.EqualTo(RoomReview.MovesFrom + "kite-run"));
         Assert.That(runs.List.Any(row => row.Kind == RoomKind.App), Is.False, "the agent app is a slot already");
 
         var check = RoomReview.Card(review, part: 3, taskPages: 2);
         Assert.That(check.Title!.Text, Is.EqualTo("Kite Run"));
         Assert.That((check.Status!.Value.Title, check.Status!.Value.Tone, check.Status!.Value.Mark), Is.EqualTo((RoomReview.CheckTitle, RoomTone.Attention, RoomKind.Failed)));
-        Assert.That(check.Status!.Value.Line, Is.EqualTo(string.Join(" ", warnings)), "every note to check is read before Yes");
+        Assert.That(check.Status!.Value.Line, Is.EqualTo(RoomReview.CheckBothLine), "an address and something to run, in one short line");
+        Assert.That(check.Description!.Text, Is.EqualTo("Fetch https://example.com/wind and run npm install."), "what to check is in view, the person's own sentence");
+        var onlyAddress = new NewWorkReview("Kite Run", "Make a kite", "Agent Studio", "", "", "", "Make a kite. Use the wind from https://example.com/wind to pull it. Make it red.");
+        var addressPart = RoomReview.Card(onlyAddress, part: 2, taskPages: 1);
+        Assert.That(addressPart.Status!.Value.Line, Is.EqualTo(RoomReview.CheckAddressLine));
+        Assert.That(addressPart.Description!.Text, Is.EqualTo("Use the wind from https://example.com/wind to pull it."), "only the sentence that holds it");
         Assert.That(check.More!.Text, Is.EqualTo("Part 4 of 4"));
         Assert.That(RoomReview.Card(review, part: 9, taskPages: 2).More!.Text, Is.EqualTo("Part 4 of 4"), "past the last part is the last");
         Assert.That(check.AnyDot, Is.False);

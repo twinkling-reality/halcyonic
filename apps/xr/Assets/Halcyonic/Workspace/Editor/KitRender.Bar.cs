@@ -562,7 +562,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(bar.Panel.gameObject.activeSelf && host.Band.Words == null, "the panel does not stand while a try runs, or the band does");
                         // The fixing card (A17): "Fixing" over its line, the first of two tries a filled pip under its mark, no sentence.
                         var card = bar.Card;
-                        Require(card != null && card.Shown.Count >= 1 && card.Shown[0].GetParsedText() == RoomBar.FixingTitle && !bar.Sentence.gameObject.activeSelf,
+                        Require(card != null && card.Shown.Count >= 1 && card.Shown.Any(label => label.GetParsedText() == RoomBar.FixingTitle) && !bar.Sentence.gameObject.activeSelf,
                             "the panel is not the fixing card: \"" + (card == null ? "no card" : string.Join(" / ", card.Shown.Select(label => label.GetParsedText()))) + "\"");
                         if (card != null)
                             Require(card.Plates.Count(each => each.What == "pip used") == 1 && card.Plates.Count(each => each.What == "pip") == 1, "the card's pips are not the first of two tries");

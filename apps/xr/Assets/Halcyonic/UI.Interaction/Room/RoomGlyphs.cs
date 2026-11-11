@@ -412,6 +412,7 @@ namespace Halcyonic.XR.UI
         private MeshRenderer ink = null!;
         private MaterialPropertyBlock block = null!;
         private (RoomGlyph Glyph, float SizeDp, Color Colour)? drawn;
+        private float lastStroke = RoomGlyphs.Stroke;
 
         /// <summary>The glyph it shows, and its size in dp; null while hidden.</summary>
         public RoomGlyph? Glyph => gameObject.activeSelf ? drawn?.Glyph : null;
@@ -441,16 +442,18 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>Shows <paramref name="glyph"/> <paramref name="sizeDp"/> across (20 in a chip, 24 at the home size) in <paramref name="colour"/>.</summary>
-        public void Show(RoomGlyph glyph, float sizeDp, Color colour)
+        /// <param name="stroke">The stroke in the glyph's 24-unit grid: <see cref="RoomGlyphs.Stroke"/>, or heavier for a mark on a solid fill.</param>
+        public void Show(RoomGlyph glyph, float sizeDp, Color colour, float stroke = RoomGlyphs.Stroke)
         {
             if (!gameObject.activeSelf) gameObject.SetActive(true);
-            if (drawn is var (lastGlyph, lastSize, lastColour) && lastGlyph == glyph && Mathf.Approximately(lastSize, sizeDp) && lastColour == colour) return;
+            if (drawn is var (lastGlyph, lastSize, lastColour) && lastGlyph == glyph && Mathf.Approximately(lastSize, sizeDp) && lastColour == colour && Mathf.Approximately(lastStroke, stroke)) return;
             drawn = (glyph, sizeDp, colour);
+            lastStroke = stroke;
             var side = RoomType.Units(1f) * sizeDp;
             transform.localScale = new Vector3(side, side, 1f);
             var (a, b, count) = Arrays(glyph);
             block.SetVector(ColourId, new Vector4(colour.r, colour.g, colour.b, colour.a));
-            block.SetVector(StrokeId, new Vector4(RoomGlyphs.Stroke, count, 0f, 0f));
+            block.SetVector(StrokeId, new Vector4(stroke, count, 0f, 0f));
             block.SetVectorArray(ShapeAId, a);
             block.SetVectorArray(ShapeBId, b);
             ink.SetPropertyBlock(block);

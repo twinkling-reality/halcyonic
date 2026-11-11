@@ -15,7 +15,8 @@ namespace Halcyonic.Client
     /// the agent app) and the level as slots; then rows, each its value alone under its kind's mark: the task's name (the
     /// flag), the agent app where the model took its slot, where the model runs, "From" the folder it moves from.</item>
     /// <item>Where the first task names something to check, a last part right before Yes: the project's name over the status
-    /// "Check First" (Attention, the alert's mark), every note to check as its line.</item>
+    /// "Check First" (Attention, the alert's mark) with a short line of what kind of thing it is, then the person's own
+    /// sentences that hold it, so what is to be checked is in view.</item>
     /// </list>
     /// Every part's foot line says which it is: "Part 2 of 3". The task's parts are as many as the card's view made of its
     /// description (<c>RoomCardView.DescriptionPages</c>, shown with part 0); <see cref="Parts"/> counts them all. Each part
@@ -24,6 +25,30 @@ namespace Halcyonic.Client
     public static class RoomReview
     {
         public const string CheckTitle = "Check First";
+
+        public const string CheckAddressLine = "It names a web address. Check it first.";
+        public const string CheckCommandLine = "It names something to run. Check it first.";
+        public const string CheckBothLine = "It names a web address and something to run. Check them first.";
+
+        /// <summary>
+        /// The sentences of the first task, as the person wrote them, that hold what to check: each sentence the task's
+        /// warnings find something in, in order; null where none stands alone (the whole task is then on its own pages).
+        /// </summary>
+        public static LineWords? Naming(LineWords firstTask)
+        {
+            var text = firstTask.Text;
+            var sentences = new List<string>();
+            var start = 0;
+            for (var index = 0; index < text.Length; index++)
+            {
+                var end = index == text.Length - 1 || ((text[index] == '.' || text[index] == '!' || text[index] == '?') && char.IsWhiteSpace(text[index + 1])) || text[index] == '\n';
+                if (!end) continue;
+                var sentence = text.Substring(start, index + 1 - start).Trim();
+                if (sentence.Length > 0 && TaskWarnings.Of(sentence).Count > 0) sentences.Add(sentence);
+                start = index + 1;
+            }
+            return sentences.Count == 0 ? null : LineWords.Theirs(string.Join(" ", sentences));
+        }
 
         /// <summary>The words before the folder a move leaves: "From kite-run".</summary>
         public const string MovesFrom = "From ";
@@ -59,13 +84,24 @@ namespace Halcyonic.Client
 
             var warnings = Warnings(review);
             if (at == pages + 1)
-                return new RoomCard(title, status: new RoomCardStatus(CheckTitle, string.Join(" ", warnings), RoomTone.Attention, RoomKind.Failed), more: foot);
+            {
+                // What to check, shown, not only named: the person's own sentences that hold it, under a short line that says
+                // what kind of thing it is (the critic, 2026-11-11: "check it" with nothing to look at).
+                var address = warnings.Contains(TaskWarnings.WebAddress);
+                var command = warnings.Contains(TaskWarnings.Command);
+                var line = address && command ? CheckBothLine : address ? CheckAddressLine : command ? CheckCommandLine : string.Join(" ", warnings);
+                var task = review.Items.FirstOrDefault(each => each.Kind == ReviewItemKind.FirstTask);
+                var naming = task == null ? null : Naming(task.ValueRuns);
+                return new RoomCard(title, naming, status: new RoomCardStatus(CheckTitle, line, RoomTone.Attention, RoomKind.Failed), more: foot);
+            }
 
             // The model by the exact id the start sends where it has one: the one the person reads is the one that runs.
             var model = Value(ReviewItemKind.ModelId) ?? Value(ReviewItemKind.Model);
             var slots = new List<RoomSlot>();
-            if (Value(ReviewItemKind.Folder) is LineWords folder) slots.Add(new RoomSlot(RoomKind.Folder, folder));
-            if ((model ?? Value(ReviewItemKind.AgentApp)) is LineWords agent) slots.Add(new RoomSlot(RoomKind.Agent, agent));
+            // A folder's name and a model's exact id are names to type, set in mono.
+            if (Value(ReviewItemKind.Folder) is LineWords folder) slots.Add(new RoomSlot(RoomKind.Folder, folder, mono: true));
+            if (model != null) slots.Add(new RoomSlot(RoomKind.Agent, model, mono: Value(ReviewItemKind.ModelId) != null));
+            else if (Value(ReviewItemKind.AgentApp) is LineWords agent) slots.Add(new RoomSlot(RoomKind.Agent, agent));
             slots.Add(new RoomSlot(RoomKind.Level, LineWords.Ours(AgentColumn.LevelWords(review.NeverAsk))));
 
             // Each row its value alone, its kind's own mark saying what it is: no note that names a field (the critic, 2026-11-11).

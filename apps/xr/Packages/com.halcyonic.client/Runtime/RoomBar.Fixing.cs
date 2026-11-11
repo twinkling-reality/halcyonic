@@ -1,4 +1,5 @@
 #nullable enable
+using System.Linq;
 using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
@@ -30,8 +31,22 @@ namespace Halcyonic.Client
         public static RoomCard? FixingCard(AutoFixView? fix)
         {
             if (fix == null || fix.State != AutoFixViewState.Fixing || fix.Attempt < 1 || fix.Cap < 1) return null;
-            return new RoomCard(status: new RoomCardStatus(FixingTitle, FixingLine, RoomTone.Working), trackAt: (int)fix.Attempt, trackOf: (int)fix.Cap);
+            var status = new RoomCardStatus(FixingTitle, FixingLine, RoomTone.Working);
+            // What is being fixed, named: each failed step a node, its tries as pips on it, as the checks card hangs them
+            // (the critic, 2026-11-11: pips under the status said nothing of what they counted). Where the view names no
+            // step, the tries hang on the status's mark as before.
+            if (fix.FailedSteps is { Count: > 0 } failed)
+                return new RoomCard(status: status, steps: failed.Distinct().Select(step => new RoomCardStep(FailedStepWords(step), RoomTone.Working, (int)fix.Attempt, (int)fix.Cap)).ToList());
+            return new RoomCard(status: status, trackAt: (int)fix.Attempt, trackOf: (int)fix.Cap);
         }
+
+        /// <summary>A failed step's name, as the checks card names its steps (<see cref="RoomResult.StepWords"/>).</summary>
+        public static string FailedStepWords(AutoFixViewFailedStepsItem step) => step switch
+        {
+            AutoFixViewFailedStepsItem.Typecheck => RoomResult.StepWords(CheckStepKind.TypeCheck),
+            AutoFixViewFailedStepsItem.Build => RoomResult.StepWords(CheckStepKind.Build),
+            _ => RoomResult.StepWords(CheckStepKind.PageDrawn),
+        };
 
         /// <summary>
         /// The card a result at rest shows where a chain of tries ended (the addendum's A7 and A17): "All Passing" over its

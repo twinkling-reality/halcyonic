@@ -44,6 +44,20 @@ public sealed class RoomFixingTests
     }
 
     [Test]
+    public void A_try_on_named_steps_shows_each_as_a_node_with_its_tries()
+    {
+        var fix = Fix(AutoFixViewState.Fixing, 1);
+        fix.FailedSteps = new System.Collections.Generic.List<AutoFixViewFailedStepsItem> { AutoFixViewFailedStepsItem.Build, AutoFixViewFailedStepsItem.Build, AutoFixViewFailedStepsItem.Typecheck };
+        var card = RoomBar.FixingCard(fix)!;
+        Assert.That(card.Status!.Value.Title, Is.EqualTo(RoomBar.FixingTitle));
+        Assert.That(card.Steps.Select(step => (step.Name, step.Tone, step.TriesUsed, step.TriesOf)), Is.EqualTo(new[]
+        {
+            (RoomResult.StepWords(CheckStepKind.Build), RoomTone.Working, 1, 2), (RoomResult.StepWords(CheckStepKind.TypeCheck), RoomTone.Working, 1, 2),
+        }), "what is being fixed, named, its tries on its node");
+        Assert.That(card.TrackOf, Is.Null, "the tries are on the steps, not the status");
+    }
+
+    [Test]
     public void No_try_under_way_gives_no_fixing_card()
     {
         Assert.That(AtWork(null).Card, Is.Null);
