@@ -108,6 +108,11 @@ export interface ControlPlaneConfig {
    */
   readonly tunnelBinary: string | null;
   /**
+   * The person's own `gh`, by absolute path, with `HALCYONIC_GH_BIN`: Send to GitHub opens a pull
+   * request with it (ADR 0039, amended). Never looked up on PATH. Unset, a send pushes only.
+   */
+  readonly ghBinary: string | null;
+  /**
    * The chrome-headless-shell folder the check of a new app and a game played on the Mac both run
    * (ADR 0037, S1), and its binary's SHA-256 (always the repository's pin), or null: checks then type check and build but cannot
    * pass, and no game is played. Halcyonic copies it into its data folder and runs only the copy,
@@ -206,6 +211,7 @@ export function loadConfig(
     codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
     gitBinary: parseExecutable('HALCYONIC_GIT_BIN', env.HALCYONIC_GIT_BIN),
     tunnelBinary: parseExecutable('HALCYONIC_TUNNEL_BIN', env.HALCYONIC_TUNNEL_BIN),
+    ghBinary: parseExecutable('HALCYONIC_GH_BIN', env.HALCYONIC_GH_BIN),
     browser: parseBrowser(env, pins),
     speech: parseSpeech(env),
     companion: parseCompanion(env),

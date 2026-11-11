@@ -260,6 +260,17 @@ async function main(): Promise<void> {
           },
         }
       : {}),
+    // Send to GitHub (ADR 0039, amended): the person's own git and gh, for their reviewed command only.
+    ...(config.gitBinary === null
+      ? {}
+      : {
+          github: {
+            git: config.gitBinary,
+            gh: config.ghBinary,
+            dataDir: config.dataDir,
+            env: process.env,
+          },
+        }),
     // Sharing (F1, ADR 0054): on the Wi-Fi always; a link only by the pinned tunnel, its home in the
     // data folder it may not otherwise read.
     ...(process.platform === 'darwin'

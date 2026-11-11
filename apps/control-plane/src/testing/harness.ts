@@ -88,6 +88,8 @@ export interface TestControlPlaneOptions {
   readonly checkpoints?: ControlPlaneOptions['checkpoints'];
   /** The starters a new project can begin from; none by default. */
   readonly starters?: ControlPlaneOptions['starters'];
+  /** Send to GitHub, against stand-ins only (ADR 0039, amended); off by default. */
+  readonly github?: ControlPlaneOptions['github'];
   /** The person's catalog as last read, for links; none by default. */
   readonly catalogLinks?: ControlPlaneOptions['catalogLinks'];
   /** Checks and previews of starter projects (ADR 0037); off by default. */
@@ -122,6 +124,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     ...(options.secrets !== undefined && { secrets: options.secrets }),
     ...(options.checkpoints !== undefined && { checkpoints: options.checkpoints }),
     ...(options.starters !== undefined && { starters: options.starters }),
+    ...(options.github !== undefined && { github: options.github }),
     ...(options.catalogLinks !== undefined && { catalogLinks: options.catalogLinks }),
     ...(options.previews !== undefined && { previews: options.previews }),
     ...(options.ownChecks !== undefined && { ownChecks: options.ownChecks }),

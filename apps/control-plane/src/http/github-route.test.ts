@@ -1,0 +1,139 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { after, describe, type TestContext, test } from 'node:test';
+import { compileValidator, GitHubSendReviewResponse, type ProjectId } from '@halcyonic/contracts';
+import { createHostLocations } from '../locations.ts';
+import { standInGitHub } from '../testing/github-stand-in.ts';
+import { startTestServer } from '../testing/harness.ts';
+
+// Send to GitHub through the control plane (ADR 0039, amended): the review read, then the person's
+// command, against a stand-in GitHub only.
+
+const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-github-route-')));
+after(() => rmSync(base, { recursive: true, force: true }));
+const validReview = compileValidator(GitHubSendReviewResponse);
+
+async function serve(t: TestContext, name: string, withGitHub = true) {
+  const root = join(base, name);
+  const stand = standInGitHub(root);
+  const server = await startTestServer({
+    locations: createHostLocations([stand.projects]),
+    ...(withGitHub && {
+      github: {
+        git: '/usr/bin/git',
+        gh: stand.ghPath,
+        dataDir: join(root, 'data'),
+        env: { HOME: stand.home },
+      },
+    }),
+  });
+  t.after(() => server.stop());
+  const created = server.controlPlane.commands.submit(
+    server.commands.createProject('Garden', {
+      kind: 'existing_folder',
+      root: stand.projects,
+      folder_name: 'garden',
+    }),
+    'internal',
+  );
+  const result = created.command?.result;
+  const projectId = (result?.kind === 'project_created' ? result.project_id : '') as ProjectId;
+  const review = async () => {
+    const response = await fetch(`${server.baseUrl}/api/projects/${projectId}/github-review`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${server.token}` },
+    });
+    const body = (await response.json()) as unknown;
+    assert.ok(validReview(body).ok, JSON.stringify(body));
+    return body as GitHubSendReviewResponse;
+  };
+  return { server, stand, projectId, review };
+}
+
+let next = 0;
+function send(projectId: ProjectId, review: string) {
+  next += 1;
+  return {
+    schema_version: 1 as const,
+    command_id: `01920000-0000-7000-8000-${String(next).padStart(12, '0')}` as never,
+    issued_at: '2026-11-11T10:00:00.000Z' as never,
+    client: { name: 'test', version: null, device_label: null },
+    command_type: 'project.send_to_github' as const,
+    payload: { project_id: projectId, title: 'Lanterns', review },
+  };
+}
+
+async function settled(server: Awaited<ReturnType<typeof startTestServer>>, id: string) {
+  for (let tries = 0; tries < 500; tries += 1) {
+    const view = server.controlPlane.projection.command(id);
+    if (view !== undefined && view.status !== 'accepted') return view;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.fail('the send never settled');
+}
+
+describe('Send to GitHub through the control plane (ADR 0039, amended)', {
+  skip: process.platform !== 'darwin',
+}, () => {
+  test("the review is read first, the person's send pushes and opens a pull request, and the journal holds only the facts", async (t) => {
+    const { server, stand, projectId, review } = await serve(t, 'sends');
+    const nothing = await review();
+    assert.equal(nothing.availability === 'unavailable' && nothing.reason.code, 'nothing_to_send');
+    writeFileSync(join(stand.folder, 'app.txt'), 'lanterns\n');
+    const read = await review();
+    assert.ok(read.availability === 'available');
+    const accepted = server.controlPlane.commands.submit(
+      send(projectId, read.send.review),
+      'internal',
+    );
+    assert.equal(accepted.disposition, 'accepted');
+    const done = await settled(server, accepted.command?.command_id ?? '');
+    assert.equal(done.status, 'completed', JSON.stringify(done.failure));
+    assert.equal(
+      done.result?.kind === 'sent_to_github' && done.result.new_branch,
+      read.send.new_branch,
+    );
+    assert.equal(
+      done.result?.kind === 'sent_to_github' && done.result.pull_request_url,
+      'https://github.com/owner/garden/pull/7',
+    );
+    const recorded = [...server.controlPlane.journal.readAll()]
+      .map((stored) => stored.event)
+      .find((event) => event.event_type === 'project.sent_to_github');
+    assert.ok(recorded?.event_type === 'project.sent_to_github');
+    assert.equal(recorded.payload.repository, 'owner/garden');
+    assert.equal(recorded.payload.branch, 'main');
+    assert.equal(
+      stand.git(stand.origin, 'rev-parse', `refs/heads/${read.send.new_branch}`),
+      recorded.payload.commit,
+    );
+    const journal = JSON.stringify([...server.controlPlane.journal.readAll()]);
+    assert.equal(
+      journal.includes('example.test'),
+      false,
+      'nothing git printed or knows of the person',
+    );
+    assert.equal(journal.includes('file://'), false, 'no address');
+    assert.match(readFileSync(stand.ghLog, 'utf8'), /pr create --repo owner\/garden/);
+  });
+
+  test('a stale review sends nothing, and a computer without the sender says so', async (t) => {
+    const { server, stand, projectId, review } = await serve(t, 'stale');
+    writeFileSync(join(stand.folder, 'app.txt'), 'lanterns\n');
+    const read = await review();
+    assert.ok(read.availability === 'available');
+    writeFileSync(join(stand.folder, 'app.txt'), 'changed again\n');
+    const sent = server.controlPlane.commands.submit(send(projectId, read.send.review), 'internal');
+    const done = await settled(server, sent.command?.command_id ?? '');
+    assert.equal(done.failure?.code, 'review_stale');
+    assert.throws(() => stand.git(stand.origin, 'rev-parse', `refs/heads/${read.send.new_branch}`));
+    const off = await serve(t, 'off', false);
+    const unavailable = await off.review();
+    assert.equal(
+      unavailable.availability === 'unavailable' && unavailable.reason.code,
+      'unavailable',
+    );
+  });
+});

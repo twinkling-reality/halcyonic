@@ -1657,6 +1657,9 @@ export class Projection {
           changes.projects.add(event.project_id);
         }
         return;
+      case 'project.sent_to_github':
+        // The journal's fact (ADR 0039, amended); the command's result carries the pull request.
+        return;
       case 'project.mac_play.started':
         this.#macPlays.set(event.project_id, event.payload.check_id);
         if (this.#projects.has(event.project_id)) changes.projects.add(event.project_id);

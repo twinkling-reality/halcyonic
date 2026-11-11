@@ -81,6 +81,25 @@ export async function matchFolders(
  * checked leads nowhere, and checked again through the open handle. Git is never run.
  */
 export async function readOrigin(folder: string): Promise<string | null> {
+  const url = await readOriginUrl(folder);
+  return url === null ? null : originFullName(url);
+}
+
+/**
+ * A folder's origin on github.com as `owner/name`, and whether it is reached over ssh, read as
+ * `readOrigin` reads it; null otherwise. The address itself is never given out: it may carry a user
+ * part (ADR 0039, amended).
+ */
+export async function readGitHubOrigin(
+  folder: string,
+): Promise<{ readonly fullName: string; readonly ssh: boolean } | null> {
+  const url = await readOriginUrl(folder);
+  const fullName = url === null ? null : originFullName(url);
+  if (url === null || fullName === null) return null;
+  return { fullName, ssh: !/^https:\/\//i.test(url) };
+}
+
+async function readOriginUrl(folder: string): Promise<string | null> {
   try {
     const git = await lstat(join(folder, '.git'));
     if (!git.isDirectory()) return null;
@@ -94,8 +113,7 @@ export async function readOrigin(folder: string): Promise<string | null> {
       const buffer = Buffer.alloc(CONFIG_MAX_BYTES + 1);
       const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
       if (bytesRead > CONFIG_MAX_BYTES) return null;
-      const url = originUrl(buffer.subarray(0, bytesRead).toString('utf8'));
-      return url === null ? null : originFullName(url);
+      return originUrl(buffer.subarray(0, bytesRead).toString('utf8'));
     } finally {
       await file.close();
     }

@@ -1,6 +1,7 @@
 import Type, { type Static, type TSchema } from 'typebox';
 import { CatalogRepositoryRef } from './catalog.ts';
-import { CheckpointId, ReviewDigest } from './checkpoints.ts';
+import { CheckpointId, GitObjectId, ReviewDigest } from './checkpoints.ts';
+import { GitBranchName, PullRequestUrl } from './github.ts';
 import { FolderName, HostPath, ProjectLocationChoice } from './locations.ts';
 import { OWN_CHECK_SCRIPT_NAMES, OwnCheckChoice } from './own-checks.ts';
 import { CheckId, ShareAddress, ShareWay } from './previews.ts';
@@ -178,6 +179,18 @@ export const ProjectShareStartCommand = defineCommand(
 export const ProjectShareStopCommand = defineCommand(
   'project.share.stop',
   Type.Object({ project_id: ProjectId }, strict),
+);
+
+/**
+ * Sends the project's work to the person's own GitHub (ADR 0039, amended): one commit of the
+ * project's files on top of the branch its folder is on, pushed as a new branch with the person's
+ * own git, and a pull request opened with the person's own `gh` where it is signed in. The person's
+ * folder, branches and index are never changed. `review` is the digest of the GitHub review the
+ * person read (ADR 0051); a send whose review no longer matches sends nothing.
+ */
+export const ProjectSendToGitHubCommand = defineCommand(
+  'project.send_to_github',
+  Type.Object({ project_id: ProjectId, title: Text(200), review: ReviewDigest }, strict),
 );
 
 export const ProjectShowInFinderCommand = defineCommand(
@@ -389,6 +402,7 @@ export const COMMAND_VARIANTS = [
   ProjectSaveCopyCommand,
   ProjectShareStartCommand,
   ProjectShareStopCommand,
+  ProjectSendToGitHubCommand,
   ProjectLinkCatalogCommand,
   ProjectUnlinkCatalogCommand,
   WorkstreamCreateCommand,
@@ -424,6 +438,7 @@ export const CommandType = Type.Union([
   Type.Literal('project.save_copy'),
   Type.Literal('project.share.start'),
   Type.Literal('project.share.stop'),
+  Type.Literal('project.send_to_github'),
   Type.Literal('project.link_catalog'),
   Type.Literal('project.unlink_catalog'),
   Type.Literal('workstream.create'),
@@ -545,6 +560,15 @@ export const CommandResult = Type.Union([
   /** The checked game is shared at `url` while the preview of `check_id` runs. */
   Type.Object(
     { kind: Type.Literal('share_started'), check_id: CheckId, url: ShareAddress, way: ShareWay },
+    strict,
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('sent_to_github'),
+      new_branch: GitBranchName,
+      commit: GitObjectId,
+      pull_request_url: Nullable(PullRequestUrl),
+    },
     strict,
   ),
   /** A task's work is in the project's folder; `checkpoint_id` puts back the folder as it was. */

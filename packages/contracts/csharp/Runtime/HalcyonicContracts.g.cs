@@ -777,6 +777,112 @@ namespace Halcyonic.Contracts
         public OwnCheckNotFound? Reason { get; set; }
     }
 
+    public sealed class ChangedFile
+    {
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [JsonProperty("change", Required = Required.Always)]
+        public FileChangeKind Change { get; set; }
+    }
+
+    public sealed class ChangedFiles
+    {
+        [JsonProperty("files", Required = Required.Always)]
+        public List<ChangedFile> Files { get; set; } = new List<ChangedFile>();
+
+        [JsonProperty("total", Required = Required.Always)]
+        public long Total { get; set; }
+    }
+
+    public sealed class GitHubSendReview
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("repository", Required = Required.Always)]
+        public string Repository { get; set; } = default!;
+
+        [JsonProperty("branch", Required = Required.Always)]
+        public string Branch { get; set; } = default!;
+
+        [JsonProperty("base_commit", Required = Required.Always)]
+        public string BaseCommit { get; set; } = default!;
+
+        [JsonProperty("new_branch", Required = Required.Always)]
+        public string NewBranch { get; set; } = default!;
+
+        [JsonProperty("files", Required = Required.Always)]
+        public ChangedFiles Files { get; set; } = default!;
+
+        [JsonProperty("pull_request", Required = Required.Always)]
+        public bool PullRequest { get; set; }
+
+        [JsonProperty("review", Required = Required.Always)]
+        public string Review { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(GitHubSendReviewResponseConverter))]
+    public abstract class GitHubSendReviewResponse
+    {
+        [JsonProperty("availability", Order = -2)]
+        public string Availability => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class GitHubSendReviewResponseConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(GitHubSendReviewResponse).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["availability"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            GitHubSendReviewResponse value = tag switch
+            {
+                "available" => new AvailableGitHubSend(),
+                "unavailable" => new UnavailableGitHubSend(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "GitHubSendReviewResponse has no string availability."
+                    : "Unknown availability \"" + tag + "\" for GitHubSendReviewResponse."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but availability is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class AvailableGitHubSend : GitHubSendReviewResponse
+    {
+        protected override string Discriminator => "available";
+
+        [JsonProperty("send", Required = Required.Always)]
+        public GitHubSendReview Send { get; set; } = default!;
+    }
+
+    public sealed class UnavailableGitHubSend : GitHubSendReviewResponse
+    {
+        protected override string Discriminator => "unavailable";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
     [JsonConverter(typeof(StringEnumConverter))]
     public enum ShareWay
     {
@@ -1136,6 +1242,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "project.save_copy")] ProjectSaveCopy,
         [EnumMember(Value = "project.share.start")] ProjectShareStart,
         [EnumMember(Value = "project.share.stop")] ProjectShareStop,
+        [EnumMember(Value = "project.send_to_github")] ProjectSendToGithub,
         [EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
         [EnumMember(Value = "project.unlink_catalog")] ProjectUnlinkCatalog,
         [EnumMember(Value = "workstream.create")] WorkstreamCreate,
@@ -1858,24 +1965,6 @@ namespace Halcyonic.Contracts
         public List<AttentionReason> Reasons { get; set; } = new List<AttentionReason>();
     }
 
-    public sealed class ChangedFile
-    {
-        [JsonProperty("path", Required = Required.Always)]
-        public string Path { get; set; } = default!;
-
-        [JsonProperty("change", Required = Required.Always)]
-        public FileChangeKind Change { get; set; }
-    }
-
-    public sealed class ChangedFiles
-    {
-        [JsonProperty("files", Required = Required.Always)]
-        public List<ChangedFile> Files { get; set; } = new List<ChangedFile>();
-
-        [JsonProperty("total", Required = Required.Always)]
-        public long Total { get; set; }
-    }
-
     [JsonConverter(typeof(StringEnumConverter))]
     public enum ConflictKind
     {
@@ -2500,6 +2589,7 @@ namespace Halcyonic.Contracts
                 "project_restored" => new ProjectRestoredResult(),
                 "project_saved" => new ProjectSavedResult(),
                 "share_started" => new ShareStartedResult(),
+                "sent_to_github" => new SentToGithubResult(),
                 "workstream_added" => new WorkstreamAddedResult(),
                 "workstream_fitted" => new WorkstreamFittedResult(),
                 "project_checked" => new ProjectCheckedResult(),
@@ -2590,6 +2680,20 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("way", Required = Required.Always)]
         public ShareWay Way { get; set; }
+    }
+
+    public sealed class SentToGithubResult : CommandResult
+    {
+        protected override string Discriminator => "sent_to_github";
+
+        [JsonProperty("new_branch", Required = Required.Always)]
+        public string NewBranch { get; set; } = default!;
+
+        [JsonProperty("commit", Required = Required.Always)]
+        public string Commit { get; set; } = default!;
+
+        [JsonProperty("pull_request_url", Required = Required.AllowNull)]
+        public string? PullRequestUrl { get; set; }
     }
 
     public sealed class WorkstreamAddedResult : CommandResult
@@ -3170,6 +3274,27 @@ namespace Halcyonic.Contracts
         public ShareStopReason Reason { get; set; }
     }
 
+    public sealed class ProjectSentToGithubPayload
+    {
+        [JsonProperty("repository", Required = Required.Always)]
+        public string Repository { get; set; } = default!;
+
+        [JsonProperty("branch", Required = Required.Always)]
+        public string Branch { get; set; } = default!;
+
+        [JsonProperty("base_commit", Required = Required.Always)]
+        public string BaseCommit { get; set; } = default!;
+
+        [JsonProperty("new_branch", Required = Required.Always)]
+        public string NewBranch { get; set; } = default!;
+
+        [JsonProperty("commit", Required = Required.Always)]
+        public string Commit { get; set; } = default!;
+
+        [JsonProperty("pull_request_url", Required = Required.AllowNull)]
+        public string? PullRequestUrl { get; set; }
+    }
+
     public sealed class WorldObserved
     {
         [JsonProperty("description", Required = Required.AllowNull)]
@@ -3651,6 +3776,18 @@ namespace Halcyonic.Contracts
         public string ProjectId { get; set; } = default!;
     }
 
+    public sealed class ProjectSendToGithubPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("title", Required = Required.Always)]
+        public string Title { get; set; } = default!;
+
+        [JsonProperty("review", Required = Required.Always)]
+        public string Review { get; set; } = default!;
+    }
+
     public sealed class ProjectLinkCatalogPayload
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -3871,6 +4008,7 @@ namespace Halcyonic.Contracts
                 "project.save_copy" => new ProjectSaveCopyCommand(),
                 "project.share.start" => new ProjectShareStartCommand(),
                 "project.share.stop" => new ProjectShareStopCommand(),
+                "project.send_to_github" => new ProjectSendToGithubCommand(),
                 "project.link_catalog" => new ProjectLinkCatalogCommand(),
                 "project.unlink_catalog" => new ProjectUnlinkCatalogCommand(),
                 "workstream.create" => new WorkstreamCreateCommand(),
@@ -4007,6 +4145,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectShareStopPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectSendToGithubCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.send_to_github";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectSendToGithubPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectLinkCatalogCommand : CommandEnvelope
@@ -4745,6 +4891,7 @@ namespace Halcyonic.Contracts
                 "project.mac_play.stopped" => new ProjectMacPlayStoppedEvent(),
                 "project.share.started" => new ProjectShareStartedEvent(),
                 "project.share.stopped" => new ProjectShareStoppedEvent(),
+                "project.sent_to_github" => new ProjectSentToGithubEvent(),
                 "project.world.observed" => new ProjectWorldObservedEvent(),
                 "workstream.created" => new WorkstreamCreatedEvent(),
                 "workstream.copy_made" => new WorkstreamCopyMadeEvent(),
@@ -4982,6 +5129,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectShareStoppedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectSentToGithubEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.sent_to_github";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectSentToGithubPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectWorldObservedEvent : EventEnvelope

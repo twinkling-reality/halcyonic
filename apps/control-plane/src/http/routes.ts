@@ -16,6 +16,7 @@ import {
   EventsQuery,
   type EventsResponse,
   ExecutionId,
+  type GitHubSendReviewResponse,
   type HealthResponse,
   LocationReviewRequest,
   type LocationReviewResponse,
@@ -849,6 +850,37 @@ export function registerRoutes(
 
   // What binding a project to another folder would do, before the person confirms it, and the
   // digest a project.set_location carries back (ADR 0051). Reads only.
+  // Send to GitHub's review (ADR 0039, amended): what a send would do, read before the press.
+  app.post(
+    '/api/projects/:project_id/github-review',
+    async (request): Promise<GitHubSendReviewResponse> => {
+      const projectId = (request.params as { project_id: string }).project_id;
+      const unavailable = (code: string, message: string): GitHubSendReviewResponse => ({
+        availability: 'unavailable',
+        reason: { code, message },
+      });
+      if (!validateProjectId(projectId).ok)
+        return unavailable('invalid_request', 'That is not a project.');
+      const folder = controlPlane.projection.project(projectId)?.location?.path;
+      if (folder === undefined)
+        return unavailable('location_required', 'The project has no folder on this computer.');
+      const github = controlPlane.github;
+      if (github === null)
+        return unavailable('unavailable', "Sending to GitHub isn't set up on this computer.");
+      const others = controlPlane.projection
+        .projects()
+        .filter((project) => project.project_id !== projectId)
+        .flatMap((project) => (project.location === null ? [] : [project.location.path]));
+      try {
+        const reviewed = await github.review(projectId as ProjectId, folder, others);
+        return reviewed.ok
+          ? { availability: 'available', send: reviewed.send }
+          : unavailable(reviewed.code, reviewed.message);
+      } catch {
+        return unavailable('send_failed', "The project's files could not be read.");
+      }
+    },
+  );
   app.post('/api/projects/:project_id/location-review', async (request, reply) => {
     const projectId = (request.params as { project_id: string }).project_id;
     if (!validateProjectId(projectId).ok) {

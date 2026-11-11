@@ -59,6 +59,7 @@ import { OwnCheckRefused, type OwnChecks } from '../own-check/own-check.ts';
 import type { CheckOutput } from '../preview/check-output.ts';
 import type { HostPreviews } from '../preview/preview.ts';
 import { type ProjectShares, ShareRefused } from '../preview/share.ts';
+import type { GitHubSender } from '../sending/github.ts';
 import { type HostStarters, VR_STARTER, vrVersionInstruction } from '../starters.ts';
 import {
   type Cause,
@@ -119,6 +120,8 @@ export interface CommandServiceDeps {
   readonly keeping?: ProjectKeeping | null;
   /** Shared links to a running preview (F1); absent, sharing is refused. */
   readonly shares?: ProjectShares | null;
+  /** Send to GitHub with the person's own git and gh (ADR 0039, amended); absent, it is refused. */
+  readonly github?: GitHubSender | null;
   /** The host's checks and previews of starter projects (ADR 0037), or null when not set up. */
   readonly previews?: HostPreviews | null;
   /** A project's own check, chosen by the person (ADR 0055), or null when not set up. */
@@ -1164,6 +1167,77 @@ export class CommandService {
                   },
             ),
         );
+        return;
+      }
+      case 'project.send_to_github': {
+        // The person's own reviewed send (ADR 0039, amended): never an agent's, never automatic.
+        const scope = admission.scope;
+        const folder = this.#projectDirectory(scope);
+        const github = this.#deps.github;
+        if (!github || folder === null) {
+          this.#fail(command, scope, {
+            code: 'unavailable',
+            message: "Sending to GitHub isn't set up on this computer.",
+            effect: 'none',
+          });
+          return;
+        }
+        const others = this.#deps.projection
+          .projects()
+          .filter((project) => project.project_id !== command.payload.project_id)
+          .flatMap((project) => (project.location === null ? [] : [project.location.path]));
+        void github
+          .send(
+            command.payload.project_id,
+            folder,
+            others,
+            command.payload.title,
+            command.payload.review,
+          )
+          .then(
+            (sent) => {
+              if (!sent.ok) {
+                this.#fail(command, scope, {
+                  code: sent.code,
+                  message: sent.message,
+                  effect: 'none',
+                });
+                return;
+              }
+              this.#deps.recorder.record(
+                controlPlaneDraft(
+                  'project.sent_to_github',
+                  {
+                    project_id: command.payload.project_id,
+                    workstream_id: null,
+                    execution_id: null,
+                  },
+                  {
+                    repository: sent.send.repository,
+                    branch: sent.send.branch,
+                    base_commit: sent.send.base_commit,
+                    new_branch: sent.send.new_branch,
+                    commit: sent.commit,
+                    pull_request_url: sent.pullRequestUrl,
+                  },
+                  this.#now(),
+                  cause,
+                ),
+              );
+              this.#complete(command, scope, {
+                kind: 'sent_to_github',
+                new_branch: sent.send.new_branch,
+                commit: sent.commit,
+                pull_request_url: sent.pullRequestUrl,
+              });
+            },
+            () =>
+              this.#fail(command, scope, {
+                code: 'send_failed',
+                message: 'The send could not be finished. Look on GitHub before sending again.',
+                effect: 'unknown',
+              }),
+          );
         return;
       }
       case 'project.show_in_finder':
