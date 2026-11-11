@@ -134,6 +134,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     Demonstration = () => fallback.Line != null,
                     RecordedRun = () => fallback.ShowingRecordedRun,
                     KeyboardOffered = () => false,
+                    // Hold to talk as the release player carries it (ADR 0021, amended): with no computer it must never be offered.
+                    Voice = root.AddComponent<HoldToTalk>(),
                     StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, Array.Empty<CharacterTarget>(), null, false),
                     Bar = place => TasksColumn.Bar(place, State()),
                     SomethingWaits = () => State()?.Workstreams.Values.Any(task => CharacterLineup.TierOf(task) == LineupTier.NeedsYou) == true,
@@ -291,6 +293,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (expectDrawn && redesign.Count == 0) gaps.Add("the redesign draws nothing");
                     if (older.Count > 0) gaps.Add("older parts draw: " + string.Join(", ", older));
                     var found = new List<string>(RoomFrameChecks(root, camera, image, eyes, plane));
+                    // No computer: a recording plays, so voice is never offered and Hold to Talk never drawn (ADR 0021, amended).
+                    if (director.VoiceOffered) found.Add("voice is offered with no computer");
+                    if (plane.KitShows && plane.Kit.Bar.Talk.gameObject.activeInHierarchy) found.Add("Hold to Talk is drawn with no computer");
                     found.AddRange(RoomBrands(root));
                     if (covered) found.AddRange(gaps);
                     UnityEngine.Object.DestroyImmediate(image);
