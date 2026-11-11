@@ -223,7 +223,9 @@ namespace Halcyonic.Client
             foreach (var line in frame.Lines.Where(line => line.Action != null))
             {
                 // For the redesign, on the page that writes an answer: its line is the field, and Edit Answer a row on within the page.
+                // For the redesign, in the composer: a draft cut in parts turns them in the column, as a confirmation's do.
                 var place = roomDesign && line.Action == FileScreens.EditInput ? (line.Control == LineControl.Input ? KitPlace.Field : KitPlace.Step)
+                    : roomDesign && composing && (line.Action == FileScreens.NextInstructionPart || line.Action == FileScreens.PreviousInstructionPart) ? KitPlace.Step
                     : line.Action == FileScreens.EditInstruction ? KitPlace.Field : line.Action == Footer.NextPage ? KitPlace.Pager
                     : !composing && RouteActions.Contains(line.Action!) ? KitPlace.Route
                     : line.Action == FileScreens.Choose || (offering && line.Action == FileScreens.Preset) ? KitPlace.Choice

@@ -73,7 +73,8 @@ namespace Halcyonic.XR.Workspace
                             ? IndependentPageHeight(OwnerTitleRows(file), true, true, file)
                             : PageHeight(TitleRows(file.Now?.Character.Title ?? "", Glaze.Menu.FileColumnDegrees), besideMenu: false, focused: true));
                     composerFocus[file] = false;
-                    return KitFileBinding.ComposerBudget(plane.Kit.ComposerRows);
+                    // The redesign's panel holds a draft of eight of its lines whole; a longer one stands in parts the column turns.
+                    return KitFileBinding.ComposerBudget(RoomDesign.Enabled ? RoomBar.RequestLines : plane.Kit.ComposerRows);
                 });
         }
 

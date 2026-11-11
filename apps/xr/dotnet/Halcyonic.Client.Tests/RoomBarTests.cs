@@ -92,6 +92,46 @@ public class RoomBarTests
     }
 
     [Test]
+    public void ADraftLongerThanThePanelStandsInTheFilesPartsTheColumnTurnsAndSendsOnceReadWhole()
+    {
+        var workspace = Running(WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = new WorkspaceSteering(factory);
+        var screen = new FileScreen { Section = FileSection.Activity, Speak = true };
+        const string words = "Rework the scoring so every balloon colour is worth its own points, and keep the high score between rounds.";
+        screen.Instruction.Restore(workspace.Execution!.ExecutionId, words, false, 0);
+        // Twenty of the panel's lines on the redesign's composer page: parts of seven, the pager's row left beside them.
+        screen.Instruction.Measure(20, KitFileBinding.ComposerBudget(RoomBar.RequestLines), TextSize.Standard, pairedPager: true);
+        Assert.That((screen.Instruction.Parts, screen.Instruction.PartRows), Is.EqualTo((3, 7)));
+
+        var first = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
+        Assert.That((first.State, first.Body.Text, first.Part?.FromRow, first.Part?.Rows), Is.EqualTo((RoomBarState.Draft, words, (int?)0, (int?)7)), "the whole draft, the part's rows of it");
+        Assert.That(first.Column.Select(action => action.Place).ToArray(), Is.EqualTo(new[] { KitPlace.Step, KitPlace.Close }),
+            "no Send while the whole is unread; the way out stays");
+        var next = first.Column[0];
+        Assert.That((next.Control.Action, next.Main, next.Icon), Is.EqualTo((FileScreens.NextInstructionPart, true, (GlazeIcon?)GlazeIcon.Next)),
+            "the next part is the main action while Send waits for the whole");
+        Assert.That(first.Caret, Is.False, "the words go on past this part");
+
+        // Each part read in order: on the last, Send stands, the previous part after it, and the caret where the words end.
+        var at = Now;
+        for (var part = 0; part < 2; part++)
+        {
+            screen.Instruction.Drawn(at);
+            at += FileScreen.TurnGuard;
+            screen.Instruction.Next(at);
+        }
+        screen.Instruction.Drawn(at);
+        Assert.That((screen.Instruction.Part, screen.Instruction.Read), Is.EqualTo((2, true)));
+        var last = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
+        Assert.That((last.Part?.FromRow, last.Caret), Is.EqualTo(((int?)14, true)));
+        Assert.That(last.Column.Select(action => (action.Place, action.Control.Action, action.Main)).Take(2), Is.EqualTo(new[]
+        {
+            (KitPlace.Send, FileScreens.SendInstruction, true), (KitPlace.Step, FileScreens.PreviousInstructionPart, false),
+        }));
+        Assert.That(last.Column.Single(action => action.Control.Action == FileScreens.PreviousInstructionPart).Icon, Is.EqualTo(GlazeIcon.Back));
+    }
+
+    [Test]
     public void AHeardDraftAsksInItsSentenceBarAndOffersTalkAgainAsTheFramesOwnHoldToTalk()
     {
         var workspace = Running(WorkspaceAction.Instruct, WorkspaceAction.Interrupt);

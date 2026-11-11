@@ -173,8 +173,8 @@ namespace Halcyonic.Client
         public LineWords Body { get; }
 
         /// <summary>
-        /// Under a confirmation, the file's line of what is read: the rows its part shows and the row it starts from, counted
-        /// in the panel's own lines of <see cref="Body"/>; null otherwise.
+        /// Under a confirmation, or a draft the file cut in parts, the file's line of what is read: the rows its part shows and
+        /// the row it starts from, counted in the panel's own lines of <see cref="Body"/>; null otherwise.
         /// </summary>
         public PageLine? Part { get; }
 
@@ -497,6 +497,17 @@ namespace Halcyonic.Client
                 var spoken = worded && model.DraftSpoken;
                 var column = new List<RoomAction>();
                 if (worded && voice == VoiceStage.Idle && Available(KitPlace.Send) is KitControl send) column.Add(new RoomAction(send, main: true));
+                // A draft longer than the panel's lines stands in the file's parts (its field's line names the rows of the part
+                // showing): the next part is the main action until Send stands, the previous one after it, and the caret only
+                // on the last part, where the words end.
+                var turns = binding.Controls.Where(control => control.Place == KitPlace.Step && control.Available
+                    && (control.Action == FileScreens.NextInstructionPart || control.Action == FileScreens.PreviousInstructionPart)).ToList();
+                var cut = turns.Count > 0 ? binding.Frame.Lines.FirstOrDefault(line => line.Action == FileScreens.EditInstruction) : null;
+                var further = turns.Any(control => control.Action == FileScreens.NextInstructionPart);
+                foreach (var turn in turns.OrderBy(control => control.Action == FileScreens.NextInstructionPart ? 0 : 1))
+                    column.Add(turn.Action == FileScreens.NextInstructionPart
+                        ? new RoomAction(turn, main: column.Count == 0, icon: GlazeIcon.Next)
+                        : new RoomAction(turn, main: false, icon: GlazeIcon.Back));
                 // Held, Talk Again stays in its place, lit, reading Listening then Transcribing, so the hand that holds it keeps it.
                 if (spoken && Available(KitPlace.Talk) is KitControl again)
                     column.Add(voice switch
@@ -510,8 +521,8 @@ namespace Halcyonic.Client
                 string? sentence = null;
                 if (spoken) sentence = model.Sendable ? WorkspaceText.SendWordsAbove(heard: true) : model.WhyNotSend;
                 else if (worded && !model.Sendable && model.WhyNotSend != FileScreens.InstructionNotRead) sentence = model.WhyNotSend;
-                return new RoomBar(RoomBarState.Draft, body: worded ? LineWords.Theirs(model.Draft) : LineWords.None, caret: !spoken,
-                    sentence: sentence, column: column, field: field!.Available ? field : null);
+                return new RoomBar(RoomBarState.Draft, body: worded ? LineWords.Theirs(model.Draft) : LineWords.None, part: worded ? cut : null,
+                    caret: !spoken && !further, sentence: sentence, column: column, field: field!.Available ? field : null);
             }
             // The command's own state while it goes, then Sent · Awaiting Start until the run starts.
             if (model.Said.FirstOrDefault(line => line.Words == WorkspaceText.Sent) is PageLine sending)

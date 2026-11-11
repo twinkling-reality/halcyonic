@@ -217,9 +217,11 @@ namespace Halcyonic.XR.UI
                 return read.Rows is not int rows || bar.Lines(read.Body, read.Mono) == rows;
             }
             // Under the redesign the old kit is never asked what it holds (ON-1): the redesign draws what reaches here (the row at
-            // rest, a draft in its field, the agent's words on the band by parts), save a draft longer than the panel's lines.
+            // rest, a draft in its field, the agent's words on the band by parts), save a draft longer than the panel's lines
+            // that the file has not cut in parts of them: one it cut stands part by part, the column turning them.
             if (RoomDesign.Enabled)
-                return model.Draft.Length == 0 || bar.Lines(LineWords.Theirs(model.Draft), false) <= RoomBar.RequestLines;
+                return model.Draft.Length == 0 || bar.Lines(LineWords.Theirs(model.Draft), false) <= RoomBar.RequestLines
+                    || RoomBar.Of(binding, Voice(), AwaitingStart()) is { State: RoomBarState.Draft, Part: PageLine part } && part.Rows <= RoomBar.RequestLines;
             if (model.Draft.Length > 0 && RowsOf(model.Draft) > ComposerRows) return false;
             if (model.Need?.Request is string request && RowsAt(request, SlateInner() - 2f * KitType.Scaled(1f)) > 8) return false;
             var shown = this.binding;

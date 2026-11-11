@@ -2596,8 +2596,12 @@ the path a release player shows (the judges' build is a release build), KitRende
 `ShowTaskHereCheck` (the older file's Show Task Here and its one-character shelf) and New Project's older review
 boundary. Under the redesign New Project's steps and the agent's page stand in the workspace, where FIELD's readers
 draw them (`MenuDirector.SeparateWorkspace`); the host never lays or asks the old kit (`KitWorkspaceHost.Holds`,
-`Show`), save that a draft longer than the panel's eight lines stays the file's; and the plane's reading and writing
-bands are the bar's one band.
+`Show`); and the plane's reading and writing bands are the bar's one band. A draft longer than the panel's eight lines
+stands in the file's parts, counted by the panel's own lines (`MenuDirector.RowsOf`) on a composer page of eight
+(`KitFileBinding.ComposerBudget(RoomBar.RequestLines)`), so a part is seven lines with the pager's row left beside it.
+The panel reads the part's rows of the whole draft (`RoomBar.Part`). Next Part is the column's main action until Send
+stands, Previous Part follows, and the caret stands only on the last part. Send stands once every part has been read
+in order, as before.
 
 - **Lengths** are dp times one dp's length on the plane (`RoomType.Units`), as DESIGN's page lays them; larger text
   scales every length inside a panel, its padding too (`RoomType.Scaled`), while the panel's width stays. Every word
