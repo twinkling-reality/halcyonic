@@ -227,4 +227,25 @@ public class AskMenuColumnTests
         Assert.That(column.Ask.Stage, Is.EqualTo(AskStage.Thinking));
         Assert.That(column.Ask.RequestId, Is.EqualTo(RequestId));
     }
+
+    [Test]
+    public void AResendThatFindsNoSessionKeepsTheFirstSendUnknownUnderItsId()
+    {
+        // AUDIT's reread MUST: the first send's outcome stays unknown whatever happens to a resend.
+        var (column, host) = Make();
+        column.Ask.Write("What is going on?");
+        host.Fault = new CommandOutcomeUnknownException("unknown", "No acknowledgement in time.");
+        column.Act(AskMenuColumn.Send, null);
+        column.Tick();
+        var first = host.Sent.Single().CommandId;
+        host.Fault = new SessionUnavailableException("The command was not sent.");
+        column.Act(AskMenuColumn.SendAgain, null);
+        column.Tick();
+        Assert.That(column.Ask.OutcomeUnknown, Is.True, "still unknown");
+        Assert.That(column.Ask.CommandId, Is.EqualTo(first));
+        host.Fault = null;
+        column.Act(AskMenuColumn.SendAgain, null);
+        Assert.That(host.Sent.Last().CommandId, Is.EqualTo(first), "Send Again carries the first id");
+        Assert.That(host.Sent.Select(command => command.CommandId).Distinct().Count(), Is.EqualTo(1));
+    }
 }
