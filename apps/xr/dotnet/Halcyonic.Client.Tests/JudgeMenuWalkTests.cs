@@ -415,6 +415,13 @@ public class JudgeMenuWalkTests
         }
         Assert.That(frame!.Lines[0].Words, Does.StartWith("Tests failed").And.Contains("1 failed, 23 passed"));
         Assert.That(frame.Source, Does.StartWith("Simulated Checks · Recorded "));
+        // Under the redesign the same page is a card (FIELD's parts note): the outcome its title, simulated and when its line,
+        // the run's own summary on the foot line, whole; nothing joined on a dot.
+        Assert.That(frame.Card, Is.Not.Null, "the simulated checks carry their card");
+        Assert.That((frame.Card!.Status?.Title, frame.Card.Status?.Line?.StartsWith("Simulated in the recording, at ", StringComparison.Ordinal), frame.Card.AnyDot),
+            Is.EqualTo(((string?)RoomPanelCards.ChecksFailed, (bool?)true, false)));
+        Assert.That(frame.Card.More?.Text, Does.StartWith("Tests failed").And.Contains("1 failed, 23 passed"));
+        Assert.That(RoomBar.OfFrame(frame, VoiceStage.Idle)?.Card, Is.SameAs(frame.Card), "the redesign draws the card");
 
         // Tell it: the recorded instructions as rows, one chosen, sent in its words as shown.
         host.Press(MenuColumn.File, MenuFrame.ChooseSection, FileScreens.Key(FileSection.Activity));

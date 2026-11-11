@@ -20,11 +20,15 @@ namespace Halcyonic.Client
     /// </summary>
     public sealed class FileAnswer
     {
-        public FileAnswer(SectionPresentation brief, SectionPresentation full)
+        public FileAnswer(SectionPresentation brief, SectionPresentation full, RoomCard? card = null)
         {
             Brief = brief ?? throw new ArgumentNullException(nameof(brief));
             Full = full ?? throw new ArgumentNullException(nameof(full));
+            Card = card;
         }
+
+        /// <summary>The answer as a card, where it has one (the recorded run's simulated checks, FIELD's parts note); null otherwise.</summary>
+        public RoomCard? Card { get; }
 
         public SectionPresentation Brief { get; }
 

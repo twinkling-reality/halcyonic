@@ -2813,6 +2813,11 @@ bands are the bar's one band.
   Checks is `RoomPanelCards.Checks` (the outcome as its status, the steps as nodes, the tries' pips on the failed one),
   each the bar's `Card`, drawn in the panel's place (`RoomBarView.LayCard`). Every card is checked for no dot
   (`RoomCard.AnyDot`) in `RoomResultTests` and in the render states, every label of the card whole.
+- **The recorded run's simulated Checks as a card** (FIELD's parts note; the census): a simulated source's checks carry
+  a card on the file's answer (`CheckedPresenter.SimulatedCard`, `FileAnswer.Card`), set on the Checks frame with
+  `WithCard`: the outcome its title ("All Passing", "Checks Failed"), "Simulated in the recording, at {time}" its line,
+  the latest run's own summary on the foot line, theirs and whole. `RoomBar.Carded` draws a task's frame that carries a
+  card, its column the frame's own prompts and other sections, the ways out last. A real source's checks stay its page.
 - **The way back to the Projects place** (FIELD's parts note; the census): the result and its pages end their column
   with the file's own Close (its cross), and the row at rest with no pair ends with "Projects" (the Back glyph, never
   main), the same Close (`RoomBar.WithClose`). An approval, a question or a confirmation keeps its own ways out.
