@@ -296,21 +296,42 @@ export class GitHubSender {
     const held = (path: string) =>
       secretShapedPath(path) ||
       inside.some((other) => path === other || path.startsWith(`${other}/`));
-    // The person's own excludes, read as small regular files, never through a link: the folder's
-    // `info/exclude` into ours, and the excludes file their global settings name, by its path.
-    await mkdir(join(repository, 'info'), { recursive: true, mode: 0o700 });
-    await writeFile(
-      join(repository, 'info', 'exclude'),
-      (excludes === null ? null : await readSmall(excludes)) ?? '',
-      { mode: 0o600 },
+    // What tells git which files the person keeps out, all of it read, or nothing is sent (AUDIT3
+    // reread): the folder's `info/exclude` as a small regular file, never through a link, since an
+    // agent can write it, copied into ours; and the person's own excludes file, the one their global
+    // settings name or git's default, by its real path. One there but not read refuses the send.
+    const cannotRead = refuse(
+      'unreadable_excludes',
+      "Halcyonic can't read a rule this project's git uses to keep files out, so it sends nothing. Send it with git yourself.",
     );
+    let folderExcludes = '';
+    if (excludes !== null && (await lstat(excludes).catch(() => null)) !== null) {
+      const text = await readSmall(excludes);
+      if (text === null) return cannotRead;
+      folderExcludes = text;
+    }
+    await mkdir(join(repository, 'info'), { recursive: true, mode: 0o700 });
+    await writeFile(join(repository, 'info', 'exclude'), folderExcludes, { mode: 0o600 });
     const named = await this.#run(this.#deps.git, [
       'config',
       '--global',
       '--path',
       'core.excludesFile',
     ]);
-    const globalExcludes = named.code === 0 ? named.stdout.trim() : '';
+    const home = this.#deps.env.HOME ?? '';
+    const personal =
+      named.code === 0 && named.stdout.trim() !== ''
+        ? named.stdout.trim()
+        : home === ''
+          ? null
+          : join(home, '.config', 'git', 'ignore');
+    let globalExcludes = '';
+    if (personal !== null && (await lstat(personal).catch(() => null)) !== null) {
+      // The person's own file, often a link from their dotfiles: followed, then read whole.
+      const real = await realpath(personal).catch(() => null);
+      if (real === null || (await readable(real)) === null) return cannotRead;
+      globalExcludes = real;
+    }
     const index = join(repository, `send-${process.pid}-${Date.now()}.index`);
     const indexed = { GIT_INDEX_FILE: index };
     // No settings of the person's, global or system, while their files are staged (AUDIT3 S1).
@@ -487,6 +508,21 @@ async function headBranch(folder: string): Promise<string | null> {
 async function objectFormat(folder: string): Promise<'sha1' | 'sha256'> {
   const text = (await readSmall(join(folder, '.git', 'config'))) ?? '';
   return /^\s*objectformat\s*=\s*sha256\s*$/im.test(text) ? 'sha256' : 'sha1';
+}
+
+/** A regular file's text, at most 1 MiB, followed to its real path, or null. */
+async function readable(path: string): Promise<string | null> {
+  const named = await lstat(path).catch(() => null);
+  if (named === null || !named.isFile() || named.size > 1024 * 1024) return null;
+  const file = await open(path, 'r').catch(() => null);
+  if (file === null) return null;
+  try {
+    return (await file.readFile()).toString('utf8');
+  } catch {
+    return null;
+  } finally {
+    await file.close();
+  }
 }
 
 /** A small regular file's text, never through a link, or null. */

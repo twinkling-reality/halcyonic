@@ -85,8 +85,11 @@ access. Here the person uses that access on purpose, each time, after reading wh
   (AUDIT3, 2026-11-11):
   - the scratch index starts from the branch's last commit, so a file git tracks stays tracked
     whatever the ignore rules say, and only what the person changed differs;
-  - the folder's `.git/info/exclude` is read as a file, and the excludes file their global settings
-    name is used by its path;
+  - the folder's `.git/info/exclude` is read as a small regular file, never through a link, and the
+    person's own excludes file (the one their global settings name, or git's default
+    `~/.config/git/ignore`) by its real path. When Halcyonic cannot read what tells it which files the
+    person keeps out (a linked or oversized `info/exclude`, an excludes file that is not a readable
+    file), it sends nothing and says so (`unreadable_excludes`);
   - a path the secret-file list names, or inside another project's folder, stays exactly as that
     commit has it, never added, changed or removed;
   - none of the person's git settings, global or system, apply while files are staged, so no filter
@@ -99,7 +102,7 @@ access. Here the person uses that access on purpose, each time, after reading wh
 - **Only the person's.** Never from an agent, the automatic check or auto-fix: it is a command a
   client sends after its review. Refusals in the product's words: no git repository of its own, no
   origin on GitHub, no branch, no commit, nothing changed, a stale review, no name and email in git,
-  filters it would need, work already sent, a push GitHub refused.
+  filters it would need, an exclude rule it cannot read, work already sent, a push GitHub refused.
 - **What has met github.com: nothing.** Every test uses a local bare repository as `origin` and a
   stand-in `gh` ([record](../validation/sending-to-github.md)). The first real send is the owner's own.
 

@@ -55,6 +55,11 @@ The first real send to GitHub is the owner's own, with their press.
    - a `.gitattributes` naming a filter (the repository's own `filter.evil`, the person's global
      `filter.mine`, or Git LFS's) is refused `uses_filters`, and neither filter ran; `uploadpack.packObjectsHook`
      in the repository never ran; attributes naming no filter send as files;
+   - a `.git/info/exclude` that is a link, or over 64 KiB, and an excludes file that is not a readable file,
+     refuse the review `unreadable_excludes` (AUDIT3's reread G5; this test fails on 38b0e689's sender);
+   - git's default `~/.config/git/ignore`, and an excludes file reached through a link from dotfiles, are
+     honoured while the person's other settings are not (this pins behaviour git already had: it passes on
+     38b0e689 too);
    - a review runs no gh;
    - the same work sent twice is refused `already_sent`, the first branch kept;
    - an origin in its `git@github.com:` or `ssh://git@github.com/` form reaches the same stand-in, and any other
