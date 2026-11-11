@@ -249,7 +249,7 @@ namespace Halcyonic.XR.Workspace
             director.navigator = new MenuNavigator(new Dictionary<MenuPlace, Func<IMenuColumn>>
             {
                 [MenuPlace.Tasks] = () => new TasksColumn(director.Bound(), () => director.SavedViewCount, director.OpenSavedViews,
-                    () => director.memory.SelectedProjectId, director.OpenProjectDetails, director.OpenAllTasks),
+                    () => director.memory.SelectedProjectId, director.OpenProjectDetails, director.OpenAllTasks, director.OpenAsk),
                 // Over the memory kept for the app's run on this journal, so a Connect in flight is never sent twice.
                 [MenuPlace.Projects] = () => new ProjectsColumn(director.Bound(), setup.Commands ?? throw new InvalidOperationException("Projects sends through the host's command factory."),
                     director.memory.ProjectsFor(director.State?.Journal?.JournalId), setup.Overview, setup.ShowProject, setup.ReadLocations, director.OpenProjectTasks,
@@ -1385,6 +1385,14 @@ namespace Halcyonic.XR.Workspace
         {
             memory.SelectProject(null);
             Open(MenuPlace.Tasks);
+        }
+
+        /// <summary>An Ask about a project or about all work (gap 7), beside the menu as its own column (LOOP's AskMenuColumn).</summary>
+        private void OpenAsk(AskScope scope)
+        {
+            if (setup.Commands is not CommandFactory commands) return;
+            navigator.ShowBeside(new AskMenuColumn(Bound(), commands, scope), null);
+            ViewsChanged();
         }
 
         private void OpenProjectDetails()

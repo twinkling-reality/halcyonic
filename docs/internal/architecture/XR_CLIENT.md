@@ -2867,8 +2867,13 @@ bands are the bar's one band.
   Send Answer while the assistant asks (sent as `workspace.request.resume`), Stop while it works or waits
   (`workspace.request.cancel`), Hold to Talk and Type for the words, Close; it reads the request every two seconds while
   it is under way, and sends only on a press. The redesign draws it by `RoomBar.Ask`: the card in the panel's place, the
-  assistant's words on the band, the main action first and Close last. Not opened by the director yet. Checks:
-  `AskColumnTests`, `AskMenuColumnTests`.
+  assistant's words on the band, the main action first and Close last. The director opens it from Tasks
+  (`TasksColumn.Ask`, the first row that acts, where the page has room for it and a task row): about the project the
+  page shows, or about all work where none is chosen (`MenuDirector.OpenAsk`, beside the menu); a held Hold to Talk
+  reaches it as any column's does. "Below" stands only while the band holds the assistant's words, the foot line names
+  only the model that wrote the reply, and a refused answer is kept and says it did not go (AUDIT, 2026-11-11).
+  Checks: `AskColumnTests`, `AskMenuColumnTests`, `TasksColumnTests`, and the parts group `50-ask-*`
+  (`KitRender.PartsCheck`).
 - **Play in Headset in the result** (DEVICE's `HeadsetPlay`, gap 1): beside Try Build, where `HeadsetPlay.Stands` for
   the project and the way this headset reaches the computer (`RoomResult.Play`, from `RoomResult.Of` given
   `ControlPlaneSettings.Target()`); where it cannot act it is not drawn, as an action has no disabled look
