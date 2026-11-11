@@ -141,6 +141,9 @@ answer from.
   written as text (a reply that starts with function-call or invoke markup, or bare JSON naming one of the assistant's
   own tools; an answer holding JSON or quoting markup stays an answer, AUDIT2 S1) is never kept as the reply: the request is
   interrupted with a step saying so, and Resume asks again (the 30B model wrote one, 2026-11-11).
-- The planning budget's last turn is offered no tool either, with a system message to answer from what was read
-  and say what was not, so a request that reads on to its bound still ends in an answer rather than the budget
+- The planning budget's last two turns are offered no tool either, with a system message to answer from what was
+  read and say what was not, so a request that reads on to its bound still ends in an answer rather than the budget
   interrupt (the 30B model spent all eight turns reading on an all-work request, 2026-11-11).
+- A reply on a turn offered no tool that is a tool call written as text is asked again once a wake, still offered no
+  tool, with a system message saying it was not an answer and was not kept; a second one interrupts the request as
+  before. The step records each (the 30B model wrote one on the last turn of both its requests, 2026-11-11).
