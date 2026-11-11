@@ -151,11 +151,13 @@ answer from.
   person's words and the host's context, and what was read as one quoted block, oldest dropped first to fit the input
   bound. It has no assistant message and no tool result, so the model has no tool call to copy (the 30B model wrote one
   as text on every toolless turn it was given the whole history, four runs on 2026-11-11).
-- A task request's first turn, where it may send the person's words on, offers only `continue_task`, `observe_task` and
-  `ask_person`: the host's receipts and what the Mac saw are already in its context (the 30B model read six times and
-  never sent the change, 2026-11-11).
+- A task request's first turn, where it may send the person's words on, offers only `continue_task` and `ask_person`:
+  the host's receipts and what the Mac saw are already in its context, and a question that needs no change is answered
+  in words on that turn; every read comes from the second turn on. The 30B model read six times and never sent the
+  change; offered `observe_task` as well, it chose to look and again never sent it (2026-11-11).
 - A request about all work is not offered `ask_person`: it changes nothing, so it is answered with a summary from what
-  the host lists, never a question back (the lead, 2026-11-11).
+  the host lists, never a question back (the lead, 2026-11-11). The answering turn's instructions say so too: how many
+  projects, which tasks run, which wait on the person, which checks failed, never a list of the fields read.
 - A request never ends with nothing (the lead, 2026-11-11). When it ends (interrupted, failed or stopped) holding no reply at
   all, the change that ends it carries `observed`, what the computer itself saw, as facts: for a task, its run's
   state, its turns, the files the Mac saw its turns change, the check of this task's own folder (its own copy's, or the
@@ -164,3 +166,7 @@ answer from.
   them. No model text, no path, no agent words; journaled as every control-plane fact is, observed. It stands on the
   view apart from `reply`, and any later change takes it away, so it is never beside a reply. The clients choose its
   words and draw them as the computer's own.
+- The host's own lists and one task's view (`read_projects`, `read_project`, `read_project_at`, `read_task`) reach the
+  model whole within 4 KiB, not as the short excerpt a large outside result gets. Past that, the last rows are left out
+  and `more_projects` or `more_tasks` counts them, so the totals stay whole (the 30B model saw 13 projects as a partial
+  excerpt and could not summarize them, 2026-11-11).
