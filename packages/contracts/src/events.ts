@@ -763,11 +763,14 @@ export const RUNTIME_EVENT_PAYLOADS = {
    * adapter too: the level the runtime confirmed it started with; absent where it was not recorded,
    * which never reads as `ask`. `plan` is observed: true when the runtime reported the session in
    * its own plan mode; absent where it was not recorded, which never reads as a plan.
+   * `unconfined_reason` (BOX-4) says why a start that asked for Halcyonic's sandbox ran without it,
+   * or is not counted confined, in words the headset can show.
    */
   'runtime.execution.started': Type.Object(
     {
       native_id: Nullable(NativeId),
       confined: Type.Optional(Type.Boolean()),
+      unconfined_reason: Type.Optional(Text(2000)),
       approval_level: Type.Optional(ApprovalLevel),
       plan: Type.Optional(Type.Boolean()),
     },

@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
-import { after, describe, test } from 'node:test';
+import { after, describe, type TestContext, test } from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
 import type {
   ModelInfo,
   NonNullableUsage,
@@ -420,7 +421,7 @@ describe('starting an execution', () => {
       'runtime.turn.started',
       'runtime.model.used',
     ]);
-    assert.deepEqual(observed[0]?.payload, { native_id: scripted.sessionId });
+    assert.deepEqual(observed[0]?.payload, { native_id: scripted.sessionId, confined: false });
     assert.deepEqual(observed[1]?.payload, { turn_id: delivered?.uuid });
     assert.deepEqual(observed[0]?.provenance, {
       epistemic: 'observed',
@@ -440,7 +441,7 @@ describe('starting an execution', () => {
     const reported = randomUUID();
     run().emit(init(reported));
     assert.deepEqual(await starting, { native_id: reported });
-    assert.deepEqual(observed[0]?.payload, { native_id: reported });
+    assert.deepEqual(observed[0]?.payload, { native_id: reported, confined: false });
   });
 
   test('a query that ends before Claude Code confirms fails the start with an unknown effect', async () => {
@@ -1657,5 +1658,107 @@ describe('re-attaching after a restart (ADR 0046)', () => {
   test('declares that its sessions outlive a restart', () => {
     const { adapter } = setup();
     assert.equal(adapter.descriptor.resumes_after_restart, true);
+  });
+});
+
+describe("a start that asks for Halcyonic's sandbox (ADR 0048, BOX-4)", () => {
+  const SESSION = '0f0e0d0c-0000-4000-8000-0000000000bb';
+  const onMac = process.platform === 'darwin';
+  const confinement = (dataFolder: string, asks = true) => ({
+    dataFolder,
+    toolFolders: [],
+    forDirectory: () => (asks ? { readable: [] } : null),
+  });
+  const data = (t: TestContext) => {
+    const folder = mkdtempSync(join(tmpdir(), 'halcyonic-claude-box4-'));
+    t.after(() => rmSync(folder, { recursive: true, force: true }));
+    return folder;
+  };
+  const reattach = (
+    adapter: ClaudeAgentRuntimeAdapter,
+    observed: RuntimeObservation[],
+    confined: boolean,
+  ) =>
+    adapter.reattach({
+      execution,
+      native_id: SESSION,
+      options: {},
+      model_ref: null,
+      confined,
+      directory: WORKDIR,
+      cut_turn: null,
+      last_sequence: null,
+      emit: (observation) => observed.push(observation),
+    });
+
+  test('runs inside the sandbox on macOS but is recorded not confined while its sign-in key is inside with it (AUDIT BOX-4 F1); elsewhere not, with why', async (t) => {
+    const { adapter, start, runs, observed } = setup({ confinement: confinement(data(t)) });
+    t.after(() => adapter.close());
+    // The gate opens before the query starts, so the start is confirmed once its query is there.
+    const starting = start();
+    for (let i = 0; i < 200 && runs.length === 0; i += 1) await delay(5);
+    const scripted = runs[0];
+    assert.ok(scripted !== undefined, 'no query was started');
+    scripted.emit(init(scripted.sessionId));
+    await starting;
+    const payload = observed[0]?.payload as { confined?: boolean; unconfined_reason?: string };
+    assert.equal(payload.confined, false);
+    assert.match(
+      payload.unconfined_reason ?? '',
+      onMac ? /sign-in key is inside with it/ : /macOS only/,
+    );
+  });
+
+  test('on a cloud provider runs as before, recorded not confined with why', async (t) => {
+    const { adapter, startConfirmed, observed } = setup({
+      confinement: confinement(data(t)),
+      inheritedEnvironment: { ...INHERITED, CLAUDE_CODE_USE_BEDROCK: '1' },
+    });
+    t.after(() => adapter.close());
+    await startConfirmed();
+    const payload = observed[0]?.payload as { confined?: boolean; unconfined_reason?: string };
+    assert.equal(payload.confined, false);
+    assert.match(
+      payload.unconfined_reason ?? '',
+      onMac ? /Amazon Bedrock.*not confined/ : /macOS only/,
+    );
+  });
+
+  test('where the folder does not ask, runs as before, recorded not confined with no reason', async (t) => {
+    const { adapter, startConfirmed, observed } = setup({
+      confinement: confinement(data(t), false),
+    });
+    t.after(() => adapter.close());
+    const scripted = await startConfirmed();
+    assert.deepEqual(observed[0]?.payload, { native_id: scripted.sessionId, confined: false });
+  });
+
+  test('a session is re-attached only as it ran: never moved into the sandbox, never out of it', async (t) => {
+    const folder = data(t);
+    const inside = setup({
+      confinement: confinement(folder),
+      sessionInfo: async () => ({ cwd: WORKDIR }),
+    });
+    t.after(() => inside.adapter.close());
+    const outside = setup({ sessionInfo: async () => ({ cwd: WORKDIR }) });
+    t.after(() => outside.adapter.close());
+    if (onMac) {
+      // Recorded not confined, as every run with its key inside is: looked for in its folder's own
+      // store, where nothing is yet.
+      await assert.rejects(
+        reattach(inside.adapter, inside.observed, false),
+        actionError('session_not_found'),
+      );
+      // Recorded confined, which no run here would be: not re-attached.
+      await assert.rejects(
+        reattach(inside.adapter, inside.observed, true),
+        actionError('reattach_refused'),
+      );
+    }
+    await assert.rejects(
+      reattach(outside.adapter, outside.observed, true),
+      actionError('reattach_refused'),
+    );
+    assert.equal(inside.observed.length + outside.observed.length, 0);
   });
 });

@@ -156,6 +156,15 @@ const CLOUD_PROVIDERS = [
 ] as const;
 
 /**
+ * The cloud provider a switch in `environment` selects, by name, or null for Anthropic's API or a
+ * gateway. Its hosts are not known ahead, so Halcyonic's sandbox, which lets Claude Code reach one
+ * host only, is not given to it (ADR 0048, BOX-4).
+ */
+export function cloudProvider(environment: Readonly<Record<string, string>>): string | null {
+  return CLOUD_PROVIDERS.find((candidate) => isTrue(environment[candidate.switch]))?.name ?? null;
+}
+
+/**
  * Who serves the models of a Claude Code launched with `environment`: Anthropic, or the cloud
  * provider a switch selects, served remotely; or, when a base URL sends the requests to a gateway,
  * that gateway, served where its address is. What a gateway forwards to is not known. The name

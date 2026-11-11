@@ -295,7 +295,7 @@ describe('the adapter through the real Agent SDK', () => {
           'runtime.turn.completed',
         ],
       );
-      assert.deepEqual(observed[0]?.payload, { native_id: nativeId });
+      assert.deepEqual(observed[0]?.payload, { native_id: nativeId, confined: false });
       assert.deepEqual(observed[1]?.payload, { turn_id: prompt?.uuid });
     } finally {
       await adapter.close();
