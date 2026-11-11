@@ -2826,8 +2826,11 @@ in order, as before.
   (`RoomCard.AnyDot`) in `RoomResultTests` and in the render states, every label of the card whole.
 - **The recorded run's simulated Checks as a card** (FIELD's parts note; the census): a simulated source's checks carry
   a card on the file's answer (`CheckedPresenter.SimulatedCard`, `FileAnswer.Card`), set on the Checks frame with
-  `WithCard`: the outcome its title ("All Passing", "Checks Failed"), "Simulated in the recording, at {time}" its line,
-  the latest run's own summary on the foot line, theirs and whole. `RoomBar.Carded` draws a task's frame that carries a
+  `WithCard`: the latest run's outcome its title ("All Passing" good, "Checks Failed" bad, "Partly Passing" and
+  "Outcome Unknown" quiet), "Simulated in the recording, at {time}" its line, the latest run's own summary on the foot
+  line, theirs and whole. A recorded run, which keeps no checks (the read refused as "Not Recorded"), carries "No Checks
+  Recorded", quiet, with the line "This run kept no record of its checks" and no foot line: never that nothing failed,
+  which nobody knows (FIELD, 2026-11-11). `RoomBar.Carded` draws a task's frame that carries a
   card, its column the frame's own prompts and other sections, the ways out last. A real source's checks stay its page.
 - **The way back to the Projects place** (FIELD's parts note; the census): the result and its pages end their column
   with the file's own Close (its cross), and the row at rest with no pair ends with "Projects" (the Back glyph, never

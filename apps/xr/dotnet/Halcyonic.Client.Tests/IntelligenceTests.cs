@@ -793,11 +793,11 @@ public class DemonstrationReadsTests
 
     [TestCase("fail", "pass", "All Passing")]
     [TestCase("pass", "fail", "Checks Failed")]
-    [TestCase("pass", "partial", null)]
-    [TestCase("pass", "unknown", null)]
-    public void TheSimulatedChecksCardFollowsTheLatestRunAndLeavesPartialAndUnknownUnsaid(string earlier, string later, string? title)
+    [TestCase("pass", "partial", "Partly Passing")]
+    [TestCase("pass", "unknown", "Outcome Unknown")]
+    public void TheSimulatedChecksCardFollowsTheLatestRun(string earlier, string later, string? title)
     {
-        // AUDIT S1 (2026-11-11): the latest run decides; partial and unknown have no words of their own yet, so no card.
+        // AUDIT S1 (2026-11-11): the latest run decides; partial and unknown in FIELD's words, quiet.
         var json = Newtonsoft.Json.Linq.JObject.Parse(Intelligence.Verified);
         var understanding = json["result"]!["understanding"]!;
         understanding["source"]!["synthetic"] = true;
@@ -814,5 +814,26 @@ public class DemonstrationReadsTests
         var card = CheckedPresenter.SimulatedCard(read, TimeZoneInfo.Utc);
         Assert.That(card?.Status?.Title, Is.EqualTo(title));
         if (card != null) Assert.That((card.Status?.Line?.StartsWith("Simulated in the recording, at ", StringComparison.Ordinal), card.AnyDot), Is.EqualTo(((bool?)true, false)));
+        if (later is "partial" or "unknown") Assert.That(card?.Status?.Tone, Is.EqualTo(RoomTone.Quiet), "neither a failure nor the person's turn");
+    }
+
+    [Test]
+    public void ARecordedRunsChecksSayNoneWereRecordedNeverThatNothingFailed()
+    {
+        var feed = new IntelligenceFeed<UnderstandingResponse>((_, _) =>
+            Task.FromException<IntelligenceRead<UnderstandingResponse>>(new UnaskedReadException(DemonstrationReads.NotRecorded)));
+        feed.Show(Intelligence.ExecutionId, null, Intelligence.At("2026-09-29T09:00:00.000Z"));
+        feed.Poll();
+        Assert.That((feed.Last, feed.Error), Is.EqualTo(((IntelligenceRead<UnderstandingResponse>?)null, DemonstrationReads.NotRecorded)));
+        var card = CheckedPresenter.SimulatedCard(feed, TimeZoneInfo.Utc);
+        Assert.That((card?.Status?.Title, card?.Status?.Line, card?.Status?.Tone), Is.EqualTo(("No Checks Recorded", "This run kept no record of its checks", (RoomTone?)RoomTone.Quiet)));
+        Assert.That((card!.More, card.AnyDot), Is.EqualTo(((LineWords?)null, false)), "no foot line, nothing joined on a dot");
+
+        // Any other refusal is not this card's: the older page says it.
+        var other = new IntelligenceFeed<UnderstandingResponse>((_, _) =>
+            Task.FromException<IntelligenceRead<UnderstandingResponse>>(new UnaskedReadException(DemonstrationReads.StillBeingRead)));
+        other.Show(Intelligence.ExecutionId, null, Intelligence.At("2026-09-29T09:00:00.000Z"));
+        other.Poll();
+        Assert.That(CheckedPresenter.SimulatedCard(other, TimeZoneInfo.Utc), Is.Null);
     }
 }

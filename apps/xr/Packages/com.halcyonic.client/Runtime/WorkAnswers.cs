@@ -704,13 +704,29 @@ namespace Halcyonic.Client
     /// </summary>
     public static class CheckedPresenter
     {
+        /// <summary>The partial outcome's title (FIELD, 2026-11-11): some passed, and the rest is not known to have failed.</summary>
+        public const string PartlyPassing = "Partly Passing";
+
+        /// <summary>An outcome the checks did not give (FIELD, 2026-11-11).</summary>
+        public const string OutcomeUnknown = "Outcome Unknown";
+
+        /// <summary>A recorded run that kept no record of its checks (FIELD, 2026-11-11): never "nothing failed", which is not known.</summary>
+        public const string NoChecksRecorded = "No Checks Recorded";
+
+        /// <summary>Its line, a phrase with no full stop (FIELD's status line rule).</summary>
+        public const string NoChecksRecordedLine = "This run kept no record of its checks";
+
         /// <summary>
-        /// The recorded run's simulated checks as a card (FIELD's parts note, the census): the outcome as the status's title
-        /// of the latest run ("All Passing", "Checks Failed"), its line saying they were simulated and when, as a sentence ("Simulated in the
-        /// recording, at 05:00:12"), and the latest run's own summary on the foot line, theirs and whole. Only a simulated
-        /// source has it, so a recording never reads as a real run; a real source's checks stay its page.
+        /// The recording's checks as a card (FIELD's parts note and words, the census). A simulated source's: the latest
+        /// run's outcome as the status's title ("All Passing", "Checks Failed", "Partly Passing", "Outcome Unknown"), its line
+        /// saying they were simulated and when, as a sentence ("Simulated in the recording, at 05:00:12"), and the latest run's
+        /// own summary on the foot line, theirs and whole. A recorded run, which keeps no checks: "No Checks Recorded", quiet,
+        /// with its line. A real source's checks stay its page.
         /// </summary>
-        public static RoomCard? SimulatedCard(IntelligenceFeed<UnderstandingResponse> understanding, TimeZoneInfo zone) => SimulatedCard(understanding.Last, zone);
+        public static RoomCard? SimulatedCard(IntelligenceFeed<UnderstandingResponse> understanding, TimeZoneInfo zone) =>
+            understanding.Last == null && understanding.Error == DemonstrationReads.NotRecorded
+                ? new RoomCard(status: new RoomCardStatus(NoChecksRecorded, NoChecksRecordedLine, RoomTone.Quiet))
+                : SimulatedCard(understanding.Last, zone);
 
         /// <summary>The simulated checks' card from <paramref name="read"/>, the feed's last read; null where it has none.</summary>
         public static RoomCard? SimulatedCard(IntelligenceRead<UnderstandingResponse>? read, TimeZoneInfo zone)
@@ -719,16 +735,18 @@ namespace Halcyonic.Client
                 || !observed.Understanding.Source.Synthetic) return null;
             var runs = UnderstandingPresenter.Runs(observed.Understanding);
             if (runs.Count == 0) return null;
-            // The latest run decides (AUDIT S1, 2026-11-11): an earlier failure under a later pass is not the check now. A run
-            // that passed in part, or whose outcome is not known, has no words of its own yet (FIELD's), so no card: the older
-            // page says it, and unknown stays unknown.
-            var outcome = runs[runs.Count - 1].Outcome;
-            if (outcome is not (UnderstandingVerificationRunOutcome.Pass or UnderstandingVerificationRunOutcome.Fail)) return null;
-            var failed = outcome == UnderstandingVerificationRunOutcome.Fail;
+            // The latest run decides (AUDIT S1, 2026-11-11): an earlier failure under a later pass is not the check now. A part
+            // passing is quiet, not bad: the rest is not known to have failed; an unknown outcome is quiet too (FIELD).
+            var (title, tone) = runs[runs.Count - 1].Outcome switch
+            {
+                UnderstandingVerificationRunOutcome.Pass => (RoomPanelCards.AllPassing, RoomTone.Good),
+                UnderstandingVerificationRunOutcome.Fail => (RoomPanelCards.ChecksFailed, RoomTone.Bad),
+                UnderstandingVerificationRunOutcome.Partial => (PartlyPassing, RoomTone.Quiet),
+                _ => (OutcomeUnknown, RoomTone.Quiet),
+            };
             var line = read.Recorded ? "Simulated in the recording, at " + IntelligenceText.Clock(read.ReadAt, zone, seconds: true) : "Simulated";
             var latest = UnderstandingPresenter.Run(runs[runs.Count - 1], observed.Understanding.Changes.Files, zone).First();
-            return new RoomCard(status: new RoomCardStatus(failed ? RoomPanelCards.ChecksFailed : RoomPanelCards.AllPassing, line, failed ? RoomTone.Bad : RoomTone.Good),
-                more: latest.Runs);
+            return new RoomCard(status: new RoomCardStatus(title, line, tone), more: latest.Runs);
         }
 
         public static SectionPresentation Present(
