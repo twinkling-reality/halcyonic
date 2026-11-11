@@ -3167,6 +3167,14 @@ public class NewProjectFlowTests
         Assert.That(StarterChoice.Offered(idea, Array.Empty<StarterView>()), Is.False, "where none is ready, Start From is not offered");
         idea.ChooseFolder(ProjectFolder.Existing(root, new LocationFolder { Name = "kite", Path = "/p/kite" }));
         Assert.That(StarterChoice.Offered(idea, ready), Is.False);
+        // A full card keeps its facts: a fourth would push the level off, so the review alone names the starter.
+        var full = new RoomCard(LineWords.Ours("Kite"), slots: new[]
+        {
+            new RoomSlot(RoomKind.Folder, LineWords.Ours("kite")), new RoomSlot(RoomKind.Agent, LineWords.Ours("Agent")), new RoomSlot(RoomKind.Level, LineWords.Ours("Ask First")),
+        });
+        Assert.That(StarterChoice.WithStarter(full, ready[0]), Is.SameAs(full));
+        var roomy = new RoomCard(LineWords.Ours("Kite"), slots: new[] { new RoomSlot(RoomKind.Folder, LineWords.Ours("kite")) });
+        Assert.That(StarterChoice.WithStarter(roomy, ready[0]).Slots.Select(slot => slot.Kind), Is.EqualTo(new[] { RoomKind.Folder, RoomKind.Starter }));
     }
 
     /// <summary>
