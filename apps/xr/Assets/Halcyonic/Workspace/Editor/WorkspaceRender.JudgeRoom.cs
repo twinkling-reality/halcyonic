@@ -43,7 +43,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var old in Directory.GetFiles(folder)) File.Delete(old);
                     EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                     var found = new List<string>();
-                    var moments = new List<string> { "moment\tredesign drew\tolder parts drew\tfailures" };
+                    var moments = new List<string> { "moment\tcoverage\tredesign drew\tolder parts drew\tactions drawn\tfailures" };
                     ViewField.Current = FieldChecks.Quest3S;
                     var context = SynchronizationContext.Current;
                     // As the judge kit walk: the session's acknowledgements continue on the thread pool while the walk holds the Editor's thread.
@@ -272,19 +272,35 @@ namespace Halcyonic.XR.Workspace.Editor
                     Draw();
                     shots++;
                     var name = "room-" + shots.ToString("00") + "-" + moment.Replace(' ', '-');
+                    // The Editor runs no Update, so each part's arrival and easing stand where they began: taken to their end, as
+                    // a person sees them once they have arrived.
+                    foreach (var button in root.GetComponentsInChildren<RoomButton>(false)) button.Settle();
+                    foreach (var band in root.GetComponentsInChildren<RoomBand>(false)) band.Settle();
+                    foreach (var cursor in root.GetComponentsInChildren<RoomCursor>(false)) cursor.Settle();
+                    foreach (var field in root.GetComponentsInChildren<RoomField>(false)) field.Settle();
                     ForceMeshes(root);
                     camera.transform.rotation = PlaneLayout.Facing(plane.Direction);
                     var image = Render(camera, texture);
                     File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG());
                     var (redesign, older) = Parts();
-                    var found = new List<string>(momentFailures);
+                    // What the redesign does not draw yet is listed; on a moment it covers it fails. What it does draw is held
+                    // to the frame checks on every moment.
+                    var covered = Covered(moment);
+                    var gaps = new List<string>(momentFailures);
                     momentFailures.Clear();
-                    if (expectDrawn && redesign.Count == 0) found.Add("the redesign draws nothing");
-                    if (older.Count > 0) found.Add("older parts draw: " + string.Join(", ", older));
-                    found.AddRange(RoomFrameChecks(root, camera, image, eyes, plane));
+                    if (expectDrawn && redesign.Count == 0) gaps.Add("the redesign draws nothing");
+                    if (older.Count > 0) gaps.Add("older parts draw: " + string.Join(", ", older));
+                    var found = new List<string>(RoomFrameChecks(root, camera, image, eyes, plane));
                     found.AddRange(RoomBrands(root));
+                    if (covered) found.AddRange(gaps);
                     UnityEngine.Object.DestroyImmediate(image);
-                    moments.Add(name + "\t" + string.Join(", ", redesign) + "\t" + string.Join(", ", older) + "\t" + string.Join("; ", found));
+                    // The redesign's actions drawn now, as action/key, so a moment's way on can be read off the list.
+                    var actions = plane.KitShows
+                        ? string.Join(", ", plane.Kit.Bar.Column.Where(each => each.gameObject.activeInHierarchy)
+                            .Select(each => plane.Kit.Bar.ControlOf(each) is KitControl control ? control.Action + (control.Key == null ? "" : "/" + control.Key) : "?"))
+                        : "";
+                    moments.Add(name + "\t" + (covered ? "covered" : "not yet") + "\t" + string.Join(", ", redesign) + "\t" + string.Join(", ", older) + "\t" + actions
+                        + "\t" + string.Join("; ", found) + (covered || gaps.Count == 0 ? "" : "\t(not yet: " + string.Join("; ", gaps) + ")"));
                     failures.AddRange(found.Select(each => name + ": " + each));
                     Debug.Log("Halcyonic: judge room: " + name + ": redesign [" + string.Join(", ", redesign) + "], older [" + string.Join(", ", older) + "]");
                 }
@@ -400,6 +416,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var told = Press(FileScreens.TellIt);
                 if (told) Moment("write instruction");
                 told = told && Press(FileScreens.Preset, "0");
+                if (told) Moment("instruction chosen");
                 for (var part = 0; told && part < 8 && Opened()?.Screen.Instruction.Read == false; part++) Press(FileScreens.NextInstructionPart);
                 told = told && Press(FileScreens.SendInstruction) && sent.OfType<ExecutionSendInstructionCommand>().Any();
                 if (!told && DirectedRun() is ExecutionView run && fallback.InstructionsFor(run.ExecutionId).FirstOrDefault() is PresetInstruction preset)
@@ -430,6 +447,23 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             return failures;
         }
+
+        /// <summary>
+        /// The judge moments the redesign draws today, each failing the walk where it is not drawn by the redesign alone or a
+        /// press found no drawn control: at work, the question and its answer, the request with Approve, Cancel and Confirm,
+        /// and the offered instructions. The rest (the recorded run's launch, result, Changes, Checks and end, the
+        /// demonstration's launch, the results and Checks, the correction's send and the restart) are listed until their
+        /// units land, then added here. Every moment's drawn redesign is held to the frame checks either way.
+        /// </summary>
+        private static readonly string[] CoveredMoments =
+        {
+            "recorded at work", "at work", "correction at work", "question", "question part", "answer chosen", "answers reviewed",
+            "answer confirm locked", "answer confirm", "answer sent", "it asks", "confirm cancel offered", "cancelled asks again",
+            "request part", "confirm locked", "confirm", "write instruction", "instruction chosen",
+        };
+
+        private static bool Covered(string moment) =>
+            CoveredMoments.Any(each => moment == each || moment.StartsWith(each + " ", StringComparison.Ordinal) && char.IsDigit(moment[each.Length + 1]));
 
         /// <summary>The name of the nearest Halcyonic component that owns <paramref name="part"/>, or null for the walk's own camera.</summary>
         private static string? OwnerOf(Transform part)
