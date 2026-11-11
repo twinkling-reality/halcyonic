@@ -157,7 +157,9 @@ client                                   server
     lists the waiting ones, oldest first, as `{command_id, queued_at}` without the words, and is absent when
     none waits.
   - After a turn that completed, the first is sent as an instruction at rest, and its command completes once
-    the runtime confirms. The next waits for that turn.
+    the runtime confirms. The next waits for that turn. `execution.instruction.dequeued` (`command_id`) marks
+    its send begun: it leaves `queued_instructions` then, and can no longer be dropped or failed unsent. A
+    restart fails what still waits as `queued_stopped`, effect `none`.
   - Every one still waiting fails unsent, effect `none`: `queued_turn_failed` after a failed turn;
     `queued_stopped` after a Stop, or a turn interrupted or cut by a restart; `queued_session_lost`;
     `queued_files_restored` after a restore is accepted.

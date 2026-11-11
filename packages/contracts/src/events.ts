@@ -617,6 +617,16 @@ export const ExecutionInstructionQueued = executionEvent(
 );
 
 /**
+ * The host began sending a waiting instruction after a turn that completed (ADR 0056): from here it is
+ * no longer waiting, so it can no longer be dropped or failed unsent; its command ends as any sent
+ * instruction does, completed when the runtime confirms or failed with the runtime's own effect.
+ */
+export const ExecutionInstructionDequeued = executionEvent(
+  'execution.instruction.dequeued',
+  Type.Object({ command_id: CommandId }, strict),
+);
+
+/**
  * The host, not the person, sent the project's failed check back to this execution's agent as
  * its next instruction (ADR 0044): which check, which try of how many, and the instruction's own
  * command, recorded before that command is submitted. Delivery is that command's own outcome.
@@ -988,6 +998,7 @@ export const EVENT_VARIANTS = [
   ProjectCheckpointFailed,
   ProjectCheckpointsPruned,
   ExecutionInstructionQueued,
+  ExecutionInstructionDequeued,
   ProjectRestored,
   ProjectRestoreIncomplete,
   ProjectCheckRecorded,

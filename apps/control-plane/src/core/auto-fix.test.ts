@@ -750,4 +750,78 @@ describe('instructions held for a runtime that cannot steer (ADR 0056)', () => {
     );
     assert.equal(again.disposition, 'rejected', 'only a waiting one can be dropped');
   });
+
+  test('once its send began it can no longer be dropped: it ends as a sent instruction does (AUDIT2)', async (t) => {
+    const p = plane(t, []);
+    const executionId = await p.start();
+    p.instruct(executionId, 'Grow tulips.');
+    await until(
+      () => p.controlPlane.projection.execution(executionId)?.status === 'running',
+      'the turn running',
+    );
+    const waiting = p.instruct(executionId, 'Paint them blue.');
+    // The runtime holds the queued one's send open, as a re-attach or a model load would.
+    let release = () => {};
+    p.runtime.hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // In small steps, so the held send is not run on to its command's timeout.
+    for (let step = 0; step < 400 && p.runtime.given.at(-1) !== 'Paint them blue.'; step += 1) {
+      await p.time.advance(50);
+      await quiet();
+    }
+    assert.equal(p.runtime.given.at(-1), 'Paint them blue.', 'its send under way');
+    assert.equal(p.ofType('execution.instruction.dequeued').length, 1);
+    assert.equal(p.controlPlane.projection.execution(executionId)?.queued_instructions, undefined);
+    const drop = p.controlPlane.commands.submit(
+      {
+        ...p.ofType('command.accepted')[0]?.payload.command,
+        command_id: '01a19000-0000-7000-8000-0000000000d3',
+        command_type: 'execution.drop_queued_instruction',
+        payload: { execution_id: executionId, command_id: waiting.command?.command_id },
+      } as CommandEnvelope,
+      'websocket',
+    );
+    assert.equal(drop.disposition, 'rejected', 'not waiting any more');
+    p.runtime.hold = null;
+    release();
+    await settle(
+      p,
+      () =>
+        p.controlPlane.projection.command(waiting.command?.command_id ?? '')?.status ===
+        'completed',
+      'its send confirmed',
+    );
+    assert.equal(
+      p
+        .ofType('command.failed')
+        .some((event) => event.payload.command_id === waiting.command?.command_id),
+      false,
+      'never also journaled as not sent',
+    );
+  });
+
+  test('a restart fails what was waiting as never sent, not as of unknown effect (AUDIT2 S1)', async (t) => {
+    const first = plane(t, []);
+    t.after(() => rmSync(first.dataDir, { recursive: true, force: true }));
+    const executionId = await first.start();
+    first.instruct(executionId, 'Grow tulips.');
+    await until(
+      () => first.controlPlane.projection.execution(executionId)?.status === 'running',
+      'the turn running',
+    );
+    const waiting = first.instruct(executionId, 'Paint them blue.');
+    assert.equal(first.ofType('execution.instruction.queued').length, 1);
+    await first.controlPlane.close();
+    const second = plane(t, [], { dataDir: first.dataDir });
+    second.controlPlane.reconcile();
+    await quiet();
+    const failed = second
+      .ofType('command.failed')
+      .find((event) => event.payload.command_id === waiting.command?.command_id);
+    assert.deepEqual(
+      [failed?.payload.failure.code, failed?.payload.failure.effect],
+      ['queued_stopped', 'none'],
+    );
+  });
 });

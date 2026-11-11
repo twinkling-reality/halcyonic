@@ -2835,6 +2835,12 @@ namespace Halcyonic.Contracts
         public long Position { get; set; }
     }
 
+    public sealed class ExecutionInstructionDequeuedPayload
+    {
+        [JsonProperty("command_id", Required = Required.Always)]
+        public string CommandId { get; set; } = default!;
+    }
+
     public sealed class ProjectRestoredPayload
     {
         [JsonProperty("checkpoint_id", Required = Required.Always)]
@@ -4405,6 +4411,7 @@ namespace Halcyonic.Contracts
                 "project.checkpoint.failed" => new ProjectCheckpointFailedEvent(),
                 "project.checkpoints.pruned" => new ProjectCheckpointsPrunedEvent(),
                 "execution.instruction.queued" => new ExecutionInstructionQueuedEvent(),
+                "execution.instruction.dequeued" => new ExecutionInstructionDequeuedEvent(),
                 "project.restored" => new ProjectRestoredEvent(),
                 "project.restore_incomplete" => new ProjectRestoreIncompleteEvent(),
                 "project.check.recorded" => new ProjectCheckRecordedEvent(),
@@ -4555,6 +4562,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ExecutionInstructionQueuedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionInstructionDequeuedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.instruction.dequeued";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ExecutionInstructionDequeuedPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectRestoredEvent : EventEnvelope
