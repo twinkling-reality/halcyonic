@@ -162,7 +162,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     status: new RoomCardStatus("Needs You", "Waiting on your answer", RoomTone.Attention)),
                 "47-card-share" => new RoomCard(Theirs("Kite Run"), status: new RoomCardStatus("Shared", "Scan the code to play", RoomTone.Good),
                     slots: new[] { new RoomSlot(RoomKind.Wifi, Ours("192.168.1.20:47970"), mono: true) },
-                    more: Ours("Players get the last checked build, not your newer changes."), code: CardCode()),
+                    more: Ours("Players get the last checked build"), code: CardCode()),
                 // kite.js as the Changes list has it, edited: three lines added, one removed, each count by its own mark.
                 "47-card-reading" => new RoomCard(Theirs("kite.js"), slots: new[]
                     {
