@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, realpathSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, sep } from 'node:path';
+import { SECRET_FILE_RULES } from '@halcyonic/runtime-core';
 
 /** Where macOS keeps the sandbox launcher; never looked up on PATH. */
 export const SANDBOX_EXEC = '/usr/bin/sandbox-exec';
@@ -377,16 +378,24 @@ export function secretsUnder(path: string): string {
   if (/["\n\r]/.test(root))
     throw new Error(`a folder Halcyonic cannot name in its profile: ${root}`);
   const literal = root.replace(/[.^$*+?()[\]{}|\\]/g, '\\$&');
-  const anyCase = (word: string) =>
-    [...word].map((c) => (/[a-z]/.test(c) ? `[${c}${c.toUpperCase()}]` : c)).join('');
+  // Each word quoted for the regex, then every letter in either case.
+  const word = (text: string) =>
+    [...text]
+      .map((c) =>
+        /[a-z]/.test(c) ? `[${c}${c.toUpperCase()}]` : c.replace(/[.^$*+?()[\]{}|\\]/, '\\$&'),
+      )
+      .join('');
+  const any = (words: readonly string[]) => `(${words.map(word).join('|')})`;
+  const rules = SECRET_FILE_RULES;
   const under = `^${literal}/(.*/)?`;
+  // The same files `secretShapedPath` names, one rule list for both (runtime-core secret-files.ts).
   return [
-    `${under}\\.${anyCase('git')}(/|$)`,
-    `${under}\\.${anyCase('env')}[^/]*$`,
-    `${under}[^/]*\\.(${['pem', 'key', 'p12', 'pfx', 'keystore', 'jks'].map(anyCase).join('|')})$`,
-    `${under}${anyCase('id_')}(${['rsa', 'dsa', 'ecdsa', 'ed25519'].map(anyCase).join('|')})[^/]*$`,
-    `${under}\\.(${['npmrc', 'netrc', 'pypirc'].map(anyCase).join('|')})$`,
-    `${under}(${['credentials', 'secrets'].map(anyCase).join('|')})(\\.[^/]*)?$`,
+    `${under}${any(rules.folders)}(/|$)`,
+    `${under}${any(rules.prefixes)}[^/]*$`,
+    `${under}[^/]*\\.${any(rules.extensions)}$`,
+    `${under}${word('id_')}${any(rules.sshKeys)}[^/]*$`,
+    `${under}${any(rules.names)}$`,
+    `${under}${any(rules.stems)}(\\.[^/]*)?$`,
   ]
     .map((pattern) => `(regex #"${pattern}")`)
     .join(' ');

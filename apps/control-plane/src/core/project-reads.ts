@@ -1,4 +1,4 @@
-import { constants } from 'node:fs';
+import { constants, realpathSync } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { join, sep } from 'node:path';
 import {
@@ -22,6 +22,7 @@ import {
   type ProjectId,
   type Timestamp,
 } from '@halcyonic/contracts';
+import { secretShapedPath } from '@halcyonic/runtime-core';
 import { NO_LINK } from '../observer/file-observer.ts';
 import { checkLogLines } from '../preview/check-output.ts';
 import type { ControlPlane } from './control-plane.ts';
@@ -117,8 +118,11 @@ export class ProjectReads {
     if (folder === undefined || !safeRelative(query.path)) return undefined;
     const full = join(folder, query.path);
     if (!full.startsWith(folder + sep)) return undefined;
+    // Real paths, compared without case: the Mac's volumes usually ignore it (AUDIT2 S4).
+    const lower = full.toLowerCase();
     for (const own of this.#plane.protectedFolders) {
-      if (full === own || full.startsWith(own + sep) || own.startsWith(full + sep))
+      const mine = (realpathOr(own) ?? own).toLowerCase();
+      if (lower === mine || lower.startsWith(mine + sep) || mine.startsWith(lower + sep))
         return undefined;
     }
     // Opened once, never through a link anywhere in its path (`NO_LINK`), and judged and read through
@@ -225,22 +229,10 @@ export class ProjectReads {
 }
 
 /**
- * Whether a project-relative path names a file that may hold secrets, by the same rules an agent is
- * kept from them (codex sandbox-profile.ts `secretsUnder`): version control's own, `.env*`, private
- * keys and stores, SSH keys, package and network credentials, files named credentials or secrets.
+ * Whether a project-relative path names a file that may hold secrets: the one list every place uses
+ * (runtime-core `secretShapedPath`), by name only.
  */
-export function withheldPath(path: string): boolean {
-  const parts = path.toLowerCase().split('/');
-  const name = parts.at(-1) ?? '';
-  return (
-    parts.some((part) => part === '.git') ||
-    name.startsWith('.env') ||
-    /\.(pem|key|p12|pfx|keystore|jks)$/.test(name) ||
-    /^id_(rsa|dsa|ecdsa|ed25519)/.test(name) ||
-    ['.npmrc', '.netrc', '.pypirc'].includes(name) ||
-    /^(credentials|secrets)(\.[^/]*)?$/.test(name)
-  );
-}
+export const withheldPath = secretShapedPath;
 
 /** A relative path inside the folder: no leading `/`, no `.` or `..` part, no empty part, no NUL. */
 function safeRelative(path: string): boolean {
@@ -257,6 +249,14 @@ function utf8(bytes: Buffer): string | null {
   if (bytes.includes(0)) return null;
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+function realpathOr(path: string): string | null {
+  try {
+    return realpathSync(path);
   } catch {
     return null;
   }
