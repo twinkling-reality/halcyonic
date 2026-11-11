@@ -39,6 +39,12 @@ Until now admission refused an instruction to a running execution whose runtime 
 3. **Sent only after a turn that completed.** When a turn completes, the first waiting instruction is sent,
    exactly as an instruction at rest is: the same reads of the folder before the turn, and completion once the
    runtime confirms. The next one waits for that turn.
+   - `execution.instruction.dequeued` (`command_id`) is recorded when its send begins, so from then on it is
+     not waiting: it cannot be dropped or failed unsent, and it ends as any sent instruction does (AUDIT2,
+     2026-11-11).
+   - A restart fails what is still waiting as `queued_stopped`, effect `none`, before the restart's own pass
+     fails other pending commands with effect `unknown`. A send already begun still fails with `unknown`: it may
+     have reached the runtime.
 4. **Never sent blindly, never lost silently.** Every instruction still waiting fails unsent, effect `none`,
    with a code of its own:
    - a turn that failed: `queued_turn_failed`;

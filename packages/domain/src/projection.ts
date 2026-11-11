@@ -1363,6 +1363,21 @@ export class Projection {
         }
         this.#checkOutputs.set(event.project_id, event.payload.check_id);
         return;
+      case 'execution.instruction.dequeued': {
+        // Its send began: no longer waiting, so no longer droppable or failed unsent (ADR 0056).
+        const execution = this.#executions.get(event.execution_id);
+        if (execution === undefined) {
+          notes.push(
+            note('unknown_entity', event, `execution ${event.execution_id} does not exist`),
+          );
+          return;
+        }
+        execution.queued = (execution.queued ?? []).filter(
+          (queued) => queued.command_id !== event.payload.command_id,
+        );
+        this.#touchExecution(execution, event.ingested_at, changes);
+        return;
+      }
       case 'execution.instruction.queued': {
         // The person's instruction waits for the turn to end (ADR 0056); its words are in its command.
         const execution = this.#executions.get(event.execution_id);

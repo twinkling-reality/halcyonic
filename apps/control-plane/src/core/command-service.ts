@@ -349,6 +349,17 @@ export class CommandService {
         ),
       );
     }
+    // Instructions still waiting were never sent: they fail as not sent, effect none, before the
+    // pass below fails what may have reached a runtime as unknown (ADR 0056, AUDIT2 S1).
+    for (const view of all) {
+      for (const queued of view.queued_instructions ?? []) {
+        this.failQueued(
+          queued.command_id,
+          'queued_stopped',
+          'The turn did not finish (it was stopped, or your computer restarted), so your instruction was not sent.',
+        );
+      }
+    }
     const commands = this.#deps.projection.pendingCommands();
     for (const command of commands) {
       this.#deps.recorder.record(
@@ -1730,6 +1741,17 @@ export class CommandService {
         );
       return false;
     }
+    // No longer waiting from here: a drop or a restore cannot fail it unsent once its send began
+    // (AUDIT2); it ends as any sent instruction does.
+    this.#deps.recorder.record(
+      controlPlaneDraft(
+        'execution.instruction.dequeued',
+        toExecutionContext(scope),
+        { command_id: command.command_id },
+        this.#now(),
+        causedBy(command.command_id),
+      ),
+    );
     this.#dispatch(
       command,
       { admitted: true, policy: 'low_consequence', scope, runtime },

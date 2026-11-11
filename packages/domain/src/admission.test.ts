@@ -778,6 +778,37 @@ describe('command admission', () => {
     );
   });
 
+  test('an instruction that would carry a plan out is never held for the turn to end: refused while the turn runs (ADR 0056, PLAN 4a S3)', () => {
+    const { b, projection, scope, commands } = setup();
+    const descriptor = catalog({ ...FULL, instruct_while_running: false }).get('mock' as RuntimeId);
+    assert.ok(descriptor);
+    // A runtime that offers plans and cannot steer, where the queue runs.
+    const queues: RuntimeCatalog = {
+      get: (id) => (id === 'mock' ? { ...descriptor, offers_plan: true } : undefined),
+      queuesInstructions: true,
+    };
+    projection.apply(
+      b.runtimeEvent(scope, 'runtime.execution.started', { native_id: 'ses_1', plan: true }),
+    );
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    const command = commands.instruct();
+    const leaving = admitCommand(
+      {
+        ...command,
+        payload: { ...(command.payload as object), leave_plan: true },
+      } as typeof command,
+      projection,
+      queues,
+    );
+    assert.deepEqual(leaving.admitted ? null : leaving.rejection, {
+      code: 'invalid_state',
+      message: 'Carry the plan out once it stops.',
+    });
+    // Without leave_plan the same instruction waits, as any other.
+    const plain = admitCommand(commands.instruct(), projection, queues);
+    assert.ok(plain.admitted && plain.queued === true);
+  });
+
   test('instructions are admitted at rest when supported, and refused before any session exists', () => {
     const { b, projection, scope, commands } = setup();
     const early = admitCommand(commands.instruct(), projection, catalog());
