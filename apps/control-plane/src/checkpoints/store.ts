@@ -367,6 +367,33 @@ export class CheckpointStore {
   }
 
   /**
+   * Stops keeping these checkpoints (ADR 0036, pruning): their two names go in one `update-ref`, then
+   * git removes what nothing names any more and was written over an hour ago, so a tree another step
+   * has just written and not yet named (a task's copy, a read of a folder now) is never taken from
+   * under it. True once the names are gone; a prune of the objects that fails leaves them for the next.
+   */
+  async forget(projectId: string, checkpointIds: readonly string[]): Promise<boolean> {
+    if (!checkpointIds.every((id) => ID_PATTERN.test(id))) return false;
+    const repository = this.#repositoryPath(projectId);
+    if (!(await isFolder(repository))) return true;
+    const names = checkpointIds
+      .flatMap((id) => [`delete ${treeRef(id)}`, `delete ${metaRef(id)}`])
+      .join('\n');
+    const deleted = await this.#run(
+      repository,
+      null,
+      null,
+      ['update-ref', '--stdin'],
+      Buffer.from(`${names}\n`),
+    );
+    if (deleted.code !== 0) return false;
+    await this.#run(repository, null, null, ['prune', '--expire=1.hour.ago']).catch(
+      () => undefined,
+    );
+    return true;
+  }
+
+  /**
    * The folder the checkpoint was taken of, as the file system resolved it then: the project's, or
    * a task's own copy (ADR 0045). Null when the checkpoint is not kept here.
    */

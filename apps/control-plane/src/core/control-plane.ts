@@ -61,6 +61,8 @@ export interface ControlPlaneOptions {
   readonly checkpoints?: {
     readonly store: CheckpointStore;
     readonly restoreHooks?: RestoreHooks;
+    /** For tests: how many newest checkpoints a prune keeps, and how many more gather before one. */
+    readonly prune?: { readonly keep: number; readonly slack: number };
     /** How long a close waits for checkpoints and restores under way; 10 s by default. */
     readonly closeWaitMs?: number;
     /**
@@ -218,6 +220,9 @@ export class ControlPlane {
             ...(options.checkpoints.restoreHooks === undefined
               ? {}
               : { restoreHooks: options.checkpoints.restoreHooks }),
+            ...(options.checkpoints.prune === undefined
+              ? {}
+              : { prune: options.checkpoints.prune }),
           });
     this.checkpoints?.attach(this.publisher);
     this.starters = options.starters ?? null;

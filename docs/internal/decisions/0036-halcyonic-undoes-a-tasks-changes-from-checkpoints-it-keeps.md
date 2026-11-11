@@ -157,6 +157,41 @@ The headset's History (the parity map's gap 2) needs what current state did not 
   into a tree in the store as a checkpoint's is, with the same checks of where it is. The read waits behind the
   project's checkpoints and restores, and records nothing.
 
-Not decided here: the history of a task's own copy beyond marking its versions, and pruning the store. Tested
+Not decided here: the history of a task's own copy beyond marking its versions, and pruning the store (decided
+below). Tested
 against the system's git in temporary folders (`checkpoints/checkpointer.test.ts`) and on synthetic events
 (`domain/history.test.ts`).
+
+## Amendment, 2026-11-11: pruning the store
+
+Until now the store kept every checkpoint forever, and a read of a folder as it is now added objects nothing
+names. Decided: the host stops keeping a project's old checkpoints by a rule, and says so in the journal.
+
+- **When.** After a checkpoint before a task, after a turn, or before an add, never during a restore: once the
+  project keeps more than 220 checkpoints (`CHECKPOINTS_KEPT` 200 plus `CHECKPOINTS_PRUNE_SLACK` 20), so a prune
+  runs once in every 20 checkpoints. It runs in the project's queue, so no checkpoint, restore or read of the
+  folder now runs beside it.
+- **What stays, always:**
+  - the newest 200;
+  - each folder's newest version, the project's and each task copy's;
+  - every version of a task still at work (starting, running, verifying or waiting), where its undo starts;
+  - the `before_restore` version of the newest restore, complete or not, which undoes it;
+  - every `before_add` version, which undoes that add;
+  - every version of a task's copy while the copy is still the task's own;
+  - any checkpoint that an accepted restore, still waiting to run, names.
+- **What goes:** every other checkpoint. Its two names go from the store in one `update-ref --stdin`. Then
+  `git prune --expire=1.hour.ago` removes objects nothing names that were written over an hour ago. The hour
+  keeps a tree another step has just written and not yet named, such as a task copy's or a read of a folder
+  now. A task copy's own trees are named under `refs/halcyonic/copies` and never pruned.
+- **Recorded.** `project.checkpoints.pruned` names the checkpoints (at most 1,000 an event) and how many are kept.
+  It is recorded only after the store no longer names them. The projection drops them from the checkpoints, so
+  a restore or a comparison of one is refused, and marks their history versions with `pruned_at`. A prune that
+  fails is logged and runs after a later checkpoint; it never fails the checkpoint.
+- **Not decided:**
+  - a bound by bytes or by age;
+  - the person's own way to keep a version (a pin);
+  - pruning a project's store when the project is removed.
+
+Tested on synthetic events (`domain/history.test.ts`) and against the system's git with small bounds
+(`checkpoints/checkpointer.test.ts`).
+

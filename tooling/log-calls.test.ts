@@ -112,6 +112,11 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
     },
     {
       file: 'apps/control-plane/src/checkpoints/checkpointer.ts',
+      args: '{ err: error, project_id: projectId }, ""',
+      why: "a prune that failed: an id and the error, which the logger's serializer reduces to its type and where it happened",
+    },
+    {
+      file: 'apps/control-plane/src/checkpoints/checkpointer.ts',
       args: '{ project_id: projectId, reason, code: taken.code }, "" ,',
       why: "an id, the checkpoint's reason and the failure code",
     },

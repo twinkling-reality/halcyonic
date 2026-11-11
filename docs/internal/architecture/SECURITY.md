@@ -25,8 +25,10 @@ does, with the same checks of where it is (inside a project root, or a task's ow
 Halcyonic's data) and the same file and byte bounds, and writes its files' objects into Halcyonic's
 own checkpoint store, never into the folder. One read per version is shared while it runs and kept
 five seconds while nothing new is journaled, so asking often does not hash the folder often. The
-objects are named nowhere and the store is never pruned, so a reader could still grow the store by
-asking every few seconds while the folder changes, as each turn's checkpoint does.
+objects are named nowhere, so the store's prune (ADR 0036, pruning) removes them once they are an
+hour old; within that hour a reader asking every few seconds while the folder changes grows the
+store, as each turn's checkpoint does. A pruned checkpoint's files are gone from the store too, once
+nothing else names them, so it can no longer be put back.
 
 ## Recorded tool-result work content
 

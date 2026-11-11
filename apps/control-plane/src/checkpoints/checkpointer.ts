@@ -1,5 +1,6 @@
 import {
   CHECKPOINT_PATHS_LISTED,
+  CHECKPOINTS_PRUNED_MAX,
   type ChangedFiles,
   type CheckpointId,
   type CheckpointReason,
@@ -34,6 +35,8 @@ export interface CheckpointerDeps {
   readonly logger: Logger;
   /** For tests: passed to every restore. */
   readonly restoreHooks?: RestoreHooks;
+  /** For tests: the prune's bounds, `CHECKPOINTS_KEPT` and `CHECKPOINTS_PRUNE_SLACK` by default. */
+  readonly prune?: { readonly keep: number; readonly slack: number };
 }
 
 /** A checkpoint's tree and its folder's tree now, or why the folder could not be read. */
@@ -56,6 +59,13 @@ const NOW_READ_KEPT_MS = 5_000;
 
 /** How many reads of folders as they are now are kept, one per project and checkpoint. */
 const NOW_READS_KEPT = 64;
+
+/**
+ * How many of a project's newest checkpoints are always kept, and how many more may gather before a
+ * prune, so the store is pruned once in every `CHECKPOINTS_PRUNE_SLACK` checkpoints, not after each.
+ */
+const CHECKPOINTS_KEPT = 200;
+const CHECKPOINTS_PRUNE_SLACK = 20;
 
 /** How many tree pairs' changed-file counts are kept: a history page counts at most 50. */
 const CHANGED_COUNTS_KEPT = 4_096;
@@ -419,9 +429,12 @@ export class Checkpointer {
     cause: Cause,
     turnId: string | null = null,
   ): Promise<CheckpointId | null> {
-    return this.#serially(projectId, () =>
-      this.#take(projectId, directory, reason, executionId, cause, [], turnId),
-    );
+    return this.#serially(projectId, async () => {
+      const taken = await this.#take(projectId, directory, reason, executionId, cause, [], turnId);
+      // Pruned after a checkpoint, never inside a restore: a restore's own target stays until it ran.
+      await this.#prune(projectId, cause);
+      return taken;
+    });
   }
 
   async #take(
@@ -539,6 +552,36 @@ export class Checkpointer {
       if (copy?.state === 'own' && copy.directory === directory) return copy.directory;
     }
     return null;
+  }
+
+  /**
+   * Stops keeping the checkpoints the rule lets go (ADR 0036, 2026-11-11), journaled once the store
+   * no longer names them. Never fails a checkpoint: a prune that cannot run now runs after a later one.
+   */
+  async #prune(projectId: ProjectId, cause: Cause): Promise<void> {
+    try {
+      const prunable = this.#deps.projection
+        .prunableCheckpoints(
+          projectId,
+          this.#deps.prune?.keep ?? CHECKPOINTS_KEPT,
+          this.#deps.prune?.slack ?? CHECKPOINTS_PRUNE_SLACK,
+        )
+        .slice(0, CHECKPOINTS_PRUNED_MAX);
+      if (prunable.length === 0) return;
+      if (!(await this.#deps.store.forget(projectId, prunable))) return;
+      const kept = this.#deps.projection.checkpoints(projectId).length - prunable.length;
+      this.#deps.recorder.record(
+        controlPlaneDraft(
+          'project.checkpoints.pruned',
+          projectScope(projectId),
+          { checkpoint_ids: prunable, kept },
+          this.#now(),
+          cause,
+        ),
+      );
+    } catch (error) {
+      this.#deps.logger.warn({ err: error, project_id: projectId }, 'checkpoints not pruned');
+    }
   }
 
   #serially<T>(projectId: string, step: () => Promise<T>): Promise<T> {

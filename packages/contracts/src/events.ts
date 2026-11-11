@@ -321,6 +321,26 @@ export const ProjectCheckpointRecorded = projectEvent(
   ),
 );
 
+/** The most checkpoints one prune names; a prune that would name more is recorded in parts. */
+export const CHECKPOINTS_PRUNED_MAX = 1_000;
+
+/**
+ * The host stopped keeping these checkpoints, by the rule of ADR 0036's amendment of 2026-11-11 (the
+ * newest ones and every one a restore, an undo, a task's copy or a task still at work needs are
+ * kept): they can no longer be put back or compared. `kept` counts the project's checkpoints still
+ * kept after it.
+ */
+export const ProjectCheckpointsPruned = projectEvent(
+  'project.checkpoints.pruned',
+  Type.Object(
+    {
+      checkpoint_ids: Type.Array(CheckpointId, { minItems: 1, maxItems: CHECKPOINTS_PRUNED_MAX }),
+      kept: Type.Integer({ minimum: 0 }),
+    },
+    strict,
+  ),
+);
+
 /** The host could not keep a checkpoint, so nothing from this point can be put back. */
 export const ProjectCheckpointFailed = projectEvent(
   'project.checkpoint.failed',
@@ -947,6 +967,7 @@ export const EVENT_VARIANTS = [
   ProjectCatalogUnlinked,
   ProjectCheckpointRecorded,
   ProjectCheckpointFailed,
+  ProjectCheckpointsPruned,
   ProjectRestored,
   ProjectRestoreIncomplete,
   ProjectCheckRecorded,
