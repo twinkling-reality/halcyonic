@@ -348,6 +348,8 @@ namespace Halcyonic.XR.UI
         {
             FollowLevel();
             if (shown?.Caret == true) caret.gameObject.SetActive(true);
+            // A render has no clock: the panel stands as arrived.
+            SettleArrival();
         }
 
         /// <summary>For renders, which have no clock: as if <paramref name="seconds"/> more had passed since Confirm arrived.</summary>
@@ -397,6 +399,7 @@ namespace Halcyonic.XR.UI
             if (shown == null) return;
             FollowLevel();
             FollowLock();
+            FollowArrival();
             if (shown.Caret && !GlazeMotion.Still)
             {
                 var on = Mathf.Repeat(Time.unscaledTime, 2f * CaretSeconds) < CaretSeconds;
@@ -720,6 +723,8 @@ namespace Halcyonic.XR.UI
                 lockLifted = false;
             }
             if (locking != null && !lockLifted) FollowLock();
+            // A new moment's panel arrives rising about a degree as it fades in, its words with it (FIELD's part, DESIGN 1.5).
+            ArrivePanel(bar);
             Foot = foot;
             PanelRight = left + panelWidth;
             Size = new Vector2(total, height);

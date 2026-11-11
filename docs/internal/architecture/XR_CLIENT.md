@@ -2690,6 +2690,10 @@ The last unit turns it on by default and removes the kit parts it replaced.
   as the menu's own does (`CharacterStage.ShelfCapacity`, `ShelfPlaces`, `PlaceOf`; `RoomNewProjectPlace`, attached by
   `WorkspaceDirector`). The shelf's surface widens to its places. With the redesign off the shelf holds one, as ever.
   No render check builds a real stage, so two at once and New Project's place are not drawn by any check.
+- **The panel's arrival** (BUILD-SPEC-v4 1.5): a new moment's panel rises about a degree as it fades in, its glass and
+  its words together, 360 ms, ease out (FIELD's `RoomBarView.ArrivePanel` at the end of the pair's laying,
+  `FollowArrival` each frame, `RoomSurface.Shown`); kept still, and in a render (`SettleForRender`), it stands whole.
+  Its leave is not built: the panel goes at once.
 - **The result at rest** (BUILD-SPEC-v4 2.5 to 2.8): what the computer itself knows of a task whose run is at rest
   stands as the pair over the row, in the same host (`RoomResult`, `KitWorkModel.Result`, `RoomBar.Resulting`,
   `RoomBar.Result`). The director gives it (`MenuDirector.ResultOf`) from the project's own screen
