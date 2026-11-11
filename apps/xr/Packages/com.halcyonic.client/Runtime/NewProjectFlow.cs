@@ -996,6 +996,13 @@ namespace Halcyonic.Client
         /// </summary>
         private MenuFrame Paged(MenuFrame frame)
         {
+            // The redesign draws the page of what can be changed as a list card of its own, five rows and its levels in the
+            // column (RoomBar.NewProject), so the older panel's height never cuts it.
+            if (RoomDesign.Enabled && frame.Footer.All.Any(each => each.Prompt.Id == NewProjectScreens.BackToRecap))
+            {
+                linePage = 0;
+                return frame;
+            }
             var room = PageRoom(frame) - Note(frame.Source) - Note(frame.Reason);
             var all = frame.Lines;
             if (Height(all, 0, all.Count) <= room)
