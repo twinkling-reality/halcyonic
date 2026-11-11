@@ -1656,8 +1656,9 @@ and `LiveControlPlaneTests` against a real control plane for the host's refusals
 
 The headset's side of opening a project's preview in Quest Browser, core and opener only: no frame offers the
 action yet (it waits for a line of the redesign's result at rest), and nothing of it has run on a headset.
-`HeadsetPlay.For(project, target, relayPort)` reads the project's view and how this headset reaches the computer:
-no control plane, no check, files not current (`FilesNotChecked`), not passed, not confined (`NotConfined`), paired
+`HeadsetPlay.For(project, target, demonstration, relayPort)` reads the project's view and how this headset reaches
+the computer: a demonstration of any kind showing (`Demonstration`, the recorded run's or an unreachable computer's:
+nothing of it opens, no preview is started, a wait it began ends), no control plane, no check, files not current (`FilesNotChecked`), not passed, not confined (`NotConfined`), paired
 with no relay serving the preview (`NoWayToHeadset`), no preview of the latest check (`NoPreviewOfCheck`, where a
 press sends `StartPreview` and `HeadsetPlayWait` opens the address once the view shows the preview), else
 `Offered`. Quest Browser always opens a loopback address, `http://127.0.0.1:{port}/`, a secure context there, so
