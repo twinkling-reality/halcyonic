@@ -185,7 +185,8 @@ namespace Halcyonic.XR.Workspace
             if (!RoomDesign.Enabled || projectId == null || State?.Projects.TryGetValue(projectId, out var project) != true) return null;
             var run = now.Execution?.ExecutionId;
             var (page, part) = setup.Presentation.ResultPageFor(now.Character.WorkstreamId, run);
-            return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (ControlPlaneSettings.Target(), Demonstration));
+            var task = State!.Workstreams.TryGetValue(now.Character.WorkstreamId, out var work) ? work : null;
+            return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (ControlPlaneSettings.Target(), Demonstration), task);
         }
 
         /// <summary>
@@ -193,7 +194,7 @@ namespace Halcyonic.XR.Workspace
         /// only from the file's frame as drawn and still standing. Changes, Checks, Next Page and Back turn the page shown;
         /// Make VR Version and Try Build go the way the project's screen sends them (<see cref="OnScreenActed"/>).
         /// </summary>
-        private bool OnResultActed(string action, MenuFrame? frame)
+        private bool OnResultActed(string action, string? key, MenuFrame? frame)
         {
             if (navigator.Taking(MenuColumn.File, action, frame, null) is not FileColumn file || file.Now is not WorkspacePresentation now) return false;
             var task = now.Character.WorkstreamId;
@@ -209,6 +210,20 @@ namespace Halcyonic.XR.Workspace
                 case RoomResult.MakeVrVersion: OnScreenActed(KitScreenAction.MakeAVrVersion, work!.ProjectId); break;
                 case RoomResult.TryBuild: OnScreenActed(KitScreenAction.TryIt, work!.ProjectId); break;
                 case RoomResult.PlayInHeadset: PlayInHeadset(work!.ProjectId); break;
+                case RoomResult.ShowAdd: setup.Presentation.ShowResultPage(task, run, RoomResultPage.Add); break;
+                case RoomResult.ShowConflict: setup.Presentation.ShowResultPage(task, run, RoomResultPage.Conflict); break;
+                // A13: the add or the fit, sent only while the copy still stands as the page showed it; the page returns to the
+                // result, which says what the host recorded once it does (ADR 0045: the host refuses a copy changed since).
+                // The add sends the digest of the review the person was shown, the confirm's own key; a copy read again since is
+                // refused by the host (review_stale, changed_since_review) and the page shows it again.
+                case RoomResult.AddConfirm when key != null && RoomAdd.Of(work!.Copy, working: false).State == RoomAddState.Ready:
+                    if (!SendCommand(setup.Commands.AddToProject(task, key))) return false;
+                    setup.Presentation.ShowResultPage(task, run, RoomResultPage.Result);
+                    break;
+                case RoomResult.Fit when RoomAdd.Of(work!.Copy, working: false).State == RoomAddState.Conflict:
+                    if (!SendCommand(setup.Commands.FitToProject(task))) return false;
+                    setup.Presentation.ShowResultPage(task, run, RoomResultPage.Result);
+                    break;
                 default: return false;
             }
             dirty = true;
@@ -530,6 +545,15 @@ namespace Halcyonic.XR.Workspace
                 return;
             }
             HeadsetBrowser.Open(HeadsetPlay.AddressOf(project!, target, Demonstration));
+        }
+
+        /// <summary>Sends <paramref name="command"/> where the computer is connected and no recording plays; false where it cannot.</summary>
+        private bool SendCommand(CommandEnvelope command)
+        {
+            if (!Connected || Demonstration || setup.Session() is not RealtimeSession session) return false;
+            setup.Presentation.RecordCommandDispatched(command);
+            _ = setup.Submit(session, command);
+            return true;
         }
 
         /// <summary>A Play in Headset press waiting on the preview it started; it opens once, when the preview runs.</summary>

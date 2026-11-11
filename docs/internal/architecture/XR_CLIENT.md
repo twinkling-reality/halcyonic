@@ -2796,6 +2796,20 @@ bands are the bar's one band.
   (`EntryText.FolderFactPartsOf`); a usage window gives its gauge apart (`UsageLeftRow.Label`, `Window`, `Left`,
   `Resets`). The agent and the level were already apart (`KitSelectors`, `AgentColumn.LevelWords`). The joined forms
   stay until FIELD's cards replace them.
+- **Add to Project in the result** (ADR 0045, FIELD's A13 in A17's language; copies off by default on the host): read
+  only from the task's copy through FIELD's `RoomAdd.Of`. Where work waits, Add to Project leads the result; its page is a
+  card (the task as its title, where its work goes, the files as its list), five files a page, Next Page through them,
+  and Add to Project behind its lock on the last page alone, only where the host listed every file, so every file is
+  shown before the add; it says nothing of undoing, since nothing on the headset can undo an add yet (AUDIT,
+  2026-11-11) (`RoomResultPage.Add`). The add carries the digest of the reading its files came from (ADR 0051,
+  amended; `RoomResult.AddReview`, from the copy's `ToAddReview` with its files): the confirm holds it as its key and the
+  director sends it (`AddToProject(task, review)`); with no digest there is no add to offer, and a copy read again since
+  is refused by the host (`review_stale`, `changed_since_review`) and shown again. Where the project changed the same files, Let Agent Fix leads and its page is
+  FIELD's card naming them (`RoomResultPage.Conflict`). The director sends `workstream.add_to_project` or
+  `workstream.fit_to_project` only while the copy still stands so (`MenuDirector.OnResultActed`) and returns to the
+  result; the host refuses a copy changed since it was shown. Not yet: the added and refused cards on the result (the
+  result's own card, with FIELD), Undo (LINK's ADR 0051). Checks: `38-result-add`, `38-add`, `38-conflict`;
+  `RoomResultTests`, FIELD's `RoomAddTests`.
 - **Play in Headset in the result** (DEVICE's `HeadsetPlay`, gap 1): beside Try Build, where `HeadsetPlay.Stands` for
   the project and the way this headset reaches the computer (`RoomResult.Play`, from `RoomResult.Of` given
   `ControlPlaneSettings.Target()`); where it cannot act it is not drawn, as an action has no disabled look

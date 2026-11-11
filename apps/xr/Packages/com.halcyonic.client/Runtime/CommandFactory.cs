@@ -81,6 +81,15 @@ namespace Halcyonic.Client
         public ProjectPreviewStartCommand StartPreview(string projectId) =>
             Stamp(new ProjectPreviewStartCommand { Payload = new ProjectPreviewStartPayload { ProjectId = projectId } });
 
+        /// <summary>Adds a task's work, as last read and shown, to its project's folder (ADR 0045; the host refuses a copy changed since).</summary>
+        /// <param name="review">The digest of the reading whose files the person was shown (ADR 0051, amended): the host adds only that.</param>
+        public WorkstreamAddToProjectCommand AddToProject(string workstreamId, string review) =>
+            Stamp(new WorkstreamAddToProjectCommand { Payload = new WorkstreamAddToProjectPayload { WorkstreamId = workstreamId, Review = review } });
+
+        /// <summary>Writes the files both changed, both sides marked, into the task's copy and asks its agent to fit them (ADR 0045).</summary>
+        public WorkstreamFitToProjectCommand FitToProject(string workstreamId) =>
+            Stamp(new WorkstreamFitToProjectCommand { Payload = new WorkstreamFitToProjectPayload { WorkstreamId = workstreamId } });
+
         public ProjectPreviewStopCommand StopPreview(string projectId) =>
             Stamp(new ProjectPreviewStopCommand { Payload = new ProjectPreviewStopPayload { ProjectId = projectId } });
 

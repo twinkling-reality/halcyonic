@@ -51,6 +51,39 @@ namespace Halcyonic.Client
                     if (result.Part + 1 < result.Parts) column.Add(Own(RoomResult.NextPage, Footer.NextPageWords(result.Part, result.Parts), main: true, GlazeIcon.Next));
                     column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
                     break;
+                case RoomResultPage.Add:
+                    // What adding brings, as FIELD's review card (the task as its title, where its work goes, the files as its
+                    // list); its confirming action names the act, Add to Project, behind its lock; and Back. Nothing to confirm
+                    // where adding no longer stands.
+                    // Nothing on the headset can undo an add yet (Restore is not offered), so the review says nothing of undoing,
+                    // and every file is shown before the add can be confirmed: five a page, the confirming action on the last
+                    // page alone, and only where the host listed every file (AUDIT, 2026-11-11). Undo comes back with History.
+                    if (result.Add is { State: RoomAddState.Ready } adding)
+                    {
+                        var project = binding.Model.ProjectName.Length > 0 ? LineWords.Ours("Into ") + LineWords.TheirName(binding.Model.ProjectName) + LineWords.Ours(".") : (LineWords?)null;
+                        card = new RoomCard(frame.SubjectRuns, project,
+                            list: adding.Paths.Skip(result.Part * RoomCard.ListAPage).Take(RoomCard.ListAPage)
+                                .Select(path => new RoomListRow(RoomKind.ToAdd, LineWords.Theirs(path), mono: true)).ToList());
+                        var last = result.Part + 1 >= result.Parts;
+                        if (!last) column.Add(Own(RoomResult.NextPage, Footer.NextPageWords(result.Part, result.Parts), main: true, GlazeIcon.Next));
+                        // The add carries the digest of the reading these files came from, taken with them (TASKS's call note):
+                        // without one there is no add to offer (nothing left, no reading yet, or a reading from before).
+                        else if (adding.Paths.Count == adding.Count && result.AddReview is string review)
+                            column.Add(new RoomAction(new KitControl(KitPlace.Step, frame, RoomResult.AddConfirm, review, adding.ConfirmWords, GlazeIcon.Next, true, null, false),
+                                main: true, locks: true, icon: GlazeIcon.Next));
+                    }
+                    column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
+                    break;
+                case RoomResultPage.Conflict:
+                    // Where the project changed the same files: FIELD's card naming them, then Let Agent Fix, which writes both
+                    // sides marked into the task's copy and asks its agent to fit them, and Back.
+                    if (result.Add?.ConflictCard is RoomCard both)
+                    {
+                        card = both;
+                        column.Add(Own(RoomResult.Fit, RoomAdd.LetAgentFix, main: true, GlazeIcon.Next));
+                    }
+                    column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
+                    break;
                 case RoomResultPage.Checks:
                     // FIELD's Checks card: the outcome as its status, the steps as nodes, the tries' pips on the failed one.
                     card = RoomPanelCards.Checks(result, binding.Model.AutoFix);
@@ -61,8 +94,12 @@ namespace Halcyonic.Client
                 default:
                     // FIELD's result card (A17): the task's name as its title, the check and the files changed (or waiting to be
                     // added) as slots, an ended chain of tries as its status first. No sentence: the check is a slot now.
-                    card = RoomPanelCards.Result(result, frame.SubjectRuns, binding.Model.AutoFix);
+                    card = RoomPanelCards.Result(result, frame.SubjectRuns, binding.Model.AutoFix, result.Add?.Slot);
                     if (ranOut && instruct != null) column.Add(new RoomAction(instruct, main: true, WorkspaceText.Label(WorkspaceAction.Instruct)));
+                    // A13: the task's work to add to its project leads where there is some; where the project changed the same
+                    // files, Let Agent Fix leads to FIELD's card naming them.
+                    if (result.Add?.State == RoomAddState.Ready) column.Add(Own(RoomResult.ShowAdd, RoomAdd.AddToProject, main: column.Count == 0, GlazeIcon.Next));
+                    else if (result.Add?.State == RoomAddState.Conflict) column.Add(Own(RoomResult.ShowConflict, RoomAdd.LetAgentFix, main: column.Count == 0, GlazeIcon.Next));
                     if (result.CanMakeVr) column.Add(Own(RoomResult.MakeVrVersion, KitScreenModel.Words(KitScreenAction.MakeAVrVersion), main: column.Count == 0, GlazeIcon.Next));
                     else if (result.IsVr && instruct != null && !ranOut) column.Add(new RoomAction(instruct, main: true, KitScreenModel.Words(KitScreenAction.ChangeIt)));
                     if (result.CanTry) column.Add(Own(RoomResult.TryBuild, KitScreenModel.Words(KitScreenAction.TryIt), main: column.Count == 0, GlazeIcon.OpenNow));

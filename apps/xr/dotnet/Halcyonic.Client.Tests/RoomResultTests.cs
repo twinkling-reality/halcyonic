@@ -319,4 +319,60 @@ public class RoomResultTests
         }
         finally { RoomDesign.Enabled = was; }
     }
+
+    private static RoomAdd Copy(WorkstreamCopy? copy) => RoomAdd.Of(copy, working: false);
+
+    private static OwnCopy Own(int files, ConflictedFiles? conflict = null) => new OwnCopy
+    {
+        Directory = "/copies/w1", MadeAt = "2026-11-11T05:00:00.000Z", BaseTree = "base",
+        ToAdd = new PathList { Paths = Enumerable.Range(1, files).Select(index => "src/file" + index + ".ts").ToList(), Total = files },
+        ToAddReadAt = "2026-11-11T05:01:00.000Z", Conflict = conflict, ToAddReview = Review,
+    };
+
+    /// <summary>The digest of the copy's reading, as the host gives it with its files (ADR 0051, amended).</summary>
+    private const string Review = "5f7a0c3e9b1d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a";
+
+    [Test]
+    public void AddToProjectLeadsAndItsReviewCardConfirmsBehindItsLock()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            RoomBar At(RoomResultPage page, RoomAdd add, int part = 0, string? review = Review) =>
+                Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps(), page, part, add: add, addReview: review));
+            var result = At(RoomResultPage.Result, Copy(Own(10)));
+            Assert.That((result.Column[0].Control.Action, result.Column[0].Words, result.Column[0].Main), Is.EqualTo((RoomResult.ShowAdd, RoomAdd.AddToProject, true)), Show(result));
+            Assert.That(result.Column.Count(action => action.Main), Is.EqualTo(1));
+            // The review is a card (the task as its title, where its work goes, the files as its list), five files a page; it says
+            // nothing of undoing, since nothing can undo an add yet (AUDIT, 2026-11-11).
+            var review = At(RoomResultPage.Add, Copy(Own(10)));
+            Assert.That(review.Card, Is.Not.Null, "the review stands as its card");
+            Assert.That((review.Card!.List.Count, review.Card.AnyDot, review.Card.Words().Any(words => words.Contains("undo"))), Is.EqualTo((RoomCard.ListAPage, false, false)));
+            // Every file is shown before the add: the first page offers Next Page, the last page Add to Project behind its lock.
+            Assert.That(review.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.NextPage, RoomResult.Back }), Show(review));
+            var last = At(RoomResultPage.Add, Copy(Own(10)), part: 1);
+            Assert.That(last.Card!.List.Select(row => row.Name.Text), Is.EqualTo(Enumerable.Range(6, 5).Select(index => "src/file" + index + ".ts")));
+            var confirm = last.Column[0];
+            Assert.That((confirm.Control.Action, confirm.Words, confirm.Main, confirm.Locks), Is.EqualTo((RoomResult.AddConfirm, RoomAdd.AddToProject, true, true)), Show(last));
+            // The add carries the digest of the reading these files came from, as its own key (TASKS's call note); with none, no add.
+            Assert.That(confirm.Control.Key, Is.EqualTo(Review), "the confirm carries the review it showed");
+            Assert.That(At(RoomResultPage.Add, Copy(Own(10)), part: 1, review: null).Column.Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.Back }),
+                "no review, no add: nothing left, no reading yet, or a reading from before");
+            Assert.That(last.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.AddConfirm, RoomResult.Back }));
+            // Where the host listed fewer files than the add brings, the add is never confirmed here: not every file can be shown.
+            var partial = Copy(new OwnCopy { Directory = "/c", MadeAt = "2026-11-11T05:00:00.000Z", BaseTree = "b",
+                ToAdd = new PathList { Paths = new List<string> { "src/a.ts" }, Total = 3 }, ToAddReadAt = "2026-11-11T05:01:00.000Z" });
+            Assert.That(At(RoomResultPage.Add, partial).Column.Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.Back }));
+            // Nothing to add: no action, and its review confirms nothing.
+            Assert.That(At(RoomResultPage.Result, Copy(Own(0))).Column.Any(action => action.Control.Action is RoomResult.ShowAdd or RoomResult.ShowConflict), Is.False);
+            Assert.That(At(RoomResultPage.Add, Copy(Own(0))).Column.Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.Back }));
+            // The project changed the same files: Let Agent Fix leads; its page is FIELD's card naming them.
+            var conflict = Copy(Own(2, new ConflictedFiles { Files = new List<ConflictedFile> { new() { Path = "src/game.ts", Kind = ConflictKind.Text } }, Total = 1 }));
+            Assert.That(At(RoomResultPage.Result, conflict).Column[0].Control.Action, Is.EqualTo(RoomResult.ShowConflict));
+            var fitting = At(RoomResultPage.Conflict, conflict);
+            Assert.That((fitting.Card != null, fitting.Column[0].Control.Action, fitting.Column[0].Words), Is.EqualTo((true, RoomResult.Fit, RoomAdd.LetAgentFix)));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
 }
