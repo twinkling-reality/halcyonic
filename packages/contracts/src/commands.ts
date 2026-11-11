@@ -136,6 +136,26 @@ export const ProjectOpenOnMacCommand = defineCommand(
 );
 
 /**
+ * Shows the project's own folder in Finder on the Mac, selected (keeping what was made, F3): the
+ * host does it, never a runtime. Never a task's copy, never Halcyonic's data.
+ */
+export const ProjectShowInFinderCommand = defineCommand(
+  'project.show_in_finder',
+  Type.Object({ project_id: ProjectId }, strict),
+);
+
+/**
+ * Saves a copy of the project as a zip in the Mac's Downloads folder (keeping what was made, F3),
+ * never over a file that is there, then shows it in Finder. The zip holds the files a checkpoint
+ * of the folder keeps, never `.git`, never what the project ignores, never a well-known secret
+ * file, never another project's folder inside this one, never Halcyonic's data.
+ */
+export const ProjectSaveCopyCommand = defineCommand(
+  'project.save_copy',
+  Type.Object({ project_id: ProjectId }, strict),
+);
+
+/**
  * Links the project to one repository of the person's catalog (ADR 0039), replacing any link it
  * had. The person's own choice: the host may suggest a repository, never link one itself.
  */
@@ -280,6 +300,8 @@ export const COMMAND_VARIANTS = [
   ProjectPreviewStartCommand,
   ProjectPreviewStopCommand,
   ProjectOpenOnMacCommand,
+  ProjectShowInFinderCommand,
+  ProjectSaveCopyCommand,
   ProjectLinkCatalogCommand,
   ProjectUnlinkCatalogCommand,
   WorkstreamCreateCommand,
@@ -309,6 +331,8 @@ export const CommandType = Type.Union([
   Type.Literal('project.preview.start'),
   Type.Literal('project.preview.stop'),
   Type.Literal('project.open_on_mac'),
+  Type.Literal('project.show_in_finder'),
+  Type.Literal('project.save_copy'),
   Type.Literal('project.link_catalog'),
   Type.Literal('project.unlink_catalog'),
   Type.Literal('workstream.create'),
@@ -413,6 +437,19 @@ export const CommandResult = Type.Union([
   Type.Object({ kind: Type.Literal('workstream_created'), workstream_id: WorkstreamId }, strict),
   Type.Object({ kind: Type.Literal('execution_created'), execution_id: ExecutionId }, strict),
   Type.Object({ kind: Type.Literal('project_restored'), checkpoint_id: CheckpointId }, strict),
+  /**
+   * The project's copy is saved as `file`, a zip in the Mac's Downloads folder, holding `files` files
+   * in `bytes` bytes. The name is for display; the path stays on the Mac.
+   */
+  Type.Object(
+    {
+      kind: Type.Literal('project_saved'),
+      file: Type.String({ minLength: 1, maxLength: 255 }),
+      files: Type.Integer({ minimum: 0 }),
+      bytes: Type.Integer({ minimum: 0 }),
+    },
+    strict,
+  ),
   /** A task's work is in the project's folder; `checkpoint_id` puts back the folder as it was. */
   Type.Object(
     {

@@ -10,6 +10,7 @@ import {
 import { Projection } from '@halcyonic/domain';
 import type { Clock, RuntimeAdapter, Scheduler } from '@halcyonic/runtime-core';
 import { Checkpointer } from '../checkpoints/checkpointer.ts';
+import { ProjectKeeping } from '../checkpoints/keeping.ts';
 import type { CheckpointStore, RestoreHooks } from '../checkpoints/store.ts';
 import { readCopiesAfterTurns, TaskCopies } from '../checkpoints/task-copies.ts';
 import type { IdGenerator } from '../ids.ts';
@@ -70,6 +71,14 @@ export interface ControlPlaneOptions {
       readonly protect?: readonly string[];
       /** Whether a runtime is held to a folder it is given; absent, none is, and no copy is made. */
       readonly heldToFolder?: (runtimeId: string, directory: string) => boolean;
+    };
+    /**
+     * Where a saved copy of a project goes, the Mac's Downloads folder, and how a file is shown in
+     * Finder (F3). Absent, Show in Finder and Save a Copy are refused.
+     */
+    readonly keeping?: {
+      readonly downloads: string;
+      readonly reveal?: (path: string) => Promise<boolean>;
     };
   };
   /** The starters a new project can begin from (ADR 0037); none by default. */
@@ -288,6 +297,17 @@ export class ControlPlane {
       redaction: this.redaction,
       checkpoints: this.checkpoints,
       copies,
+      keeping:
+        options.checkpoints?.keeping === undefined
+          ? null
+          : new ProjectKeeping({
+              store: options.checkpoints.store,
+              downloads: options.checkpoints.keeping.downloads,
+              now: () => options.clock.now(),
+              ...(options.checkpoints.keeping.reveal === undefined
+                ? {}
+                : { reveal: options.checkpoints.keeping.reveal }),
+            }),
       starters: this.starters,
       files: this.files,
       catalogLinks: options.catalogLinks ?? null,

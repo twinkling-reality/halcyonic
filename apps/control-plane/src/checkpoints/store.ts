@@ -434,6 +434,86 @@ export class CheckpointStore {
     }
   }
 
+  /**
+   * A zip of the files a checkpoint of `folder` keeps (keeping what was made, F3), written by git
+   * into the project's own repository as `file`, for the caller to move: never `.git`, never what
+   * the project ignores, and never a path `leaveOut` names (relative to the folder, `/` between its
+   * parts). The tree is filtered whole first, so nothing it leaves out reaches git's archive by a
+   * pattern git reads otherwise. `files` counts what it holds.
+   */
+  async archive(
+    projectId: string,
+    folder: string,
+    leaveOut: (path: string) => boolean,
+  ): Promise<
+    | { readonly ok: true; readonly file: string; readonly files: number }
+    | { readonly ok: false; readonly code: string; readonly message: string }
+  > {
+    const tree = await this.treeOf(projectId, folder, null);
+    if (!tree.ok) return tree;
+    const repository = await this.#repository(projectId);
+    const failed = {
+      ok: false,
+      code: 'store_failed',
+      message: 'The copy could not be made.',
+    } as const;
+    const listed = await this.#run(repository, null, null, [
+      'ls-tree',
+      '-r',
+      '-z',
+      '--full-tree',
+      tree.tree,
+    ]);
+    if (listed.code !== 0) return failed;
+    // Each entry is `<mode> <type> <object>\t<path>`, the form `update-index --index-info` reads.
+    const kept = splitNul(listed.stdout).filter((entry) => {
+      const tab = entry.indexOf('\t');
+      return tab > 0 && !leaveOut(entry.slice(tab + 1));
+    });
+    const stamp = `${process.pid}-${Date.now()}`;
+    const index = join(repository, `copy-${stamp}.index`);
+    const file = join(repository, `copy-${stamp}.zip`);
+    try {
+      if ((await this.#run(repository, null, index, ['read-tree', '--empty'])).code !== 0)
+        return failed;
+      if (
+        kept.length > 0 &&
+        (
+          await this.#run(
+            repository,
+            null,
+            index,
+            ['update-index', '-z', '--index-info'],
+            Buffer.from(`${kept.join('\0')}\0`),
+          )
+        ).code !== 0
+      )
+        return failed;
+      const written = await this.#run(repository, null, index, ['write-tree']);
+      const filtered = written.stdout.toString().trim();
+      if (written.code !== 0 || !OBJECT_ID.test(filtered)) return failed;
+      const zipped = await this.#run(repository, null, null, [
+        'archive',
+        '--format=zip',
+        '-o',
+        file,
+        filtered,
+      ]);
+      if (zipped.code !== 0) {
+        await rm(file, { force: true });
+        return failed;
+      }
+    } finally {
+      await rm(index, { force: true });
+    }
+    const files = zipFileCount(await readFile(file));
+    if (files === null) {
+      await rm(file, { force: true });
+      return { ok: false, code: 'store_failed', message: 'The copy could not be read back.' };
+    }
+    return { ok: true, file, files };
+  }
+
   /** Names `tree` by `name` under the store's own refs, so it is kept; false when it could not. */
   async keep(projectId: string, name: string, tree: string): Promise<boolean> {
     if (!/^[a-z0-9-]+(?:\/[a-z0-9-]+)*$/.test(name) || !OBJECT_ID.test(tree)) return false;
@@ -1450,4 +1530,28 @@ function sorted(paths: readonly string[]): string[] {
 
 function formatBytes(bytes: number): string {
   return bytes >= 1024 ** 3 ? `${bytes / 1024 ** 3} GB` : `${Math.round(bytes / 1024 ** 2)} MB`;
+}
+
+/**
+ * The files a zip holds, folders left out, from its own central directory; null where it is not a
+ * zip this reads (no end record, or ZIP64). Exported for its tests.
+ */
+export function zipFileCount(zip: Buffer): number | null {
+  const end = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  if (end < 0 || end + 22 > zip.length) return null;
+  const entries = zip.readUInt16LE(end + 10);
+  const offset = zip.readUInt32LE(end + 16);
+  if (entries === 0xffff || offset === 0xffffffff) return null;
+  let at = offset;
+  let files = 0;
+  for (let i = 0; i < entries; i += 1) {
+    if (at + 46 > zip.length || zip.readUInt32LE(at) !== 0x02014b50) return null;
+    const nameLength = zip.readUInt16LE(at + 28);
+    const extra = zip.readUInt16LE(at + 30);
+    const comment = zip.readUInt16LE(at + 32);
+    const name = zip.subarray(at + 46, at + 46 + nameLength).toString('utf8');
+    if (!name.endsWith('/')) files += 1;
+    at += 46 + nameLength + extra + comment;
+  }
+  return files;
 }

@@ -41,6 +41,7 @@ import {
 } from '@halcyonic/runtime-core';
 import type { Checkpointer } from '../checkpoints/checkpointer.ts';
 import { pathList } from '../checkpoints/checkpointer.ts';
+import type { ProjectKeeping } from '../checkpoints/keeping.ts';
 import type { MergeConflict } from '../checkpoints/store.ts';
 import type {
   AddOutcome,
@@ -108,6 +109,8 @@ export interface CommandServiceDeps {
   readonly checkpoints?: Checkpointer | null;
   /** Every task's own copy of its project's folder (ADR 0045); absent, tasks work in the project's. */
   readonly copies?: TaskCopies | null;
+  /** Show in Finder and Save a Copy on the Mac (F3); absent, both are refused. */
+  readonly keeping?: ProjectKeeping | null;
   /** The host's checks and previews of starter projects (ADR 0037), or null when not set up. */
   readonly previews?: HostPreviews | null;
   /** The starters a new project can begin from (ADR 0037), or null when there are none. */
@@ -951,6 +954,59 @@ export class CommandService {
           ),
         );
         this.#complete(command, admission.scope, null);
+        return;
+      }
+      case 'project.show_in_finder':
+      case 'project.save_copy': {
+        // Keeping what was made (F3): the project's own folder, never a task's copy.
+        const scope = admission.scope;
+        const folder = this.#projectDirectory(scope);
+        const keeping = this.#deps.keeping;
+        if (!keeping || folder === null) {
+          this.#fail(command, scope, {
+            code: 'unavailable',
+            message: 'This computer cannot show or save the project.',
+            effect: 'none',
+          });
+          return;
+        }
+        const failed = () =>
+          this.#fail(command, scope, {
+            code: 'save_failed',
+            message: 'The project could not be shown or saved.',
+            effect: 'unknown',
+          });
+        if (command.command_type === 'project.show_in_finder') {
+          void keeping.show(folder).then((shown) => {
+            if (shown.ok) this.#complete(command, scope, null);
+            else
+              this.#fail(command, scope, {
+                code: shown.code,
+                message: shown.message,
+                effect: 'none',
+              });
+          }, failed);
+        } else {
+          const others = this.#deps.projection
+            .projects()
+            .filter((project) => project.project_id !== command.payload.project_id)
+            .flatMap((project) => (project.location === null ? [] : [project.location.path]));
+          void keeping.save(command.payload.project_id, folder, others).then((saved) => {
+            if (saved.ok)
+              this.#complete(command, scope, {
+                kind: 'project_saved',
+                file: saved.file,
+                files: saved.files,
+                bytes: saved.bytes,
+              });
+            else
+              this.#fail(command, scope, {
+                code: saved.code,
+                message: saved.message,
+                effect: 'none',
+              });
+          }, failed);
+        }
         return;
       }
       case 'workstream.add_to_project':
