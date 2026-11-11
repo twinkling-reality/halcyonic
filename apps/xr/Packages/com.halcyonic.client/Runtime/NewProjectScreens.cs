@@ -157,6 +157,9 @@ namespace Halcyonic.Client
 
         /// <summary>The redesign's recap: Change opens the page of what can be changed (<see cref="RecapChange"/>), and Back leaves it for the facts.</summary>
         public const string ChangeRecap = "change-recap";
+
+        /// <summary>The redesign's page of changes: a level for the start as an answer; its key is the start's own value, ask or never_ask.</summary>
+        public const string ChooseLevel = "choose-level";
         public const string BackToRecap = "back-to-recap";
         public const string MoreOptions = "more-options";
         public const string StartBuilding = "start-building";
@@ -703,10 +706,16 @@ namespace Halcyonic.Client
         /// confirmation here, with all it clears, before its Confirm. Back returns to the facts.
         /// </summary>
         /// <param name="words">Words can be written here: the keyboard or the voice is offered.</param>
-        public static MenuFrame RecapChange(ProjectIdea idea, bool startReached, bool confirmingStartOver, string? startOverProblem, bool words)
+        /// <param name="draft">How it runs: where its runtime offers never ask, the two levels stand first, as answers, the one the start will use marked.</param>
+        public static MenuFrame RecapChange(ProjectIdea idea, bool startReached, bool confirmingStartOver, string? startOverProblem, bool words, NewWorkDraft? draft = null)
         {
             var existing = idea.ExistingProjectId != null;
             var lines = new List<PageLine>();
+            if (draft?.Runtime is RuntimeDescriptor offering && !offering.Synthetic && offering.OffersNeverAsk == true && !confirmingStartOver)
+            {
+                lines.Add(new PageLine(AgentColumn.AskFirstWords, action: ChooseLevel, key: AgentColumn.Ask, choice: true, chosen: !draft.StartsNeverAsk, answerMark: AnswerMark.Single));
+                lines.Add(new PageLine(AgentColumn.NeverAskWords, action: ChooseLevel, key: AgentColumn.Never, choice: true, chosen: draft.StartsNeverAsk, answerMark: AnswerMark.Single));
+            }
             if (!existing && words) lines.Add(new PageLine(EntryText.ProjectName, icon: GlazeIcon.Change, action: Rename, opens: true));
             if (words || ChangeFor(idea) != TaskChange.Words) lines.Add(new PageLine(EntryText.FirstTask, icon: GlazeIcon.Change, action: ChangeTask, opens: true));
             lines.Add(new PageLine(EntryText.ChooseAnotherFolder, icon: GlazeIcon.Change, action: ChooseWhere, opens: true));
