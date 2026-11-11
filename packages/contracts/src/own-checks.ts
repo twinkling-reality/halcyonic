@@ -10,11 +10,13 @@ const strict = { additionalProperties: false } as const;
  * an agent wrote.
  */
 
-/** The package manager a project's own check runs its scripts with, from the project's lockfile. */
+/** The package manager a project's own check runs its scripts with, from the project's lockfile; go for a Go module. */
 export const OwnCheckManager = Type.Union([
   Type.Literal('npm'),
   Type.Literal('pnpm'),
   Type.Literal('yarn'),
+  /** A Go module with no package.json: Halcyonic's own `go test ./...` and `go vet ./...`. */
+  Type.Literal('go'),
 ]);
 export type OwnCheckManager = Static<typeof OwnCheckManager>;
 

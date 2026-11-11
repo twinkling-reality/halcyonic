@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -32,6 +33,7 @@ import { readFolder } from '../observer/file-observer.ts';
 import { createTestControlPlane, SCENARIOS } from '../testing/harness.ts';
 import {
   commandSha256,
+  GO_COMMANDS,
   managerOf,
   managersOn,
   OwnChecks,
@@ -46,6 +48,19 @@ function scratch(t: TestContext, name: string): string {
   const folder = realpathSync(mkdtempSync(join(tmpdir(), `halcyonic-own-${name}-`)));
   t.after(() => rmSync(folder, { recursive: true, force: true }));
   return folder;
+}
+
+/** A Go module of one package and one test, which passes or fails. */
+function goModule(folder: string, passes: boolean): void {
+  writeFileSync(join(folder, 'go.mod'), 'module example.com/probe\n\ngo 1.22\n');
+  writeFileSync(
+    join(folder, 'add.go'),
+    'package probe\n\nfunc Add(a, b int) int { return a + b }\n',
+  );
+  writeFileSync(
+    join(folder, 'add_test.go'),
+    `package probe\n\nimport "testing"\n\nfunc TestAdd(t *testing.T) { if Add(1, 2) != ${passes ? 3 : 4} { t.Fatal("MARK bad sum") } }\n`,
+  );
 }
 
 const manifest = (folder: string, scripts: Record<string, unknown>) =>
@@ -91,7 +106,15 @@ describe("a project's own check: what its package.json offers (ADR 0055)", () =>
     assert.deepEqual(await readManifest(folder), { ok: false, reason: 'manifest_unreadable' });
   });
 
-  test("the manager is the lockfile's, npm with none", (t) => {
+  test("the manager is the lockfile's, npm with none, go for a Go module with no package.json", async (t) => {
+    const go = scratch(t, 'go');
+    goModule(go, true);
+    assert.equal(managerOf(go), 'go');
+    const read = await readManifest(go);
+    assert.deepEqual(read.ok ? [...read.scripts] : null, [
+      ['test', 'go test ./...'],
+      ['check', 'go vet ./...'],
+    ]);
     const folder = scratch(t, 'lock');
     assert.equal(managerOf(folder), 'npm');
     writeFileSync(join(folder, 'yarn.lock'), '');
@@ -100,7 +123,7 @@ describe("a project's own check: what its package.json offers (ADR 0055)", () =>
     assert.equal(managerOf(folder), 'pnpm');
     const path = `${folder}:relative/bin`;
     mkdirSync(join(folder, 'bin'));
-    assert.deepEqual(managersOn(path), { npm: null, pnpm: null, yarn: null });
+    assert.deepEqual(managersOn(path), { npm: null, pnpm: null, yarn: null, go: null });
   });
 
   test('what the check wrote: counts and the first paths, from readings before and after', async (t) => {
@@ -159,11 +182,12 @@ async function until(check: () => boolean, what: string): Promise<void> {
 function plane(
   t: TestContext,
   scripts: Record<string, string> = { test: SCRIPT },
-  options: { scriptMs?: number; settleMs?: number } = {},
+  options: { scriptMs?: number; settleMs?: number; go?: boolean } = {},
 ) {
   const dataDir = scratch(t, 'data');
   const folder = scratch(t, 'project');
-  manifest(folder, scripts);
+  if (options.go === true) goModule(folder, true);
+  else manifest(folder, scripts);
   const runtimes: RecordingRuntime[] = [];
   const harness = createTestControlPlane({
     path: join(dataDir, 'journal.db'),
@@ -206,9 +230,12 @@ function plane(
   const person = (command: CommandEnvelope) => controlPlane.commands.submit(command, 'websocket');
   /** The person's choice, carrying each command's SHA-256 as the host offers it now (AUDIT3 S1). */
   const choose = (names: string[] = ['test'], sha?: string) => {
-    const manifest = JSON.parse(readFileSync(join(folder, 'package.json'), 'utf8')) as {
-      scripts: Record<string, string>;
-    };
+    // A Go module's commands are the host's own; a package.json's are the project's.
+    const manifest = existsSync(join(folder, 'package.json'))
+      ? (JSON.parse(readFileSync(join(folder, 'package.json'), 'utf8')) as {
+          scripts: Record<string, string>;
+        })
+      : { scripts: GO_COMMANDS as Record<string, string> };
     return person({
       ...commands.createProject('unused'),
       command_type: 'project.own_check.choose',
@@ -649,5 +676,26 @@ describe("a refusal is read from the failed script's last lines alone (AUDIT3 S3
     ].join('\n');
     assert.equal(refusedAtEnd(log), false);
     assert.equal(refusedAtEnd(`${log}\nError: EPERM: operation not permitted, connect`), true);
+  });
+});
+
+describe("a Go module's own check, run inside the agents' sandbox on this Mac (ADR 0055)", {
+  skip: process.platform === 'darwin' && managers.go !== null ? false : 'needs macOS and go',
+}, () => {
+  test('go test passes inside the profile, and a failing test goes to the agent with its FAIL line', async (t) => {
+    const p = plane(t, {}, { go: true });
+    p.choose(['test']);
+    await until(() => p.recorded().length === 1, 'the first run');
+    const first = p.recorded()[0]?.payload.findings;
+    assert.equal(first?.manager, 'go');
+    assert.equal(first?.passed, true, JSON.stringify(first));
+    const executionId = await p.start();
+    goModule(p.folder, false);
+    p.turnChanged(executionId);
+    await until(() => p.sent().length === 1, 'the try');
+    await p.time.runUntilIdle();
+    const given = p.runtime.given.at(-1) ?? '';
+    assert.match(given, /The project's test script failed \(exit 1\)/);
+    assert.match(given, /MARK bad sum/);
   });
 });

@@ -13473,6 +13473,10 @@
         {
           "type": "string",
           "const": "yarn"
+        },
+        {
+          "type": "string",
+          "const": "go"
         }
       ]
     },

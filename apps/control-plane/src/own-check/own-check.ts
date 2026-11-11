@@ -119,6 +119,25 @@ function startOf(pid: number): string | null {
   }
 }
 
+/**
+ * Go's settings for a check: its caches in the run's own fresh folders, no network (no module proxy, no checksum
+ * database), the toolchain installed here only, and no go env file of the person's. A module whose dependencies are not
+ * vendored fails here; installs need the network, which the profile refuses anyway.
+ */
+function goEnvironment(home: string, temp: string): Record<string, string> {
+  return {
+    GOCACHE: join(temp, 'go-build'),
+    GOPATH: join(home, 'go'),
+    GOMODCACHE: join(home, 'go', 'pkg', 'mod'),
+    GOENV: 'off',
+    GOTOOLCHAIN: 'local',
+    GOPROXY: 'off',
+    GOSUMDB: 'off',
+    GOTELEMETRY: 'off',
+    GOFLAGS: '',
+  };
+}
+
 /** Whether the last lines of a failed script's output name a refusal of the sandbox. */
 export function refusedAtEnd(log: string): boolean {
   const lines = log.split('\n').filter((line) => line.trim() !== '');
@@ -160,7 +179,7 @@ export function managersOn(path: string | undefined): Record<OwnCheckManager, st
     }
     return null;
   };
-  return { npm: find('npm'), pnpm: find('pnpm'), yarn: find('yarn') };
+  return { npm: find('npm'), pnpm: find('pnpm'), yarn: find('yarn'), go: find('go') };
 }
 
 type Manifest =
@@ -186,9 +205,9 @@ export async function readManifest(folder: string): Promise<Manifest> {
       await handle.close();
     }
   } catch (error) {
-    return (error as NodeJS.ErrnoException).code === 'ENOENT'
-      ? { ok: false, reason: 'no_manifest' }
-      : { ok: false, reason: 'manifest_unreadable' };
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
+      return { ok: false, reason: 'manifest_unreadable' };
+    return readGoModule(folder);
   }
   let parsed: unknown;
   try {
@@ -212,8 +231,44 @@ export async function readManifest(folder: string): Promise<Manifest> {
   return { ok: true, scripts: found };
 }
 
-/** The manager the folder's lockfile names; npm with none. */
+/**
+ * A Go module's check, where the folder has no `package.json`: a regular `go.mod` at its top, read without following a
+ * link, at most 256 KiB. Its commands are Halcyonic's own and fixed, never the project's (`GO_COMMANDS`).
+ */
+async function readGoModule(folder: string): Promise<Manifest> {
+  try {
+    const stat = await lstat(join(folder, 'go.mod'));
+    if (!stat.isFile() || stat.size > MANIFEST_BYTES)
+      return { ok: false, reason: 'manifest_unreadable' };
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'ENOENT'
+      ? { ok: false, reason: 'no_manifest' }
+      : { ok: false, reason: 'manifest_unreadable' };
+  }
+  return {
+    ok: true,
+    scripts: new Map(Object.entries(GO_COMMANDS) as [OwnCheckScriptName, string][]),
+  };
+}
+
+/**
+ * The commands a Go module's check offers (probed inside the profile on 2026-11-11: go test passes with exit 0 and a
+ * failing test exits 1 with its FAIL line). Shown to the person as written here, and run as these arguments.
+ */
+export const GO_COMMANDS: Readonly<Partial<Record<OwnCheckScriptName, string>>> = {
+  test: 'go test ./...',
+  check: 'go vet ./...',
+};
+
+/** The arguments of each Go command, after the binary. */
+const GO_ARGUMENTS: Readonly<Partial<Record<OwnCheckScriptName, readonly string[]>>> = {
+  test: ['test', './...'],
+  check: ['vet', './...'],
+};
+
+/** The manager the folder's lockfile names; npm with none; go for a Go module with no package.json. */
 export function managerOf(folder: string): OwnCheckManager {
+  if (!existsSync(join(folder, 'package.json')) && existsSync(join(folder, 'go.mod'))) return 'go';
   for (const [file, manager] of LOCKFILES) if (existsSync(join(folder, file))) return manager;
   return 'npm';
 }
@@ -492,7 +547,7 @@ export class OwnChecks {
     const runs: OwnCheckRun[] = [];
     for (const script of chosen) {
       if (this.#closed) break;
-      const run = await this.#script(script.name, folder, binary, place, cache);
+      const run = await this.#script(script.name, manager, folder, binary, place, cache);
       runs.push(run);
       if (run.exit !== 0) break;
     }
@@ -573,6 +628,7 @@ export class OwnChecks {
    */
   #script(
     name: OwnCheckScriptName,
+    manager: OwnCheckManager,
     folder: string,
     binary: string,
     place: { profile: string; home: string; temp: string; path: string },
@@ -628,14 +684,21 @@ export class OwnChecks {
       try {
         child = spawn(
           this.#deps.sandboxExec ?? '/usr/bin/sandbox-exec',
-          ['-f', place.profile, binary, 'run', '-s', name],
+          [
+            '-f',
+            place.profile,
+            binary,
+            ...(manager === 'go' ? (GO_ARGUMENTS[name] ?? []) : ['run', '-s', name]),
+          ],
           {
             cwd: folder,
             env: {
               PATH: place.path,
               HOME: place.home,
               TMPDIR: place.temp,
-              ...managerEnvironment(place.home, place.temp),
+              ...(manager === 'go'
+                ? goEnvironment(place.home, place.temp)
+                : managerEnvironment(place.home, place.temp)),
               CI: '1',
               NO_COLOR: '1',
             },

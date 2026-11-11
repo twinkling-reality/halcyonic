@@ -731,6 +731,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "npm")] Npm,
         [EnumMember(Value = "pnpm")] Pnpm,
         [EnumMember(Value = "yarn")] Yarn,
+        [EnumMember(Value = "go")] Go,
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
