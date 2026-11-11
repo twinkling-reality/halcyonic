@@ -291,7 +291,7 @@ public sealed class RoomAgentTests
         Assert.That((plain.Row.Count, plain.FromMoment), Is.EqualTo((2, false)), "nothing to choose: the task's own row");
         var binding = AtRest(new KitSelectors(null, false, "Glimmer 30B", agentChangeable: true, offersNeverAsk: true, neverAsk: neverAsk));
         var rest = RoomBar.Of(binding, VoiceStage.Idle, sentAwaitingStart: false);
-        Assert.That((rest.State, rest.Pair, rest.FromMoment), Is.EqualTo((RoomBarState.Rest, false, true)));
+        Assert.That((rest.State, rest.Pair, rest.FromMoment), Is.EqualTo((RoomBarState.Rest, false, false)), "it decorates the task's own bar");
         Assert.That(rest.Row.Take(2).Select(action => (action.Place, action.Words, action.Main)), Is.EqualTo(plain.Row.Select(action => (action.Place, action.Words, action.Main))),
             "Hold to Talk and Type stand as they did");
         var open = rest.Row[2];

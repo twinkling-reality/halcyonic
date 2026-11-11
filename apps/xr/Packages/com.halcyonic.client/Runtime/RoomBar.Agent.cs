@@ -45,20 +45,22 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The row at rest with its third action (the addendum's A1): where the file's model has a level to choose or
-        /// another agent to change to, the task's own row and, after it, the action that opens the agent's page, reading
-        /// the agent and the level the next start will carry (the model's own, never the choice alone: ADR 0043). Where
-        /// the runtime offers no level the action names the agent alone. Null where the row is not at rest or there is
-        /// nothing to choose, so the task's own row stands.
+        /// another agent to change to, the action that opens the agent's page joins the task's own row, after it, reading
+        /// the agent and the level the next start will carry (the model's own, never the choice alone: ADR 0043); where the
+        /// runtime offers no level it names the agent alone. It decorates the bar it is given and answers nothing, so
+        /// everything else of that bar stands as the task's loop made it: a result at rest keeps its panel, its sentence,
+        /// its band and its column (AUDIT's probe, 2026-11-11).
         /// </summary>
         private static RoomBar? AgentAtRest(KitFileBinding binding, VoiceStage voice, RoomBar tasks)
         {
-            if (tasks.State != RoomBarState.Rest || tasks.Row.Count == 0) return null;
+            if (tasks.State != RoomBarState.Rest || tasks.Row.Count == 0 || tasks.Row.Any(action => action.Control.Action == AgentColumn.Open)) return null;
             var model = binding.Model;
             if (!model.OffersNeverAsk && !model.AgentChangeable) return null;
             var words = AgentWords(model.Agent, model.OffersNeverAsk ? model.NeverAsk : (bool?)null);
             if (words == null) return null;
             var open = new KitControl(KitPlace.Step, binding.Frame, AgentColumn.Open, null, words, GlazeIcon.CodeFile, available: true, reason: null, holds: false);
-            return new RoomBar(RoomBarState.Rest, row: tasks.Row.Concat(new[] { new RoomAction(open, main: false) }).ToList());
+            tasks.Row = tasks.Row.Concat(new[] { new RoomAction(open, main: false) }).ToList();
+            return null;
         }
 
         /// <summary>
