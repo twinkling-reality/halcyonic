@@ -12,6 +12,7 @@ import {
 } from '@halcyonic/contracts';
 import type { Clock } from '@halcyonic/runtime-core';
 import type { Logger } from '../logger.ts';
+import type { Announcer } from './announce.ts';
 import type { DeviceAccess } from './devices.ts';
 import { WindowCounter } from './limits.ts';
 import {
@@ -91,7 +92,10 @@ export class Pairing {
   readonly limits: PairingLimits;
   readonly #perAddress: WindowCounter;
   readonly #active = new Map<string, number>();
+  readonly #announcer: Announcer | null;
   #window: Window | null = null;
+  /** Ends the announcement when the open window's time runs out, if nothing ends it first. */
+  #announceUntil: NodeJS.Timeout | null = null;
 
   constructor(options: {
     clock: Clock;
@@ -101,6 +105,8 @@ export class Pairing {
     certificateSha256: string;
     logger: Logger;
     limits?: PairingLimits;
+    /** Announces the computer on its network while a window is open, and only then (ADR 0017). */
+    announcer?: Announcer;
   }) {
     this.#clock = options.clock;
     this.#devices = options.devices;
@@ -108,6 +114,7 @@ export class Pairing {
     this.#certificateSha256 = options.certificateSha256;
     this.#logger = options.logger;
     this.limits = options.limits ?? DEFAULT_PAIRING_LIMITS;
+    this.#announcer = options.announcer ?? null;
     this.#perAddress = new WindowCounter(
       options.clock,
       this.limits.attemptsPerAddressPerMinute,
@@ -134,6 +141,14 @@ export class Pairing {
       { expires_at: new Date(window.expiresAt).toISOString() },
       'pairing window opened',
     );
+    if (this.#announcer !== null) {
+      this.#announcer.start();
+      this.#announceUntil = setTimeout(() => {
+        this.#current();
+        this.#quiet();
+      }, this.limits.windowMs);
+      this.#announceUntil.unref();
+    }
     return { code, status: this.status() };
   }
 
@@ -270,6 +285,14 @@ export class Pairing {
     if (window === null || window.state !== 'open') return;
     window.state = state;
     this.#logger.info({ state, failed_attempts: window.failures, reason }, 'pairing window closed');
+    this.#quiet();
+  }
+
+  /** Stops announcing the computer: no window is open. */
+  #quiet(): void {
+    if (this.#announceUntil !== null) clearTimeout(this.#announceUntil);
+    this.#announceUntil = null;
+    this.#announcer?.stop();
   }
 
   #now(): number {

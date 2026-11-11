@@ -753,7 +753,12 @@ What each party can do with the network listener on
   each connection turned away or cut short, with its address), hold the 8 connections one
   address may, each for at most 5 seconds without finishing TLS and 10 without a request, fill all
   32 from several addresses, or block traffic. Its timing tells it nothing about the code: an
-  exchange's work depends only on a secret it draws itself.
+  exchange's work depends only on a secret it draws itself. While a window is open, and only then,
+  it also hears the computer announce itself (ADR 0017, amendment of 2026-11-11): the Mac's Bonjour
+  name, the port and the first 16 hex of the certificate's SHA-256, all public already. It can
+  announce a computer of its own under any name, which a headset may offer beside the real one; the
+  person's code and the certificate bound into the proofs still decide, so a false offer cannot
+  pair without the code and cannot pass for the Mac.
 - **A stolen or lost headset** holds its credential in app-internal storage and can do whatever
   its owner could over that network, until the owner revokes it with `pnpm devices revoke`, which
   refuses the credential and ends what it has open at once: a realtime connection handles nothing

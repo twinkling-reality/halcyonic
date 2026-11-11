@@ -1417,6 +1417,16 @@ launch/return, process recreation and current-frame action behavior need separat
   change when the Mac moves. They exist because Unity's Android class libraries ignore
   `ClientWebSocketOptions.RemoteCertificateValidationCallback` and throw inside
   `HttpClientHandler.ServerCertificateCustomValidationCallback`.
+- **`ComputerFinder`** finds computers whose pairing is open (ADR 0017, amendment of 2026-11-11):
+  one legacy unicast mDNS query for `_halcyonic._tcp.local`, sent from an ordinary port to
+  `224.0.0.251:5353`, whose answers come back by unicast, so no multicast lock. Each answer becomes a
+  `FoundComputer` (its name, `.local` host, port, addresses and the announced pin prefix), only with a
+  `.local` host and a port; a malformed answer is dropped whole, and nothing found is no failure.
+  Every distinct answer is kept, by name then host; one name with another host, port or pin is
+  marked `SharesItsName`, never replaced, so a device answering as the person's Mac shows beside it.
+  What it finds is an offer, never trusted: pairing still needs the code and binds the certificate.
+  The pairing panel does not offer what it finds yet; the Unity layer asks before it opens the
+  keyboard once it does.
 - **`ControlPlaneTarget`** is where a session connects and how it proves itself: `Local`, the
   access token over `LoopbackWebSocketTransport` as over USB, or `Paired`, the device credential over
   the pinned transports. It creates the session's transports and the `ControlPlaneApi`, and
@@ -3596,8 +3606,8 @@ Code or Codex run ([understanding-and-evaluation.md](../validation/understanding
 choosing a folder deeper than one level inside a place the Mac allows; voice in release builds;
 discovering or attaching work Halcyonic did not
 start; the soundbook's softer repeat of "Waiting for you" once nobody has
-looked at the character for two minutes, and a volume and mute for sound in the headset; finding
-the Mac without typing its address (mDNS),
+looked at the character for two minutes, and a volume and mute for sound in the headset; offering
+the Mac by name in the pairing panel (the client core finds it, ADR 0017's amendment of 2026-11-11),
 and keeping the credential under an Android Keystore key. On a Quest, the control plane is
 reachable over USB with `adb reverse tcp:47800 tcp:47800` and the access token written to it, or over Wi-Fi once
 paired ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).

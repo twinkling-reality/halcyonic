@@ -752,7 +752,9 @@ On the page, nothing happens until you press:
 - **Pair Headset** opens a five-minute window and shows where pairing is in the headset, the name
   to type (the Mac's `.local` name, then its numbered addresses) and the eight-digit code, with the
   time left and the tries left. With no address a headset can reach (no Wi-Fi), it says so and shows
-  no code.
+  no code. While the window is open, and only then, your Mac announces itself on the Wi-Fi so a
+  headset can find it by name (`dns-sd -B _halcyonic._tcp` in a Terminal shows it); the code still
+  decides.
 - **Forget**, then **Yes, Forget**, stops accepting a headset, as `pnpm devices revoke` does.
 - **Turn Off Pairing**, then **Yes, Turn Off**, stops the listener now and in the settings, and ends
   an open window with it. Paired headsets disconnect and stay paired; they connect again when pairing

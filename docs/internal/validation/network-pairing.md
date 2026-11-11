@@ -219,6 +219,21 @@ whose TLS handshake completes during the stop is not yet an HTTP connection, so 
 listener's idle timeout, up to 60 seconds, before it finishes; the page shows Turning Off meanwhile.
 Not seen in a run; it follows from the shutdown behaviour recorded above.
 
+### Finding the computer while pairing is open (2026-11-11, ADR 0017)
+
+On this Mac (macOS 26, node and .NET 10): `/usr/bin/dns-sd -R` registers a `_halcyonic._tcp`
+service with a `pin=` TXT string while it runs and withdraws it when it ends; a legacy unicast
+query (RFC 6762, section 6.7) sent from an ordinary port to `224.0.0.251:5353` is answered by
+unicast to that port, with the PTR record and the SRV, TXT and A records in the same message
+(`.private` scripts, a throwaway service on a port nothing listened on). `ComputerFinder` found such
+a service through the real mDNSResponder (`ARealComputerAnnouncingIsFound`, explicit, run by hand).
+Off the network: the finder reads answers built as mDNSResponder sends them, compressed names
+included, drops a malformed or looping one, and collects each computer once from a local responder,
+keeping and marking a second answer under the same name (`ComputerFinderTests`); `Pairing` starts the announcement on open and stops it on close,
+replacement and expiry, records the announcing `dns-sd` so the next start ends one a killed control
+plane left, only while it still registers this service, and nothing is announced off macOS or for a loopback-only listener
+(`announce.test.ts`). Whether the Mac's firewall or a router passes the query is not checked here.
+
 ## What needs a headset
 
 - The pinned transports under IL2CPP with the Android build of UnityTLS: pairing, the realtime
@@ -226,6 +241,9 @@ Not seen in a run; it follows from the shutdown behaviour recorded above.
 - Reaching the Mac over Wi-Fi at all: the Mac's firewall, the router (client isolation on guest
   networks blocks it), and whether Horizon OS resolves `.local` names, for pairing with the name and
   for finding the Mac again by it (`Dns.GetHostAddressesAsync` under IL2CPP, so `getaddrinfo`).
+- Finding the computer: whether Horizon OS lets an app send the legacy unicast query to
+  `224.0.0.251` without `CHANGE_WIFI_MULTICAST_STATE` and passes the unicast answer back, under
+  IL2CPP.
 - The pairing panel: the system keyboard for the address and the number pad for the code, with
   hands; the second press that forgets; the panel out of the way of the stage and the room
   controls.

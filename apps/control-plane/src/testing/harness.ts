@@ -238,6 +238,8 @@ export async function startTestServer(options: TestServerOptions = {}) {
           clock: harness.time,
           logger: app.log,
           localName: async () => options.page?.describeAs?.localName ?? null,
+          // Never the real dns-sd from a test: it would announce on the Mac's network.
+          announcer: () => ({ start() {}, stop() {} }),
           ...(options.page.describeAs === undefined
             ? {}
             : {

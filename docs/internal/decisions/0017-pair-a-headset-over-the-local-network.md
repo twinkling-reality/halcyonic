@@ -216,7 +216,8 @@ listener says where else it is, and the device tries each place under its pin:
 Still discovery is never trusted: the pin and the credential decide, as before. Unverified on a
 headset: whether Horizon OS resolves `.local` names; if it does not, the stored IP addresses still
 help while the Mac keeps one of them, and a broadcast search answered under the pin is the
-fallback to decide on then. Discovery by mDNS browsing stays as the options table above left it.
+fallback to decide on then. Discovery by mDNS browsing stays as the options table above left it; the amendment of 2026-11-11
+adds a one-shot query instead.
 
 Release builds pair too. A release build is not debuggable, so no access token can be put on it,
 and with pairing in development builds only it could show nothing but the demonstration: nobody
@@ -224,3 +225,46 @@ without a developer's cable could direct real work. The pairing panel and Settin
 are now in every build, the judges' build included, where the row reads Not paired and the
 demonstration is as it was. The credential stays in app-internal storage, which on a release build
 not even `run-as` reaches.
+
+## Amendment 2026-11-11: the computer announces itself while pairing is open
+
+Typing the computer's name with the system keyboard is the slowest part of pairing, and the one a
+person gets wrong. The options table above weighed mDNS on cost and verification, not on security;
+both costs now have an answer that needs no new dependency and no new permission:
+
+- **The computer announces only while a window is open.** `Pairing.open`, which runs only on the
+  person's press (Pair Headset on the pairing page, or `pnpm pair`), starts an announcement, and
+  everything that ends the window ends it: a device pairing, three failures, a window replaced,
+  closed or turned off, and the five minutes running out. Outside a window nothing is announced.
+  macOS's own mDNSResponder does it: `/usr/bin/dns-sd -R <name> _halcyonic._tcp local <port>
+  pin=<16 hex>` as a child process for as long as the window is open (`dnsSdAnnouncer`), no
+  library. No other platform announces, nor a listener bound to a loopback address, which no
+  headset can reach. A control plane that exits with a window open ends the announcement as it
+  goes; one killed outright cannot, so the announcing `dns-sd`'s pid is kept in
+  `<data dir>/announcing.pid` while it runs, and the next start ends that process if it is still a
+  `dns-sd` registering `_halcyonic._tcp` (a pid reused since is left alone). Until that start, it
+  goes on saying only what is public.
+- **What is announced is public already.** The computer's Bonjour name, which the Mac announces for
+  itself, the listener's port, which a scan finds, and the first 16 hex of the certificate's
+  SHA-256, which anyone who connects sees. Never the code, a credential, or anything about a paired
+  device.
+- **The headset asks once and needs no multicast lock.** `ComputerFinder` in the client core sends
+  one legacy unicast mDNS query (RFC 6762, section 6.7) for `_halcyonic._tcp.local` from an
+  ordinary port to `224.0.0.251:5353`; responders answer by unicast to that port, so Android's
+  `CHANGE_WIFI_MULTICAST_STATE` and `NsdManager` are not needed. It reads PTR, SRV, TXT and A
+  records, offers a computer only with a `.local` host and a port, and drops a malformed answer
+  whole. Every distinct answer (name, host, port, pin) is offered once; a later one never replaces
+  an earlier one under the same name, and a name that came with another host, port or pin is
+  marked (`SharesItsName`), so a device answering as the person's Mac shows beside it.
+- **The headset asks before it opens the keyboard**, and offers what it found by name; the person
+  picks one, or types an address as before. Nothing found is no failure.
+- **Discovery is still never trusted.** Any device on the network can announce `_halcyonic._tcp`
+  with any name and any `pin=`. The pin prefix only lets the headset leave out an answer whose
+  certificate it would refuse anyway; the code and the certificate bound into the SRP proofs decide,
+  exactly as with a typed address. A false announcement can offer a wrong computer, which then
+  cannot finish pairing without the code, or crowd the list, which the person sees.
+
+Verified on this Mac (2026-11-11): `dns-sd -R` registers the service and answers a legacy unicast
+query by unicast, and `ComputerFinder` finds it through the real mDNSResponder. Unverified on a
+headset: that Horizon OS lets an app send to `224.0.0.251` without the multicast lock and passes
+the unicast answer back, and the panel's offer itself, which the Unity layer adds.
