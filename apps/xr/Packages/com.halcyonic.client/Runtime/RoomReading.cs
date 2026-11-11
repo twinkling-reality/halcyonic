@@ -18,7 +18,7 @@ namespace Halcyonic.Client
     /// </summary>
     public readonly struct RoomReadingRow
     {
-        /// <param name="number">The file's line number; null on a continued row and on a gap.</param>
+        /// <param name="number">The file's line number; on a gap, how many lines it skips (<see cref="Gap"/>); null on a continued row.</param>
         /// <param name="indent">
         /// The characters of space the line starts with (tabs as the screen expands them): outside words lose their leading
         /// spaces by <see cref="LabelText.Plain"/>'s rule, so the card stands the words that many characters in instead.
@@ -27,13 +27,16 @@ namespace Halcyonic.Client
         {
             Indent = kind == RoomLineKind.Gap || indent < 0 ? 0 : indent;
             Kind = kind;
-            Number = kind == RoomLineKind.Gap || continued ? null : number;
+            Number = continued ? null : kind == RoomLineKind.Gap ? number is int skipped && skipped > 0 ? skipped : (int?)null : number;
             Text = kind == RoomLineKind.Gap ? null : text ?? LineWords.Ours("");
             Continued = kind != RoomLineKind.Gap && continued;
         }
 
         /// <summary>A gap, where the change skips lines it did not touch: drawn as a hairline, nothing written.</summary>
         public static RoomReadingRow GapRow => new RoomReadingRow(RoomLineKind.Gap, null, null);
+
+        /// <summary>A gap that says how many lines it skips: "23 Lines" quiet on its hairline, as a diff view says it.</summary>
+        public static RoomReadingRow Gap(int skipped) => new RoomReadingRow(RoomLineKind.Gap, skipped > 0 ? skipped : (int?)null, null);
 
         public RoomLineKind Kind { get; }
 
@@ -58,6 +61,9 @@ namespace Halcyonic.Client
     /// </summary>
     public static class RoomReading
     {
+        /// <summary>The words on a gap that says how many lines it skips.</summary>
+        public static string Skipped(int lines) => lines == 1 ? "1 Line" : lines + " Lines";
+
         public const float TypeDp = 15f;
         public const float LineDp = 22f;
         /// <summary>The line number's size: the words' own, set quieter, since nothing under 14 dp reads (the kit's floor).</summary>

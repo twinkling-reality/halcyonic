@@ -22,10 +22,14 @@ namespace Halcyonic.XR.UI
     {
         // The design page's numbers (design10's information language), in dp.
         public const float StatusMarkDp = 56f;
-        public const float StatusGlyphDp = 28f;
+        public const float StatusGlyphDp = 36f;
         public const float StatusGapDp = 14f;
         public const float StatusTitleDp = 30f;
         public const float StatusTitleLineDp = 36f;
+
+        /// <summary>A status under a card's own title: a step smaller, so the thing's name stays the card's one title.</summary>
+        public const float UnderTitleStatusDp = 24f;
+        public const float UnderTitleStatusLineDp = 30f;
         public const float LineTypeDp = 17f;
         public const float LineLineDp = 23f;
         public const float HeadDp = 104f;
@@ -145,7 +149,17 @@ namespace Halcyonic.XR.UI
         /// <summary>The deep grounds of the accent and of attention, as the passed and failed ones, and how solid a status mark stands.</summary>
         public const int AccentGround = 0x1E4C5A;
         public const int AttentionGround = 0x543C12;
-        public const float StatusGroundAlpha = 0.92f;
+        public const int AttentionInk = 0x3A2805;
+        public const int QuietGround = 0x3C4448;
+
+        /// <summary>A status mark stands solid, so nothing of the room shows through it (the critic, 2026-11-11).</summary>
+        public const float StatusGroundAlpha = 1f;
+
+        /// <summary>The tones' mid values, between hue and deep ground: a try's pip, never louder than the mark it hangs on.</summary>
+        public const int PassedMid = 0x4C9C67;
+        public const int FailedMid = 0xB25A54;
+        public const int AccentMid = 0x3B8EA6;
+        public const int AttentionMid = 0xA37A23;
         public const int AgentOrb = 0x7A6BD6;
         public const int ProjectTile = 0x3F8FB0;
         public const int TileInk = 0xE8F6FB;
@@ -257,11 +271,19 @@ namespace Halcyonic.XR.UI
             var down = 0f;
             void Gap(float dp) { if (down > 0f) down += S(dp); }
 
-            if (card.Status is RoomCardStatus status) down = LayStatus(status, card, width, down);
-            if (card.Title != null || card.Head != RoomCardHead.None)
+            // A thing's name first where it has one, its state beneath it (the critic, 2026-11-11: a status over the name read as
+            // a second title); a card with no name leads with its status.
+            var named = card.Title != null || card.Head != RoomCardHead.None;
+            if (!named && card.Status is RoomCardStatus lead) down = LayStatus(lead, card, width, down);
+            if (named)
             {
                 Gap(BlockGapDp);
                 down = LayHead(card, width, down);
+                if (card.Status is RoomCardStatus status)
+                {
+                    Gap(BlockGapDp);
+                    down = LayStatus(status, card, width, down);
+                }
             }
             if (card.Description != null)
             {
@@ -337,14 +359,17 @@ namespace Halcyonic.XR.UI
                 RoomTone.Good => (Rgb(PassedGround, StatusGroundAlpha), Rgb(PassedInk), RoomGlyph.Check),
                 RoomTone.Bad => (Rgb(FailedGround, StatusGroundAlpha), Rgb(FailedInk), RoomGlyph.Alert),
                 RoomTone.Working => (Rgb(AccentGround, StatusGroundAlpha), Rgb(AccentNote), RoomGlyph.Wrench),
-                RoomTone.Attention => (Rgb(AttentionGround, StatusGroundAlpha), Rgb(AttentionNote), RoomGlyph.Bubble),
-                _ => (Rgb(StepGround, StatusGroundAlpha), White(0.88f), RoomGlyph.Minus),
+                // Attention is the one bright mark: amber itself, its glyph dark on it, so it reads as wanted, never as dirt.
+                RoomTone.Attention => (Rgb(Attention, StatusGroundAlpha), Rgb(AttentionInk), RoomGlyph.Bubble),
+                _ => (Rgb(QuietGround, StatusGroundAlpha), White(0.90f), RoomGlyph.Minus),
             };
             if (status.Mark != RoomKind.None) glyph = GlyphOf(status.Mark);
             var left = S(StatusMarkDp + StatusGapDp);
             var column = width - left;
             var top = down;
-            var (titleLabel, titleTall) = Text(KitRole.Title, StatusTitleDp, StatusTitleLineDp, Color.white, LineWords.Ours(status.Title), left, -down, column, 2);
+            var under = card.Title != null;
+            var (titleLabel, titleTall) = Text(KitRole.Title, under ? UnderTitleStatusDp : StatusTitleDp, under ? UnderTitleStatusLineDp : StatusTitleLineDp, Color.white,
+                LineWords.Ours(status.Title), left, -down, column, 2);
             var tall = titleTall;
             TextMeshPro? lineLabel = null;
             if (status.Line != null)
@@ -361,7 +386,8 @@ namespace Halcyonic.XR.UI
                 titleLabel.transform.localPosition += new Vector3(0f, -drop, 0f);
                 if (lineLabel != null) lineLabel.transform.localPosition += new Vector3(0f, -drop, 0f);
             }
-            var middle = top + Mathf.Max(S(StatusMarkDp), tall) / 2f;
+            // The mark beside the title: centred on words shorter than it, its top on the title's where they run taller.
+            var middle = top + S(StatusMarkDp) / 2f;
             // A squircle, as the check nodes: a disc is only ever an answer.
             Plate(new Vector2(S(StatusMarkDp), S(StatusMarkDp)), S(StatusCornerDp), ground, new Vector2(S(StatusMarkDp) / 2f, -middle), "status mark");
             Glyph(glyph, StatusGlyphDp, ink, new Vector2(S(StatusMarkDp) / 2f, -middle), "status " + status.Tone);
@@ -404,7 +430,7 @@ namespace Halcyonic.XR.UI
             // A dark well under the whole page, near solid, so a band keeps one colour whatever the room shows behind the
             // panel (the critic, 2026-11-11), as a diff view sets its code apart.
             var blockTall = 0f;
-            foreach (var row in rows) blockTall += row.Kind == RoomLineKind.Gap ? S(RoomReading.GapRowDp) : S(RoomReading.LineDp);
+            foreach (var row in rows) blockTall += row.Kind == RoomLineKind.Gap && row.Number == null ? S(RoomReading.GapRowDp) : S(RoomReading.LineDp);
             Plate(new Vector2(width, blockTall + 2f * S(ReadingWellPadDp)), S(TileCornerDp), Rgb(ReadingWell, ReadingWellAlpha), new Vector2(width / 2f, -(down + blockTall / 2f + S(ReadingWellPadDp))), "reading well", under: true);
             down += S(ReadingWellPadDp);
             var advance = S(RoomReading.TypeDp) * RoomReading.AdvanceEm;
@@ -414,9 +440,22 @@ namespace Halcyonic.XR.UI
             {
                 if (row.Kind == RoomLineKind.Gap)
                 {
-                    // A hairline across, from the bands' own left edge, one dp at either size.
-                    Plate(new Vector2(width, RoomType.Units(1f)), 0f, White(0.18f), new Vector2(width / 2f, -(down + S(RoomReading.GapRowDp) / 2f)), "reading gap");
-                    down += S(RoomReading.GapRowDp);
+                    // A hairline across, from the bands' own left edge, one dp at either size; where the gap says how many lines it
+                    // skips, the count quiet in its middle, the hairline parted round it.
+                    var gapTall = row.Number is int ? S(RoomReading.LineDp) : S(RoomReading.GapRowDp);
+                    var gapMiddle = -(down + gapTall / 2f);
+                    if (row.Number is int skipped)
+                    {
+                        var (count, _) = Text(KitRole.Mono, RoomReading.NumberDp, RoomReading.LineDp, White(NoteAlpha), LineWords.Ours(RoomReading.Skipped(skipped)), 0f, -down, width, 1);
+                        var countWidth = RoomCursor.WordsWidth(count, 0f);
+                        var countLeft = (width - countWidth) / 2f;
+                        count.transform.localPosition = new Vector3(countLeft, -down, -RoomType.Units(0.5f));
+                        var side = countLeft - S(10f);
+                        Plate(new Vector2(side, RoomType.Units(1f)), 0f, White(0.18f), new Vector2(side / 2f, gapMiddle), "reading gap");
+                        Plate(new Vector2(side, RoomType.Units(1f)), 0f, White(0.18f), new Vector2(width - side / 2f, gapMiddle), "reading gap part");
+                    }
+                    else Plate(new Vector2(width, RoomType.Units(1f)), 0f, White(0.18f), new Vector2(width / 2f, gapMiddle), "reading gap");
+                    down += gapTall;
                     continue;
                 }
                 var middle = down + pitch / 2f;
@@ -809,7 +848,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private void Pips(int used, int of, RoomTone tone, Vector2 centre)
         {
-            var lit = tone switch { RoomTone.Good => Rgb(Passed), RoomTone.Bad => Rgb(Failed), RoomTone.Attention => Rgb(Attention), _ => Rgb(Accent) };
+            var lit = tone switch { RoomTone.Good => Rgb(PassedMid), RoomTone.Bad => Rgb(FailedMid), RoomTone.Attention => Rgb(AttentionMid), _ => Rgb(AccentMid) };
             var pitch = S(PipDp + PipGapDp);
             var from = centre.x - pitch * (of - 1) / 2f;
             for (var index = 0; index < of; index++)

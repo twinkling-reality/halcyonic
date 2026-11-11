@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-recap-starter", "47-card-file-state" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -92,10 +92,9 @@ namespace Halcyonic.XR.Workspace.Editor
             Line(RoomLineKind.Added, 12, "points.push(kite.at, w.at);", 2);
             Line(RoomLineKind.Added, 13, "// streams behind the kite", 2);
             Line(RoomLineKind.Added, 14, longLine, 2);
-            rows.Add(RoomReadingRow.GapRow);
+            rows.Add(RoomReadingRow.Gap(23));
             Line(RoomLineKind.Same, 38, "return trail;", 2);
             Line(RoomLineKind.Same, 39, "}", 0);
-            rows.Add(new RoomReadingRow(RoomLineKind.Same, 40, null));
             Line(RoomLineKind.Same, 41, "export default tail;", 0);
             return rows.Take(RoomReading.RowsAPage).ToArray();
         }
@@ -171,6 +170,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The review before Start: the second page of its long first task, and its last part, what else is sent, with a note to check.
                 "47-card-review-task" => RoomReview.Card(CardReview(), part: 1, taskPages: 2),
                 "47-card-review" => RoomReview.Card(CardReview(), part: 2, taskPages: 2),
+                "47-card-review-check" => RoomReview.Card(CardReview(), part: 3, taskPages: 2),
                 // A new folder from a starter: four facts, two rows of two.
                 "47-card-recap-starter" => new RoomCard(Theirs("Kite Run"), Theirs("Make a kite that follows my hand."), RoomCardHead.Project, slots: new[]
                 {
@@ -178,7 +178,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")), new RoomSlot(RoomKind.Level, Ours("Ask First")),
                 }),
                 // A file's state with no line: its own mark, its title centred on it.
-                "47-card-file-state" => new RoomCard(Theirs("sky.png"), status: new RoomCardStatus("Picture or Data File", null, RoomTone.Quiet, RoomKind.File), titleMono: true),
+                "47-card-file-state" => new RoomCard(Theirs("sky.png"), status: new RoomCardStatus("Not Text", null, RoomTone.Quiet), titleMono: true),
                 "47-card-history" => new RoomCard(Ours("History"), Ours("Pick a moment to restore."), list: new[]
                 {
                     new RoomListRow(RoomKind.Worked, Ours("After ") + Theirs("Tail") + Ours(" Worked"), "18:40", press: CardRowControl("c1")),
@@ -209,7 +209,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // As XR's flow does: part 0 shown first measures the task's pages at this width and size; then the part is shown.
                 view.Show(RoomReview.Card(CardReview(), part: 0, taskPages: 1), inner);
                 reviewPages = view.DescriptionPages;
-                card = RoomReview.Card(CardReview(), part: state == "47-card-review" ? reviewPages : 1, taskPages: reviewPages);
+                card = RoomReview.Card(CardReview(), part: state == "47-card-review" ? reviewPages : state == "47-card-review-check" ? reviewPages + 1 : 1, taskPages: reviewPages);
             }
             var tall = view.Show(card, inner);
             var size = new Vector2(width, tall + 2f * pad);
@@ -229,7 +229,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (paged != null)
                 {
                     Require(paged.pageToDisplay == asked + 1, "the description shows page " + paged.pageToDisplay + ", not " + (asked + 1));
-                    if (reviewPages > 0) Require(card.More?.Text == RoomReview.PartOf(asked, RoomReview.Parts(view.DescriptionPages)), "the foot line does not name this part");
+                    if (reviewPages > 0) Require(card.More?.Text == RoomReview.PartOf(asked, RoomReview.Parts(CardReview(), view.DescriptionPages)), "the foot line does not name this part");
                     var info = paged.textInfo.pageInfo[paged.pageToDisplay - 1];
                     Require(info.firstCharacterIndex <= 0 || char.IsWhiteSpace(paged.textInfo.characterInfo[info.firstCharacterIndex - 1].character), "a page starts inside a word");
                 }
@@ -300,6 +300,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(view.Plates.Count(each => each.What == "reading band") == card.Reading.Count(row => row.Kind == RoomLineKind.Added || row.Kind == RoomLineKind.Removed), "a changed row has no band");
                 Require(view.Glyphs.Count(each => each.What == "reading mark") == card.Reading.Count(row => (row.Kind == RoomLineKind.Added || row.Kind == RoomLineKind.Removed) && !row.Continued), "a changed line has no mark");
                 Require(view.Plates.Count(each => each.What == "reading gap") == card.Reading.Count(row => row.Kind == RoomLineKind.Gap), "a gap has no hairline");
+                foreach (var gap in card.Reading.Where(row => row.Kind == RoomLineKind.Gap && row.Number is int))
+                    Require(view.Shown.Any(label => label.GetParsedText() == RoomReading.Skipped(gap.Number!.Value)), "a gap does not say the lines it skips");
                 Require(view.Plates.Where(each => each.What == "reading gap").All(each => Mathf.Abs(each.Plate.transform.localPosition.x - each.Plate.Size.x / 2f) < slack && Mathf.Abs(each.Plate.Size.y - unit) < slack * 0.2f),
                     "a gap's hairline does not start at the bands' edge, one dp tall");
                 Require(card.Reading.Count <= RoomReading.RowsAPage, "the page holds more rows than a page");
