@@ -60,6 +60,18 @@ namespace Halcyonic.Client
             }
         }
 
+        /// <summary>
+        /// The words of an instruction this client sent, while it remembers the command (SCREENS's waiting list: the host's
+        /// queue holds no words). In memory only, never logged or shown as the product's own.
+        /// </summary>
+        public string? InstructionOf(string commandId)
+        {
+            lock (gate)
+            {
+                return Find(commandId)?.Instruction;
+            }
+        }
+
         public void Sending(CommandEnvelope command, string executionId)
         {
             lock (gate)
@@ -69,6 +81,7 @@ namespace Halcyonic.Client
                 {
                     QuestionId = (command as ExecutionAnswerQuestionCommand)?.Payload?.QuestionId,
                     ApprovalId = (command as ExecutionRespondToApprovalCommand)?.Payload?.ApprovalId,
+                    Instruction = (command as ExecutionSendInstructionCommand)?.Payload?.Text,
                 });
                 if (submissions.Count > capacity) submissions.RemoveAt(0);
             }
@@ -327,6 +340,9 @@ namespace Halcyonic.Client
 
             /// <summary>The approval a decision answers, or null for any other command.</summary>
             public string? ApprovalId { get; set; }
+
+            /// <summary>An instruction's words, or null for any other command.</summary>
+            public string? Instruction { get; set; }
 
             public SubmissionState State { get; set; } = SubmissionState.Sending;
 

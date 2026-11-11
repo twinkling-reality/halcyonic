@@ -617,4 +617,24 @@ public class RoomResultTests
         var carried = Bar(new RoomResult(true, false, false, true, null, null, start: new RunStart(plan: true, notConfinedReason: null, planLeft: true, atRest: true, canCarryOut: true)));
         Assert.That(carried.Column.Select(action => action.Control.Action), Has.None.EqualTo(RoomResult.CarryOutPlan));
     }
+
+    [Test]
+    public void WhileATurnRunsTheWaitingInstructionsStandBesideStopAndAtRestNotSentLeadsTheResult()
+    {
+        var queued = new List<ExecutionViewQueuedInstructionsItem> { new() { CommandId = "c1", QueuedAt = "2026-11-11T18:00:00.000Z" } };
+        var waiting = new WaitingInstructions("e1", queued, _ => "Make the tail longer.");
+        var working = Bar(new RoomResult(true, false, false, null, null, null, waiting: waiting), status: ExecutionStatus.Running);
+        Assert.That(working.Card!.Title!.Text, Is.EqualTo(WaitingText.Title), Show(working));
+        Assert.That(working.Card.List.Single().Press!.Action, Is.EqualTo(RoomResult.WaitingOpen));
+        var page = Bar(new RoomResult(true, false, false, null, null, null, waiting: new WaitingInstructions("e1", queued, _ => "Make the tail longer.", opened: "c1")),
+            status: ExecutionStatus.Running);
+        Assert.That(page.Column.Select(action => (action.Control.Action, action.Words, action.Main)), Is.EqualTo(new[]
+        {
+            (RoomResult.WaitingDrop, WaitingText.Drop, false), (RoomResult.WaitingBack, WaitingText.Back, false),
+        }), "Drop never main, then Back");
+        var unsent = new WaitingInstructions("e1", null, _ => null, notSent: new UnsentInstruction("c1", "Make the tail longer.", "queued_turn_failed"));
+        var rest = Bar(new RoomResult(true, false, false, true, null, null, waiting: unsent));
+        Assert.That(rest.Card!.Status!.Value.Title, Is.EqualTo(WaitingText.NotSent));
+        Assert.That(rest.Column.Where(NotClose).Select(action => (action.Control.Action, action.Main)).First(), Is.EqualTo((RoomResult.WaitingAgain, true)), Show(rest));
+    }
 }

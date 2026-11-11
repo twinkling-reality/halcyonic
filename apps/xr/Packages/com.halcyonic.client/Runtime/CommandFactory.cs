@@ -189,6 +189,13 @@ namespace Halcyonic.Client
                 ? null
                 : pictures.Select(path => (InstructionAttachment)new ImageAttachment { Path = path }).ToList();
 
+        /// <summary>Drops an instruction waiting for the turn to end (ADR 0056): only one still waiting can be dropped.</summary>
+        public ExecutionDropQueuedInstructionCommand DropQueuedInstruction(string executionId, string commandId) =>
+            Stamp(new ExecutionDropQueuedInstructionCommand
+            {
+                Payload = new ExecutionDropQueuedInstructionPayload { ExecutionId = executionId, CommandId = commandId },
+            });
+
         public ExecutionRespondToApprovalCommand RespondToApproval(
             string executionId,
             string approvalId,

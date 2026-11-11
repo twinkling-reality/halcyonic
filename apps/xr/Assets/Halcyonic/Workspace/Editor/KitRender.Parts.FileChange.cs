@@ -32,11 +32,27 @@ namespace Halcyonic.XR.Workspace.Editor
             "61-file-unknown",
             // SCREENS's run start on the result's card (RunStart): a task that is a plan, a run not kept to its folder.
             "62-result-plan-ready", "62-result-not-kept",
+            // SCREENS's instructions waiting for the turn to end (WaitingInstructions).
+            "63-waiting-list", "63-waiting-page", "63-not-sent",
         };
 
         /// <summary>The result's card for a run-start state (<see cref="RunStart"/>), as the room's result draws it.</summary>
         private static RoomCard RunStartCard(string state)
         {
+            if (state.StartsWith("63-", StringComparison.Ordinal))
+            {
+                var queued = new List<ExecutionViewQueuedInstructionsItem>
+                {
+                    new ExecutionViewQueuedInstructionsItem { CommandId = "c1", QueuedAt = "2026-11-11T18:00:00.000Z" },
+                    new ExecutionViewQueuedInstructionsItem { CommandId = "c2", QueuedAt = "2026-11-11T18:01:00.000Z" },
+                };
+                string? Words(string id) => id == "c1" ? "Make the kite's tail longer, and let it ripple in the wind." : "Then make it blue.";
+                if (state == "63-not-sent") return new UnsentInstruction("c1", Words("c1"), "queued_stopped").Card();
+                var waiting = new WaitingInstructions("e1", queued, Words, opened: state == "63-waiting-page" ? "c1" : null);
+                return waiting.PageCard() ?? waiting.ListCard(item => new KitControl(KitPlace.Step,
+                    new MenuFrame(LineWords.Ours("Kite Run"), new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close))),
+                    RoomResult.WaitingOpen, item.CommandId, item.Words ?? WaitingText.NotKept, GlazeIcon.Next, true, null, false));
+            }
             var start = state == "62-result-plan-ready" ? new RunStart(plan: true, notConfinedReason: null, atRest: true, canCarryOut: true)
                 : new RunStart(plan: false, notConfinedReason: "Halcyonic's sandbox is on macOS only, so this run is not confined.");
             var result = new RoomResult(false, false, false, state == "62-result-plan-ready" ? (bool?)null : true, null, null, start: start);
@@ -205,7 +221,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var eyes = new Vector3(0f, EyeHeight, 0f);
             try
             {
-                if (state.StartsWith("62-", StringComparison.Ordinal))
+                if (state.StartsWith("62-", StringComparison.Ordinal) || state.StartsWith("63-", StringComparison.Ordinal))
                 {
                     var started = RunStartCard(state);
                     var startShot = CardShot(started, root.transform, eyes, name);

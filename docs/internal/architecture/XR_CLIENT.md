@@ -4567,6 +4567,22 @@ presence, contextual moment cards and the on-demand project screen:
   `StarterId`, and `ToContract()` emits `NewFromStarterChoice` (`kind: "new_from_starter"`) so a
   developer or newcomer in VR can scaffold a starter VR project from an idea and rename its folder
   before confirming the build review.
+- **Instructions waiting for the turn to end, and Drop (CORE's queue, ADR 0056; SCREENS 2026-11-11, `WaitingInstructions`)**:
+  `ExecutionView.queued_instructions` lists them oldest first without words; the headset shows the words it sent
+  (`CommandSubmissions.InstructionOf`, in memory only, never logged), else the placeholder "Your Instruction". While
+  the turn runs and any wait, the result reaches the bar (`KitFileBinding`: at rest, or while instructions wait) and
+  the working bar stands FIELD's waiting list beside Stop: title Waiting, "Each is sent when this turn ends.", a row
+  each with its words (theirs), "Next" on the first and "Waiting" on the rest, each pressed to its page
+  (`room-waiting-open`, key the command). A page reads "Waiting for Its Turn" over "It is sent when this turn ends.",
+  its words under it, then Drop (never main, no confirmation: nothing was sent) and Back; Drop sends
+  `execution.drop_queued_instruction` (`CommandFactory.DropQueuedInstruction`) and the row leaves once the host
+  records it. At rest, the run's newest instruction that waited and was not sent (`command.failed` with a `queued_`
+  code; `UnsentInstruction.Of`) leads the result until the person goes Back from it: "Not Sent" over why by its code
+  (FIELD's words), its words under it, then Send Again (main: the same words as a new instruction, where the task
+  takes one and it was not dropped) and Back. Never "queued" on a screen, never "sent" for one that waits. Not yet: the
+  headset offering an instruction during a turn on a runtime that cannot steer, which waits for CORE to name what the
+  host declares. Tests: `WaitingInstructionsTests`, `RoomResultTests`; render check: `63-waiting-list`,
+  `63-waiting-page`, `63-not-sent` in `KitRender.FileChangeCheck`.
 - **What a run's start was: a plan, or not kept to its folder (SCREENS 2026-11-11, `RunStart`)**: read from the task's
   own record (`ExecutionView.plan`, `plan_left`, `unconfined_reason`; `RunStart.Of`, with the run's runtime). The
   result's card (`RoomPanelCards.Result`) says, in FIELD's words, Plan Ready (the attention tone) over "Read it, then

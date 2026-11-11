@@ -362,7 +362,8 @@ namespace Halcyonic.Client
                 step: roomDesign ? RoomWork.Of(workspace.Execution) : null,
                 offersNeverAsk: selectors?.OffersNeverAsk ?? false, neverAsk: selectors?.NeverAsk ?? false,
                 runNeverAsk: workspace.Execution?.ApprovalLevel is Halcyonic.Contracts.ApprovalLevel level ? level == Halcyonic.Contracts.ApprovalLevel.NeverAsk : (bool?)null,
-                result: roomDesign && KitPresenter.AtRest(workspace) ? result : null,
+                // At rest the result; while a turn runs, only where instructions wait for it (SCREENS's waiting list).
+                result: roomDesign && (KitPresenter.AtRest(workspace) || result?.Waiting?.Any == true) ? result : null,
                 autoFix: roomDesign ? workspace.Execution?.AutoFix : null,
                 standing: roomDesign && KitPresenter.AtRest(workspace)
                     ? RoomStanding.Card(workspace.Execution, LineWords.TheirName(work.TaskTitle)) : null);

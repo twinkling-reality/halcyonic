@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Halcyonic.Client;
+using Halcyonic.Contracts;
 
 namespace Halcyonic.XR.Workspace
 {
@@ -57,6 +58,50 @@ namespace Halcyonic.XR.Workspace
                     if (reading != null && reading.Back()) return true;
                     fileReads.Remove(task);
                     setup.Presentation.ShowResultPage(task, run, RoomResultPage.Changes);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>SCREENS's waiting instruction whose page shows, one per task; none where the list shows.</summary>
+        private readonly Dictionary<string, string> waitingOpened = new Dictionary<string, string>();
+
+        /// <summary>Instructions not sent that the person went Back from, so the result shows again.</summary>
+        private readonly HashSet<string> unsentDismissed = new HashSet<string>();
+
+        /// <summary>The task's run's instructions waiting for its turn to end, with the words this headset sent; null with no run.</summary>
+        private WaitingInstructions? WaitingFor(WorkspacePresentation now)
+        {
+            if (now.Execution is not ExecutionView run) return null;
+            var opened = waitingOpened.TryGetValue(now.Character.WorkstreamId, out var id) ? id : null;
+            var waiting = new WaitingInstructions(run.ExecutionId, run.QueuedInstructions, setup.InstructionWords, opened,
+                UnsentInstruction.Of(State, run.ExecutionId, setup.InstructionWords, unsentDismissed.Contains));
+            // One sent, failed or dropped since its page opened: back to the list.
+            if (opened != null && waiting.Opened == null) waitingOpened.Remove(now.Character.WorkstreamId);
+            return waiting;
+        }
+
+        /// <summary>A waiting row opened, Drop (nothing was sent, so it asks nothing; the list loses the row once the host records it), or Back.</summary>
+        private bool OnWaitingActed(string action, string? key, string task, string? run)
+        {
+            switch (action)
+            {
+                case RoomResult.WaitingOpen when key != null:
+                    waitingOpened[task] = key;
+                    return true;
+                case RoomResult.WaitingDrop when key != null && run != null && waitingOpened.TryGetValue(task, out var opened) && opened == key:
+                    if (!SendCommand(setup.Commands.DropQueuedInstruction(run, key))) return false;
+                    waitingOpened.Remove(task);
+                    return true;
+                case RoomResult.WaitingBack:
+                    // From a waiting row's page back to the list; from Not Sent back to the result.
+                    if (!waitingOpened.Remove(task) && key != null) unsentDismissed.Add(key);
+                    return true;
+                case RoomResult.WaitingAgain when key != null && run != null && setup.InstructionWords(key) is string words:
+                    // Send Again: the same words as a new instruction (CORE: safe after any of these failures).
+                    if (!SendCommand(setup.Commands.SendInstruction(run, words))) return false;
+                    unsentDismissed.Add(key);
                     return true;
                 default:
                     return false;

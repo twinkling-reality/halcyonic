@@ -447,6 +447,8 @@ namespace Halcyonic.Client
             loop.Working = true;
             loop.Step = model.Step;
             if (binding[KitPlace.Stop] is { Available: true } stop) loop.Column = new[] { new RoomAction(stop, main: false) };
+            // SCREENS's instructions waiting for this turn to end (RoomBar.Waiting.cs).
+            if (model.Result?.Waiting is WaitingInstructions waiting) loop = Waited(loop, waiting, binding.Frame);
             return loop;
         }
 

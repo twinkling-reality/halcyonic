@@ -54,6 +54,9 @@ namespace Halcyonic.XR.Workspace
 
             /// <summary>The turns of a run the computer observed (<see cref="ActivityLog.ObservedFor"/>), for the redesign's result.</summary>
             public Func<string, IReadOnlyList<ObservedTurn>> Observed { get; set; } = _ => Array.Empty<ObservedTurn>();
+
+            /// <summary>The words of an instruction this headset sent (<see cref="CommandSubmissions.InstructionOf"/>), for SCREENS's waiting list.</summary>
+            public Func<string, string?> InstructionWords { get; set; } = _ => null;
             public bool SpatialWorkspace { get; set; }
             public bool ResponsiveWorkspace { get; set; }
             /// <summary>Admits a head pose only with valid wearer tracking and focus, for initial placement and out-of-view recovery.</summary>

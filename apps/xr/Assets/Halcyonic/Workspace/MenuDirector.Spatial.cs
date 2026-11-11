@@ -217,7 +217,8 @@ namespace Halcyonic.XR.Workspace
                 page == RoomResultPage.History ? HistoryFor(projectId) : null, page == RoomResultPage.Share ? ShareFor(projectId) : null,
                 canSend: CanSendShare, relays: HeadsetRelay.Serves(target), relayBuilt: HeadsetRelay.Built,
                 file: page == RoomResultPage.File ? FileReadFor(now.Character.WorkstreamId) : null,
-                start: RunStart.Of(now.Execution, now.Runtime));
+                start: RunStart.Of(now.Execution, now.Runtime),
+                waiting: WaitingFor(now));
         }
 
         /// <summary>
@@ -342,6 +343,10 @@ namespace Halcyonic.XR.Workspace
                 // the plan was carried out only once the runtime confirms it (plan_left).
                 case RoomResult.CarryOutPlan when run != null && RunStart.Of(now.Execution, now.Runtime) is { CanCarryOut: true }:
                     if (!SendCommand(setup.Commands.SendInstruction(run, RunStart.CarryOutInstruction, leavePlan: true))) return false;
+                    break;
+                // SCREENS's waiting instructions (MenuDirector.File.cs): a row opens its page, Drop sends the drop, Back returns.
+                case RoomResult.WaitingOpen or RoomResult.WaitingDrop or RoomResult.WaitingBack or RoomResult.WaitingAgain:
+                    if (!OnWaitingActed(action, key, task, run)) return false;
                     break;
                 // SCREENS's file of Changes read (MenuDirector.File.cs).
                 case string _ when RoomResult.FileActions.Contains(action):
