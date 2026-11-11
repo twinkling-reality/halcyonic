@@ -1133,6 +1133,31 @@ function folderRefusal(
       `${commandInWords(pending.command_type)} for another task in this folder is still under way. Wait for its outcome, then try again.`,
     );
   }
+  // A project's own check runs in place (ADR 0055), so no turn starts in the folder it reads and writes while it
+  // runs, whichever task's (AUDIT3 5).
+  const checking = projection.pendingCommands().find((command) => {
+    if (
+      command.command_type !== 'project.check' &&
+      command.command_type !== 'project.own_check.choose'
+    )
+      return false;
+    const project =
+      command.project_id === null ? undefined : projection.project(command.project_id);
+    if (project === undefined || project.starter !== null || project.location === null)
+      return false;
+    const copy =
+      command.workstream_id === null
+        ? undefined
+        : projection.workstream(command.workstream_id)?.copy;
+    const where = copy?.state === 'own' ? copy.directory : project.location.path;
+    return foldersOverlap(where, folder);
+  });
+  if (checking !== undefined)
+    return reject(
+      scope,
+      'invalid_state',
+      "This project's own check is running in this folder. Wait for its outcome, then try again.",
+    );
   return undefined;
 }
 

@@ -1406,6 +1406,65 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
       true,
     );
   });
+
+  test("a project's own check holds its folder: no start and no instruction there while it runs (ADR 0055, AUDIT3 5)", () => {
+    const { b, projection, commands } = setup();
+    const inFolder = catalog(FULL, 'none', true);
+    const project = b.project('Own', { path: '/work/own', name: 'own', created: false });
+    projection.apply(project.event);
+    const scope = { project_id: project.projectId, workstream_id: null, execution_id: null };
+    projection.apply(
+      b.controlPlane('project.own_check.chosen', scope, {
+        manager: 'npm',
+        scripts: [{ name: 'test', command: 'node --test', command_sha256: 'a'.repeat(64) }],
+      }),
+    );
+    const task = b.workstream(project.projectId, 'Task');
+    projection.apply(task.event);
+    const resting = b.execution(project.projectId, task.workstreamId, '/work/own');
+    projection.apply(resting.event);
+    const restingScope = {
+      projectId: project.projectId,
+      workstreamId: task.workstreamId,
+      executionId: resting.executionId,
+    };
+    projection.apply(b.runtimeEvent(restingScope, 'runtime.turn.started', { turn_id: 'r1' }));
+    projection.apply(b.runtimeEvent(restingScope, 'runtime.turn.completed', { turn_id: 'r1' }));
+    const instruct: CommandEnvelope = {
+      ...commands.instruct(),
+      command_type: 'execution.send_instruction',
+      payload: { execution_id: resting.executionId, text: 'Continue.' },
+    };
+    assert.equal(
+      admitCommand(instruct, projection, inFolder).admitted,
+      true,
+      'free before the check',
+    );
+    const check: CommandEnvelope = {
+      ...commands.instruct(),
+      command_type: 'project.check',
+      payload: { project_id: project.projectId },
+    };
+    projection.apply(
+      b.controlPlane('command.accepted', scope, {
+        command: check,
+        policy: 'low_consequence',
+        received_via: 'internal',
+        principal: null,
+      }),
+    );
+    const refusal = {
+      code: 'invalid_state',
+      message:
+        "This project's own check is running in this folder. Wait for its outcome, then try again.",
+    };
+    const refused = admitCommand(instruct, projection, inFolder);
+    assert.deepEqual(refused.admitted ? null : refused.rejection, refusal);
+    const second = b.workstream(project.projectId, 'Second');
+    projection.apply(second.event);
+    const start = admitCommand(commands.start(second.workstreamId), projection, inFolder);
+    assert.deepEqual(start.admitted ? null : start.rejection, refusal);
+  });
 });
 
 function starterApplied() {

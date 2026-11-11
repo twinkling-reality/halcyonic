@@ -743,13 +743,16 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "build")] Build,
     }
 
-    public sealed class OwnCheckFoundScript
+    public sealed class OwnCheckScript
     {
         [JsonProperty("name", Required = Required.Always)]
         public OwnCheckScriptName Name { get; set; }
 
         [JsonProperty("command", Required = Required.Always)]
         public string Command { get; set; } = default!;
+
+        [JsonProperty("command_sha256", Required = Required.Always)]
+        public string CommandSha256 { get; set; } = default!;
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
@@ -767,7 +770,7 @@ namespace Halcyonic.Contracts
         public OwnCheckManager? Manager { get; set; }
 
         [JsonProperty("scripts", Required = Required.Always)]
-        public List<OwnCheckFoundScript> Scripts { get; set; } = new List<OwnCheckFoundScript>();
+        public List<OwnCheckScript> Scripts { get; set; } = new List<OwnCheckScript>();
 
         [JsonProperty("reason", Required = Required.AllowNull)]
         public OwnCheckNotFound? Reason { get; set; }
@@ -1365,18 +1368,6 @@ namespace Halcyonic.Contracts
         public string? WorkstreamId { get; set; }
     }
 
-    public sealed class OwnCheckScript
-    {
-        [JsonProperty("name", Required = Required.Always)]
-        public OwnCheckScriptName Name { get; set; }
-
-        [JsonProperty("command", Required = Required.Always)]
-        public string Command { get; set; } = default!;
-
-        [JsonProperty("command_sha256", Required = Required.Always)]
-        public string CommandSha256 { get; set; } = default!;
-    }
-
     [JsonConverter(typeof(StringEnumConverter))]
     public enum ProjectOwnCheckRunViewFiles
     {
@@ -1410,6 +1401,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("refused", Required = Required.Always)]
         public bool Refused { get; set; }
+
+        [JsonProperty("left_running", Required = Required.Always)]
+        public bool LeftRunning { get; set; }
     }
 
     public sealed class OwnCheckWritten
@@ -3587,13 +3581,22 @@ namespace Halcyonic.Contracts
         public string? WorkstreamId { get; set; }
     }
 
+    public sealed class OwnCheckChoice
+    {
+        [JsonProperty("name", Required = Required.Always)]
+        public OwnCheckScriptName Name { get; set; }
+
+        [JsonProperty("command_sha256", Required = Required.Always)]
+        public string CommandSha256 { get; set; } = default!;
+    }
+
     public sealed class ProjectOwnCheckChoosePayload
     {
         [JsonProperty("project_id", Required = Required.Always)]
         public string ProjectId { get; set; } = default!;
 
         [JsonProperty("scripts", Required = Required.Always)]
-        public List<OwnCheckScriptName> Scripts { get; set; } = new List<OwnCheckScriptName>();
+        public List<OwnCheckChoice> Scripts { get; set; } = new List<OwnCheckChoice>();
     }
 
     public sealed class ProjectPreviewStartPayload

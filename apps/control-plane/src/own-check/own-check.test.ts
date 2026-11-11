@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   realpathSync,
   rmSync,
   symlinkSync,
@@ -29,7 +30,14 @@ import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import { readFolder } from '../observer/file-observer.ts';
 import { createTestControlPlane, SCENARIOS } from '../testing/harness.ts';
-import { managerOf, managersOn, readManifest, writtenBetween } from './own-check.ts';
+import {
+  commandSha256,
+  managerOf,
+  managersOn,
+  readManifest,
+  refusedAtEnd,
+  writtenBetween,
+} from './own-check.ts';
 
 const [FEATURE] = DEMO_WORKSTREAMS as unknown as [(typeof DEMO_WORKSTREAMS)[number]];
 
@@ -150,7 +158,7 @@ async function until(check: () => boolean, what: string): Promise<void> {
 function plane(
   t: TestContext,
   scripts: Record<string, string> = { test: SCRIPT },
-  options: { scriptMs?: number } = {},
+  options: { scriptMs?: number; settleMs?: number } = {},
 ) {
   const dataDir = scratch(t, 'data');
   const folder = scratch(t, 'project');
@@ -169,6 +177,8 @@ function plane(
       node: process.execPath,
       managers,
       ...(options.scriptMs === undefined ? {} : { scriptMs: options.scriptMs }),
+      // The folder is read again after a run; a short settle keeps the suite quick.
+      settleMs: options.settleMs ?? 50,
     },
   });
   const { controlPlane, commands, time } = harness;
@@ -193,12 +203,23 @@ function plane(
       return event.event_type === type;
     });
   const person = (command: CommandEnvelope) => controlPlane.commands.submit(command, 'websocket');
-  const choose = (names: string[] = ['test']) =>
-    person({
+  /** The person's choice, carrying each command's SHA-256 as the host offers it now (AUDIT3 S1). */
+  const choose = (names: string[] = ['test'], sha?: string) => {
+    const manifest = JSON.parse(readFileSync(join(folder, 'package.json'), 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    return person({
       ...commands.createProject('unused'),
       command_type: 'project.own_check.choose',
-      payload: { project_id: projectId, scripts: names },
-    } as CommandEnvelope);
+      payload: {
+        project_id: projectId,
+        scripts: names.map((name) => ({
+          name,
+          command_sha256: sha ?? commandSha256(manifest.scripts[name] ?? ''),
+        })),
+      },
+    } as unknown as CommandEnvelope);
+  };
   const check = () =>
     person({
       ...commands.createProject('unused'),
@@ -247,8 +268,12 @@ function plane(
   };
   const ended = () => ofType('execution.auto_fix.ended');
   const sent = () => ofType('execution.auto_fix.sent');
+  const failed = () => ofType('command.failed');
   return {
     folder,
+    dataDir,
+    commands,
+    failed,
     projectId,
     controlPlane,
     runtime,
@@ -379,10 +404,14 @@ describe("a project's own check, run inside the agents' sandbox on this Mac (ADR
     const p = plane(
       t,
       {
-        // A child that would run for ever, and a script that never ends.
-        test: `node -e "require('child_process').spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});setInterval(()=>{},1000)"`,
+        // A child in the script's group that would beat for ever, and a script that never ends.
+        test: 'node beating.js',
       },
       { scriptMs: 1500 },
+    );
+    writeFileSync(
+      join(p.folder, 'beating.js'),
+      "require('child_process').spawn(process.execPath, ['-e', \"setInterval(() => require('fs').appendFileSync('beat.txt', 'x'), 100)\"], { stdio: 'ignore' });\nsetInterval(() => {}, 1000);\n",
     );
     p.choose();
     await until(() => p.recorded().length === 1, 'the run');
@@ -390,6 +419,11 @@ describe("a project's own check, run inside the agents' sandbox on this Mac (ADR
     assert.equal(run?.timed_out, true);
     assert.equal(run?.exit, null);
     assert.equal(p.recorded()[0]?.payload.findings.passed, false);
+    // The child stopped with the group: its beat no longer grows (AUDIT3 S2).
+    const size = () => readFileSync(join(p.folder, 'beat.txt'), 'utf8').length;
+    const at = size();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    assert.equal(size(), at, 'the child stopped with the group');
   });
 
   test('a project made from a starter, or one with no choice yet, is refused', (t) => {
@@ -411,5 +445,157 @@ describe("a project's own check, run inside the agents' sandbox on this Mac (ADR
     );
     const starter = p.choose();
     assert.equal(starter.disposition, 'rejected');
+  });
+
+  test('what runs is the chosen script alone: no pre or post script, and no shell a project .npmrc names (AUDIT3 1)', async (t) => {
+    const p = plane(t, {
+      pretest: "node -e \"require('fs').writeFileSync('pre.txt','x')\"",
+      test: SCRIPT,
+      posttest: "node -e \"require('fs').writeFileSync('post.txt','x')\"",
+    });
+    // A project .npmrc that would make every script a no-op that passes.
+    writeFileSync(join(p.folder, '.npmrc'), 'script-shell=/usr/bin/true\n');
+    writeFileSync(join(p.folder, 'fail.flag'), '');
+    p.choose();
+    await until(() => p.recorded().length === 1, 'the run');
+    const findings = p.recorded()[0]?.payload.findings;
+    assert.equal(findings?.passed, false, 'the test itself ran, and failed');
+    assert.equal(findings?.runs[0]?.exit, 1);
+    assert.deepEqual(
+      readdirSync(p.folder)
+        .filter((name) => name.endsWith('.txt'))
+        .sort(),
+      ['out.txt'],
+    );
+  });
+
+  test("a run's own home starts empty every time: one script's ~/.npmrc never reaches the next (AUDIT3 2)", async (t) => {
+    const p = plane(t, {
+      test: SCRIPT,
+      lint: "node -e \"require('fs').writeFileSync(require('os').homedir()+'/.npmrc','script-shell=/usr/bin/true')\"",
+    });
+    p.choose(['lint']);
+    await until(() => p.recorded().length === 1, 'the lint run');
+    writeFileSync(join(p.folder, 'fail.flag'), '');
+    rmSync(join(p.folder, 'out.txt'), { force: true });
+    p.choose(['test']);
+    await until(() => p.recorded().length === 2, 'the test run');
+    assert.equal(p.recorded()[1]?.payload.findings.passed, false);
+    assert.ok(readdirSync(p.folder).includes('out.txt'), 'the test command ran');
+  });
+
+  test('a child holding the pipes does not hold the run, and the run says something outlived it (AUDIT3 3)', async (t) => {
+    const p = plane(
+      t,
+      {
+        test: "node -e \"require('child_process').spawn(process.execPath,['-e','setTimeout(()=>{},20000)'],{stdio:'inherit'})\"",
+      },
+      { scriptMs: 3000 },
+    );
+    const began = Date.now();
+    p.choose();
+    await until(() => p.recorded().length === 1, 'the run');
+    assert.ok(Date.now() - began < 8000, 'recorded within the limit, not when the child ends');
+    // npm waits for the child holding its output, so the run meets its limit: timed out, or, where the manager
+    // exits first, marked as outlived. Either way it records, and the project is not held.
+    const run = p.recorded()[0]?.payload.findings.runs[0];
+    assert.ok(run?.timed_out === true || run?.left_running === true, JSON.stringify(run));
+    assert.equal(p.recorded()[0]?.payload.findings.passed, false);
+  });
+
+  test('a write after the run, by a child that left the group, marks the run as not whole (AUDIT3 3)', async (t) => {
+    const p = plane(t, { test: 'node late-child-start.js' }, { settleMs: 1500 });
+    writeFileSync(
+      join(p.folder, 'late-child-start.js'),
+      "require('child_process').spawn(process.execPath, ['-e', \"setTimeout(() => require('fs').writeFileSync('late.txt', 'x'), 300)\"], { detached: true, stdio: 'ignore' }).unref();\n",
+    );
+    p.choose();
+    await until(() => p.recorded().length === 1, 'the run');
+    const run = p.recorded()[0]?.payload.findings.runs[0];
+    assert.equal(run?.exit, 0);
+    assert.equal(run?.left_running, true, 'the late write is seen');
+  });
+
+  test('a check running when the control plane closes stops with it (AUDIT3 4)', async (t) => {
+    const p = plane(t, {
+      test: "node -e \"setInterval(()=>require('fs').appendFileSync('beat.txt','x'),100)\"",
+    });
+    p.choose();
+    await until(() => readdirSync(p.folder).includes('beat.txt'), 'the script beating');
+    await p.controlPlane.close();
+    const size = () => readFileSync(join(p.folder, 'beat.txt'), 'utf8').length;
+    const at = size();
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    assert.equal(size(), at, 'nothing writes after the close');
+    assert.deepEqual(
+      readdirSync(join(p.dataDir, 'own-checks', 'running')),
+      [],
+      'no record is left',
+    );
+  });
+
+  test('a failure is judged by the run before it of the same folder, never another folder (AUDIT3 6)', async (t) => {
+    const p = plane(t);
+    p.choose();
+    await until(() => p.recorded().length === 1, 'the first run');
+    writeFileSync(join(p.folder, 'fail.flag'), '');
+    p.check();
+    await until(() => p.recorded().length === 2, 'the failing run');
+    // Another task's own copy passes meanwhile, as its check records it.
+    const other = p.controlPlane.commands.submit(
+      p.commands.createWorkstream(p.projectId, FEATURE),
+      'internal',
+    );
+    const otherTask =
+      other.command?.result?.kind === 'workstream_created'
+        ? other.command.result.workstream_id
+        : '';
+    const last = p.recorded().at(-1)?.payload.findings;
+    if (last === undefined) throw new Error('no run');
+    p.controlPlane.recorder.record(
+      controlPlaneDraft(
+        'project.own_check.recorded',
+        { project_id: p.projectId, workstream_id: null, execution_id: null },
+        {
+          check_id: '01a19000-0000-7000-8000-0000000000c1' as never,
+          first: false,
+          findings: { ...last, passed: true, runs: [] },
+          workstream_id: otherTask as never,
+        },
+        '2026-11-11T10:00:00.000Z' as never,
+        NO_CAUSE,
+      ),
+    );
+    const executionId = await p.start();
+    p.turnChanged(executionId);
+    await until(() => p.ended().length === 1, 'the end');
+    assert.equal(
+      p.ended()[0]?.payload.reason,
+      'failing_before',
+      'the project folder was failing before the turn',
+    );
+    assert.equal(p.sent().length, 0);
+  });
+
+  test('a choice is refused when the command changed since the person read it (AUDIT3 S1)', async (t) => {
+    const p = plane(t);
+    const sent = p.choose(['test'], 'b'.repeat(64));
+    assert.equal(sent.disposition, 'accepted');
+    await until(() => p.failed().length === 1, 'the failure');
+    assert.equal(p.failed()[0]?.payload.failure.code, 'command_changed');
+    assert.equal(p.recorded().length, 0, 'nothing ran');
+    assert.equal(p.controlPlane.projection.ownCheck(p.projectId), undefined, 'no choice recorded');
+  });
+});
+
+describe("a refusal is read from the failed script's last lines alone (AUDIT3 S3)", () => {
+  test("an EPERM in a passing test's log above a real failure is not a refusal", () => {
+    const log = [
+      'EPERM in a log line of an early test',
+      ...Array.from({ length: 30 }, (_, i) => `ok ${i}`),
+      'not ok 31 - the real failure',
+    ].join('\n');
+    assert.equal(refusedAtEnd(log), false);
+    assert.equal(refusedAtEnd(`${log}\nError: EPERM: operation not permitted, connect`), true);
   });
 });

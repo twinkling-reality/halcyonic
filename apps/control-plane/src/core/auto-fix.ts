@@ -365,11 +365,13 @@ export class AutoFix {
       this.#end(executionId, 'check_refused', latest.check_id);
       return;
     }
-    // Whose fault it is: only a failure right after a run that passed is the turn's to fix.
-    if (chain === null && own.passed_before !== true) {
+    // Whose fault it is: only a failure right after a run of the same folder that passed is the turn's to fix, the
+    // project's folder or the task's own copy, never another folder's (AUDIT3 6).
+    const baseline = projection.ownCheckBaseline(projectId, latest.workstream_id ?? null);
+    if (chain === null && baseline.passedBefore !== true) {
       this.#end(
         executionId,
-        own.passed_earlier ? 'failing_before' : 'never_passed',
+        baseline.passedEarlier ? 'failing_before' : 'never_passed',
         latest.check_id,
       );
       return;

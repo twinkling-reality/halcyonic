@@ -98,3 +98,37 @@ Facts, read and probed on 2026-11-11 ([own-checks.md](../validation/own-checks.m
   A generated C# client older than these bindings fails on the two new event types, so the headset is rebuilt
   with the regenerated bindings before a host that sends them.
 - Revisit if a chosen-ports answer lands, or if a script needs a variable the person sets.
+
+## Amendment, 2026-11-11 (AUDIT3's six findings)
+
+- **What runs is the chosen script alone.**
+  - The manager gets, in its environment, the settings that outrank a project's `.npmrc`:
+    `npm_config_ignore_scripts=true` (npm then skips pre and post scripts but runs the named one) and
+    `npm_config_enable_pre_post_scripts=false` (pnpm, whose project `.npmrc` could turn them on).
+  - It also gets `npm_config_script_shell=/bin/sh`, and an empty user and global config file of the run's own.
+  - Probed on this Mac, npm 11 and pnpm 11.27.1: a `pretest`, a `posttest` and a project `script-shell=/usr/bin/true`
+    no longer run or decide a pass.
+- **A run's home and temporary folder are made empty for every run**, so nothing one run leaves (a `~/.npmrc`)
+  reaches the next.
+- **A run settles on the script's own exit, never on its pipes.**
+  - The pipes get 200 ms for trailing output, then are closed, and the whole process group is stopped.
+  - At the limit the group is stopped and the run settles as timed out. So a child holding the pipes no longer
+    keeps the command pending.
+  - A run records `left_running` when a pipe was still held after the script exited, or when the folder changed
+    in the 2 s after the run.
+  - A child that left the process group (a new session) is not stopped by this and can write in the folder
+    later. Seatbelt still holds it to the profile, and `left_running` is the only sign of it.
+- **Close and restart.** The control plane's close stops every running check. Each run's process is recorded
+  under the data folder and, at the next start, its group is stopped while that process still runs this check's
+  profile.
+- **The folder is held.** While a project's own check runs, no turn starts or is instructed in a folder that
+  overlaps the one it checks (admission's folder rule).
+- **The baseline is the folder's own.** Auto-fix judges a failure by the previous run of the same folder, the
+  project's folder or a task's own copy. A folder with no run of its own has none (`never_passed`).
+- **The choice is bound to what the person read.** `project.own_check.choose` carries each script's
+  `command_sha256` as `GET .../own-check` gave it, and a mismatch fails with `command_changed`, recording no
+  choice.
+- **`refused` is read from the failed script's last 20 lines only.**
+- **Format.** PROJECTION_STATE_FORMAT is taken at this unit's rebase, by hand, past the base's (9 as the lead
+  names it).
+

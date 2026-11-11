@@ -652,6 +652,8 @@ export class ControlPlane {
     // A shared link stops before the preview it reaches.
     await this.shares?.close();
     await this.previews?.close();
+    // A project's own check running now stops with the control plane (AUDIT3 4).
+    this.ownChecks?.close();
     await this.registry.closeAll(this.#logger);
     await this.ollamaUnload?.close();
     // Undo checkpoints and restores under way journal their outcomes before the journal closes.

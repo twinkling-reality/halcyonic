@@ -134,9 +134,9 @@ import {
   ProjectLocationChoice,
 } from './locations.ts';
 import {
+  OwnCheckChoice,
   OwnCheckFindings,
   OwnCheckFoundResponse,
-  OwnCheckFoundScript,
   OwnCheckManager,
   OwnCheckNotFound,
   OwnCheckRun,
@@ -358,7 +358,7 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   AutoFixView,
   OwnCheckFindings,
   OwnCheckFoundResponse,
-  OwnCheckFoundScript,
+  OwnCheckChoice,
   OwnCheckManager,
   OwnCheckNotFound,
   OwnCheckRun,

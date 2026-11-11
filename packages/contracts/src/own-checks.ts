@@ -33,12 +33,15 @@ export type OwnCheckScriptName = Static<typeof OwnCheckScriptName>;
 /** The longest script command the host offers; a longer one is not offered. */
 export const OWN_CHECK_COMMAND_MAX = 2000;
 
-/** A script as the project's `package.json` writes it: the project's own words, never Halcyonic's. */
-export const OwnCheckFoundScript = Type.Object(
-  { name: OwnCheckScriptName, command: Text(OWN_CHECK_COMMAND_MAX) },
+/**
+ * A script the person chose, by name and the SHA-256 of the command they read (AUDIT3 S1): a command changed since it
+ * was read is refused, so the choice is bound to what the person saw.
+ */
+export const OwnCheckChoice = Type.Object(
+  { name: OwnCheckScriptName, command_sha256: Sha256Hex },
   strict,
 );
-export type OwnCheckFoundScript = Static<typeof OwnCheckFoundScript>;
+export type OwnCheckChoice = Static<typeof OwnCheckChoice>;
 
 /** A chosen script, with the SHA-256 of its command as chosen, so a changed command is not run. */
 export const OwnCheckScript = Type.Object(
@@ -66,12 +69,13 @@ export type OwnCheckNotFound = Static<typeof OwnCheckNotFound>;
 
 /**
  * `GET /api/projects/:project_id/own-check`: the scripts the host found in the project's folder now, to
- * show before the person chooses; `reason` null when some are offered.
+ * show before the person chooses, each with its command's SHA-256 for the choice to carry; `reason` null
+ * when some are offered.
  */
 export const OwnCheckFoundResponse = Type.Object(
   {
     manager: Nullable(OwnCheckManager),
-    scripts: Type.Array(OwnCheckFoundScript, { maxItems: OWN_CHECK_SCRIPT_NAMES.length }),
+    scripts: Type.Array(OwnCheckScript, { maxItems: OWN_CHECK_SCRIPT_NAMES.length }),
     reason: Nullable(OwnCheckNotFound),
   },
   strict,
@@ -80,8 +84,10 @@ export type OwnCheckFoundResponse = Static<typeof OwnCheckFoundResponse>;
 
 /**
  * One chosen script's run: its exit code, or null when it was stopped at its limit (`timed_out`) or
- * could not start; `refused` when its output names a refusal of the sandbox (`EPERM`), so a need for the
- * network or a port never reads as the agent's fault.
+ * could not start; `refused` when a failed script's last lines name a refusal of the sandbox (`EPERM`), so a
+ * need for the network or a port never reads as the agent's fault; `left_running` when something it started
+ * outlived it: a pipe still held after it exited, or the folder written after the run, so what the check
+ * observed is not whole.
  */
 export const OwnCheckRun = Type.Object(
   {
@@ -90,6 +96,7 @@ export const OwnCheckRun = Type.Object(
     seconds: Type.Number({ minimum: 0 }),
     timed_out: Type.Boolean(),
     refused: Type.Boolean(),
+    left_running: Type.Boolean(),
   },
   strict,
 );
