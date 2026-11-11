@@ -894,6 +894,9 @@ namespace Halcyonic.XR.Workspace
         private void OnHoldStarted(MenuColumn from, Prompt prompt, MenuFrame? frame, SidePanel? side)
         {
             if (FocusGuard.InputSuspended || plane.Repositioning || drag != null) return;
+            // The recording itself, not only its prompts: a frame drawn while voice was offered may stand a moment after the
+            // computer drops or a recording starts, and a hold on it must never start the microphone (AUDIT S1, ADR 0021).
+            if (!VoiceOffered) return;
             if (navigator.Taking(from, prompt.Id, frame, side) is IMenuColumn column) voice?.Hold(column, prompt.Id);
         }
 
