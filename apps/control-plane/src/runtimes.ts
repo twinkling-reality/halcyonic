@@ -1,5 +1,5 @@
 import { readFileSync, realpathSync, statSync } from 'node:fs';
-import { join, sep } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import {
   ClaudeAgentRuntimeAdapter,
   type ClaudeConfinementOptions,
@@ -245,15 +245,25 @@ export function claudeConfinement(
  */
 export function openCodeSandbox(
   config: Pick<ControlPlaneConfig, 'opencodeConfigHome'>,
-  dependencies: Pick<RuntimeDependencies, 'starterOf' | 'originalOf' | 'dataDir'>,
+  dependencies: Pick<RuntimeDependencies, 'starterOf' | 'originalOf' | 'dataDir'> &
+    Partial<Pick<RuntimeDependencies, 'environment'>>,
   node: string = process.execPath,
 ) {
+  // OpenCode searches with the first `rg` on its PATH, which its commands get with the product's Node
+  // first; that `rg`'s own folders are read too, wherever it is installed, not only beside a Homebrew
+  // Node (BOX-3b's open item).
+  const rg = ripgrepPath(
+    [dirname(node), dependencies.environment?.PATH ?? ''].filter((part) => part !== '').join(':'),
+  );
+  const toolFolders = [
+    ...new Set([...toolFoldersFor(node), ...(rg === null ? [] : toolFoldersFor(rg))]),
+  ];
   return {
     loopbackPorts: [],
     ollama: `http://127.0.0.1:${OLLAMA_PORT}`,
     readable: config.opencodeConfigHome === null ? [] : [config.opencodeConfigHome],
     hidden: [dependencies.dataDir],
-    toolFolders: toolFoldersFor(node),
+    toolFolders,
     forFolder: (folder: string) => folderReads(dependencies, folder),
   };
 }
@@ -263,14 +273,20 @@ export function openCodeSandbox(
  * inherits, and without one downloads ripgrep from GitHub, which the sandbox refuses (ADR 0028).
  */
 export function ripgrepOnPath(path: string | undefined): boolean {
-  return (path ?? '').split(':').some((folder) => {
-    if (folder === '') return false;
+  return ripgrepPath(path) !== null;
+}
+
+/** The first `rg` on `path` that is a file, as OpenCode would run it, or null. */
+export function ripgrepPath(path: string | undefined): string | null {
+  for (const folder of (path ?? '').split(':')) {
+    if (folder === '') continue;
     try {
-      return statSync(join(folder, 'rg')).isFile();
+      if (statSync(join(folder, 'rg')).isFile()) return join(folder, 'rg');
     } catch {
-      return false;
+      // Not there: the next folder on the path.
     }
-  });
+  }
+  return null;
 }
 
 /** Ollama's port on this Mac, its default, which the gate in front of it for OpenCode dials. */
