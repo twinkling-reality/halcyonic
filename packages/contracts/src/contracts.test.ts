@@ -687,6 +687,7 @@ describe('the C# bindings', () => {
     'RuntimeExecutionStartedPayload.approval_level', // ADR 0043
     'RuntimeExecutionStartedPayload.confined', // whether a start recorded it confined (S2)
     'RuntimeExecutionStartedPayload.plan', // whether a start recorded its plan mode (PLAN)
+    'RuntimeExecutionStartedPayload.unconfined_reason', // why a start that asked for the sandbox ran without it (BOX-4)
     'RuntimeToolCompletedPayload.turn_id', // a completed tool's turn
     'WorkstreamAddToProjectPayload.review', // the review an add carries (ADR 0051)
     'WorkstreamCopyChangesReadPayload.files', // how each file a copy's reading found changed (ADR 0045)

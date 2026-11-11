@@ -193,7 +193,10 @@ model.
   id; a leading `-` is refused because the SDK passes it as a CLI argument); `permission_mode`
   (`default`, `acceptEdits`, `plan` or `dontAsk`; `bypassPermissions` and `auto` are refused
   because they take decisions away from the person supervising).
-- Settings sources stay unset, so every source loads and the user's hooks run. HOME and
+- Settings sources stay unset, so every source loads and the user's hooks run. Since BOX-4 a new
+  app's project on macOS is the exception: there the launch runs inside Halcyonic's closed profile
+  with a HOME and CLAUDE_CONFIG_DIR of its own, so the person's settings and hooks do not load
+  ([claude-code-sandbox.md](claude-code-sandbox.md)). Elsewhere HOME and
   CLAUDE_CONFIG_DIR pass through unchanged, and PATH always includes the directory of the running
   node so the observers' `node` hooks can run. Configuration cannot add SALIDIUM_INTERNAL, HOME,
   CLAUDE_CONFIG_DIR or CLAUDE_CODE_OAUTH_TOKEN, and the adapter refuses to start without

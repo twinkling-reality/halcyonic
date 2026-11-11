@@ -46,7 +46,16 @@ import {
   type StartExecutionResult,
   systemClock,
 } from '@halcyonic/runtime-core';
-import { buildEnvironment, type ModelHost, modelHost } from './environment.ts';
+import { type ApiGate, startApiGate } from './api-gate.ts';
+import {
+  type ClaudeConfinementOptions,
+  type ConfinedFolder,
+  confinedFolder,
+  confinedLaunch,
+  findInConfinedStore,
+  prepareConfinedFolder,
+} from './confinement.ts';
+import { buildEnvironment, cloudProvider, type ModelHost, modelHost } from './environment.ts';
 import { ProcessGuard, type StaleProcess } from './process-guard.ts';
 
 /**
@@ -101,7 +110,20 @@ export interface ClaudeAgentRuntimeOptions {
    * re-attach asks before it takes a session for found (ADR 0046). The SDK's by default.
    */
   readonly sessionInfo?: SessionInfoFunction;
+  /**
+   * Halcyonic's closed sandbox for the starts that ask for it (ADR 0048, BOX-4), on macOS. Null or
+   * absent: every start runs as before.
+   */
+  readonly confinement?: ClaudeConfinementOptions | null;
 }
+
+/**
+ * Where a start runs: inside its folder's own place in the sandbox, or as before, with why not
+ * where a start asked for the sandbox and did not get it (kept for the headset to say).
+ */
+type StartScope =
+  | { readonly folder: ConfinedFolder }
+  | { readonly folder: null; readonly reason: string | null };
 
 /** The SDK's `getSessionInfo`, narrowed to what a re-attach reads. */
 export type SessionInfoFunction = (
@@ -118,8 +140,16 @@ const START_OPTIONS = ['model', 'permission_mode'];
  * Claude Code does not offer working without asking (ADR 0043): Halcyonic gives it no sandbox of its
  * own, so nothing would bound a command it ran unasked.
  */
+/**
+ * Why a run inside the sandbox is not counted confined (AUDIT BOX-4 F1): its sign-in key is in its
+ * environment. Keeping the key out, in a gate of Halcyonic's that adds it to each request, is the
+ * owner's decision.
+ */
+const KEY_INSIDE =
+  "Claude Code ran inside Halcyonic's sandbox, but its sign-in key is inside with it, where the agent's own commands can read it, so this run is not counted confined.";
+
 const NEVER_ASK_REFUSED =
-  'Claude Code does not work without asking: Halcyonic gives it no sandbox of its own.';
+  "Claude Code does not work without asking yet: Halcyonic's sandbox for it has not been tried on a real run.";
 
 /**
  * Permission modes a start may choose. `bypassPermissions` and `auto` are refused because they
@@ -159,6 +189,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   /** Who serves Claude Code's models in this environment, and where. */
   readonly #modelHost: ModelHost;
   readonly #sessions = new Map<ExecutionId, ClaudeSession>();
+  readonly #confinement: ClaudeConfinementOptions | null;
+  /** The one way out of the sandbox, started for the first confined start (BOX-4). */
+  #gate: Promise<ApiGate> | null = null;
   #closed = false;
 
   constructor(options: ClaudeAgentRuntimeOptions) {
@@ -173,6 +206,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     this.#clock = options.clock ?? systemClock;
     this.#query = options.query ?? query;
     this.#sessionInfo = options.sessionInfo ?? getSessionInfo;
+    this.#confinement = options.confinement ?? null;
     this.descriptor = {
       runtime_id: options.runtimeId ?? ('claude-agent' as RuntimeId),
       kind: 'claude-agent',
@@ -281,15 +315,32 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     if (this.#sessions.has(executionId)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
+    const scope = this.#scopeFor(cwd);
+    const gate = scope.folder === null ? null : await this.#apiGate();
+    if (scope.folder !== null) prepareConfinedFolder(scope.folder);
     // Asked again right before the folder is handed over: the model listing above waits.
     confirmProjectLocation(this.#directoryPolicy, cwd);
-    const session = new ClaudeSession(randomUUID(), request.emit, this.#clock);
+    if (this.#sessions.has(executionId)) {
+      throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
+    }
+    const session = new ClaudeSession(
+      randomUUID(),
+      request.emit,
+      this.#clock,
+      false,
+      this.#recordFor(scope),
+    );
     this.#sessions.set(executionId, session);
     let started: Promise<string>;
     try {
       started = session.start(
         this.#query,
-        this.#options({ ...parsed.value, cwd }, session),
+        this.#options(
+          { ...parsed.value, cwd },
+          session,
+          false,
+          scope.folder === null || gate === null ? null : { folder: scope.folder, gate },
+        ),
         request.instruction,
       );
     } catch (error) {
@@ -318,11 +369,6 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
         `The session started at the level ${request.approval_level}; ${NEVER_ASK_REFUSED}`,
       );
     }
-    if (request.confined === true) {
-      throw refuse(
-        'The session was recorded confined, and Halcyonic confines no Claude Code session.',
-      );
-    }
     const parsed = parseStartOptions(request.options, request.model_ref);
     if (!parsed.ok) throw refuse(parsed.message);
     if (!SESSION_ID.test(request.native_id)) {
@@ -333,9 +379,25 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     if (this.#sessions.has(executionId)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution is already attached.');
     }
+    // Re-attached only as it ran, as Codex's and OpenCode's are: a confined session goes on only in
+    // its folder's own place, and one that ran as before is never moved into the sandbox.
+    const scope = this.#scopeFor(cwd);
+    const record = this.#recordFor(scope);
+    if (record.confined !== (request.confined === true)) {
+      throw refuse(
+        record.confined
+          ? "The session ran outside Halcyonic's sandbox, and its folder is now confined: it is not moved."
+          : `The session was recorded confined, and here it would not be${record.unconfined_reason === undefined ? '' : ` (${record.unconfined_reason})`}: it is not re-attached.`,
+      );
+    }
     let info: { readonly cwd?: string } | undefined;
     try {
-      info = await this.#sessionInfo(request.native_id, { dir: cwd });
+      // A confined session's transcript is in its folder's own store, which the SDK's reader,
+      // reading this process's CLAUDE_CONFIG_DIR, does not see.
+      info =
+        scope.folder === null
+          ? await this.#sessionInfo(request.native_id, { dir: cwd })
+          : findInConfinedStore(scope.folder.config, request.native_id);
     } catch (error) {
       throw new RuntimeActionError(
         'runtime_unavailable',
@@ -364,8 +426,18 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     if (this.#sessions.has(executionId)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution is already attached.');
     }
+    const gate = scope.folder === null ? null : await this.#apiGate();
+    if (this.#closed) throw closedError();
     const session = new ClaudeSession(request.native_id, request.emit, this.#clock, true);
-    session.prepare(this.#query, this.#options({ ...parsed.value, cwd }, session, true));
+    session.prepare(
+      this.#query,
+      this.#options(
+        { ...parsed.value, cwd },
+        session,
+        true,
+        scope.folder === null || gate === null ? null : { folder: scope.folder, gate },
+      ),
+    );
     this.#sessions.set(executionId, session);
     session.restored(request.cut_turn);
   }
@@ -409,16 +481,96 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     this.#sessions.clear();
     await Promise.all(sessions.map((session) => session.close()));
     await this.#guard.close();
+    const gate = this.#gate;
+    this.#gate = null;
+    if (gate !== null) await gate.then((open) => open.close()).catch(() => undefined);
   }
 
-  #options(start: StartOptions, session: ClaudeSession, resume = false): Options {
+  /**
+   * Where a start in `cwd` runs (ADR 0048, BOX-4): confined only where the host's confinement asks
+   * for the folder, on macOS, and not on a cloud provider, whose hosts are not known ahead; else as
+   * before, with the person's own settings and hooks, and why where the folder asked for it.
+   */
+  #scopeFor(cwd: string): StartScope {
+    const settings = this.#confinement;
+    if (settings === null) return { folder: null, reason: null };
+    const reads = settings.forDirectory(cwd);
+    if (reads === null) return { folder: null, reason: null };
+    if (process.platform !== 'darwin') {
+      return {
+        folder: null,
+        reason: "Halcyonic's sandbox is on macOS only, so this run is not confined.",
+      };
+    }
+    const provider = cloudProvider(this.#environment);
+    if (provider !== null) {
+      return {
+        folder: null,
+        reason: `Claude Code runs on ${provider} here, whose hosts Halcyonic cannot know ahead, so this run is not confined.`,
+      };
+    }
+    return { folder: confinedFolder(settings, cwd, reads) };
+  }
+
+  /**
+   * What a start in `scope` records (S2, BOX-4). Inside the sandbox the sign-in key is in the
+   * process's environment, where the agent's own commands can read it (AUDIT BOX-4 F1), so such a
+   * run is recorded not confined, with why, and its previews, shares and never asking stay refused
+   * as for any unconfined run. It still runs inside the sandbox.
+   */
+  #recordFor(scope: StartScope): {
+    readonly confined: boolean;
+    readonly unconfined_reason?: string;
+  } {
+    if (scope.folder === null) {
+      return { confined: false, ...(scope.reason !== null && { unconfined_reason: scope.reason }) };
+    }
+    if ((this.#environment.ANTHROPIC_API_KEY ?? '') !== '') {
+      return { confined: false, unconfined_reason: KEY_INSIDE };
+    }
+    return { confined: true };
+  }
+
+  /** The API gate, started once: to `ANTHROPIC_BASE_URL` where set, else Anthropic's API. */
+  #apiGate(): Promise<ApiGate> {
+    if (this.#gate === null) {
+      const base = (this.#environment.ANTHROPIC_BASE_URL ?? '').trim();
+      const gate = startApiGate(new URL(base === '' ? 'https://api.anthropic.com' : base));
+      this.#gate = gate;
+      gate.catch(() => {
+        if (this.#gate === gate) this.#gate = null;
+      });
+    }
+    return this.#gate.catch((error: unknown) => {
+      throw new RuntimeActionError(
+        'runtime_unavailable',
+        `Could not open Claude Code's way to its API: ${errorText(error)}`,
+      );
+    });
+  }
+
+  #options(
+    start: StartOptions,
+    session: ClaudeSession,
+    resume = false,
+    confined: { readonly folder: ConfinedFolder; readonly gate: ApiGate } | null = null,
+  ): Options {
+    const settings = this.#confinement;
     return {
       cwd: start.cwd,
       env: { ...this.#environment },
       // A resumed session keeps its id: `resume` and `sessionId` together would fork it.
       ...(resume ? { resume: session.id } : { sessionId: session.id }),
       canUseTool: session.canUseTool,
-      spawnClaudeCodeProcess: (options) => this.#guard.spawn(options, session.id),
+      // Inside the sandbox where the start is confined (BOX-4): the person's settings and hooks stay
+      // outside it, since its home and configuration are the folder's own.
+      spawnClaudeCodeProcess: (options) =>
+        this.#guard.spawn(
+          confined === null || settings === null
+            ? options
+            : confinedLaunch(options, confined.folder, settings, confined.gate),
+          session.id,
+        ),
       // Claude Code's own system prompt. Without this option the SDK sends an empty one.
       systemPrompt: { type: 'preset', preset: 'claude_code' },
       // settingSources stays unset: every settings source loads, so the user's hooks run and
@@ -578,8 +730,20 @@ class ClaudeSession {
   /** For a re-attached session, the query its next instruction launches, resuming it. */
   #pending: { readonly query: QueryFunction; readonly options: Options } | null = null;
 
-  constructor(id: string, emit: ObservationSink, clock: Clock, reattached = false) {
+  /** What the session's start records of its confinement (S2, BOX-4). */
+  readonly #record: { readonly confined: boolean; readonly unconfined_reason?: string };
+
+  constructor(
+    id: string,
+    emit: ObservationSink,
+    clock: Clock,
+    reattached = false,
+    record: { readonly confined: boolean; readonly unconfined_reason?: string } = {
+      confined: false,
+    },
+  ) {
     this.id = id;
+    this.#record = record;
     this.#emitObservation = emit;
     this.#clock = clock;
     this.#eventPrefix = reattached ? `${id}:${randomUUID()}` : id;
@@ -883,7 +1047,7 @@ class ClaudeSession {
       this.#nativeId = sessionId;
       this.#emit(
         'runtime.execution.started',
-        { native_id: sessionId },
+        { native_id: sessionId, ...this.#record },
         observed(nativeType),
         'session',
       );

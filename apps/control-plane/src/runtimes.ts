@@ -1,6 +1,9 @@
 import { readFileSync, realpathSync, statSync } from 'node:fs';
 import { join, sep } from 'node:path';
-import { ClaudeAgentRuntimeAdapter } from '@halcyonic/integration-claude-code';
+import {
+  ClaudeAgentRuntimeAdapter,
+  type ClaudeConfinementOptions,
+} from '@halcyonic/integration-claude-code';
 import {
   CodexRuntimeAdapter,
   type CodexRuntimeOptions,
@@ -96,6 +99,7 @@ export function createRuntimeAdapters(
         ...(config.claudeExecutable !== null && {
           pathToClaudeCodeExecutable: config.claudeExecutable,
         }),
+        confinement: claudeConfinement(dependencies),
       }),
     );
   }
@@ -205,6 +209,28 @@ export function folderReads(
   return {
     readable: starter === null ? [] : [join(dependencies.dataDir, 'starters', starter)],
     ...(original === null ? {} : { originals: [original] }),
+  };
+}
+
+/**
+ * Claude Code's confinement (ADR 0048, BOX-4): a new app's project, made from a starter, runs inside
+ * Halcyonic's closed profile, reading the starter's shared dependencies (and a VR version its
+ * original) besides its folder, its own home, configuration and temporary folder under the data
+ * folder, and nothing else of it. Every other folder runs as before, with the person's own settings
+ * and hooks, so Salidium and Seorak observe it. The adapter confines on macOS only.
+ */
+export function claudeConfinement(
+  dependencies: Pick<RuntimeDependencies, 'starterOf' | 'originalOf' | 'dataDir'>,
+  node: string = process.execPath,
+): ClaudeConfinementOptions {
+  return {
+    dataFolder: dependencies.dataDir,
+    toolFolders: toolFoldersFor(node),
+    hidden: [dependencies.dataDir],
+    forDirectory: (directory) =>
+      (dependencies.starterOf?.(directory) ?? null) === null
+        ? null
+        : folderReads(dependencies, directory),
   };
 }
 

@@ -28,6 +28,7 @@ import {
   CLAUDE_AGENT_PROCESS_RECORD,
   CODEX_SERVER_RECORD,
   claudeAgentEnvironment,
+  claudeConfinement,
   codexConfinement,
   codexEnvironment,
   createRuntimeAdapters,
@@ -780,5 +781,27 @@ describe("Codex's confinement of a project made from a starter (ADR 0041)", () =
       readable: [],
       hidden: ['/Users/someone/.halcyonic'],
     });
+  });
+});
+
+describe("Claude Code's confinement (ADR 0048, BOX-4)", () => {
+  test("asks for the sandbox only in a new app's project, reading its starter's dependencies or its original, hiding the data folder", () => {
+    const confinement = claudeConfinement(
+      {
+        dataDir: '/d',
+        starterOf: (folder) => (folder === '/p/garden' ? 'web-game' : null),
+        originalOf: (folder) => (folder === '/p/garden' ? '/p/game' : null),
+      },
+      '/opt/homebrew/Cellar/node/24.0.0/bin/node',
+    );
+    assert.equal(confinement.dataFolder, '/d');
+    assert.deepEqual(confinement.hidden, ['/d']);
+    assert.ok(confinement.toolFolders.includes('/opt/homebrew/Cellar'));
+    assert.deepEqual(confinement.forDirectory('/p/garden'), {
+      readable: ['/d/starters/web-game'],
+      originals: ['/p/game'],
+    });
+    // Anywhere else, Claude Code runs as before, with the person's own settings and hooks.
+    assert.equal(confinement.forDirectory('/Users/someone/dev/their-repo'), null);
   });
 });

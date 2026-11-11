@@ -69,6 +69,12 @@ persistence on.
   prompts, no start is reported again, no event id repeats the first run's, a session id Claude Code
   does not have is refused (`session_not_found`), and nothing reached the proxy trap. Run with
   `CLAUDE_CODE_BIN` pointing at the bundled binary.
+- Claude Code confined in a new app's project (2026-11-11, BOX-4): `confined.e2e.test.ts`, the same
+  CLI inside Halcyonic's closed profile (recorded `confined: false` while its sign-in key is inside,
+  AUDIT BOX-4 F1). A second adapter re-attaches the session from its folder's own store (`findInConfinedStore`, since the SDK's `getSessionInfo` reads only
+  this process's configuration folder), and the next instruction resumes it inside the profile with
+  the first turn in its history. A session goes on only with the record a run would have now (unit
+  tests): one recorded confined is not re-attached where a run would not be.
 
 - Codex (2026-11-10): `codex-runtime.e2e.test.ts`, "a thread a crashed control plane left is
   re-attached by the next one", on the pinned 0.157.0 with the suite's fake provider. A crash host

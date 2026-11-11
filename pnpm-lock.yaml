@@ -87,6 +87,9 @@ importers:
       '@halcyonic/runtime-core':
         specifier: workspace:*
         version: link:../../runtime-core
+      '@halcyonic/seatbelt':
+        specifier: workspace:*
+        version: link:../../seatbelt
 
   packages/integrations/codex:
     dependencies:

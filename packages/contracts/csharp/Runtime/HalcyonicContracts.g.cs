@@ -4096,6 +4096,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("confined", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public bool? Confined { get; set; }
 
+        [JsonProperty("unconfined_reason", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? UnconfinedReason { get; set; }
+
         [JsonProperty("approval_level", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public ApprovalLevel? ApprovalLevel { get; set; }
 

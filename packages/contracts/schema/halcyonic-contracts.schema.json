@@ -6036,6 +6036,12 @@
                 "confined": {
                   "type": "boolean"
                 },
+                "unconfined_reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000,
+                  "pattern": "\\S"
+                },
                 "approval_level": {
                   "$ref": "#/$defs/ApprovalLevel"
                 },
