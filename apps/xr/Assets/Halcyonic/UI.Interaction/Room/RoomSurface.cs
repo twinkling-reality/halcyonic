@@ -39,6 +39,26 @@ namespace Halcyonic.XR.UI
         private static readonly int ShadeId = Shader.PropertyToID("_Shade");
         private static readonly int InnerId = Shader.PropertyToID("_Inner");
         private static readonly int InnerColourId = Shader.PropertyToID("_InnerColour");
+        private static readonly int ShownId = Shader.PropertyToID("_Shown");
+        private float shown = 1f;
+
+        /// <summary>
+        /// How far the surface is in view, 0 to 1: its fill, edge, sentence bar and shadow scaled by it together (an
+        /// arrival or a leave, DESIGN 1.5). Set at once; a drawn surface keeps its shape.
+        /// </summary>
+        public float Shown
+        {
+            get => shown;
+            set
+            {
+                var clamped = Mathf.Clamp01(value);
+                if (Mathf.Approximately(clamped, shown)) return;
+                shown = clamped;
+                if (glass == null || block == null) return;
+                block.SetFloat(ShownId, shown);
+                glass.SetPropertyBlock(block);
+            }
+        }
         private static Material? material;
         private static Mesh? quad;
 
@@ -119,6 +139,7 @@ namespace Halcyonic.XR.UI
             block.SetVector(InnerId, InnerBar is var (innerTop, _, _) && look.InnerColour.a > 0f
                 ? new Vector4(innerTop, 1f, 0f, RoomGeometry.PanelPadDp * GlazeText.Scale) : Vector4.zero);
             block.SetVector(InnerColourId, Srgb(look.InnerColour, look.InnerColour.a));
+            block.SetFloat(ShownId, shown);
             glass.SetPropertyBlock(block);
             glass.gameObject.SetActive(true);
         }
