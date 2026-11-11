@@ -1748,6 +1748,95 @@ test('a request about all work lists the projects, reads a task of the second, a
   }
 });
 
+test('a request about thirteen projects reads every row whole, not a shortened excerpt', async () => {
+  const seen: ToolMessage[][] = [];
+  const f = await fixture({
+    projectName: 'Garden 0',
+    turn: async (messages) => {
+      seen.push([...messages]);
+      return seen.length === 1
+        ? answer([{ name: 'read_projects', arguments: {} }])
+        : answer([], 'Thirteen projects; none runs.');
+    },
+  });
+  try {
+    for (let i = 1; i < 13; i++)
+      f.controlPlane.commands.submit(f.commands.createProject(`Garden ${i}`), 'internal');
+    const outcome = submitAllWork(f);
+    assert.equal(outcome.disposition, 'accepted', JSON.stringify(outcome.command?.rejection));
+    for (let i = 0; i < 8; i++) await settle();
+    const created = outcome.command?.result;
+    const request = f.controlPlane.projection.workspaceRequest(
+      created?.kind === 'workspace_request_created' ? created.request_id : '',
+    );
+    assert.equal(request?.status, 'responded');
+    const read = (seen[1] ?? []).find(
+      (message) => message.role === 'tool' && message.tool_name === 'read_projects',
+    );
+    assert.ok(read, 'the second turn holds the projects list');
+    const list = JSON.parse(read.content) as {
+      projects_total: number;
+      projects: { index: number; name: { text: string } }[];
+      more_projects: number;
+      availability?: string;
+    };
+    assert.equal(list.availability, undefined);
+    assert.equal(list.projects_total, 13);
+    assert.equal(list.projects.length, 13);
+    assert.equal(list.more_projects, 0);
+    assert.deepEqual(
+      list.projects.map((project) => project.name.text).sort(),
+      Array.from({ length: 13 }, (_, i) => `Garden ${i}`).sort(),
+    );
+  } finally {
+    await f.close();
+  }
+});
+
+test('a projects list past the host-list bound drops its last rows and keeps the totals', async () => {
+  const seen: ToolMessage[][] = [];
+  const f = await fixture({
+    projectName: 'A garden with a long name '.repeat(3),
+    turn: async (messages) => {
+      seen.push([...messages]);
+      return seen.length === 1
+        ? answer([{ name: 'read_projects', arguments: {} }])
+        : answer([], 'Seventy projects.');
+    },
+  });
+  try {
+    for (let i = 1; i < 70; i++)
+      f.controlPlane.commands.submit(
+        f.commands.createProject(`${'A garden with a long name '.repeat(3)}${i}`),
+        'internal',
+      );
+    const outcome = submitAllWork(f);
+    assert.equal(outcome.disposition, 'accepted', JSON.stringify(outcome.command?.rejection));
+    for (let i = 0; i < 8; i++) await settle();
+    const created = outcome.command?.result;
+    const request = f.controlPlane.projection.workspaceRequest(
+      created?.kind === 'workspace_request_created' ? created.request_id : '',
+    );
+    assert.equal(request?.status, 'responded');
+    const read = (seen[1] ?? []).find(
+      (message) => message.role === 'tool' && message.tool_name === 'read_projects',
+    );
+    assert.ok(read);
+    assert.ok(Buffer.byteLength(read.content) <= 4096);
+    const list = JSON.parse(read.content) as {
+      projects_total: number;
+      projects: unknown[];
+      more_projects: number;
+    };
+    assert.equal(list.projects_total, 70);
+    assert.ok(list.projects.length > 0 && list.projects.length < 64);
+    // Every project is counted: the rows shown and the rows left out make the whole.
+    assert.equal(list.projects.length + list.more_projects, 70);
+  } finally {
+    await f.close();
+  }
+});
+
 test("the wait for the Mac's reading of a turn ends a minute after the task's last activity (AUDIT2 S2)", () => {
   const at = Date.parse('2026-11-10T10:00:00.000Z');
   const facts = { files: 'unknown', status: 'completed', lastActivity: '2026-11-10T10:00:00.000Z' };
@@ -1837,12 +1926,10 @@ test('once the work it sent has its outcome, the host context says so, so the mo
     for (let i = 0; i < 10; i++) await settle();
     assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
     assert.deepEqual(flags, [false, true]);
-    // The first turn of a task request goes straight to the work: the change, the observation, or a question.
-    assert.deepEqual([...(offered[0] ?? [])].sort(), [
-      'ask_person',
-      'continue_task',
-      'observe_task',
-    ]);
+    // The first turn of a task request goes straight to the work: the change or a question, never only a look.
+    assert.deepEqual([...(offered[0] ?? [])].sort(), ['ask_person', 'continue_task']);
+    // Every read and the observation come from the second turn on.
+    assert.ok(offered[1] !== undefined);
     // Once the outcome is in, that turn is offered no tool, so the model answers.
     assert.deepEqual(offered[1], []);
   } finally {
