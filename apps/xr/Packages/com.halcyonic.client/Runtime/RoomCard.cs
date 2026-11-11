@@ -119,6 +119,42 @@ namespace Halcyonic.Client
         public LineWords Value { get; }
     }
 
+    /// <summary>
+    /// A code to scan, as the host made it (a live share's, ADR 0054): its cells a side and which are dark, row by row
+    /// from the top left. The kit only draws it, dark cells on a light well with a quiet margin of
+    /// <see cref="MarginCells"/> cells round it, never reads or makes one. The host's cells come without that margin.
+    /// </summary>
+    public sealed class RoomCode
+    {
+        /// <param name="side">The cells a side, <see cref="FewestSide"/> to <see cref="MostSide"/>.</param>
+        /// <param name="dark">Side times side cells, row by row from the top left, true where a cell is dark.</param>
+        public RoomCode(int side, IReadOnlyList<bool> dark)
+        {
+            if (side < FewestSide || side > MostSide)
+                throw new System.ArgumentOutOfRangeException(nameof(side), side, "A code to scan is " + FewestSide + " to " + MostSide + " cells a side.");
+            if (dark == null) throw new System.ArgumentNullException(nameof(dark));
+            if (dark.Count != side * side)
+                throw new System.ArgumentException("A code " + side + " cells a side has " + side * side + " cells, not " + dark.Count + ".", nameof(dark));
+            Side = side;
+            Dark = dark.ToArray();
+        }
+
+        /// <summary>The fewest and the most cells a side a code to scan has.</summary>
+        public const int FewestSide = 21;
+
+        public const int MostSide = 177;
+
+        /// <summary>The light cells the kit draws round the code on every side, so a camera finds its edge.</summary>
+        public const int MarginCells = 4;
+
+        public int Side { get; }
+
+        public IReadOnlyList<bool> Dark { get; }
+
+        /// <summary>Whether the cell <paramref name="column"/> across and <paramref name="row"/> down from the top left is dark.</summary>
+        public bool IsDark(int column, int row) => Dark[row * Side + column];
+    }
+
     /// <summary>A card's status: a title word, and the quieter line under it, in its tone.</summary>
     public readonly struct RoomCardStatus
     {
@@ -231,8 +267,9 @@ namespace Halcyonic.Client
     {
         public RoomCard(LineWords? title = null, LineWords? description = null, RoomCardHead head = RoomCardHead.None, RoomCardStatus? status = null,
             IReadOnlyList<RoomSlot>? slots = null, IReadOnlyList<RoomCardStep>? steps = null, int? trackAt = null, int? trackOf = null,
-            IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, LineWords? more = null)
+            IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, LineWords? more = null, RoomCode? code = null)
         {
+            Code = code;
             Title = title;
             Description = description;
             Head = head;
@@ -261,6 +298,12 @@ namespace Halcyonic.Client
         public RoomCardStatus? Status { get; }
 
         public IReadOnlyList<RoomSlot> Slots { get; }
+
+        /// <summary>
+        /// A code to scan, the card's centre: laid under the line and the gauges, over the slots, as wide as the card allows.
+        /// It holds no words. Null for none.
+        /// </summary>
+        public RoomCode? Code { get; }
 
         public IReadOnlyList<RoomCardStep> Steps { get; }
 
