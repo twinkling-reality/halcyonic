@@ -338,19 +338,28 @@ namespace Halcyonic.XR.UI
                 RoomTone.Bad => (Rgb(FailedGround, StatusGroundAlpha), Rgb(FailedInk), RoomGlyph.Alert),
                 RoomTone.Working => (Rgb(AccentGround, StatusGroundAlpha), Rgb(AccentNote), RoomGlyph.Wrench),
                 RoomTone.Attention => (Rgb(AttentionGround, StatusGroundAlpha), Rgb(AttentionNote), RoomGlyph.Bubble),
-                _ => (Rgb(StepGround, StatusGroundAlpha), White(0.88f), RoomGlyph.Wait),
+                _ => (Rgb(StepGround, StatusGroundAlpha), White(0.88f), RoomGlyph.Minus),
             };
+            if (status.Mark != RoomKind.None) glyph = GlyphOf(status.Mark);
             var left = S(StatusMarkDp + StatusGapDp);
             var column = width - left;
             var top = down;
-            var (_, titleTall) = Text(KitRole.Title, StatusTitleDp, StatusTitleLineDp, Color.white, LineWords.Ours(status.Title), left, -down, column, 2);
+            var (titleLabel, titleTall) = Text(KitRole.Title, StatusTitleDp, StatusTitleLineDp, Color.white, LineWords.Ours(status.Title), left, -down, column, 2);
             var tall = titleTall;
+            TextMeshPro? lineLabel = null;
             if (status.Line != null)
             {
-                var (_, lineTall) = Text(KitRole.Body, LineTypeDp, LineLineDp, White(0.66f), LineWords.Ours(status.Line), left, -(down + tall + S(2f)), column, 3);
+                (lineLabel, var lineTall) = Text(KitRole.Body, LineTypeDp, LineLineDp, White(0.66f), LineWords.Ours(status.Line), left, -(down + tall + S(2f)), column, 3);
                 tall += S(2f) + lineTall;
             }
             var block = Mathf.Max(S(StatusMarkDp), tall);
+            // Words shorter than the mark stand centred on it, a title alone too (SCREENS's critic, 2026-11-11).
+            var drop = (block - tall) / 2f;
+            if (drop > 0f)
+            {
+                titleLabel.transform.localPosition += new Vector3(0f, -drop, 0f);
+                if (lineLabel != null) lineLabel.transform.localPosition += new Vector3(0f, -drop, 0f);
+            }
             var middle = top + Mathf.Max(S(StatusMarkDp), tall) / 2f;
             // A squircle, as the check nodes: a disc is only ever an answer.
             Plate(new Vector2(S(StatusMarkDp), S(StatusMarkDp)), S(StatusCornerDp), ground, new Vector2(S(StatusMarkDp) / 2f, -middle), "status mark");
@@ -415,7 +424,7 @@ namespace Halcyonic.XR.UI
                 {
                     var hue = row.Kind == RoomLineKind.Added ? Passed : Failed;
                     // A band of its hue, strong enough over the bright room, and a rule of the hue at its left, as a diff marks a run.
-                    Plate(new Vector2(width, pitch), S(4f), Rgb(hue, 0.20f), new Vector2(width / 2f, -middle), "reading band");
+                    Plate(new Vector2(width, pitch), 0f, Rgb(hue, 0.20f), new Vector2(width / 2f, -middle), "reading band");
                     Plate(new Vector2(S(2f), pitch), 0f, Rgb(hue, 0.9f), new Vector2(S(1f), -middle), "reading rule");
                     if (!row.Continued)
                         Glyph(row.Kind == RoomLineKind.Added ? RoomGlyph.Plus : RoomGlyph.Minus, RoomReading.MarkDp, Rgb(row.Kind == RoomLineKind.Added ? Passed : Failed),
@@ -561,7 +570,9 @@ namespace Halcyonic.XR.UI
             }
             var rows = new List<List<int>> { new List<int>() };
             var used = 0f;
-            for (var index = 0; index < count; index++)
+            // Four stand as two rows of two (a new folder from a starter); fewer fill one row, wrapping where it cannot hold them.
+            if (count == 4) rows = new List<List<int>> { new List<int> { 0, 1 }, new List<int> { 2, 3 } };
+            for (var index = 0; index < (count == 4 ? 0 : count); index++)
             {
                 var row = rows[rows.Count - 1];
                 var need = least[index] + (row.Count > 0 ? S(TileGapDp) : 0f);
@@ -583,6 +594,10 @@ namespace Halcyonic.XR.UI
                 var sum = 0f;
                 foreach (var index in row) sum += least[index];
                 var share = (width - S(TileGapDp) * (row.Count - 1) - sum) / row.Count;
+                // Equal wells wherever every value fits one (SCREENS's critic, 2026-11-11); else each its value's room and a share.
+                var even = (width - S(TileGapDp) * (row.Count - 1)) / row.Count;
+                var evenFits = true;
+                foreach (var index in row) evenFits &= least[index] <= even + 1e-4f;
                 var x = 0f;
                 var place = 0;
                 foreach (var index in row)
@@ -591,7 +606,7 @@ namespace Halcyonic.XR.UI
                     // The first row meets both edges. A card of one slot stands it at its own width: a fact, not a bar across
                     // the card (the critic, 2026-11-11). A wrapped row keeps the first row's columns, so its wells line up.
                     var tile = count == 1 ? least[index]
-                        : columns.Count < rows[0].Count ? least[index] + Mathf.Max(0f, share)
+                        : columns.Count < rows[0].Count ? (evenFits ? even : least[index] + Mathf.Max(0f, share))
                         : Mathf.Min(width - x, Mathf.Max(least[index], columns[Mathf.Min(place, columns.Count - 1)]));
                     if (columns.Count < rows[0].Count) columns.Add(tile);
                     place++;
@@ -758,7 +773,9 @@ namespace Halcyonic.XR.UI
         /// <summary>The glyph of a kind, in a slot's tile or a list row's (the addendum's A17: one glyph, one meaning).</summary>
         public static RoomGlyph GlyphOf(RoomKind kind) => kind switch
         {
-            RoomKind.Starter => RoomGlyph.Cube,
+            RoomKind.Starter => RoomGlyph.Pin,
+            RoomKind.Project => RoomGlyph.Cube,
+            RoomKind.File => RoomGlyph.File,
             RoomKind.Agent => RoomGlyph.Agent,
             RoomKind.Level => RoomGlyph.Check,
             RoomKind.Folder => RoomGlyph.Folder,
