@@ -80,10 +80,18 @@ persistence on.
   instruction runs a turn to completion whose model request carries the cut turn's command. Run
   with `CODEX_BIN` at the pinned binary.
 
+- OpenCode (2026-11-11): `opencode-runtime.e2e.test.ts`, "a session whose server died is re-attached
+  by a new adapter over the same store", on the pinned 2.0.18 inside Halcyonic's sandbox (one server
+  per folder, BOX-3) with the suite's fake provider. A first adapter finishes a turn, starts a slow one,
+  and its folder's server is killed by SIGKILL; a second adapter on the same record and sandbox
+  folders refuses a session OpenCode does not have (`session_not_found`) and the session at another
+  level than recorded (`reattach_refused`, OpenCode's rules for it differ), each reporting nothing,
+  then re-attaches it: `runtime.connection.restored`, the cut turn `interrupted` (inferred); the next
+  instruction's model request carries both earlier prompts. OpenCode reported the session with
+  exactly the rules of its level, so the level check holds on 2.0.18. Run with `OPENCODE_BIN`.
+
 ## Not verified
 
-- A resume through the OpenCode adapter from a second adapter instance (its end to end test when it
-  declares `resumes_after_restart`).
 - Codex: a re-attach on a confined starter project's own server (ADR 0041), which needs the
   macOS sandbox the suite's confined tests set up; the slot is chosen by the folder as a start's is.
 - A resume on a real model.
