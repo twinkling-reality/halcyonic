@@ -92,21 +92,35 @@ public class AskColumnTests
         Assert.That(ask.Stage, Is.EqualTo(AskStage.Thinking));
         Assert.That(ask.RequestId, Is.EqualTo(RequestId));
         Assert.That(ask.Card.Status!.Value.Title, Is.EqualTo(AskColumn.Words.Thinking));
-        Assert.That(ask.Card.Slots.Single().Kind, Is.EqualTo(RoomKind.Agent));
+        Assert.That(ask.Card.Slots, Is.Empty, "the model is never a slot");
+        Assert.That(ask.Card.More, Is.Null);
+        Assert.That(ask.Band, Is.Null);
         ask.Read(View(scope, "waiting_for_runtime"));
         Assert.That(ask.Card.Status!.Value.Title, Is.EqualTo(AskColumn.Words.Waiting));
         ask.Read(View(scope, "waiting_for_human", "Which colour of blue?"));
         Assert.That(ask.Card.Status!.Value.Title, Is.EqualTo(AskColumn.Words.NeedsYou));
-        Assert.That(ask.Card.Description!.Text, Is.EqualTo("Which colour of blue?"));
+        Assert.That(ask.Card.Status.Value.Tone, Is.EqualTo(RoomTone.Attention));
+        // The assistant's question stands on the band; the card keeps the person's own question.
+        Assert.That(ask.Card.Description!.Text, Is.EqualTo("Make it blue, then tell me if it works."));
+        Assert.That(ask.Card.Words(), Has.None.Contains("Which colour"));
+        Assert.That(ask.Band!.Text, Is.EqualTo("Which colour of blue?"));
+        Assert.That(ask.Band.Runs.All(run => run.Theirs), Is.True);
         ask.Read(View(scope, "responded", "It is blue now, and the check passed."));
         var card = ask.Card;
         Assert.That(ask.Stage, Is.EqualTo(AskStage.Answered));
         Assert.That(card.Status!.Value.Title, Is.EqualTo(AskColumn.Words.Answered));
-        Assert.That(card.Status.Value.Tone, Is.EqualTo(RoomTone.Good));
-        Assert.That(card.Description!.Text, Is.EqualTo("It is blue now, and the check passed."));
+        Assert.That(card.Status.Value.Tone, Is.EqualTo(RoomTone.Quiet), "a report, not a passed check");
+        Assert.That(card.Status.Value.Line, Is.EqualTo("The assistant's reply is below"));
+        Assert.That(card.Description!.Text, Is.EqualTo("Make it blue, then tell me if it works."));
+        Assert.That(card.Description.Runs.All(run => run.Theirs), Is.True, "the person's own question is theirs");
+        Assert.That(card.Words(), Has.None.Contains("It is blue now"), "the reply never stands in the card");
         // The assistant's reply is outside words, reported: never Halcyonic's own.
-        Assert.That(card.Description.Runs.All(run => run.Theirs), Is.True);
-        Assert.That(card.Slots.Single().Value.Text, Is.EqualTo("muse-glimmer:30b-mlx"));
+        Assert.That(ask.Band!.Text, Is.EqualTo("It is blue now, and the check passed."));
+        Assert.That(ask.Band.Runs.All(run => run.Theirs), Is.True);
+        Assert.That(card.Slots, Is.Empty);
+        Assert.That(card.More!.Text, Is.EqualTo("Answered by muse-glimmer:30b-mlx"));
+        Assert.That(card.More.Runs.Select(run => (run.Text, run.Theirs)),
+            Is.EqualTo(new[] { ("Answered by ", false), ("muse-glimmer:30b-mlx", true) }));
     }
 
     [Test]
@@ -142,6 +156,7 @@ public class AskColumnTests
             Assert.That(ask.Card.Status!.Value.Title, Is.EqualTo(title), status);
             Assert.That(ask.Card.Status.Value.Line, Is.EqualTo(line), status);
             Assert.That(ask.Card.Status.Value.Tone, Is.EqualTo(RoomTone.Bad), status);
+            Assert.That(ask.Band, Is.Null, status);
         }
     }
 
