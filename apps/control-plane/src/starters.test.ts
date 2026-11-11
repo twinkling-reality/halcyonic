@@ -502,6 +502,8 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       'kit.ts',
       'look.ts',
       'motion.ts',
+      // VRIFY unit 2: a web page's own cards, drawn as readable pages.
+      'pages.ts',
       'palette.ts',
       'panel.ts',
       'play-input-core.ts',
