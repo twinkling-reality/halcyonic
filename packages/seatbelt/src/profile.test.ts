@@ -9,6 +9,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { type AddressInfo, createServer } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -430,6 +431,58 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
         ).out,
         /bind: Operation not permitted/,
       );
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+describe('a server of its own port, listening on it alone (BOX-3b)', () => {
+  test('binds and is reached only on the ports the scope names, on loopback', () => {
+    const { scope, cleanup } = scene();
+    try {
+      const profile = confinedProfile({ ...scope, listenPorts: [47123] });
+      assert.ok(
+        profile.includes('\n(allow network-bind network-inbound (local ip "localhost:47123"))\n'),
+      );
+      assert.equal(profile.match(/network-bind|network-inbound/g)?.length, 2);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('on this Mac, a bind on its own port works and on any other is refused', {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const { scope, cleanup } = scene();
+    try {
+      const free = () =>
+        new Promise<number>((resolve, reject) => {
+          const server = createServer();
+          server.once('error', reject);
+          server.listen(0, '127.0.0.1', () => {
+            const { port } = server.address() as AddressInfo;
+            server.close(() => resolve(port));
+          });
+        });
+      const own = await free();
+      const other = await free();
+      const file = join(scope.temp, 'profile.sb');
+      writeFileSync(file, confinedProfile({ ...scope, listenPorts: [own] }));
+      const bind = (port: number) =>
+        run(SANDBOX_EXEC, [
+          '-f',
+          file,
+          '/usr/bin/perl',
+          '-e',
+          `use Socket; socket(S, PF_INET, SOCK_STREAM, 0) or die "socket: $!"; bind(S, sockaddr_in(${port}, INADDR_LOOPBACK)) or die "bind: $!"; listen(S, 1) or die "listen: $!"; print "bound"`,
+        ]).then(
+          ({ stdout }) => stdout,
+          (error: { stdout?: string; stderr?: string }) =>
+            `${error.stdout ?? ''}${error.stderr ?? ''}`,
+        );
+      assert.equal(await bind(own), 'bound');
+      assert.match(await bind(other), /bind: Operation not permitted/);
     } finally {
       cleanup();
     }

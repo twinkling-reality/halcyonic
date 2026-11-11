@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { realpathSync } from 'node:fs';
 import { mkdir, readdir, rename, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -31,6 +32,7 @@ import {
   type StartExecutionResult,
   systemClock,
 } from '@halcyonic/runtime-core';
+import { type Confinement, confinedHomeEnvironment, confinedProfile } from '@halcyonic/seatbelt';
 import { type HttpResponse, type OpenCodeClient, TransportError } from './client.ts';
 import {
   askedCall,
@@ -58,7 +60,6 @@ import {
 import { type OllamaGate, startOllamaGate } from './ollama-gate.ts';
 import { parseStartOptions } from './options.ts';
 import { type PendingPermission, reconcileSession, type SessionSnapshot } from './reconcile.ts';
-import { openCodeFolders, sandboxProfile } from './sandbox-profile.ts';
 import {
   buildEnvironment,
   describeExit,
@@ -115,6 +116,34 @@ export function openCodeSandboxFolder(base: string, folder: string | null): stri
 
 /** The sandbox's data folder, the server's `XDG_DATA_HOME`. */
 const SANDBOX_DATA = 'data';
+
+/** The sandbox's home folder, the server's and its commands' `HOME` (BOX-3b). */
+const SANDBOX_HOME = 'home';
+
+/** The empty folder that stands in for a project in the listing server's profile (BOX-3b). */
+const NO_PROJECT = 'no-project';
+
+/** The path as the file system resolves it, or as given when it is not there. */
+function realOrGiven(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
+
+/** A server's sandbox: its profile, and the environments it and its shell commands run with. */
+interface SandboxSetup {
+  readonly profile: string;
+  /**
+   * Where the server starts, its own location for a request that names none (the model list, the
+   * saved rules): its folder, or the listing server's empty one. The system's temporary folder,
+   * where an unsandboxed server starts, is closed to the profile (BOX-3b).
+   */
+  readonly cwd: string;
+  readonly environment: Record<string, string>;
+  readonly commands: Record<string, string>;
+}
 
 /**
  * Where the sandboxed server keeps its sessions, given its sandbox folder: OpenCode's store,
@@ -340,9 +369,9 @@ export interface OpenCodeRuntimeOptions {
   readonly foldersInside?: (folder: string) => readonly string[];
   readonly clock?: Clock;
   /**
-   * Runs the server, and everything it starts, in a Seatbelt sandbox of Halcyonic's own (ADR
-   * 0028): network out only to these ports on loopback, writes only in these project roots and the
-   * server's own folders, and these paths unreadable. Null runs it unsandboxed.
+   * Runs each server, and everything it starts, inside Halcyonic's closed sandbox (ADR 0028, 0048,
+   * BOX-3b): it reads and writes its folder and its own folders, reads these folders and the tools,
+   * reaches only these ports on loopback, and listens on its own port alone. Null runs it unsandboxed.
    */
   readonly sandbox?: {
     /** Ports on loopback the server may reach; its own and the Ollama gate's are added. */
@@ -352,9 +381,17 @@ export interface OpenCodeRuntimeOptions {
      * own (`ollama-gate.ts`), never directly. Null when OpenCode is given no Ollama.
      */
     readonly ollama?: string | null;
-    readonly unreadable: readonly string[];
-    /** Paths inside an unreadable folder that stay readable: OpenCode's settings, its binary. */
+    /** Folders every server reads and never writes: Halcyonic's OpenCode settings, the runtimes. */
     readonly readable?: readonly string[];
+    /** Folders no server reads, even through a readable one: Halcyonic's data folder. */
+    readonly hidden?: readonly string[];
+    /** The folders of the tools a command needs, such as Node's installation, read only. */
+    readonly toolFolders: readonly string[];
+    /**
+     * What a folder's server also reads and never writes: a starter's shared dependencies, or the
+     * original a VR version is made from, without its version control and secret-shaped files.
+     */
+    readonly forFolder?: (folder: string) => Pick<Confinement, 'readable' | 'originals'>;
   } | null;
 }
 
@@ -395,6 +432,11 @@ interface Connection {
    * loads a location on its first request, and its list settles moments later.
    */
   listingSince: number | null;
+  /**
+   * The environment the server's shell commands run with, instead of the server's own: inside the
+   * sandbox, a home of the server's own and the product's Node first on the PATH (BOX-3b).
+   */
+  readonly commands: Readonly<Record<string, string>>;
   /** Aborted when the adapter stops using the server: it exited, was given up or closed. */
   readonly halted: AbortController;
   /** Settles once the server has exited and its Ollama gate, if it had one, is closed. */
@@ -703,6 +745,8 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
         'runtime.execution.started',
         {
           native_id: session.sessionId,
+          // Inside the closed sandbox its commands read only their folder and what it names (BOX-3b).
+          confined: this.sandboxed,
           ...(applied && { approval_level: approvalLevel }),
         },
         {
@@ -723,7 +767,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       connection,
       'PUT',
       `/api/session/${encodeURIComponent(session.sessionId)}/environment`,
-      { variables: this.#environment },
+      { variables: connection.commands },
       'runtime_refused',
     );
     await this.#prompt(session, request.instruction);
@@ -744,8 +788,15 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     const approvalLevel = request.approval_level ?? 'ask';
     if (approvalLevel === 'never_ask' && this.#sandbox === null)
       throw refuse(NEVER_ASK_UNSANDBOXED);
-    if (request.confined === true) {
-      throw refuse('The session was recorded confined, which OpenCode sessions never are.');
+    // Re-attached only as it ran, as Codex's threads are: a session recorded confined goes on only
+    // inside the closed sandbox, and one that ran outside it, before BOX-3b or unsandboxed, is not
+    // moved into it, so its record never says more than it did.
+    if (this.sandboxed !== (request.confined === true)) {
+      throw refuse(
+        this.sandboxed
+          ? 'The session ran unconfined, and its folder is now confined: it is not moved.'
+          : 'The session ran confined, and OpenCode here runs without the sandbox: it does not run unconfined.',
+      );
     }
     const parsed = parseStartOptions(request.options, request.model_ref);
     if (!parsed.ok) throw refuse(parsed.message);
@@ -808,12 +859,13 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     this.#sessions.set(executionId, session);
     this.#bySessionId.set(session.sessionId, session);
     try {
-      // As at a start: the session's commands get this environment, not the new server's own.
+      // As at a start: the session's commands get the folder server's command environment, with its
+      // own home inside the sandbox (BOX-3b), not the new server's own.
       await send(
         connection,
         'PUT',
         `${base}/environment`,
-        { variables: this.#environment },
+        { variables: connection.commands },
         'runtime_refused',
       );
     } catch (error) {
@@ -1055,17 +1107,18 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   }
 
   /**
-   * The server's sandbox (ADR 0028), or null when it runs unsandboxed: a profile written beside
-   * its record, readable by the user only, and the environment it runs with there. Inside, it gets
-   * data, state, cache and temporary folders of its own beside the profile, never the person's own
-   * OpenCode folders, whose packages, binaries, saved rules and credentials the person's own
-   * OpenCode uses outside the sandbox, nor the system's temporary folder every app shares.
+   * The server's sandbox (ADR 0028, 0048), or null when it runs unsandboxed: a profile written
+   * beside its record, readable by the user only, and the environments it and its commands run with
+   * there. Inside, it gets data, state, cache, temporary and home folders of its own beside the
+   * profile, never the person's own OpenCode folders, home or the system's temporary folder every
+   * app shares. The profile is closed by default (BOX-3b): the folder, those own folders, the
+   * readable folders and the tools, and nothing else of the disk.
    */
   async #sandboxFor(
     slot: Slot,
     port: number,
     gate: OllamaGate | null,
-  ): Promise<{ readonly profile: string; readonly environment: Record<string, string> } | null> {
+  ): Promise<SandboxSetup | null> {
     if (this.#sandbox === null || this.#sandbox === undefined) {
       // On macOS OpenCode runs only inside the sandbox (ADR 0028): its ask before a shell command
       // depends on its parse of the command, and the sandbox bounds what a command can reach.
@@ -1078,15 +1131,33 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       return null;
     }
     const folder = openCodeSandboxFolder(dirname(this.#recordFile), slot.folder);
-    for (const name of [SANDBOX_DATA, 'state', 'cache', 'tmp']) {
+    // The listing server writes no project: an empty folder of its own stands in for one.
+    const project = slot.folder ?? join(folder, NO_PROJECT);
+    const own = [SANDBOX_DATA, 'state', 'cache', 'tmp', SANDBOX_HOME];
+    for (const name of slot.folder === null ? [...own, NO_PROJECT] : own) {
       await mkdir(join(folder, name), { recursive: true, mode: 0o700 });
     }
+    const temp = join(folder, 'tmp');
+    // A home of its own (BOX-3b): OpenCode looks for instructions in the home and its parents, and
+    // the person's is closed. Halcyonic's OpenCode settings stay its configuration home.
     const environment: Record<string, string> = {
       ...this.#environment,
+      HOME: join(folder, SANDBOX_HOME),
       XDG_DATA_HOME: join(folder, SANDBOX_DATA),
       XDG_STATE_HOME: join(folder, 'state'),
       XDG_CACHE_HOME: join(folder, 'cache'),
-      TMPDIR: `${join(folder, 'tmp')}/`,
+      TMPDIR: `${temp}/`,
+    };
+    const commands: Record<string, string> = {
+      ...this.#environment,
+      ...confinedHomeEnvironment(join(folder, SANDBOX_HOME)),
+      TMPDIR: `${temp}/`,
+      // zsh writes every here-document under TMPPREFIX, /tmp/zsh unless it is set, which is closed.
+      TMPPREFIX: join(temp, 'zsh'),
+      // The product's own Node first, the one the profile's tool folders are for.
+      PATH: [dirname(process.execPath), this.#environment.PATH ?? process.env.PATH ?? '']
+        .filter(Boolean)
+        .join(':'),
     };
     if (gate !== null) {
       // OpenCode ranks this above every settings file, global and project (core/src/config.ts),
@@ -1095,21 +1166,29 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
         providers: { ollama: { settings: { baseURL: gate.baseUrl } } },
       });
     }
-    const text = sandboxProfile({
-      loopbackPorts: [...this.#sandbox.loopbackPorts, ...(gate === null ? [] : [gate.port]), port],
+    const named = slot.folder === null ? null : (this.#sandbox.forFolder?.(slot.folder) ?? null);
+    const text = confinedProfile({
       // The slot's own folder and nothing else of the person's: never the other projects under the
-      // host's roots (AUDIT MODES-step3 F1, BOX-3). The listing server writes no project at all.
-      writable: [...(slot.folder === null ? [] : [slot.folder]), ...openCodeFolders(environment)],
-      unreadable: this.#sandbox.unreadable,
-      readable: [...(this.#sandbox.readable ?? []), folder],
+      // host's roots (AUDIT MODES-step3 F1, BOX-3), and every bound project inside it denied.
+      project,
+      readable: [...(this.#sandbox.readable ?? []), ...(named?.readable ?? [])],
+      ...(named?.originals === undefined ? {} : { originals: named.originals }),
+      ...(this.#sandbox.hidden === undefined ? {} : { hidden: this.#sandbox.hidden }),
       inner: slot.inner,
+      home: folder,
+      temp,
+      // The pinned binary's package, read only.
+      runtimeFolder: dirname(dirname(realOrGiven(this.#binaryPath))),
+      toolFolders: this.#sandbox.toolFolders,
+      loopbackPorts: [...this.#sandbox.loopbackPorts, ...(gate === null ? [] : [gate.port]), port],
+      listenPorts: [port],
     });
     // Written whole under a new name, then moved into place, never through a link at its path.
     const profile = `${folder}.sb`;
     const draft = `${profile}.${process.pid}.${randomUUID()}`;
     await writeFile(draft, text, { mode: 0o600, flag: 'wx' });
     await rename(draft, profile);
-    return { profile, environment };
+    return { profile, cwd: project, environment, commands };
   }
 
   async #launch(slot: Slot): Promise<Connection> {
@@ -1137,16 +1216,17 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       }
     }
     let server: OpenCodeServer;
+    let sandboxed: SandboxSetup | null = null;
     try {
-      const sandbox = await this.#sandboxFor(slot, port, gate);
+      sandboxed = await this.#sandboxFor(slot, port, gate);
       server = await launchServer({
         binaryPath: this.#binaryPath,
-        environment: sandbox?.environment ?? this.#environment,
+        environment: sandboxed?.environment ?? this.#environment,
         recordFile: slot.recordFile,
         port,
-        cwd: tmpdir(),
+        cwd: sandboxed?.cwd ?? tmpdir(),
         startupTimeoutMs: this.#startupTimeoutMs,
-        sandboxProfile: sandbox?.profile ?? null,
+        sandboxProfile: sandboxed?.profile ?? null,
       });
     } catch (error) {
       await gate?.close();
@@ -1161,6 +1241,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     const connection: Connection = {
       slot,
       server,
+      commands: sandboxed?.commands ?? this.#environment,
       listingSince: null,
       halted: new AbortController(),
       gone,

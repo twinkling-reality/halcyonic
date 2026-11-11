@@ -29,6 +29,7 @@ import {
 } from '@halcyonic/runtime-core';
 import {
   type Confinement,
+  confinedHomeEnvironment,
   confinedProfile,
   confinementKey,
   TOOL_PREFIXES,
@@ -1668,23 +1669,6 @@ function neverAskingWithoutMcp(
     'runtime_refused',
     `Codex works without asking only with no MCP servers, and Halcyonic's Codex home config.toml names ${count}. Nothing was started.`,
   );
-}
-
-/**
- * A confined server's commands get a home of their own, in its temporary folder (BOX): the person's
- * home is closed to the profile, and git stops at a configuration file it may not read (`~/.gitconfig`,
- * Homebrew's `etc/gitconfig`, tried on this Mac), where a missing one is fine. So `HOME` and the XDG
- * folders point inside the temporary folder, and git's system configuration is off.
- */
-export function confinedHomeEnvironment(temp: string): Readonly<Record<string, string>> {
-  return {
-    HOME: temp,
-    XDG_CONFIG_HOME: join(temp, '.config'),
-    XDG_DATA_HOME: join(temp, '.local', 'share'),
-    XDG_STATE_HOME: join(temp, '.local', 'state'),
-    XDG_CACHE_HOME: join(temp, '.cache'),
-    GIT_CONFIG_NOSYSTEM: '1',
-  };
 }
 
 /** Why an instruction is refused once another project was bound inside its folder (BOX-3 fix F1). */

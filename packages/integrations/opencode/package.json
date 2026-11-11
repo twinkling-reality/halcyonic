@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@halcyonic/contracts": "workspace:*",
-    "@halcyonic/runtime-core": "workspace:*"
+    "@halcyonic/runtime-core": "workspace:*",
+    "@halcyonic/seatbelt": "workspace:*"
   }
 }

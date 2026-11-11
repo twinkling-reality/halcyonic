@@ -18,6 +18,7 @@ import {
   RuntimeActionError,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
+import { toolFoldersFor } from '@halcyonic/seatbelt';
 import type { OpenCodeClient } from './client.ts';
 import { createSessionState, shellCallKey } from './events.ts';
 import {
@@ -92,7 +93,7 @@ describe('OpenCode runtime descriptor', () => {
       binaryPath: '/nonexistent/opencode',
       serverRecordFile: join(directory, 'server.json'),
       directoryPolicy: allowOnly(directory),
-      sandbox: { loopbackPorts: [], unreadable: [] },
+      sandbox: { loopbackPorts: [], toolFolders: toolFoldersFor(process.execPath) },
     });
     t.after(() => runtime.close());
     assert.equal(runtime.descriptor.approval_may_leave_sandbox, false);
@@ -280,7 +281,7 @@ describe("one OpenCode server per folder inside Halcyonic's sandbox (BOX-3)", ()
       binaryPath: '/nonexistent/opencode',
       serverRecordFile: recordFile,
       directoryPolicy: allowOnly(directory),
-      sandbox: { loopbackPorts: [], unreadable: [] },
+      sandbox: { loopbackPorts: [], toolFolders: toolFoldersFor(process.execPath) },
     });
     t.after(() => sandboxed.close());
     assert.equal(sandboxed.serverRecordFileFor(null), recordFile);
@@ -404,7 +405,7 @@ describe('OpenCode start failures', () => {
         PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
         FAKE_SECRET: secret,
       },
-      sandbox: { loopbackPorts: [], unreadable: [] },
+      sandbox: { loopbackPorts: [], toolFolders: toolFoldersFor(process.execPath) },
     });
     t.after(() => runtime.close());
     await assert.rejects(
@@ -446,7 +447,7 @@ describe('OpenCode start failures', () => {
         PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
         FAKE_SECRET: secret,
       },
-      sandbox: { loopbackPorts: [], unreadable: [] },
+      sandbox: { loopbackPorts: [], toolFolders: toolFoldersFor(process.execPath) },
     });
     t.after(() => runtime.close());
     await assert.rejects(

@@ -8,9 +8,9 @@ import {
   SIGN_IN_VARIABLES,
 } from '@halcyonic/integration-codex';
 import type { MockRuntimeAdapter } from '@halcyonic/integration-mock';
-import { OpenCodeRuntimeAdapter, personalSecrets } from '@halcyonic/integration-opencode';
+import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import type { DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
-import { toolFoldersFor } from '@halcyonic/seatbelt';
+import { type Confinement, toolFoldersFor } from '@halcyonic/seatbelt';
 import { ConfigError, type ControlPlaneConfig, readPrivateFile } from './config.ts';
 import { type HeldSecret, looksLikeCredential } from './core/redaction.ts';
 import { OMNORIUM_CREDENTIAL_FILE } from './intelligence/catalog.ts';
@@ -107,10 +107,7 @@ export function createRuntimeAdapters(
         directoryPolicy: dependencies.directoryPolicy,
         env: openCodeEnvironment(config, additions),
         foldersInside: (folder) => foldersInside(folder, dependencies.projectFolders?.() ?? []),
-        sandbox:
-          process.platform === 'darwin'
-            ? openCodeSandbox(config, dependencies.dataDir, dependencies.environment.HOME ?? '')
-            : null,
+        sandbox: process.platform === 'darwin' ? openCodeSandbox(config, dependencies) : null,
       }),
     );
   }
@@ -176,16 +173,14 @@ export function codexConfinement(
     confinement: {
       forDirectory: (directory) => {
         const starter = dependencies.starterOf?.(directory) ?? null;
-        const original = dependencies.originalOf?.(directory) ?? null;
         const inner = foldersInside(directory, dependencies.projectFolders?.() ?? []);
         return {
           project: directory,
-          readable: starter === null ? [] : [join(dependencies.dataDir, 'starters', starter)],
+          ...folderReads(dependencies, directory),
           // A starter's project asks nothing (ADR 0041); any other folder asks when its start asks.
           ...(starter === null ? {} : { asksNothing: true }),
           // Halcyonic's data folder is refused outright (AUDIT M18C1-M1).
           hidden: [dependencies.dataDir],
-          ...(original === null ? {} : { originals: [original] }),
           // Every other bound project inside this folder, refused to reads and writes (AUDIT BOX-3 F1).
           ...(inner.length === 0 ? {} : { inner }),
         };
@@ -197,27 +192,43 @@ export function codexConfinement(
 }
 
 /**
- * What OpenCode's sandbox lets it reach on this Mac (ADR 0028): Ollama only through the adapter's
- * gate, which passes the model list, model details and chat with a model on this Mac, and no other
- * port on loopback but the server's and the gate's own, which the adapter adds; each folder's server
- * writes only that folder and its own folders, which the adapter adds (BOX-3), and reads nothing of Halcyonic's
- * data directory, its journal and every credential in it, but its own settings and the pinned
- * binary, nor the person's own credentials.
+ * What an execution's folder reads besides itself, never writing, on any runtime's sandbox (ADR
+ * 0041, 0048): a starter's project the starter's shared dependencies its `node_modules` links to, a
+ * VR version its original, without the original's version control and secret-shaped files.
+ */
+export function folderReads(
+  dependencies: Pick<RuntimeDependencies, 'starterOf' | 'originalOf' | 'dataDir'>,
+  directory: string,
+): Pick<Confinement, 'readable' | 'originals'> {
+  const starter = dependencies.starterOf?.(directory) ?? null;
+  const original = dependencies.originalOf?.(directory) ?? null;
+  return {
+    readable: starter === null ? [] : [join(dependencies.dataDir, 'starters', starter)],
+    ...(original === null ? {} : { originals: [original] }),
+  };
+}
+
+/**
+ * What OpenCode's sandbox lets it reach on this Mac (ADR 0028, 0048): Ollama only through the
+ * adapter's gate, which passes the model list, model details and chat with a model on this Mac, and
+ * no other port on loopback but the server's and the gate's own, which the adapter adds. The profile
+ * is closed by default (BOX-3b): each folder's server reads and writes that folder and its own
+ * folders, which the adapter adds, reads Halcyonic's own OpenCode settings, the tools and what the
+ * folder names (`folderReads`), and nothing else: never Halcyonic's data directory, the person's
+ * home, their own OpenCode settings included, or another project.
  */
 export function openCodeSandbox(
-  config: Pick<ControlPlaneConfig, 'opencodeConfigHome' | 'opencodeBinary'>,
-  dataDir: string,
-  home: string,
+  config: Pick<ControlPlaneConfig, 'opencodeConfigHome'>,
+  dependencies: Pick<RuntimeDependencies, 'starterOf' | 'originalOf' | 'dataDir'>,
+  node: string = process.execPath,
 ) {
   return {
     loopbackPorts: [],
     ollama: `http://127.0.0.1:${OLLAMA_PORT}`,
-    unreadable: [dataDir, ...(home === '' ? [] : personalSecrets(home))],
-    readable: [
-      join(dataDir, 'runtimes'),
-      ...(config.opencodeConfigHome === null ? [] : [config.opencodeConfigHome]),
-      ...(config.opencodeBinary === null ? [] : [config.opencodeBinary]),
-    ],
+    readable: config.opencodeConfigHome === null ? [] : [config.opencodeConfigHome],
+    hidden: [dependencies.dataDir],
+    toolFolders: toolFoldersFor(node),
+    forFolder: (folder: string) => folderReads(dependencies, folder),
   };
 }
 

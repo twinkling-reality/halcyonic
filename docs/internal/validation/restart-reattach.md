@@ -89,6 +89,10 @@ persistence on.
   then re-attaches it: `runtime.connection.restored`, the cut turn `interrupted` (inferred); the next
   instruction's model request carries both earlier prompts. OpenCode reported the session with
   exactly the rules of its level, so the level check holds on 2.0.18. Run with `OPENCODE_BIN`.
+  Since BOX-3b (2026-11-11) a start inside the closed sandbox records `confined: true`, and a
+  re-attach goes on only with the confinement it was recorded with, as Codex's threads do: the same
+  test refuses the session recorded with the other (`reattach_refused`), and its commands get the
+  folder server's own home again.
 
 ## Not verified
 
