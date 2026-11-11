@@ -24,9 +24,9 @@ bounds as `ask` ([ADR 0043](../decisions/0043-a-person-may-let-a-tasks-agent-wor
 `never_ask` for such a runtime; each adapter refuses it again at the start. Codex 0.157.0 declares
 it: its policy `never` with `workspace-write` and the reviewer `user`, every thread pinned to no
 network and no writable folder but the project, refused while its home names an MCP server.
-OpenCode and Claude Code do not, and refuse it in words. Each adapter records in
+OpenCode declares it inside Halcyonic's sandbox, where since BOX-3 each folder's server writes that folder alone: its session rules allow shell commands and turn every other ask into a refusal. Claude Code does not, and refuses it in words. Each adapter records in
 `runtime.execution.started` the level the runtime confirmed: Codex from the policy it reports for
-the thread, `never_ask` on a confined project whatever was chosen; OpenCode `ask` only when it
+the thread, `never_ask` on a confined project whatever was chosen; OpenCode the level only when it
 reports the session with exactly the rules it was given; Claude Code none.
 
 The live adapter correlates an exact observed started item and turn before emitting

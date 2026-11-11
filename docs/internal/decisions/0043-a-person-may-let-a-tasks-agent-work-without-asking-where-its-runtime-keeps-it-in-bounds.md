@@ -137,3 +137,15 @@ confined server of its own ([ADR 0041](0041-a-new-apps-agent-is-confined-to-its-
 That server writes only the folder, its own home and its own temporary folder; never `/tmp` or the person's `$TMPDIR`.
 Inside it, a start that asks gets `untrusted`, which asks before every command Codex does not know is safe, and
 `never_ask` gets `never`. A starter's project still asks nothing. The decision is otherwise unchanged.
+
+## Note, 2026-11-11: OpenCode offers never-ask again (BOX-3)
+
+OpenCode now runs one server per execution folder, and each server writes that folder alone ([ADR
+0028](0028-opencode-runs-inside-a-sandbox-of-halcyonics-own.md), amendment of 2026-11-10). So decision 5's reason for
+not offering it is gone. Inside Halcyonic's sandbox it declares `offers_never_ask` again, with the session rules of
+[approval-levels.md](../validation/approval-levels.md). A start that never asks is refused without the sandbox, at the
+check and again at the start.
+
+The end to end test now holds AUDIT's case, another project under the same root as the task's, which a never-asking
+shell call could neither overwrite nor add to. It fails when the server's writable folder is widened to that root.
+Decision 6's line for OpenCode now reads: its folder and its own folders. Reads stay open until BOX-3b.
