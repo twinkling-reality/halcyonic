@@ -394,7 +394,12 @@ export class CheckpointStore {
    * holds stays in the tree though an ignore file now names it: an agent cannot hide a file from an
    * add by ignoring it (ADR 0045).
    */
-  async treeOf(projectId: string, folder: string, seed: string | null): Promise<TreeResult> {
+  async treeOf(
+    projectId: string,
+    folder: string,
+    seed: string | null,
+    options: { readonly bounded?: boolean } = {},
+  ): Promise<TreeResult> {
     if (!(await isFolder(folder)))
       return { ok: false, code: 'location_missing', message: 'The folder is not there.' };
     if (await this.#holdsHostData(folder)) return HOLDS_HOST_DATA;
@@ -422,6 +427,15 @@ export class CheckpointStore {
           code: 'nested_repository',
           message: 'Another git repository sits inside the folder, so its files cannot be kept.',
         };
+      // Bounded as a checkpoint is: a folder one could not be taken of is not read as one either.
+      if (options.bounded === true) {
+        if (entries.length > this.#limits.files)
+          return { ok: false, code: 'too_large', message: 'The folder holds too many files.' };
+        const bytes = await this.#totalSize(repository, entries);
+        if (bytes === null) return storeFailed('The size of the files could not be read.');
+        if (bytes > this.#limits.bytes)
+          return { ok: false, code: 'too_large', message: 'The folder is too large.' };
+      }
       const written = await this.#run(repository, folder, index, ['write-tree']);
       const tree = written.stdout.toString().trim();
       if (written.code !== 0 || !OBJECT_ID.test(tree))
@@ -725,22 +739,59 @@ export class CheckpointStore {
   }
 
   /**
-   * What changed between a checkpoint and its folder as it is now (History's "since this version"):
-   * the folder is read into a tree in the store, as a checkpoint's is, but no checkpoint is named or
-   * recorded. A file the checkpoint holds stays compared though an ignore file now names it.
+   * The checkpoint's tree and its folder's tree as it is now (History's "since this version"): the
+   * folder is read into the store as a checkpoint's is, bounded as one, but no checkpoint is named or
+   * recorded. Seeded with the checkpoint, so a file it holds stays compared though an ignore file now
+   * names it.
    */
-  async compareNow(
+  async treesNow(
     projectId: string,
     fromId: string,
     folder: string,
   ): Promise<
-    | { readonly ok: true; readonly files: readonly ComparedFile[] }
-    | { readonly ok: false; readonly code: 'checkpoint_missing' | 'store_failed' | 'folder_unread' }
+    | { readonly ok: true; readonly from: string; readonly to: string }
+    | { readonly ok: false; readonly code: 'checkpoint_missing' | 'folder_unread' }
   > {
-    const trees = await this.#treesNow(projectId, fromId, folder);
-    if (!trees.ok) return trees;
-    const files = await this.#diffTrees(trees.repository, trees.from, trees.to);
+    const held = await this.#trees(projectId, fromId, fromId);
+    if (!held.ok) return held;
+    const now = await this.treeOf(projectId, folder, held.from, { bounded: true });
+    if (!now.ok) return { ok: false, code: 'folder_unread' };
+    return { ok: true, from: held.from, to: now.tree };
+  }
+
+  /** What changed between two trees of the project's store, as `compare` gives it. */
+  async compareTrees(
+    projectId: string,
+    from: string,
+    to: string,
+  ): Promise<
+    | { readonly ok: true; readonly files: readonly ComparedFile[] }
+    | { readonly ok: false; readonly code: 'store_failed' }
+  > {
+    const repository = await this.#storeOf(projectId, from, to);
+    const files = repository === null ? null : await this.#diffTrees(repository, from, to);
     return files === null ? { ok: false, code: 'store_failed' } : { ok: true, files };
+  }
+
+  /** One file's change between two trees of the project's store, as `compareFile` gives it. */
+  async compareFileTrees(
+    projectId: string,
+    from: string,
+    to: string,
+    path: string,
+    maxBytes: number,
+  ) {
+    if (!isProjectPath(path)) return { ok: false as const, code: 'not_changed' as const };
+    const repository = await this.#storeOf(projectId, from, to);
+    if (repository === null) return { ok: false as const, code: 'store_failed' as const };
+    return this.#diffFile(repository, from, to, path, maxBytes);
+  }
+
+  /** The project's store, when the ids are a project's and two trees; else null. */
+  async #storeOf(projectId: string, from: string, to: string): Promise<string | null> {
+    if (!ID_PATTERN.test(projectId) || !OBJECT_ID.test(from) || !OBJECT_ID.test(to)) return null;
+    const repository = this.#repositoryPath(projectId);
+    return (await isFolder(repository)) ? repository : null;
   }
 
   /**
@@ -763,21 +814,6 @@ export class CheckpointStore {
       toTree,
     ]);
     return listed.code === 0 ? splitNul(listed.stdout).length : null;
-  }
-
-  async #treesNow(
-    projectId: string,
-    fromId: string,
-    folder: string,
-  ): Promise<
-    | { readonly ok: true; readonly repository: string; readonly from: string; readonly to: string }
-    | { readonly ok: false; readonly code: 'checkpoint_missing' | 'folder_unread' }
-  > {
-    const held = await this.#trees(projectId, fromId, fromId);
-    if (!held.ok) return held;
-    const now = await this.treeOf(projectId, folder, held.from);
-    if (!now.ok) return { ok: false, code: 'folder_unread' };
-    return { ok: true, repository: held.repository, from: held.from, to: now.tree };
   }
 
   /** Files that differ between two trees, sorted by path, or null when git fails. */
@@ -840,31 +876,6 @@ export class CheckpointStore {
   > {
     if (!isProjectPath(path)) return { ok: false, code: 'not_changed' };
     const trees = await this.#trees(projectId, fromId, toId);
-    if (!trees.ok) return trees;
-    return this.#diffFile(trees.repository, trees.from, trees.to, path, maxBytes);
-  }
-
-  /** One file's change between a checkpoint and its folder as it is now, as `compareFile` gives it. */
-  async compareFileNow(
-    projectId: string,
-    fromId: string,
-    folder: string,
-    path: string,
-    maxBytes: number,
-  ): Promise<
-    | {
-        readonly ok: true;
-        readonly file: ComparedFile;
-        readonly diff: string | null;
-        readonly complete: boolean;
-      }
-    | {
-        readonly ok: false;
-        readonly code: 'checkpoint_missing' | 'not_changed' | 'store_failed' | 'folder_unread';
-      }
-  > {
-    if (!isProjectPath(path)) return { ok: false, code: 'not_changed' };
-    const trees = await this.#treesNow(projectId, fromId, folder);
     if (!trees.ok) return trees;
     return this.#diffFile(trees.repository, trees.from, trees.to, path, maxBytes);
   }
