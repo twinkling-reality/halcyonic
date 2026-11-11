@@ -539,9 +539,10 @@ A release APK shows `targetSdkVersion:'34'`, no `application-debuggable`, the pe
 `com.oculus.permission.USE_SCENE` and AndroidX's own receiver permission, the features
 `com.oculus.feature.PASSTHROUGH` and `oculus.software.overlay_keyboard` as not required, the
 `com.oculus.intent.category.VR` launcher category and `com.oculus.vr.focusaware`, and nothing from
-`com.meta.agenticxr`. It never asks for `android.permission.RECORD_AUDIO`: hold to talk is in
-development builds only, and `BuildReleaseApk` deletes and fails an APK that asks for it. A
-development APK asks for it, because hold to talk uses the microphone.
+`com.meta.agenticxr`. It asks for `android.permission.RECORD_AUDIO`, as a development APK does: hold to
+talk is in every build (ADR 0021, amended 2026-11-11), and `BuildReleaseApk` deletes and fails an APK
+that does not ask for it. The permission is asked on the first hold, only while a computer is
+connected.
 
 ### Before an upload
 

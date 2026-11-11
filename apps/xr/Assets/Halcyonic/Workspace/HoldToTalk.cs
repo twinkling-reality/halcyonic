@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using UnityEngine;
-#if UNITY_ANDROID && !UNITY_EDITOR && DEVELOPMENT_BUILD
+#if UNITY_ANDROID && !UNITY_EDITOR
 using UnityEngine.Android;
 #endif
 
@@ -16,13 +16,13 @@ namespace Halcyonic.XR.Workspace
     /// clip goes to the Mac, which answers with a draft or says it heard nothing. Only one clip at a
     /// time, at most 30 seconds. The microphone permission is asked on the first hold, never at
     /// launch. Capture stops and the clip is discarded, never sent, when the hold is dropped or the
-    /// app loses input focus (the rule agreed with the focus work). Compiled into development builds
-    /// and the editor only, so a release player never uses the microphone and carries no
-    /// RECORD_AUDIO; there <see cref="Offered"/> is false and nothing here runs.
+    /// app loses input focus (the rule agreed with the focus work). In every build since the owner's
+    /// decision (ADR 0021, amended): a release player carries RECORD_AUDIO, and voice is offered only
+    /// while a computer is connected and no recording plays (MenuDirector.VoiceOffered), so a judge's
+    /// headset with no computer is never asked for the microphone.
     /// </summary>
     public sealed class HoldToTalk : MonoBehaviour
     {
-#if DEVELOPMENT_BUILD || UNITY_EDITOR
         /// <summary>The words to show while talking, from <see cref="VoiceText"/>: listening, hearing, or why nothing came of it.</summary>
         public event Action<string>? Said;
 
@@ -54,7 +54,7 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The microphone's real level while this headset records; null when nothing records.</summary>
         public static LevelHistory? CurrentLevel => capturing?.level;
 
-        /// <summary>Voice is in this build: development builds and the editor.</summary>
+        /// <summary>Voice is in every build.</summary>
         public static bool Offered => true;
 
         /// <summary>Recording, or waiting for the Mac's answer.</summary>
@@ -212,31 +212,5 @@ namespace Halcyonic.XR.Workspace
             return true;
 #endif
         }
-#else
-        public event Action<string>? Said { add { } remove { } }
-
-        public event Action<string>? Heard { add { } remove { } }
-        public Func<Action<string>>? CaptureHeard { get; set; }
-
-        /// <summary>Voice is in this build: development builds and the editor.</summary>
-        public static bool Offered => false;
-
-        /// <summary>No microphone in a release build, so no level: the bar shows listening without one.</summary>
-        public static LevelHistory? CurrentLevel => null;
-
-        public bool Busy => false;
-
-        public void Begin()
-        {
-        }
-
-        public void End(bool send)
-        {
-        }
-
-        public void Drop()
-        {
-        }
-#endif
     }
 }

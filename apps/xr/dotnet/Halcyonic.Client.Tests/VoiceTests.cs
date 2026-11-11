@@ -175,6 +175,8 @@ public class LiveTranscriptionTests
         using var api = new ControlPlaneApi(ControlPlaneApi.BaseUriFor(controlPlane.RealtimeEndpoint), controlPlane.AccessToken);
         var refused = Assert.ThrowsAsync<ControlPlaneRequestException>(() => api.TranscribeAsync(Second))!;
         Assert.That(refused.Code, Is.EqualTo("transcription_unavailable"));
+        // What a person reads on the headset when the Mac has no voice set up, in every build (ADR 0021, amended).
+        Assert.That(VoiceText.Refusal(refused.Code), Is.EqualTo("Voice Not Set Up · Type Instead"));
     }
 
     [Test]

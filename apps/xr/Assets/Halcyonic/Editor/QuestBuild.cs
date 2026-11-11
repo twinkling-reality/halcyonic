@@ -83,8 +83,8 @@ namespace Halcyonic.XR.Editor
         }
 
         /// <summary>
-        /// The microphone permission. Only development builds may ask for it, for hold to talk (ADR
-        /// 0021); a release or demonstration APK carries no voice.
+        /// The microphone permission, for hold to talk, which every build carries (ADR 0021, amended);
+        /// it is asked on the first hold and only while a computer is connected.
         /// </summary>
         public const string MicrophonePermission = "android.permission.RECORD_AUDIO";
 
@@ -142,10 +142,12 @@ namespace Halcyonic.XR.Editor
                     Fail($"Halcyonic: deleted {apkPath}, which carries Meta's development tools: {string.Join("; ", found)}.");
                     return;
                 }
-                if (MetaDevelopmentTools.ManifestAsks(apkPath, MicrophonePermission))
+                // Hold to talk is in every build (ADR 0021, amended): a release APK that does not ask for the microphone
+                // would offer a voice that can never record.
+                if (!MetaDevelopmentTools.ManifestAsks(apkPath, MicrophonePermission))
                 {
                     File.Delete(apkPath);
-                    Fail($"Halcyonic: deleted {apkPath}, which asks for {MicrophonePermission}: only development builds may use the microphone (ADR 0021).");
+                    Fail($"Halcyonic: deleted {apkPath}, which does not ask for {MicrophonePermission}: hold to talk could never record (ADR 0021).");
                     return;
                 }
                 var glance = GlanceInDevelopmentBuilds.FindIn(apkPath);

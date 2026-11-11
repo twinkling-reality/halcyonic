@@ -279,6 +279,10 @@ headset: a clean resume after the system menu, after sleep, and after another ap
 
 ## The release APK
 
+Since ADR 0021's amendment of 2026-11-11 a release APK carries hold to talk and asks for
+`RECORD_AUDIO`; the APKs recorded below predate it. A judge's headset, with no computer, is never asked
+for the microphone: voice is offered only while a computer is connected and no recording plays.
+
 Built at a214dce with `BuildReleaseApk`: 71,454,487 bytes, `com.halcyonic.xr`, version code 1,
 version 1.0, target and compile API 34, not debuggable; permissions `HAND_TRACKING`,
 `USE_ANCHOR_API`, `USE_SCENE`, `INTERNET` and AndroidX's receiver permission; no `RECORD_AUDIO` and

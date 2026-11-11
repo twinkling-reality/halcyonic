@@ -125,3 +125,16 @@ right, and the draft is shown and editable before anything is sent.
 The draft stays the person's words, marked as heard, through the same confirmation as before. If
 tidying fails, leaves nothing (a clip of only "Um.") or outgrows a draft, the words are shown as
 heard. Nothing of the words is logged, kept or journaled, as before.
+
+## Amendment of 2026-11-11: voice in every build
+
+The owner decided on 2026-11-11, asked whether a release build may use voice: "Yes, with voice". A
+release build carries voice, so a person whose headset is paired with their computer can talk to it
+without a development build. The microphone code compiles for every player
+and a release APK asks for `RECORD_AUDIO`; `QuestBuild.BuildReleaseApk` now fails an APK that does not
+ask for it. Nothing else changes: voice is offered only while a computer is connected and no
+recording plays, the permission is asked on the first hold and never at launch, and a clip is still
+transcribed on the Mac. A headset with no computer, as a judge's, is never asked for the microphone.
+Without voice set up on the Mac the headset reads "Voice Not Set Up · Type Instead". Meta's store
+reviews `RECORD_AUDIO`; whether a release channel then needs a privacy policy that names the
+microphone is not yet checked.
