@@ -85,6 +85,9 @@ namespace Halcyonic.Client
 
         /// <summary>It never ran, and will not: the run ended first. A dim, empty mark.</summary>
         Skipped,
+
+        /// <summary>It needs the person (it asks them something): the attention colour, amber, never the main action's accent.</summary>
+        Attention,
     }
 
     /// <summary>What heads a card beside its title: nothing, the project's emblem, the result's picture, or the agent's orb.</summary>

@@ -19,7 +19,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] GlyphStates = { "43-glyphs", "43-glyphs-large", "43-glyphs-marks" };
+        private static readonly string[] GlyphStates = { "43-glyphs", "43-glyphs-rest", "43-glyphs-large", "43-glyphs-marks" };
 
         /// <summary>Each glyph with an action that carries it, in the product's own words.</summary>
         private static readonly (RoomGlyph Glyph, string Words)[] GlyphActions =
@@ -29,7 +29,7 @@ namespace Halcyonic.XR.Workspace.Editor
             (RoomGlyph.Changes, "Changes"), (RoomGlyph.Checks, "Checks"), (RoomGlyph.Back, "Back"), (RoomGlyph.Next, "Next Part · 2 of 3"),
             (RoomGlyph.Previous, "Previous Part"), (RoomGlyph.Play, "Try Build"), (RoomGlyph.Plus, "New Project"), (RoomGlyph.Pencil, "Request Change"),
             (RoomGlyph.Continue, "Continue"), (RoomGlyph.Lines, "Summarize"), (RoomGlyph.Again, "Run Checks Again"),
-            (RoomGlyph.Agent, "Tide 12B · Ask First"), (RoomGlyph.Settings, "Settings"), (RoomGlyph.Bubble, "Write Instruction"), (RoomGlyph.Undo, "Restore"),
+            (RoomGlyph.Agent, "Tide 12B · Ask First"), (RoomGlyph.Settings, "Settings"), (RoomGlyph.Bubble, "Write Instruction"), (RoomGlyph.Undo, "Restore"), (RoomGlyph.Clock, "History"),
         };
 
         /// <summary>How many actions stand in each pair of the sheet's columns; the two home-size actions stand under the second pair.</summary>
@@ -99,16 +99,23 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(button.LookNow() == (main ? RoomButtonLook.Main : RoomButtonLook.Rest), words + " shows " + button.LookNow());
                     drawn.Add((view, glyph, main ? RoomGlyphs.OnMain : RoomGlyphs.OnRest, words + (main ? " (main chip)" : " (rest chip)") + (home ? " at home size" : "")));
                 }
-                for (var index = 0; index < GlyphActions.Length; index++)
+                // The first sheet holds as many as two pairs of columns hold with a row left for the home-size actions; the
+                // rest stand on a sheet of their own, so no sheet grows past the rows the view reads at their size.
+                var first = 2 * GlyphRows - 1;
+                var shown = state == "43-glyphs-rest" ? GlyphActions.Skip(first).ToArray() : GlyphActions.Take(first).ToArray();
+                Require(state != "43-glyphs-rest" || shown.Length > 0, "the rest sheet has nothing to show");
+                for (var index = 0; index < shown.Length; index++)
                 {
-                    var (glyph, words) = GlyphActions[index];
+                    var (glyph, words) = shown[index];
                     var pair = index < GlyphRows ? 0 : 2;
                     Stand(glyph, words, false, RoomButtonSize.Action, pair, index % GlyphRows);
                     Stand(glyph, words, true, RoomButtonSize.Action, pair + 1, index % GlyphRows);
                 }
-                Require(GlyphActions.Length <= 2 * GlyphRows - 1, "the sheet has no row left for the home-size actions");
-                Stand(RoomGlyph.Keyboard, "Type", false, RoomButtonSize.Home, 2, GlyphRows - 1);
-                Stand(RoomGlyph.Microphone, "Hold to Talk", true, RoomButtonSize.Home, 3, GlyphRows - 1);
+                if (state != "43-glyphs-rest")
+                {
+                    Stand(RoomGlyph.Keyboard, "Type", false, RoomButtonSize.Home, 2, GlyphRows - 1);
+                    Stand(RoomGlyph.Microphone, "Hold to Talk", true, RoomButtonSize.Home, 3, GlyphRows - 1);
+                }
             }
             Place(plane, eyes, 0f, shot.Elevation);
 

@@ -18,7 +18,14 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you" };
+
+        /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
+        private static KitControl CardRowControl(string key)
+        {
+            var frame = new MenuFrame("History", new Footer(new Prompt(Footer.Close, "Back", GlazeIcon.Back, PromptKind.Close)));
+            return new KitControl(KitPlace.Choice, frame, "history-pick", key, key, null, available: true, reason: null, holds: false);
+        }
 
         private static RoomCard CardOf(string state)
         {
@@ -43,6 +50,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 "47-card-fixing" => RoomBar.FixingCard(new Halcyonic.Contracts.AutoFixView
                     { State = Halcyonic.Contracts.AutoFixViewState.Fixing, CheckId = "0193b3a0-0000-7000-8000-000000000001", Attempt = 1, Cap = 2 })!,
                 "47-card-usage" => new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge(Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
+                "47-card-needs-you" => new RoomCard(Theirs("Tail"), Theirs("Should the tail stream left or right?"),
+                    status: new RoomCardStatus("Needs You", "It asks you something below", RoomTone.Attention)),
+                "47-card-history" => new RoomCard(Ours("History"), Ours("Pick a moment to restore."), list: new[]
+                {
+                    new RoomListRow(RoomKind.Worked, Ours("After ") + Theirs("Tail") + Ours(" Worked"), "18:40", press: CardRowControl("c1")),
+                    new RoomListRow(RoomKind.Started, Ours("Before ") + Theirs("Tail") + Ours(" Started"), "18:12", press: CardRowControl("c2")),
+                    new RoomListRow(RoomKind.Worked, Ours("After ") + Theirs("Score") + Ours(" Worked"), "17:55", press: CardRowControl("c3")),
+                }),
                 _ => new RoomCard(Theirs("Glimmer 30B"), Ours(AgentColumn.ModelWords), RoomCardHead.Agent),
             };
         }
@@ -108,6 +123,15 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             if (card.Status != null && card.TrackOf is int of)
                 Require(view.Plates.Count(each => each.What.StartsWith("pip", StringComparison.Ordinal) && each.What != "pip ring") == of, "the status's pips are not its tries");
+            if (card.List.Any(row => row.Press != null))
+            {
+                // Each picked-from row: its chevron at the card's right, and a press target as wide as the card, its own control.
+                var targets = view.RowTargets.ToList();
+                Require(targets.Count == card.List.Count(row => row.Press != null), "the list draws " + targets.Count + " press targets for its picked-from rows");
+                Require(targets.Select(each => each.Control.Key).SequenceEqual(card.List.Where(row => row.Press != null).Select(row => row.Press!.Key)), "a row's target raises another row's control");
+                Require(view.Glyphs.Count(each => each.What == "row chevron") == targets.Count, "a picked-from row carries no chevron");
+                Require(targets.All(each => each.Press.Size.x >= inner - slack), "a row's target is narrower than the card");
+            }
             if (card.List.Count > 0)
             {
                 // Each row's tile at the card's left, its name 14 dp after the tile, its note ending at the card's right.
@@ -116,7 +140,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(tiles.All(each => Mathf.Abs(each.Plate.transform.localPosition.x - each.Plate.Size.x / 2f) < slack), "a row's tile does not stand at the card's left");
                 foreach (var row in card.List)
                 {
-                    var nameLabel = view.Shown.FirstOrDefault(label => label.GetParsedText() == row.Name.Text);
+                    // Leaning outside words stand a hair apart from ours (GlazeRuns), so a name is matched by its words, not its spaces.
+                    string Words(string text) => string.Join(" ", text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+                    var nameLabel = view.Shown.FirstOrDefault(label => Words(label.GetParsedText()) == Words(row.Name.Text));
                     Require(nameLabel != null, row.Name.Text + " is not shown");
                     if (nameLabel != null)
                         Require(nameLabel.transform.localPosition.x + nameLabel.textBounds.min.x >= RoomType.Scaled(RoomCardView.RowTileDp + RoomCardView.RowGapDp) - unit * 1.5f,
@@ -124,7 +150,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (row.Note == null) continue;
                     var noteLabel = view.Shown.FirstOrDefault(label => label.GetParsedText() == row.Note);
                     if (noteLabel != null)
-                        Require(Mathf.Abs(noteLabel.transform.localPosition.x + RoomCursor.WordsWidth(noteLabel, 0f) - inner) < unit * 0.6f, row.Note + " does not end at the card's right");
+                    {
+                        var right = inner - (row.Press != null ? RoomType.Scaled(RoomCardView.ChevronDp + RoomCardView.ChevronGapDp) : 0f);
+                        Require(Mathf.Abs(noteLabel.transform.localPosition.x + RoomCursor.WordsWidth(noteLabel, 0f) - right) < unit * 0.6f, row.Note + " does not end at the card's right, or before its chevron");
+                    }
                 }
             }
 
