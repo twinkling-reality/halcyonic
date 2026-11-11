@@ -152,7 +152,7 @@ public class HistoryColumnTests
         var column = Column(out _);
         Assert.That(column.Choose(Id(1)), Is.True);
         Assert.That(column.Stage, Is.EqualTo(HistoryStage.Previewing));
-        Assert.That(column.Sentence, Is.EqualTo("Reading Changes"));
+        Assert.That(column.Sentence, Is.EqualTo("Reading History"));
         var changed = Paths(6, "a.ts", "b.ts", "c.ts", "d.ts", "e.ts", "f.ts");
         column.Previewed(Preview(Id(1), changed: changed));
         Assert.That(column.Stage, Is.EqualTo(HistoryStage.Review));
@@ -179,11 +179,28 @@ public class HistoryColumnTests
     }
 
     [Test]
+    public void MoreFilesThanAPageAndAChangeSinceStandTogetherOnTheFootLine()
+    {
+        // AUDIT's F1: the change since then never hides that more files follow than the review shows.
+        var column = Column(out _);
+        column.Choose(Id(1));
+        column.Previewed(Preview(Id(1), changed: Paths(6, "a.ts", "b.ts", "c.ts", "d.ts", "e.ts", "f.ts"), headMoved: true));
+        Assert.That(column.Card()!.List.Count, Is.EqualTo(RoomCard.ListAPage));
+        Assert.That(column.Card()!.More!.Text, Is.EqualTo("The project changed since then too. 3 more files are not shown."));
+        NoDots(column);
+        column.Cancel();
+        column.Choose(Id(1));
+        column.Previewed(Preview(Id(1), changed: Paths(4, "a.ts", "b.ts", "c.ts", "d.ts"), headMoved: true));
+        Assert.That(column.Card()!.More!.Text, Is.EqualTo("The project changed since then too. 1 more file is not shown."));
+    }
+
+    [Test]
     public void TheVersionBeforeAnAddIsUndoneByUndoAdd()
     {
         var column = new HistoryColumn(ProjectId, "Kite Run");
         column.Listed(Listed(Checkpoint(4, CheckpointReason.BeforeAdd, "2026-11-11T18:30:00.000Z")), null, Now, TimeZoneInfo.Utc);
-        Assert.That(column.Card()!.List.Single().Name.Text, Is.EqualTo("Before the Add"));
+        Assert.That(column.Card()!.List.Single().Name.Text, Is.EqualTo("Before the Add"), "with no task known");
+        Assert.That(column.Card()!.List.Single().Kind, Is.EqualTo(RoomKind.Started));
         column.Choose(Id(4));
         column.Previewed(Preview(Id(4)));
         Assert.That(column.Card()!.Title!.Text, Is.EqualTo("Before the Add"));
@@ -228,7 +245,7 @@ public class HistoryColumnTests
         NoDots(column);
 
         Assert.That(column.Choose(Id(3)), Is.True, "Undo Restore opens the review of the version kept just before");
-        Assert.That(column.Sentence, Is.EqualTo("Reading Changes"));
+        Assert.That(column.Sentence, Is.EqualTo("Reading History"));
         Assert.That(column.Reviewed!.Name.Text, Is.EqualTo("Before a Restore"));
         column.Previewed(Preview(Id(3)));
         Assert.That(column.Stage, Is.EqualTo(HistoryStage.Review));
