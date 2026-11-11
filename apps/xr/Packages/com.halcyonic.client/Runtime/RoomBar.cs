@@ -157,7 +157,7 @@ namespace Halcyonic.Client
         public RoomBarState State { get; }
 
         /// <summary>The row's actions at rest, listening or transcribing, the main one first.</summary>
-        public IReadOnlyList<RoomAction> Row { get; }
+        public IReadOnlyList<RoomAction> Row { get; private set; }
 
         /// <summary>Words alone: Sent · Awaiting Start, or why nothing can be written.</summary>
         public LineWords Words { get; }
