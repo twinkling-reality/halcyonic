@@ -397,6 +397,21 @@ Every text in them is outside words, from the project's files or its build, as `
   lines of at most 300 characters, cleaned as the agent's copy is: no terminal sequences or unseen
   characters, the project's folder as `.`, Halcyonic's data folder and the home folder by name.
 
+## Sharing reads
+
+Two read-only routes for the headset's Share card ([ADR 0054](../decisions/0054-what-was-made-is-kept-and-shared-only-by-the-persons-press.md)), for the Mac's own client and a paired
+device alike:
+
+- `GET /api/sharing`: which ways of sharing work on this Mac now, `link` and `wifi`, each `ready`,
+  `not_set_up` (no pinned tunnel program for a link, or no previews at all), `no_network` (the Mac
+  is on no private network) or `unknown` (the host cannot tell). Read when the card opens. Never a
+  promise: a start that fails still says why.
+- `GET /api/projects/:project_id/share/code`: the project's live share as a code to scan,
+  `{ check_id, way, code: { size, rows } }`. The code is a QR code at error correction level M,
+  `size` cells on a side (21 to 69), each row a string of `1` (dark) and `0` (light). The headset
+  draws it with a light margin of 4 cells. It never draws a link's address as text: the address
+  carries the tunnel service's name. No share is 404 `share_not_found`, a malformed id 400.
+
 ## Workspace request upgrade order
 
 Since 2026-11-10 `workspace.request.submit` may name a project alone (`workstream_id` and

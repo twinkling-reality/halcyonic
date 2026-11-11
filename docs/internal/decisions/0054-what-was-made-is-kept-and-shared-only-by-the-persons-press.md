@@ -71,6 +71,17 @@ The owner approved Share on This Wi-Fi and Share a Link, and the download of the
    - The headset says truly that a game opened from it plays in the browser but cannot enter VR: a
      plain `http://` page is not a secure page.
 
+5. **What the headset reads.**
+   - Which ways work on this Mac (`GET /api/sharing`): each way `ready`, `not_set_up`, `no_network`
+     or `unknown`, read when the Share card opens. The card offers only a way that is ready, and a
+     start that fails still says why, so nothing treats the read as a promise.
+   - A live share's address as a code to scan (`GET /api/projects/:project_id/share/code`), for
+     both ways: a QR code at level M made by an encoder of Halcyonic's own (`share-code.ts`, no
+     dependency). The headset draws it with its margin. It never draws a link's address as text,
+     since that carries the tunnel service's name; the Wi-Fi address may also show as text.
+   - On the Mac, the setup page beside pairing lists what is shared now, each with Copy and Stop
+     (agreed with CORE, whose page it is).
+
 ## Alternatives considered
 
 - **Wi-Fi only.** No outside service, but no VR on another headset, which is what sharing a VR game
@@ -86,8 +97,8 @@ The owner approved Share on This Wi-Fi and Share a Link, and the download of the
 
 - Anyone with a live link can play the checked game, and Cloudflare carries its traffic. That is the
   person's choice at each press, and it ends with the preview.
-- The address carries the tunnel service's domain. The headset must not print it as text (no brand
-  names on screen); how it hands the link over is open (OPEN_QUESTIONS.md).
+- The address carries the tunnel service's domain, so the headset hands it over as a code to scan,
+  never as text (no brand names on screen). A person who wants the link as text copies it on the Mac.
 - Quick tunnels are for testing: no uptime guarantee and a cap of 200 requests in flight. A share is
   for showing a game to a few people.
 - Revisit if the tunnel program's terms change, if quick tunnels need an account, or when a lasting

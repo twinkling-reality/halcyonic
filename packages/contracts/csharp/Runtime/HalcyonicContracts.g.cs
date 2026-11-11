@@ -704,6 +704,52 @@ namespace Halcyonic.Contracts
         public string Source { get; set; } = "check_output";
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ShareWayState
+    {
+        [EnumMember(Value = "ready")] Ready,
+        [EnumMember(Value = "not_set_up")] NotSetUp,
+        [EnumMember(Value = "no_network")] NoNetwork,
+        [EnumMember(Value = "unknown")] Unknown,
+    }
+
+    public sealed class SharingWaysResponse
+    {
+        [JsonProperty("link", Required = Required.Always)]
+        public ShareWayState Link { get; set; }
+
+        [JsonProperty("wifi", Required = Required.Always)]
+        public ShareWayState Wifi { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ShareWay
+    {
+        [EnumMember(Value = "link")] Link,
+        [EnumMember(Value = "wifi")] Wifi,
+    }
+
+    public sealed class ShareCode
+    {
+        [JsonProperty("size", Required = Required.Always)]
+        public long Size { get; set; }
+
+        [JsonProperty("rows", Required = Required.Always)]
+        public List<string> Rows { get; set; } = new List<string>();
+    }
+
+    public sealed class ShareCodeResponse
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("way", Required = Required.Always)]
+        public ShareWay Way { get; set; }
+
+        [JsonProperty("code", Required = Required.Always)]
+        public ShareCode Code { get; set; } = default!;
+    }
+
     public sealed class ToolResultsQuery
     {
         [JsonProperty("journal_id", Required = Required.Always)]
@@ -1301,13 +1347,6 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("files", Required = Required.Always)]
         public ProjectViewMacPlayFiles Files { get; set; }
-    }
-
-    [JsonConverter(typeof(StringEnumConverter))]
-    public enum ShareWay
-    {
-        [EnumMember(Value = "link")] Link,
-        [EnumMember(Value = "wifi")] Wifi,
     }
 
     [JsonConverter(typeof(StringEnumConverter))]

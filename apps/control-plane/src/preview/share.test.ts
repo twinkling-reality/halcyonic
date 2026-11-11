@@ -301,4 +301,32 @@ describe('sharing a checked game at an address anyone can open (F1)', () => {
     assert.equal(server.maxConnections, 32);
     assert.equal(server.keepAliveTimeout, 5_000);
   });
+
+  test('which ways work: a link where the tunnel is set up, the Wi-Fi where the Mac has an address, else why, never a guess', () => {
+    const { controlPlane } = setup();
+    const ways = (tunnel: string | null, lan: () => string | null) =>
+      new ProjectShares({
+        recorder: controlPlane.recorder,
+        projection: controlPlane.projection,
+        clock: { now: () => new Date() },
+        logger: capturingLogger().logger,
+        tunnel,
+        home: '/unused',
+        lanAddress: lan,
+      }).ways();
+    assert.deepEqual(
+      ways('/pinned/cloudflared', () => '192.168.1.20'),
+      { link: 'ready', wifi: 'ready' },
+    );
+    assert.deepEqual(
+      ways(null, () => null),
+      { link: 'not_set_up', wifi: 'no_network' },
+    );
+    assert.deepEqual(
+      ways(null, () => {
+        throw new Error('no interfaces');
+      }),
+      { link: 'not_set_up', wifi: 'unknown' },
+    );
+  });
 });

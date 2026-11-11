@@ -235,6 +235,52 @@ export const ShareAddress = Type.String({
   maxLength: 253,
 });
 
+/**
+ * Whether a way of sharing works on this Mac, as far as the host can tell before a start (ADR 0054):
+ * `ready` it is set up (a start may still fail, and says why); `not_set_up` this Mac lacks what it
+ * needs (the pinned tunnel program for a link, or previews at all); `no_network` the Mac is on no
+ * private network, so no device on a Wi-Fi can reach it; `unknown` the host cannot tell. Never a
+ * promise.
+ */
+export const ShareWayState = Type.Union([
+  Type.Literal('ready'),
+  Type.Literal('not_set_up'),
+  Type.Literal('no_network'),
+  Type.Literal('unknown'),
+]);
+export type ShareWayState = Static<typeof ShareWayState>;
+
+/** `GET /api/sharing`: which ways of sharing a checked game work on this Mac now. */
+export const SharingWaysResponse = Type.Object(
+  { link: ShareWayState, wifi: ShareWayState },
+  strict,
+);
+export type SharingWaysResponse = Static<typeof SharingWaysResponse>;
+
+/**
+ * A share's address as a code to scan, a QR code at error correction level M: `size` cells on a
+ * side (21 to 69, versions 1 to 13), and each row top first as `1` for a dark cell and `0` for a
+ * light one. The headset draws a light margin of 4 cells around it.
+ */
+export const ShareCode = Type.Object(
+  {
+    size: Type.Integer({ minimum: 21, maximum: 69 }),
+    rows: Type.Array(Type.String({ pattern: '^[01]+$', minLength: 21, maxLength: 69 }), {
+      minItems: 21,
+      maxItems: 69,
+    }),
+  },
+  strict,
+);
+export type ShareCode = Static<typeof ShareCode>;
+
+/** `GET /api/projects/:project_id/share/code`: the code of the project's live share. */
+export const ShareCodeResponse = Type.Object(
+  { check_id: CheckId, way: ShareWay, code: ShareCode },
+  strict,
+);
+export type ShareCodeResponse = Static<typeof ShareCodeResponse>;
+
 /** The most tries a failed check is sent back to its agent on its own, per chain (ADR 0044). */
 export const AUTO_FIX_CAP_MAX = 10;
 
