@@ -74,8 +74,6 @@ namespace Halcyonic.Client
         // What the computer observed of each execution's folder, turn by turn, in journal order.
         private readonly Dictionary<string, List<ObservedTurn>> observed = new Dictionary<string, List<ObservedTurn>>();
         private const int ObservedKept = 16;
-        // What each run's start was, as the runtime confirmed it (SCREENS's RunStart): a plan, or not kept to its folder.
-        private readonly Dictionary<string, RunStart> started = new Dictionary<string, RunStart>();
         // The executions whose lines are all kept, the least recently recorded or read first.
         private readonly LinkedList<string> recent = new LinkedList<string>();
         private readonly Dictionary<string, LinkedListNode<string>> recentNodes = new Dictionary<string, LinkedListNode<string>>();
@@ -102,9 +100,6 @@ namespace Halcyonic.Client
         public IReadOnlyList<ObservedTurn> ObservedFor(string executionId) =>
             observed.TryGetValue(executionId, out var turns) ? turns : (IReadOnlyList<ObservedTurn>)new ObservedTurn[0];
 
-        /// <summary>What the run's start was, as the runtime confirmed it (<see cref="RunStart"/>); null before the runtime said it started.</summary>
-        public RunStart? StartedFor(string executionId) => started.TryGetValue(executionId, out var start) ? start : (RunStart?)null;
-
         /// <summary>Tool calls whose names wait for their completion line: started and not yet completed.</summary>
         public int OpenToolCalls => toolNames.Count;
 
@@ -116,15 +111,6 @@ namespace Halcyonic.Client
             {
                 var executionId = stored.Event.ExecutionId;
                 if (executionId == null) continue;
-                if (stored.Event is RuntimeExecutionStartedEvent begun)
-                {
-                    var start = new RunStart(begun.Payload.Plan == true, begun.Payload.UnconfinedReason);
-                    if (!started.TryGetValue(executionId, out var known) || known.Plan != start.Plan || known.NotConfinedReason != start.NotConfinedReason)
-                    {
-                        started[executionId] = start;
-                        changed.Add(executionId);
-                    }
-                }
                 if (stored.Event is ExecutionFilesObservedEvent files)
                 {
                     if (Observe(executionId, stored, files.Payload)) { changed.Add(executionId); Touch(executionId); }

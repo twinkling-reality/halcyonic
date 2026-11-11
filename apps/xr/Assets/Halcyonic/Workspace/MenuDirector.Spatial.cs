@@ -217,7 +217,7 @@ namespace Halcyonic.XR.Workspace
                 page == RoomResultPage.History ? HistoryFor(projectId) : null, page == RoomResultPage.Share ? ShareFor(projectId) : null,
                 canSend: CanSendShare, relays: HeadsetRelay.Serves(target), relayBuilt: HeadsetRelay.Built,
                 file: page == RoomResultPage.File ? FileReadFor(now.Character.WorkstreamId) : null,
-                start: run != null ? setup.Started(run) : null);
+                start: RunStart.Of(now.Execution, now.Runtime));
         }
 
         /// <summary>
@@ -337,6 +337,11 @@ namespace Halcyonic.XR.Workspace
                     // A column with a start under way or a stop to send is kept, so nothing is dropped (AUDIT reread MUST 2).
                     if (ShareFor(work!.ProjectId) is not { KeepAfterLeaving: true }) shares.Remove(work!.ProjectId);
                     setup.Presentation.ShowResultPage(task, run, RoomResultPage.Result);
+                    break;
+                // SCREENS's Carry Out Plan: one instruction with leave_plan, at rest, on the run that is a plan; the view says
+                // the plan was carried out only once the runtime confirms it (plan_left).
+                case RoomResult.CarryOutPlan when run != null && RunStart.Of(now.Execution, now.Runtime) is { CanCarryOut: true }:
+                    if (!SendCommand(setup.Commands.SendInstruction(run, RunStart.CarryOutInstruction, leavePlan: true))) return false;
                     break;
                 // SCREENS's file of Changes read (MenuDirector.File.cs).
                 case string _ when RoomResult.FileActions.Contains(action):

@@ -53,7 +53,10 @@ namespace Halcyonic.Client
             else if (result.FilesChanged is long count) slots.Add(new RoomSlot(RoomKind.ToAdd, LineWords.Ours(RoomAdd.Files(count))));
             // SCREENS's run start (FIELD's 1424Z words): a run the Mac says is not kept to its folder, and a task that is a plan.
             if (result.Start is { NotConfined: true }) slots.Add(new RoomSlot(RoomKind.Folder, LineWords.Ours(RunStart.NotKeptToFolder)));
-            var status = ended?.Status ?? (result.Start is { Plan: true } ? new RoomCardStatus(RunStart.Planning, RunStart.PlanningLine, RoomTone.Working) : (RoomCardStatus?)null);
+            // A plan whose run ended waits for the person (Plan Ready, the attention tone); before that it plans.
+            var status = ended?.Status ?? (result.Start is { IsPlan: true } plan
+                ? plan.AtRest ? new RoomCardStatus(RunStart.PlanReady, RunStart.PlanReadyLine, RoomTone.Attention) : new RoomCardStatus(RunStart.Planning, RunStart.PlanningLine, RoomTone.Working)
+                : (RoomCardStatus?)null);
             // Where Play in Headset is not drawn and why matters to the person, its reason stands at the card's foot.
             var refusal = result.Play is PlayInHeadset play ? HeadsetPlay.RefusalLine(play) : null;
             return new RoomCard(task, head: RoomCardHead.Picture, status: status, slots: slots, trackAt: ended?.TrackAt, trackOf: ended?.TrackOf,
