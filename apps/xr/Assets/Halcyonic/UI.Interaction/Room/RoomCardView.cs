@@ -110,14 +110,19 @@ namespace Halcyonic.XR.UI
         public const float MoreLineDp = 21f;
 
         /// <summary>
-        /// A code to scan: its well at most 320 dp across (20 degrees), the card's hero, never wider than the card, standing in the card's
+        /// A code to scan: its well as wide as the card (at most 400 dp, 25 degrees), the card's hero, on every block's left edge, standing in the card's
         /// middle; its cells dark on a near-white well, the kit's margin of light cells round them, the well's corners inside
         /// that margin. Opaque both, so a camera reads it the same over the bright room as over the dark.
         /// </summary>
-        public const float CodeDp = 320f;
+        public const float CodeDp = 400f;
         public const int CodeGround = 0xF4F7F8;
         public const int CodeInk = 0x0E1214;
         public const float CodeCornerCells = 2f;
+
+        /// <summary>The page of reading's well: the panel's darkest, near solid, its rows 8 dp in from its top and foot.</summary>
+        public const int ReadingWell = 0x0E1214;
+        public const float ReadingWellAlpha = 0.86f;
+        public const float ReadingWellPadDp = 8f;
 
         /// <summary>The colours of the language: the pass, failure and accent hues, and their deep grounds.</summary>
         public const int Passed = 0x69D98D;
@@ -313,7 +318,8 @@ namespace Halcyonic.XR.UI
             }
             if (card.More != null)
             {
-                Gap(8f);
+                // A block's own gap, as between every other block (the critic, 2026-11-11: the foot sat tight).
+                Gap(BlockGapDp);
                 var (_, tall) = Text(KitRole.Body, MoreDp, MoreLineDp, White(NoteAlpha), card.More, 0f, -down, width, 2);
                 down += tall;
             }
@@ -365,6 +371,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private float LayCode(RoomCode code, float width, float down)
         {
+            // The card's own width, so the code shares every block's left edge (the critic, 2026-11-11), up to its most.
             var well = Mathf.Min(width, RoomType.Units(CodeDp));
             var cell = well / (code.Side + 2 * RoomCode.MarginCells);
             var centre = new Vector2(width / 2f, -(down + well / 2f));
@@ -384,6 +391,12 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private float LayReading(IReadOnlyList<RoomReadingRow> rows, float width, float down)
         {
+            // A dark well under the whole page, near solid, so a band keeps one colour whatever the room shows behind the
+            // panel (the critic, 2026-11-11), as a diff view sets its code apart.
+            var blockTall = 0f;
+            foreach (var row in rows) blockTall += row.Kind == RoomLineKind.Gap ? S(RoomReading.GapRowDp) : S(RoomReading.LineDp);
+            Plate(new Vector2(width, blockTall + 2f * S(ReadingWellPadDp)), S(TileCornerDp), Rgb(ReadingWell, ReadingWellAlpha), new Vector2(width / 2f, -(down + blockTall / 2f + S(ReadingWellPadDp))), "reading well", under: true);
+            down += S(ReadingWellPadDp);
             var advance = S(RoomReading.TypeDp) * RoomReading.AdvanceEm;
             var gutter = S(RoomReading.GutterDp);
             var pitch = S(RoomReading.LineDp);
@@ -402,7 +415,7 @@ namespace Halcyonic.XR.UI
                 {
                     var hue = row.Kind == RoomLineKind.Added ? Passed : Failed;
                     // A band of its hue, strong enough over the bright room, and a rule of the hue at its left, as a diff marks a run.
-                    Plate(new Vector2(width, pitch), S(4f), Rgb(hue, 0.16f), new Vector2(width / 2f, -middle), "reading band", under: true);
+                    Plate(new Vector2(width, pitch), S(4f), Rgb(hue, 0.20f), new Vector2(width / 2f, -middle), "reading band");
                     Plate(new Vector2(S(2f), pitch), 0f, Rgb(hue, 0.9f), new Vector2(S(1f), -middle), "reading rule");
                     if (!row.Continued)
                         Glyph(row.Kind == RoomLineKind.Added ? RoomGlyph.Plus : RoomGlyph.Minus, RoomReading.MarkDp, Rgb(row.Kind == RoomLineKind.Added ? Passed : Failed),
@@ -423,7 +436,7 @@ namespace Halcyonic.XR.UI
                 }
                 down += pitch;
             }
-            return down;
+            return down + S(ReadingWellPadDp);
         }
 
         private float LayHead(RoomCard card, float width, float down)
