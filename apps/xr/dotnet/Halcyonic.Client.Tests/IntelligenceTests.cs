@@ -790,4 +790,29 @@ public class DemonstrationReadsTests
         Assert.Fail("An answer was read where the recording holds none.");
         return "";
     }
+
+    [TestCase("fail", "pass", "All Passing")]
+    [TestCase("pass", "fail", "Checks Failed")]
+    [TestCase("pass", "partial", null)]
+    [TestCase("pass", "unknown", null)]
+    public void TheSimulatedChecksCardFollowsTheLatestRunAndLeavesPartialAndUnknownUnsaid(string earlier, string later, string? title)
+    {
+        // AUDIT S1 (2026-11-11): the latest run decides; partial and unknown have no words of their own yet, so no card.
+        var json = Newtonsoft.Json.Linq.JObject.Parse(Intelligence.Verified);
+        var understanding = json["result"]!["understanding"]!;
+        understanding["source"]!["synthetic"] = true;
+        var runs = (Newtonsoft.Json.Linq.JArray)understanding["verification"]!["latest_by_method"]!;
+        var first = runs[0];
+        var second = first.DeepClone();
+        first["outcome"] = earlier;
+        first["at"] = "2026-09-20T15:40:10.000Z";
+        second["method"] = "build";
+        second["outcome"] = later;
+        second["at"] = "2026-09-20T15:40:50.000Z";
+        runs.Add(second);
+        var read = new IntelligenceRead<UnderstandingResponse>(Intelligence.Understanding(json.ToString()), Intelligence.At("2026-09-29T09:00:00.000Z"), recorded: true);
+        var card = CheckedPresenter.SimulatedCard(read, TimeZoneInfo.Utc);
+        Assert.That(card?.Status?.Title, Is.EqualTo(title));
+        if (card != null) Assert.That((card.Status?.Line?.StartsWith("Simulated in the recording, at ", StringComparison.Ordinal), card.AnyDot), Is.EqualTo(((bool?)true, false)));
+    }
 }
