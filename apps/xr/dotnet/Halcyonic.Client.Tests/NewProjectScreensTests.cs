@@ -887,8 +887,9 @@ public class NewProjectStartTests
         idea.UseIdea("Plan dinners.");
         idea.Rename("App's Choice");
         var review = EntryScreens.ReviewOf(idea, Draft(), null, live: true);
-        // No model chosen: Halcyonic's own fallback stands upright, so a name copying it, here the project's, leans.
-        Assert.That(review.Items.Single(item => item.Label == "Model · ").Runs.ToString(), Is.EqualTo("Model · App's Choice"));
+        // No model chosen: Halcyonic's own fallback stands upright, so a name copying it, here the project's, leans; the level the
+        // start will use follows, Halcyonic's own.
+        Assert.That(review.Items.Single(item => item.Label == "Model · ").Runs.ToString(), Is.EqualTo("Model · App's Choice · Ask First"));
         Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ProjectLabel).Runs.ToString(), Is.EqualTo("Project · [App's Choice]"));
         Assert.That(review.Items.Single(item => item.Label == "Agent App · ").Runs.Runs.Last().Theirs, Is.True, "the agent app's name leans");
         Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ModelIdLabel).Runs.ToString(), Is.EqualTo("Model ID · none"),

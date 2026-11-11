@@ -132,7 +132,10 @@ namespace Halcyonic.Client
         private string? unresolvedLaid;
 
         /// <summary>The rows a part of the review holds, read once for the review and again only when the text size changes.</summary>
-        private (NewWorkReview Review, TextSize Size, int Rows)? reviewRows;
+        private (NewWorkReview Review, TextSize Size, bool ForRoom, int Rows)? reviewRows;
+
+        /// <summary>The review's parts were cut by the redesign's rows' own lines, not the older page's (AUDIT, 2026-11-10).</summary>
+        private bool reviewCutForRoom;
 
         /// <summary>A question's pages of answers (ADR 0026): its own page first where it and a row of them don't fit, then theirs.</summary>
         private sealed class AnswersLayout
@@ -828,6 +831,13 @@ namespace Halcyonic.Client
                 }
             }
             if (Review is not NewWorkReview reading || !reading.Paginated) return;
+            // The parts were cut for one view's lines: a draw by the other shows other lines, so it counts for nothing, and
+            // the review is cut again for the view drawing now (AUDIT's SHOULD, 2026-11-10, as FileColumn does for a request).
+            if (reviewCutForRoom != ReviewForRoom)
+            {
+                Redraw();
+                return;
+            }
             if (reading.Drawn(host.Now)) Redraw();
         }
 
@@ -1554,13 +1564,15 @@ namespace Halcyonic.Client
             var reading = review;
             if (reading == null) return;
             // Read once for this review, and again only when the text size changes, never as the head moves.
-            if (!(reviewRows is { } kept && ReferenceEquals(kept.Review, reading) && kept.Size == host.TextSize))
+            // Read again when the view that draws it changes too: each view's parts are its own lines.
+            if (!(reviewRows is { } kept && ReferenceEquals(kept.Review, reading) && kept.Size == host.TextSize && kept.ForRoom == ReviewForRoom))
             {
-                reviewRows = (reading, host.TextSize, ReviewForRoom ? RoomBar.RequestLines : ReviewPartRows());
+                reviewRows = (reading, host.TextSize, ReviewForRoom, ReviewForRoom ? RoomBar.RequestLines : ReviewPartRows());
             }
             var partRows = reviewRows.Value.Rows;
-            if (reading.Paginated && partRows == measuredPartRows) return;
+            if (reading.Paginated && partRows == measuredPartRows && reviewCutForRoom == ReviewForRoom) return;
             measuredPartRows = partRows;
+            reviewCutForRoom = ReviewForRoom;
             // The same rule by either measure: every item whole or cut at a line's end, a part never holding more lines than
             // it has room for. The redesign's rows count their own lines, eight a part, as a request's parts are counted.
             reading.Paginate(ReviewForRoom

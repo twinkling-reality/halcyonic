@@ -94,7 +94,8 @@ public class EntryScreensTests
             "Folder Next · New Folder · storefront-v2 in Projects",
             "Task Name · Add a search page.",
             "Agent App · Local\\u{200B} agent",
-            "Model · ollama/qwen",
+            // The level the start will use, after the model (a real runtime; this draft asks).
+            "Model · ollama/qwen · Ask First",
             "Model Location · On Your Computer · Uses Tools",
             "Model ID · ollama/qwen",
             "First Task · Add a search page.",

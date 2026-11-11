@@ -70,7 +70,10 @@ namespace Halcyonic.Client
                 idea.Name,
                 title,
                 runtime.Synthetic && live ? LineWords.Ours(EntryText.PracticeRun) : (runtime.Synthetic ? LineWords.Ours("Simulated · ") : LineWords.None) + Raw(CaptureNames.AgentName(runtime.DisplayName)),
-                model == null ? LineWords.Ours("App's Choice") : Raw(CaptureNames.ModelName(model.DisplayName)),
+                // The level the start will use stands on the Model row, Halcyonic's own words after the model's name (AUDIT: the
+                // review names the level before the start); a practice run asks nothing, so it names none.
+                (model == null ? LineWords.Ours("App's Choice") : Raw(CaptureNames.ModelName(model.DisplayName)))
+                    + (runtime.Synthetic ? LineWords.None : LineWords.Ours(KitMomentWords.Dot + AgentColumn.LevelWords(draft.StartsNeverAsk))),
                 LineWords.Written(model == null ? "App's Choice" : EntryText.ServedInSentence(model.Served) + " · " + EntryText.Tools(model.ToolCalling)),
                 model?.ModelRef is string modelRef ? Raw(CaptureNames.ModelName(modelRef)) : LineWords.Ours("none"),
                 idea.FirstTask,
