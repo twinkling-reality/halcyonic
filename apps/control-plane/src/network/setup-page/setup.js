@@ -1,6 +1,6 @@
 // The setup page (ADR 0053): reads what stands every two seconds, draws every step with its presses,
 // and sends a press as one POST from this page. A press asks first, with what it will do; only the
-// second press acts. One download runs at a time, with its last lines and a Stop. Below the steps,
+// second press acts. One download runs at a time, with its last lines and a Stop. Above the steps,
 // each game shared now (ADR 0054) with Copy, which puts its address on this Mac's clipboard, and Stop.
 // A link's address is never drawn, only copied.
 

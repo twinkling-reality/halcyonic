@@ -70,13 +70,15 @@ by `pnpm mac-setup agent-apps` in a browser on a scratch page.
    fails exits 1, so the loop stops.
 
 6. **What is shared now** ([ADR 0054](0054-what-was-made-is-kept-and-shared-only-by-the-persons-press.md)).
-   Below the steps, Shared Now lists each game shared now: its name, its way (Link or This Wi-Fi),
-   the Wi-Fi address as text, Copy and Stop. A link's address goes only to the clipboard, never on
-   the page. Stop is `POST /setup/shares/stop`, behind the page's session and origin like every
-   press, and submits `project.share.stop` as the person's press. Written by TASKS, read by CORE.
+   Above the steps, since a live link is the most time-bound thing there, Shared Now lists each
+   game shared now: its name, its way (Link or This Wi-Fi), the Wi-Fi address as text, Copy and
+   Stop. A link's address is never shown, only copied: it is in the page's state for Copy alone. Stop is `POST /setup/shares/stop`, behind the page's session and origin like every
+   press, and submits `project.share.stop` as what it is, the local person's press over HTTP
+   (`pageStopShare`), never a host-made stop. Written by TASKS, read by CORE.
 7. **Link sharing's tunnel** (ADR 0054). A step, Share a Link, with Get Link Sharing and Turn Link
    Sharing Off. The download is the checked release's archive from its GitHub release
-   (`/usr/bin/curl`, https only), checked by its SHA-256 with `/usr/bin/shasum` before
+   (`/usr/bin/curl -q`, so none of the person's own curl settings apply, https only, and stopped
+   past 30 MB), checked by its SHA-256 with `/usr/bin/shasum` before
    `/usr/bin/tar` unpacks the program alone. `pnpm mac-setup tunnel` then records
    `HALCYONIC_TUNNEL_BIN` only when the program's bytes match the pin, and the job says Done only
    then. It applies through Restart to Apply. The owner's yes to this download is on record. Written
