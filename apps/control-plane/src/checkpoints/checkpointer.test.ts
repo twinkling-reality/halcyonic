@@ -619,6 +619,48 @@ describe("a project's history and its folder as it is now (the parity map's gap 
     await controlPlane.close();
   });
 
+  test('a read of the folder now that fails takes nothing down and is read again (AUDIT2 block)', async () => {
+    const { start, types, events, controlPlane, projectId, store, time } = setup('history-reject');
+    const reads = new ProjectReads(controlPlane);
+    const journal = controlPlane.journal.info.journal_id;
+    start();
+    await until(
+      () => types().filter((type) => type === 'project.checkpoint.recorded').length === 2,
+      'two checkpoints',
+    );
+    const afterTurn = checkpointOf(events(), 'after_turn') as CheckpointId;
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      const original = store.treesNow.bind(store);
+      let folderReads = 0;
+      store.treesNow = (...args) => {
+        folderReads += 1;
+        // As git failing to start under load, or a folder removed while it is read.
+        if (folderReads === 1)
+          return Promise.reject(Object.assign(new Error('spawn git ENOENT'), { code: 'ENOENT' }));
+        return original(...args);
+      };
+      const failed = await reads.changes(
+        projectId,
+        { journal_id: journal, from: afterTurn },
+        LOCAL,
+      );
+      assert.equal(failed, undefined, 'a read that failed is the same unavailable read');
+      await new Promise((resolve) => setImmediate(resolve));
+      await time.advance(60_000);
+      const again = await reads.changes(projectId, { journal_id: journal, from: afterTurn }, LOCAL);
+      assert.equal(folderReads, 2, 'the folder is read again, not the failure kept');
+      assert.ok(again !== undefined, 'and the second read answers');
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.deepEqual(unhandled, [], 'no rejection is left unhandled');
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+    await controlPlane.close();
+  });
+
   test('with undo off the history says so, and no principal reads it', async () => {
     const { controlPlane, projectId } = setup('history-off', { undo: false });
     const reads = new ProjectReads(controlPlane);
