@@ -762,6 +762,85 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
   );
 
   test(
+    'a session whose server died is re-attached by a new adapter over the same store, its cut turn ended, and carries on with its history (ADR 0046)',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      const execution = await start('Hello first MARKER-ONE.');
+      await execution.next('runtime.turn.completed');
+      const started = execution.observations.find((o) => o.type === 'runtime.execution.started');
+      const nativeId =
+        started?.type === 'runtime.execution.started' ? started.payload.native_id : null;
+      const level =
+        started?.type === 'runtime.execution.started' ? started.payload.approval_level : undefined;
+      assert.ok(nativeId !== null);
+      await runtime.sendInstruction({
+        execution: execution.context,
+        text: 'SLOW turn the restart cuts MARKER-TWO.',
+      });
+      const cut = await execution.next('runtime.turn.started', 2);
+      const cutTurn = turnId(cut) ?? null;
+      const pid = runtime.serverPid;
+      assert.ok(pid !== null);
+      process.kill(pid, 'SIGKILL');
+      await execution.next('runtime.connection.lost');
+      await runtime.close();
+
+      // The next control plane: a new adapter, the same record and sandbox folders.
+      const next = new OpenCodeRuntimeAdapter({
+        binaryPath: BINARY,
+        serverRecordFile: sandbox.recordFile,
+        directoryPolicy: allowOnly(sandbox.project),
+        env: sandbox.env,
+        sandbox: sandboxOf(sandbox),
+      });
+      t.after(() => next.close());
+      await next.stopStaleServer();
+      const bounds = {
+        native_id: nativeId,
+        options: {},
+        model_ref: null,
+        ...(level !== undefined && { approval_level: level }),
+        confined: false,
+        directory: sandbox.project,
+        cut_turn: { turn_id: cutTurn },
+        last_sequence: null,
+      };
+      // A session OpenCode does not have, and one recorded at another level, are refused.
+      for (const [other, code] of [
+        [{ native_id: 'ses_not_there' }, 'session_not_found'],
+        [{ approval_level: level === 'never_ask' ? 'ask' : 'never_ask' }, 'reattach_refused'],
+      ] as const) {
+        const refused = new Execution();
+        await assert.rejects(
+          next.reattach({ ...bounds, ...other, execution: refused.context, emit: refused.emit }),
+          actionError(code),
+        );
+        assert.deepEqual(refused.observations, []);
+      }
+      const again = new Execution();
+      await next.reattach({ ...bounds, execution: again.context, emit: again.emit });
+      assert.deepEqual(
+        again.observations.map((o) => o.type),
+        ['runtime.connection.restored', 'runtime.turn.interrupted'],
+      );
+      assert.deepEqual(again.observations[1]?.payload, { turn_id: cutTurn });
+      const before = sandbox.provider.requests.length;
+      await next.sendInstruction({
+        execution: again.context,
+        text: 'Hello after restart MARKER-THREE.',
+      });
+      await again.next('runtime.turn.completed');
+      const resumed = sandbox.provider.requests
+        .slice(before)
+        .find((request) => request.lastUserText.includes('MARKER-THREE'));
+      assert.ok(resumed !== undefined);
+      assert.ok(resumed.body.includes('MARKER-ONE'), 'the first turn is in the history');
+      assert.ok(resumed.body.includes('MARKER-TWO'), 'the cut turn is in the history');
+    },
+  );
+
+  test(
     'a server that dies takes its executions with it; the next start launches another',
     SLOW_TEST,
     async (t) => {

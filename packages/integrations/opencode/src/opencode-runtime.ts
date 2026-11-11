@@ -14,6 +14,7 @@ import type {
   RuntimeId,
   RuntimeModel,
   RuntimeOptions,
+  Timestamp,
 } from '@halcyonic/contracts';
 import {
   type Clock,
@@ -22,6 +23,7 @@ import {
   type ExecutionContext,
   type ObservationSink,
   type OptionsValidation,
+  type ReattachRequest,
   RuntimeActionError,
   type RuntimeAdapter,
   type RuntimeObservation,
@@ -458,7 +460,8 @@ const LIST_SETTLES_AFTER_MS = 4000;
  * - a message given with an approval decision is accepted and delivered nowhere (defect);
  * - events missed while the stream is disconnected are not replayed, so a reconnect re-reads each
  *   session and reports the connection lost for any session it cannot settle;
- * - a server that exits takes its sessions' executions with it: nothing resumes after a restart.
+ * - a server that exits takes its sessions' executions with it while the adapter runs; after the
+ *   control plane restarts, `reattach` continues a session from its folder's store (ADR 0046).
  */
 export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   readonly descriptor: RuntimeDescriptor;
@@ -520,6 +523,9 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       // Only inside Halcyonic's sandbox, where each folder's server writes that folder alone (BOX-3,
       // ADR 0043; opencode-runtime.e2e.test.ts, the two-project test of 2026-11-11).
       ...(this.#sandbox !== null ? { offers_never_ask: true } : {}),
+      // A session outlives its server in that folder's store, and a new server continues it by its
+      // id (restart-reattach.md; ADR 0046).
+      resumes_after_restart: true,
     };
   }
 
@@ -724,10 +730,137 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     return { native_id: session.sessionId };
   }
 
+  /**
+   * Re-attaches a session an earlier control plane started (ADR 0046): its folder's server is
+   * launched anew through the same slot, bounded by the projects now inside the folder, as a start's
+   * is, over the same store; the session must be there, in the same folder, with exactly the rules of
+   * the level it was recorded at, and not running. The turn the restart cut is reported ended: the
+   * server that ran it was stopped, and OpenCode records no end for it. Anything else is refused.
+   */
+  async reattach(request: ReattachRequest): Promise<void> {
+    if (this.#closing !== null) throw closedError();
+    const refuse = (message: string) => new RuntimeActionError('reattach_refused', message);
+    // No recorded level means ask, as for a start.
+    const approvalLevel = request.approval_level ?? 'ask';
+    if (approvalLevel === 'never_ask' && this.#sandbox === null)
+      throw refuse(NEVER_ASK_UNSANDBOXED);
+    if (request.confined === true) {
+      throw refuse('The session was recorded confined, which OpenCode sessions never are.');
+    }
+    const parsed = parseStartOptions(request.options, request.model_ref);
+    if (!parsed.ok) throw refuse(parsed.message);
+    const directory = confirmProjectLocation(this.#directoryPolicy, request.directory);
+    const executionId = request.execution.execution_id;
+    if (this.#sessions.has(executionId) || this.#bySessionId.has(request.native_id)) {
+      throw new RuntimeActionError('duplicate_execution', 'The execution is already attached.');
+    }
+    const connection = await this.#connection(await this.#bounded(this.#slot(directory)));
+    await this.#awaitModel(connection, directory, parsed.value.model);
+    confirmProjectLocation(this.#directoryPolicy, directory);
+    const base = `/api/session/${encodeURIComponent(request.native_id)}`;
+    let info: unknown;
+    let active: unknown;
+    try {
+      info = await readData(connection.server.client, base);
+      active = await readData(connection.server.client, '/api/session/active');
+    } catch {
+      throw new RuntimeActionError(
+        'session_not_found',
+        `OpenCode has no session ${request.native_id} in this folder's store.`,
+      );
+    }
+    if (!isRecord(info) || info.id !== request.native_id) {
+      throw new RuntimeActionError(
+        'session_not_found',
+        `OpenCode has no session ${request.native_id}.`,
+      );
+    }
+    const location = isRecord(info.location) ? info.location.directory : undefined;
+    if (location !== directory) {
+      throw refuse(
+        `The session works in ${String(location)}, not in the task's folder ${directory}.`,
+      );
+    }
+    if (
+      !isDeepStrictEqual(info.permissions, sessionPermissions(this.#environment, approvalLevel))
+    ) {
+      throw refuse(
+        `OpenCode reports the session with other rules than the level ${approvalLevel} it was recorded at gives. The session is not used.`,
+      );
+    }
+    if (!isRecord(active) || Object.hasOwn(active, request.native_id)) {
+      throw refuse('OpenCode reports a turn of the session running that Halcyonic did not start.');
+    }
+    if (this.#closing !== null) throw closedError();
+    const session: HostedSession = {
+      sessionId: request.native_id,
+      execution: request.execution,
+      emit: request.emit,
+      connection,
+      state: createSessionState(),
+      inFlight: new Set(),
+      approving: new Set(),
+      reconciling: null,
+      lost: false,
+      recoverable: false,
+    };
+    this.#made.add(request.native_id);
+    this.#sessions.set(executionId, session);
+    this.#bySessionId.set(session.sessionId, session);
+    try {
+      // As at a start: the session's commands get this environment, not the new server's own.
+      await send(
+        connection,
+        'PUT',
+        `${base}/environment`,
+        { variables: this.#environment },
+        'runtime_refused',
+      );
+    } catch (error) {
+      this.#sessions.delete(executionId);
+      this.#bySessionId.delete(session.sessionId);
+      throw error;
+    }
+    const at = this.#clock.now().toISOString() as Timestamp;
+    this.#emit(session, [
+      observation(
+        'runtime.connection.restored',
+        {
+          reason:
+            "OpenCode still has the session in this folder's store, so it is re-attached after the restart.",
+        },
+        {
+          native_event_id: null,
+          sequence: null,
+          occurred_at: at,
+          provenance: { epistemic: 'observed', native_type: 'opencode/session.get' },
+        },
+      ),
+      ...(request.cut_turn === null
+        ? []
+        : [
+            observation(
+              'runtime.turn.interrupted',
+              { turn_id: request.cut_turn.turn_id },
+              {
+                native_event_id: null,
+                sequence: null,
+                occurred_at: at,
+                provenance: {
+                  epistemic: 'inferred',
+                  native_type: 'opencode/session.active',
+                  rule: 'opencode.restart.turn_status',
+                },
+              },
+            ),
+          ]),
+    ]);
+  }
+
   async sendInstruction(request: { execution: ExecutionContext; text: string }): Promise<void> {
     const session = this.#hosted(request.execution);
     // A project bound inside the folder since its server started is not in that server's profile,
-    // and OpenCode resumes no session on another server, so the turn is refused (AUDIT BOX-3 fix F1).
+    // and the running server cannot be replaced under its session, so the turn is refused (AUDIT BOX-3 fix F1).
     const folder = session.connection.slot.folder;
     if (folder !== null) {
       const now = [...this.#foldersInside(folder)].sort();
@@ -897,7 +1030,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
           "Another project's folder was added inside this one while a task runs here. Once it stops, start again, so OpenCode keeps out of that project.",
         );
       }
-      // Its tasks at rest go with it: OpenCode 2.0.18 resumes no session on another server.
+      // Its tasks at rest go with it: the adapter moves no session to another server while it runs.
       await this.#giveUp(
         current,
         "Another project's folder was added inside this one, so OpenCode's server here was replaced to keep out of it. This task's session cannot continue.",
@@ -1068,7 +1201,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     this.#halt(connection);
     this.#loseAll(
       connection,
-      `The OpenCode server exited unexpectedly (${describeExit(status)}). OpenCode does not resume sessions after a restart, so this execution can no longer be observed or controlled.`,
+      `The OpenCode server exited unexpectedly (${describeExit(status)}). This execution can no longer be observed or controlled.`,
     );
   }
 

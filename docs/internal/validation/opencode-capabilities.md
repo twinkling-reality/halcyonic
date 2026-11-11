@@ -100,7 +100,7 @@ Runtime observed unless stated.
 | diff | Supported, needs a message id | Supported |
 | terminal output | Pushed in events; PTY over WebSocket | Polled only; PTY over WebSocket |
 | replay after reconnect | Not supported | Not supported; the experimental log returned nothing |
-| recovery after restart | Not supported | Documented; not observed |
+| recovery after restart | Not supported | The cut run is not resumed; the session is, by its id on a new server over the same store (restart-reattach.md, 2026-11-10) |
 
 ## Consequences for Halcyonic
 

@@ -1,7 +1,7 @@
 # ADR 0046: A restart re-attaches each task's session where the runtime keeps it
 
-- Status: Accepted; the control plane's side built, Claude Code and Codex declare it (end to end on
-  their pinned binaries with fake providers), OpenCode not yet
+- Status: Accepted; built: the control plane's side, and Claude Code, Codex and OpenCode declare it
+  (end to end on their pinned binaries with fake providers)
 - Date: 2026-11-10
 
 ## Context
