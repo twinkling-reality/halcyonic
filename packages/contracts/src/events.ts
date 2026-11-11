@@ -18,7 +18,7 @@ import {
   PolicyCategory,
   ReceivedVia,
 } from './commands.ts';
-import { ConflictedFiles, CopyRefusalCode } from './copies.ts';
+import { ChangedFiles, ConflictedFiles, CopyRefusalCode } from './copies.ts';
 import { DeviceLabel, Principal, Sha256Hex } from './devices.ts';
 import { FilesObserved } from './file-changes.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
@@ -473,11 +473,12 @@ export const WorkstreamCopyRefused = workstreamEvent(
 
 /**
  * The host read the task's copy (its tree `tree`) and found `changed` differing from the copy's
- * base: what an add would bring to the project, as far as the copy goes.
+ * base: what an add would bring to the project, as far as the copy goes. `files` lists the same
+ * files with how each changed; a reading recorded before it carried none.
  */
 export const WorkstreamCopyChangesRead = workstreamEvent(
   'workstream.copy_changes_read',
-  Type.Object({ tree: Sha256Hex, changed: PathList }, strict),
+  Type.Object({ tree: Sha256Hex, changed: PathList, files: Type.Optional(ChangedFiles) }, strict),
 );
 
 /**

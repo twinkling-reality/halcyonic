@@ -1,12 +1,12 @@
 import { execFile } from 'node:child_process';
 import { lstat, mkdir, readdir, realpath, rmdir } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import type { CopyRefusalCode, Timestamp } from '@halcyonic/contracts';
+import type { ChangedFile, CopyRefusalCode, Timestamp } from '@halcyonic/contracts';
 import type { Projection } from '@halcyonic/domain';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import type { EventPublisher } from '../core/publisher.ts';
 import type { Recorder } from '../core/recorder.ts';
-import { pathList } from './checkpointer.ts';
+import { changedFileList, pathList } from './checkpointer.ts';
 import type { CheckpointStore, MergeConflict } from './store.ts';
 import { removeInside, within } from './store.ts';
 
@@ -24,7 +24,7 @@ export interface TaskCopiesOptions {
   readonly directory: string;
   readonly store: Pick<
     CheckpointStore,
-    'take' | 'treeOf' | 'keep' | 'changedPaths' | 'merge' | 'apply'
+    'take' | 'treeOf' | 'keep' | 'changedPaths' | 'changedFiles' | 'merge' | 'apply'
   >;
   /** A UUID naming the base's tree in the store, as a checkpoint's id does. */
   readonly nextId: () => string;
@@ -186,19 +186,21 @@ export class TaskCopies {
 
   /**
    * What the copy now differs by from its base: its tree, read with the base as the index's start,
-   * and the paths that differ. Null when it cannot be read.
+   * and the files that differ, with how each changed. Null when it cannot be read.
    */
   readChanges(
     projectId: string,
     workstreamId: string,
     copy: string,
     base: string,
-  ): Promise<{ tree: string; changed: string[] } | null> {
+  ): Promise<{ tree: string; changed: string[]; files: ChangedFile[] } | null> {
     return this.#serially(workstreamId, async () => {
       const task = await this.#store.treeOf(projectId, copy, base);
       if (!task.ok) return null;
-      const changed = await this.#store.changedPaths(projectId, base, task.tree);
-      return changed === null ? null : { tree: task.tree, changed };
+      const files = await this.#store.changedFiles(projectId, base, task.tree);
+      return files === null
+        ? null
+        : { tree: task.tree, changed: files.map((file) => file.path), files };
     });
   }
 
@@ -222,9 +224,14 @@ export class TaskCopies {
       // Only what the person reviewed is ever added: a copy changed since its last reading, by its
       // agent or anything else, is read again and shown before anything is written.
       if (task !== request.reviewed) {
-        const changed = await this.#store.changedPaths(projectId, request.base, task);
-        if (changed === null) return failed('store_failed', 'The changes could not be read.');
-        return { kind: 'unreviewed', taskTree: task, changed };
+        const files = await this.#store.changedFiles(projectId, request.base, task);
+        if (files === null) return failed('store_failed', 'The changes could not be read.');
+        return {
+          kind: 'unreviewed',
+          taskTree: task,
+          changed: files.map((file) => file.path),
+          files,
+        };
       }
       if (merged.conflicts.length > 0)
         return {
@@ -444,7 +451,12 @@ export class TaskCopies {
 export type AddOutcome =
   | { readonly kind: 'nothing' }
   /** The copy is not the tree the person was shown: `changed` is what it differs by now. */
-  | { readonly kind: 'unreviewed'; readonly taskTree: string; readonly changed: readonly string[] }
+  | {
+      readonly kind: 'unreviewed';
+      readonly taskTree: string;
+      readonly changed: readonly string[];
+      readonly files: readonly ChangedFile[];
+    }
   | {
       readonly kind: 'conflicted';
       readonly taskTree: string;
@@ -556,7 +568,11 @@ export function readCopiesAfterTurns(
               workstream_id: event.workstream_id,
               execution_id: null,
             },
-            { tree: read.tree, changed: pathList(read.changed) },
+            {
+              tree: read.tree,
+              changed: pathList(read.changed),
+              files: changedFileList(read.files),
+            },
             deps.now(),
             NO_CAUSE,
           ),

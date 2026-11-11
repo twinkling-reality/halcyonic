@@ -2,6 +2,7 @@ import type {
   ApprovalLevel,
   ApprovalView,
   CatalogRepositoryRef,
+  ChangedFiles,
   CheckFilesState,
   CheckFindings,
   CheckId,
@@ -198,8 +199,9 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
 /**
  * Bumped whenever `ProjectionState`'s shape changes, so no older checkpoint is taken for it. 2: a
  * task's own copy and a check's folder and task (ADR 0045). 3: each project's shared link (F1).
+ * 4: how each file a task's copy would add changed (`to_add_files`).
  */
-export const PROJECTION_STATE_FORMAT = 3;
+export const PROJECTION_STATE_FORMAT = 4;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -1609,6 +1611,7 @@ export class Projection {
               made_at: event.occurred_at,
               base_tree: event.payload.base_tree,
               to_add: null,
+              to_add_files: null,
               to_add_read_at: null,
               last_added_at: null,
               conflict: null,
@@ -1622,6 +1625,9 @@ export class Projection {
       switch (event.event_type) {
         case 'workstream.copy_changes_read':
           copy.to_add = clonePathList(event.payload.changed);
+          // A reading recorded before readings said how each file changed leaves it unknown.
+          copy.to_add_files =
+            event.payload.files === undefined ? null : cloneChangedFiles(event.payload.files);
           copy.to_add_read_at = event.occurred_at;
           workstream.reviewedTree = event.payload.tree;
           break;
@@ -1640,6 +1646,7 @@ export class Projection {
           copy.base_tree = event.payload.task_tree;
           workstream.reviewedTree = event.payload.task_tree;
           copy.to_add = { paths: [], total: 0 };
+          copy.to_add_files = { files: [], total: 0 };
           copy.to_add_read_at = event.occurred_at;
           copy.last_added_at = event.occurred_at;
           copy.conflict = null;
@@ -1664,6 +1671,7 @@ export class Projection {
           copy.base_tree = event.payload.project_tree;
           workstream.reviewedTree = null;
           copy.to_add = null;
+          copy.to_add_files = null;
           copy.to_add_read_at = null;
           copy.conflict = null;
           break;
@@ -2099,11 +2107,16 @@ function clonePathList(list: { paths: readonly string[]; total: number }): {
   return { paths: [...list.paths], total: list.total };
 }
 
+function cloneChangedFiles(list: ChangedFiles): ChangedFiles {
+  return { files: list.files.map((file) => ({ ...file })), total: list.total };
+}
+
 function cloneCopy(copy: WorkstreamCopy): WorkstreamCopy {
   if (copy.state === 'refused') return { ...copy };
   return {
     ...copy,
     to_add: copy.to_add === null ? null : clonePathList(copy.to_add),
+    to_add_files: copy.to_add_files === null ? null : cloneChangedFiles(copy.to_add_files),
     conflict:
       copy.conflict === null
         ? null

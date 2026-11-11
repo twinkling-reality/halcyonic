@@ -308,9 +308,18 @@ describe('several agents on one project (ADR 0045)', {
       paths: ['app.txt'],
       total: 1,
     });
+    // The project had app.txt (the person's), so the agent's changed it.
+    assert.deepEqual(of('workstream.copy_changes_read', first)[0]?.payload.files, {
+      files: [{ path: 'app.txt', change: 'changed' }],
+      total: 1,
+    });
     const view = () => controlPlane.projection.workstream(first)?.copy;
     const read = view();
     assert.equal(read?.state === 'own' && read.to_add?.total, 1);
+    assert.deepEqual(read?.state === 'own' && read.to_add_files, {
+      files: [{ path: 'app.txt', change: 'changed' }],
+      total: 1,
+    });
     // The person changes another file of the project meanwhile.
     writeFileSync(join(folder, 'notes.txt'), 'mine\n');
     const added = await outcome(submit('workstream.add_to_project', { workstream_id: first }));

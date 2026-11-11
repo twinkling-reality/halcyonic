@@ -60,6 +60,8 @@ import {
   CompanionWant,
 } from './companion.ts';
 import {
+  ChangedFile,
+  ChangedFiles,
   ConflictedFile,
   ConflictedFiles,
   ConflictKind,
@@ -132,6 +134,8 @@ import {
   CheckStep,
   CheckVr,
   PreviewStopReason,
+  ShareStopReason,
+  ShareWay,
 } from './previews.ts';
 import { ClientInfo, ErrorInfo } from './primitives.ts';
 import {
@@ -213,6 +217,7 @@ import {
   ExecutionStatus,
   ExecutionView,
   JournalInfo,
+  ProjectShareView,
   ProjectView,
   QuestionView,
   Snapshot,
@@ -286,6 +291,7 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   TestRunView,
   TestRunResultView,
   ProjectView,
+  ProjectShareView,
   ProjectLocation,
   ProjectLocationChoice,
   LocationReviewRequest,
@@ -298,6 +304,8 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   ConflictKind,
   ConflictedFile,
   ConflictedFiles,
+  ChangedFile,
+  ChangedFiles,
   RestorePreview,
   CheckpointsResponse,
   RestorePreviewResponse,
@@ -310,6 +318,8 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   CheckStep,
   CheckVr,
   PreviewStopReason,
+  ShareWay,
+  ShareStopReason,
   AutoFixEndReason,
   AutoFixView,
   StarterView,

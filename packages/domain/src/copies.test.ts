@@ -159,19 +159,46 @@ describe("a task's own copy in the projection", () => {
       made_at: made.made_at,
       base_tree: TREE('a'),
       to_add: null,
+      to_add_files: null,
       to_add_read_at: null,
       last_added_at: null,
       conflict: null,
     });
     const scope = scopeOf(id);
+    // A reading recorded before readings said how each file changed: the kinds stay unknown.
     projection.apply(
       b.controlPlane('workstream.copy_changes_read', scope, {
         tree: TREE('b'),
-        changed: { paths: ['src/a.ts', 'src/b.ts'], total: 2 },
+        changed: { paths: ['src/a.ts'], total: 1 },
+      }),
+    );
+    const older = view();
+    assert.equal(older?.state === 'own' && older.to_add?.total, 1);
+    assert.equal(older?.state === 'own' && older.to_add_files, null);
+    projection.apply(
+      b.controlPlane('workstream.copy_changes_read', scope, {
+        tree: TREE('b'),
+        changed: { paths: ['src/a.ts', 'src/b.ts', 'old.ts'], total: 3 },
+        files: {
+          files: [
+            { path: 'src/a.ts', change: 'changed' },
+            { path: 'src/b.ts', change: 'added' },
+            { path: 'old.ts', change: 'removed' },
+          ],
+          total: 3,
+        },
       }),
     );
     const read = view();
-    assert.equal(read?.state === 'own' && read.to_add?.total, 2);
+    assert.equal(read?.state === 'own' && read.to_add?.total, 3);
+    assert.deepEqual(read?.state === 'own' && read.to_add_files, {
+      files: [
+        { path: 'src/a.ts', change: 'changed' },
+        { path: 'src/b.ts', change: 'added' },
+        { path: 'old.ts', change: 'removed' },
+      ],
+      total: 3,
+    });
     projection.apply(
       b.controlPlane('workstream.add_conflicted', scope, {
         task_tree: TREE('b'),
@@ -196,6 +223,7 @@ describe("a task's own copy in the projection", () => {
     assert.equal(fitted?.state === 'own' && fitted.base_tree, TREE('c'));
     assert.equal(fitted?.state === 'own' && fitted.conflict, null);
     assert.equal(fitted?.state === 'own' && fitted.to_add, null, 'unknown until read again');
+    assert.equal(fitted?.state === 'own' && fitted.to_add_files, null);
     projection.apply(
       b.controlPlane('workstream.added', scope, {
         checkpoint_id: '01920000-0000-7000-8000-0000000000c1' as never,
@@ -208,6 +236,7 @@ describe("a task's own copy in the projection", () => {
     const added = view();
     assert.equal(added?.state === 'own' && added.base_tree, TREE('e'));
     assert.deepEqual(added?.state === 'own' && added.to_add, { paths: [], total: 0 });
+    assert.deepEqual(added?.state === 'own' && added.to_add_files, { files: [], total: 0 });
     assert.ok(
       added?.state === 'own' && added.last_added_at !== null && added.last_added_at > made.made_at,
     );

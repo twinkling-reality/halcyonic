@@ -2475,16 +2475,7 @@
                   "maxLength": 253
                 },
                 "way": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "const": "link"
-                    },
-                    {
-                      "type": "string",
-                      "const": "wifi"
-                    }
-                  ]
+                  "$ref": "#/$defs/ShareWay"
                 }
               },
               "additionalProperties": false
@@ -2607,24 +2598,7 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 },
                 "reason": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "const": "asked"
-                    },
-                    {
-                      "type": "string",
-                      "const": "preview_stopped"
-                    },
-                    {
-                      "type": "string",
-                      "const": "ended"
-                    },
-                    {
-                      "type": "string",
-                      "const": "host_stopped"
-                    }
-                  ]
+                  "$ref": "#/$defs/ShareStopReason"
                 }
               },
               "additionalProperties": false
@@ -3250,6 +3224,9 @@
                 },
                 "changed": {
                   "$ref": "#/$defs/PathList"
+                },
+                "files": {
+                  "$ref": "#/$defs/ChangedFiles"
                 }
               },
               "additionalProperties": false
@@ -9034,16 +9011,7 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 },
                 "way": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "const": "link"
-                    },
-                    {
-                      "type": "string",
-                      "const": "wifi"
-                    }
-                  ]
+                  "$ref": "#/$defs/ShareWay"
                 }
               },
               "additionalProperties": false
@@ -10058,16 +10026,7 @@
               "maxLength": 253
             },
             "way": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "const": "link"
-                },
-                {
-                  "type": "string",
-                  "const": "wifi"
-                }
-              ]
+              "$ref": "#/$defs/ShareWay"
             }
           },
           "additionalProperties": false
@@ -11078,56 +11037,50 @@
           "additionalProperties": false
         },
         "share": {
-          "type": "object",
-          "required": [
-            "check_id",
-            "url",
-            "way",
-            "files"
-          ],
-          "properties": {
-            "check_id": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-            },
-            "url": {
-              "type": "string",
-              "pattern": "^(?:https://[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+|http://(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:[0-9]{1,5})$",
-              "maxLength": 253
-            },
-            "way": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "const": "link"
-                },
-                {
-                  "type": "string",
-                  "const": "wifi"
-                }
-              ]
-            },
-            "files": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "const": "unknown"
-                },
-                {
-                  "type": "string",
-                  "const": "current"
-                },
-                {
-                  "type": "string",
-                  "const": "changed"
-                }
-              ]
-            }
-          },
-          "additionalProperties": false
+          "$ref": "#/$defs/ProjectShareView"
         },
         "world": {
           "$ref": "#/$defs/ProjectWorldView"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProjectShareView": {
+      "type": "object",
+      "required": [
+        "check_id",
+        "url",
+        "way",
+        "files"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^(?:https://[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+|http://(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:[0-9]{1,5})$",
+          "maxLength": 253
+        },
+        "way": {
+          "$ref": "#/$defs/ShareWay"
+        },
+        "files": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "unknown"
+            },
+            {
+              "type": "string",
+              "const": "current"
+            },
+            {
+              "type": "string",
+              "const": "changed"
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -11409,6 +11362,7 @@
             "made_at",
             "base_tree",
             "to_add",
+            "to_add_files",
             "to_add_read_at",
             "last_added_at",
             "conflict"
@@ -11436,6 +11390,16 @@
               "anyOf": [
                 {
                   "$ref": "#/$defs/PathList"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "to_add_files": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ChangedFiles"
                 },
                 {
                   "type": "null"
@@ -11597,6 +11561,46 @@
         "total": {
           "type": "integer",
           "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "ChangedFile": {
+      "type": "object",
+      "required": [
+        "path",
+        "change"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^(?!/)(?!(?:.*/)?\\.\\.?(?:/|$))[^\\u0000-\\u001f\\u007f]+$"
+        },
+        "change": {
+          "$ref": "#/$defs/FileChangeKind"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ChangedFiles": {
+      "type": "object",
+      "required": [
+        "files",
+        "total"
+      ],
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ChangedFile"
+          },
+          "maxItems": 100
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "additionalProperties": false
@@ -12166,6 +12170,38 @@
         {
           "type": "string",
           "const": "host_restarted"
+        }
+      ]
+    },
+    "ShareWay": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "link"
+        },
+        {
+          "type": "string",
+          "const": "wifi"
+        }
+      ]
+    },
+    "ShareStopReason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "asked"
+        },
+        {
+          "type": "string",
+          "const": "preview_stopped"
+        },
+        {
+          "type": "string",
+          "const": "ended"
+        },
+        {
+          "type": "string",
+          "const": "host_stopped"
         }
       ]
     },

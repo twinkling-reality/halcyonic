@@ -86,7 +86,8 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
    the base becomes the project's tree (`workstream.fitted`), and the task's agent is asked to fit
    its work; a file that cannot be marked gets the project's version and is named.
 6. The task's view carries its copy: its folder, base, what differs from the base as last read
-   (`workstream.copy_changes_read`), its latest add and any conflict, as states, counts and paths;
+   (`workstream.copy_changes_read`; `to_add`, and `to_add_files` with how each file changed: added,
+   changed or removed), its latest add and any conflict, as states, counts and paths;
    the headset's words are its own. Absent on every task from before, so journals from before,
    the demonstration and the recorded run play as they did.
 7. Checkpoints follow the folder they were taken of: a task's turns are kept from its copy and a

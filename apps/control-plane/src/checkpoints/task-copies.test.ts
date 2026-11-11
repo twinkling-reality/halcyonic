@@ -277,6 +277,10 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     );
     assert.equal(outcome.kind, 'unreviewed');
     assert.deepEqual(outcome.kind === 'unreviewed' && outcome.changed, ['b.txt', 'c.txt']);
+    assert.deepEqual(outcome.kind === 'unreviewed' && outcome.files, [
+      { path: 'b.txt', change: 'added' },
+      { path: 'c.txt', change: 'added' },
+    ]);
     assert.equal(existsSync(join(folder, 'b.txt')), false);
     assert.equal(existsSync(join(folder, 'c.txt')), false);
     // With nothing ever shown, nothing is added either.
@@ -287,6 +291,25 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
       async () => assert.fail('never'),
     );
     assert.equal(never.kind, 'unreviewed');
+  });
+
+  test('a reading says how each file changed: added, changed or removed', async () => {
+    write('kept.txt', 'one\n');
+    write('gone.txt', 'two\n');
+    write('src/edit.ts', 'export {};\n');
+    const made = await copies.prepare(PROJECT, TASK, folder);
+    assert.ok(made.ok);
+    writeFileSync(join(made.directory, 'src/edit.ts'), 'export const a = 1;\n');
+    rmSync(join(made.directory, 'gone.txt'));
+    mkdirSync(join(made.directory, 'art'));
+    writeFileSync(join(made.directory, 'art/new.svg'), '<svg/>\n');
+    const read = await copies.readChanges(PROJECT, TASK, made.directory, made.baseTree);
+    assert.deepEqual(read?.files, [
+      { path: 'art/new.svg', change: 'added' },
+      { path: 'gone.txt', change: 'removed' },
+      { path: 'src/edit.ts', change: 'changed' },
+    ]);
+    assert.deepEqual(read?.changed, ['art/new.svg', 'gone.txt', 'src/edit.ts']);
   });
 
   test('an add never goes through without its checkpoint of the project: nothing is written', async () => {

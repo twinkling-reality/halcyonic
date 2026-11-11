@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, mkdir, open, readFile, readlink, realpath, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, sep } from 'node:path';
-import type { CheckpointFailureCode } from '@halcyonic/contracts';
+import type { CheckpointFailureCode, FileChangeKind } from '@halcyonic/contracts';
 import { toolFoldersFor } from '@halcyonic/seatbelt';
 import { NO_LINK } from '../observer/file-observer.ts';
 import { ancestors, resolved, SANDBOX_EXEC, SYSTEM_READS, subpaths } from '../seatbelt.ts';
@@ -540,6 +540,41 @@ export class CheckpointStore {
       to,
     ]);
     return diff.code === 0 ? splitNul(diff.stdout) : null;
+  }
+
+  /**
+   * The files that differ between two trees and how each changed, in git's order (`--name-status`):
+   * `added`, `removed` (deleted), anything else (content or kind of file) `changed`. Null when they
+   * cannot be read.
+   */
+  async changedFiles(
+    projectId: string,
+    from: string,
+    to: string,
+  ): Promise<{ path: string; change: FileChangeKind }[] | null> {
+    if (!OBJECT_ID.test(from) || !OBJECT_ID.test(to)) return null;
+    const repository = await this.#repository(projectId);
+    const diff = await this.#run(repository, null, null, [
+      'diff-tree',
+      '-r',
+      '-z',
+      '--name-status',
+      '--no-renames',
+      from,
+      to,
+    ]);
+    if (diff.code !== 0) return null;
+    const parts = splitNul(diff.stdout);
+    const files: { path: string; change: FileChangeKind }[] = [];
+    for (let i = 0; i + 1 < parts.length; i += 2) {
+      const status = parts[i] as string;
+      const path = parts[i + 1] as string;
+      files.push({
+        path,
+        change: status === 'A' ? 'added' : status === 'D' ? 'removed' : 'changed',
+      });
+    }
+    return files;
   }
 
   /**
