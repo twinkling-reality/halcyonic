@@ -149,6 +149,7 @@ given (the question was dismissed or never shown) or where the person refused on
 more; where the system no longer asks, the hold records nothing and its line says how to allow it. A launch with
 the setting `halcyonic.noask=true` skips the open's question, since nothing may press a system dialog in a driven
 run. As for voice, it holds in every build (the owner, 2026-11-11: "Yes, with voice"), and a headset with no
-computer, as a judge's, is still never asked, and nothing is asked while the recorded demonstration shows. The rules are `MicrophoneAsk` in the client core; the open's question
+computer, as a judge's, is still never asked: the open asks only where voice is offered (a computer connected and
+no demonstration of any kind, recorded or for a computer that cannot be reached). The rules are `MicrophoneAsk` in the client core; the open's question
 is `MicrophoneAtOpen` in the Unity layer. The line's words and the Settings path are FIELD's, and the flow is proven
 on the headset when it is next connected.
