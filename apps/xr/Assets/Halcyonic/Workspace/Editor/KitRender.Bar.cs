@@ -78,7 +78,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// band; a long message; Changes and its second page's way on; Checks passed and failed; and a project with a
         /// check and no observed turn.
         /// </summary>
-        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-project", "38-result-agent", "38-result-stopped", "38-result-play", "38-result-play-refused" };
+        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-project", "38-result-agent", "38-result-stopped", "38-result-play", "38-result-play-refused", "38-result-add", "38-add", "38-add-last", "38-conflict" };
 
         /// <summary>The agent's newest message in the result's states, DESIGN's own, synthetic.</summary>
         private const string ResultSays = "I added the golden balloon and removed the old backup file.";
@@ -102,6 +102,15 @@ namespace Halcyonic.XR.Workspace.Editor
             return new ObservedTurn(1, Day + "09:05:00.000Z", HalcyonicJson.Deserialize<FilesObserved>(json));
         }
 
+        /// <summary>A task's own copy with <paramref name="files"/> to add, or where the project changed the same places (A13), synthetic.</summary>
+        private static RoomAdd CopyFor(int files, bool conflicted) => RoomAdd.Of(new OwnCopy
+        {
+            Directory = "/synthetic/copy", MadeAt = Day + "09:00:00.000Z", BaseTree = "base",
+            ToAdd = new PathList { Paths = Enumerable.Range(1, files).Select(index => "src/part" + index + ".ts").ToList(), Total = files },
+            ToAddReadAt = Day + "09:04:00.000Z", ToAddReview = "synthetic-review",
+            Conflict = conflicted ? new ConflictedFiles { Files = new List<ConflictedFile> { new() { Path = "src/game.ts", Kind = ConflictKind.Text } }, Total = 1 } : null,
+        }, working: false);
+
         /// <summary>What the computer knows in each of the result's states, synthetic.</summary>
         private static RoomResult? ResultFor(string state)
         {
@@ -119,6 +128,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-result-play" => new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, ResultTurn(false), passing, play: PlayInHeadset.Offered),
                 "38-result-play-refused" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, play: PlayInHeadset.NotConfined),
                 "38-project" => new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, null, passing),
+                "38-result-add" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, add: CopyFor(10, conflicted: false), addReview: "synthetic-review"),
+                "38-add" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, RoomResultPage.Add, add: CopyFor(10, conflicted: false), addReview: "synthetic-review"),
+                "38-add-last" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, RoomResultPage.Add, part: 1, add: CopyFor(10, conflicted: false), addReview: "synthetic-review"),
+                "38-conflict" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, RoomResultPage.Conflict, add: CopyFor(3, conflicted: true)),
                 _ => null,
             };
         }
@@ -222,6 +235,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-checks-failed" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks failed: the steps the check reached, Write Instruction and Back, synthetic data"),
                 "38-result-agent" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the agent offers never ask: the agent and its level in the row beside it, synthetic data"),
                 "38-result-stopped" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the agent's tries at a failed check ran out: that line first, Write Instruction leading, synthetic data"),
+                "38-result-add" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the task's own copy holds work to add: Add to Project leading, synthetic data"),
+                "38-add" => (VoiceStage.Idle, false, RoomBarState.Rest, "Add to Project's review: the task, where its work goes, the first five of ten files, Next Page and Back, synthetic data"),
+                "38-add-last" => (VoiceStage.Idle, false, RoomBarState.Rest, "Add to Project's review, its last page: the last five files, Add to Project behind its lock, and Back, synthetic data"),
+                "38-conflict" => (VoiceStage.Idle, false, RoomBarState.Rest, "Where the project changed the same file: FIELD's card naming it, Let Agent Fix and Back, synthetic data"),
                 "38-result-play" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the project's checked preview can open on the headset: Play in Headset beside Try Build, synthetic data"),
                 "38-result-play-refused" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the preview reads outside its project: no Play in Headset, synthetic data"),
                 "36-work-fixing" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work while the agent's first try at a failed check runs: the failure and the try in the panel beside Stop, synthetic data"),
@@ -460,7 +477,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var bar = host.Bar;
             // Confirm's lock: on its arrival the ring is part filled and it takes no press; 0.7 s on it is the main action.
             if (state == "33-ask-confirm-arriving") bar.AgeLockForRender(0.42f * RoomBar.ConfirmLockSeconds);
-            if (state is "33-ask-confirm" or "34-question-confirm" or "33-ask-tool-confirm" or "36-stop-confirm")
+            if (state is "33-ask-confirm" or "34-question-confirm" or "33-ask-tool-confirm" or "36-stop-confirm" or "38-add-last")
             {
                 // The lock lifted is a new action, which waits as any other before it takes a press: settled again for the render.
                 bar.AgeLockForRender(RoomBar.ConfirmLockSeconds);
@@ -600,7 +617,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         // FIELD's result card (A17): the check and the files as slots, an ended chain of tries as its status; no
                         // sentence, nothing joined on a dot, every label of the card whole.
                         var stopped = state == "38-result-stopped";
-                        var slots = state == "38-project" ? new[] { "Passed" } : stopped ? new[] { "Failed", "4 Files" } : new[] { "Passed", "4 Files" };
+                        var slots = state == "38-project" ? new[] { "Passed" } : stopped ? new[] { "Failed", "4 Files" } : state == "38-result-add" ? new[] { "Passed", "10 Files" } : new[] { "Passed", "4 Files" };
                         Require(shown.Card != null && !shown.Card.AnyDot && shown.Card.Slots.Select(slot => slot.Value.Text).SequenceEqual(slots) && shown.Sentence == null
                             && (shown.Card.Status?.Title == (stopped ? RoomBar.StoppedTitle : null)),
                             "the result's card reads " + string.Join(", ", shown.Card?.Slots.Select(slot => slot.Value.Text) ?? new string[0]) + " under " + shown.Card?.Status?.Title);
@@ -618,12 +635,14 @@ namespace Halcyonic.XR.Workspace.Editor
                             }
                         }
                         if (stopped) Require(shown.Column[0].Place == KitPlace.Field && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1, "Write Instruction does not lead where the tries ran out");
+                        else if (state == "38-result-add") Require(shown.Column[0].Control.Action == RoomResult.ShowAdd && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1,
+                            "Add to Project does not lead where the task holds work to add");
                         else Require(shown.Column[0].Control.Action == RoomResult.MakeVrVersion && shown.Column[0].Main, "Make VR Version does not lead");
                     }
                     else
                     {
-                        // Each page is FIELD's card (A17): Changes a list five a page, Checks the steps as nodes; no band, no
-                        // sentence, nothing joined on a dot, every label of the card whole.
+                        // Each page is FIELD's card (A17): Changes a list five a page, Checks the steps as nodes, A13's review and
+                        // the files changed in both; no band, no sentence, nothing joined on a dot, every label of the card whole.
                         Require(shown.Band == null && host.Band.Words == null && shown.Sentence == null, "a band or a sentence stands on a page");
                         Require(shown.Card != null && !shown.Card.AnyDot && shown.Facts == null, "the page is not a card, or joins facts on a dot");
                         if (state is "38-changes" or "38-changes-long")
@@ -635,8 +654,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(shown.Column.Last().Control.Action == RoomResult.Back, "Back does not stand last");
                         Require(shown.Column[0].Main == (state != "38-changes") && shown.Column[0].Control.Action == state switch
                         {
-                            "38-changes-long" => RoomResult.NextPage, "38-checks" => RoomResult.TryBuild, "38-checks-failed" => FileScreens.TellIt, _ => RoomResult.Back,
+                            "38-changes-long" => RoomResult.NextPage, "38-checks" => RoomResult.TryBuild, "38-checks-failed" => FileScreens.TellIt,
+                            "38-add" => RoomResult.NextPage, "38-add-last" => RoomResult.AddConfirm, "38-conflict" => RoomResult.Fit, _ => RoomResult.Back,
                         }, "the page's first action is " + shown.Column[0].Words);
+                        // A13: the add confirms behind its lock, named by its act (FIELD's A13 in A17's language).
+                        if (state == "38-add-last") Require(shown.Column[0].Locks && shown.Column[0].Words == RoomAdd.AddToProject, "Add to Project does not stand behind its lock");
+                        // Nothing can undo an add on the headset yet: the review never says it can (AUDIT, 2026-11-11).
+                        if (state is "38-add" or "38-add-last")
+                            Require(shown.Card!.List.Count == RoomCard.ListAPage && !shown.Card.Words().Any(words => words.Contains("undo")), "the review does not show five files, or speaks of undoing");
                     }
                 }
                 if (state == "37-page")
