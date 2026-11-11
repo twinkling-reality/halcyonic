@@ -45,10 +45,10 @@ public class RoomResultTests
 
     /// <summary>The redesign's view of a task at rest holding <c>result</c>, its agent having said <c>says</c>.</summary>
     private static RoomBar Bar(RoomResult? result, string? says = "I added the golden balloon.", ExecutionStatus status = ExecutionStatus.Completed, Action<FileScreen>? prepare = null,
-        KitSelectors? selectors = null)
+        KitSelectors? selectors = null, AutoFixView? fix = null)
     {
         var work = new WaitingWork();
-        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = status; }, status == ExecutionStatus.Completed ? WorkstreamStatus.Completed : WorkstreamStatus.Running);
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = status; execution.AutoFix = fix; }, status == ExecutionStatus.Completed ? WorkstreamStatus.Completed : WorkstreamStatus.Running);
         var now = work.Present();
         var offered = new[] { WorkspaceAction.Instruct };
         var activity = says != null ? new[] { new ActivityEntry(1, "2026-11-10T09:00:01.000Z", ActivityKind.Message, says, true) } : new ActivityEntry[0];
@@ -211,6 +211,47 @@ public class RoomResultTests
             Assert.That(agent.Words, Does.Contain("Never Ask"), "the level the next start will use stays shown beside the result");
             // The agent's moment adds its action to the loop's own bar and answers nothing, so the loop's bar is what stands.
             Assert.That(bar.FromMoment, Is.False);
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    [Test]
+    public void AnEndedChainOfTriesStandsFirstInTheResultAndWhereTheyRanOutAnInstructionLeads()
+    {
+        AutoFixView Ended(long attempt, AutoFixEndReason reason) =>
+            new() { State = AutoFixViewState.Ended, CheckId = "0193b3a0-0000-7000-8000-000000000001", Attempt = attempt, Cap = 2, Reason = reason };
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var fixedBar = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()), fix: Ended(2, AutoFixEndReason.Passed));
+            Assert.That((fixedBar.Body.Text, fixedBar.Sentence), Is.EqualTo(("Fixed · Try 2 of 2 · 5 Files Changed", (string?)"Build Passed")), Show(fixedBar));
+            Assert.That(fixedBar.Lines!.Select(line => line.Text), Is.EqualTo(new[] { "Fixed · Try 2 of 2", "5 Files Changed" }), "each on a line of its own");
+            Assert.That(fixedBar.Column[0].Control.Action, Is.EqualTo(RoomResult.MakeVrVersion), "a fixed check leaves the result's own way on");
+            Assert.That(fixedBar.Column[0].Main, Is.True);
+
+            var stopped = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: false, Turn(Observed), Steps(buildFails: true)), fix: Ended(2, AutoFixEndReason.CapReached));
+            Assert.That((stopped.Body.Text, stopped.Sentence), Is.EqualTo(("Stopped After 2 Tries · 5 Files Changed", (string?)"Build Failed")), Show(stopped));
+            Assert.That((stopped.Column[0].Place, stopped.Column[0].Main), Is.EqualTo((KitPlace.Field, true)), "where the tries ran out, an instruction leads");
+            Assert.That(stopped.Column.Count(action => action.Main), Is.EqualTo(1));
+            Assert.That(stopped.Column.Select(action => action.Control.Action), Does.Contain(RoomResult.MakeVrVersion));
+
+            // A check alone, no observed turn: the chain's line is the panel's, the check stays in the sentence bar.
+            var alone = Bar(new RoomResult(false, true, false, false, null, Steps(buildFails: true)), fix: Ended(2, AutoFixEndReason.CapReached));
+            Assert.That((alone.Body.Text, alone.Sentence, alone.Lines), Is.EqualTo(("Stopped After 2 Tries", (string?)"Build Failed", (IReadOnlyList<LineWords>?)null)), Show(alone));
+
+            // A fix the check passed, then the folder changed: the check no longer speaks for these files, so neither does
+            // "Fixed" (AUDIT's probe, 2026-11-11); the result stands as before any try.
+            var changedSince = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: null, Turn(Observed), null), fix: Ended(1, AutoFixEndReason.Passed));
+            Assert.That((changedSince.Body.Text, changedSince.Sentence, changedSince.Lines), Is.EqualTo(("5 Files Changed", (string?)null, (IReadOnlyList<LineWords>?)null)), Show(changedSince));
+            Assert.That(changedSince.Column[0].Control.Action, Is.EqualTo(RoomResult.MakeVrVersion));
+            // That the tries ran out stays true after the folder changed.
+            var ranOutSince = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: null, Turn(Observed), null), fix: Ended(2, AutoFixEndReason.CapReached));
+            Assert.That(ranOutSince.Body.Text, Is.EqualTo("Stopped After 2 Tries · 5 Files Changed"), Show(ranOutSince));
+
+            // Any other end, or none: the result as before any try.
+            var other = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()), fix: Ended(1, AutoFixEndReason.PersonStopped));
+            Assert.That((other.Body.Text, other.Sentence), Is.EqualTo(("5 Files Changed", (string?)"Build Passed")));
         }
         finally { RoomDesign.Enabled = was; }
     }
