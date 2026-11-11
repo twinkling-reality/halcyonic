@@ -2778,6 +2778,13 @@ bands are the bar's one band.
   Checks is `RoomPanelCards.Checks` (the outcome as its status, the steps as nodes, the tries' pips on the failed one),
   each the bar's `Card`, drawn in the panel's place (`RoomBarView.LayCard`). Every card is checked for no dot
   (`RoomCard.AnyDot`) in `RoomResultTests` and in the render states, every label of the card whole.
+- **The Projects place, the launch screen, as a card** (the census, JUDGE 2026-11-11; A17): with nothing beside the menu
+  under the redesign, the menu's own frame reaches the kit (`MenuDirector.PlainBindingOf` takes the menu's frame;
+  `MenuPlane.ShowKitWorkspace` draws it with the menu's view as the column of record and the menu's column for presses).
+  `RoomBar.Projects` reads it: a card whose list is picked from, each project a row with its name as theirs and its state
+  as the quiet note (`ProjectsText.StateOf`, carried on the line as `PageLine.ProjectState`, the attention tone for Needs
+  You), New Project leading, the place's other prompts, the menu's other places, Close last. Folders to connect, a
+  chosen row's side panel, anything else on the page: the older view, until FIELD's parts note.
 - **A task's Checks section as the result's Checks card** (the census, JUDGE 2026-11-11): under the redesign a task at
   rest with a check of the computer's own never shows the older Checks frame: whatever turned its file to Checks, the
   file stands at its Activity and the result's page turns to Checks (`MenuDirector.ChecksAsCard`, each draw).

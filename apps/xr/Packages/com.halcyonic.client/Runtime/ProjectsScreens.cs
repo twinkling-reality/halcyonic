@@ -293,7 +293,7 @@ namespace Halcyonic.Client
             foreach (var project in projects)
             {
                 lines.Add(PageLine.KnownProject(project.Name, ProjectsText.ProjectFact(project, LooksAlike(project, projects, offers, state)),
-                    project.ProjectId, chosen: project == chosenProject));
+                    project.ProjectId, chosen: project == chosenProject, state: ProjectsText.StateOf(project)));
             }
             // The demonstration connects nothing, so it lists no folders.
             if (state.Demonstration || !FoldersVisible(state)) return lines;

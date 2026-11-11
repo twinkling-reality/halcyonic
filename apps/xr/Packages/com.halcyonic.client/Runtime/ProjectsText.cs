@@ -59,6 +59,15 @@ namespace Halcyonic.Client
         /// on the stage, and after the look-alike mark when its name looks like another's. A long name
         /// shortens to make room, never this.
         /// </summary>
+        /// <summary>The project's state apart (A17): the word of what matters most, how many tasks it counts, and whether the project is on the stage.</summary>
+        public static ProjectState StateOf(ProjectSummary project) =>
+            project.NeedsYou > 0 ? new ProjectState("Needs You", project.NeedsYou, project.Shown, needsYou: true)
+            : project.Notice > 0 ? new ProjectState("Ready", project.Notice, project.Shown)
+            : project.Active > 0 ? new ProjectState("Running", project.Active, project.Shown)
+            : project.Work == 0 ? new ProjectState(NoWork, 0, project.Shown)
+            : project.Work > project.NotStarted ? new ProjectState("Paused", project.Work - project.NotStarted, project.Shown)
+            : new ProjectState("Not Started", project.NotStarted, project.Shown);
+
         public static string ProjectFact(ProjectSummary project, bool looksAlike = false)
         {
             var most = project.NeedsYou > 0 ? "Needs You · " + Tasks(project.NeedsYou)
@@ -94,7 +103,7 @@ namespace Halcyonic.Client
         /// <summary>A project with no tasks yet.</summary>
         public const string NoWork = "No Work";
 
-        private static string Tasks(int count) =>
+        public static string Tasks(int count) =>
             count.ToString(System.Globalization.CultureInfo.InvariantCulture) + (count == 1 ? " Task" : " Tasks");
 
         /// <summary>
@@ -123,5 +132,28 @@ namespace Halcyonic.Client
         /// <summary>A sentence of Halcyonic's own, begun with a capital, as a side panel's value.</summary>
         public static string Sentence(string text) =>
             text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text.Substring(1);
+    }
+
+    /// <summary>A project's state apart, never joined (A17): the word, the tasks it counts, whether it is on the stage, whether it waits on the person.</summary>
+    public sealed class ProjectState
+    {
+        public ProjectState(string word, int tasks, bool shown, bool needsYou = false)
+        {
+            Word = word;
+            Tasks = tasks;
+            Shown = shown;
+            NeedsYou = needsYou;
+        }
+
+        public string Word { get; }
+
+        public int Tasks { get; }
+
+        public bool Shown { get; }
+
+        public bool NeedsYou { get; }
+
+        /// <summary>"1 Task", "3 Tasks"; null where it counts none.</summary>
+        public string? TasksWords => Tasks > 0 ? ProjectsText.Tasks(Tasks) : null;
     }
 }
