@@ -227,6 +227,8 @@ namespace Halcyonic.XR.Workspace
             target.Ray.Selected += () => OnSelected(target);
             target.Poke.Selected += () => OnSelected(target);
             target.Ray.GazeSelected += () => OnLookAndPinch(target);
+            // Under the redesign each character is named by its tag (DESIGN 2.2), ringed while its task stands open.
+            RoomNameTag.On(view).Picked = workstreamId == shownBeside;
         }
 
         /// <summary>Opens the task directly from current work, independently of optional spatial agents.</summary>
@@ -333,11 +335,17 @@ namespace Halcyonic.XR.Workspace
             {
                 if (shownBeside is string closed)
                 {
-                    if (targets.TryGetValue(closed, out var was) && was != null) FacePerson(was, was == facing);
+                    if (targets.TryGetValue(closed, out var was) && was != null)
+                    {
+                        FacePerson(was, was == facing);
+                        if (was.View != null) RoomNameTag.On(was.View).Picked = false;
+                    }
                 }
                 shownBeside = beside;
                 if (beside != null)
                 {
+                    // The picked character's name tag wears the ring while its task stands open (DESIGN 2.2).
+                    if (targets.TryGetValue(beside, out var opened) && opened != null && opened.View != null) RoomNameTag.On(opened.View).Picked = true;
                     if (targets.TryGetValue(beside, out var now) && AgentVisible(now))
                     {
                         FacePerson(now, true);

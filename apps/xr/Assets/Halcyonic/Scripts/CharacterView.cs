@@ -114,6 +114,15 @@ namespace Halcyonic.XR
         private MeshRenderer ringRenderer = null!;
         private CharacterLabelView label = null!;
         private Transform labels = null!;
+
+        /// <summary>Where the character's label hangs (the shelf's front lip, facing the person): a name tag may hang there too.</summary>
+        public Transform Labels => labels;
+
+        /// <summary>The task's name, as the character last showed it.</summary>
+        public string Title { get; private set; } = "";
+
+        /// <summary>Raised whenever the character takes what it shows, after its label has.</summary>
+        public event System.Action? Shown;
         private TMP_Text[]? shelfWords;
         private MeshFilter[]? shelfBadgeMeshes;
         private MaterialPropertyBlock bodyBlock = null!;
@@ -338,6 +347,8 @@ namespace Halcyonic.XR
             }
             saying = life.TagWord;
             label.Show(saying == null ? CharacterLabel.Of(next) : CharacterLabel.Of(next).Saying(saying));
+            Title = next.Title;
+            Shown?.Invoke();
             shelfWords = null;
             shelfBadgeMeshes = null;
             if (first || cues.Paused)
