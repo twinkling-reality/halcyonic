@@ -39,16 +39,21 @@ namespace Halcyonic.Client
     {
         /// <summary>Review restoring one version (a row of the list).</summary>
         Version,
-        NextPage,
-        PreviousPage,
-        /// <summary>Restore the version reviewed: behind its lock on the first part, as an add is.</summary>
+        /// <summary>The next page of older versions.</summary>
+        Older,
+        /// <summary>Restore the version reviewed (Undo Add where it is the version before an add): behind its lock, as an add is.</summary>
         Restore,
         Cancel,
         /// <summary>Review restoring the version kept just before the restore: going back is itself undone in one step.</summary>
         UndoRestore,
         ReviewAgain,
         TryAgain,
+        /// <summary>Open the project's Changes (XR's page).</summary>
+        Changes,
+        /// <summary>Leave History; on a later page of the versions, the newer page (<see cref="HistoryColumn.Back"/>).</summary>
         Back,
+        /// <summary>Leave History from an outcome.</summary>
+        Close,
     }
 
     /// <summary>One action History offers now, with its words, whether it is the main one, and whether it waits behind its lock.</summary>
@@ -119,7 +124,6 @@ namespace Halcyonic.Client
         private ProjectRestoreIncompletePayload? incomplete;
         private string? sentCommandId;
         private int versionPage;
-        private int reviewPage;
         private bool armed;
 
         public HistoryColumn(string projectId, string projectName)
@@ -143,11 +147,22 @@ namespace Halcyonic.Client
         /// <summary>The digest of the review shown, which a restore carries back; null where none is shown.</summary>
         public string? ReviewDigest => Stage == HistoryStage.Review ? review : null;
 
-        /// <summary>The page of the list or of the review shown, from 0.</summary>
-        public int Page => Stage == HistoryStage.Review ? reviewPage : versionPage;
+        /// <summary>The page of the versions shown, from 0 (the review is one part, its rows past five counted in its foot).</summary>
+        public int Page => versionPage;
 
-        /// <summary>How many pages the list or the review has.</summary>
-        public int PageCount => Pages(Stage == HistoryStage.Review ? ReviewRows().Count : versions.Count);
+        /// <summary>How many pages the versions have.</summary>
+        public int PageCount => Pages(versions.Count);
+
+        /// <summary>
+        /// What History says in the column's sentence where it shows no card (reading, or sent), else null: the sweep's words.
+        /// </summary>
+        public string? Sentence => Stage switch
+        {
+            HistoryStage.Reading => HistoryText.Reading,
+            HistoryStage.Previewing => HistoryText.Previewing,
+            HistoryStage.Sending => HistoryText.Sending(Files()),
+            _ => null,
+        };
 
         /// <summary>Restore was pressed once and waits for its second press (its lock).</summary>
         public bool Armed => Stage == HistoryStage.Review && armed;
@@ -227,7 +242,6 @@ namespace Halcyonic.Client
                 case AvailableRestorePreview available when available.Preview.CheckpointId == reviewed.View.CheckpointId:
                     preview = available.Preview;
                     review = available.Review;
-                    reviewPage = 0;
                     armed = false;
                     Stage = HistoryStage.Review;
                     break;
@@ -237,36 +251,26 @@ namespace Halcyonic.Client
             }
         }
 
-        public bool NextPage()
+        /// <summary>The next page of older versions (Older); false where none follows.</summary>
+        public bool Older()
         {
-            if (Page + 1 >= PageCount) return false;
-            if (Stage == HistoryStage.Review)
-            {
-                reviewPage++;
-                armed = false;
-            }
-            else if (Stage == HistoryStage.Versions) versionPage++;
-            else return false;
+            if (Stage != HistoryStage.Versions || versionPage + 1 >= PageCount) return false;
+            versionPage++;
             return true;
         }
 
-        public bool PreviousPage()
+        /// <summary>Back on the versions: the newer page where a later page shows (true), else leave History (false).</summary>
+        public bool Back()
         {
-            if (Page == 0) return false;
-            if (Stage == HistoryStage.Review)
-            {
-                reviewPage--;
-                armed = false;
-            }
-            else if (Stage == HistoryStage.Versions) versionPage--;
-            else return false;
+            if (Stage != HistoryStage.Versions || versionPage == 0) return false;
+            versionPage--;
             return true;
         }
 
-        /// <summary>The first press of Restore: it stands behind its lock until pressed again. Only on the review's first part.</summary>
+        /// <summary>The first press of Restore: it stands behind its lock until pressed again.</summary>
         public bool Arm()
         {
-            if (Stage != HistoryStage.Review || reviewPage != 0 || review == null) return false;
+            if (Stage != HistoryStage.Review || review == null) return false;
             armed = true;
             return true;
         }
@@ -332,25 +336,18 @@ namespace Halcyonic.Client
             Stage = HistoryStage.Incomplete;
         }
 
-        /// <summary>What History shows now, as a card: never a fact joined to another by a dot.</summary>
-        public RoomCard Card() => Stage switch
+        /// <summary>What History shows now, as a card, never a fact joined to another by a dot; null where it shows only its <see cref="Sentence"/>.</summary>
+        public RoomCard? Card() => Stage switch
         {
-            HistoryStage.Reading => new RoomCard(status: new RoomCardStatus(HistoryText.Reading, null, RoomTone.Working)),
+            HistoryStage.Reading or HistoryStage.Previewing or HistoryStage.Sending => null,
             HistoryStage.Versions => VersionsCard(),
-            HistoryStage.NotSetUp => new RoomCard(status: new RoomCardStatus(HistoryText.NotSetUp, HistoryText.NotSetUpLine, RoomTone.Quiet)),
-            HistoryStage.Unreadable => new RoomCard(status: new RoomCardStatus(HistoryText.Unreadable, HistoryText.UnreadableLine, RoomTone.Bad)),
-            HistoryStage.Previewing => new RoomCard(title: reviewed!.Name, status: new RoomCardStatus(HistoryText.Previewing, null, RoomTone.Working)),
+            HistoryStage.NotSetUp => Status(HistoryText.NoHistory, HistoryText.NoneKeptLine, RoomTone.Quiet),
+            HistoryStage.Unreadable => Status(HistoryText.NotRead, HistoryText.NotReadLine, RoomTone.Bad),
             HistoryStage.Review => ReviewCard(),
-            HistoryStage.Sending => new RoomCard(title: reviewed!.Name,
-                status: new RoomCardStatus(HistoryText.Sending, HistoryText.Files(Files()), RoomTone.Working)),
-            HistoryStage.Done => new RoomCard(title: reviewed!.Name,
-                status: new RoomCardStatus(HistoryText.Done, HistoryText.DoneLine(reviewed.When), RoomTone.Good)),
-            HistoryStage.Incomplete => new RoomCard(title: reviewed!.Name,
-                status: new RoomCardStatus(HistoryText.Incomplete, HistoryText.IncompleteLine(incomplete?.NotRestored?.Total ?? 0), RoomTone.Bad)),
-            HistoryStage.Stale => new RoomCard(title: reviewed!.Name,
-                status: new RoomCardStatus(HistoryText.Stale, HistoryText.StaleLine, RoomTone.Quiet)),
-            _ => new RoomCard(title: reviewed!.Name,
-                status: new RoomCardStatus(HistoryText.Refused, HistoryText.RefusedLine, RoomTone.Bad)),
+            HistoryStage.Done => Status(HistoryText.Restored, HistoryText.AsTheyWere(RestoredFiles()), RoomTone.Good),
+            HistoryStage.Stale => Status(HistoryText.NotRestored, HistoryText.ChangedWhileLooking, RoomTone.Bad),
+            HistoryStage.Incomplete => Status(HistoryText.NotRestored, incomplete?.Written == true ? HistoryText.SomeChanged : HistoryText.NothingChanged, RoomTone.Bad),
+            _ => Status(HistoryText.NotRestored, HistoryText.NothingChanged, RoomTone.Bad),
         };
 
         /// <summary>The actions History offers now, in the column's order: the main one first, the ways out last.</summary>
@@ -361,66 +358,59 @@ namespace Halcyonic.Client
             {
                 case HistoryStage.Versions:
                     foreach (var version in VersionsOnPage())
-                        actions.Add(new HistoryAction(HistoryActionKind.Version, HistoryText.ReviewWords, checkpointId: version.View.CheckpointId));
-                    Pager(actions);
+                        actions.Add(new HistoryAction(HistoryActionKind.Version, version.Name.Text, checkpointId: version.View.CheckpointId));
+                    if (versionPage + 1 < PageCount) actions.Add(new HistoryAction(HistoryActionKind.Older, HistoryText.Older));
                     actions.Add(new HistoryAction(HistoryActionKind.Back, HistoryText.Back));
                     break;
                 case HistoryStage.Review:
-                    // Restore stands on the first part only, behind its lock, as an add's does.
-                    if (reviewPage == 0)
-                        actions.Add(new HistoryAction(HistoryActionKind.Restore, HistoryText.Restore, main: true, locked: !armed, checkpointId: reviewed!.View.CheckpointId));
-                    Pager(actions);
+                    var words = reviewed!.View.Reason == CheckpointReason.BeforeAdd ? HistoryText.UndoAdd : HistoryText.Restore;
+                    actions.Add(new HistoryAction(HistoryActionKind.Restore, words, main: true, locked: !armed, checkpointId: reviewed.View.CheckpointId));
                     actions.Add(new HistoryAction(HistoryActionKind.Cancel, HistoryText.Cancel));
                     break;
                 case HistoryStage.Done:
                     actions.Add(new HistoryAction(HistoryActionKind.UndoRestore, HistoryText.UndoRestore, main: true, checkpointId: restored!.BeforeRestoreCheckpointId));
-                    actions.Add(new HistoryAction(HistoryActionKind.Back, HistoryText.Back));
+                    actions.Add(new HistoryAction(HistoryActionKind.Changes, HistoryText.Changes));
+                    actions.Add(new HistoryAction(HistoryActionKind.Close, HistoryText.Close));
                     break;
                 case HistoryStage.Stale:
                     actions.Add(new HistoryAction(HistoryActionKind.ReviewAgain, HistoryText.ReviewAgain, main: true, checkpointId: reviewed!.View.CheckpointId));
-                    actions.Add(new HistoryAction(HistoryActionKind.Back, HistoryText.Back));
+                    actions.Add(new HistoryAction(HistoryActionKind.Close, HistoryText.Close));
+                    break;
+                case HistoryStage.Incomplete:
+                    actions.Add(new HistoryAction(HistoryActionKind.Changes, HistoryText.Changes));
+                    actions.Add(new HistoryAction(HistoryActionKind.Close, HistoryText.Close));
+                    break;
+                case HistoryStage.Refused:
+                    actions.Add(new HistoryAction(HistoryActionKind.Close, HistoryText.Close));
                     break;
                 case HistoryStage.Unreadable:
                     actions.Add(new HistoryAction(HistoryActionKind.TryAgain, HistoryText.TryAgain, main: true));
                     actions.Add(new HistoryAction(HistoryActionKind.Back, HistoryText.Back));
                     break;
-                case HistoryStage.Sending:
-                case HistoryStage.Reading:
-                case HistoryStage.Previewing:
-                    break;
-                default:
+                case HistoryStage.NotSetUp:
                     actions.Add(new HistoryAction(HistoryActionKind.Back, HistoryText.Back));
                     break;
             }
             return actions;
         }
 
+        private static RoomCard Status(string title, string line, RoomTone tone) => new RoomCard(status: new RoomCardStatus(title, line, tone));
+
         private RoomCard VersionsCard()
         {
-            if (versions.Count == 0)
-                return new RoomCard(title: LineWords.Ours(HistoryText.Title), status: new RoomCardStatus(HistoryText.NoVersions, HistoryText.NoVersionsLine, RoomTone.Quiet));
+            if (versions.Count == 0) return Status(HistoryText.NoHistory, HistoryText.NoneYetLine, RoomTone.Quiet);
             var rows = VersionsOnPage().Select(version => new RoomListRow(version.Kind, version.Name, version.When)).ToList();
-            return new RoomCard(
-                title: LineWords.Ours(HistoryText.Title),
-                description: LineWords.Ours(HistoryText.Description),
-                list: rows,
-                more: PageCount > 1 ? HistoryText.PageOf(versionPage, PageCount) : null);
+            return new RoomCard(title: LineWords.Ours(HistoryText.Title), description: LineWords.Ours(HistoryText.Description), list: rows);
         }
 
         private RoomCard ReviewCard()
         {
-            var files = Files();
-            var rows = ReviewRows().Skip(reviewPage * APage).Take(APage).ToList();
-            string? more = null;
-            if (preview!.ProjectHeadMoved == true) more = HistoryText.ChangedOutside;
-            else if (Listed() < files) more = HistoryText.NotListed(files - Listed());
-            else if (PageCount > 1) more = HistoryText.PageOf(reviewPage, PageCount);
-            return new RoomCard(
-                title: reviewed!.Name,
-                description: LineWords.Ours(HistoryText.ReviewLine(files, reviewed.When)),
-                slots: new[] { new RoomSlot(RoomKind.Reverts, LineWords.Ours(HistoryText.Files(files))) },
-                list: rows,
-                more: more);
+            var all = ReviewRows();
+            var rows = all.Take(APage).ToList();
+            var more = preview!.ProjectHeadMoved == true ? HistoryText.ChangedSince
+                : Files() > rows.Count ? HistoryText.AndMore(Files() - rows.Count)
+                : null;
+            return new RoomCard(title: reviewed!.Name, description: LineWords.Ours(HistoryText.CanUndo), list: rows, more: more);
         }
 
         private List<RoomListRow> ReviewRows()
@@ -428,22 +418,16 @@ namespace Halcyonic.Client
             var rows = new List<RoomListRow>();
             if (preview == null) return rows;
             rows.AddRange(preview.ChangedBack.Paths.Select(path => new RoomListRow(RoomKind.Reverts, LineWords.Theirs(path), HistoryText.Reverts, mono: true)));
-            rows.AddRange(preview.Removed.Paths.Select(path => new RoomListRow(RoomKind.Removed, LineWords.Theirs(path), HistoryText.Removed, RoomTone.Bad, mono: true)));
+            rows.AddRange(preview.Removed.Paths.Select(path => new RoomListRow(RoomKind.Removed, LineWords.Theirs(path), HistoryText.Goes, RoomTone.Bad, mono: true)));
             rows.AddRange(preview.Returned.Paths.Select(path => new RoomListRow(RoomKind.Added, LineWords.Theirs(path), HistoryText.ComesBack, RoomTone.Good, mono: true)));
             return rows;
         }
 
+        private long RestoredFiles() => restored == null ? 0 : restored.ChangedBack.Total + restored.Removed.Total + restored.Returned.Total;
+
         private long Files() => preview == null ? 0 : preview.ChangedBack.Total + preview.Removed.Total + preview.Returned.Total;
 
-        private long Listed() => preview == null ? 0 : preview.ChangedBack.Paths.Count + preview.Removed.Paths.Count + preview.Returned.Paths.Count;
-
         private IEnumerable<HistoryVersion> VersionsOnPage() => versions.Skip(versionPage * APage).Take(APage);
-
-        private void Pager(List<HistoryAction> actions)
-        {
-            if (Page + 1 < PageCount) actions.Add(new HistoryAction(HistoryActionKind.NextPage, HistoryText.NextPage));
-            if (Page > 0) actions.Add(new HistoryAction(HistoryActionKind.PreviousPage, HistoryText.PreviousPage));
-        }
 
         private static int Pages(int rows) => Math.Max(1, (rows + APage - 1) / APage);
 
@@ -455,7 +439,6 @@ namespace Halcyonic.Client
             restored = null;
             incomplete = null;
             sentCommandId = null;
-            reviewPage = 0;
             armed = false;
         }
 
@@ -469,7 +452,7 @@ namespace Halcyonic.Client
                 // Kept by the restore just now; the list holds it once read again.
                 RecordedAt = "",
             };
-            return new HistoryVersion(view, LineWords.Ours(HistoryText.BeforeRestoring), HistoryText.JustNow, RoomKind.Reverts);
+            return new HistoryVersion(view, LineWords.Ours(HistoryText.BeforeARestore), "", RoomKind.Reverts);
         }
 
         private static HistoryVersion Version(CheckpointView view, ClientProjection? state, DateTimeOffset now, TimeZoneInfo zone)
@@ -477,16 +460,16 @@ namespace Halcyonic.Client
             var task = TaskOf(view.ExecutionId, state);
             var (name, kind) = view.Reason switch
             {
-                CheckpointReason.BeforeTask => (Named(HistoryText.BeforeStarting, task, HistoryText.BeforeATask), RoomKind.Started),
-                CheckpointReason.AfterTurn => (Named(HistoryText.AfterWorkOn, task, HistoryText.AfterATask), RoomKind.Worked),
-                CheckpointReason.BeforeAdd => (Named(HistoryText.BeforeAdding, task, HistoryText.BeforeAnAdd), RoomKind.ToAdd),
-                _ => (LineWords.Ours(HistoryText.BeforeRestoring), RoomKind.Reverts),
+                CheckpointReason.BeforeTask => (Named("Before ", task, " Started", HistoryText.BeforeATask), RoomKind.Started),
+                CheckpointReason.AfterTurn => (Named("After ", task, " Worked", HistoryText.AfterATask), RoomKind.Worked),
+                CheckpointReason.BeforeAdd => (LineWords.Ours(HistoryText.BeforeTheAdd), RoomKind.ToAdd),
+                _ => (LineWords.Ours(HistoryText.BeforeARestore), RoomKind.Reverts),
             };
             return new HistoryVersion(view, name, HistoryText.When(view.RecordedAt, now, zone), kind);
         }
 
-        private static LineWords Named(string ours, string? task, string without) =>
-            task == null ? LineWords.Ours(without) : LineWords.Ours(ours + " ") + LineWords.Theirs(task);
+        private static LineWords Named(string before, string? task, string after, string without) =>
+            task == null ? LineWords.Ours(without) : LineWords.Ours(before) + LineWords.Theirs(task) + LineWords.Ours(after);
 
         private static string? TaskOf(string? executionId, ClientProjection? state)
         {
@@ -497,78 +480,60 @@ namespace Halcyonic.Client
         }
     }
 
-    /// <summary>History's words (FIELD's A14 renamed by A17: Go Back is Restore). Placeholders where FIELD's parts note will word them.</summary>
+    /// <summary>History's words, from FIELD's parts note of 2026-11-11 (A14 as cards, in A17's terms; Go Back is Restore).</summary>
     public static class HistoryText
     {
         public const string Title = "History";
-        public const string Description = "Every version your computer kept, newest first.";
+        public const string Description = "Pick a moment to restore.";
+        public const string CanUndo = "You can undo this.";
         public const string Reading = "Reading History";
-        public const string NotSetUp = "No History Kept";
-        public const string NotSetUpLine = "Set it up on your computer.";
-        public const string Unreadable = "History Unreadable";
-        public const string UnreadableLine = "Your computer did not answer.";
-        public const string NoVersions = "No Versions Yet";
-        public const string NoVersionsLine = "A version is kept when a task starts.";
-        public const string Previewing = "Reading Review";
-        public const string Sending = "Restoring";
-        public const string Done = "Restored";
-        public const string Incomplete = "Restore Incomplete";
-        public const string Stale = "Nothing Changed";
-        public const string StaleLine = "The folder changed since the review.";
-        public const string Refused = "Not Restored";
-        public const string RefusedLine = "Your computer refused it. Nothing changed.";
-        public const string ChangedOutside = "Also changed outside Halcyonic since.";
+        public const string Previewing = "Reading Changes";
+        public const string NoHistory = "No History Yet";
+        public const string NoneKeptLine = "The computer keeps none for this project";
+        public const string NoneYetLine = "Nothing is kept until a task starts";
+        public const string NotRead = "Not Read";
+        public const string NotReadLine = "The computer did not answer";
+        public const string Restored = "Restored";
+        public const string NotRestored = "Not Restored";
+        public const string ChangedWhileLooking = "The project changed while you looked";
+        public const string SomeChanged = "Some files changed: check Changes";
+        public const string NothingChanged = "Nothing changed";
+        public const string ChangedSince = "The project changed since then too.";
         public const string Reverts = "Reverts";
-        public const string Removed = "Removed";
+        public const string Goes = "Goes";
         public const string ComesBack = "Comes Back";
-        public const string BeforeStarting = "Before Starting";
-        public const string AfterWorkOn = "After Work on";
-        public const string BeforeAdding = "Before Adding";
-        public const string BeforeRestoring = "Before Restoring";
         public const string BeforeATask = "Before a Task Started";
         public const string AfterATask = "After a Task Worked";
-        public const string BeforeAnAdd = "Before an Add";
-        public const string JustNow = "Just Now";
-        public const string ReviewWords = "Review";
+        public const string BeforeARestore = "Before a Restore";
+        public const string BeforeTheAdd = "Before the Add";
         public const string Restore = "Restore";
+        public const string UndoAdd = "Undo Add";
         public const string Cancel = "Cancel";
         public const string UndoRestore = "Undo Restore";
         public const string ReviewAgain = "Review Again";
         public const string TryAgain = "Try Again";
-        public const string NextPage = "Next Page";
-        public const string PreviousPage = "Previous Page";
+        public const string Changes = "Changes";
+        public const string Older = "Older";
         public const string Back = "Back";
+        public const string Close = "Close";
 
-        public static string Files(long files) => files == 1 ? "1 File" : files.ToString(CultureInfo.InvariantCulture) + " Files";
+        public static string Sending(long files) => "Restoring " + (files == 1 ? "1 File" : files.ToString(CultureInfo.InvariantCulture) + " Files");
 
-        public static string ReviewLine(long files, string when) =>
-            "Restore puts " + (files == 1 ? "1 file" : files.ToString(CultureInfo.InvariantCulture) + " files") + " back as they were " + Lower(when) + ". You can undo it.";
+        public static string AsTheyWere(long files) =>
+            files == 1 ? "1 file is as it was" : files.ToString(CultureInfo.InvariantCulture) + " files are as they were";
 
-        public static string DoneLine(string when) => "Back as it was " + Lower(when) + ".";
+        public static string AndMore(long files) => "And " + files.ToString(CultureInfo.InvariantCulture) + " More";
 
-        public static string IncompleteLine(long notRestored) =>
-            (notRestored == 1 ? "1 file" : notRestored.ToString(CultureInfo.InvariantCulture) + " files") + " could not be put back.";
-
-        public static string NotListed(long files) => (files == 1 ? "1 more file" : files.ToString(CultureInfo.InvariantCulture) + " more files") + " not listed.";
-
-        public static string PageOf(int page, int pages) =>
-            "Page " + (page + 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture) + ".";
-
-        /// <summary>When a version was kept, as a row's note: "Today 18:40", "Yesterday 09:12", else "Nov 9 18:40".</summary>
+        /// <summary>When a version was kept, as a row's note: "18:40" today, "Yesterday 09:12", else "12 Nov 09:00".</summary>
         public static string When(string recordedAt, DateTimeOffset now, TimeZoneInfo zone)
         {
             if (!DateTimeOffset.TryParse(recordedAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at)) return "";
             var local = TimeZoneInfo.ConvertTime(at, zone);
             var today = TimeZoneInfo.ConvertTime(now, zone).Date;
             var time = local.ToString("HH:mm", CultureInfo.InvariantCulture);
-            if (local.Date == today) return "Today " + time;
+            if (local.Date == today) return time;
             if (local.Date == today.AddDays(-1)) return "Yesterday " + time;
-            return local.ToString("MMM d", CultureInfo.InvariantCulture) + " " + time;
+            return local.ToString("d MMM", CultureInfo.InvariantCulture) + " " + time;
         }
-
-        private static string Lower(string when) =>
-            when.StartsWith("Today ", StringComparison.Ordinal) ? "today at " + when.Substring(6)
-            : when.StartsWith("Yesterday ", StringComparison.Ordinal) ? "yesterday at " + when.Substring(10)
-            : when.Length == 0 || when == JustNow ? "just before" : "on " + when;
     }
 }

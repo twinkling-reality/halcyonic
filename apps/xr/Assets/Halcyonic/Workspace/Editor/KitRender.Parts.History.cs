@@ -29,7 +29,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly string[] HistoryStates =
         {
             "60-history-versions", "60-history-versions-page", "60-history-none", "60-history-not-set-up", "60-history-unreadable",
-            "60-history-review", "60-history-review-outside", "60-history-sending", "60-history-done", "60-history-incomplete",
+            "60-history-review", "60-history-review-many", "60-history-review-outside", "60-history-add", "60-history-done", "60-history-incomplete",
             "60-history-stale", "60-history-refused",
         };
 
@@ -108,6 +108,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 Version(2, CheckpointReason.AfterTurn, "2026-11-11T18:40:00.000Z"),
                 Version(3, CheckpointReason.BeforeRestore, "2026-11-10T09:12:00.000Z"),
             };
+            if (state == "60-history-add")
+                versions.Add(Version(11, CheckpointReason.BeforeAdd, "2026-11-11T18:45:00.000Z"));
             if (state == "60-history-versions-page")
                 for (var n = 4; n <= 9; n++) versions.Add(Version(n, CheckpointReason.AfterTurn, "2026-11-09T1" + n.ToString(CultureInfo.InvariantCulture) + ":05:00.000Z"));
             var column = new HistoryColumn(project, "Kite Run");
@@ -126,8 +128,12 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             column.Listed(new CheckpointsResponse { ProjectId = project, Result = new AvailableCheckpoints { Checkpoints = versions } }, projection, now, TimeZoneInfo.Utc);
             if (state.StartsWith("60-history-versions", StringComparison.Ordinal)) return column;
-            column.Choose(Id(1));
+            var chosen = state == "60-history-add" ? Id(11) : Id(1);
+            column.Choose(chosen);
             PathList Paths(params string[] paths) => new PathList { Paths = paths.ToList(), Total = paths.Length };
+            var changedBack = state == "60-history-review-many"
+                ? Paths("src/kite.js", "src/score.js", "src/wind.js", "src/sky/clouds.js", "src/sky/sun.js", "src/hud.js", "styles/main.css")
+                : Paths("src/kite.js", "src/score.js");
             column.Previewed(new RestorePreviewResponse
             {
                 ProjectId = project,
@@ -135,13 +141,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     Preview = new RestorePreview
                     {
-                        CheckpointId = Id(1), ChangedBack = Paths("src/kite.js", "src/score.js"), Removed = Paths("src/tail.js"), Returned = Paths("notes/plan.md"),
+                        CheckpointId = chosen, ChangedBack = changedBack, Removed = Paths("src/tail.js"), Returned = Paths("notes/plan.md"),
                         ProjectHeadMoved = state == "60-history-review-outside",
                     },
                     Review = new string('a', 64),
                 },
             });
-            if (state.StartsWith("60-history-review", StringComparison.Ordinal)) return column;
+            if (state.StartsWith("60-history-review", StringComparison.Ordinal) || state == "60-history-add") return column;
             column.Arm();
             var command = column.Restore(new ClientInfo { Name = "history-render", Version = "0" }, now)!;
             CommandView Rejected(RejectionCode code) => new CommandView
@@ -197,14 +203,15 @@ namespace Halcyonic.XR.Workspace.Editor
             try
             {
                 var column = HistoryOf(state);
-                var shot = HistoryShot(column.Card(), root.transform, eyes, name);
+                // Reading and sent show only the column's sentence, which is XR's: every state drawn here has a card.
+                var card = column.Card() ?? throw new InvalidOperationException(state + " has no card: " + column.Sentence);
+                var shot = HistoryShot(card, root.transform, eyes, name);
                 var expected = state switch
                 {
                     "60-history-versions" or "60-history-versions-page" or "60-history-none" => HistoryStage.Versions,
                     "60-history-not-set-up" => HistoryStage.NotSetUp,
                     "60-history-unreadable" => HistoryStage.Unreadable,
-                    "60-history-review" or "60-history-review-outside" => HistoryStage.Review,
-                    "60-history-sending" => HistoryStage.Sending,
+                    "60-history-review" or "60-history-review-many" or "60-history-review-outside" or "60-history-add" => HistoryStage.Review,
                     "60-history-done" => HistoryStage.Done,
                     "60-history-incomplete" => HistoryStage.Incomplete,
                     "60-history-stale" => HistoryStage.Stale,
@@ -241,7 +248,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (dark != null) UnityEngine.Object.DestroyImmediate(dark);
                     if (bright != null) UnityEngine.Object.DestroyImmediate(bright);
                 }
-                Debug.Log("Halcyonic: history: " + name + " rendered: " + string.Join(" / ", column.Card().Words()));
+                Debug.Log("Halcyonic: history: " + name + " rendered: " + string.Join(" / ", card.Words()));
             }
             finally
             {
@@ -307,8 +314,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(tiles.All(each => Mathf.Abs(each.Plate.transform.localPosition.x - each.Plate.Size.x / 2f) < slack), "a row's tile does not stand at the card's left");
                 foreach (var row in card.List)
                 {
-                    var nameLabel = view.Shown.FirstOrDefault(label => label.GetParsedText() == row.Name.Text);
-                    Require(nameLabel != null, row.Name.Text + " is not shown");
+                    // A name of our words and the person's is laid as runs on one label, which pads the person's run for its
+                    // ground: compared without any spacing, every letter of the name must be there, in order.
+                    static string Bare(string text) => new string(text.Where(each => !char.IsWhiteSpace(each) && each != '\u200B').ToArray());
+                    var nameLabel = view.Shown.FirstOrDefault(label => Bare(label.GetParsedText()) == Bare(row.Name.Text));
+                    Require(nameLabel != null, row.Name.Text + " is not shown, whole");
                     if (nameLabel != null)
                         Require(nameLabel.transform.localPosition.x + nameLabel.textBounds.min.x >= RoomType.Scaled(RoomCardView.RowTileDp + RoomCardView.RowGapDp) - unit * 1.5f,
                             row.Name.Text + " touches its tile");
