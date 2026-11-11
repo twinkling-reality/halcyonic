@@ -2684,7 +2684,12 @@ The last unit turns it on by default and removes the kit parts it replaced.
   beside the menu wears the ring (`RoomNameTag`, attached by `WorkspaceDirector.Attach`, ringed in `FollowBeside`);
   the character's older label (badge, plate and marks) does not stand. With the redesign off nothing changes. The
   character says what it shows (`CharacterView.Shown`, `Title`, `Labels`), since its own assembly cannot see the
-  room's parts. Check: `StageRender.RoomShelfCheck`.
+  room's parts. Check: `StageRender.RoomShelfCheck`. Under the redesign two characters stand at once, a page of the
+  shelf's order holding the picked one, and paging turns a page at a time (`AgentShelfPages.PerPage`, `Shown`); the
+  shelf's first place, at the person's left, is New Project, the plus glyph on the tags' line, which opens New Project
+  as the menu's own does (`CharacterStage.ShelfCapacity`, `ShelfPlaces`, `PlaceOf`; `RoomNewProjectPlace`, attached by
+  `WorkspaceDirector`). The shelf's surface widens to its places. With the redesign off the shelf holds one, as ever.
+  No render check builds a real stage, so two at once and New Project's place are not drawn by any check.
 - **The result at rest** (BUILD-SPEC-v4 2.5 to 2.8): what the computer itself knows of a task whose run is at rest
   stands as the pair over the row, in the same host (`RoomResult`, `KitWorkModel.Result`, `RoomBar.Resulting`,
   `RoomBar.Result`). The director gives it (`MenuDirector.ResultOf`) from the project's own screen

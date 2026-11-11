@@ -81,4 +81,24 @@ public class AgentShelfPagesTests
         Assert.That(now.ValueRuns.Text, Is.EqualTo("Showing 1 of 2"));
     }
 
+    [Test]
+    public void TheRedesignsShelfShowsAPageOfTwoAndTurnsAPageAtATime()
+    {
+        var pages = new AgentShelfPages();
+        var works = Enumerable.Range(1, 5).Select(n => Work("w" + n, "Task " + n, "2026-10-12T1" + (9 - n) + ":00:00Z")).ToArray();
+        pages.Update("journal", works);
+        Assert.That(pages.Shown, Is.EqualTo(new[] { "w1" }), "one a page, as the older shelf stands");
+        pages.PerPage = 2;
+        Assert.That(pages.Shown, Is.EqualTo(new[] { "w1", "w2" }), "the page holding the selected one");
+        Assert.That(pages.Move(1), Is.True);
+        Assert.That((pages.SelectedId, pages.Shown), Is.EqualTo(("w3", new[] { "w3", "w4" })), "a page at a time");
+        Assert.That(pages.Move(1), Is.True);
+        Assert.That(pages.Shown, Is.EqualTo(new[] { "w5" }), "the last page holds what is left");
+        Assert.That(pages.Move(1), Is.False);
+        Assert.That(pages.Move(-1), Is.True);
+        Assert.That(pages.Shown, Is.EqualTo(new[] { "w3", "w4" }));
+        Assert.That(pages.Select("w2"), Is.True);
+        Assert.That(pages.Shown, Is.EqualTo(new[] { "w1", "w2" }), "selecting one shows its page");
+        Assert.That(new AgentShelfPages { PerPage = 2 }.Shown, Is.Empty, "nothing selected, nothing stands");
+    }
 }

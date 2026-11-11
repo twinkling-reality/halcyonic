@@ -247,6 +247,8 @@ namespace Halcyonic.XR.Workspace
             stage.Visibility = visibility;
             stage.CharacterCreated += Attach;
             stage.Refreshed += OnStageRefreshed;
+            // New Project, the redesign's shelf's first place, opens New Project as the menu's own does.
+            RoomNewProjectPlace.On(stage).Pressed += () => menu?.OpenNewProject(null, null);
             AgentStageCreated?.Invoke(stage);
             return stage;
         }
