@@ -300,9 +300,11 @@ namespace Halcyonic.XR.UI
             var rowed = bar.Row.Count > 0;
             // Where the row does not stand, the agent's plate stands in its place: a name tag, never pressed (FIELD's part).
             var plated = !rowed && bar.Plate != null;
-            // From the foot line: the column's one action above it, the row's feet, or the plate's, under it.
+            // From the foot line: the column's one action above it, the row's feet, or the plate's, under it. With nothing
+            // to press and nothing to name (a recorded run at work), the row's place still stands under the foot line, so
+            // the working field has its place and the view is never a part of no height (JUDGE's walk 9, 2026-11-11).
             var above = stops ? Mathf.Max(target, core.y) : 0f;
-            var below = rowed || plated ? RoomType.Units(RowFeetDp) : 0f;
+            var below = rowed || plated || !stops ? RoomType.Units(RowFeetDp) : 0f;
             var foot = (below - above) / 2f;
             if (rowed) LayRow(bar, foot - below + target / 2f);
             else
