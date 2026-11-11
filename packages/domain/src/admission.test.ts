@@ -348,6 +348,19 @@ describe('command admission', () => {
       }),
     );
     projection.apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    // While its turn runs, or waits for the person, the plan is not carried out (AUDIT3 4a S2).
+    {
+      const command = commands.instruct();
+      const leaving = {
+        ...command,
+        payload: { ...(command.payload as object), leave_plan: true },
+      } as typeof command;
+      const running = admitCommand(leaving, projection, offers);
+      assert.deepEqual(running.admitted ? null : running.rejection, {
+        code: 'invalid_state',
+        message: 'Carry the plan out once it stops.',
+      });
+    }
     projection.apply(b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }));
     const view = () => projection.execution(scope.executionId);
     assert.equal(view()?.plan, true);

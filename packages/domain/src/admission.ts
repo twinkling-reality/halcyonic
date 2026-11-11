@@ -657,6 +657,11 @@ export function admitCommand(
             'This task is not a plan now, so there is no plan to carry out. Send the instruction without it.',
           );
         }
+        // Only at rest: switched while a turn runs or waits for the person, the steered words could
+        // still be answered on the plan (AUDIT3 4a S2).
+        if (!['completed', 'failed', 'interrupted'].includes(facts.status)) {
+          return reject(scope, 'invalid_state', 'Carry the plan out once it stops.');
+        }
       }
       switch (facts.status) {
         case 'completed':

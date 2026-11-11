@@ -26,6 +26,7 @@ import {
   OPENCODE_CAPABILITIES,
   OpenCodeRuntimeAdapter,
   openCodeSandboxFolder,
+  planSwitchOutcome,
   readSnapshot,
   sessionPermissions,
 } from './opencode-runtime.ts';
@@ -701,5 +702,15 @@ describe('OpenCode runtime without a server', () => {
       runtime.interrupt({ execution: TEST_EXECUTION }),
       actionError('runtime_closed'),
     );
+  });
+});
+
+describe('what a session read back after the switch off a plan says (PLAN 4a, AUDIT3 S1)', () => {
+  test('left only on build; still a plan only on plan; anything else, or nothing read, is unknown', () => {
+    assert.equal(planSwitchOutcome({ id: 'ses_1', agent: 'build' }), 'left');
+    assert.equal(planSwitchOutcome({ id: 'ses_1', agent: 'plan' }), 'still_plan');
+    assert.equal(planSwitchOutcome({ id: 'ses_1', agent: 'general' }), 'unknown');
+    assert.equal(planSwitchOutcome({ id: 'ses_1' }), 'unknown');
+    assert.equal(planSwitchOutcome(null), 'unknown');
   });
 });

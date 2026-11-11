@@ -91,8 +91,14 @@ asking for one is refused in admission.
   - Then an instruction with `leave_plan` switches the session to `build` (`POST /api/session/:id/agent`) and reads it
     back (`GET /api/session/:id` reports `agent: "build"`).
   - It records `runtime.plan.left` before the turn starts, and the write goes ahead in the same session.
-  - A read-back that is not `build` refuses the instruction (`runtime_refused`), with nothing sent and nothing
-    recorded. That path is read, not run: the pinned binary always confirmed.
+  - A read-back naming `plan` refuses the instruction (`runtime_refused`), with nothing sent and nothing recorded: the
+    task is still a plan.
+  - A read-back that fails or names another agent, after OpenCode took the switch, also refuses it with nothing sent,
+    but with effect `unknown` and words that say the task may have left its plan (AUDIT3 4a S1;
+    `planSwitchOutcome`, unit-tested). Both paths are read, not run: the pinned binary always confirmed.
+- **Only at rest** (completed, failed, interrupted): while a plan's turn runs or waits for the person, `leave_plan` is
+  refused ("Carry the plan out once it stops."). A steer switched mid-turn could still be answered on the plan
+  (AUDIT3 4a S2).
 - **The level** is the start's throughout: leaving a plan changes the agent, never the session's rules.
 - **A re-attach after leaving** expects the session on `build`: the bounds' `plan` is false once it was left.
 
