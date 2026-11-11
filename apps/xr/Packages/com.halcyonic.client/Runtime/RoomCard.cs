@@ -286,8 +286,9 @@ namespace Halcyonic.Client
         public RoomCard(LineWords? title = null, LineWords? description = null, RoomCardHead head = RoomCardHead.None, RoomCardStatus? status = null,
             IReadOnlyList<RoomSlot>? slots = null, IReadOnlyList<RoomCardStep>? steps = null, int? trackAt = null, int? trackOf = null,
             IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, LineWords? more = null, RoomCode? code = null,
-            IReadOnlyList<RoomReadingRow>? reading = null)
+            IReadOnlyList<RoomReadingRow>? reading = null, int? descriptionPage = null)
         {
+            DescriptionPage = descriptionPage is int page && page >= 0 ? page : (int?)null;
             Code = code;
             Reading = reading ?? new RoomReadingRow[0];
             Title = title;
@@ -312,6 +313,16 @@ namespace Halcyonic.Client
         public LineWords? Title { get; }
 
         public LineWords? Description { get; }
+
+        /// <summary>
+        /// Where the description is too long to stand whole (a first task of many lines, in the review before Start), the page
+        /// of it to show, from 0: <see cref="DescriptionPageLines"/> lines a page, broken between lines, never in a word. The
+        /// view says how many pages it made. Null where the description stands whole, up to four lines.
+        /// </summary>
+        public int? DescriptionPage { get; }
+
+        /// <summary>The lines of a description a page holds, where it pages.</summary>
+        public const int DescriptionPageLines = 6;
 
         public RoomCardHead Head { get; }
 
