@@ -1,4 +1,8 @@
-/* Inter (SIL Open Font License, OFL.txt beside it), served from this page's own folder. */
+/* The Mac's pages (pairing, ADR 0047; setup, ADR 0053) in the headset's card language (A17): a thing's name as its
+   title beside its emblem; facts as labelled slots, faint flat wells with nothing of a button about them; a status as a
+   title word over a quieter line beside its squircle mark; steps as joined nodes; tries as pips; list rows as a mark in a
+   tile, the name and a quiet note. One accent, on the one main action. Dark as the headset is; light as well.
+   Inter (SIL Open Font License, OFL.txt beside it), served from this page's own folder. */
 @font-face {
   font-family: "Inter";
   font-weight: 400;
@@ -11,23 +15,63 @@
   font-display: swap;
   src: url("/Inter-SemiBold.ttf") format("truetype");
 }
+
+/* The headset's own values (RoomCardView, RoomButton): the panel, its wells, the tones and the one accent. */
 :root {
   color-scheme: dark;
   --page: #121416;
   --card-top: #3c4247;
   --card-foot: #343a3f;
-  --edge: rgb(255 255 255 / 0.1);
-  --row: #2c3135;
-  --quiet-ground: #343a3f;
-  --quiet-hover: #444b51;
+  --card-edge: rgb(255 255 255 / 0.1);
+  --well: rgb(255 255 255 / 0.045);
+  --tile: #2f3539;
   --text: #ffffff;
   --secondary: #c9ced3;
+  --quiet: #9aa3aa;
   --accent: #59cff1;
-  --accent-hover: #7fdaf4;
-  --ink: #172024;
-  --success: #7ad9a4;
-  --problem: #ff8a80;
+  --accent-pointed: #9be2f7;
+  --accent-ink: #172024;
+  --rest: #2b3135;
+  --rest-pointed: #3a4247;
+  --rest-edge: rgb(255 255 255 / 0.16);
+  --good: #69d98d;
+  --good-ink: #9cf0b6;
+  --good-ground: #2e5e40;
+  --bad: #f7857d;
+  --bad-ink: #ffb4ad;
+  --bad-ground: #6e302c;
+  --working-ground: #22586a;
+  --focus: #9be2f7;
 }
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --page: #e9edf0;
+    --card-top: #ffffff;
+    --card-foot: #f6f8f9;
+    --card-edge: rgb(23 32 36 / 0.1);
+    --well: rgb(23 32 36 / 0.045);
+    --tile: #e4e9ec;
+    --text: #172024;
+    --secondary: #46525a;
+    --quiet: #66727a;
+    --accent: #59cff1;
+    --accent-pointed: #3fbde3;
+    --accent-ink: #172024;
+    --rest: #ffffff;
+    --rest-pointed: #eef2f4;
+    --rest-edge: rgb(23 32 36 / 0.2);
+    --good: #1f8a4c;
+    --good-ink: #1f8a4c;
+    --good-ground: #d5f1df;
+    --bad: #c4372f;
+    --bad-ink: #b3302a;
+    --bad-ground: #fbe0dd;
+    --working-ground: #d3effa;
+    --focus: #1d8fb5;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -41,179 +85,617 @@ body {
 body {
   display: grid;
   place-items: start center;
-  padding: 48px 16px;
+  padding: 48px 16px 64px;
   font:
-    17px / 1.5 "Inter",
+    17px / 1.45 "Inter",
     -apple-system,
     BlinkMacSystemFont,
     "Helvetica Neue",
     sans-serif;
-}
-main {
-  width: min(100%, 560px);
-  padding: 28px 32px 32px;
-  border-radius: 20px;
-  background: linear-gradient(to bottom, var(--card-top), var(--card-foot));
-  box-shadow: inset 0 0 0 1px var(--edge);
-}
-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  column-gap: 16px;
-  row-gap: 4px;
-  margin-bottom: 20px;
-}
-/* A link between the pairing page and the setup view (ADR 0053). */
-.page-link {
-  color: var(--accent);
-  font-size: 15px;
-  text-decoration: none;
-}
-.page-link:hover {
-  color: var(--accent-hover);
-}
-h1 {
-  margin: 0;
-  font-size: 20px;
-  line-height: 28px;
-  font-weight: 600;
-}
-h2 {
-  margin: 28px 0 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--secondary);
+  -webkit-font-smoothing: antialiased;
 }
 p {
-  margin: 0 0 12px;
-}
-.line {
-  font-weight: 600;
-}
-.status,
-.quiet {
-  color: var(--secondary);
-}
-.status {
   margin: 0;
 }
-.outcome {
-  color: var(--success);
+.sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.glyph {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The panel: one card, as the headset's. */
+main,
+.card {
+  width: min(100%, 640px);
+  padding: 32px;
+  border-radius: 28px;
+  background: linear-gradient(to bottom, var(--card-top), var(--card-foot));
+  box-shadow:
+    inset 0 0 0 1px var(--card-edge),
+    0 24px 48px -28px rgb(0 0 0 / 0.45);
+}
+
+/* The thing's name, its title beside its emblem; a line of description under it. */
+/* The emblem and every status mark share one first column, so every title starts at the same edge. */
+.head {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  grid-template-areas:
+    "emblem title link"
+    "emblem words words";
+  align-items: center;
+  column-gap: 16px;
+}
+.emblem {
+  grid-area: emblem;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 17px;
+  background: #3f8fb0;
+  color: #e8f6fb;
+}
+.emblem .glyph {
+  width: 28px;
+  height: 28px;
+}
+.head-words {
+  display: contents;
+}
+@media (prefers-color-scheme: light) {
+  .emblem {
+    background: #9fd8ec;
+    color: #12586f;
+  }
+}
+h1 {
+  grid-area: title;
+  margin: 0;
+  font-size: 34px;
+  line-height: 40px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
-.problem {
-  margin: 20px 0 0;
-  color: var(--problem);
+.description,
+.state-line {
+  text-wrap: pretty;
 }
-button {
-  font: inherit;
-  cursor: pointer;
-  border: 0;
-  border-radius: 12px;
-  transition:
-    background 120ms ease,
-    transform 80ms ease;
+.description {
+  grid-area: words;
+  margin-top: 2px;
+  font-size: 17px;
+  line-height: 24px;
+  color: var(--secondary);
 }
-button:active:not(:disabled) {
-  transform: scale(0.98);
-}
-button:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
-.primary {
-  display: block;
-  width: 100%;
-  margin-top: 12px;
-  padding: 14px 20px;
-  background: var(--accent);
-  color: var(--ink);
+/* A way to the other page: words that lead on, never a button's shape. */
+.page-link {
+  grid-area: link;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px 6px 8px;
+  border-radius: 10px;
+  color: var(--secondary);
+  font-size: 15px;
   font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
 }
-.primary:hover:not(:disabled) {
-  background: var(--accent-hover);
+.page-link .glyph {
+  width: 18px;
+  height: 18px;
 }
-.quiet-button {
-  padding: 8px 14px;
-  background: var(--quiet-ground);
+.page-link:hover {
   color: var(--text);
-  /* The card's own edge, so a rest action reads as one on a ground of its own value. */
-  box-shadow: inset 0 0 0 1px var(--edge);
 }
-.quiet-button:hover:not(:disabled) {
-  background: var(--quiet-hover);
+h2 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--quiet);
 }
-.headsets {
+
+/* A status: a title word over a quieter line, beside its squircle mark, in its tone. */
+.state {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: start;
+  column-gap: 16px;
+  margin-top: 28px;
+}
+/* A one-line status sits level with its mark; a longer one keeps its title at the mark's top. */
+.state-words {
+  min-height: 56px;
+  display: grid;
+  align-content: center;
+}
+/* Tries that ran out hang under the mark, as on the headset. */
+.mark-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: start;
+  gap: 8px;
+}
+.state-pips {
+  gap: 4px;
+  margin: 0;
+}
+.mark {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 17px;
+  background: var(--tile);
+  color: var(--secondary);
+}
+.mark .glyph {
+  width: 28px;
+  height: 28px;
+}
+.state-title {
+  font-size: 30px;
+  line-height: 36px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.state-line {
+  margin-top: 2px;
+  color: var(--secondary);
+}
+.state[data-tone="good"] .mark {
+  background: var(--good-ground);
+  color: var(--good-ink);
+}
+.state[data-tone="bad"] .mark {
+  background: var(--bad-ground);
+  color: var(--bad-ink);
+}
+.state[data-tone="working"] .mark {
+  background: var(--working-ground);
+  color: var(--accent-pointed);
+}
+@media (prefers-color-scheme: light) {
+  .state[data-tone="working"] .mark {
+    color: #1d6f8c;
+  }
+}
+
+.block {
+  margin-top: 28px;
+}
+
+/* Steps: squircle nodes joined by a line, each name under its node. */
+.route {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  column-gap: 10px;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+}
+.route li {
+  position: relative;
+  display: grid;
+  grid-template-rows: 38px auto;
+  align-content: start;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.route li + li::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  right: calc(50% + 26px);
+  left: calc(-50% + 26px);
+  height: 3px;
+  border-radius: 2px;
+  background: var(--tile);
+}
+.node {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--tile);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+.node-name {
+  font-size: 14px;
+  line-height: 19px;
+  color: var(--secondary);
+}
+
+/* Slots: a small quiet label with its glyph, a large value; a faint flat well, no edge, nothing of a button. */
+.slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.slot {
+  min-width: 0;
+  padding: 14px 16px 16px;
+  border-radius: 16px;
+  background: var(--well);
+}
+.slot-wide,
+.slot-code {
+  grid-column: 1 / -1;
+}
+.slot-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--quiet);
+}
+.slot-label .glyph {
+  width: 18px;
+  height: 18px;
+}
+.slot-value {
+  margin-top: 8px;
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: clamp(18px, 5vw, 24px);
+}
+.code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: clamp(40px, 12vw, 56px);
+  line-height: 1.15;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.others {
+  margin-top: 12px;
+}
+.others-label {
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--quiet);
+}
+.others-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--secondary);
+  overflow-wrap: anywhere;
+}
+/* Tries as pips, a game's lives: filled where used, hollow where left. */
+.pips {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.pip {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 2.5px var(--secondary);
+}
+.pip.used {
+  background: var(--bad);
+  box-shadow: none;
+}
+.state-pips .pip {
+  width: 14px;
+  height: 14px;
+  border-radius: 5px;
+}
+
+/* List rows: the kind's mark in a tile, the name, a quiet note at the right in its tone; the row's own action after. */
+.items {
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.headsets li {
+.item {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: auto 1fr auto 172px;
   align-items: center;
-  gap: 16px;
-  padding: 10px 10px 10px 14px;
-  border-radius: 12px;
-  background: var(--row);
+  column-gap: 14px;
+  padding: 11px 12px;
+  border-radius: 16px;
+  background: var(--well);
 }
-.headsets li + li {
+.item + .item {
   margin-top: 8px;
 }
-.label {
+.item-tile {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--tile);
+  color: var(--secondary);
+}
+.item-words {
+  display: contents;
+}
+.item-name {
+  min-width: 0;
+  font-size: 18px;
+  line-height: 24px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
-.fact {
-  color: var(--secondary);
+.item-note {
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--quiet);
+  white-space: nowrap;
 }
-.off-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px 16px;
+.item-note[data-tone="good"] {
+  color: var(--good);
+}
+.empty {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--well);
+  color: var(--quiet);
+}
+
+/* Actions. The main one wears the accent; a rest action is a quiet chip with its own edge, felt on hover and press. */
+.actions {
   margin-top: 28px;
 }
-.off-row p {
-  margin: 0;
+button {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border: 0;
+  transition:
+    background 120ms ease,
+    box-shadow 120ms ease,
+    transform 90ms ease;
 }
-.pairing {
-  margin: 8px 0 20px;
+button:active:not(:disabled) {
+  transform: scale(0.97);
 }
-.pairing dt {
-  margin-top: 16px;
-  font-size: 14px;
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+button:focus-visible,
+.page-link:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+.main,
+.primary {
+  width: 100%;
+  min-height: 56px;
+  padding: 14px 22px;
+  border-radius: 18px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 18px;
+  box-shadow: 0 10px 24px -14px rgb(89 207 241 / 0.9);
+}
+.main:hover:not(:disabled),
+.primary:hover:not(:disabled) {
+  background: var(--accent-pointed);
+}
+/* Waiting, the main action is no button: a neutral ground, no colour, no lift. */
+.main:disabled,
+.primary:disabled {
+  background: var(--tile);
+  color: var(--quiet);
+  box-shadow: none;
+  opacity: 1;
+}
+.rest,
+.quiet-button {
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: 14px;
+  background: var(--rest);
+  color: var(--text);
+  font-size: 15px;
+  box-shadow: inset 0 0 0 1px var(--rest-edge);
+}
+.item .rest {
+  width: 100%;
+}
+.rest .glyph {
+  width: 18px;
+  height: 18px;
+}
+.rest:hover:not(:disabled),
+.quiet-button:hover:not(:disabled) {
+  background: var(--rest-pointed);
+}
+/* Armed: the second press acts. It reads as the consequence it is, in the failing tone, never the accent. */
+.rest[data-armed],
+.quiet-button[data-armed] {
+  background: var(--bad-ground);
+  color: var(--bad-ink);
+  box-shadow: inset 0 0 0 1px var(--bad);
+}
+
+.hint {
+  margin-top: 12px;
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--quiet);
+  text-align: center;
+}
+
+.foot {
+  display: grid;
+  justify-items: end;
+  row-gap: 12px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--card-edge);
+}
+.foot-note {
+  color: var(--secondary);
+  font-size: 15px;
+  text-align: right;
+  text-wrap: pretty;
+}
+.foot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* What went wrong with the last press, in the failing tone, with its mark. */
+.problem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 20px;
+  color: var(--bad-ink);
+}
+@media (prefers-color-scheme: light) {
+  .problem {
+    color: var(--bad);
+  }
+}
+.problem .glyph {
+  margin-top: 1px;
+}
+
+/* Kept for the setup page until it is redrawn in this language. */
+:root {
+  --edge: var(--card-edge);
+  --row: var(--well);
+  --success: var(--good);
+  --problem: var(--bad);
+}
+header:not(.head) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin-bottom: 20px;
+}
+.line {
+  font-weight: 600;
+}
+.quiet {
   color: var(--secondary);
 }
-.pairing dd {
-  margin: 4px 0 0;
+
+/* A phone's width: the card nearly edge to edge, the link under the title, the steps two by two. */
+@media (max-width: 520px) {
+  body {
+    padding: 16px 12px 40px;
+  }
+  main,
+  .card {
+    padding: 22px 18px;
+    border-radius: 24px;
+  }
+  .head {
+    align-items: start;
+    row-gap: 0;
+  }
+  .emblem {
+    align-self: start;
+  }
+  h1 {
+    font-size: 28px;
+    line-height: 34px;
+  }
+  .page-link {
+    justify-self: start;
+    margin-top: 10px;
+    padding-left: 0;
+  }
+  .state-title {
+    font-size: 25px;
+    line-height: 31px;
+  }
+  .head {
+    grid-template-areas:
+      "emblem title"
+      "emblem words"
+      "link link";
+    grid-template-columns: 56px 1fr;
+  }
+  /* The steps down the left, joined by one line, each name beside its node. */
+  .route {
+    grid-template-columns: 1fr;
+    row-gap: 14px;
+  }
+  .route li {
+    grid-template-columns: 38px 1fr;
+    grid-template-rows: auto;
+    align-items: center;
+    justify-items: start;
+    column-gap: 14px;
+    padding: 0;
+    text-align: left;
+  }
+  .route li + li::before {
+    top: -14px;
+    right: auto;
+    left: 17.5px;
+    width: 3px;
+    height: 14px;
+  }
+  .item {
+    grid-template-columns: auto 1fr 124px;
+  }
+  .item .rest .glyph {
+    display: none;
+  }
+  .foot {
+    justify-items: stretch;
+  }
+  .foot-note {
+    text-align: start;
+  }
+  .item-words {
+    display: grid;
+    min-width: 0;
+    row-gap: 2px;
+  }
+  .item .rest {
+    min-width: 0;
+  }
 }
-/* The name and the code stay whole on one line: they shrink with a narrow window, and a name too
-   long even then scrolls rather than break. */
-.name {
-  font:
-    600 clamp(15px, 5vw, 22px) / 1.3 ui-monospace,
-    "SF Mono",
-    Menlo,
-    monospace;
-  white-space: nowrap;
-  overflow-x: auto;
-}
-.others {
-  color: var(--secondary);
-}
-.code {
-  white-space: nowrap;
-  font:
-    600 clamp(32px, 11vw, 48px) / 1.2 ui-monospace,
-    "SF Mono",
-    Menlo,
-    monospace;
-  letter-spacing: 0.06em;
-}
+
+/* Last, so it wins over every display above at the same weight. */
 [hidden] {
   display: none;
 }

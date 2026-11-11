@@ -35,7 +35,7 @@ which only you can read or change, and Halcyonic reads it when it starts
 ([ADR 0024](../decisions/0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md)). A
 `HALCYONIC_` variable set in the environment still wins over the file.
 
-With Halcyonic running, the same steps are on a page: **Set Up This Mac** on the pairing page
+With Halcyonic running, the same steps are on a page: **Set Up This Computer** on the pairing page
 (below) opens it ([ADR 0053](../decisions/0053-the-macs-setup-runs-from-a-page-beside-pairing.md)).
 Each step there has the presses its commands make, and each press says first what it will run; a
 download button also says what it fetches, its version, its size and from where, and runs the
@@ -754,14 +754,15 @@ On the page, nothing happens until you press:
 - **Turn On Pairing** starts the network listener now, with no restart, so agents at work keep
   working, and keeps it on in the settings file for the next start, as `pnpm mac-setup pairing on`
   does. The page says first that your computer may ask to allow connections.
-- **Pair Headset** opens a five-minute window and shows where pairing is in the headset, the name
-  to type (the Mac's `.local` name, then its numbered addresses) and the eight-digit code, with the
-  time left and the tries left. With no address a headset can reach (no Wi-Fi), it says so and shows
+- **Pair Headset** opens a five-minute window and shows the four steps in the headset (Settings,
+  Pair Computer, Pick This Computer, Type the Code), the name to type where the headset does not
+  offer it (the Mac's `.local` name, then its numbered addresses), the eight-digit code, the time
+  left, and the tries as pips. With no address a headset can reach (no Wi-Fi), it says so and shows
   no code. While the window is open, and only then, your Mac announces itself on the Wi-Fi so a
   headset can find it by name (`dns-sd -B _halcyonic._tcp` in a Terminal shows it); the code still
   decides.
 - **Forget**, then **Yes, Forget**, stops accepting a headset, as `pnpm devices revoke` does.
-- **Turn Off Pairing**, then **Yes, Turn Off**, stops the listener now and in the settings, and ends
+- **Turn Off Pairing**, then **Yes, Turn Off** (or **Keep On** to take it back), stops the listener now and in the settings, and ends
   an open window with it. Paired headsets disconnect and stay paired; they connect again when pairing
   is on again. A connection that finishes its encryption handshake just then can hold the stop up
   to a minute, while the page says Turning Off. `HALCYONIC_NETWORK_HOST` set in the environment

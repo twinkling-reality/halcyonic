@@ -676,7 +676,7 @@ describe('the setup view on the pairing page', () => {
     const cookie = String(opened.headers['set-cookie']).split(';')[0] ?? '';
     const shown = await call(port, 'GET', '/setup', { cookie });
     assert.equal(shown.status, 200);
-    assert.match(shown.body, /<h1>Set Up This Mac<\/h1>/);
+    assert.match(shown.body, /<h1>Set Up This Computer<\/h1>/);
     assert.ok(shown.headers['content-security-policy'], 'under the page CSP');
     const state = await call(port, 'GET', '/setup/state', {
       cookie,
