@@ -77,6 +77,15 @@ The first real send to GitHub is the owner's own, with their press.
 3. **A second publish** builds on the first: its parent is the first's commit. One that does not build
    on what the branch holds is refused (`push_refused`), and the branch keeps its commit: never a force.
 4. **Unpublishing** deletes the branch on the stand-in GitHub.
+5. **Take Down acts on what was published, and only on it** (AUDIT3's probes U1 and U2, kept as tests):
+   - with the folder's origin pointed at another repository that has a Pages branch of its own, Take Down
+     is refused `origin_changed`, and both branches stay; with the origin back, it comes down;
+   - after the person pushed a commit of their own (a `CNAME`) onto the branch from another clone, Take
+     Down is refused `pages_changed`, and their commit stays;
+   - each test fails when the origin check and the lease are taken out (checked by changing the code, then
+     restored);
+   - a Take Down carrying another commit than the published one is refused `review_stale` (admission);
+   - a publish review runs no gh.
 
 ## Not proven
 

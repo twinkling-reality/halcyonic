@@ -1668,6 +1668,7 @@ export class Projection {
         return;
       case 'project.published':
         this.#published.set(event.project_id, {
+          repository: event.payload.repository,
           check_id: event.payload.check_id,
           commit: event.payload.commit,
           address: event.payload.address,

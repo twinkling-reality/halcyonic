@@ -125,12 +125,20 @@ only while the Mac runs). It is built on Send to GitHub's pieces, and the lead d
   refuses the push. Then the person's `gh` turns Pages on for that branch (`POST
   repos/<owner>/<name>/pages`), and its address is read back from GitHub (`html_url`); where GitHub
   does not say it, the address is recorded as unknown, never guessed.
-- **Taking it down.** `project.unpublish`, review required, deletes the branch with the person's git.
+- **Taking it down.** `project.unpublish {project_id, commit}`, review required. `commit` is the
+  published commit the person was shown (`published.commit`), sent by every client as its review, and a
+  publish since makes it `review_stale`. The branch is deleted with the person's git (AUDIT3, 2026-11-11):
+  - only in the repository the game was published to (`published.repository`), never whatever the
+    folder's origin names now; an origin that names another is refused (`origin_changed`);
+  - only while the branch still holds that commit (`--force-with-lease`). A branch someone else moved
+    since is refused (`pages_changed`), and their commits are kept.
 - **Recorded:** `project.published` (repository, check, branch, commit, address) and
-  `project.unpublished`. The project's view gives `published` (the check, the commit, the address, and
-  when). The headset gets the address only as a code to scan, `GET
+  `project.unpublished`. The project's view gives `published` (the repository, the check, the commit,
+  the address, and when). The headset gets the address only as a code to scan, `GET
   /api/projects/:id/published/code`, never drawn as text.
-- **Needs** `HALCYONIC_GH_BIN` signed in (`no_gh`, `gh_signed_out` otherwise). A private repository
+- **Needs** `HALCYONIC_GH_BIN` signed in (`no_gh` at the review, `gh_signed_out` at the press; a review
+  runs no gh, so reading one reaches nothing). The built files are staged as Send's are, with none of the
+  person's git settings, and a `.gitattributes` among them that names a filter is refused (`uses_filters`). A private repository
   on a plan without Pages fails at GitHub's end, and nothing is recorded as published.
 
 ## Alternatives considered

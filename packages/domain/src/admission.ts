@@ -411,10 +411,18 @@ export function admitCommand(
       const scope = { ...NO_SCOPE, project_id: projectId };
       if (project.location === null)
         return reject(scope, 'location_required', 'The project has no folder on this computer.');
-      if (command.command_type === 'project.unpublish')
-        return project.published === undefined
-          ? reject(scope, 'invalid_state', 'This game is not published.')
-          : { admitted: true, policy, scope, runtime: null };
+      if (command.command_type === 'project.unpublish') {
+        if (project.published === undefined)
+          return reject(scope, 'invalid_state', 'This game is not published.');
+        // What the person was shown is what comes down, from any client (AUDIT3 S1).
+        if (project.published.commit !== command.payload.commit)
+          return reject(
+            scope,
+            'review_stale',
+            'The game was published again since it was shown. Look at it again, then take it down.',
+          );
+        return { admitted: true, policy, scope, runtime: null };
+      }
       const check = projection.latestCheck(projectId);
       if (check === undefined || !check.findings.passed)
         return reject(
