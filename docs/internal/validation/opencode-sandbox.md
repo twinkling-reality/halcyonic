@@ -212,9 +212,10 @@ reach the download; found by review, 2026-10-08).
 
 ## Not verified
 
-- `rg` under the closed profile when Node is not Homebrew's: the profile reads the tool folders of the product's own
-  Node, which hold Homebrew's `rg` only when that Node is Homebrew's, as on this Mac. Elsewhere `rg` on the PATH may sit
-  in a closed folder, and OpenCode's search then fails (inference, not run).
+- `rg` installed outside Homebrew, run inside the profile: not run. Since 2026-11-11 (VRIFY 4d) the control plane
+  finds the first `rg` on the PATH OpenCode's commands get (the product's Node's folder first) and adds that `rg`'s own
+  tool folders to the profile's reads, as it does for Node's (`openCodeSandbox`, unit-tested with an `rg` in a scratch
+  folder). Before, only Node's tool folders were read, which held Homebrew's `rg` only beside a Homebrew Node.
 
 - Whether OpenCode's server ever connects to itself on its own port; the port is allowed in case.
 - A command that outlives its server keeps a profile naming the gate's port after the gate has

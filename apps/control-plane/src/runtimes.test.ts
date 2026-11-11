@@ -392,6 +392,29 @@ describe("OpenCode's sandbox on this Mac (ADR 0028, 0048)", () => {
     assert.deepEqual(own.readable, []);
   });
 
+  test("reads the folders of the rg OpenCode would run, wherever it is installed, besides Node's", () => {
+    const folder = mkdtempSync(join(base, 'rg-tools-'));
+    mkdirSync(join(folder, 'bin'));
+    writeFileSync(join(folder, 'bin', 'rg'), '#!/bin/sh\n', { mode: 0o755 });
+    const sandbox = openCodeSandbox(
+      { opencodeConfigHome: null },
+      { dataDir: '/d', environment: { PATH: `/nowhere:${join(folder, 'bin')}` } },
+      '/opt/homebrew/Cellar/node/24.0.0/bin/node',
+    );
+    assert.ok(sandbox.toolFolders.includes('/opt/homebrew/Cellar'), "Node's own");
+    assert.ok(sandbox.toolFolders.includes(realpathSync(folder)), "rg's own, outside Homebrew");
+    // With no rg anywhere, Node's folders alone, as before.
+    const none = openCodeSandbox(
+      { opencodeConfigHome: null },
+      { dataDir: '/d', environment: { PATH: '/nowhere' } },
+      '/opt/homebrew/Cellar/node/24.0.0/bin/node',
+    );
+    assert.deepEqual(
+      none.toolFolders,
+      sandbox.toolFolders.filter((each) => each !== realpathSync(folder)),
+    );
+  });
+
   test('finds ripgrep only as a file on the PATH, since the sandbox refuses its download', () => {
     const folder = mkdtempSync(join(base, 'rg-'));
     assert.equal(ripgrepOnPath(folder), false);
