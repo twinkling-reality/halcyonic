@@ -13,6 +13,8 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'project.create': 'low_consequence',
   // Rebinding changes where a project's later work runs: the person reads the review first (ADR 0051).
   'project.set_location': 'review_required',
+  // The project's own words given to every task's agent from now on: the person reads them first (E5).
+  'project.rules.set': 'review_required',
   // A new project from a starter beside the original, which it only reads; changes no existing file.
   'project.make_vr_version': 'low_consequence',
   // Writes over the project's files: the person reads what would change before confirming.

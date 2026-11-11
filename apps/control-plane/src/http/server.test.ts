@@ -371,7 +371,8 @@ describe('realtime protocol', () => {
     const policies = new Map(
       welcome.command_policies.map((entry) => [entry.command_type, entry.policy]),
     );
-    assert.equal(policies.size, 32);
+    assert.equal(policies.size, 33);
+    assert.equal(policies.get('project.rules.set'), 'review_required');
     // Dropping an instruction before it is sent changes nothing but the queue (ADR 0056).
     assert.equal(policies.get('execution.drop_queued_instruction'), 'low_consequence');
     // Which of the project's own commands its check runs: the person reads them first (ADR 0055).

@@ -153,6 +153,16 @@ namespace Halcyonic.Client
             });
 
         /// <summary>
+        /// Turns the project's own rules on or off for its tasks (E5). On carries the <paramref name="review"/> the
+        /// rules read gave for the text the person read; off needs none.
+        /// </summary>
+        public ProjectRulesSetCommand SetProjectRules(string projectId, bool on, string? review = null) =>
+            Stamp(new ProjectRulesSetCommand
+            {
+                Payload = new ProjectRulesSetPayload { ProjectId = projectId, On = on, Review = on ? review : null },
+            });
+
+        /// <summary>
         /// The person's words for an execution, with any <paramref name="pictures"/> of the project's folder, as on
         /// <see cref="StartExecution"/> (ADR 0058).
         /// </summary>

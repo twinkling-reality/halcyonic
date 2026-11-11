@@ -368,6 +368,13 @@ export function registerRoutes(
     if (!validateProjectId(projectId).ok || !query.ok) return invalid(reply);
     return (await reads.pictures(projectId, query.value, request.principal)) ?? unavailable(reply);
   });
+  // The project's own rules, to read before choosing them (E5).
+  app.get('/api/projects/:project_id/rules', async (request, reply) => {
+    const projectId = (request.params as { project_id: string }).project_id;
+    const query = validateProjectReadQuery(request.query);
+    if (!validateProjectId(projectId).ok || !query.ok) return invalid(reply);
+    return reads.rules(projectId, query.value, request.principal) ?? unavailable(reply);
+  });
   app.get('/api/projects/:project_id/checks/:check_id/output', async (request, reply) => {
     const { project_id: projectId, check_id: checkId } = request.params as {
       project_id: string;

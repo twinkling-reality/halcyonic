@@ -148,6 +148,23 @@ export function admitCommand(
       };
     }
 
+    case 'project.rules.set': {
+      // The project's own rules come from its folder (E5); whether the file still reads as reviewed is
+      // the host's to check.
+      const projectId = command.payload.project_id;
+      const project = projection.project(projectId);
+      const scope = { ...NO_SCOPE, project_id: projectId };
+      if (project === undefined)
+        return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
+      if (command.payload.on && project.location === null)
+        return reject(
+          scope,
+          'location_required',
+          "A project's rules come from its folder, and the project has none. Choose a folder for the project first.",
+        );
+      return { admitted: true, policy, scope, runtime: null };
+    }
+
     case 'project.make_vr_version': {
       const projectId = command.payload.original_project_id;
       const original = projection.project(projectId);

@@ -17,6 +17,7 @@ import type {
   ProjectId,
   ProjectLocation,
   ProjectLocationChoice,
+  ProjectRulesFile,
   ReceivedVia,
   RejectionCode,
   RuntimeDescriptor,
@@ -73,6 +74,7 @@ import {
 } from './drafts.ts';
 import { type OllamaUnloader, ollamaModelFrom } from './ollama-unload.ts';
 import { readPictures } from './pictures.ts';
+import { readRules, rulesReview, withRules } from './project-rules.ts';
 import { type Reattacher, SESSION_LOST } from './reattach.ts';
 import type { Recorder } from './recorder.ts';
 import { fitted, type Redaction, withinLimit } from './redaction.ts';
@@ -456,6 +458,38 @@ export class CommandService {
         : refuse(
             'review_stale',
             "The task's files changed since they were shown. Look at them again, then add.",
+          );
+    }
+    if (command.command_type === 'project.rules.set') {
+      if (!command.payload.on) return admission;
+      // On only with the review of the file as it reads now (ADR 0051): the person read these words.
+      const projectId = command.payload.project_id;
+      const folder = this.#deps.projection.project(projectId)?.location?.path ?? null;
+      const read = folder === null ? null : readRules(folder);
+      if (read === null || read.state !== 'ok')
+        return {
+          admitted: false,
+          scope: admission.scope,
+          rejection: {
+            code: 'invalid_state',
+            message:
+              read === null || read.state === 'none'
+                ? 'This project has no AGENTS.md or CLAUDE.md at the top of its folder, so there are no rules to pass on.'
+                : read.state === 'too_large'
+                  ? `The project's ${read.file} is larger than 32 KB, so it is not passed on.`
+                  : `The project's ${read.file} could not be read as text, so it is not passed on.`,
+          },
+        };
+      if (command.payload.review === undefined)
+        return refuse(
+          'review_required',
+          "Passing on the project's rules needs the review of them the person read first.",
+        );
+      return command.payload.review === rulesReview(projectId, read.file, read.sha256)
+        ? admission
+        : refuse(
+            'review_stale',
+            "The project's rules changed since they were shown. Read them again.",
           );
     }
     if (command.command_type !== 'project.set_location') return admission;
@@ -1688,6 +1722,36 @@ export class CommandService {
         );
         return;
       }
+      case 'project.rules.set': {
+        // Read again here: the review was checked against this reading at admission (E5).
+        const projectId = command.payload.project_id;
+        const folder = this.#deps.projection.project(projectId)?.location?.path ?? null;
+        const read = command.payload.on && folder !== null ? readRules(folder) : null;
+        const on = read?.state === 'ok';
+        recorder.record(
+          controlPlaneDraft(
+            'project.rules.updated',
+            { project_id: projectId, workstream_id: null, execution_id: null },
+            {
+              on,
+              file: read !== null && read.state !== 'none' ? read.file : null,
+              sha256: read?.state === 'ok' ? read.sha256 : null,
+              changed: false,
+            },
+            this.#now(),
+            cause,
+          ),
+        );
+        if (command.payload.on && !on)
+          this.#fail(command, admission.scope, {
+            code: 'rules_unavailable',
+            message:
+              "The project's rules file could not be read again, so its rules stay off. Read them again.",
+            effect: 'none',
+          });
+        else this.#complete(command, admission.scope, null);
+        return;
+      }
       case 'execution.drop_queued_instruction': {
         // Dropped before it was sent: its own command fails with nothing done (ADR 0056).
         const dropped = this.#deps.projection.commandEnvelope(command.payload.command_id);
@@ -1851,6 +1915,18 @@ export class CommandService {
       );
       this.#deps.reattacher?.started(execution.execution_id);
       if (pictures !== undefined) this.#recordPicturesRead(command, scope, pictures, cause);
+      // The project's own rules go before a task's first instruction, as the person chose them (E5).
+      const rules = this.#rulesForStart(project_id, cause);
+      if (rules !== null)
+        recorder.record(
+          controlPlaneDraft(
+            'execution.rules_given',
+            scope,
+            { file: rules.file, sha256: rules.sha256 },
+            this.#now(),
+            cause,
+          ),
+        );
       const start = adapter.startExecution;
       if (start === undefined) {
         this.#recordStartFailure(command, scope, unimplemented('startExecution'));
@@ -1871,10 +1947,13 @@ export class CommandService {
           () =>
             start.call(adapter, {
               execution,
-              instruction: withCheckOutput(
-                withVersionNote(command.payload.instruction, firstFromVersion),
-                checked,
-              ),
+              instruction: (() => {
+                const words = withCheckOutput(
+                  withVersionNote(command.payload.instruction, firstFromVersion),
+                  checked,
+                );
+                return rules === null ? words : withRules(words, rules.file, rules.text);
+              })(),
               options: command.payload.options,
               model_ref: command.payload.model_ref,
               ...(command.payload.approval_level !== undefined && {
@@ -2020,6 +2099,39 @@ export class CommandService {
         cause,
       ),
     );
+  }
+
+  /**
+   * The project's rules for a task's first instruction (E5): its rules file read again now, only while
+   * the person's choice is on and the file still has the digest they chose. A changed or missing file
+   * turns the rules off until it is read again, and the task starts without them.
+   */
+  #rulesForStart(
+    projectId: ProjectId,
+    cause: Cause,
+  ): { readonly file: ProjectRulesFile; readonly text: string; readonly sha256: string } | null {
+    const project = this.#deps.projection.project(projectId);
+    const chosen = project?.rules;
+    const folder = project?.location?.path ?? null;
+    if (chosen === undefined || folder === null) return null;
+    const read = readRules(folder);
+    if (read.state === 'ok' && read.file === chosen.file && read.sha256 === chosen.sha256)
+      return { file: read.file, text: read.text, sha256: read.sha256 };
+    this.#deps.recorder.record(
+      controlPlaneDraft(
+        'project.rules.updated',
+        { project_id: projectId, workstream_id: null, execution_id: null },
+        {
+          on: false,
+          file: read.state === 'none' ? null : read.file,
+          sha256: read.state === 'ok' ? read.sha256 : null,
+          changed: true,
+        },
+        this.#now(),
+        cause,
+      ),
+    );
+    return null;
   }
 
   /** Waits for the runtime to confirm the action, bounded by the command timeout. */
