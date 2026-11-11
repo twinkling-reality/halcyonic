@@ -435,4 +435,40 @@ public class RoomResultTests
         Assert.That(review.Column[0].Locks, Is.True, "Restore stands behind its lock");
         Assert.That(review.Card!.AnyDot, Is.False);
     }
+
+    [Test]
+    public void ShareStandsOnAPassedResultAndItsPageTakesTheWaysAsRowsAndShareBehindItsLock()
+    {
+        // DEVICE's Share on the result's own page: a way is its row's press (key: the way), Share behind its lock, Cancel.
+        var view = HalcyonicJson.Deserialize<ProjectView>(new Newtonsoft.Json.Linq.JObject
+        {
+            ["project_id"] = "p1", ["name"] = "Kite Run", ["location"] = null, ["starter"] = "iwsdk-vr",
+            ["created_at"] = "2026-11-11T05:00:00.000Z", ["updated_at"] = "2026-11-11T05:00:00.000Z",
+            ["check"] = new Newtonsoft.Json.Linq.JObject
+            {
+                ["check_id"] = "01a19000-0000-7000-8000-0000000000c1", ["recorded_at"] = "2026-11-11T05:00:00.000Z", ["position"] = 4, ["files"] = "current",
+                ["findings"] = new Newtonsoft.Json.Linq.JObject
+                {
+                    ["tsc"] = new Newtonsoft.Json.Linq.JObject { ["exit"] = 0, ["seconds"] = 1 }, ["build"] = new Newtonsoft.Json.Linq.JObject { ["exit"] = 0, ["seconds"] = 2 },
+                    ["page"] = null, ["unknown"] = null, ["passed"] = true, ["reads_confined"] = true,
+                },
+            },
+            ["preview"] = new Newtonsoft.Json.Linq.JObject { ["check_id"] = "01a19000-0000-7000-8000-0000000000c1", ["port"] = 47931, ["files"] = "current" },
+        }.ToString(), strict: true);
+        var atRest = Bar(new RoomResult(false, true, false, true, Turn(Observed), Steps(), canShare: true));
+        Assert.That(atRest.Column.Select(action => action.Control.Action), Does.Contain(RoomResult.ShowShare));
+        Assert.That(Bar(new RoomResult(false, true, false, true, Turn(Observed), Steps())).Column.Select(action => action.Control.Action), Does.Not.Contain(RoomResult.ShowShare));
+
+        var share = new ShareColumn(view);
+        share.WaysRead(new SharingWaysResponse { Link = ShareWayState.Ready, Wifi = ShareWayState.Ready });
+        var choosing = Bar(new RoomResult(false, true, false, true, null, null, RoomResultPage.Share, share: share));
+        Assert.That(choosing.Card!.List.Select(row => (row.Press!.Action, row.Press.Key)),
+            Is.EqualTo(new[] { (RoomResult.ShareWayAction, "Link"), (RoomResult.ShareWayAction, "Wifi") }));
+        Assert.That(choosing.Column.Where(NotClose).Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.ShareBack }));
+        share.Choose(ShareWay.Wifi);
+        var confirming = Bar(new RoomResult(false, true, false, true, null, null, RoomResultPage.Share, share: share));
+        Assert.That(confirming.Column.Where(NotClose).Select(action => (action.Control.Action, action.Main)), Is.EqualTo(new[] { (RoomResult.ShareStart, true), (RoomResult.ShareCancel, false) }));
+        Assert.That(confirming.Column[0].Locks, Is.True, "Share stands behind its lock");
+        Assert.That(confirming.Card!.AnyDot, Is.False);
+    }
 }

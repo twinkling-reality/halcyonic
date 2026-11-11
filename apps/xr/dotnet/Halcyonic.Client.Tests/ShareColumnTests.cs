@@ -115,9 +115,9 @@ public class ShareColumnTests
         Assert.That(column.Card()!.Description!.Text, Is.EqualTo(ShareText.ConfirmLink));
         var share = column.Actions().First();
         Assert.That((share.Kind, share.Main, share.Locked), Is.EqualTo((ShareActionKind.Share, true, true)));
-        Assert.That(column.Start(Samples.Client, Now), Is.Null, "never sent before its lock");
+        Assert.That(column.Start(new CommandFactory(Samples.Client)), Is.Null, "never sent before its lock");
         column.Arm();
-        var command = column.Start(Samples.Client, Now)!;
+        var command = column.Start(new CommandFactory(Samples.Client))!;
         Assert.That((command.Payload.ProjectId, command.Payload.Way), Is.EqualTo((ProjectId, ShareWay.Link)));
         Assert.That(column.Stage, Is.EqualTo(ShareStage.Starting));
         Assert.That(column.Card()!.Status!.Value.Title, Is.EqualTo("Sharing"));
@@ -131,7 +131,7 @@ public class ShareColumnTests
         Assert.That(card.Status.Value.Line, Is.EqualTo(ShareText.SharedLink));
         Assert.That(card.Words().Any(words => words.Contains("example-name") || words.Contains("https")), Is.False, "a link's address is never text");
         Assert.That(column.Actions().Select(action => action.Kind), Is.EqualTo(new[] { ShareActionKind.Stop, ShareActionKind.Close }));
-        var stop = column.Stop(Samples.Client, Now);
+        var stop = column.Stop(new CommandFactory(Samples.Client));
         Assert.That(stop!.Payload.ProjectId, Is.EqualTo(ProjectId));
         NoDots(column);
     }
@@ -183,7 +183,7 @@ public class ShareColumnTests
         column.WaysRead(Ways());
         column.Choose(ShareWay.Wifi);
         column.Arm();
-        var command = column.Start(Samples.Client, Now)!;
+        var command = column.Start(new CommandFactory(Samples.Client))!;
         Assert.That(column.Card()!.Status!.Value.Line, Is.EqualTo("Opening it on the Wi-Fi"));
         column.Answered(new CommandView { CommandId = "another", Status = CommandStatus.Failed, Failure = new CommandFailure { Code = "no_network", Message = "x" } });
         Assert.That(column.Stage, Is.EqualTo(ShareStage.Starting), "another command's answer changes nothing");
@@ -252,7 +252,7 @@ public class ShareColumnTests
         var column = new ShareColumn(View());
         column.WaysRead(Ways(wifi: ShareWayState.NotSetUp));
         column.Arm();
-        Assert.That(column.Start(Samples.Client, Now), Is.Not.Null);
+        Assert.That(column.Start(new CommandFactory(Samples.Client)), Is.Not.Null);
         column.Cancel();
         Assert.That(column.StopWhenItStands, Is.True);
         Assert.That(column.Card()!.Status!.Value.Line, Is.EqualTo(ShareText.StoppingWhenReady), "the card says so");
@@ -260,7 +260,8 @@ public class ShareColumnTests
         Assert.That(column.StopNow, Is.False, "nothing stands yet");
         column.Viewed(View(share: Share("link", "https://example-name.invalid/")));
         Assert.That(column.StopNow, Is.True, "the host stops it now");
-        Assert.That(column.Stop(Samples.Client, Now), Is.Not.Null);
+        Assert.That(column.Stop(new CommandFactory(Samples.Client)), Is.Not.Null);
+        Assert.That(column.StopNow, Is.False, "the stop is sent once");
         column.ShareStopped(new ProjectShareStoppedEvent { ProjectId = ProjectId, Payload = new ProjectShareStoppedPayload { CheckId = CheckId, Reason = ShareStopReason.Asked } });
         Assert.That(column.StopWhenItStands, Is.False);
     }
@@ -278,7 +279,7 @@ public class ShareColumnTests
         Assert.That(column.Stage, Is.EqualTo(ShareStage.Confirm));
         Assert.That(column.Armed, Is.False, "Share is locked again");
         Assert.That(column.Actions().First().Locked, Is.True);
-        Assert.That(column.Start(Samples.Client, Now), Is.Null, "one press shares nothing");
+        Assert.That(column.Start(new CommandFactory(Samples.Client)), Is.Null, "one press shares nothing");
     }
 
     [Test]
@@ -287,7 +288,7 @@ public class ShareColumnTests
         var column = new ShareColumn(View());
         column.WaysRead(Ways(wifi: ShareWayState.NotSetUp));
         column.Arm();
-        var start = column.Start(Samples.Client, Now)!;
+        var start = column.Start(new CommandFactory(Samples.Client))!;
         column.Answered(new CommandView { CommandId = start.CommandId, Status = CommandStatus.Completed });
         column.ShareStopped(new ProjectShareStoppedEvent { ProjectId = ProjectId, Payload = new ProjectShareStoppedPayload { CheckId = CheckId, Reason = ShareStopReason.Ended } });
         column.Viewed(View());
@@ -298,7 +299,7 @@ public class ShareColumnTests
         var silent = new ShareColumn(View());
         silent.WaysRead(Ways(wifi: ShareWayState.NotSetUp));
         silent.Arm();
-        var quiet = silent.Start(Samples.Client, Now)!;
+        var quiet = silent.Start(new CommandFactory(Samples.Client))!;
         silent.Answered(new CommandView { CommandId = quiet.CommandId, Status = CommandStatus.Completed });
         silent.Viewed(View());
         Assert.That(silent.Stage, Is.EqualTo(ShareStage.Stopped));

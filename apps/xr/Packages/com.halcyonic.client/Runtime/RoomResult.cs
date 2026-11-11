@@ -18,6 +18,8 @@ namespace Halcyonic.Client
         Conflict,
         /// <summary>The project's history and its restore (DEVICE's <see cref="HistoryColumn"/>, gap 2), reached from Changes.</summary>
         History,
+        /// <summary>Sharing the checked game (DEVICE's <see cref="ShareColumn"/>, ADR 0054), reached from the passed result at rest.</summary>
+        Share,
     }
 
     /// <summary>
@@ -54,6 +56,17 @@ namespace Halcyonic.Client
         public const string HistoryChanges = "room-history-changes";
         public const string HistoryBack = "room-history-back";
         public const string HistoryClose = "room-history-close";
+        /// <summary>DEVICE's Share (<see cref="ShareColumn"/>): open it, pick a way (its key the way), share behind the lock, stop, and the ways out.</summary>
+        public const string ShowShare = "room-share";
+        public const string ShareWayAction = "room-share-way";
+        public const string ShareStart = "room-share-start";
+        public const string ShareCancel = "room-share-cancel";
+        public const string ShareStop = "room-share-stop";
+        public const string ShareAgain = "room-share-again";
+        public const string ShareCheckGame = "room-share-check";
+        public const string ShareStartPreview = "room-share-preview";
+        public const string ShareBack = "room-share-back";
+        public const string ShareClose = "room-share-close";
 
         public const string ChangesWords = "Changes";
         public const string ChecksWords = "Checks";
@@ -68,16 +81,19 @@ namespace Halcyonic.Client
         {
             MakeVrVersion, TryBuild, ShowChanges, ShowChecks, NextPage, Back, PlayInHeadset, ShowAdd, AddConfirm, ShowConflict, Fit,
             ShowHistory, HistoryVersion, HistoryOlder, HistoryRestore, HistoryCancel, HistoryUndo, HistoryAgain, HistoryTryAgain, HistoryChanges, HistoryBack, HistoryClose,
+            ShowShare, ShareWayAction, ShareStart, ShareCancel, ShareStop, ShareAgain, ShareCheckGame, ShareStartPreview, ShareBack, ShareClose,
         };
 
         public RoomResult(bool isVr, bool canMakeVr, bool canTry, bool? passed, ObservedTurn? observed, IReadOnlyList<CheckStepOutcome>? steps,
             RoomResultPage page = RoomResultPage.Result, int part = 0, Halcyonic.Client.PlayInHeadset? play = null, RoomAdd? add = null, string? addReview = null,
-            HistoryColumn? history = null)
+            HistoryColumn? history = null, ShareColumn? share = null, bool canShare = false)
         {
             AddReview = addReview;
             Play = play;
             Add = add;
             History = page == RoomResultPage.History ? history : null;
+            Share = page == RoomResultPage.Share ? share : null;
+            CanShare = canShare;
             IsVr = isVr;
             CanMakeVr = canMakeVr;
             CanTry = canTry;
@@ -109,6 +125,12 @@ namespace Halcyonic.Client
         /// <summary>The project's history where the History page shows (DEVICE's <see cref="HistoryColumn"/>); null on every other page.</summary>
         public HistoryColumn? History { get; }
 
+        /// <summary>The project's share where the Share page shows (DEVICE's <see cref="ShareColumn"/>); null on every other page.</summary>
+        public ShareColumn? Share { get; }
+
+        /// <summary>Whether Share stands on the result at rest: the host would admit it, or a share of the project stands.</summary>
+        public bool CanShare { get; }
+
         /// <summary>The computer's own last check of the project: passed, failed, or null where it ran none or its outcome is unknown.</summary>
         public bool? Passed { get; }
 
@@ -133,7 +155,7 @@ namespace Halcyonic.Client
         public string? CheckLine => Passed is bool passed ? KitMomentWords.CheckTitle(KitCheckScope.Builds, ended: true, passed) : null;
 
         /// <summary>Whether the computer has anything to say of the task at rest.</summary>
-        public bool Any => Observed != null || Passed != null || Steps.Count > 0 || Add?.State is RoomAddState.Ready or RoomAddState.Conflict || History != null;
+        public bool Any => Observed != null || Passed != null || Steps.Count > 0 || Add?.State is RoomAddState.Ready or RoomAddState.Conflict || History != null || Share != null;
 
         /// <summary>The page's rows: an observed file a row, or a step of the check a row; none on the result itself.</summary>
         public IReadOnlyList<RoomRow> Rows => Page switch
@@ -212,7 +234,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static RoomResult? Of(ProjectView? project, ClientProjection? state, ObservedTurn? observed,
             RoomResultPage page = RoomResultPage.Result, int part = 0, (ControlPlaneTarget? Target, bool Demonstration)? way = null, WorkstreamView? task = null,
-            HistoryColumn? history = null)
+            HistoryColumn? history = null, ShareColumn? share = null)
         {
             if (project == null || state == null) return null;
             var screen = WorkspacePresentationState.ScreenOf(project, state, barOpen: true);
@@ -223,7 +245,9 @@ namespace Halcyonic.Client
             return new RoomResult(screen.IsVr, canMakeVr, screen.CanTry, check?.Passed, observed, check?.Steps, page, part,
                 // Play in Headset by how this headset reaches the computer and whether a demonstration shows (DEVICE's rule); unknown without.
                 way is { } reach ? HeadsetPlay.For(project, reach.Target, reach.Demonstration) : (Halcyonic.Client.PlayInHeadset?)null, task != null ? RoomAdd.Of(task.Copy, working: false) : null, (task?.Copy as OwnCopy)?.ToAddReview,
-                history);
+                history, share,
+                // DEVICE's Share stands where the host would admit it (TASKS's conditions), or where a share stands to stop.
+                canShare: project.Share != null || ShareColumn.Reason(project) == null);
         }
     }
 

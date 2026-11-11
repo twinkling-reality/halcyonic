@@ -94,6 +94,14 @@ namespace Halcyonic.Client
         public ProjectRestoreCommand RestoreProject(string projectId, string checkpointId, string review) =>
             Stamp(new ProjectRestoreCommand { Payload = new ProjectRestorePayload { ProjectId = projectId, CheckpointId = checkpointId, Review = review } });
 
+        /// <summary>Shares the project's checked game one way (ADR 0054; DEVICE's Share), asked first behind its lock.</summary>
+        public ProjectShareStartCommand StartShare(string projectId, ShareWay way) =>
+            Stamp(new ProjectShareStartCommand { Payload = new ProjectShareStartPayload { ProjectId = projectId, Way = way } });
+
+        /// <summary>Stops the project's share at once (ADR 0054); no confirmation.</summary>
+        public ProjectShareStopCommand StopShare(string projectId) =>
+            Stamp(new ProjectShareStopCommand { Payload = new ProjectShareStopPayload { ProjectId = projectId } });
+
         public ProjectPreviewStopCommand StopPreview(string projectId) =>
             Stamp(new ProjectPreviewStopCommand { Payload = new ProjectPreviewStopPayload { ProjectId = projectId } });
 
