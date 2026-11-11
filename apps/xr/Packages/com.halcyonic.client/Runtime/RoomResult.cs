@@ -141,7 +141,9 @@ namespace Halcyonic.Client
         {
             if (project == null || state == null) return null;
             var screen = WorkspacePresentationState.ScreenOf(project, state, barOpen: true);
-            var check = screen.LastCheck is { Kind: KitMomentKind.HostCheck } host ? host : null;
+            // The computer's check speaks only for the files it checked: once the folder changed after it, it says nothing of
+            // them, so neither its line nor its steps stand (AUDIT2, 2026-11-11).
+            var check = screen.LastCheck is { Kind: KitMomentKind.HostCheck } host && project.Check?.Files == ProjectViewCheckFiles.Current ? host : null;
             var canMakeVr = !screen.IsVr && ProjectPlayFacts.TryVrVersionTarget(project, out _, out _);
             return new RoomResult(screen.IsVr, canMakeVr, screen.CanTry, check?.Passed, observed, check?.Steps, page, part);
         }

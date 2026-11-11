@@ -2685,7 +2685,8 @@ The last unit turns it on by default and removes the kit parts it replaced.
   (`WorkspacePresentationState.ScreenOf`: its last check and whether Try Build may stand) and the last turn of the
   run the computer observed (`ActivityLog.ObservedFor`). The result: "{n} Files Changed" in the panel, the totals of
   the files it saw made, changed and removed, only where it read the folder; Build Passed or Build Failed in the
-  sentence bar, only where the computer's own check gave an outcome (alone, it is the panel's one line); the agent's
+  sentence bar, only where the computer's own check gave an outcome and only while the folder has not changed since it
+  (`project.check.files` current; otherwise neither its line nor its Checks page stands) (alone, it is the panel's one line); the agent's
   newest message on the band, by parts, which is not something to read before the row takes a press
   (`RoomBar.BandIsRead`). Its actions: Make VR Version, the main one, for a project that is not VR yet, else the
   file's own way to an instruction as Request Change; Try Build where the product lets it stand
@@ -2744,7 +2745,9 @@ The last unit turns it on by default and removes the kit parts it replaced.
   outside that loop (`RoomBar.Moments`, in `RoomBar.Moments.cs`), asked in order with the binding, the voice and
   what the loop made of the frame; the first that answers draws the frame, and its view says so (`FromMoment`). No
   moment is asked where the loop made an approval, a question, a confirmation or Sent: what waits on the person
-  always stands. A
+  always stands. At rest a moment only adds to the row: the agent's moment adds its action to the bar the loop made
+  and answers nothing (FIELD's `RoomBar.AgentAtRest`), so whatever the loop shows over it (the result's panel, sentence,
+  band and column) stands, and the agent and its level stand beside the result. Check: `38-result-agent`. A
   moment is one private static function in a partial of `RoomBar` in a file of its own, with one line in that list;
   the offered instructions are the first (`RoomBar.Choose.cs`). It shows only parts that exist (the row, the pair of
   panel and column, the band) by answering in one of the forms `RoomBarState` names, and every action it shows is a
