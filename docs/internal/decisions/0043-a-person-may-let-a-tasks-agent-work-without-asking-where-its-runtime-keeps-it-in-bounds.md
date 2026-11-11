@@ -184,12 +184,12 @@ It is the runtime's own mode, declared only once verified, never one Halcyonic m
 - **OpenCode** offers it: its built-in `plan` agent refuses the edit tools without asking, and its shell commands
   still ask ([agent-plan-modes.md](../validation/agent-plan-modes.md), run on the pinned 2.0.18).
 - **Codex** does not: its plan mode is on its experimental surface only, and ADR 0011 stands.
-- **Claude Code** does not yet: its plan bounds a write no differently from a default start. Its start's mode is
-  reported in `system/init` (corrected 2026-11-11; an earlier probe misread it), so it may declare a plan once that is
-  recorded.
+- **Claude Code** offers it since PLAN 4b: its own `plan` permission mode, recorded from the mode `system/init`
+  reports (corrected 2026-11-11; an earlier probe misread it). Its plan bounds a write no differently from a default
+  start, every write asking; carrying it out is confirmed by `system/status`.
 - **Carrying a plan out (PLAN 4a, the lead's yes of 2026-11-11):** an instruction with `leave_plan` makes the same
   task, and the same session, carry the plan out once the runtime confirms it left its plan mode
-  (`runtime.plan.left`). Built for OpenCode; Claude Code joins when it declares a plan. `ExecutionView` carries `plan`,
+  (`runtime.plan.left`). Built for OpenCode, and for Claude Code since PLAN 4b. `ExecutionView` carries `plan`,
   `plan_left` and `unconfined_reason`. Carrying a plan out is admitted only at rest. A headset built before these
   bindings meets an unknown event type, `runtime.plan.left`: it is rebuilt with the regenerated bindings before a host
   that sends it (AUDIT3 4a S4).

@@ -150,6 +150,13 @@ class ScriptedRun implements QueryHandle {
     return canUseTool(toolName, input, { signal, toolUseID: `toolu_${requestId}`, requestId });
   }
 
+  /** The modes the adapter asked for, in order; a test answers with a `system/status` message. */
+  readonly modes: string[] = [];
+
+  async setPermissionMode(mode: string): Promise<void> {
+    this.modes.push(mode);
+  }
+
   async interrupt(): Promise<undefined> {
     this.interrupts += 1;
     if (this.interruptFailure !== null) throw this.interruptFailure;
@@ -1760,5 +1767,121 @@ describe("a start that asks for Halcyonic's sandbox (ADR 0048, BOX-4)", () => {
       actionError('reattach_refused'),
     );
     assert.equal(inside.observed.length + outside.observed.length, 0);
+  });
+});
+
+describe("Claude Code's own plan mode (PLAN 4b)", () => {
+  const status = (sessionId: string, mode: string): SDKMessage =>
+    ({
+      type: 'system',
+      subtype: 'status',
+      status: null,
+      permissionMode: mode,
+      uuid: randomUUID(),
+      session_id: sessionId,
+    }) as unknown as SDKMessage;
+  const planInit = (sessionId: string): SDKSystemMessage => ({
+    ...init(sessionId),
+    permissionMode: 'plan',
+  });
+
+  test('declares a plan; a plan start runs in plan mode and is recorded a plan from the mode Claude Code reports', async () => {
+    const { adapter, run, observed } = setup();
+    assert.equal(adapter.descriptor.offers_plan, true);
+    const starting = adapter.startExecution({
+      execution,
+      instruction: 'Plan the fix.',
+      options: {},
+      model_ref: null,
+      directory: WORKDIR,
+      plan: true,
+      emit: (observation) => observed.push(observation),
+    });
+    assert.equal(run().options.permissionMode, 'plan');
+    run().emit(planInit(run().sessionId));
+    await starting;
+    assert.deepEqual(observed[0]?.payload, {
+      native_id: run().sessionId,
+      confined: false,
+      plan: true,
+    });
+  });
+
+  test('a plan start that names another permission mode is refused; one that is not a plan records no plan', async () => {
+    const { adapter, startConfirmed, observed } = setup();
+    await assert.rejects(
+      adapter.startExecution({
+        execution,
+        instruction: 'Plan the fix.',
+        options: { permission_mode: 'acceptEdits' },
+        model_ref: null,
+        directory: WORKDIR,
+        plan: true,
+        emit: () => undefined,
+      }),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.code === 'invalid_runtime_options' &&
+        /not started with the permission mode acceptEdits/.test(error.message),
+    );
+    await startConfirmed();
+    assert.equal((observed[0]?.payload as { plan?: boolean } | undefined)?.plan, undefined);
+  });
+
+  test('carrying the plan out leaves plan mode once Claude Code reports it, before the instruction is sent (PLAN 4a)', async () => {
+    const { adapter, run, observed, types } = setup();
+    const starting = adapter.startExecution({
+      execution,
+      instruction: 'Plan the fix.',
+      options: {},
+      model_ref: null,
+      directory: WORKDIR,
+      plan: true,
+      emit: (observation) => observed.push(observation),
+    });
+    const scripted = run();
+    scripted.emit(planInit(scripted.sessionId));
+    await starting;
+    scripted.emit(success(scripted.sessionId));
+    await settle();
+    const sending = adapter.sendInstruction({ execution, text: 'Carry it out.', leave_plan: true });
+    await settle();
+    assert.deepEqual(scripted.modes, ['default']);
+    assert.equal(
+      scripted.delivered.length,
+      1,
+      'the instruction went before the mode was confirmed',
+    );
+    scripted.emit(status(scripted.sessionId, 'default'));
+    await settle();
+    assert.ok(types().includes('runtime.plan.left'));
+    assert.equal(scripted.delivered.length, 2);
+    scripted.emit(init(scripted.sessionId));
+    await sending;
+    assert.ok(types().indexOf('runtime.plan.left') < types().lastIndexOf('runtime.turn.started'));
+  });
+
+  test('a re-attached session that has not resumed cannot confirm leaving its plan, so nothing is sent', async () => {
+    const { adapter, runs, observed } = setup({ sessionInfo: async () => ({ cwd: WORKDIR }) });
+    await adapter.reattach({
+      execution,
+      native_id: '0f0e0d0c-0000-4000-8000-0000000000ee',
+      options: {},
+      model_ref: null,
+      plan: true,
+      confined: false,
+      directory: WORKDIR,
+      cut_turn: null,
+      last_sequence: null,
+      emit: (observation) => observed.push(observation),
+    });
+    await assert.rejects(
+      adapter.sendInstruction({ execution, text: 'Carry it out.', leave_plan: true }),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.code === 'runtime_refused' &&
+        /Send it an instruction first/.test(error.message),
+    );
+    assert.equal(runs.length, 0, 'Claude Code was launched');
   });
 });
