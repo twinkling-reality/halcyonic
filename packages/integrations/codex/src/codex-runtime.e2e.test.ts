@@ -110,6 +110,18 @@ async function until(
   }
 }
 
+/** Every file under `root` whose bytes hold `text`: none expected for a secret's value (AUDIT3 S2). */
+function filesHolding(root: string, text: string): string[] {
+  try {
+    return execFileSync('/usr/bin/grep', ['-rlF', '--', text, root], { encoding: 'utf8' })
+      .split('\n')
+      .filter(Boolean);
+  } catch (error) {
+    if ((error as { status?: number }).status === 1) return [];
+    throw error;
+  }
+}
+
 function alive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -524,6 +536,13 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
         bodies.some((body) => body.includes(`key=${empty}`)),
         "the other thread's command read the secret",
       );
+      // The runtime's own files, its store and logs, hold no value after the runs (AUDIT3 S2).
+      // The control: the command itself, which the runtime keeps, is found by the same search.
+      assert.ok(
+        filesHolding(sandbox.root, 'PROJECT_TEST_KEY').length > 0,
+        'the search reaches its files',
+      );
+      assert.deepEqual(filesHolding(sandbox.root, value), [], 'a runtime file holds the value');
     },
   );
 

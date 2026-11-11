@@ -39,7 +39,11 @@ What was true on 2026-11-11, before this decision:
    them; `ProjectView.secrets` lists the names, sorted. A name is capitals, digits and `_`, at most 64
    characters, and never one the Mac or an agent runs by (`PATH`, `HOME`, `TMPDIR`, the shell's own, and any
    starting `HALCYONIC_`, `OPENCODE_`, `CODEX_`, `CLAUDE_`, `ANTHROPIC_`, `OLLAMA_`, `XDG_`, `LC_`, `DYLD_`,
-   `LD_`, `GIT_`, `NODE_`, `NPM_CONFIG_`, `PYTHON`, `SANDBOX_`). A project keeps at most 32.
+   `LD_`, `GIT_`, `NODE_`, `NPM_CONFIG_`, `PYTHON`, `SANDBOX_`, `BUN_`), nor one that changes where a program
+   connects or what it trusts (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, `SSL_CERT_FILE`,
+   `SSL_CERT_DIR`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE`), since Claude Code gets the secrets in its whole
+   process environment (AUDIT3). A project keeps at most 32. Removing one is low consequence, from any
+   client, a paired device too: it gives later tasks nothing and leaks nothing, so it needs no review.
 3. **A value is typed on this Mac's setup page.** The page (ADR 0053) stages the value in the store under
    the id of the command it then submits as the person's local press over HTTP. The command's dispatch puts
    the staged value in place and records the event; a set with no value staged for exactly that command, as
@@ -48,7 +52,10 @@ What was true on 2026-11-11, before this decision:
    value. The page's route takes up to 8 KiB of value; its other routes keep the page's 1 KiB. The headset's
    own write-only way to set one is a later unit.
 4. **Redaction knows a value from the moment it is staged.** Every value kept or staged is among the held
-   secrets each runtime's text is cleaned of, shown as `[redacted: NAME]`. A value shorter than 8
+   secrets each runtime's text is cleaned of, shown as `[redacted: NAME]`. So is every value replaced or
+   removed while the control plane runs, in memory only, never on disk: a task started before still holds
+   it and can print it (AUDIT3). After a restart only the values kept are held; a re-attached task is given
+   those, though an old one may remain in its runtime's own history. A value shorter than 8
    characters is refused, since redaction leaves values that short alone.
 5. **Given at a start, declared per runtime, never emulated.** `RuntimeDescriptor.secret_environment`, true
    only where a runtime test shows a command reading one: for OpenCode and Codex, the end to end tests on the
@@ -90,6 +97,18 @@ What was true on 2026-11-11, before this decision:
   command output is, and in what it sends to its model. Redaction takes it out of what Halcyonic journals
   and shows; the runtime's own copies are not Halcyonic's to clean. The page tells the person to give
   agents test keys.
+- **An agent outside Halcyonic's sandbox can read every project's secrets.** Claude Code on a folder the
+  person connected (not one made from a starter, ADR 0048) runs with the person's own access, so its
+  commands can read `<data dir>/secrets` of any project, as they could already read the rest of the data
+  folder. Halcyonic hands each task only its own project's secrets; it cannot stop such a run reading the
+  rest. The page says so whenever such an agent is set up here (`unconfined_agent`). Keeping values where an
+  unconfined run cannot simply read them (the Keychain) is the way to close it, and is not built.
+- **After a restart, an old value is no longer known.** A task re-attached then is given the current values,
+  but its runtime's own history (OpenCode's session, Codex's rollout) may hold an old one it printed before,
+  and a repeat of that one would be journaled whole (AUDIT3's reread S2). Only the values kept are held
+  after a restart, since retired ones are never written to disk.
+- Neither OpenCode's nor Codex's own files hold a value given this way after the end to end runs (the
+  runtimes' sandbox folders searched, with the variable's name as the control).
 - Admission and the store agree only through the journal. A crash between the store's rename and the
   event's record leaves a value the next start deletes; the person sets it again.
 - Revisit when a runtime can set variables per turn, or when the headset gets its write-only route.

@@ -72,6 +72,12 @@ export class SecretStore {
   readonly #root: string;
   readonly #values = new Map<ProjectId, Map<SecretName, string>>();
   readonly #staged = new Map<string, Staged>();
+  /**
+   * Values replaced or removed while this control plane runs, kept in memory only, never on disk: a
+   * task started before still holds its value and can print it (AUDIT3), so redaction keeps knowing
+   * it for the control plane's life.
+   */
+  readonly #retired: HeldSecret[] = [];
 
   constructor(dataDir: string) {
     this.#root = join(dataDir, SECRETS_FOLDER);
@@ -147,6 +153,9 @@ export class SecretStore {
       this.#values.set(projectId, values);
     }
     const replaced = values.has(name);
+    const before = values.get(name);
+    if (before !== undefined && before !== staged.value)
+      this.#retired.push({ what: name, value: before });
     values.set(name, staged.value);
     return { replaced };
   }
@@ -155,6 +164,8 @@ export class SecretStore {
   remove(projectId: ProjectId, name: SecretName): void {
     rmSync(join(this.#root, projectId, name), { force: true });
     const values = this.#values.get(projectId);
+    const before = values?.get(name);
+    if (before !== undefined) this.#retired.push({ what: name, value: before });
     values?.delete(name);
     if (values?.size === 0) this.#values.delete(projectId);
   }
@@ -174,7 +185,7 @@ export class SecretStore {
     return environment;
   }
 
-  /** Every value kept or staged, each under its name, for redaction. */
+  /** Every value kept, staged, or replaced or removed since this start, each under its name, for redaction. */
   held(): HeldSecret[] {
     const held: HeldSecret[] = [];
     for (const values of this.#values.values()) {
@@ -182,6 +193,7 @@ export class SecretStore {
     }
     for (const staged of this.#staged.values())
       held.push({ what: staged.name, value: staged.value });
+    held.push(...this.#retired);
     return held;
   }
 }

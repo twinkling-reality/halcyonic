@@ -98,6 +98,7 @@ function setUp() {
         secrets: each.secrets ?? [],
       })),
     everyAgent: () => false,
+    unconfinedAgent: () => false,
     nextId: () => {
       ids += 1;
       return `01a19000-0000-7000-8000-${String(ids).padStart(12, '0')}`;
@@ -229,6 +230,98 @@ describe('project secrets through the control plane (ADR 0057)', () => {
     assert.deepEqual(store.held(), []);
     assert.deepEqual(readdirSync(join(dataDir, 'secrets')), []);
     await harness.controlPlane.close();
+  });
+
+  test('a task still running with a value it was given has it redacted after a replace and after a Remove (AUDIT3 S1 finding)', async () => {
+    const sinks: StartExecutionRequest['emit'][] = [];
+    let n = 0;
+    const observe = (sink: StartExecutionRequest['emit'], type: string, payload: unknown) => {
+      n += 1;
+      sink({
+        type,
+        occurred_at: '2026-11-11T16:00:00.000Z',
+        native_event_id: `e-${n}`,
+        sequence: null,
+        provenance: { epistemic: 'reported', native_type: null },
+        payload,
+      } as never);
+    };
+    const running: RuntimeAdapter = {
+      descriptor: { ...takingRuntime('emitting', true).adapter.descriptor },
+      validateStartOptions: () => ({ ok: true }),
+      startExecution: async (request) => {
+        sinks.push(request.emit);
+        observe(request.emit, 'runtime.execution.started', { native_id: `s-${n}` });
+        observe(request.emit, 'runtime.turn.started', { turn_id: 't1' });
+        return { native_id: `s-${n}` };
+      },
+      close: async () => {},
+    };
+    const say = (text: string) => {
+      for (const sink of sinks) observe(sink, 'runtime.agent_message', { text });
+    };
+    const harness = createTestControlPlane({
+      projectSecrets: { dataDir: scratch() },
+      adapters: () => [running],
+    });
+    const { controlPlane, commands } = harness;
+    const store = controlPlane.projectSecrets;
+    assert.ok(store !== null);
+    const made = controlPlane.commands.submit(commands.createProject('Garden'), 'internal');
+    if (made.command?.result?.kind !== 'project_created') throw new Error('no project');
+    const projectId = made.command.result.project_id;
+    let ids = 100;
+    const page = pageSecrets({
+      submit: (command, via, principal) => controlPlane.commands.submit(command, via, principal),
+      store,
+      projects: () =>
+        controlPlane.projection.projects().map((each) => ({
+          project_id: each.project_id,
+          name: each.name,
+          secrets: each.secrets ?? [],
+        })),
+      everyAgent: () => true,
+      unconfinedAgent: () => false,
+      nextId: () => {
+        ids += 1;
+        return `01a19000-0000-7000-8000-${String(ids).padStart(12, '0')}`;
+      },
+      now: () => harness.time.now(),
+    });
+    assert.equal(page.set(projectId, 'PROJECT_TEST_KEY', VALUE), null);
+    const created = controlPlane.commands.submit(
+      commands.createWorkstream(projectId, FEATURE),
+      'internal',
+    );
+    if (created.command?.result?.kind !== 'workstream_created') throw new Error('no workstream');
+    const workstreamId = created.command.result.workstream_id;
+    controlPlane.commands.submit(
+      {
+        ...commands.startExecution(workstreamId, FEATURE),
+        payload: {
+          workstream_id: workstreamId,
+          runtime_id: 'emitting' as RuntimeId,
+          instruction: 'Read the key.',
+          options: {},
+          model_ref: null,
+        },
+      },
+      'internal',
+    );
+    await harness.time.runUntilIdle();
+    const journalText = () => JSON.stringify([...harness.journal.readAll()]);
+    say(`while set: ${VALUE}`);
+    assert.equal(page.set(projectId, 'PROJECT_TEST_KEY', OTHER), null);
+    say(`after replace: ${VALUE}`);
+    assert.equal(page.remove(projectId, 'PROJECT_TEST_KEY'), null);
+    say(`after remove: ${OTHER}`);
+    await harness.time.runUntilIdle();
+    const text = journalText();
+    assert.equal(text.includes(VALUE), false, 'the first value is never journaled');
+    assert.equal(text.includes(OTHER), false, 'the second value is never journaled');
+    for (const said of ['while set', 'after replace', 'after remove'])
+      assert.ok(text.includes(`${said}: [redacted: PROJECT_TEST_KEY]`), said);
+    await controlPlane.close();
   });
 
   test('a restart keeps only the values the journal lists, and drops what a press left staged', () => {

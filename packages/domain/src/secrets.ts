@@ -24,6 +24,16 @@ const RESERVED_NAMES = new Set([
   'EDITOR',
   'VISUAL',
   'PAGER',
+  // Where a program connects and what it trusts: Claude Code gets the secrets in its whole process
+  // environment, so one of these would send its API traffic elsewhere (AUDIT3 S1).
+  'HTTP_PROXY',
+  'HTTPS_PROXY',
+  'ALL_PROXY',
+  'NO_PROXY',
+  'SSL_CERT_FILE',
+  'SSL_CERT_DIR',
+  'REQUESTS_CA_BUNDLE',
+  'CURL_CA_BUNDLE',
 ]);
 
 const RESERVED_PREFIXES = [
@@ -43,6 +53,7 @@ const RESERVED_PREFIXES = [
   'PYTHON',
   'BASH_FUNC_',
   'SANDBOX_',
+  'BUN_', // the bundled Claude Code is a Bun build
 ];
 
 /** Why `name` cannot be a project secret's name, in the product's words, or null when it can. */
