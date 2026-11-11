@@ -756,6 +756,7 @@ namespace Halcyonic.XR.Workspace
             // Tasks keeps the row of the file beside the menu chosen.
             if (navigator.Shown is TasksColumn tasks) tasks.Showing(navigator.BesideTask);
             ConfigureSpatialComposer();
+            SectionsForRedesign();
             var (menu, beside) = navigator.Frames(bar);
             var stage = setup.StageNow();
             ApplyCharacterColours();

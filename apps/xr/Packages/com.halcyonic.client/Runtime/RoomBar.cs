@@ -411,6 +411,9 @@ namespace Halcyonic.Client
             if (binding[KitPlace.Close] is not { Available: true } close || bar.Column.Concat(bar.Row).Any(action => action.Control.Place is KitPlace.Close or KitPlace.Cancel))
                 return bar;
             if (bar.Result && bar.Column.Count < ColumnMost) bar.Column = bar.Column.Append(new RoomAction(close, main: false, icon: GlazeIcon.Close)).ToList();
+            // At rest with nothing to press (a recorded run's result), the bar was hidden: it stands as the row with its way back.
+            else if (bar.State == RoomBarState.Hidden && !bar.Working && !bar.Result)
+                return new RoomBar(RoomBarState.Rest, row: new[] { new RoomAction(close, main: false, ProjectsWords, icon: GlazeIcon.Back) });
             else if (!bar.Pair && !bar.Working && bar.State == RoomBarState.Rest)
                 bar.Row = bar.Row.Append(new RoomAction(close, main: false, ProjectsWords, icon: GlazeIcon.Back)).ToList();
             return bar;

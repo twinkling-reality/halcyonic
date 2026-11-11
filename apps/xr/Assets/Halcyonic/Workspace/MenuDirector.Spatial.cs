@@ -79,16 +79,25 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>Whether the kit draws <paramref name="file"/> now, as it last drew it in the plane's place.</summary>
         /// <summary>
-        /// Under the redesign a task's Checks section is the result's Checks card (FIELD's A17; the census, JUDGE 0742Z):
-        /// whatever route turned the file to Checks (the recorded run's end, a section press, Try It's fallback), a task at
-        /// rest with a check of the computer's own stands at its Activity, and the result's page turns to Checks.
+        /// Under the redesign a task's file stands on a section the redesign draws (the census, JUDGE 2026-11-11), before the
+        /// draw asks for its frames, so the first frame drawn is already the right one:
+        /// - Checks, for a task at rest with a check of the computer's own: the file stands at its Activity and the result's
+        ///   page turns to Checks (the Checks card), whatever turned it to Checks.
+        /// - Waiting with nothing waiting and nothing armed (an answered request still showing): the file stands at its Activity.
         /// </summary>
-        private void ChecksAsCard(FileColumn? file, string? projectId)
+        private void SectionsForRedesign()
         {
-            if (!RoomDesign.Enabled || file == null || file.Screen.Section != FileSection.Checks || file.Now is not WorkspacePresentation now || !KitPresenter.AtRest(now)
-                || !(ResultOf(now, projectId)?.Steps.Count > 0)) return;
-            file.ShowSection(FileSection.Activity);
-            setup.Presentation.ShowResultPage(now.Character.WorkstreamId, now.Execution?.ExecutionId, RoomResultPage.Checks);
+            if (!RoomDesign.Enabled || !SeparateWorkspace || navigator.IsCompact || navigator.Beside is not FileColumn file
+                || file.Now is not WorkspacePresentation now) return;
+            if (file.Screen.Section == FileSection.Checks && KitPresenter.AtRest(now))
+            {
+                var projectId = State?.Workstreams.TryGetValue(now.Character.WorkstreamId, out var work) == true ? work!.ProjectId : null;
+                if (!(ResultOf(now, projectId)?.Steps.Count > 0)) return;
+                file.ShowSection(FileSection.Activity);
+                setup.Presentation.ShowResultPage(now.Character.WorkstreamId, now.Execution?.ExecutionId, RoomResultPage.Checks);
+            }
+            else if (file.Screen.Section == FileSection.Waiting && !WorkspaceText.SomethingWaits(now) && file.Steering.Armed == null)
+                file.ShowSection(FileSection.Activity);
         }
 
         private bool KitDraws(FileColumn file) => plane.KitShows && ReferenceEquals(navigator.Beside, file);
@@ -312,7 +321,6 @@ namespace Halcyonic.XR.Workspace
                 contextProject = selected; contextChoices = identities;
             }
             plane.ContextProjects = choices; plane.ContextSelectedProject = selected; plane.ContextBinding = contextOwner;
-            ChecksAsCard(activeFile, selected);
             plane.KitBinding = KitBindingOf(activeFile, choices, selected) ?? PlainBindingOf(menuFrame);
         }
 

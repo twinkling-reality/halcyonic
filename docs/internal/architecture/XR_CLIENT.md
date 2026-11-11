@@ -2832,7 +2832,10 @@ bands are the bar's one band.
   chosen row's side panel, anything else on the page: the older view, until FIELD's parts note.
 - **A task's Checks section as the result's Checks card** (the census, JUDGE 2026-11-11): under the redesign a task at
   rest with a check of the computer's own never shows the older Checks frame: whatever turned its file to Checks, the
-  file stands at its Activity and the result's page turns to Checks (`MenuDirector.ChecksAsCard`, each draw).
+  file stands at its Activity and the result's page turns to Checks; and a Waiting section with nothing waiting and
+  nothing armed returns to Activity (`MenuDirector.SectionsForRedesign`, before each draw asks for its frames, so the first
+  frame is already right). A bar at rest with nothing to press (a recorded run's result) stands as the row with
+  "Projects" rather than hidden (`RoomBar.WithClose`).
 - **Facts apart for FIELD's cards** (A17, 2026-11-11: no information strung on separators): the result gives its facts
   apart (`RoomBar.Known`, the `RoomResult`: `FilesChanged`, `Passed`, `Changes` as `RoomChange` with kind, path and
   lines before and after, `NotObserved`, `StepFacts` as `RoomStep` with the step, its name and its tone, those never
