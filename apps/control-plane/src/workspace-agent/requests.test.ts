@@ -1309,23 +1309,116 @@ test('runtime delegation includes ordered completed human continuations without 
   }
 });
 
-test('oversized complete human direction pauses for a person without truncation, dispatch or an automatic retry', async () => {
+test('a request of the full 32,000 characters goes to the task whole, alone, without the host framing', async () => {
+  const words = 'Make the garden path wind past the pond. '.repeat(800).slice(0, 32000);
+  const bodies: number[] = [];
+  const seen: ToolMessage[][] = [];
   const f = await fixture({
-    requestText: 'a'.repeat(32000),
-    turn: async () =>
-      answer([
-        { name: 'continue_task', arguments: { text: 'Read the synthetic file.' } },
-        { name: 'read_workspace', arguments: {} },
-      ]),
+    requestText: words,
+    turn: async (messages, tools) => {
+      seen.push([...messages]);
+      const body = Buffer.byteLength(JSON.stringify({ messages, tools: tools ?? [] }));
+      bodies.push(body);
+      // As ollama.ts refuses a body over its bound.
+      if (body > 12_288)
+        return {
+          kind: 'failed',
+          code: 'context_limit',
+          message: 'This request needs less context before it can continue.',
+        };
+      return seen.length === 1
+        ? answer([{ name: 'continue_task', arguments: { text: 'Do what the person asked.' } }])
+        : answer([], 'The path change was sent.');
+    },
   });
   try {
     const id = f.submit();
+    for (let i = 0; i < 6; i++) await settle();
+    assert.ok(
+      bodies.every((body) => body <= 12_288),
+      JSON.stringify(bodies),
+    );
+    // The model read the beginning and the end, with the gap marked; nothing of its own retypes the words.
+    const shown = seen[0]?.find((message) => message.role === 'user')?.content ?? '';
+    assert.match(shown, /\[The computer left out \d+ of these 32000 characters here/);
+    assert.ok(shown.startsWith(words.slice(0, 200)));
+    assert.ok(shown.endsWith(words.slice(-100)));
+    // The task got every character, exactly: the person's words alone, without the framing or the model's note.
+    assert.equal(f.instructions, 1);
+    assert.equal(f.instructionTexts[0], words);
+    const request = f.coordinator.read(id, { kind: 'local' });
+    assert.notEqual(request?.status, 'failed');
+  } finally {
+    await f.close();
+  }
+});
+
+test('a long all-work request is answered, and the answer says it read only part of the words', async () => {
+  const words = 'Tell me what is going on with all my work today. '.repeat(700).slice(0, 32000);
+  const bodies: number[] = [];
+  const f = await fixture({
+    turn: async (messages, tools) => {
+      const body = Buffer.byteLength(JSON.stringify({ messages, tools: tools ?? [] }));
+      bodies.push(body);
+      if (body > 12_288)
+        return {
+          kind: 'failed',
+          code: 'context_limit',
+          message: 'This request needs less context before it can continue.',
+        };
+      return bodies.length === 1
+        ? answer([{ name: 'read_projects', arguments: {} }])
+        : answer([], 'One project; nothing runs.');
+    },
+  });
+  try {
+    const outcome = submitAllWork(f, words);
+    assert.equal(outcome.disposition, 'accepted', JSON.stringify(outcome.command?.rejection));
+    for (let i = 0; i < 8; i++) await settle();
+    const created = outcome.command?.result;
+    const request = f.controlPlane.projection.workspaceRequest(
+      created?.kind === 'workspace_request_created' ? created.request_id : '',
+    );
+    assert.equal(request?.status, 'responded', JSON.stringify(bodies));
+    assert.ok(
+      bodies.every((body) => body <= 12_288),
+      JSON.stringify(bodies),
+    );
+    assert.match(
+      request?.reply?.text ?? '',
+      /^One project; nothing runs\. Your words were long, so this answer comes from \d+ of their 32000 characters, the beginning and the end\.$/,
+    );
+    // Nothing was sent anywhere, so the reply does not say the words went to an agent.
+    assert.doesNotMatch(request?.reply?.text ?? '', /went to the agent/);
+  } finally {
+    await f.close();
+  }
+});
+
+test('words with a continuation past the instruction limit pause for a person without truncation, dispatch or an automatic retry', async () => {
+  let modelTurn = 0;
+  const f = await fixture({
+    requestText: 'a'.repeat(32000),
+    turn: async () =>
+      ++modelTurn === 1
+        ? answer([], 'Noted.')
+        : answer([
+            { name: 'continue_task', arguments: { text: 'Read the synthetic file.' } },
+            { name: 'read_workspace', arguments: {} },
+          ]),
+  });
+  try {
+    const id = f.submit();
+    await settle();
+    f.controlPlane.commands.submit(f.command('resume', id, 'b'.repeat(40)), 'http', {
+      kind: 'local',
+    });
     await settle();
     const request = f.coordinator.read(id, { kind: 'local' });
     assert.ok(request);
     assert.equal(request.status, 'waiting_for_human');
     assert.equal(f.instructions, 0);
-    assert.equal(f.turns, 1);
+    assert.equal(f.turns, 2);
     assert.ok(
       request.steps.some(
         (s) =>
@@ -1339,7 +1432,7 @@ test('oversized complete human direction pauses for a person without truncation,
     f.emit('runtime.turn.completed', { turn_id: 'existing-turn' });
     await settle();
     assert.equal(f.instructions, 0);
-    assert.equal(f.turns, 1);
+    assert.equal(f.turns, 2);
     assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'waiting_for_human');
   } finally {
     await f.close();
