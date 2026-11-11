@@ -181,7 +181,21 @@ function setup(
     );
   const events = (): EventEnvelope[] => [...journal.readAll()].map((stored) => stored.event);
   const types = () => events().map((event) => event.event_type);
-  return { root, folder, store, ids, time, controlPlane, projectId, start, restore, events, types };
+  return {
+    root,
+    folder,
+    store,
+    ids,
+    time,
+    controlPlane,
+    projectId,
+    start,
+    restore,
+    events,
+    types,
+    envelope,
+    submit,
+  };
 }
 
 /** Waits, on real time, until the journal holds what the test expects. */
@@ -694,6 +708,44 @@ describe("a project's history and its folder as it is now (the parity map's gap 
     }
     for (const id of kept)
       assert.ok(await store.folderOf(projectId, id), 'the kept ones still are');
+    await controlPlane.close();
+  });
+
+  test('a task from a version the host let go is refused in those words, by the real prune (AUDIT3 S1)', async () => {
+    const { folder, controlPlane, projectId, ids, events, envelope, submit } = setup(
+      'prune-version',
+      {
+        prune: { keep: 2, slack: 1 },
+      },
+    );
+    const take = async (content: string) => {
+      writeFileSync(join(folder, 'app.txt'), content);
+      await controlPlane.checkpoints?.beforeTask(
+        projectId,
+        ids.next() as ExecutionId,
+        folder,
+        NO_CAUSE,
+      );
+    };
+    for (const content of ['one\n', 'two\n', 'three\n', 'four\n']) await take(content);
+    const pruned = events().flatMap((event) =>
+      event.event_type === 'project.checkpoints.pruned' ? event.payload.checkpoint_ids : [],
+    );
+    assert.equal(pruned.length, 2, "CORE's rule let two go");
+    // A task from a version the host let go is refused at its creation, in those words.
+    const fromPruned = submit(
+      envelope('workstream.create', {
+        project_id: projectId,
+        title: 'From the start',
+        objective: null,
+        from_checkpoint: pruned[0] as never,
+      }),
+    );
+    assert.equal(fromPruned.command?.rejection?.code, 'checkpoint_not_found');
+    assert.equal(
+      fromPruned.command?.rejection?.message,
+      'That version is no longer kept. Choose another one.',
+    );
     await controlPlane.close();
   });
 

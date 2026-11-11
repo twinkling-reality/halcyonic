@@ -457,12 +457,24 @@ export function admitCommand(
           : projection
               .checkpoints(projectId)
               .find((checkpoint) => checkpoint.checkpoint_id === from);
-      if (from !== undefined && version === undefined)
+      if (from !== undefined && version === undefined) {
+        // One the host let go by its pruning rule says so, as a start from it would (AUDIT3 S1).
+        const pruned = projection
+          .history(projectId)
+          .some(
+            (entry) =>
+              entry.kind === 'version' &&
+              entry.checkpoint.checkpoint_id === from &&
+              entry.pruned_at !== undefined,
+          );
         return reject(
           { ...NO_SCOPE, project_id: projectId },
           'checkpoint_not_found',
-          "That version is not one of this project's.",
+          pruned
+            ? 'That version is no longer kept. Choose another one.'
+            : "That version is not one of this project's.",
         );
+      }
       // A version of another task's own copy holds that task's work; unless that work was added to
       // the project since, a task started on it would carry work the project never took (AUDIT3 S2).
       if (version !== undefined && version.execution_id !== null) {

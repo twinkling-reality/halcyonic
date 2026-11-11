@@ -171,6 +171,43 @@ describe("a project's history", () => {
     assert.throws(() => new Projection().restoreState(older), /not one this projection exported/);
   });
 
+  test('the version a task will start from is kept until its copy is made into it (ADR 0045 item 8, AUDIT3 S1)', () => {
+    const { b, projection, project, version } = setup();
+    const old = [0, 1, 2].map(() => version('after_turn', null, TREE('a')));
+    [0, 1].map(() => version('after_turn', null, TREE('f')));
+    assert.deepEqual(projection.prunableCheckpoints(project.projectId, 2, 0), old);
+    const workstreamId = b.id() as WorkstreamId;
+    const scope = {
+      project_id: project.projectId,
+      workstream_id: workstreamId,
+      execution_id: null,
+    };
+    projection.apply(
+      b.controlPlane('workstream.created', scope, {
+        title: 'From the first',
+        objective: null,
+        from_checkpoint: old[0] as CheckpointId,
+      }),
+    );
+    assert.deepEqual(
+      projection.prunableCheckpoints(project.projectId, 2, 0),
+      old.slice(1),
+      'kept while the task has no copy of it',
+    );
+    projection.apply(
+      b.controlPlane('workstream.copy_made', scope, {
+        directory: `/copies/${workstreamId}/app`,
+        base_tree: TREE('a'),
+        files: 3,
+      }),
+    );
+    assert.deepEqual(
+      projection.prunableCheckpoints(project.projectId, 2, 0),
+      old,
+      'once the copy is made, its own versions keep what it needs',
+    );
+  });
+
   test('the rule lets go only the oldest checkpoints nothing needs, and a prune is applied', () => {
     const { b, projection, project, projectScope, task, execution, version } = setup();
     const own = task('In its own copy');
