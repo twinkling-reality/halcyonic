@@ -69,6 +69,12 @@ by `pnpm mac-setup agent-apps` in a browser on a scratch page.
    `pnpm dev` by hand) the page offers no restart and says to stop and start Halcyonic. A close that
    fails exits 1, so the loop stops.
 
+6. **What is shared now** ([ADR 0054](0054-what-was-made-is-kept-and-shared-only-by-the-persons-press.md)).
+   Below the steps, Shared Now lists each game shared now: its name, its way (Link or This Wi-Fi),
+   the Wi-Fi address as text, Copy and Stop. A link's address goes only to the clipboard, never on
+   the page. Stop is `POST /setup/shares/stop`, behind the page's session and origin like every
+   press, and submits `project.share.stop` as the person's press. Written by TASKS, read by CORE.
+
 ## Alternatives considered
 
 - **Apply every setting live.** Each setting reaches a different part of the control plane (the
