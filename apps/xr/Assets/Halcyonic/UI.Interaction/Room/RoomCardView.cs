@@ -82,6 +82,9 @@ namespace Halcyonic.XR.UI
         public const float RowNameLineDp = 26f;
         public const float RowNoteDp = 16f;
         public const float RowNoteLineDp = 20f;
+
+        /// <summary>A note's white: quiet beside a name, legible over the bright room and the dark one.</summary>
+        public const float NoteAlpha = 0.84f;
         public const float GaugePadXDp = 14f;
         public const float GaugeGapDp = 12f;
         public const float GaugePadTopDp = 14f;
@@ -118,7 +121,7 @@ namespace Halcyonic.XR.UI
 
         private readonly Dictionary<KitRole, List<TextMeshPro>> texts = new Dictionary<KitRole, List<TextMeshPro>>();
         private readonly Dictionary<KitRole, int> textsUsed = new Dictionary<KitRole, int>();
-        private readonly List<Surface> plates = new List<Surface>();
+        private readonly List<RoomShape> plates = new List<RoomShape>();
         private readonly List<RoomGlyphView> glyphs = new List<RoomGlyphView>();
         private readonly List<(KitPress Press, GameObject Target)> rowPresses = new List<(KitPress, GameObject)>();
         private readonly List<KitControl?> rowControls = new List<KitControl?>();
@@ -151,7 +154,7 @@ namespace Halcyonic.XR.UI
         public List<TextMeshPro> Shown { get; } = new List<TextMeshPro>();
 
         /// <summary>Every tile, mark and plate the card shows now, with what it is: for checks.</summary>
-        public List<(Surface Plate, string What)> Plates { get; } = new List<(Surface, string)>();
+        public List<(RoomShape Plate, string What)> Plates { get; } = new List<(RoomShape, string)>();
 
         /// <summary>Every glyph the card shows now, with what it is: for checks.</summary>
         public List<(RoomGlyphView Glyph, string What)> Glyphs { get; } = new List<(RoomGlyphView, string)>();
@@ -492,14 +495,16 @@ namespace Halcyonic.XR.UI
                 if (index > 0) Plate(new Vector2(width, S(1f)), 0f, White(0.10f), new Vector2(width / 2f, -(down + S(0.5f))), "hairline");
                 var top = down + S(RowPadDp);
                 var (tone, glyph) = ToneOf(row);
+                // The note reads over any room: a quiet near-white whatever the kind, the kind's colour on its mark alone
+                // (the lead, 2026-11-11: "Edited in Both" in the failure's tint read 2.89 to 1 over the bright room).
                 var (ground, ink, note) = tone switch
                 {
-                    RoomTone.Good => (Rgb(Passed, 0.18f), Rgb(Passed), Rgb(PassedNote)),
-                    RoomTone.Bad => (Rgb(Failed, 0.18f), Rgb(Failed), Rgb(FailedNote)),
-                    RoomTone.Working => (Rgb(Accent, 0.16f), Rgb(Accent), Rgb(AccentNote)),
-                    RoomTone.Attention => (Rgb(Attention, 0.16f), Rgb(Attention), Rgb(AttentionNote)),
+                    RoomTone.Good => (Rgb(Passed, 0.18f), Rgb(Passed), White(NoteAlpha)),
+                    RoomTone.Bad => (Rgb(Failed, 0.18f), Rgb(Failed), White(NoteAlpha)),
+                    RoomTone.Working => (Rgb(Accent, 0.16f), Rgb(Accent), White(NoteAlpha)),
+                    RoomTone.Attention => (Rgb(Attention, 0.16f), Rgb(Attention), White(NoteAlpha)),
                     // A neutral row's mark is a bare glyph, no well, so it never reads as an action's chip.
-                    _ => (Color.clear, White(0.85f), White(0.72f)),
+                    _ => (Color.clear, White(0.85f), White(NoteAlpha)),
                 };
                 if (row.Chosen) (ground, ink) = (Rgb(Accent, 0.24f), Rgb(AccentNote));
                 // The note at the right first, so the name knows how far it may run.
@@ -625,7 +630,7 @@ namespace Halcyonic.XR.UI
 
         private void Plate(Vector2 size, float radius, Color fill, Vector2 centre, string what, Color edge = default, float edgeWidth = 0f, bool under = false, bool front = false)
         {
-            if (platesUsed >= plates.Count) plates.Add(Surface.Create(transform, "Tile", order - 4));
+            if (platesUsed >= plates.Count) plates.Add(RoomShape.Create(transform, "Tile", order - 4));
             var plate = plates[platesUsed++];
             plate.gameObject.SetActive(true);
             // A tile under the marks; a pip over the mark it hangs on, each laid after the one under it.

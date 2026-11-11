@@ -122,9 +122,9 @@ namespace Halcyonic.XR.UI
         private bool chosen;
         private string? shownWords;
         private string? shownAside;
-        private Surface asidePlate = null!;
+        private RoomShape asidePlate = null!;
         private TextMeshPro asideWords = null!;
-        private Surface asideMark = null!;
+        private RoomShape asideMark = null!;
         private RoomGlyphView asideCheck = null!;
         private float asideWidth;
         private bool held;
@@ -205,7 +205,7 @@ namespace Halcyonic.XR.UI
         /// <summary>The chip after the words as shown, or null where there is none.</summary>
         public string? Aside => shownAside;
 
-        public Surface AsidePlate => asidePlate;
+        public RoomShape AsidePlate => asidePlate;
 
         public TextMeshPro AsideWords => asideWords;
 
@@ -253,10 +253,10 @@ namespace Halcyonic.XR.UI
             // Every action's words stand on the soft underlay (DESIGN 1.4): black at 35 percent, no offset.
             RoomBand.Underlay(button.words, action: true);
             button.glyph = RoomGlyphView.Create(button.visual, "Glyph", order + 3);
-            button.asidePlate = Surface.Create(button.visual, "Aside", order + 2);
+            button.asidePlate = RoomShape.Create(button.visual, "Aside", order + 2);
             button.asideWords = KitType.Create(button.visual, "Aside words", KitRole.Label, Color.white, order + 3, TextAlignmentOptions.TopLeft, room: true);
             button.asideWords.textWrappingMode = TextWrappingModes.NoWrap;
-            button.asideMark = Surface.Create(button.visual, "Aside mark", order + 3);
+            button.asideMark = RoomShape.Create(button.visual, "Aside mark", order + 3);
             button.asideCheck = RoomGlyphView.Create(button.visual, "Aside check", order + 4);
             button.asidePlate.gameObject.SetActive(false);
             button.asideMark.gameObject.SetActive(false);
