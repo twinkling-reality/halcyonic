@@ -26,6 +26,13 @@ unloaded. Suspected, not verified: Codex runs the model with a 65,536-token cont
 and the assistant asks for 8,192, so Ollama may reload the 22 GB model at each switch between them. So the code
 after S3 is not yet shown passing on the product's model.
 
+Then checked on `llama3.2:1b` (Ollama 0.34.4 on this Mac, `/api/generate` with `num_predict: 4`): asking with the
+model already loaded at the same `num_ctx` took 2 ms to load; asking with another `num_ctx` (8,192 against 65,536)
+loaded it again (about 0.8 s at 1B, so far longer at 22 GB), and `/api/ps` then listed the new context. So the
+assistant now reads `/api/ps` before each turn and, when its model is already loaded with at least its own
+context (and at most 262,144), asks for that same context; otherwise for its own 8,192. Its input bound (12 KiB)
+is unchanged. What context Codex loads the model with was not read here.
+
 ## 2026-11-10: What a task changed and whether it works, a whole project, on local models
 
 Setup: an isolated control plane on 127.0.0.1 with its own data directory, Codex 0.157.0 confined to a
@@ -60,6 +67,10 @@ project's files.
     work it sent, while the project's check is under way or a turn's files are not yet read, and wakes when the
     check ends. On the next run it replied two seconds after the check (passed, files current), with true facts,
     yet said whether it works was not checked: the 9B model did not use the check it was given.
+
+Status at the end of 2026-11-10's runs: requests across all work, the quoted data block (AUDIT2 S3) and the reused
+context are not yet shown on a real model, and the headset does not show a whole-project or all-work request
+yet (its request column binds a task).
 
 Conclusion: the loop, the evidence, the project request and the wait for the check work with real models and a
 real runtime. Answer quality depends on the model: the 30B model answered both plain questions truly with

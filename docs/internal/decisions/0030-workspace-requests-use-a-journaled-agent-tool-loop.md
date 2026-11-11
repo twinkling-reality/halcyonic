@@ -1,6 +1,6 @@
 # ADR 0030: Workspace requests use a journaled agent tool loop
 
-- Status: Accepted; built in the control plane and run end to end on local models with a real runtime (2026-11-10, [record](../validation/workspace-requests.md)); headset request UI, speech and device evidence pending
+- Status: Accepted; built in the control plane and run end to end on local models with a real runtime (2026-11-10, [record](../validation/workspace-requests.md)); the requests across all work, the quoted data block and the reused context not yet shown on a real model; the headset does not show a whole-project or all-work request yet; headset request UI, speech and device evidence pending
 - Date: 2026-10-12
 - Complements ADR 0025. The creation companion remains a separate, transient proposal flow.
 

@@ -38,6 +38,8 @@ async function fake(t: TestContext) {
     stall: '',
     redirect: false,
     raw: null as Buffer | null,
+    /** What `/api/ps` lists as loaded; none unless a test sets it. */
+    loaded: [] as Record<string, unknown>[],
   };
   const server = createServer(async (request, response) => {
     state.paths.push(request.url ?? '');
@@ -56,6 +58,7 @@ async function fake(t: TestContext) {
     response.setHeader('content-type', 'application/json');
     if (request.url === '/api/tags') response.end(JSON.stringify({ models: [state.model] }));
     else if (request.url === '/api/show') response.end(JSON.stringify(state.metadata));
+    else if (request.url === '/api/ps') response.end(JSON.stringify({ models: state.loaded }));
     else if (request.url === '/api/chat') {
       state.chats.push(
         JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>,
@@ -106,7 +109,29 @@ test('metadata-only availability and native tool/result continuation preserve th
   assert.equal(state.chats[0]?.think, false);
   assert.equal(state.chats[0]?.keep_alive, undefined);
   assert.deepEqual(state.chats[0]?.options, { num_ctx: 8192, num_predict: 1024, temperature: 0 });
-  assert(state.paths.every((path) => ['/api/tags', '/api/show', '/api/chat'].includes(path)));
+  assert(
+    state.paths.every((path) => ['/api/tags', '/api/show', '/api/ps', '/api/chat'].includes(path)),
+  );
+});
+
+test('asks for the context the model is already loaded with, so Ollama does not load it again', async (t) => {
+  const { state, model } = await fake(t);
+  const asked = async () => {
+    state.chats.length = 0;
+    await model.turn(messages, tools);
+    return (state.chats[0]?.options as { num_ctx?: number } | undefined)?.num_ctx;
+  };
+  state.loaded = [{ name: 'local:tag', model: 'local:tag', context_length: 65_536 }];
+  assert.equal(await asked(), 65_536);
+  // Smaller than the assistant needs, another model, an absurd value: its own context.
+  state.loaded = [{ name: 'local:tag', context_length: 4096 }];
+  assert.equal(await asked(), 8192);
+  state.loaded = [{ name: 'other:tag', context_length: 65_536 }];
+  assert.equal(await asked(), 8192);
+  state.loaded = [{ name: 'local:tag', context_length: 10_000_000 }];
+  assert.equal(await asked(), 8192);
+  state.loaded = [];
+  assert.equal(await asked(), 8192);
 });
 
 test('refuses cloud, remote, unsupported and redirected models before inference, and rechecks locality', async (t) => {

@@ -159,6 +159,15 @@ export class OllamaWorkspaceModel {
       const config = this.#config;
       if (config === null)
         return failure('not_configured', 'A local model has not been configured.');
+      // A model already loaded with a larger context is asked for that context: asking for another
+      // makes Ollama load the model again, which for a large model the person also runs agents on
+      // takes longer than this turn's bound (validation/workspace-requests.md, 2026-11-11).
+      const loaded = await loadedContext(
+        config.ollama,
+        config.model,
+        this.#bounds.contextTokens,
+        AbortSignal.any([controller.signal, AbortSignal.timeout(this.#bounds.metadataMs)]),
+      );
       const reply = await requestJson(
         config.ollama,
         '/api/chat',
@@ -169,7 +178,7 @@ export class OllamaWorkspaceModel {
           stream: false,
           think: false,
           options: {
-            num_ctx: this.#bounds.contextTokens,
+            num_ctx: loaded ?? this.#bounds.contextTokens,
             num_predict: this.#bounds.outputTokens,
             temperature: 0,
           },
@@ -298,6 +307,45 @@ function canonical(value: unknown): string {
   return JSON.stringify(value);
 }
 class ResponseLimit extends Error {}
+/** The largest context a loaded model's may be for the assistant to reuse it. */
+const MAX_REUSED_CONTEXT = 262_144;
+
+/**
+ * The context the model is loaded with now, from Ollama's own list of loaded models (`/api/ps`,
+ * metadata only), when it is at least `minimum` and at most `MAX_REUSED_CONTEXT`; null otherwise,
+ * and on any failure to read it, so the assistant then asks for its own.
+ */
+async function loadedContext(
+  base: URL,
+  model: string,
+  minimum: number,
+  signal: AbortSignal,
+): Promise<number | null> {
+  try {
+    const response = await fetch(new URL('/api/ps', base), { redirect: 'error', signal });
+    if (!response.ok) {
+      await response.body?.cancel();
+      return null;
+    }
+    const text = await response.text();
+    if (Buffer.byteLength(text) > METADATA_BYTES) return null;
+    const listed: unknown = JSON.parse(text);
+    if (!object(listed) || !Array.isArray(listed.models)) return null;
+    const found = listed.models.find(
+      (entry: unknown) => object(entry) && (entry.name === model || entry.model === model),
+    );
+    const context = object(found) ? found.context_length : undefined;
+    return typeof context === 'number' &&
+      Number.isInteger(context) &&
+      context >= minimum &&
+      context <= MAX_REUSED_CONTEXT
+      ? context
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 async function requestJson(
   base: URL,
   path: '/api/show' | '/api/chat',
