@@ -1992,6 +1992,55 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
     },
   );
 
+  test(
+    'a never-asking run in a folder that holds another project, or beside one, reaches neither (AUDIT BOX-3 F1)',
+    SLOW_TEST,
+    async (t) => {
+      let inner = '';
+      const { sandbox, start } = await harness(t, {
+        runtime: (box) => {
+          inner = join(box.project, 'inner-project');
+          return {
+            confinement: {
+              forDirectory: (directory) =>
+                directory === box.project
+                  ? { project: directory, readable: [], inner: [inner] }
+                  : null,
+              toolFolders: toolFoldersFor(process.execPath),
+              loopbackPorts: [Number(new URL(box.provider.baseUrl).port)],
+            },
+          };
+        },
+      });
+      await mkdir(inner);
+      await writeFile(join(inner, 'kept.txt'), 'kept\n');
+      const beside = join(sandbox.root, 'beside-project');
+      await mkdir(beside);
+      await writeFile(join(beside, 'kept.txt'), 'kept\n');
+      const execution = await start(
+        `CMD:echo removed > ${inner}/kept.txt; echo made > ${inner}/marker.txt; cat ${inner}/kept.txt; echo removed > ${beside}/kept.txt; echo made > own.txt`,
+        {},
+        null,
+        'never_ask',
+      );
+      await execution.next('runtime.turn.completed');
+      assert.ok(!execution.types().includes('runtime.approval.requested'));
+      // The control: its own folder was written, unasked.
+      assert.equal(readFileSync(join(sandbox.project, 'own.txt'), 'utf8'), 'made\n');
+      assert.equal(
+        readFileSync(join(inner, 'kept.txt'), 'utf8'),
+        'kept\n',
+        'the inner project changed',
+      );
+      assert.equal(existsSync(join(inner, 'marker.txt')), false, 'the inner project was written');
+      assert.equal(
+        readFileSync(join(beside, 'kept.txt'), 'utf8'),
+        'kept\n',
+        'the project beside changed',
+      );
+    },
+  );
+
   test('cannot read the shared temporary folder', SLOW_TEST, async (t) => {
     const { output } = await runAsModel(t, 'ls /private/tmp; echo listed=$?');
     assert.match(output, /Operation not permitted/);

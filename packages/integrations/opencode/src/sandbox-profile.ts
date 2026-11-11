@@ -21,6 +21,11 @@ export interface SandboxScope {
   readonly unreadable: readonly string[];
   /** Paths inside an unreadable folder that stay readable, such as OpenCode's settings. */
   readonly readable?: readonly string[];
+  /**
+   * Other bound projects' folders inside the writable folder (AUDIT BOX-3 F1): refused to reads and
+   * writes after every allowance, so a command here never reaches another project.
+   */
+  readonly inner?: readonly string[];
 }
 
 /**
@@ -95,6 +100,12 @@ export function sandboxProfile(scope: SandboxScope): string {
     ...(unreadable === '' ? [] : [`(deny file-read* ${unreadable})`]),
     // Later rules win: what is readable inside an unreadable folder is said after it.
     ...(readable === '' ? [] : [`(allow file-read* ${readable})`]),
+    // Every other project inside this one, last, so nothing above reopens it (AUDIT BOX-3 F1).
+    ...((scope.inner ?? []).length === 0
+      ? []
+      : [
+          `(deny file-read* file-write* ${(scope.inner ?? []).map((path) => `(subpath ${quote(path)})`).join(' ')})`,
+        ]),
     '',
   ].join('\n');
 }

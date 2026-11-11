@@ -270,3 +270,9 @@ given, not only a project made from a starter (`codexConfinement` in `apps/contr
   known to be safe.
 - **Elsewhere than macOS:** nothing changes. There is no profile, and the open server's `workspace-write` applies.
 - **Still not confined:** listing models uses the open server, which runs no command.
+
+## Amendment, 2026-11-11: another project inside a confined folder (AUDIT BOX-3 F1)
+
+A confined folder's profile denies reads, writes and links of every other bound project's folder inside it, after
+every allowance (`Confinement.inner`). See [ADR 0043](0043-a-person-may-let-a-tasks-agent-work-without-asking-where-its-runtime-keeps-it-in-bounds.md),
+note of 2026-11-11.

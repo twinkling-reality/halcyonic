@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -644,6 +652,68 @@ describe("a folder's git data outside it, read only (BOX)", () => {
         (error: { stderr?: string }) => error.stderr ?? '',
       );
       assert.match(readme, /Operation not permitted/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('another bound project inside a confined folder (AUDIT BOX-3 F1)', () => {
+  test('on this Mac, its folder is refused to reads, writes and links, while the rest of the folder works', {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-inner-test-')));
+    try {
+      const project = join(root, 'outer');
+      const inner = join(project, 'inner-project');
+      mkdirSync(inner, { recursive: true });
+      writeFileSync(join(inner, 'kept.txt'), 'kept-3e1a\n');
+      writeFileSync(join(project, 'own.txt'), 'own\n');
+      const home = join(root, 'home');
+      const temp = join(root, 'temp');
+      mkdirSync(home);
+      mkdirSync(temp);
+      const file = join(temp, 'profile.sb');
+      writeFileSync(
+        file,
+        confinedProfile({
+          project,
+          readable: [],
+          inner: [inner],
+          codexHome: home,
+          temp,
+          runtimeFolder: home,
+          toolFolders: toolFoldersFor(process.execPath),
+          loopbackPorts: [],
+        }),
+      );
+      const inside = (command: string[]) =>
+        run(SANDBOX_EXEC, ['-f', file, ...command]).then(
+          ({ stdout }) => ({ code: 0, out: stdout }),
+          (error: { code?: number; stdout?: string; stderr?: string }) => ({
+            code: typeof error.code === 'number' ? error.code : 1,
+            out: `${error.stdout ?? ''}${error.stderr ?? ''}`,
+          }),
+        );
+      const refused = /Operation not permitted/;
+      // The control: the folder's own files read and write.
+      assert.equal((await inside(['/bin/cat', join(project, 'own.txt')])).out, 'own\n');
+      assert.equal((await inside(['/usr/bin/touch', join(project, 'made')])).code, 0);
+      // The other project: not read, not listed, not written, not linked into the folder.
+      assert.match((await inside(['/bin/cat', join(inner, 'kept.txt')])).out, refused);
+      assert.match((await inside(['/bin/ls', inner])).out, refused);
+      assert.match((await inside(['/usr/bin/touch', join(inner, 'marker.txt')])).out, refused);
+      assert.match(
+        (await inside(['/bin/sh', '-c', `echo removed > '${join(inner, 'kept.txt')}'`])).out,
+        refused,
+      );
+      assert.match(
+        (await inside(['/bin/ln', join(inner, 'kept.txt'), join(project, 'linked')])).out,
+        refused,
+      );
+      assert.match((await inside(['/bin/mv', inner, join(project, 'moved')])).out, refused);
+      assert.equal(readFileSync(join(inner, 'kept.txt'), 'utf8'), 'kept-3e1a\n');
+      assert.equal(existsSync(join(inner, 'marker.txt')), false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -1,5 +1,5 @@
-import { readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, realpathSync, statSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import { ClaudeAgentRuntimeAdapter } from '@halcyonic/integration-claude-code';
 import {
   CodexRuntimeAdapter,
@@ -50,6 +50,29 @@ export interface RuntimeDependencies {
    * agent reads it but cannot change it, and never its version control or secret-shaped files.
    */
   readonly originalOf?: (directory: string) => string | null;
+  /**
+   * Every bound project's folder, read from the journal at each start (AUDIT BOX-3 F1): a run's
+   * sandbox denies every one of them inside its own folder, and where it cannot, never ask is not
+   * offered there.
+   */
+  readonly projectFolders?: () => readonly string[];
+}
+
+/**
+ * The bound project folders strictly inside `directory`, each as the file system resolves it, so a
+ * run in a folder that holds another project's folder never reaches that project (AUDIT BOX-3 F1).
+ */
+export function foldersInside(directory: string, folders: readonly string[]): string[] {
+  const real = (path: string) => {
+    try {
+      return realpathSync.native(path);
+    } catch {
+      return path;
+    }
+  };
+  const outer = real(directory);
+  const prefix = outer.endsWith(sep) ? outer : `${outer}${sep}`;
+  return [...new Set(folders.map(real))].filter((folder) => folder.startsWith(prefix)).sort();
 }
 
 /**
@@ -83,6 +106,7 @@ export function createRuntimeAdapters(
         serverRecordFile: join(dependencies.dataDir, OPENCODE_SERVER_RECORD),
         directoryPolicy: dependencies.directoryPolicy,
         env: openCodeEnvironment(config, additions),
+        foldersInside: (folder) => foldersInside(folder, dependencies.projectFolders?.() ?? []),
         sandbox:
           process.platform === 'darwin'
             ? openCodeSandbox(config, dependencies.dataDir, dependencies.environment.HOME ?? '')
@@ -98,6 +122,7 @@ export function createRuntimeAdapters(
         serverRecordFile: join(dependencies.dataDir, CODEX_SERVER_RECORD),
         directoryPolicy: dependencies.directoryPolicy,
         env: codexEnvironment(additions),
+        foldersInside: (folder) => foldersInside(folder, dependencies.projectFolders?.() ?? []),
         ...codexConfinement(dependencies),
       }),
     );
@@ -112,7 +137,10 @@ export function createRuntimeAdapters(
  * its `node_modules` links to, and a VR version its original. Elsewhere, none.
  */
 export function codexConfinement(
-  dependencies: Pick<RuntimeDependencies, 'starterOf' | 'originalOf' | 'dataDir'>,
+  dependencies: Pick<
+    RuntimeDependencies,
+    'starterOf' | 'originalOf' | 'dataDir' | 'projectFolders'
+  >,
   node: string = process.execPath,
 ): Pick<CodexRuntimeOptions, 'confinement'> {
   if (process.platform !== 'darwin') return {};
@@ -121,6 +149,7 @@ export function codexConfinement(
       forDirectory: (directory) => {
         const starter = dependencies.starterOf?.(directory) ?? null;
         const original = dependencies.originalOf?.(directory) ?? null;
+        const inner = foldersInside(directory, dependencies.projectFolders?.() ?? []);
         return {
           project: directory,
           readable: starter === null ? [] : [join(dependencies.dataDir, 'starters', starter)],
@@ -129,6 +158,8 @@ export function codexConfinement(
           // Halcyonic's data folder is refused outright (AUDIT M18C1-M1).
           hidden: [dependencies.dataDir],
           ...(original === null ? {} : { originals: [original] }),
+          // Every other bound project inside this folder, refused to reads and writes (AUDIT BOX-3 F1).
+          ...(inner.length === 0 ? {} : { inner }),
         };
       },
       toolFolders: toolFoldersFor(node),

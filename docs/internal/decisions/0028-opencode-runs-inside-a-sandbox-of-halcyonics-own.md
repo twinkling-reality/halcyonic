@@ -162,3 +162,9 @@ inside its own profile:
 - **Reads are unchanged:** allowed but for Halcyonic's data and the person's listed credentials. Closing them is the
   next step (BOX-3b).
 - **Tests:** the unit tests and the whole OpenCode end to end suite pass with one server per folder.
+
+## Amendment, 2026-11-11: another project inside a folder (AUDIT BOX-3 F1)
+
+Each folder's server also denies reads and writes of every other bound project's folder inside its own. A project
+bound there after the server started replaces the server at the next start, as [ADR 0043](0043-a-person-may-let-a-tasks-agent-work-without-asking-where-its-runtime-keeps-it-in-bounds.md)'s
+note of 2026-11-11 says.

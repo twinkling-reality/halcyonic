@@ -62,6 +62,8 @@ async function main(): Promise<void> {
   // Which starter a folder was made from, read from the projection once the control plane is built.
   let starterOf: (directory: string) => string | null = () => null;
   let originalOf: (directory: string) => string | null = () => null;
+  // Every bound project's folder, read at each start, so no run reaches another project (BOX-3).
+  let projectFolders: () => readonly string[] = () => [];
   // Built first, so a misconfigured runtime stops startup before anything else opens.
   const adapters = createRuntimeAdapters(config, {
     mock: new MockRuntimeAdapter({
@@ -73,6 +75,7 @@ async function main(): Promise<void> {
     dataDir: config.dataDir,
     starterOf: (directory) => starterOf(directory),
     originalOf: (directory) => originalOf(directory),
+    projectFolders: () => projectFolders(),
   });
   // Opened before anything listens, so a speech engine that cannot report its version stops startup.
   const speech = config.speech === null ? null : await WhisperEngine.open(config.speech);
@@ -208,6 +211,10 @@ async function main(): Promise<void> {
     ),
     ollamaUnload: new OllamaUnloader({ url: `http://127.0.0.1:${OLLAMA_PORT}` }),
   });
+  projectFolders = () =>
+    controlPlane.projection
+      .projects()
+      .flatMap((project) => (project.location === null ? [] : [project.location.path]));
   starterOf = (directory) =>
     controlPlane.projection
       .projects()

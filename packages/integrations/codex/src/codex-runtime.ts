@@ -158,6 +158,12 @@ export interface CodexRuntimeOptions {
    * Which project folders get a server of their own inside Halcyonic's sandbox (ADR 0041), and
    * what that sandbox lets through. Without it every thread runs on the one open server.
    */
+  /**
+   * The bound project folders inside a folder (AUDIT BOX-3 F1). A confined folder's profile denies
+   * them; a thread on the open server cannot be kept out of them, so a start there that never asks is
+   * refused for a folder that holds one.
+   */
+  readonly foldersInside?: (directory: string) => readonly string[];
   readonly confinement?: {
     /** The confinement for a project's folder, or null when its threads run on the open server. */
     readonly forDirectory: (directory: string) => Confinement | null;
@@ -194,6 +200,7 @@ function sameScope(a: Confinement | null, b: Confinement): boolean {
           c.originals ?? [],
           c.hidden ?? [],
           c.asksNothing === true,
+          c.inner ?? [],
         ]);
   return scope(a) === scope(b);
 }
@@ -293,6 +300,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   readonly #approvalTimeoutMs: number;
   readonly #answerQuestions: boolean;
   readonly #confinement: NonNullable<CodexRuntimeOptions['confinement']> | null;
+  readonly #foldersInside: (directory: string) => readonly string[];
   readonly #clock: Clock;
   readonly #threads = new Map<string, HostedThread>();
   readonly #byThreadId = new Map<string, HostedThread>();
@@ -321,6 +329,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     this.#approvalTimeoutMs = options.approvalTimeoutMs ?? 10_000;
     this.#answerQuestions = options.answerQuestions ?? true;
     this.#confinement = options.confinement ?? null;
+    this.#foldersInside = options.foldersInside ?? (() => []);
     this.#open = {
       confinement: null,
       replacing: null,
@@ -434,6 +443,17 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     // Checked at every start, not only at launch: a sign-in may have been put there since.
     await prepareHome(this.#home);
     const slot = this.#slotFor(cwd);
+    // The open server cannot keep a thread out of another project inside its folder (AUDIT BOX-3 F1).
+    if (
+      chosen.approvalPolicy === 'never' &&
+      slot.confinement === null &&
+      this.#foldersInside(cwd).length > 0
+    ) {
+      throw new RuntimeActionError(
+        'invalid_runtime_options',
+        "Codex works without asking here only where its sandbox keeps it out of the other projects inside this folder, and here it runs without Halcyonic's sandbox.",
+      );
+    }
     const options = askingInside(chosen, slot.confinement);
     const connection = await this.#connection(false, slot);
     const local = await this.#onThisMac(connection, options);
