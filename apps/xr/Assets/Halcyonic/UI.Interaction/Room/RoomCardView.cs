@@ -34,6 +34,8 @@ namespace Halcyonic.XR.UI
         public const float HeadGapDp = 20f;
         public const float TitleTypeDp = 34f;
         public const float TitleLineDp = 40f;
+        public const float LongTitleTypeDp = 26f;
+        public const float LongTitleLineDp = 31f;
         public const float DescriptionTypeDp = 18f;
         public const float DescriptionLineDp = 25f;
         public const float DescriptionGapDp = 6f;
@@ -239,7 +241,16 @@ namespace Halcyonic.XR.UI
             var column = width - left;
             var tall = 0f;
             var words = new List<(KitRole Role, float Dp, float LineDp, Color Colour, LineWords Words, int Lines, float Before)>();
-            if (card.Title != null) words.Add((KitRole.Title, TitleTypeDp, TitleLineDp, Color.white, card.Title, 2, 0f));
+            if (card.Title != null)
+            {
+                // A name is never cut: two lines at the title's size, else three a step smaller (a long name a person typed).
+                var (probe, _) = Text(KitRole.Title, TitleTypeDp, TitleLineDp, Color.white, card.Title, left, 0f, column, 2);
+                var fits = !probe.isTextOverflowing;
+                probe.gameObject.SetActive(false);
+                Shown.Remove(probe);
+                textsUsed[KitRole.Title]--;
+                words.Add(fits ? (KitRole.Title, TitleTypeDp, TitleLineDp, Color.white, card.Title, 2, 0f) : (KitRole.Title, LongTitleTypeDp, LongTitleLineDp, Color.white, card.Title, 3, 0f));
+            }
             // Measure first, then stand the words in the middle of the head's height where it has one.
             var laid = new List<(TextMeshPro Label, float Tall, float Before)>();
             foreach (var each in words)

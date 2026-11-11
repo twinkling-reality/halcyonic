@@ -145,9 +145,12 @@ namespace Halcyonic.Client
             {
                 if (prompts.Any(prompt => prompt.Id == NewProjectScreens.ChangeRecap))
                 {
-                    // The facts: rows that say what they are, Start Task first, then Change.
+                    // The facts: the recap's card where the page gives one (A17), else rows that say what they are; Start Task
+                    // first, then Change.
                     var facts = plain.Select(line => new RoomRow(line.Runs)).ToList();
-                    return Rows(RoomBarState.Choose, facts, main is { Available: false } ? why : null, Column(withClose: true, Offered(NewProjectScreens.ChangeRecap)));
+                    var recap = Rows(RoomBarState.Choose, facts, main is { Available: false } ? why : null, Column(withClose: true, Offered(NewProjectScreens.ChangeRecap)));
+                    if (frame.Card != null) recap.Card = frame.Card;
+                    return recap;
                 }
                 if (yes?.Id == NewProjectScreens.ConfirmStartOver)
                     return new RoomBar(RoomBarState.Confirm, body: plain.LastOrDefault()?.Runs, sentence: StartOverAsks, column: Confirming());

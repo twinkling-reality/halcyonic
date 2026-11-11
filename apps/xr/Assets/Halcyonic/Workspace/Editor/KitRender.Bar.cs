@@ -574,9 +574,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         "the row's feet are not 94.4 dp under the pair's foot line");
                     Require(drawnFrames == 1, "the result's frame was reported drawn " + drawnFrames + " times: a message on the band is not read before the row takes a press");
                     var message = state == "38-result-long" ? ResultSaysLong : ResultSays;
-                    // Where the agent offers never ask the row names it and its level, and the result still stands over it.
+                    // Where the agent offers never ask the row names it, its level the action's chip beside it (A17), and the result still stands over it.
                     if (state == "38-result-agent")
-                        Require(shown.Row.Any(action => action.Control.Action == AgentColumn.Open && action.Words.Contains("Never Ask")) && bar.More.gameObject.activeSelf,
+                        Require(shown.Row.Any(action => action.Control.Action == AgentColumn.Open && action.Chip == AgentColumn.NeverAskWords) && bar.More.gameObject.activeSelf
+                            && bar.More.Aside == AgentColumn.NeverAskWords,
                             "the agent and its level do not stand in the row beside the result");
                     if (known.Page == RoomResultPage.Result)
                     {

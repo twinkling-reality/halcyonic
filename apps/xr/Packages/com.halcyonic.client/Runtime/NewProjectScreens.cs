@@ -684,7 +684,34 @@ namespace Halcyonic.Client
                 farRight: new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true, available: problem == null, reason: problem,
                     safeInPlace: true));
             return new MenuFrame(Subject(idea), footer, sections: Sections(NewProjectStep.Recap, idea, buildReached ?? problem == null), lines: lines,
-                source: suggested ? CompanionText.Note : null);
+                source: suggested ? CompanionText.Note : null).WithCard(RecapCard(idea, draft, currentFolder, live, lines.Count > 0 && !lines[0].Words.StartsWith(NewWorkReview.ProjectLabel, System.StringComparison.Ordinal) ? lines[0].Runs : null));
+        }
+
+        /// <summary>
+        /// The recap as a card (the addendum's A17): the project's name as the title, its first task as the line under it, and
+        /// its facts as slots, each its value alone with its kind's glyph, never a label joined on a dot: the folder (its name,
+        /// or where the work goes directly, or that none is chosen), the agent (the model's name where the runtime lists models,
+        /// else the agent app's), and the level the start will use, where its runtime offers one. A notice, a proposal or the
+        /// warning that the folder moves stands as the card's quiet foot line.
+        /// </summary>
+        public static RoomCard RecapCard(ProjectIdea idea, NewWorkDraft draft, ProjectLocation? currentFolder, bool live, LineWords? note)
+        {
+            var title = idea.Name.Length > 0 ? LineWords.TheirName(idea.Name) : LineWords.Ours(EntryText.NotNamedYet);
+            var slots = new List<RoomSlot>();
+            var folder = EntryText.FolderFactPartsOf(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true);
+            var folderWords = folder.Name ?? folder.Place ?? (folder.Kind == FolderFactKind.NotChosen ? LineWords.Ours("Not Chosen") : null);
+            if (folderWords != null) slots.Add(new RoomSlot(RoomKind.Folder, folderWords));
+            if (draft.Runtime is RuntimeDescriptor runtime)
+            {
+                LineWords agent;
+                if (runtime.Synthetic) agent = LineWords.Ours(live ? "Practice Run" : "Simulated");
+                else if (runtime.ModelChoice == ModelChoice.Listed)
+                    agent = draft.Model is RuntimeModel model ? LineWords.TheirName(CaptureNames.ModelName(model.DisplayName ?? model.ModelRef)) : LineWords.Ours("Not Chosen");
+                else agent = LineWords.TheirName(CaptureNames.AgentName(runtime.DisplayName));
+                slots.Add(new RoomSlot(RoomKind.Agent, agent));
+                if (!runtime.Synthetic) slots.Add(new RoomSlot(RoomKind.Level, LineWords.Ours(AgentColumn.LevelWords(draft.StartsNeverAsk))));
+            }
+            return new RoomCard(title, idea.FirstTask.Length > 0 ? LineWords.TheirName(idea.FirstTask) : null, RoomCardHead.Project, slots: slots, more: note?.Text);
         }
 
         /// <summary>

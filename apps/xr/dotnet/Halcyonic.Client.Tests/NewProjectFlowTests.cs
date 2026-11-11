@@ -2280,6 +2280,23 @@ public class NewProjectFlowTests
     });
 
     [Test]
+    public void In_the_redesign_the_recap_is_a_card_of_its_name_its_task_and_its_facts_apart() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = RoomRecapped(host);
+        var card = flow.Frame!.Card;
+        Assert.That(card, Is.Not.Null, "the recap gives its card beside its lines");
+        Assert.That(card!.Head, Is.EqualTo(RoomCardHead.Project));
+        Assert.That(card.Description!.Text, Is.EqualTo("A page of race times for my running club"), "the first task is the card's line");
+        Assert.That(card.Slots.Select(slot => slot.Kind), Does.Contain(RoomKind.Agent), "the agent is a slot of its own");
+        Assert.That(card.AnyDot, Is.False, "no fact joined to another on a dot: " + string.Join(" | ", card.Words()));
+        var bar = RoomBar.NewProject(flow.Frame!, VoiceStage.Idle)!;
+        Assert.That(bar.Card, Is.SameAs(card), "the redesign draws the card in the rows' place");
+        Assert.That(bar.Column.First().Main, Is.True, "Start Task first, as ever");
+        Assert.That(host.Sent, Is.Empty);
+    });
+
+    [Test]
     public void In_the_redesign_the_recap_names_each_fact_and_no_row_takes_a_press() => InTheRedesign(() =>
     {
         var host = new Host();
