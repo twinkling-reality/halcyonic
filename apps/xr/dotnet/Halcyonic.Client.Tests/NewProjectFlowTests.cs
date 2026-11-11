@@ -2487,6 +2487,35 @@ public class NewProjectFlowTests
         Assert.That(host.Sent, Has.Count.EqualTo(1), "one start, however often it is pressed");
     });
 
+    /// <summary>
+    /// The lead's 2026-11-12T1158Z: with the computer's starters listed (as on a real plane), Start From and Plan First at
+    /// their defaults leave the recap's one press as it is: Start Task sends at once.
+    /// </summary>
+    [Test]
+    public async Task With_starters_listed_and_Start_From_and_Plan_First_at_their_defaults_Start_Task_still_sends_in_one_press()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var routes = new Routes();
+            routes.Answers["GET /api/starters"] = () => HalcyonicJson.Serialize(new StartersResponse
+            {
+                Starters = new List<StarterView> { new() { StarterId = "iwsdk-vr", Title = "VR Game", Installed = true }, new() { StarterId = "world", Title = "A World of Your Own", Installed = true } },
+            });
+            var host = new Host { Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes) };
+            var flow = RoomRecapped(host, roomLines: _ => 1);
+            await Until(flow, () => routes.Asked.Contains("GET /api/starters"));
+            // The walk's own case: a new folder, no starter picked, the computer's starters listed (JUDGE's live-18).
+            Assert.That(flow.Idea!.Folder?.IsNew != false, Is.True);
+            Draw(flow, flow.Frame!);
+            Press(flow, NewProjectScreens.StartBuilding, null);
+            Assert.That(host.Sent, Has.Count.EqualTo(1), "sent at once, with no review between: " + string.Join(", ", Ids(flow.Frame!)));
+            Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Build));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
     /// <summary>The one press sends only what the card shows whole: a first task past the description's lines opens the review, which shows the rest.</summary>
     [Test]
     public void A_first_task_longer_than_the_card_shows_opens_the_review_and_sends_nothing() => InTheRedesign(() =>
@@ -3009,4 +3038,134 @@ public class NewProjectFlowTests
         Assert.That(flow.Frame!.Lines.First().Words, Is.Not.EqualTo(EntryText.ReviewLine), "cut again for the rows");
         Assert.That(host.Sent, Is.Empty);
     });
+
+    /// <summary>
+    /// SCREENS's Start From (the addendum's A16): offered on the page of changes only for a new project in a new folder,
+    /// from the starters the computer has ready in its own order, three a page; a pick is kept at once and the page leaves
+    /// for the facts, whose card names it under the cube; the review names it, and the start sends it.
+    /// </summary>
+    [Test]
+    public async Task In_the_redesign_Start_From_offers_the_ready_starters_and_the_pick_is_what_the_start_sends()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var root = new LocationRoot
+            {
+                Path = "/Users/person/Projects", Name = "Projects", Label = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false,
+                Folders = new List<LocationFolder> { new() { Name = "race-times", Path = "/Users/person/Projects/race-times" } },
+            };
+            var listed = new List<StarterView>
+            {
+                new() { StarterId = "iwsdk-vr", Title = "VR Game", Installed = true },
+                new() { StarterId = "planner", Title = "Planner", Installed = false },
+                new() { StarterId = "world", Title = "A World of Your Own", Installed = true },
+            };
+            var routes = new Routes();
+            routes.Answers["GET /api/locations"] = () => HalcyonicJson.Serialize(new LocationsResponse { Roots = new List<LocationRoot> { root } });
+            routes.Answers["GET /api/starters"] = () => HalcyonicJson.Serialize(new StartersResponse { Starters = listed });
+            var host = new Host { Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes) };
+            var flow = RoomRecapped(host);
+            await Until(flow, () => routes.Asked.Contains("GET /api/starters"));
+
+            // An existing folder: no Start From.
+            Press(flow, NewProjectScreens.ChangeRecap, null);
+            PressOn(flow, NewProjectScreens.ChooseWhere);
+            await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
+            Press(flow, NewProjectScreens.ChooseFolder, flow.Frame!.Lines.First(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "race-times").Key);
+            Press(flow, NewProjectScreens.Done, null);
+            Press(flow, NewProjectScreens.ChangeRecap, null);
+            Assert.That(Actions(flow), Does.Contain(NewProjectScreens.ChooseWhere));
+            Assert.That(Actions(flow), Has.None.EqualTo(StarterChoice.Open), "a folder that exists starts from what it holds");
+
+            // A new starter folder: Start From after the first task.
+            PressOn(flow, NewProjectScreens.ChooseWhere);
+            await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
+            Press(flow, NewProjectScreens.ChooseFolder, flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New VR Starter · Projects").Key);
+            Press(flow, NewProjectScreens.Done, null);
+            Assert.That(flow.Idea!.Folder!.StarterId, Is.EqualTo(ProjectFolder.DefaultStarterId), "the default stands where the person chooses nothing");
+            var defaultCard = flow.Frame!.Card!;
+            Assert.That(defaultCard.Slots.Select(slot => (slot.Kind, slot.Value.Text)), Does.Contain((RoomKind.Starter, "VR Game")), "the recap names the default starter too");
+            Press(flow, NewProjectScreens.ChangeRecap, null);
+            var change = Actions(flow).ToList();
+            Assert.That(change.IndexOf(StarterChoice.Open), Is.EqualTo(change.IndexOf(NewProjectScreens.ChangeTask) + 1), "Start From after First Task: " + string.Join(", ", change));
+
+            // The choice: the ready starters only, in the host's order, the chosen one marked; Back to the page of changes.
+            PressOn(flow, StarterChoice.Open);
+            var page = flow.Frame!;
+            Assert.That(page.Lines.First().Words, Is.EqualTo(StarterChoice.StartFrom));
+            Assert.That(page.Lines.Where(line => line.Action == StarterChoice.Choose).Select(line => (line.Words, line.Key, line.Chosen, line.AnswerMark)), Is.EqualTo(new[]
+            {
+                ("VR Game", (string?)"iwsdk-vr", true, AnswerMark.Single), ("A World of Your Own", "world", false, AnswerMark.Single),
+            }), "a starter not ready is not drawn");
+            Assert.That(page.Lines.Any(line => line.Action == StarterChoice.NextChoices), Is.False, "two fit one page");
+            var bar = RoomBar.NewProject(page, VoiceStage.Idle)!;
+            Assert.That(bar.Body.Text, Is.EqualTo(StarterChoice.StartFrom));
+            Assert.That(bar.Column.Select(action => (action.Words, action.Control.Place)).Last(), Is.EqualTo((EntryText.Back, KitPlace.Back)));
+            Assert.That(bar.Column.Count(action => action.Control.Place == KitPlace.Choice && action.Chosen), Is.EqualTo(1));
+            Press(flow, NewProjectScreens.Done, null);
+            Assert.That(Actions(flow), Does.Contain(StarterChoice.Open), "Back returns to the page of changes");
+
+            // A pick is kept at once, and the page leaves for the facts.
+            PressOn(flow, StarterChoice.Open);
+            Press(flow, StarterChoice.Choose, "world");
+            Assert.That((flow.Idea!.Folder!.StarterId, flow.Idea.Folder.IsNew, flow.Idea.Folder.RootPath), Is.EqualTo(("world", true, root.Path)));
+            var card = flow.Frame!.Card!;
+            var slots = card.Slots.Select(slot => (slot.Kind, slot.Value.Text)).ToList();
+            Assert.That(slots[slots.FindIndex(slot => slot.Kind == RoomKind.Folder) + 1], Is.EqualTo((RoomKind.Starter, "A World of Your Own")), "the starter after the folder it fills");
+            Assert.That(card.AnyDot, Is.False);
+
+            // The review names it before its Confirm, and the start sends it.
+            Press(flow, NewProjectScreens.StartBuilding, null);
+            Assert.That(flow.Review!.Items.Select(item => item.Label + item.Value), Does.Contain(StarterChoice.ReviewLabel + "A World of Your Own"));
+            ReadToTheEnd(flow, host);
+            Press(flow, NewProjectScreens.ConfirmStart, null);
+            var create = (ProjectCreateCommand)host.Sent.Single();
+            Assert.That(((NewFromStarterChoice)create.Payload.Location!).StarterId, Is.EqualTo("world"));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    /// <summary>A starter the person picked is shown before the one press sends it: on the recap's card, or else on the review.</summary>
+    [Test]
+    public void Start_From_a_picked_starter_the_full_card_cannot_show_is_never_sent_unseen()
+    {
+        var root = new LocationRoot { Path = "/p", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false, Folders = new List<LocationFolder>() };
+        var idea = new ProjectIdea();
+        idea.UseIdea("A kite");
+        idea.ChooseFolder(ProjectFolder.NewStarter(root, "kite", "world")!);
+        var full = new RoomCard(LineWords.Ours("Kite"), slots: new[]
+        {
+            new RoomSlot(RoomKind.Folder, LineWords.Ours("kite")), new RoomSlot(RoomKind.App, LineWords.Ours("App")), new RoomSlot(RoomKind.Agent, LineWords.Ours("Model")),
+            new RoomSlot(RoomKind.Level, LineWords.Ours("Ask First")),
+        });
+        Assert.That(StarterChoice.Shown(full, idea), Is.False, "picked, and not on the card: the review names it");
+        var named = new RoomCard(LineWords.Ours("Kite"), slots: new[] { new RoomSlot(RoomKind.Folder, LineWords.Ours("kite")), new RoomSlot(RoomKind.Starter, LineWords.Ours("A World of Your Own")) });
+        Assert.That(StarterChoice.Shown(named, idea), Is.True);
+        idea.ChooseFolder(ProjectFolder.NewStarter(root, "kite")!);
+        Assert.That(StarterChoice.Shown(full, idea), Is.True, "the default, which the person did not pick, was never named before Start From");
+    }
+
+    [Test]
+    public void Start_From_pages_its_starters_three_at_a_time_and_offers_none_but_the_ready()
+    {
+        var root = new LocationRoot { Path = "/p", Name = "p", Label = "p", Status = LocationRootStatus.Available, FoldersTruncated = false, Folders = new List<LocationFolder>() };
+        var idea = new ProjectIdea(null, null);
+        idea.ChooseFolder(ProjectFolder.NewStarter(root, "kite"));
+        var ready = StarterChoice.Ready(new StartersResponse
+        {
+            Starters = Enumerable.Range(1, 5).Select(n => new StarterView { StarterId = "s" + n, Title = "Starter " + n, Installed = n != 2 }).ToList(),
+        });
+        Assert.That(ready.Select(starter => starter.StarterId), Is.EqualTo(new[] { "s1", "s3", "s4", "s5" }));
+        var first = StarterChoice.Page(idea, ready, 0, startReached: false);
+        Assert.That(first.Lines.Where(line => line.Action == StarterChoice.Choose).Select(line => line.Key), Is.EqualTo(new[] { "s1", "s3", "s4" }));
+        Assert.That(first.Lines.Single(line => line.Action == StarterChoice.NextChoices).Words, Is.EqualTo("Next Choices · 1 of 2"));
+        Assert.That(StarterChoice.Page(idea, ready, 1, startReached: false).Lines.Where(line => line.Action == StarterChoice.Choose).Select(line => line.Key), Is.EqualTo(new[] { "s5" }));
+        Assert.That(StarterChoice.Pick(idea, ready, "s2"), Is.Null, "a starter not ready is never picked");
+        Assert.That(StarterChoice.Pick(idea, ready, "s4")!.StarterId, Is.EqualTo("s4"));
+        Assert.That(StarterChoice.Offered(idea, Array.Empty<StarterView>()), Is.False, "where none is ready, Start From is not offered");
+        idea.ChooseFolder(ProjectFolder.Existing(root, new LocationFolder { Name = "kite", Path = "/p/kite" }));
+        Assert.That(StarterChoice.Offered(idea, ready), Is.False);
+    }
 }

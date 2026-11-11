@@ -258,6 +258,16 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// The starters a new project can begin from (ADR 0037, the addendum's A16), in the host's order, each ready or not
+        /// (<c>installed</c>). Read when New Project's page of changes opens (<see cref="StarterChoice"/>), never polled.
+        /// </summary>
+        public async Task<StartersResponse> GetStartersAsync(CancellationToken cancellationToken = default)
+        {
+            var body = await GetAsync("api/starters", cancellationToken).ConfigureAwait(false);
+            return HalcyonicJson.Deserialize<StartersResponse>(body, strict: true);
+        }
+
+        /// <summary>
         /// Turns one clip of speech into a draft on the Mac (ADR 0021): a WAV made by
         /// <see cref="SpeechClip.Encode"/>. <see cref="HeardTranscription"/> carries untrusted text to show
         /// through <see cref="LabelText"/> as a draft, never sent without the person's confirmation;
