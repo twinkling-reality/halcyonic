@@ -235,6 +235,12 @@ export const ExecutionStartCommand = defineCommand(
        * before it meant. `never_ask` only for a runtime whose descriptor offers it.
        */
       approval_level: Type.Optional(ApprovalLevel),
+      /**
+       * True to start in the runtime's own plan mode, which changes no file without asking: only for
+       * a runtime whose descriptor offers it, and never with `approval_level` `never_ask`. Absent
+       * means not a plan.
+       */
+      plan: Type.Optional(Type.Boolean()),
     },
     strict,
   ),

@@ -142,6 +142,7 @@ export class Reattacher {
           options: bounds.options,
           model_ref: bounds.model_ref,
           ...(bounds.approval_level !== undefined && { approval_level: bounds.approval_level }),
+          ...(bounds.plan && { plan: true }),
           confined: bounds.confined,
           directory: bounds.directory,
           cut_turn: bounds.cut_turn,

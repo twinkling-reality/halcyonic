@@ -85,6 +85,12 @@ export const RuntimeDescriptor = Type.Object(
      */
     offers_never_ask: Type.Optional(Type.Boolean()),
     /**
+     * True when a start may choose `plan`: the runtime's own way to talk a change through before any
+     * file changes, declared only once a runtime test shows what it refuses and what still asks
+     * (agent-plan-modes.md). Absent means not offered.
+     */
+    offers_plan: Type.Optional(Type.Boolean()),
+    /**
      * True when the runtime keeps an execution's session after the processes running it end, so
      * that after the control plane restarts the adapter re-attaches it by its native id, with the
      * bounds it started with, and it takes instructions again (ADR 0046). The turn a restart cuts

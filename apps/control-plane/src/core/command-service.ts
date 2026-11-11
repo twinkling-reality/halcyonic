@@ -1332,6 +1332,7 @@ export class CommandService {
                   ...(command.payload.approval_level !== undefined && {
                     approval_level: command.payload.approval_level,
                   }),
+                  ...(command.payload.plan === true && { plan: true }),
                   directory,
                   emit,
                 }),

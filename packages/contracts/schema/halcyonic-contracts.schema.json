@@ -6038,6 +6038,9 @@
                 },
                 "approval_level": {
                   "$ref": "#/$defs/ApprovalLevel"
+                },
+                "plan": {
+                  "type": "boolean"
                 }
               },
               "additionalProperties": false
@@ -9374,6 +9377,9 @@
                 },
                 "approval_level": {
                   "$ref": "#/$defs/ApprovalLevel"
+                },
+                "plan": {
+                  "type": "boolean"
                 }
               },
               "additionalProperties": false
@@ -10233,6 +10239,9 @@
           "type": "boolean"
         },
         "offers_never_ask": {
+          "type": "boolean"
+        },
+        "offers_plan": {
           "type": "boolean"
         },
         "resumes_after_restart": {

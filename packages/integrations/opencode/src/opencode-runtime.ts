@@ -94,6 +94,13 @@ export const OPENCODE_SANDBOX_FOLDER = 'opencode-sandbox';
 const NEW_PROJECT_INSIDE =
   "Another project's folder was added inside this one since this task started, so this task's agent no longer keeps out of it. Start a new task here to go on.";
 
+/** OpenCode 2.0.18's built-in read-only agent, "for exploring the codebase and planning work" (PLAN). */
+const PLAN_AGENT = 'plan';
+
+/** Why a plan is not started without asking: its shell commands are what keeps it from changing files. */
+const PLAN_NEVER_ASK =
+  'A plan on OpenCode asks before every shell command, since its plan agent refuses edits but not commands, so it is not started with working without asking.';
+
 /** The listing server's slot key (BOX-3). */
 const MODELS_SLOT = 'models';
 
@@ -565,6 +572,9 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       // Only inside Halcyonic's sandbox, where each folder's server writes that folder alone (BOX-3,
       // ADR 0043; opencode-runtime.e2e.test.ts, the two-project test of 2026-11-11).
       ...(this.#sandbox !== null ? { offers_never_ask: true } : {}),
+      // Its built-in `plan` agent refuses the edit tools without asking; shell commands still ask,
+      // so a plan is never started without asking (agent-plan-modes.md, the pinned 2.0.18's run).
+      offers_plan: true,
       // A session outlives its server in that folder's store, and a new server continues it by its
       // id (restart-reattach.md; ADR 0046).
       resumes_after_restart: true,
@@ -677,6 +687,10 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     if (approvalLevel === 'never_ask' && this.#sandbox === null) {
       throw new RuntimeActionError('invalid_runtime_options', NEVER_ASK_UNSANDBOXED);
     }
+    const plan = request.plan === true;
+    if (plan && approvalLevel === 'never_ask') {
+      throw new RuntimeActionError('invalid_runtime_options', PLAN_NEVER_ASK);
+    }
     const parsed = parseStartOptions(request.options, request.model_ref);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
     // Asked again before the server is launched: the folder may have changed since admission.
@@ -697,6 +711,8 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       // directory reached through a symbolic link.
       location: { directory },
       permissions: sessionPermissions(this.#environment, approvalLevel),
+      // OpenCode's own plan agent: its rules refuse the edit tools (PLAN).
+      ...(plan && { agent: PLAN_AGENT }),
     };
     if (parsed.value.model !== null) body.model = parsed.value.model;
     this.#creating += 1;
@@ -719,6 +735,15 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     // The level is recorded only when OpenCode reports the session with exactly the rules it was
     // given (ADR 0043). A session meant to work without asking that reports other rules is not used.
     const applied = isDeepStrictEqual(info.permissions, body.permissions);
+    // A plan is recorded only where OpenCode reports the session on its plan agent; one it would
+    // run on another agent is not used.
+    const planned = info.agent === PLAN_AGENT;
+    if (plan && !planned) {
+      throw new RuntimeActionError(
+        'runtime_refused',
+        'OpenCode did not start the session on its plan agent, so it is not used.',
+      );
+    }
     if (approvalLevel === 'never_ask' && !applied) {
       throw new RuntimeActionError(
         'runtime_refused',
@@ -748,6 +773,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
           // Inside the closed sandbox its commands read only their folder and what it names (BOX-3b).
           confined: this.sandboxed,
           ...(applied && { approval_level: approvalLevel }),
+          ...(planned && { plan: true }),
         },
         {
           native_event_id: null,
@@ -830,6 +856,13 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     if (location !== directory) {
       throw refuse(
         `The session works in ${String(location)}, not in the task's folder ${directory}.`,
+      );
+    }
+    if ((info.agent === PLAN_AGENT) !== (request.plan === true)) {
+      throw refuse(
+        request.plan === true
+          ? 'OpenCode reports the session off its plan agent, and it started as a plan. The session is not used.'
+          : 'OpenCode reports the session on its plan agent, and it did not start as a plan. The session is not used.',
       );
     }
     if (

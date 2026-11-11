@@ -49,6 +49,8 @@ export interface ExecutionState {
    * recorded none or has not come.
    */
   approvalLevel: ApprovalLevel | null;
+  /** Whether its start recorded the runtime's own plan mode (PLAN); false otherwise or unknown. */
+  plan: boolean;
   /** The model the runtime last reported using, as its model list names it. */
   modelRef: string | null;
   /** True once the runtime has reported any activity, meaning a native session exists. */
@@ -90,6 +92,7 @@ export function createExecutionState(init: {
     nativeId: null,
     confined: false,
     approvalLevel: null,
+    plan: false,
     modelRef: null,
     runtimeStarted: false,
     startedAt: null,
