@@ -72,6 +72,12 @@ namespace Halcyonic.Client
 
         /// <summary>A usage window of days: the calendar.</summary>
         Week,
+
+        /// <summary>A way to share by a link: the chain.</summary>
+        Link,
+
+        /// <summary>A way to share on the Wi-Fi: its arcs.</summary>
+        Wifi,
     }
 
     /// <summary>How a card's status, step or row stands: its colour.</summary>
