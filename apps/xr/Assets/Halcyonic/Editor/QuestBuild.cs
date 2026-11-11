@@ -190,6 +190,8 @@ namespace Halcyonic.XR.Editor
             GlanceInDevelopmentBuilds.Include = (options & BuildOptions.Development) != 0;
             // So may hiding the boundary while the room shows (BoundaryInDevelopmentBuilds).
             BoundaryInDevelopmentBuilds.Include = GlanceInDevelopmentBuilds.Include;
+            // So may the preview relay over the pairing, its service and permissions (RelayInDevelopmentBuilds, ADR 0052).
+            RelayInDevelopmentBuilds.Include = GlanceInDevelopmentBuilds.Include;
             // Meta XR Operator goes only into a development build that asks for it (OperatorInDevelopmentBuilds).
             OperatorInDevelopmentBuilds.Include = GlanceInDevelopmentBuilds.Include && OperatorInDevelopmentBuilds.Asked();
             try
@@ -207,6 +209,7 @@ namespace Halcyonic.XR.Editor
             {
                 GlanceInDevelopmentBuilds.Include = false;
                 BoundaryInDevelopmentBuilds.Include = false;
+                RelayInDevelopmentBuilds.Include = false;
                 OperatorInDevelopmentBuilds.Include = false;
             }
         }

@@ -24,12 +24,6 @@
       </intent-filter>
       <layout android:defaultWidth="640dp" android:defaultHeight="720dp" android:minWidth="480dp" android:minHeight="480dp" />
     </activity>
-    <!-- Play in Headset over the pairing (ADR 0052): keeps the process in the foreground set while Quest Browser shows a
-         preview the app relays from the paired computer; held only while a relay is open, started from the app's own
-         press while it is in front. -->
-    <service android:name="com.halcyonic.relay.PreviewRelayService" android:exported="false" android:foregroundServiceType="specialUse">
-      <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps the person's app preview open in the headset's browser, relayed from their own paired computer" />
-    </service>
     <meta-data android:name="unityplayer.SkipPermissionsDialog" android:value="false" />
     <meta-data android:name="com.oculus.ossplash.background" android:value="black" />
     <meta-data android:name="com.oculus.telemetry.project_guid" android:value="1c1d39d9-4226-45a4-be1c-91f09c533d65" />
@@ -43,9 +37,4 @@
   <uses-feature android:name="com.oculus.feature.PASSTHROUGH" android:required="false" />
   <uses-permission android:name="com.oculus.permission.USE_ANCHOR_API" />
   <uses-permission android:name="com.oculus.permission.USE_SCENE" />
-  <!-- The preview relay's foreground service (ADR 0052): a foreground service at all, and its declared special-use type,
-       which Android 14 (target 34) requires. Neither is on Meta's prohibited or review-required lists (2025-04-30,
-       2025-11-26); no notification permission is asked, so its notice may not show. -->
-  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 </manifest>

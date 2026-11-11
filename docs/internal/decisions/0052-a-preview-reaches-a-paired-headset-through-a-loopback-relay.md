@@ -90,7 +90,12 @@ What Meta's pages say:
   own press while in front.
 - `POST_NOTIFICATIONS` requires review. The relay does not ask for it, so the service's notice may not show.
 
-Both are in every build, the release build included, with the judge build's named permissions and record.
+In development builds only (the lead's decision, 2026-11-11). `RelayInDevelopmentBuilds` writes the service and
+both permissions into a development build's manifest (`RelayManifest`), and takes them out of any other build. A release
+build carries none of them, and its permission check does not name them. There, Play in Headset on a paired computer is
+refused as `NotInThisBuild` ("Not in This Build"), never by starting a service that is not there. Whether a release build
+carries the relay is the owner's to decide, as what is uploaded and reviewed; on a yes it is one switch:
+`RelayInDevelopmentBuilds.Include` for release, and the two names in `ChosenPermissions.Named`.
 
 Not yet verified on a headset: the service keeping the relay serving while the browser is in front, and Quest Browser
 offering WebXR on the relay's address.

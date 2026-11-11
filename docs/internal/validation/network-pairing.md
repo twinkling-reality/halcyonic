@@ -250,7 +250,7 @@ plane left, only while it still registers this service, and nothing is announced
 - The pairing file in app-internal storage, kept across restarts and reinstalls with `-r`, and
   removed by clearing the app's data.
 - `SystemInfo.deviceModel` as the label the Mac lists.
-- Play in Headset over the pairing (ADR 0052, wired 2026-11-11): Quest Browser opens the relay's loopback address and
+- Play in Headset over the pairing (ADR 0052, wired 2026-11-11, development builds only): Quest Browser opens the relay's loopback address and
   offers WebXR; `PreviewRelayService` keeps the relay serving while the browser is in front for two minutes; the relay
   stops when Halcyonic is back in front.
 - The SRP exchange's time on the headset's CPU (estimated well under a second).

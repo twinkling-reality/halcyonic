@@ -201,7 +201,7 @@ namespace Halcyonic.XR.Workspace
             var target = ControlPlaneSettings.Target();
             return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (target, Demonstration), task,
                 page == RoomResultPage.History ? HistoryFor(projectId) : null, page == RoomResultPage.Share ? ShareFor(projectId) : null,
-                canSend: CanSendShare, relays: HeadsetRelay.Serves(target));
+                canSend: CanSendShare, relays: HeadsetRelay.Serves(target), relayBuilt: HeadsetRelay.Built);
         }
 
         /// <summary>

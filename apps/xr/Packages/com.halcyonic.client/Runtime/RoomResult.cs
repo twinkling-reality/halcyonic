@@ -231,11 +231,12 @@ namespace Halcyonic.Client
         /// The result of <paramref name="project"/>'s task, from the project's own screen
         /// (<see cref="WorkspacePresentationState.ScreenOf"/>: its last check, whether Try Build may stand) and
         /// <paramref name="observed"/>, the last turn of the task's run the computer observed; null with no project. Play in
-        /// Headset stands on a paired computer where the app can start its preview relay (<paramref name="relays"/>).
+        /// Headset stands on a paired computer where the app can start its preview relay (<paramref name="relays"/>); where
+        /// the build carries none (<paramref name="relayBuilt"/> false, a release build), it says so.
         /// </summary>
         public static RoomResult? Of(ProjectView? project, ClientProjection? state, ObservedTurn? observed,
             RoomResultPage page = RoomResultPage.Result, int part = 0, (ControlPlaneTarget? Target, bool Demonstration)? way = null, WorkstreamView? task = null,
-            HistoryColumn? history = null, ShareColumn? share = null, bool canSend = false, bool relays = false)
+            HistoryColumn? history = null, ShareColumn? share = null, bool canSend = false, bool relays = false, bool relayBuilt = true)
         {
             if (project == null || state == null) return null;
             var screen = WorkspacePresentationState.ScreenOf(project, state, barOpen: true);
@@ -245,7 +246,7 @@ namespace Halcyonic.Client
             var canMakeVr = !screen.IsVr && ProjectPlayFacts.TryVrVersionTarget(project, out _, out _);
             return new RoomResult(screen.IsVr, canMakeVr, screen.CanTry, check?.Passed, observed, check?.Steps, page, part,
                 // Play in Headset by how this headset reaches the computer and whether a demonstration shows (DEVICE's rule); unknown without.
-                way is { } reach ? HeadsetPlay.For(project, reach.Target, reach.Demonstration, relays: relays) : (Halcyonic.Client.PlayInHeadset?)null, task != null ? RoomAdd.Of(task.Copy, working: false) : null, (task?.Copy as OwnCopy)?.ToAddReview,
+                way is { } reach ? HeadsetPlay.For(project, reach.Target, reach.Demonstration, relays: relays, relayBuilt: relayBuilt) : (Halcyonic.Client.PlayInHeadset?)null, task != null ? RoomAdd.Of(task.Copy, working: false) : null, (task?.Copy as OwnCopy)?.ToAddReview,
                 history, share,
                 // DEVICE's Share stands only where this headset can send to the computer (never in the demonstration; AUDIT reread
                 // MUST 1), and where the host would admit it (TASKS's conditions) or a share stands to stop.
