@@ -161,6 +161,9 @@ namespace Halcyonic.Client
         /// </summary>
         public bool NeverAsk { get; }
 
+        /// <summary>The reviewed start is a plan (SCREENS's <see cref="PlanStart"/>): a build confirms only a review made so.</summary>
+        public bool Plan { get; }
+
         /// <summary>
         /// The review from runs, as <see cref="EntryScreens.ReviewOf"/> builds it: Halcyonic's own words, as
         /// "Simulated: " or "chosen by the agent app", upright, so a name that copies them never reads as
@@ -169,9 +172,10 @@ namespace Halcyonic.Client
         public NewWorkReview(string project, string title, LineWords runtime, LineWords model, LineWords modelFacts, LineWords modelRef, string objective,
             LineWords? folder = null, LineWords? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null, bool neverAsk = false,
             LineWords? level = null, LineWords? tools = null,
-            LineWords? startFrom = null)
+            LineWords? startFrom = null, bool plan = false)
         {
             NeverAsk = neverAsk;
+            Plan = plan;
             FolderChoice = folderChoice == null ? null : HalcyonicJson.Serialize(folderChoice);
             Add(ProjectLabel, project, ReviewItemKind.Project);
             if (folderBefore != null && folder != null)

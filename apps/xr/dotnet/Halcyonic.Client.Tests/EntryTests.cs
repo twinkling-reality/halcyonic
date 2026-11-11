@@ -631,6 +631,49 @@ public class BuildSequenceTests
     }
 
     [Test]
+    public void ABuildStartsAsAPlanOnlyWhereChosenReviewedAndOfferedAndNeverWithNeverAsk()
+    {
+        ExecutionStartCommand Start(BuildSequence sequence, CommandEnvelope first)
+        {
+            var workstream = (WorkstreamCreateCommand)sequence.Advance(With(Completed(first, new ProjectCreatedResult { ProjectId = "p1" })))!;
+            return (ExecutionStartCommand)sequence.Advance(With(Completed(workstream, new WorkstreamCreatedResult { WorkstreamId = "w1" })))!;
+        }
+        NewWorkReview Reviewed(BuildSequence sequence, bool plan)
+        {
+            var review = new NewWorkReview("Dinners", "Title", LineWords.Ours("Agent"), LineWords.Ours("Model"), LineWords.Ours("on your computer"), LineWords.Ours("none"),
+                sequence.Draft.Objective, folderChoice: sequence.Location, neverAsk: sequence.Draft.StartsNeverAsk, plan: plan);
+            review.Paginate(review.Items.Select(_ => 1).ToList(), review.Items.Count);
+            Samples.ReadThrough(review);
+            return review;
+        }
+        var draft = Draft();
+        draft.Objective = "Plan dinners for the week.";
+        draft.ChooseRuntime(new RuntimeDescriptor
+        {
+            RuntimeId = "planning", DisplayName = "Planning runtime", Kind = "mock", Synthetic = false, ModelChoice = ModelChoice.None, OffersNeverAsk = true, OffersPlan = true,
+            Capabilities = new RuntimeCapabilities { StartExecution = true },
+        });
+        draft.Plan = true;
+        draft.NeverAsk = true;
+        Assert.That((draft.StartsPlan, draft.StartsNeverAsk), Is.EqualTo((true, false)), "a plan always asks");
+        var sequence = new BuildSequence(draft, Commands, "Dinners");
+        Assert.Throws<InvalidOperationException>(() => sequence.Begin(Reviewed(sequence, plan: false)), "a review made without the plan confirms nothing");
+        var planned = new BuildSequence(draft, Commands, "Dinners");
+        var first = planned.Begin(Reviewed(planned, plan: true));
+        var start = Start(planned, first);
+        Assert.That((start.Payload.Plan, start.Payload.ApprovalLevel), Is.EqualTo(((bool?)true, (ApprovalLevel?)null)));
+
+        // Where the runtime offers no plan, the choice alone starts none.
+        draft.ChooseRuntime(new RuntimeDescriptor
+        {
+            RuntimeId = "plain", DisplayName = "Plain runtime", Kind = "mock", Synthetic = false, ModelChoice = ModelChoice.None, Capabilities = new RuntimeCapabilities { StartExecution = true },
+        });
+        Assert.That(draft.StartsPlan, Is.False);
+        var plain = new BuildSequence(draft, Commands, "Dinners");
+        Assert.That(Start(plain, plain.Begin(Reviewed(plain, plan: false))).Payload.Plan, Is.Null, "no plan is asked for");
+    }
+
+    [Test]
     public void ABuildStartsAtNeverAskOnlyWhereChosenReviewedAndOffered()
     {
         RuntimeDescriptor Runtime(bool? offers) => new()

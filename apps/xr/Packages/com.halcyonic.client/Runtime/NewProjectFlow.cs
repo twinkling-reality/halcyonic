@@ -155,6 +155,9 @@ namespace Halcyonic.Client
         /// </summary>
         private bool? levelChosen;
 
+        /// <summary>SCREENS's Plan First chosen on the page of changes (<see cref="PlanStart"/>); forgotten with the level.</summary>
+        private bool planChosen;
+
         /// <summary>The review's parts were cut by the redesign's rows' own lines, not the older page's (AUDIT, 2026-11-10).</summary>
         private bool reviewCutForRoom;
 
@@ -735,8 +738,9 @@ namespace Halcyonic.Client
                     break;
                 // A level on the page of changes is kept at once, and the page leaves for the facts, whose row reads it.
                 case NewProjectScreens.ChooseLevel when RoomDesign.Enabled && step == NewProjectStep.Recap && recapPage == RecapPage.Change && !confirmingStartOver
-                    && (key == AgentColumn.Ask || key == AgentColumn.Never):
+                    && (key == AgentColumn.Ask || key == AgentColumn.Never || key == PlanStart.Key && PlanStart.Offered(draft.Runtime)):
                     levelChosen = key == AgentColumn.Never;
+                    planChosen = key == PlanStart.Key;
                     Show(NewProjectStep.Recap);
                     break;
                 case NewProjectScreens.BackToRecap when step == NewProjectStep.Recap && recapPage == RecapPage.Change:
@@ -749,6 +753,7 @@ namespace Halcyonic.Client
                     fact = null;
                     idea = new ProjectIdea(current.ExistingProjectId, current.ExistingProjectId == null ? null : current.Name);
                     levelChosen = null;
+                    planChosen = false;
                     LeaveCompanion(exchange);
                     review = null;
                     sequence = null;
@@ -855,6 +860,7 @@ namespace Halcyonic.Client
                     unknownOutcome.Id = null;
                     ownId = null;
                     levelChosen = null;
+                    planChosen = false;
                     idea = new ProjectIdea();
                     said = (NewProjectStep.YourIdea, EntryText.Cleared);
                     Show(NewProjectStep.YourIdea);
@@ -1780,7 +1786,11 @@ namespace Halcyonic.Client
         /// </summary>
         private NewWorkDraft LevelOfDraft()
         {
-            if (step != NewProjectStep.Build) draft.NeverAsk = levelChosen ?? RoomDesign.Enabled;
+            if (step != NewProjectStep.Build)
+            {
+                draft.NeverAsk = !planChosen && (levelChosen ?? RoomDesign.Enabled);
+                draft.Plan = planChosen;
+            }
             return draft;
         }
 

@@ -3168,4 +3168,60 @@ public class NewProjectFlowTests
         idea.ChooseFolder(ProjectFolder.Existing(root, new LocationFolder { Name = "kite", Path = "/p/kite" }));
         Assert.That(StarterChoice.Offered(idea, ready), Is.False);
     }
+
+    /// <summary>
+    /// SCREENS's Plan First (VRIFY's planning, FIELD's words): where the runtime offers a plan, a third answer after Ask First
+    /// and Never Ask on the page of changes, kept at once; the recap's level slot and the review's Model row read it; the
+    /// start asks for a plan and never for never ask. Where the runtime offers none, it is not drawn.
+    /// </summary>
+    [Test]
+    public void In_the_redesign_Plan_First_stands_where_the_runtime_offers_a_plan_and_the_start_asks_for_one() => InTheRedesign(() =>
+    {
+        var planning = Offering(true);
+        planning.OffersPlan = true;
+        var host = new Host { VoiceOffered = false, State = WithRuntimes(planning) };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        PressOn(flow, NewProjectScreens.MoreOptions);
+        Press(flow, NewProjectScreens.ChooseRuntime, "real");
+        Press(flow, NewProjectScreens.Done, null);
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        var levels = Pages(flow).SelectMany(frame => frame.Lines).Where(line => line.Action == NewProjectScreens.ChooseLevel).ToList();
+        Assert.That(levels.Select(line => (line.Words, line.Key, line.Chosen)), Is.EqualTo(new[]
+        {
+            (AgentColumn.AskFirstWords, (string?)AgentColumn.Ask, false), (AgentColumn.NeverAskWords, AgentColumn.Never, true), (PlanStart.PlanFirst, PlanStart.Key, false),
+        }));
+        Press(flow, NewProjectScreens.ChooseLevel, PlanStart.Key);
+        Assert.That(Actions(flow), Is.Empty, "kept at once: back on the facts");
+        Assert.That(flow.Frame!.Card!.Slots.Single(slot => slot.Kind == RoomKind.Level).Value.Text, Is.EqualTo(PlanStart.PlanFirst));
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That((flow.Review!.Plan, flow.Review.NeverAsk), Is.EqualTo((true, false)), "a plan always asks");
+        Assert.That(flow.Review.Items.Single(item => item.Label == "Model · ").Value, Does.EndWith(" · " + PlanStart.PlanFirst));
+
+        // Back to the page of changes: Never Ask undoes the plan.
+        Press(flow, NewProjectScreens.Cancel, null);
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        Press(flow, NewProjectScreens.ChooseLevel, AgentColumn.Never);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That((flow.Review!.Plan, flow.Review.NeverAsk), Is.EqualTo((false, true)));
+        Assert.That(host.Sent, Is.Empty);
+    });
+
+    [Test]
+    public void Plan_First_is_not_offered_where_the_runtime_offers_no_plan() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        var flow = OnOffering(host);
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        Assert.That(Pages(flow).SelectMany(frame => frame.Lines).Where(line => line.Action == NewProjectScreens.ChooseLevel).Select(line => line.Key),
+            Has.None.EqualTo(PlanStart.Key));
+        Press(flow, NewProjectScreens.ChooseLevel, PlanStart.Key);
+        Press(flow, NewProjectScreens.BackToRecap, null);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(flow.Review!.Plan, Is.False, "a plan the runtime does not offer is never chosen");
+    });
 }

@@ -293,17 +293,18 @@ namespace Halcyonic.Client
             var objective = draft.Objective.Trim();
             if (objective.Length == 0 || objective.Length > 4000) throw new InvalidOperationException("The first task is empty or too long.");
             // The level sent is the level reviewed (ADR 0043, decision 7): a review made at another level confirms nothing.
-            if (reviewed.NeverAsk != draft.StartsNeverAsk) throw new InvalidOperationException("The level is not the one reviewed.");
+            if (reviewed.NeverAsk != draft.StartsNeverAsk || reviewed.Plan != draft.StartsPlan) throw new InvalidOperationException("The level is not the one reviewed.");
             if (!reviewed.Spend()) throw new InvalidOperationException("Only a request read to its end, and confirmed once, is sent.");
-            confirmed = new Confirmation(draft.Title, objective, runtime.RuntimeId, draft.Model?.ModelRef, draft.StartsNeverAsk);
+            confirmed = new Confirmation(draft.Title, objective, runtime.RuntimeId, draft.Model?.ModelRef, draft.StartsNeverAsk, draft.StartsPlan);
         }
 
         /// <summary>The request the person confirmed, as each of its steps sends it.</summary>
         private sealed class Confirmation
         {
-            public Confirmation(string title, string objective, string runtimeId, string? modelRef, bool neverAsk)
+            public Confirmation(string title, string objective, string runtimeId, string? modelRef, bool neverAsk, bool plan = false)
             {
                 NeverAsk = neverAsk;
+                Plan = plan && !neverAsk;
                 Title = title;
                 Objective = objective;
                 RuntimeId = runtimeId;
@@ -320,6 +321,9 @@ namespace Halcyonic.Client
 
             /// <summary>The start asks for never ask: chosen, reviewed, and offered by the runtime it starts on.</summary>
             public bool NeverAsk { get; }
+
+            /// <summary>The start is a plan: chosen, reviewed, and offered by the runtime it starts on (SCREENS's PlanStart).</summary>
+            public bool Plan { get; }
         }
 
         /// <summary>The acknowledgement of the command in flight.</summary>
@@ -395,7 +399,7 @@ namespace Halcyonic.Client
             BuildStepKind.BindFolder => commands.SetProjectLocation(projectId!, location!, MoveReview),
             BuildStepKind.CreateWorkstream => commands.CreateWorkstream(projectId!, confirmed!.Title, confirmed.Objective),
             _ => commands.StartExecution(WorkstreamId!, confirmed!.RuntimeId, confirmed.Objective, modelRef: confirmed.ModelRef,
-                approvalLevel: confirmed.NeverAsk ? ApprovalLevel.NeverAsk : (ApprovalLevel?)null),
+                approvalLevel: confirmed.NeverAsk ? ApprovalLevel.NeverAsk : (ApprovalLevel?)null, plan: confirmed.Plan),
         };
 
         private CommandEnvelope Send(CommandEnvelope command)
