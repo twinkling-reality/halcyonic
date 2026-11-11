@@ -6,11 +6,11 @@ import {
   type CodexRuntimeOptions,
   PROXY_VARIABLES,
   SIGN_IN_VARIABLES,
-  toolFoldersFor,
 } from '@halcyonic/integration-codex';
 import type { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OpenCodeRuntimeAdapter, personalSecrets } from '@halcyonic/integration-opencode';
 import type { DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
+import { toolFoldersFor } from '@halcyonic/seatbelt';
 import { ConfigError, type ControlPlaneConfig, readPrivateFile } from './config.ts';
 import { type HeldSecret, looksLikeCredential } from './core/redaction.ts';
 import { OMNORIUM_CREDENTIAL_FILE } from './intelligence/catalog.ts';

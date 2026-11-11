@@ -4,7 +4,7 @@ import { constants } from 'node:fs';
 import { lstat, mkdir, open, readFile, readlink, realpath, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, sep } from 'node:path';
 import type { CheckpointFailureCode } from '@halcyonic/contracts';
-import { toolFoldersFor } from '@halcyonic/integration-codex';
+import { toolFoldersFor } from '@halcyonic/seatbelt';
 import { NO_LINK } from '../observer/file-observer.ts';
 import { ancestors, resolved, SANDBOX_EXEC, SYSTEM_READS, subpaths } from '../seatbelt.ts';
 

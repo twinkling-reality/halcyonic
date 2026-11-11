@@ -27,6 +27,12 @@ import {
   type StartExecutionResult,
   systemClock,
 } from '@halcyonic/runtime-core';
+import {
+  type Confinement,
+  confinedProfile,
+  confinementKey,
+  TOOL_PREFIXES,
+} from '@halcyonic/seatbelt';
 import { makeTemp, removeTemp, tempFolder } from './confined-temp.ts';
 import {
   acceptTurnStart,
@@ -65,12 +71,6 @@ import type {
   TurnSteerParams,
 } from './protocol.ts';
 import { RpcError, type RpcHandlers, RpcUnanswered } from './rpc.ts';
-import {
-  type Confinement,
-  confinedProfile,
-  confinementKey,
-  TOOL_PREFIXES,
-} from './sandbox-profile.ts';
 import {
   buildEnvironment,
   CODEX_VERSION,
@@ -1109,7 +1109,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       profile,
       confinedProfile({
         ...confinement,
-        codexHome,
+        home: codexHome,
         temp,
         // The binary's platform folder: Codex runs its bundled tools (rg, zsh) from beside it.
         runtimeFolder: dirname(dirname(this.#binaryPath)),

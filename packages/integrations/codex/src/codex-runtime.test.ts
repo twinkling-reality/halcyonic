@@ -24,6 +24,7 @@ import {
   RuntimeActionError,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
+import { type Confinement, confinementKey, toolFoldersFor } from '@halcyonic/seatbelt';
 import {
   CODEX_CAPABILITIES,
   CodexRuntimeAdapter,
@@ -33,7 +34,6 @@ import {
 } from './codex-runtime.ts';
 import { systemConfigurationPaths } from './managed.ts';
 import { APPROVAL_METHODS, METHODS_USED } from './protocol.ts';
-import { type Confinement, confinementKey, toolFoldersFor } from './sandbox-profile.ts';
 import {
   APP_SERVER_ARGUMENTS,
   buildEnvironment,

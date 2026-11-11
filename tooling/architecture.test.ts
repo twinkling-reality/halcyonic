@@ -25,6 +25,12 @@ const RULES: Readonly<Record<string, Rule>> = {
     dependencies: ['@halcyonic/contracts'],
     imports: ['@halcyonic/contracts', 'node:timers/promises'],
   },
+  // ADR 0048: the closed sandbox profile every runtime shares holds no runtime and no framework; the
+  // secret-shaped files' rules it shares with the project reads come from runtime-core.
+  'packages/seatbelt': {
+    dependencies: ['@halcyonic/runtime-core'],
+    imports: ['@halcyonic/runtime-core', 'node:crypto', 'node:fs', 'node:path'],
+  },
 };
 
 const IMPORT =

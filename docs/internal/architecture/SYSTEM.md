@@ -19,6 +19,7 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | Claude Agent runtime (Claude Code through the Agent SDK) | `packages/integrations/claude-code` | Built; registered when enabled |
 | OpenCode runtime (v2 server API, pinned 2.0.18) | `packages/integrations/opencode` | Built; registered when its binary is configured |
 | Codex runtime (app-server, stable surface, pinned 0.157.0) | `packages/integrations/codex` | Built; registered when its binary is configured |
+| Halcyonic's closed-by-default Seatbelt profile for one execution's folder, shared by the runtimes that confine their agents (BOX-3b) | `packages/seatbelt` | Built; used by Codex, OpenCode next |
 | Salidium client: consumer contract v1, understanding per execution | `packages/integrations/salidium` | Built, exercised against released daemons and re-verified against Salidium 0.8.3 (`@salidium/consumer-contract` 1.1.0, [record](../validation/salidium-consumer-contract.md)); optional 1.1 revision anchors and repository paths. Salidium's experimental project-map and execution-links v0 are source-verified but not consumed ([record](../validation/salidium-project-map.md)) |
 | Seorak client: integration API v1, evaluation per execution and account-wide provider usage limits | `packages/integrations/seorak` | Built; evaluation verified against `seorak` 0.3.0, usage limits read live once against an unreleased Seorak build (2026-09-30) |
 | Omnorium client: catalog contract v1 (`omnorium.catalog` and `phat-porcupine.catalog`), the person's catalog for the projects gallery, with discovery the instance proves | `packages/integrations/omnorium` | Built and tested against a stand-in; checked against Omnorium's published v1 types and fixtures, accepting `~/.omnorium` and `~/.phat-porcupine`, `omnorium.catalog` and `phat-porcupine.catalog`, and `omc_` and `ppc_` credentials; the control plane reads it for `GET /api/catalog` once its credential is set up; not yet read live ([record](../validation/omnorium-catalog.md)) |
@@ -42,6 +43,7 @@ apps/control-plane ──> integrations/mock, claude-code, opencode, codex ─�
         └──> fastify, @fastify/websocket, node:sqlite
 
 integrations/claude-code ──> @anthropic-ai/claude-agent-sdk (pinned)
+integrations/codex, apps/control-plane ──> seatbelt ──> runtime-core, node:crypto, node:fs, node:path
 ```
 
 - `contracts` depends only on TypeBox. It is the vocabulary every other part shares.
@@ -49,12 +51,16 @@ integrations/claude-code ──> @anthropic-ai/claude-agent-sdk (pinned)
 - `runtime-core` depends only on `contracts`. It defines what a runtime adapter must be.
 - Integrations depend on `runtime-core` and `contracts`, never on the control plane or on each
   other.
+- `seatbelt` depends on nothing but `runtime-core`, for the secret-shaped files' rules, and Node's `crypto`, `fs`
+  and `path`. It is the closed sandbox profile every runtime's agent runs inside on macOS
+  ([ADR 0048](../decisions/0048-every-agent-runs-inside-one-closed-sandbox-of-halcyonics.md)), and the core packages
+  never depend on it.
 - The control plane is the composition root. It is the only place that chooses storage,
   transport and which adapters run.
 
 pnpm's isolated `node_modules` makes an undeclared import fail at runtime, and
-`tooling/architecture.test.ts` fails the build if a core package declares or imports anything
-outside its allowlist.
+`tooling/architecture.test.ts` fails the build if a core package or `seatbelt` declares or imports
+anything outside its allowlist.
 
 The C# side mirrors this: the Unity layer depends on the client core, which depends on the
 generated contracts, which depend only on Newtonsoft.Json. Neither C# package may reference

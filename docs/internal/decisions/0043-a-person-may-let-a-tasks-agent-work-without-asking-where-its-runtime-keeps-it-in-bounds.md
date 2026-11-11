@@ -107,7 +107,7 @@ but fatigue; where nothing bounds it, a press is the only check.
 - A runtime upgrade, or a change to how Halcyonic starts it, needs its declaration verified again; the end to end
   suites pin it.
 - Claude Code and OpenCode need a sandbox Halcyonic controls, bounded to one task's project, before they can offer
-  the level; that is a decision of its own (ADR 0048).
+  the level; that is a decision of its own ([ADR 0048](0048-every-agent-runs-inside-one-closed-sandbox-of-halcyonics.md)).
 - Revisit when a runtime marks escalations in its requests, or when a third level is wanted.
 
 ## Amendment 2026-11-10: the headset's default

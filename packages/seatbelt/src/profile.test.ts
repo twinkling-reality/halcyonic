@@ -21,7 +21,7 @@ import {
   secretsUnder,
   TOOL_PREFIXES,
   toolFoldersFor,
-} from './sandbox-profile.ts';
+} from './profile.ts';
 
 const run = promisify(execFile);
 
@@ -63,7 +63,7 @@ function scene() {
     originals: [folder('dev/web game.v2')],
     // Halcyonic's data folder, refused outright; the confined server's own home and the starters in it stay.
     hidden: [folder('data')],
-    codexHome: folder('data/codex-confined/k'),
+    home: folder('data/codex-confined/k'),
     temp: folder('data/codex-confined/k/tmp'),
     runtimeFolder: folder('runtimes/codex'),
     toolFolders: toolFoldersFor(process.execPath),
@@ -125,7 +125,7 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
       const reads = line('(allow file-read* file-test-existence');
       for (const path of [
         scope.project,
-        scope.codexHome,
+        scope.home,
         scope.temp,
         scope.runtimeFolder,
         ...scope.readable,
@@ -133,8 +133,7 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
         assert.ok(reads.includes(`(subpath "${path}")`), path);
       }
       const writes = line('(allow file-write*');
-      for (const path of [scope.project, scope.codexHome, scope.temp])
-        assert.ok(writes.includes(path));
+      for (const path of [scope.project, scope.home, scope.temp]) assert.ok(writes.includes(path));
       for (const path of [scope.runtimeFolder, ...scope.readable, openHome])
         assert.ok(!writes.includes(path));
       assert.ok(!ours.includes(openHome), "the open server's home is not named at all");
@@ -160,7 +159,7 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
       const wide = { ...scope, originals: [root], hidden: [join(root, 'data')] };
       const file = join(scope.temp, 'profile.sb');
       writeFileSync(file, confinedProfile(wide));
-      writeFileSync(join(scope.codexHome, 'own.txt'), 'own');
+      writeFileSync(join(scope.home, 'own.txt'), 'own');
       const inside = (command: string[]) =>
         run(SANDBOX_EXEC, ['-f', file, ...command]).then(
           ({ stdout }) => stdout,
@@ -170,7 +169,7 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
       const refused = /Operation not permitted/;
       assert.match(await inside(['/bin/cat', join(root, 'data/secret.txt')]), refused);
       assert.match(await inside(['/bin/ls', join(root, 'data')]), refused);
-      assert.equal(await inside(['/bin/cat', join(scope.codexHome, 'own.txt')]), 'own');
+      assert.equal(await inside(['/bin/cat', join(scope.home, 'own.txt')]), 'own');
       assert.equal(
         await inside(['/bin/cat', join(scope.readable[0] as string, 'shared.txt')]),
         'shared',
@@ -184,8 +183,8 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
       const { originals: _none, ...plain } = scope;
       writeFileSync(file, confinedProfile({ ...plain, hidden: [join(root, 'data')] }));
       assert.match(await inside(['/bin/cat', join(root, 'data/secret.txt')]), refused);
-      assert.equal(await inside(['/bin/cat', join(scope.codexHome, 'own.txt')]), 'own');
-      assert.equal(await inside(['/usr/bin/touch', join(scope.codexHome, 'made')]), '');
+      assert.equal(await inside(['/bin/cat', join(scope.home, 'own.txt')]), 'own');
+      assert.equal(await inside(['/usr/bin/touch', join(scope.home, 'made')]), '');
       assert.equal(
         await inside(['/bin/cat', join(scope.readable[0] as string, 'shared.txt')]),
         'shared',
@@ -243,7 +242,7 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
           }),
         );
       // What Codex does first with its home: resolve it through every folder above it (canonicalize).
-      assert.equal((await inside(['/bin/realpath', scope.codexHome])).out.trim(), scope.codexHome);
+      assert.equal((await inside(['/bin/realpath', scope.home])).out.trim(), scope.home);
       assert.equal((await inside(['/bin/realpath', scope.temp])).out.trim(), scope.temp);
       assert.equal(
         (await inside(['/bin/realpath', scope.readable[0] as string])).out.trim(),
@@ -286,7 +285,7 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
           env: {
             HOME: homedir(),
             PATH: '/usr/bin:/bin',
-            CODEX_HOME: scope.codexHome,
+            CODEX_HOME: scope.home,
             TMPDIR: scope.temp,
           },
           stdio: ['ignore', 'ignore', 'pipe'],
@@ -316,7 +315,7 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
       for (const wrong of [
         { ...scope, hidden: [data], project: data },
         { ...scope, hidden: [data], toolFolders: [root] },
-        { ...scope, hidden: [scope.codexHome] },
+        { ...scope, hidden: [scope.home] },
         { ...scope, originals: [], hidden: [scope.readable[0] as string] },
       ]) {
         assert.throws(() => confinedProfile(wrong), /hidden/);
@@ -537,7 +536,7 @@ describe("a folder's git data outside it, read only (BOX)", () => {
           confinedProfile({
             project,
             readable: [],
-            codexHome: home,
+            home: home,
             temp,
             runtimeFolder: home,
             toolFolders: toolFoldersFor(process.execPath),
@@ -590,7 +589,7 @@ describe("a folder's git data outside it, read only (BOX)", () => {
         confinedProfile({
           project: worktree,
           readable: [],
-          codexHome: home,
+          home: home,
           temp,
           runtimeFolder: home,
           toolFolders: toolFoldersFor(process.execPath),
@@ -680,7 +679,7 @@ describe('another bound project inside a confined folder (AUDIT BOX-3 F1)', () =
           project,
           readable: [],
           inner: [inner],
-          codexHome: home,
+          home: home,
           temp,
           runtimeFolder: home,
           toolFolders: toolFoldersFor(process.execPath),
