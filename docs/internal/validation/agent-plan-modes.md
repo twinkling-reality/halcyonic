@@ -57,15 +57,18 @@ The session API takes `agent` at creation (`agent: "plan"`) and reports it back.
 
 ### Claude Code 2.1.283 (the bundled CLI, the SDK's streaming input, a fake Messages API, unconfined)
 
-- The `system/init` message's `permissionMode` reads `default` whatever the option: with `acceptEdits` the first
-  Write ran unasked, so the option took effect, but init does not show it. It is no evidence of the mode at a start.
+- The `system/init` message reports the mode a start asked for: `plan`, `acceptEdits` and `default` each read back as
+  given. (Corrected 2026-11-11 14:14Z: this record first said init read `default` whatever the option. That probe kept
+  the last init it saw, and after `setPermissionMode('default')` Claude Code sends a second `system/init`, with
+  `default`, on the next turn, which overwrote the first.)
 - With `permissionMode: 'plan'`, a Write is not refused. It goes to `canUseTool`, as in the default mode, and runs
   once allowed. So on Claude Code a plan changes no file only while the person answers No, as every Claude Code start
   already asks; what plan adds is Claude Code's own planning, which a fake model cannot show.
 - `setPermissionMode('plan')` and `setPermissionMode('default')` take effect, reported as `system/status` messages
   with the mode. After `default`, the next instruction goes ahead in the same session.
-- **Not declared:** the start's mode is not reported, so a plan start could not be recorded as observed, and its bound
-  is no different from a default start's.
+- **Not declared yet:** its plan bounds a write no differently from a default start's, every write asking. Its start's
+  mode is observable in `system/init`, so a later unit may record a plan from it and declare `offers_plan`; until
+  then Claude Code offers no plan.
 
 ### Codex 0.157.0
 
