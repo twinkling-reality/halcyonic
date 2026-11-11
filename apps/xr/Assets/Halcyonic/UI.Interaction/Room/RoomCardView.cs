@@ -85,8 +85,14 @@ namespace Halcyonic.XR.UI
         public const float RowNoteDp = 16f;
         public const float RowNoteLineDp = 20f;
 
-        /// <summary>A note's white: quiet beside a name, legible over the bright room and the dark one.</summary>
-        public const float NoteAlpha = 0.84f;
+        /// <summary>
+        /// A note's white, in the reading face: a step quieter than a name, legible over the bright room and the dark one
+        /// (0.72 passed the contrast check over the bright room; the kind's colour is the mark's alone).
+        /// </summary>
+        public const float NoteAlpha = 0.72f;
+
+        /// <summary>A green or red mark's tile: strong enough to read over the bright room (0.18 went muddy there).</summary>
+        public const float ToneTileAlpha = 0.28f;
         public const float GaugePadXDp = 14f;
         public const float GaugeGapDp = 12f;
         public const float GaugePadTopDp = 14f;
@@ -507,8 +513,8 @@ namespace Halcyonic.XR.UI
                 // (the lead, 2026-11-11: "Edited in Both" in the failure's tint read 2.89 to 1 over the bright room).
                 var (ground, ink, note) = tone switch
                 {
-                    RoomTone.Good => (Rgb(Passed, 0.18f), Rgb(Passed), White(NoteAlpha)),
-                    RoomTone.Bad => (Rgb(Failed, 0.18f), Rgb(Failed), White(NoteAlpha)),
+                    RoomTone.Good => (Rgb(Passed, ToneTileAlpha), Rgb(Passed), White(NoteAlpha)),
+                    RoomTone.Bad => (Rgb(Failed, ToneTileAlpha), Rgb(Failed), White(NoteAlpha)),
                     RoomTone.Working => (Rgb(Accent, 0.16f), Rgb(Accent), White(NoteAlpha)),
                     RoomTone.Attention => (Rgb(Attention, 0.16f), Rgb(Attention), White(NoteAlpha)),
                     // A neutral row's mark is a bare glyph, no well, so it never reads as an action's chip.
@@ -520,7 +526,7 @@ namespace Halcyonic.XR.UI
                 TextMeshPro? noteLabel = null;
                 if (row.Note != null)
                 {
-                    (noteLabel, _) = Text(KitRole.Label, RowNoteDp, RowNoteLineDp, note, LineWords.Ours(row.Note), 0f, 0f, width / 2f, 1);
+                    (noteLabel, _) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, note, LineWords.Ours(row.Note), 0f, 0f, width / 2f, 1);
                     noteWidth = RoomCursor.WordsWidth(noteLabel, 0f);
                 }
                 // A row picked from carries a chevron at its right, the note before it, and takes a press across its whole width.
@@ -590,6 +596,8 @@ namespace Halcyonic.XR.UI
             RoomKind.App => RoomGlyph.App,
             RoomKind.Session => RoomGlyph.Timer,
             RoomKind.Week => RoomGlyph.Calendar,
+            RoomKind.Link => RoomGlyph.Link,
+            RoomKind.Wifi => RoomGlyph.Wifi,
             _ => RoomGlyph.Minus,
         };
 
