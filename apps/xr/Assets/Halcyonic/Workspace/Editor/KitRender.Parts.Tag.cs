@@ -17,24 +17,28 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] TagStates = { "46-tag-plate", "46-tag-picked" };
+        private static readonly string[] TagStates = { "46-tag-plate", "46-tag-picked", "46-tag-needs-you" };
 
         private static PartShot TagShot(string state, Transform root, Vector3 eyes, string name)
         {
             var shot = new PartShot { Elevation = 0f };
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
             var picked = state == "46-tag-picked";
-            var said = picked ? LineWords.TheirName("Kite Run") : LineWords.TheirName("Glimmer 30B") + LineWords.Ours(KitMomentWords.Dot + AgentColumn.NeverAskWords);
+            var needsYou = state == "46-tag-needs-you";
+            var said = picked || needsYou ? LineWords.TheirName("Kite Run") : LineWords.TheirName("Glimmer 30B") + LineWords.Ours(KitMomentWords.Dot + AgentColumn.NeverAskWords);
             var plane = new GameObject("Plane").transform;
             plane.SetParent(root, false);
             var tag = RoomTag.Create(plane);
-            tag.Show(said, picked);
+            tag.Show(said, picked, needsYou);
             Place(plane, eyes, 0f, shot.Elevation);
 
             var unit = RoomType.Units(1f);
             var wide = RoomCursor.WordsWidth(tag.Words, 0f);
             Require(tag.Words.textInfo.lineCount == 1 && !tag.Words.isTextOverflowing, "the tag's words are not one whole line");
-            Require(Mathf.Abs(tag.Size.x - (wide + 2f * RoomType.Scaled(RoomTag.PadXDp))) < unit * 0.05f, "the tag is " + (tag.Size.x / unit).ToString("0.0") + " dp wide for words " + (wide / unit).ToString("0.0") + " dp wide");
+            var lead = needsYou ? RoomType.Scaled(RoomTag.DotDp + RoomTag.DotGapDp) : 0f;
+            Require(tag.NeedsYou == needsYou && (!needsYou || tag.Words.GetParsedText().EndsWith(" · Needs You", StringComparison.Ordinal)),
+                "the tag does not say whether its task needs the person: \"" + tag.Words.GetParsedText() + "\"");
+            Require(Mathf.Abs(tag.Size.x - (lead + wide + 2f * RoomType.Scaled(RoomTag.PadXDp))) < unit * 0.05f, "the tag is " + (tag.Size.x / unit).ToString("0.0") + " dp wide for words " + (wide / unit).ToString("0.0") + " dp wide");
             Require(Mathf.Abs(tag.Size.y - RoomType.Scaled(RoomGeometry.LineDp + 2f * RoomTag.PadYDp)) < unit * 0.05f, "the tag is " + (tag.Size.y / unit).ToString("0.0") + " dp tall");
             Require(Mathf.Approximately(Halcyonic.XR.UI.RoomSurface.CornerDp(RoomSurfaceKind.Tag), 14f) && tag.Plate.Size == tag.Size, "the plate is not the tag's own, corner 14 dp");
             Require(tag.Picked == picked, "the ring " + (tag.Picked ? "shows" : "does not show"));
@@ -58,6 +62,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 for (var step = 0; step <= 80; step++)
                     most = Mathf.Max(most, Light(At(dark, tag.Words.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 80f), bounds.center.y, 0f)))));
                 if (most < 170) failures.Add("the tag's words are not in the pixels, the lightest reads " + most + " of 255");
+                if (needsYou)
+                {
+                    // The dot, in the cursor's colour, before the name.
+                    var pixel = At(dark, tag.Dot.transform.position);
+                    var ink = new Color32(0x59, 0xCF, 0xF1, 255);
+                    var off = Mathf.Max(Mathf.Abs(pixel.r - ink.r), Mathf.Max(Mathf.Abs(pixel.g - ink.g), Mathf.Abs(pixel.b - ink.b)));
+                    if (off > 16) failures.Add("the needs-you dot is " + off + " of 255 from its colour");
+                    if (tag.Dot.transform.localPosition.x + RoomType.Scaled(RoomTag.DotDp) / 2f > tag.Words.transform.localPosition.x - RoomType.Scaled(RoomTag.DotGapDp) + unit * 0.05f)
+                        failures.Add("the dot does not stand before the name");
+                }
                 Debug.Log("Halcyonic: parts: " + name + ": \"" + said.Text + "\" on a tag " + (tag.Size.x / unit).ToString("0.0", CultureInfo.InvariantCulture) + " by "
                     + (tag.Size.y / unit).ToString("0.0", CultureInfo.InvariantCulture) + " dp; its edge reads " + edge + ", its ground " + inside + " of 255.");
             };
