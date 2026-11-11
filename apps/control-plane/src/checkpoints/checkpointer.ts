@@ -192,10 +192,16 @@ export class Checkpointer {
     const entry: NowRead = {
       position,
       readAt: null,
+      // Never rejects: a git that cannot start or a folder removed while it is read is the same
+      // unavailable read, so a shared read can neither end the process nor stay broken (AUDIT2).
       read: this.#serially(projectId, async (): Promise<NowTrees> => {
-        const folder = await this.#folderFor(projectId, fromId);
-        if (!folder.ok) return { ok: false, code: 'folder_unread' };
-        return this.#deps.store.treesNow(projectId, fromId, folder.path);
+        try {
+          const folder = await this.#folderFor(projectId, fromId);
+          if (!folder.ok) return { ok: false, code: 'folder_unread' };
+          return await this.#deps.store.treesNow(projectId, fromId, folder.path);
+        } catch {
+          return { ok: false, code: 'folder_unread' };
+        }
       }),
     };
     const read = entry.read;
@@ -207,10 +213,13 @@ export class Checkpointer {
       this.#nowReads.delete(oldest);
     }
     // Kept from when it was read; a failed read is not kept, so the next caller reads again.
+    const forget = () => {
+      if (this.#nowReads.get(key)?.read === read) this.#nowReads.delete(key);
+    };
     void read.then((result) => {
       entry.readAt = this.#deps.clock.now().getTime();
-      if (!result.ok && this.#nowReads.get(key)?.read === read) this.#nowReads.delete(key);
-    });
+      if (!result.ok) forget();
+    }, forget);
     return read;
   }
 
