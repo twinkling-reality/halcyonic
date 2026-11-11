@@ -1408,6 +1408,14 @@ launch/return, process recreation and current-frame action behavior need separat
   and a refusal by its code, never its message, with the window's three tries as pips after a wrong
   code. A found computer comes in as a `PairingChoice` (name, address, whether its name came twice),
   which the Unity layer makes from what the finder answered. The actions stay the bar's.
+- **`PairingColumn`** is pairing beside the menu. Settings' Pair Computer asks the Wi-Fi first: the
+  pairing panel opens the column (Looking), runs `ComputerFinder` for two seconds in the background
+  and reads it on the main thread, then offers what it found as rows (`RoomBar.Pairing` gives each
+  card row its line's press, with Type Address and Close). A row picked opens the number pad for the
+  code at once; Type Address, the main action where nothing was found, opens the system keyboard as
+  before. The pairing's result reaches the column as Paired or as its refusal, with Try Again first.
+  The column's frames carry one line each for a view that draws no card. Nothing found is trusted:
+  the code and the pinned certificate decide.
 - **The pinned transports.** `PinnedConnection` opens TCP and TLS with `SslStream`, whose own
   validation callback compares the certificate's SHA-256 with the pin, so another certificate ends
   the handshake before anything is sent (`CertificateMismatchException`); without a pin, for
