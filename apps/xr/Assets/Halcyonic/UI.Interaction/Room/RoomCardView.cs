@@ -91,8 +91,11 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public const float NoteAlpha = 0.72f;
 
-        /// <summary>A green or red mark's tile: strong enough to read over the bright room (0.18 went muddy there).</summary>
-        public const float ToneTileAlpha = 0.28f;
+        /// <summary>
+        /// A green or red mark's tile and its ink: a deep tint under a light glyph, so the mark reads over the bright room
+        /// as over the dark (0.18 went muddy there, and a red minus on red was the weakest mark).
+        /// </summary>
+        public const float ToneTileAlpha = 0.38f;
         public const float GaugePadXDp = 14f;
         public const float GaugeGapDp = 12f;
         public const float GaugePadTopDp = 14f;
@@ -513,8 +516,8 @@ namespace Halcyonic.XR.UI
                 // (the lead, 2026-11-11: "Edited in Both" in the failure's tint read 2.89 to 1 over the bright room).
                 var (ground, ink, note) = tone switch
                 {
-                    RoomTone.Good => (Rgb(Passed, ToneTileAlpha), Rgb(Passed), White(NoteAlpha)),
-                    RoomTone.Bad => (Rgb(Failed, ToneTileAlpha), Rgb(Failed), White(NoteAlpha)),
+                    RoomTone.Good => (Rgb(PassedGround, ToneTileAlpha * 2f), Rgb(PassedInk), White(NoteAlpha)),
+                    RoomTone.Bad => (Rgb(FailedGround, ToneTileAlpha * 2f), Rgb(FailedInk), White(NoteAlpha)),
                     RoomTone.Working => (Rgb(Accent, 0.16f), Rgb(Accent), White(NoteAlpha)),
                     RoomTone.Attention => (Rgb(Attention, 0.16f), Rgb(Attention), White(NoteAlpha)),
                     // A neutral row's mark is a bare glyph, no well, so it never reads as an action's chip.
