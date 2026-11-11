@@ -849,6 +849,21 @@ namespace Halcyonic.Client
 
         public MenuIdentityKind? IdentityKind { get; }
 
+        /// <summary>
+        /// The page as a card, for a view that lays information out as one (the redesign's addendum A17): its name, its facts
+        /// as slots, its lines apart. Null for a page that is its lines alone. A view that draws no card reads the lines,
+        /// which say the same. It stays with the frame's copies.
+        /// </summary>
+        public RoomCard? Card { get; private set; }
+
+        /// <summary>This frame with <paramref name="card"/> as its card, everything else as it is.</summary>
+        public MenuFrame WithCard(RoomCard? card)
+        {
+            var copy = CopyFocus(new MenuFrame(SubjectRuns, Footer, SubjectIsData, Pill, Sections, Lines, SourceRuns, Side, SourceIsData, SubjectWaits, SectionSlots, IdentityKind));
+            copy.Card = card;
+            return copy;
+        }
+
         public string Subject { get; }
 
         /// <summary>Its subject as runs; one of Halcyonic's for a subject given as a string.</summary>
@@ -869,7 +884,7 @@ namespace Halcyonic.Client
 
         public MenuFrame Focus() { Focused = true; return this; }
 
-        private MenuFrame CopyFocus(MenuFrame frame) { frame.Focused = Focused; return frame; }
+        private MenuFrame CopyFocus(MenuFrame frame) { frame.Focused = Focused; frame.Card = Card; return frame; }
 
         public IReadOnlyList<FrameSection> Sections { get; }
 
