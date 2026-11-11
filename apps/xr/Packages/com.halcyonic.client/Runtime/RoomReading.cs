@@ -58,7 +58,8 @@ namespace Halcyonic.Client
     {
         public const float TypeDp = 15f;
         public const float LineDp = 22f;
-        public const float NumberDp = 13f;
+        /// <summary>The line number's size: the words' own, set quieter, since nothing under 14 dp reads (the kit's floor).</summary>
+        public const float NumberDp = 15f;
         public const float GutterDp = 34f;
         public const float MarkGapDp = 4f;
         public const float MarkDp = 14f;

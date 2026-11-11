@@ -68,7 +68,8 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>
         /// A change to a file as SCREENS's reader pages it: lines kept, one removed and the one that took its place, a line as
-        /// long as a row holds at this text size wrapped onto a continued row, a gap, and an indent kept as a count.
+        /// long as a row holds at this text size wrapped onto a continued row, a gap, and an indent kept as a count. Every
+        /// other line fits a row at the larger text size too (29 characters, its indent counted), as a screen wraps them.
         /// </summary>
         private static RoomReadingRow[] CardReading()
         {
@@ -80,10 +81,10 @@ namespace Halcyonic.XR.Workspace.Editor
             var hung = rest.Substring(0, Math.Min(rest.Length, RoomReading.Columns(GlazeText.Scale, continued: true) - 4));
             return new[]
             {
-                new RoomReadingRow(RoomLineKind.Same, 10, Theirs("export function tail(kite, wind) {")),
+                new RoomReadingRow(RoomLineKind.Same, 10, Theirs("export function tail(k, w) {")),
                 new RoomReadingRow(RoomLineKind.Same, 11, Theirs("const points = [];"), indent: 2),
                 new RoomReadingRow(RoomLineKind.Removed, 12, Theirs("points.push(kite.at);"), indent: 2),
-                new RoomReadingRow(RoomLineKind.Added, 12, Theirs("points.push(kite.at, wind.at);"), indent: 2),
+                new RoomReadingRow(RoomLineKind.Added, 12, Theirs("points.push(kite.at, w.at);"), indent: 2),
                 new RoomReadingRow(RoomLineKind.Added, 13, Theirs("// streams behind the kite"), indent: 2),
                 new RoomReadingRow(RoomLineKind.Added, 14, Theirs(first), indent: 4),
                 new RoomReadingRow(RoomLineKind.Added, null, Theirs(hung), continued: true, indent: 4),
