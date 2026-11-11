@@ -131,6 +131,34 @@ export function createRuntimeAdapters(
 }
 
 /**
+ * Whether a runtime is held to a folder it is given, so that in a task's own copy it writes only
+ * that copy (ADR 0045), on this computer:
+ * - Codex, where its confinement covers the folder: every execution's folder on macOS (BOX-2).
+ *   Built from the same confinement the Codex adapter is given, so it follows what that covers.
+ * - OpenCode on macOS, where every execution's folder has a sandboxed server of its own that writes
+ *   that folder alone (BOX-3), the sandbox `createRuntimeAdapters` gives it there and nowhere else.
+ * - Never Claude Code, which runs with no sandbox, nor the mock runtime, which works in no folder.
+ */
+export function heldToFolder(
+  adapters: readonly RuntimeAdapter[],
+  dependencies: Pick<
+    RuntimeDependencies,
+    'starterOf' | 'originalOf' | 'dataDir' | 'projectFolders'
+  >,
+): (runtimeId: string, directory: string) => boolean {
+  const codex = adapters.find((adapter) => adapter instanceof CodexRuntimeAdapter);
+  const opencode = adapters.find((adapter) => adapter instanceof OpenCodeRuntimeAdapter);
+  const confinement = codexConfinement(dependencies).confinement;
+  const openCodeSandboxed = process.platform === 'darwin';
+  return (runtimeId, directory) =>
+    (codex !== undefined &&
+      confinement !== undefined &&
+      runtimeId === codex.descriptor.runtime_id &&
+      confinement.forDirectory(directory) !== null) ||
+    (opencode !== undefined && openCodeSandboxed && runtimeId === opencode.descriptor.runtime_id);
+}
+
+/**
  * On macOS, every execution's folder gets a Codex server of its own inside Halcyonic's sandbox (ADR
  * 0041, BOX-2): it reads and writes that folder, reads the Node installation and the tool folders,
  * and reaches only Ollama. A project made from a starter also reads the starter's shared dependencies

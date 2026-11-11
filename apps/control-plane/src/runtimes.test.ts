@@ -33,6 +33,7 @@ import {
   createRuntimeAdapters,
   foldersInside,
   heldSecrets,
+  heldToFolder,
   OLLAMA_PORT,
   openCodeEnvironment,
   openCodeSandbox,
@@ -332,6 +333,30 @@ describe('runtime composition', () => {
       () => adapters({ HALCYONIC_CLAUDE_AGENT: '1' }, { HOME: '/home/someone', PATH: '/usr/bin' }),
       EnvironmentError,
     );
+  });
+});
+
+describe("which runtimes may work in a task's own copy (ADR 0045)", () => {
+  test('Codex and OpenCode on macOS, each held to the folder it is given (BOX-2, BOX-3); never Claude Code nor the mock', () => {
+    const dataDir = join(base, 'held');
+    mkdirSync(dataDir, { recursive: true });
+    const binary = join(base, 'held-bin');
+    writeFileSync(binary, '#!/bin/sh\n');
+    chmodSync(binary, 0o755);
+    const hosted = adapters(
+      { HALCYONIC_CODEX_BIN: binary, HALCYONIC_OPENCODE_BIN: binary },
+      HOST,
+      dataDir,
+    );
+    const held = heldToFolder(hosted, { dataDir });
+    const copy = '/Users/someone/.halcyonic-tasks/p/t/app';
+    const onMac = process.platform === 'darwin';
+    assert.equal(held('codex', copy), onMac);
+    assert.equal(held('opencode', copy), onMac);
+    assert.equal(held('mock', copy), false);
+    assert.equal(held('claude-agent', copy), false);
+    // Without the runtime registered, nothing is held.
+    assert.equal(heldToFolder(adapters({}, HOST, dataDir), { dataDir })('codex', copy), false);
   });
 });
 

@@ -38,6 +38,28 @@ describe('configuration', () => {
       '/d/tasks',
     );
     assert.throws(() => loadConfig({ HALCYONIC_TASKS_DIR: 'tasks' }), /absolute/);
+    // Never in a project root, nor around one (AUDIT2 S1).
+    const projects = join(base, 'roots-for-tasks');
+    mkdirSync(projects, { recursive: true });
+    for (const tasks of [join(projects, 'tasks'), base])
+      assert.throws(
+        () =>
+          loadConfig({
+            HALCYONIC_PROJECT_ROOTS: projects,
+            HALCYONIC_TASKS_DIR: tasks,
+            HALCYONIC_TASK_COPIES: '1',
+          }),
+        /must not be inside a project root/,
+        tasks,
+      );
+    // With copies off the setting is never used, and is not refused.
+    assert.equal(
+      loadConfig({
+        HALCYONIC_PROJECT_ROOTS: projects,
+        HALCYONIC_TASKS_DIR: join(projects, 'tasks'),
+      }).taskCopies,
+      false,
+    );
     // Off until the headset can add a task's work: then nothing an agent does is held back.
     assert.equal(loadConfig({}).taskCopies, false);
     assert.equal(loadConfig({ HALCYONIC_TASK_COPIES: '1' }).taskCopies, true);

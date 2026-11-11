@@ -32,6 +32,13 @@ export interface TaskCopiesOptions {
   readonly protect?: readonly string[];
   /** How long one copy may take before it is stopped and refused. */
   readonly timeoutMs?: number;
+  /**
+   * Whether the runtime is held to `directory` on this computer, so that in a copy it writes only
+   * that copy. Absent, no runtime is, and no task gets a copy.
+   */
+  readonly heldToFolder?: (runtimeId: string, directory: string) => boolean;
+  /** The git that edits a copy's own settings, by absolute path; the system's by default. */
+  readonly git?: string;
 }
 
 export type PrepareResult =
@@ -54,6 +61,8 @@ export class TaskCopies {
   readonly #nextId: () => string;
   readonly #protect: readonly string[];
   readonly #timeoutMs: number;
+  readonly #heldToFolder: (runtimeId: string, directory: string) => boolean;
+  readonly #git: string;
 
   constructor(options: TaskCopiesOptions) {
     this.#directory = options.directory;
@@ -61,6 +70,16 @@ export class TaskCopies {
     this.#nextId = options.nextId;
     this.#protect = [options.directory, ...(options.protect ?? [])];
     this.#timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.#heldToFolder = options.heldToFolder ?? (() => false);
+    this.#git = options.git ?? '/usr/bin/git';
+  }
+
+  /**
+   * Whether a task of `runtimeId` may work in a copy of `directory` (ADR 0045): only where that
+   * runtime is held to the folder it is given, so no agent writes another task's copy.
+   */
+  holds(runtimeId: string, directory: string): boolean {
+    return this.#heldToFolder(runtimeId, directory);
   }
 
   /** The folder copies live in, as configured. */
@@ -111,6 +130,10 @@ export class TaskCopies {
     if (!copied.ok) {
       await removeInside(root, `${projectId}/${workstreamId}`);
       return copied;
+    }
+    if (!(await this.#withoutCredentials(target))) {
+      await removeInside(root, `${projectId}/${workstreamId}`);
+      return refuse('copy_failed', "The copy's git settings could not be made safe.");
     }
     const base = await this.#store.take(projectId, target, this.#nextId());
     if (!base.ok) {
@@ -188,7 +211,7 @@ export class TaskCopies {
   add(
     projectId: string,
     workstreamId: string,
-    request: { copy: string; base: string; folder: string },
+    request: { copy: string; base: string; folder: string; reviewed: string | null },
     keepFirst: () => Promise<string | null>,
   ): Promise<AddOutcome> {
     return this.#serially(workstreamId, async (): Promise<AddOutcome> => {
@@ -196,6 +219,13 @@ export class TaskCopies {
       if (read.kind !== 'read') return read;
       const { task, project, merged } = read;
       if (task === request.base) return { kind: 'nothing' };
+      // Only what the person reviewed is ever added: a copy changed since its last reading, by its
+      // agent or anything else, is read again and shown before anything is written.
+      if (task !== request.reviewed) {
+        const changed = await this.#store.changedPaths(projectId, request.base, task);
+        if (changed === null) return failed('store_failed', 'The changes could not be read.');
+        return { kind: 'unreviewed', taskTree: task, changed };
+      }
       if (merged.conflicts.length > 0)
         return {
           kind: 'conflicted',
@@ -303,6 +333,81 @@ export class TaskCopies {
     return next;
   }
 
+  /**
+   * Takes the user part, where a token sits, out of every remote's address in the copy's own git
+   * settings (`remote.*.url`, `remote.*.pushurl`), and removes any `url.<base>` rewrite whose base
+   * carries one, so an agent in the copy cannot read or push with the person's token. Only the
+   * URL form `scheme://user[:password]@host` carries one; `user@host:path` names an ssh login and is
+   * left as it is. Only the copy's own file is read and written, with none of the person's
+   * settings. True when there is nothing to do or it is done.
+   */
+  async #withoutCredentials(copy: string): Promise<boolean> {
+    const gitDir = join(copy, '.git');
+    if (!((await lstat(gitDir).catch(() => null))?.isDirectory() === true)) return true;
+    const file = join(gitDir, 'config');
+    if ((await lstat(file).catch(() => null))?.isFile() !== true) return true;
+    const listed = await this.#gitConfig(file, [
+      '--null',
+      '--get-regexp',
+      '^(remote\\..*\\.(url|pushurl)|url\\..*\\.(insteadof|pushinsteadof))$',
+    ]);
+    // Exit 1: no such keys.
+    if (listed.code === 1) return true;
+    if (listed.code !== 0) return false;
+    const entries = listed.stdout
+      .split('\0')
+      .filter((entry) => entry !== '')
+      .map((entry) => {
+        const newline = entry.indexOf('\n');
+        return { key: entry.slice(0, newline), value: entry.slice(newline + 1) };
+      });
+    for (const { key, value } of entries) {
+      if (/^url\./i.test(key)) {
+        const base = key.slice(4, key.lastIndexOf('.'));
+        if (withoutUser(base) !== base) {
+          const removed = await this.#gitConfig(file, ['--remove-section', `url.${base}`]);
+          if (removed.code !== 0 && removed.code !== 128) return false;
+        }
+        continue;
+      }
+      const safe = withoutUser(value);
+      if (safe === value) continue;
+      const replaced = await this.#gitConfig(file, [
+        '--fixed-value',
+        '--replace-all',
+        key,
+        safe,
+        value,
+      ]);
+      if (replaced.code !== 0) return false;
+    }
+    return true;
+  }
+
+  #gitConfig(file: string, args: readonly string[]): Promise<{ code: number; stdout: string }> {
+    return new Promise((resolvePromise) => {
+      execFile(
+        this.#git,
+        ['config', '--file', file, ...args],
+        {
+          env: {
+            PATH: '/usr/bin:/bin',
+            LC_ALL: 'C',
+            GIT_CONFIG_NOSYSTEM: '1',
+            GIT_CONFIG_GLOBAL: '/dev/null',
+            HOME: '/dev/null',
+          },
+          timeout: 30_000,
+        },
+        (error, stdout) =>
+          resolvePromise({
+            code: error === null ? 0 : typeof error.code === 'number' ? error.code : -1,
+            stdout: String(stdout),
+          }),
+      );
+    });
+  }
+
   /** `cp -c` clones with clonefile(2), keeping modes, times and links; it fails rather than copy bytes. */
   #clone(
     source: string,
@@ -333,6 +438,8 @@ export class TaskCopies {
 
 export type AddOutcome =
   | { readonly kind: 'nothing' }
+  /** The copy is not the tree the person was shown: `changed` is what it differs by now. */
+  | { readonly kind: 'unreviewed'; readonly taskTree: string; readonly changed: readonly string[] }
   | {
       readonly kind: 'conflicted';
       readonly taskTree: string;
@@ -374,6 +481,12 @@ function failed(
   message: string,
 ): { kind: 'failed'; code: string; message: string; written: false } {
   return { kind: 'failed', code, message, written: false };
+}
+
+/** An address without its user part where it is a URL that has one; anything else as it is. */
+export function withoutUser(address: string): string {
+  const match = /^([a-z][a-z0-9+.-]*:\/\/)([^/]*@)(.*)$/i.exec(address);
+  return match === null ? address : `${match[1]}${match[3]}`;
 }
 
 function refuse(code: CopyRefusalCode, message: string): PrepareResult {

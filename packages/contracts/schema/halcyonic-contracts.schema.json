@@ -10906,6 +10906,10 @@
         {
           "type": "string",
           "const": "copy_failed"
+        },
+        {
+          "type": "string",
+          "const": "runtime_unconfined"
         }
       ]
     },

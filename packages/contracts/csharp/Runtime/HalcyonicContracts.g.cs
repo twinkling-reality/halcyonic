@@ -1003,6 +1003,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "location_missing")] LocationMissing,
         [EnumMember(Value = "holds_host_data")] HoldsHostData,
         [EnumMember(Value = "copy_failed")] CopyFailed,
+        [EnumMember(Value = "runtime_unconfined")] RuntimeUnconfined,
     }
 
     [JsonConverter(typeof(WorkstreamCopyConverter))]
