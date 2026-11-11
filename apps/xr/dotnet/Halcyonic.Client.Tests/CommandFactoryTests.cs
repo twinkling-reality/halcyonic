@@ -35,6 +35,27 @@ public class CommandFactoryTests
     }
 
     [Test]
+    public void AnAskNamesItsTaskItsProjectAloneOrNothingWithTheNullsSent()
+    {
+        const string task = "01a19000-0000-7000-8000-000000000002", execution = "01a19000-0000-7000-8000-000000000003";
+        var asks = new (CommandEnvelope Command, JObject Payload)[]
+        {
+            (commands.Request(ProjectId, task, execution, "What did it change?"),
+                new JObject { ["project_id"] = ProjectId, ["workstream_id"] = task, ["execution_id"] = execution, ["text"] = "What did it change?" }),
+            (commands.RequestAboutProject(ProjectId, "What is going on here?"),
+                new JObject { ["project_id"] = ProjectId, ["workstream_id"] = null, ["execution_id"] = null, ["text"] = "What is going on here?" }),
+            (commands.RequestAboutAllWork("What is going on with my work?"),
+                new JObject { ["project_id"] = null, ["workstream_id"] = null, ["execution_id"] = null, ["text"] = "What is going on with my work?" }),
+        };
+        foreach (var (command, payload) in asks)
+        {
+            Assert.That(command.CommandType, Is.EqualTo("workspace.request.submit"));
+            // The contract names every key, so a null is sent as null, never left out.
+            Assert.That(Payload(command), Is.EqualTo(payload).Using(JToken.EqualityComparer));
+        }
+    }
+
+    [Test]
     public void AVrVersionNamesTheOriginalAndTheNewFolder()
     {
         var command = commands.MakeVrVersion(ProjectId, "/Users/someone/HalcyonicProjects", "garden-vr");
