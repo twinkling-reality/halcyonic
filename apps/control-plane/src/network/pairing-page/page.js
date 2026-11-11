@@ -127,6 +127,24 @@ function outcomeOf(window) {
   return null;
 }
 
+/** A count in words, as a sentence says it: the window's own number of tries, never a fixed one. */
+function count(number) {
+  const words = [
+    'No',
+    'One',
+    'Two',
+    'Three',
+    'Four',
+    'Five',
+    'Six',
+    'Seven',
+    'Eight',
+    'Nine',
+    'Ten',
+  ];
+  return words[number] ?? String(number);
+}
+
 /**
  * Where pairing stands, as the status says it: its tone, glyph, title word, quieter line and, where the tries ran out,
  * its pips. The last press's problem first, then a turn under way, then the listener and its window.
@@ -151,7 +169,7 @@ function standing(on, open, reachable, outcome) {
       'working',
       'hourglass',
       'Waiting for Your Headset',
-      'The code works once, within five minutes.',
+      'The code works once, for one headset.',
     ];
   if (outcome === 'paired')
     return [
@@ -166,13 +184,13 @@ function standing(on, open, reachable, outcome) {
       'bad',
       'alert',
       'No Tries Left',
-      'Three wrong codes closed pairing. Pair again for a new code.',
+      `${count(tries)} wrong ${tries === 1 ? 'code' : 'codes'} closed pairing. Pair again for a new code.`,
       { of: tries, used: tries },
     ];
   }
   if (outcome === 'expired')
     return ['quiet', 'clock', 'Code Timed Out', 'The code ran out. Pair again for a new one.'];
-  return ['good', 'tick', 'Pairing On', 'Headsets on your Wi-Fi can join with a code.'];
+  return ['good', 'tick', 'Pairing On', 'Pair Headset gives a code for one headset on your Wi-Fi.'];
 }
 
 function glyph(name) {
