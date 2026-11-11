@@ -43,7 +43,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var old in Directory.GetFiles(folder)) File.Delete(old);
                     EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                     var found = new List<string>();
-                    var moments = new List<string> { "moment\tcoverage\tredesign drew\tolder parts drew\tactions drawn\tfailures" };
+                    var moments = new List<string> { "moment\tdrawn by\tdots | older cut | overlaps\tcoverage\tredesign drew\tolder parts drew\tactions drawn\tfailures" };
                     ViewField.Current = FieldChecks.Quest3S;
                     var context = SynchronizationContext.Current;
                     // As the judge kit walk: the session's acknowledgements continue on the thread pool while the walk holds the Editor's thread.
@@ -304,7 +304,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         ? string.Join(", ", plane.Kit.Bar.Column.Where(each => each.gameObject.activeInHierarchy)
                             .Select(each => plane.Kit.Bar.ControlOf(each) is KitControl control ? control.Action + (control.Key == null ? "" : "/" + control.Key) : "?"))
                         : "";
-                    moments.Add(name + "\t" + (covered ? "covered" : "not yet") + "\t" + string.Join(", ", redesign) + "\t" + string.Join(", ", older) + "\t" + actions
+                    var census = Census(root, camera);
+                    var drawnBy = "place " + navigator.Place + (navigator.Beside is IMenuColumn beside ? ", beside " + beside.GetType().Name : "")
+                        + (Opened() is FileColumn open ? ", section " + open.Screen.Section : "") + (plane.KitShows ? ", room host" : "");
+                    moments.Add(name + "\t" + drawnBy + "\t" + census + "\t" + (covered ? "covered" : "not yet") + "\t" + string.Join(", ", redesign) + "\t" + string.Join(", ", older) + "\t" + actions
                         + "\t" + string.Join("; ", found) + (covered || gaps.Count == 0 ? "" : "\t(not yet: " + string.Join("; ", gaps) + ")"));
                     failures.AddRange(found.Select(each => name + ": " + each));
                     Debug.Log("Halcyonic: judge room: " + name + ": redesign [" + string.Join(", ", redesign) + "], older [" + string.Join(", ", older) + "]");
@@ -422,8 +425,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (told) Moment("write instruction");
                 told = told && Press(FileScreens.Preset, "0");
                 if (told) Moment("instruction chosen");
+                // The redesign's way on from a chosen instruction is its main action (tell-it, Review Instruction), then Confirm.
+                if (told && Drawn(FileScreens.TellIt, null) != null && Press(FileScreens.TellIt)) Moment("instruction review");
                 for (var part = 0; told && part < 8 && Opened()?.Screen.Instruction.Read == false; part++) Press(FileScreens.NextInstructionPart);
-                told = told && Press(FileScreens.SendInstruction) && sent.OfType<ExecutionSendInstructionCommand>().Any();
+                told = told && Press(FileScreens.SendInstruction);
+                if (told && !sent.OfType<ExecutionSendInstructionCommand>().Any()) ConfirmBehindLock("instruction");
+                told = told && sent.OfType<ExecutionSendInstructionCommand>().Any();
                 if (!told && DirectedRun() is ExecutionView run && fallback.InstructionsFor(run.ExecutionId).FirstOrDefault() is PresetInstruction preset)
                     SendInstead("the offered instruction", commands.SendInstruction(run.ExecutionId, preset.Text));
                 if (Until(() => DirectedRun()?.ActiveTools.Count > 0 || DirectedRun()?.LastTestRun?.Outcome == TestOutcome.Passed, "the correction at work", 60)
@@ -523,6 +530,50 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (contrast < 4.5f) failures.Add(PathOf(label.transform) + " \"" + Codes(label.text) + "\" reaches " + contrast.ToString("0.0") + ":1, under 4.5:1");
             }
             return failures;
+        }
+
+        /// <summary>
+        /// For the census, never a failure: every drawn label holding facts joined by a dot (the form the owner rejected),
+        /// every older label cut, and every pair of the redesign's labels whose rectangles on the render overlap.
+        /// </summary>
+        private static string Census(GameObject root, Camera camera)
+        {
+            var dots = new List<string>();
+            var cut = new List<string>();
+            var rects = new List<(string Text, Rect Rect, Transform Owner)>();
+            foreach (var label in root.GetComponentsInChildren<TMP_Text>(false))
+            {
+                if (string.IsNullOrWhiteSpace(label.text) || label.GetComponent<Renderer>() is Renderer shown && !shown.enabled) continue;
+                var owner = OwnerOf(label.transform) ?? "?";
+                var text = label.text.Length > 60 ? label.text.Substring(0, 60) : label.text;
+                if (label.text.Contains("\u00b7")) dots.Add(owner + " \"" + text.Replace('\n', ' ') + "\"");
+                if (!owner.StartsWith("Room", StringComparison.Ordinal))
+                {
+                    label.ForceMeshUpdate(true);
+                    if (label.isTextTruncated) cut.Add(owner + " \"" + text.Replace('\n', ' ') + "\"");
+                    continue;
+                }
+                var bounds = label.textBounds;
+                var corners = new[] { new Vector3(bounds.min.x, bounds.min.y), new Vector3(bounds.max.x, bounds.max.y) }
+                    .Select(corner => camera.WorldToScreenPoint(label.transform.TransformPoint(corner))).ToList();
+                if (corners.Any(corner => corner.z <= 0f)) continue;
+                var rect = Rect.MinMaxRect(Mathf.Min(corners[0].x, corners[1].x), Mathf.Min(corners[0].y, corners[1].y),
+                    Mathf.Max(corners[0].x, corners[1].x), Mathf.Max(corners[0].y, corners[1].y));
+                rects.Add((text.Replace('\n', ' '), rect, label.transform.parent));
+            }
+            var overlaps = new List<string>();
+            for (var a = 0; a < rects.Count; a++)
+            {
+                for (var b = a + 1; b < rects.Count; b++)
+                {
+                    if (rects[a].Owner == rects[b].Owner) continue;
+                    var x = Mathf.Min(rects[a].Rect.xMax, rects[b].Rect.xMax) - Mathf.Max(rects[a].Rect.xMin, rects[b].Rect.xMin);
+                    var y = Mathf.Min(rects[a].Rect.yMax, rects[b].Rect.yMax) - Mathf.Max(rects[a].Rect.yMin, rects[b].Rect.yMin);
+                    var smaller = Mathf.Min(rects[a].Rect.width * rects[a].Rect.height, rects[b].Rect.width * rects[b].Rect.height);
+                    if (x > 0f && y > 0f && smaller > 0f && x * y > 0.2f * smaller) overlaps.Add("\"" + rects[a].Text + "\" over \"" + rects[b].Text + "\"");
+                }
+            }
+            return string.Join("; ", dots) + " | " + string.Join("; ", cut) + " | " + string.Join("; ", overlaps);
         }
 
         /// <summary>The most common colour inside <paramref name="rect"/>, quantized, as the ground words stand on.</summary>
