@@ -312,6 +312,8 @@ namespace Halcyonic.XR.Workspace
                 characterColours.Prune(colourKey, session.State.Journal.JournalId,
                     session.State.Workstreams.Keys.ToList(), saveCharacterColours);
             activity.Record(changes.Events);
+            // DEVICE's History hears a restore done or incomplete, and the answer to a restore sent.
+            menu.HistoryHeard(changes);
             Refresh();
         }
 

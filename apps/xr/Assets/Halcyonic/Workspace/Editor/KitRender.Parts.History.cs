@@ -149,7 +149,7 @@ namespace Halcyonic.XR.Workspace.Editor
             });
             if (state.StartsWith("60-history-review", StringComparison.Ordinal) || state == "60-history-add") return column;
             column.Arm();
-            var command = column.Restore(new ClientInfo { Name = "history-render", Version = "0" }, now)!;
+            var command = column.Restore(new CommandFactory(new ClientInfo { Name = "history-render", Version = "0" }))!;
             CommandView Rejected(RejectionCode code) => new CommandView
             {
                 CommandId = command.CommandId, Status = CommandStatus.Rejected, Rejection = new CommandRejection { Code = code, Message = "Synthetic." },

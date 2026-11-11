@@ -16,6 +16,8 @@ namespace Halcyonic.Client
         Add,
         /// <summary>Where the project changed the same files: FIELD's card naming them, then Let Agent Fix (A13).</summary>
         Conflict,
+        /// <summary>The project's history and its restore (DEVICE's <see cref="HistoryColumn"/>, gap 2), reached from Changes.</summary>
+        History,
     }
 
     /// <summary>
@@ -40,6 +42,18 @@ namespace Halcyonic.Client
         public const string AddConfirm = "room-add";
         public const string ShowConflict = "room-show-conflict";
         public const string Fit = "room-fit";
+        /// <summary>DEVICE's History (<see cref="HistoryColumn"/>): open it, pick a version (its key the version's id), page, restore behind the lock, and the ways out.</summary>
+        public const string ShowHistory = "room-history";
+        public const string HistoryVersion = "room-history-version";
+        public const string HistoryOlder = "room-history-older";
+        public const string HistoryRestore = "room-history-restore";
+        public const string HistoryCancel = "room-history-cancel";
+        public const string HistoryUndo = "room-history-undo";
+        public const string HistoryAgain = "room-history-again";
+        public const string HistoryTryAgain = "room-history-try-again";
+        public const string HistoryChanges = "room-history-changes";
+        public const string HistoryBack = "room-history-back";
+        public const string HistoryClose = "room-history-close";
 
         public const string ChangesWords = "Changes";
         public const string ChecksWords = "Checks";
@@ -50,14 +64,20 @@ namespace Halcyonic.Client
         public const string Removed = "Removed";
 
         /// <summary>Every action id of the result's own.</summary>
-        public static readonly IReadOnlyList<string> Actions = new[] { MakeVrVersion, TryBuild, ShowChanges, ShowChecks, NextPage, Back, PlayInHeadset, ShowAdd, AddConfirm, ShowConflict, Fit };
+        public static readonly IReadOnlyList<string> Actions = new[]
+        {
+            MakeVrVersion, TryBuild, ShowChanges, ShowChecks, NextPage, Back, PlayInHeadset, ShowAdd, AddConfirm, ShowConflict, Fit,
+            ShowHistory, HistoryVersion, HistoryOlder, HistoryRestore, HistoryCancel, HistoryUndo, HistoryAgain, HistoryTryAgain, HistoryChanges, HistoryBack, HistoryClose,
+        };
 
         public RoomResult(bool isVr, bool canMakeVr, bool canTry, bool? passed, ObservedTurn? observed, IReadOnlyList<CheckStepOutcome>? steps,
-            RoomResultPage page = RoomResultPage.Result, int part = 0, Halcyonic.Client.PlayInHeadset? play = null, RoomAdd? add = null, string? addReview = null)
+            RoomResultPage page = RoomResultPage.Result, int part = 0, Halcyonic.Client.PlayInHeadset? play = null, RoomAdd? add = null, string? addReview = null,
+            HistoryColumn? history = null)
         {
             AddReview = addReview;
             Play = play;
             Add = add;
+            History = page == RoomResultPage.History ? history : null;
             IsVr = isVr;
             CanMakeVr = canMakeVr;
             CanTry = canTry;
@@ -86,6 +106,9 @@ namespace Halcyonic.Client
         /// <summary>Whether Play in Headset stands for the project, and if not why (<see cref="HeadsetPlay.For"/>); null where unknown.</summary>
         public Halcyonic.Client.PlayInHeadset? Play { get; }
 
+        /// <summary>The project's history where the History page shows (DEVICE's <see cref="HistoryColumn"/>); null on every other page.</summary>
+        public HistoryColumn? History { get; }
+
         /// <summary>The computer's own last check of the project: passed, failed, or null where it ran none or its outcome is unknown.</summary>
         public bool? Passed { get; }
 
@@ -110,7 +133,7 @@ namespace Halcyonic.Client
         public string? CheckLine => Passed is bool passed ? KitMomentWords.CheckTitle(KitCheckScope.Builds, ended: true, passed) : null;
 
         /// <summary>Whether the computer has anything to say of the task at rest.</summary>
-        public bool Any => Observed != null || Passed != null || Steps.Count > 0 || Add?.State is RoomAddState.Ready or RoomAddState.Conflict;
+        public bool Any => Observed != null || Passed != null || Steps.Count > 0 || Add?.State is RoomAddState.Ready or RoomAddState.Conflict || History != null;
 
         /// <summary>The page's rows: an observed file a row, or a step of the check a row; none on the result itself.</summary>
         public IReadOnlyList<RoomRow> Rows => Page switch
@@ -188,7 +211,8 @@ namespace Halcyonic.Client
         /// <paramref name="observed"/>, the last turn of the task's run the computer observed; null with no project.
         /// </summary>
         public static RoomResult? Of(ProjectView? project, ClientProjection? state, ObservedTurn? observed,
-            RoomResultPage page = RoomResultPage.Result, int part = 0, (ControlPlaneTarget? Target, bool Demonstration)? way = null, WorkstreamView? task = null)
+            RoomResultPage page = RoomResultPage.Result, int part = 0, (ControlPlaneTarget? Target, bool Demonstration)? way = null, WorkstreamView? task = null,
+            HistoryColumn? history = null)
         {
             if (project == null || state == null) return null;
             var screen = WorkspacePresentationState.ScreenOf(project, state, barOpen: true);
@@ -198,7 +222,8 @@ namespace Halcyonic.Client
             var canMakeVr = !screen.IsVr && ProjectPlayFacts.TryVrVersionTarget(project, out _, out _);
             return new RoomResult(screen.IsVr, canMakeVr, screen.CanTry, check?.Passed, observed, check?.Steps, page, part,
                 // Play in Headset by how this headset reaches the computer and whether a demonstration shows (DEVICE's rule); unknown without.
-                way is { } reach ? HeadsetPlay.For(project, reach.Target, reach.Demonstration) : (Halcyonic.Client.PlayInHeadset?)null, task != null ? RoomAdd.Of(task.Copy, working: false) : null, (task?.Copy as OwnCopy)?.ToAddReview);
+                way is { } reach ? HeadsetPlay.For(project, reach.Target, reach.Demonstration) : (Halcyonic.Client.PlayInHeadset?)null, task != null ? RoomAdd.Of(task.Copy, working: false) : null, (task?.Copy as OwnCopy)?.ToAddReview,
+                history);
         }
     }
 
