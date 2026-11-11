@@ -29,6 +29,7 @@ import type {
   QuestionView,
   RuntimeEvent,
   RuntimeOptions,
+  ShareWay,
   StoredEvent,
   Timestamp,
   ToolResultSummary,
@@ -311,7 +312,10 @@ export class Projection {
   /** The check whose game plays on the Mac now, per project (ADR 0037). */
   readonly #macPlays = new Map<ProjectId, CheckId>();
   /** Each project's shared link now (F1): the check its preview serves and the public address. */
-  readonly #shares = new Map<ProjectId, { readonly checkId: CheckId; readonly url: string }>();
+  readonly #shares = new Map<
+    ProjectId,
+    { readonly checkId: CheckId; readonly url: string; readonly way: ShareWay }
+  >();
   /** The failed check whose output an agent was last given in each project (FX1). */
   readonly #checkOutputs = new Map<ProjectId, CheckId>();
   /** Each world project's description as the Mac last read it (ADR 0049). */
@@ -908,9 +912,13 @@ export class Projection {
   }
 
   /** The project's shared link now, or undefined (F1). */
-  share(projectId: string): { readonly check_id: CheckId; readonly url: string } | undefined {
+  share(
+    projectId: string,
+  ): { readonly check_id: CheckId; readonly url: string; readonly way: ShareWay } | undefined {
     const share = this.#shares.get(projectId as ProjectId);
-    return share === undefined ? undefined : { check_id: share.checkId, url: share.url };
+    return share === undefined
+      ? undefined
+      : { check_id: share.checkId, url: share.url, way: share.way };
   }
 
   /** The check whose game plays on the Mac now, or undefined. */
@@ -1292,6 +1300,7 @@ export class Projection {
         this.#shares.set(event.project_id, {
           checkId: event.payload.check_id,
           url: event.payload.url,
+          way: event.payload.way,
         });
         if (this.#projects.has(event.project_id)) changes.projects.add(event.project_id);
         return;
@@ -1952,6 +1961,7 @@ export class Projection {
       view.share = {
         check_id: share.checkId,
         url: share.url,
+        way: share.way,
         files: this.#filesOfCheck(state.projectId, share.checkId),
       };
     }

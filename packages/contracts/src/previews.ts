@@ -202,25 +202,36 @@ export const PreviewStopReason = Type.Union([
 export type PreviewStopReason = Static<typeof PreviewStopReason>;
 
 /**
- * Why a shared link stopped: `asked` the person stopped it; `preview_stopped` the preview it reached
- * stopped (a new check stops the preview too); `tunnel_exited` the tunnel ended on its own;
- * `host_stopped` the control plane closed, or a restart found it.
+ * How a checked game is shared (ADR 0054): `link` at a temporary public `https://` address, through
+ * a tunnel, which another headset can enter VR from; `wifi` at a plain `http://` address of the Mac
+ * on its local network, which is not a secure page, so a game opened from it plays in the browser
+ * but cannot enter VR.
+ */
+export const ShareWay = Type.Union([Type.Literal('link'), Type.Literal('wifi')]);
+export type ShareWay = Static<typeof ShareWay>;
+
+/**
+ * Why a share stopped: `asked` the person stopped it; `preview_stopped` the preview it reached
+ * stopped (a new check stops the preview too); `ended` the tunnel or the Wi-Fi listener ended on its
+ * own; `host_stopped` the control plane closed, or a restart found it.
  */
 export const ShareStopReason = Type.Union([
   Type.Literal('asked'),
   Type.Literal('preview_stopped'),
-  Type.Literal('tunnel_exited'),
+  Type.Literal('ended'),
   Type.Literal('host_stopped'),
 ]);
 export type ShareStopReason = Static<typeof ShareStopReason>;
 
 /**
- * A shared link's public address: `https://` and a host name only, no path, no query, no user part,
- * as the tunnel gave it. Anyone who has it can open the checked game while it is shared.
+ * A share's address, no path, no query, no user part. A link's: `https://` and the host name the
+ * tunnel gave. On the Wi-Fi: `http://`, the Mac's IPv4 address on its local network and a port.
+ * Anyone who has it, and for the Wi-Fi anyone on that network, can open the checked game while it is
+ * shared.
  */
 export const ShareAddress = Type.String({
   pattern:
-    '^https://[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$',
+    '^(?:https://[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+|http://(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:[0-9]{1,5})$',
   maxLength: 253,
 });
 

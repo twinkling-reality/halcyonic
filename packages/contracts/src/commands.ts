@@ -2,7 +2,7 @@ import Type, { type Static, type TSchema } from 'typebox';
 import { CatalogRepositoryRef } from './catalog.ts';
 import { CheckpointId, ReviewDigest } from './checkpoints.ts';
 import { FolderName, HostPath, ProjectLocationChoice } from './locations.ts';
-import { CheckId, ShareAddress } from './previews.ts';
+import { CheckId, ShareAddress, ShareWay } from './previews.ts';
 import {
   ClientInfo,
   CommandId,
@@ -140,13 +140,14 @@ export const ProjectOpenOnMacCommand = defineCommand(
  * host does it, never a runtime. Never a task's copy, never Halcyonic's data.
  */
 /**
- * Shares the checked game the project's preview serves at a public `https://` address anyone can
- * open, through a temporary tunnel, for as long as the preview runs (keeping and sharing what was
- * made, F1). Only the checked build is reached, never the source. The person's own step.
+ * Shares the checked game the project's preview serves, for as long as the preview runs (keeping and
+ * sharing what was made, F1, ADR 0054): `link` at a public `https://` address anyone can open,
+ * through a temporary tunnel; `wifi` at the Mac's address on its local network. Only the checked
+ * build is reached, never the source. The person's own step.
  */
 export const ProjectShareStartCommand = defineCommand(
   'project.share.start',
-  Type.Object({ project_id: ProjectId }, strict),
+  Type.Object({ project_id: ProjectId, way: ShareWay }, strict),
 );
 
 /** Stops the project's shared link: the address stops answering at once. */
@@ -472,7 +473,7 @@ export const CommandResult = Type.Union([
   ),
   /** The checked game is shared at `url` while the preview of `check_id` runs. */
   Type.Object(
-    { kind: Type.Literal('share_started'), check_id: CheckId, url: ShareAddress },
+    { kind: Type.Literal('share_started'), check_id: CheckId, url: ShareAddress, way: ShareWay },
     strict,
   ),
   /** A task's work is in the project's folder; `checkpoint_id` puts back the folder as it was. */

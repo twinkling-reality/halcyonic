@@ -9,7 +9,7 @@ import {
 import { WorkstreamCopy } from './copies.ts';
 import { ApprovalSubject } from './events.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
-import { AutoFixView, CheckFindings, CheckId, ShareAddress } from './previews.ts';
+import { AutoFixView, CheckFindings, CheckId, ShareAddress, ShareWay } from './previews.ts';
 import {
   ErrorInfo,
   ExecutionId,
@@ -121,7 +121,7 @@ export type ProjectMacPlayView = Static<typeof ProjectMacPlayView>;
 
 /** The project's shared link now, as `project.share.started` said, and whether its check's files are still current. */
 export const ProjectShareView = Type.Object(
-  { check_id: CheckId, url: ShareAddress, files: CheckFilesState },
+  { check_id: CheckId, url: ShareAddress, way: ShareWay, files: CheckFilesState },
   strict,
 );
 export type ProjectShareView = Static<typeof ProjectShareView>;

@@ -30,6 +30,7 @@ import {
   PreviewStopReason,
   ShareAddress,
   ShareStopReason,
+  ShareWay,
 } from './previews.ts';
 import {
   DeviceId,
@@ -401,12 +402,13 @@ export const ProjectPreviewStopped = projectEvent(
 );
 
 /**
- * The checked game the project's preview serves is shared at `url`, a public address anyone can
- * open, recorded only once the address answers with that game over a verified `https://` (F1).
+ * The checked game the project's preview serves is shared at `url`: by `way` `link` a public address
+ * anyone can open, by `wifi` the Mac's address on its local network (F1, ADR 0054). Recorded only
+ * once the address answers with that game, a link's over a verified `https://`.
  */
 export const ProjectShareStarted = projectEvent(
   'project.share.started',
-  Type.Object({ check_id: CheckId, url: ShareAddress }, strict),
+  Type.Object({ check_id: CheckId, url: ShareAddress, way: ShareWay }, strict),
 );
 
 /** The project's shared link stopped answering, and why. */

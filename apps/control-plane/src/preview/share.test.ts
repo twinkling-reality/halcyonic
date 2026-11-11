@@ -8,7 +8,7 @@ import { afterEach, describe, test } from 'node:test';
 import type { CheckId, EventEnvelope, ProjectId } from '@halcyonic/contracts';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { capturingLogger, createTestControlPlane } from '../testing/harness.ts';
-import { ProjectShares, pinnedLookup } from './share.ts';
+import { lanAddress, ProjectShares, pinnedLookup, ShareRefused } from './share.ts';
 
 // Sharing a checked game at a public address (F1), with a stand-in tunnel: a process that prints
 // an address as the tunnel does and stays up until it is stopped.
@@ -38,7 +38,9 @@ function standInTunnel(prints: boolean) {
     );
 }
 
-function setup(options: { prints?: boolean; answers?: boolean } = {}) {
+function setup(
+  options: { prints?: boolean; answers?: boolean; previewPort?: number; lan?: string | null } = {},
+) {
   const harness = createTestControlPlane({ logger: capturingLogger().logger });
   const { controlPlane } = harness;
   const record = <T extends Parameters<typeof controlPlaneDraft>[0]>(
@@ -49,7 +51,7 @@ function setup(options: { prints?: boolean; answers?: boolean } = {}) {
       controlPlaneDraft(type, scope as never, payload as never, now, NO_CAUSE),
     );
   record('project.created', { name: 'Garden', location: null });
-  record('project.preview.started', { check_id: CHECK, port: 47931 });
+  record('project.preview.started', { check_id: CHECK, port: options.previewPort ?? 47931 });
   const home = mkdtempSync(join(tmpdir(), 'halcyonic-share-'));
   homes.push(home);
   const shares = new ProjectShares({
@@ -62,6 +64,8 @@ function setup(options: { prints?: boolean; answers?: boolean } = {}) {
     spawnTunnel: standInTunnel(options.prints ?? true),
     answers: async () => options.answers ?? true,
     startTimeoutMs: 2000,
+    lanAddress: () => (options.lan === undefined ? '127.0.0.1' : options.lan),
+    wifiPorts: [47914, 47919],
   });
   shares.attach(controlPlane.publisher);
   const types = () =>
@@ -75,14 +79,15 @@ describe('sharing a checked game at an address anyone can open (F1)', () => {
   test('recorded only once the address answers; stopped when asked, and the address goes from the view', async (t) => {
     const { controlPlane, shares, types } = setup();
     t.after(() => shares.close());
-    const shared = await shares.start(PROJECT, NO_CAUSE);
-    assert.deepEqual(shared, { check_id: CHECK, url: ADDRESS });
+    const shared = await shares.start(PROJECT, 'link', NO_CAUSE);
+    assert.deepEqual(shared, { check_id: CHECK, url: ADDRESS, way: 'link' });
     assert.deepEqual(controlPlane.projection.project(PROJECT)?.share, {
       check_id: CHECK,
       url: ADDRESS,
+      way: 'link',
       files: 'unknown',
     });
-    await assert.rejects(shares.start(PROJECT, NO_CAUSE), /already shared/);
+    await assert.rejects(shares.start(PROJECT, 'link', NO_CAUSE), /already shared/);
     assert.equal(await shares.stop(PROJECT, 'asked', NO_CAUSE), true);
     assert.deepEqual(types(), ['project.share.started', 'project.share.stopped']);
     assert.equal(controlPlane.projection.project(PROJECT)?.share, undefined);
@@ -91,7 +96,7 @@ describe('sharing a checked game at an address anyone can open (F1)', () => {
   test('a preview that stops takes its shared link with it', async (t) => {
     const { controlPlane, shares, record } = setup();
     t.after(() => shares.close());
-    await shares.start(PROJECT, NO_CAUSE);
+    await shares.start(PROJECT, 'link', NO_CAUSE);
     record('project.preview.stopped', { check_id: CHECK, reason: 'new_check' });
     for (let i = 0; i < 100 && controlPlane.projection.share(PROJECT) !== undefined; i += 1)
       await new Promise((resolve) => setTimeout(resolve, 10));
@@ -107,17 +112,17 @@ describe('sharing a checked game at an address anyone can open (F1)', () => {
 
   test('nothing is recorded where no address comes or it does not answer with the game', async () => {
     const silent = setup({ prints: false });
-    await assert.rejects(silent.shares.start(PROJECT, NO_CAUSE), /no address/);
+    await assert.rejects(silent.shares.start(PROJECT, 'link', NO_CAUSE), /no address/);
     assert.deepEqual(silent.types(), []);
     const unanswered = setup({ answers: false });
-    await assert.rejects(unanswered.shares.start(PROJECT, NO_CAUSE), /did not answer/);
+    await assert.rejects(unanswered.shares.start(PROJECT, 'link', NO_CAUSE), /did not answer/);
     assert.deepEqual(unanswered.types(), []);
     assert.equal(unanswered.controlPlane.projection.share(PROJECT), undefined);
   });
 
   test('a share a restart left recorded as live is recorded stopped: no tunnel survives one', () => {
     const { controlPlane, record, types } = setup();
-    record('project.share.started', { check_id: CHECK, url: ADDRESS });
+    record('project.share.started', { check_id: CHECK, url: ADDRESS, way: 'link' });
     const again = new ProjectShares({
       recorder: controlPlane.recorder,
       projection: controlPlane.projection,
@@ -153,5 +158,97 @@ describe('sharing a checked game at an address anyone can open (F1)', () => {
       pinnedLookup('127.0.0.1')('share.invalid', {}, (_error, address) => resolve(String(address))),
     );
     assert.equal(single, '127.0.0.1');
+  });
+
+  test('on the Wi-Fi: only reads reach the preview, under its own host, and the address goes when stopped', async (t) => {
+    const seen: {
+      method: string | undefined;
+      host: string | undefined;
+      cookie: string | undefined;
+    }[] = [];
+    const preview = createServer((req, res) => {
+      seen.push({ method: req.method, host: req.headers.host, cookie: req.headers.cookie });
+      res.writeHead(200, {
+        'content-type': 'text/html',
+        'content-security-policy': "default-src 'self'",
+      });
+      res.end('<p>the game</p>');
+    });
+    await new Promise<void>((resolve) => preview.listen(0, '127.0.0.1', resolve));
+    t.after(() => preview.close());
+    const previewPort = (preview.address() as { port: number }).port;
+    const { controlPlane, shares, types } = setup({ previewPort });
+    t.after(() => shares.close());
+    const shared = await shares.start(PROJECT, 'wifi', NO_CAUSE);
+    assert.equal(shared.way, 'wifi');
+    assert.match(shared.url, /^http:\/\/127\.0\.0\.1:4791[4-9]$/);
+    assert.equal(controlPlane.projection.project(PROJECT)?.share?.way, 'wifi');
+    const ask = (method: string, path = '/', headers: Record<string, string> = {}) =>
+      new Promise<{ status: number; body: string; csp: string | undefined }>((resolve, reject) => {
+        const req = request(`${shared.url}${path}`, { method, headers, agent: false }, (res) => {
+          let body = '';
+          res.on('data', (chunk) => {
+            body += chunk;
+          });
+          res.on('end', () =>
+            resolve({
+              status: res.statusCode ?? 0,
+              body,
+              csp: res.headers['content-security-policy'] as string | undefined,
+            }),
+          );
+        });
+        req.on('error', reject);
+        req.end(method === 'POST' ? 'x=1' : undefined);
+      });
+    const got = await ask('GET', '/index.html', { cookie: 'a=b', host: 'evil.example' });
+    assert.equal(got.status, 200);
+    assert.equal(got.body, '<p>the game</p>');
+    assert.equal(got.csp, "default-src 'self'", "the preview's own headers come back");
+    assert.equal((await ask('HEAD')).status, 200);
+    assert.equal((await ask('POST')).status, 405);
+    assert.equal((await ask('PUT')).status, 405);
+    const forwarded = seen.at(-2);
+    assert.equal(forwarded?.host, `127.0.0.1:${previewPort}`);
+    assert.equal(forwarded?.cookie, undefined, 'no cookie is passed on');
+    assert.ok(
+      seen.every((entry) => entry.method === 'GET' || entry.method === 'HEAD'),
+      'nothing but reads reached the preview',
+    );
+    await assert.rejects(shares.start(PROJECT, 'link', NO_CAUSE), /already shared/);
+    assert.equal(await shares.stop(PROJECT, 'asked', NO_CAUSE), true);
+    await assert.rejects(ask('GET'), /ECONNREFUSED/);
+    assert.deepEqual(types(), ['project.share.started', 'project.share.stopped']);
+  });
+
+  test('on the Wi-Fi: refused in words off any network, and nothing recorded where the preview does not answer', async () => {
+    const offline = setup({ lan: null });
+    await assert.rejects(offline.shares.start(PROJECT, 'wifi', NO_CAUSE), (error: unknown) => {
+      assert.ok(error instanceof ShareRefused);
+      assert.equal(error.code, 'no_network');
+      return true;
+    });
+    // Nothing listens at the preview's port: the listener answers 502, never 200.
+    const silent = setup({ previewPort: 47913 });
+    await assert.rejects(silent.shares.start(PROJECT, 'wifi', NO_CAUSE), /did not answer/);
+    assert.deepEqual(silent.types(), []);
+  });
+
+  test("the Mac's address on the Wi-Fi is a private IPv4 one, the Wi-Fi's own first", () => {
+    const entry = (address: string, internal = false) =>
+      ({ address, family: 'IPv4', internal, netmask: '', mac: '', cidr: null }) as never;
+    assert.equal(
+      lanAddress({
+        lo0: [entry('127.0.0.1', true)],
+        en5: [entry('10.0.0.7')],
+        en0: [entry('192.168.1.20')],
+      }),
+      '192.168.1.20',
+    );
+    assert.equal(
+      lanAddress({ en0: [entry('8.8.8.8')], utun3: [entry('172.20.1.2')] }),
+      '172.20.1.2',
+    );
+    assert.equal(lanAddress({ en0: [entry('172.32.0.1')], lo0: [entry('127.0.0.1', true)] }), null);
   });
 });

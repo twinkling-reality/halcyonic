@@ -247,8 +247,9 @@ async function main(): Promise<void> {
           },
         }
       : {}),
-    // A shared link (F1): the pinned tunnel only, its home in the data folder it may not otherwise read.
-    ...(process.platform === 'darwin' && sharingTunnel !== null
+    // Sharing (F1, ADR 0054): on the Wi-Fi always; a link only by the pinned tunnel, its home in the
+    // data folder it may not otherwise read.
+    ...(process.platform === 'darwin'
       ? {
           share: {
             tunnel: sharingTunnel,
