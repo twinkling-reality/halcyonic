@@ -265,6 +265,7 @@ describe('reading a project (the parity map, gaps 5 and 10)', () => {
       'id_rsa',
       'keys/id_ed25519.pub',
       '.npmrc',
+      'home/.Git-Credentials',
       'credentials',
       'secrets.json',
     ]) {

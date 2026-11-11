@@ -74,6 +74,7 @@ describe("keeping a project's work (F3)", { skip: process.platform !== 'darwin' 
     write('android/release.keystore', 'ks\n');
     write('certs/app.JKS', 'ks\n');
     write('home/id_dsa', 'key\n');
+    write('home/.git-credentials', 'https://u:t@example.com\n');
     write('home/id_ed25519.pub', 'key\n');
     write('vr/README.md', 'another project here\n');
     execFileSync(GIT, ['init', '-q'], { cwd: folder, env: { PATH: '/usr/bin:/bin', HOME: root } });
