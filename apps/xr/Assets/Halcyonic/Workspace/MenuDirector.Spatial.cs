@@ -216,7 +216,8 @@ namespace Halcyonic.XR.Workspace
             return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (target, Demonstration), task,
                 page == RoomResultPage.History ? HistoryFor(projectId) : null, page == RoomResultPage.Share ? ShareFor(projectId) : null,
                 canSend: CanSendShare, relays: HeadsetRelay.Serves(target), relayBuilt: HeadsetRelay.Built,
-                file: page == RoomResultPage.File ? FileReadFor(now.Character.WorkstreamId) : null);
+                file: page == RoomResultPage.File ? FileReadFor(now.Character.WorkstreamId) : null,
+                start: run != null ? setup.Started(run) : null);
         }
 
         /// <summary>

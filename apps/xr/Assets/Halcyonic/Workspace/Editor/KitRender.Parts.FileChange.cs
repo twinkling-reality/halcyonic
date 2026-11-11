@@ -30,7 +30,18 @@ namespace Halcyonic.XR.Workspace.Editor
             "61-file-change", "61-file-change-gap", "61-file-change-next", "61-file-change-cut", "61-file-new", "61-file-whole", "61-file-picture", "61-file-private",
             "61-file-too-large", "61-file-empty", "61-file-nothing-to-compare", "61-file-first-version", "61-file-no-history", "61-file-not-read",
             "61-file-unknown",
+            // SCREENS's run start on the result's card (RunStart): a task that is a plan, a run not kept to its folder.
+            "62-result-planning", "62-result-not-kept",
         };
+
+        /// <summary>The result's card for a run-start state (<see cref="RunStart"/>), as the room's result draws it.</summary>
+        private static RoomCard RunStartCard(string state)
+        {
+            var start = state == "62-result-planning" ? new RunStart(plan: true, notConfinedReason: null)
+                : new RunStart(plan: false, notConfinedReason: "Halcyonic's sandbox is on macOS only, so this run is not confined.");
+            var result = new RoomResult(false, false, false, state == "62-result-planning" ? (bool?)null : true, null, null, start: start);
+            return RoomPanelCards.Result(result, LineWords.TheirName("Kite Run")) ?? throw new InvalidOperationException(state + " has no card");
+        }
 
         [MenuItem("Halcyonic/Render a File's Change and the Whole File")]
         public static void FileChangeMenu() => RunFileChange(exitWhenDone: false);
@@ -194,6 +205,16 @@ namespace Halcyonic.XR.Workspace.Editor
             var eyes = new Vector3(0f, EyeHeight, 0f);
             try
             {
+                if (state.StartsWith("62-", StringComparison.Ordinal))
+                {
+                    var started = RunStartCard(state);
+                    var startShot = CardShot(started, root.transform, eyes, name);
+                    if (state == "62-result-planning" && started.Status?.Title != RunStart.Planning) startShot.Failures.Add("the card does not say Planning");
+                    if (state == "62-result-not-kept" && !started.Slots.Any(slot => slot.Value.Text == RunStart.NotKeptToFolder)) startShot.Failures.Add("the card does not say Not Kept to Folder");
+                    failures.AddRange(startShot.Failures.Select(failure => name + ": " + failure));
+                    failures.AddRange(RenderShot(state, startShot, root, fixture, target, eyes, folder, name));
+                    return failures;
+                }
                 var column = FileChangeOf(state);
                 // Reading shows only the column's sentence, which is XR's: every state drawn here has a card.
                 var card = column.Card() ?? throw new InvalidOperationException(state + " has no card: " + column.Sentence);
@@ -213,35 +234,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (state == "61-file-change" && !card.Reading.Any(row => row.Continued)) shot.Failures.Add("the long line did not wrap onto a continued row");
                 if (state == "61-file-change-gap" && !card.Reading.Any(row => row.Kind == RoomLineKind.Gap && row.Number is int)) shot.Failures.Add("no page shows the gap that counts the lines it skips");
                 failures.AddRange(shot.Failures.Select(failure => name + ": " + failure));
-                SetLayer(root, KitLayer);
-                ForceMeshes(root);
-                failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, name));
-                var camera = MakeCamera(fixture.transform, eyes, target, 0f, shot.Elevation);
-                SetLayer(fixture, KitLayer);
-                var image = Render(camera, target);
-                Texture2D? white = null, dark = null, bright = null;
-                try
-                {
-                    white = Composite(image, null, Color.white);
-                    dark = Composite(image, null, shot.Dark);
-                    bright = Composite(image, BrightRoom(Width, Height, camera), Color.white);
-                    if (shot.Read != null)
-                    {
-                        var read = new List<string>();
-                        shot.Read(camera, image.GetPixels32(), white.GetPixels32(), dark.GetPixels32(), bright.GetPixels32(), read);
-                        failures.AddRange(read.Select(failure => name + ": " + failure));
-                    }
-                    File.WriteAllBytes(Path.Combine(folder, state + "-dark.png"), dark.EncodeToPNG());
-                    File.WriteAllBytes(Path.Combine(folder, state + "-bright.png"), bright.EncodeToPNG());
-                    File.WriteAllBytes(Path.Combine(folder, state + "-white.png"), white.EncodeToPNG());
-                }
-                finally
-                {
-                    UnityEngine.Object.DestroyImmediate(image);
-                    if (white != null) UnityEngine.Object.DestroyImmediate(white);
-                    if (dark != null) UnityEngine.Object.DestroyImmediate(dark);
-                    if (bright != null) UnityEngine.Object.DestroyImmediate(bright);
-                }
+                failures.AddRange(RenderShot(state, shot, root, fixture, target, eyes, folder, name));
                 Debug.Log("Halcyonic: file reading: " + name + " rendered: " + card.Reading.Count + " rows, actions "
                     + string.Join(" / ", column.Actions().Select(action => action.Words + (action.Main ? "*" : ""))));
             }
@@ -251,6 +244,42 @@ namespace Halcyonic.XR.Workspace.Editor
                 UnityEngine.Object.DestroyImmediate(fixture);
                 target.Release();
                 UnityEngine.Object.DestroyImmediate(target);
+            }
+            return failures;
+        }
+    
+        /// <summary>Lays out, checks as seen and renders a shot over white, the dark room and the bright room, then reads it in the pixels.</summary>
+        private static List<string> RenderShot(string state, PartShot shot, GameObject root, GameObject fixture, RenderTexture target, Vector3 eyes, string folder, string name)
+        {
+            var failures = new List<string>();
+            SetLayer(root, KitLayer);
+            ForceMeshes(root);
+            failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, name));
+            var camera = MakeCamera(fixture.transform, eyes, target, 0f, shot.Elevation);
+            SetLayer(fixture, KitLayer);
+            var image = Render(camera, target);
+            Texture2D? white = null, dark = null, bright = null;
+            try
+            {
+                white = Composite(image, null, Color.white);
+                dark = Composite(image, null, shot.Dark);
+                bright = Composite(image, BrightRoom(Width, Height, camera), Color.white);
+                if (shot.Read != null)
+                {
+                    var read = new List<string>();
+                    shot.Read(camera, image.GetPixels32(), white.GetPixels32(), dark.GetPixels32(), bright.GetPixels32(), read);
+                    failures.AddRange(read.Select(failure => name + ": " + failure));
+                }
+                File.WriteAllBytes(Path.Combine(folder, state + "-dark.png"), dark.EncodeToPNG());
+                File.WriteAllBytes(Path.Combine(folder, state + "-bright.png"), bright.EncodeToPNG());
+                File.WriteAllBytes(Path.Combine(folder, state + "-white.png"), white.EncodeToPNG());
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(image);
+                if (white != null) UnityEngine.Object.DestroyImmediate(white);
+                if (dark != null) UnityEngine.Object.DestroyImmediate(dark);
+                if (bright != null) UnityEngine.Object.DestroyImmediate(bright);
             }
             return failures;
         }

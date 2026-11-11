@@ -4567,6 +4567,15 @@ presence, contextual moment cards and the on-demand project screen:
   `StarterId`, and `ToContract()` emits `NewFromStarterChoice` (`kind: "new_from_starter"`) so a
   developer or newcomer in VR can scaffold a starter VR project from an idea and rename its folder
   before confirming the build review.
+- **What a run's start was: a plan, or not kept to its folder (SCREENS 2026-11-11, `RunStart`)**: the activity log keeps,
+  per run, what the runtime confirmed in `runtime.execution.started` (`ActivityLog.StartedFor`): `plan`, and the Mac's
+  `unconfined_reason` where a start that asked for Halcyonic's sandbox ran without it or is not counted inside it
+  (BOX-4). The director hands it to the result (`MenuDirector.Setup.Started`, `RoomResult.Start`), and the result's card
+  (`RoomPanelCards.Result`) says, in FIELD's words, Planning (tone working) over "It plans first, then waits for you to
+  carry it out." where the task is a plan and no ended chain of tries stands first, and a slot under the folder's mark,
+  Not Kept to Folder, where the Mac gave a reason. Absent never reads as a plan nor as not kept; the reason's own sentence
+  is not shown (it names the mechanism; FIELD to word a line). Plan Ready waits for the view's `plan_left`. Tests:
+  `RunStartTests`; render check: `62-result-planning`, `62-result-not-kept` in `KitRender.FileChangeCheck`.
 - **Composer context selectors (`KitPresenter.ChipsOf`, `KitPresenter.EnvironmentOf`, `KitPresenter.AgentOf`, `KitSelectors`, `WorkspacePresentationState.CycleEnvironment`, `WorkspacePresentationState.EnvironmentCanChange`, `WorkspacePresentationState.NextAgent`, `WorkspacePresentationState.CycleAgent`, `WorkspacePresentationState.SetRuntimeModels`)**:
   the chips name the runtime the composer's Send reaches. While the task's run is active, Send instructs
   its existing execution (`WorkspaceSteering.SendInstruction`, which no chosen runtime reaches), so

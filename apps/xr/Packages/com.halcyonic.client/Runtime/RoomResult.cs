@@ -101,10 +101,11 @@ namespace Halcyonic.Client
 
         public RoomResult(bool isVr, bool canMakeVr, bool canTry, bool? passed, ObservedTurn? observed, IReadOnlyList<CheckStepOutcome>? steps,
             RoomResultPage page = RoomResultPage.Result, int part = 0, Halcyonic.Client.PlayInHeadset? play = null, RoomAdd? add = null, string? addReview = null,
-            HistoryColumn? history = null, ShareColumn? share = null, bool canShare = false, IReadOnlyList<ProjectPlace>? places = null, FileChangeColumn? file = null,
+            HistoryColumn? history = null, ShareColumn? share = null, bool canShare = false, IReadOnlyList<ProjectPlace>? places = null, FileChangeColumn? file = null, RunStart? start = null,
             bool readsFiles = false)
         {
             ReadsFiles = readsFiles;
+            Start = start;
             File = page == RoomResultPage.File ? file : null;
             AddReview = addReview;
             Play = play;
@@ -155,6 +156,9 @@ namespace Halcyonic.Client
 
         /// <summary>The project's history where the History page shows (DEVICE's <see cref="HistoryColumn"/>); null on every other page.</summary>
         public HistoryColumn? History { get; }
+
+        /// <summary>What the run's start was, as the runtime confirmed it: a plan, or not kept to its folder (SCREENS's <see cref="RunStart"/>).</summary>
+        public RunStart? Start { get; }
         /// <summary>The file of Changes being read where the File page shows (SCREENS's <see cref="FileChangeColumn"/>); null on every other page.</summary>
         public FileChangeColumn? File { get; }
 
@@ -188,7 +192,8 @@ namespace Halcyonic.Client
         public string? CheckLine => Passed is bool passed ? KitMomentWords.CheckTitle(KitCheckScope.Builds, ended: true, passed) : null;
 
         /// <summary>Whether the computer has anything to say of the task at rest.</summary>
-        public bool Any => Observed != null || Passed != null || Steps.Count > 0 || Add?.State is RoomAddState.Ready or RoomAddState.Conflict || History != null || Share != null;
+        public bool Any => Observed != null || Passed != null || Steps.Count > 0 || Add?.State is RoomAddState.Ready or RoomAddState.Conflict || History != null || Share != null
+            || Start is { Plan: true } or { NotConfined: true };
 
         /// <summary>The page's rows: an observed file a row, or a step of the check a row; none on the result itself.</summary>
         public IReadOnlyList<RoomRow> Rows => Page switch
@@ -275,7 +280,7 @@ namespace Halcyonic.Client
         public static RoomResult? Of(ProjectView? project, ClientProjection? state, ObservedTurn? observed,
             RoomResultPage page = RoomResultPage.Result, int part = 0, (ControlPlaneTarget? Target, bool Demonstration)? way = null, WorkstreamView? task = null,
             HistoryColumn? history = null, ShareColumn? share = null, bool canSend = false, bool relays = false, bool relayBuilt = true,
-            FileChangeColumn? file = null)
+            FileChangeColumn? file = null, RunStart? start = null)
         {
             if (project == null || state == null) return null;
             var screen = WorkspacePresentationState.ScreenOf(project, state, barOpen: true);
@@ -290,7 +295,7 @@ namespace Halcyonic.Client
                 // DEVICE's Share stands only where this headset can send to the computer (never in the demonstration; AUDIT reread
                 // MUST 1), and where the host would admit it (TASKS's conditions) or a share stands to stop.
                 canShare: canSend && (way?.Demonstration != true) && (project.Share != null || ShareColumn.Reason(project) == null),
-                places: way is { } at ? ProjectPlaces.Of(project, at.Target, at.Demonstration, relays: relays, relayBuilt: relayBuilt) : Array.Empty<ProjectPlace>(), file: file,
+                places: way is { } at ? ProjectPlaces.Of(project, at.Target, at.Demonstration, relays: relays, relayBuilt: relayBuilt) : Array.Empty<ProjectPlace>(), file: file, start: start,
                 readsFiles: way is { Target: not null, Demonstration: false });
         }
     }
