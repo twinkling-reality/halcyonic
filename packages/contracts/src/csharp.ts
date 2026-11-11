@@ -12,6 +12,11 @@ interface UnionNaming {
   readonly discriminator: string;
   /** Appended to the PascalCase discriminator value to name each variant's class. */
   readonly suffix: string;
+  /**
+   * Put before the PascalCase discriminator value, where the value and suffix alone would name a
+   * type the client already has (`ProjectFolder`): the C# name only, never the wire.
+   */
+  readonly prefix?: string;
 }
 
 /** Every discriminated union in the contracts, and how C# names its variants. */
@@ -43,7 +48,8 @@ const UNIONS: Readonly<Record<string, UnionNaming>> = {
   WorkspaceAgentStatus: { discriminator: 'availability', suffix: 'WorkspaceAgent' },
   ProjectHistoryResult: { discriminator: 'availability', suffix: 'History' },
   HistoryEntry: { discriminator: 'kind', suffix: 'Entry' },
-  HistoryFolder: { discriminator: 'kind', suffix: 'Folder' },
+  // `ProjectFolder` is the client's own type (the project a folder holds), so these are prefixed.
+  HistoryFolder: { discriminator: 'kind', prefix: 'History', suffix: 'Folder' },
   CheckpointsResult: { discriminator: 'availability', suffix: 'Checkpoints' },
   RestorePreviewResult: { discriminator: 'availability', suffix: 'RestorePreview' },
 };
@@ -144,7 +150,7 @@ class CSharpGenerator {
     for (const [union, naming] of Object.entries(UNIONS)) {
       for (const option of alternativesOf(definition(union), union)) {
         const tag = tagOf(option, naming.discriminator, union);
-        const className = `${pascal(tag)}${naming.suffix}`;
+        const className = `${naming.prefix ?? ''}${pascal(tag)}${naming.suffix}`;
         const published = this.#index.nameOf(option);
         if (published !== undefined && published !== className) {
           throw new Error(
@@ -280,7 +286,7 @@ class CSharpGenerator {
 
     const variants = options.map((option) => {
       const tag = tagOf(option, naming.discriminator, name);
-      const className = `${pascal(tag)}${naming.suffix}`;
+      const className = `${naming.prefix ?? ''}${pascal(tag)}${naming.suffix}`;
       const members = new Map(
         this.#members(className, pascal(tag), option)
           .filter((member) => member.wire !== naming.discriminator)

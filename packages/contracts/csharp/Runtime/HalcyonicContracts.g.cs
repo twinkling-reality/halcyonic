@@ -114,8 +114,8 @@ namespace Halcyonic.Contracts
             var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
             HistoryFolder value = tag switch
             {
-                "project" => new ProjectFolder(),
-                "task_copy" => new TaskCopyFolder(),
+                "project" => new HistoryProjectFolder(),
+                "task_copy" => new HistoryTaskCopyFolder(),
                 _ => throw new JsonSerializationException(tag == null
                     ? "HistoryFolder has no string kind."
                     : "Unknown kind \"" + tag + "\" for HistoryFolder."),
@@ -136,12 +136,12 @@ namespace Halcyonic.Contracts
             throw new NotSupportedException("Variants serialize as themselves.");
     }
 
-    public sealed class ProjectFolder : HistoryFolder
+    public sealed class HistoryProjectFolder : HistoryFolder
     {
         protected override string Discriminator => "project";
     }
 
-    public sealed class TaskCopyFolder : HistoryFolder
+    public sealed class HistoryTaskCopyFolder : HistoryFolder
     {
         protected override string Discriminator => "task_copy";
 
