@@ -268,4 +268,42 @@ public class NeverAskTests
         Assert.That(sent.Step, Is.EqualTo(SteeringStep.Send), sent.Message);
         Assert.That(((ExecutionStartCommand)sent.Command!).Payload.ApprovalLevel, Is.EqualTo(ApprovalLevel.NeverAsk));
     }
+
+    [TestCase(false)] [TestCase(true)]
+    public void EveryPathToAnInstructionsConfirmSaysItStartsANewRunFirst(bool heard)
+    {
+        // At rest on a runtime that offers never ask, the level differs from the run's own record: Send starts a new run.
+        // The only way to an instruction's Confirm is the draft's Send (typed, heard, or an offered instruction reviewed
+        // into the draft), and before any Confirm it reads Start New Run, in the file's frame and in the redesign's bar.
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var offering = Runtime("codex", true);
+            var policies = new List<CommandPolicy> { new() { CommandType = CommandType.ExecutionSendInstruction, Policy = PolicyCategory.ReviewRequired } };
+            var task = new Task(offering, new[] { offering }, policies: policies);
+            var host = new FileMenuHost();
+            var column = new FileColumn(host, () => task.Work, new CommandFactory(Samples.Client), () => null, _ => null, () => "");
+            column.Choice = () => KitPresenter.RunChoiceOf(task.Work, null, null, task.Registered, neverAskChosen: true);
+            column.Screen.Instruction.Restore(task.Work.Execution!.ExecutionId, "Run the tests again.", heard, 0);
+            column.Reflow();
+            column.Drawn(column.Frame!, sidePanel: null);
+            host.Wait(1);
+            column.Reflow();
+            var send = column.Frame!.Footer.All.Select(each => each.Prompt).Single(prompt => prompt.Id == FileScreens.SendInstruction);
+            Assert.That(send.Words, Is.EqualTo(FileScreens.StartNewRun), "the file's own Send says it starts a new run");
+            var bar = RoomBar.Of(KitFileBinding.Of(column.Frame!, column.Steering.Armed, column.Now!, column.Screen.Instruction.Words, new ConnectionStatus(ConnectionPhase.Live),
+                "Storefront", new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true, draftSpoken: heard)!, VoiceStage.Idle, false);
+            Assert.That(bar.Column.Where(action => action.Main).Select(action => action.Words), Is.EqualTo(new[] { FileScreens.StartNewRun }), "and so does the redesign's main action");
+            Assert.That(column.Steering.Armed, Is.Null, "nothing is armed before Send");
+
+            // The frame that says it is drawn, as a hand presses only what it saw.
+            column.Drawn(column.Frame!, sidePanel: null);
+            host.Wait(1);
+            column.Act(FileScreens.SendInstruction, null);
+            Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct), "Send arms the confirmation, after it said what it does");
+            Assert.That(host.Sent, Is.Empty);
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
 }
