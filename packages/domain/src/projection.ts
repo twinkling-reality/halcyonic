@@ -188,8 +188,11 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
   unknown: 'in an unknown state',
 };
 
-/** Bumped whenever `ProjectionState`'s shape changes, so no older checkpoint is taken for it. */
-export const PROJECTION_STATE_FORMAT = 1;
+/**
+ * Bumped whenever `ProjectionState`'s shape changes, so no older checkpoint is taken for it. 2: a
+ * task's own copy and a check's folder and task (ADR 0045).
+ */
+export const PROJECTION_STATE_FORMAT = 2;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
