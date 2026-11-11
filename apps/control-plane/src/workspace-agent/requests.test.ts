@@ -2025,3 +2025,64 @@ test('one result is offered only after the list read_results gives, and never on
     await f.close();
   }
 });
+
+test('a request that ends with no reply carries what the computer saw, and one that answers does not', async () => {
+  const text = '<function_calls><invoke name="read_workspace"></invoke></function_calls>';
+  const f = await fixture({
+    turn: async (_messages, tools) =>
+      (tools ?? []).length > 0
+        ? answer([{ name: 'observe_task', arguments: {} }], '')
+        : answer([], text),
+  });
+  try {
+    const id = f.submit();
+    for (let i = 0; i < 30; i++) await settle();
+    const ended = f.coordinator.read(id, { kind: 'local' });
+    assert.equal(ended?.status, 'interrupted');
+    assert.equal(ended?.reply, null);
+    const observed = f.controlPlane.projection.workspaceRequest(id)?.observed;
+    assert.ok(observed?.task, 'the task facts');
+    assert.equal(observed?.task?.sent, false, "the person's words did not reach the agent");
+    assert.equal(typeof observed?.task?.turns, 'number');
+    assert.equal(observed?.tasks, null);
+    // Facts only: nothing the model wrote.
+    assert.ok(!JSON.stringify(observed).includes('function_calls'));
+  } finally {
+    await f.close();
+  }
+  const g = await fixture({ turn: async () => answer([], 'It works, the agent says.') });
+  try {
+    const id = g.submit();
+    for (let i = 0; i < 10; i++) await settle();
+    assert.equal(g.coordinator.read(id, { kind: 'local' })?.status, 'responded');
+    assert.equal(
+      g.controlPlane.projection.workspaceRequest(id)?.observed,
+      undefined,
+      'never beside a reply',
+    );
+  } finally {
+    await g.close();
+  }
+});
+
+test('a request about all work that ends with no reply carries the projects and tasks as counts', async () => {
+  const f = await fixture({
+    turn: async (_messages, tools) =>
+      (tools ?? []).length > 0
+        ? answer([{ name: 'read_projects', arguments: {} }], '')
+        : answer([], '{"name": "read_projects"}'),
+  });
+  try {
+    const outcome = submitAllWork(f);
+    for (let i = 0; i < 30; i++) await settle();
+    const created = outcome.command?.result;
+    const id = created?.kind === 'workspace_request_created' ? created.request_id : '';
+    assert.equal(f.controlPlane.projection.workspaceRequest(id)?.status, 'interrupted');
+    const observed = f.controlPlane.projection.workspaceRequest(id)?.observed;
+    assert.equal(observed?.task, null);
+    assert.equal(observed?.projects?.total, f.controlPlane.projection.projects().length);
+    assert.equal(typeof observed?.tasks?.total, 'number');
+  } finally {
+    await f.close();
+  }
+});

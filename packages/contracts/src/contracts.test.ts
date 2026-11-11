@@ -698,6 +698,8 @@ describe('the C# bindings', () => {
     'RuntimeExecutionStartedPayload.unconfined_reason', // why a start that asked for the sandbox ran without it (BOX-4)
     'RuntimeToolCompletedPayload.turn_id', // a completed tool's turn
     'VersionEntry.pruned_at', // when the host stopped keeping a version (ADR 0036)
+    'WorkspaceRequestChangedPayload.observed', // what the computer saw, when no reply came
+    'WorkspaceRequestView.observed', // the same, on the view
     'WorkstreamAddToProjectPayload.review', // the review an add carries (ADR 0051)
     'WorkstreamCopyChangesReadPayload.files', // how each file a copy's reading found changed (ADR 0045)
     'WorkstreamCopyChangesReadPayload.review', // the review a copy's reading is, for an add (ADR 0051)

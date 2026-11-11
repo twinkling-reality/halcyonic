@@ -4280,6 +4280,89 @@ namespace Halcyonic.Contracts
         public string Served { get; set; } = "this_mac";
     }
 
+    public sealed class WorkspaceRequestObservedTaskFiles
+    {
+        [JsonProperty("created", Required = Required.Always)]
+        public long Created { get; set; }
+
+        [JsonProperty("changed", Required = Required.Always)]
+        public long Changed { get; set; }
+
+        [JsonProperty("deleted", Required = Required.Always)]
+        public long Deleted { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum WorkspaceRequestObservedTaskCheckFiles
+    {
+        [EnumMember(Value = "unknown")] Unknown,
+        [EnumMember(Value = "current")] Current,
+        [EnumMember(Value = "changed")] Changed,
+    }
+
+    public sealed class WorkspaceRequestObservedTaskCheck
+    {
+        [JsonProperty("passed", Required = Required.Always)]
+        public bool Passed { get; set; }
+
+        [JsonProperty("files", Required = Required.Always)]
+        public WorkspaceRequestObservedTaskCheckFiles Files { get; set; }
+    }
+
+    public sealed class WorkspaceRequestObservedTask
+    {
+        [JsonProperty("status", Required = Required.Always)]
+        public ExecutionStatus Status { get; set; }
+
+        [JsonProperty("turns", Required = Required.Always)]
+        public long Turns { get; set; }
+
+        [JsonProperty("files", Required = Required.AllowNull)]
+        public WorkspaceRequestObservedTaskFiles? Files { get; set; }
+
+        [JsonProperty("check", Required = Required.AllowNull)]
+        public WorkspaceRequestObservedTaskCheck? Check { get; set; }
+
+        [JsonProperty("sent", Required = Required.Always)]
+        public bool Sent { get; set; }
+    }
+
+    public sealed class WorkspaceRequestTaskCounts
+    {
+        [JsonProperty("total", Required = Required.Always)]
+        public long Total { get; set; }
+
+        [JsonProperty("running", Required = Required.Always)]
+        public long Running { get; set; }
+
+        [JsonProperty("waiting_on_you", Required = Required.Always)]
+        public long WaitingOnYou { get; set; }
+
+        [JsonProperty("failed", Required = Required.Always)]
+        public long Failed { get; set; }
+    }
+
+    public sealed class WorkspaceRequestObservedProjects
+    {
+        [JsonProperty("total", Required = Required.Always)]
+        public long Total { get; set; }
+
+        [JsonProperty("checks_failed", Required = Required.Always)]
+        public long ChecksFailed { get; set; }
+    }
+
+    public sealed class WorkspaceRequestObserved
+    {
+        [JsonProperty("task", Required = Required.AllowNull)]
+        public WorkspaceRequestObservedTask? Task { get; set; }
+
+        [JsonProperty("tasks", Required = Required.AllowNull)]
+        public WorkspaceRequestTaskCounts? Tasks { get; set; }
+
+        [JsonProperty("projects", Required = Required.AllowNull)]
+        public WorkspaceRequestObservedProjects? Projects { get; set; }
+    }
+
     public sealed class WorkspaceRequestStep
     {
         [JsonProperty("step_id", Required = Required.Always)]
@@ -4345,6 +4428,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("reply", Required = Required.AllowNull)]
         public WorkspaceRequestReply? Reply { get; set; }
 
+        [JsonProperty("observed", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public WorkspaceRequestObserved? Observed { get; set; }
+
         [JsonProperty("steps", Required = Required.Always)]
         public List<WorkspaceRequestStep> Steps { get; set; } = new List<WorkspaceRequestStep>();
 
@@ -4377,6 +4463,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("reply", Required = Required.AllowNull)]
         public WorkspaceRequestReply? Reply { get; set; }
+
+        [JsonProperty("observed", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public WorkspaceRequestObserved? Observed { get; set; }
     }
 
     public sealed class WorkspaceRequestStepRecordedPayload
