@@ -675,7 +675,12 @@ The same check and actions on a page at `/setup` of the pairing page's server
   only: none of the control plane's own environment, its keys among it, reaches a download. One at
   a time; Stop ends the whole group. Its lines are shown cleaned of terminal sequences and unseen
   characters, with the home folder as `~`. What a download installs is recorded only through
-  setup's own action, which checks the pins.
+  setup's own action, which checks the pins; OpenCode's and Codex's binaries are checked again by
+  the page, and one that does not match reads Not Set Up and is not recorded. Their `npm install`
+  uses the person's npm settings, as the printed commands do. A model is pulled by name and tag
+  with no pinned digest, and its button says so.
+- **Sessions.** A pending press belongs to the session that made it (a hash of the session reaches
+  the view, never the cookie), so another session's `confirmed` press is a first press there.
 - **Restart.** Restart to Apply closes the control plane as a signal does and exits with code 75,
   which only `Start Halcyonic.command` starts again; it says first which tasks will pause.
 

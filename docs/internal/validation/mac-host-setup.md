@@ -187,6 +187,22 @@ nothing written through it), a data folder with a space (quoted commands), a lin
 the word about `/usr/bin/git`), the Undo step for a folder, a file that can't run and one that can, and a lockfile
 entry without a version. The final tests failed on the unit's old sources (7 of 61) and pass on the new.
 
+## The setup page (ADR 0053, 2026-11-11)
+
+Built and tested with a faked runner on a scratch Mac (`network/setup-page.test.ts`); no download was pressed for
+real. What each download is checked by:
+
+- **OpenCode and Codex**: the installed binary's SHA-256 against the pin, by setup's own `agent-apps`, which
+  records only a match. The page then checks the download's own binary again, so a setting left from an earlier
+  install never makes a changed copy read Done: a copy that does not match is left out of the settings, setup's
+  words say so, and the job reads Not Set Up. Their `npm install` uses the person's npm settings (registry,
+  sign-in), as the commands the terminal prints do; the pin is what keeps a changed package out.
+- **The VR starter**: its tracked lockfile's integrity through `npm ci`, with neither of the person's npm settings,
+  then setup's `starter`, which records the set only when every package is the version the lockfile pins.
+- **Models**: none. `ollama pull` fetches each checked model by name and tag, which Ollama's library can point at
+  another build; Halcyonic pins no model digest, and the page's button says so. A pinned digest compared with
+  Ollama's `/api/tags` after the pull would close this; not built.
+
 ## Not verified
 
 - **A person new to Halcyonic** following the runbook's "First run on a Mac" without help. Words

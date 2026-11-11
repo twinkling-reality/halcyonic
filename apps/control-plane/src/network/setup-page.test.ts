@@ -1,11 +1,21 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import type { MacSetupIo } from '../cli/mac-setup.ts';
+import { APPLE_SILICON_PINS, type Pins } from '../pins.ts';
 import { readHostSettings, rememberNetworkListener, writeHostSettings } from '../settings.ts';
 import { startTestServer } from '../testing/harness.ts';
 import {
@@ -30,7 +40,7 @@ interface Mac {
 }
 
 /** A Mac of its own in a scratch folder, offline: nothing it checks reaches a network. */
-function mac(t: TestContext): Mac {
+function mac(t: TestContext, pins: Pins | null = null): Mac {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-setup-page-')));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const home = join(root, 'home');
@@ -51,7 +61,7 @@ function mac(t: TestContext): Mac {
       memoryBytes: 64 * 1024 ** 3,
       which: () => null,
       firewall: () => null,
-      pins: null,
+      pins,
     }),
   };
 }
@@ -100,9 +110,9 @@ interface Setup {
 
 function setup(
   t: TestContext,
-  options: { canRestart?: boolean; tasks?: readonly string[] } = {},
+  options: { canRestart?: boolean; tasks?: readonly string[]; pins?: Pins } = {},
 ): Setup {
-  const machine = mac(t);
+  const machine = mac(t, options.pins ?? null);
   const { run, runs } = fakeRunner();
   const restarts = { count: 0 };
   const applied = () => settingsForRestart(readHostSettings(machine.dataDir));
@@ -120,7 +130,7 @@ function setup(
         restarts.count += 1;
       },
     },
-    setupDownloads(machine.dataDir, () => null),
+    setupDownloads(machine.dataDir, () => null, options.pins ?? null),
   );
   return { view, runs, restarts, mac: machine };
 }
@@ -193,6 +203,25 @@ describe('the setup view', () => {
     assert.equal(done.restart_needed, true, 'a new folder applies at the next start');
   });
 
+  test("each session's press is confirmed only in that session", async (t) => {
+    const { view, mac: machine } = setup(t);
+    const asked = await view.act('allow', null, false, 'first');
+    assert.match(asked.confirm?.text ?? '', /allow --yes/);
+    const elsewhere = await view.act('allow', null, true, 'second');
+    assert.equal(elsewhere.confirm?.action, 'allow', 'the other session gets its own first press');
+    assert.equal(readHostSettings(machine.dataDir).HALCYONIC_PROJECT_ROOTS, undefined);
+    assert.equal((await view.state('first')).confirm?.action, 'allow', 'the first keeps its own');
+    assert.equal((await view.state('third')).confirm, null);
+    const done = await view.act('allow', null, true, 'first');
+    assert.equal(done.confirm, null);
+    assert.ok(readHostSettings(machine.dataDir).HALCYONIC_PROJECT_ROOTS);
+    assert.deepEqual(
+      (await view.state('third')).said,
+      [],
+      'what setup said is shown where it was pressed',
+    );
+  });
+
   test('refuses every press it does not offer', async (t) => {
     const { view, runs, mac: machine } = setup(t);
     for (const [action, arg] of [
@@ -255,11 +284,47 @@ describe('the setup view', () => {
     runs[1]?.finish(1);
     assert.equal((await ended(view)).job?.state, 'failed');
     fresh.runs[0]?.finish(0);
-    const recorded = await ended(fresh.view);
-    assert.equal(recorded.job?.state, 'done');
-    assert.ok(
-      (recorded.job?.lines.length ?? 0) > 1,
-      'setup checks the agent apps after the download and says what it found',
+    const unchecked = await ended(fresh.view);
+    assert.equal(
+      unchecked.job?.state,
+      'not_set_up',
+      'with no pins to check it by, nothing is recorded',
+    );
+    assert.match(unchecked.job?.lines.at(-1) ?? '', /checksums for Apple silicon Macs only/);
+  });
+
+  test('a downloaded agent app is set up only when it is the copy Halcyonic was checked with', async (t) => {
+    const binary = 'runtimes/opencode-2.0.18/node_modules/.bin/opencode';
+    const checked = 'the copy Halcyonic was checked with';
+    const pins: Pins = {
+      ...APPLE_SILICON_PINS,
+      opencode: { path: binary, sha256: createHash('sha256').update(checked).digest('hex') },
+    };
+    const { view, runs, mac: machine } = setup(t, { pins });
+    const install = async (content: string) => {
+      await view.act('download', 'opencode', false);
+      await view.act('download', 'opencode', true);
+      const path = join(machine.dataDir, binary);
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, content);
+      runs.at(-1)?.finish(0);
+      return ended(view);
+    };
+    const changed = await install('a copy someone changed');
+    assert.equal(changed.job?.state, 'not_set_up');
+    assert.match(changed.job?.lines.join(' ') ?? '', /isn't the copy Halcyonic was checked with/);
+    assert.equal(readHostSettings(machine.dataDir).HALCYONIC_OPENCODE_BIN, undefined);
+    const good = await install(checked);
+    assert.equal(good.job?.state, 'done');
+    assert.equal(
+      readHostSettings(machine.dataDir).HALCYONIC_OPENCODE_BIN,
+      join(machine.dataDir, binary),
+    );
+    const again = await install('changed after it was set up');
+    assert.equal(
+      again.job?.state,
+      'not_set_up',
+      'a setting from before does not make a changed copy Done',
     );
   });
 
@@ -446,6 +511,24 @@ describe('the setup view on the pairing page', () => {
     const asked = await call(port, 'POST', '/setup/act', pressHeaders, press);
     assert.equal(asked.status, 200, asked.body);
     assert.match((JSON.parse(asked.body) as SetupState).confirm?.text ?? '', /OpenCode/);
+    const other = new URL(page.link());
+    const otherCookie =
+      String(
+        (await call(port, 'GET', `${other.pathname}${other.search}`)).headers['set-cookie'],
+      ).split(';')[0] ?? '';
+    const confirmedElsewhere = await call(
+      port,
+      'POST',
+      '/setup/act',
+      { ...pressHeaders, cookie: otherCookie },
+      JSON.stringify({ action: 'download', arg: 'opencode', confirmed: true }),
+    );
+    assert.equal(confirmedElsewhere.status, 200);
+    assert.equal(
+      (JSON.parse(confirmedElsewhere.body) as SetupState).job,
+      null,
+      'a press confirmed from another session is a first press there',
+    );
     assert.equal(runs.length, 0);
   });
 
