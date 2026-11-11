@@ -42,7 +42,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }),
                 "47-card-fixing" => RoomBar.FixingCard(new Halcyonic.Contracts.AutoFixView
                     { State = Halcyonic.Contracts.AutoFixViewState.Fixing, CheckId = "0193b3a0-0000-7000-8000-000000000001", Attempt = 1, Cap = 2 })!,
-                "47-card-usage" => new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge("Session", 62, "Resets 18:40", RoomKind.Session), new RoomGauge("Week", 38, "Resets Thu", RoomKind.Week) }),
+                "47-card-usage" => new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge(Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
                 _ => new RoomCard(Theirs("Glimmer 30B"), Ours(AgentColumn.ModelWords), RoomCardHead.Agent),
             };
         }

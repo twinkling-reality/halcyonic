@@ -86,7 +86,7 @@ namespace Halcyonic.Client
         {
             var line = project == null ? LineWords.Ours(UndoLine) : LineWords.Ours("Into ") + LineWords.TheirName(project) + LineWords.Ours(". " + UndoLine);
             return new RoomCard(task, line, list: Paths.Select(path => new RoomListRow(RoomKind.ToAdd, LineWords.Theirs(path), mono: true)).ToList(),
-                more: Paths.Count < Count ? "And " + Files(Count - Paths.Count) + " More" : null);
+                more: Paths.Count < Count ? LineWords.Ours("And " + Files(Count - Paths.Count) + " More") : null);
         }
 
         /// <summary>The status once its work was added and nothing newer waits; null otherwise.</summary>
@@ -104,7 +104,7 @@ namespace Halcyonic.Client
                 var line = "The project changed " + (Count == 1 ? "this file" : Files(Count).ToLowerInvariant()) + " too";
                 return new RoomCard(status: new RoomCardStatus(NotAdded, line, RoomTone.Bad),
                     list: Both.Select(file => new RoomListRow(file.Kind == ConflictKind.Deleted ? RoomKind.Removed : RoomKind.Conflict, LineWords.Theirs(file.Path), KindWords(file.Kind), mono: true)).ToList(),
-                    more: Both.Count < Count ? "And " + Files(Count - Both.Count) + " More" : null);
+                    more: Both.Count < Count ? LineWords.Ours("And " + Files(Count - Both.Count) + " More") : null);
             }
         }
 

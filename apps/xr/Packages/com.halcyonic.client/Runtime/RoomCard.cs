@@ -186,7 +186,8 @@ namespace Halcyonic.Client
     /// <summary>One gauge of a card: its window's kind, how much is left, the window's word, and when it resets.</summary>
     public readonly struct RoomGauge
     {
-        public RoomGauge(string label, int percentLeft, string? note, RoomKind kind = RoomKind.Session)
+        /// <param name="label">The window's word, as runs: the provider's own label is theirs and leans (AUDIT's F1, 2026-11-11).</param>
+        public RoomGauge(LineWords label, int percentLeft, string? note, RoomKind kind = RoomKind.Session)
         {
             Kind = kind;
             Label = label;
@@ -197,7 +198,7 @@ namespace Halcyonic.Client
         /// <summary>The window's kind, its glyph: a session of hours, or a week.</summary>
         public RoomKind Kind { get; }
 
-        public string Label { get; }
+        public LineWords Label { get; }
 
         public int PercentLeft { get; }
 
@@ -214,7 +215,7 @@ namespace Halcyonic.Client
     {
         public RoomCard(LineWords? title = null, LineWords? description = null, RoomCardHead head = RoomCardHead.None, RoomCardStatus? status = null,
             IReadOnlyList<RoomSlot>? slots = null, IReadOnlyList<RoomCardStep>? steps = null, int? trackAt = null, int? trackOf = null,
-            IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, string? more = null)
+            IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, LineWords? more = null)
         {
             Title = title;
             Description = description;
@@ -226,7 +227,7 @@ namespace Halcyonic.Client
             TrackAt = TrackOf == null ? null : trackAt;
             List = list ?? new RoomListRow[0];
             Gauges = gauges ?? new RoomGauge[0];
-            More = more;
+            More = more == null || more.IsEmpty ? null : more;
         }
 
         /// <summary>The slots a loadout holds at most: more do not fit the panel's width.</summary>
@@ -259,8 +260,12 @@ namespace Halcyonic.Client
 
         public IReadOnlyList<RoomGauge> Gauges { get; }
 
-        /// <summary>A quiet line at the card's foot, as where a reading comes from. Null for none.</summary>
-        public string? More { get; }
+        /// <summary>
+        /// A quiet line at the card's foot: a notice, a companion's proposal, "And 4 Files More". As runs, so an outside
+        /// voice's words (a companion's, an agent's) stay theirs and lean, never drawn as the product's own (AUDIT's F1,
+        /// 2026-11-11). Null for none.
+        /// </summary>
+        public LineWords? More { get; }
 
         /// <summary>
         /// Every word the card shows, in its order: what a view that draws no card shows, and what a check of the
@@ -277,7 +282,7 @@ namespace Halcyonic.Client
             if (Description != null) yield return Description.Text;
             foreach (var gauge in Gauges)
             {
-                yield return gauge.Label;
+                yield return gauge.Label.Text;
                 if (gauge.Note != null) yield return gauge.Note;
             }
             foreach (var slot in Slots) yield return slot.Value.Text;
@@ -287,7 +292,7 @@ namespace Halcyonic.Client
                 yield return row.Name.Text;
                 if (row.Note != null) yield return row.Note;
             }
-            if (More != null) yield return More;
+            if (More != null) yield return More.Text;
         }
 
         /// <summary>Whether any of the card's words joins two facts on the separator: never, in the card's language.</summary>
