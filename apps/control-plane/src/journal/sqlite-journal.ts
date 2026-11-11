@@ -275,6 +275,10 @@ class SqliteJournal implements EventJournal {
     );
   }
 
+  get closed(): boolean {
+    return this.#closed;
+  }
+
   head(): number {
     return (this.#head.get() as { head: number }).head;
   }

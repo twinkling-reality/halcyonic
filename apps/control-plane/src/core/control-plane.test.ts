@@ -26,6 +26,7 @@ import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import { createUuidV7Generator } from '../ids.ts';
 import { DeviceAccess } from '../network/devices.ts';
 import { capturingLogger, createTestControlPlane, SCENARIOS } from '../testing/harness.ts';
+import { controlPlaneDraft, NO_CAUSE } from './drafts.ts';
 
 const [FEATURE, FAILING, APPROVAL] = DEMO_WORKSTREAMS as unknown as [
   (typeof DEMO_WORKSTREAMS)[0],
@@ -1113,6 +1114,47 @@ function stateUnknownCodes(
       : [],
   );
 }
+
+describe('closing (core audit 2026-11-03)', () => {
+  test('an event that arrives after the journal closed is refused quietly, never thrown at the late caller', async () => {
+    const { logger, entries } = capturingLogger();
+    const harness = createTestControlPlane({ logger });
+    await harness.controlPlane.close();
+    const late = harness.controlPlane.recorder.record(
+      controlPlaneDraft(
+        'project.created',
+        {
+          project_id: '01920000-0000-7000-8000-000000000901' as never,
+          workstream_id: null,
+          execution_id: null,
+        },
+        { name: 'Late', location: null },
+        '2026-11-11T00:00:00.000Z' as never,
+        NO_CAUSE,
+      ),
+    );
+    assert.deepEqual(late, { status: 'closed' });
+    assert.ok(
+      entries.some((entry) => entry.message === 'event after the journal closed was not recorded'),
+    );
+  });
+
+  test("the busy rule says a task's status in words", async () => {
+    const harness = createTestControlPlane();
+    const workstreamId = await createWorkstream(harness, APPROVAL);
+    harness.controlPlane.commands.submit(
+      harness.commands.startExecution(workstreamId, APPROVAL),
+      'internal',
+    );
+    await harness.time.advance(10_000);
+    const project = harness.controlPlane.projection.workstream(workstreamId)?.project_id ?? '';
+    assert.equal(
+      harness.controlPlane.projection.projectBusy(project),
+      'A task in this project is waiting for you.',
+    );
+    await harness.controlPlane.close();
+  });
+});
 
 describe('restart', () => {
   test('a journal written before principals were recorded, at schema version 2, opens and replays', async () => {

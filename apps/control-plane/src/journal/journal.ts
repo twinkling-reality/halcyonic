@@ -36,6 +36,8 @@ export interface ReadOptions {
  */
 export interface EventJournal {
   readonly info: JournalInfo;
+  /** True once `close` has run: nothing more can be appended or read. */
+  readonly closed: boolean;
   /** Position of the last event, 0 when empty. */
   head(): number;
   append(event: EventEnvelope): AppendResult;

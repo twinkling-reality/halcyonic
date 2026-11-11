@@ -21,7 +21,9 @@ export type EventDraft = DistributiveOmit<
 
 export type RecordResult =
   | { readonly status: 'recorded'; readonly position: number; readonly event: EventEnvelope }
-  | { readonly status: 'duplicate'; readonly position: number };
+  | { readonly status: 'duplicate'; readonly position: number }
+  /** The control plane had closed its journal: nothing was recorded, and the start's reconcile records what was lost. */
+  | { readonly status: 'closed' };
 
 export class InvalidEventError extends OwnWordsError {
   readonly issues: ValidationIssue[];
@@ -71,6 +73,15 @@ export class Recorder {
     const parsed = parseEventEnvelope(candidate);
     if (!parsed.ok) throw new InvalidEventError(parsed.issues);
     const event = parsed.value;
+    // An outcome that arrives after the control plane closed, such as a runtime answering late,
+    // finds no journal: said once in the log, by ids only, never thrown into the late caller.
+    if (this.#deps.journal.closed) {
+      this.#deps.logger.warn(
+        { event_type: event.event_type, execution_id: event.execution_id },
+        'event after the journal closed was not recorded',
+      );
+      return { status: 'closed' };
+    }
 
     const appended = this.#deps.journal.append(event);
     if (appended.status === 'duplicate') {

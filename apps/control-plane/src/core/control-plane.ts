@@ -52,7 +52,12 @@ export interface ControlPlaneOptions {
    * Where Halcyonic keeps checkpoints of project folders for its own undo (ADR 0036). Absent,
    * undo is off: no checkpoint is taken and `project.restore` is refused.
    */
-  readonly checkpoints?: { readonly store: CheckpointStore; readonly restoreHooks?: RestoreHooks };
+  readonly checkpoints?: {
+    readonly store: CheckpointStore;
+    readonly restoreHooks?: RestoreHooks;
+    /** How long a close waits for checkpoints and restores under way; 10 s by default. */
+    readonly closeWaitMs?: number;
+  };
   /** The starters a new project can begin from (ADR 0037); none by default. */
   readonly starters?: HostStarters;
   /** The person's catalog as last read, so a link is checked against it (ADR 0039); none by default. */
@@ -132,6 +137,7 @@ export class ControlPlane {
   #autoCheckScheduled = false;
   readonly #autoFix: AutoFix | null;
   #closed = false;
+  readonly #closeWaitMs: number;
   /** Events between checkpoints, or null for a fixture journal, never checkpointed (ADR 0050). */
   readonly #checkpointEvery: number | null;
   /** The position of the last checkpoint written or restored. */
@@ -148,6 +154,7 @@ export class ControlPlane {
     this.#logger = options.logger;
     this.redaction = redaction(options.secrets);
     this.#snapshotFinishedCommands = options.snapshotFinishedCommands ?? 50;
+    this.#closeWaitMs = options.checkpoints?.closeWaitMs ?? 10_000;
     this.publisher = new EventPublisher(options.logger);
     for (const adapter of options.adapters) this.registry.register(adapter);
     this.recorder = new Recorder({
@@ -464,6 +471,8 @@ export class ControlPlane {
     await this.previews?.close();
     await this.registry.closeAll(this.#logger);
     await this.ollamaUnload?.close();
+    // Undo checkpoints and restores under way journal their outcomes before the journal closes.
+    await this.checkpoints?.settle(this.#closeWaitMs);
     if (this.#checkpointEvery !== null) this.#checkpoint();
     this.journal.close();
   }
