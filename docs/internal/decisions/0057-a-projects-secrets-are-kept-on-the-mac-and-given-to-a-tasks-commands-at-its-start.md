@@ -72,7 +72,10 @@ What was true on 2026-11-11, before this decision:
      still reaches it when set this way (shown with `PROJECT_TEST_KEY`).
 6. **When it takes effect.** A task gets the project's secrets when it starts; one already running keeps
    what it started with, until a restart re-attaches it. The page says so, and says plainly that an agent
-   given a key can use it, print it and send it wherever its commands reach.
+   given a key can use it, print it and send it wherever its commands reach. It names the agents that start
+   without the secrets, and in a row with the alert mark the ones that run outside the sandbox on a folder
+   the person connected. A refusal is said in that project's card, and Remove takes a second press (LINK's
+   critic, decided by the lead on 2026-11-11).
 7. **The store follows the journal.** At a start, after the journal is folded, a value whose name the
    journal does not list, and anything a press left staged, is deleted.
 
