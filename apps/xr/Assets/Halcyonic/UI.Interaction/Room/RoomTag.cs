@@ -22,7 +22,7 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// Where the task needs the person: 10 dp after the plate, on its middle line, a chip of the state's own word
-        /// (<see cref="StateLanguage.WordOf"/>, "Needs You") in the label face, 15 dp, in the attention colour of its own,
+        /// (<see cref="StateLanguage.WordOf"/>, "Needs You") in the label face, 16 dp, in the attention colour of its own,
         /// never the accent the main action keeps: #FFD27A on #543C12 at 88 percent, a 1 dp edge of #F2B134 at 50 percent;
         /// 10 dp of room beside its word and 3 dp above and below, its corner 10 dp.
         /// </summary>
@@ -30,8 +30,8 @@ namespace Halcyonic.XR.UI
         public const float ChipPadXDp = 10f;
         public const float ChipPadYDp = 3f;
         public const float ChipCornerDp = 10f;
-        public const float ChipTypeDp = 15f;
-        public const float ChipLineDp = 20f;
+        public const float ChipTypeDp = 16f;
+        public const float ChipLineDp = 21f;
         public const int ChipColour = 0x543C12;
         public const float ChipAlpha = 0.88f;
         public const int ChipEdgeColour = 0xF2B134;

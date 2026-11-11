@@ -520,9 +520,9 @@ namespace Halcyonic.XR.UI
                 var chevronRoom = picked ? S(ChevronDp + ChevronGapDp) : 0f;
                 var nameLeft = S(RowTileDp + RowGapDp);
                 var nameWidth = width - nameLeft - chevronRoom - (noteWidth > 0f ? noteWidth + S(RowGapDp) : 0f);
-                // A name is never cut: a path keeps one line (mono, the end of a long one is its own to say), a moment's name takes two at most.
+                // A name is never cut: a path or a moment's name takes a second line where one is not enough (a long path at larger text).
                 var (nameLabel, nameTall) = row.Mono
-                    ? Text(KitRole.Mono, RowNameDp - 3f, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, 1)
+                    ? Text(KitRole.Mono, RowNameDp - 3f, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, 2)
                     : Text(KitRole.Body, RowNameDp, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, 2);
                 var rowTall = Mathf.Max(S(RowTileDp), nameTall);
                 var middle = top + rowTall / 2f;
