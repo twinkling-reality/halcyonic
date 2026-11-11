@@ -162,7 +162,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         CheckId = check, Url = wifi ? "http://192.168.1.20:47970/" : "https://kite-run-share.example.invalid/", Way = wifi ? ShareWay.Wifi : ShareWay.Link, Files = ProjectShareViewFiles.Current,
                     }));
-                    live.CodeRead(new ShareCodeResponse { CheckId = check, Way = wifi ? ShareWay.Wifi : ShareWay.Link, Code = Code(wifi ? ShareWifiRows : ShareLinkRows) });
+                    live.CodeRead(new ShareCodeResponse { CheckId = check, Way = wifi ? ShareWay.Wifi : ShareWay.Link, Code = Code(wifi ? ShareWifiRows : ShareLinkRows) }, live.ShareGeneration);
                     return live;
             }
             var column = new ShareColumn(View());

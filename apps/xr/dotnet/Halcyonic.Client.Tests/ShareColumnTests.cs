@@ -81,7 +81,7 @@ public class ShareColumnTests
         Assert.That(new ShareColumn(View(passed: false)).Actions().First().Kind, Is.EqualTo(ShareActionKind.CheckGame));
         Assert.That(new ShareColumn(View(preview: false)).Actions().First().Kind, Is.EqualTo(ShareActionKind.StartPreview));
         Assert.That(new ShareColumn(View(confined: false)).Actions().Single().Kind, Is.EqualTo(ShareActionKind.Back), "no fix exists there");
-        Assert.That(new ShareColumn(View()).Stage, Is.EqualTo(ShareStage.Choose));
+        Assert.That(new ShareColumn(View()).Stage, Is.EqualTo(ShareStage.Reading), "admitted, the ways not read yet (AUDIT MUST 4)");
     }
 
     [Test]
@@ -147,9 +147,9 @@ public class ShareColumnTests
         NoDots(column);
 
         Assert.That(column.Cells, Is.Null);
-        column.CodeRead(new ShareCodeResponse { CheckId = "another", Way = ShareWay.Wifi, Code = Code(21) });
+        column.CodeRead(new ShareCodeResponse { CheckId = "another", Way = ShareWay.Wifi, Code = Code(21) }, column.ShareGeneration);
         Assert.That(column.Cells, Is.Null, "a code of another check is not this share's");
-        column.CodeRead(new ShareCodeResponse { CheckId = CheckId, Way = ShareWay.Wifi, Code = Code(25, (r, c) => r == 0 && c == 3) });
+        column.CodeRead(new ShareCodeResponse { CheckId = CheckId, Way = ShareWay.Wifi, Code = Code(25, (r, c) => r == 0 && c == 3) }, column.ShareGeneration);
         Assert.That(column.Cells!.Size, Is.EqualTo(25));
         Assert.That(column.Cells.Drawn, Is.EqualTo(33));
         Assert.That((column.Cells.Dark(0, 3), column.Cells.Dark(0, 2)), Is.EqualTo((true, false)));
@@ -225,5 +225,95 @@ public class ShareColumnTests
         Assert.That((await reader.WaysAsync()).Wifi, Is.EqualTo(ShareWayState.NoNetwork));
         Assert.That((await reader.CodeAsync(ProjectId)).Code.Size, Is.EqualTo(21));
         Assert.That(asked, Is.EqualTo(new[] { "api/sharing", $"api/projects/{ProjectId}/share/code" }));
+    }
+
+    // AUDIT's probes (AUDIT/evidence/DEVICE-share/ShareAuditProbeTests.cs), each now a check of its fix.
+
+    [Test]
+    public void AuditMust4NoChoiceOfNothing()
+    {
+        var unread = new ShareColumn(View());
+        Assert.That(unread.Stage, Is.EqualTo(ShareStage.Reading), "unknown never reads as a choice");
+        Assert.That(unread.Card()!.Status!.Value.Line, Is.EqualTo(ShareText.ReadingWays));
+        Assert.That(unread.Actions().Single().Kind, Is.EqualTo(ShareActionKind.Back));
+        var none = new ShareColumn(View());
+        none.WaysRead(Ways(link: ShareWayState.NotSetUp, wifi: ShareWayState.NoNetwork));
+        Assert.That(none.Stage, Is.EqualTo(ShareStage.NoWay));
+        Assert.That(none.Card()!.Status!.Value.Line, Is.EqualTo(ShareText.NoLinkProgram + " " + ShareText.NoNetwork), "the computer's own reasons");
+        var unknown = new ShareColumn(View());
+        unknown.WaysRead(Ways(link: ShareWayState.Unknown, wifi: ShareWayState.Unknown));
+        Assert.That(unknown.Card()!.Status!.Value.Line, Is.EqualTo(ShareText.CannotTell));
+        NoDots(none);
+    }
+
+    [Test]
+    public void AuditMust1CancelWhileStartingStopsTheShareTheMomentItStands()
+    {
+        var column = new ShareColumn(View());
+        column.WaysRead(Ways(wifi: ShareWayState.NotSetUp));
+        column.Arm();
+        Assert.That(column.Start(Samples.Client, Now), Is.Not.Null);
+        column.Cancel();
+        Assert.That(column.StopWhenItStands, Is.True);
+        Assert.That(column.Card()!.Status!.Value.Line, Is.EqualTo(ShareText.StoppingWhenReady), "the card says so");
+        Assert.That(column.Actions(), Is.Empty, "nothing more to press while it stops");
+        Assert.That(column.StopNow, Is.False, "nothing stands yet");
+        column.Viewed(View(share: Share("link", "https://example-name.invalid/")));
+        Assert.That(column.StopNow, Is.True, "the host stops it now");
+        Assert.That(column.Stop(Samples.Client, Now), Is.Not.Null);
+        column.ShareStopped(new ProjectShareStoppedEvent { ProjectId = ProjectId, Payload = new ProjectShareStoppedPayload { CheckId = CheckId, Reason = ShareStopReason.Asked } });
+        Assert.That(column.StopWhenItStands, Is.False);
+    }
+
+    [Test]
+    public void AuditMust2ARefusalTakesTheLocksFirstPressBack()
+    {
+        var column = new ShareColumn(View());
+        column.WaysRead(Ways(wifi: ShareWayState.NotSetUp));
+        column.Arm();
+        Assert.That(column.Armed, Is.True);
+        column.Viewed(View(passed: false));
+        Assert.That(column.Stage, Is.EqualTo(ShareStage.NotShareable));
+        column.Viewed(View());
+        Assert.That(column.Stage, Is.EqualTo(ShareStage.Confirm));
+        Assert.That(column.Armed, Is.False, "Share is locked again");
+        Assert.That(column.Actions().First().Locked, Is.True);
+        Assert.That(column.Start(Samples.Client, Now), Is.Null, "one press shares nothing");
+    }
+
+    [Test]
+    public void AuditMust3AShareThatEndedBeforeAnyViewIsNotStillStarting()
+    {
+        var column = new ShareColumn(View());
+        column.WaysRead(Ways(wifi: ShareWayState.NotSetUp));
+        column.Arm();
+        var start = column.Start(Samples.Client, Now)!;
+        column.Answered(new CommandView { CommandId = start.CommandId, Status = CommandStatus.Completed });
+        column.ShareStopped(new ProjectShareStoppedEvent { ProjectId = ProjectId, Payload = new ProjectShareStoppedPayload { CheckId = CheckId, Reason = ShareStopReason.Ended } });
+        column.Viewed(View());
+        Assert.That(column.Stage, Is.EqualTo(ShareStage.Stopped));
+        Assert.That(column.Card()!.Status!.Value.Line, Is.EqualTo(ShareText.LinkEnded));
+
+        // With no stop event at all: a completed start and a view with no share is over, not still getting ready.
+        var silent = new ShareColumn(View());
+        silent.WaysRead(Ways(wifi: ShareWayState.NotSetUp));
+        silent.Arm();
+        var quiet = silent.Start(Samples.Client, Now)!;
+        silent.Answered(new CommandView { CommandId = quiet.CommandId, Status = CommandStatus.Completed });
+        silent.Viewed(View());
+        Assert.That(silent.Stage, Is.EqualTo(ShareStage.Stopped));
+    }
+
+    [Test]
+    public void AuditShould1ACodeReadForAnEarlierShareIsNeverDrawnForTheNewOne()
+    {
+        var column = new ShareColumn(View(share: Share("link", "https://old-link.example.invalid/")));
+        var generation = column.ShareGeneration;
+        column.Viewed(View());
+        column.Viewed(View(share: Share("link", "https://new-link.example.invalid/")));
+        column.CodeRead(new ShareCodeResponse { CheckId = CheckId, Way = ShareWay.Link, Code = Code(21) }, generation);
+        Assert.That(column.Cells, Is.Null, "a read begun for the old link");
+        column.CodeRead(new ShareCodeResponse { CheckId = CheckId, Way = ShareWay.Link, Code = Code(21) }, column.ShareGeneration);
+        Assert.That(column.Cells, Is.Not.Null, "a read begun for the share standing now");
     }
 }
