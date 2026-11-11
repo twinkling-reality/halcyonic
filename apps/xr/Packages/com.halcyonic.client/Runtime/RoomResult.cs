@@ -110,6 +110,29 @@ namespace Halcyonic.Client
 
         public int Parts => RoomRows.Pages(Rows.Count);
 
+        /// <summary>
+        /// Every file the computer saw change, its facts apart for a card's list (FIELD's A17): the kind, the path as the folder
+        /// names it, and for a change its lines before and after. Empty where it observed no turn or could not read the
+        /// folder (<see cref="NotObserved"/>).
+        /// </summary>
+        public IReadOnlyList<RoomChange> Changes => Observed is { Skipped: null } turn
+            ? turn.Files.Select(file => new RoomChange(
+                file.Change == ObservedChange.Created ? RoomChangeKind.Made : file.Change == ObservedChange.Deleted ? RoomChangeKind.Removed : RoomChangeKind.Changed,
+                file.Path,
+                file.Change == ObservedChange.Changed ? file.LinesBefore : null,
+                file.Change == ObservedChange.Changed ? file.LinesAfter : null)).ToList()
+            : (IReadOnlyList<RoomChange>)Array.Empty<RoomChange>();
+
+        /// <summary>Whether the computer observed a turn but could not say what changed: its honest line, never an empty list read as no changes.</summary>
+        public bool NotObserved => Observed is { Skipped: not null };
+
+        /// <summary>
+        /// Every step of the computer's last check, named and toned apart (A17), in the check's order, those it never reached
+        /// included, so a card can hang its marks on the step that failed.
+        /// </summary>
+        public IReadOnlyList<RoomStep> StepFacts => Steps.Select(step => new RoomStep(step.Step, StepWords(step.Step),
+            step.Result == CheckStepResult.Passed ? RoomStepTone.Passed : step.Result == CheckStepResult.Failed ? RoomStepTone.Failed : RoomStepTone.NotRun)).ToList();
+
         /// <summary>A file as the computer saw it: its kind, for a change its lines before and after, then its path as the folder names it.</summary>
         private IReadOnlyList<RoomRow> ChangeRows()
         {
@@ -155,5 +178,66 @@ namespace Halcyonic.Client
                 // Play in Headset by how this headset reaches the computer and whether a demonstration shows (DEVICE's rule); unknown without.
                 way is { } reach ? HeadsetPlay.For(project, reach.Target, reach.Demonstration) : (Halcyonic.Client.PlayInHeadset?)null);
         }
+    }
+
+    /// <summary>How the computer saw a file change.</summary>
+    public enum RoomChangeKind
+    {
+        Made,
+        Changed,
+        Removed,
+    }
+
+    /// <summary>A file the computer saw change, its facts apart: kind, path (outside text) and lines before and after a change.</summary>
+    public readonly struct RoomChange
+    {
+        public RoomChange(RoomChangeKind kind, string path, long? linesBefore, long? linesAfter)
+        {
+            Kind = kind;
+            Path = path;
+            LinesBefore = linesBefore;
+            LinesAfter = linesAfter;
+        }
+
+        public RoomChangeKind Kind { get; }
+
+        /// <summary>The kind in the product's words: Made, Changed, Removed.</summary>
+        public string KindWords => Kind == RoomChangeKind.Made ? RoomResult.Made : Kind == RoomChangeKind.Removed ? RoomResult.Removed : RoomResult.Changed;
+
+        /// <summary>The path as the folder names it: outside text, shown as their name.</summary>
+        public string Path { get; }
+
+        public long? LinesBefore { get; }
+
+        public long? LinesAfter { get; }
+
+        /// <summary>A change's note, "12 to 30 Lines", where both counts are known; null otherwise.</summary>
+        public string? Note => LinesBefore is long before && LinesAfter is long after ? before + " to " + after + " Lines" : null;
+    }
+
+    /// <summary>How a step of the computer's check ended.</summary>
+    public enum RoomStepTone
+    {
+        Passed,
+        Failed,
+        /// <summary>The check never reached it: nothing is said of it.</summary>
+        NotRun,
+    }
+
+    /// <summary>A step of the computer's check, apart: which step, its name in the product's words, and how it ended.</summary>
+    public readonly struct RoomStep
+    {
+        public RoomStep(CheckStepKind step, string name, RoomStepTone tone)
+        {
+            Step = step;
+            Name = name;
+            Tone = tone;
+        }
+
+        public CheckStepKind Step { get; }
+
+        public string Name { get; }
+
+        public RoomStepTone Tone { get; }
     }
 }

@@ -8,6 +8,24 @@ using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
 {
+    /// <summary>What a review item names, so a card can lay it out (FIELD's A17): the project as its title, the task as its line, the rest as slots.</summary>
+    public enum ReviewItemKind
+    {
+        Project,
+        /// <summary>The folder the project is in now, where the request moves it.</summary>
+        FolderNow,
+        /// <summary>The folder the request names (the next one, where it moves).</summary>
+        Folder,
+        TaskName,
+        AgentApp,
+        Model,
+        ModelLocation,
+        ModelId,
+        FirstTask,
+        /// <summary>A note beside the first task of what it names that the person should check (<see cref="TaskWarnings"/>).</summary>
+        Warning,
+    }
+
     /// <summary>One entry of the review: Halcyonic's own label, and the value it names, spelled in ASCII.</summary>
     public sealed class ReviewItem
     {
@@ -17,12 +35,21 @@ namespace Halcyonic.Client
         }
 
         /// <param name="value">Its value as runs, as shown: outside text spelled by the review's own rule, leaning.</param>
-        public ReviewItem(string label, LineWords value)
+        /// <param name="kind">What it names; a note where not given.</param>
+        public ReviewItem(string label, LineWords value, ReviewItemKind kind = ReviewItemKind.Warning)
         {
             Label = label;
+            Kind = kind;
+            ValueRuns = value;
             Value = value.Text;
             Runs = LineWords.Written(label) + value;
         }
+
+        /// <summary>What the item names, apart from its words.</summary>
+        public ReviewItemKind Kind { get; }
+
+        /// <summary>The value alone as runs, apart from the label (outside text spelled and leaning).</summary>
+        public LineWords ValueRuns { get; }
 
         /// <summary>The item as runs: Halcyonic's label upright, a name or the person's words leaning.</summary>
         public LineWords Runs { get; }
@@ -138,19 +165,19 @@ namespace Halcyonic.Client
         {
             NeverAsk = neverAsk;
             FolderChoice = folderChoice == null ? null : HalcyonicJson.Serialize(folderChoice);
-            Add(ProjectLabel, project);
+            Add(ProjectLabel, project, ReviewItemKind.Project);
             if (folderBefore != null && folder != null)
             {
-                Add("Folder Now · ", folderBefore);
-                Add("Folder Next · ", folder);
+                Add("Folder Now · ", folderBefore, ReviewItemKind.FolderNow);
+                Add("Folder Next · ", folder, ReviewItemKind.Folder);
             }
-            else if (folder != null) Add("Folder · ", folder);
-            items.Add(new ReviewItem("Task Name · ", LineWords.Shown(Safe(title) + (titleCut ? "…" : ""))));
-            Add("Agent App · ", runtime);
-            Add("Model · ", model);
-            Add("Model Location · ", modelFacts);
-            Add(ModelIdLabel, modelRef);
-            Add(FirstTaskLabel, objective);
+            else if (folder != null) Add("Folder · ", folder, ReviewItemKind.Folder);
+            items.Add(new ReviewItem("Task Name · ", LineWords.Shown(Safe(title) + (titleCut ? "…" : "")), ReviewItemKind.TaskName));
+            Add("Agent App · ", runtime, ReviewItemKind.AgentApp);
+            Add("Model · ", model, ReviewItemKind.Model);
+            Add("Model Location · ", modelFacts, ReviewItemKind.ModelLocation);
+            Add(ModelIdLabel, modelRef, ReviewItemKind.ModelId);
+            Add(FirstTaskLabel, objective, ReviewItemKind.FirstTask);
             // Beside the first task, before Yes: what it names that the person should check (TaskWarnings).
             foreach (var note in TaskWarnings.Of(objective)) items.Add(new ReviewItem(note, LineWords.None));
         }
@@ -312,11 +339,11 @@ namespace Halcyonic.Client
             return true;
         }
 
-        private void Add(string label, string value) => Add(label, LineWords.Unspelled(value));
+        private void Add(string label, string value, ReviewItemKind kind) => Add(label, LineWords.Unspelled(value), kind);
 
         /// <summary>An item whose value is runs: outside text spelled by <see cref="Safe"/>, Halcyonic's words as written.</summary>
-        private void Add(string label, LineWords value) => items.Add(new ReviewItem(label,
-            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? LineWords.Shown(Safe(run.Text)) : LineWords.Written(run.Text)))));
+        private void Add(string label, LineWords value, ReviewItemKind kind) => items.Add(new ReviewItem(label,
+            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? LineWords.Shown(Safe(run.Text)) : LineWords.Written(run.Text))), kind));
 
         // The bundled TMP font cannot show every character. Spell each non-ASCII code point and
         // control character in ASCII, and double a literal backslash so a typed marker differs.
