@@ -211,9 +211,22 @@ export const ProjectUnlinkCatalogCommand = defineCommand(
   Type.Object({ project_id: ProjectId }, strict),
 );
 
+/**
+ * Makes a task in a project. `from_checkpoint` starts it from one of the project's own versions (ADR
+ * 0045): its copy is the project's folder turned into that version at its first start, and the
+ * project's folder is not touched; its work reaches the project only when the person adds it.
+ */
 export const WorkstreamCreateCommand = defineCommand(
   'workstream.create',
-  Type.Object({ project_id: ProjectId, title: Text(200), objective: Nullable(Text(4000)) }, strict),
+  Type.Object(
+    {
+      project_id: ProjectId,
+      title: Text(200),
+      objective: Nullable(Text(4000)),
+      from_checkpoint: Type.Optional(CheckpointId),
+    },
+    strict,
+  ),
 );
 
 /**

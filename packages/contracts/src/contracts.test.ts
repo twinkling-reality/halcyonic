@@ -701,7 +701,10 @@ describe('the C# bindings', () => {
     'WorkstreamAddToProjectPayload.review', // the review an add carries (ADR 0051)
     'WorkstreamCopyChangesReadPayload.files', // how each file a copy's reading found changed (ADR 0045)
     'WorkstreamCopyChangesReadPayload.review', // the review a copy's reading is, for an add (ADR 0051)
+    'WorkstreamCreatePayload.from_checkpoint', // the version a task starts from (ADR 0045)
+    'WorkstreamCreatedPayload.from_checkpoint', // the version a task starts from (ADR 0045)
     'WorkstreamView.copy', // a task's own copy (ADR 0045)
+    'WorkstreamView.from_checkpoint', // the version a task starts from (ADR 0045)
   ];
 
   /** The optional members of generated C#, as `Class.json_name`, each with its attribute and type. */

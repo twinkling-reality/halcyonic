@@ -2033,6 +2033,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("copy", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public WorkstreamCopy? Copy { get; set; }
 
+        [JsonProperty("from_checkpoint", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? FromCheckpoint { get; set; }
+
         [JsonProperty("created_at", Required = Required.Always)]
         public string CreatedAt { get; set; } = default!;
 
@@ -3183,6 +3186,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("objective", Required = Required.AllowNull)]
         public string? Objective { get; set; }
+
+        [JsonProperty("from_checkpoint", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? FromCheckpoint { get; set; }
     }
 
     public sealed class WorkstreamCopyMadePayload
@@ -3670,6 +3676,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("objective", Required = Required.AllowNull)]
         public string? Objective { get; set; }
+
+        [JsonProperty("from_checkpoint", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? FromCheckpoint { get; set; }
     }
 
     public sealed class WorkstreamAddToProjectPayload

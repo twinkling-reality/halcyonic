@@ -149,6 +149,44 @@ describe('checkpoints in the projection', () => {
   });
 });
 
+describe("a task from one of the project's versions (ADR 0045)", () => {
+  test('is made only from a version of its own project, and its view names the version', () => {
+    const { b, projection, project, checkpoint } = setup();
+    const own = checkpoint();
+    const other = b.project('Elsewhere');
+    projection.apply(other.event);
+    const theirs = checkpoint(other.projectId);
+    const create = (from: string) =>
+      command('workstream.create', {
+        project_id: project.projectId,
+        title: 'Paths',
+        objective: null,
+        from_checkpoint: from as CheckpointId,
+      });
+    const refused = admitCommand(create(theirs), projection, RUNTIMES);
+    assert.equal(refused.admitted ? null : refused.rejection.code, 'checkpoint_not_found');
+    const missing = admitCommand(create(b.id()), projection, RUNTIMES);
+    assert.equal(missing.admitted ? null : missing.rejection.code, 'checkpoint_not_found');
+    assert.equal(admitCommand(create(own), projection, RUNTIMES).admitted, true);
+    const task = b.id() as never;
+    projection.apply(
+      b.controlPlane(
+        'workstream.created',
+        { project_id: project.projectId, workstream_id: task, execution_id: null },
+        { title: 'Paths', objective: null, from_checkpoint: own },
+      ),
+    );
+    assert.equal(projection.workstream(task)?.from_checkpoint, own);
+    const plain = b.workstream(project.projectId);
+    projection.apply(plain.event);
+    assert.equal(
+      'from_checkpoint' in (projection.workstream(plain.workstreamId) ?? {}),
+      false,
+      'absent for a task from the folder as it is',
+    );
+  });
+});
+
 describe('admitting a restore', () => {
   test('is review required: the person reads what would change before confirming', () => {
     assert.equal(COMMAND_POLICY['project.restore'], 'review_required');

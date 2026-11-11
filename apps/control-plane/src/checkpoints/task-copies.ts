@@ -100,7 +100,12 @@ export class TaskCopies {
    * nothing left behind, where a copy could still act on the person's repository, could hold
    * Halcyonic's own data, or is more than a checkpoint keeps.
    */
-  async prepare(projectId: string, workstreamId: string, folder: string): Promise<PrepareResult> {
+  async prepare(
+    projectId: string,
+    workstreamId: string,
+    folder: string,
+    version?: { readonly tree: string; readonly files: number },
+  ): Promise<PrepareResult> {
     if (!ID_PATTERN.test(projectId) || !ID_PATTERN.test(workstreamId))
       throw new Error('not a project or task id');
     const source = await lstat(folder).catch(() => null);
@@ -147,7 +152,16 @@ export class TaskCopies {
       await removeInside(root, `${projectId}/${workstreamId}`);
       return refuse(refusalOf(base.code), base.message);
     }
-    return { ok: true, directory: target, baseTree: base.tree, files: base.files };
+    if (version === undefined)
+      return { ok: true, directory: target, baseTree: base.tree, files: base.files };
+    // A task from a version: the clone, its .git and ignored files kept, turned into that version's
+    // files, which become its base; the project's folder is never touched (ADR 0045).
+    const turned = await this.#store.apply(projectId, target, base.tree, version.tree);
+    if (!turned.ok) {
+      await removeInside(root, `${projectId}/${workstreamId}`);
+      return refuse('copy_failed', 'The copy could not be made into that version.');
+    }
+    return { ok: true, directory: target, baseTree: version.tree, files: version.files };
   }
 
   /**

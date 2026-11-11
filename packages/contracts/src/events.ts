@@ -510,9 +510,17 @@ export const ProjectMacPlayStopped = projectEvent(
  */
 export const ProjectWorldObserved = projectEvent('project.world.observed', WorldObserved);
 
+/** A task was made; `from_checkpoint` is the project's version it starts from, if any (ADR 0045). */
 export const WorkstreamCreated = workstreamEvent(
   'workstream.created',
-  Type.Object({ title: Text(200), objective: Nullable(Text(4000)) }, strict),
+  Type.Object(
+    {
+      title: Text(200),
+      objective: Nullable(Text(4000)),
+      from_checkpoint: Type.Optional(CheckpointId),
+    },
+    strict,
+  ),
 );
 
 /**

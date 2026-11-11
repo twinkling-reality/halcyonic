@@ -856,6 +856,28 @@ export class CommandService {
    * start works in: the copy, else the project's folder, asked again of the folder rule just before,
    * since starts beside it were admitted while the copy was being made (FOLDER, ADR 0045).
    */
+  /** The version a task starts from, with its tree, or null for one from the folder as it is. */
+  #versionOf(workstreamId: WorkstreamId): {
+    readonly checkpointId: string;
+    readonly tree: string;
+    readonly files: number;
+    readonly recordedAt: string | null;
+  } | null {
+    const workstream = this.#deps.projection.workstream(workstreamId);
+    const from = workstream?.from_checkpoint;
+    if (workstream === undefined || from === undefined) return null;
+    const checkpoint = this.#deps.projection
+      .checkpoints(workstream.project_id)
+      .find((candidate) => candidate.checkpoint_id === from);
+    // A version the journal no longer holds still never falls back to the folder as it is.
+    return {
+      checkpointId: from,
+      tree: checkpoint?.tree ?? '',
+      files: checkpoint?.files ?? 0,
+      recordedAt: checkpoint?.recorded_at ?? null,
+    };
+  }
+
   async #makeCopy(
     copies: TaskCopies,
     scope: CommandScope,
@@ -870,6 +892,56 @@ export class CommandService {
     if (project_id === null || workstream_id === null)
       return { ok: true, directory: projectFolder };
     const where = { project_id, workstream_id, execution_id: null };
+    // A task from a version: its copy, turned into that version, or no start at all; it never falls
+    // back to the project's folder, which holds another version (ADR 0045).
+    const version = this.#versionOf(workstream_id);
+    if (version !== null) {
+      if (!copies.holds(runtimeId, projectFolder))
+        return {
+          ok: false,
+          failure: {
+            code: 'capability_unsupported',
+            message:
+              "This task starts from an older version, so it works only in a copy of its own, and this task's agent can't be kept to one folder on this computer. Choose another agent.",
+            effect: 'none',
+          },
+        };
+      if (version.tree === '')
+        return {
+          ok: false,
+          failure: {
+            code: 'checkpoint_not_found',
+            message: 'The version this task starts from is no longer kept.',
+            effect: 'none',
+          },
+        };
+      let fromVersion: PrepareResult;
+      try {
+        fromVersion = await copies.prepare(project_id, workstream_id, projectFolder, version);
+      } catch {
+        this.#deps.logger.warn({ workstream_id }, 'task copy from a version failed');
+        fromVersion = { ok: false, code: 'copy_failed', message: 'The copy of the folder failed.' };
+      }
+      if (!fromVersion.ok)
+        return {
+          ok: false,
+          failure: { code: fromVersion.code, message: fromVersion.message, effect: 'none' },
+        };
+      this.#deps.recorder.record(
+        controlPlaneDraft(
+          'workstream.copy_made',
+          where,
+          {
+            directory: fromVersion.directory,
+            base_tree: fromVersion.baseTree,
+            files: fromVersion.files,
+          },
+          this.#now(),
+          cause,
+        ),
+      );
+      return { ok: true, directory: fromVersion.directory };
+    }
     // A world changes when the person speaks to it (ADR 0049): its tasks change the project in place,
     // so the world the headset shows follows each turn. They get no copy, and work in the project's
     // folder one at a time, as before copies (ADR 0045).
@@ -1361,6 +1433,18 @@ export class CommandService {
         return;
       }
       case 'workstream.create': {
+        // A task from a version needs a copy of its own and the version kept (ADR 0045).
+        if (
+          command.payload.from_checkpoint !== undefined &&
+          (!this.#deps.copies || !this.#deps.checkpoints)
+        ) {
+          this.#fail(command, admission.scope, {
+            code: 'capability_unsupported',
+            message: 'Starting a task from a version needs task copies and undo on this computer.',
+            effect: 'none',
+          });
+          return;
+        }
         const workstreamId = this.#deps.ids.next() as WorkstreamId;
         const scope = {
           project_id: command.payload.project_id,
@@ -1371,7 +1455,13 @@ export class CommandService {
           controlPlaneDraft(
             'workstream.created',
             scope,
-            { title: command.payload.title, objective: command.payload.objective },
+            {
+              title: command.payload.title,
+              objective: command.payload.objective,
+              ...(command.payload.from_checkpoint !== undefined && {
+                from_checkpoint: command.payload.from_checkpoint,
+              }),
+            },
             this.#now(),
             cause,
           ),
@@ -1391,6 +1481,7 @@ export class CommandService {
           project_id,
         };
         const scope = { project_id, workstream_id, execution_id: execution.execution_id };
+        let firstFromVersion: string | null = null;
         // Admission checked it; the adapter asks the host's policy again before anything runs.
         const begin = (directory: string | null): void => {
           recorder.record(
@@ -1427,7 +1518,10 @@ export class CommandService {
               () =>
                 start.call(adapter, {
                   execution,
-                  instruction: withCheckOutput(command.payload.instruction, checked),
+                  instruction: withCheckOutput(
+                    withVersionNote(command.payload.instruction, firstFromVersion),
+                    checked,
+                  ),
                   options: command.payload.options,
                   model_ref: command.payload.model_ref,
                   ...(command.payload.approval_level !== undefined && {
@@ -1477,6 +1571,19 @@ export class CommandService {
           : null;
         const own = this.#ownCopy(workstream_id);
         const copies = this.#deps.copies;
+        // A task from a version works only in its own copy of that version, never the folder as it is.
+        const version = this.#versionOf(workstream_id);
+        // Its agent's first start is told which version it works on, once.
+        firstFromVersion = version !== null && own === null ? version.recordedAt : null;
+        if (version !== null && own === null && (projectFolder === null || !copies)) {
+          this.#fail(command, admission.scope, {
+            code: 'capability_unsupported',
+            message:
+              'This task starts from an older version, so it needs a copy of its own, which this computer cannot make for this agent.',
+            effect: 'none',
+          });
+          return;
+        }
         if (projectFolder !== null && own === null && copies) {
           void this.#makeCopy(
             copies,
@@ -2027,6 +2134,15 @@ function actionFor(
 interface Checked {
   readonly checkId: CheckId;
   readonly output: CheckOutput;
+}
+
+/**
+ * The person's words, then, apart, the Mac's own line on a task's first start from a version (ADR
+ * 0045): which version its folder holds, and that the project's folder is not changed by it.
+ */
+function withVersionNote(words: string, recordedAt: string | null | undefined): string {
+  if (recordedAt === undefined || recordedAt === null) return words;
+  return `${words}\n\nFrom Halcyonic: this task's folder is a copy of the project as it was in the version of ${recordedAt}, not as it is now. The project's own folder changes only when the person adds this task's work.`;
 }
 
 /** The person's words, then, apart, the Mac's own check when there is one to give. */
