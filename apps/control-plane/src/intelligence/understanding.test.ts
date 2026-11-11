@@ -145,7 +145,7 @@ describe('Salidium as the understanding source', () => {
       return { source, folder, store: join(folder, 'opencode.db') };
     }
 
-    test('a session started after the store was made is not observed, and Salidium is not asked', async () => {
+    test('a session started after the store was made is not observed, and Salidium is asked only its version', async () => {
       const { source, folder, store } = await observing('opencode-store');
       mkdirSync(folder, { recursive: true });
       writeFileSync(store, '');
@@ -156,7 +156,8 @@ describe('Salidium as the understanding source', () => {
         result.availability === 'available' ? '' : result.reason.message,
         /Halcyonic's own OpenCode store/,
       );
-      assert.equal(salidium.requests.length, 0, 'neither discovery nor a lookup was asked');
+      // Only its version is read, without a credential (unit 4b); no lookup is asked.
+      assert.equal(salidium.authorizedRequests().length, 0, 'no credentialed request was sent');
     });
 
     test("a session in a folder's own server's store is not observed either (BOX-3)", async () => {
@@ -234,5 +235,49 @@ describe('Salidium as the understanding source', () => {
       STARTED,
     );
     assert.deepEqual(reason(result), ['unavailable', 'not_running']);
+  });
+});
+
+describe("Halcyonic's own sessions, by the version of Salidium that answers (unit 4b)", () => {
+  const SESSION = 'ses_1a285e0b7ffe4dQmV9bL2cXy0Z';
+  let salidium: FakeSalidium;
+  after(() => salidium?.close());
+
+  /** A Salidium of `version` that observes OpenCode, and a session in Halcyonic's sandboxed store. */
+  async function ownStore(name: string, version: string) {
+    salidium ??= await FakeSalidium.start();
+    salidium.minor = 1;
+    salidium.version = version;
+    salidium.providers = ['claude-code', 'codex', 'salidium/opencode'];
+    salidium.writeDiscovery();
+    salidium.requests.length = 0;
+    const dataDir = join(base, name);
+    mkdirSync(dataDir);
+    const credentialPath = join(dataDir, 'salidium-credential');
+    writeFileSync(credentialPath, `${salidium.token}\n`, { mode: 0o600 });
+    const folder = join(dataDir, 'opencode-sandbox', 'data', 'opencode');
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(join(folder, 'opencode.db'), '');
+    const source = salidiumUnderstanding({
+      home: salidium.home,
+      credentialPath,
+      codexHome: join(dataDir, 'codex-home'),
+    });
+    return { source, startedAfter: new Date(Date.now() + 60_000).toISOString() };
+  }
+
+  test('a Salidium of 0.8.3 is not asked about them: they stay not observed', async () => {
+    const { source, startedAfter } = await ownStore('own-0.8.3', '0.8.3');
+    const result = await source.understand('opencode', SESSION, startedAfter);
+    assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
+    assert.equal(salidium.authorizedRequests().length, 0);
+  });
+
+  test('a later Salidium is asked, and one that has not seen the session reads as not set up yet', async () => {
+    const { source, startedAfter } = await ownStore('own-0.9.0', '0.9.0');
+    const result = await source.understand('opencode', SESSION, startedAfter);
+    assert.deepEqual(reason(result), ['not_found', 'own_sources_not_set_up']);
+    assert.match(result.availability === 'available' ? '' : result.reason.message, /0\.9\.0/);
+    assert.ok(salidium.authorizedRequests().length > 0, 'the lookup was asked');
   });
 });

@@ -3,7 +3,12 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { describe, type TestContext, test } from 'node:test';
 import { compileValidator, UnderstandingResult } from '@halcyonic/contracts';
-import { SalidiumClient, salidiumProviderFor, type UnderstandOptions } from './client.ts';
+import {
+  readsOtherToolsSources,
+  SalidiumClient,
+  salidiumProviderFor,
+  type UnderstandOptions,
+} from './client.ts';
 import { defaultSalidiumHome } from './connection.ts';
 import { consumerToken, contractError, FakeSalidium, fixture } from './testing/fake-salidium.ts';
 
@@ -550,4 +555,17 @@ describe('reading an understanding from Salidium', () => {
       '/srv/salidium',
     );
   });
+});
+
+test("a Salidium past 0.8.3 reads other tools' sources; 0.8.3, earlier and unparsable ones do not (unit 4b)", () => {
+  for (const [version, reads] of [
+    ['0.8.3', false],
+    ['0.8.2', false],
+    ['0.8.4', true],
+    ['0.9.0', true],
+    ['1.0.0', true],
+    ['0.8.3-dev', false],
+    ['dev', false],
+  ] as const)
+    assert.equal(readsOtherToolsSources(version), reads, version);
 });

@@ -1,4 +1,6 @@
 export {
+  LAST_OWN_SOURCES_ONLY,
+  readsOtherToolsSources,
   SalidiumClient,
   type SalidiumProvider,
   salidiumProviderFor,

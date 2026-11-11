@@ -244,3 +244,16 @@ readings, or `unavailable` (`not_captured`); record the result here.
   OpenCode ones are kept where Seorak does not read
   ([understanding-and-evaluation.md](understanding-and-evaluation.md)), and a Claude Agent one would
   spend the paid key, so none was run.
+
+## Halcyonic's own Codex sessions (2026-11-11)
+
+Seorak commit e3aa039e (local branch `claude/zealous-chebyshev-41813a` in Seorak's checkout; not pushed, merged
+or released on this date; read, not run) tails `SEORAK_CODEX_EXTRA_DIRS` beside `SEORAK_CODEX_DIR`: absolute
+paths separated by `:`, a path segment of exactly `*` matches each non-dot folder at that level, listed again
+every 30 s, each root with its own activation cutoff; `seorak setup` bakes it into the LaunchAgent. No wire field
+says whether it is set, and the plane names no daemon version a client reads. Seorak has no OpenCode reader:
+resolve takes `claude-code` and `codex` only. Halcyonic's side: a Codex execution whose rollout is in its own or a
+confined Codex home is now asked about with the credential (before, it answered `runtime_not_observed` without a
+request); a resolve miss (`not_captured`) there answers `not_found` (`own_sources_not_set_up`). OpenCode
+executions stay `runtime_not_observed`. Tested against the fake plane (`evaluation.test.ts`); not run against a
+real Seorak holding e3aa039e.

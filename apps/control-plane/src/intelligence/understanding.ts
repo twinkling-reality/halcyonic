@@ -2,7 +2,11 @@ import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { UnderstandingFailure, UnderstandingResult } from '@halcyonic/contracts';
 import { OPENCODE_SANDBOX_FOLDER } from '@halcyonic/integration-opencode';
-import { defaultSalidiumHome, SalidiumClient } from '@halcyonic/integration-salidium';
+import {
+  defaultSalidiumHome,
+  readsOtherToolsSources,
+  SalidiumClient,
+} from '@halcyonic/integration-salidium';
 import { CODEX_CONFINED_FOLDER, CODEX_HOME_FOLDER, inHalcyonicsCodexHome } from './codex-home.ts';
 import { inHalcyonicsOpenCodeStore } from './opencode-store.ts';
 
@@ -52,38 +56,49 @@ export function salidiumUnderstanding(options: SalidiumUnderstandingOptions): Un
     options.openCodeSandbox ?? join(dirname(options.codexHome), OPENCODE_SANDBOX_FOLDER);
   return {
     async understand(runtimeKind, nativeId, startedAt) {
-      if (
-        await inHalcyonicsCodexHome(
-          options.codexHome,
-          runtimeKind,
-          nativeId,
-          startedAt,
-          confinedHomes,
-        )
-      ) {
-        return {
-          availability: 'unavailable',
-          reason: {
-            code: 'runtime_not_observed',
-            message:
-              "Salidium, as installed, does not read Halcyonic's own Codex home, where this session is kept.",
-          },
-        };
-      }
-      if (await inHalcyonicsOpenCodeStore(openCodeSandbox, runtimeKind, startedAt)) {
-        return {
-          availability: 'unavailable',
-          reason: {
-            code: 'runtime_not_observed',
-            message:
-              "Salidium, as installed, does not read Halcyonic's own OpenCode store, where this session is kept.",
-          },
-        };
-      }
-      return new SalidiumClient({
+      const client = new SalidiumClient({
         home: options.home,
         credential: () => readCredential(options.credentialPath),
-      }).understand(runtimeKind, nativeId);
+      });
+      const own = (await inHalcyonicsCodexHome(
+        options.codexHome,
+        runtimeKind,
+        nativeId,
+        startedAt,
+        confinedHomes,
+      ))
+        ? 'Codex home'
+        : (await inHalcyonicsOpenCodeStore(openCodeSandbox, runtimeKind, startedAt))
+          ? 'OpenCode store'
+          : null;
+      if (own !== null) {
+        // Only a Salidium that can read another tool's folders is asked about Halcyonic's own; one
+        // that cannot answers what it always did, without a credential read (unit 4b).
+        const version = await client.version();
+        if (version === null || !readsOtherToolsSources(version)) {
+          return {
+            availability: 'unavailable',
+            reason: {
+              code: 'runtime_not_observed',
+              message: `Salidium, as installed, does not read Halcyonic's own ${own}, where this session is kept.`,
+            },
+          };
+        }
+        const result = await client.understand(runtimeKind, nativeId);
+        // A Salidium that could read them but has not seen the session has not been told where
+        // they are yet (SALIDIUM_EXTRA_CODEX_HOMES, SALIDIUM_EXTRA_OPENCODE_STORES), or has not
+        // seen it yet: never a fault.
+        if (result.availability === 'not_found' && result.reason.code === 'not_observed')
+          return {
+            availability: 'not_found',
+            reason: {
+              code: 'own_sources_not_set_up',
+              message: `Salidium ${version} can read Halcyonic's own ${own}, but has not seen this session: it may not have been told where Halcyonic keeps them yet (Setup shows the two lines), or not seen it yet.`,
+            },
+          };
+        return result;
+      }
+      return client.understand(runtimeKind, nativeId);
     },
   };
 }

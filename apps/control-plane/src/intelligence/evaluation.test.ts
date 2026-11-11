@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import type { EvaluationResult } from '@halcyonic/contracts';
+import { FakeSeorak } from '@halcyonic/integration-seorak/testing';
 import { seorakEvaluation } from './evaluation.ts';
 
 const base = mkdtempSync(join(tmpdir(), 'halcyonic-evaluation-'));
@@ -67,67 +68,42 @@ describe('Seorak as the evaluation source', () => {
     ]);
   });
 
-  test("a Codex thread whose rollout is in Halcyonic's own Codex home is not observed: no request, no credential", async (t) => {
-    let requests = 0;
-    const plane = createServer((_request, response) => {
-      requests++;
-      response.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
-      response.end('{}');
-    });
-    await new Promise<void>((resolve) => plane.listen(0, '127.0.0.1', resolve));
-    t.after(async () => {
-      const closed = new Promise<void>((resolve) => plane.close(() => resolve()));
-      plane.closeAllConnections();
-      await closed;
-    });
-    const { port } = plane.address() as AddressInfo;
-    const { source, credentialPath, codexHome } = await setup('codex-home', port);
+  test("a Codex thread in Halcyonic's own Codex home is asked about, and a miss reads as not set up yet (unit 4b)", async (t) => {
+    const seorak = await FakeSeorak.start();
+    t.after(() => seorak.close());
+    const { source, credentialPath, codexHome } = await setup('codex-home', seorak.port);
     writeRollout(codexHome, CODEX_THREAD);
-    // A credential other users can read would be refused for any session Seorak is asked about.
-    writeFileSync(credentialPath, CREDENTIAL);
+    // A credential other users can read is refused before any request, as for any session.
+    writeFileSync(credentialPath, seorak.token);
     chmodSync(credentialPath, 0o644);
-    const result = await source.evaluate('codex', CODEX_THREAD, STARTED);
-    assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
+    assert.deepEqual(reason(await source.evaluate('codex', CODEX_THREAD, STARTED)), [
+      'unauthorized',
+      'credential_file_exposed',
+    ]);
+    assert.equal(seorak.requests.length, 0);
+    chmodSync(credentialPath, 0o600);
+    // A Seorak that has not captured it may not have been told where Halcyonic keeps its sessions.
+    const missed = await source.evaluate('codex', CODEX_THREAD, STARTED);
+    assert.deepEqual(reason(missed), ['not_found', 'own_sources_not_set_up']);
     assert.match(
-      result.availability === 'available' ? '' : result.reason.message,
+      missed.availability === 'available' ? '' : missed.reason.message,
       /Halcyonic's own Codex home/,
     );
-    assert.equal(requests, 0);
-
-    // A thread without a rollout there, as one run in ~/.codex before, is asked about as before.
-    chmodSync(credentialPath, 0o600);
-    assert.deepEqual(reason(await source.evaluate('codex', SESSION, STARTED)), [
-      'unavailable',
-      'rate_limited',
-    ]);
-    assert.ok(requests > 0);
+    // One told about it, which captured the thread, answers it.
+    seorak.capture('codex', CODEX_THREAD);
+    assert.equal((await source.evaluate('codex', CODEX_THREAD, STARTED)).availability, 'available');
   });
 
-  test('a Codex thread whose rollout is in a confined Codex home is not observed: no request, no credential', async (t) => {
-    let requests = 0;
-    const plane = createServer((_request, response) => {
-      requests++;
-      response.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
-      response.end('{}');
-    });
-    await new Promise<void>((resolve) => plane.listen(0, '127.0.0.1', resolve));
-    t.after(async () => {
-      const closed = new Promise<void>((resolve) => plane.close(() => resolve()));
-      plane.closeAllConnections();
-      await closed;
-    });
-    const { port } = plane.address() as AddressInfo;
-    const { source, credentialPath, codexHome } = await setup('codex-confined', port);
+  test('a Codex thread in a confined Codex home is asked about the same way (unit 4b)', async (t) => {
+    const seorak = await FakeSeorak.start();
+    t.after(() => seorak.close());
+    const { source, credentialPath, codexHome } = await setup('codex-confined', seorak.port);
     writeRollout(join(codexHome, '..', 'codex-confined', '0123456789abcdef'), CODEX_THREAD);
-    writeFileSync(credentialPath, CREDENTIAL);
-    chmodSync(credentialPath, 0o644);
-    const result = await source.evaluate('codex', CODEX_THREAD, STARTED);
-    assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
-    assert.match(
-      result.availability === 'available' ? '' : result.reason.message,
-      /Halcyonic's own Codex home/,
-    );
-    assert.equal(requests, 0);
+    writeFileSync(credentialPath, seorak.token, { mode: 0o600 });
+    assert.deepEqual(reason(await source.evaluate('codex', CODEX_THREAD, STARTED)), [
+      'not_found',
+      'own_sources_not_set_up',
+    ]);
   });
 
   test('without a credential file the answer says how to issue one', async () => {

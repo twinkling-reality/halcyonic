@@ -371,3 +371,18 @@ v0 ([salidium-project-map.md](salidium-project-map.md)). Read-only verification 
   Salidium's owner's own, never a consumer's. A delta Halcyonic could show would have to be published in the consumer
   contract, for example on the report by evidence sequence, which is for Salidium's owner to decide
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+
+## Halcyonic's own sources, by version (2026-11-11)
+
+Salidium commit 4aef719 (local branch `claude/extra-provider-sources` in Salidium's checkout; not pushed,
+merged or released on this date; read, not run) adds `SALIDIUM_EXTRA_CODEX_HOMES` and
+`SALIDIUM_EXTRA_OPENCODE_STORES`: absolute paths separated by `:`, one component may be a single `*`,
+matches must be real folders or files, never links, read beside the defaults; `salidium service install`
+copies both into its LaunchAgent. The consumer contract does not change (1.1, lookup by the runtime's own
+session id), and a consumer cannot see whether the person set them. Halcyonic's side: for a session in its
+own Codex home, a confined Codex home or a sandboxed OpenCode store, it reads the version Salidium's
+discovery document gives, without a credential; at 0.8.3 or before, or when Salidium says none, it answers
+`runtime_not_observed` as before and asks nothing more; past 0.8.3 it asks, and a `not_observed` lookup
+there answers `not_found` (`own_sources_not_set_up`): not told where Halcyonic keeps them, or not seen yet.
+Tested against the fake daemon at 0.8.3 and 0.9.0 (`understanding.test.ts`), and the version rule
+(`client.test.ts`). Not run against a real Salidium after 0.8.3: none is released.

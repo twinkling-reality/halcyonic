@@ -1784,8 +1784,9 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     assert.equal(vrEvaluationRes.status, 200);
     const vrEvaluationBody = (await vrEvaluationRes.json()) as EvaluationResponse;
     assert.equal(vrEvaluationBody.execution_id, vrExecId);
-    assert.equal(vrEvaluationBody.result.availability, 'unavailable');
-    assert.equal(vrEvaluationBody.result.reason.code, 'runtime_not_observed');
+    // Seorak is asked about Halcyonic's own Codex sessions; one not told where they are misses (unit 4b).
+    assert.equal(vrEvaluationBody.result.availability, 'not_found');
+    assert.equal(vrEvaluationBody.result.reason.code, 'own_sources_not_set_up');
     assert.match(vrEvaluationBody.result.reason.message, /Halcyonic's own Codex home/);
 
     const usageLimitsRes = await fetchWithProof(fetch, baseUrl, token, '/api/usage-limits');
@@ -2167,7 +2168,13 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
       evaluation.result.availability === 'unavailable' && evaluation.result.reason.code,
       'runtime_not_observed',
     );
-    assert.equal(salidium.requests.length, 0, 'Salidium was asked about a task it cannot read');
+    // Only its version is read, without a credential: a Salidium of that version reads no other tool's
+    // sources, so it is not asked about the task (unit 4b).
+    assert.equal(
+      salidium.authorizedRequests().length,
+      0,
+      'Salidium was asked about a task it cannot read',
+    );
     assert.equal(seorak.requests.length, 0, 'Seorak was asked about a task it cannot read');
 
     // Undo: the checkpoint before the task, its preview, then every file back as it was.
@@ -2517,7 +2524,7 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     );
     assert.match(firstReads.evaluation, /^unavailable runtime_not_observed .*opencode runtime/);
     assert.match(secondReads.understanding, /^unavailable runtime_not_observed .*own Codex home/);
-    assert.match(secondReads.evaluation, /^unavailable runtime_not_observed .*own Codex home/);
+    assert.match(secondReads.evaluation, /^not_found own_sources_not_set_up .*own Codex home/);
 
     // 2. While one is active: a start is refused (ADMIT), so two agents never work in the one folder.
     const waiting = await start('opencode', 'ask before anything');
