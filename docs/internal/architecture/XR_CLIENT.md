@@ -2778,6 +2778,9 @@ bands are the bar's one band.
   Checks is `RoomPanelCards.Checks` (the outcome as its status, the steps as nodes, the tries' pips on the failed one),
   each the bar's `Card`, drawn in the panel's place (`RoomBarView.LayCard`). Every card is checked for no dot
   (`RoomCard.AnyDot`) in `RoomResultTests` and in the render states, every label of the card whole.
+- **A task's Checks section as the result's Checks card** (the census, JUDGE 2026-11-11): under the redesign a task at
+  rest with a check of the computer's own never shows the older Checks frame: whatever turned its file to Checks, the
+  file stands at its Activity and the result's page turns to Checks (`MenuDirector.ChecksAsCard`, each draw).
 - **Facts apart for FIELD's cards** (A17, 2026-11-11: no information strung on separators): the result gives its facts
   apart (`RoomBar.Known`, the `RoomResult`: `FilesChanged`, `Passed`, `Changes` as `RoomChange` with kind, path and
   lines before and after, `NotObserved`, `StepFacts` as `RoomStep` with the step, its name and its tone, those never

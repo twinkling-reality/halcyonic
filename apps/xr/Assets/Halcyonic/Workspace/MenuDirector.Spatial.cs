@@ -78,6 +78,19 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>Whether the kit draws <paramref name="file"/> now, as it last drew it in the plane's place.</summary>
+        /// <summary>
+        /// Under the redesign a task's Checks section is the result's Checks card (FIELD's A17; the census, JUDGE 0742Z):
+        /// whatever route turned the file to Checks (the recorded run's end, a section press, Try It's fallback), a task at
+        /// rest with a check of the computer's own stands at its Activity, and the result's page turns to Checks.
+        /// </summary>
+        private void ChecksAsCard(FileColumn? file, string? projectId)
+        {
+            if (!RoomDesign.Enabled || file == null || file.Screen.Section != FileSection.Checks || file.Now is not WorkspacePresentation now || !KitPresenter.AtRest(now)
+                || !(ResultOf(now, projectId)?.Steps.Count > 0)) return;
+            file.ShowSection(FileSection.Activity);
+            setup.Presentation.ShowResultPage(now.Character.WorkstreamId, now.Execution?.ExecutionId, RoomResultPage.Checks);
+        }
+
         private bool KitDraws(FileColumn file) => plane.KitShows && ReferenceEquals(navigator.Beside, file);
 
         /// <summary>
@@ -241,6 +254,7 @@ namespace Halcyonic.XR.Workspace
                 contextProject = selected; contextChoices = identities;
             }
             plane.ContextProjects = choices; plane.ContextSelectedProject = selected; plane.ContextBinding = contextOwner;
+            ChecksAsCard(activeFile, selected);
             plane.KitBinding = KitBindingOf(activeFile, choices, selected) ?? PlainBindingOf();
         }
 
