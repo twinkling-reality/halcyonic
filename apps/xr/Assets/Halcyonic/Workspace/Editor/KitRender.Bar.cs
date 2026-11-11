@@ -78,7 +78,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// band; a long message; Changes and its second page's way on; Checks passed and failed; and a project with a
         /// check and no observed turn.
         /// </summary>
-        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-project", "38-result-agent", "38-result-stopped" };
+        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-project", "38-result-agent", "38-result-stopped", "38-result-play", "38-result-play-refused" };
 
         /// <summary>The agent's newest message in the result's states, DESIGN's own, synthetic.</summary>
         private const string ResultSays = "I added the golden balloon and removed the old backup file.";
@@ -116,6 +116,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-checks" => new RoomResult(isVr: true, canMakeVr: false, canTry: true, passed: true, ResultTurn(false), passing, RoomResultPage.Checks),
                 "38-checks-failed" => new RoomResult(false, true, false, false, ResultTurn(false), failing, RoomResultPage.Checks),
                 "38-result-stopped" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: false, ResultTurn(false), failing),
+                "38-result-play" => new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, ResultTurn(false), passing, play: PlayInHeadset.Offered),
+                "38-result-play-refused" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, play: PlayInHeadset.NotConfined),
                 "38-project" => new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, null, passing),
                 _ => null,
             };
@@ -220,6 +222,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-checks-failed" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks failed: the steps the check reached, Write Instruction and Back, synthetic data"),
                 "38-result-agent" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the agent offers never ask: the agent and its level in the row beside it, synthetic data"),
                 "38-result-stopped" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the agent's tries at a failed check ran out: that line first, Write Instruction leading, synthetic data"),
+                "38-result-play" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the project's checked preview can open on the headset: Play in Headset beside Try Build, synthetic data"),
+                "38-result-play-refused" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the preview reads outside its project: no Play in Headset, synthetic data"),
                 "36-work-fixing" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work while the agent's first try at a failed check runs: the failure and the try in the panel beside Stop, synthetic data"),
                 "38-project" => (VoiceStage.Idle, false, RoomBarState.Rest, "A project with a check and no observed turn: Build Passed, Make VR Version and Try Build, synthetic data"),
                 "37-page" => (VoiceStage.Idle, false, RoomBarState.Page, "A page with no moment of its own: its line in the panel, its actions in the column, synthetic data"),
@@ -585,6 +589,18 @@ namespace Halcyonic.XR.Workspace.Editor
                         var reads = state == "38-project" ? "Build Passed" : stopped ? "Stopped After 2 Tries\n4 Files Changed" : "4 Files Changed";
                         Require(bar.Body.GetParsedText().Replace("\r", "") == reads && shown.Sentence == (state == "38-project" ? null : stopped ? "Build Failed" : "Build Passed"),
                             "the panel reads \"" + bar.Body.GetParsedText() + "\" over \"" + shown.Sentence + "\"");
+                        // DEVICE's Play in Headset: a pressable action where it stands, nothing where it cannot act.
+                        if (state is "38-result-play" or "38-result-play-refused")
+                        {
+                            var at = shown.Column.ToList().FindIndex(action => action.Control.Action == RoomResult.PlayInHeadset);
+                            if (state == "38-result-play-refused") Require(at < 0, "Play in Headset stands where it cannot act");
+                            else
+                            {
+                                Require(at >= 0 && shown.Column[at].Words == HeadsetPlay.ActionWords && bar.Column[at].gameObject.activeSelf && bar.Column[at].Available,
+                                    "Play in Headset does not stand as a pressable action");
+                                if (at >= 0) Whole(bar.Column[at].Words, "Play in Headset's words");
+                            }
+                        }
                         if (stopped) Require(shown.Column[0].Place == KitPlace.Field && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1, "Write Instruction does not lead where the tries ran out");
                         else Require(shown.Column[0].Control.Action == RoomResult.MakeVrVersion && shown.Column[0].Main, "Make VR Version does not lead");
                     }

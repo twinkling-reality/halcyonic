@@ -170,7 +170,7 @@ namespace Halcyonic.XR.Workspace
             if (!RoomDesign.Enabled || projectId == null || State?.Projects.TryGetValue(projectId, out var project) != true) return null;
             var run = now.Execution?.ExecutionId;
             var (page, part) = setup.Presentation.ResultPageFor(now.Character.WorkstreamId, run);
-            return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part);
+            return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (ControlPlaneSettings.Target(), Demonstration));
         }
 
         /// <summary>
@@ -193,6 +193,7 @@ namespace Halcyonic.XR.Workspace
                 case RoomResult.Back: setup.Presentation.ShowResultPage(task, run, RoomResultPage.Result); break;
                 case RoomResult.MakeVrVersion: OnScreenActed(KitScreenAction.MakeAVrVersion, work!.ProjectId); break;
                 case RoomResult.TryBuild: OnScreenActed(KitScreenAction.TryIt, work!.ProjectId); break;
+                case RoomResult.PlayInHeadset: PlayInHeadset(work!.ProjectId); break;
                 default: return false;
             }
             dirty = true;
@@ -491,6 +492,39 @@ namespace Halcyonic.XR.Workspace
         {
             if (Away || drag != null || plane.Repositioning || plane.Sliding) return;
             SetProjectScreenBarOpen(true);
+        }
+
+        /// <summary>
+        /// DEVICE's Play in Headset pressed on the result: where no preview of the latest check runs, its start is sent and the
+        /// press waits for it (<see cref="HeadsetPlayWait"/>); where one runs, Quest Browser opens its loopback address. Nothing
+        /// where Play in Headset does not stand (the refusal's words are not pressable).
+        /// </summary>
+        private void PlayInHeadset(string projectId)
+        {
+            if (State?.Projects.TryGetValue(projectId, out var project) != true) return;
+            var target = ControlPlaneSettings.Target();
+            if (!HeadsetPlay.Stands(HeadsetPlay.For(project!, target, Demonstration))) return;
+            if (HeadsetPlay.CommandFor(project!, target, Demonstration, setup.Commands) is CommandEnvelope command)
+            {
+                if (!Connected || Demonstration || setup.Session() is not RealtimeSession session) return;
+                setup.Presentation.RecordCommandDispatched(command);
+                _ = setup.Submit(session, command);
+                headsetPlay.Sent(command);
+                dirty = true;
+                return;
+            }
+            HeadsetBrowser.Open(HeadsetPlay.AddressOf(project!, target, Demonstration));
+        }
+
+        /// <summary>A Play in Headset press waiting on the preview it started; it opens once, when the preview runs.</summary>
+        private readonly HeadsetPlayWait headsetPlay = new HeadsetPlayWait();
+
+        /// <summary>Each frame: where a press waits on a preview, the address opens once the project's view shows it running.</summary>
+        private void AdvanceHeadsetPlay()
+        {
+            if (headsetPlay.ProjectId == null) return;
+            // HeadsetBrowser opens only an address HeadsetPlay.IsOpenable admits; null opens nothing.
+            HeadsetBrowser.Open(headsetPlay.Advance(State, ControlPlaneSettings.Target(), Demonstration));
         }
 
         private void OnScreenActed(KitScreenAction action, string? projectId)

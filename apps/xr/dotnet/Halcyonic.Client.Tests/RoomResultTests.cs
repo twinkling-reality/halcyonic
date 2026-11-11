@@ -255,4 +255,26 @@ public class RoomResultTests
         }
         finally { RoomDesign.Enabled = was; }
     }
+
+    [Test]
+    public void PlayInHeadsetStandsBesideTryBuildOnlyWhereItCanAct()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            RoomBar With(PlayInHeadset? play) => Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, Turn(Observed), Steps(), play: play));
+            var offered = With(PlayInHeadset.Offered);
+            Assert.That(offered.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.MakeVrVersion, RoomResult.TryBuild, RoomResult.PlayInHeadset, RoomResult.ShowChanges, RoomResult.ShowChecks }), Show(offered));
+            var play = offered.Column.Single(action => action.Control.Action == RoomResult.PlayInHeadset);
+            Assert.That((play.Words, play.Main, play.Control.Available), Is.EqualTo((HeadsetPlay.ActionWords, false, true)));
+            // A press that starts the preview first stands as well.
+            Assert.That(With(PlayInHeadset.NoPreviewOfCheck).Column.Any(action => action.Control.Action == RoomResult.PlayInHeadset && action.Control.Available), Is.True);
+            // Where it cannot act it is not drawn, as Try Build is not: an action has no disabled look (BUILD-SPEC-v4 1.4).
+            foreach (var none in new PlayInHeadset?[] { null, PlayInHeadset.NotConfined, PlayInHeadset.NoWayToHeadset, PlayInHeadset.NoCheck,
+                PlayInHeadset.FilesNotChecked, PlayInHeadset.CheckNotPassed, PlayInHeadset.NoControlPlane })
+                Assert.That(With(none).Column.Any(action => action.Control.Action == RoomResult.PlayInHeadset), Is.False, none?.ToString() ?? "unknown");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
 }

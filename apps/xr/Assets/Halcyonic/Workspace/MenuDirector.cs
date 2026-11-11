@@ -309,6 +309,8 @@ namespace Halcyonic.XR.Workspace
                 director.navigator.Left += voice.Left;
                 director.voice = voice;
             }
+            // A task's file leaving the plane ends a Play in Headset wait: a preview that arrives later opens nothing.
+            director.navigator.Left += column => { if (column is FileColumn) director.headsetPlay.Clear(); };
             FocusGuard.Left += director.OnFocusLeft;
             Glaze.PaletteChanged += director.OnPaletteChanged;
             GlazeText.ScaleChanged += director.OnTextScaleChanged;
@@ -578,6 +580,7 @@ namespace Halcyonic.XR.Workspace
             placement?.Tick();
             navigator.Tick();
             memory.TickFiles(navigator.Beside);
+            AdvanceHeadsetPlay();
             // New project's kept flow ticks while it isn't beside the menu, so a build confirmed in it goes on.
             if (memory.NewProject is NewProjectFlow flow && navigator.Beside != flow) flow.Tick();
             AdvanceSpatialFlows();

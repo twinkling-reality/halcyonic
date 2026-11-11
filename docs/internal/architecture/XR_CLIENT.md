@@ -2761,6 +2761,15 @@ bands are the bar's one band.
   hairline, a step's with its check or cross. With nothing known of the task, the row stands alone as before. Not
   drawn yet: the check or cross beside Build Passed or Build Failed in the sentence bar. Checks: `38-result`, `38-result-long`, `38-changes`, `38-changes-long`, `38-checks`,
   `38-checks-failed`, `38-project`; `RoomResultTests`.
+- **Play in Headset in the result** (DEVICE's `HeadsetPlay`, gap 1): beside Try Build, where `HeadsetPlay.Stands` for
+  the project and the way this headset reaches the computer (`RoomResult.Play`, from `RoomResult.Of` given
+  `ControlPlaneSettings.Target()`); where it cannot act it is not drawn, as an action has no disabled look
+  (BUILD-SPEC-v4 1.4), so the refusal's words (`HeadsetPlay.Refusal`) wait for FIELD to give them a place. Its press (`MenuDirector.PlayInHeadset`) sends
+  the preview's start where none of the latest check runs and waits for it (`HeadsetPlayWait`, advanced each frame,
+  cleared when the task's file leaves the plane), else Quest Browser opens the loopback address
+  (`HeadsetBrowser.Open`). Checks: `38-result-play`, `38-result-play-refused`; `RoomResultTests`. Not done: AUDIT's
+  note that over the cable the address opens only once the computer reports a reverse for the preview's port (no one
+  reports it yet).
 - **A failed check back with its agent** (ADR 0044; the addendum's A7; FIELD's `RoomBar.Fixing.cs`): at work while a
   try runs, the information panel stands in its place beside Stop, its one row "Check Failed" with its cross over
   "Fixing · Try {n} of {m}" in the sentence bar, sweeping, the working field round it (`RoomBarView.LayFixing`; check
