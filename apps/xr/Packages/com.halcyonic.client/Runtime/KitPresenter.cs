@@ -212,6 +212,20 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// The section the redesign stands a task's file on instead of <paramref name="section"/>, before its frames are drawn
+        /// (the census, JUDGE 2026-11-11); null where the file stays. Checks, for a task at rest whose result has a check of the
+        /// computer's own (<paramref name="checkedByComputer"/>): Activity, where the result's page turns to Checks. Waiting,
+        /// with nothing waiting and nothing <paramref name="armed"/>: Activity. An approval this client answered stays pending
+        /// until the runtime resolves it, so its Waiting stays, with the Sent state.
+        /// </summary>
+        public static FileSection? RedesignSection(FileSection section, WorkspacePresentation workspace, bool armed, bool checkedByComputer) => section switch
+        {
+            FileSection.Checks when AtRest(workspace) && checkedByComputer => FileSection.Activity,
+            FileSection.Waiting when !WorkspaceText.SomethingWaits(workspace) && !armed => FileSection.Activity,
+            _ => null,
+        };
+
+        /// <summary>
         /// Whether the task's run is at rest, so the control plane admits a start beside it: its execution completed,
         /// failed, was interrupted or ended unknown (never starting, running, verifying or waiting for the person), and no
         /// command of this client's to it is still under way (CORE's ADMIT, 2026-11-03).

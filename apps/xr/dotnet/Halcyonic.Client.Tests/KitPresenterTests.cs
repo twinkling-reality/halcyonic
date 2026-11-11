@@ -8,6 +8,34 @@ namespace Halcyonic.Client.Tests;
 /// <summary>The spatial kit's models take production's words and records unchanged: the kit draws them, it never words them.</summary>
 public class KitPresenterTests
 {
+    [Test]
+    public void TheRedesignStandsAnEmptyWaitingOnActivityAndKeepsWaitingWhileAnApprovalIsPending()
+    {
+        var work = new WaitingWork();
+        // An approval pending, whether or not this client has answered it: it stays pending until the runtime resolves it.
+        var waiting = work.Present();
+        Assert.That(KitPresenter.RedesignSection(FileSection.Waiting, waiting, armed: false, checkedByComputer: false), Is.Null);
+
+        work.Change(execution => execution.PendingApprovals.Clear());
+        var nothing = work.Present();
+        Assert.That(KitPresenter.RedesignSection(FileSection.Waiting, nothing, armed: false, checkedByComputer: false), Is.EqualTo(FileSection.Activity));
+        Assert.That(KitPresenter.RedesignSection(FileSection.Waiting, nothing, armed: true, checkedByComputer: false), Is.Null, "an armed confirmation keeps its page");
+        Assert.That(KitPresenter.RedesignSection(FileSection.Activity, nothing, armed: false, checkedByComputer: true), Is.Null);
+    }
+
+    [Test]
+    public void TheRedesignTurnsChecksToTheResultOnlyAtRestAndOnlyForTheComputersOwnCheck()
+    {
+        var work = new WaitingWork();
+        work.Change(execution => execution.PendingApprovals.Clear());
+        Assert.That(KitPresenter.RedesignSection(FileSection.Checks, work.Present(), armed: false, checkedByComputer: true), Is.Null, "not at rest");
+
+        work.Change(execution => execution.Status = ExecutionStatus.Completed);
+        var rest = work.Present();
+        Assert.That(KitPresenter.RedesignSection(FileSection.Checks, rest, armed: false, checkedByComputer: true), Is.EqualTo(FileSection.Activity));
+        Assert.That(KitPresenter.RedesignSection(FileSection.Checks, rest, armed: false, checkedByComputer: false), Is.Null, "no check of the computer's own: the file's Checks stays");
+    }
+
     private const string At = "2026-10-28T09:00:00.000Z";
     private const string Command = "pnpm test --filter sign-in";
 

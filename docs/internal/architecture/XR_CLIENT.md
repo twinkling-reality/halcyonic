@@ -2838,7 +2838,8 @@ in order, as before.
   rest with a check of the computer's own never shows the older Checks frame: whatever turned its file to Checks, the
   file stands at its Activity and the result's page turns to Checks; and a Waiting section with nothing waiting and
   nothing armed returns to Activity (`MenuDirector.SectionsForRedesign`, before each draw asks for its frames, so the first
-  frame is already right). A bar at rest with nothing to press (a recorded run's result) stands as the row with
+  frame is already right). The rule itself is the client core's (`KitPresenter.RedesignSection`, with client tests): an
+  approval this client answered stays pending until the runtime resolves it, so its Waiting stays. A bar at rest with nothing to press (a recorded run's result) stands as the row with
   "Projects" rather than hidden (`RoomBar.WithClose`).
 - **Facts apart for FIELD's cards** (A17, 2026-11-11: no information strung on separators): the result gives its facts
   apart (`RoomBar.Known`, the `RoomResult`: `FilesChanged`, `Passed`, `Changes` as `RoomChange` with kind, path and
