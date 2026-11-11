@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -125,6 +125,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     more: Ours("The game has changed since. They still get the last checked build."), code: CardCode()),
                 "47-card-reading" => new RoomCard(Theirs("tail.js"), slots: new[] { new RoomSlot(RoomKind.Changed, Ours("Edited")), new RoomSlot(RoomKind.Added, Ours("4 Lines")) },
                     reading: CardReading(), more: Ours("Page 1 of 2")),
+                // The review before Start, its first task too long to stand whole: the second of its pages, with a note to check.
+                "47-card-review" => RoomReview.Card(new NewWorkReview("Kite Run", "Make a kite", "Agent Studio", "Glimmer 30B", "On This Computer", "glimmer-30b-q4",
+                    string.Join(" ", Enumerable.Repeat("Make a kite that follows my hand, climbs when I raise it, and dips when I lower it.", 7)) + " Then run make wind to test it.",
+                    folder: "kite-run", neverAsk: false), page: 1),
                 "47-card-history" => new RoomCard(Ours("History"), Ours("Pick a moment to restore."), list: new[]
                 {
                     new RoomListRow(RoomKind.Worked, Ours("After ") + Theirs("Tail") + Ours(" Worked"), "18:40", press: CardRowControl("c1")),
@@ -160,6 +164,17 @@ namespace Halcyonic.XR.Workspace.Editor
             // the card meets both its edges.
             var slack = unit * 0.05f;
             Require(view.LaidWhole, "the card does not say it stands whole, though it is shown");
+            if (card.DescriptionPage is int asked)
+            {
+                var paged = view.PagedDescription;
+                Require(paged != null && view.DescriptionPages >= 2, "a long description makes " + view.DescriptionPages + " pages");
+                if (paged != null)
+                {
+                    Require(paged.pageToDisplay == asked + 1, "the description shows page " + paged.pageToDisplay + ", not " + (asked + 1));
+                    var info = paged.textInfo.pageInfo[paged.pageToDisplay - 1];
+                    Require(info.firstCharacterIndex <= 0 || char.IsWhiteSpace(paged.textInfo.characterInfo[info.firstCharacterIndex - 1].character), "a page starts inside a word");
+                }
+            }
             if (state == "47-card-recap")
             {
                 // A card that cannot stand whole says so: a description far past its four lines is cut, and LaidWhole is false.
@@ -174,7 +189,8 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 label.ForceMeshUpdate(true);
                 var words = label.GetParsedText();
-                Require(label.textInfo.characterCount > 0 && !label.isTextOverflowing && !words.Contains("…"), "\"" + words + "\" is cut");
+                // A paged description runs on past its page by design (its page breaks between lines); every other label is whole.
+                Require(label.textInfo.characterCount > 0 && (label == view.PagedDescription || !label.isTextOverflowing) && !words.Contains("…"), "\"" + words + "\" is cut");
                 // A file's own line may hold any character: only the card's own words are read for the separator.
                 Require(view.ReadingShown.Contains(label) || !words.Contains(KitMomentWords.Dot.Trim()), "\"" + words + "\" joins facts on a dot");
                 var bounds = label.textBounds;

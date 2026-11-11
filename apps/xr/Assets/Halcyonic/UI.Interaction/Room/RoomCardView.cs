@@ -192,12 +192,20 @@ namespace Halcyonic.XR.UI
                 foreach (var label in Shown)
                 {
                     label.ForceMeshUpdate(true);
+                    // A paged description runs on past its page by design; its page stands whole, broken between lines.
+                    if (label == PagedDescription) continue;
                     if (label.isTextOverflowing) return false;
                     if (!string.IsNullOrEmpty(label.text) && label.textInfo.characterCount == 0) return false;
                 }
                 return true;
             }
         }
+
+        /// <summary>The description's label where it pages (<see cref="RoomCard.DescriptionPage"/>); null where it stands whole.</summary>
+        public TextMeshPro? PagedDescription { get; private set; }
+
+        /// <summary>The pages the description made as last shown: 1 where it does not page. The flow pages the review by it.</summary>
+        public int DescriptionPages { get; private set; } = 1;
 
         /// <summary>The labels of the card's page of reading now, a file's own lines: for checks, which read no separator in them.</summary>
         public List<TextMeshPro> ReadingShown { get; } = new List<TextMeshPro>();
@@ -230,6 +238,8 @@ namespace Halcyonic.XR.UI
             glyphsUsed = 0;
             rowPressesUsed = 0;
             codeUsed = false;
+            PagedDescription = null;
+            DescriptionPages = 1;
             Shown.Clear();
             ReadingShown.Clear();
             Plates.Clear();
@@ -247,8 +257,24 @@ namespace Halcyonic.XR.UI
             {
                 // Under a head a block's gap, as every other block; under a title alone, its own small gap.
                 down += S(card.Head != RoomCardHead.None ? BlockGapDp : DescriptionGapDp);
-                var (_, tall) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(0.80f), card.Description, 0f, -down, width, 4);
-                down += tall;
+                if (card.DescriptionPage is int page)
+                {
+                    // Paged: six lines a page, broken between lines; the page asked for, or the last there is.
+                    var (label, _) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(0.80f), card.Description, 0f, -down, width, RoomCard.DescriptionPageLines);
+                    label.overflowMode = TextOverflowModes.Page;
+                    label.ForceMeshUpdate(true);
+                    DescriptionPages = Mathf.Max(1, label.textInfo.pageCount);
+                    label.pageToDisplay = Mathf.Min(page, DescriptionPages - 1) + 1;
+                    label.ForceMeshUpdate(true);
+                    PagedDescription = label;
+                    var onPage = Mathf.Clamp(label.textInfo.lineCount - (label.pageToDisplay - 1) * RoomCard.DescriptionPageLines, 1, RoomCard.DescriptionPageLines);
+                    down += onPage * S(DescriptionLineDp);
+                }
+                else
+                {
+                    var (_, tall) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(0.80f), card.Description, 0f, -down, width, 4);
+                    down += tall;
+                }
             }
             if (card.Gauges.Count > 0)
             {
