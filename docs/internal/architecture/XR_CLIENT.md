@@ -2781,9 +2781,11 @@ bands are the bar's one band.
 - **The Projects place, the launch screen, as a card** (the census, JUDGE 2026-11-11; A17): with nothing beside the menu
   under the redesign, the menu's own frame reaches the kit (`MenuDirector.PlainBindingOf` takes the menu's frame;
   `MenuPlane.ShowKitWorkspace` draws it with the menu's view as the column of record and the menu's column for presses).
-  `RoomBar.Projects` reads it: a card whose list is picked from, each project a row with its name as theirs and its state
-  as the quiet note (`ProjectsText.StateOf`, carried on the line as `PageLine.ProjectState`, the attention tone for Needs
-  You), New Project leading, the place's other prompts, the menu's other places, Close last. Folders to connect, a
+  `RoomBar.Projects` reads it (FIELD's parts note): a card whose list is picked from, each project a row with its name as
+  theirs and one quiet note (`ProjectState.Note`: "Needs You" in the attention tone, else "Running", else its count of
+  tasks, else none; never a state and a count together; from `ProjectsText.StateOf`, carried as
+  `PageLine.ProjectState`), and the column New Project (main), the place's Next Page where it pages, Settings, Close last
+  where the frame offers it. Folders to connect, a
   chosen row's side panel, anything else on the page: the older view, until FIELD's parts note.
 - **A task's Checks section as the result's Checks card** (the census, JUDGE 2026-11-11): under the redesign a task at
   rest with a check of the computer's own never shows the older Checks frame: whatever turned its file to Checks, the

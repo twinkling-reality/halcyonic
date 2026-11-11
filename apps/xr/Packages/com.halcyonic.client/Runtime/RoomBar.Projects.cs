@@ -22,7 +22,7 @@ namespace Halcyonic.Client
         {
             if (frame.Subject != ProjectsText.Subject || frame.Side != null || frame.Lines.Count == 0
                 || frame.Lines.Any(line => !line.ProjectIdentity || line.ProjectState == null || line.Action == null || !line.Available)) return null;
-            var rows = frame.Lines.Select(line => new RoomListRow(RoomKind.Folder, line.Runs, line.ProjectState!.Word,
+            var rows = frame.Lines.Select(line => new RoomListRow(RoomKind.Folder, line.Runs, line.ProjectState!.Note,
                 line.ProjectState.NeedsYou ? RoomTone.Attention : RoomTone.Quiet,
                 press: new KitControl(KitPlace.Choice, frame, line.Action!, line.Key, line.Words, line.Icon, true, null, false, line.Chosen),
                 chosen: line.Chosen)).ToList();
@@ -41,13 +41,14 @@ namespace Halcyonic.Client
                 else if (leaves) leaving.Add(action);
                 else others.Add(action);
             }
-            // The menu's other places (Tasks, Usage, Settings), so the launch screen keeps every way on.
-            var places = frame.Sections.Where(section => !section.Chosen && section.Reached)
+            // Settings, the menu's one other place on this card (FIELD's parts note); Tasks is the shelf's, Usage its own.
+            var places = frame.Sections.Where(section => !section.Chosen && section.Reached && section.Key == MenuPlace.Settings.ToString())
                 .Select(section => new RoomAction(new KitControl(KitPlace.Section, frame, MenuFrame.ChooseSection, section.Key, section.Words, null, true, null, false),
                     main: false, icon: GlazeIcon.Next));
+            // The column (FIELD's parts note): New Project, the main action; the place's paging where it has more; Settings; Close last.
             var column = new List<RoomAction>();
             if (main != null) column.Add(main);
-            column.AddRange(others);
+            column.AddRange(others.Where(action => action.Control.Action == Footer.NextPage));
             column.AddRange(places);
             column.AddRange(leaving);
             return new RoomBar(RoomBarState.Page, body: LineWords.Ours(ProjectsTitle), column: column)

@@ -61,12 +61,12 @@ namespace Halcyonic.Client
         /// </summary>
         /// <summary>The project's state apart (A17): the word of what matters most, how many tasks it counts, and whether the project is on the stage.</summary>
         public static ProjectState StateOf(ProjectSummary project) =>
-            project.NeedsYou > 0 ? new ProjectState("Needs You", project.NeedsYou, project.Shown, needsYou: true)
-            : project.Notice > 0 ? new ProjectState("Ready", project.Notice, project.Shown)
-            : project.Active > 0 ? new ProjectState("Running", project.Active, project.Shown)
-            : project.Work == 0 ? new ProjectState(NoWork, 0, project.Shown)
-            : project.Work > project.NotStarted ? new ProjectState("Paused", project.Work - project.NotStarted, project.Shown)
-            : new ProjectState("Not Started", project.NotStarted, project.Shown);
+            project.NeedsYou > 0 ? new ProjectState("Needs You", project.NeedsYou, project.Shown, project.Work, needsYou: true)
+            : project.Notice > 0 ? new ProjectState("Ready", project.Notice, project.Shown, project.Work)
+            : project.Active > 0 ? new ProjectState("Running", project.Active, project.Shown, project.Work, running: true)
+            : project.Work == 0 ? new ProjectState(NoWork, 0, project.Shown, 0)
+            : project.Work > project.NotStarted ? new ProjectState("Paused", project.Work - project.NotStarted, project.Shown, project.Work)
+            : new ProjectState("Not Started", project.NotStarted, project.Shown, project.Work);
 
         public static string ProjectFact(ProjectSummary project, bool looksAlike = false)
         {
@@ -137,13 +137,27 @@ namespace Halcyonic.Client
     /// <summary>A project's state apart, never joined (A17): the word, the tasks it counts, whether it is on the stage, whether it waits on the person.</summary>
     public sealed class ProjectState
     {
-        public ProjectState(string word, int tasks, bool shown, bool needsYou = false)
+        public ProjectState(string word, int tasks, bool shown, int work = 0, bool needsYou = false, bool running = false)
         {
             Word = word;
             Tasks = tasks;
             Shown = shown;
+            Work = work;
             NeedsYou = needsYou;
+            Running = running;
         }
+
+        /// <summary>Every task the project counts.</summary>
+        public int Work { get; }
+
+        /// <summary>A task of it is under way.</summary>
+        public bool Running { get; }
+
+        /// <summary>
+        /// The row's one note on the Projects card (FIELD's parts note): "Needs You" where a task waits on the person, else
+        /// "Running" where one is under way, else the count of its tasks, else none. Never a state and a count together.
+        /// </summary>
+        public string? Note => NeedsYou ? Word : Running ? Word : Work > 0 ? ProjectsText.Tasks(Work) : null;
 
         public string Word { get; }
 
