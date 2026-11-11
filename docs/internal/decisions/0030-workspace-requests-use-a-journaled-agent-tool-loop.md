@@ -156,9 +156,10 @@ answer from.
   never sent the change, 2026-11-11).
 - A request about all work is not offered `ask_person`: it changes nothing, so it is answered with a summary from what
   the host lists, never a question back (the lead, 2026-11-11).
-- A request never ends with nothing (the lead, 2026-11-11). When it ends with no new reply (interrupted, failed or
-  stopped), the change that ends it carries `observed`, what the computer itself saw, as facts: for a task, its run's
-  state, its turns, the files the Mac saw its turns change, the project's latest check and whether the person's words
+- A request never ends with nothing (the lead, 2026-11-11). When it ends (interrupted, failed or stopped) holding no reply at
+  all, the change that ends it carries `observed`, what the computer itself saw, as facts: for a task, its run's
+  state, its turns, the files the Mac saw its turns change, the check of this task's own folder (its own copy's, or the
+  project folder's where it works there, never another task's; AUDIT2 2026-11-11) and whether the person's words
   reached the agent; for a project, its tasks by where they stand; for all work, the projects and the tasks across
   them. No model text, no path, no agent words; journaled as every control-plane fact is, observed. It stands on the
   view apart from `reply`, and any later change takes it away, so it is never beside a reply. The clients choose its
