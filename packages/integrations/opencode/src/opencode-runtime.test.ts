@@ -20,8 +20,10 @@ import {
 import type { OpenCodeClient } from './client.ts';
 import { createSessionState, shellCallKey } from './events.ts';
 import {
+  folderKey,
   OPENCODE_CAPABILITIES,
   OpenCodeRuntimeAdapter,
+  openCodeSandboxFolder,
   readSnapshot,
   sessionPermissions,
 } from './opencode-runtime.ts';
@@ -84,7 +86,7 @@ describe('OpenCode runtime descriptor', () => {
       binaryPath: '/nonexistent/opencode',
       serverRecordFile: join(directory, 'server.json'),
       directoryPolicy: allowOnly(directory),
-      sandbox: { loopbackPorts: [], projectRoots: [directory], unreadable: [] },
+      sandbox: { loopbackPorts: [], unreadable: [] },
     });
     t.after(() => runtime.close());
     assert.equal(runtime.descriptor.approval_may_leave_sandbox, false);
@@ -263,6 +265,40 @@ describe('OpenCode session rules', () => {
   });
 });
 
+describe("one OpenCode server per folder inside Halcyonic's sandbox (BOX-3)", () => {
+  test('each folder has its own record beside the listing server, which keeps the configured one', (t) => {
+    const directory = temporary(t);
+    const recordFile = join(directory, 'server.json');
+    const sandboxed = new OpenCodeRuntimeAdapter({
+      binaryPath: '/nonexistent/opencode',
+      serverRecordFile: recordFile,
+      directoryPolicy: allowOnly(directory),
+      sandbox: { loopbackPorts: [], unreadable: [] },
+    });
+    t.after(() => sandboxed.close());
+    assert.equal(sandboxed.serverRecordFileFor(null), recordFile);
+    const first = sandboxed.serverRecordFileFor('/Users/someone/dev/garden');
+    const second = sandboxed.serverRecordFileFor('/Users/someone/dev/storefront');
+    assert.equal(first, `${recordFile}-${folderKey('/Users/someone/dev/garden')}`);
+    assert.notEqual(first, second);
+    assert.equal(sandboxed.serverRecordFileFor('/Users/someone/dev/garden'), first, 'stable');
+    // Each folder's own data, state, cache and temporary folders, beside the listing server's.
+    assert.equal(openCodeSandboxFolder(directory, null), join(directory, 'opencode-sandbox'));
+    assert.equal(
+      openCodeSandboxFolder(directory, '/Users/someone/dev/garden'),
+      join(directory, `opencode-sandbox-${folderKey('/Users/someone/dev/garden')}`),
+    );
+    // Without the sandbox nothing bounds a folder, so one server serves them all.
+    const open = new OpenCodeRuntimeAdapter({
+      binaryPath: '/nonexistent/opencode',
+      serverRecordFile: recordFile,
+      directoryPolicy: allowOnly(directory),
+    });
+    t.after(() => open.close());
+    assert.equal(open.serverRecordFileFor('/Users/someone/dev/garden'), recordFile);
+  });
+});
+
 describe('OpenCode does not work without asking yet (ADR 0043, AUDIT MODES-step3 F1)', () => {
   test('a start that never asks is refused, at the check and at the start, before any server', async (t) => {
     const directory = temporary(t);
@@ -270,7 +306,7 @@ describe('OpenCode does not work without asking yet (ADR 0043, AUDIT MODES-step3
       binaryPath: '/nonexistent/opencode',
       serverRecordFile: join(directory, 'server.json'),
       directoryPolicy: allowOnly(directory),
-      sandbox: { loopbackPorts: [], projectRoots: [directory], unreadable: [] },
+      sandbox: { loopbackPorts: [], unreadable: [] },
     });
     t.after(() => runtime.close());
     const refused = runtime.validateStartOptions({}, null, 'never_ask');
@@ -343,7 +379,7 @@ describe('OpenCode start failures', () => {
         PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
         FAKE_SECRET: secret,
       },
-      sandbox: { loopbackPorts: [], projectRoots: [directory], unreadable: [] },
+      sandbox: { loopbackPorts: [], unreadable: [] },
     });
     t.after(() => runtime.close());
     await assert.rejects(
@@ -385,7 +421,7 @@ describe('OpenCode start failures', () => {
         PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
         FAKE_SECRET: secret,
       },
-      sandbox: { loopbackPorts: [], projectRoots: [directory], unreadable: [] },
+      sandbox: { loopbackPorts: [], unreadable: [] },
     });
     t.after(() => runtime.close());
     await assert.rejects(

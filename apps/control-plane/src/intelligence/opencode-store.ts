@@ -1,5 +1,5 @@
-import { lstat } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { lstat, readdir } from 'node:fs/promises';
+import { basename, dirname, join, resolve } from 'node:path';
 import { sandboxedSessionStore } from '@halcyonic/integration-opencode';
 
 /**
@@ -13,6 +13,8 @@ import { sandboxedSessionStore } from '@halcyonic/integration-opencode';
  * made no later than the execution started, since the server that ran the session made it at its
  * first launch, before any session. A session from before the store, as one OpenCode ran before
  * its sandbox (2026-10-08) or on a host where it runs unsandboxed, is asked about as before.
+ * Since BOX-3 each folder's server keeps its own store, beside the listing server's
+ * (`opencode-sandbox-<key>`); any of them, held to the same rules, counts.
  */
 export async function inHalcyonicsOpenCodeStore(
   sandboxFolder: string,
@@ -22,6 +24,23 @@ export async function inHalcyonicsOpenCodeStore(
   if (runtimeKind !== 'opencode') return false;
   const started = Date.parse(startedAt);
   if (Number.isNaN(started)) return false;
+  const base = resolve(sandboxFolder);
+  let beside: string[] = [];
+  try {
+    const name = basename(base);
+    beside = (await readdir(dirname(base)))
+      .filter((each) => each.startsWith(name) && /^-[0-9a-f]{16}$/.test(each.slice(name.length)))
+      .sort()
+      .map((each) => join(dirname(base), each));
+  } catch {
+    // No data directory to look in: nothing but the named folder.
+  }
+  for (const folder of [base, ...beside]) if (await storeBefore(folder, started)) return true;
+  return false;
+}
+
+/** Whether a sandbox folder holds a store made no later than `started`, by metadata alone. */
+async function storeBefore(sandboxFolder: string, started: number): Promise<boolean> {
   // Only the folders from the sandbox's down are checked; where the data directory itself lies is
   // the host's own choice.
   const sandbox = resolve(sandboxFolder);

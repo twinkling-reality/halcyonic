@@ -335,17 +335,16 @@ describe('runtime composition', () => {
 });
 
 describe("OpenCode's sandbox on this Mac (ADR 0028)", () => {
-  test("writes only in the project roots, and reads nothing of the data directory but its settings and binary, nor the person's credentials", () => {
+  test("names no project root, since each folder's server writes that folder alone (BOX-3), and reads nothing of the data directory but its settings and binary, nor the person's credentials", () => {
     const sandbox = openCodeSandbox(
       {
-        projectRoots: ['/Users/someone/HalcyonicProjects'],
         opencodeConfigHome: '/d/opencode-config',
         opencodeBinary: '/d/runtimes/opencode-2.0.18/bin/opencode',
       },
       '/d',
       '/Users/someone',
     );
-    assert.deepEqual(sandbox.projectRoots, ['/Users/someone/HalcyonicProjects']);
+    assert.equal('projectRoots' in sandbox, false);
     assert.deepEqual(sandbox.loopbackPorts, [], 'no port on loopback but those the adapter adds');
     assert.equal(sandbox.ollama, 'http://127.0.0.1:11434', 'Ollama, through the gate');
     assert.equal(sandbox.unreadable[0], '/d');
@@ -358,11 +357,7 @@ describe("OpenCode's sandbox on this Mac (ADR 0028)", () => {
       '/d/runtimes/opencode-2.0.18/bin/opencode',
     ]);
     // Without Halcyonic's own OpenCode settings, the person's are read, outside the data directory.
-    const own = openCodeSandbox(
-      { projectRoots: [], opencodeConfigHome: null, opencodeBinary: null },
-      '/d',
-      '/h',
-    );
+    const own = openCodeSandbox({ opencodeConfigHome: null, opencodeBinary: null }, '/d', '/h');
     assert.deepEqual(own.readable, ['/d/runtimes']);
   });
 

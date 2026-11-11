@@ -143,3 +143,22 @@
 - **Worth revisiting:** if Apple removes `sandbox-exec`; if OpenCode ships a sandbox of its own; if
   a person-chosen list of extra local ports is wanted; or to give
   Codex's and Claude Code's runs the same bounds.
+
+## Amendment, 2026-11-10: one server per folder (BOX-3)
+
+AUDIT showed on 2026-11-10 that one server for every project let a command change another project under the same
+root: the project roots were writable. Since BOX-3 the adapter runs one OpenCode server per execution folder, each
+inside its own profile:
+- **What each folder's server writes:** that folder, and its own data, state, cache and temporary folders
+  (`<data dir>/opencode-sandbox-<key>`, `<key>` the folder's hash). Never the project roots, never another folder.
+- **Its own record, profile and gate:** a record (`<record>-<key>`), a profile beside its folders, a free port and its
+  own gate to Ollama.
+- **Sessions stay apart:** a command can reach that folder's own OpenCode sessions only, never another folder's.
+- **Model listing:** a server of its own at the configured record and `opencode-sandbox`, which writes no project.
+- **At startup:** every recorded server is stopped, as before.
+- **The understanding route:** it counts a session in any of these stores as one Salidium does not read.
+- **The cost:** one server process per folder a task ran in, kept until the control plane stops, since OpenCode
+  resumes no session after a restart.
+- **Reads are unchanged:** allowed but for Halcyonic's data and the person's listed credentials. Closing them is the
+  next step (BOX-3b).
+- **Tests:** the unit tests and the whole OpenCode end to end suite pass with one server per folder.

@@ -240,12 +240,14 @@ OpenCode server and everything it starts ([ADR 0028](../decisions/0028-opencode-
 outbound network only to the server's own port and a gate of Halcyonic's own in front of Ollama,
 so no connection beyond the Mac or to another program listening on it, Ollama's own port included; data, state, cache and temporary folders of its own
 under the data directory, never the person's own OpenCode folders; writes only there and in the
-project roots; nothing of Halcyonic's data directory read but the pinned binaries, those folders
+one folder it serves (since BOX-3 each execution's folder has a server of its own, and a server
+that lists models writes no project); nothing of Halcyonic's data directory read but the pinned binaries, those folders
 and its own OpenCode settings, and none of a listed set of the person's credentials (keys, cloud,
 container and package registries' tokens, the keychains). The adapter refuses to launch OpenCode on
 macOS without it, and the control plane warns where it runs unsandboxed. What stays reachable from
-inside: the project roots; the server's own data folder, one for every project, where a command
-can read other projects' OpenCode sessions and change saved session rules without the API; a model
+inside: its folder; the server's own data folder, one per folder since BOX-3, where a command can
+read that folder's other OpenCode sessions and change their saved rules without the API, but never
+another folder's; a model
 on this Mac, through the gate, which passes on only the model list, a model's details and chat with
 a model that runs here, refusing pull, push and every other request, so nothing leaves the Mac
 through Ollama; and the server's own API, whose password is readable from inside (below).

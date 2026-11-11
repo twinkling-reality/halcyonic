@@ -17,7 +17,7 @@ import {
 } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -33,7 +33,12 @@ import {
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
 import { OpenCodeClient } from './client.ts';
-import { OpenCodeRuntimeAdapter, type OpenCodeRuntimeOptions } from './opencode-runtime.ts';
+import {
+  folderKey,
+  OpenCodeRuntimeAdapter,
+  type OpenCodeRuntimeOptions,
+  openCodeSandboxFolder,
+} from './opencode-runtime.ts';
 import { personalSecrets } from './sandbox-profile.ts';
 import { buildEnvironment, launchServer } from './server.ts';
 import { readProcessIdentity } from './server-record.ts';
@@ -68,7 +73,6 @@ function sandboxOf(sandbox: OpenCodeSandbox) {
   return process.platform === 'darwin'
     ? {
         loopbackPorts: loopbackPorts(sandbox),
-        projectRoots: [sandbox.project],
         unreadable: [...personalSecrets(sandbox.env.HOME ?? ''), join(sandbox.root, 'halcyonic')],
       }
     : null;
@@ -145,6 +149,16 @@ function alive(pid: number): boolean {
   } catch {
     return false;
   }
+}
+
+/** The record of the server for the sandbox's project: one server per folder (BOX-3). */
+function recordOf(sandbox: OpenCodeSandbox): string {
+  return `${sandbox.recordFile}-${folderKey(realpathSync(sandbox.project))}`;
+}
+
+/** The profile of the server for the sandbox's project, beside its sandbox folder (BOX-3). */
+function profileOf(sandbox: OpenCodeSandbox): string {
+  return `${openCodeSandboxFolder(dirname(sandbox.recordFile), realpathSync(sandbox.project))}.sb`;
 }
 
 function actionError(code: string, effect: 'none' | 'unknown' = 'none') {
@@ -235,7 +249,7 @@ async function crashHost(t: TestContext, sandbox: OpenCodeSandbox) {
     const identity = await readProcessIdentity(serverPid).catch(() => null);
     if (identity?.command.startsWith(`${BINARY} `)) process.kill(-serverPid, 'SIGKILL');
   });
-  const record = JSON.parse(readFileSync(sandbox.recordFile, 'utf8')) as {
+  const record = JSON.parse(readFileSync(recordOf(sandbox), 'utf8')) as {
     pid: number;
     port: number;
   };
@@ -294,7 +308,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     assert.ok(pid !== null);
     const identity = await readProcessIdentity(pid);
     assert.ok(identity?.command.startsWith(`${BINARY} serve --hostname 127.0.0.1 --port `));
-    const record = JSON.parse(readFileSync(sandbox.recordFile, 'utf8')) as Record<string, unknown>;
+    const record = JSON.parse(readFileSync(recordOf(sandbox), 'utf8')) as Record<string, unknown>;
     assert.deepEqual(Object.keys(record).sort(), [
       'binaryPath',
       'command',
@@ -771,7 +785,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       const next = await start('Hello after the crash.');
       await next.next('runtime.turn.completed');
       assert.notEqual(runtime.serverPid, pid);
-      const record = JSON.parse(readFileSync(sandbox.recordFile, 'utf8')) as { pid: number };
+      const record = JSON.parse(readFileSync(recordOf(sandbox), 'utf8')) as { pid: number };
       assert.equal(record.pid, runtime.serverPid);
     },
   );
@@ -786,7 +800,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     await runtime.close();
     assert.equal(alive(pid), false);
     await until(() => childPids(process.pid, 'watchdog.ts').length === 0, 5000, 'the watchdog');
-    assert.equal(existsSync(sandbox.recordFile), false);
+    assert.equal(existsSync(recordOf(sandbox)), false);
   });
 
   test(
@@ -812,7 +826,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         pid: serverPid,
         port,
       });
-      assert.equal(existsSync(sandbox.recordFile), false);
+      assert.equal(existsSync(recordOf(sandbox)), false);
       assert.deepEqual(sandbox.egress, []);
     },
   );
@@ -1189,7 +1203,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
 
 /** The server the adapter launched, reached the way the adapter reaches it, for what it does not do. */
 function serverOf(runtime: OpenCodeRuntimeAdapter, sandbox: OpenCodeSandbox): OpenCodeClient {
-  const record = JSON.parse(readFileSync(sandbox.recordFile, 'utf8')) as { port: number };
+  const record = JSON.parse(readFileSync(recordOf(sandbox), 'utf8')) as { port: number };
   const [password] = runtime.secrets();
   assert.ok(password !== undefined, 'the server holds a password');
   return new OpenCodeClient(`http://127.0.0.1:${record.port}`, password);
@@ -1903,7 +1917,7 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
       const credential = join(sandbox.root, 'halcyonic', 'access-token');
       mkdirSync(join(sandbox.root, 'halcyonic'), { recursive: true });
       writeFileSync(credential, 'stand-in-credential-7f3a\n', { mode: 0o600 });
-      const profile = join(sandbox.root, 'halcyonic', 'opencode-sandbox.sb');
+      const profile = profileOf(sandbox);
       const results = join(sandbox.project, 'results.txt');
       // Another program listening on this Mac, as a debugger or a database would.
       const listener = createServer((_request, response) => response.end('reached'));
@@ -1949,7 +1963,7 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
       );
       // Readable by the user only, and naming the server's own port among the few it may reach.
       assert.equal(statSync(profile).mode & 0o777, 0o600);
-      const { port } = JSON.parse(readFileSync(sandbox.recordFile, 'utf8')) as { port: number };
+      const { port } = JSON.parse(readFileSync(recordOf(sandbox), 'utf8')) as { port: number };
       assert.ok(readFileSync(profile, 'utf8').includes(`(remote ip "localhost:${port}")`));
       const sent = sandbox.provider.requests.map((request) => request.body).join('\n');
       assert.ok(!sent.includes('stand-in-credential'), 'the credential reached the model');
@@ -1986,8 +2000,8 @@ describe("OpenCode reaches Ollama only through Halcyonic's gate (ADR 0028)", {
 
   /** The ports the sandbox's profile names, and the gate's: the one not otherwise known. */
   function profilePorts(sandbox: OpenCodeSandbox) {
-    const profile = readFileSync(join(sandbox.root, 'halcyonic', 'opencode-sandbox.sb'), 'utf8');
-    const { port: own } = JSON.parse(readFileSync(sandbox.recordFile, 'utf8')) as {
+    const profile = readFileSync(profileOf(sandbox), 'utf8');
+    const { port: own } = JSON.parse(readFileSync(recordOf(sandbox), 'utf8')) as {
       port: number;
     };
     const known = new Set([...loopbackPorts(sandbox), own]);

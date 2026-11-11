@@ -35,7 +35,6 @@ const runtime = new OpenCodeRuntimeAdapter({
     process.platform === 'darwin'
       ? {
           loopbackPorts: options.loopbackPorts ?? [],
-          projectRoots: [options.directory],
           unreadable: [],
         }
       : null,
