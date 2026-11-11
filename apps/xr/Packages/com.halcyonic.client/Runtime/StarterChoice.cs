@@ -89,16 +89,19 @@ namespace Halcyonic.Client
             idea.Folder?.StarterId is not string id || id == ProjectFolder.DefaultStarterId
             || card?.Slots.Any(slot => slot.Kind == RoomKind.Starter) == true;
 
-        /// <summary>The recap's card with the starter as a slot after the facts before it (the cube, its title as the value).</summary>
+        /// <summary>
+        /// The recap's card with the starter as a slot after the folder (its title as the value), where the card has room for
+        /// one more slot (<see cref="RoomCard.MostSlots"/>): a fact past it would push the level off the card, so until a card
+        /// holds four the starter is named by the review alone. A recap card carries no reading and no code.
+        /// </summary>
         public static RoomCard WithStarter(RoomCard card, StarterView? starter)
         {
-            if (starter == null) return card;
+            if (starter == null || card.Slots.Count >= RoomCard.MostSlots) return card;
             var slots = card.Slots.ToList();
             // After the folder, which it fills: the folder's slot first where there is one.
             var at = slots.FindIndex(slot => slot.Kind == RoomKind.Folder);
             slots.Insert(at < 0 ? 0 : at + 1, new RoomSlot(RoomKind.Starter, Title(starter)));
-            return new RoomCard(card.Title, card.Description, card.Head, card.Status, slots, card.Steps, card.TrackAt, card.TrackOf, card.List, card.Gauges, card.More,
-                card.Code, card.Reading);
+            return new RoomCard(card.Title, card.Description, card.Head, card.Status, slots, card.Steps, card.TrackAt, card.TrackOf, card.List, card.Gauges, card.More);
         }
     }
 }
