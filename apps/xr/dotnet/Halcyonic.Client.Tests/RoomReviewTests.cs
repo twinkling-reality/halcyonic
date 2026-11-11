@@ -21,12 +21,12 @@ public sealed class RoomReviewTests
         {
             (RoomKind.Folder, "kite-run"), (RoomKind.Agent, "Glimmer 30B"), (RoomKind.Level, AgentColumn.LevelWords(true)),
         }));
-        Assert.That(card.List.Select(row => (row.Kind, row.Name.Text, row.Note)), Is.EqualTo(new[]
+        Assert.That(card.List.Select(row => (row.Kind, row.Name.Text)), Is.EqualTo(new[]
         {
-            (RoomKind.Started, "Make a kite", RoomReview.TaskNameNote), (RoomKind.App, "Agent Studio", AgentColumn.AgentAppWords),
-            (RoomKind.Computer, "On This Computer", RoomReview.RunsOnNote), (RoomKind.App, "glimmer-30b-q4", RoomReview.ModelIdNote),
+            (RoomKind.Task, "Make a kite"), (RoomKind.App, "Agent Studio"), (RoomKind.Computer, "On This Computer"), (RoomKind.Agent, "glimmer-30b-q4"),
         }));
-        Assert.That(card.List.Single(row => row.Note == RoomReview.ModelIdNote).Mono, Is.True);
+        Assert.That(card.List.All(row => row.Note == null), Is.True, "a row's mark says what it is; no note names a field");
+        Assert.That(card.More, Is.Null, "a first task that stands whole has no part marker");
         Assert.That(card.Status, Is.Null, "nothing to check");
         Assert.That(card.DescriptionPage, Is.Null);
         Assert.That(card.AnyDot, Is.False);
@@ -42,18 +42,19 @@ public sealed class RoomReviewTests
     {
         var review = new NewWorkReview("Kite Run", "Make a kite", "Agent Studio", "", "", "", "Fetch https://example.com/wind and run make wind.",
             folder: "kite-run-2", folderBefore: "kite-run");
-        var card = RoomReview.Card(review, page: 1);
+        var card = RoomReview.Card(review, page: 1, pages: 3);
 
         Assert.That(card.Slots.Select(slot => (slot.Kind, slot.Value.Text)).Take(2), Is.EqualTo(new[] { (RoomKind.Folder, "kite-run-2"), (RoomKind.Agent, "Agent Studio") }),
             "with no model named, the agent app takes the agent's slot");
-        Assert.That(card.List.Single(row => row.Note == RoomReview.MovesFromNote).Name.Text, Is.EqualTo("kite-run"));
-        Assert.That(card.List.Any(row => row.Note == AgentColumn.AgentAppWords), Is.False, "the agent app is a slot already");
+        Assert.That(card.List.Single(row => row.Kind == RoomKind.Folder).Name.Text, Is.EqualTo(RoomReview.MovesFrom + "kite-run"));
+        Assert.That(card.List.Any(row => row.Kind == RoomKind.App), Is.False, "the agent app is a slot already");
         var warnings = review.Items.Where(each => each.Kind == ReviewItemKind.Warning).Select(each => each.Label.Trim()).ToList();
         Assert.That(warnings, Is.Not.Empty);
         Assert.That(card.Status!.Value.Title, Is.EqualTo(RoomReview.CheckTitle));
         Assert.That(card.Status!.Value.Tone, Is.EqualTo(RoomTone.Attention));
-        Assert.That(card.Status!.Value.Line, Is.EqualTo(warnings[0]));
-        if (warnings.Count > 1) Assert.That(card.More!.Text, Does.Contain(warnings[1]));
+        Assert.That(card.Status!.Value.Line, Is.EqualTo(string.Join(" ", warnings)), "every warning is read before Yes, in the status's line");
+        Assert.That(card.More!.Text, Is.EqualTo("Part 2 of 3"));
+        Assert.That(RoomReview.Card(review, page: 0, pages: 1).More, Is.Null, "one page is no part of many");
         Assert.That(card.DescriptionPage, Is.EqualTo(1));
         Assert.That(card.AnyDot, Is.False);
     }

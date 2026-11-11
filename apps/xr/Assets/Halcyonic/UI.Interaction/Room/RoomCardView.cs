@@ -106,15 +106,15 @@ namespace Halcyonic.XR.UI
         public const float GaugeLabelLineDp = 22f;
         public const float GaugeResetDp = 15f;
         public const float GaugeResetLineDp = 19f;
-        public const float MoreDp = 15f;
-        public const float MoreLineDp = 20f;
+        public const float MoreDp = 16f;
+        public const float MoreLineDp = 21f;
 
         /// <summary>
-        /// A code to scan: its well at most 264 dp across (16.5 degrees), never wider than the card, standing in the card's
+        /// A code to scan: its well at most 320 dp across (20 degrees), the card's hero, never wider than the card, standing in the card's
         /// middle; its cells dark on a near-white well, the kit's margin of light cells round them, the well's corners inside
         /// that margin. Opaque both, so a camera reads it the same over the bright room as over the dark.
         /// </summary>
-        public const float CodeDp = 264f;
+        public const float CodeDp = 320f;
         public const int CodeGround = 0xF4F7F8;
         public const int CodeInk = 0x0E1214;
         public const float CodeCornerCells = 2f;
@@ -136,6 +136,11 @@ namespace Halcyonic.XR.UI
         public const int Attention = 0xF2B134;
         public const int AttentionNote = 0xFFD27A;
         public const int StepGround = 0x2F3539;
+
+        /// <summary>The deep grounds of the accent and of attention, as the passed and failed ones, and how solid a status mark stands.</summary>
+        public const int AccentGround = 0x1E4C5A;
+        public const int AttentionGround = 0x543C12;
+        public const float StatusGroundAlpha = 0.92f;
         public const int AgentOrb = 0x7A6BD6;
         public const int ProjectTile = 0x3F8FB0;
         public const int TileInk = 0xE8F6FB;
@@ -259,7 +264,7 @@ namespace Halcyonic.XR.UI
                 down += S(card.Head != RoomCardHead.None ? BlockGapDp : DescriptionGapDp);
                 if (card.DescriptionPage is int page)
                 {
-                    // Paged: six lines a page, broken between lines; the page asked for, or the last there is.
+                    // Paged: four lines a page, broken between lines; the page asked for, or the last there is.
                     var (label, _) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(0.80f), card.Description, 0f, -down, width, RoomCard.DescriptionPageLines);
                     label.overflowMode = TextOverflowModes.Page;
                     label.ForceMeshUpdate(true);
@@ -309,7 +314,7 @@ namespace Halcyonic.XR.UI
             if (card.More != null)
             {
                 Gap(8f);
-                var (_, tall) = Text(KitRole.Body, MoreDp, MoreLineDp, White(0.66f), card.More, 0f, -down, width, 2);
+                var (_, tall) = Text(KitRole.Body, MoreDp, MoreLineDp, White(NoteAlpha), card.More, 0f, -down, width, 2);
                 down += tall;
             }
             HideUnused();
@@ -321,11 +326,13 @@ namespace Halcyonic.XR.UI
         {
             var (ground, ink, glyph) = status.Tone switch
             {
-                RoomTone.Good => (Rgb(Passed, 0.16f), Rgb(Passed), RoomGlyph.Check),
-                RoomTone.Bad => (Rgb(Failed, 0.16f), Rgb(Failed), RoomGlyph.Alert),
-                RoomTone.Working => (Rgb(Accent, 0.14f), Rgb(Accent), RoomGlyph.Wrench),
-                RoomTone.Attention => (Rgb(Attention, 0.16f), Rgb(Attention), RoomGlyph.Bubble),
-                _ => (White(0.08f), White(0.85f), RoomGlyph.Wait),
+                // Deep grounds of the tone's hue, near solid, the light ink over them: a faint tint vanished over the bright room
+                // (the critic, 2026-11-11), where the recap's solid head held.
+                RoomTone.Good => (Rgb(PassedGround, StatusGroundAlpha), Rgb(PassedInk), RoomGlyph.Check),
+                RoomTone.Bad => (Rgb(FailedGround, StatusGroundAlpha), Rgb(FailedInk), RoomGlyph.Alert),
+                RoomTone.Working => (Rgb(AccentGround, StatusGroundAlpha), Rgb(AccentNote), RoomGlyph.Wrench),
+                RoomTone.Attention => (Rgb(AttentionGround, StatusGroundAlpha), Rgb(AttentionNote), RoomGlyph.Bubble),
+                _ => (Rgb(StepGround, StatusGroundAlpha), White(0.88f), RoomGlyph.Wait),
             };
             var left = S(StatusMarkDp + StatusGapDp);
             var column = width - left;
@@ -551,17 +558,25 @@ namespace Halcyonic.XR.UI
             }
             var well = S(SlotPadDp) + S(SlotGlyphBoxDp) + S(CaptionGapDp) + S(CaptionLineDp) + S(SlotFootDp);
             var top = down;
+            // The first row's wells, by place: a row wrapped under it stands on the same columns, never stretched past them.
+            var columns = new List<float>();
             foreach (var row in rows)
             {
                 var sum = 0f;
                 foreach (var index in row) sum += least[index];
                 var share = (width - S(TileGapDp) * (row.Count - 1) - sum) / row.Count;
                 var x = 0f;
+                var place = 0;
                 foreach (var index in row)
                 {
                     var slot = slots[index];
-                    // Every row meets both edges, a row of one too (the built frame's critic, 2026-11-11: a lone well at its own width reads as an orphan).
-                    var tile = least[index] + Mathf.Max(0f, share);
+                    // The first row meets both edges. A card of one slot stands it at its own width: a fact, not a bar across
+                    // the card (the critic, 2026-11-11). A wrapped row keeps the first row's columns, so its wells line up.
+                    var tile = count == 1 ? least[index]
+                        : columns.Count < rows[0].Count ? least[index] + Mathf.Max(0f, share)
+                        : Mathf.Min(width - x, Mathf.Max(least[index], columns[Mathf.Min(place, columns.Count - 1)]));
+                    if (columns.Count < rows[0].Count) columns.Add(tile);
+                    place++;
                     values[index].Label.rectTransform.sizeDelta = new Vector2(tile - 2f * S(SlotPadDp), values[index].Label.rectTransform.sizeDelta.y);
                     Plate(new Vector2(tile, well), S(TileCornerDp), White(WellAlpha), new Vector2(x + tile / 2f, -(top + well / 2f)), "slot " + slot.Kind, under: true);
                     // The glyph's drawn edge on the value's left edge: its box moved left by where its ink starts.
@@ -728,6 +743,7 @@ namespace Halcyonic.XR.UI
             RoomKind.Failed => RoomGlyph.Alert,
             RoomKind.NotRun => RoomGlyph.Wait,
             RoomKind.Waiting => RoomGlyph.Wait,
+            RoomKind.Task => RoomGlyph.Flag,
             RoomKind.ToAdd => RoomGlyph.File,
             RoomKind.Changed => RoomGlyph.Wave,
             RoomKind.Added => RoomGlyph.Plus,

@@ -79,6 +79,9 @@ namespace Halcyonic.Client
         /// <summary>A way to share on the Wi-Fi: its arcs.</summary>
         Wifi,
 
+        /// <summary>A task, by its name: the flag, as the moment after a task worked.</summary>
+        Task,
+
         /// <summary>Something waiting its turn, as an instruction waits for a turn to end (ADR 0056): the clock, as a check not yet run.</summary>
         Waiting,
     }
@@ -317,12 +320,12 @@ namespace Halcyonic.Client
         /// <summary>
         /// Where the description is too long to stand whole (a first task of many lines, in the review before Start), the page
         /// of it to show, from 0: <see cref="DescriptionPageLines"/> lines a page, broken between lines, never in a word. The
-        /// view says how many pages it made. Null where the description stands whole, up to four lines.
+        /// view says how many pages it made. Null where the description stands whole, up to the same four lines.
         /// </summary>
         public int? DescriptionPage { get; }
 
         /// <summary>The lines of a description a page holds, where it pages.</summary>
-        public const int DescriptionPageLines = 6;
+        public const int DescriptionPageLines = 4;
 
         public RoomCardHead Head { get; }
 
