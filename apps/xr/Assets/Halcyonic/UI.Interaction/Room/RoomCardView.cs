@@ -109,6 +109,16 @@ namespace Halcyonic.XR.UI
         public const float MoreDp = 15f;
         public const float MoreLineDp = 20f;
 
+        /// <summary>
+        /// A code to scan: its well at most 264 dp across (16.5 degrees), never wider than the card, standing in the card's
+        /// middle; its cells dark on a near-white well, the kit's margin of light cells round them, the well's corners inside
+        /// that margin. Opaque both, so a camera reads it the same over the bright room as over the dark.
+        /// </summary>
+        public const float CodeDp = 264f;
+        public const int CodeGround = 0xF4F7F8;
+        public const int CodeInk = 0x0E1214;
+        public const float CodeCornerCells = 2f;
+
         /// <summary>The colours of the language: the pass, failure and accent hues, and their deep grounds.</summary>
         public const int Passed = 0x69D98D;
         public const int PassedInk = 0x9CF0B6;
@@ -154,6 +164,8 @@ namespace Halcyonic.XR.UI
         /// <summary>The chevron at a picked-from row's right, 18 dp, and its room before the note.</summary>
         public const float ChevronDp = 18f;
         public const float ChevronGapDp = 10f;
+        private RoomCodeView? codeView;
+        private bool codeUsed;
         private int platesUsed;
         private int glyphsUsed;
         private int order;
@@ -166,6 +178,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Every tile, mark and plate the card shows now, with what it is: for checks.</summary>
         public List<(RoomShape Plate, string What)> Plates { get; } = new List<(RoomShape, string)>();
+
+        /// <summary>The code to scan the card shows now; null where it shows none. For checks.</summary>
+        public RoomCodeView? CodeShown => codeUsed ? codeView : null;
 
         /// <summary>Every glyph the card shows now, with what it is: for checks.</summary>
         public List<(RoomGlyphView Glyph, string What)> Glyphs { get; } = new List<(RoomGlyphView, string)>();
@@ -191,6 +206,7 @@ namespace Halcyonic.XR.UI
             platesUsed = 0;
             glyphsUsed = 0;
             rowPressesUsed = 0;
+            codeUsed = false;
             Shown.Clear();
             Plates.Clear();
             Glyphs.Clear();
@@ -214,6 +230,11 @@ namespace Halcyonic.XR.UI
             {
                 Gap(BlockGapDp);
                 down = LayGauges(card.Gauges, width, down);
+            }
+            if (card.Code is RoomCode code)
+            {
+                Gap(BlockGapDp);
+                down = LayCode(code, width, down);
             }
             if (card.Slots.Count > 0)
             {
@@ -273,6 +294,24 @@ namespace Halcyonic.XR.UI
                 block = Mathf.Max(block, S(StatusMarkDp) + S(PipDropDp));
             }
             return top + block;
+        }
+
+        /// <summary>
+        /// The code to scan in the card's middle: a near-white well as wide as the card allows up to <see cref="CodeDp"/>, the
+        /// host's cells inside it with <see cref="RoomCode.MarginCells"/> light cells round them. A cell is a whole share of
+        /// the well, so every cell stands the same size.
+        /// </summary>
+        private float LayCode(RoomCode code, float width, float down)
+        {
+            var well = Mathf.Min(width, RoomType.Units(CodeDp));
+            var cell = well / (code.Side + 2 * RoomCode.MarginCells);
+            var centre = new Vector2(width / 2f, -(down + well / 2f));
+            Plate(new Vector2(well, well), Mathf.Min(S(TileCornerDp), cell * CodeCornerCells), Rgb(CodeGround), centre, "code well");
+            if (codeView == null) codeView = RoomCodeView.Create(transform, "Code", order - 3);
+            codeView.Show(code, cell * code.Side, Rgb(CodeInk));
+            codeView.transform.localPosition = new Vector3(centre.x, centre.y, -RoomType.Units(0.4f));
+            codeUsed = true;
+            return down + well;
         }
 
         private float LayHead(RoomCard card, float width, float down)
@@ -706,6 +745,7 @@ namespace Halcyonic.XR.UI
             }
             for (var index = platesUsed; index < plates.Count; index++) plates[index].gameObject.SetActive(false);
             for (var index = glyphsUsed; index < glyphs.Count; index++) glyphs[index].Hide();
+            if (!codeUsed && codeView != null) codeView.Hide();
         }
 
         /// <summary>A colour as the page shows it over the panel, its alpha the one a blend in linear light needs to look the same.</summary>

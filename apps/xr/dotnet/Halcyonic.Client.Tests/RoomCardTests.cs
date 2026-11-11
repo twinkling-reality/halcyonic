@@ -19,6 +19,34 @@ public sealed class RoomCardTests
     }
 
     [Test]
+    public void ACodeToScanKeepsTheHostsCellsAndHoldsNoWords()
+    {
+        var dark = Enumerable.Range(0, 21 * 21).Select(index => index % 3 == 0).ToArray();
+        var code = new RoomCode(21, dark);
+        var card = new RoomCard(status: new RoomCardStatus("Shared", "Scan the code to play", RoomTone.Good), code: code);
+
+        Assert.That(card.Code, Is.SameAs(code));
+        Assert.That(code.Side, Is.EqualTo(21));
+        Assert.That(code.IsDark(0, 0), Is.True);
+        Assert.That(code.IsDark(1, 0), Is.False);
+        Assert.That(code.IsDark(0, 1), Is.EqualTo(21 % 3 == 0), "row by row from the top left");
+        dark[1] = true;
+        Assert.That(code.IsDark(1, 0), Is.False, "the code keeps its own copy of the host's cells");
+        Assert.That(card.Words().ToList(), Is.EqualTo(new[] { "Shared", "Scan the code to play" }), "a code holds no words");
+        Assert.That(new RoomCard().Code, Is.Null);
+    }
+
+    [Test]
+    public void ACodeRefusesASideOutOfRangeOrTheWrongCount()
+    {
+        Assert.Throws<System.ArgumentOutOfRangeException>(() => new RoomCode(20, new bool[400]));
+        Assert.Throws<System.ArgumentOutOfRangeException>(() => new RoomCode(178, new bool[178 * 178]));
+        Assert.Throws<System.ArgumentException>(() => new RoomCode(21, new bool[21 * 21 - 1]));
+        Assert.Throws<System.ArgumentNullException>(() => new RoomCode(21, null!));
+        Assert.That(new RoomCode(177, new bool[177 * 177]).Side, Is.EqualTo(177));
+    }
+
+    [Test]
     public void AFactStrungOnTheSeparatorIsCaught()
     {
         var card = new RoomCard(LineWords.Ours("Model" + KitMomentWords.Dot + "Glimmer"));

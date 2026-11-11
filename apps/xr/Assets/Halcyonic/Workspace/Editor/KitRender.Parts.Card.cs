@@ -18,13 +18,52 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
         {
             var frame = new MenuFrame("History", new Footer(new Prompt(Footer.Close, "Back", GlazeIcon.Back, PromptKind.Close)));
             return new KitControl(KitPlace.Choice, frame, "history-pick", key, key, null, available: true, reason: null, holds: false);
+        }
+
+        /// <summary>
+        /// A code 29 cells a side shaped as a real one: three finder squares, the timing rows, and a fixed scatter. Only a
+        /// picture for the check, which reads every cell back from the pixels; the kit never makes a code.
+        /// </summary>
+        internal static RoomCode CardCode()
+        {
+            const int side = 29;
+            var dark = new bool[side * side];
+            void Finder(int left, int top)
+            {
+                for (var row = 0; row < 7; row++)
+                for (var column = 0; column < 7; column++)
+                {
+                    var ring = Math.Max(Math.Abs(row - 3), Math.Abs(column - 3));
+                    dark[(top + row) * side + left + column] = ring != 2;
+                }
+            }
+            for (var row = 0; row < side; row++)
+            for (var column = 0; column < side; column++)
+            {
+                var hash = unchecked((uint)(row * 73856093) ^ (uint)(column * 19349663) ^ 0x9E3779B9u);
+                hash ^= hash >> 13;
+                hash *= 0x5bd1e995u;
+                hash ^= hash >> 15;
+                dark[row * side + column] = row == 6 || column == 6 ? (row + column) % 2 == 0 : (hash & 1u) == 1u;
+            }
+            Finder(0, 0);
+            Finder(side - 7, 0);
+            Finder(0, side - 7);
+            // The light ring round each finder square.
+            for (var index = 0; index < 8; index++)
+            {
+                dark[7 * side + index] = dark[index * side + 7] = false;
+                dark[7 * side + side - 1 - index] = dark[index * side + side - 8] = false;
+                dark[(side - 8) * side + index] = dark[(side - 1 - index) * side + 7] = false;
+            }
+            return new RoomCode(side, dark);
         }
 
         private static RoomCard CardOf(string state)
@@ -52,6 +91,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 "47-card-usage" => new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge(Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
                 "47-card-needs-you" => new RoomCard(Theirs("Tail"), Theirs("Should the tail stream left or right?"),
                     status: new RoomCardStatus("Needs You", "It asks you something below", RoomTone.Attention)),
+                "47-card-share" => new RoomCard(status: new RoomCardStatus("Shared", "Scan the code to play", RoomTone.Good),
+                    slots: new[] { new RoomSlot(RoomKind.Wifi, Ours("192.168.1.20:47970")) },
+                    more: Ours("The game has changed since. They still get the last checked build."), code: CardCode()),
                 "47-card-history" => new RoomCard(Ours("History"), Ours("Pick a moment to restore."), list: new[]
                 {
                     new RoomListRow(RoomKind.Worked, Ours("After ") + Theirs("Tail") + Ours(" Worked"), "18:40", press: CardRowControl("c1")),
@@ -104,6 +146,24 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             float Left(string what) => view.Plates.Where(each => each.What.StartsWith(what, StringComparison.Ordinal)).Min(each => each.Plate.transform.localPosition.x - each.Plate.Size.x / 2f);
             float Right(string what) => view.Plates.Where(each => each.What.StartsWith(what, StringComparison.Ordinal)).Max(each => each.Plate.transform.localPosition.x + each.Plate.Size.x / 2f);
+            if (card.Code is RoomCode code)
+            {
+                // The code: its well square in the card's middle, the cells inside the kit's margin, the same share for every cell.
+                var codeView = view.CodeShown;
+                var well = view.Plates.Where(each => each.What == "code well").Select(each => each.Plate).ToList();
+                Require(codeView != null && codeView.Code == code, "the card shows no code");
+                Require(well.Count == 1, "the code has " + well.Count + " wells");
+                if (codeView != null && well.Count == 1)
+                {
+                    var ground = well[0];
+                    Require(Mathf.Abs(ground.Size.x - ground.Size.y) < slack && Mathf.Abs(ground.transform.localPosition.x - inner / 2f) < slack, "the code's well is not square in the card's middle");
+                    var cell = ground.Size.x / (code.Side + 2 * RoomCode.MarginCells);
+                    Require(Mathf.Abs(codeView.Side - cell * code.Side) < slack * 0.1f, "the code's cells do not stand inside a margin of " + RoomCode.MarginCells + " cells");
+                    Require(ground.CornerRadius <= cell * RoomCode.MarginCells, "the well's corners cut into its margin");
+                    Debug.Log("Halcyonic: parts: " + name + ": the code " + code.Side + " cells a side, its well " + (ground.Size.x / unit).ToString("0", CultureInfo.InvariantCulture)
+                        + " dp across, a cell " + (GlazeTokens.DegreesOf(cell)).ToString("0.000", CultureInfo.InvariantCulture) + " degrees at a metre.");
+                }
+            }
             if (card.Slots.Count > 0)
                 Require(Mathf.Abs(Left("slot")) < slack && Mathf.Abs(Right("slot") - inner) < slack, "the slots do not meet the card's two edges");
             if (card.Gauges.Count > 0)
@@ -174,6 +234,36 @@ namespace Halcyonic.XR.Workspace.Editor
                     for (var step = 0; step <= 60; step++)
                         most = Mathf.Max(most, Light(At(dark, label.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 60f), bounds.max.y - KitType.LinePitch(label) * 0.5f, 0f)))));
                     if (most < 110) failures.Add("\"" + label.GetParsedText() + "\" is not in the pixels, the lightest reads " + most + " of 255");
+                }
+                // Every cell of the code, read back at its middle over the bright room and the dark: dark where the host's cell
+                // is, light elsewhere, the margin light all round. Proves the cells stand row by row from the top left.
+                if (view.CodeShown is RoomCodeView shownCode && shownCode.Code is RoomCode cells)
+                {
+                    var wrong = 0;
+                    var first = "";
+                    var lightestDark = 0;
+                    var darkestLight = 255;
+                    var lit = new Color32[][] { dark, bright };
+                    for (var row = -2; row < cells.Side + 2; row++)
+                    for (var column = -2; column < cells.Side + 2; column++)
+                    {
+                        var inside = row >= 0 && column >= 0 && row < cells.Side && column < cells.Side;
+                        var wantDark = inside && cells.IsDark(column, row);
+                        var at = shownCode.transform.TransformPoint(new Vector3((column + 0.5f) / cells.Side - 0.5f, 0.5f - (row + 0.5f) / cells.Side, 0f));
+                        foreach (var pixels in lit)
+                        {
+                            var light = Light(At(pixels, at));
+                            if (wantDark) lightestDark = Mathf.Max(lightestDark, light);
+                            else darkestLight = Mathf.Min(darkestLight, light);
+                            if (wantDark ? light > 80 : light < 190)
+                            {
+                                if (wrong == 0) first = "cell " + column + " across, " + row + " down reads " + light + " of 255, wanted " + (wantDark ? "dark" : "light");
+                                wrong++;
+                            }
+                        }
+                    }
+                    if (wrong > 0) failures.Add("the code's cells do not read back from the pixels: " + wrong + " wrong, the first " + first);
+                    Debug.Log("Halcyonic: parts: " + name + ": the code's darkest light cell reads " + darkestLight + ", its lightest dark cell " + lightestDark + " of 255.");
                 }
                 // Every mark's ink on the middle of its shapes, apart from the ground at its box's corner (lighter on a dark well,
                 // darker on a light disc): the farthest a middle's colour stands from that ground.
