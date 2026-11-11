@@ -360,20 +360,34 @@ for privacy, capture and source-memory limits and the coordinator's separate bou
 
 ## Project reads
 
-Four read-only routes let the headset see a project's work for any runtime. Each takes `journal_id`
+Five read-only routes let the headset see a project's work and history for any runtime. Each takes `journal_id`
 (the current journal) and requires an owner-journal principal; a malformed id, path or extra query
 field is 400, and anything not found, not allowed or not set up is the same 404 `read_unavailable`.
 Every text in them is outside words, from the project's files or its build, as `source` says
 (`project_files`, `check_output`), and loses exact copies of the secrets Halcyonic holds (SECURITY.md).
 
+- `GET /api/projects/:project_id/history?limit&before`: the project's history, newest first, at
+  most `limit` entries (1 to 50, 20 when absent), older than the entry `before` names (an unknown one
+  is the 404); `more` says older ones exist and `total` counts them all. An entry is a `version` (its
+  `CheckpointView`, now with the `turn_id` of an `after_turn` one; whose `folder`, the project's or a
+  task's own copy; the `previous` version of that folder and `changed_files` since it, null for a
+  folder's first version or when the store cannot tell), `not_kept` (a checkpoint that failed),
+  `restored` (with totals and the `before_restore_checkpoint_id` that undoes it) or
+  `restore_incomplete`. Kept in the projection, so a headset that connects later still sees the
+  restores. `unavailable` with `undo_not_set_up` without undo.
 - `GET /api/projects/:project_id/changes?from&to`: the files that changed between two of the
   project's own checkpoints (both in its journal), each `added`, `changed` or `removed` with its
   lines added and removed (null for a binary file), sorted by path, at most 200, `files_total` and
   `complete` saying when there were more. A task's change is its `before_task` checkpoint to its
-  last `after_turn` one. Off without undo (`HALCYONIC_GIT_BIN`).
+  last `after_turn` one. With `to` left out (the response's `to` is then null), `from` is compared
+  with the folder it was taken of as it is now: that folder is read into a tree in Halcyonic's
+  checkpoint store, as a checkpoint is, after any checkpoint or restore of the project already
+  under way, and no checkpoint is recorded. A folder no longer there, or no longer allowed, is the
+  404. Off without undo (`HALCYONIC_GIT_BIN`).
 - `GET /api/projects/:project_id/changes/file?from&to&path`: one of those files as a unified diff, at
   most 64 KiB and 2,000 lines, `complete` false when cut; null for a binary file and for a file
-  whose name says it may hold secrets (`withheld`). A file that did not change is 404.
+  whose name says it may hold secrets (`withheld`). A file that did not change is 404. `to` left out
+  compares with the file as it is now, as above.
 - `GET /api/projects/:project_id/file?path`: one file of the project's folder as it is now, a
   project-relative path: `text` (valid UTF-8 without NUL, at most 256 KiB, given whole), `binary`,
   `too_large` or `withheld`, with its size and modification time; never through a link, outside the

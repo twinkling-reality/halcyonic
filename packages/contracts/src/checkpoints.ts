@@ -1,6 +1,6 @@
 import Type, { type Static } from 'typebox';
 import { Sha256Hex } from './devices.ts';
-import { ErrorInfo, ExecutionId, Nullable, ProjectId, Timestamp } from './primitives.ts';
+import { ErrorInfo, ExecutionId, NativeId, Nullable, ProjectId, Timestamp } from './primitives.ts';
 
 const strict = { additionalProperties: false } as const;
 
@@ -67,6 +67,8 @@ export const CheckpointView = Type.Object(
     tree: Sha256Hex,
     files: Type.Integer({ minimum: 0 }),
     project_head: Nullable(GitObjectId),
+    /** On an `after_turn` version: the runtime's id of the turn it follows; absent where none was given. */
+    turn_id: Type.Optional(NativeId),
   },
   strict,
 );

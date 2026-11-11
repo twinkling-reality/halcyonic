@@ -23,6 +23,7 @@ import {
   ProjectChangesQuery,
   ProjectFileChangeQuery,
   ProjectFileQuery,
+  ProjectHistoryQuery,
   ProjectId,
   type ProjectsResponse,
   parseCommandEnvelope,
@@ -63,6 +64,7 @@ const validateRuntimeId = compileValidator(RuntimeId);
 const validateCheckpointId = compileValidator(CheckpointId);
 const validateCheckId = compileValidator(CheckId);
 const validateProjectChangesQuery = compileValidator(ProjectChangesQuery);
+const validateProjectHistoryQuery = compileValidator(ProjectHistoryQuery);
 const validateProjectFileChangeQuery = compileValidator(ProjectFileChangeQuery);
 const validateProjectFileQuery = compileValidator(ProjectFileQuery);
 const validateCheckStepOutputQuery = compileValidator(CheckStepOutputQuery);
@@ -321,6 +323,12 @@ export function registerRoutes(
       .send(errorBody('read_unavailable', 'This read is unavailable for this selection.'));
   const invalid = (reply: { code(code: number): { send(body: unknown): unknown } }) =>
     reply.code(400).send(errorBody('invalid_request', 'The project, scope or path is invalid.'));
+  app.get('/api/projects/:project_id/history', async (request, reply) => {
+    const projectId = (request.params as { project_id: string }).project_id;
+    const query = validateProjectHistoryQuery(request.query);
+    if (!validateProjectId(projectId).ok || !query.ok) return invalid(reply);
+    return (await reads.history(projectId, query.value, request.principal)) ?? unavailable(reply);
+  });
   app.get('/api/projects/:project_id/changes', async (request, reply) => {
     const projectId = (request.params as { project_id: string }).project_id;
     const query = validateProjectChangesQuery(request.query);

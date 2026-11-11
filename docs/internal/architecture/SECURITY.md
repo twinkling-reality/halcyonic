@@ -19,6 +19,13 @@ ordinary file: refusing files with more than one link would refuse pnpm's hard-l
 only something able to write the folder, which could read that file itself, can plant one. Halcyonic's
 own data is compared by real path and without case.
 
+A project's history (REALTIME.md) gives counts, ids, reasons and failure messages, never paths or
+contents. Comparing a version with its folder as it is now reads that folder as taking a checkpoint
+does, with the same checks of where it is (inside a project root, or a task's own copy, never
+Halcyonic's data), and writes its files' objects into Halcyonic's own checkpoint store, never into the
+folder; the objects are named nowhere and the store is never pruned, so a reader could grow the
+store by asking repeatedly while the folder changes, as each turn's checkpoint does.
+
 ## Recorded tool-result work content
 
 Observed final command output and per-file patch fields follow the established tool-title owner

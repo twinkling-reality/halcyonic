@@ -27,12 +27,15 @@ import {
   RepositoryFullName,
 } from './catalog.ts';
 import {
+  CheckpointFailure,
   CheckpointReason,
   CheckpointsResponse,
+  CheckpointsResult,
   CheckpointView,
   PathList,
   RestorePreview,
   RestorePreviewResponse,
+  RestorePreviewResult,
   ReviewDigest,
 } from './checkpoints.ts';
 import {
@@ -114,6 +117,13 @@ import {
   StoredEvent,
 } from './events.ts';
 import { FileChanged, FileCreated, FileDeleted, FilesObserved } from './file-changes.ts';
+import {
+  HistoryEntry,
+  HistoryFolder,
+  ProjectHistoryQuery,
+  ProjectHistoryResponse,
+  ProjectHistoryResult,
+} from './history.ts';
 import {
   LocationFolder,
   LocationReviewRequest,
@@ -308,7 +318,10 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   ChangedFiles,
   RestorePreview,
   CheckpointsResponse,
+  CheckpointsResult,
   RestorePreviewResponse,
+  RestorePreviewResult,
+  CheckpointFailure,
   ReviewDigest,
   CheckFindings,
   CheckLaptop,
@@ -457,6 +470,11 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   ProjectFileQuery,
   ProjectFileResponse,
   ProjectReadQuery,
+  HistoryEntry,
+  HistoryFolder,
+  ProjectHistoryQuery,
+  ProjectHistoryResponse,
+  ProjectHistoryResult,
   ApprovalResolution: RUNTIME_EVENT_PAYLOADS['runtime.approval.resolved'].properties.decision,
   FailureEffect: CommandFailure.properties.effect,
   StateUnknownCode: ExecutionStateUnknown.properties.payload.properties.code,

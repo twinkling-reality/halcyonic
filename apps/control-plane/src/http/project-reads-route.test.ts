@@ -18,14 +18,26 @@ test('the project reads refuse a malformed scope or path with 400, and anything 
     `/api/projects/${project}/file?journal_id=${journal}&path=/etc/hosts`,
     `/api/projects/${project}/file?journal_id=${journal}`,
     `/api/projects/${project}/file?journal_id=${journal}&path=a.ts&extra=1`,
-    `/api/projects/${project}/changes?journal_id=${journal}&from=${checkpoint}`,
+    `/api/projects/${project}/changes?journal_id=${journal}`,
+    `/api/projects/${project}/changes?journal_id=${journal}&from=${checkpoint}&to=now`,
     `/api/projects/${project}/checks/${checkpoint}/output?journal_id=${journal}&step=page`,
+    `/api/projects/${project}/history`,
+    `/api/projects/${project}/history?journal_id=${journal}&limit=0`,
+    `/api/projects/${project}/history?journal_id=${journal}&limit=51`,
+    `/api/projects/${project}/history?journal_id=${journal}&limit=-1`,
+    `/api/projects/${project}/history?journal_id=${journal}&before=not-an-id`,
+    `/api/projects/${project}/history?journal_id=${journal}&page=2`,
+    `/api/projects/not-an-id/history?journal_id=${journal}`,
   ]) {
     assert.equal((await get(path)).status, 400, path);
   }
   for (const path of [
     `/api/projects/${project}/file?journal_id=${journal}&path=a.ts`,
     `/api/projects/${project}/changes?journal_id=${journal}&from=${checkpoint}&to=${checkpoint}`,
+    // `to` left out is the folder as it is now: well formed, and nothing is set up here.
+    `/api/projects/${project}/changes?journal_id=${journal}&from=${checkpoint}`,
+    `/api/projects/${project}/changes/file?journal_id=${journal}&from=${checkpoint}&path=a.ts`,
+    `/api/projects/${project}/history?journal_id=${journal}&limit=50&before=${checkpoint}`,
     `/api/projects/${project}/changes/file?journal_id=${journal}&from=${checkpoint}&to=${checkpoint}&path=a.ts`,
     `/api/projects/${project}/checks/${checkpoint}/output?journal_id=${journal}&step=build`,
   ]) {

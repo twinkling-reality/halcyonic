@@ -137,3 +137,26 @@ for a whole restore, and each profile refusing a read and a write outside (`chec
 shown: since git reads nothing outside under its profile, a swap during `git add` can no longer take a file from outside
 into a checkpoint, which a later restore would have written into the project; a race inside git cannot be made certain
 in a test.
+
+## Amendment, 2026-11-11: a project's history, and a version against the folder now
+
+The headset's History (the parity map's gap 2) needs what current state did not keep. Decided:
+
+- **The projection keeps each project's history.** That is its versions, the checkpoints not kept, and its restores,
+  complete or not, in journal order. A restore had been a journal fact only, so a headset that connected after it
+  could not show it. A version records whose folder it holds, the project's or a task's own copy (ADR 0045), and
+  the version before it of that same folder. The history is part of the projection's state, so a start restored
+  from a checkpoint keeps it (ADR 0050, state format 5).
+- **An after-turn checkpoint carries its turn.** `project.checkpoint.recorded` and `CheckpointView` gain an
+  optional `turn_id`, the runtime's id of the turn the checkpoint follows. Older events and turns without an id
+  have none.
+- **`GET /api/projects/:id/history`** reads the history newest first, in pages of at most 50, with an entry id as
+  its cursor. A version's `changed_files` is counted against its previous version by `git diff-tree --name-only`
+  on the two trees. The count is kept by tree pair, since a tree's id names its contents.
+- **The change reads compare a version with its folder as it is now** when `to` is left out. The folder is read
+  into a tree in the store as a checkpoint's is, with the same checks of where it is. The read waits behind the
+  project's checkpoints and restores, and records nothing.
+
+Not decided here: the history of a task's own copy beyond marking its versions, and pruning the store. Tested
+against the system's git in temporary folders (`checkpoints/checkpointer.test.ts`) and on synthetic events
+(`domain/history.test.ts`).

@@ -313,6 +313,8 @@ export const ProjectCheckpointRecorded = projectEvent(
       tree: Sha256Hex,
       files: Type.Integer({ minimum: 0 }),
       project_head: Nullable(GitObjectId),
+      /** On `after_turn`: the runtime's id of the turn it follows, absent where it gave none. */
+      turn_id: Type.Optional(NativeId),
     },
     strict,
   ),

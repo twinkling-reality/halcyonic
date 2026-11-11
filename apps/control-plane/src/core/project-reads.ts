@@ -8,6 +8,8 @@ import {
   type CheckpointId,
   type CheckStepOutputQuery,
   type CheckStepOutputResponse,
+  HISTORY_PAGE,
+  type HistoryEntry,
   PROJECT_CHANGE_FILES,
   PROJECT_FILE_BYTES,
   PROJECT_FILE_DIFF_BYTES,
@@ -19,6 +21,8 @@ import {
   type ProjectFileChangeResponse,
   type ProjectFileQuery,
   type ProjectFileResponse,
+  type ProjectHistoryQuery,
+  type ProjectHistoryResponse,
   type ProjectId,
   type Timestamp,
 } from '@halcyonic/contracts';
@@ -49,7 +53,10 @@ export class ProjectReads {
     if (checkpoints === null || !this.#allowed(projectId, query.journal_id, principal))
       return undefined;
     if (!this.#ownCheckpoints(projectId, query.from, query.to)) return undefined;
-    const compared = await checkpoints.compare(projectId, query.from, query.to);
+    const compared =
+      query.to === undefined
+        ? await checkpoints.compareNow(projectId as ProjectId, query.from)
+        : await checkpoints.compare(projectId, query.from, query.to);
     if (!compared.ok) return undefined;
     const files = compared.files.slice(0, PROJECT_CHANGE_FILES).map((file) => ({
       path: file.path,
@@ -61,7 +68,7 @@ export class ProjectReads {
     return {
       project_id: projectId as ProjectId,
       from: query.from,
-      to: query.to,
+      to: query.to ?? null,
       files,
       files_total: compared.files.length,
       complete: files.length === compared.files.length,
@@ -79,13 +86,11 @@ export class ProjectReads {
       return undefined;
     if (!this.#ownCheckpoints(projectId, query.from, query.to)) return undefined;
     const withheld = withheldPath(query.path);
-    const read = await checkpoints.compareFile(
-      projectId,
-      query.from,
-      query.to,
-      query.path,
-      withheld ? 0 : PROJECT_FILE_DIFF_BYTES,
-    );
+    const maxBytes = withheld ? 0 : PROJECT_FILE_DIFF_BYTES;
+    const read =
+      query.to === undefined
+        ? await checkpoints.compareFileNow(projectId as ProjectId, query.from, query.path, maxBytes)
+        : await checkpoints.compareFile(projectId, query.from, query.to, query.path, maxBytes);
     if (!read.ok) return undefined;
     let diff: string | null = null;
     let complete = read.complete;
@@ -97,7 +102,7 @@ export class ProjectReads {
     return {
       project_id: projectId as ProjectId,
       from: query.from,
-      to: query.to,
+      to: query.to ?? null,
       path: query.path,
       change: read.file.change,
       binary: read.file.binary,
@@ -221,10 +226,64 @@ export class ProjectReads {
     );
   }
 
-  /** Both checkpoints are the project's own, as its journal records them. */
-  #ownCheckpoints(projectId: string, from: CheckpointId, to: CheckpointId): boolean {
+  /** Both checkpoints, or the one where `to` is the folder now, are the project's own, as its journal records them. */
+  #ownCheckpoints(projectId: string, from: CheckpointId, to: CheckpointId | undefined): boolean {
     const ids = new Set(this.#plane.projection.checkpoints(projectId).map((c) => c.checkpoint_id));
-    return ids.has(from) && ids.has(to);
+    return ids.has(from) && (to === undefined || ids.has(to));
+  }
+
+  /**
+   * The project's history, newest first, a page at a time (the parity map's gap 2): its versions,
+   * each with the files changed since the version before it of the same folder, the ones not kept,
+   * and its restores. `before` names an entry the client holds; an unknown one reads as unavailable.
+   */
+  async history(
+    projectId: string,
+    query: ProjectHistoryQuery,
+    principal: Principal | null,
+  ): Promise<ProjectHistoryResponse | undefined> {
+    if (!this.#allowed(projectId, query.journal_id, principal)) return undefined;
+    const checkpoints = this.#plane.checkpoints;
+    if (checkpoints === null)
+      return {
+        project_id: projectId as ProjectId,
+        result: {
+          availability: 'unavailable',
+          // As the checkpoints read says it (REALTIME.md).
+          reason: {
+            code: 'undo_not_set_up',
+            message: 'Undo is not set up on this computer (HALCYONIC_GIT_BIN).',
+          },
+        },
+      };
+    const all = this.#plane.projection.history(projectId);
+    let end = all.length;
+    if (query.before !== undefined) {
+      end = all.findIndex((entry) => entry.entry_id === query.before);
+      if (end < 0) return undefined;
+    }
+    const limit = query.limit === undefined ? HISTORY_PAGE : Number(query.limit);
+    const start = Math.max(0, end - limit);
+    const trees = new Map(
+      this.#plane.projection.checkpoints(projectId).map((view) => [view.checkpoint_id, view.tree]),
+    );
+    const entries: HistoryEntry[] = [];
+    for (const entry of all.slice(start, end).reverse()) {
+      if (entry.kind !== 'version' || entry.previous === null) {
+        entries.push(entry);
+        continue;
+      }
+      const from = trees.get(entry.previous);
+      const changed =
+        from === undefined
+          ? null
+          : await checkpoints.changedCount(projectId, from, entry.checkpoint.tree);
+      entries.push({ ...entry, changed_files: changed });
+    }
+    return {
+      project_id: projectId as ProjectId,
+      result: { availability: 'available', entries, more: start > 0, total: all.length },
+    };
   }
 }
 

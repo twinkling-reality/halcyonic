@@ -720,13 +720,74 @@ export class CheckpointStore {
   > {
     const trees = await this.#trees(projectId, fromId, toId);
     if (!trees.ok) return trees;
-    const { repository, from, to } = trees;
+    const files = await this.#diffTrees(trees.repository, trees.from, trees.to);
+    return files === null ? { ok: false, code: 'store_failed' } : { ok: true, files };
+  }
+
+  /**
+   * What changed between a checkpoint and its folder as it is now (History's "since this version"):
+   * the folder is read into a tree in the store, as a checkpoint's is, but no checkpoint is named or
+   * recorded. A file the checkpoint holds stays compared though an ignore file now names it.
+   */
+  async compareNow(
+    projectId: string,
+    fromId: string,
+    folder: string,
+  ): Promise<
+    | { readonly ok: true; readonly files: readonly ComparedFile[] }
+    | { readonly ok: false; readonly code: 'checkpoint_missing' | 'store_failed' | 'folder_unread' }
+  > {
+    const trees = await this.#treesNow(projectId, fromId, folder);
+    if (!trees.ok) return trees;
+    const files = await this.#diffTrees(trees.repository, trees.from, trees.to);
+    return files === null ? { ok: false, code: 'store_failed' } : { ok: true, files };
+  }
+
+  /**
+   * How many files differ between two trees of the project's store, by their ids as checkpoints
+   * record them; null when the store cannot tell.
+   */
+  async countChanged(projectId: string, fromTree: string, toTree: string): Promise<number | null> {
+    if (!ID_PATTERN.test(projectId) || !OBJECT_ID.test(fromTree) || !OBJECT_ID.test(toTree))
+      return null;
+    if (fromTree === toTree) return 0;
+    const repository = this.#repositoryPath(projectId);
+    if (!(await isFolder(repository))) return null;
+    const listed = await this.#run(repository, null, null, [
+      'diff-tree',
+      '-r',
+      '-z',
+      '--no-renames',
+      '--name-only',
+      fromTree,
+      toTree,
+    ]);
+    return listed.code === 0 ? splitNul(listed.stdout).length : null;
+  }
+
+  async #treesNow(
+    projectId: string,
+    fromId: string,
+    folder: string,
+  ): Promise<
+    | { readonly ok: true; readonly repository: string; readonly from: string; readonly to: string }
+    | { readonly ok: false; readonly code: 'checkpoint_missing' | 'folder_unread' }
+  > {
+    const held = await this.#trees(projectId, fromId, fromId);
+    if (!held.ok) return held;
+    const now = await this.treeOf(projectId, folder, held.from);
+    if (!now.ok) return { ok: false, code: 'folder_unread' };
+    return { ok: true, repository: held.repository, from: held.from, to: now.tree };
+  }
+
+  /** Files that differ between two trees, sorted by path, or null when git fails. */
+  async #diffTrees(repository: string, from: string, to: string): Promise<ComparedFile[] | null> {
     const base = ['diff-tree', '-r', '-z', '--no-renames', '--no-ext-diff', '--no-textconv'];
     const [statuses, counts] = await Promise.all([
       this.#run(repository, null, null, [...base, '--name-status', from, to]),
       this.#run(repository, null, null, [...base, '--numstat', from, to]),
     ]);
-    if (statuses.code !== 0 || counts.code !== 0) return { ok: false, code: 'store_failed' };
+    if (statuses.code !== 0 || counts.code !== 0) return null;
     const lines = new Map<string, { added: number | null; removed: number | null }>();
     // With -z, numstat writes "added<TAB>removed<TAB>path<NUL>", "-" for a binary file's counts.
     for (const record of splitNul(counts.stdout)) {
@@ -752,7 +813,7 @@ export class CheckpointStore {
       });
     }
     files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-    return { ok: true, files };
+    return files;
   }
 
   /**
@@ -778,13 +839,57 @@ export class CheckpointStore {
       }
   > {
     if (!isProjectPath(path)) return { ok: false, code: 'not_changed' };
-    const compared = await this.compare(projectId, fromId, toId);
-    if (!compared.ok) return compared;
-    const file = compared.files.find((item) => item.path === path);
-    if (file === undefined) return { ok: false, code: 'not_changed' };
-    if (file.binary) return { ok: true, file, diff: null, complete: true };
     const trees = await this.#trees(projectId, fromId, toId);
     if (!trees.ok) return trees;
+    return this.#diffFile(trees.repository, trees.from, trees.to, path, maxBytes);
+  }
+
+  /** One file's change between a checkpoint and its folder as it is now, as `compareFile` gives it. */
+  async compareFileNow(
+    projectId: string,
+    fromId: string,
+    folder: string,
+    path: string,
+    maxBytes: number,
+  ): Promise<
+    | {
+        readonly ok: true;
+        readonly file: ComparedFile;
+        readonly diff: string | null;
+        readonly complete: boolean;
+      }
+    | {
+        readonly ok: false;
+        readonly code: 'checkpoint_missing' | 'not_changed' | 'store_failed' | 'folder_unread';
+      }
+  > {
+    if (!isProjectPath(path)) return { ok: false, code: 'not_changed' };
+    const trees = await this.#treesNow(projectId, fromId, folder);
+    if (!trees.ok) return trees;
+    return this.#diffFile(trees.repository, trees.from, trees.to, path, maxBytes);
+  }
+
+  async #diffFile(
+    repository: string,
+    from: string,
+    to: string,
+    path: string,
+    maxBytes: number,
+  ): Promise<
+    | {
+        readonly ok: true;
+        readonly file: ComparedFile;
+        readonly diff: string | null;
+        readonly complete: boolean;
+      }
+    | { readonly ok: false; readonly code: 'not_changed' | 'store_failed' }
+  > {
+    const files = await this.#diffTrees(repository, from, to);
+    if (files === null) return { ok: false, code: 'store_failed' };
+    const file = files.find((item) => item.path === path);
+    if (file === undefined) return { ok: false, code: 'not_changed' };
+    if (file.binary) return { ok: true, file, diff: null, complete: true };
+    const trees = { repository, from, to };
     const patch = await this.#run(
       trees.repository,
       null,

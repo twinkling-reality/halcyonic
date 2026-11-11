@@ -41,10 +41,18 @@ const UNIONS: Readonly<Record<string, UnionNaming>> = {
   ProjectLocationChoice: { discriminator: 'kind', suffix: 'Choice' },
   WorkstreamCopy: { discriminator: 'state', suffix: 'Copy' },
   WorkspaceAgentStatus: { discriminator: 'availability', suffix: 'WorkspaceAgent' },
+  ProjectHistoryResult: { discriminator: 'availability', suffix: 'History' },
+  HistoryEntry: { discriminator: 'kind', suffix: 'Entry' },
+  HistoryFolder: { discriminator: 'kind', suffix: 'Folder' },
+  CheckpointsResult: { discriminator: 'availability', suffix: 'Checkpoints' },
+  RestorePreviewResult: { discriminator: 'availability', suffix: 'RestorePreview' },
 };
 
 /** The documents a C# client reads or writes. Everything they reference is generated too. */
 const ROOTS: readonly string[] = [
+  'ProjectHistoryResponse',
+  'CheckpointsResponse',
+  'RestorePreviewResponse',
   'ProjectChangesResponse',
   'ProjectFileChangeResponse',
   'ProjectFileResponse',

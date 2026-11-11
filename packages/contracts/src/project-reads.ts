@@ -27,14 +27,16 @@ export const CHECK_STEP_OUTPUT_LINE_CHARS = 300;
 export const ProjectReadQuery = Type.Object({ journal_id: JournalId }, strict);
 export type ProjectReadQuery = Static<typeof ProjectReadQuery>;
 
+/** `to` left out compares `from` with its folder as it is now. */
 export const ProjectChangesQuery = Type.Object(
-  { journal_id: JournalId, from: CheckpointId, to: CheckpointId },
+  { journal_id: JournalId, from: CheckpointId, to: Type.Optional(CheckpointId) },
   strict,
 );
 export type ProjectChangesQuery = Static<typeof ProjectChangesQuery>;
 
+/** `to` left out compares the file in `from` with the file as it is now. */
 export const ProjectFileChangeQuery = Type.Object(
-  { journal_id: JournalId, from: CheckpointId, to: CheckpointId, path: ProjectPath },
+  { journal_id: JournalId, from: CheckpointId, to: Type.Optional(CheckpointId), path: ProjectPath },
   strict,
 );
 export type ProjectFileChangeQuery = Static<typeof ProjectFileChangeQuery>;
@@ -71,12 +73,13 @@ export const ProjectChangedFile = Type.Object(
 );
 export type ProjectChangedFile = Static<typeof ProjectChangedFile>;
 
-/** What changed between two checkpoints of a project, by file. */
+/** What changed between two checkpoints of a project, or since one, by file. */
 export const ProjectChangesResponse = Type.Object(
   {
     project_id: ProjectId,
     from: CheckpointId,
-    to: CheckpointId,
+    /** Null: compared with the folder as it is now. */
+    to: Nullable(CheckpointId),
     /** At most `PROJECT_CHANGE_FILES`, sorted by path. */
     files: Type.Array(ProjectChangedFile, { maxItems: PROJECT_CHANGE_FILES }),
     files_total: Count,
@@ -88,12 +91,13 @@ export const ProjectChangesResponse = Type.Object(
 );
 export type ProjectChangesResponse = Static<typeof ProjectChangesResponse>;
 
-/** One file's change between two checkpoints, as a unified diff. */
+/** One file's change between two checkpoints, or since one, as a unified diff. */
 export const ProjectFileChangeResponse = Type.Object(
   {
     project_id: ProjectId,
     from: CheckpointId,
-    to: CheckpointId,
+    /** Null: compared with the file as it is now. */
+    to: Nullable(CheckpointId),
     path: ProjectPath,
     change: FileChangeKind,
     binary: Type.Boolean(),
