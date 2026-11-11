@@ -156,6 +156,18 @@ function stoppedByRestart(code: string | undefined): boolean {
   return code !== undefined && RESTART_REASONS.has(code);
 }
 
+/** A busy task's status in words, for the busy rule's refusals (core audit 2026-11-03). */
+const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
+  starting: 'starting',
+  running: 'running',
+  verifying: 'checking its work',
+  waiting_for_human: 'waiting for you',
+  completed: 'finished',
+  failed: 'stopped by a failure',
+  interrupted: 'stopped',
+  unknown: 'in an unknown state',
+};
+
 /** Bumped whenever `ProjectionState`'s shape changes, so no older checkpoint is taken for it. */
 export const PROJECTION_STATE_FORMAT = 1;
 
@@ -847,7 +859,7 @@ export class Projection {
   projectBusy(projectId: string): string | null {
     for (const state of this.#executionsByProject.get(projectId as ProjectId) ?? []) {
       const status = deriveExecutionStatus(state);
-      if (ACTIVE_STATUSES.has(status)) return `A task in this project is ${status}.`;
+      if (ACTIVE_STATUSES.has(status)) return `A task in this project is ${BUSY_WORDS[status]}.`;
       if (status === 'unknown' && !stoppedByRestart(state.unknownReason?.code))
         return 'A task in this project may still be running: its state is unknown.';
     }

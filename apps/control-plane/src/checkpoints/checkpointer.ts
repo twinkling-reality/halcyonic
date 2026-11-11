@@ -336,6 +336,28 @@ export class Checkpointer {
       : { ok: false, code: allowed.code, message: FOLDER_GONE };
   }
 
+  /**
+   * Resolves once every checkpoint and restore under way has settled, or after `timeoutMs`, so a
+   * closing control plane journals their outcomes before the journal closes (core audit 2026-11-03).
+   */
+  async settle(timeoutMs = 10_000): Promise<void> {
+    let timer: NodeJS.Timeout | undefined;
+    const waited = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, timeoutMs);
+      timer.unref();
+    });
+    try {
+      while (this.#queues.size > 0) {
+        const settledAll = Promise.all([...this.#queues.values()]).then(() => 'settled' as const);
+        if ((await Promise.race([settledAll, waited.then(() => 'waited' as const)])) === 'waited') {
+          return;
+        }
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   #serially<T>(projectId: string, step: () => Promise<T>): Promise<T> {
     const previous = this.#queues.get(projectId) ?? Promise.resolve();
     const next = previous.then(step, step);

@@ -89,6 +89,7 @@ function setup(
     holdTurn?: boolean;
     restoreHooks?: RestoreHooks;
     journalPath?: string;
+    closeWaitMs?: number;
   } = {},
 ) {
   const root = join(base, name);
@@ -118,6 +119,7 @@ function setup(
           checkpoints: {
             store,
             ...(options.restoreHooks === undefined ? {} : { restoreHooks: options.restoreHooks }),
+            ...(options.closeWaitMs === undefined ? {} : { closeWaitMs: options.closeWaitMs }),
           },
         }),
   });
@@ -363,6 +365,42 @@ describe('putting a project back', () => {
     await controlPlane.close();
   });
 
+  test('a restore under way when the control plane closes is journaled before its journal closes (core audit 2026-11-03)', async () => {
+    const journalPath = join(base, 'close-waits.db');
+    let written = false;
+    const { start, restore, types, events, controlPlane, ids } = setup('close-waits', {
+      journalPath,
+      restoreHooks: {
+        onWritten: async () => {
+          written = true;
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        },
+      },
+    });
+    start();
+    await until(
+      () => types().filter((t) => t === 'project.checkpoint.recorded').length === 2,
+      'checkpoints',
+    );
+    const restoring = restore(checkpointOf(events(), 'before_task'));
+    await until(() => written, 'the write');
+    await controlPlane.close();
+    const journal = openSqliteJournal({ path: journalPath, originIfNew: 'live', ids });
+    const outcome = [...journal.readAll()]
+      .map((stored) => stored.event)
+      .find(
+        (event) =>
+          (event.event_type === 'command.completed' || event.event_type === 'command.failed') &&
+          event.payload.command_id === restoring.command?.command_id,
+      );
+    journal.close();
+    assert.equal(
+      outcome?.event_type,
+      'command.completed',
+      'the restore finished and was journaled',
+    );
+  });
+
   test('a restore in flight when the control plane stops reads as failed, effect unknown, after it starts again', async () => {
     const journalPath = join(base, 'restart.db');
     let written = false;
@@ -370,6 +408,7 @@ describe('putting a project back', () => {
       'restart',
       {
         journalPath,
+        closeWaitMs: 50,
         // The restore writes, then never gets to its check, as if the control plane stopped there.
         restoreHooks: {
           onWritten: () => {
