@@ -72,7 +72,11 @@ it. Work on the audit stopped on 2026-11-04; those marked "next" were the ones i
   serves anyone: 7 to 19 µs an event here, so a million events would take 7 to 19 s and about 1.3 GB on disk
   (inference, extrapolated linearly). A checkpoint of the projections would change how the journal is read at a
   restart, an architecture decision, so it is an open question
-  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). Fixed on 2026-11-10 (CORE): a start restores a checkpoint
+  of the projection kept beside the journal, taken only when it matches the journal, and folds only the events after
+  it ([ADR 0050](../decisions/0050-a-start-restores-the-projection-from-a-checkpoint-and-folds-only-the-journal-after-it.md));
+  measured, a million events start in 0.3 s from a checkpoint against 3.5 to 4 s whole
+  ([record](control-plane-scale-2026-11-10.md)).
 - **A long instruction rides with every event of its task.** Risk, kept by decision: about 34 KB an event at the
   32,000-character maximum, all parsed by the headset. A test holds the figure, so a change to it is deliberate.
 - **Checks with no change between them are each visited at every round until the files next change.** Verified in
@@ -84,10 +88,14 @@ it. Work on the audit stopped on 2026-11-04; those marked "next" were the ones i
   execution; the busy rule scans both at admission and at each automatic check. Commands grow with rounds, so a check
   after each round still costs every restart's fold a little more each round (inference: a few times less than the
   walk did before #8a). An index of the commands still waiting would make each as cheap as what is pending. Next.
+  Fixed on 2026-11-10 (CORE): the busy rule, the restore check, pending commands and check recording read each
+  project's own executions and the commands still waiting only (17.3 to 2.2 µs a project at 50,000 events).
 - **Each event is serialized once per realtime connection.** Verified in the code; measured with up to 8
   subscribers, with no trend in the cost. Usually two clients are connected. Serializing once per event was next.
+  Fixed on 2026-11-10 (CORE): an event's message is serialized once and the same text sent on every connection.
 - **A summary of every tool result is kept per execution.** Verified in the code, not measured: the scale bench
-  sends no tool results.
+  sends no tool results. Still open on 2026-11-11 (CORE): about 0.4 KB a result, never trimmed, now also in every
+  checkpoint of the projection; a bound waits on a decision.
 - **Not attacked in this audit:** `folder-safety.ts` against case and hard-link games, and error text and URLs in
   journal fields other than those above. No defect is suspected in them. `reads_confined` is recorded by each check
   and Play on the Mac refuses without it (tested); a Mac preview may serve an unconfined copy, its record saying so
@@ -108,4 +116,7 @@ it. Work on the audit stopped on 2026-11-04; those marked "next" were the ones i
 - **Smaller:** the control plane's close does not wait for a checkpoint being written; the check's build profile
   lets the build write to `/dev/tty`; a tool call that never completes keeps its name in the headset's activity
   until the journal changes (about 200 bytes); the busy rule's refusals name raw statuses
-  ("waiting_for_human").
+  ("waiting_for_human"). Fixed on 2026-11-11 (CORE): the close waits for undo checkpoints and restores under way
+  (up to 10 s) before the journal closes, and an event arriving after that is refused quietly; the busy rule says
+  a task's status in words ("waiting for you"). The build profile's `/dev/tty` and the headset's lingering tool
+  name remain.
