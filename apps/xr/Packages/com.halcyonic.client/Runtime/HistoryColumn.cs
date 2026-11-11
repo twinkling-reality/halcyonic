@@ -159,7 +159,7 @@ namespace Halcyonic.Client
         public string? Sentence => Stage switch
         {
             HistoryStage.Reading => HistoryText.Reading,
-            HistoryStage.Previewing => HistoryText.Previewing,
+            HistoryStage.Previewing => HistoryText.Reading,
             HistoryStage.Sending => HistoryText.Sending(Files()),
             _ => null,
         };
@@ -407,8 +407,13 @@ namespace Halcyonic.Client
         {
             var all = ReviewRows();
             var rows = all.Take(APage).ToList();
-            var more = preview!.ProjectHeadMoved == true ? HistoryText.ChangedSince
-                : Files() > rows.Count ? HistoryText.AndMore(Files() - rows.Count)
+            // Never drop the change since then, nor the files not shown: Restore is never confirmed on a part of the files
+            // with no word that more follow (AUDIT's F1). Both stand on the foot line, the change first (FIELD).
+            var hidden = Files() - rows.Count;
+            var moved = preview!.ProjectHeadMoved == true;
+            var more = moved && hidden > 0 ? HistoryText.ChangedSince + " " + HistoryText.NotShown(hidden)
+                : moved ? HistoryText.ChangedSince
+                : hidden > 0 ? HistoryText.AndMore(hidden)
                 : null;
             return new RoomCard(title: reviewed!.Name, description: LineWords.Ours(HistoryText.CanUndo), list: rows, more: more == null ? null : LineWords.Ours(more));
         }
@@ -462,7 +467,7 @@ namespace Halcyonic.Client
             {
                 CheckpointReason.BeforeTask => (Named("Before ", task, " Started", HistoryText.BeforeATask), RoomKind.Started),
                 CheckpointReason.AfterTurn => (Named("After ", task, " Worked", HistoryText.AfterATask), RoomKind.Worked),
-                CheckpointReason.BeforeAdd => (LineWords.Ours(HistoryText.BeforeTheAdd), RoomKind.ToAdd),
+                CheckpointReason.BeforeAdd => (Named("Before ", task, " Was Added", HistoryText.BeforeTheAdd), RoomKind.Started),
                 _ => (LineWords.Ours(HistoryText.BeforeARestore), RoomKind.Reverts),
             };
             return new HistoryVersion(view, name, HistoryText.When(view.RecordedAt, now, zone), kind);
@@ -487,7 +492,6 @@ namespace Halcyonic.Client
         public const string Description = "Pick a moment to restore.";
         public const string CanUndo = "You can undo this.";
         public const string Reading = "Reading History";
-        public const string Previewing = "Reading Changes";
         public const string NoHistory = "No History Yet";
         public const string NoneKeptLine = "The computer keeps none for this project";
         public const string NoneYetLine = "Nothing is kept until a task starts";
@@ -523,6 +527,10 @@ namespace Halcyonic.Client
             files == 1 ? "1 file is as it was" : files.ToString(CultureInfo.InvariantCulture) + " files are as they were";
 
         public static string AndMore(long files) => "And " + files.ToString(CultureInfo.InvariantCulture) + " More";
+
+        /// <summary>The count after the change since then, as its own sentence (FIELD, 2026-11-11).</summary>
+        public static string NotShown(long files) =>
+            files == 1 ? "1 more file is not shown." : files.ToString(CultureInfo.InvariantCulture) + " more files are not shown.";
 
         /// <summary>When a version was kept, as a row's note: "18:40" today, "Yesterday 09:12", else "12 Nov 09:00".</summary>
         public static string When(string recordedAt, DateTimeOffset now, TimeZoneInfo zone)
