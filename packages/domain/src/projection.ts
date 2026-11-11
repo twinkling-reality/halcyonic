@@ -112,6 +112,8 @@ interface ProjectState {
   catalog: CatalogRepositoryRef | null;
   /** The project this one was made as a VR version of (M1.8c-1); kept out of the project's view. */
   madeFrom: ProjectId | null;
+  /** The project's own rules while on (E5): the file and the digest the person chose. */
+  rules?: { readonly file: 'AGENTS.md' | 'CLAUDE.md'; readonly sha256: string };
   readonly createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -245,10 +247,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * execution's queued instructions (ADR 0056). 10: each project's own check (ADR 0055). 11: the
  * version a task starts from (`from_checkpoint`, ADR 0045). 12: what the computer saw of a request
  * that ended with no reply (`observed`, LOOP C). 13: each project's published game (ADR 0039,
- * amended). 14: each project's secrets by name (ADR 0057); raised past the base's again at the
- * rebase.
+ * amended). 14: each project's secrets by name (ADR 0057). 15: each project's rules while on (`rules`, E5);
+ * each raised past the base's again at the rebase.
  */
-export const PROJECTION_STATE_FORMAT = 14;
+export const PROJECTION_STATE_FORMAT = 15;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -1713,6 +1715,23 @@ export class Projection {
           changes.projects.add(event.project_id);
         }
         return;
+      case 'project.rules.updated': {
+        // On or off by the person's press, or off by the host at a start that found the file changed (E5).
+        const project = this.#projects.get(event.project_id);
+        if (project === undefined) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        const { on, file, sha256 } = event.payload;
+        if (on && file !== null && sha256 !== null) project.rules = { file, sha256 };
+        else delete project.rules;
+        project.updatedAt = event.ingested_at;
+        changes.projects.add(event.project_id);
+        return;
+      }
+      case 'execution.rules_given':
+        // A record of what the host put before a task's first instruction (E5); nothing to keep.
+        return;
       case 'project.world.observed': {
         if (!this.#projects.has(event.project_id)) {
           notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
@@ -2422,6 +2441,7 @@ export class Projection {
       const { passed_before: _before, passed_earlier: _earlier, ...shown } = own;
       view.own_check = shown;
     }
+    if (state.rules !== undefined) view.rules = { ...state.rules };
     return view;
   };
 

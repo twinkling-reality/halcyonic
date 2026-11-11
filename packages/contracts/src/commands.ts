@@ -81,6 +81,20 @@ export const ProjectSetLocationCommand = defineCommand(
 );
 
 /**
+ * Turns the project's own rules on or off for its tasks (E5). On, the host passes the rules file the
+ * person read, marked as the project's words, before each task's first instruction, the same for every
+ * runtime; `review` is the digest the rules read gave (ADR 0051) and must still describe the file.
+ * Off needs no review.
+ */
+export const ProjectRulesSetCommand = defineCommand(
+  'project.rules.set',
+  Type.Object(
+    { project_id: ProjectId, on: Type.Boolean(), review: Type.Optional(ReviewDigest) },
+    strict,
+  ),
+);
+
+/**
  * Puts every file of the project's folder back as one of its checkpoints holds it (ADR 0036). The
  * host does it, never a runtime, and completes it only once it has read every file again and found
  * it equal to the checkpoint. `review` is the digest of the restore preview the person read (ADR
@@ -440,6 +454,7 @@ export const COMMAND_VARIANTS = [
   ProjectCreateCommand,
   ProjectMakeVrVersionCommand,
   ProjectSetLocationCommand,
+  ProjectRulesSetCommand,
   ProjectRestoreCommand,
   ProjectCheckCommand,
   ProjectOwnCheckChooseCommand,
@@ -480,6 +495,7 @@ export const CommandType = Type.Union([
   Type.Literal('project.create'),
   Type.Literal('project.make_vr_version'),
   Type.Literal('project.set_location'),
+  Type.Literal('project.rules.set'),
   Type.Literal('project.restore'),
   Type.Literal('project.check'),
   Type.Literal('project.own_check.choose'),

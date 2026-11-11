@@ -87,6 +87,12 @@ the agent did anything, with no approval asked. Proven on the fake host only; it
 hosted service ([claude-code-project-settings.md](../validation/claude-code-project-settings.md)).
 Text of the project still reaches the model when the agent reads a file, as for every runtime.
 
+A project's rules file reaches an agent only where the person chose it (ADR 0059). The host shows it
+whole first, takes the choice only with the review of the text as it reads now, and puts exactly that
+text before each task's first instruction, marked as the project's own words. A file changed since it
+was chosen is not passed on, and the choice turns off. The journal keeps the file's digest, never its
+text. The file is read without following a link, at most 32 KB.
+
 When the Codex runtime is enabled, its app-server also gets an explicitly built environment: an
 allowlist (`PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, the locale variables, `TMPDIR`, `TZ` and
 the XDG directories), plus the names listed in `HALCYONIC_AGENT_ENV`, without the ones Codex signs

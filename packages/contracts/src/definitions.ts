@@ -194,6 +194,10 @@ import {
   ProjectPicture,
   ProjectPicturesResponse,
   ProjectReadQuery,
+  ProjectRulesFile,
+  ProjectRulesOn,
+  ProjectRulesResponse,
+  ProjectRulesState,
 } from './project-reads.ts';
 import { QuestionAnswer, QuestionOption, QuestionPrompt } from './questions.ts';
 import {
@@ -543,6 +547,10 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   ProjectPicture,
   ProjectPicturesResponse,
   ProjectReadQuery,
+  ProjectRulesFile,
+  ProjectRulesOn,
+  ProjectRulesResponse,
+  ProjectRulesState,
   HistoryEntry,
   HistoryFolder,
   ProjectHistoryQuery,

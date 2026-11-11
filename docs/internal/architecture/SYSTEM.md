@@ -107,6 +107,10 @@ client ── command ──> CommandService ── admit (domain) ──> Recor
    whole PNG, JPEG or WebP, and hands the runtime those bytes, never a path; the journal keeps each
    picture's digest, never its bytes
    ([ADR 0058](../decisions/0058-an-instructions-pictures-come-from-the-projects-folder-and-reach-the-runtime-as-the-bytes-the-host-read.md)).
+   A project's own `AGENTS.md` (else `CLAUDE.md`) reaches a task only after the person read it and chose it:
+   then the host puts it before each task's first instruction, marked as the project's words, the same for
+   every runtime, while the file still reads as chosen
+   ([ADR 0059](../decisions/0059-a-projects-own-rules-reach-a-task-only-as-the-person-read-and-chose-them.md)).
 7. Before starting a turn on a local `ollama/<model>` execution, if no active execution in
    Halcyonic is already using that model, the control plane reads `GET /api/ps` on loopback Ollama
    (`127.0.0.1:11434`); when the execution's turn ends (or fails, is interrupted, becomes unknown

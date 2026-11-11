@@ -1,5 +1,5 @@
 import Type, { type Static } from 'typebox';
-import { CheckpointId, ProjectPath } from './checkpoints.ts';
+import { CheckpointId, ProjectPath, ReviewDigest } from './checkpoints.ts';
 import { Sha256Hex } from './devices.ts';
 import { CheckId } from './previews.ts';
 import { JournalId, Nullable, ProjectId, Text, Timestamp } from './primitives.ts';
@@ -222,3 +222,49 @@ export const ProjectPicturesResponse = Type.Object(
   strict,
 );
 export type ProjectPicturesResponse = Static<typeof ProjectPicturesResponse>;
+
+/** The largest rules file that can be passed on with a task's first instruction (E5). */
+export const PROJECT_RULES_BYTES = 32_768;
+
+/** The project's own rules file at its folder's top: its `AGENTS.md`, else its `CLAUDE.md`. */
+export const ProjectRulesFile = Type.Union([Type.Literal('AGENTS.md'), Type.Literal('CLAUDE.md')]);
+export type ProjectRulesFile = Static<typeof ProjectRulesFile>;
+
+/**
+ * Where a project's rules stand (E5): `none`, no rules file; `off`, a file not passed on; `on`, passed on
+ * with each task's first instruction exactly as the person read it; `changed`, chosen once but the file
+ * has changed since, so it is off until read again; `too_large`, larger than `PROJECT_RULES_BYTES`;
+ * `unreadable`, not valid UTF-8, or not a file that can be read without following a link.
+ */
+export const ProjectRulesState = Type.Union([
+  Type.Literal('none'),
+  Type.Literal('off'),
+  Type.Literal('on'),
+  Type.Literal('changed'),
+  Type.Literal('too_large'),
+  Type.Literal('unreadable'),
+]);
+export type ProjectRulesState = Static<typeof ProjectRulesState>;
+
+/** The project's rules while on: the file, and the digest of the text the person chose. */
+export const ProjectRulesOn = Type.Object({ file: ProjectRulesFile, sha256: Sha256Hex }, strict);
+export type ProjectRulesOn = Static<typeof ProjectRulesOn>;
+
+/**
+ * The project's own rules as they are now, for the person to read before choosing them (E5): the
+ * file's text whole, outside words, and the `review` a `project.rules.set` that turns them on carries
+ * back (ADR 0051). `text` and `review` only where the file can be passed on.
+ */
+export const ProjectRulesResponse = Type.Object(
+  {
+    project_id: ProjectId,
+    file: Nullable(ProjectRulesFile),
+    state: ProjectRulesState,
+    size_bytes: Nullable(Count),
+    text: Nullable(Text(PROJECT_RULES_BYTES)),
+    review: Nullable(ReviewDigest),
+    source: Type.Literal('project_files'),
+  },
+  strict,
+);
+export type ProjectRulesResponse = Static<typeof ProjectRulesResponse>;

@@ -183,6 +183,20 @@ client                                   server
     `sha256`) records what was read, never the bytes, before the runtime is given them.
   - `RuntimeModel.picture_input` says whether the runtime's list says a model takes pictures; OpenCode refuses,
     with no effect, a model it lists as text only.
+- **A project's own rules** (ADR 0059). `GET /api/projects/:project_id/rules` reads the project's `AGENTS.md`,
+  else its `CLAUDE.md`, at its folder's top: `file`, `state` (`none`, `off`, `on`, `changed`, `too_large`,
+  `unreadable`), `size_bytes`, the `text` whole (at most 32 KB) and its `review`.
+  - `project.rules.set` `{project_id, on, review?}` (review required) turns them on with the review of the text
+    as it reads now (`review_required` without one, `review_stale` with an old one), or off.
+    - A project without a folder is refused with `location_required`; one without a readable rules file with
+      `invalid_state`.
+  - `project.rules.updated` (`on`, `file`, `sha256`, `changed`) records it, never the text. `ProjectView.rules`
+    `{file, sha256}` is there while on.
+  - At each `execution.start` the host reads the file again. While its digest is the one chosen, the text goes
+    before the person's words, marked as the project's own, and `execution.rules_given` (`file`, `sha256`) records
+    it.
+  - A changed or missing file turns them off (`project.rules.updated` with `changed: true`), and the task starts
+    without them.
 - **Putting a project back.** `project.restore` `{project_id, checkpoint_id, review?}` is
   `review_required`: a client sends it only after the person has read the preview, with the
   preview's `review`, which a paired device must carry; a restore whose preview no longer matches its

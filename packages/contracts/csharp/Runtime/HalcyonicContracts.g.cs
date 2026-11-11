@@ -712,6 +712,48 @@ namespace Halcyonic.Contracts
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
+    public enum ProjectRulesFile
+    {
+        [EnumMember(Value = "AGENTS.md")] AGENTSMd,
+        [EnumMember(Value = "CLAUDE.md")] CLAUDEMd,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ProjectRulesState
+    {
+        [EnumMember(Value = "none")] None,
+        [EnumMember(Value = "off")] Off,
+        [EnumMember(Value = "on")] On,
+        [EnumMember(Value = "changed")] Changed,
+        [EnumMember(Value = "too_large")] TooLarge,
+        [EnumMember(Value = "unreadable")] Unreadable,
+    }
+
+    public sealed class ProjectRulesResponse
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("file", Required = Required.AllowNull)]
+        public ProjectRulesFile? File { get; set; }
+
+        [JsonProperty("state", Required = Required.Always)]
+        public ProjectRulesState State { get; set; }
+
+        [JsonProperty("size_bytes", Required = Required.AllowNull)]
+        public long? SizeBytes { get; set; }
+
+        [JsonProperty("text", Required = Required.AllowNull)]
+        public string? Text { get; set; }
+
+        [JsonProperty("review", Required = Required.AllowNull)]
+        public string? Review { get; set; }
+
+        [JsonProperty("source", Required = Required.Always)]
+        public string Source { get; set; } = "project_files";
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
     public enum CheckOutputStep
     {
         [EnumMember(Value = "typecheck")] Typecheck,
@@ -1397,6 +1439,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "project.create")] ProjectCreate,
         [EnumMember(Value = "project.make_vr_version")] ProjectMakeVrVersion,
         [EnumMember(Value = "project.set_location")] ProjectSetLocation,
+        [EnumMember(Value = "project.rules.set")] ProjectRulesSet,
         [EnumMember(Value = "project.restore")] ProjectRestore,
         [EnumMember(Value = "project.check")] ProjectCheck,
         [EnumMember(Value = "project.own_check.choose")] ProjectOwnCheckChoose,
@@ -1997,6 +2040,15 @@ namespace Halcyonic.Contracts
         public string ObservedAt { get; set; } = default!;
     }
 
+    public sealed class ProjectRulesOn
+    {
+        [JsonProperty("file", Required = Required.Always)]
+        public ProjectRulesFile File { get; set; }
+
+        [JsonProperty("sha256", Required = Required.Always)]
+        public string Sha256 { get; set; } = default!;
+    }
+
     public sealed class ProjectView
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -2040,6 +2092,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("world", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public ProjectWorldView? World { get; set; }
+
+        [JsonProperty("rules", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public ProjectRulesOn? Rules { get; set; }
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
@@ -3584,6 +3639,21 @@ namespace Halcyonic.Contracts
         public WorldRefused? Refused { get; set; }
     }
 
+    public sealed class ProjectRulesUpdatedPayload
+    {
+        [JsonProperty("on", Required = Required.Always)]
+        public bool On { get; set; }
+
+        [JsonProperty("file", Required = Required.AllowNull)]
+        public ProjectRulesFile? File { get; set; }
+
+        [JsonProperty("sha256", Required = Required.AllowNull)]
+        public string? Sha256 { get; set; }
+
+        [JsonProperty("changed", Required = Required.Always)]
+        public bool Changed { get; set; }
+    }
+
     public sealed class WorkstreamCreatedPayload
     {
         [JsonProperty("title", Required = Required.Always)]
@@ -3963,6 +4033,18 @@ namespace Halcyonic.Contracts
         public string? Review { get; set; }
     }
 
+    public sealed class ProjectRulesSetPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("on", Required = Required.Always)]
+        public bool On { get; set; }
+
+        [JsonProperty("review", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? Review { get; set; }
+    }
+
     public sealed class ProjectRestorePayload
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -4320,6 +4402,7 @@ namespace Halcyonic.Contracts
                 "project.create" => new ProjectCreateCommand(),
                 "project.make_vr_version" => new ProjectMakeVrVersionCommand(),
                 "project.set_location" => new ProjectSetLocationCommand(),
+                "project.rules.set" => new ProjectRulesSetCommand(),
                 "project.restore" => new ProjectRestoreCommand(),
                 "project.check" => new ProjectCheckCommand(),
                 "project.own_check.choose" => new ProjectOwnCheckChooseCommand(),
@@ -4391,6 +4474,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectSetLocationPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectRulesSetCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.rules.set";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectRulesSetPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectRestoreCommand : CommandEnvelope
@@ -5256,6 +5347,8 @@ namespace Halcyonic.Contracts
                 "project.secret.stored" => new ProjectSecretStoredEvent(),
                 "project.secret.removed" => new ProjectSecretRemovedEvent(),
                 "project.world.observed" => new ProjectWorldObservedEvent(),
+                "project.rules.updated" => new ProjectRulesUpdatedEvent(),
+                "execution.rules_given" => new ExecutionRulesGivenEvent(),
                 "workstream.created" => new WorkstreamCreatedEvent(),
                 "workstream.copy_made" => new WorkstreamCopyMadeEvent(),
                 "workstream.copy_refused" => new WorkstreamCopyRefusedEvent(),
@@ -5548,6 +5641,22 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public WorldObserved Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectRulesUpdatedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.rules.updated";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectRulesUpdatedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionRulesGivenEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.rules_given";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectRulesOn Payload { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreatedEvent : EventEnvelope

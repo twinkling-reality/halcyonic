@@ -682,12 +682,14 @@ describe('the C# bindings', () => {
     'ProjectOwnCheckRecordedPayload.workstream_id', // ADR 0055, as ADR 0045
     'ProjectOwnCheckRunView.workstream_id', // ADR 0055
     'ProjectRestorePayload.review', // the review a restore carries (ADR 0051)
+    'ProjectRulesSetPayload.review', // the review turning a project's rules on carries (E5)
     'ProjectSetLocationPayload.review', // the review a rebinding carries (ADR 0051)
     'ProjectView.check', // M1.8e
     'ProjectView.mac_play', // M1.8e
     'ProjectView.own_check', // a project's own check (ADR 0055)
     'ProjectView.preview', // M1.8e
     'ProjectView.published', // a project's published game (ADR 0039)
+    'ProjectView.rules', // a project's own rules while on (E5)
     'ProjectView.secrets', // a project's secrets by name (ADR 0057)
     'ProjectView.share', // a project's shared link (ADR 0054)
     'ProjectView.world', // a world project's world (ADR 0049)

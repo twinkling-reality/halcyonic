@@ -26,6 +26,7 @@ import {
   type ProjectId,
   type ProjectPicturesResponse,
   type ProjectReadQuery,
+  type ProjectRulesResponse,
   type Timestamp,
 } from '@halcyonic/contracts';
 import { secretShapedPath } from '@halcyonic/runtime-core';
@@ -33,6 +34,7 @@ import { NO_LINK } from '../observer/file-observer.ts';
 import { checkLogLines } from '../preview/check-output.ts';
 import type { ControlPlane } from './control-plane.ts';
 import { listPictures } from './pictures.ts';
+import { readRules, rulesReview } from './project-rules.ts';
 
 /**
  * Reads of a project's files for the headset (the parity map's gaps 5, 10 and 4): what changed
@@ -194,6 +196,49 @@ export class ProjectReads {
       pictures: [...pictures],
       pictures_total: total,
       source: 'project_files',
+    };
+  }
+
+  /**
+   * The project's own rules as they are now (E5), whole, for the person to read before choosing them,
+   * with the review a `project.rules.set` that turns them on carries back.
+   */
+  rules(
+    projectId: string,
+    query: ProjectReadQuery,
+    principal: Principal | null,
+  ): ProjectRulesResponse | undefined {
+    if (!this.#allowed(projectId, query.journal_id, principal)) return undefined;
+    const project = this.#plane.projection.project(projectId);
+    const folder = project?.location?.path;
+    if (project === undefined || folder === undefined) return undefined;
+    const read = readRules(folder);
+    const base = { project_id: projectId as ProjectId, source: 'project_files' as const };
+    if (read.state === 'none')
+      return { ...base, file: null, state: 'none', size_bytes: null, text: null, review: null };
+    if (read.state !== 'ok')
+      return {
+        ...base,
+        file: read.file,
+        state: read.state,
+        size_bytes: read.size,
+        text: null,
+        review: null,
+      };
+    const chosen = project.rules;
+    const state =
+      chosen === undefined
+        ? 'off'
+        : chosen.file === read.file && chosen.sha256 === read.sha256
+          ? 'on'
+          : 'changed';
+    return {
+      ...base,
+      file: read.file,
+      state,
+      size_bytes: read.size,
+      text: this.#plane.redaction.held(read.text),
+      review: rulesReview(projectId, read.file, read.sha256),
     };
   }
 

@@ -25,6 +25,7 @@ import {
   Timestamp,
   WorkstreamId,
 } from './primitives.ts';
+import { ProjectRulesOn } from './project-reads.ts';
 import { QuestionPrompts } from './questions.ts';
 import { ApprovalLevel, ModelRef, RuntimeDescriptor, RuntimeRef } from './runtime.ts';
 import { SecretNames } from './secrets.ts';
@@ -193,6 +194,12 @@ export const ProjectView = Type.Object(
      */
     secrets: Type.Optional(SecretNames),
     world: Type.Optional(ProjectWorldView),
+    /**
+     * The project's own rules, while they are on (E5): the file and the digest of the text the person
+     * chose, passed on before each task's first instruction while the file still has that digest.
+     * Absent while off.
+     */
+    rules: Type.Optional(ProjectRulesOn),
   },
   strict,
 );

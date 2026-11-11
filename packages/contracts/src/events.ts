@@ -54,7 +54,7 @@ import {
   Uuid,
   WorkstreamId,
 } from './primitives.ts';
-import { PICTURES_PER_INSTRUCTION, PictureRead } from './project-reads.ts';
+import { PICTURES_PER_INSTRUCTION, PictureRead, ProjectRulesFile } from './project-reads.ts';
 import { QuestionPrompts } from './questions.ts';
 import {
   WorkspaceRequestId,
@@ -572,6 +572,33 @@ export const ProjectMacPlayStopped = projectEvent(
  * account of its edit is never the source.
  */
 export const ProjectWorldObserved = projectEvent('project.world.observed', WorldObserved);
+
+/**
+ * The project's rules were turned on or off (E5): by the person's `project.rules.set`, or by the host
+ * at a start that found the file changed since it was chosen (`changed`), which turns it off until read
+ * again. The digest of the file, never its text.
+ */
+export const ProjectRulesUpdated = projectEvent(
+  'project.rules.updated',
+  Type.Object(
+    {
+      on: Type.Boolean(),
+      file: Nullable(ProjectRulesFile),
+      sha256: Nullable(Sha256Hex),
+      changed: Type.Boolean(),
+    },
+    strict,
+  ),
+);
+
+/**
+ * The host put the project's rules before a task's first instruction (E5), as the person chose them:
+ * the file and its digest, never its text.
+ */
+export const ExecutionRulesGiven = executionEvent(
+  'execution.rules_given',
+  Type.Object({ file: ProjectRulesFile, sha256: Sha256Hex }, strict),
+);
 
 /** A task was made; `from_checkpoint` is the project's version it starts from, if any (ADR 0045). */
 export const WorkstreamCreated = workstreamEvent(
@@ -1158,6 +1185,8 @@ export const EVENT_VARIANTS = [
   ProjectSecretStored,
   ProjectSecretRemoved,
   ProjectWorldObserved,
+  ProjectRulesUpdated,
+  ExecutionRulesGiven,
   WorkstreamCreated,
   WorkstreamCopyMade,
   WorkstreamCopyRefused,
