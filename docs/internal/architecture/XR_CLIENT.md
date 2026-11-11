@@ -2594,11 +2594,14 @@ setter, `UseGeneric`, is compiled into development builds, the editor and the te
 The owner said yes to DESIGN's v4 (its SYSTEM-v4 and design6, private) and its FINISH-3 (2026-11-05): the shelf with
 plates, one Hold to Talk and Type row, per moment an information panel with a choices panel beside it, one type size, the working field with the agent's
 cursor, Stop in its own panel. It is built unit by unit behind `RoomDesign.Enabled` (client core). Since ON-1 (2026-11-11)
-it is on in development builds and the editor (`CapturePresets.RedesignByDefault`, from `Debug.isDebugBuild`), so
-every journey runs through it; a release build keeps the older views until every frame a person can reach has a
-reader of the redesign, when the release default flips, and ON-2 removes the kit parts it replaced. Checks that walk
+it is on in development builds and the editor, and since ON-1b (2026-11-11, once every moment of the judges' room
+walk drew the redesign) in release builds too (`RoomDesignDefault`, apart from `CapturePresets`, which only development builds compile), so every journey and every build
+runs through it. A frame no reader of the redesign takes still falls back to the older views (known: the no-projects
+page, New Project's page of changes past six actions, a composer offering Read Results), and ON-2 removes the kit
+parts it replaced once those have readers. Checks that walk
 the older views on purpose turn it off inside themselves until then: `WorkspaceRender.JudgeKitWalkCheck`, the walk of
-the path a release player shows (the judges' build is a release build), KitRender's old-kit states,
+the path a release player showed before ON-1b (the judges' build is a release build, so since ON-1b it shows the
+redesign, which `JudgeRoomWalkCheck` walks), KitRender's old-kit states,
 `WorkspaceRender.KitSpatialCheck` and `KitActivityComposerCheck` (the old kit's spine, rail, pills and switch),
 `ShowTaskHereCheck` (the older file's Show Task Here and its one-character shelf) and New Project's older review
 boundary. Under the redesign New Project's steps and the agent's page stand in the workspace, where FIELD's readers

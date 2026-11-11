@@ -111,17 +111,6 @@ namespace Halcyonic.XR.Workspace
             return preset;
         }
 
-        /// <summary>
-        /// The redesign draws in development builds and the editor, its render checks and journeys included (ON-1): every
-        /// journey runs through it. A release build keeps the older views until every frame a person can reach has a reader
-        /// of the redesign (the census), when the release default flips. The old kit's own render states turn it off.
-        /// </summary>
-#if UNITY_EDITOR
-        [UnityEditor.InitializeOnLoadMethod]
-#endif
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void RedesignByDefault() => RoomDesign.Enabled = Debug.isDebugBuild;
-
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Begin()
         {

@@ -22,7 +22,8 @@ namespace Halcyonic.XR.Workspace.Editor
         /// The capture presets (<see cref="CapturePresets"/>): extras that are not ids and fixed words ask for nothing; each
         /// preset applied to a real director waits until the snapshot holds its id, opens what it names, and sends nothing,
         /// the approval armed even under a low-consequence approval policy; and the presets are compiled into a
-        /// development build's scripts and out of a release build's, read from each compile's assemblies. Batch mode with
+        /// development build's scripts and out of a release build's, read from each compile's assemblies, while the redesign's default
+        /// (<c>RoomDesignDefault</c>, ON-1b) is compiled into both. Batch mode with
         /// graphics not needed: -executeMethod Halcyonic.XR.Workspace.Editor.WorkspaceRender.CapturePresetsCheck; exits 1
         /// when a check fails.
         /// </summary>
@@ -32,15 +33,19 @@ namespace Halcyonic.XR.Workspace.Editor
             try
             {
                 // The compiles first: a player compile saves what is dirty, and drawing a director dirties the font assets.
-                var (release, releaseGeneric) = PresetsCompiled(ScriptCompilationOptions.None, "release", failures);
-                var (development, developmentGeneric) = PresetsCompiled(ScriptCompilationOptions.DevelopmentBuild, "development", failures);
+                var (release, releaseGeneric, releaseRedesign) = PresetsCompiled(ScriptCompilationOptions.None, "release", failures);
+                var (development, developmentGeneric, developmentRedesign) = PresetsCompiled(ScriptCompilationOptions.DevelopmentBuild, "development", failures);
                 if (development == false) failures.Add("the development build's scripts do not carry " + nameof(CapturePresets));
                 if (release == true) failures.Add("the release build's scripts carry " + nameof(CapturePresets));
                 // The generic names' switch lives in the client, which every build carries: only its setter is compiled out.
                 if (developmentGeneric == false) failures.Add("the development build's client does not carry " + GenericSwitch);
                 if (releaseGeneric == true) failures.Add("the release build's client carries " + GenericSwitch);
+                // The redesign draws in every build (ON-1b): its default must not live where only a development build compiles it.
+                if (releaseRedesign == false) failures.Add("the release build's scripts do not carry " + RedesignDefault);
+                if (developmentRedesign == false) failures.Add("the development build's scripts do not carry " + RedesignDefault);
                 Debug.Log("Halcyonic: capture presets: a development build carries them: " + development + "; a release build carries them: " + release
-                    + "; the generic names' switch in a development build: " + developmentGeneric + "; in a release build: " + releaseGeneric + ".");
+                    + "; the generic names' switch in a development build: " + developmentGeneric + "; in a release build: " + releaseGeneric
+                    + "; the redesign's default in a development build: " + developmentRedesign + "; in a release build: " + releaseRedesign + ".");
                 failures.AddRange(PresetsParse());
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 failures.AddRange(PresetsApply(lowConsequenceApproval: false));
@@ -198,11 +203,14 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The generic names' switch (<see cref="CaptureNames"/>), compiled into development builds alone.</summary>
         private const string GenericSwitch = "UseGeneric";
 
+        /// <summary>The redesign's default, internal to the workspace assembly, so named by its words.</summary>
+        private const string RedesignDefault = "RoomDesignDefault";
+
         /// <summary>
         /// Whether the player's scripts, compiled for Android with <paramref name="options"/>, carry the presets, and whether
         /// their client carries the generic names' switch; null where the compile failed.
         /// </summary>
-        private static (bool? Presets, bool? Generic) PresetsCompiled(ScriptCompilationOptions options, string label, List<string> failures)
+        private static (bool? Presets, bool? Generic, bool? Redesign) PresetsCompiled(ScriptCompilationOptions options, string label, List<string> failures)
         {
             var folder = Path.Combine(Path.GetTempPath(), "halcyonic-presets-" + label + "-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(folder);
@@ -213,7 +221,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (result.assemblies == null || !result.assemblies.Contains("Halcyonic.XR.Workspace.dll") || !result.assemblies.Contains("Halcyonic.Client.dll"))
                 {
                     failures.Add("the " + label + " compile made no workspace or client assembly");
-                    return (null, null);
+                    return (null, null, null);
                 }
                 // A name, as the assembly's metadata holds it: present only where its member was compiled.
                 bool Carries(string assembly, string member)
@@ -222,7 +230,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     var bytes = File.ReadAllBytes(Path.Combine(folder, assembly));
                     return Enumerable.Range(0, bytes.Length - name.Length + 1).Any(at => bytes[at] == name[0] && name.Select((b, i) => bytes[at + i] == b).All(same => same));
                 }
-                return (Carries("Halcyonic.XR.Workspace.dll", nameof(CapturePresets)), Carries("Halcyonic.Client.dll", GenericSwitch));
+                return (Carries("Halcyonic.XR.Workspace.dll", nameof(CapturePresets)), Carries("Halcyonic.Client.dll", GenericSwitch),
+                    Carries("Halcyonic.XR.Workspace.dll", RedesignDefault));
             }
             finally { Directory.Delete(folder, true); }
         }
