@@ -27,6 +27,25 @@ namespace Halcyonic.Client
         private string? journal;
         public string? SelectedId { get; private set; }
         public string? ShownId => ordered.Any(work => work.WorkstreamId == SelectedId) ? SelectedId : null;
+
+        /// <summary>How many stand at once: one, or two on the redesign's shelf (DESIGN 2.2; the lead, 2026-11-11).</summary>
+        public int PerPage { get; set; } = 1;
+
+        /// <summary>
+        /// The tasks that stand now: the page of <see cref="PerPage"/> that holds the selected one, in the shelf's order;
+        /// none while nothing is selected. With one a page, the selected one alone.
+        /// </summary>
+        public IReadOnlyList<string> Shown
+        {
+            get
+            {
+                var index = ordered.FindIndex(work => work.WorkstreamId == SelectedId);
+                if (index < 0) return Array.Empty<string>();
+                var size = Math.Max(1, PerPage);
+                var start = index / size * size;
+                return ordered.Skip(start).Take(size).Select(work => work.WorkstreamId).ToList();
+            }
+        }
         public AgentShelfPageInfo Info
         {
             get
@@ -57,7 +76,9 @@ namespace Halcyonic.Client
         {
             if (direction != -1 && direction != 1) return false;
             var index = ordered.FindIndex(work => work.WorkstreamId == SelectedId);
-            var next = index < 0 ? direction > 0 ? 0 : ordered.Count - 1 : index + direction;
+            // A page at a time: to the first of the next page, or of the one before.
+            var size = Math.Max(1, PerPage);
+            var next = index < 0 ? direction > 0 ? 0 : (ordered.Count - 1) / size * size : (index / size + direction) * size;
             return next >= 0 && next < ordered.Count && Select(ordered[next].WorkstreamId);
         }
     }

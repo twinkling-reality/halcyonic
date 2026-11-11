@@ -30,7 +30,15 @@ namespace Halcyonic.XR
 
         private const float spanDegrees = 60f; // Internal slot interpolation, not an eye-relative arc.
 
-        private const int maxCharacters = 1;
+        /// <summary>How many characters stand at once on the shelf: one, or two while the redesign draws (DESIGN 2.2).</summary>
+        public static int ShelfCapacity => RoomDesign.Enabled ? 2 : 1;
+
+        /// <summary>The shelf's places: its characters', and under the redesign one more for New Project, the shelf's last.</summary>
+        public static int ShelfPlaces => ShelfCapacity + (RoomDesign.Enabled ? 1 : 0);
+
+        private Surface? shelfSurface;
+        private Surface? previewSurface;
+        private int surfacePlaces;
         private readonly AgentShelfPages shelfPages = new AgentShelfPages();
         public AgentShelfPageInfo ShelfPage => shelfPages.Info;
         public bool ShowShelfPage(int direction)
@@ -146,7 +154,7 @@ namespace Halcyonic.XR
                 corners[index] = pose.position + pose.rotation * new Vector3(index % 2 == 0 ? minimum.x : maximum.x,
                     index < 4 ? minimum.y : maximum.y, index % 4 < 2 ? minimum.z : maximum.z);
         }
-        public float ShelfWidth => AgentShelfDraft.Width(maxCharacters);
+        public float ShelfWidth => AgentShelfDraft.Width(ShelfPlaces);
         public bool Visible => presentation.AgentsVisible && onSurface && arc != null && arc.gameObject.activeInHierarchy;
         public void BindPresentation(WorkspacePresentationState state)
         {
@@ -238,7 +246,7 @@ namespace Halcyonic.XR
         {
             connection = GetComponent<ControlPlaneConnection>();
             // No visible shelf exists until an explicit confirmed placement is supplied.
-            lineup = new CharacterLineup(BesideAWindow ? WindowCapacity : Mathf.Max(1, maxCharacters));
+            lineup = new CharacterLineup(BesideAWindow ? WindowCapacity : ShelfCapacity);
             radius = AgentShelfDraft.Scale;
             CharacterMaterials.Prepare();
 
@@ -247,10 +255,11 @@ namespace Halcyonic.XR
             arc.SetParent(transform, false);
             arc.gameObject.SetActive(false);
 
-            MakeShelf(arc, "Agent shelf", new Color(0.12f, 0.19f, 0.22f, 1f));
+            shelfSurface = MakeShelf(arc, "Agent shelf", new Color(0.12f, 0.19f, 0.22f, 1f));
             preview = new GameObject("Shelf preview").transform;
             preview.SetParent(transform, false);
-            MakeShelf(preview, "Shelf preview surface", new Color(0.16f, 0.4f, 0.48f, 0.7f));
+            previewSurface = MakeShelf(preview, "Shelf preview surface", new Color(0.16f, 0.4f, 0.48f, 0.7f));
+            surfacePlaces = ShelfPlaces;
             preview.gameObject.SetActive(false);
         }
 
@@ -343,7 +352,9 @@ namespace Halcyonic.XR
             // Optional paging exposes all work independently of old project stage-visibility preferences.
             shelfPages.Update(session.State.Journal?.JournalId, session.State.Workstreams.Values);
             eligible.Clear();
-            if (shelfPages.ShownId is string selected && session.State.Workstreams.TryGetValue(selected, out var chosen)) eligible.Add(chosen);
+            shelfPages.PerPage = ShelfCapacity;
+            foreach (var shown in shelfPages.Shown)
+                if (session.State.Workstreams.TryGetValue(shown, out var chosen)) eligible.Add(chosen);
             lineup.UseJournal(session.State.Journal?.JournalId);
             lineup.Update(eligible, System.DateTimeOffset.UtcNow);
             departed.Clear();
@@ -385,8 +396,15 @@ namespace Halcyonic.XR
         /// </summary>
         private void Fit()
         {
-            var capacity = BesideAWindow ? WindowCapacity : Mathf.Max(1, maxCharacters);
+            var capacity = BesideAWindow ? WindowCapacity : ShelfCapacity;
             if (capacity != lineup.Capacity) lineup = lineup.WithCapacity(capacity);
+            // The surface is as wide as the shelf's places, which the redesign widens by its own and New Project's.
+            if (surfacePlaces != ShelfPlaces)
+            {
+                surfacePlaces = ShelfPlaces;
+                DrawShelf(shelfSurface, new Color(0.12f, 0.19f, 0.22f, 1f));
+                DrawShelf(previewSurface, new Color(0.16f, 0.4f, 0.48f, 0.7f));
+            }
             Refresh();
         }
 
@@ -399,7 +417,7 @@ namespace Halcyonic.XR
             if (!preferred.HasValue || !presentation.AgentsVisible) { arc.gameObject.SetActive(false); return; }
             StandOnSurface(preferred.Value);
             // Onto a surface or off it, the characters beside a window may become six again, or four.
-            if (BesideAWindow != wasBeside || (BesideAWindow ? WindowCapacity : Mathf.Max(1, maxCharacters)) != lineup.Capacity) Fit();
+            if (BesideAWindow != wasBeside || (BesideAWindow ? WindowCapacity : ShelfCapacity) != lineup.Capacity) Fit();
             foreach (var view in views.Values) view.BadgeOnly = BesideAWindow;
             CharacterMaterials.SetKeyLight(arc.rotation);
             arc.gameObject.SetActive(true);
@@ -431,10 +449,23 @@ namespace Halcyonic.XR
         {
             var surface = Surface.Create(parent, name, 0);
             surface.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            surface.Draw(new Vector2(ShelfWidth, AgentShelfDraft.Depth), 0.025f,
-                color, new Color(0.45f, 0.65f, 0.7f, 1f), 0.002f);
+            DrawShelf(surface, color);
             return surface;
         }
+
+        private void DrawShelf(Surface? surface, Color color)
+        {
+            if (surface == null) return;
+            surface.Draw(new Vector2(ShelfWidth, AgentShelfDraft.Depth), 0.025f, color, new Color(0.45f, 0.65f, 0.7f, 1f), 0.002f);
+        }
+
+        /// <summary>Where the shelf's place <paramref name="place"/> stands, in the shelf's own space: New Project's first, then the characters'.</summary>
+        public Vector3 PlaceOf(int place) => new Vector3((place - (ShelfPlaces - 1) * 0.5f) * AgentShelfDraft.Spacing * radius, 0f, 0f);
+
+        /// <summary>The shelf as it stands, and the eyes it was placed for: what the shelf's own parts stand on.</summary>
+        public Transform Shelf => arc;
+
+        public Vector3 ShelfViewer => shelfViewer;
 
         /// <summary>
         /// Slots are fixed points on the arc, numbered from the person's left. A new character appears
@@ -516,7 +547,11 @@ namespace Halcyonic.XR
         {
             // The row uses the lineup's continuous slot coordinate during a glide.
             var slot = lineup.Capacity > 1 ? (angle / spanDegrees + 0.5f) * (lineup.Capacity - 1) : 0f;
-            view.transform.localPosition = new Vector3((slot - (lineup.Capacity - 1) * 0.5f) * AgentShelfDraft.Spacing * radius, 0f, 0f);
+            // On the redesign's shelf New Project takes the first place, at the person's left (DESIGN 2.2), and the characters
+            // the places after it; beside a window, and on the older shelf, the characters fill it as ever.
+            var first = BesideAWindow ? 0 : ShelfPlaces - ShelfCapacity;
+            var places = BesideAWindow ? lineup.Capacity : ShelfPlaces;
+            view.transform.localPosition = new Vector3((slot + first - (places - 1) * 0.5f) * AgentShelfDraft.Spacing * radius, 0f, 0f);
             view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             view.transform.localScale = Vector3.one * radius;
             view.PlaceShelfLabel(shelfViewer);
