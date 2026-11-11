@@ -14,6 +14,7 @@ import type {
 import {
   type Clock,
   type ExecutionContext,
+  type InstructionRequest,
   isAbortError,
   type ObservationSink,
   type OptionsValidation,
@@ -104,6 +105,11 @@ export interface MockRuntimeOptions {
    * given, so the recorded demonstration's runtimes offer none.
    */
   readonly offersNeverAsk?: boolean;
+  /**
+   * Whether an instruction may carry pictures (A4), synthetic like the rest of it: the pictures are
+   * taken and dropped. Off unless given, so the recorded demonstration's runtimes take none.
+   */
+  readonly takesPictures?: boolean;
   readonly clock?: Clock;
   readonly scheduler?: Scheduler;
 }
@@ -143,6 +149,7 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
       reports_tool_activity: true,
       reports_tool_results: false,
       ...(options.offersNeverAsk === true && { offers_never_ask: true }),
+      ...(options.takesPictures === true && { takes_pictures: true }),
     };
     if (this.#models.length > 0) this.listModels = async () => this.#models;
   }
@@ -227,7 +234,7 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
     return { native_id: session.nativeId };
   }
 
-  async sendInstruction(request: { execution: ExecutionContext; text: string }): Promise<void> {
+  async sendInstruction(request: InstructionRequest): Promise<void> {
     this.#session(request.execution).instruct(request.text);
   }
 

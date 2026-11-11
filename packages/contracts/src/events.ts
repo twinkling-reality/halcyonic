@@ -54,6 +54,7 @@ import {
   Uuid,
   WorkstreamId,
 } from './primitives.ts';
+import { PICTURES_PER_INSTRUCTION, PictureRead } from './project-reads.ts';
 import { QuestionPrompts } from './questions.ts';
 import {
   WorkspaceRequestId,
@@ -749,6 +750,22 @@ export const ExecutionInstructionDequeued = executionEvent(
 );
 
 /**
+ * The host read the pictures an instruction carries (A4), each once, from the project's folder, and
+ * is about to hand those bytes to the runtime: their paths, kinds, sizes and digests, never the bytes.
+ * Recorded before the runtime is given them, so a command that then fails still says what was read.
+ */
+export const ExecutionInstructionPicturesRead = executionEvent(
+  'execution.instruction.pictures_read',
+  Type.Object(
+    {
+      command_id: CommandId,
+      pictures: Type.Array(PictureRead, { minItems: 1, maxItems: PICTURES_PER_INSTRUCTION }),
+    },
+    strict,
+  ),
+);
+
+/**
  * The host, not the person, sent the project's failed check back to this execution's agent as
  * its next instruction (ADR 0044): which check, which try of how many, and the instruction's own
  * command, recorded before that command is submitted. Delivery is that command's own outcome.
@@ -1123,6 +1140,7 @@ export const EVENT_VARIANTS = [
   ProjectCheckpointsPruned,
   ExecutionInstructionQueued,
   ExecutionInstructionDequeued,
+  ExecutionInstructionPicturesRead,
   ProjectRestored,
   ProjectRestoreIncomplete,
   ProjectCheckRecorded,

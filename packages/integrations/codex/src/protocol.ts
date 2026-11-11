@@ -132,12 +132,24 @@ export interface ThreadTurnsListParams {
   readonly sortDirection: 'desc';
 }
 
-/** `v2/UserInput.ts`, text only. */
+/** `v2/UserInput.ts`, text. */
 export interface TextInput {
   readonly type: 'text';
   readonly text: string;
   readonly text_elements: readonly never[];
 }
+
+/**
+ * `v2/UserInput.ts`, a picture by its URL: Halcyonic sends a `data:` URL of the bytes the host read,
+ * which Codex passes on to the provider unchanged (picture-and-file-input.md), never a path.
+ */
+export interface ImageInput {
+  readonly type: 'image';
+  readonly url: string;
+}
+
+/** The `v2/UserInput.ts` variants Halcyonic sends. */
+export type UserInput = TextInput | ImageInput;
 
 /**
  * `v2/SandboxPolicy.ts`, the one variant Halcyonic sends: commands run without Codex's own sandbox
@@ -162,7 +174,7 @@ export interface CommandExecParams {
 /** `v2/TurnStartParams.ts`. A sandbox policy holds for this turn and the ones after it. */
 export interface TurnStartParams {
   readonly threadId: string;
-  readonly input: readonly TextInput[];
+  readonly input: readonly UserInput[];
   readonly sandboxPolicy?: ExternalSandboxPolicy;
 }
 

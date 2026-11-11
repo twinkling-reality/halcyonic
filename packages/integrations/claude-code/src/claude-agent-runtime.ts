@@ -36,6 +36,8 @@ import {
   confirmProjectLocation,
   type DirectoryPolicy,
   type ExecutionContext,
+  type InstructionPicture,
+  type InstructionRequest,
   type ObservationSink,
   type OptionsValidation,
   type ReattachRequest,
@@ -239,6 +241,8 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       // Each session's own process takes the project's secrets as variables, which its tool
       // commands inherit (ADR 0057, project-secrets.md).
       secret_environment: true,
+      // A base64 image block reaches the Messages API byte for byte (picture-and-file-input.md).
+      takes_pictures: true,
     };
   }
 
@@ -365,6 +369,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
           scope.folder === null || gate === null ? null : { folder: scope.folder, gate },
         ),
         request.instruction,
+        request.pictures ?? [],
       );
     } catch (error) {
       // query() refused before starting a process, so nothing ran.
@@ -479,14 +484,10 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     session.restored(request.cut_turn);
   }
 
-  async sendInstruction(request: {
-    execution: ExecutionContext;
-    text: string;
-    leave_plan?: true;
-  }): Promise<void> {
+  async sendInstruction(request: InstructionRequest): Promise<void> {
     const session = this.#session(request.execution);
     if (request.leave_plan === true) await session.leavePlan();
-    await session.instruct(request.text);
+    await session.instruct(request.text, request.pictures ?? []);
   }
 
   async respondToApproval(request: {
@@ -856,22 +857,27 @@ class ClaudeSession {
   }
 
   /** Launches the query with the first instruction. Resolves with the confirmed session id. */
-  start(queryFunction: QueryFunction, options: Options, instruction: string): Promise<string> {
+  start(
+    queryFunction: QueryFunction,
+    options: Options,
+    instruction: string,
+    pictures: readonly InstructionPicture[] = [],
+  ): Promise<string> {
     this.#planExpected = options.permissionMode === 'plan';
-    const turn = this.#deliver(instruction);
+    const turn = this.#deliver(instruction, pictures);
     const handle = queryFunction({ prompt: this.#input, options });
     this.#query = handle;
     this.#consuming = this.#consume(handle);
     return turn.confirmation.promise.then(() => this.#nativeId ?? this.id);
   }
 
-  async instruct(text: string): Promise<void> {
+  async instruct(text: string, pictures: readonly InstructionPicture[] = []): Promise<void> {
     this.#assertOpen();
     const pending = this.#pending;
     if (pending !== null && this.#query === null) {
       // The first instruction to a re-attached session launches Claude Code, resuming it.
       this.#pending = null;
-      const turn = this.#deliver(text);
+      const turn = this.#deliver(text, pictures);
       let handle: QueryHandle;
       try {
         handle = pending.query({ prompt: this.#input, options: pending.options });
@@ -894,7 +900,7 @@ class ClaudeSession {
         'Claude Agent accepts instructions only between turns.',
       );
     }
-    await this.#deliver(text).confirmation.promise;
+    await this.#deliver(text, pictures).confirmation.promise;
   }
 
   /**
@@ -1112,15 +1118,29 @@ class ClaudeSession {
     return promise;
   };
 
-  #deliver(text: string): Turn {
+  #deliver(text: string, pictures: readonly InstructionPicture[] = []): Turn {
     const id = randomUUID();
     const turn = newTurn(id, id);
     this.#turn = turn;
-    // The same shape the SDK itself sends for a string prompt, plus a uuid that names the turn.
+    // The same shape the SDK itself sends for a string prompt, plus a uuid that names the turn; any
+    // pictures go first, as base64 image blocks of the bytes the host read (A4).
     this.#input.push({
       type: 'user',
       session_id: '',
-      message: { role: 'user', content: [{ type: 'text', text }] },
+      message: {
+        role: 'user',
+        content: [
+          ...pictures.map((picture) => ({
+            type: 'image' as const,
+            source: {
+              type: 'base64' as const,
+              media_type: picture.media_type,
+              data: Buffer.from(picture.bytes).toString('base64'),
+            },
+          })),
+          { type: 'text' as const, text },
+        ],
+      },
       parent_tool_use_id: null,
       uuid: id,
     });

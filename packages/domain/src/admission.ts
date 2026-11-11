@@ -709,6 +709,8 @@ export function admitCommand(
           `Runtime ${runtime.runtime_id} does not offer planning without changing a file.`,
         );
       }
+      const pictures = picturesRefusal(runtime, command.payload.attachments, scope);
+      if (pictures !== undefined) return pictures;
       // Planning asks before every command that could change a file, so it never goes unasked.
       if (command.payload.plan === true && command.payload.approval_level === 'never_ask') {
         return reject(
@@ -758,6 +760,9 @@ export function admitCommand(
           `Runtime ${runtime.runtime_id} works in the project's folder, and the project has none. Choose a folder for the project first.`,
         );
       }
+      if (command.payload.attachments !== undefined && location === null) {
+        return reject(scope, 'location_required', PICTURES_NEED_A_FOLDER);
+      }
       // A task with a copy of its own works there; one without works in the project's folder
       // until the host makes it one (ADR 0045).
       const folder = taskFolder(projection, workstream);
@@ -778,6 +783,14 @@ export function admitCommand(
           'invalid_state',
           'The execution never started, so it cannot be instructed.',
         );
+      }
+      const pictures = picturesRefusal(runtime, command.payload.attachments, scope);
+      if (pictures !== undefined) return pictures;
+      if (
+        command.payload.attachments !== undefined &&
+        (projection.project(facts.projectId)?.location ?? null) === null
+      ) {
+        return reject(scope, 'location_required', PICTURES_NEED_A_FOLDER);
       }
       if (projection.restoreInProgress(facts.projectId)) {
         return reject(
@@ -1112,6 +1125,26 @@ function resolveExecution(
     };
   }
   return { found: true, facts, runtime, scope };
+}
+
+const PICTURES_NEED_A_FOLDER =
+  "Pictures come from the project's folder, and the project has none. Choose a folder for the project first.";
+
+/**
+ * An instruction's pictures (A4) go only to a runtime that declares it takes them; nothing is
+ * emulated, so the words are never sent without them.
+ */
+function picturesRefusal(
+  runtime: RuntimeDescriptor,
+  attachments: readonly unknown[] | undefined,
+  scope: CommandScope,
+): Admission | undefined {
+  if (attachments === undefined || runtime.takes_pictures === true) return undefined;
+  return reject(
+    scope,
+    'capability_unsupported',
+    `Runtime ${runtime.runtime_id} does not take pictures with an instruction. Send the words without them, or choose another runtime.`,
+  );
 }
 
 function requireCapability(

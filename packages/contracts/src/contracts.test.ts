@@ -663,8 +663,10 @@ describe('the C# bindings', () => {
     'CheckpointView.turn_id', // the turn an after_turn version follows (History)
     'Evaluation.activity', // Seorak's activity of a session
     'ExecutionCreatedPayload.secret_names', // the project secrets a start gave (ADR 0057)
+    'ExecutionSendInstructionPayload.attachments', // pictures with the words (A4)
     'ExecutionSendInstructionPayload.leave_plan', // carrying a plan out (PLAN 4a)
     'ExecutionStartPayload.approval_level', // ADR 0043
+    'ExecutionStartPayload.attachments', // pictures with the instruction (A4)
     'ExecutionStartPayload.plan', // a start in the runtime's own plan mode (PLAN)
     'ExecutionView.approval_level', // ADR 0043
     'ExecutionView.auto_fix', // a failed check sent back on its own (ADR 0044)
@@ -691,15 +693,18 @@ describe('the C# bindings', () => {
     'ProjectView.world', // a world project's world (ADR 0049)
     'ProjectViewCheck.workstream_id', // ADR 0045
     'RuntimeDescriptor.approval_may_leave_sandbox', // a declaration
+    'RuntimeDescriptor.holds_instructions', // the host's own declaration (ADR 0056)
     'RuntimeDescriptor.offers_never_ask', // ADR 0043
     'RuntimeDescriptor.offers_plan', // a declaration (PLAN)
     'RuntimeDescriptor.reports_tool_results', // a declaration
     'RuntimeDescriptor.resumes_after_restart', // ADR 0046
     'RuntimeDescriptor.secret_environment', // ADR 0057
+    'RuntimeDescriptor.takes_pictures', // a declaration (A4)
     'RuntimeExecutionStartedPayload.approval_level', // ADR 0043
     'RuntimeExecutionStartedPayload.confined', // whether a start recorded it confined (S2)
     'RuntimeExecutionStartedPayload.plan', // whether a start recorded its plan mode (PLAN)
     'RuntimeExecutionStartedPayload.unconfined_reason', // why a start that asked for the sandbox ran without it (BOX-4)
+    'RuntimeModel.picture_input', // what the runtime's list says a model takes (A4)
     'RuntimeToolCompletedPayload.turn_id', // a completed tool's turn
     'VersionEntry.pruned_at', // when the host stopped keeping a version (ADR 0036)
     'WorkspaceRequestChangedPayload.observed', // what the computer saw, when no reply came

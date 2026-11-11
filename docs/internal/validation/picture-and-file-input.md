@@ -103,6 +103,47 @@ real.
 - The model list gives each model's `capabilities.input`: the fake OpenAI-compatible model `["text", "image"]`, a
   model discovered through the Ollama provider `["text"]`.
 
+## Where a picture is lost, and the build that follows (probes of 15:15Z to 15:45Z)
+Same binaries and fake providers. The build is ADR 0058; its end to end tests repeat each finding.
+
+**OpenCode 2.0.18, a model listed as taking text only.**
+- Setup: a model configured with `capabilities: {tools: true, input: ["text"], output: ["text"]}`, listed with
+  input `["text"]`, as OpenCode lists its Ollama models.
+- A prompt with a `file://` PNG is accepted (200) and its turn succeeds. But the provider gets no image.
+- In the picture's place the user text carries "Attached file: <path>ERROR: Cannot read \"shapes.png\" (this
+  model does not support image input). Inform the user."
+- So the adapter reads the session's model (`GET /api/session/:id`) and OpenCode's list before a prompt with
+  pictures. It refuses, with no effect, a model not listed as taking images.
+  - End to end: a text-only model is refused with no provider request; an image model gets the picture at a
+    start and steered into a running turn (`delivery: "steer"` with `files`).
+- Two side findings:
+  - A model whose `capabilities` names `input` without `tools` and `output` made OpenCode drop the whole fake
+    provider: no fake model listed, every turn failed.
+  - `modalities` in place of `capabilities` is ignored, and the model is listed as `["text", "image"]`.
+
+**OpenCode 2.0.18, a picture it cannot decode.** A 10-byte stand-in with a PNG signature fails the prompt with 400
+`InvalidRequestError`, "Image could not be decoded: tree.png".
+
+**Codex 0.157.0, a model outside its catalog.**
+- Setup: `thread/start` with `model` set to `qwen3.6:35b-a3b-nvfp4` or `muse-glimmer:30b-mlx`.
+- Codex warns "Model metadata for ... not found. Defaulting to fallback metadata", then still sends the picture as
+  an `input_image`.
+- Its `model/list` does not say what such a model takes.
+
+**Codex 0.157.0, a `data:` URL.** `{type: "image", url: "data:image/png;base64,..."}` is accepted, and the
+provider gets an `input_image` with exactly those bytes.
+
+**Codex 0.157.0, a picture it cannot decode.**
+- The same 10-byte stand-in is replaced in the request with the text "image content omitted because it could not
+  be processed". The turn runs on the words alone.
+- So the host refuses a picture that is not whole by its structure before any runtime sees it: a PNG's chunk CRCs
+  and image data size, a JPEG's segments and end marker, a WebP's sizes.
+
+**What each adapter sends, as built:** bytes the host read, never a path.
+- Claude Code: base64 image blocks before the words.
+- Codex: `image` items with a `data:` URL after the words.
+- OpenCode: `data:` files.
+
 ## Can the Mac take a picture of what a project looks like now?
 - **Already built, for the check:**
   - The check opens the built project in Halcyonic's pinned, sandboxed headless browser (chrome-headless-shell,
@@ -121,9 +162,9 @@ real.
   would be the headset's own capture.
 
 ## Not verified
-1. Codex inside the confined server: whether its Seatbelt profile refuses a `localImage` path outside the project's
-   folder.
-2. What Codex's `model/list` reports as image input under the Ollama provider. OpenCode's Ollama provider lists its
-   models as text only.
-3. OpenCode inside Halcyonic's macOS sandbox, and its Ollama gate passing a picture to Ollama.
-4. Any model answering about a picture: the one local generation is not run yet.
+1. What Codex's `model/list` reports as image input under the Ollama provider. Codex sends a picture to any model.
+2. OpenCode inside Halcyonic's macOS sandbox, and its Ollama gate passing a picture to Ollama. OpenCode lists
+   Ollama's models as text only, so through OpenCode an Ollama model is refused pictures today.
+3. Whether Ollama's own endpoints take a picture from Codex, and any model answering about one: the one local
+   generation has not run yet.
+4. A JPEG or WebP whose structure is whole but whose pixels are broken: the host's check does not decode them.

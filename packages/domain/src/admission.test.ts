@@ -7,6 +7,7 @@ import type {
   RuntimeCapabilities,
   RuntimeDescriptor,
   RuntimeId,
+  WorkstreamId,
 } from '@halcyonic/contracts';
 import { admitCommand, journaledRejection, type RuntimeCatalog } from './admission.ts';
 import { Projection } from './projection.ts';
@@ -193,6 +194,38 @@ describe('command admission', () => {
     });
     // Not a plan: as before.
     assert.equal(admitCommand(at({ plan: false }), projection, catalog()).admitted, true);
+  });
+
+  test("an instruction's pictures are admitted only for a runtime that takes them, from a project with a folder (A4)", () => {
+    const { b, projection, commands, idle } = setup();
+    const attachments = [{ path: 'art/tree.png', kind: 'image' }];
+    const withPictures = (workstreamId: WorkstreamId) => {
+      const start = commands.start(workstreamId);
+      return { ...start, payload: { ...(start.payload as object), attachments } } as typeof start;
+    };
+    const located = b.project('Located', { path: '/work/app', name: 'app', created: false });
+    const inside = b.workstream(located.projectId);
+    projection.apply(located.event);
+    projection.apply(inside.event);
+    const refused = admitCommand(withPictures(inside.workstreamId), projection, catalog());
+    assert.deepEqual(refused.admitted ? null : refused.rejection, {
+      code: 'capability_unsupported',
+      message:
+        'Runtime mock does not take pictures with an instruction. Send the words without them, or choose another runtime.',
+    });
+    const descriptor = catalog().get('mock' as RuntimeId);
+    assert.ok(descriptor);
+    const takes: RuntimeCatalog = {
+      get: (id) => (id === 'mock' ? { ...descriptor, takes_pictures: true } : undefined),
+    };
+    assert.equal(admitCommand(withPictures(inside.workstreamId), projection, takes).admitted, true);
+    // Pictures come from the project's folder, so not from a project without one.
+    const nowhere = admitCommand(withPictures(idle.workstreamId), projection, takes);
+    assert.equal(nowhere.admitted ? null : nowhere.rejection.code, 'location_required');
+    assert.match(
+      nowhere.admitted ? '' : nowhere.rejection.message,
+      /Pictures come from the project's folder/,
+    );
   });
 
   test('a runtime that works in the project folder is refused for a project without one', () => {

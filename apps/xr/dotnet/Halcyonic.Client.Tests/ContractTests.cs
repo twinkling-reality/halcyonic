@@ -180,6 +180,23 @@ public class ContractTests
     }
 
     [Test]
+    public void AnInstructionCarriesItsPicturesOnlyWhenThereAreSome()
+    {
+        var factory = new CommandFactory(new ClientInfo { Name = "test", Version = null, DeviceLabel = null });
+        const string workstreamId = "0192f1a0-0000-7000-8000-000000000002";
+        var plain = (JObject)Json.Parse(HalcyonicJson.Serialize(factory.StartExecution(workstreamId, "codex", "Paint.")))["payload"]!;
+        Assert.That(plain.ContainsKey("attachments"), Is.False, "no pictures leaves the field out");
+        var none = (JObject)Json.Parse(HalcyonicJson.Serialize(factory.SendInstruction("e1", "Paint.", new string[0])))["payload"]!;
+        Assert.That(none.ContainsKey("attachments"), Is.False);
+        var start = Json.Parse(HalcyonicJson.Serialize(
+            factory.StartExecution(workstreamId, "codex", "Paint.", pictures: new[] { "art/tree.png" })));
+        Assert.That(start["payload"]!["attachments"]!.ToString(Newtonsoft.Json.Formatting.None),
+            Is.EqualTo("[{\"path\":\"art/tree.png\",\"kind\":\"image\"}]"));
+        var send = Json.Parse(HalcyonicJson.Serialize(factory.SendInstruction("e1", "Now the sky.", new[] { "sky.jpg", "a/b.webp" })));
+        Assert.That(send["payload"]!["attachments"]!.Select(a => (string?)a["path"]), Is.EqualTo(new[] { "sky.jpg", "a/b.webp" }));
+    }
+
+    [Test]
     public void ClientMessagesRoundTrip()
     {
         var hello = new HelloMessage

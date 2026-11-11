@@ -18,6 +18,7 @@ import {
   WorkspaceRequestId,
   WorkstreamId,
 } from './primitives.ts';
+import { InstructionAttachments } from './project-reads.ts';
 import { QuestionAnswer } from './questions.ts';
 import { ApprovalLevel, ModelRef, RuntimeOptions } from './runtime.ts';
 import { SecretName } from './secrets.ts';
@@ -331,6 +332,11 @@ export const ExecutionStartCommand = defineCommand(
        * means not a plan.
        */
       plan: Type.Optional(Type.Boolean()),
+      /**
+       * Pictures of the project's folder that go with the instruction (A4): only for a runtime whose
+       * descriptor says it takes them. Absent means none.
+       */
+      attachments: Type.Optional(InstructionAttachments),
     },
     strict,
   ),
@@ -349,6 +355,8 @@ export const ExecutionSendInstructionCommand = defineCommand(
        * Absent or false: an ordinary instruction.
        */
       leave_plan: Type.Optional(Type.Boolean()),
+      /** Pictures of the project's folder that go with the words (A4), as on `execution.start`. */
+      attachments: Type.Optional(InstructionAttachments),
     },
     strict,
   ),

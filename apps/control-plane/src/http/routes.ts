@@ -29,6 +29,7 @@ import {
   ProjectFileQuery,
   ProjectHistoryQuery,
   ProjectId,
+  ProjectReadQuery,
   ProjectSecretSetRequest,
   type ProjectsResponse,
   type PublishedCodeResponse,
@@ -77,6 +78,7 @@ const validateProjectChangesQuery = compileValidator(ProjectChangesQuery);
 const validateProjectHistoryQuery = compileValidator(ProjectHistoryQuery);
 const validateProjectFileChangeQuery = compileValidator(ProjectFileChangeQuery);
 const validateProjectFileQuery = compileValidator(ProjectFileQuery);
+const validateProjectReadQuery = compileValidator(ProjectReadQuery);
 const validateCheckStepOutputQuery = compileValidator(CheckStepOutputQuery);
 const validateWorkspaceRequestId = compileValidator(WorkspaceRequestId);
 const validateWorkspaceCommandId = compileValidator(CommandId);
@@ -358,6 +360,13 @@ export function registerRoutes(
     const query = validateProjectFileQuery(request.query);
     if (!validateProjectId(projectId).ok || !query.ok) return invalid(reply);
     return (await reads.file(projectId, query.value, request.principal)) ?? unavailable(reply);
+  });
+  // The pictures an instruction may carry (A4).
+  app.get('/api/projects/:project_id/pictures', async (request, reply) => {
+    const projectId = (request.params as { project_id: string }).project_id;
+    const query = validateProjectReadQuery(request.query);
+    if (!validateProjectId(projectId).ok || !query.ok) return invalid(reply);
+    return (await reads.pictures(projectId, query.value, request.principal)) ?? unavailable(reply);
   });
   app.get('/api/projects/:project_id/checks/:check_id/output', async (request, reply) => {
     const { project_id: projectId, check_id: checkId } = request.params as {

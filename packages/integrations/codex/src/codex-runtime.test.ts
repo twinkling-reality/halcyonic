@@ -1531,6 +1531,25 @@ describe('Codex runtime against a stand-in binary', () => {
     assert.deepEqual(observations, []);
   });
 
+  test("an instruction's pictures follow its words as data URLs of the bytes the host read (A4)", async (t) => {
+    const { runtime, start, received } = fake(t);
+    assert.equal(runtime.descriptor.takes_pictures, true);
+    await start();
+    const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 7]);
+    await runtime.sendInstruction({
+      execution: TEST_EXECUTION,
+      text: 'Like this.',
+      pictures: [
+        { path: 'sky.jpg', media_type: 'image/jpeg', bytes: jpeg, sha256: 'b'.repeat(64) },
+      ],
+    });
+    const steer = received().find((message) => message.method === 'turn/steer');
+    assert.deepEqual((steer?.params as { input: unknown } | undefined)?.input, [
+      { type: 'text', text: 'Like this.', text_elements: [] },
+      { type: 'image', url: `data:image/jpeg;base64,${Buffer.from(jpeg).toString('base64')}` },
+    ]);
+  });
+
   test('steers a running turn with its id and starts a turn only at rest', async (t) => {
     const { runtime, start, received, observations } = fake(t);
     await start();

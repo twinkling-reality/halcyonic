@@ -674,6 +674,44 @@ namespace Halcyonic.Contracts
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
+    public enum PictureMediaType
+    {
+        [EnumMember(Value = "image/png")] ImagePng,
+        [EnumMember(Value = "image/jpeg")] ImageJpeg,
+        [EnumMember(Value = "image/webp")] ImageWebp,
+    }
+
+    public sealed class ProjectPicture
+    {
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [JsonProperty("media_type", Required = Required.Always)]
+        public PictureMediaType MediaType { get; set; }
+
+        [JsonProperty("size_bytes", Required = Required.Always)]
+        public long SizeBytes { get; set; }
+
+        [JsonProperty("modified_at", Required = Required.Always)]
+        public string ModifiedAt { get; set; } = default!;
+    }
+
+    public sealed class ProjectPicturesResponse
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("pictures", Required = Required.Always)]
+        public List<ProjectPicture> Pictures { get; set; } = new List<ProjectPicture>();
+
+        [JsonProperty("pictures_total", Required = Required.Always)]
+        public long PicturesTotal { get; set; }
+
+        [JsonProperty("source", Required = Required.Always)]
+        public string Source { get; set; } = "project_files";
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
     public enum CheckOutputStep
     {
         [EnumMember(Value = "typecheck")] Typecheck,
@@ -3014,6 +3052,12 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("resumes_after_restart", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public bool? ResumesAfterRestart { get; set; }
+
+        [JsonProperty("takes_pictures", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? TakesPictures { get; set; }
+
+        [JsonProperty("holds_instructions", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? HoldsInstructions { get; set; }
     }
 
     public sealed class Snapshot
@@ -3289,6 +3333,30 @@ namespace Halcyonic.Contracts
     {
         [JsonProperty("command_id", Required = Required.Always)]
         public string CommandId { get; set; } = default!;
+    }
+
+    public sealed class PictureRead
+    {
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [JsonProperty("media_type", Required = Required.Always)]
+        public PictureMediaType MediaType { get; set; }
+
+        [JsonProperty("size_bytes", Required = Required.Always)]
+        public long SizeBytes { get; set; }
+
+        [JsonProperty("sha256", Required = Required.Always)]
+        public string Sha256 { get; set; } = default!;
+    }
+
+    public sealed class ExecutionInstructionPicturesReadPayload
+    {
+        [JsonProperty("command_id", Required = Required.Always)]
+        public string CommandId { get; set; } = default!;
+
+        [JsonProperty("pictures", Required = Required.Always)]
+        public List<PictureRead> Pictures { get; set; } = new List<PictureRead>();
     }
 
     public sealed class ProjectRestoredPayload
@@ -4072,6 +4140,15 @@ namespace Halcyonic.Contracts
         public string WorkstreamId { get; set; } = default!;
     }
 
+    public sealed class InstructionAttachment
+    {
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [JsonProperty("kind", Required = Required.Always)]
+        public string Kind { get; set; } = "image";
+    }
+
     public sealed class ExecutionStartPayload
     {
         [JsonProperty("workstream_id", Required = Required.Always)]
@@ -4094,6 +4171,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("plan", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public bool? Plan { get; set; }
+
+        [JsonProperty("attachments", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public List<InstructionAttachment>? Attachments { get; set; }
     }
 
     public sealed class ExecutionSendInstructionPayload
@@ -4106,6 +4186,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("leave_plan", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public bool? LeavePlan { get; set; }
+
+        [JsonProperty("attachments", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public List<InstructionAttachment>? Attachments { get; set; }
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
@@ -5155,6 +5238,7 @@ namespace Halcyonic.Contracts
                 "project.checkpoints.pruned" => new ProjectCheckpointsPrunedEvent(),
                 "execution.instruction.queued" => new ExecutionInstructionQueuedEvent(),
                 "execution.instruction.dequeued" => new ExecutionInstructionDequeuedEvent(),
+                "execution.instruction.pictures_read" => new ExecutionInstructionPicturesReadEvent(),
                 "project.restored" => new ProjectRestoredEvent(),
                 "project.restore_incomplete" => new ProjectRestoreIncompleteEvent(),
                 "project.check.recorded" => new ProjectCheckRecordedEvent(),
@@ -5320,6 +5404,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ExecutionInstructionDequeuedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionInstructionPicturesReadEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.instruction.pictures_read";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ExecutionInstructionPicturesReadPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectRestoredEvent : EventEnvelope
@@ -6119,6 +6211,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("context_tokens", Required = Required.AllowNull)]
         public long? ContextTokens { get; set; }
+
+        [JsonProperty("picture_input", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public ModelToolCalling? PictureInput { get; set; }
     }
 
     [JsonConverter(typeof(RuntimeModelsResultConverter))]

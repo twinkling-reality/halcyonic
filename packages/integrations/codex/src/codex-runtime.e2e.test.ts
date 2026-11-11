@@ -17,6 +17,7 @@ import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { crc32, deflateSync } from 'node:zlib';
 import {
   type ApprovalLevel,
   compileValidator,
@@ -57,6 +58,31 @@ const CRASH_HOST = fileURLToPath(new URL('./testing/crash-host.ts', import.meta.
 const SLOW_TEST = { timeout: 120_000 };
 
 let executionCount = 0;
+
+/** A 2 by 2 PNG of one colour, whole and decodable. */
+function solidPng([r, g, b]: readonly [number, number, number]): Uint8Array {
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([length, body, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(2, 0);
+  header.writeUInt32BE(2, 4);
+  header.set([8, 2, 0, 0, 0], 8);
+  const row = Buffer.from([0, r, g, b, r, g, b]);
+  return new Uint8Array(
+    Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk('IHDR', header),
+      chunk('IDAT', deflateSync(Buffer.concat([row, row]))),
+      chunk('IEND', Buffer.alloc(0)),
+    ]),
+  );
+}
 
 /** Collects the observations of one execution. */
 class Execution {
@@ -458,6 +484,59 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       assert.equal(thread.id, threadId);
       assert.ok(typeof thread.path === 'string' && thread.path.endsWith(`-${threadId}.jsonl`));
       assert.ok(existsSync(thread.path));
+    },
+  );
+
+  test(
+    "an instruction's pictures reach the provider as input images of the host's bytes, for a model outside Codex's catalog too (A4)",
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox } = await harness(t);
+      assert.equal(runtime.descriptor.takes_pictures, true);
+      const png = solidPng([200, 40, 40]);
+      const url = `data:image/png;base64,${Buffer.from(png).toString('base64')}`;
+      const picture = {
+        path: 'art/tree.png',
+        media_type: 'image/png' as const,
+        bytes: png,
+        sha256: 'd'.repeat(64),
+      };
+      const execution = new Execution();
+      await runtime.startExecution({
+        execution: execution.context,
+        instruction: 'Paint it like this.',
+        pictures: [picture],
+        options: { model_provider: 'fake', model: 'local-model:tag' },
+        directory: sandbox.project,
+        model_ref: null,
+        emit: execution.emit,
+      });
+      await execution.next('runtime.turn.completed');
+      const sent = (index: number) => JSON.stringify(sandbox.provider.requests[index]?.body ?? {});
+      const bodies = sandbox.provider.requests.map((_, index) => sent(index));
+      assert.ok(
+        bodies.some((body) => body.includes(`"image_url":"${url}"`)),
+        JSON.stringify(
+          bodies.map((body) => [
+            body.length,
+            body.includes('input_image'),
+            body.includes('Paint it like this'),
+          ]),
+        ),
+      );
+      // An instruction at rest carries its picture the same way.
+      const before = sandbox.provider.requests.length;
+      await runtime.sendInstruction({
+        execution: execution.context,
+        text: 'Again.',
+        pictures: [picture],
+      });
+      await execution.next('runtime.turn.completed', 2);
+      assert.ok(
+        sandbox.provider.requests
+          .slice(before)
+          .some((_, index) => sent(before + index).includes(`"image_url":"${url}"`)),
+      );
     },
   );
 

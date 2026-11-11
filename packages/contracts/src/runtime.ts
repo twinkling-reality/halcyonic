@@ -104,6 +104,19 @@ export const RuntimeDescriptor = Type.Object(
      * a restart loses the runtime's sessions.
      */
     resumes_after_restart: Type.Optional(Type.Boolean()),
+    /**
+     * True when an instruction may carry pictures (`attachments`, A4): declared for a runtime only
+     * once a runtime test shows its real send hands the picture's bytes on to the model's provider.
+     * A model may still not take them: see `RuntimeModel.picture_input`. Absent means not offered.
+     */
+    takes_pictures: Type.Optional(Type.Boolean()),
+    /**
+     * Set by the host, never by an adapter (ADR 0056): true where an instruction sent while one of the
+     * runtime's executions is `running`, `verifying` or `waiting_for_human` is held for the turn to end
+     * rather than taken at once. Only on the person's own journal, for a runtime that cannot steer but
+     * can be instructed at rest; at most `QUEUED_INSTRUCTIONS_MAX` wait. Absent means not held.
+     */
+    holds_instructions: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );
@@ -145,6 +158,12 @@ export const RuntimeModel = Type.Object(
     tool_calling: ModelToolCalling,
     /** The context the runtime assumes for the model, in tokens; the server may load less. */
     context_tokens: Nullable(Type.Integer({ minimum: 1 })),
+    /**
+     * Whether the runtime's own list says the model takes a picture (A4): `not_declared` where it
+     * says the model takes text only, and the runtime would then not hand a picture on. Absent
+     * means unknown.
+     */
+    picture_input: Type.Optional(ModelToolCalling),
   },
   { additionalProperties: false },
 );

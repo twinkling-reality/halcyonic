@@ -22,6 +22,7 @@ import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { crc32, deflateSync } from 'node:zlib';
 import {
   type ApprovalLevel,
   compileValidator,
@@ -101,6 +102,31 @@ function sandboxOf(sandbox: OpenCodeSandbox) {
 function loopbackPorts(sandbox: OpenCodeSandbox): number[] {
   return [sandbox.provider.baseUrl, sandbox.env.HTTP_PROXY ?? ''].map((url) =>
     Number(new URL(url).port),
+  );
+}
+
+/** A 2 by 2 PNG of one colour, whole and decodable. */
+function solidPng([r, g, b]: readonly [number, number, number]): Uint8Array {
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([length, body, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(2, 0);
+  header.writeUInt32BE(2, 4);
+  header.set([8, 2, 0, 0, 0], 8);
+  const row = Buffer.from([0, r, g, b, r, g, b]);
+  return new Uint8Array(
+    Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk('IHDR', header),
+      chunk('IDAT', deflateSync(Buffer.concat([row, row]))),
+      chunk('IEND', Buffer.alloc(0)),
+    ]),
   );
 }
 
@@ -546,6 +572,73 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         }),
         actionError('approval_not_pending'),
       );
+    },
+  );
+
+  test(
+    "an instruction's pictures reach the provider as the host's bytes, at a start and steered, and a text-only model is refused with nothing sent (A4)",
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox } = await harness(t, { provider: { slowChunks: 12 } });
+      assert.equal(runtime.descriptor.takes_pictures, true);
+      // A model OpenCode lists as taking text only, as it lists Ollama's (picture-and-file-input.md).
+      const configPath = join(sandbox.root, 'config/opencode/opencode.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      config.providers.fake.models['text-only'] = {
+        name: 'Text only',
+        capabilities: { tools: true, input: ['text'], output: ['text'] },
+      };
+      writeFileSync(configPath, JSON.stringify(config, null, 2));
+      // OpenCode decodes a picture, so each is a real PNG, drawn here: two squares of colour.
+      const png = solidPng([200, 40, 40]);
+      const jpeg = solidPng([40, 40, 200]);
+      const picture = (bytes: Uint8Array, media: 'image/png' | 'image/jpeg', path: string) => ({
+        path,
+        media_type: media,
+        bytes,
+        sha256: 'c'.repeat(64),
+      });
+      const dataUrl = (bytes: Uint8Array, media: string) =>
+        `data:${media};base64,${Buffer.from(bytes).toString('base64')}`;
+      const begin = async (modelRef: string, instruction: string) => {
+        const execution = new Execution();
+        await runtime.startExecution({
+          execution: execution.context,
+          instruction,
+          pictures: [picture(png, 'image/png', 'art/tree.png')],
+          options: {},
+          directory: sandbox.project,
+          model_ref: modelRef,
+          emit: execution.emit,
+        });
+        return execution;
+      };
+
+      const execution = await begin('fake/fake-model', 'SLOW turn with a picture.');
+      await execution.next('runtime.turn.started');
+      await until(() => sandbox.provider.requests.length === 1, 10_000, 'the model request');
+      assert.ok(sandbox.provider.requests[0]?.body.includes(dataUrl(png, 'image/png')));
+      // A picture steered into the running turn reaches the model in its next request.
+      await runtime.sendInstruction({
+        execution: execution.context,
+        text: 'Steered with a picture.',
+        pictures: [picture(jpeg, 'image/png', 'sky.png')],
+      });
+      await execution.next('runtime.turn.completed');
+      assert.equal(sandbox.provider.requests.length, 2);
+      assert.ok(sandbox.provider.requests[1]?.body.includes(dataUrl(jpeg, 'image/png')));
+
+      // A model listed as text only: refused before anything is sent, so its words never go alone.
+      const before = sandbox.provider.requests.length;
+      await assert.rejects(begin('fake/text-only', 'A picture for a text model.'), (error) => {
+        assert.ok(error instanceof RuntimeActionError);
+        assert.equal(error.code, 'runtime_refused');
+        assert.equal(error.effect, 'none');
+        assert.match(error.message, /fake\/text-only as taking text only/);
+        return true;
+      });
+      await delay(500);
+      assert.equal(sandbox.provider.requests.length, before);
     },
   );
 

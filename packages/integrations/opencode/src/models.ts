@@ -16,6 +16,12 @@ export interface OpenCodeModel {
   readonly tools: boolean | null;
   /** `limit.context`, or null when it is missing or not a positive integer. */
   readonly contextTokens: number | null;
+  /**
+   * `capabilities.input`, what the model takes, or null when the listing does not say. OpenCode
+   * hands a picture on only where it names `image`; elsewhere it puts an error line in its place
+   * (picture-and-file-input.md).
+   */
+  readonly input: readonly string[] | null;
   /** `settings.baseURL`, the endpoint OpenCode sends the model's requests to, when set. */
   readonly baseUrl: string | null;
   /**
@@ -100,6 +106,9 @@ export function parseModels(data: readonly unknown[]): OpenCodeModel[] {
         typeof context === 'number' && Number.isSafeInteger(context) && context > 0
           ? context
           : null,
+      input: Array.isArray(capabilities.input)
+        ? capabilities.input.filter((each): each is string => typeof each === 'string')
+        : null,
       baseUrl: typeof settings.baseURL === 'string' ? settings.baseURL : null,
       package: packageOf(item),
     });
@@ -143,6 +152,9 @@ export function toRuntimeModel(model: OpenCodeModel): RuntimeModel {
     tool_calling:
       model.tools === true ? 'declared' : model.tools === false ? 'not_declared' : 'unknown',
     context_tokens: model.contextTokens,
+    ...(model.input !== null && {
+      picture_input: model.input.includes('image') ? 'declared' : 'not_declared',
+    }),
   };
 }
 

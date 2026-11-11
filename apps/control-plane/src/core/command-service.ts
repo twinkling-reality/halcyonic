@@ -12,6 +12,7 @@ import type {
   ExecutionId,
   ExecutionStatus,
   ExecutionView,
+  InstructionAttachment,
   Principal,
   ProjectId,
   ProjectLocation,
@@ -36,6 +37,7 @@ import {
   type Clock,
   checkProjectLocation,
   type ExecutionContext,
+  type InstructionPicture,
   RuntimeActionError,
   type RuntimeAdapter,
   type Scheduler,
@@ -70,6 +72,7 @@ import {
   NO_CAUSE,
 } from './drafts.ts';
 import { type OllamaUnloader, ollamaModelFrom } from './ollama-unload.ts';
+import { readPictures } from './pictures.ts';
 import { type Reattacher, SESSION_LOST } from './reattach.ts';
 import type { Recorder } from './recorder.ts';
 import { fitted, type Redaction, withinLimit } from './redaction.ts';
@@ -105,6 +108,8 @@ export interface CommandServiceDeps {
   readonly registry: RuntimeRegistry;
   /** Where projects may live on the host, and the directory policy runtimes ask. */
   readonly locations: HostLocations;
+  /** The host's own folders, never read for an instruction's pictures (A4). */
+  readonly protectedFolders?: readonly string[];
   readonly ids: IdGenerator;
   readonly clock: Clock;
   readonly scheduler: Scheduler;
@@ -1677,151 +1682,10 @@ export class CommandService {
         return;
       }
       case 'execution.start': {
-        const { runtime, adapter } = this.#runtimeFor(admission);
-        const { project_id, workstream_id } = admission.scope;
-        if (project_id === null || workstream_id === null) {
-          throw new Error('admitted execution.start without a resolved workstream');
-        }
-        const execution: ExecutionContext = {
-          execution_id: this.#deps.ids.next() as ExecutionId,
-          workstream_id,
-          project_id,
-        };
-        const scope = { project_id, workstream_id, execution_id: execution.execution_id };
-        let firstFromVersion: string | null = null;
-        // Admission checked it; the adapter asks the host's policy again before anything runs.
-        const begin = (directory: string | null): void => {
-          // The project's secrets as they are at this start, for a runtime that takes them (ADR 0057).
-          const given = givenSecrets(
-            this.#deps.projectSecrets,
-            this.#deps.projection,
-            project_id,
-            runtime,
-          );
-          const names = Object.keys(given).sort();
-          recorder.record(
-            controlPlaneDraft(
-              'execution.created',
-              scope,
-              {
-                runtime: toRuntimeRef(runtime),
-                instruction: command.payload.instruction,
-                directory,
-                ...(names.length > 0 && { secret_names: names }),
-              },
-              this.#now(),
-              cause,
-            ),
-          );
-          this.#deps.reattacher?.started(execution.execution_id);
-          const start = adapter.startExecution;
-          if (start === undefined) {
-            this.#recordStartFailure(command, scope, unimplemented('startExecution'));
-            return;
-          }
-          const emit = createObservationSink(
-            recorder,
-            this.#deps.logger,
-            execution,
-            runtime.runtime_id,
-            this.#deps.redaction,
-          );
-          // A failed check's first lines go after the person's words, once per check (FX1).
-          const checked = this.#checkOutputFor(project_id, workstream_id);
-          const run = () =>
-            this.#perform(
-              command,
-              () =>
-                start.call(adapter, {
-                  execution,
-                  instruction: withCheckOutput(
-                    withVersionNote(command.payload.instruction, firstFromVersion),
-                    checked,
-                  ),
-                  options: command.payload.options,
-                  model_ref: command.payload.model_ref,
-                  ...(command.payload.approval_level !== undefined && {
-                    approval_level: command.payload.approval_level,
-                  }),
-                  ...(command.payload.plan === true && { plan: true }),
-                  directory,
-                  ...(names.length > 0 && { environment: given }),
-                  emit,
-                }),
-              {
-                succeeded: () => {
-                  this.#recordCheckOutput(scope, checked, cause);
-                  this.#complete(command, scope, {
-                    kind: 'execution_created',
-                    execution_id: execution.execution_id,
-                  });
-                },
-                failed: (failure) => this.#recordStartFailure(command, scope, failure),
-              },
-            );
-          // Before the runtime is asked, outside its timeout: the folder's first reading for what each
-          // turn changes (ADR 0038), a checkpoint of it (ADR 0036), and whether an Ollama model was
-          // already loaded before Halcyonic started using it (UL1).
-          const before: Promise<void>[] = [];
-          const ollamaModel = ollamaModelFrom(command.payload.model_ref, command.payload.options);
-          if (ollamaModel !== null && this.#deps.ollamaUnload) {
-            before.push(this.#deps.ollamaUnload.beforeRun(execution.execution_id, ollamaModel));
-          }
-          if (directory !== null) {
-            const files = this.#deps.files;
-            if (files) {
-              const id = execution.execution_id;
-              before.push(bounded(files.baseline(id, directory), () => files.abandon(id)));
-            }
-            const checkpoints = this.#deps.checkpoints;
-            if (checkpoints)
-              before.push(
-                checkpoints.beforeTask(project_id, execution.execution_id, directory, cause),
-              );
-          }
-          if (before.length === 0) void run();
-          else void Promise.all(before).then(run, run);
-        };
-        // A task works in its own copy of the project's folder, made before its first start (ADR 0045).
-        const projectFolder = runtime.uses_project_location
-          ? this.#projectDirectory(admission.scope)
-          : null;
-        const own = this.#ownCopy(workstream_id);
-        const copies = this.#deps.copies;
-        // A task from a version works only in its own copy of that version, never the folder as it is.
-        const version = this.#versionOf(workstream_id);
-        // Its agent is told which version it works on, on the task's first run that has a turn: a
-        // start that failed before its turn leaves the next one to say it (AUDIT3 S3).
-        const turnedBefore =
-          this.#deps.projection
-            .workstream(workstream_id)
-            ?.execution_ids.some(
-              (id) => (this.#deps.projection.execution(id)?.turn_count ?? 0) > 0,
-            ) ?? false;
-        firstFromVersion = version !== null && !turnedBefore ? version.recordedAt : null;
-        if (version !== null && own === null && (projectFolder === null || !copies)) {
-          this.#fail(command, admission.scope, {
-            code: 'capability_unsupported',
-            message:
-              'This task starts from an older version, so it needs a copy of its own, which this computer cannot make for this agent.',
-            effect: 'none',
-          });
-          return;
-        }
-        if (projectFolder !== null && own === null && copies) {
-          void this.#makeCopy(
-            copies,
-            admission.scope,
-            projectFolder,
-            runtime.runtime_id,
-            cause,
-          ).then((where) => {
-            if (where.ok) begin(where.directory);
-            else this.#fail(command, admission.scope, where.failure);
-          });
-          return;
-        }
-        begin(projectFolder === null ? null : (own ?? projectFolder));
+        // The pictures are read first, so one that cannot be read starts nothing (A4).
+        this.#withPictures(command, admission.scope, command.payload.attachments, (pictures) =>
+          this.#start(command, admission, pictures, cause),
+        );
         return;
       }
       case 'execution.drop_queued_instruction': {
@@ -1856,66 +1720,80 @@ export class CommandService {
           );
           return;
         }
-        const { adapter } = this.#runtimeFor(admission);
-        const execution = toExecutionContext(admission.scope);
-        // A failed check's first lines go after the person's words, once per check (FX1).
-        const checked =
-          command.command_type === 'execution.send_instruction'
-            ? this.#checkOutputFor(execution.project_id, execution.workstream_id)
-            : null;
-        const action = actionFor(command, adapter, execution, checked);
-        const outcome: ActionOutcome = {
-          succeeded: () => {
-            this.#recordCheckOutput(execution, checked, cause);
-            this.#complete(command, admission.scope, null);
-          },
-          failed: (failure) => this.#fail(command, admission.scope, failure),
+        // The pictures are read first, so one that cannot be read sends nothing (A4).
+        const proceed = (pictures: readonly InstructionPicture[] | undefined): void => {
+          const { adapter } = this.#runtimeFor(admission);
+          const execution = toExecutionContext(admission.scope);
+          // A failed check's first lines go after the person's words, once per check (FX1).
+          const checked =
+            command.command_type === 'execution.send_instruction'
+              ? this.#checkOutputFor(execution.project_id, execution.workstream_id)
+              : null;
+          if (pictures !== undefined) this.#recordPicturesRead(command, execution, pictures, cause);
+          const action = actionFor(command, adapter, execution, checked, pictures);
+          const outcome: ActionOutcome = {
+            succeeded: () => {
+              this.#recordCheckOutput(execution, checked, cause);
+              this.#complete(command, admission.scope, null);
+            },
+            failed: (failure) => this.#fail(command, admission.scope, failure),
+          };
+          if (action === undefined) {
+            outcome.failed(unimplemented(command.command_type));
+            return;
+          }
+          const ollamaModel =
+            command.command_type === 'execution.send_instruction' && this.#deps.ollamaUnload
+              ? (ollamaModelFrom(
+                  this.#deps.projection.execution(execution.execution_id)?.model_ref,
+                ) ?? this.#deps.ollamaUnload.modelFor(execution.execution_id))
+              : null;
+          // An execution an earlier control plane started is re-attached first, before a model is
+          // loaded or the folder read for it, or the action fails as lost, having done nothing (ADR 0046).
+          const reattached = this.#deps.reattacher?.ensure(execution) ?? null;
+          const attached = (work: () => Promise<void>) =>
+            reattached === null ? work() : reattached.then(work, () => undefined);
+          const startAction = () =>
+            reattached === null
+              ? this.#perform(command, action, outcome)
+              : reattached.then(
+                  () => this.#perform(command, action, outcome),
+                  (error: unknown) => outcome.failed(toFailure(error, this.#deps.redaction)),
+                );
+          const before: Promise<void>[] = [];
+          const unloader = this.#deps.ollamaUnload;
+          if (ollamaModel !== null && unloader) {
+            before.push(attached(() => unloader.beforeRun(execution.execution_id, ollamaModel)));
+          }
+          // An instruction that starts a turn from rest: the folder is read again first, so what
+          // changed while no turn ran, a restore or a person's edit, is not the coming turn's (OBS).
+          const view = this.#deps.projection.execution(execution.execution_id);
+          const files = this.#deps.files;
+          if (
+            command.command_type === 'execution.send_instruction' &&
+            files &&
+            view?.directory != null &&
+            (view.status === 'completed' ||
+              view.status === 'failed' ||
+              view.status === 'interrupted')
+          ) {
+            const { directory } = view;
+            const id = execution.execution_id;
+            before.push(
+              attached(() => bounded(files.beforeTurn(id, directory), () => files.abandon(id))),
+            );
+          }
+          if (before.length === 0) void startAction();
+          else void Promise.all(before).then(startAction, startAction);
         };
-        if (action === undefined) {
-          outcome.failed(unimplemented(command.command_type));
-          return;
-        }
-        const ollamaModel =
-          command.command_type === 'execution.send_instruction' && this.#deps.ollamaUnload
-            ? (ollamaModelFrom(
-                this.#deps.projection.execution(execution.execution_id)?.model_ref,
-              ) ?? this.#deps.ollamaUnload.modelFor(execution.execution_id))
-            : null;
-        // An execution an earlier control plane started is re-attached first, before a model is
-        // loaded or the folder read for it, or the action fails as lost, having done nothing (ADR 0046).
-        const reattached = this.#deps.reattacher?.ensure(execution) ?? null;
-        const attached = (work: () => Promise<void>) =>
-          reattached === null ? work() : reattached.then(work, () => undefined);
-        const startAction = () =>
-          reattached === null
-            ? this.#perform(command, action, outcome)
-            : reattached.then(
-                () => this.#perform(command, action, outcome),
-                (error: unknown) => outcome.failed(toFailure(error, this.#deps.redaction)),
-              );
-        const before: Promise<void>[] = [];
-        const unloader = this.#deps.ollamaUnload;
-        if (ollamaModel !== null && unloader) {
-          before.push(attached(() => unloader.beforeRun(execution.execution_id, ollamaModel)));
-        }
-        // An instruction that starts a turn from rest: the folder is read again first, so what
-        // changed while no turn ran, a restore or a person's edit, is not the coming turn's (OBS).
-        const view = this.#deps.projection.execution(execution.execution_id);
-        const files = this.#deps.files;
-        if (
-          command.command_type === 'execution.send_instruction' &&
-          files &&
-          view?.directory != null &&
-          (view.status === 'completed' || view.status === 'failed' || view.status === 'interrupted')
-        ) {
-          const { directory } = view;
-          const id = execution.execution_id;
-          before.push(
-            attached(() => bounded(files.beforeTurn(id, directory), () => files.abandon(id))),
-          );
-        }
-        if (before.length === 0) void startAction();
-        else void Promise.all(before).then(startAction, startAction);
+        this.#withPictures(
+          command,
+          admission.scope,
+          command.command_type === 'execution.send_instruction'
+            ? command.payload.attachments
+            : undefined,
+          proceed,
+        );
         return;
       }
       default: {
@@ -1925,6 +1803,223 @@ export class CommandService {
         );
       }
     }
+  }
+
+  /** Starts an admitted execution, once its pictures, if any, are read (A4). */
+  #start(
+    command: CommandOf<'execution.start'>,
+    admission: Admitted,
+    pictures: readonly InstructionPicture[] | undefined,
+    cause: Cause,
+  ): void {
+    const { recorder } = this.#deps;
+    const { runtime, adapter } = this.#runtimeFor(admission);
+    const { project_id, workstream_id } = admission.scope;
+    if (project_id === null || workstream_id === null) {
+      throw new Error('admitted execution.start without a resolved workstream');
+    }
+    const execution: ExecutionContext = {
+      execution_id: this.#deps.ids.next() as ExecutionId,
+      workstream_id,
+      project_id,
+    };
+    const scope = { project_id, workstream_id, execution_id: execution.execution_id };
+    let firstFromVersion: string | null = null;
+    // Admission checked it; the adapter asks the host's policy again before anything runs.
+    const begin = (directory: string | null): void => {
+      // The project's secrets as they are at this start, for a runtime that takes them (ADR 0057).
+      const given = givenSecrets(
+        this.#deps.projectSecrets,
+        this.#deps.projection,
+        project_id,
+        runtime,
+      );
+      const names = Object.keys(given).sort();
+      recorder.record(
+        controlPlaneDraft(
+          'execution.created',
+          scope,
+          {
+            runtime: toRuntimeRef(runtime),
+            instruction: command.payload.instruction,
+            directory,
+            ...(names.length > 0 && { secret_names: names }),
+          },
+          this.#now(),
+          cause,
+        ),
+      );
+      this.#deps.reattacher?.started(execution.execution_id);
+      if (pictures !== undefined) this.#recordPicturesRead(command, scope, pictures, cause);
+      const start = adapter.startExecution;
+      if (start === undefined) {
+        this.#recordStartFailure(command, scope, unimplemented('startExecution'));
+        return;
+      }
+      const emit = createObservationSink(
+        recorder,
+        this.#deps.logger,
+        execution,
+        runtime.runtime_id,
+        this.#deps.redaction,
+      );
+      // A failed check's first lines go after the person's words, once per check (FX1).
+      const checked = this.#checkOutputFor(project_id, workstream_id);
+      const run = () =>
+        this.#perform(
+          command,
+          () =>
+            start.call(adapter, {
+              execution,
+              instruction: withCheckOutput(
+                withVersionNote(command.payload.instruction, firstFromVersion),
+                checked,
+              ),
+              options: command.payload.options,
+              model_ref: command.payload.model_ref,
+              ...(command.payload.approval_level !== undefined && {
+                approval_level: command.payload.approval_level,
+              }),
+              ...(command.payload.plan === true && { plan: true }),
+              ...(pictures !== undefined && { pictures }),
+              directory,
+              ...(names.length > 0 && { environment: given }),
+              emit,
+            }),
+          {
+            succeeded: () => {
+              this.#recordCheckOutput(scope, checked, cause);
+              this.#complete(command, scope, {
+                kind: 'execution_created',
+                execution_id: execution.execution_id,
+              });
+            },
+            failed: (failure) => this.#recordStartFailure(command, scope, failure),
+          },
+        );
+      // Before the runtime is asked, outside its timeout: the folder's first reading for what each
+      // turn changes (ADR 0038), a checkpoint of it (ADR 0036), and whether an Ollama model was
+      // already loaded before Halcyonic started using it (UL1).
+      const before: Promise<void>[] = [];
+      const ollamaModel = ollamaModelFrom(command.payload.model_ref, command.payload.options);
+      if (ollamaModel !== null && this.#deps.ollamaUnload) {
+        before.push(this.#deps.ollamaUnload.beforeRun(execution.execution_id, ollamaModel));
+      }
+      if (directory !== null) {
+        const files = this.#deps.files;
+        if (files) {
+          const id = execution.execution_id;
+          before.push(bounded(files.baseline(id, directory), () => files.abandon(id)));
+        }
+        const checkpoints = this.#deps.checkpoints;
+        if (checkpoints)
+          before.push(checkpoints.beforeTask(project_id, execution.execution_id, directory, cause));
+      }
+      if (before.length === 0) void run();
+      else void Promise.all(before).then(run, run);
+    };
+    // A task works in its own copy of the project's folder, made before its first start (ADR 0045).
+    const projectFolder = runtime.uses_project_location
+      ? this.#projectDirectory(admission.scope)
+      : null;
+    const own = this.#ownCopy(workstream_id);
+    const copies = this.#deps.copies;
+    // A task from a version works only in its own copy of that version, never the folder as it is.
+    const version = this.#versionOf(workstream_id);
+    // Its agent is told which version it works on, on the task's first run that has a turn: a
+    // start that failed before its turn leaves the next one to say it (AUDIT3 S3).
+    const turnedBefore =
+      this.#deps.projection
+        .workstream(workstream_id)
+        ?.execution_ids.some((id) => (this.#deps.projection.execution(id)?.turn_count ?? 0) > 0) ??
+      false;
+    firstFromVersion = version !== null && !turnedBefore ? version.recordedAt : null;
+    if (version !== null && own === null && (projectFolder === null || !copies)) {
+      this.#fail(command, admission.scope, {
+        code: 'capability_unsupported',
+        message:
+          'This task starts from an older version, so it needs a copy of its own, which this computer cannot make for this agent.',
+        effect: 'none',
+      });
+      return;
+    }
+    if (projectFolder !== null && own === null && copies) {
+      void this.#makeCopy(copies, admission.scope, projectFolder, runtime.runtime_id, cause).then(
+        (where) => {
+          if (where.ok) begin(where.directory);
+          else this.#fail(command, admission.scope, where.failure);
+        },
+      );
+      return;
+    }
+    begin(projectFolder === null ? null : (own ?? projectFolder));
+  }
+
+  /**
+   * Reads an instruction's pictures from the project's folder (A4), then goes on with them; with
+   * none, at once. A picture that cannot be read fails the command with nothing done.
+   */
+  #withPictures(
+    command: CommandEnvelope,
+    scope: CommandScope,
+    attachments: readonly InstructionAttachment[] | undefined,
+    go: (pictures: readonly InstructionPicture[] | undefined) => void,
+  ): void {
+    if (attachments === undefined) {
+      go(undefined);
+      return;
+    }
+    const refuse = (code: string, message: string) =>
+      this.#fail(command, scope, { code, message, effect: 'none' });
+    const folder =
+      scope.project_id === null
+        ? null
+        : (this.#deps.projection.project(scope.project_id)?.location?.path ?? null);
+    if (folder === null) {
+      refuse(
+        'picture_not_found',
+        "Pictures come from the project's folder, and the project has none, so the instruction was not sent.",
+      );
+      return;
+    }
+    void readPictures(folder, attachments, this.#deps.protectedFolders ?? []).then(
+      (read) => {
+        if (read.ok) go(read.pictures);
+        else refuse(read.code, read.message);
+      },
+      () =>
+        refuse(
+          'picture_not_found',
+          'The pictures could not be read, so the instruction was not sent.',
+        ),
+    );
+  }
+
+  /** What the host read and is about to hand the runtime: paths, kinds, sizes and digests (A4). */
+  #recordPicturesRead(
+    command: CommandEnvelope,
+    scope: { project_id: ProjectId; workstream_id: WorkstreamId; execution_id: ExecutionId },
+    pictures: readonly InstructionPicture[],
+    cause: Cause,
+  ): void {
+    if (pictures.length === 0) return;
+    this.#deps.recorder.record(
+      controlPlaneDraft(
+        'execution.instruction.pictures_read',
+        scope,
+        {
+          command_id: command.command_id,
+          pictures: pictures.map((picture) => ({
+            path: picture.path,
+            media_type: picture.media_type,
+            size_bytes: picture.bytes.length,
+            sha256: picture.sha256,
+          })),
+        },
+        this.#now(),
+        cause,
+      ),
+    );
   }
 
   /** Waits for the runtime to confirm the action, bounded by the command timeout. */
@@ -2310,6 +2405,7 @@ function actionFor(
   adapter: RuntimeAdapter,
   execution: ExecutionContext,
   checked: Checked | null,
+  pictures: readonly InstructionPicture[] | undefined,
 ): (() => Promise<void>) | undefined {
   switch (command.command_type) {
     case 'execution.send_instruction': {
@@ -2317,7 +2413,14 @@ function actionFor(
       const text = withCheckOutput(command.payload.text, checked);
       const leave = command.payload.leave_plan === true;
       return (
-        send && (() => send.call(adapter, { execution, text, ...(leave && { leave_plan: true }) }))
+        send &&
+        (() =>
+          send.call(adapter, {
+            execution,
+            text,
+            ...(leave && { leave_plan: true }),
+            ...(pictures !== undefined && { pictures }),
+          }))
       );
     }
     case 'execution.respond_to_approval': {
