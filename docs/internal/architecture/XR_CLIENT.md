@@ -2679,6 +2679,12 @@ The last unit turns it on by default and removes the kit parts it replaced.
   the field, the cursor reading Editing and the file's name, Stop alone), `36-work-row` (one that takes one: the row
   under the foot line, no step reported, so no cursor) and `36-stop-confirm`; `RoomWorkingTests` drives Stop and its
   confirmation through a real file column and reads the one command sent.
+- **The shelf's name tags** (BUILD-SPEC-v4 2.2): under the redesign each character on the shelf is named by FIELD's tag
+  in the panel's material, one line of its task's name 0.8 degrees under its feet, and the one whose task stands open
+  beside the menu wears the ring (`RoomNameTag`, attached by `WorkspaceDirector.Attach`, ringed in `FollowBeside`);
+  the character's older label (badge, plate and marks) does not stand. With the redesign off nothing changes. The
+  character says what it shows (`CharacterView.Shown`, `Title`, `Labels`), since its own assembly cannot see the
+  room's parts. Check: `StageRender.RoomShelfCheck`.
 - **The result at rest** (BUILD-SPEC-v4 2.5 to 2.8): what the computer itself knows of a task whose run is at rest
   stands as the pair over the row, in the same host (`RoomResult`, `KitWorkModel.Result`, `RoomBar.Resulting`,
   `RoomBar.Result`). The director gives it (`MenuDirector.ResultOf`) from the project's own screen
