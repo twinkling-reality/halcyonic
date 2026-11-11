@@ -61,7 +61,10 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
 - When two or more tasks changed the project before its check, none is sent the failure: whose
   change failed it is not known.
 - The execution view's optional `auto_fix` carries the latest chain's state and numbers (`fixing`
-  or `ended`, the check, the try, the cap, the reason), never words: clients choose those.
+  or `ended`, the check, the try, the cap, the reason), never words: clients choose those. Since
+  2026-11-11 it also carries `failed_steps` (`typecheck`, `build`, `page`): while a try runs, what it
+  was sent to fix; after `passed`, what got fixed; after a failed check, that check's. So the headset
+  can say what failed without matching the project's latest check, which a newer check replaces.
 - On wherever checks are; `ControlPlaneOptions.autoFix: false` turns it off.
 
 ## Alternatives considered

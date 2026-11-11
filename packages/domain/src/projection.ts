@@ -880,6 +880,20 @@ export class Projection {
         };
   }
 
+  /** The steps that failed in one of the project's checks, or undefined for a check not known here. */
+  #failedSteps(projectId: string, checkId: string): ('typecheck' | 'build' | 'page')[] | undefined {
+    const findings = this.#checksById
+      .get(projectId as ProjectId)
+      ?.get(checkId as CheckId)?.findings;
+    if (findings === undefined) return undefined;
+    const steps: ('typecheck' | 'build' | 'page')[] = [];
+    if (findings.tsc.exit !== 0) steps.push('typecheck');
+    if (findings.build.exit !== 0) steps.push('build');
+    if (findings.page !== null && (findings.page.exception_count > 0 || !findings.page.drawn))
+      steps.push('page');
+    return steps;
+  }
+
   /** Whether the command is an instruction the host sent on its own for a failed check (ADR 0044). */
   isAutoFixCommand(commandId: string): boolean {
     return this.#autoFixCommands.has(commandId as CommandId);
@@ -1222,6 +1236,7 @@ export class Projection {
           return;
         }
         const { check_id, cap } = event.payload;
+        const failed = this.#failedSteps(event.project_id, check_id);
         if (event.event_type === 'execution.auto_fix.sent') {
           this.#autoFixCommands.add(event.payload.command_id);
           execution.autoFix = {
@@ -1230,10 +1245,25 @@ export class Projection {
             attempt: event.payload.attempt,
             cap,
             reason: null,
+            ...(failed !== undefined && { failed_steps: failed }),
           };
         } else {
           const { attempts, reason } = event.payload;
-          execution.autoFix = { state: 'ended', check_id, attempt: attempts, cap, reason };
+          // A chain that ended on a passing check keeps what it fixed; else the ending check's.
+          const steps =
+            failed !== undefined && failed.length > 0
+              ? failed
+              : execution.autoFix?.state === 'fixing'
+                ? execution.autoFix.failed_steps
+                : failed;
+          execution.autoFix = {
+            state: 'ended',
+            check_id,
+            attempt: attempts,
+            cap,
+            reason,
+            ...(steps !== undefined && { failed_steps: [...steps] }),
+          };
         }
         this.#touchExecution(execution, event.ingested_at, changes);
         return;
