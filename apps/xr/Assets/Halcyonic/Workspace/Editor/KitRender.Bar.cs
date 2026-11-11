@@ -657,8 +657,13 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(shown.Column[0].Main == (state != "38-changes") && shown.Column[0].Control.Action == state switch
                         {
                             "38-changes-long" => RoomResult.NextPage, "38-checks" => RoomResult.TryBuild, "38-checks-failed" => FileScreens.TellIt,
-                            "38-add" => RoomResult.NextPage, "38-add-last" => RoomResult.AddConfirm, "38-conflict" => RoomResult.Fit, _ => RoomResult.Back,
+                            "38-add" => RoomResult.NextPage, "38-add-last" => RoomResult.AddConfirm, "38-conflict" => RoomResult.Fit,
+                            "38-changes" => RoomResult.ShowHistory, _ => RoomResult.Back,
                         }, "the page's first action is " + shown.Column[0].Words);
+                        // DEVICE's History stands before Back on Changes (the lead's order, 2026-11-11): first on a page of its own,
+                        // second after Next Page on a long list.
+                        if (state == "38-changes-long")
+                            Require(shown.Column.Count > 1 && shown.Column[1].Control.Action == RoomResult.ShowHistory && !shown.Column[1].Main, "the long list's second action is " + shown.Column[1].Words);
                         // A13: the add confirms behind its lock, named by its act (FIELD's A13 in A17's language).
                         if (state == "38-add-last") Require(shown.Column[0].Locks && shown.Column[0].Words == RoomAdd.AddToProject, "Add to Project does not stand behind its lock");
                         // Nothing can undo an add on the headset yet: the review never says it can (AUDIT, 2026-11-11).
