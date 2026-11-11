@@ -102,6 +102,8 @@ export type GitHubPublishReviewResponse = Static<typeof GitHubPublishReviewRespo
  */
 export const ProjectPublishedView = Type.Object(
   {
+    /** The repository it was published to, owner/name: Take Down acts on this one only (AUDIT3 U1). */
+    repository: RepositoryFullName,
     check_id: CheckId,
     commit: GitObjectId,
     address: Nullable(PagesAddress),

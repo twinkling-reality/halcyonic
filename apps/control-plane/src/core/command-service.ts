@@ -1192,7 +1192,10 @@ export class CommandService {
             effect: 'unknown',
           });
         if (command.command_type === 'project.unpublish') {
-          void github.unpublish(projectId, folder).then((done) => {
+          const published = this.#deps.projection.project(projectId)?.published;
+          if (published === undefined)
+            throw new Error('admitted project.unpublish with nothing published');
+          void github.unpublish(projectId, folder, published).then((done) => {
             if (!done.ok) {
               this.#fail(command, scope, {
                 code: done.code,

@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, test } from 'node:test';
@@ -133,8 +141,84 @@ describe('Publish to GitHub Pages (ADR 0039, amended)', {
       reviewed.publish.review,
     );
     assert.ok(published.ok);
-    const down = await sender().unpublish(PROJECT, stand.folder);
-    assert.ok(down.ok);
+    const down = await sender().unpublish(PROJECT, stand.folder, {
+      repository: 'owner/garden',
+      commit: published.commit,
+    });
+    assert.ok(down.ok, down.ok ? '' : down.message);
     assert.throws(() => stand.git(stand.origin, 'rev-parse', '--verify', BRANCH));
+  });
+
+  test('a review asks nothing of gh; only the press does (AUDIT3)', async () => {
+    const reviewed = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null);
+    assert.ok(reviewed.ok);
+    assert.equal(existsSync(stand.ghLog), false, 'a review runs no gh');
+  });
+
+  test("Take Down acts on the repository the game was published to, never the folder's origin now (AUDIT3 U1)", async () => {
+    const reviewed = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null);
+    assert.ok(reviewed.ok);
+    const first = await sender().publish(
+      PROJECT,
+      stand.folder,
+      CHECK,
+      built,
+      null,
+      reviewed.publish.review,
+    );
+    assert.ok(first.ok, first.ok ? '' : first.message);
+    // Another repository of the person's, with a Pages branch of its own, by the test's own insteadOf.
+    const other = join(root, 'other.git');
+    stand.git(root, 'init', '--bare', '-q', other);
+    stand.git(stand.folder, 'push', '-q', other, 'main:refs/heads/halcyonic-pages');
+    writeFileSync(
+      join(stand.home, '.gitconfig'),
+      `${readFileSync(join(stand.home, '.gitconfig'), 'utf8')}[url "file://${other}"]\n\tinsteadOf = https://github.com/owner/other.git\n`,
+    );
+    stand.git(stand.folder, 'remote', 'set-url', 'origin', 'https://github.com/owner/other.git');
+    const down = await sender().unpublish(PROJECT, stand.folder, {
+      repository: 'owner/garden',
+      commit: first.commit,
+    });
+    assert.equal(down.ok ? null : down.code, 'origin_changed');
+    assert.match(down.ok ? '' : down.message, /published to owner\/garden/);
+    assert.equal(stand.git(stand.origin, 'rev-parse', BRANCH), first.commit, 'still published');
+    assert.ok(stand.git(other, 'rev-parse', BRANCH), "the other repository's branch is untouched");
+    // The origin back: it comes down.
+    stand.git(stand.folder, 'remote', 'set-url', 'origin', 'https://github.com/owner/garden.git');
+    const back = await sender().unpublish(PROJECT, stand.folder, {
+      repository: 'owner/garden',
+      commit: first.commit,
+    });
+    assert.ok(back.ok, back.ok ? '' : back.message);
+    assert.throws(() => stand.git(stand.origin, 'rev-parse', '--verify', BRANCH));
+  });
+
+  test("Take Down never deletes a commit Halcyonic didn't publish (AUDIT3 U2)", async () => {
+    const reviewed = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null);
+    assert.ok(reviewed.ok);
+    const first = await sender().publish(
+      PROJECT,
+      stand.folder,
+      CHECK,
+      built,
+      null,
+      reviewed.publish.review,
+    );
+    assert.ok(first.ok);
+    // The person's own commit on top, pushed from another clone.
+    const clone = join(root, 'clone');
+    stand.git(root, 'clone', '-q', '--branch', 'halcyonic-pages', stand.origin, clone);
+    writeFileSync(join(clone, 'CNAME'), 'game.example.test\n');
+    stand.git(clone, 'add', 'CNAME');
+    stand.git(clone, 'commit', '-q', '-m', 'mine');
+    stand.git(clone, 'push', '-q', 'origin', 'halcyonic-pages');
+    const theirs = stand.git(clone, 'rev-parse', 'HEAD');
+    const down = await sender().unpublish(PROJECT, stand.folder, {
+      repository: 'owner/garden',
+      commit: first.commit,
+    });
+    assert.equal(down.ok ? null : down.code, 'pages_changed');
+    assert.equal(stand.git(stand.origin, 'rev-parse', BRANCH), theirs, 'their commit is kept');
   });
 });

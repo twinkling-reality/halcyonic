@@ -1750,6 +1750,9 @@ namespace Halcyonic.Contracts
 
     public sealed class ProjectPublishedView
     {
+        [JsonProperty("repository", Required = Required.Always)]
+        public string Repository { get; set; } = default!;
+
         [JsonProperty("check_id", Required = Required.Always)]
         public string CheckId { get; set; } = default!;
 
@@ -3957,6 +3960,9 @@ namespace Halcyonic.Contracts
     {
         [JsonProperty("project_id", Required = Required.Always)]
         public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("commit", Required = Required.Always)]
+        public string Commit { get; set; } = default!;
     }
 
     public sealed class ProjectLinkCatalogPayload

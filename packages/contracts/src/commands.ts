@@ -204,10 +204,14 @@ export const ProjectPublishCommand = defineCommand(
   Type.Object({ project_id: ProjectId, review: ReviewDigest }, strict),
 );
 
-/** Takes the published game down: the `halcyonic-pages` branch is deleted with the person's own git. */
+/**
+ * Takes the published game down: the `halcyonic-pages` branch of the repository it was published to
+ * is deleted with the person's own git, only while it still holds `commit`, the published commit the
+ * person was shown (`ProjectView.published.commit`), which every client sends as its review (AUDIT3).
+ */
 export const ProjectUnpublishCommand = defineCommand(
   'project.unpublish',
-  Type.Object({ project_id: ProjectId }, strict),
+  Type.Object({ project_id: ProjectId, commit: GitObjectId }, strict),
 );
 
 export const ProjectShowInFinderCommand = defineCommand(

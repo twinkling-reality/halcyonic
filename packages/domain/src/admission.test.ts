@@ -1121,6 +1121,7 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
         | 'project.share.stop'
         | 'project.publish'
         | 'project.unpublish',
+      shownCommit = 'a'.repeat(40),
     ): CommandEnvelope => {
       n += 1;
       return {
@@ -1129,7 +1130,10 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
         issued_at: '2026-10-29T10:00:00.000Z',
         client: { name: 'test', version: null, device_label: null },
         command_type: type,
-        payload: { project_id: project.projectId },
+        payload:
+          type === 'project.unpublish'
+            ? { project_id: project.projectId, commit: shownCommit }
+            : { project_id: project.projectId },
       } as CommandEnvelope;
     };
     const checkId = b.id() as never;
@@ -1286,12 +1290,16 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
       }),
     );
     assert.deepEqual(projection.project(scope.project_id)?.published, {
+      repository: 'owner/garden',
       check_id: first,
       commit: 'a'.repeat(40),
       address: 'https://owner.github.io/garden/',
       published_at: projection.project(scope.project_id)?.published?.published_at,
     });
     assert.equal(result('project.unpublish'), 'review_required');
+    // Taking it down carries the published commit the person was shown, from any client (AUDIT3 S1).
+    const stale = admitCommand(command('project.unpublish', 'b'.repeat(40)), projection, catalog());
+    assert.equal(!stale.admitted && stale.rejection.code, 'review_stale');
     projection.apply(
       b.controlPlane('project.unpublished', scope, {
         repository: 'owner/garden',

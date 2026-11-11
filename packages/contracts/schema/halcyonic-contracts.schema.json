@@ -10586,12 +10586,17 @@
             "payload": {
               "type": "object",
               "required": [
-                "project_id"
+                "project_id",
+                "commit"
               ],
               "properties": {
                 "project_id": {
                   "type": "string",
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "commit": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
                 }
               },
               "additionalProperties": false
@@ -13474,12 +13479,16 @@
     "ProjectPublishedView": {
       "type": "object",
       "required": [
+        "repository",
         "check_id",
         "commit",
         "address",
         "published_at"
       ],
       "properties": {
+        "repository": {
+          "$ref": "#/$defs/RepositoryFullName"
+        },
         "check_id": {
           "type": "string",
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"

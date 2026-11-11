@@ -202,7 +202,7 @@ export class GitHubSender {
   /**
    * What Publish would do now (ADR 0039, amended): `built`, the check's built copy, as one commit on
    * the Pages branch on top of `replaces`, the last publish's commit, at the address GitHub Pages
-   * gives the repository. Nothing leaves this Mac.
+   * gives the repository. Nothing leaves this Mac, and gh is not run.
    */
   async publishReview(
     projectId: ProjectId,
@@ -239,6 +239,12 @@ export class GitHubSender {
       return refuse(
         'review_stale',
         'The game changed since it was shown, so nothing was published. Look at it again, then publish.',
+      );
+    // Asked of gh only at the press: a review reaches nothing (AUDIT3, Send's S2).
+    if ((await this.#run(this.#deps.gh as string, ['auth', 'status'], 15_000)).code !== 0)
+      return refuse(
+        'gh_signed_out',
+        "GitHub's command line tool on this computer isn't signed in, so nothing was published.",
       );
     const committed = await this.#run(this.#deps.git, [
       '--git-dir',
@@ -303,17 +309,27 @@ export class GitHubSender {
     return { ok: true, publish, commit, address };
   }
 
-  /** Takes the published game down: the Pages branch deleted with the person's own git. */
+  /**
+   * Takes the published game down (ADR 0039, amended): the Pages branch of the repository it was
+   * published to, never whatever the folder's origin names now (AUDIT3 U1), deleted with the person's
+   * own git only while it still holds the commit Halcyonic published, so no one's commit on it is
+   * lost (U2).
+   */
   async unpublish(
     projectId: ProjectId,
     folder: string,
+    published: { readonly repository: string; readonly commit: string },
   ): Promise<{ readonly ok: true; readonly repository: string } | SendFailure> {
     const origin = await readGitHubOrigin(folder);
-    if (origin === null)
-      return refuse('no_github_origin', "The project's folder has no origin on GitHub.");
+    if (origin?.fullName !== published.repository)
+      return refuse(
+        'origin_changed',
+        `The game was published to ${published.repository}, and this folder's origin is no longer it, so nothing was taken down. Point the origin back at ${published.repository}, then take it down.`,
+      );
     const repository = await this.#repository(projectId, await objectFormat(folder));
     if (repository === null)
       return refuse('publish_failed', 'Halcyonic could not prepare the change.');
+    const remote = remoteOf(published.repository, origin.ssh);
     const removed = await this.#run(
       this.#deps.git,
       [
@@ -323,17 +339,28 @@ export class GitHubSender {
         'core.hooksPath=/dev/null',
         'push',
         '--quiet',
-        remoteOf(origin.fullName, origin.ssh),
+        `--force-with-lease=refs/heads/${PAGES_BRANCH}:${published.commit}`,
+        remote,
         `:refs/heads/${PAGES_BRANCH}`,
       ],
       120_000,
     );
-    return removed.code === 0
-      ? { ok: true, repository: origin.fullName }
-      : refuse(
-          'push_refused',
-          "GitHub didn't take the change, so the game is still published. Try again.",
-        );
+    if (removed.code === 0) return { ok: true, repository: published.repository };
+    const there = await this.#run(
+      this.#deps.git,
+      ['--git-dir', repository, 'ls-remote', '--heads', remote, `refs/heads/${PAGES_BRANCH}`],
+      60_000,
+    );
+    const now = there.code === 0 ? (there.stdout.trim().split(/\s/)[0] ?? '') : '';
+    if (now !== '' && now !== published.commit)
+      return refuse(
+        'pages_changed',
+        `The ${PAGES_BRANCH} branch has commits Halcyonic didn't publish, so nothing was taken down. Remove the branch on GitHub yourself if you mean to.`,
+      );
+    return refuse(
+      'push_refused',
+      "GitHub didn't take the change, so the game is still published. Try again.",
+    );
   }
 
   async #preparePublish(
@@ -359,11 +386,6 @@ export class GitHubSender {
       return refuse(
         'no_gh',
         "Publishing needs GitHub's own command line tool on this computer, signed in.",
-      );
-    if ((await this.#run(this.#deps.gh, ['auth', 'status'], 15_000)).code !== 0)
-      return refuse(
-        'gh_signed_out',
-        "GitHub's command line tool on this computer isn't signed in.",
       );
     if (built === null)
       return refuse(
