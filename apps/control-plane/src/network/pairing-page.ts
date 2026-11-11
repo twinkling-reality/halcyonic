@@ -382,7 +382,7 @@ export class PairingPage {
       // Never the error's own words: they can name paths and settings.
       this.#problem =
         to === 'on'
-          ? "Pairing couldn't turn on. Check that nothing else uses its port, then try again."
+          ? "Pairing couldn't turn on. Another app may be using its connection. Try again."
           : "Pairing couldn't turn off. Quit the app on this computer and start it again.";
     } finally {
       this.#turning = null;

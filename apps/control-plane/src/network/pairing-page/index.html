@@ -3,51 +3,101 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>Pairing</title>
 <link rel="stylesheet" href="/page.css">
 <script src="/page.js" defer></script>
 </head>
 <body>
-<main>
-  <header>
-    <h1>Pairing · Headsets on Your Wi-Fi</h1>
-    <p id="status" class="status">Reading</p>
-    <a class="page-link" href="/setup">Set Up This Mac</a>
+<!-- The page's glyphs, one meaning each, drawn as the headset's are: strokes on a 24 grid. -->
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="g-computer" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2.5 19.5h19"/></symbol>
+  <symbol id="g-headset" viewBox="0 0 24 24"><path d="M3.5 9.5a3 3 0 0 1 3-3h11a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3h-2.6a2 2 0 0 1-1.7-1l-.5-.9a1.4 1.4 0 0 0-2.4 0l-.5.9a2 2 0 0 1-1.7 1H6.5a3 3 0 0 1-3-3z"/></symbol>
+  <symbol id="g-tick" viewBox="0 0 24 24"><path d="M5.5 12.5l4.2 4.2 8.8-9.4"/></symbol>
+  <symbol id="g-alert" viewBox="0 0 24 24"><path d="M12 5v9.5"/><path d="M12 19v.1"/></symbol>
+  <symbol id="g-hourglass" viewBox="0 0 24 24"><path d="M7 3.5h10M7 20.5h10"/><path d="M8 3.5c0 4 8 5 8 8.5s-8 4.5-8 8.5"/><path d="M16 3.5c0 4-8 5-8 8.5s8 4.5 8 8.5"/></symbol>
+  <symbol id="g-off" viewBox="0 0 24 24"><path d="M12 3.5v8"/><path d="M7 6.3a7.5 7.5 0 1 0 10 0"/></symbol>
+  <symbol id="g-code" viewBox="0 0 24 24"><rect x="3.5" y="6.5" width="17" height="11" rx="2.5"/><path d="M7.5 12h.1M10.5 12h.1M13.5 12h.1M16.5 12h.1"/></symbol>
+  <symbol id="g-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="g-next" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></symbol>
+  <symbol id="g-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+  <symbol id="g-back" viewBox="0 0 24 24"><path d="M9 7.5L4.5 12 9 16.5"/><path d="M5 12h9.5a5 5 0 0 1 0 10"/></symbol>
+  <symbol id="g-close" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></symbol>
+</svg>
+
+<main class="card">
+  <header class="head">
+    <span class="emblem"><svg class="glyph" aria-hidden="true"><use href="#g-computer"/></svg></span>
+    <div class="head-words">
+      <h1>Pairing</h1>
+      <p class="description">Headsets on your Wi-Fi join this computer with a code.</p>
+    </div>
+    <a class="page-link" id="setup-link" href="/setup">Set Up This Computer<svg class="glyph" aria-hidden="true"><use href="#g-next"/></svg></a>
   </header>
 
-  <section id="off" hidden>
-    <p class="line">Pairing Off · No Headset Can Join</p>
-    <p class="quiet">Your Computer May Ask to Allow Connections · Allow</p>
-    <button id="turn-on" class="primary" type="button">Turn On Pairing</button>
+  <!-- Where pairing stands: a title word over a quieter line, beside its mark. -->
+  <section class="state" id="state" data-tone="quiet">
+    <div class="mark-column">
+      <span class="mark"><svg class="glyph" aria-hidden="true"><use id="state-glyph" href="#g-hourglass"/></svg></span>
+      <p class="pips state-pips" id="state-pips" hidden></p>
+    </div>
+    <div class="state-words">
+      <p class="state-title" id="state-title">Reading</p>
+      <p class="state-line" id="state-line" hidden></p>
+    </div>
   </section>
 
-  <section id="on" hidden>
-    <p id="outcome" class="outcome" hidden></p>
-    <button id="pair" class="primary" type="button">Pair Headset</button>
-    <h2>Paired Headsets</h2>
-    <ul id="headsets" class="headsets"></ul>
-    <p id="none" class="quiet" hidden>No Headset Paired Yet</p>
+  <!-- A window open: where in the headset, the name to type, the code, the time and tries left. -->
+  <section id="window" class="block" hidden>
+    <ol class="route" aria-label="In the headset">
+      <li><span class="node">1</span><span class="node-name">Settings</span></li>
+      <li><span class="node">2</span><span class="node-name">Pair Computer</span></li>
+      <li><span class="node">3</span><span class="node-name">Pick This Computer</span></li>
+      <li><span class="node">4</span><span class="node-name">Type the Code</span></li>
+    </ol>
+    <div class="slots">
+      <div class="slot slot-wide">
+        <p class="slot-label"><svg class="glyph" aria-hidden="true"><use href="#g-computer"/></svg>Computer's Name</p>
+        <p class="slot-value mono" id="name"></p>
+        <div id="others" class="others" hidden>
+          <p class="others-label">Or Type</p>
+          <ul id="others-list" class="others-list"></ul>
+        </div>
+      </div>
+      <div class="slot slot-code">
+        <p class="slot-label"><svg class="glyph" aria-hidden="true"><use href="#g-code"/></svg>Code</p>
+        <p class="slot-value code" id="code"></p>
+      </div>
+      <div class="slot">
+        <p class="slot-label"><svg class="glyph" aria-hidden="true"><use href="#g-clock"/></svg>Time Left</p>
+        <p class="slot-value" id="time"></p>
+      </div>
+      <div class="slot">
+        <p class="slot-label"><svg class="glyph" aria-hidden="true"><use href="#g-headset"/></svg>Tries</p>
+        <p class="pips" id="pips" role="img"></p>
+      </div>
+    </div>
   </section>
 
-  <section id="window" hidden>
-    <p id="route" class="line"></p>
-    <dl id="pairing" class="pairing">
-      <dt>Computer's Name</dt>
-      <dd id="name" class="name"></dd>
-      <dd id="others" class="others" hidden></dd>
-      <dt>Code</dt>
-      <dd id="code" class="code"></dd>
-    </dl>
-    <p id="unreachable" class="line" hidden>No Wi-Fi Address · Join Wi-Fi to Pair</p>
-    <p id="facts" class="quiet"></p>
-  </section>
-
-  <div id="off-row" class="off-row" hidden>
-    <p id="off-note" class="quiet" hidden>Paired Headsets Disconnect Until Pairing Is On</p>
-    <button id="turn-off" class="quiet-button" type="button">Turn Off Pairing</button>
+  <div class="actions" id="main-actions" hidden>
+    <button id="turn-on" class="main" type="button" hidden><svg class="glyph" aria-hidden="true"><use href="#g-off"/></svg>Turn On Pairing</button>
+    <button id="pair" class="main" type="button" hidden><svg class="glyph" aria-hidden="true"><use href="#g-plus"/></svg>Pair Headset</button>
   </div>
+  <p id="hint" class="hint" hidden>Your computer may ask whether to allow connections. Allow them.</p>
 
-  <p id="problem" class="problem" hidden></p>
+  <section id="headsets-block" class="block" hidden>
+    <h2>Paired Headsets</h2>
+    <ul id="headsets" class="items"></ul>
+    <p id="none" class="empty" hidden>No headset paired yet.</p>
+  </section>
+
+  <footer class="foot" id="foot" hidden>
+    <p id="off-note" class="foot-note" hidden>Paired headsets disconnect until pairing is on again.</p>
+    <div class="foot-actions">
+      <button id="keep-on" class="rest" type="button" hidden><svg class="glyph" aria-hidden="true"><use href="#g-back"/></svg>Keep On</button>
+      <button id="turn-off" class="rest" type="button"><svg class="glyph" aria-hidden="true"><use href="#g-off"/></svg><span id="turn-off-words">Turn Off Pairing</span></button>
+    </div>
+  </footer>
 </main>
 </body>
 </html>

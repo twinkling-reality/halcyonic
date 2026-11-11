@@ -1,9 +1,8 @@
 // The pairing page (ADR 0047): reads what stands every second, draws it, and sends a press as one
 // POST from this page. A press that asks first (turning pairing off, forgetting a headset) arms for
-// six seconds and acts only on its second press.
+// six seconds and acts only on its second press. Drawn in the headset's card language (A17): a
+// status as a title word over a quieter line, facts as labelled slots, tries as pips, list rows.
 
-/** Where pairing is in the headset, as the build that ships shows it: one place to change it. */
-const ROUTE = 'In Headset · Settings · Pair Computer';
 const ARM_MS = 6000;
 /** How long "Paired" stands after a headset pairs, before the list alone says it. */
 const PAIRED_MS = 5000;
@@ -14,7 +13,7 @@ const $ = (id) => document.getElementById(id);
 let state = null;
 let armed = null;
 let armTimer = null;
-/** The pairing whose "Paired" line is standing, by its window, and until when. */
+/** The pairing whose "Paired" status is standing, by its window, and until when. */
 let paired = { window: null, until: 0 };
 
 function arm(what) {
@@ -68,100 +67,222 @@ function show(id, visible) {
   $(id).hidden = !visible;
 }
 
+/** Pips, a game's lives: filled where used, hollow where left. */
+function pips(element, of, used) {
+  element.replaceChildren(
+    ...Array.from({ length: of }, (_, at) => {
+      const pip = document.createElement('span');
+      pip.className = at < used ? 'pip used' : 'pip';
+      return pip;
+    }),
+  );
+  const tries = of - used;
+  element.setAttribute('aria-label', `${tries} ${tries === 1 ? 'try' : 'tries'} left`);
+}
+
+/** The status: its tone, its glyph, its title word and its quieter line; tries as pips where they ran out. */
+function status(tone, glyph, title, line, tries = null) {
+  $('state').dataset.tone = tone;
+  $('state-glyph').setAttribute('href', `#g-${glyph}`);
+  $('state-title').textContent = title;
+  $('state-line').textContent = line ?? '';
+  show('state-line', line != null);
+  if (tries !== null) pips($('state-pips'), tries.of, tries.used);
+  show('state-pips', tries !== null);
+}
+
+/**
+ * What the last press came to when it did not do what it said: the computer's own sentence as the status's line,
+ * under a title word of the page's. A sentence the page does not know keeps its words under a plain title.
+ */
+const PROBLEMS = {
+  "Pairing couldn't turn on. Another app may be using its connection. Try again.": [
+    "Couldn't Turn On",
+    'Another app may be using its connection. Try again.',
+  ],
+  "Pairing couldn't turn off. Quit the app on this computer and start it again.": [
+    "Couldn't Turn Off",
+    'Quit the app on this computer and start it again.',
+  ],
+  'Pairing is off. Turn it on first.': ['Pairing Off', 'Turn it on first.'],
+  "That headset isn't paired with this computer.": [
+    'Not Paired Here',
+    "That headset isn't paired with this computer.",
+  ],
+  [CLOSED]: ['Page Closed', CLOSED],
+  [UNREACHABLE]: ['Not Answering', UNREACHABLE],
+};
+
 /** What the last window came to: "Paired" for a few seconds, or a window that ended without one. */
 function outcomeOf(window) {
-  if (window === null) return null;
+  if (window === null || window === undefined) return null;
   if (window.state === 'paired') {
     if (paired.window !== window.expires_at) {
       paired = { window: window.expires_at, until: Date.now() + PAIRED_MS };
     }
-    return Date.now() < paired.until ? `Paired · ${window.device ?? 'Headset'}` : null;
+    return Date.now() < paired.until ? 'paired' : null;
   }
-  if (window.state === 'expired') return 'Pairing Timed Out';
-  if (window.state === 'locked') return 'No Tries Left · Pairing Closed';
+  if (window.state === 'expired') return 'expired';
+  if (window.state === 'locked') return 'locked';
   return null;
+}
+
+/**
+ * Where pairing stands, as the status says it: its tone, glyph, title word, quieter line and, where the tries ran out,
+ * its pips. The last press's problem first, then a turn under way, then the listener and its window.
+ */
+function standing(on, open, reachable, outcome) {
+  const problem = state.problem ?? null;
+  if (problem !== null) return ['bad', 'alert', ...(PROBLEMS[problem] ?? ["Didn't Work", problem])];
+  if (state.turning === 'on')
+    return [
+      'working',
+      'hourglass',
+      'Turning On',
+      'Opening this computer to headsets on your Wi-Fi.',
+    ];
+  if (state.turning === 'off')
+    return ['working', 'hourglass', 'Turning Off', 'Paired headsets stay paired.'];
+  if (!on) return ['quiet', 'off', 'Pairing Off', 'No headset can join until you turn it on.'];
+  if (open && !reachable)
+    return ['bad', 'alert', 'No Wi-Fi Address', 'Join Wi-Fi on this computer, then pair.'];
+  if (open)
+    return [
+      'working',
+      'hourglass',
+      'Waiting for Your Headset',
+      'The code works once, within five minutes.',
+    ];
+  if (outcome === 'paired')
+    return [
+      'good',
+      'tick',
+      'Paired',
+      `${state.window.device ?? 'A headset'} joined this computer.`,
+    ];
+  if (outcome === 'locked') {
+    const tries = state.window.max_failed_attempts;
+    return [
+      'bad',
+      'alert',
+      'No Tries Left',
+      'Three wrong codes closed pairing. Pair again for a new code.',
+      { of: tries, used: tries },
+    ];
+  }
+  if (outcome === 'expired')
+    return ['quiet', 'clock', 'Code Timed Out', 'The code ran out. Pair again for a new one.'];
+  return ['good', 'tick', 'Pairing On', 'Headsets on your Wi-Fi can join with a code.'];
+}
+
+function glyph(name) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'glyph');
+  svg.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', `#g-${name}`);
+  svg.append(use);
+  return svg;
+}
+
+function headsetRow(headset) {
+  const row = document.createElement('li');
+  row.className = 'item';
+  const tile = document.createElement('span');
+  tile.className = 'item-tile';
+  tile.append(glyph('headset'));
+  const words = document.createElement('span');
+  words.className = 'item-words';
+  const name = document.createElement('span');
+  name.className = 'item-name';
+  name.textContent = headset.label;
+  const note = document.createElement('span');
+  note.className = 'item-note';
+  note.textContent = headset.connected ? 'Connected' : 'Not Connected';
+  if (headset.connected) note.dataset.tone = 'good';
+  words.append(name, note);
+  const forget = document.createElement('button');
+  forget.type = 'button';
+  forget.className = 'rest';
+  const asking = armed === `forget:${headset.id}`;
+  forget.append(glyph('close'), asking ? 'Yes, Forget' : 'Forget');
+  if (asking) forget.dataset.armed = '';
+  forget.disabled = state.turning !== null;
+  forget.addEventListener('click', () =>
+    asking ? send('/headsets/forget', { id: headset.id }) : arm(`forget:${headset.id}`),
+  );
+  row.append(tile, words, forget);
+  return row;
 }
 
 function draw() {
   if (state === null) return;
-  const status = $('status');
-  if (state.closed === true || state.unreachable === true) {
-    status.textContent = state.closed === true ? 'Page Closed' : 'Not Answering';
-    for (const id of ['off', 'on', 'window', 'off-row']) show(id, false);
-    $('problem').textContent = state.closed === true ? CLOSED : UNREACHABLE;
-    show('problem', true);
+  const gone = state.closed === true || state.unreachable === true;
+  show('setup-link', !gone);
+  if (gone) {
+    status(
+      'bad',
+      'alert',
+      state.closed === true ? 'Page Closed' : 'Not Answering',
+      state.closed === true ? CLOSED : UNREACHABLE,
+    );
+    for (const id of ['window', 'main-actions', 'hint', 'headsets-block', 'foot']) show(id, false);
     return;
   }
-  const open = state.window?.state === 'open' && state.shown === true;
   const on = state.pairing === 'on';
-  status.textContent =
-    state.turning === 'on'
-      ? 'Turning On'
-      : state.turning === 'off'
-        ? 'Turning Off'
-        : on
-          ? 'Pairing On'
-          : 'Pairing Off';
-  show('off', !on);
-  show('on', on && !open);
-  show('window', on && open);
-  show('off-row', on);
-  for (const id of ['turn-on', 'pair', 'turn-off']) $(id).disabled = state.turning !== null;
+  const open = on && state.window?.state === 'open' && state.shown === true;
+  const reachable = state.names.length > 0 && state.code !== null;
+  const outcome = open ? null : outcomeOf(state.window);
 
-  const outcome = outcomeOf(state.window);
-  $('outcome').textContent = outcome ?? '';
-  show('outcome', outcome !== null);
+  status(...standing(on, open, reachable, outcome));
 
-  const list = $('headsets');
-  list.replaceChildren(
-    ...state.headsets.map((headset) => {
-      const row = document.createElement('li');
-      const label = document.createElement('span');
-      label.className = 'label';
-      label.textContent = headset.label;
-      const fact = document.createElement('span');
-      fact.className = 'fact';
-      fact.textContent = headset.connected ? 'Connected' : 'Not Connected';
-      const forget = document.createElement('button');
-      forget.type = 'button';
-      forget.className = 'quiet-button';
-      const asking = armed === `forget:${headset.id}`;
-      forget.textContent = asking ? 'Yes, Forget' : 'Forget';
-      forget.addEventListener('click', () =>
-        asking ? send('/headsets/forget', { id: headset.id }) : arm(`forget:${headset.id}`),
-      );
-      row.append(label, fact, forget);
-      return row;
-    }),
-  );
+  const busy = state.turning !== null;
+  show('window', open && reachable && !busy);
+  show('main-actions', !busy && (!on || !open));
+  show('turn-on', !on);
+  show('pair', on && !open);
+  show('hint', !on && !busy);
+  for (const id of ['turn-on', 'pair', 'turn-off']) $(id).disabled = busy;
+  // While Turn Off asks again, nothing else wears a colour: Pair Headset waits, and Keep On takes it back.
+  if (armed === 'off') $('pair').disabled = true;
+
+  show('headsets-block', on && !open);
+  $('headsets').replaceChildren(...state.headsets.map(headsetRow));
   show('none', state.headsets.length === 0);
 
+  show('foot', on || state.turning === 'off');
   const turningOff = armed === 'off';
-  $('turn-off').textContent = turningOff ? 'Yes, Turn Off' : 'Turn Off Pairing';
+  $('turn-off-words').textContent = turningOff ? 'Yes, Turn Off' : 'Turn Off Pairing';
+  if (turningOff) $('turn-off').dataset.armed = '';
+  else delete $('turn-off').dataset.armed;
   show('off-note', turningOff);
+  show('keep-on', turningOff);
 
-  if (open) {
+  if (open && reachable) {
     // Only a name a headset can reach is shown, and the code only beside one.
-    const reachable = state.names.length > 0 && state.code !== null;
-    show('pairing', reachable);
-    show('unreachable', !reachable);
-    $('route').textContent = ROUTE;
     const [first, ...others] = state.names;
-    $('name').textContent = first ?? '';
-    $('others').textContent = others.length === 0 ? '' : `Or ${others.join(' · ')}`;
+    $('name').textContent = first;
+    $('others-list').replaceChildren(
+      ...others.map((name) => {
+        const item = document.createElement('li');
+        item.textContent = name;
+        return item;
+      }),
+    );
     show('others', others.length > 0);
-    $('code').textContent = reachable ? `${state.code.slice(0, 4)} ${state.code.slice(4)}` : '';
-    const tries = Math.max(0, state.window.max_failed_attempts - state.window.failed_attempts);
-    $('facts').textContent =
-      `${left(state.window.seconds_left)} Left · ${tries} ${tries === 1 ? 'Try' : 'Tries'} Left`;
+    $('code').textContent = `${state.code.slice(0, 4)} ${state.code.slice(4)}`;
+    $('time').textContent = left(state.window.seconds_left);
+    const of = state.window.max_failed_attempts;
+    pips($('pips'), of, Math.min(of, state.window.failed_attempts));
   }
-
-  $('problem').textContent = state.problem ?? '';
-  show('problem', state.problem !== null);
 }
 
 $('turn-on').addEventListener('click', () => send('/pairing/on'));
 $('pair').addEventListener('click', () => send('/window'));
+$('keep-on').addEventListener('click', () => {
+  disarm();
+  draw();
+});
 $('turn-off').addEventListener('click', () =>
   armed === 'off' ? send('/pairing/off') : arm('off'),
 );
