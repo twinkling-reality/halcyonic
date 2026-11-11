@@ -181,15 +181,15 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// A fact of the action's own, as a chip of its own floating beside the action (the addendum's A17: the agent's
         /// level after its name), never inside its plate and never joined to its words on a dot: 10 dp after the core, on
-        /// its middle line, its word in the label face 15 dp on a 20 dp line, white on its own backing (#282E33 at 78
+        /// its middle line, its word in the label face 16 dp on a 21 dp line (15 read under the 14 dp floor as seen), white on its own backing (#282E33 at 78
         /// percent, a 1 dp edge of white at 6 percent), 10 dp of room beside it and 3 dp above and below, its corner 10 dp.
         /// It takes no press: the action's target is its core alone.
         /// </summary>
         public const float AsideGapDp = 10f;
         public const float AsidePadXDp = 10f;
         public const float AsidePadYDp = 3f;
-        public const float AsideTypeDp = 15f;
-        public const float AsideLineDp = 20f;
+        public const float AsideTypeDp = 16f;
+        public const float AsideLineDp = 21f;
         public const float AsideCornerDp = 10f;
         public const int AsideGround = 0x282E33;
         public const float AsideAlpha = 0.78f;
