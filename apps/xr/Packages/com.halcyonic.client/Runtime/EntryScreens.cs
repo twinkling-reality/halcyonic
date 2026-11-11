@@ -83,9 +83,10 @@ namespace Halcyonic.Client
                 sends?.ToContract(),
                 draft.StartsNeverAsk,
                 // The level the start will use, its own row (AUDIT: the review names it before the start); a practice run asks nothing.
-                level: runtime.Synthetic ? null : LineWords.Ours(AgentColumn.LevelWords(draft.StartsNeverAsk)),
+                level: runtime.Synthetic ? null : LineWords.Ours(PlanStart.LevelWords(draft)),
                 tools: model == null ? null : LineWords.Written(EntryText.Tools(model.ToolCalling)),
-                startFrom: sends?.StarterId != null && starter?.StarterId == sends.StarterId ? StarterChoice.Title(starter) : null);
+                startFrom: sends?.StarterId != null && starter?.StarterId == sends.StarterId ? StarterChoice.Title(starter) : null,
+                plan: draft.StartsPlan);
         }
 
         /// <summary>

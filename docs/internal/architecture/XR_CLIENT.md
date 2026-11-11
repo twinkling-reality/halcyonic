@@ -4634,6 +4634,16 @@ presence, contextual moment cards and the on-demand project screen:
   nothing the default (`ProjectFolder.DefaultStarterId`) stands. A starter the person picked is sent by the recap's one
   press only where the card shows it (`StarterChoice.Shown`); a full card of four leaves it to the review, which names it. The titles are the host's own starters' words,
   upright. Tests: the two `Start_From` tests in `NewProjectFlowTests`.
+- **A task started as a plan (VRIFY's planning, SCREENS 2026-11-11, `PlanStart`)**: where the chosen runtime's
+  descriptor offers a plan (`offers_plan`, never a practice run), New Project's page of changes offers Plan First as a
+  third answer after Ask First and Never Ask (single marks, kept at once; the answers stand where either Never Ask or a
+  plan is offered). The draft keeps it (`NewWorkDraft.Plan`, `StartsPlan` only where the runtime offers it); a plan
+  always asks, so `StartsNeverAsk` is false while it plans. The recap's level slot and the review's Model row read Plan
+  First (`PlanStart.LevelWords`), the review records it (`NewWorkReview.Plan`), and a build confirms only a review made
+  with the same plan (`BuildSequence`); the start then sends `plan: true` and no approval level
+  (`CommandFactory.StartExecution(plan:)`). Not yet: the agent's moment at rest (a later run's start), and the task's
+  Planning and Plan Ready statuses, which need the view's `plan` and `plan_left` (VRIFY's leave-a-plan contract). Tests:
+  the two `Plan_First` tests in `NewProjectFlowTests`, `EntryTests.ABuildStartsAsAPlanOnlyWhereChosenReviewedAndOfferedAndNeverWithNeverAsk`.
 - **Composer context selectors (`KitPresenter.ChipsOf`, `KitPresenter.EnvironmentOf`, `KitPresenter.AgentOf`, `KitSelectors`, `WorkspacePresentationState.CycleEnvironment`, `WorkspacePresentationState.EnvironmentCanChange`, `WorkspacePresentationState.NextAgent`, `WorkspacePresentationState.CycleAgent`, `WorkspacePresentationState.SetRuntimeModels`)**:
   the chips name the runtime the composer's Send reaches. While the task's run is active, Send instructs
   its existing execution (`WorkspaceSteering.SendInstruction`, which no chosen runtime reaches), so

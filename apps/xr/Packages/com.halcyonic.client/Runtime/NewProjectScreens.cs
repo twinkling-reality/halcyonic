@@ -722,7 +722,8 @@ namespace Halcyonic.Client
                 // The agent app and, where it lists models, the model, each its own slot: the recap is what Start Task sends (R1).
                 if (!runtime.Synthetic && runtime.ModelChoice == ModelChoice.Listed)
                     slots.Add(new RoomSlot(RoomKind.Agent, draft.Model is RuntimeModel model ? LineWords.TheirName(CaptureNames.ModelName(model.DisplayName ?? model.ModelRef)) : LineWords.Ours("Not Chosen")));
-                if (!runtime.Synthetic) slots.Add(new RoomSlot(RoomKind.Level, LineWords.Ours(AgentColumn.LevelWords(draft.StartsNeverAsk))));
+                // The level, or Plan First where the start plans (SCREENS's PlanStart).
+                if (!runtime.Synthetic) slots.Add(new RoomSlot(RoomKind.Level, LineWords.Ours(PlanStart.LevelWords(draft))));
             }
             return new RoomCard(title, idea.FirstTask.Length > 0 ? LineWords.TheirName(idea.FirstTask) : null, RoomCardHead.Project, slots: slots, more: note);
         }
@@ -736,7 +737,7 @@ namespace Halcyonic.Client
 
         /// <summary>The level the start will use, as the row's own fact beside how it runs, never joined on a dot (AUDIT's MUST 4); none for a practice run.</summary>
         public static LineWords? LevelOf(NewWorkDraft draft) =>
-            draft.Runtime is RuntimeDescriptor runtime && !runtime.Synthetic ? LineWords.Ours(AgentColumn.LevelWords(draft.StartsNeverAsk)) : (LineWords?)null;
+            draft.Runtime is RuntimeDescriptor runtime && !runtime.Synthetic ? LineWords.Ours(PlanStart.LevelWords(draft)) : (LineWords?)null;
 
         /// <summary>
         /// What the redesign's recap lets a person change, each an action that opens its own page as the recap's rows did:
@@ -751,10 +752,15 @@ namespace Halcyonic.Client
         {
             var existing = idea.ExistingProjectId != null;
             var lines = new List<PageLine>();
-            if (draft?.Runtime is RuntimeDescriptor offering && !offering.Synthetic && offering.OffersNeverAsk == true && !confirmingStartOver)
+            if (draft?.Runtime is RuntimeDescriptor offering && !offering.Synthetic && (offering.OffersNeverAsk == true || PlanStart.Offered(offering)) && !confirmingStartOver)
             {
-                lines.Add(new PageLine(AgentColumn.AskFirstWords, action: ChooseLevel, key: AgentColumn.Ask, choice: true, chosen: !draft.StartsNeverAsk, answerMark: AnswerMark.Single));
-                lines.Add(new PageLine(AgentColumn.NeverAskWords, action: ChooseLevel, key: AgentColumn.Never, choice: true, chosen: draft.StartsNeverAsk, answerMark: AnswerMark.Single));
+                lines.Add(new PageLine(AgentColumn.AskFirstWords, action: ChooseLevel, key: AgentColumn.Ask, choice: true, chosen: !draft.StartsNeverAsk && !draft.StartsPlan,
+                    answerMark: AnswerMark.Single));
+                if (offering.OffersNeverAsk == true)
+                    lines.Add(new PageLine(AgentColumn.NeverAskWords, action: ChooseLevel, key: AgentColumn.Never, choice: true, chosen: draft.StartsNeverAsk, answerMark: AnswerMark.Single));
+                // SCREENS's Plan First, where the runtime offers a plan.
+                if (PlanStart.Offered(offering))
+                    lines.Add(new PageLine(PlanStart.PlanFirst, action: ChooseLevel, key: PlanStart.Key, choice: true, chosen: draft.StartsPlan, answerMark: AnswerMark.Single));
             }
             // Each thing to change says what it is about, so the page of changes marks it without knowing its action (R3).
             if (!existing && words) lines.Add(new PageLine(EntryText.ProjectName, icon: GlazeIcon.Change, action: Rename, opens: true).Marked(RoomKind.Project));

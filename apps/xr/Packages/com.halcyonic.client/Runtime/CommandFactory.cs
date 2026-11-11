@@ -137,7 +137,8 @@ namespace Halcyonic.Client
             IDictionary<string, JToken>? options = null,
             string? modelRef = null,
             ApprovalLevel? approvalLevel = null,
-            IReadOnlyList<string>? pictures = null) =>
+            IReadOnlyList<string>? pictures = null,
+            bool plan = false) =>
             Stamp(new ExecutionStartCommand
             {
                 Payload = new ExecutionStartPayload
@@ -149,6 +150,8 @@ namespace Halcyonic.Client
                     ModelRef = modelRef,
                     ApprovalLevel = approvalLevel,
                     Attachments = AttachmentsOf(pictures),
+                    // A plan (SCREENS's PlanStart): never with never ask, which the host refuses too.
+                    Plan = plan ? true : (bool?)null,
                 },
             });
 

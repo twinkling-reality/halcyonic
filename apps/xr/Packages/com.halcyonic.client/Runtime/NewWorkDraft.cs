@@ -39,7 +39,13 @@ namespace Halcyonic.Client
         public bool NeverAsk { get; set; }
 
         /// <summary>The level this start will use is never ask: the person chose it and the chosen runtime's descriptor offers it. Otherwise it asks.</summary>
-        public bool StartsNeverAsk => NeverAsk && Runtime?.OffersNeverAsk == true;
+        public bool StartsNeverAsk => NeverAsk && Runtime?.OffersNeverAsk == true && !StartsPlan;
+
+        /// <summary>Whether this start is to be a plan (SCREENS's <see cref="PlanStart"/>): false unless the flow that shows the level sets it.</summary>
+        public bool Plan { get; set; }
+
+        /// <summary>The start will be a plan: the person chose Plan First and the chosen runtime offers a plan. A plan always asks.</summary>
+        public bool StartsPlan => Plan && PlanStart.Offered(Runtime);
 
         public string? ModelProblem { get; private set; }
 
