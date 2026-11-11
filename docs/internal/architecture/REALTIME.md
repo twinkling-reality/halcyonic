@@ -326,13 +326,16 @@ total accepted count, earlier count and at most sixteen body-free summaries, new
 first. `total - earlier` equals the returned count. `available` means the registered descriptor
 declares result reporting, not that its connection is live; `unsupported` is a false declaration,
 `unknown` is an absent legacy declaration, and `unavailable` means no registered adapter. Execution
-connection/status is separate. Accepted historical evidence remains readable in every case.
+connection/status is separate. Accepted historical evidence remains readable in every case, by id
+within the bound below.
 
 `GET /api/executions/:execution_id/results/:event_id` takes the same exact query and returns one
 `ToolResultResponse` with full scope, original summary and bounded recorded result. It requires
 the projection's accepted observed event, then cross-checks exact journal identity, position,
 scope, runtime and provenance. It neither scans source files nor calls a runtime. Recent-list
-eviction does not make an exact accepted event disappear. Both routes require the authenticated
+eviction does not make an exact accepted event disappear, but only the last 256 accepted results of an
+execution stay readable by id (`TOOL_RESULT_HISTORY`, oldest dropped): an older id is the same 404, as
+an unknown one. The list only ever names the last sixteen. Both routes require the authenticated
 owner-journal principal (local owner or still-active paired device), current journal and the task's
 current execution; malformed/extra query fields are 400, unavailable/foreign scope or event is
 the same 404. Existing network response revocation applies. Missing routes on older hosts are
