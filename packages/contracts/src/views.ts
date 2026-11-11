@@ -248,6 +248,15 @@ export const ExecutionView = Type.Object(
      * recorded, which never reads as `ask`.
      */
     approval_level: Type.Optional(ApprovalLevel),
+    /** True when its start recorded the runtime's own plan mode (PLAN); absent otherwise. */
+    plan: Type.Optional(Type.Boolean()),
+    /** True once the runtime left the plan to carry it out (`runtime.plan.left`); absent otherwise. */
+    plan_left: Type.Optional(Type.Boolean()),
+    /**
+     * Why its start, which asked for Halcyonic's sandbox, ran without it or is not counted confined
+     * (BOX-4), as recorded; absent where none was.
+     */
+    unconfined_reason: Type.Optional(Text(2000)),
     instruction: Text(32000),
     /**
      * The folder the runtime was given to work in, as the host resolved the project's location for

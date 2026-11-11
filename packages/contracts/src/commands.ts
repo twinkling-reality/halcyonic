@@ -248,7 +248,20 @@ export const ExecutionStartCommand = defineCommand(
 
 export const ExecutionSendInstructionCommand = defineCommand(
   'execution.send_instruction',
-  Type.Object({ execution_id: ExecutionId, text: Text(32000) }, strict),
+  Type.Object(
+    {
+      execution_id: ExecutionId,
+      text: Text(32000),
+      /**
+       * True to carry the plan out (PLAN): the runtime leaves its plan mode in the same session,
+       * which the adapter confirms before the instruction is sent. Only for an execution that started
+       * as a plan and has not left it, on a runtime that offers a plan. The level never changes.
+       * Absent or false: an ordinary instruction.
+       */
+      leave_plan: Type.Optional(Type.Boolean()),
+    },
+    strict,
+  ),
 );
 
 export const ApprovalDecision = Type.Union([Type.Literal('approve'), Type.Literal('deny')]);

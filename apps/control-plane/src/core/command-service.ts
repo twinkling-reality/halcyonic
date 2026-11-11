@@ -1794,7 +1794,10 @@ function actionFor(
     case 'execution.send_instruction': {
       const send = adapter.sendInstruction;
       const text = withCheckOutput(command.payload.text, checked);
-      return send && (() => send.call(adapter, { execution, text }));
+      const leave = command.payload.leave_plan === true;
+      return (
+        send && (() => send.call(adapter, { execution, text, ...(leave && { leave_plan: true }) }))
+      );
     }
     case 'execution.respond_to_approval': {
       const respond = adapter.respondToApproval;

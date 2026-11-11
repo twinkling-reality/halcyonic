@@ -97,6 +97,9 @@ const NEW_PROJECT_INSIDE =
 /** OpenCode 2.0.18's built-in read-only agent, "for exploring the codebase and planning work" (PLAN). */
 const PLAN_AGENT = 'plan';
 
+/** OpenCode 2.0.18's default primary agent, which a plan is carried out on (PLAN). */
+const BUILD_AGENT = 'build';
+
 /** Why a plan is not started without asking: its shell commands are what keeps it from changing files. */
 const PLAN_NEVER_ASK =
   'A plan on OpenCode asks before every shell command, since its plan agent refuses edits but not commands, so it is not started with working without asking.';
@@ -942,7 +945,11 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     ]);
   }
 
-  async sendInstruction(request: { execution: ExecutionContext; text: string }): Promise<void> {
+  async sendInstruction(request: {
+    execution: ExecutionContext;
+    text: string;
+    leave_plan?: true;
+  }): Promise<void> {
     const session = this.#hosted(request.execution);
     // A project bound inside the folder since its server started is not in that server's profile,
     // and the running server cannot be replaced under its session, so the turn is refused (AUDIT BOX-3 fix F1).
@@ -955,7 +962,49 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     }
     // Its first event should be observed, so the turn starts on a connected stream.
     await ready(session.connection);
+    if (request.leave_plan === true) await this.#leavePlan(session);
     await this.#prompt(session, request.text);
+  }
+
+  /**
+   * Carries a plan out (PLAN): switches the session from its plan agent to OpenCode's default
+   * agent, `build`, for the turns that follow, and reports `runtime.plan.left` only once OpenCode
+   * reports the session on that agent. Anything else refuses the instruction, with nothing sent.
+   * Its rules, and with them the level, stay the session's own.
+   */
+  async #leavePlan(session: HostedSession): Promise<void> {
+    const base = `/api/session/${encodeURIComponent(session.sessionId)}`;
+    await send(
+      session.connection,
+      'POST',
+      `${base}/agent`,
+      { agent: BUILD_AGENT },
+      'runtime_refused',
+    );
+    let info: unknown;
+    try {
+      info = await readData(session.connection.server.client, base);
+    } catch {
+      info = null;
+    }
+    if (!isRecord(info) || info.agent !== BUILD_AGENT) {
+      throw new RuntimeActionError(
+        'runtime_refused',
+        'OpenCode did not report the session off its plan agent, so the instruction was not sent and the task is still a plan.',
+      );
+    }
+    this.#emit(session, [
+      observation(
+        'runtime.plan.left',
+        {},
+        {
+          native_event_id: null,
+          sequence: null,
+          occurred_at: this.#clock.now().toISOString() as Timestamp,
+          provenance: { epistemic: 'observed', native_type: 'opencode/session.switchAgent' },
+        },
+      ),
+    ]);
   }
 
   async respondToApproval(request: {

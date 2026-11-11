@@ -297,6 +297,75 @@ describe('command admission', () => {
     );
   });
 
+  test('carrying a plan out is admitted only for a plan not yet left, on a runtime that offers plans (PLAN 4a)', () => {
+    const { b, projection, scope, commands } = setup();
+    const descriptor = catalog().get('mock' as RuntimeId);
+    assert.ok(descriptor);
+    const offers: RuntimeCatalog = {
+      get: (id) => (id === 'mock' ? { ...descriptor, offers_plan: true } : undefined),
+    };
+    const leave = (catalogue: RuntimeCatalog) => {
+      const command = commands.instruct();
+      return admitCommand(
+        {
+          ...command,
+          payload: { ...(command.payload as object), leave_plan: true },
+        } as typeof command,
+        projection,
+        catalogue,
+      );
+    };
+    const rejection = (result: ReturnType<typeof admitCommand>) =>
+      result.admitted ? null : result.rejection;
+    // A start that was not a plan: nothing to carry out.
+    projection.apply(b.runtimeEvent(scope, 'runtime.execution.started', { native_id: 'ses_1' }));
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }));
+    assert.deepEqual(rejection(leave(offers)), {
+      code: 'invalid_state',
+      message:
+        'This task is not a plan now, so there is no plan to carry out. Send the instruction without it.',
+    });
+    // A runtime that offers no plan.
+    assert.equal(rejection(leave(catalog()))?.code, 'capability_unsupported');
+    // An ordinary instruction is admitted as before.
+    assert.equal(admitCommand(commands.instruct(), projection, offers).admitted, true);
+  });
+
+  test('a plan start shows on its view with why it was not counted confined, its leaving too, and it is left once (PLAN 4a)', () => {
+    const { b, projection, scope, commands } = setup();
+    const descriptor = catalog().get('mock' as RuntimeId);
+    assert.ok(descriptor);
+    const offers: RuntimeCatalog = {
+      get: (id) => (id === 'mock' ? { ...descriptor, offers_plan: true } : undefined),
+    };
+    projection.apply(
+      b.runtimeEvent(scope, 'runtime.execution.started', {
+        native_id: 'ses_1',
+        plan: true,
+        confined: false,
+        unconfined_reason: 'Not counted confined.',
+      }),
+    );
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }));
+    const view = () => projection.execution(scope.executionId);
+    assert.equal(view()?.plan, true);
+    assert.equal(view()?.plan_left, undefined);
+    assert.equal(view()?.unconfined_reason, 'Not counted confined.');
+    const command = commands.instruct();
+    const leaving = {
+      ...command,
+      payload: { ...(command.payload as object), leave_plan: true },
+    } as typeof command;
+    assert.equal(admitCommand(leaving, projection, offers).admitted, true);
+    projection.apply(b.runtimeEvent(scope, 'runtime.plan.left', {}));
+    assert.equal(view()?.plan, true, 'it started as a plan');
+    assert.equal(view()?.plan_left, true);
+    // Left once: a second time there is no plan to carry out.
+    assert.equal(admitCommand(leaving, projection, offers).admitted, false);
+  });
+
   test('an instruction to a resting execution is refused while another of its task is active or a start for it is under way (ADMIT-2)', () => {
     const { b, projection, scope, commands, workstream } = setup();
     const instruct = () => admitCommand(commands.instruct(), projection, catalog());

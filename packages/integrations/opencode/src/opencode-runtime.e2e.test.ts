@@ -1999,7 +1999,7 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
   skip: SKIP || (process.platform !== 'darwin' ? 'Seatbelt is macOS only' : false),
 }, () => {
   test(
-    'a plan runs on its plan agent: an edit is refused without asking, a shell command asks, and it is recorded a plan; never asking with it is refused (PLAN)',
+    'a plan runs on its plan agent: an edit is refused without asking, a shell command asks, it is recorded a plan, and carrying it out leaves the plan in the same session; never asking with it is refused (PLAN)',
     SLOW_TEST,
     async (t) => {
       const { runtime, sandbox } = await harness(t);
@@ -2042,6 +2042,21 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
       });
       await shell.next('runtime.turn.interrupted');
       assert.equal(existsSync(join(sandbox.project, 'planned-shell.txt')), false);
+      // Carrying the plan out (PLAN 4a): the same session leaves its plan agent, confirmed and
+      // recorded, and the write the plan refused now goes ahead, with the plan's history.
+      await runtime.sendInstruction({
+        execution: write.context,
+        text: call('write', { path: join(sandbox.project, 'carried-out.txt'), content: 'yes\n' }),
+        leave_plan: true,
+      });
+      await write.next('runtime.plan.left');
+      await write.next('runtime.turn.completed', 2);
+      assert.equal(readFileSync(join(sandbox.project, 'carried-out.txt'), 'utf8'), 'yes\n');
+      const left = write.types().indexOf('runtime.plan.left');
+      assert.ok(
+        left > -1 && left < write.types().lastIndexOf('runtime.turn.started'),
+        'left before the turn',
+      );
       // Never asking with a plan: refused before anything runs.
       await assert.rejects(
         runtime.startExecution({

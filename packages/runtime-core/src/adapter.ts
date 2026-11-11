@@ -233,7 +233,16 @@ export interface RuntimeAdapter {
    */
   listModels?(): Promise<readonly RuntimeModel[]>;
   startExecution?(request: StartExecutionRequest): Promise<StartExecutionResult>;
-  sendInstruction?(request: { execution: ExecutionContext; text: string }): Promise<void>;
+  /**
+   * `leave_plan` (PLAN): leave the runtime's plan mode in the same session first, confirmed by the
+   * runtime and reported as `runtime.plan.left`, else refuse with nothing sent. Admission passes it
+   * only for an execution that started as a plan and has not left it.
+   */
+  sendInstruction?(request: {
+    execution: ExecutionContext;
+    text: string;
+    leave_plan?: true;
+  }): Promise<void>;
   respondToApproval?(request: {
     execution: ExecutionContext;
     approval_id: string;

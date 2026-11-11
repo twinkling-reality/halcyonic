@@ -662,10 +662,14 @@ describe('the C# bindings', () => {
     'CheckPage.own', // a check page's own pixels against the starter's (DRAWN)
     'CheckpointView.turn_id', // the turn an after_turn version follows (History)
     'Evaluation.activity', // Seorak's activity of a session
+    'ExecutionSendInstructionPayload.leave_plan', // carrying a plan out (PLAN 4a)
     'ExecutionStartPayload.approval_level', // ADR 0043
     'ExecutionStartPayload.plan', // a start in the runtime's own plan mode (PLAN)
     'ExecutionView.approval_level', // ADR 0043
     'ExecutionView.auto_fix', // a failed check sent back on its own (ADR 0044)
+    'ExecutionView.plan', // whether its start recorded a plan (PLAN 4a)
+    'ExecutionView.plan_left', // whether the plan was left to carry it out (PLAN 4a)
+    'ExecutionView.unconfined_reason', // why its start was not counted confined (BOX-4, PLAN 4a)
     'LocationRoot.label', // a location's label
     'ProjectCheckPayload.workstream_id', // the task whose copy a check checks (ADR 0045)
     'ProjectCheckRecordedPayload.workstream_id', // ADR 0045

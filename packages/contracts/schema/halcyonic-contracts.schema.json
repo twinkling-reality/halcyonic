@@ -5892,6 +5892,9 @@
                               "minLength": 1,
                               "maxLength": 32000,
                               "pattern": "\\S"
+                            },
+                            "leave_plan": {
+                              "type": "boolean"
                             }
                           },
                           "additionalProperties": false
@@ -8250,6 +8253,119 @@
             }
           },
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "execution_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "runtime.plan.left"
+            },
+            "source": {
+              "$ref": "#/$defs/RuntimeSource"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         }
       ]
     },
@@ -9440,6 +9556,9 @@
                   "minLength": 1,
                   "maxLength": 32000,
                   "pattern": "\\S"
+                },
+                "leave_plan": {
+                  "type": "boolean"
                 }
               },
               "additionalProperties": false
@@ -13418,6 +13537,18 @@
         },
         "approval_level": {
           "$ref": "#/$defs/ApprovalLevel"
+        },
+        "plan": {
+          "type": "boolean"
+        },
+        "plan_left": {
+          "type": "boolean"
+        },
+        "unconfined_reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "pattern": "\\S"
         },
         "instruction": {
           "type": "string",
