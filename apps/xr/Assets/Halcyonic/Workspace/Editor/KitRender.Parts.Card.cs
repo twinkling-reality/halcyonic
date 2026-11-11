@@ -74,7 +74,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static RoomReadingRow[] CardReading()
         {
             LineWords Theirs(string words) => LineWords.TheirName(words);
-            const string longLine = "return points.map(point => point.lerp(kite.at, wind.pull)).filter(Boolean);";
+            const string longLine = "const trail = points.map(point => point.lerp(kite.at, wind.pull));";
             var rows = new List<RoomReadingRow>();
             // Every line wrapped as a screen wraps it, so none is cut at either text size.
             void Line(RoomLineKind kind, int number, string text, int indent)
@@ -91,9 +91,9 @@ namespace Halcyonic.XR.Workspace.Editor
             Line(RoomLineKind.Removed, 12, "points.push(kite.at);", 2);
             Line(RoomLineKind.Added, 12, "points.push(kite.at, w.at);", 2);
             Line(RoomLineKind.Added, 13, "// streams behind the kite", 2);
-            Line(RoomLineKind.Added, 14, longLine, 4);
+            Line(RoomLineKind.Added, 14, longLine, 2);
             rows.Add(RoomReadingRow.GapRow);
-            Line(RoomLineKind.Same, 38, "return points;", 2);
+            Line(RoomLineKind.Same, 38, "return trail;", 2);
             Line(RoomLineKind.Same, 39, "}", 0);
             rows.Add(new RoomReadingRow(RoomLineKind.Same, 40, null));
             Line(RoomLineKind.Same, 41, "export default tail;", 0);
@@ -102,7 +102,8 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>
         /// A line wrapped as a screen wraps it (RoomReading's rule): to the columns a row holds at this text size, its indent
-        /// counted, at a space or before a dot or a bracket, never inside an operator or a name; every part kept.
+        /// counted, at a space or after a comma, else before a dot or a bracket, never inside an operator or a name; every
+        /// part kept.
         /// </summary>
         private static List<string> CardWrap(string line, int indent)
         {
@@ -113,13 +114,12 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var room = RoomReading.Columns(GlazeText.Scale, continued) - indent;
                 if (rest.Length <= room) { parts.Add(rest); break; }
+                // At a space or after a comma first; only where a row holds neither, before a dot or a bracket after a name.
                 var cut = -1;
-                for (var at = room; at > 0; at--)
-                {
-                    var before = rest[at - 1];
-                    var after = rest[at];
-                    if (before == ' ' || before == ',' || ((after == '.' || after == '(') && char.IsLetterOrDigit(before))) { cut = at; break; }
-                }
+                for (var at = room; at > 0 && cut < 0; at--)
+                    if (rest[at - 1] == ' ' || rest[at - 1] == ',') cut = at;
+                for (var at = room; at > 0 && cut < 0; at--)
+                    if ((rest[at] == '.' || rest[at] == '(') && char.IsLetterOrDigit(rest[at - 1])) cut = at;
                 if (cut <= 0) cut = room;
                 parts.Add(rest.Substring(0, cut).TrimEnd());
                 rest = rest.Substring(cut).TrimStart();
