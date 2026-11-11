@@ -1993,6 +1993,54 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
   );
 
   test(
+    'a task at rest is refused its next instruction once a project is bound inside its folder, and that project is untouched (AUDIT BOX-3 fix F1)',
+    SLOW_TEST,
+    async (t) => {
+      let bound: string[] = [];
+      let inner = '';
+      const { runtime, sandbox, start } = await harness(t, {
+        runtime: (box) => {
+          inner = join(box.project, 'inner-project');
+          return {
+            foldersInside: () => bound,
+            confinement: {
+              forDirectory: (directory) =>
+                directory === box.project
+                  ? { project: directory, readable: [], ...(bound.length > 0 && { inner: bound }) }
+                  : null,
+              toolFolders: toolFoldersFor(process.execPath),
+              loopbackPorts: [Number(new URL(box.provider.baseUrl).port)],
+            },
+          };
+        },
+      });
+      await mkdir(inner);
+      await writeFile(join(inner, 'kept.txt'), 'kept\n');
+      const execution = await start('Say hello.', {}, null, 'never_ask');
+      await execution.next('runtime.turn.completed');
+      bound = [await realpath(inner)];
+      await assert.rejects(
+        runtime.sendInstruction({
+          execution: execution.context,
+          text: `CMD:echo removed > ${inner}/kept.txt; echo made > ${inner}/marker.txt`,
+        }),
+        (error: unknown) =>
+          error instanceof RuntimeActionError &&
+          error.code === 'runtime_refused' &&
+          /added inside this one since this task started/.test(error.message),
+      );
+      await delay(1000);
+      assert.equal(
+        readFileSync(join(inner, 'kept.txt'), 'utf8'),
+        'kept\n',
+        'the inner project changed',
+      );
+      assert.equal(existsSync(join(inner, 'marker.txt')), false, 'the inner project was written');
+      assert.ok(existsSync(sandbox.project));
+    },
+  );
+
+  test(
     'a never-asking run in a folder that holds another project, or beside one, reaches neither (AUDIT BOX-3 F1)',
     SLOW_TEST,
     async (t) => {

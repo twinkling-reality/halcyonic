@@ -87,6 +87,10 @@ export const TAMPERED = 'runtime_tampered';
  */
 export const OPENCODE_SANDBOX_FOLDER = 'opencode-sandbox';
 
+/** Why an instruction is refused once another project was bound inside its folder (BOX-3 fix F1). */
+const NEW_PROJECT_INSIDE =
+  "Another project's folder was added inside this one since this task started, so this task's agent no longer keeps out of it. Start a new task here to go on.";
+
 /** The listing server's slot key (BOX-3). */
 const MODELS_SLOT = 'models';
 
@@ -722,6 +726,15 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
 
   async sendInstruction(request: { execution: ExecutionContext; text: string }): Promise<void> {
     const session = this.#hosted(request.execution);
+    // A project bound inside the folder since its server started is not in that server's profile,
+    // and OpenCode resumes no session on another server, so the turn is refused (AUDIT BOX-3 fix F1).
+    const folder = session.connection.slot.folder;
+    if (folder !== null) {
+      const now = [...this.#foldersInside(folder)].sort();
+      if (now.some((each) => !session.connection.slot.inner.includes(each))) {
+        throw new RuntimeActionError('runtime_refused', NEW_PROJECT_INSIDE);
+      }
+    }
     // Its first event should be observed, so the turn starts on a connected stream.
     await ready(session.connection);
     await this.#prompt(session, request.text);
