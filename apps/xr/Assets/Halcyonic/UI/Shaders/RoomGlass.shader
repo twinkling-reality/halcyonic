@@ -16,6 +16,7 @@ Shader "Halcyonic/Room Glass"
         _Shade ("Shadow drop, blur and alpha in dp, and 1 where it shows", Vector) = (10, 28, 0.22, 1)
         _Inner ("A lighter inner bar: its top from the panel's top and its height in dp, its corner in dp, and its inset from the sides in dp where it shows (0: none)", Vector) = (0, 0, 0, 0)
         _InnerColour ("The inner bar's colour, sRGB, and its alpha", Vector) = (1, 1, 1, 0)
+        _Shown ("How far the surface is in view, 0 to 1: everything it draws, its shadow too, scaled by it", Float) = 1
     }
 
     SubShader
@@ -45,6 +46,7 @@ Shader "Halcyonic/Room Glass"
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Shade)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Inner)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _InnerColour)
+                UNITY_DEFINE_INSTANCED_PROP(float, _Shown)
             UNITY_INSTANCING_BUFFER_END(Props)
 
             // The sheen, once a frame for every surface (RoomSheen): the plane's origin and its right and up in the world,
@@ -161,7 +163,8 @@ Shader "Halcyonic/Room Glass"
                     float s = shade.z * Blurred(Shape(p + float2(0, shade.x), extent, radius, panel.w), shade.y);
                     outside = float4(0, 0, 0, s);
                 }
-                return faceOut * cover + outside * (1.0 - cover);
+                // Premultiplied: scaling every channel fades the whole surface, its edge, bar and shadow with it.
+                return (faceOut * cover + outside * (1.0 - cover)) * saturate(UNITY_ACCESS_INSTANCED_PROP(Props, _Shown));
             }
             ENDCG
         }

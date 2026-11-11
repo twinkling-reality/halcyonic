@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] RowsStates = { "45-rows-recap", "45-rows-steps", "45-rows-checks", "45-rows-changes", "45-rows-part" };
+        private static readonly string[] RowsStates = { "45-rows-recap", "45-rows-steps", "45-rows-checks", "45-rows-changes", "45-rows-part", "45-rows-arriving" };
 
         /// <summary>A first task long enough to be read in parts.</summary>
         private const string RowsLongTask = "Make a kite that follows my hand and climbs when I raise it, with a tail that streams behind it and a score that counts how high it has climbed since the last time it fell";
@@ -30,6 +30,7 @@ namespace Halcyonic.XR.Workspace.Editor
             switch (state)
             {
                 case "45-rows-recap":
+                case "45-rows-arriving":
                     return new List<RoomRow>
                     {
                         Fact("Project · ", "Kite Run"), Fact("First Task · ", "Make a kite that follows my hand and climbs when I raise it"), Fact("Folder · ", "kite-run"),
@@ -68,6 +69,13 @@ namespace Halcyonic.XR.Workspace.Editor
             var size = new Vector2(width, tall + 2f * pad);
             panel.InnerBar = null;
             panel.Draw(size);
+            // Half way in (the panel's arrival, DESIGN 1.5): its glass at half and its words with it.
+            var arriving = state == "45-rows-arriving";
+            if (arriving)
+            {
+                panel.Shown = 0.5f;
+                foreach (var words in panel.GetComponentsInChildren<TMPro.TMP_Text>(false)) words.alpha = 0.5f;
+            }
             view.transform.localPosition = new Vector3(-width / 2f + pad, size.y / 2f - pad, -RoomType.Units(0.5f));
             Place(plane, eyes, 0f, shot.Elevation);
 
@@ -98,7 +106,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(parts.First().Trim() == "Changed · 41 to 54 Lines" && string.Concat(parts.Skip(1).Select(part => part.Trim())) == "src/balloons/golden/burst-particles.js",
                         "the long path's row does not break at its separator, the path whole on its own line: \"" + shown.Replace("\n", " / ") + "\"");
                 }
-                var wantedLines = rows[index].Lines ?? (state == "45-rows-recap" && index == 1 || state == "45-rows-changes" && index == 1 ? 2 : 1);
+                var wantedLines = rows[index].Lines ?? ((state is "45-rows-recap" or "45-rows-arriving") && index == 1 || state == "45-rows-changes" && index == 1 ? 2 : 1);
                 Require(rows[index].Lines != null ? lines == wantedLines : GlazeText.Scale > 1.001f ? lines >= wantedLines && lines <= RoomRowsView.RowLines : lines == wantedLines,
                     what + " takes " + lines + " lines");
                 if (state == "45-rows-part" && index == 0)
@@ -144,7 +152,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         var on = Light(At(dark, hairline.TransformPoint(new Vector3(0.42f, 0f, 0f))));
                         var above = Light(At(dark, hairline.TransformPoint(new Vector3(0.42f, 0f, 0f)) + plane.up * (4f * unit)));
                         lifts.Add(on - above);
-                        if (on - above < 8 || on - above > 40) failures.Add("the hairline under row " + index + " reads " + on + " on the panel's " + above + ": not the page's white at 12 percent");
+                        if (!arriving && (on - above < 8 || on - above > 40)) failures.Add("the hairline under row " + index + " reads " + on + " on the panel's " + above + ": not the page's white at 12 percent");
                     }
                     // A mark's ink, in its own colour, on the middle of each of its glyph's shapes.
                     var mark = view.Mark(index);
@@ -165,7 +173,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     var most = 0;
                     for (var step = 0; step <= 80; step++)
                         most = Mathf.Max(most, Light(At(dark, label.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 80f), bounds.max.y - KitType.LinePitch(label) * 0.5f, 0f)))));
-                    if (most < 170) failures.Add("row " + index + "'s words are not in the pixels, the lightest reads " + most + " of 255");
+                    if (most < (arriving ? 90 : 170)) failures.Add("row " + index + "'s words are not in the pixels, the lightest reads " + most + " of 255");
+                }
+                if (arriving)
+                {
+                    // Half way in: the glass over the bright room reads between the room and the glass whole: darker than the room.
+                    // Inside the panel's top padding, and the plain wall just above it (the fixture room has dark blocks lower down).
+                    var inside = Light(At(bright, panel.transform.TransformPoint(new Vector3(size.x * 0.4f, size.y * 0.47f, 0f))));
+                    var room = Light(At(bright, panel.transform.TransformPoint(new Vector3(size.x * 0.4f, size.y * 0.7f, 0f))));
+                    if (!(inside < room - 15 && inside > 110)) failures.Add("the half-shown panel reads " + inside + " over the bright room's " + room + " of 255");
+                    Debug.Log("Halcyonic: parts: " + name + ": half shown, the panel reads " + inside + " over the bright room's " + room + " of 255.");
                 }
                 Debug.Log("Halcyonic: parts: " + name + ": " + rows.Count + " rows, their hairlines lighter than the panel by " + string.Join(", ", lifts.Select(lift => lift.ToString(CultureInfo.InvariantCulture)))
                     + " of 255, " + rows.Count(row => row.Mark != RoomRowMark.None) + " marks in their colours.");
