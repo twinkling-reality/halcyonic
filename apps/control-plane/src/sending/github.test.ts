@@ -63,7 +63,20 @@ beforeEach(() => {
   // The test's own git settings: an author, and github.com for this repository is the local bare one.
   writeFileSync(
     join(home, '.gitconfig'),
-    `[user]\n\tname = Test Person\n\temail = person@example.test\n[url "file://${origin}"]\n\tinsteadOf = ${REMOTE}\n[init]\n\tdefaultBranch = main\n`,
+    [
+      '[user]\n\tname = Test Person\n\temail = person@example.test',
+      // Every form of this repository's address leads to the local bare one (AUDIT3 S4), and any
+      // other github.com address to a path that is not there.
+      `[url "file://${origin}"]`,
+      `\tinsteadOf = ${REMOTE}`,
+      '\tinsteadOf = git@github.com:owner/garden.git',
+      '\tinsteadOf = ssh://git@github.com/owner/garden.git',
+      `[url "file://${join(root, 'no-github')}/"]`,
+      '\tinsteadOf = https://github.com/',
+      '\tinsteadOf = git@github.com:',
+      '\tinsteadOf = ssh://git@github.com/',
+      '[init]\n\tdefaultBranch = main\n',
+    ].join('\n'),
   );
   git(root, 'init', '--bare', '-q', origin);
   git(folder, 'init', '-q');
@@ -210,6 +223,118 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     assert.ok(sent.ok);
     assert.equal(sent.pullRequestUrl, null);
     assert.equal(git(origin, 'rev-parse', `refs/heads/${reviewed.send.new_branch}`), sent.commit);
+  });
+
+  test('a file git tracks stays tracked, ignored or secret-shaped, and only what the person changed is sent (AUDIT3 G1)', async () => {
+    mkdirSync(join(folder, 'vendor'));
+    writeFileSync(join(folder, 'vendor', 'lib.js'), 'kept\n');
+    writeFileSync(join(folder, '.gitignore'), 'node_modules\nvendor/\n');
+    writeFileSync(join(folder, '.env.production'), 'API=tracked-by-the-person\n');
+    git(folder, 'add', '-f', 'vendor/lib.js', '.gitignore', '.env.production');
+    git(folder, 'commit', '-q', '-m', 'vendor and env');
+    git(folder, 'push', '-q', 'origin', 'main');
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    // A secret-shaped file the person changes is still never sent: the base's stays.
+    writeFileSync(join(folder, '.env.production'), 'API=changed-on-this-mac\n');
+    const reviewed = await sender().review(PROJECT, folder, []);
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    assert.deepEqual(
+      reviewed.send.files.files.map((file) => [file.path, file.change]),
+      [['app.txt', 'changed']],
+    );
+    const sent = await sender().send(PROJECT, folder, [], 'Lanterns', reviewed.send.review);
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.equal(
+      git(origin, 'ls-tree', '-r', '--name-only', sent.commit),
+      '.env.production\n.gitignore\napp.txt\nvendor/lib.js',
+    );
+    assert.equal(
+      git(origin, 'show', `${sent.commit}:.env.production`),
+      'API=tracked-by-the-person',
+    );
+  });
+
+  test("a file the person's own git excludes is never sent: the folder's info/exclude and their excludes file (AUDIT3 G2)", async () => {
+    writeFileSync(join(folder, '.git', 'info', 'exclude'), 'private-notes.txt\n');
+    writeFileSync(join(folder, 'private-notes.txt'), 'only mine\n');
+    writeFileSync(join(home, 'global-ignore'), 'scratch.log\n');
+    git(folder, 'config', '--global', 'core.excludesFile', join(home, 'global-ignore'));
+    writeFileSync(join(folder, 'scratch.log'), 'mine too\n');
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    assert.equal(git(folder, 'status', '--porcelain'), 'M app.txt');
+    const reviewed = await sender().review(PROJECT, folder, []);
+    assert.ok(reviewed.ok);
+    assert.deepEqual(
+      reviewed.send.files.files.map((file) => file.path),
+      ['app.txt'],
+    );
+    const sent = await sender().send(PROJECT, folder, [], 'Lanterns', reviewed.send.review);
+    assert.ok(sent.ok);
+    assert.equal(git(origin, 'ls-tree', '-r', '--name-only', sent.commit), '.gitignore\napp.txt');
+  });
+
+  test("no filter runs, the repository's or the person's own, and a repository that names one is refused (AUDIT3 S1)", async () => {
+    const theirs = join(root, 'personal-ran');
+    writeFileSync(join(root, 'evil.sh'), `#!/bin/sh\ntouch '${marker}'\ncat\n`);
+    writeFileSync(join(root, 'personal.sh'), `#!/bin/sh\ntouch '${theirs}'\ncat\n`);
+    chmodSync(join(root, 'evil.sh'), 0o755);
+    chmodSync(join(root, 'personal.sh'), 0o755);
+    git(folder, 'config', 'uploadpack.packObjectsHook', join(root, 'evil.sh'));
+    git(folder, 'config', 'filter.evil.clean', join(root, 'evil.sh'));
+    git(folder, 'config', '--global', 'filter.mine.clean', join(root, 'personal.sh'));
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    for (const attributes of [
+      '* filter=evil\n',
+      '* filter=mine\n',
+      '*.psd filter=lfs diff=lfs merge=lfs -text\n',
+    ]) {
+      writeFileSync(join(folder, '.gitattributes'), attributes);
+      const reviewed = await sender().review(PROJECT, folder, []);
+      assert.equal(reviewed.ok ? null : reviewed.code, 'uses_filters', attributes);
+    }
+    assert.equal(existsSync(marker), false, "the repository's filter never ran");
+    assert.equal(existsSync(theirs), false, "the person's own filter never ran");
+    // Attributes that name no filter are sent as files.
+    writeFileSync(join(folder, '.gitattributes'), '*.txt text eol=lf\n');
+    const plain = await sender().review(PROJECT, folder, []);
+    assert.ok(plain.ok, plain.ok ? '' : plain.message);
+  });
+
+  test('a review asks nothing of gh; the same work sent twice says it was already sent (AUDIT3 S2, S3)', async () => {
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    const first = await sender().review(PROJECT, folder, []);
+    assert.ok(first.ok);
+    assert.equal(existsSync(ghLog), false, 'a review runs no gh');
+    const sent = await sender().send(PROJECT, folder, [], 'One', first.send.review);
+    assert.ok(sent.ok);
+    const again = await sender().review(PROJECT, folder, []);
+    assert.ok(again.ok);
+    const twice = await sender().send(PROJECT, folder, [], 'Two', again.send.review);
+    assert.equal(twice.ok ? null : twice.code, 'already_sent');
+    assert.match(twice.ok ? '' : twice.message, /already sent as halcyonic\/garden-/);
+    assert.equal(git(origin, 'rev-parse', `refs/heads/${first.send.new_branch}`), sent.commit);
+  });
+
+  test('an origin in its git@ or ssh:// form sends to the same stand-in, and no other github.com address is reached (AUDIT3 S4)', async () => {
+    for (const form of [
+      'git@github.com:owner/garden.git',
+      'ssh://git@github.com/owner/garden.git',
+    ]) {
+      git(folder, 'remote', 'set-url', 'origin', form);
+      writeFileSync(join(folder, 'app.txt'), `${form}\n`);
+      const reviewed = await sender().review(PROJECT, folder, []);
+      assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+      const sent = await sender().send(PROJECT, folder, [], 'Form', reviewed.send.review);
+      assert.ok(sent.ok, `${form}: ${sent.ok ? '' : sent.message}`);
+      assert.equal(git(origin, 'rev-parse', `refs/heads/${reviewed.send.new_branch}`), sent.commit);
+    }
+    // Another repository on github.com leads to a path that is not there: the push is refused.
+    git(folder, 'remote', 'set-url', 'origin', 'https://github.com/someone/else.git');
+    writeFileSync(join(folder, 'app.txt'), 'elsewhere\n');
+    const reviewed = await sender().review(PROJECT, folder, []);
+    assert.ok(reviewed.ok);
+    const refused = await sender().send(PROJECT, folder, [], 'Else', reviewed.send.review);
+    assert.equal(refused.ok ? null : refused.code, 'push_refused');
   });
 
   test('every refusal is said in words, and nothing is sent', async () => {

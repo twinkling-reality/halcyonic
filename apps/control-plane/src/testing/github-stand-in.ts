@@ -5,8 +5,9 @@ import { join } from 'node:path';
 /**
  * A project folder whose origin is `https://github.com/owner/garden.git`, which the test's own git
  * settings (in `home`) point at a local bare repository, and a stand-in `gh` that records each call
- * and answers with a pull request's address. Nothing reaches github.com, and no one's sign-in is
- * used (ADR 0039, amended).
+ * and answers with a pull request's address. Its https, `git@` and `ssh://` forms all lead there, and
+ * any other github.com address to a path that is not there: nothing reaches github.com, and no one's
+ * sign-in is used (ADR 0039, amended).
  */
 export function standInGitHub(root: string) {
   const home = join(root, 'home');
@@ -20,7 +21,20 @@ export function standInGitHub(root: string) {
     mkdirSync(path, { recursive: true });
   writeFileSync(
     join(home, '.gitconfig'),
-    `[user]\n\tname = Test Person\n\temail = person@example.test\n[url "file://${origin}"]\n\tinsteadOf = ${remote}\n[init]\n\tdefaultBranch = main\n`,
+    [
+      '[user]\n\tname = Test Person\n\temail = person@example.test',
+      // Every form of the test repository's address leads to the local bare one (AUDIT3 S4)...
+      `[url "file://${origin}"]`,
+      `\tinsteadOf = ${remote}`,
+      '\tinsteadOf = git@github.com:owner/garden.git',
+      '\tinsteadOf = ssh://git@github.com/owner/garden.git',
+      // ...and any other address on github.com to a path that is not there, so nothing leaves.
+      `[url "file://${join(root, 'no-github')}/"]`,
+      '\tinsteadOf = https://github.com/',
+      '\tinsteadOf = git@github.com:',
+      '\tinsteadOf = ssh://git@github.com/',
+      '[init]\n\tdefaultBranch = main\n',
+    ].join('\n'),
   );
   const git = (cwd: string, ...args: string[]) =>
     execFileSync('/usr/bin/git', args, {

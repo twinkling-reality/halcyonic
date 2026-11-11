@@ -75,21 +75,31 @@ access. Here the person uses that access on purpose, each time, after reading wh
   passes no token (only `HOME`, `USER`, `LOGNAME`, `LANG`, `LC_ALL`, `TMPDIR` and `SSH_AUTH_SOCK`
   reach them, never `GH_TOKEN` or `GITHUB_TOKEN`), reads none, and keeps from what they print only an
   exit code, the commit and the pull request's address. Nothing they print is journaled or logged.
-  `gh` is the one `HALCYONIC_GH_BIN` names, never looked up on PATH; without it a send pushes only.
+  `gh` is the one `HALCYONIC_GH_BIN` names, never looked up on PATH; without it a send pushes only. A
+  review runs no gh, so reading one reaches nothing; whether the person is signed in shows at the press.
 - **Nothing of the project's repository runs.** Its `.git/config` and hooks are an agent's to write.
   So the person's repository is only read: `.git/HEAD` and `origin` as files, and its commits by a
   fetch. The commit is built in a bare repository of Halcyonic's own, `<data dir>/sending/<project
-  id>.git`, from the folder's files as git sees them (the person's ignore rules), without any file
-  the secret-file list names and without other projects' folders inside it, and pushed from there
-  with no hooks. The person's folder, index, branches and refs are not changed.
+  id>.git`, from the folder's files as the person's git sees them, and pushed from there with no
+  hooks. The person's folder, index, branches and refs are not changed. "As their git sees them"
+  (AUDIT3, 2026-11-11):
+  - the scratch index starts from the branch's last commit, so a file git tracks stays tracked
+    whatever the ignore rules say, and only what the person changed differs;
+  - the folder's `.git/info/exclude` is read as a file, and the excludes file their global settings
+    name is used by its path;
+  - a path the secret-file list names, or inside another project's folder, stays exactly as that
+    commit has it, never added, changed or removed;
+  - none of the person's git settings, global or system, apply while files are staged, so no filter
+    of theirs or the repository's runs. A repository whose `.gitattributes` names a filter, as Git
+    LFS does, is refused (`uses_filters`), since its files are not what it commits.
 - **One new branch, never a force.** The commit is on top of the folder's branch's last commit, pushed
-  as `halcyonic/<folder>-<tree>`, and a pull request from it into that branch is opened with the
+  as `halcyonic/<folder>-<tree>` (the same work sent again is refused as `already_sent`), and a pull request from it into that branch is opened with the
   person's `gh`, titled as they typed. `project.sent_to_github` records the repository, the branches,
   the commits and the pull request's address.
 - **Only the person's.** Never from an agent, the automatic check or auto-fix: it is a command a
   client sends after its review. Refusals in the product's words: no git repository of its own, no
   origin on GitHub, no branch, no commit, nothing changed, a stale review, no name and email in git,
-  a push GitHub refused.
+  filters it would need, work already sent, a push GitHub refused.
 - **What has met github.com: nothing.** Every test uses a local bare repository as `origin` and a
   stand-in `gh` ([record](../validation/sending-to-github.md)). The first real send is the owner's own.
 

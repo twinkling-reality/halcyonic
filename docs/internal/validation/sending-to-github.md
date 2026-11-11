@@ -46,11 +46,27 @@ The first real send to GitHub is the owner's own, with their press.
    - the journal holds no address and nothing of the person's git identity;
    - a computer without the sender answers `unavailable`.
 
+9. **The person's own repository as their git sees it** (AUDIT3's probes G1 to G4 and S4, kept as tests):
+   - a file tracked but ignored (`vendor/lib.js` under `vendor/` in `.gitignore`) and a tracked
+     `.env.production` stay in the sent commit when the person changed only `app.txt`; the review lists only
+     `app.txt`; a change to `.env.production` on this Mac is not sent, the commit keeps the base's;
+   - a file the folder's `.git/info/exclude` names, and one the person's global `core.excludesFile` names,
+     are neither listed nor sent;
+   - a `.gitattributes` naming a filter (the repository's own `filter.evil`, the person's global
+     `filter.mine`, or Git LFS's) is refused `uses_filters`, and neither filter ran; `uploadpack.packObjectsHook`
+     in the repository never ran; attributes naming no filter send as files;
+   - a review runs no gh;
+   - the same work sent twice is refused `already_sent`, the first branch kept;
+   - an origin in its `git@github.com:` or `ssh://git@github.com/` form reaches the same stand-in, and any other
+     github.com address leads to a path that is not there.
+   Each of G1, G2, S1 and S2/S3's tests fails on c3d3fe5d's sender and passes on its fix.
+
 ## Not proven
 
 - A real push to github.com over https with the macOS keychain's credential helper, or over ssh with an
   agent's key.
-- A real `gh pr create`, its output on success, or `gh auth status` against GitHub's servers.
+- A real `gh pr create` or its output on success.
 - A repository whose objects are SHA-256 (read from its config): the bare repository is made to match,
   but no test uses one.
-- Git LFS: the person's own filters would run when the files are added.
+- Git LFS: refused, never sent. A repository-level `core.excludesFile` in the person's `.git/config` is not read
+  (that file is an agent's to write); only `.git/info/exclude`, `.gitignore` files and the global excludes file are.

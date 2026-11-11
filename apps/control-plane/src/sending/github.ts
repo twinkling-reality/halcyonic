@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { lstat, mkdir, open, realpath, rm } from 'node:fs/promises';
+import { lstat, mkdir, open, realpath, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import type { ChangedFiles, GitHubSendReview, ProjectId } from '@halcyonic/contracts';
 import { secretShapedPath } from '@halcyonic/runtime-core';
@@ -58,7 +58,7 @@ export class GitHubSender {
     this.#deps = deps;
   }
 
-  /** What a send would do now, with its digest; nothing leaves this Mac. */
+  /** What a send would do now, with its digest; nothing leaves this Mac, and gh is not run. */
   async review(
     projectId: ProjectId,
     folder: string,
@@ -137,11 +137,23 @@ export class GitHubSender {
       ],
       120_000,
     );
-    if (pushed.code !== 0)
+    if (pushed.code !== 0) {
+      // A branch of that name already there is why, when this very work was sent before (AUDIT3 S3).
+      const there = await this.#run(
+        this.#deps.git,
+        ['--git-dir', repository, 'ls-remote', '--heads', remote, `refs/heads/${send.new_branch}`],
+        60_000,
+      );
+      if (there.code === 0 && there.stdout.trim() !== '')
+        return refuse(
+          'already_sent',
+          `This work was already sent as ${send.new_branch}, so nothing new was sent. Change something, then send again.`,
+        );
       return refuse(
         'push_refused',
         "GitHub didn't take the push, so nothing was sent. Check that this computer can push to the repository, then send again.",
       );
+    }
     let pullRequestUrl: string | null = null;
     if (this.#deps.gh !== null) {
       const opened = await this.#run(
@@ -211,8 +223,9 @@ export class GitHubSender {
     const base = (
       await this.#run(this.#deps.git, ['--git-dir', repository, 'rev-parse', 'refs/halcyonic/base'])
     ).stdout.trim();
-    const tree = await this.#tree(repository, folder, otherFolders);
-    if (tree === null) return refuse('send_failed', "The project's files could not be read.");
+    const built = await this.#tree(repository, folder, otherFolders, 'refs/halcyonic/base');
+    if (!built.ok) return built;
+    const tree = built.tree;
     const diff = await this.#run(this.#deps.git, [
       '--git-dir',
       repository,
@@ -232,9 +245,9 @@ export class GitHubSender {
         "Nothing in the project differs from its branch's last commit.",
       );
     const newBranch = `halcyonic/${slug(basename(folder))}-${tree.slice(0, 8)}`;
-    const pullRequest =
-      this.#deps.gh !== null &&
-      (await this.#run(this.#deps.gh, ['auth', 'status'], 15_000)).code === 0;
+    // Whether gh is set up on this Mac, never asked of GitHub: a review sends nothing anywhere (AUDIT3
+    // S2). Whether the person is signed in shows only at the press.
+    const pullRequest = this.#deps.gh !== null;
     const facts = {
       repository: origin.fullName,
       branch,
@@ -257,15 +270,22 @@ export class GitHubSender {
   }
 
   /**
-   * The folder's files as the person's git sees them (its ignore rules), built in our repository's
-   * own scratch index, then filtered whole: no file the secret-file list names, none inside another
-   * project's folder.
+   * The folder's files as the person's git sees them, built in our repository's own scratch index
+   * seeded from `base`, so what git tracks stays tracked, ignore rules or not (AUDIT3 G1), with the
+   * folder's own `info/exclude` (G2) and the person's own excludes file, and none of their git
+   * settings, so no filter of theirs runs (S1). A path the secret-file list names, or inside another
+   * project's folder, stays exactly as `base` has it: never added, changed or removed. A repository
+   * whose attributes name a filter, as Git LFS does, is refused: its files are not what it commits.
+   * `base` is null for a tree with no parent (Publish's).
    */
   async #tree(
     repository: string,
     folder: string,
     otherFolders: readonly string[],
-  ): Promise<string | null> {
+    base: string | null,
+    excludes: string | null = join(folder, '.git', 'info', 'exclude'),
+  ): Promise<{ readonly ok: true; readonly tree: string } | SendFailure> {
+    const unreadable = refuse('send_failed', "The project's files could not be read.");
     const real = await realpath(folder);
     const inside: string[] = [];
     for (const other of otherFolders) {
@@ -273,9 +293,54 @@ export class GitHubSender {
       if (path !== real && path.startsWith(real + sep))
         inside.push(relative(real, path).split(sep).join('/'));
     }
+    const held = (path: string) =>
+      secretShapedPath(path) ||
+      inside.some((other) => path === other || path.startsWith(`${other}/`));
+    // The person's own excludes, read as small regular files, never through a link: the folder's
+    // `info/exclude` into ours, and the excludes file their global settings name, by its path.
+    await mkdir(join(repository, 'info'), { recursive: true, mode: 0o700 });
+    await writeFile(
+      join(repository, 'info', 'exclude'),
+      (excludes === null ? null : await readSmall(excludes)) ?? '',
+      { mode: 0o600 },
+    );
+    const named = await this.#run(this.#deps.git, [
+      'config',
+      '--global',
+      '--path',
+      'core.excludesFile',
+    ]);
+    const globalExcludes = named.code === 0 ? named.stdout.trim() : '';
     const index = join(repository, `send-${process.pid}-${Date.now()}.index`);
     const indexed = { GIT_INDEX_FILE: index };
+    // No settings of the person's, global or system, while their files are staged (AUDIT3 S1).
+    const bare = { ...indexed, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
+    const entries = async (tree: string): Promise<Map<string, string> | null> => {
+      const listed = await this.#run(this.#deps.git, [
+        '--git-dir',
+        repository,
+        'ls-tree',
+        '-r',
+        '-z',
+        '--full-tree',
+        tree,
+      ]);
+      if (listed.code !== 0) return null;
+      const map = new Map<string, string>();
+      for (const entry of listed.stdout.split('\0')) {
+        const tab = entry.indexOf('\t');
+        if (tab > 0) map.set(entry.slice(tab + 1), entry);
+      }
+      return map;
+    };
     try {
+      const seeded = await this.#run(
+        this.#deps.git,
+        ['--git-dir', repository, 'read-tree', ...(base === null ? ['--empty'] : [base])],
+        30_000,
+        bare,
+      );
+      if (seeded.code !== 0) return unreadable;
       const added = await this.#run(
         this.#deps.git,
         [
@@ -285,41 +350,34 @@ export class GitHubSender {
           real,
           '-c',
           'core.hooksPath=/dev/null',
+          ...(globalExcludes === '' ? [] : ['-c', `core.excludesFile=${globalExcludes}`]),
           'add',
           '-A',
           '--',
           '.',
         ],
         120_000,
-        indexed,
+        bare,
       );
-      if (added.code !== 0) return null;
+      if (added.code !== 0) return unreadable;
       const whole = await this.#run(
         this.#deps.git,
         ['--git-dir', repository, 'write-tree'],
         30_000,
-        indexed,
+        bare,
       );
-      if (whole.code !== 0) return null;
-      const listed = await this.#run(this.#deps.git, [
-        '--git-dir',
-        repository,
-        'ls-tree',
-        '-r',
-        '-z',
-        '--full-tree',
-        whole.stdout.trim(),
-      ]);
-      if (listed.code !== 0) return null;
-      const kept = listed.stdout.split('\0').filter((entry) => {
-        const tab = entry.indexOf('\t');
-        if (tab <= 0) return false;
-        const path = entry.slice(tab + 1);
-        return (
-          !secretShapedPath(path) &&
-          !inside.some((other) => path === other || path.startsWith(`${other}/`))
+      if (whole.code !== 0) return unreadable;
+      const now = await entries(whole.stdout.trim());
+      const before = base === null ? new Map<string, string>() : await entries(base);
+      if (now === null || before === null) return unreadable;
+      if (await this.#filtered(repository, now))
+        return refuse(
+          'uses_filters',
+          "This project's git runs a filter on its files, as Git LFS does, which Halcyonic doesn't run. Send it with git yourself.",
         );
-      });
+      const kept: string[] = [];
+      for (const [path, entry] of now) if (!held(path)) kept.push(entry);
+      for (const [path, entry] of before) if (held(path)) kept.push(entry);
       await rm(index, { force: true });
       if (
         (
@@ -327,11 +385,11 @@ export class GitHubSender {
             this.#deps.git,
             ['--git-dir', repository, 'read-tree', '--empty'],
             30_000,
-            indexed,
+            bare,
           )
         ).code !== 0
       )
-        return null;
+        return unreadable;
       if (
         kept.length > 0 &&
         (
@@ -339,23 +397,43 @@ export class GitHubSender {
             this.#deps.git,
             ['--git-dir', repository, 'update-index', '-z', '--index-info'],
             30_000,
-            indexed,
+            bare,
             `${kept.join('\0')}\0`,
           )
         ).code !== 0
       )
-        return null;
+        return unreadable;
       const written = await this.#run(
         this.#deps.git,
         ['--git-dir', repository, 'write-tree'],
         30_000,
-        indexed,
+        bare,
       );
       const tree = written.stdout.trim();
-      return written.code === 0 && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(tree) ? tree : null;
+      return written.code === 0 && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(tree)
+        ? { ok: true, tree }
+        : unreadable;
     } finally {
       await rm(index, { force: true });
     }
+  }
+
+  /** Whether any `.gitattributes` in the staged files names a filter, as Git LFS's do. */
+  async #filtered(repository: string, entries: ReadonlyMap<string, string>): Promise<boolean> {
+    for (const [path, entry] of entries) {
+      if (path !== '.gitattributes' && !path.endsWith('/.gitattributes')) continue;
+      const object = /^\d+ blob ([0-9a-f]+)\t/.exec(entry)?.[1];
+      if (object === undefined) continue;
+      const text = await this.#run(this.#deps.git, [
+        '--git-dir',
+        repository,
+        'cat-file',
+        'blob',
+        object,
+      ]);
+      if (text.code !== 0 || /(^|\s)filter=/m.test(text.stdout)) return true;
+    }
+    return false;
   }
 
   /** Runs a program with no shell, the person's environment as `PASSED` names it, and no prompt. */
