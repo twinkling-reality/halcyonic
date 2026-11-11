@@ -40,11 +40,14 @@ namespace Halcyonic.XR.Workspace.Editor
         /// companion, Usage and Settings. Each press goes through the kit's own controls where the kit draws the file, and
         /// through the visible frame otherwise; each shot is held to the kit's checks where the kit draws and to the
         /// spatial workspace's otherwise, inside a Quest 3S field at both reading sizes, and every label drawn is scanned
-        /// for brand names. Renders land in Builds/JudgeKitRenders.
+        /// for brand names. Renders land in Builds/JudgeKitRenders. It walks the path a release player shows, so it runs
+        /// with the redesign off, as a release build keeps it until every reachable frame has a reader (ON-1; AUDIT,
+        /// 2026-11-11); JudgeRoomWalkCheck walks the redesign.
         /// </summary>
         public static void JudgeKitWalkCheck()
         {
             InstrumentFontAtlas.ValidateSaved();
+            RoomDesign.Enabled = false;
             var failures = GlazeChecks.AtEachTextSize(variant =>
             {
                 var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "JudgeKitRenders", variant));

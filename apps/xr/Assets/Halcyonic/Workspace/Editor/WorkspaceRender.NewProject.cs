@@ -117,7 +117,19 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>A real-font row boundary, then every review part drawn before Yes, with its trailing word intact.</summary>
+        /// <summary>
+        /// The older review page's row boundary, measured in <see cref="MenuFrameView"/>'s rows: the older flow's, so it runs
+        /// with the redesign off until ON-2 (under the redesign FIELD's flow reads the review by the panel's own lines).
+        /// </summary>
         private static IEnumerable<string> RenderNewProjectReview(string folder)
+        {
+            var designWas = RoomDesign.Enabled;
+            RoomDesign.Enabled = false;
+            try { return RenderOlderNewProjectReview(folder); }
+            finally { RoomDesign.Enabled = designWas; }
+        }
+
+        private static List<string> RenderOlderNewProjectReview(string folder)
         {
             var failures = new List<string>();
             foreach (var spaced in new[] { false, true })

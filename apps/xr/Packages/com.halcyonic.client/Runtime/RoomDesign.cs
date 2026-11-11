@@ -4,9 +4,9 @@ namespace Halcyonic.Client
 {
     /// <summary>
     /// Whether the headset draws the redesign (DESIGN's SYSTEM-v4, the owner's yes on 2026-11-05) where it is built so far,
-    /// in place of the kit's parts it replaces. Off by default while the redesign is built unit by unit, so the kit and the
-    /// judge path stand whole between units; a development build's extra (<c>halcyonic.redesign</c>) and the redesign's
-    /// render checks turn it on. The last unit turns it on by default.
+    /// in place of the kit's parts it replaces. Off here by default; the Unity layer turns it on in development builds and
+    /// the editor (ON-1), so every journey runs through it, and a release build keeps the older views until every frame a
+    /// person can reach has a reader of the redesign.
     /// </summary>
     public static class RoomDesign
     {

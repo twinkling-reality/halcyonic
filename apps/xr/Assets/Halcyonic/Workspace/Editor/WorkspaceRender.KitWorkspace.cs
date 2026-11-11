@@ -59,6 +59,10 @@ namespace Halcyonic.XR.Workspace.Editor
         private static void CheckKitWorkspace(string renders, bool composer)
         {
             InstrumentFontAtlas.ValidateSaved();
+            // The old kit's own journey: its spine, rail, composer pills and switch, none of which the redesign has. It walks
+            // the old kit until ON-2 removes both; the redesign's walk is WorkspaceRender.JudgeRoomWalkCheck (ON-1).
+            var designWas = RoomDesign.Enabled;
+            RoomDesign.Enabled = false;
             var failures = GlazeChecks.AtEachTextSize(variant =>
             {
                 var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", renders, variant));
@@ -85,6 +89,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     + (spatialProductGaps.Count == 0 ? "" : "; product gaps, not passes: " + string.Join("; ", spatialProductGaps)));
                 return found;
             });
+            RoomDesign.Enabled = designWas;
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
