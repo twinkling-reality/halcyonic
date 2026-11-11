@@ -468,7 +468,7 @@ describe('starting an execution', () => {
     await assert.rejects(start(), actionError('runtime_start_failed', 'none'));
   });
 
-  test('the SDK is asked for streaming input with Halcyonic options and every settings source', async () => {
+  test("the SDK is asked for streaming input with Halcyonic options and the person's own settings only", async () => {
     const { start, run } = setup({ pathToClaudeCodeExecutable: '/opt/claude/bin/claude' });
     void start({ model: 'claude-sonnet-5', permission_mode: 'acceptEdits' });
     const options = run().options;
@@ -481,8 +481,8 @@ describe('starting an execution', () => {
     // Claude Code is launched through the adapter's process guard.
     assert.equal(typeof options.spawnClaudeCodeProcess, 'function');
     assert.deepEqual(options.systemPrompt, { type: 'preset', preset: 'claude_code' });
-    // Leaving settingSources unset loads user settings, so the observers' hooks run.
-    assert.equal(options.settingSources, undefined);
+    // The person's own settings load, so the observers' hooks run; a project's own never do.
+    assert.deepEqual(options.settingSources, ['user']);
     const env = options.env ?? {};
     assert.equal(env.HOME, '/home/tester');
     assert.equal(env.ANTHROPIC_API_KEY, 'test-key-not-real');
@@ -577,6 +577,7 @@ describe('model choice', () => {
     assert.equal(run.closed, true);
     assert.equal(typeof run.options.spawnClaudeCodeProcess, 'function');
     assert.equal(run.options.sessionId, undefined);
+    assert.deepEqual(run.options.settingSources, ['user']);
   });
 
   test('says which cloud provider serves the models when Claude Code uses one', async () => {
@@ -1713,7 +1714,9 @@ describe("a start that asks for Halcyonic's sandbox (ADR 0048, BOX-4)", () => {
     assert.match(
       payload.unconfined_reason ?? '',
       onMac ? /sign-in key is inside with it/ : /macOS only/,
-    );
+    ); // Inside, no settings source at all: the agent can write the folder's own configuration, so a
+    // hook or an allow rule it wrote would load at the next start (AUDIT2 S1).
+    assert.deepEqual(scripted.options.settingSources, onMac ? [] : ['user']);
   });
 
   test('on a cloud provider runs as before, recorded not confined with why', async (t) => {

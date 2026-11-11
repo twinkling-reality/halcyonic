@@ -235,7 +235,7 @@ async function startHost(
 }
 
 describe('the adapter through the real Agent SDK', () => {
-  test('the process gets the chosen session id, the built environment and every settings source', async () => {
+  test("the process gets the chosen session id, the built environment and the person's own settings only", async () => {
     const directory = scratch('launch');
     const adapter = adapterFor(directory);
     try {
@@ -252,7 +252,8 @@ describe('the adapter through the real Agent SDK', () => {
         assert.equal(recorded.args[recorded.args.indexOf(flag) + 1], value, flag);
       }
       assert.ok(recorded.args.includes('--verbose'));
-      assert.ok(!recorded.args.some((arg) => arg.startsWith('--setting-sources')));
+      // The person's own settings only (E5): never a project's CLAUDE.md, AGENTS.md or hooks.
+      assert.ok(recorded.args.includes('--setting-sources=user'), recorded.args.join(' '));
       assert.equal(recorded.cwd, WORKDIR);
 
       // macOS CoreFoundation sets __CF_USER_TEXT_ENCODING inside every process it loads into; it

@@ -77,6 +77,16 @@ Seorak attributes them to Halcyonic. `ANTHROPIC_BASE_URL` is not inherited, beca
 API key is sent and a tool that launches the control plane may set it for its own endpoint; a
 gateway must be passed on purpose.
 
+Claude Code loads the person's own settings only (`settingSources: ['user']`, since 2026-11-11; inside the closed profile none at all, since the agent can write the folder's own configuration), for
+each task and for listing models: their `CLAUDE.md` and hooks load, so Salidium and Seorak observe
+the session. Nothing of a project's own loads by itself: not its `CLAUDE.md`, `CLAUDE.local.md` or
+`AGENTS.md`, its `.claude` rules or skills, the hooks or permissions of its `.claude/settings.json`
+and `.claude/settings.local.json`, or the servers its `.mcp.json` names. Until then all of these
+loaded, and a repository's hooks and servers each ran a command for every Claude Code task before
+the agent did anything, with no approval asked. Proven on the fake host only; it never met the
+hosted service ([claude-code-project-settings.md](../validation/claude-code-project-settings.md)).
+Text of the project still reaches the model when the agent reads a file, as for every runtime.
+
 When the Codex runtime is enabled, its app-server also gets an explicitly built environment: an
 allowlist (`PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, the locale variables, `TMPDIR`, `TZ` and
 the XDG directories), plus the names listed in `HALCYONIC_AGENT_ENV`, without the ones Codex signs
