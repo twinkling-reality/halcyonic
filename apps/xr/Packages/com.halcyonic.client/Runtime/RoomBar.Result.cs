@@ -86,6 +86,36 @@ namespace Halcyonic.Client
                     }
                     column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
                     break;
+                case RoomResultPage.Share when result.Share is ShareColumn share:
+                    // DEVICE's Share (ShareColumn, FIELD's share parts in A17's cards): the card, each way a row picked from by
+                    // its own control (key: the way), the column as the column gives it, Share behind its lock. The code to scan
+                    // is FIELD's RoomCard.Code once it lands (TODO); the host can draw ShareCodeView from share.Cells till then.
+                    var shareCard = share.Card();
+                    card = shareCard == null || shareCard.List.Count == 0 ? shareCard
+                        : new RoomCard(shareCard.Title, shareCard.Description, shareCard.Head, shareCard.Status, shareCard.Slots, shareCard.Steps, shareCard.TrackAt,
+                            shareCard.TrackOf, shareCard.List.Zip(share.Ways(), (row, way) => new RoomListRow(row.Kind, row.Name, row.Note, row.Tone, row.Mono,
+                                new KitControl(KitPlace.Step, frame, RoomResult.ShareWayAction, way.ToString(), row.Name.Text, GlazeIcon.Next, true, null, false))).ToList(),
+                            shareCard.Gauges, shareCard.More);
+                    foreach (var action in share.Actions())
+                    {
+                        var (id, icon) = action.Kind switch
+                        {
+                            ShareActionKind.Share => (RoomResult.ShareStart, GlazeIcon.Next),
+                            ShareActionKind.Cancel => (RoomResult.ShareCancel, GlazeIcon.Back),
+                            ShareActionKind.Stop => (RoomResult.ShareStop, GlazeIcon.Next),
+                            ShareActionKind.TryAgain or ShareActionKind.ShareAgain => (RoomResult.ShareAgain, GlazeIcon.Next),
+                            ShareActionKind.CheckGame => (RoomResult.ShareCheckGame, GlazeIcon.Next),
+                            ShareActionKind.StartPreview => (RoomResult.ShareStartPreview, GlazeIcon.Next),
+                            ShareActionKind.Back => (RoomResult.ShareBack, GlazeIcon.Back),
+                            ShareActionKind.Close => (RoomResult.ShareClose, GlazeIcon.Back),
+                            _ => ((string?)null, GlazeIcon.Next),
+                        };
+                        // A way is its row's press, not a column action.
+                        if (id == null) continue;
+                        var control = new KitControl(KitPlace.Step, frame, id, null, action.Words, icon, true, null, false);
+                        column.Add(new RoomAction(control, action.Main, locks: action.Kind == ShareActionKind.Share, icon: icon));
+                    }
+                    break;
                 case RoomResultPage.History when result.History is HistoryColumn history:
                     // DEVICE's History (HistoryColumn, FIELD's A14 in A17's cards): the card where there is one, else the
                     // sentence that sweeps while it reads or restores; each version row picked from by its own control; the
@@ -137,6 +167,8 @@ namespace Halcyonic.Client
                     // cannot act has no disabled look (BUILD-SPEC-v4 1.4); where its refusal's words stand is FIELD's to say.
                     if (result.Play is PlayInHeadset play && HeadsetPlay.Stands(play))
                         column.Add(Own(RoomResult.PlayInHeadset, HeadsetPlay.ActionWords, main: column.Count == 0, GlazeIcon.OpenNow));
+                    // DEVICE's Share, where the host would admit it or a share stands (FIELD: an action of a passed result at rest).
+                    if (result.CanShare) column.Add(Own(RoomResult.ShowShare, ShareText.Share, main: column.Count == 0, GlazeIcon.Next));
                     if (result.Observed != null) column.Add(Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next));
                     if (result.Steps.Count > 0) column.Add(Own(RoomResult.ShowChecks, RoomResult.ChecksWords, main: false, GlazeIcon.Next));
                     band = binding.Model.Report?.Text;

@@ -199,7 +199,7 @@ namespace Halcyonic.XR.Workspace
             var (page, part) = setup.Presentation.ResultPageFor(now.Character.WorkstreamId, run);
             var task = State!.Workstreams.TryGetValue(now.Character.WorkstreamId, out var work) ? work : null;
             return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (ControlPlaneSettings.Target(), Demonstration), task,
-                page == RoomResultPage.History ? HistoryFor(projectId) : null);
+                page == RoomResultPage.History ? HistoryFor(projectId) : null, page == RoomResultPage.Share ? ShareFor(projectId) : null);
         }
 
         /// <summary>
@@ -276,6 +276,46 @@ namespace Halcyonic.XR.Workspace
                     break;
                 case RoomResult.HistoryClose when page == RoomResultPage.History:
                     CloseHistory(work!.ProjectId, task, run, RoomResultPage.Result);
+                    break;
+                // DEVICE's Share (ADR 0054): the ways read on open; Share sent only through its lock and only where the host
+                // would admit it; Stop sent at once; the code read once the share stands; the fixes go the project's way.
+                case RoomResult.ShowShare:
+                    if (!OpenShare(work!.ProjectId)) return false;
+                    setup.Presentation.ShowResultPage(task, run, RoomResultPage.Share);
+                    break;
+                case RoomResult.ShareWayAction when page == RoomResultPage.Share && ShareFor(work!.ProjectId) is ShareColumn choosing
+                    && Enum.TryParse<ShareWay>(key, out var way) && choosing.Choose(way):
+                    break;
+                case RoomResult.ShareStart when page == RoomResultPage.Share && ShareFor(work!.ProjectId) is ShareColumn starting:
+                    if (!starting.Armed)
+                    {
+                        if (!starting.Arm()) return false;
+                        break;
+                    }
+                    if (setup.Commands is not CommandFactory startCommands || starting.Start(startCommands) is not ProjectShareStartCommand start) return false;
+                    if (!SendShare(start)) return false;
+                    break;
+                case RoomResult.ShareStop when page == RoomResultPage.Share && ShareFor(work!.ProjectId) is ShareColumn stopping:
+                    if (setup.Commands is not CommandFactory stopCommands || stopping.Stop(stopCommands) is not ProjectShareStopCommand stop) return false;
+                    if (!SendShare(stop)) return false;
+                    break;
+                case RoomResult.ShareCancel when page == RoomResultPage.Share && ShareFor(work!.ProjectId) is ShareColumn cancelling:
+                    cancelling.Cancel();
+                    break;
+                case RoomResult.ShareAgain when page == RoomResultPage.Share && ShareFor(work!.ProjectId) is ShareColumn again:
+                    again.Again();
+                    ReadWays(again);
+                    break;
+                case RoomResult.ShareCheckGame when page == RoomResultPage.Share:
+                    // The project's own way to a check, as Try Build's screen sends it; Share reads the new facts from the view.
+                    if (setup.Commands is not CommandFactory checkCommands || !SendShare(checkCommands.CheckProject(work!.ProjectId))) return false;
+                    break;
+                case RoomResult.ShareStartPreview when page == RoomResultPage.Share:
+                    if (setup.Commands is not CommandFactory previewCommands || !SendShare(previewCommands.StartPreview(work!.ProjectId))) return false;
+                    break;
+                case RoomResult.ShareBack or RoomResult.ShareClose when page == RoomResultPage.Share:
+                    shares.Remove(work!.ProjectId);
+                    setup.Presentation.ShowResultPage(task, run, RoomResultPage.Result);
                     break;
                 default: return false;
             }
@@ -577,6 +617,75 @@ namespace Halcyonic.XR.Workspace
             SetProjectScreenBarOpen(true);
         }
 
+        /// <summary>DEVICE's Share, one per project while its page is open (<see cref="ShareColumn"/>).</summary>
+        private readonly Dictionary<string, ShareColumn> shares = new Dictionary<string, ShareColumn>();
+
+        private ShareColumn? ShareFor(string projectId) => shares.TryGetValue(projectId, out var share) ? share : null;
+
+        private bool OpenShare(string projectId)
+        {
+            if (State?.Projects.TryGetValue(projectId, out var project) != true) return false;
+            var share = new ShareColumn(project!);
+            shares[projectId] = share;
+            ReadWays(share);
+            if (project!.Share != null) ReadCode(share);
+            return true;
+        }
+
+        /// <summary>Sends a Share command where the computer is connected and no recording plays; false where it cannot.</summary>
+        private bool SendShare(CommandEnvelope command)
+        {
+            if (!Connected || Demonstration || setup.Session() is not RealtimeSession session) return false;
+            setup.Presentation.RecordCommandDispatched(command);
+            _ = setup.Submit(session, command);
+            return true;
+        }
+
+        /// <summary>Reads which ways this computer can share now; none offered where it cannot be asked or did not answer.</summary>
+        private async void ReadWays(ShareColumn share)
+        {
+            if (Api is not ControlPlaneApi api) return;
+            try { share.WaysRead(await new ShareReader(api.GetDocumentAsync).WaysAsync()); }
+            catch (Exception) { /* No way is offered: the ways stay unread, so the choice offers none. */ }
+            dirty = true;
+        }
+
+        /// <summary>Reads the live share's code to scan; the card waits without it where it cannot be read.</summary>
+        private async void ReadCode(ShareColumn share)
+        {
+            if (Api is not ControlPlaneApi api) return;
+            // The read is drawn only for the share standing when it began (AUDIT SHOULD 1).
+            var generation = share.ShareGeneration;
+            try { share.CodeRead(await new ShareReader(api.GetDocumentAsync).CodeAsync(share.ProjectId), generation); }
+            catch (Exception) { /* The code stays unread; the share still stands and Stop still works. */ }
+            dirty = true;
+        }
+
+        /// <summary>What the computer said since the last change for every Share open: the project's view, the start's answer, a share's end.</summary>
+        private void ShareHeard(StateChanges changes)
+        {
+            if (shares.Count == 0) return;
+            foreach (var share in shares.Values.ToList())
+            {
+                if (State?.Projects.TryGetValue(share.ProjectId, out var view) == true)
+                {
+                    var had = share.Cells != null;
+                    share.Viewed(view!);
+                    if (view!.Share != null && !had) ReadCode(share);
+                }
+                if (share.SentCommandId is string sent && State?.Commands.TryGetValue(sent, out var answer) == true) share.Answered(answer!);
+                // Cancel was pressed while it started: stop it the moment it stands (AUDIT MUST 1).
+                if (share.StopNow && setup.Commands is CommandFactory stopCommands && share.Stop(stopCommands) is ProjectShareStopCommand stopNow) SendShare(stopNow);
+                dirty = true;
+            }
+            foreach (var stored in changes.Events)
+                if (stored.Event is ProjectShareStoppedEvent stopped && stopped.ProjectId is string ended && ShareFor(ended) is ShareColumn share)
+                {
+                    share.ShareStopped(stopped);
+                    dirty = true;
+                }
+        }
+
         /// <summary>DEVICE's History, one per project while its page is open (<see cref="HistoryColumn"/>).</summary>
         private readonly Dictionary<string, HistoryColumn> histories = new Dictionary<string, HistoryColumn>();
 
@@ -630,6 +739,8 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         public void HistoryHeard(StateChanges changes)
         {
+            // Share hears through the same hook (one line in WorkspaceDirector for both).
+            ShareHeard(changes);
             if (histories.Count == 0) return;
             foreach (var stored in changes.Events)
             {

@@ -293,10 +293,11 @@ namespace Halcyonic.Client
         }
 
         /// <summary>The start to send once Share was pressed through its lock; null where it was not armed or is no longer admitted.</summary>
-        public ProjectShareStartCommand? Start(ClientInfo client, DateTimeOffset at)
+        public ProjectShareStartCommand? Start(CommandFactory commands)
         {
+            if (commands == null) throw new ArgumentNullException(nameof(commands));
             if (!Armed || Way is not ShareWay way || Reason(project) != null) return null;
-            var command = Stamp(new ProjectShareStartCommand { Payload = new ProjectShareStartPayload { ProjectId = ProjectId, Way = way } }, client, at);
+            var command = commands.StartShare(ProjectId, way);
             sentCommandId = command.CommandId;
             chosen = way;
             armed = false;
@@ -304,8 +305,17 @@ namespace Halcyonic.Client
         }
 
         /// <summary>The stop of the live share: no confirmation. Null where nothing is shared.</summary>
-        public ProjectShareStopCommand? Stop(ClientInfo client, DateTimeOffset at) =>
-            project.Share == null ? null : Stamp(new ProjectShareStopCommand { Payload = new ProjectShareStopPayload { ProjectId = ProjectId } }, client, at);
+        public ProjectShareStopCommand? Stop(CommandFactory commands)
+        {
+            if (commands == null) throw new ArgumentNullException(nameof(commands));
+            if (project.Share == null) return null;
+            // Sent once: a stop asked for while it started is now on its way (AUDIT MUST 1).
+            stopWhenItStands = false;
+            return commands.StopShare(ProjectId);
+        }
+
+        /// <summary>The sent start's id, so the host can match its answer; null where none is out.</summary>
+        public string? SentCommandId => sentCommandId;
 
         /// <summary>
         /// Back from the confirmation to the choice; while starting, the share is to be stopped the moment it stands (AUDIT
@@ -514,13 +524,6 @@ namespace Halcyonic.Client
 
         private static RoomCard Status(string title, string line, RoomTone tone) => new RoomCard(status: new RoomCardStatus(title, line, tone));
 
-        private static T Stamp<T>(T command, ClientInfo client, DateTimeOffset at) where T : CommandEnvelope
-        {
-            command.CommandId = Guid.NewGuid().ToString("D");
-            command.IssuedAt = HalcyonicJson.FormatTimestamp(at);
-            command.Client = client;
-            return command;
-        }
     }
 
     /// <summary>Share's words, FIELD's parts note of 2026-11-11 (FROM-FIELD-share-parts.md) and TASKS's host sentences.</summary>

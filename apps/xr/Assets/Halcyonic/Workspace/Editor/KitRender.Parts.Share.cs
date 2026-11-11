@@ -171,7 +171,7 @@ namespace Halcyonic.XR.Workspace.Editor
             column.Choose(state == "61-share-confirm-wifi" ? ShareWay.Wifi : ShareWay.Link);
             if (state.StartsWith("61-share-confirm", StringComparison.Ordinal)) return column;
             column.Arm();
-            var command = column.Start(client, now)!;
+            var command = column.Start(new CommandFactory(client))!;
             if (state == "61-share-not-shared")
                 column.Answered(new CommandView { CommandId = command.CommandId, Status = CommandStatus.Failed, Failure = new CommandFailure { Code = "share_failed", Message = "Synthetic." } });
             else
