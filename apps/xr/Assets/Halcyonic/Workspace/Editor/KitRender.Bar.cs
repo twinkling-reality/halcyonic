@@ -651,7 +651,9 @@ namespace Halcyonic.XR.Workspace.Editor
                             Require(shown.Card!.Steps.Count == known.Steps.Count && shown.Card.Steps.Count(step => step.Tone == RoomTone.Bad) == (state == "38-checks-failed" ? 1 : 0),
                                 "the Checks card's steps are not the check's, the failed one marked");
                         CardWhole();
-                        Require(shown.Column.Last().Control.Action == RoomResult.Back, "Back does not stand last");
+                        // Back, then the file's own Close last: a task's file always has its way back to Projects (FIELD's parts note).
+                        Require(shown.Column.Count >= 2 && shown.Column[shown.Column.Count - 2].Control.Action == RoomResult.Back && shown.Column.Last().Control.Place == KitPlace.Close,
+                            "Back and then Close do not stand last");
                         Require(shown.Column[0].Main == (state != "38-changes") && shown.Column[0].Control.Action == state switch
                         {
                             "38-changes-long" => RoomResult.NextPage, "38-checks" => RoomResult.TryBuild, "38-checks-failed" => FileScreens.TellIt,

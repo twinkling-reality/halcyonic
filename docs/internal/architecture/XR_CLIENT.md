@@ -2778,6 +2778,9 @@ bands are the bar's one band.
   Checks is `RoomPanelCards.Checks` (the outcome as its status, the steps as nodes, the tries' pips on the failed one),
   each the bar's `Card`, drawn in the panel's place (`RoomBarView.LayCard`). Every card is checked for no dot
   (`RoomCard.AnyDot`) in `RoomResultTests` and in the render states, every label of the card whole.
+- **The way back to the Projects place** (FIELD's parts note; the census): the result and its pages end their column
+  with the file's own Close (its cross), and the row at rest with no pair ends with "Projects" (the Back glyph, never
+  main), the same Close (`RoomBar.WithClose`). An approval, a question or a confirmation keeps its own ways out.
 - **The Projects place, the launch screen, as a card** (the census, JUDGE 2026-11-11; A17): with nothing beside the menu
   under the redesign, the menu's own frame reaches the kit (`MenuDirector.PlainBindingOf` takes the menu's frame;
   `MenuPlane.ShowKitWorkspace` draws it with the menu's view as the column of record and the menu's column for presses).
