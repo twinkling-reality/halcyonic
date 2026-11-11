@@ -4,6 +4,7 @@ import {
   CheckpointId,
   type CheckpointsResponse,
   CheckStepOutputQuery,
+  COMMAND_SCHEMA_VERSION,
   CommandId,
   type CommandSubmissionResponse,
   CompanionReplyResponse,
@@ -28,6 +29,7 @@ import {
   ProjectFileQuery,
   ProjectHistoryQuery,
   ProjectId,
+  ProjectSecretSetRequest,
   type ProjectsResponse,
   type PublishedCodeResponse,
   parseCommandEnvelope,
@@ -59,6 +61,7 @@ import { ToolResults } from '../core/tool-results.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
 import { shareCode } from '../preview/share-code.ts';
+import { submitSecretSet } from '../secrets/set.ts';
 import type { Transcriptions } from '../speech/transcriptions.ts';
 import type { WorkspaceRequests } from '../workspace-agent/requests.ts';
 import { errorBody } from './server.ts';
@@ -852,6 +855,66 @@ export function registerRoutes(
 
   // What binding a project to another folder would do, before the person confirms it, and the
   // digest a project.set_location carries back (ADR 0051). Reads only.
+  // A project secret's value, write-only, from this Mac or a paired device (ADR 0057): the name-only
+  // command is submitted as the caller, and no route ever gives a value back.
+  const validSecretSet = compileValidator(ProjectSecretSetRequest);
+  app.post('/api/projects/:project_id/secrets', async (request, reply) => {
+    const projectId = (request.params as { project_id: string }).project_id;
+    if (!validateProjectId(projectId).ok)
+      return reply.code(404).send(errorBody('project_not_found', 'That is not a project.'));
+    const parsed = validSecretSet(request.body);
+    // Never the issues' own words: a value is in the body, so only where it went wrong.
+    if (!parsed.ok)
+      return reply.code(400).send(
+        errorBody(
+          'invalid_request',
+          'The secret does not match the contract: a name of capitals, digits and _, and a value of 8 to 8192 characters.',
+          parsed.issues.map((issue) => ({ path: issue.path, message: 'invalid' })),
+        ),
+      );
+    const store = controlPlane.projectSecrets;
+    if (store === null)
+      return reply
+        .code(503)
+        .send(errorBody('unavailable', "This computer doesn't keep project secrets."));
+    const body = parsed.value;
+    const set = submitSecretSet(
+      {
+        store,
+        submit: (command, via, principal) => controlPlane.commands.submit(command, via, principal),
+      },
+      {
+        schema_version: COMMAND_SCHEMA_VERSION,
+        command_id: body.command_id,
+        issued_at: body.issued_at,
+        client: body.client,
+        command_type: 'project.secret.set',
+        payload: { project_id: projectId as ProjectId, name: body.name },
+      },
+      body.value,
+      'http',
+      request.principal,
+    );
+    if (!set.ok) return reply.code(422).send(errorBody('invalid_request', set.problem));
+    const outcome = set.outcome;
+    if (outcome.disposition === 'conflict')
+      return reply
+        .code(409)
+        .send(
+          errorBody(
+            'command_id_conflict',
+            'This command id was already used for a different command.',
+          ),
+        );
+    const answer: CommandSubmissionResponse = {
+      disposition: outcome.disposition,
+      command: outcome.command,
+    };
+    return reply
+      .code({ accepted: 202, rejected: 422, duplicate: 200 }[outcome.disposition])
+      .send(answer);
+  });
+
   // Publish's review and the published address as a code to scan (ADR 0039, amended).
   app.post(
     '/api/projects/:project_id/publish-review',

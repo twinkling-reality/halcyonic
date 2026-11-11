@@ -1455,7 +1455,8 @@ export class CommandService {
         if (kept === null) {
           this.#fail(command, scope, {
             code: 'unavailable',
-            message: "A secret is typed on this Mac's setup page.",
+            message:
+              'A secret is set with its value in its own request, so this command alone sets nothing.',
             effect: 'none',
           });
           return;

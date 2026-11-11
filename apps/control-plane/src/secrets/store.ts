@@ -119,6 +119,8 @@ export class SecretStore {
    * until the command commits it. Throws when it cannot be written.
    */
   stage(commandId: string, projectId: ProjectId, name: SecretName, value: string): void {
+    // One value per command: a second under the same id would leave the first's file behind.
+    if (this.#staged.has(commandId)) throw new Error('already staged for this command');
     const folder = join(this.#root, projectId);
     mkdirSync(folder, { recursive: true, mode: 0o700 });
     const path = join(folder, `${STAGED}${randomUUID()}`);

@@ -436,6 +436,12 @@ Every text in them is outside words, from the project's files or its build, as `
   repository (owner/name), the check, how many of its built files go, the commit of the last publish
   it builds on, the expected address and the `review` digest `project.publish` carries back; or
   `unavailable` with why. Nothing leaves the Mac.
+- `POST /api/projects/:project_id/secrets` (ADR 0057): sets a project secret, write-only, from this Mac
+  or a paired device. Body `ProjectSecretSetRequest` (`command_id`, `issued_at`, `client`, `name`, and
+  `value`, 8 to 8192 characters). The Mac stages the value and submits the name-only `project.secret.set`
+  as the caller; the answer is a `CommandSubmissionResponse` (202, 200 for a retried id, 422 refused or
+  invalid in words, 400 not the contract, never repeating the value), and 503 where no secrets are kept.
+  No route reads a value; names are on the project's view.
 - `GET /api/projects/:project_id/published/code`: the published address as a code to scan
   (`{ check_id, address, code }`), which the headset draws, never the address as text. Not
   published, or no address known: 404 `not_published`.

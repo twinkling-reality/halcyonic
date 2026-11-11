@@ -44,13 +44,17 @@ What was true on 2026-11-11, before this decision:
    `SSL_CERT_DIR`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE`), since Claude Code gets the secrets in its whole
    process environment (AUDIT3). A project keeps at most 32. Removing one is low consequence, from any
    client, a paired device too: it gives later tasks nothing and leaks nothing, so it needs no review.
-3. **A value is typed on this Mac's setup page.** The page (ADR 0053) stages the value in the store under
-   the id of the command it then submits as the person's local press over HTTP. The command's dispatch puts
-   the staged value in place and records the event; a set with no value staged for exactly that command, as
-   from anywhere but the page, fails ("A secret is typed on this Mac's setup page."), and a set refused or
-   failed leaves nothing kept. The value field is cleared as it is sent, and no answer of the page holds a
-   value. The page's route takes up to 8 KiB of value; its other routes keep the page's 1 KiB. The headset's
-   own write-only way to set one is a later unit.
+3. **A value travels only in its own request, write-only.** Two ways, one path inside: the Mac's setup page
+   (ADR 0053), as the person's local press, and `POST /api/projects/:id/secrets` (`ProjectSecretSetRequest`:
+   the command's id, its client, the name and the value), from a client on this Mac with the access token or
+   a paired device over its pinned TLS (amended 2026-11-11, the headset's write-only route). Either stages
+   the value in the store under the command's id, then submits the name-only command as its caller, the
+   device for a device. The command's dispatch puts the staged value in place and records the event; a set
+   with no value staged for exactly that command, as a bare command over the realtime protocol, fails ("A
+   secret is set with its value in its own request, so this command alone sets nothing."), and a set
+   refused or failed leaves nothing kept. A retried command id is the same command: the first value stays.
+   No route gives a value back, and a refusal never repeats it. The page's field is cleared as it is sent;
+   its route takes up to 8 KiB of value, while its other routes keep the page's 1 KiB.
 4. **Redaction knows a value from the moment it is staged.** Every value kept or staged is among the held
    secrets each runtime's text is cleaned of, shown as `[redacted: NAME]`. So is every value replaced or
    removed while the control plane runs, in memory only, never on disk: a task started before still holds

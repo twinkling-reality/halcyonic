@@ -218,7 +218,7 @@ import {
   RuntimeModel,
   RuntimeRef,
 } from './runtime.ts';
-import { SecretName, SecretNames } from './secrets.ts';
+import { ProjectSecretSetRequest, SecretName, SecretNames, SecretValue } from './secrets.ts';
 import { StartersResponse, StarterView } from './starters.ts';
 import {
   ToolResult,
@@ -360,6 +360,8 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   PublishedCodeResponse,
   SecretName,
   SecretNames,
+  SecretValue,
+  ProjectSecretSetRequest,
   RestorePreview,
   CheckpointsResponse,
   CheckpointsResult,

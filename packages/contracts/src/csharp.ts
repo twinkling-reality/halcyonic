@@ -70,6 +70,7 @@ const ROOTS: readonly string[] = [
   'GitHubSendReviewResponse',
   'GitHubPublishReviewResponse',
   'PublishedCodeResponse',
+  'ProjectSecretSetRequest',
   'ShareCodeResponse',
   'ToolResultsQuery',
   'ToolResultsResponse',
