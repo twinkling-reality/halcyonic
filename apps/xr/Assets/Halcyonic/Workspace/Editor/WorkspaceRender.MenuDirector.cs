@@ -1112,7 +1112,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.Add(name + ": drawn where it was left, the plane took no press.");
             }
             director.HoldPromptForRender(MenuColumn.File, talk, plane.Showing(MenuColumn.File), null);
-            if (begun != 1) failures.Add(name + ": drawn where it was left, a held prompt started no voice.");
+            // A hold starts the voice only where voice is offered (AUDIT S1, ADR 0021): this scene has no computer connected and
+            // no voice of its own, so a real headset would offer none, and the hold must start nothing.
+            if (director.VoiceOffered && begun != 1) failures.Add(name + ": drawn where it was left, a held prompt started no voice.");
+            if (!director.VoiceOffered && begun != 0) failures.Add(name + ": drawn where it was left, a held prompt started the voice where none is offered.");
 
             // A redraw keeps it where it was left.
             var left = plane.Direction;
