@@ -22,23 +22,26 @@ public class MicrophoneAskTests
     public void OnlyTheFirstOpenAsksAndNeverADrivenLaunch()
     {
         Assert.That(MicrophoneAsk.WaitsAtOpen(MicrophoneAccess.NeverAsked, drivenLaunch: false), Is.True);
-        Assert.That(MicrophoneAsk.AskAtOpen(MicrophoneAccess.NeverAsked, drivenLaunch: false, computerConfigured: true, recordedRunShowing: false), Is.True);
+        Assert.That(MicrophoneAsk.AskAtOpen(MicrophoneAccess.NeverAsked, drivenLaunch: false, voiceOffered: true), Is.True);
         Assert.That(MicrophoneAsk.WaitsAtOpen(MicrophoneAccess.NeverAsked, drivenLaunch: true), Is.False);
-        Assert.That(MicrophoneAsk.AskAtOpen(MicrophoneAccess.NeverAsked, drivenLaunch: true, computerConfigured: true, recordedRunShowing: false), Is.False);
+        Assert.That(MicrophoneAsk.AskAtOpen(MicrophoneAccess.NeverAsked, drivenLaunch: true, voiceOffered: true), Is.False);
         foreach (var later in new[] { MicrophoneAccess.Allowed, MicrophoneAccess.RefusedOnce, MicrophoneAccess.RefusedForGood })
         {
             Assert.That(MicrophoneAsk.WaitsAtOpen(later, drivenLaunch: false), Is.False, later.ToString());
-            Assert.That(MicrophoneAsk.AskAtOpen(later, drivenLaunch: false, computerConfigured: true, recordedRunShowing: false), Is.False, later.ToString());
+            Assert.That(MicrophoneAsk.AskAtOpen(later, drivenLaunch: false, voiceOffered: true), Is.False, later.ToString());
         }
     }
 
     [Test]
-    public void NothingIsAskedWithoutAComputerOrOverTheRecordedDemonstration()
+    public void NothingIsAskedWhereVoiceIsNotOffered()
     {
-        Assert.That(MicrophoneAsk.AskAtOpen(MicrophoneAccess.NeverAsked, drivenLaunch: false, computerConfigured: false, recordedRunShowing: false), Is.False, "no computer to take the voice");
-        Assert.That(MicrophoneAsk.AskAtOpen(MicrophoneAccess.NeverAsked, drivenLaunch: false, computerConfigured: true, recordedRunShowing: true), Is.False, "the recorded demonstration shows");
-        Assert.That(MicrophoneAsk.AskAtOpen(MicrophoneAccess.NeverAsked, drivenLaunch: false, computerConfigured: false, recordedRunShowing: true), Is.False);
-        Assert.That(MicrophoneAsk.WaitsAtOpen(MicrophoneAccess.NeverAsked, drivenLaunch: false), Is.True, "it keeps waiting: nothing is kept, a later moment may ask");
+        // AUDIT's case (DEVICE-mic-fix-VERDICT): a headset paired with a computer that is off opens into the
+        // demonstration for an unreachable computer, which is not the recorded run; the director offers no voice there.
+        Assert.That(MicrophoneAsk.AskAtOpen(MicrophoneAccess.NeverAsked, drivenLaunch: false, voiceOffered: false), Is.False,
+            "a demonstration of any kind, or no computer connected");
+        Assert.That(MicrophoneAsk.WaitsAtOpen(MicrophoneAccess.NeverAsked, drivenLaunch: false), Is.True,
+            "it keeps waiting: nothing is kept, the open asks once voice is offered");
+        Assert.That(MicrophoneAsk.AskAtOpen(MicrophoneAccess.NeverAsked, drivenLaunch: false, voiceOffered: true), Is.True);
     }
 
     [Test]
