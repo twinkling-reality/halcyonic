@@ -162,7 +162,7 @@ public class HistoryColumnTests
         Assert.That(card.List.Count, Is.EqualTo(RoomCard.ListAPage));
         Assert.That(card.List.All(row => row.Mono), Is.True);
         Assert.That(card.List[0].Note, Is.EqualTo("Reverts"));
-        Assert.That(card.More, Is.EqualTo("And 3 More"), "eight files, five shown");
+        Assert.That(card.More!.Text, Is.EqualTo("And 3 More"), "eight files, five shown");
         var restore = column.Actions().First();
         Assert.That((restore.Kind, restore.Words, restore.Main, restore.Locked), Is.EqualTo((HistoryActionKind.Restore, "Restore", true, true)));
         Assert.That(column.Actions().Last().Kind, Is.EqualTo(HistoryActionKind.Cancel));
@@ -240,7 +240,7 @@ public class HistoryColumnTests
         var column = Column(out _);
         column.Choose(Id(1));
         column.Previewed(Preview(Id(1), headMoved: true));
-        Assert.That(column.Card()!.More, Is.EqualTo("The project changed since then too."));
+        Assert.That(column.Card()!.More!.Text, Is.EqualTo("The project changed since then too."));
         column.Arm();
         var command = column.Restore(Samples.Client, Now)!;
         column.Answered(new CommandView
