@@ -1642,6 +1642,25 @@ Laptop, and nothing of the play's viewer (its link, code or session) ever reache
 opens on the computer only. Tests: `ProjectPlayFactsTests`, `CommandFactoryTests`, `ClientProjectionTests`,
 and `LiveControlPlaneTests` against a real control plane for the host's refusals.
 
+### Play in Headset's core (gap 1, 2026-11-11)
+
+The headset's side of opening a project's preview in Quest Browser, core and opener only: no frame offers the
+action yet (it waits for a line of the redesign's result at rest), and nothing of it has run on a headset.
+`HeadsetPlay.For(project, target, relayPort)` reads the project's view and how this headset reaches the computer:
+no control plane, no check, files not current (`FilesNotChecked`), not passed, not confined (`NotConfined`), paired
+with no relay serving the preview (`NoWayToHeadset`), no preview of the latest check (`NoPreviewOfCheck`, where a
+press sends `StartPreview` and `HeadsetPlayWait` opens the address once the view shows the preview), else
+`Offered`. Quest Browser always opens a loopback address, `http://127.0.0.1:{port}/`, a secure context there, so
+WebXR can be offered. The way decides the port: with a local target (`ControlPlaneTarget.Pairing` null, the control
+plane reached through the computer's `adb reverse`) the preview's own port, which the computer must reverse too;
+with a paired target the port the app's own relay serves on the headset's loopback (LINK's relay; null until it
+exists). The app cannot see a reverse, so it reads the cable from its target alone. Refusals in the product's
+words: Preview on Your Computer where the check is not confined, Connect by Cable where paired with no relay;
+every other refusal hides the action, as Try Build is hidden. `HeadsetBrowser.Open` (Unity layer) opens only an
+address `HeadsetPlay.IsOpenable` admits (http, 127.0.0.1, a port, the root path, nothing else) with the view intent
+the device tool's `preview` uses, package `com.oculus.browser`; elsewhere it opens nothing. Tests:
+`HeadsetPlayTests`.
+
 ## Verification
 
 `apps/xr/dotnet` compiles the two packages' sources as .NET Standard 2.1 with C# 9 and warnings as
