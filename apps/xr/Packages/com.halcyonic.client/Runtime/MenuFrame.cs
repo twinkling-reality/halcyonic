@@ -236,9 +236,12 @@ namespace Halcyonic.Client
         /// <summary>An explicitly known project identity with its host-owned task summary below.</summary>
         public bool ProjectIdentity { get; private set; }
 
-        public static PageLine KnownProject(string name, string summary, string projectId, bool chosen = false) =>
+        /// <summary>A known project's state apart, for a card (A17): its word, how many tasks it counts, and whether it waits on the person.</summary>
+        public ProjectState? ProjectState { get; private set; }
+
+        public static PageLine KnownProject(string name, string summary, string projectId, bool chosen = false, ProjectState? state = null) =>
             new PageLine(LineWords.TheirName(name), fact: LineWords.Ours(summary), action: ProjectsScreens.ChooseProject,
-                key: projectId, opens: true, chosen: chosen, rows: 3) { ProjectIdentity = true };
+                key: projectId, opens: true, chosen: chosen, rows: 3) { ProjectIdentity = true, ProjectState = state };
 
         public string Words { get; }
 

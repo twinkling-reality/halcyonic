@@ -21,6 +21,7 @@ namespace Halcyonic.Client
         {
             Agent,
             NewProject,
+            Projects,
             Page,
         };
 

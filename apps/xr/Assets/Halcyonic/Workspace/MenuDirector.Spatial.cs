@@ -103,13 +103,15 @@ namespace Halcyonic.XR.Workspace
         /// the file with no place of its own, or another column's frame, as New Project's steps) and a reader of the
         /// redesign takes it (<see cref="RoomBar.OfFrame"/>). Null otherwise, and the older view draws the frame.
         /// </summary>
-        private KitFileBinding? PlainBindingOf()
+        private KitFileBinding? PlainBindingOf(MenuFrame? menuFrame = null)
         {
             var room = KitWorkspaceHost.Enabled && RoomDesign.Enabled && SeparateWorkspace && !navigator.IsCompact;
             // New Project's review is cut by the redesign's own lines where the redesign draws it, eight a part, so a part
             // shows exactly its lines; for the older page it is cut as ever (FIELD's flow, NewProjectFlow.RoomLines).
             if (navigator.Beside is NewProjectFlow flow) flow.RoomLines = room ? (roomLines ??= words => plane.Kit.Bar.Lines(words, false)) : null;
-            if (!room || navigator.Beside?.Frame is not MenuFrame frame) return null;
+            // With nothing beside the menu (the Projects place, the launch screen), the menu's own frame is the one a reader takes.
+            var frame = navigator.Beside != null ? navigator.Beside.Frame : menuFrame;
+            if (!room || frame == null) return null;
             return RoomBar.OfFrame(frame, VoiceStage.Idle) != null ? KitFileBinding.PlainOf(frame) : null;
         }
 
@@ -226,7 +228,7 @@ namespace Halcyonic.XR.Workspace
         private static int OwnerTitleRows(FileColumn owner) => owner.Now?.Character is CharacterPresentation character
             ? MenuFrameView.IndependentTitleRows(character.Title, Glaze.Menu.FileColumnDegrees) : 2;
 
-        private void PrepareSpatialContext()
+        private void PrepareSpatialContext(MenuFrame? menuFrame = null)
         {
             var activeFile = SeparateWorkspace && !navigator.IsCompact ? navigator.Beside as FileColumn : null;
             plane.ComposerFocused = activeFile?.ActivityContextFrame != null && composerFocus.TryGetValue(activeFile, out var focused) && focused;
@@ -255,7 +257,7 @@ namespace Halcyonic.XR.Workspace
             }
             plane.ContextProjects = choices; plane.ContextSelectedProject = selected; plane.ContextBinding = contextOwner;
             ChecksAsCard(activeFile, selected);
-            plane.KitBinding = KitBindingOf(activeFile, choices, selected) ?? PlainBindingOf();
+            plane.KitBinding = KitBindingOf(activeFile, choices, selected) ?? PlainBindingOf(menuFrame);
         }
 
         private bool ContextStanding(object owner)

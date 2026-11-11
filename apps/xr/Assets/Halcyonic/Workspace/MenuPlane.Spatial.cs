@@ -124,7 +124,7 @@ namespace Halcyonic.XR.Workspace
         /// the file's view kept as the column of record, laid for its frame and hidden, the context column and passive
         /// Activity hidden, the readability bands the kit's own. Returns false, drawing nothing, where it can't.
         /// </summary>
-        private bool ShowKitWorkspace(MenuFrame? fileFrame, SidePanel? panel, object? fileColumn, IReadOnlyList<CharacterTarget> all,
+        private bool ShowKitWorkspace(MenuFrame? fileFrame, MenuColumn kind, SidePanel? panel, object? fileColumn, IReadOnlyList<CharacterTarget> all,
             Vector3 looking, float? surfaceHeight, (float Yaw, float Elevation) moved, bool immediately)
         {
             if (!KitWorkspaceHost.Enabled || panel != null || fileFrame == null || ContextBinding == null
@@ -134,12 +134,14 @@ namespace Halcyonic.XR.Workspace
             var kitWas = KitShows;
             foreach (var view in frameViews) view.Hide();
             Context.Hide();
-            // The file's view stays the column of record (Showing, identity), laid for this frame but never shown.
-            file.SpatialWorkspace = true; file.IndependentSurface = true; file.PassiveActivity = false;
-            file.OrganizationControls = false; file.ExternalPlaces = false; file.HeadingOverride = null;
-            file.Show(fileFrame, Glaze.Menu.FileColumnDegrees, 0f, false);
-            file.Hide();
-            Kit.Show(binding, MenuColumn.File, ContextBinding);
+            // The file's view stays the column of record (Showing, identity), laid for this frame but never shown; for the menu's
+            // own frame under the redesign, the menu's view is.
+            var record = kind == MenuColumn.Menu ? menu : file;
+            record.SpatialWorkspace = true; record.IndependentSurface = true; record.PassiveActivity = false;
+            record.OrganizationControls = false; record.ExternalPlaces = false; record.HeadingOverride = null;
+            record.Show(fileFrame, Glaze.Menu.FileColumnDegrees, 0f, false);
+            record.Hide();
+            Kit.Show(binding, kind, ContextBinding);
             // As the presence at Compact: a switch never told the whole workspace stands there at once.
             if (Kit.View.Spine.Switch.ConfirmedCompact) Kit.ShowConfirmed(false, immediately: true);
             KitOwner = ContextBinding;
@@ -154,7 +156,7 @@ namespace Halcyonic.XR.Workspace
                 Placed = new PanelDirection(footed.Yaw, footed.Elevation, WorkspacePlacement.Clears(footed, bodies, Composition.Size), false);
             }
             Moved = moved; Direction = MenuDrag.Turned(Placed, moved);
-            shown.Clear(); shown.Add((MenuColumn.File, file));
+            shown.Clear(); shown.Add((kind, record));
             shownFileColumn = fileColumn;
             MenuAside = false; FileAside = false;
             Chrome.Hide(); bar.Hide(); cover.SetActive(true);
@@ -292,7 +294,9 @@ namespace Halcyonic.XR.Workspace
             object? fileColumn, IReadOnlyList<CharacterTarget> all, Vector3 looking, float? surfaceHeight,
             (float Yaw, float Elevation) moved, bool immediately)
         {
-            if (ShowKitWorkspace(fileFrame, panel, fileColumn, all, looking, surfaceHeight, moved, immediately)) return;
+            // Under the redesign, with nothing beside the menu, the menu's own frame (the Projects place) is the kit's to draw.
+            var kitMenu = fileFrame == null && panel == null && RoomDesign.Enabled;
+            if (ShowKitWorkspace(kitMenu ? menuFrame : fileFrame, kitMenu ? MenuColumn.Menu : MenuColumn.File, panel, fileColumn, all, looking, surfaceHeight, moved, immediately)) return;
             Kit.Hide();
             var zoom = GlazeText.Scale;
             var kind = panel != null ? MenuColumn.Side : fileFrame != null ? MenuColumn.File : MenuColumn.Menu;
