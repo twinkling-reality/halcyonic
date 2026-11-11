@@ -34,6 +34,9 @@ namespace Halcyonic.Client
 
             /// <summary>The redesign's page of what the recap lets a person change (<see cref="NewProjectScreens.RecapChange"/>).</summary>
             Change,
+
+            /// <summary>SCREENS's choice of what a new folder starts from (A16, <see cref="StarterChoice.Page"/>).</summary>
+            StartFrom,
         }
 
         private enum BuildPage
@@ -204,6 +207,11 @@ namespace Halcyonic.Client
         /// <summary>What the frame was built from that changes without a press: the start's problem, the connection, a long wait, the journal and the text size.</summary>
         private string? shownFrom;
 
+        // SCREENS's starters (A16): read when the flow opens and when the page of changes opens, never polled on a timer.
+        private StartersResponse? starters;
+        private Task<StartersResponse>? startersRead;
+        private CancellationTokenSource? startersCancellation;
+        private int startersPage;
         private LocationsResponse? locations;
         private string? locationsProblem;
         private Task<LocationsResponse>? locationsRead;
@@ -345,6 +353,7 @@ namespace Halcyonic.Client
             ReadCompanion();
             // A kept folder's place is read again before it shows, since labels change with the places.
             if (idea.Folder != null && locationsRead == null) ReadFolders();
+            if (starters == null && startersRead == null) ReadStarters();
             confirmingStartOver = false;
             fact = null;
             Show(idea.HasRecap ? NewProjectStep.Recap : idea.Companion != null || idea.Guided ? NewProjectStep.Questions : NewProjectStep.YourIdea);
@@ -463,9 +472,10 @@ namespace Halcyonic.Client
                             showModels, Live),
                         RecapPage.Words => NewProjectScreens.Words(current, reached, wordsFor, written, writtenHeard, Voice, Said(step), wordsRoot, host.KeyboardOffered),
                         RecapPage.Change when RoomDesign.Enabled => NewProjectScreens.RecapChange(current, reached, confirmingStartOver,
-                            Building() || OutcomeUnknown ? problem : null, WordsOffered, LevelOfDraft()),
-                        _ => RecapBuilt(current, NewProjectScreens.Recap(current, LevelOfDraft(), CurrentFolder(), Live, Said(step), problem, fact, confirmingStartOver, reached,
-                            Building() || OutcomeUnknown ? problem : null, WordsOffered).Focus()),
+                            Building() || OutcomeUnknown ? problem : null, WordsOffered, LevelOfDraft(), startFrom: StarterChoice.Offered(current, StarterChoice.Ready(starters))),
+                        RecapPage.StartFrom when RoomDesign.Enabled => StarterChoice.Page(current, StarterChoice.Ready(starters), startersPage, reached),
+                        _ => RecapBuilt(current, WithStarter(current, NewProjectScreens.Recap(current, LevelOfDraft(), CurrentFolder(), Live, Said(step), problem, fact, confirmingStartOver, reached,
+                            Building() || OutcomeUnknown ? problem : null, WordsOffered).Focus())),
                     };
                 default:
                     switch (buildPage)
@@ -699,6 +709,28 @@ namespace Halcyonic.Client
                     break;
                 case NewProjectScreens.ChangeRecap when RoomDesign.Enabled && step == NewProjectStep.Recap && recapPage == RecapPage.Facts:
                     confirmingStartOver = false;
+                    Show(NewProjectStep.Recap, page: RecapPage.Change);
+                    ReadStarters();
+                    break;
+                // SCREENS's Start From (A16): its page opens on the page the chosen starter is on; a pick is kept at once and the
+                // page leaves for the facts; Back returns to the page of changes.
+                case StarterChoice.Open when RoomDesign.Enabled && step == NewProjectStep.Recap && recapPage == RecapPage.Change && !confirmingStartOver
+                    && StarterChoice.Offered(current, StarterChoice.Ready(starters)):
+                    var ready = StarterChoice.Ready(starters);
+                    var shownAt = ready.ToList().FindIndex(starter => starter.StarterId == current.Folder?.StarterId);
+                    startersPage = shownAt < 0 ? 0 : shownAt / AgentColumn.OptionsAPage;
+                    Show(NewProjectStep.Recap, page: RecapPage.StartFrom);
+                    break;
+                case StarterChoice.Choose when step == NewProjectStep.Recap && recapPage == RecapPage.StartFrom && key != null
+                    && StarterChoice.Pick(current, StarterChoice.Ready(starters), key) is ProjectFolder picked:
+                    current.ChooseFolder(picked);
+                    review = null;
+                    Show(NewProjectStep.Recap);
+                    break;
+                case StarterChoice.NextChoices when step == NewProjectStep.Recap && recapPage == RecapPage.StartFrom:
+                    startersPage = (startersPage + 1) % StarterChoice.Pages(StarterChoice.Ready(starters));
+                    break;
+                case NewProjectScreens.Done when step == NewProjectStep.Recap && recapPage == RecapPage.StartFrom:
                     Show(NewProjectStep.Recap, page: RecapPage.Change);
                     break;
                 // A level on the page of changes is kept at once, and the page leaves for the facts, whose row reads it.
@@ -955,7 +987,7 @@ namespace Halcyonic.Client
                 return;
             }
             RestoreDrafts();
-            var changed = PollCompanion() | PollModels() | PollFolders() | AdvanceBuild();
+            var changed = PollCompanion() | PollModels() | PollFolders() | PollStarters() | AdvanceBuild();
             // The lead's first journey (2026-11-12): once started, the task's own file opens where the person is, so what it asks,
             // an approval first, is there to answer in one press. Only while New Project shows, once a start, and where the redesign draws it.
             if (IsOpen && ReviewForRoom && ShownBeside?.Invoke() == true && sequence is { Started: true, WorkstreamId: string started } && !ReferenceEquals(openedStarted, sequence))
@@ -1536,6 +1568,30 @@ namespace Halcyonic.Client
             current.ChooseFolder(ProjectFolder.Existing(option.Root, option.Folder));
         }
 
+        /// <summary>The recap's card with what the new folder starts from as a slot, where the host lists it (SCREENS's A16).</summary>
+        private MenuFrame WithStarter(ProjectIdea current, MenuFrame recap) =>
+            recap.Card is RoomCard card && StarterChoice.Chosen(current, starters) is StarterView starter ? recap.WithCard(StarterChoice.WithStarter(card, starter)) : recap;
+
+        /// <summary>Reads the starters the computer keeps (SCREENS's A16): when the flow opens and when the page of changes opens; never on a timer.</summary>
+        private void ReadStarters()
+        {
+            if (startersRead != null) return;
+            if (host.Api is not ControlPlaneApi api || !Live) return;
+            startersCancellation?.Dispose();
+            startersCancellation = new CancellationTokenSource();
+            startersRead = api.GetStartersAsync(startersCancellation.Token);
+        }
+
+        /// <summary>A starters read that ended: kept where it answered; one that failed leaves the last listing, and Start From stands only from a listing.</summary>
+        private bool PollStarters()
+        {
+            if (!(startersRead is Task<StartersResponse> read) || !read.IsCompleted) return false;
+            startersRead = null;
+            if (read.Status != TaskStatus.RanToCompletion) return false;
+            starters = read.Result;
+            return true;
+        }
+
         /// <summary>Reads the folders the computer lists, when the person opens where its files live or asks again; never on a timer.</summary>
         private void ReadFolders()
         {
@@ -1624,7 +1680,7 @@ namespace Halcyonic.Client
             var current = idea;
             if (current == null || StartProblem() != null || Building()) return;
             // The level the review names is the level the start is confirmed at (BuildSequence); it is set here, before the review.
-            review = EntryScreens.ReviewOf(current, LevelOfDraft(), CurrentFolder(), Live);
+            review = EntryScreens.ReviewOf(current, LevelOfDraft(), CurrentFolder(), Live, StarterChoice.Chosen(current, starters));
             measuredPartRows = 0;
             // R1: starting what the person just asked for is no review. Where the redesign's view draws New Project the recap drawn is the request, and
             // Start Building sends it at once, only while the request is still the one drawn; a change since draws the recap again.
@@ -1704,11 +1760,15 @@ namespace Halcyonic.Client
                 && EntryText.FolderFactPartsOf(CurrentFolder(), current.Folder, draft.Runtime?.UsesProjectLocation == true).Kind
                     is FolderFactKind.NewFolder or FolderFactKind.ProjectFolder or FolderFactKind.NotNeeded
                 && TaskWarnings.Of(current.FirstTask).Count == 0
+                // A starter the person picked is sent by the one press only where the card shows it (SCREENS's Start From).
+                && StarterChoice.Shown(recap.Card, current)
                 && !EntryScreens.Moves(current, CurrentFolder())
                 && (draft.Model is not RuntimeModel model || model.Served == ModelServed.ThisMac
                     // The card names the model by its name alone: only where no other model listed shares that name.
                     && draft.Models.Count(other => (other.DisplayName ?? other.ModelRef) == (model.DisplayName ?? model.ModelRef)) == 1);
-            recapBuilt = whole ? EntryScreens.ReviewOf(current, LevelOfDraft(), CurrentFolder(), Live) : null;
+            // The same review Start Building makes, the starter included (SCREENS's Start From): one built otherwise is never the
+            // same request, and the one press would only draw the recap again (JUDGE's live-18, 2026-11-12).
+            recapBuilt = whole ? EntryScreens.ReviewOf(current, LevelOfDraft(), CurrentFolder(), Live, StarterChoice.Chosen(current, starters)) : null;
             return recap;
         }
 
@@ -1745,7 +1805,7 @@ namespace Halcyonic.Client
         private void ConfirmReviewed(ProjectIdea current)
         {
             if (review?.CanConfirm != true || StartProblem() != null || Building()) return;
-            var asItStands = EntryScreens.ReviewOf(current, draft, CurrentFolder(), Live);
+            var asItStands = EntryScreens.ReviewOf(current, draft, CurrentFolder(), Live, StarterChoice.Chosen(current, starters));
             if (!review.SameRequest(asItStands))
             {
                 review = asItStands;

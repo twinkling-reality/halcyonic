@@ -28,6 +28,8 @@ namespace Halcyonic.Client
         Level,
         /// <summary>Whether the model says it can use tools, its own row (never joined to where it runs on a dot).</summary>
         ModelTools,
+        /// <summary>What a new project starts from (SCREENS's A16, <see cref="StarterChoice"/>).</summary>
+        Starter,
     }
 
     /// <summary>One entry of the review: Halcyonic's own label, and the value it names, spelled in ASCII.</summary>
@@ -166,7 +168,8 @@ namespace Halcyonic.Client
         /// </summary>
         public NewWorkReview(string project, string title, LineWords runtime, LineWords model, LineWords modelFacts, LineWords modelRef, string objective,
             LineWords? folder = null, LineWords? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null, bool neverAsk = false,
-            LineWords? level = null, LineWords? tools = null)
+            LineWords? level = null, LineWords? tools = null,
+            LineWords? startFrom = null)
         {
             NeverAsk = neverAsk;
             FolderChoice = folderChoice == null ? null : HalcyonicJson.Serialize(folderChoice);
@@ -177,6 +180,7 @@ namespace Halcyonic.Client
                 Add("Folder Next · ", folder, ReviewItemKind.Folder);
             }
             else if (folder != null) Add("Folder · ", folder, ReviewItemKind.Folder);
+            if (startFrom != null) Add(StarterChoice.ReviewLabel, startFrom, ReviewItemKind.Starter);
             items.Add(new ReviewItem("Task Name · ", LineWords.Shown(Safe(title) + (titleCut ? "…" : "")), ReviewItemKind.TaskName));
             Add("Agent App · ", runtime, ReviewItemKind.AgentApp);
             Add("Model · ", model, ReviewItemKind.Model);

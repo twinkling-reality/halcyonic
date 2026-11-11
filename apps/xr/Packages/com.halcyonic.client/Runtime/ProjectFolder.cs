@@ -114,6 +114,10 @@ namespace Halcyonic.Client
             return IsValidNewName(trimmed) ? new ProjectFolder(RootPath, RootName, trimmed, true, placeGone: PlaceGone, starterId: StarterId) : null;
         }
 
+        /// <summary>This new folder made from <paramref name="starterId"/> (the addendum's A16), or null for a folder that exists.</summary>
+        public ProjectFolder? WithStarter(string starterId) =>
+            IsNew && !string.IsNullOrWhiteSpace(starterId) ? new ProjectFolder(RootPath, RootName, FolderName, true, placeGone: PlaceGone, starterId: starterId.Trim()) : null;
+
         public static bool IsValidNewName(string name) => name != null && NewName.IsMatch(name);
 
         /// <summary>

@@ -4619,6 +4619,21 @@ presence, contextual moment cards and the on-demand project screen:
   the host's Confirm (the main action, one press, carrying the digest), then Cancel. Where it is drawn (the proposed step's card, a
   button's review) is XR's. Tests: `ReviewCardTests`; render check: `65-review-add`,
   `65-review-send`, `65-review-send-next`, `65-review-publish`, `65-review-said` in `KitRender.FileChangeCheck`.
+
+- **What a new project starts from (the addendum's A16, SCREENS 2026-11-11, `StarterChoice`)**: the flow reads the
+  Mac's starters (`ControlPlaneApi.GetStartersAsync`, `GET /api/starters`, strict) when it opens and when the
+  redesign's page of changes opens, never on a timer; a read that fails leaves the last listing. Start From stands on
+  the page of changes after First Task only for a new project in a new folder (not one whose place is gone) and only
+  where a starter is ready (`installed`; an action that cannot act is not drawn). Its page (`RecapPage.StartFrom`,
+  `StarterChoice.Page`) holds its one line, Start From, in the panel, and the ready starters as answers with single
+  marks in the host's order, the chosen one marked, three a page with Next Choices for more, then Back to the page of
+  changes. A pick is kept at once (`ProjectFolder.WithStarter`, only a starter the listing has ready) and the page
+  leaves for the facts. The recap's card names the starter as a slot under the cube after the folder
+  (`StarterChoice.WithStarter`), the review names it before its Confirm ("Start From · {title}",
+  `ReviewItemKind.Starter`), and the start sends its id (`NewFromStarterChoice.starter_id`). Where the person chooses
+  nothing the default (`ProjectFolder.DefaultStarterId`) stands. A starter the person picked is sent by the recap's one
+  press only where the card shows it (`StarterChoice.Shown`); a full card of four leaves it to the review, which names it. The titles are the host's own starters' words,
+  upright. Tests: the two `Start_From` tests in `NewProjectFlowTests`.
 - **Composer context selectors (`KitPresenter.ChipsOf`, `KitPresenter.EnvironmentOf`, `KitPresenter.AgentOf`, `KitSelectors`, `WorkspacePresentationState.CycleEnvironment`, `WorkspacePresentationState.EnvironmentCanChange`, `WorkspacePresentationState.NextAgent`, `WorkspacePresentationState.CycleAgent`, `WorkspacePresentationState.SetRuntimeModels`)**:
   the chips name the runtime the composer's Send reaches. While the task's run is active, Send instructs
   its existing execution (`WorkspaceSteering.SendInstruction`, which no chosen runtime reaches), so

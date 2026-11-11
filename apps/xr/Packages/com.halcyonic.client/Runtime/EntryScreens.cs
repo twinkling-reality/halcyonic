@@ -52,7 +52,8 @@ namespace Halcyonic.Client
         /// review as they are, so it spells each once; a project that exists and moves shows its folder
         /// now and from now on.
         /// </summary>
-        public static NewWorkReview ReviewOf(ProjectIdea idea, NewWorkDraft draft, ProjectLocation? currentFolder, bool live)
+        /// <param name="starter">What the new folder starts from, by the host's listing (SCREENS's A16): the review names it; null for none.</param>
+        public static NewWorkReview ReviewOf(ProjectIdea idea, NewWorkDraft draft, ProjectLocation? currentFolder, bool live, StarterView? starter = null)
         {
             // Reviewing changes nothing: the draft takes the first task only when its Yes is pressed.
             var model = draft.Model;
@@ -83,7 +84,8 @@ namespace Halcyonic.Client
                 draft.StartsNeverAsk,
                 // The level the start will use, its own row (AUDIT: the review names it before the start); a practice run asks nothing.
                 level: runtime.Synthetic ? null : LineWords.Ours(AgentColumn.LevelWords(draft.StartsNeverAsk)),
-                tools: model == null ? null : LineWords.Written(EntryText.Tools(model.ToolCalling)));
+                tools: model == null ? null : LineWords.Written(EntryText.Tools(model.ToolCalling)),
+                startFrom: sends?.StarterId != null && starter?.StarterId == sends.StarterId ? StarterChoice.Title(starter) : null);
         }
 
         /// <summary>

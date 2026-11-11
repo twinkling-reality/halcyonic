@@ -367,6 +367,8 @@ namespace Halcyonic.XR.UI
             ["Restore"] = RoomGlyph.Undo, ["Let Agent Fix"] = RoomGlyph.Agent, ["History"] = RoomGlyph.Clock,
             ["Previous Page"] = RoomGlyph.Previous, ["Compact"] = RoomGlyph.Next, ["Open Workspace"] = RoomGlyph.Previous, ["Projects"] = RoomGlyph.Back,
             ["Carry Out Plan"] = RoomGlyph.Continue,
+            // SCREENS's Start From takes the cube, as Make VR Version (the addendum's A16).
+            ["Start From"] = RoomGlyph.Cube,
         };
 
         /// <summary>The card's kind marks (the addendum's A17), which stand in tiles and before list rows and never on an action.</summary>
