@@ -76,6 +76,9 @@ namespace Halcyonic.XR.UI
         /// <summary>An arrow turning back: Restore.</summary>
         Undo,
 
+        /// <summary>A clock, its hands at ten past: History (the lead's yes, 0704Z).</summary>
+        Clock,
+
         // The marks of a card's kinds (the addendum's A17): drawn in a slot's tile or before a list row's name, never on an action.
 
         /// <summary>A short level line: a file removed.</summary>
@@ -125,6 +128,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Two chevrons pointing back: a file that reverts to an earlier moment (never Restore's own arrow).</summary>
         Rewind,
+
+        /// <summary>A chevron pointing on, at a list row's right: the row is picked from (a moment of History, a found computer).</summary>
+        Chevron,
     }
 
     /// <summary>
@@ -296,6 +302,8 @@ namespace Halcyonic.XR.UI
             [RoomGlyph.Timer] = new[] { Circle(12f, 13f, 6.5f), Line(12f, 13f, 12f, 9f), Line(12f, 13f, 14.5f, 14.5f), Line(12f, 6.5f, 12f, 4.5f), Line(9.5f, 3.5f, 14.5f, 3.5f) },
             // A page with its bar and its two rings.
             [RoomGlyph.Calendar] = new[] { Outline(4.5f, 6f, 19.5f, 19.5f, 2f), Line(4.5f, 10.5f, 19.5f, 10.5f), Line(8.5f, 4f, 8.5f, 7.5f), Line(15.5f, 4f, 15.5f, 7.5f) },
+            [RoomGlyph.Clock] = new[] { Circle(12f, 12f, 8f), Line(12f, 7.5f, 12f, 12f), Line(12f, 12f, 15f, 14f) },
+            [RoomGlyph.Chevron] = new[] { Line(9.5f, 6f, 15.5f, 12f), Line(15.5f, 12f, 9.5f, 18f) },
             [RoomGlyph.Rewind] = new[] { Line(12.5f, 7f, 7.5f, 12f), Line(7.5f, 12f, 12.5f, 17f), Line(18f, 7f, 13f, 12f), Line(13f, 12f, 18f, 17f) },
             [RoomGlyph.Meter] = new[] { Arc(12f, 16f, 7.5f, 270f, 90f), Line(12f, 16f, 15.5f, 11.5f) },
             [RoomGlyph.Pin] = new[] { Arc(12f, 10f, 6f, 270f, 125f), Line(7.1f, 13.4f, 12f, 20.5f), Line(16.9f, 13.4f, 12f, 20.5f), Circle(12f, 10f, 2f) },
@@ -346,14 +354,14 @@ namespace Halcyonic.XR.UI
             ["Next Page"] = RoomGlyph.Next, ["Next Choices"] = RoomGlyph.Next, ["Previous Part"] = RoomGlyph.Previous, ["Try Build"] = RoomGlyph.Play,
             ["New Project"] = RoomGlyph.Plus, ["Request Change"] = RoomGlyph.Pencil, ["Write Instruction"] = RoomGlyph.Bubble, ["Continue"] = RoomGlyph.Continue,
             ["Summarize"] = RoomGlyph.Lines, ["Choose Instruction"] = RoomGlyph.Lines, ["Run Checks Again"] = RoomGlyph.Again, ["Settings"] = RoomGlyph.Settings,
-            ["Restore"] = RoomGlyph.Undo, ["Let Agent Fix"] = RoomGlyph.Agent,
+            ["Restore"] = RoomGlyph.Undo, ["Let Agent Fix"] = RoomGlyph.Agent, ["History"] = RoomGlyph.Clock,
         };
 
         /// <summary>The card's kind marks (the addendum's A17), which stand in tiles and before list rows and never on an action.</summary>
         public static readonly RoomGlyph[] Marks =
         {
             RoomGlyph.Minus, RoomGlyph.Wave, RoomGlyph.Swap, RoomGlyph.Wait, RoomGlyph.Alert, RoomGlyph.Wrench, RoomGlyph.File, RoomGlyph.Folder,
-            RoomGlyph.Computer, RoomGlyph.App, RoomGlyph.Flag, RoomGlyph.Pin, RoomGlyph.Meter, RoomGlyph.Timer, RoomGlyph.Calendar, RoomGlyph.Rewind,
+            RoomGlyph.Computer, RoomGlyph.App, RoomGlyph.Flag, RoomGlyph.Pin, RoomGlyph.Meter, RoomGlyph.Timer, RoomGlyph.Calendar, RoomGlyph.Rewind, RoomGlyph.Chevron,
         };
 
         /// <summary>The two levels an agent works at, as the action that names the agent ends: "{agent} · Ask First", "{agent} · Never Ask".</summary>

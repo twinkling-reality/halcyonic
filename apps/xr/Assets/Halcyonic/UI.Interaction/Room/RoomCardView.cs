@@ -107,6 +107,10 @@ namespace Halcyonic.XR.UI
         public const int Accent = 0x59CFF1;
         public const int AccentNote = 0x7FD9F5;
         public const int Dark = 0x172024;
+
+        /// <summary>The attention colour (a task or the assistant needs the person), as the name tag's Needs You chip: amber.</summary>
+        public const int Attention = 0xF2B134;
+        public const int AttentionNote = 0xFFD27A;
         public const int StepGround = 0x2F3539;
         public const int AgentOrb = 0x7A6BD6;
         public const int ProjectTile = 0x3F8FB0;
@@ -116,6 +120,26 @@ namespace Halcyonic.XR.UI
         private readonly Dictionary<KitRole, int> textsUsed = new Dictionary<KitRole, int>();
         private readonly List<Surface> plates = new List<Surface>();
         private readonly List<RoomGlyphView> glyphs = new List<RoomGlyphView>();
+        private readonly List<(KitPress Press, GameObject Target)> rowPresses = new List<(KitPress, GameObject)>();
+        private readonly List<KitControl?> rowControls = new List<KitControl?>();
+        private int rowPressesUsed;
+
+        /// <summary>A row picked from a list (<see cref="RoomListRow.Press"/>): its own control, for the bar to act on.</summary>
+        public event System.Action<KitControl>? RowPressed;
+
+        /// <summary>The list rows' press targets shown now, in order, with their controls: for checks.</summary>
+        public IEnumerable<(KitPress Press, KitControl Control)> RowTargets
+        {
+            get
+            {
+                for (var index = 0; index < rowPressesUsed; index++)
+                    if (rowControls[index] is KitControl control) yield return (rowPresses[index].Press, control);
+            }
+        }
+
+        /// <summary>The chevron at a picked-from row's right, 18 dp, and its room before the note.</summary>
+        public const float ChevronDp = 18f;
+        public const float ChevronGapDp = 10f;
         private int platesUsed;
         private int glyphsUsed;
         private int order;
@@ -152,6 +176,7 @@ namespace Halcyonic.XR.UI
             foreach (var role in new List<KitRole>(textsUsed.Keys)) textsUsed[role] = 0;
             platesUsed = 0;
             glyphsUsed = 0;
+            rowPressesUsed = 0;
             Shown.Clear();
             Plates.Clear();
             Glyphs.Clear();
@@ -209,6 +234,7 @@ namespace Halcyonic.XR.UI
                 RoomTone.Good => (Rgb(Passed, 0.16f), Rgb(Passed), RoomGlyph.Check),
                 RoomTone.Bad => (Rgb(Failed, 0.16f), Rgb(Failed), RoomGlyph.Alert),
                 RoomTone.Working => (Rgb(Accent, 0.14f), Rgb(Accent), RoomGlyph.Wrench),
+                RoomTone.Attention => (Rgb(Attention, 0.16f), Rgb(Attention), RoomGlyph.Bubble),
                 _ => (White(0.08f), White(0.85f), RoomGlyph.Wait),
             };
             var left = S(StatusMarkDp + StatusGapDp);
@@ -471,6 +497,7 @@ namespace Halcyonic.XR.UI
                     RoomTone.Good => (Rgb(Passed, 0.18f), Rgb(Passed), Rgb(PassedNote)),
                     RoomTone.Bad => (Rgb(Failed, 0.18f), Rgb(Failed), Rgb(FailedNote)),
                     RoomTone.Working => (Rgb(Accent, 0.16f), Rgb(Accent), Rgb(AccentNote)),
+                    RoomTone.Attention => (Rgb(Attention, 0.16f), Rgb(Attention), Rgb(AttentionNote)),
                     // A neutral row's mark is a bare glyph, no well, so it never reads as an action's chip.
                     _ => (Color.clear, White(0.85f), White(0.72f)),
                 };
@@ -483,15 +510,24 @@ namespace Halcyonic.XR.UI
                     (noteLabel, _) = Text(KitRole.Label, RowNoteDp, RowNoteLineDp, note, LineWords.Ours(row.Note), 0f, 0f, width / 2f, 1);
                     noteWidth = RoomCursor.WordsWidth(noteLabel, 0f);
                 }
+                // A row picked from carries a chevron at its right, the note before it, and takes a press across its whole width.
+                var picked = row.Press != null;
+                var chevronRoom = picked ? S(ChevronDp + ChevronGapDp) : 0f;
                 var nameLeft = S(RowTileDp + RowGapDp);
-                var nameWidth = width - nameLeft - (noteWidth > 0f ? noteWidth + S(RowGapDp) : 0f);
+                var nameWidth = width - nameLeft - chevronRoom - (noteWidth > 0f ? noteWidth + S(RowGapDp) : 0f);
+                // A name is never cut: a path keeps one line (mono, the end of a long one is its own to say), a moment's name takes two at most.
                 var (nameLabel, nameTall) = row.Mono
                     ? Text(KitRole.Mono, RowNameDp - 3f, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, 1)
-                    : Text(KitRole.Body, RowNameDp, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, 1);
+                    : Text(KitRole.Body, RowNameDp, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, 2);
                 var rowTall = Mathf.Max(S(RowTileDp), nameTall);
                 var middle = top + rowTall / 2f;
                 nameLabel.transform.localPosition = new Vector3(nameLeft, -(middle - nameTall / 2f), -RoomType.Units(0.5f));
-                if (noteLabel != null) noteLabel.transform.localPosition = new Vector3(width - noteWidth, -(middle - S(RowNoteLineDp) / 2f), -RoomType.Units(0.5f));
+                if (noteLabel != null) noteLabel.transform.localPosition = new Vector3(width - chevronRoom - noteWidth, -(middle - S(RowNoteLineDp) / 2f), -RoomType.Units(0.5f));
+                if (picked)
+                {
+                    Glyph(RoomGlyph.Chevron, ChevronDp, White(0.55f), new Vector2(width - S(ChevronDp) / 2f, -middle), "row chevron");
+                    RowTarget(row.Press!, new Vector2(width / 2f, -middle), new Vector2(width, rowTall + 2f * S(RowPadDp)));
+                }
                 var tileCentre = new Vector2(S(RowTileDp) / 2f, -middle);
                 Plate(new Vector2(S(RowTileDp), S(RowTileDp)), S(RowTileCornerDp), ground, tileCentre, "row tile " + row.Kind,
                     row.Chosen ? Rgb(Accent, 0.70f) : Color.clear, row.Chosen ? S(1.5f) : 0f);
@@ -550,7 +586,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private void Pips(int used, int of, RoomTone tone, Vector2 centre)
         {
-            var lit = tone switch { RoomTone.Good => Rgb(Passed), RoomTone.Bad => Rgb(Failed), _ => Rgb(Accent) };
+            var lit = tone switch { RoomTone.Good => Rgb(Passed), RoomTone.Bad => Rgb(Failed), RoomTone.Attention => Rgb(Attention), _ => Rgb(Accent) };
             var pitch = S(PipDp + PipGapDp);
             var from = centre.x - pitch * (of - 1) / 2f;
             for (var index = 0; index < of; index++)
@@ -610,8 +646,35 @@ namespace Halcyonic.XR.UI
             Glyphs.Add((view, what));
         }
 
+        /// <summary>A row's press target, centred at <paramref name="centre"/>, as large as the row: it raises <see cref="RowPressed"/> with the row's control.</summary>
+        private void RowTarget(KitControl control, Vector2 centre, Vector2 size)
+        {
+            if (rowPressesUsed >= rowPresses.Count)
+            {
+                var go = new GameObject("Row press");
+                go.transform.SetParent(transform, false);
+                var index = rowPresses.Count;
+                var press = KitPress.Create(go, size);
+                press.Pressed += () => { if (rowControls[index] is KitControl pressed) RowPressed?.Invoke(pressed); };
+                rowPresses.Add((press, go));
+                rowControls.Add(null);
+            }
+            var (target, host) = rowPresses[rowPressesUsed];
+            rowControls[rowPressesUsed] = control;
+            rowPressesUsed++;
+            host.SetActive(true);
+            target.Resize(size);
+            target.Available = true;
+            host.transform.localPosition = new Vector3(centre.x, centre.y, -RoomType.Units(0.7f));
+        }
+
         private void HideUnused()
         {
+            for (var index = rowPressesUsed; index < rowPresses.Count; index++)
+            {
+                rowPresses[index].Target.SetActive(false);
+                rowControls[index] = null;
+            }
             foreach (var pair in texts)
             {
                 textsUsed.TryGetValue(pair.Key, out var used);

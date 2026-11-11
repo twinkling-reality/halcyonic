@@ -54,7 +54,12 @@ namespace Halcyonic.XR.UI
                 if (card != null) card.Hide();
                 return null;
             }
-            if (card == null) card = RoomCardView.Create(panel.transform, KitType.Order.Words);
+            if (card == null)
+            {
+                card = RoomCardView.Create(panel.transform, KitType.Order.Words);
+                // A row picked from a card's list acts as any action does: its own control, raised to the bar's owner.
+                card.RowPressed += control => Acted?.Invoke(control);
+            }
             return card.Show(bar.Card, width);
         }
 
