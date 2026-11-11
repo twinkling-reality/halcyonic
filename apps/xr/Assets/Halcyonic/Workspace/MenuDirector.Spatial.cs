@@ -215,7 +215,8 @@ namespace Halcyonic.XR.Workspace
             var target = setup.ConnectionTarget();
             return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (target, Demonstration), task,
                 page == RoomResultPage.History ? HistoryFor(projectId) : null, page == RoomResultPage.Share ? ShareFor(projectId) : null,
-                canSend: CanSendShare, relays: HeadsetRelay.Serves(target), relayBuilt: HeadsetRelay.Built);
+                canSend: CanSendShare, relays: HeadsetRelay.Serves(target), relayBuilt: HeadsetRelay.Built,
+                file: page == RoomResultPage.File ? FileReadFor(now.Character.WorkstreamId) : null);
         }
 
         /// <summary>
@@ -335,6 +336,10 @@ namespace Halcyonic.XR.Workspace
                     // A column with a start under way or a stop to send is kept, so nothing is dropped (AUDIT reread MUST 2).
                     if (ShareFor(work!.ProjectId) is not { KeepAfterLeaving: true }) shares.Remove(work!.ProjectId);
                     setup.Presentation.ShowResultPage(task, run, RoomResultPage.Result);
+                    break;
+                // SCREENS's file of Changes read (MenuDirector.File.cs).
+                case string _ when RoomResult.FileActions.Contains(action):
+                    if (!OnFileActed(action, key, task, run, work!.ProjectId)) return false;
                     break;
                 default: return false;
             }
