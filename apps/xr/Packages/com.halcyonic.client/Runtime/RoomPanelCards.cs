@@ -50,7 +50,10 @@ namespace Halcyonic.Client
             if (result.Passed is bool passed) slots.Add(new RoomSlot(passed ? RoomKind.Passed : RoomKind.Failed, LineWords.Ours(passed ? Passed : Failed)));
             if (toAdd is RoomSlot waiting) slots.Add(waiting);
             else if (result.FilesChanged is long count) slots.Add(new RoomSlot(RoomKind.ToAdd, LineWords.Ours(RoomAdd.Files(count))));
-            return new RoomCard(task, head: RoomCardHead.Picture, status: ended?.Status, slots: slots, trackAt: ended?.TrackAt, trackOf: ended?.TrackOf);
+            // Where Play in Headset is not drawn and why matters to the person, its reason stands at the card's foot.
+            var refusal = result.Play is PlayInHeadset play ? HeadsetPlay.RefusalLine(play) : null;
+            return new RoomCard(task, head: RoomCardHead.Picture, status: ended?.Status, slots: slots, trackAt: ended?.TrackAt, trackOf: ended?.TrackOf,
+                more: refusal != null ? LineWords.Ours(refusal) : null);
         }
 
         /// <summary>
