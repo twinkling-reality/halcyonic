@@ -963,6 +963,15 @@ export class Projection {
         needed.add(version.checkpoint.checkpoint_id);
     }
     for (const newest of newestOfFolder.values()) needed.add(newest);
+    // The version a task starts from, until its copy is made into it (ADR 0045, item 8).
+    for (const workstream of this.#workstreams.values()) {
+      if (
+        workstream.projectId === id &&
+        workstream.fromCheckpoint !== null &&
+        workstream.copy?.state !== 'own'
+      )
+        needed.add(workstream.fromCheckpoint);
+    }
     const lastRestore = (this.#history.get(id) ?? []).findLast(
       (entry) => entry.kind === 'restored' || entry.kind === 'restore_incomplete',
     );

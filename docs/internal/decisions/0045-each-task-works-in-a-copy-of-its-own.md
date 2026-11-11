@@ -121,6 +121,10 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
      added, the version is one of the project's like any other.
    - The line telling the agent which version it works on goes with the task's first run that has
      a turn, so a start that failed first does not lose it (AUDIT3 S3).
+   - The version a task starts from is kept by the pruning rule (ADR 0036's amendment) until the
+     task's copy is made into it. One the host let go before a task named it is refused at the
+     task's creation as "That version is no longer kept. Choose another one." (`checkpoint_not_found`,
+     AUDIT3 S1).
    - Refused, in words: another project's version or a missing one (`checkpoint_not_found`); a version
      of a world, which changes in place with no copy to make into it (`invalid_state`);
      creating one with copies or undo off, or starting it where no copy can be made, as for an
