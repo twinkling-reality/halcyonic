@@ -10,7 +10,7 @@ import { SETTINGS_FILE } from '../settings.ts';
 import { pairDevice } from '../testing/device.ts';
 import { startTestServer } from '../testing/harness.ts';
 import { tlsRequest } from '../testing/tls-client.ts';
-import type { PageState } from './pairing-page.ts';
+import { type PageState, pairingPagePorts } from './pairing-page.ts';
 
 /** LINK's scratch block: the page takes the first free one, as it takes 47802 to 47809 for real. */
 const PORTS = [47950, 47959] as const;
@@ -450,5 +450,26 @@ describe('pnpm pair and the pairing page', () => {
     assert.equal(answer.status, 409);
     const body = (await answer.json()) as PairingPageResponse | { error: { code: string } };
     assert.equal('error' in body && body.error.code, 'page_off');
+  });
+});
+
+describe('the page’s ports', () => {
+  test('follow the control plane’s own port, and a plane on port 0 gets a free one', async (t) => {
+    assert.deepEqual(pairingPagePorts(47800), [47802, 47809], 'beside 47800, as before');
+    assert.deepEqual(
+      pairingPagePorts(47950),
+      [47952, 47959],
+      'beside another port, its own family',
+    );
+    assert.deepEqual(pairingPagePorts(0), [0, 0]);
+    assert.deepEqual(pairingPagePorts(65530), [0, 0], 'too near the top for a family');
+    const server = await startTestServer({ page: { ports: pairingPagePorts(0) } });
+    t.after(() => server.stop());
+    const port = page(server).port;
+    assert.ok(port > 0 && (port < 47800 || port > 47809), `a free port of its own: ${port}`);
+    const link = new URL(page(server).link());
+    assert.equal(link.port, String(port), 'its link names the port it listens on');
+    const opened = await call(port, 'GET', `${link.pathname}${link.search}`);
+    assert.equal(opened.status, 200, 'and it answers there');
   });
 });

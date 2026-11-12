@@ -156,7 +156,7 @@ What listens on the Mac, and where. Test suites use their own ports, on loopback
 | --- | --- | --- |
 | 47800 (`HALCYONIC_PORT`) | loopback | The control plane: HTTP and WebSocket |
 | 47801 (`HALCYONIC_NETWORK_PORT`) | `HALCYONIC_NETWORK_HOST` | The TLS listener for paired devices, when turned on |
-| 47802 to 47809 | loopback | The pairing page ([ADR 0047](../decisions/0047-pairing-starts-from-a-page-on-the-mac.md)) |
+| 47802 to 47809 | loopback | The pairing page ([ADR 0047](../decisions/0047-pairing-starts-from-a-page-on-the-mac.md)): the control plane's port plus 2 to plus 9, first free, so a plane on another port keeps to its own; a plane on port 0 gets a free port for its page too |
 | 47930 to 47939 | loopback | A project's preview, and a check's own server |
 | 47940 to 47949 | loopback | The viewer of a game played on the Mac |
 | 47970 to 47979 | the Mac's own Wi-Fi address, never every interface | A game shared on this Wi-Fi, while it is shared ([ADR 0054](../decisions/0054-what-was-made-is-kept-and-shared-only-by-the-persons-press.md)) |

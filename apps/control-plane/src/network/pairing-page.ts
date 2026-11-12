@@ -1,6 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { isIPv4, isIPv6 } from 'node:net';
+import { type AddressInfo, isIPv4, isIPv6 } from 'node:net';
 import type { DeviceView, PairingState } from '@halcyonic/contracts';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import type { NetworkListenerConfig } from '../config.ts';
@@ -25,6 +25,18 @@ import type { NetworkSwitch } from './switch.ts';
 /** The page's ports: the control plane's family (47800, the network listener 47801), first free. */
 export const PAIRING_PAGE_PORT_FIRST = 47802;
 export const PAIRING_PAGE_PORT_LAST = 47809;
+
+/**
+ * The page's ports beside a control plane on `port`: its own family, `port` + 2 to `port` + 9, so a
+ * plane on another port never takes one of the 47800 family's (on 47800 that is 47802 to 47809). A
+ * plane on port 0 gets a free port for its page too; one too near the top for a family, port 0 as well.
+ */
+export function pairingPagePorts(port: number): readonly [number, number] {
+  const offset = PAIRING_PAGE_PORT_FIRST - 47800;
+  const width = PAIRING_PAGE_PORT_LAST - PAIRING_PAGE_PORT_FIRST;
+  if (port === 0 || port + offset + width > 65535) return [0, 0];
+  return [port + offset, port + offset + width];
+}
 
 /** How long the code in a link can be used. */
 export const PAGE_LINK_MS = 60_000;
@@ -167,7 +179,8 @@ function reachable(address: string): boolean {
 }
 
 export class PairingPage {
-  readonly port: number;
+  /** The port it listens on: the one it asked for, or the one the system gave for 0. */
+  #port: number;
   readonly #app: FastifyInstance;
   readonly #controls: PairingPageControls;
   readonly #linkMs: number;
@@ -181,6 +194,10 @@ export class PairingPage {
   #turning: 'on' | 'off' | null = null;
   #problem: string | null = null;
 
+  get port(): number {
+    return this.#port;
+  }
+
   private constructor(
     app: FastifyInstance,
     port: number,
@@ -190,7 +207,7 @@ export class PairingPage {
     mount?: (routes: PageRoutes) => void,
   ) {
     this.#app = app;
-    this.port = port;
+    this.#port = port;
     this.#controls = controls;
     this.#linkMs = linkMs;
     this.#now = now;
@@ -216,6 +233,7 @@ export class PairingPage {
       page.#routes();
       try {
         await app.listen({ host: '127.0.0.1', port });
+        page.#port = (app.server.address() as AddressInfo).port;
         return page;
       } catch (error) {
         await app.close();
