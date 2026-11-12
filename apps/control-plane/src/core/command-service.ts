@@ -34,6 +34,8 @@ import { PAGES_BRANCH, WORLD_STARTER_ID } from '@halcyonic/contracts';
 import {
   type Admission,
   admitCommand,
+  boundCommand,
+  COMMAND_FIELDS,
   type CommandScope,
   folderInUse,
   hereActions,
@@ -82,6 +84,19 @@ import {
 import type { GivenPictures } from './given-pictures.ts';
 import { type OllamaUnloader, ollamaModelFrom } from './ollama-unload.ts';
 import { listPictures, readPictures } from './pictures.ts';
+
+/**
+ * The lists whose rows' commands the whole admission judges by that one choice alone, so each row
+ * offers only what it can do. Elsewhere admission also asks for another need (a runtime that lists its
+ * models needs one chosen), so a row is not judged alone and the preparation's admission decides.
+ */
+const ROWS_ADMITTED: ReadonlySet<ChoiceList> = new Set([
+  'versions',
+  'secrets',
+  'queued_instructions',
+  'approvals',
+]);
+
 import { type Preparation, type Prepared, prepareCommand } from './prepare.ts';
 import { readRules, rulesReview, withRules } from './project-rules.ts';
 import { type Reattacher, SESSION_LOST } from './reattach.ts';
@@ -638,7 +653,41 @@ export class CommandService {
     });
   }
 
-  #choiceRows(scope: HereScope, list: ChoiceList): Promise<HeldRow[] | null> {
+  async #choiceRows(scope: HereScope, list: ChoiceList): Promise<HeldRow[] | null> {
+    const rows = await this.#allChoiceRows(scope, list);
+    if (rows === null || !ROWS_ADMITTED.has(list)) return rows;
+    // A row offers only the commands the whole admission takes it for (LOOP's run, 06:36Z): a version
+    // holding a task's work never added is no version a task can start from, yet it can be restored.
+    return rows.map((held) => ({
+      ...held,
+      row: {
+        ...held.row,
+        actions: held.row.actions.filter((type) =>
+          this.#rowAdmitted(scope, list, type, held.value),
+        ),
+      },
+    }));
+  }
+
+  /** Whether the whole admission takes `value` from `list` as `type`'s choice, here and now. */
+  #rowAdmitted(scope: HereScope, list: ChoiceList, type: CommandType, value: unknown): boolean {
+    if (!(type in COMMAND_FIELDS)) return false;
+    const bound = boundCommand(type as keyof typeof COMMAND_FIELDS, scope);
+    if (bound === null) return false;
+    const fields = COMMAND_FIELDS[type as keyof typeof COMMAND_FIELDS];
+    const payload: Record<string, unknown> = { ...(bound.payload as Record<string, unknown>) };
+    for (const [name, field] of Object.entries(fields))
+      if (field.from === 'person' && field.list === list)
+        payload[name] = field.need === 'choices' ? [value] : value;
+    const command = { ...bound, payload } as CommandEnvelope;
+    return admitCommand(command, this.#deps.projection, {
+      get: (runtimeId) => this.#deps.registry.get(runtimeId),
+      queuesInstructions: this.#deps.queuesInstructions === true,
+      ...(this.#deps.starters ? { starters: this.#deps.starters } : {}),
+    }).admitted;
+  }
+
+  #allChoiceRows(scope: HereScope, list: ChoiceList): Promise<HeldRow[] | null> {
     return choiceRows(list, scope, {
       projection: this.#deps.projection,
       runtimes: () => this.#deps.registry.descriptors(),

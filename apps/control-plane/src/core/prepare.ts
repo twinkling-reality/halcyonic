@@ -172,6 +172,12 @@ export async function prepareCommand(
           const held = typeof index === 'number' ? read.rows[index] : undefined;
           if (held === undefined)
             return refuse('invalid_state', `${field.label} has no row ${String(index)}.`);
+          // A row offers only what it can do (its `actions`): one that leaves this command out cannot be its choice.
+          if (!held.row.actions.includes(type as never))
+            return refuse(
+              'invalid_state',
+              `${held.row.label} cannot be the ${field.label.toLowerCase()} for this.`,
+            );
           values.push(held.value);
         }
         payload[name] = field.need === 'choice' ? values[0] : values;
