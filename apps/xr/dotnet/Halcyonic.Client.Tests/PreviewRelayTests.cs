@@ -125,6 +125,39 @@ public class PreviewRelayTests
     }
 
     [Test]
+    public async Task ABrowserThatGoesAwayEndsItsStreamSoItHoldsNone()
+    {
+        var ended = new TaskCompletionSource<WebSocketCloseStatus?>();
+        var (relay, mac, _) = Start(async (socket, seen) =>
+        {
+            // The app's server never answers: only the browser leaving can end this stream.
+            var buffer = new byte[1024];
+            try
+            {
+                while (true)
+                {
+                    var received = await socket.ReceiveAsync(buffer, CancellationToken.None);
+                    if (received.MessageType == WebSocketMessageType.Close) break;
+                }
+            }
+            catch (WebSocketException)
+            {
+            }
+            ended.TrySetResult(socket.CloseStatus);
+        });
+        await using var _ = mac;
+        using var __ = relay;
+        using (var client = new TcpClient())
+        {
+            await client.ConnectAsync(IPAddress.Loopback, relay.Port);
+            await client.GetStream().WriteAsync(Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: 127.0.0.1:" + relay.Port + "\r\n\r\n"));
+            await Task.Delay(300);
+        }
+        var finished = await Task.WhenAny(ended.Task, Task.Delay(TimeSpan.FromSeconds(6)));
+        Assert.That(finished, Is.SameAs(ended.Task), "the stream to the computer ended once the browser went away");
+    }
+
+    [Test]
     public async Task OnlyARequestNamingItsOwnAddressAndNoServiceWorkerIsCarried()
     {
         var (relay, mac, seen) = Start();
