@@ -23,6 +23,7 @@ import {
   type WorkspaceRequestView,
   type WorkstreamId,
 } from '@halcyonic/contracts';
+import { admitCommand } from '@halcyonic/domain';
 import {
   checkProjectLocation,
   RuntimeActionError,
@@ -117,7 +118,7 @@ const FIRST_TURN_TOOLS = new Set([
  * so a request without one carries none of it.
  */
 export const LIST_GUIDE =
-  "can_be_done_here is what the computer can do here. To do one, call propose_command with its command_type and the values of its needs (a row of a list by its index, after read_choices). It waits for the person's one press: say what will happen, never that it was done. To go to a place, call go_to.";
+  "can_be_done_here is what the computer can do here. To do one, call propose_command with its command_type and the values of its needs (a row of a list by its index, after read_choices). Give the required needs and only the others the person named. It waits for the person's one press: say what will happen, never that it was done. To go to a place, call go_to.";
 /** The tools of what can be done here (ADR 0060), offered in every scope where the list holds something. */
 const LIST_TOOLS = new Set(['propose_command', 'read_choices', 'go_to']);
 
@@ -1696,6 +1697,15 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       client: { name: 'workspace-agent', version: null, device_label: null },
     });
     if (!prepared.ok) return { ok: false, code: prepared.code, message: prepared.message };
+    // The domain's admission, as a dry run, before anything waits for a press (the 30B window at 06:36Z: a version
+    // the admission refuses waited for the press, and the press found it refused). The full admission still runs at
+    // the submit; this only says early what it would say.
+    const admission = admitCommand(prepared.command, plane.projection, {
+      get: (runtimeId) => plane.registry.get(runtimeId),
+      queuesInstructions: plane.journal.info.origin === 'live',
+    });
+    if (!admission.admitted)
+      return { ok: false, code: admission.rejection.code, message: admission.rejection.message };
     const shown = await this.#shown(entry.confirm, prepared.command, entry.description);
     if (!shown.ok) return shown;
     return {

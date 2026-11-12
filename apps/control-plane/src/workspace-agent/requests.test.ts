@@ -2963,3 +2963,95 @@ test("an answer that reads like the computer's records is asked for once more in
     await f.close();
   }
 });
+
+test("a proposal the domain's admission refuses is refused when it is made, never shown for a press (the 30B window at 06:36Z)", async () => {
+  let turn = 0;
+  const f = await fixture({
+    turn: async () => {
+      turn++;
+      if (turn === 1) return answer([{ name: 'read_choices', arguments: { list: 'versions' } }]);
+      if (turn === 2)
+        return answer([
+          {
+            name: 'propose_command',
+            arguments: {
+              command_type: 'workstream.create',
+              values: { title: 'Night Sky', from_checkpoint: 0 },
+            },
+          },
+        ]);
+      return answer([], 'That version cannot be used.');
+    },
+  });
+  try {
+    // A version of another task's own copy, after a turn in it, whose work was never added to the project (AUDIT3 S2).
+    const other = f.controlPlane.commands.submit(
+      f.commands.createWorkstream(f.projectId, { title: 'Paths', objective: null } as never),
+      'internal',
+    );
+    const otherId =
+      other.command?.result?.kind === 'workstream_created'
+        ? other.command.result.workstream_id
+        : (undefined as never);
+    const folder = '/tasks/synthetic/paths/app';
+    const at = f.time.now().toISOString();
+    const scope = { project_id: f.projectId, workstream_id: otherId, execution_id: null };
+    f.controlPlane.recorder.record(
+      controlPlaneDraft(
+        'workstream.copy_made',
+        scope,
+        { directory: folder, base_tree: 'a'.repeat(64), files: 1 },
+        at,
+        NO_CAUSE,
+      ),
+    );
+    const executionId = f.ids.next() as ExecutionId;
+    const runtime = f.controlPlane.projection.execution(f.execution)?.runtime as never;
+    f.controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.created',
+        { ...scope, execution_id: executionId },
+        { runtime, instruction: 'Do the work.', directory: folder },
+        at,
+        NO_CAUSE,
+      ),
+    );
+    f.controlPlane.recorder.record(
+      controlPlaneDraft(
+        'project.checkpoint.recorded',
+        { project_id: f.projectId, workstream_id: null, execution_id: null },
+        {
+          checkpoint_id: VERSION as never,
+          reason: 'after_turn',
+          execution_id: executionId,
+          tree: 'b'.repeat(64),
+          files: 1,
+          project_head: null,
+        },
+        at,
+        NO_CAUSE,
+      ),
+    );
+    const id = submitIn(f, 'Start a task called Night Sky from the newest version.');
+    for (let i = 0; i < 10; i++) await settle();
+    const request = f.controlPlane.projection.workspaceRequest(id);
+    const proposed = request?.steps.filter((s) => s.tool_name === 'propose_command') ?? [];
+    assert.equal(
+      proposed.length,
+      1,
+      JSON.stringify(request?.steps.map((s) => [s.tool_name, s.status, s.summary])),
+    );
+    assert.equal(proposed[0]?.status, 'rejected');
+    // Refused in the host's words: by the one preparation, since CORE judges each row by the whole admission
+    // (cee89ab88), or else by the admission run at the proposal. Either way it never waits for a press.
+    assert.match(
+      proposed[0]?.summary ?? '',
+      /cannot be the from version for this|never added to the project/,
+    );
+    assert.equal(proposed[0]?.proposal, undefined);
+    assert.ok(!request?.steps.some((s) => s.status === 'waiting'));
+    assert.notEqual(request?.status, 'waiting_for_human');
+  } finally {
+    await f.close();
+  }
+});
