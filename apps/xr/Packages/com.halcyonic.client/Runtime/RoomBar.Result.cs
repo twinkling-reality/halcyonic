@@ -51,6 +51,8 @@ namespace Halcyonic.Client
                     if (result.Part + 1 < result.Parts) column.Add(Own(RoomResult.NextPage, Footer.NextPageWords(result.Part, result.Parts), main: true, GlazeIcon.Next));
                     // DEVICE's History, Changes' second action (lead, 2026-11-11): the versions the computer kept, and Restore.
                     column.Add(Own(RoomResult.ShowHistory, HistoryText.Title, main: false, GlazeIcon.Next));
+                    // The result's other page one press away, as tabs are at a desk: every page of a result is reached by a drawn control.
+                    if (result.Steps.Count > 0) column.Add(Own(RoomResult.ShowChecks, RoomResult.ChecksWords, main: false, GlazeIcon.Next));
                     column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
                     break;
                 case RoomResultPage.Add:
@@ -148,6 +150,7 @@ namespace Halcyonic.Client
                     card = RoomPanelCards.Checks(result, binding.Model.AutoFix);
                     if (result.CanTry) column.Add(Own(RoomResult.TryBuild, KitScreenModel.Words(KitScreenAction.TryIt), main: true, GlazeIcon.OpenNow));
                     else if (result.Passed == false && instruct != null) column.Add(new RoomAction(instruct, main: true, WorkspaceText.Label(WorkspaceAction.Instruct)));
+                    if (result.Observed != null) column.Add(Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next));
                     column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
                     break;
                 default:

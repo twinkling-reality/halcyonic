@@ -138,8 +138,12 @@ public class RoomResultTests
         }));
         Assert.That(changes.Card.List.All(row => row.Name.AllTheirs), Is.True, "each path is the folder's own name, apart from Halcyonic's words");
         Assert.That((changes.Band, changes.Sentence), Is.EqualTo(((string?)null, (string?)null)), "no band and no sentence on Changes");
-        // DEVICE's History is Changes' second action (lead, 2026-11-11), then Back.
-        Assert.That(changes.Column.Where(NotClose).Select(action => (action.Control.Action, action.Main)), Is.EqualTo(new[] { (RoomResult.ShowHistory, false), (RoomResult.Back, false) }));
+        // DEVICE's History is Changes' second action (lead, 2026-11-11), then the result's Checks where it has some (every page of a
+        // result reached by a drawn control: AUDIT's census, 2026-11-12), then Back.
+        Assert.That(changes.Column.Where(NotClose).Select(action => (action.Control.Action, action.Main)),
+            Is.EqualTo(new[] { (RoomResult.ShowHistory, false), (RoomResult.ShowChecks, false), (RoomResult.Back, false) }));
+        var checks = Bar(new RoomResult(false, true, false, true, Turn(Observed), Steps(), RoomResultPage.Checks));
+        Assert.That(checks.Column.Where(NotClose).Select(action => action.Control.Action), Does.Contain(RoomResult.ShowChanges), "and Checks reaches Changes the same way");
         Assert.That(changes.Row.Count, Is.GreaterThan(0));
 
         // More than five files: Next Page is the main action, and the last page offers History and Back.
