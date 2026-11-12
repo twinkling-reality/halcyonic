@@ -92,4 +92,30 @@ public sealed class RoomReviewTests
         Assert.That(RoomReadingRow.Gap(0).Number, Is.Null);
         Assert.That((RoomReading.Skipped(1), RoomReading.Skipped(23)), Is.EqualTo(("1 Line", "23 Lines")));
     }
+
+    [Test]
+    public void AnyCommandsSheetReadsOnTheSameCardWithNothingKnowingWhichCommandItIs()
+    {
+        // A review with no words of its own (as sending work), two short facts, one longer one, and an address to check.
+        var sheet = new ReviewSheet(LineWords.TheirName("Kite Run"), RoomCardHead.Project, facts: new[]
+        {
+            new ReviewFact(RoomKind.Folder, LineWords.TheirName("kite-run"), mono: true, slot: true),
+            new ReviewFact(RoomKind.Link, LineWords.TheirName("main"), mono: true, slot: true),
+            new ReviewFact(RoomKind.Task, LineWords.TheirName("Make the kite fly in the wind")),
+        }, checks: new[] { new ReviewCheck(ReviewCheckKind.WebAddress, LineWords.TheirName("https://example.com/wind.json")) });
+        Assert.That(RoomReview.Parts(sheet, 1), Is.EqualTo(2), "no words: the facts, then what to check");
+        var facts = RoomReview.Card(sheet, part: 0);
+        Assert.That(facts.Slots.Select(slot => (slot.Kind, slot.Value.Text)), Is.EqualTo(new[] { (RoomKind.Folder, "kite-run"), (RoomKind.Link, "main") }));
+        Assert.That(facts.List.Single().Name.Text, Is.EqualTo("Make the kite fly in the wind"));
+        Assert.That(facts.More!.Text, Is.EqualTo("Part 1 of 2"));
+        Assert.That(facts.AnyDot, Is.False);
+        var check = RoomReview.Card(sheet, part: 1);
+        Assert.That(check.Status!.Value.Line, Is.EqualTo("It names a web address"));
+        Assert.That(check.Slots.Single().Value.Text, Is.EqualTo("https://example.com/wind.json"));
+        // A kind this client has no words for is said as unknown in plain words, never as another kind's name (R3).
+        var other = new ReviewSheet(null, facts: new[] { new ReviewFact(RoomKind.Folder, LineWords.TheirName("kite-run")) }, checks: new[] { new ReviewCheck(ReviewCheckKind.Other) });
+        Assert.That(RoomReview.Card(other, part: 1).Status!.Value.Line, Is.EqualTo("It names something to check"));
+        var alone = new ReviewSheet(LineWords.TheirName("Kite Run"));
+        Assert.That((RoomReview.Parts(alone, 1), RoomReview.Card(alone).More), Is.EqualTo((1, (LineWords?)null)), "one part says no part number");
+    }
 }
