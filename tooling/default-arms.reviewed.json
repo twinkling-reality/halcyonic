@@ -271,6 +271,12 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/NewProjectScreens.cs",
+    "answer": "RoomTone.Attention",
+    "count": 1,
+    "why": "style: The start card's step node tone for Unknown and Unexpected steps, a step whose outcome is not known, drawn as needing attention; a look only, its status says Start Unknown."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/NewProjectScreens.cs",
     "answer": "new Prompt(UseIdea, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true)",
     "count": 1,
     "why": "routing: Only Typed reaches it, since None is replaced first and Typed implies words, so Make Recap on the idea is right."
