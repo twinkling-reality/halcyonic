@@ -278,6 +278,9 @@ namespace Halcyonic.Client
         public const string TryAgain = "Try Again";
         public const string Started = "Confirmed · Started · On Stage";
 
+        /// <summary>The started task's own file, where it works and asks (the lead's first journey, 2026-11-12); FIELD's words to come.</summary>
+        public const string OpenTask = "Open Task";
+
         public const string PreviousRequestTitle = "Start Unconfirmed";
         public const string PreviousRequestLine = "Last Start May Have Run · Check Stage First · Retry Could Repeat It";
 

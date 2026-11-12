@@ -208,6 +208,9 @@ namespace Halcyonic.Client
 
         // Start building, once Yes was pressed, and a start whose outcome is unknown.
         public const string TryAgainStart = "try-again";
+
+        /// <summary>Opens the started task's file, where it works and where anything it asks waits for the person.</summary>
+        public const string OpenStartedTask = "open-started-task";
         public const string ChangeRequest = "change";
         public const string ChooseAnotherFolder = "choose-another-folder";
         public const string UseThatFolder = "use-that-folder";
@@ -1127,6 +1130,8 @@ namespace Halcyonic.Client
             if (sequence.Started)
             {
                 lines.Add(new PageLine(EntryText.Started, tone: LineTone.Good, rows: 2));
+                // Under the redesign the task's file is one press away, coloured, so what it asks, an approval first, is reached by what is drawn.
+                if (RoomDesign.Enabled && sequence.WorkstreamId != null) main = new Prompt(OpenStartedTask, EntryText.OpenTask, GlazeIcon.OpenNow, main: true);
             }
             else if (sequence.CanRetry && sequence.StoppedAt is BuildStep stopped && EntryText.AboutFolder(stopped))
             {
