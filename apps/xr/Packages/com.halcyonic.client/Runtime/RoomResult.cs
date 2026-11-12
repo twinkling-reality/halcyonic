@@ -224,7 +224,9 @@ namespace Halcyonic.Client
             CheckStepKind.TypeCheck => "Type Check",
             CheckStepKind.Build => "Build",
             CheckStepKind.PageDrawn => "Page Drawn",
-            _ => "VR Offered",
+            CheckStepKind.VrOffered => "VR Offered",
+            // A step with no words of its own is unknown, never another step's name (the lead's rule, 2026-11-12).
+            _ => "Step Unknown",
         };
 
         /// <summary>
