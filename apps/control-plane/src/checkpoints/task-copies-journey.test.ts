@@ -100,7 +100,10 @@ function writingRuntime(runtimeId = 'writer') {
   return { adapter, finish };
 }
 
-function setup(name: string, options: { linkedRepository?: boolean; copiesOff?: boolean } = {}) {
+function setup(
+  name: string,
+  options: { linkedRepository?: boolean; copiesOff?: boolean; notHeldInCopies?: boolean } = {},
+) {
   const root = join(base, name);
   const projects = join(root, 'projects');
   const folder = join(projects, 'app');
@@ -131,7 +134,15 @@ function setup(name: string, options: { linkedRepository?: boolean; copiesOff?: 
       keeping: { downloads, reveal: async () => true },
       ...(options.copiesOff
         ? {}
-        : { copies: { directory: tasks, heldToFolder: (runtimeId) => runtimeId === 'writer' } }),
+        : {
+            copies: {
+              directory: tasks,
+              // notHeldInCopies: an agent held in the project's folder that would not be in a copy.
+              heldToFolder: (runtimeId, directory) =>
+                runtimeId === 'writer' &&
+                !(options.notHeldInCopies === true && directory.startsWith(tasks)),
+            },
+          }),
     },
   });
   let commands = 0;
@@ -757,6 +768,25 @@ describe('several agents on one project (ADR 0045)', {
       loose.command?.rejection?.message ?? '',
       /not kept to one folder on this computer/,
     );
+  });
+
+  test("an agent that would not be held in the copy just made is never started there: the start fails in words, the copy stays the task's (AUDIT3 VRIFY-4c S1)", async () => {
+    const { folder, controlPlane, task, start, of } = setup('not-held-in-copy', {
+      notHeldInCopies: true,
+    });
+    const first = task('Lanterns');
+    const sent = start(first, 'lanterns');
+    assert.equal(sent.disposition, 'accepted');
+    await until(() => of('command.failed').length === 1, 'the start to fail');
+    assert.equal(of('workstream.copy_made', first).length, 1);
+    assert.match(
+      of('command.failed')[0]?.payload.failure.message ?? '',
+      /its agent would not be kept to it on this computer, so nothing was started/,
+    );
+    assert.equal(of('execution.created', first).length, 0);
+    assert.equal(of('runtime.turn.started', first).length, 0);
+    assert.equal(controlPlane.projection.workstream(first)?.copy?.state, 'own');
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person\n');
   });
 
   test('a task that has a copy, started where copies are off, is refused in words, never sent to its copy', () => {
