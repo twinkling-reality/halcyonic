@@ -27,6 +27,9 @@ namespace Halcyonic.XR.UI
         public const float LevelGapDp = 4f;
         public const float CaretSeconds = 0.53f;
 
+        /// <summary>The gap more between the column's answers and its actions, so the two groups read apart.</summary>
+        public const float GroupGapDp = 10f;
+
         /// <summary>The plate under words that stand alone: its padding beside and over them, in dp (the agent's cursor label's own).</summary>
         public const float AlonePadXDp = 16f;
         public const float AlonePadYDp = 6f;
@@ -672,9 +675,13 @@ namespace Halcyonic.XR.UI
                 widest = Mathf.Max(widest, cores[index].x);
             }
             var rises = new float[places];
+            // Answers and actions stand as two groups: where a marked answer meets an action, a group's gap more (the critic,
+            // 2026-11-12: four on one pitch read as four of one kind).
+            bool Answer(int at) => at < count && bar.Column[at].Mark != AnswerMark.None;
             for (var index = places - 1; index >= 0; index--)
                 rises[index] = index == places - 1 ? cores[index].y / 2f
-                    : rises[index + 1] + Mathf.Max(target, cores[index + 1].y) / 2f + KitType.Units(SpatialKit.TargetGapDegrees) + Mathf.Max(target, cores[index].y) / 2f;
+                    : rises[index + 1] + Mathf.Max(target, cores[index + 1].y) / 2f + KitType.Units(SpatialKit.TargetGapDegrees) + Mathf.Max(target, cores[index].y) / 2f
+                        + (Answer(index) != Answer(index + 1) ? RoomType.Units(GroupGapDp) : 0f);
             var columnHeight = places == 0 ? 0f : rises[0] + Mathf.Max(target, cores[0].y) / 2f;
             var gap = RoomType.Units(RoomGeometry.PairGapDp);
             var total = bar.Wide ? Mathf.Max(panelWidth + gap + RoomType.Units(RoomGeometry.ColumnDp), widest)
