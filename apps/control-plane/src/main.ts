@@ -329,6 +329,7 @@ async function main(): Promise<void> {
       { environment: process.env, dataDir: config.dataDir },
       access.token,
       adapters,
+      providers,
     ),
     ollamaUnload: new OllamaUnloader({ url: `http://127.0.0.1:${OLLAMA_PORT}` }),
   });

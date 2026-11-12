@@ -9,6 +9,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -178,6 +179,14 @@ describe('runtime composition', () => {
     const empty = mkdtempSync(join(base, 'empty-key-'));
     writeFileSync(join(empty, ANTHROPIC_KEY_FILE), '\n', { mode: 0o600 });
     assert.throws(() => adapters({ HALCYONIC_CLAUDE_AGENT: '1' }, HOST, empty), ConfigError);
+    // A link in its place is refused, read the one way every key file is (M2).
+    const linked = mkdtempSync(join(base, 'linked-key-'));
+    writeFileSync(join(linked, 'elsewhere'), 'not-a-real-key\n', { mode: 0o600 });
+    symlinkSync(join(linked, 'elsewhere'), join(linked, ANTHROPIC_KEY_FILE));
+    assert.throws(
+      () => adapters({ HALCYONIC_CLAUDE_AGENT: '1' }, HOST, linked),
+      /not a file of its own/,
+    );
   });
 
   test('the OpenCode runtime is registered when its binary is configured, without launching it', async () => {
@@ -696,7 +705,13 @@ describe("the secrets taken out of a runtime's text", () => {
       HALCYONIC_AGENT_ENV:
         'GATEWAY_KEY,ANTHROPIC_BASE_URL,PROXY_AUTH,AWS_REGION,GITLAB_PAT,SESSION_COOKIE,GIT_AUTHOR_NAME,GATEWAY_HEADER',
     });
-    const secrets = heldSecrets(config, { environment, dataDir }, 'the-access-token-value', []);
+    const secrets = heldSecrets(
+      config,
+      { environment, dataDir },
+      'the-access-token-value',
+      [],
+      new HostProviders({ dataDir }),
+    );
     // An address, a region and an author's name are passed to agents but stay in the text a person reads.
     const agentValues = [
       { what: 'GATEWAY_KEY', value: 'gateway-value-1' },
@@ -740,6 +755,7 @@ describe("the secrets taken out of a runtime's text", () => {
       { environment: HOST, dataDir },
       'the-access-token-value',
       [],
+      new HostProviders({ dataDir }),
     );
     // Synthetic: a credential in Omnorium's shape, made up for this test.
     const catalog = `omc_${'q7Xk2pLm9vRt'.repeat(3)}4wZb8nH`;
@@ -806,7 +822,13 @@ describe("the secrets taken out of a runtime's text", () => {
     });
     const dataDir = join(base, 'parts');
     mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-    const held = heldSecrets(config, { environment, dataDir }, 'the-access-token-value', [])();
+    const held = heldSecrets(
+      config,
+      { environment, dataDir },
+      'the-access-token-value',
+      [],
+      new HostProviders({ dataDir }),
+    )();
     // Ordinary words such as "Authorization", "Bearer" and a region are never held.
     assert.deepEqual(held.slice(1), [
       { what: 'ANTHROPIC_CUSTOM_HEADERS', value: `Authorization: Bearer ${token}` },
@@ -829,7 +851,13 @@ describe("the secrets taken out of a runtime's text", () => {
     });
     const dataDir = join(base, 'urls');
     mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-    const held = heldSecrets(config, { environment, dataDir }, 'the-access-token-value', [])();
+    const held = heldSecrets(
+      config,
+      { environment, dataDir },
+      'the-access-token-value',
+      [],
+      new HostProviders({ dataDir }),
+    )();
     assert.deepEqual(held.slice(1), [
       { what: 'DATABASE_URL', value: 'app:pa55W0rdXYZ123abc' },
       { what: 'DATABASE_URL', value: 'pa55W0rdXYZ123abc' },
@@ -866,7 +894,13 @@ describe("the secrets taken out of a runtime's text", () => {
     });
     const dataDir = join(base, 'keyed');
     mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-    const held = heldSecrets(config, { environment, dataDir }, 'the-access-token-value', [])();
+    const held = heldSecrets(
+      config,
+      { environment, dataDir },
+      'the-access-token-value',
+      [],
+      new HostProviders({ dataDir }),
+    )();
     // A tokenizer, a working folder and a region are no secrets, whatever their keys contain.
     assert.deepEqual(held.slice(1), [
       { what: 'DATABASE_URL', value: 'app:p@ssw0rd123' },
@@ -908,7 +942,13 @@ describe("the secrets taken out of a runtime's text", () => {
     });
     const dataDir = join(base, 'more-keyed');
     mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-    const held = heldSecrets(config, { environment, dataDir }, 'the-access-token-value', [])();
+    const held = heldSecrets(
+      config,
+      { environment, dataDir },
+      'the-access-token-value',
+      [],
+      new HostProviders({ dataDir }),
+    )();
     assert.ok(looksLikeCredential('/Q7xK2pLm9vRt4wZb8nHc3jYd'), 'the path part reads as random');
     assert.deepEqual(held.slice(1), [
       { what: 'SERVICE_JSON', value: 'pa\\"ss12345word' },
