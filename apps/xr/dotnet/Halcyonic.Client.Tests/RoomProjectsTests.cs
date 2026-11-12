@@ -44,9 +44,11 @@ public sealed class RoomProjectsTests
             ((string?)ProjectsScreens.ChooseProject, (string?)"a"), (ProjectsScreens.ChooseProject, "b"),
         }));
         Assert.That(bar.Card.List.All(row => ReferenceEquals(row.Press!.Frame, frame)), Is.True, "every press is of the frame drawn");
-        // FIELD's column: New Project leads, Settings, Close last where the frame offers it; nothing else.
+        // FIELD's column: New Project leads, Settings, then Usage (the menu's place, the lead 2026-11-12), Close last where the
+        // frame offers it; nothing else.
         Assert.That((bar.Column[0].Control.Action, bar.Column[0].Main), Is.EqualTo((ProjectsScreens.NewProject, true)));
-        Assert.That(bar.Column.Where(action => action.Control.Action == MenuFrame.ChooseSection).Select(action => action.Control.Key), Is.EqualTo(new[] { MenuPlace.Settings.ToString() }));
+        Assert.That(bar.Column.Where(action => action.Control.Action == MenuFrame.ChooseSection).Select(action => action.Control.Key),
+            Is.EqualTo(new[] { MenuPlace.Settings.ToString(), MenuPlace.Usage.ToString() }));
         Assert.That(frame.Lines.Select(line => line.ProjectState?.TasksWords), Is.EqualTo(new[] { "1 Task", "1 Task" }));
     }
 

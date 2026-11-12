@@ -41,11 +41,13 @@ namespace Halcyonic.Client
                 else if (leaves) leaving.Add(action);
                 else others.Add(action);
             }
-            // Settings, the menu's one other place on this card (FIELD's parts note); Tasks is the shelf's, Usage its own.
-            var places = frame.Sections.Where(section => !section.Chosen && section.Reached && section.Key == MenuPlace.Settings.ToString())
+            // Settings, then Usage, the menu's own place (the lead, 2026-11-12: every place one press from Projects); Tasks is the
+            // shelf's and a project's. In that order, wherever the menu offers each.
+            var places = new[] { MenuPlace.Settings, MenuPlace.Usage }
+                .SelectMany(place => frame.Sections.Where(section => !section.Chosen && section.Reached && section.Key == place.ToString()))
                 .Select(section => new RoomAction(new KitControl(KitPlace.Section, frame, MenuFrame.ChooseSection, section.Key, section.Words, null, true, null, false),
                     main: false, icon: GlazeIcon.Next));
-            // The column (FIELD's parts note): New Project, the main action; the place's paging where it has more; Settings; Close last.
+            // The column (FIELD's parts note): New Project, the main action; the place's paging where it has more; Settings, Usage; Close last.
             var column = new List<RoomAction>();
             if (main != null) column.Add(main);
             column.AddRange(others.Where(action => action.Control.Action == Footer.NextPage));

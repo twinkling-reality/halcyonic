@@ -23,6 +23,15 @@ namespace Halcyonic.Client
         /// <summary>What pressing a limit's row raises, with its place on the list as the key.</summary>
         public const string OpenLimit = "usage-open-limit";
 
+        /// <summary>
+        /// The menu's Compact (the addendum's A15), offered under the redesign alone, never the main action: the director
+        /// takes it and clears the room to the characters, the way back being a character picked.
+        /// </summary>
+        public const string Compact = "menu-compact";
+
+        /// <summary>The most usage windows the redesign's card holds (FIELD's two wells); more, and the older view draws the page.</summary>
+        private const int CardWindows = 2;
+
         private readonly IMenuHost host;
         private readonly Func<DateTimeOffset, AvailableUsageLimits?> recorded;
         private UsageLeftPresentation? shown;
@@ -53,12 +62,15 @@ namespace Halcyonic.Client
                 var close = new Prompt(Footer.Close, UsageText.Close, GlazeIcon.Close, PromptKind.Close);
                 var refresh = host.Demonstration ? null
                     : new Prompt(UsageLeftScreens.Refresh, WorkspaceText.Refresh, GlazeIcon.Refresh, available: reading == null, reason: reading == null ? null : UsageLeftPresenter.Reading);
+                var compact = RoomDesign.Enabled ? new Prompt(Compact, WorkspaceText.Compact, GlazeIcon.Next) : null;
                 var presentation = shown;
                 if (presentation == null || presentation.Rows.Count == 0)
                 {
                     var words = presentation?.Note ?? UsageLeftPresenter.Reading;
                     var tone = presentation?.Failed == true ? LineTone.Problem : LineTone.Secondary;
-                    return new MenuFrame(UsageText.Subject, new Footer(close, rare: refresh), lines: new[] { new PageLine(words, tone: tone, rows: 2) });
+                    var empty = new MenuFrame(UsageText.Subject, new Footer(close, rare: refresh, secondary: compact), lines: new[] { new PageLine(words, tone: tone, rows: 2) });
+                    // The redesign's menu (A4): the panel's one line, the product's own, on the usage card's title.
+                    return RoomDesign.Enabled ? empty.WithCard(new RoomCard(LineWords.Ours(RoomPanelCards.UsageTitle), LineWords.Ours(words))) : empty;
                 }
 
                 // Named organization controls narrow the heading; count its actual rows before packing.
@@ -75,7 +87,7 @@ namespace Halcyonic.Client
                     .Select(each => new PageLine(each.row.TitleRuns, fact: LineWords.Ours(UsageText.Left(each.row.Left)), action: OpenLimit,
                         key: each.at.ToString(CultureInfo.InvariantCulture), opens: true, chosen: each.at == chosen))
                     .ToList();
-                var footer = new Footer(close, rare: refresh);
+                var footer = new Footer(close, rare: refresh, secondary: compact);
                 // Paging waits while a row is chosen.
                 if (pages > 1 && chosen == null)
                 {
@@ -84,7 +96,10 @@ namespace Halcyonic.Client
                 var side = chosen is int open ? Side(presentation, presentation.Rows[open]) : null;
                 if (side?.Parts is (int part, int parts) && parts > 1)
                     footer = footer.WithNext(new Prompt(Footer.NextPage, Footer.NextPageWords(part, parts), GlazeIcon.Next, PromptKind.NextPage));
-                return new MenuFrame(UsageText.Subject, footer, lines: lines, source: presentation.Source, side: side);
+                var frame = new MenuFrame(UsageText.Subject, footer, lines: lines, source: presentation.Source, side: side);
+                // The redesign's menu (A4): FIELD's usage card, its windows as wells, where it holds every window read; the
+                // row's side panel is left out there, as the addendum says.
+                return RoomDesign.Enabled && presentation.Rows.Count <= CardWindows ? frame.WithCard(RoomPanelCards.Usage(presentation.Rows)) : frame;
             }
         }
 

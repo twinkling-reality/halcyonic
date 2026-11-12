@@ -76,6 +76,9 @@ namespace Halcyonic.Client
         public const string OtherApps = "Other Apps";
         public const string Minimize = "Minimize";
         public const string OpenWorkspace = "Open Workspace";
+
+        /// <summary>The menu's way to clear the room to the characters alone (WORDS.md, Workspace organization; the addendum's A15).</summary>
+        public const string Compact = "Compact";
         public const string Connected = "Connected";
         public const string Disconnected = "Disconnected";
         public const string Connecting = "Connecting";
