@@ -1737,7 +1737,11 @@ export class Projection {
         return;
       case 'project.repository_made_public': {
         const made = this.#madeRepositories.get(event.project_id);
-        if (made?.repository === event.payload.repository)
+        // Owner and name are case-insensitive on GitHub, as gh and a folder's origin may spell them.
+        if (
+          made !== undefined &&
+          made.repository.toLowerCase() === event.payload.repository.toLowerCase()
+        )
           this.#madeRepositories.set(event.project_id, { ...made, visibility: 'public' });
         return;
       }

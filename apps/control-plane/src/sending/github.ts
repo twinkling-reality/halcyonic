@@ -660,7 +660,7 @@ export class GitHubSender {
     if (
       origin === null ||
       HOST_TOOLS[origin.remote.host]?.pages !== true ||
-      origin.remote.path !== published.repository
+      !sameRepository(origin.remote.path, published.repository)
     )
       return refuse(
         'origin_changed',
@@ -762,7 +762,9 @@ export class GitHubSender {
     // Who can see it as far as the journal says, for a repository a send of Halcyonic's made; else
     // unknown, since a review asks GitHub nothing.
     const visibility =
-      options.made?.repository === origin.fullName ? options.made.visibility : 'unknown';
+      options.made !== undefined && sameRepository(options.made.repository, origin.fullName)
+        ? options.made.visibility
+        : 'unknown';
     // Only a repository this project's own first Send made private is ever made public by a press: never
     // one the person had before, whose code and history would all go public with it (AUDIT3 S1).
     const makePublic = options.makePublic === true && visibility === 'private';
@@ -1249,6 +1251,15 @@ export class GitHubSender {
 const HOST_TOOLS: Readonly<Record<string, { readonly tool: 'gh'; readonly pages: boolean }>> = {
   'github.com': { tool: 'gh', pages: true },
 };
+
+/**
+ * Whether two repository paths name the same repository: GitHub's owner and name are case-insensitive
+ * (gh prints them as the account spells them, a folder's origin may spell them otherwise), found by
+ * the first real run (2026-11-12, a login with capitals).
+ */
+export function sameRepository(a: string, b: string): boolean {
+  return a.toLowerCase() === b.toLowerCase();
+}
 
 /** The host whose tool makes a first send's repository in the person's own account. */
 const MAKES_REPOSITORIES = 'github.com';

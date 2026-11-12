@@ -153,6 +153,37 @@ The first real send to GitHub is the owner's own, with their press.
 - An origin with a port, a climbing path, or `file://`: refused `no_origin`, nothing sent.
 - Publish with an origin on gitlab.example: refused `no_pages_host`, in words naming the host.
 
+## The first real run against github.com (2026-11-12, 07:17Z to 07:21Z)
+
+On the owner's yes of 03:40Z (one throwaway repository in their account, one branch and one pull request, a test
+page for a few minutes, the repository deleted after), read by AUDIT3 (PLAN INSIDE SCOPE). The code: `git archive
+8810cb41c` (the link rule, the general Send, AUDIT3's S1 to S3, Add's link rule), on a scratch control plane on
+127.0.0.1:47910 with its own data and tasks folders, the game's folder outside every repository. The person's own
+git and gh did the work with the sign-in already on this Mac; no token was read, printed or copied. The commits
+were signed by a scratch identity set in Halcyonic's own repository for the project, so the owner's git name and
+email reached nothing. The repository is `<owner>/halcyonic-proof-20261112-0717`.
+- 07:17:45 a game from the VR starter, a box of its own; its check passed, confined.
+- 07:19:28 Send's review, nothing given: a new private repository `halcyonic-proof-20261112-0717`, title "Proof
+  Game", 26 files, no link left out. The scan of what could leave: 0 hits.
+- 07:19:35 **the first Send**: gh made the repository, private; `main` was pushed; the folder became its clone
+  (`## main...origin/main`). The commit's author and committer: the scratch identity, as checked.
+- 07:20:29 **the second Send** (the box blue, checked again, title "Proof <stamp>: a blue box"): one changed file,
+  the branch `halcyonic/halcyonic-proof-20261112-0717-060624d6`, and **pull request 1** opened by gh.
+- 07:20:36 **Publish, as it was**: GitHub kept no page for the private repository (GitHub Free), so the product
+  refused it `pages_refused` and the Pages branch it had pushed came down again (effect none), as built.
+- 07:20:41 **Publish with Make Public: refused too, and that is the finding.** Its review said the repository's
+  visibility was `unknown` and offered no Make Public, though Halcyonic had made it private three minutes before:
+  gh printed the owner with capitals, and the folder's origin is read lower-cased, so the two names did not compare
+  equal. GitHub's names are case-insensitive. Fixed after the run: every comparison of repository names ignores
+  case (`sameRepository`, and the projection's Make Public record), with a test of a capitalised owner.
+- So no page went live and Take Down did not run; the open question (does a page stop when its branch is deleted
+  with pages still on) is still open.
+- 07:20:42 the teardown: pages off (none were on), `gh repo delete` succeeded, and `gh repo view` answers not found.
+  The repository is gone.
+- A slip in the record itself, also fixed: the run's own log masked the login case-sensitively, so its lower-case
+  spelling stayed in the run's private log and in the lane's chat once; the logs are scrubbed and the mask ignores
+  case now. Nothing tracked holds it.
+
 ## GitHub's own rule for pages (read 2026-11-12, working rule 2)
 
 - GitHub's plans (https://docs.github.com/en/get-started/learning-about-github/githubs-plans): GitHub Free for

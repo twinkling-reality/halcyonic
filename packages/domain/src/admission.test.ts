@@ -1326,7 +1326,8 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
       'private',
       'another repository',
     );
-    madePublic('owner/garden');
+    // Made public as the folder's origin spells it: the same repository, case aside.
+    madePublic('OWNER/Garden');
     assert.equal(projection.madeRepository(scope.project_id)?.visibility, 'public');
     // It is in the state a checkpoint keeps.
     const restored = new Projection();
