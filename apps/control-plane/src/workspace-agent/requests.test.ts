@@ -27,6 +27,7 @@ import {
   ANSWER_NOW,
   ANSWERING,
   looksLikeToolCall,
+  PLAIN_WORDS,
   QUOTED_PREFIX,
   READ_FOR_IT,
   UNREAD_WAIT_MS,
@@ -2317,6 +2318,27 @@ test('a tool call written as text on an answer turn is asked again once, and the
     assert.ok(
       request?.steps.some((step) => step.tool_name === 'model' && step.status === 'rejected'),
     );
+  } finally {
+    await f.close();
+  }
+});
+
+test('every answer is asked for in plain words: no field names, ids or timestamps, on a turn with tools and on the answering turn', async () => {
+  const seen: ToolMessage[][] = [];
+  const f = await fixture({
+    turn: async (messages, tools) => {
+      seen.push([...messages]);
+      return (tools ?? []).length > 0 && seen.length === 1
+        ? answer([{ name: 'read_workspace', arguments: {} }], '')
+        : answer([], 'The check passed.');
+    },
+  });
+  try {
+    f.submit();
+    for (let i = 0; i < 20; i++) await settle();
+    assert.ok(seen[0]?.[0]?.content.endsWith(PLAIN_WORDS), 'the first turn');
+    assert.ok(ANSWERING.includes(PLAIN_WORDS), 'the answering turn');
+    assert.match(PLAIN_WORDS, /never field names, ids, timestamps/);
   } finally {
     await f.close();
   }
