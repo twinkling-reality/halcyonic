@@ -678,6 +678,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (Until(() => Current(task.WorkstreamId)?.PendingApprovals.Count > 0, "the live task's approval", 60)
                         && Current(task.WorkstreamId) is ExecutionView asking)
                     {
+                        // The way to the waiting request is what the screen draws (its main action, a row naming the task): the
+                        // walk opens the request itself only where nothing drawn reaches it, and says so.
+                        DriveUntil(() => Drawn(FileScreens.Approve, null) != null, "to the request", "", 4);
                         Approve(task, asking, asking.PendingApprovals[0]);
                         decisions++;
                     }
