@@ -144,4 +144,18 @@ public sealed class RoomCardTests
         Assert.That(card.List, Is.Empty);
         Assert.That(card.Head, Is.EqualTo(RoomCardHead.None));
     }
+
+    [Test]
+    public void A_rows_name_is_cut_only_where_it_is_wholly_theirs_and_the_row_opens_it_and_a_row_may_say_what_it_belongs_to()
+    {
+        var frame = new MenuFrame("Tasks", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)));
+        var press = new KitControl(KitPlace.Choice, frame, "open-task", "t1", "t1", null, available: true, reason: null, holds: false);
+        var theirs = LineWords.TheirName("Make the kite's tail longer, and let it ripple in the wind.");
+        Assert.That(new RoomListRow(RoomKind.Waiting, theirs, press: press, excerpt: true).Excerpt, Is.True);
+        Assert.That(new RoomListRow(RoomKind.Waiting, theirs, excerpt: true).Excerpt, Is.False, "a row that opens nothing shows its words whole");
+        Assert.That(new RoomListRow(RoomKind.Task, LineWords.Ours("Write Instruction"), press: press, excerpt: true).Excerpt, Is.False, "our own words are never cut");
+        var row = new RoomListRow(RoomKind.Task, LineWords.TheirName("Tail"), "Working", RoomTone.Working, press: press, under: LineWords.TheirName("Kite Run"));
+        Assert.That(row.Under!.Text, Is.EqualTo("Kite Run"));
+        Assert.That(new RoomListRow(RoomKind.Task, LineWords.TheirName("Tail"), under: LineWords.Ours("")).Under, Is.Null);
+    }
 }
