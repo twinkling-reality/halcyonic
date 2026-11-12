@@ -173,3 +173,14 @@ test('a picture is chosen by its place in the folder’s list and given as the r
     { path: 'art/red.png', kind: 'image' },
   ]);
 });
+
+test('words that leave the Mac are cleaned the one way: no hidden characters, one line for a title, clipped at a word (addition D)', async () => {
+  const { cleanWords } = await import('./prepare.ts');
+  assert.equal(
+    cleanWords('  Night​ sky\u0007\n  over  the\tcity ', true, 200),
+    'Night sky over the city',
+  );
+  assert.equal(cleanWords('Line one\r\nline two‮', false, 200), 'Line one\nline two');
+  assert.equal(cleanWords('Make the whole sky a deep night blue', true, 20), 'Make the whole sky');
+  assert.equal(cleanWords('\u0000​', true, 20), '', 'nothing left is no words');
+});

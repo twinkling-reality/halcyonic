@@ -38,6 +38,45 @@ export interface PrepareSources {
   readonly rows: (list: ChoiceList) => Promise<{ rows: readonly HeldRow[]; digest: string } | null>;
 }
 
+/** Fields whose words are one line: a name or a title, never a paragraph. */
+const ONE_LINE = new Set(['name', 'title', 'folder_name']);
+
+/**
+ * Words as the host passes them on (ADR 0060, addition D): no control or format characters (a
+ * newline only where the field takes a paragraph), one line for a name or a title, and at most
+ * `max` characters, cut at a word where one is near. The same for words a person typed and words
+ * the assistant proposed, and shown on the review exactly as they will be sent.
+ */
+export function cleanWords(text: string, oneLine: boolean, max: number): string {
+  let clean = text
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\p{Cc}\p{Cf}]/gu, (c) => (c === '\n' || c === '\t' ? c : ''));
+  clean = oneLine ? clean.replace(/\s+/g, ' ').trim() : clean.replace(/[ \t]+\n/g, '\n').trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max);
+  const space = cut.lastIndexOf(' ');
+  return (space > max * 0.7 ? cut.slice(0, space) : cut).trimEnd();
+}
+
+/** The largest length each command's text fields take, from its own schema. */
+const MAX_LENGTH = new Map<string, number>(
+  COMMAND_VARIANTS.flatMap((variant) =>
+    Object.entries(
+      (variant.properties.payload as { properties: Record<string, { maxLength?: number }> })
+        .properties,
+    ).flatMap(([name, schema]) =>
+      typeof schema.maxLength === 'number'
+        ? [
+            [
+              `${variant.properties.command_type.const as string}.${name}`,
+              schema.maxLength,
+            ] as const,
+          ]
+        : [],
+    ),
+  ),
+);
+
 /** The payload fields each command's schema requires, from its own definition. */
 const REQUIRED = new Map<string, ReadonlySet<string>>(
   COMMAND_VARIANTS.map((variant) => [
@@ -84,11 +123,15 @@ export async function prepareCommand(
       continue;
     }
     switch (field.need) {
-      case 'text':
-        if (typeof value !== 'string' || value.trim() === '')
-          return refuse('invalid_state', `${field.label} needs words.`);
-        payload[name] = value.trim();
+      case 'text': {
+        const words =
+          typeof value === 'string'
+            ? cleanWords(value, ONE_LINE.has(name), MAX_LENGTH.get(`${type}.${name}`) ?? 32000)
+            : '';
+        if (words === '') return refuse('invalid_state', `${field.label} needs words.`);
+        payload[name] = words;
         break;
+      }
       case 'yes_no':
         if (typeof value !== 'boolean')
           return refuse('invalid_state', `${field.label} is a yes or no.`);
