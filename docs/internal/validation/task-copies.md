@@ -72,7 +72,8 @@ approved once each:
 - each command ran in its own copy (`pwd`), wrote `where.txt` there, and was refused writing the project's folder
   (exit 1) and listing the projects folder (exit 1); the project's folder got neither file;
 - each copy's change to add was `where.txt` alone;
-- each run was recorded not confined, with the reason that the sign-in key is inside with it (AUDIT BOX-4 F1).
+- each run was recorded not confined, with the reason that the sign-in key was inside with it (AUDIT BOX-4 F1; since
+  the gate holds the key, 2026-11-12, such a run is recorded confined).
 Found on the way and fixed in its own commit: listing Claude Code's models failed on the real CLI every time
 ("ps never showed process ... with its session id"): the listing's process carried no session id for the process
 guard to know it by. It now carries its label as one, and the plane lists five models. A listing leaves no

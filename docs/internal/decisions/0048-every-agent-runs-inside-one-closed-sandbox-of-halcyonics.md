@@ -95,19 +95,25 @@ things that sets the product apart, so it is kept wherever the person works in t
 1. **Confined only on a start that asks for it:** a new app's project, made from a starter
    (`claudeConfinement` in `apps/control-plane/src/runtimes.ts`). There Claude Code runs inside the profile with a
    home, configuration and temporary folder of its own (`<data>/claude-sandbox-<key>`), the person's hooks off, and
-   it would record `confined: true`, but see the key below. Everywhere else it runs as before, with the person's own
+   it records `confined: true`: its gate holds the key (below). Everywhere else it runs as before, with the person's own
    settings and hooks, and records `confined: false`; what needs confinement stays refused in words.
-   - **The sign-in key is inside (AUDIT BOX-4 F1):** `ANTHROPIC_API_KEY` reaches the confined process, and the agent's
-     own commands can read it. An agent could write it into the project, and a preview opens on the headset with the
-     network on. So while the key is inside, such a run is recorded `confined: false` with `unconfined_reason`, and
-     its previews, shares and never asking stay refused, as for any unconfined run. It still runs inside the profile.
-   - Keeping the key out, in a gate that holds it and adds it to each request, is Halcyonic handling a person's key in
-     a new way: the owner's decision, proposed in VRIFY's report, not built.
-2. **Its one way out** is a gate of the adapter's on loopback (`api-gate.ts`): a CONNECT tunnel to exactly the API
-   host and port of `ANTHROPIC_BASE_URL`, else `api.anthropic.com:443`, or absolute-form requests to exactly a plain
-   HTTP one. Everything else gets 403. The profile reaches the gate's port alone.
-3. **Signing in** inside the profile is the API key the adapter already requires, passed in its environment, so it
-   is inside with the agent (point 1). No saved login, keychain item or file of the person's is read
+   - **The gate holds the key, the agent holds none (VRIFY, 2026-11-12; AUDIT BOX-4 F1 closed):** until then
+     `ANTHROPIC_API_KEY` reached the confined process, where the agent's own commands could read it, so such a run was
+     recorded not confined. Now the agent's environment holds only its run's credential from the gate (random, per
+     run, revoked when the run's process ends; the gate takes nothing else, nor a request whose Host is not its own,
+     AUDIT3 2026-11-12) and `ANTHROPIC_BASE_URL` points at the gate; the gate drops every credential the agent sends and adds the person's key
+     in the header the adapter declares (Claude Code's declaration, `CLAUDE_CODE_KEY_GATE`: `x-api-key`, how the
+     Anthropic API takes a key and how Claude Code sends `ANTHROPIC_API_KEY`), so a run inside is recorded confined and what it makes can be played, published and shared
+     like any other. The owner's word, 2026-11-12 (lead's answer of 14:33Z); the record is
+     [claude-code-key-gate.md](../validation/claude-code-key-gate.md).
+2. **Its one way out** is a gate on loopback (since 2026-11-12 `packages/seatbelt/src/key-gate.ts`, one mechanism for
+   every confined agent app that takes a key, each adapter declaring how its app takes one: `KeyGateDeclaration`;
+   the seatbelt package may import `node:http`, `node:https` and `node:net` for it, an architecture rule changed on
+   purpose), a gateway, not a tunnel: the agent's API base address is the gate, which sends each request to its own address on to
+   `ANTHROPIC_BASE_URL`, else `https://api.anthropic.com`, with the person's key added and the answer streamed back.
+   A proxied request for any other host, and every CONNECT, gets 403. The profile reaches the gate's port alone.
+3. **Signing in** inside the profile is the API key the adapter already requires, held by the gate alone (point
+   1). No saved login, keychain item or file of the person's is read
    ([claude-code-sandbox.md](../validation/claude-code-sandbox.md)). A start that cannot be confined, or is not
    counted confined, runs as before or inside the profile, recorded `confined: false` with `unconfined_reason` on
    `runtime.execution.started` for the headset to say; it is never refused for that, and never called confined.

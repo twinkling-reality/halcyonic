@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -46,6 +48,25 @@ for (const name of ['home', 'config', 'project', 'tmp', 'halcyonic', 'outside'])
   mkdirSync(join(ROOT, name));
 }
 const PROJECT = join(ROOT, 'project');
+/** A fake key for the fake API: what the person's key would be, never a real one. */
+const KEY = 'sk-ant-dummy-halcyonic-test';
+
+/** Every file under `folder` whose bytes hold `text`, relative; links passed over. */
+function filesHolding(folder: string, text: string): string[] {
+  const found: string[] = [];
+  const walk = (at: string) => {
+    for (const name of readdirSync(at)) {
+      const path = join(at, name);
+      const stat = lstatSync(path);
+      if (stat.isSymbolicLink()) continue;
+      if (stat.isDirectory()) walk(path);
+      else if (stat.isFile() && readFileSync(path).includes(text))
+        found.push(path.slice(folder.length + 1));
+    }
+  };
+  walk(folder);
+  return found;
+}
 const RESULTS = join(PROJECT, 'results.txt');
 writeFileSync(join(ROOT, 'outside', 'marker.txt'), 'outside-marker-4c1d\n');
 writeFileSync(join(ROOT, 'home', 'marker.txt'), 'home-marker-9a2e\n');
@@ -56,13 +77,21 @@ const COMMAND = [
   `echo "own-home=$([ "$HOME" != ${ROOT}/home ] && echo yes)" >> ${RESULTS}`,
   `/usr/bin/curl --noproxy '*' -s --max-time 5 -o /dev/null -w 'net=%{http_code}' http://1.1.1.1/ >> ${RESULTS}; echo " curl=$?" >> ${RESULTS}`,
   `echo inside > ${PROJECT}/inside.txt`,
-  // AUDIT BOX-4 F1: the sign-in key is in the command's environment.
-  `echo "key=\${ANTHROPIC_API_KEY:-none}" >> ${RESULTS}`,
+  // The key the command's environment holds: the gate's placeholder, never the person's (VRIFY, 2026-11-12).
+  `echo "key=\${ANTHROPIC_API_KEY:-none} token=\${ANTHROPIC_AUTH_TOKEN:-none}" >> ${RESULTS}`,
+  // The plane's own environment, as ps would show it from inside: refused or holding no key.
+  `/bin/ps eww -p ${process.pid} >> ${RESULTS} 2>&1; echo "ps=$?" >> ${RESULTS}`,
+  // The gate itself, asked without this run's credential: refused (AUDIT3).
+  `/usr/bin/curl -s --max-time 5 --noproxy '*' -o /dev/null -w 'bare=%{http_code}' -X POST "\${ANTHROPIC_BASE_URL}/v1/messages" >> ${RESULTS}; echo " bare-curl=$?" >> ${RESULTS}`,
+  // A request for another host through the gate as a proxy: refused there.
+  `/usr/bin/curl -s --max-time 5 -o /dev/null -w 'via=%{http_code}' http://example.test/ >> ${RESULTS}; echo " via-curl=$?" >> ${RESULTS}`,
 ].join('; ');
 
 /** A Messages API that asks for one Bash call for the prompt marked TOOL, then answers Done. */
 function fakeApi() {
   const bodies: string[] = [];
+  /** The credential headers each request reached the API with. */
+  const keys: { key: string | null; authorization: string | null }[] = [];
   const server = createServer((req, res) => {
     let raw = '';
     req.on('data', (chunk) => {
@@ -78,6 +107,10 @@ function fakeApi() {
         return;
       }
       bodies.push(raw);
+      keys.push({
+        key: (req.headers['x-api-key'] as string | undefined) ?? null,
+        authorization: req.headers.authorization ?? null,
+      });
       const body = JSON.parse(raw) as { stream?: boolean; model?: string; messages: unknown[] };
       // The whole request: Claude Code may send the prompt in a block of its own before reminders.
       const tool = raw.includes('TOOL first') && !raw.includes('tool_result');
@@ -155,7 +188,7 @@ function fakeApi() {
       res.end();
     });
   });
-  return { server, bodies };
+  return { server, bodies, keys };
 }
 
 function trap() {
@@ -201,6 +234,13 @@ test("a new app's confined Claude Code runs a command that reaches nothing outsi
   skip: SKIP,
   timeout: 240_000,
 }, async (t) => {
+  // As a plane started with the key in its environment holds it: so ps from inside has something to find.
+  const keyBefore = process.env.ANTHROPIC_API_KEY;
+  process.env.ANTHROPIC_API_KEY = KEY;
+  t.after(() => {
+    if (keyBefore === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = keyBefore;
+  });
   const api = fakeApi();
   const refusing = trap();
   const base = await listen(api.server);
@@ -221,7 +261,7 @@ test("a new app's confined Claude Code runs a command that reaches nothing outsi
         HOME: join(ROOT, 'home'),
         CLAUDE_CONFIG_DIR: join(ROOT, 'config'),
         TMPDIR: `${join(ROOT, 'tmp')}/`,
-        ANTHROPIC_API_KEY: 'sk-ant-dummy-halcyonic-test',
+        ANTHROPIC_API_KEY: KEY,
       },
       environment: {
         ANTHROPIC_BASE_URL: base,
@@ -300,10 +340,10 @@ test("a new app's confined Claude Code runs a command that reaches nothing outsi
     () => `the first turn to finish; observed ${observed.map((o) => o.type).join(', ')}`,
   );
   const started = observed.find((o) => o.type === 'runtime.execution.started');
-  // Inside the sandbox, but not counted confined: its key is inside with it (AUDIT BOX-4 F1).
+  // Inside the sandbox and counted confined: the gate holds its key, it holds none (AUDIT BOX-4 F1 closed).
   const payload = started?.payload as { confined?: boolean; unconfined_reason?: string };
-  assert.equal(payload.confined, false);
-  assert.match(payload.unconfined_reason ?? '', /sign-in key is inside with it/);
+  assert.equal(payload.confined, true);
+  assert.equal(payload.unconfined_reason, undefined);
   const said = readFileSync(RESULTS, 'utf8');
   t.diagnostic(said);
   // The controls: the command ran, inside its folder, with a home of its own.
@@ -315,11 +355,26 @@ test("a new app's confined Claude Code runs a command that reaches nothing outsi
   assert.match(said, /home=1/);
   assert.match(said, /users=1/);
   assert.match(said, /net=000/, 'reached beyond loopback');
-  // The fact the record follows: the command could read the test's dummy key.
-  assert.match(said, /key=sk-ant-dummy-halcyonic-test/);
-  // Every request went through the gate to the API: none bypassed it to the test's proxies.
+  // The command holds only this run's credential from the gate; the gate refuses a request without it;
+  // ps from inside shows no key of the plane's; another host is refused.
+  assert.match(said, /key=halcyonic-gate-run-[0-9a-f]{64} token=none/);
+  assert.match(said, /bare=403/);
+  assert.ok(!said.includes(KEY), 'the person key reached the command');
+  assert.match(said, /via=403/);
+  // Every request reached the API through the gate, with the person's key alone in the declared header.
   assert.ok(api.bodies.length >= 2);
+  assert.ok(
+    api.keys.every((each) => each.key === KEY && each.authorization === null),
+    JSON.stringify(
+      api.keys.map((each) => ({
+        key: each.key === KEY,
+        authorization: each.authorization !== null,
+      })),
+    ),
+  );
   assert.deepEqual(refusing.egress, []);
+  // No file of the agent's own place holds the key.
+  assert.deepEqual(filesHolding(own.root, KEY), []);
   // The person's Claude Code configuration was never used: the session is in its folder's own store.
   assert.equal(existsSync(join(ROOT, 'config', 'projects')), false);
   await first.close();
@@ -334,7 +389,7 @@ test("a new app's confined Claude Code runs a command that reaches nothing outsi
     native_id: sessionId as string,
     options: {},
     model_ref: null,
-    confined: false,
+    confined: true,
     directory: PROJECT,
     cut_turn: null,
     last_sequence: null,
