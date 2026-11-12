@@ -135,7 +135,11 @@ namespace Halcyonic.Client
                         else rows.Add(new RoomRow(words, status.Tone == LineTone.Good ? RoomRowMark.Check : status.Tone == LineTone.Problem ? RoomRowMark.Cross : RoomRowMark.None));
                     }
                     var acts = main != null || prompts.Any(prompt => prompt.Kind == PromptKind.Action);
-                    return Rows(RoomBarState.Choose, rows, under, Column(withClose: acts || under == null, frame.Footer[PromptSlot.Secondary]), waits: under != null);
+                    // Where the page gives the start's card, the card says how it stands: no sentence of facts joined on a dot beside it.
+                    var starting = Rows(RoomBarState.Choose, rows, frame.Card != null ? null : under, Column(withClose: acts || under == null, frame.Footer[PromptSlot.Secondary]), waits: under != null);
+                    // The start's card where the page gives one: the project, how it stands, its steps as nodes.
+                    if (frame.Card != null) starting.Card = frame.Card;
+                    return starting;
                 }
                 // A start whose outcome is unknown: its lines as rows under what it is, Clear and its Confirm.
                 var title = plain.FirstOrDefault()?.Words;

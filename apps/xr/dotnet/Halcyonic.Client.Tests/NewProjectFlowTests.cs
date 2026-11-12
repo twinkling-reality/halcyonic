@@ -2704,7 +2704,9 @@ public class NewProjectFlowTests
         Assume.That(host.Sent, Is.Not.Empty, "the start went");
         var bar = Bar(flow);
         Assert.That((bar.State, bar.Waits), Is.EqualTo((RoomBarState.Choose, true)));
-        Assert.That(bar.Sentence, Does.Contain(KitMomentWords.Dot), "the step under way, its name and how it stands");
+        // The start's card says how it stands, its steps as nodes; no sentence of facts joined on a dot beside it (the lead's rule).
+        Assert.That(bar.Card?.Status?.Title, Is.EqualTo("Starting"));
+        Assert.That(bar.Sentence, Is.Null);
         Assert.That(bar.Column, Is.Empty, "nothing to press while it starts");
         Assert.That(bar.Facts!.Select(row => row.Words.Text), Has.None.EqualTo(EntryText.SendingLine));
     });

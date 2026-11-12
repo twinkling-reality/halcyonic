@@ -1311,7 +1311,10 @@ launch/return, process recreation and current-frame action behavior need separat
   one that recap frame was built with, and a change since draws the recap again. Where the card
   cuts the first task, and for a start tried again, Start task opens the review as before. Once
   started, the redesign's Starting page offers Open Task as its main action, which opens the task's
-  file, where anything it asks waits for the person (the file turns to Waiting by itself).
+  file, where anything it asks waits for the person (the file turns to Waiting by itself). Under the
+  redesign the start is drawn as a card (`NewProjectScreens.StartingCard`): the project as its
+  title, how the start stands as its status (Starting, Task Started, Not Started, Start Unknown),
+  and each step a node in its tone, never facts joined on a dot.
 - **`WorkspaceScreens`** builds every screen of the open workspace as a `PanelModel` from its
   presentation, the steering and what the workspace is in the middle of (`WorkspaceScreen`: the
   tab chosen, a notice, the instructions offered where no keyboard is, and the agent's question or

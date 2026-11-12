@@ -422,6 +422,26 @@ public class BuildSequenceTests
         return state;
     }
 
+    /// <summary>A start under way draws its card and no sentence of facts joined on a dot beside it.</summary>
+    [Test]
+    public void UnderTheRedesignAStartUnderWayIsItsCardAlone()
+    {
+        var sequence = new BuildSequence(Draft(), Commands, "Recipes");
+        sequence.Begin(Samples.Reviewed(sequence));
+        var was = RoomDesign.Enabled;
+        try
+        {
+            RoomDesign.Enabled = true;
+            var frame = NewProjectScreens.Starting(new ProjectIdea(null, null), sequence, null);
+            Assert.That((frame.Card!.Status?.Title, frame.Card.Status?.Tone), Is.EqualTo(("Starting", RoomTone.Working)));
+            Assert.That(frame.Card.Steps[0].Tone, Is.EqualTo(RoomTone.Working));
+            var bar = RoomBar.NewProject(frame, VoiceStage.Idle)!;
+            Assert.That(bar.Card, Is.SameAs(frame.Card));
+            Assert.That(bar.Sentence ?? "", Does.Not.Contain(KitMomentWords.Dot.Trim()), "no dot-joined sentence beside the card");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
     /// <summary>The lead's first journey (2026-11-12): once started, the task's file is one coloured press from where the person is.</summary>
     [Test]
     public void UnderTheRedesignAStartedBuildOffersItsTaskAsTheMainAction()
@@ -436,8 +456,15 @@ public class BuildSequenceTests
         try
         {
             RoomDesign.Enabled = true;
-            var main = NewProjectScreens.Starting(new ProjectIdea(null, null), sequence, null).Footer[PromptSlot.FarRight];
+            var started = NewProjectScreens.Starting(new ProjectIdea(null, null), sequence, null);
+            var main = started.Footer[PromptSlot.FarRight];
             Assert.That((main?.Id, main?.Words, main?.Main), Is.EqualTo((NewProjectScreens.OpenStartedTask, EntryText.OpenTask, true)));
+            // A card, never facts joined on a dot: how the start stands, each step a node in its tone.
+            var card = started.Card!;
+            Assert.That((card.Status?.Title, card.Status?.Tone), Is.EqualTo(("Task Started", RoomTone.Good)));
+            Assert.That(card.Steps.Select(step => step.Tone), Is.All.EqualTo(RoomTone.Good));
+            Assert.That(card.Steps.Select(step => step.Name), Has.None.Contains(KitMomentWords.Dot.Trim()));
+            Assert.That(RoomBar.NewProject(started, VoiceStage.Idle)?.Card, Is.SameAs(card), "the redesign draws the start's card");
             RoomDesign.Enabled = false;
             Assert.That(NewProjectScreens.Starting(new ProjectIdea(null, null), sequence, null).Footer[PromptSlot.FarRight], Is.Null, "the older view is unchanged");
         }

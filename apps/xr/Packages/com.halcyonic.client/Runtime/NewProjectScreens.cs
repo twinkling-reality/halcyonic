@@ -1152,8 +1152,33 @@ namespace Halcyonic.Client
                 main = new Prompt(CheckFirst, EntryText.CheckFirst, GlazeIcon.Next, main: true);
             }
             var subject = Subject(idea);
-            return new MenuFrame(subject, new Footer(Close(), secondary: beside, farRight: main),
+            var frame = new MenuFrame(subject, new Footer(Close(), secondary: beside, farRight: main),
                 sections: Sections(NewProjectStep.Build, idea, startReached: true), lines: lines);
+            return RoomDesign.Enabled ? frame.WithCard(StartingCard(idea, sequence)) : frame;
+        }
+
+        /// <summary>
+        /// A start under the redesign as a card (the lead's first journey, 2026-11-12): the project as its title, how the start
+        /// stands as its status, and each step a node of its own in the step's tone, never facts joined on a dot. FIELD's words to come.
+        /// </summary>
+        public static RoomCard StartingCard(ProjectIdea idea, BuildSequence sequence)
+        {
+            var newProject = sequence.Steps[0].Kind == BuildStepKind.CreateProject;
+            var steps = sequence.Steps.Select(step => new RoomCardStep(EntryText.StepName(step.Kind, newProject), step.Status switch
+            {
+                BuildStepStatus.Confirmed => RoomTone.Good,
+                BuildStepStatus.Waiting => RoomTone.Working,
+                BuildStepStatus.NotYet => RoomTone.Quiet,
+                BuildStepStatus.Failed when step.EffectUnknown => RoomTone.Attention,
+                BuildStepStatus.Refused or BuildStepStatus.NotSent or BuildStepStatus.Failed => RoomTone.Bad,
+                _ => RoomTone.Attention,
+            })).ToList();
+            var status = sequence.Started ? new RoomCardStatus("Task Started", null, RoomTone.Good)
+                : sequence.CanRetry ? new RoomCardStatus("Not Started", null, RoomTone.Bad)
+                : sequence.Stopped || sequence.Steps.Any(step => step.Status == BuildStepStatus.Unknown) ? new RoomCardStatus("Start Unknown", "Check the Stage First", RoomTone.Attention)
+                : new RoomCardStatus("Starting", null, RoomTone.Working);
+            var title = idea.Name.Length > 0 ? LineWords.TheirName(idea.Name) : LineWords.Ours(EntryText.NotNamedYet);
+            return new RoomCard(title, head: RoomCardHead.Project, status: status, steps: steps);
         }
 
         /// <summary>
