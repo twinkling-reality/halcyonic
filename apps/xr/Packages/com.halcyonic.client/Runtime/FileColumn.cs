@@ -61,6 +61,24 @@ namespace Halcyonic.Client
 
         /// <summary>The request's parts were cut by the lines of the drawer that gives them itself (the redesign's panel), not the file's own view.</summary>
         private bool requestForPanel;
+
+        /// <summary>
+        /// An approval's answer pressed under the redesign (R1, the lead's decision of 2026-11-12): the press is the decision, so
+        /// once the request it answers has been drawn whole in one part, it is sent with no second press. Only for that armed answer.
+        /// </summary>
+        private WorkspaceAction? decidedOnce;
+
+        /// <summary>The approval and its request as the last frame drawn with nothing armed showed them: what one press may answer.</summary>
+        private (string? ApprovalId, string? Request)? drawnApproval;
+
+        /// <summary>The approval and its request as the frame being built shows them; taken as drawn once that frame is drawn.</summary>
+        private (string? ApprovalId, string? Request)? builtApproval;
+
+        /// <summary>
+        /// Whether an answer pressed here is the decision (R1). Only a person's press is: a check or capture preset that presses Approve
+        /// to show the confirmation turns it off, so nothing it arms is ever sent.
+        /// </summary>
+        public bool DecideOnPress { get; set; } = true;
         private TextSize measuredAt;
         private IReadOnlyList<PromptMeasure>? measures;
         private bool presets;
@@ -521,6 +539,18 @@ namespace Halcyonic.Client
                     if (WorkspaceScreens.ActionOf(id) is WorkspaceAction action && action != WorkspaceAction.Answer)
                     {
                         Steer(Steering.Press(action, Now));
+                        // One press only where the redesign's panel draws the request, for a person's press, and only for the approval and
+                        // request the frame they pressed on showed (a fresh critic, 2026-11-12): a press that armed any other waits for its Confirm.
+                        decidedOnce = DecideOnPress && RoomDesign.Enabled && RequestPartRowsOf?.Invoke() != null
+                            && (action == WorkspaceAction.Approve || action == WorkspaceAction.Deny) && Steering.Armed == action
+                            && drawnApproval is { } shown && shown.ApprovalId != null && shown.ApprovalId == Steering.ArmedApprovalId && shown.Request == Steering.ArmedRequest
+                            ? action : null;
+                        // A denial asks nothing to be read first: the press sends it. An approval waits for its request drawn whole.
+                        if (decidedOnce == WorkspaceAction.Deny && Steering.CanConfirm)
+                        {
+                            decidedOnce = null;
+                            Steer(Steering.Confirm(Now));
+                        }
                         return;
                     }
                     return;
@@ -673,6 +703,9 @@ namespace Halcyonic.Client
             }
             // Only the frame this column stands by counts: what it shows is this state's.
             if (drawn != Frame || Now == null) return;
+            // The approval this frame showed, by its id and the request drawn on it, with nothing armed: what a press on it answers in one.
+            // As the frame was built, never the state now (a fresh critic, 2026-11-12).
+            if (Steering.Armed == null) drawnApproval = builtApproval;
             var clock = host.Clock;
             if (Screen.Presets != null && Steering.Armed == null && (Screen.ShowingPresetNotice || drawn.Lines.Any(line => line.Action == FileScreens.Preset)))
             {
@@ -703,6 +736,32 @@ namespace Halcyonic.Client
                 {
                     var could = Steering.CanConfirm;
                     Screen.RequestDrawn(Screen.RequestPart, Steering, clock);
+                    if (decidedOnce is WorkspaceAction decided)
+                    {
+                        decidedOnce = null;
+                        // Judged against the work as it is now, as a press is, never the reading the last rebuild kept.
+                        if (present() is WorkspacePresentation fresh)
+                        {
+                            if (Now.Character.WorkstreamId != fresh.Character.WorkstreamId || Now.Execution?.ExecutionId != fresh.Execution?.ExecutionId)
+                            {
+                                Rebuild();
+                                return;
+                            }
+                            Now = fresh;
+                        }
+                        else
+                        {
+                            Rebuild();
+                            return;
+                        }
+                        // The answer pressed is the decision: drawn whole in one part, the request it answers goes now. A longer one
+                        // still pages, then its Confirm; a press on anything else since lets the decision lapse.
+                        if (Steering.Armed == decided && Steering.CanConfirm && Screen.RequestParts == 1)
+                        {
+                            Steer(Steering.Confirm(Now));
+                            return;
+                        }
+                    }
                     // Built again only when Yes may show now. Building on every draw would hand the
                     // director a new frame each time, so no press would ever stand on the one drawn.
                     if (Steering.CanConfirm != could) Rebuild();
@@ -889,6 +948,8 @@ namespace Halcyonic.Client
         private void Rebuild()
         {
             Screen.StartsNewRun = Now != null && KitPresenter.NewRunOf(Now, Choice?.Invoke()) != null;
+            builtApproval = Steering.Armed == null && Screen.Section == FileSection.Waiting && Now?.ApprovalToAnswer is { } shownApproval && WorkspaceText.Request(shownApproval) is string asking
+                ? (shownApproval.ApprovalId, asking) : null;
             drawnColourFrame = null;
             drawnPresetFrame = null;
             nextRefresh = host.Now + RefreshSeconds;

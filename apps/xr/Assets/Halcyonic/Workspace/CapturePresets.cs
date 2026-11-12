@@ -217,6 +217,8 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private static bool Arm(FileColumn file, WorkspacePresentation now)
         {
+            // A preset's press is never the decision (R1's one press is a person's): it arms and shows the confirmation only.
+            file.DecideOnPress = false;
             if (now.Actions.Contains(WorkspaceAction.Approve) && now.RequiresConfirmation(WorkspaceAction.Approve) && file.Steering.Armed == null)
                 file.Act(FileScreens.Approve, null);
             return file.Steering.Armed == WorkspaceAction.Approve;

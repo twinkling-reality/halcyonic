@@ -45,15 +45,26 @@ public class RoomApprovalTests
 
     private static void Press(FileColumn column, RoomAction action) => column.Act(action.Control.Action, action.Control.Key);
 
+    /// <summary>
+    /// Draws the request a part at a time until its Confirm stands, the decision is sent (R1: an approval is one press), or
+    /// nothing is left to answer.
+    /// </summary>
     private void ReadWhole(FileMenuHost host, FileColumn column)
     {
-        for (var turn = 0; turn < 12 && Find(Bar(column), "Confirm") == null; turn++)
+        var sent = host.Sent.Count;
+        for (var turn = 0; turn < 12 && host.Sent.Count == sent && Answering(column) is RoomBar bar && Find(bar, "Confirm") == null; turn++)
         {
             Draw(host, column);
-            if (Find(Bar(column), "Confirm") != null) break;
-            if (Find(Bar(column), "Next Part") is RoomAction next) Press(column, next);
+            if (host.Sent.Count != sent || Answering(column) is not RoomBar drawn || Find(drawn, "Confirm") != null) break;
+            if (Find(drawn, "Next Part") is RoomAction next) Press(column, next);
         }
     }
+
+    /// <summary>The redesign's bar for the file, or null where nothing is left that it draws.</summary>
+    private static RoomBar? Answering(FileColumn column) => column.Frame != null && KitFileBinding.Of(column.Frame!, column.Steering.Armed, column.Now!, "",
+        new ConnectionStatus(ConnectionPhase.Live), "Storefront", new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true,
+        requestRows: column.Steering.ToRead(column.Now!) is string read && column.Screen.Measured(column.Steering, read) ? column.Screen.RequestRows : (int?)null) is KitFileBinding binding
+        ? RoomBar.Of(binding, VoiceStage.Idle, false) : null;
 
     [Test]
     public void ApproveThenCancelThenDenySendsADenialAndNeverAnApproval()
@@ -68,46 +79,79 @@ public class RoomApprovalTests
             // A Confirm that no control offers yet: refused, nothing sent.
             column.Act(FileScreens.Yes, null);
             Assert.That(host.Sent.Count, Is.EqualTo(0), "Yes before the request was drawn");
-            ReadWhole(host, column);
-            var staleConfirm = Find(Bar(column), "Confirm")!;
-            TestContext.Out.WriteLine("approve read: " + Show(Bar(column)));
+            // R1: Approve is the decision once its request is drawn whole; Cancel before that draw lets it lapse.
             Press(column, Find(Bar(column), "Cancel")!);
+            ReadWhole(host, column);
             Draw(host, column);
             TestContext.Out.WriteLine("cancelled: " + Show(Bar(column)));
-            // The stale Confirm of the approval, pressed after Cancel: nothing armed, nothing sent.
-            Press(column, staleConfirm);
-            Assert.That(host.Sent.Count, Is.EqualTo(0), "a stale Confirm after Cancel");
+            Assert.That(host.Sent.Count, Is.EqualTo(0), "an Approve cancelled before its request was drawn sends nothing");
+            column.Act(FileScreens.Yes, null);
+            Assert.That(host.Sent.Count, Is.EqualTo(0), "a Yes after Cancel");
             Press(column, Find(Bar(column), "Deny")!);
-            var denying = Bar(column);
-            TestContext.Out.WriteLine("deny pressed: " + Show(denying));
-            Assert.That(denying.Sentence, Is.EqualTo("Deny Request?"));
-            Press(column, Find(denying, "Confirm")!);
-            Assert.That(host.Sent.Count, Is.EqualTo(1));
+            Assert.That(host.Sent.Count, Is.EqualTo(1), "Deny is one press");
             var sent = (ExecutionRespondToApprovalCommand)host.Sent[0];
             Assert.That((sent.Payload.Decision, sent.Payload.ApprovalId), Is.EqualTo((ApprovalDecision.Deny, WaitingWork.ApprovalId)));
-            // Confirm again, and the approval's stale Confirm again: nothing more.
+            // Confirm again, and the drawn request again: nothing more.
             column.Act(FileScreens.Yes, null);
-            Press(column, staleConfirm);
+            Draw(host, column);
             Assert.That(host.Sent.Count, Is.EqualTo(1), "one decision only");
         }
         finally { RoomDesign.Enabled = was; }
     }
 
+    /// <summary>R1 (the lead's decision, 2026-11-12): Approve is the decision, sent once the request it answers is drawn whole, with no second press.</summary>
     [Test]
-    public void DenyThenCancelThenApproveNeedsTheRequestReadAgain()
+    public void ApproveIsOnePressOnceItsRequestIsDrawnWhole()
     {
         var was = RoomDesign.Enabled; RoomDesign.Enabled = true;
         try
         {
             var (host, work, column) = Asked();
-            Press(column, Find(Bar(column), "Deny")!);
-            var staleDenyConfirm = Find(Bar(column), "Confirm")!;
-            Press(column, Find(Bar(column), "Cancel")!);
+            // The person sees the request, then presses Approve on it.
             Draw(host, column);
             Press(column, Find(Bar(column), "Approve")!);
-            // The denial's Confirm pressed now, with Approve armed and unread: it must not approve.
-            Press(column, staleDenyConfirm);
-            TestContext.Out.WriteLine("approve armed, the denial's Confirm pressed: sent " + host.Sent.Count + " | " + Show(Bar(column)));
+            Assert.That(host.Sent.Count, Is.EqualTo(0), "nothing goes before its request is drawn");
+            ReadWhole(host, column);
+            Assert.That(host.Sent.Count, Is.EqualTo(1), "drawn whole, the press sent it");
+            var sent = (ExecutionRespondToApprovalCommand)host.Sent[0];
+            Assert.That((sent.Payload.Decision, sent.Payload.ApprovalId), Is.EqualTo((ApprovalDecision.Approve, WaitingWork.ApprovalId)));
+            Draw(host, column);
+            column.Act(FileScreens.Yes, null);
+            Assert.That(host.Sent.Count, Is.EqualTo(1), "one decision only");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    /// <summary>Only a person's press decides: a check or preset that turns DecideOnPress off arms, and nothing it arms is sent unconfirmed.</summary>
+    [Test]
+    public void APresetsApproveOnlyArmsAndSendsNothing()
+    {
+        var was = RoomDesign.Enabled; RoomDesign.Enabled = true;
+        try
+        {
+            var (host, work, column) = Asked();
+            column.DecideOnPress = false;
+            Draw(host, column);
+            Press(column, Find(Bar(column), "Approve")!);
+            ReadWhole(host, column);
+            Assert.That(host.Sent.Count, Is.EqualTo(0));
+            Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Approve), "armed, its Confirm standing for a person");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    [Test]
+    public void AnApprovalArmedAndUnreadIsNeverSentByAStaleYes()
+    {
+        var was = RoomDesign.Enabled; RoomDesign.Enabled = true;
+        try
+        {
+            // R1 (2026-11-12): a denial goes at its press, so no denial's Confirm is ever left standing; the stale press that remains
+            // is a Yes with Approve armed and its request not yet drawn whole.
+            var (host, work, column) = Asked();
+            Press(column, Find(Bar(column), "Approve")!);
+            column.Act(FileScreens.Yes, null);
+            TestContext.Out.WriteLine("approve armed and unread, Yes pressed: sent " + host.Sent.Count + " | " + Show(Bar(column)));
             Assert.That(host.Sent.Count, Is.EqualTo(0), "an unread approval is never sent by a denial's Confirm");
             Assert.That(Find(Bar(column), "Confirm"), Is.Null);
         }
@@ -120,8 +164,47 @@ public class RoomApprovalTests
         var was = RoomDesign.Enabled; RoomDesign.Enabled = true;
         try
         {
+            // R1 (the lead's decision, 2026-11-12): Approve is the decision, sent once its request is drawn whole, so each change
+            // lands between the press and that draw, where the answer would go.
             // Resolved meanwhile.
             var (host, work, column) = Asked();
+            Press(column, Find(Bar(column), "Approve")!);
+            work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+            ReadWhole(host, column);
+            TestContext.Out.WriteLine("resolved meanwhile: sent " + host.Sent.Count + " armed " + column.Steering.Armed);
+            Assert.That(host.Sent.Count, Is.EqualTo(0));
+
+            // Replaced by another approval meanwhile.
+            (host, work, column) = Asked();
+            Press(column, Find(Bar(column), "Approve")!);
+            work.Change(execution => { execution.PendingApprovals.Clear(); execution.PendingApprovals.Add(WaitingWork.Approval("approval-2", B, "2026-10-02T12:05:00Z")); });
+            ReadWhole(host, column);
+            column.Reflow();
+            TestContext.Out.WriteLine("replaced meanwhile: sent " + host.Sent.Count + " | " + Show(Bar(column)));
+            Assert.That(host.Sent.Count, Is.EqualTo(0));
+            Assert.That(Bar(column).Body.Text, Does.Contain("git push"));
+            Assert.That(Find(Bar(column), "Confirm"), Is.Null, "the new request starts unanswered");
+
+            // The same approval's request reads differently meanwhile.
+            (host, work, column) = Asked();
+            Press(column, Find(Bar(column), "Approve")!);
+            work.Change(execution => { execution.PendingApprovals.Clear(); execution.PendingApprovals.Add(WaitingWork.Approval(WaitingWork.ApprovalId, B, "2026-10-02T12:00:00Z")); });
+            ReadWhole(host, column);
+            TestContext.Out.WriteLine("request changed meanwhile: sent " + host.Sent.Count + " armed " + column.Steering.Armed);
+            Assert.That(host.Sent.Count, Is.EqualTo(0));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    /// <summary>A request longer than one part still asks its Confirm after its last part (R1): changes while that Confirm stands are never answered.</summary>
+    [Test]
+    public void ALongRequestsConfirmNeverAnswersAnApprovalResolvedReplacedOrChangedWhileItStands()
+    {
+        var was = RoomDesign.Enabled; RoomDesign.Enabled = true;
+        try
+        {
+            // Resolved meanwhile.
+            var (host, work, column) = Asked(partRows: 1);
             Press(column, Find(Bar(column), "Approve")!);
             ReadWhole(host, column);
             var confirm = Find(Bar(column), "Confirm")!;
@@ -131,7 +214,7 @@ public class RoomApprovalTests
             Assert.That(host.Sent.Count, Is.EqualTo(0));
 
             // Replaced by another approval meanwhile.
-            (host, work, column) = Asked();
+            (host, work, column) = Asked(partRows: 1);
             Press(column, Find(Bar(column), "Approve")!);
             ReadWhole(host, column);
             confirm = Find(Bar(column), "Confirm")!;
@@ -144,7 +227,7 @@ public class RoomApprovalTests
             Assert.That(Find(Bar(column), "Confirm"), Is.Null, "the new request starts unanswered");
 
             // The same approval's request reads differently meanwhile.
-            (host, work, column) = Asked();
+            (host, work, column) = Asked(partRows: 1);
             Press(column, Find(Bar(column), "Approve")!);
             ReadWhole(host, column);
             confirm = Find(Bar(column), "Confirm")!;
@@ -164,15 +247,18 @@ public class RoomApprovalTests
         try
         {
             var (host, work, column) = Asked();
+            // R1: the second arrives between Approve and the draw that sends the decision.
             Press(column, Find(Bar(column), "Approve")!);
-            ReadWhole(host, column);
             work.Change(execution => execution.PendingApprovals.Add(WaitingWork.Approval("approval-2", B, secondAt)));
             column.Reflow();
             var bar = column.Frame != null && KitFileBinding.Of(column.Frame!, column.Steering.Armed, column.Now!, "", new ConnectionStatus(ConnectionPhase.Live), "Storefront",
                 new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true) is KitFileBinding binding ? RoomBar.Of(binding, VoiceStage.Idle, false) : null;
             TestContext.Out.WriteLine("second at " + secondAt + ": armed " + column.Steering.Armed + " id " + column.Steering.ArmedApprovalId + " | " + (bar == null ? "no binding: the file's own view draws" : Show(bar)));
+            ReadWhole(host, column);
             column.Act(FileScreens.Yes, null);
-            TestContext.Out.WriteLine("  Yes pressed: sent " + string.Join(", ", host.Sent.OfType<ExecutionRespondToApprovalCommand>().Select(c => c.Payload.Decision + " " + c.Payload.ApprovalId)));
+            TestContext.Out.WriteLine("  drawn and Yes pressed: sent " + string.Join(", ", host.Sent.OfType<ExecutionRespondToApprovalCommand>().Select(c => c.Payload.Decision + " " + c.Payload.ApprovalId)));
+            Assert.That(host.Sent.OfType<ExecutionRespondToApprovalCommand>().Where(sent => sent.Payload.ApprovalId != WaitingWork.ApprovalId), Is.Empty,
+                "the approval that arrived after the press is never answered by it");
             foreach (var sent in host.Sent.OfType<ExecutionRespondToApprovalCommand>())
             {
                 Assert.That(sent.Payload.ApprovalId, Is.EqualTo(WaitingWork.ApprovalId), "only the approval that was read is answered");
@@ -191,9 +277,10 @@ public class RoomApprovalTests
         try
         {
             var (host, work, column) = Asked();
-            Press(column, Find(Bar(column), "Approve")!);
-            ReadWhole(host, column);
+            var approve = Find(Bar(column), "Approve")!;
             host.Live = false;
+            Press(column, approve);
+            ReadWhole(host, column);
             column.Act(FileScreens.Yes, null);
             TestContext.Out.WriteLine("disconnected: sent " + host.Sent.Count + " armed " + column.Steering.Armed);
             Assert.That(host.Sent.Count, Is.EqualTo(0));
