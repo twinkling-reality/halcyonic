@@ -252,6 +252,16 @@ namespace Halcyonic.Client
         /// <summary>A known project's state apart, for a card (A17): its word, how many tasks it counts, and whether it waits on the person.</summary>
         public ProjectState? ProjectState { get; private set; }
 
+        /// <summary>A known task's state apart, for a card (R3): its state's word and tone, and the mark a practice or recorded task carries.</summary>
+        public TaskRowState? TaskState { get; private set; }
+
+        /// <summary>A known task's row: its title, theirs, its state as the older view's fact, and its state apart (<see cref="TaskState"/>).</summary>
+        public PageLine WithTaskState(TaskRowState state)
+        {
+            TaskState = state;
+            return this;
+        }
+
         public static PageLine KnownProject(string name, string summary, string projectId, bool chosen = false, ProjectState? state = null) =>
             new PageLine(LineWords.TheirName(name), fact: LineWords.Ours(summary), action: ProjectsScreens.ChooseProject,
                 key: projectId, opens: true, chosen: chosen, rows: 3) { ProjectIdentity = true, ProjectState = state };

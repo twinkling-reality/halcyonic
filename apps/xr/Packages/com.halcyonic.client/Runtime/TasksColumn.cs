@@ -266,9 +266,50 @@ namespace Halcyonic.Client
             var fact = LineWords.Ours(badge.Text + (marks.Count > 0 ? " · " + string.Join(" · ", marks.Select(mark => mark.Word)) : ""));
             if (withProject && state.Projects.TryGetValue(task.ProjectId, out var view)) fact = fact.Then(LineWords.Ours(" · ")).Then(LineWords.TheirName(view.Name));
             // A row all of outside text: the title and its project's name lean, the state's icon stays Halcyonic's.
+            var room = badge.Tone switch
+            {
+                GlazeTone.Attention => RoomTone.Attention,
+                GlazeTone.Success => RoomTone.Good,
+                GlazeTone.Failure => RoomTone.Bad,
+                GlazeTone.Active => RoomTone.Working,
+                _ => RoomTone.Quiet,
+            };
+            var projectName = state.Projects.TryGetValue(task.ProjectId, out var its) ? its.Name : null;
             return new PageLine(LineWords.TheirName(task.Title), icon: badge.Icon, fact: fact, tone: tone,
-                action: OpenTask, key: task.WorkstreamId, opens: true, chosen: task.WorkstreamId == showing);
+                action: OpenTask, key: task.WorkstreamId, opens: true, chosen: task.WorkstreamId == showing)
+                .WithTaskState(new TaskRowState(badge.Word, room, marks.Count > 0 ? marks[0].Word : null, task.ProjectId, projectName, project?.Invoke() != null));
         }
+    }
+
+    /// <summary>A task row's facts apart (R3), so a card draws them by kind and never parses the older view's fact.</summary>
+    public sealed class TaskRowState
+    {
+        public TaskRowState(string word, RoomTone tone, string? mark, string projectId, string? projectName, bool projectsList = false)
+        {
+            ProjectsList = projectsList;
+            Word = word;
+            Tone = tone;
+            Mark = mark;
+            ProjectId = projectId;
+            ProjectName = projectName;
+        }
+
+        /// <summary>The state's word, Halcyonic's ("Needs You", "Working").</summary>
+        public string Word { get; }
+
+        /// <summary>The state's tone, as its badge's.</summary>
+        public RoomTone Tone { get; }
+
+        /// <summary>"Practice", "Demo" or "Recorded" where the task is not a real run; null for a real one.</summary>
+        public string? Mark { get; }
+
+        public string ProjectId { get; }
+
+        /// <summary>Its project's name, theirs; null where the project is not known.</summary>
+        public string? ProjectName { get; }
+
+        /// <summary>The row stands on one project's own list of tasks, not on all work's.</summary>
+        public bool ProjectsList { get; }
     }
 
     /// <summary>Tasks' own words (WORDS.md).</summary>

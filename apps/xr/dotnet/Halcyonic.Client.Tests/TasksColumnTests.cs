@@ -127,6 +127,49 @@ public class TasksColumnTests
         Assert.That(host.Sent, Is.Empty);
     }
 
+    /// <summary>
+    /// A project's tasks under the redesign (the census of 2026-11-12: the page a press on a project opens): a card whose
+    /// list holds each task, its name theirs and its state's word as the note in its tone, a press opening it; New Task the
+    /// main action, Close last; the project's name and emblem as its title. Known by its rows' task states, never by its
+    /// title. Several projects' rows fall back until FIELD's second line under a row lands.
+    /// </summary>
+    [Test]
+    public void AProjectsTasksAreACardOfRowsThatOpenThemWithNewTaskTheMainAction()
+    {
+        var host = new FakeMenuHost
+        {
+            State = StateWith(new[]
+            {
+                Task("done", WorkstreamStatus.Completed, 30),
+                Task("asks", WorkstreamStatus.WaitingForHuman, 10, AttentionLevel.ActionRequired),
+            }),
+        };
+        var column = new TasksColumn(host, () => 0, () => { }, () => Samples.ProjectId, () => { }, () => { });
+        var frame = column.Frame!;
+        var bar = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
+        Assert.That(bar, Is.Not.Null, "the redesign draws a project's tasks");
+        var rows = bar.Card!.List;
+        Assert.That(rows.Select(row => (row.Name.Text, row.Note, row.Tone)), Is.EqualTo(new[]
+        {
+            ("Task asks", frame.Lines.Single(line => line.Key == "asks").TaskState!.Word, RoomTone.Attention),
+            ("Task done", frame.Lines.Single(line => line.Key == "done").TaskState!.Word, RoomTone.Good),
+        }));
+        Assert.That(rows.All(row => row.Note != null && !row.Note.Contains("\u00b7")), Is.True, "a state's word alone, never facts joined on dots");
+        Assert.That(rows.Select(row => (row.Press!.Action, row.Press.Key)), Is.EqualTo(new[] { (TasksColumn.OpenTask, "asks"), (TasksColumn.OpenTask, "done") }));
+        var ids = bar.Column.Select(action => action.Control.Action).ToArray();
+        Assert.That((ids.First(), bar.Column[0].Main, ids.Last()), Is.EqualTo((TasksColumn.NewTask, true, Footer.Close)));
+        Assert.That(bar.Card.AnyDot, Is.False);
+        // FIELD (04:49Z): the project's name with its emblem as the title, each task the task's mark.
+        Assert.That((bar.Card.Title!.Text, bar.Card.Head, rows.All(row => row.Kind == RoomKind.Task)),
+            Is.EqualTo((host.State!.Projects[Samples.ProjectId].Name, RoomCardHead.Project, true)));
+
+        var all = new FakeMenuHost
+        {
+            State = StateWith(new[] { Task("mine", WorkstreamStatus.Running, 5), Task("theirs", WorkstreamStatus.Running, 6, project: "other") }, twoProjects: true),
+        };
+        Assert.That(RoomBar.OfFrame(new TasksColumn(all).Frame!, VoiceStage.Idle), Is.Null, "rows of several projects: the older view, until FIELD gives the row its project");
+    }
+
     [Test]
     public void WhatWaitsComesFirstThenWhatRunsThenWhatEnded()
     {
