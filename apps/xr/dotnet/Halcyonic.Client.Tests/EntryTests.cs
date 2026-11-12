@@ -826,7 +826,7 @@ public class EntryWordsTests
     {
         var draft = new NewWorkDraft(new CommandFactory(Samples.Client));
         Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Not Chosen"));
-        Assert.That(EntryText.ModelLine(draft), Does.Contain("Nothing Preselected"));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo(EntryText.ChooseHowItRuns), "a plain line, no dot");
 
         draft.ChooseRuntime(Samples.MockRuntime());
         Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Simulated · Mock runtime"), "the recorded demonstration keeps its names");

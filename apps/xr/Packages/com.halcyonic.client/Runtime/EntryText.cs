@@ -482,7 +482,7 @@ namespace Halcyonic.Client
         public static string ModelLine(NewWorkDraft draft)
         {
             var runtime = draft.Runtime;
-            if (runtime == null) return "Choose Run Settings · Nothing Preselected";
+            if (runtime == null) return ChooseHowItRuns;
             if (runtime.Synthetic) return "Practice · No Agent · No Files";
             if (runtime.ModelChoice != ModelChoice.Listed) return "Location Unknown · Code May Leave";
             var model = draft.Model;
