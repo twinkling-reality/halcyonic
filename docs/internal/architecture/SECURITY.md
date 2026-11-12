@@ -97,9 +97,10 @@ in words, the agent's quoted text and the person's words within the request's bo
 Meta's (key in `meta-api-key`, sent as a Bearer token; Standard-mode models only) and Anthropic's (key in
 `anthropic-api-key`, sent as `x-api-key`).
 
-Claude Code loads the person's own settings only (`settingSources: ['user']`, since 2026-11-11; inside the closed profile none at all, since the agent can write the folder's own configuration), for
-each task and for listing models: their `CLAUDE.md` and hooks load, so Salidium and Seorak observe
-the session. Nothing of a project's own loads by itself: not its `CLAUDE.md`, `CLAUDE.local.md` or
+Claude Code loads no settings file (`settingSources: []`, since 2026-11-12), for each task and for listing models:
+a settings `env` could add a credential that outranks the stored key. Outside the closed profile the person's own
+`CLAUDE.md` and Salidium's and Seorak's hooks are passed explicitly, so they observe the session, and a managed
+setting naming another credential refuses the run ([claude-code-settings-isolation.md](../validation/claude-code-settings-isolation.md)). Nothing of a project's own loads by itself: not its `CLAUDE.md`, `CLAUDE.local.md` or
 `AGENTS.md`, its `.claude` rules or skills, the hooks or permissions of its `.claude/settings.json`
 and `.claude/settings.local.json`, or the servers its `.mcp.json` names. Until then all of these
 loaded, and a repository's hooks and servers each ran a command for every Claude Code task before

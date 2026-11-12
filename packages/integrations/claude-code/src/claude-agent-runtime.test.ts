@@ -505,7 +505,7 @@ describe('starting an execution', () => {
     await assert.rejects(start(), actionError('runtime_start_failed', 'none'));
   });
 
-  test("the SDK is asked for streaming input with Halcyonic options and the person's own settings only", async () => {
+  test('the SDK is asked for streaming input with Halcyonic options and no settings file at all', async () => {
     const { start, run } = setup({ pathToClaudeCodeExecutable: '/opt/claude/bin/claude' });
     void start({ model: 'claude-sonnet-5', permission_mode: 'acceptEdits' });
     const options = run().options;
@@ -518,8 +518,9 @@ describe('starting an execution', () => {
     // Claude Code is launched through the adapter's process guard.
     assert.equal(typeof options.spawnClaudeCodeProcess, 'function');
     assert.deepEqual(options.systemPrompt, { type: 'preset', preset: 'claude_code' });
-    // The person's own settings load, so the observers' hooks run; a project's own never do.
-    assert.deepEqual(options.settingSources, ['user']);
+    // No settings file loads, the person's own neither: a settings env could add a credential that outranks the
+    // key. The observers' hooks are passed explicitly (personal-settings.test.ts); a project's own never are.
+    assert.deepEqual(options.settingSources, []);
     const env = options.env ?? {};
     assert.equal(env.HOME, '/home/tester');
     assert.equal(env.ANTHROPIC_API_KEY, 'test-key-not-real');
@@ -628,7 +629,7 @@ describe('model choice', () => {
     assert.equal(typeof run.options.spawnClaudeCodeProcess, 'function');
     // Its command line carries a session id of its own, by which the guard knows the process.
     assert.match(String(run.options.sessionId), /^[0-9a-f-]{36}$/);
-    assert.deepEqual(run.options.settingSources, ['user']);
+    assert.deepEqual(run.options.settingSources, []);
   });
 
   test('says which cloud provider serves the models when Claude Code uses one', async () => {
@@ -1764,9 +1765,9 @@ describe("a start that asks for Halcyonic's sandbox (ADR 0048, BOX-4)", () => {
     assert.equal(payload.confined, onMac);
     if (onMac) assert.equal(payload.unconfined_reason, undefined);
     else assert.match(payload.unconfined_reason ?? '', /macOS only/);
-    // Inside, no settings source at all: the agent can write the folder's own configuration, so a
-    // hook or an allow rule it wrote would load at the next start (AUDIT2 S1).
-    assert.deepEqual(scripted.options.settingSources, onMac ? [] : ['user']);
+    // No settings source at all, inside or out: inside, the agent can write the folder's own configuration
+    // (AUDIT2 S1); outside, a settings env could add a credential that outranks the key.
+    assert.deepEqual(scripted.options.settingSources, []);
   });
 
   test('on a cloud provider runs as before, recorded not confined with why', async (t) => {

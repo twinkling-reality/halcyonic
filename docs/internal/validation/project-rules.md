@@ -44,8 +44,9 @@
   its `AGENTS.md` where it had no `CLAUDE.md`, the hooks in both of its `.claude` settings files, and a server its
   `.mcp.json` named, whose command ran before the agent did anything
   ([claude-code-project-settings.md](claude-code-project-settings.md)).
-- **Since 2026-11-11** the adapter passes `settingSources: ['user']`. The person's own `CLAUDE.md` and hooks load, so
-  Salidium and Seorak still observe each session. None of the project's files above load. Proven on the fake host
+- **From 2026-11-11** the adapter passed `settingSources: ['user']`; **since 2026-11-12** `[]`, with the person's own
+  `CLAUDE.md` and Salidium's and Seorak's hooks passed explicitly
+  ([claude-code-settings-isolation.md](claude-code-settings-isolation.md)), so they still observe each session. None of the project's files above load. Proven on the fake host
   only; it never met the hosted service.
 
 ## The starters

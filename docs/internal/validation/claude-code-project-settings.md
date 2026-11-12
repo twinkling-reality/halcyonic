@@ -43,9 +43,11 @@
 
 - **Before:** a repository's own files gave every Claude Code task instructions the person never saw. Its hooks
   and its MCP server each ran a command before the agent did anything, with no approval asked.
-- **Now:** a start and a model listing pass `settingSources: ['user']` (the adapter's unit tests), which the SDK
-  sends to the CLI as `--setting-sources=user` (`sdk-process.test.ts`). The person's own hooks still run, so
-  Salidium and Seorak still observe each session.
+- **Now (2026-11-12):** a start and a model listing pass `settingSources: []` (the adapter's unit tests), which the
+  SDK sends to the CLI as `--setting-sources=` (`sdk-process.test.ts`). Salidium's and Seorak's hooks and the
+  person's own `CLAUDE.md` are passed explicitly, nothing else of their settings
+  ([claude-code-settings-isolation.md](claude-code-settings-isolation.md)); from 2026-11-11 until then it was
+  `['user']`, which loaded the person's settings whole.
 - **Inside the sandbox** (a new app's project, BOX-4), no source loads at all (`settingSources: []`).
   - The 'user' source there would be the folder's own configuration, which the agent inside can write. A hook or an
     allow rule it wrote would load at the folder's next start or resume (AUDIT2's S1).

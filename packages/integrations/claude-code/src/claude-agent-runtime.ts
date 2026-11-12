@@ -9,10 +9,12 @@ import {
   type PermissionResult,
   type Query,
   query,
+  resolveSettings,
   type SDKAssistantMessage,
   type SDKMessage,
   type SDKResultMessage,
   type SDKUserMessage,
+  type Settings,
 } from '@anthropic-ai/claude-agent-sdk';
 import type {
   ApprovalDecision,
@@ -60,6 +62,11 @@ import {
 } from './confinement.ts';
 import { buildEnvironment, cloudProvider, type ModelHost, modelHost } from './environment.ts';
 import { CLAUDE_AGENT_RUNTIME_ID } from './key-reader.ts';
+import {
+  type PersonalSettings,
+  personalSettings,
+  refuseOtherCredentials,
+} from './personal-settings.ts';
 import { ProcessGuard, type StaleProcess } from './process-guard.ts';
 
 /**
@@ -121,6 +128,12 @@ export interface ClaudeAgentRuntimeOptions {
   readonly confinement?: ClaudeConfinementOptions | null;
   /** How long carrying a plan out waits for Claude Code to report its new mode; tests shorten it. */
   readonly planSwitchWaitMs?: number;
+  /**
+   * The settings Claude Code still applies with no settings file loaded (the managed, policy tier), asked before
+   * every unconfined start and listing so another credential there refuses the run (VRIFY, 2026-11-12). The SDK's
+   * own `resolveSettings` with the SDK's own query; none where a test hands its own query.
+   */
+  readonly remainingSettings?: () => unknown;
 }
 
 /**
@@ -211,6 +224,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   readonly #sessions = new Map<ExecutionId, ClaudeSession>();
   readonly #confinement: ClaudeConfinementOptions | null;
   readonly #planSwitchWaitMs: number;
+  readonly #remainingSettings: () => unknown;
   /** The one way out of the sandbox, started for the first confined start (BOX-4). */
   #gate: Promise<ApiGate> | null = null;
   #closed = false;
@@ -229,6 +243,11 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     this.#sessionInfo = options.sessionInfo ?? getSessionInfo;
     this.#confinement = options.confinement ?? null;
     this.#planSwitchWaitMs = options.planSwitchWaitMs ?? LEAVE_PLAN_WAIT_MS;
+    this.#remainingSettings =
+      options.remainingSettings ??
+      (options.query === undefined
+        ? async () => (await resolveSettings({ settingSources: [] })).effective
+        : () => ({}));
     this.descriptor = {
       runtime_id: options.runtimeId ?? (CLAUDE_AGENT_RUNTIME_ID as RuntimeId),
       kind: 'claude-agent',
@@ -296,6 +315,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
    */
   async listModels(): Promise<readonly RuntimeModel[]> {
     if (this.#closed) throw closedError();
+    // The same rule as a run's: no settings file, and no other credential left in the managed tier.
+    const remaining = this.#checkRemainingSettings();
+    if (remaining !== undefined) await remaining;
     const input = new InputQueue();
     let handle: QueryHandle;
     try {
@@ -310,9 +332,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
           sessionId: label,
           spawnClaudeCodeProcess: (options) => this.#guard.spawn(options, label),
           systemPrompt: { type: 'preset', preset: 'claude_code' },
-          // As for a start: the temporary folder's own `.claude` settings, which anything may
-          // write, never load.
-          settingSources: ['user'],
+          // No settings file at all, as for an unconfined start: a settings `env` could add a credential
+          // that outranks the key. A listing is no task, so it carries no observation hooks.
+          settingSources: [],
           ...(this.#executable !== undefined && { pathToClaudeCodeExecutable: this.#executable }),
         },
       });
@@ -374,6 +396,8 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     const scope = this.#scopeFor(cwd);
     const gate = scope.folder === null ? null : await this.#apiGate();
     if (scope.folder !== null) prepareConfinedFolder(scope.folder);
+    const found = scope.folder === null ? this.#personal() : null;
+    const personal = found instanceof Promise ? await found : found;
     // Asked again right before the folder is handed over: the model listing above waits.
     confirmProjectLocation(this.#directoryPolicy, cwd);
     if (this.#sessions.has(executionId)) {
@@ -397,6 +421,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
           session,
           false,
           scope.folder === null || gate === null ? null : { folder: scope.folder, gate },
+          personal,
         ),
         request.instruction,
         request.pictures ?? [],
@@ -492,6 +517,8 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       throw new RuntimeActionError('duplicate_execution', 'The execution is already attached.');
     }
     const gate = scope.folder === null ? null : await this.#apiGate();
+    const found = scope.folder === null ? this.#personal() : null;
+    const personal = found instanceof Promise ? await found : found;
     if (this.#closed) throw closedError();
     const session = new ClaudeSession(
       request.native_id,
@@ -508,6 +535,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
         session,
         true,
         scope.folder === null || gate === null ? null : { folder: scope.folder, gate },
+        personal,
       ),
     );
     this.#sessions.set(executionId, session);
@@ -622,13 +650,51 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     });
   }
 
+  /**
+   * Refuses a run or a listing when the settings Claude Code applies with no settings file loaded name another
+   * credential; a resolver that fails refuses too, rather than guess.
+   */
+  #checkRemainingSettings(): Promise<void> | undefined {
+    const unreadable = (error: unknown) =>
+      new RuntimeActionError(
+        'runtime_start_failed',
+        wholeError(
+          `Claude Agent was not started: Claude Code's managed settings could not be read: ${errorText(error)}`,
+        ) ?? "Claude Agent was not started: Claude Code's managed settings could not be read.",
+      );
+    let remaining: unknown;
+    try {
+      remaining = this.#remainingSettings();
+    } catch (error) {
+      throw unreadable(error);
+    }
+    // A resolver may answer at once (a test's); the SDK's answers later.
+    if (!(remaining instanceof Promise)) {
+      refuseOtherCredentials(remaining);
+      return undefined;
+    }
+    return remaining.then(refuseOtherCredentials, (error: unknown) => {
+      throw unreadable(error);
+    });
+  }
+
+  /** What an unconfined run takes of the person's set-up: Salidium's and Seorak's hooks, and their CLAUDE.md. */
+  #personal(): PersonalSettings | Promise<PersonalSettings> {
+    const remaining = this.#checkRemainingSettings();
+    return remaining === undefined
+      ? personalSettings(this.#environment)
+      : remaining.then(() => personalSettings(this.#environment));
+  }
+
   #options(
     start: StartOptions,
     session: ClaudeSession,
     resume = false,
     confined: { readonly folder: ConfinedFolder; readonly gate: ApiGate } | null = null,
+    personal: PersonalSettings | null = null,
   ): Options {
     const settings = this.#confinement;
+    const open = confined === null || settings === null;
     return {
       cwd: start.cwd,
       env: { ...start.secrets, ...this.#environment },
@@ -660,15 +726,28 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
           throw error;
         }
       },
-      // Claude Code's own system prompt. Without this option the SDK sends an empty one.
-      systemPrompt: { type: 'preset', preset: 'claude_code' },
-      // The person's own settings only: their hooks run, so Salidium and Seorak observe the
-      // session. A project's own CLAUDE.md, its AGENTS.md and the hooks, servers and permissions in
-      // its `.claude` settings never load by themselves: they are the repository's words, and a
-      // hook there would run a command for every task (E5). Where the start is confined, none
-      // at all: the 'user' source there is the folder's own configuration, which the agent inside
-      // can write, so its hooks or allow rules would load at the next start (AUDIT2 S1, BOX-4).
-      settingSources: confined === null || settings === null ? ['user'] : [],
+      // Claude Code's own system prompt, and outside the sandbox the person's own CLAUDE.md after it.
+      // Without this option the SDK sends an empty one.
+      systemPrompt: {
+        type: 'preset',
+        preset: 'claude_code',
+        ...(open && personal?.instructions != null && { append: personal.instructions }),
+      },
+      // No settings file, anywhere. Outside the sandbox the person's own settings are not loaded
+      // wholesale: a settings `env` could add a credential that outranks the stored key and pay for
+      // the task (VRIFY, 2026-11-12); Salidium's and Seorak's hooks are passed explicitly instead, so
+      // they still observe the session. A project's own CLAUDE.md, its AGENTS.md and the hooks,
+      // servers and permissions in its `.claude` settings never load: they are the repository's
+      // words, and a hook there would run a command for every task (E5). Inside the sandbox the
+      // 'user' source would be the folder's own configuration, which the agent can write (AUDIT2 S1).
+      settingSources: [],
+      ...(open &&
+        personal !== null &&
+        Object.keys(personal.hooks).length > 0 && {
+          settings: {
+            hooks: personal.hooks as NonNullable<Settings['hooks']>,
+          },
+        }),
       ...(start.model !== undefined && { model: start.model }),
       ...(start.permissionMode !== undefined && { permissionMode: start.permissionMode }),
       ...(this.#executable !== undefined && { pathToClaudeCodeExecutable: this.#executable }),

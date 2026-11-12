@@ -96,9 +96,9 @@ names, inside a no-network sandbox with no credentials. No model was contacted.
   `CLAUDE_CODE_ENTRYPOINT` and `CLAUDE_AGENT_SDK_VERSION`. Without `env`, the host environment is
   inherited.
 - **Settings load from every source by default**: no `--setting-sources` flag is sent unless
-  `settingSources` is set. Since 2026-11-11 the adapter sets `['user']` (`--setting-sources=user`),
-  so the user's hooks (including Salidium's and Seorak's) still run and a project's own files do not
-  load ([claude-code-project-settings.md](claude-code-project-settings.md)).
+  `settingSources` is set. Since 2026-11-12 the adapter sets `[]` (`--setting-sources=`) and passes
+  Salidium's and Seorak's hooks and the person's `CLAUDE.md` explicitly; a project's own files do not
+  load ([claude-code-settings-isolation.md](claude-code-settings-isolation.md)).
 - **Default arguments:** `--output-format stream-json --verbose --input-format stream-json
   --permission-mode default`.
 - **The SDK validates nothing before spawning.** An invalid session id passes through, and a child
@@ -194,8 +194,8 @@ model.
   id; a leading `-` is refused because the SDK passes it as a CLI argument); `permission_mode`
   (`default`, `acceptEdits`, `plan` or `dontAsk`; `bypassPermissions` and `auto` are refused
   because they take decisions away from the person supervising).
-- Settings come from the person's own source only (`settingSources: ['user']`, since 2026-11-11),
-  so the user's hooks run and a project's own `CLAUDE.md`, `AGENTS.md`, `.claude` settings, hooks,
+- No settings file loads (`settingSources: []`, since 2026-11-12); Salidium's and Seorak's hooks
+  are passed explicitly and a project's own `CLAUDE.md`, `AGENTS.md`, `.claude` settings, hooks,
   skills and `.mcp.json` servers never load by themselves
   ([claude-code-project-settings.md](claude-code-project-settings.md)). Since BOX-4 a new
   app's project on macOS is the exception: there the launch runs inside Halcyonic's closed profile
@@ -427,9 +427,8 @@ Not verified:
 - Listing against the real CLI: its duration, and whether it reaches the network.
 - Whether the model in `system/init` equals the `resolvedModel` the list gave, so that an
   execution's `model_ref` reads as the one chosen.
-- Whether the listing process runs the developer's hooks: it loads the person's own settings only
-  (`settingSources: ['user']`, as a start does, since 2026-11-11), so a `SessionStart` hook of theirs
-  could show Salidium and Seorak an empty session for each listing.
+- The listing process runs no hooks of the developer's: it loads no settings file and is passed none
+  (since 2026-11-12), so Salidium and Seorak are not shown an empty session per listing.
 - The list is read in a temporary directory, so an `availableModels` setting of the execution's
   project does not narrow it; the start would then fail in Claude Code rather than at admission.
 

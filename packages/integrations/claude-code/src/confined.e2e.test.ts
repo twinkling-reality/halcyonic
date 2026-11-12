@@ -274,6 +274,8 @@ test("a new app's confined Claude Code runs a command that reaches nothing outsi
         NO_PROXY: '127.0.0.1,localhost,::1',
       },
       pathToClaudeCodeExecutable: BINARY,
+      // This Mac's own managed Claude Code settings are not the test's: none.
+      remainingSettings: async () => ({}),
       confinement: {
         dataFolder: data,
         toolFolders: toolFoldersFor(process.execPath),

@@ -194,6 +194,8 @@ test('a session whose Claude Code process died mid-turn is re-attached by a new 
         NO_PROXY: '127.0.0.1,localhost,::1',
       },
       pathToClaudeCodeExecutable: BINARY,
+      // This Mac's own managed Claude Code settings are not the test's: none.
+      remainingSettings: async () => ({}),
     });
 
   // The first control plane: a turn that finishes, then one its Claude Code process dies in.
