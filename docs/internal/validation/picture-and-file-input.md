@@ -174,13 +174,16 @@ colour is the square in the picture? Answer with one word. Do not use any tools.
   Ollama's OpenAI-compatible endpoints, did not report seeing the square. Codex warned that it had no metadata for
   the model and used its defaults.
 
-So a picture's effect on a local model stays unknown. Whether the cause is the squares' size or the endpoints is
-not checked: the next step is the same model through Ollama's own chat API with no runtime, at 32 and 256 pixels.
+The same model through Ollama's own chat API, with no runtime and thinking off (10:22Z), answered "unknown" for a 32
+by 32 red square and "red" for a 256 by 256 one. So the size of the test pictures explains the three answers above,
+not the runtimes or the endpoints (inference: the same model gave the same answer at 32 pixels). Through the runtimes
+at 256 pixels it is not run yet; what a model reads from a small picture is the model's, and the host does not
+enlarge one.
 
 ## Not verified
 1. What Codex's `model/list` reports as image input under the Ollama provider. Codex sends a picture to any model.
 2. OpenCode inside Halcyonic's macOS sandbox, and its Ollama gate passing a picture to Ollama. OpenCode lists
    Ollama's models as text only, so through OpenCode an Ollama model is refused pictures today.
 3. Whether Ollama's own endpoints take a picture from Codex or OpenCode for this model: the one local generation
-   gave "unknown" for every picture (above), and the cause is not known.
+   gave "unknown" for every 32 pixel picture (above); at 256 pixels through the runtimes is not run yet.
 4. A JPEG or WebP whose structure is whole but whose pixels are broken: the host's check does not decode them.
