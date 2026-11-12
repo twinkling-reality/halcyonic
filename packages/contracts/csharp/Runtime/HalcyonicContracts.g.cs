@@ -369,6 +369,15 @@ namespace Halcyonic.Contracts
         public string Line { get; set; } = default!;
     }
 
+    public sealed class ActionReviewSaid
+    {
+        [JsonProperty("label", Required = Required.Always)]
+        public string Label { get; set; } = default!;
+
+        [JsonProperty("words", Required = Required.Always)]
+        public string Words { get; set; } = default!;
+    }
+
     public sealed class ActionReview
     {
         [JsonProperty("command_type", Required = Required.Always)]
@@ -394,6 +403,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("warnings", Required = Required.Always)]
         public List<ActionReviewWarning> Warnings { get; set; } = new List<ActionReviewWarning>();
+
+        [JsonProperty("said", Required = Required.Always)]
+        public List<ActionReviewSaid> Said { get; set; } = new List<ActionReviewSaid>();
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
