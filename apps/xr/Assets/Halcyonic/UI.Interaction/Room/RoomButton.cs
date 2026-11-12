@@ -267,6 +267,8 @@ namespace Halcyonic.XR.UI
             button.asideWords.gameObject.SetActive(false);
             var height = RoomType.Units(HeightDp);
             button.press = KitPress.Create(go, new Vector2(height, height));
+            // The press keeps the button's clock, so a check that drives the button drives its press too.
+            button.press.Clock = () => button.Clock();
             button.press.Pressed += () => button.Pressed?.Invoke();
             // Held shows only a pinch the press counted (the one press: a refused pinch sinks nothing).
             button.press.Target.Selected += () => button.held = button.press.Pressing;

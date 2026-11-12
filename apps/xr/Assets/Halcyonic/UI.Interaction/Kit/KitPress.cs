@@ -35,6 +35,9 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public bool ActsOnPinch { get; set; }
 
+        /// <summary>The seconds every press is timed by: Unity's own, or a check's, which drives it exactly.</summary>
+        public Func<float> Clock { get; set; } = () => Time.unscaledTime;
+
         /// <summary>Presses are ignored while false, as while the instrument moves or a view opens.</summary>
         public Func<bool> Accepting { get; set; } = () => true;
 
@@ -44,7 +47,7 @@ namespace Halcyonic.XR.UI
         public Vector2 Size => size;
 
         /// <summary>Lit means it will take: hovered, and a pinch made now would count (<see cref="PressGuard.Lit"/>).</summary>
-        public bool Hovered => target.Hovered && guard.Lit(Time.unscaledTime, target.RayHovered);
+        public bool Hovered => target.Hovered && guard.Lit(Clock(), target.RayHovered);
 
         /// <summary>A press shows: a counted pinch held, then its short flash once it acted.</summary>
         public bool Pressing => (counted && guard.Armed) || flash > 0f;
@@ -66,7 +69,7 @@ namespace Halcyonic.XR.UI
             var press = host.AddComponent<KitPress>();
             press.size = size;
             press.target = PointerTarget.Rectangle(host, size, ray: true, poke: true);
-            press.guard = new PressGuard(Time.unscaledTime);
+            press.guard = new PressGuard(press.Clock());
             press.target.SelectedBy += press.OnDown;
             press.target.PressMoved += press.OnMoved;
             press.target.Released += press.OnUp;
@@ -84,7 +87,7 @@ namespace Halcyonic.XR.UI
         /// <summary>The control took new words, a new role or a new place: a press already under way is not one of it.</summary>
         public void Unsettle()
         {
-            guard.Arrive(Time.unscaledTime);
+            guard.Arrive(Clock());
             counted = false;
         }
 
@@ -100,15 +103,15 @@ namespace Halcyonic.XR.UI
 
         private void OnHover()
         {
-            if (target.RayHovered) guard.RayOn(Time.unscaledTime);
-            else guard.RayOff(Time.unscaledTime);
+            if (target.RayHovered) guard.RayOn(Clock());
+            else guard.RayOff(Clock());
         }
 
         private void OnDown(bool ray)
         {
             byRay = ray;
             // A refused pinch sinks nothing: only a counted one shows its press.
-            counted = Accepting() && !FocusGuard.InputSuspended && guard.Down(Time.unscaledTime, ray);
+            counted = Accepting() && !FocusGuard.InputSuspended && guard.Down(Clock(), ray);
             if (counted && ActsOnPinch) Act();
         }
 
@@ -117,17 +120,17 @@ namespace Halcyonic.XR.UI
             guard.Moved(degrees, metres);
             // While a ray holds its pinch the interactor keeps its hover, so whether it still meets the control is read here.
             if (!byRay) return;
-            if (rayMeets) guard.RayOn(Time.unscaledTime);
-            else guard.RayOff(Time.unscaledTime);
+            if (rayMeets) guard.RayOn(Clock());
+            else guard.RayOff(Clock());
         }
 
         private void OnUp(bool cancelled)
         {
             // The guard hears every release, so no pinch stays armed past its own.
-            var released = guard.Up(Time.unscaledTime, byRay, cancelled);
+            var released = guard.Up(Clock(), byRay, cancelled);
             var acts = counted && released && Accepting() && !FocusGuard.InputSuspended && !ActsOnPinch;
             counted = false;
-            if (!target.RayHovered) guard.RayOff(Time.unscaledTime);
+            if (!target.RayHovered) guard.RayOff(Clock());
             if (acts) Act();
         }
 
