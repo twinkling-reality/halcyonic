@@ -410,6 +410,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (older.Count > 0) gaps.Add("older parts draw: " + string.Join(", ", older));
                     var found = new List<string>(RoomFrameChecks(root, camera, image, eyes, plane));
                     // No computer: a recording plays, so voice is never offered and Hold to Talk never drawn (ADR 0021, amended).
+                    // A recording says what it is wherever it plays (lead, 14:33Z): its own line, in its own words, drawn whole.
+                    // The notice is the recording's own line whole, both sentences, word for word (lead, 17:45Z): the product's
+                    // DemonstrationFallback.Notice for the kind of work shown, recorded or demonstration.
+                    if (live == null && fallback.Line != null && DemonstrationFallback.Notice(fallback.ShowingRecordedRun) is string line
+                        && !root.GetComponentsInChildren<TMP_Text>(false).Any(text => text.enabled && text.GetParsedText().Replace("\n", " ").Contains(line)))
+                        found.Add("the recording's own line is not drawn whole: \"" + line + "\"");
                     if (live == null && director.VoiceOffered) found.Add("voice is offered with no computer");
                     if (live == null && plane.KitShows && plane.Kit.Bar.Talk.gameObject.activeInHierarchy) found.Add("Hold to Talk is drawn with no computer");
                     found.AddRange(RoomBrands(root));
