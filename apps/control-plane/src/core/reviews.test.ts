@@ -52,6 +52,7 @@ test('the one review: what the list offers, prepared from values, reviewed with 
   assert.ok(read.state === 'ok');
   assert.equal(built.review.digest, rulesReview(projectId, read.file, read.sha256));
   assert.equal(built.review.confirm_words, 'Use Rules');
+  assert.deepEqual(built.review.said, [], 'a yes or no is not words that go out');
   assert.deepEqual(built.review.facts, [{ kind: 'words', value: 'AGENTS.md', theirs: false }]);
   assert.equal(
     built.review.items[0]?.theirs,
@@ -91,4 +92,22 @@ test('the one review: what the list offers, prepared from values, reviewed with 
     } as never),
   );
   assert.ok(!none.ok);
+});
+
+test('a review says whole the words given that go out with the command, by their labels (SCREENS, addition D)', async () => {
+  const { controlPlane, commands } = createTestControlPlane({});
+  const command = {
+    ...commands.createProject('Words', null),
+    command_type: 'project.send_to_github',
+    payload: {
+      project_id: '01920000-0000-7000-8000-00000000e001',
+      title: 'Make the sky night',
+      review: '0'.repeat(64),
+    },
+  } as never;
+  // Send has no folder here, so its review is refused, yet what it would say is computed the one way.
+  const built = await buildReview(controlPlane, command);
+  assert.ok(!built.ok);
+  const { saidIn } = await import('./reviews.ts');
+  assert.deepEqual(saidIn(command), [{ label: 'Title', words: 'Make the sky night' }]);
 });

@@ -10,6 +10,7 @@ import type {
   ProjectId,
   ReviewKind,
 } from '@halcyonic/contracts';
+import { COMMAND_FIELDS } from '@halcyonic/domain';
 import type { ControlPlane } from './control-plane.ts';
 import { readRules, rulesReview } from './project-rules.ts';
 import { locationReview, reviewDigest } from './review.ts';
@@ -112,6 +113,18 @@ const files = (changed: ChangedFiles): { items: ActionReviewItem[]; total: numbe
 const paths = (list: PathList, kind: ReviewKind): ActionReviewItem[] =>
   list.paths.map((path) => ({ kind, name: path, note: null, theirs: true }));
 
+/** The words given for a command's text needs, by their labels, exactly as the payload holds them. */
+export function saidIn(command: CommandEnvelope): ActionReview['said'] {
+  const fields = COMMAND_FIELDS[command.command_type as keyof typeof COMMAND_FIELDS];
+  if (fields === undefined) return [];
+  const payload = command.payload as Record<string, unknown>;
+  return Object.entries(fields).flatMap(([name, field]) =>
+    field.from === 'person' && field.need === 'text' && typeof payload[name] === 'string'
+      ? [{ label: field.label, words: payload[name] as string }]
+      : [],
+  );
+}
+
 /** "1 File", "3 Files": the host's count for a button's words. */
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -126,9 +139,9 @@ export async function buildReview(
   command: CommandEnvelope,
 ): Promise<BuiltReview> {
   const no = (code: string, message: string): BuiltReview => ({ ok: false, code, message });
-  const review = (body: Omit<ActionReview, 'command_type'>): BuiltReview => ({
+  const review = (body: Omit<ActionReview, 'command_type' | 'said'>): BuiltReview => ({
     ok: true,
-    review: { command_type: command.command_type, ...body },
+    review: { command_type: command.command_type, ...body, said: saidIn(command) },
   });
   const { projection } = controlPlane;
   switch (command.command_type) {

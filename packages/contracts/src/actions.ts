@@ -237,6 +237,10 @@ export const ActionReviewItem = Type.Object(
 );
 export type ActionReviewItem = Static<typeof ActionReviewItem>;
 
+/** Words given for one field that go out with the command, by the host's label for the field. */
+export const ActionReviewSaid = Type.Object({ label: Text(60), words: Text(32000) }, strict);
+export type ActionReviewSaid = Static<typeof ActionReviewSaid>;
+
 /** A line the person should read before the press, by its code, in the host's words. */
 export const ActionReviewWarning = Type.Object(
   { code: Type.String({ pattern: '^[a-z][a-z_]*$', maxLength: 64 }), line: Text(200) },
@@ -262,6 +266,12 @@ export const ActionReview = Type.Object(
     items: Type.Array(ActionReviewItem, { maxItems: 200 }),
     items_total: Type.Integer({ minimum: 0 }),
     warnings: Type.Array(ActionReviewWarning, { maxItems: 8 }),
+    /**
+     * The words the person or the assistant gave that go out with the command, each by the host's
+     * label for its field and exactly as it will be sent, in the payload's order: shown whole, as
+     * theirs. Ids and the host's own fills are never here.
+     */
+    said: Type.Array(ActionReviewSaid, { maxItems: 12 }),
   },
   strict,
 );
