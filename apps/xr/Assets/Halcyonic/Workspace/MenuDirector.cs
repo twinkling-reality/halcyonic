@@ -1417,6 +1417,17 @@ namespace Halcyonic.XR.Workspace
 
         public void OpenFile(string workstreamId, FileSection? section)
         {
+            // SCREENS's one Changes (the lead, 2026-11-12T1115Z): in the redesign what changed is the files, so whatever opens
+            // the file at its Changes (a moment, a room screen, a walk) opens its result's page of changed files for its newest
+            // run, the file on its own activity so no section's source band stands over the result.
+            if (section is FileSection asked && WorkspacePresentationState.ResultPageOf(asked, RoomDesign.Enabled) is RoomResultPage page
+                && State?.Workstreams.TryGetValue(workstreamId, out var work) == true)
+            {
+                OpenFile(workstreamId, FileSection.Activity);
+                setup.Presentation.ShowResultPage(workstreamId, work.CurrentExecutionId, page);
+                dirty = true;
+                return;
+            }
             memory.Session(setup.Session());
             if (setup.Presentation.InspectedWorkstreamId == workstreamId) setup.Presentation.CloseMoment(State);
             if (setup.Presentation.Minimized) setup.Presentation.Restore();

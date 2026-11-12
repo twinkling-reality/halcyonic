@@ -780,4 +780,16 @@ public class WorkspacePresentationStateTests
         Assert.That(KitPresenter.EnvironmentOf(sandboxed), Is.EqualTo("Sandbox"));
         Assert.That(presentation.CycleEnvironment(withSandbox), Is.EqualTo(("leaves", false)));
     }
+    /// <summary>SCREENS's one Changes (the lead, 2026-11-12T1115Z): in the redesign what changed is the files, the result's page.</summary>
+    [Test]
+    public void InTheRedesignChangesOpensTheResultsPageOfChangedFilesAndEveryOtherSectionShowsAsItself()
+    {
+        Assert.That(WorkspacePresentationState.ResultPageOf(FileSection.Changes, roomDesign: true), Is.EqualTo(RoomResultPage.Changes));
+        Assert.That(WorkspacePresentationState.ResultPageOf(FileSection.Changes, roomDesign: false), Is.Null, "the older view keeps its own section");
+        foreach (FileSection section in System.Enum.GetValues(typeof(FileSection)))
+            if (section != FileSection.Changes) Assert.That(WorkspacePresentationState.ResultPageOf(section, roomDesign: true), Is.Null, section + " shows as itself");
+        // Both ways a person asks what changed reach it: the moment's See Changes and the screen's Why.
+        Assert.That(WorkspacePresentationState.SectionForMomentAction(KitMomentAction.SeeWhatChanged), Is.EqualTo(FileSection.Changes));
+        Assert.That(WorkspacePresentationState.SectionForScreenAction(KitScreenAction.Why), Is.EqualTo(FileSection.Changes));
+    }
 }

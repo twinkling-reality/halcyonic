@@ -1735,6 +1735,12 @@ built only after its lock (`Arm`, then `Restore`). The C# bindings carry `Checkp
 
 ### A file of Changes read: its change, then the whole file (gaps 5 and 10, SCREENS, 2026-11-11)
 
+ONE Changes (the lead's decision of 2026-11-12T1115Z): what changed is the files. In the redesign, every way a person asks
+what changed (the moment's See Changes, the room screen's Why, the result's Changes) opens the result's page of changed
+files for the task's newest run (`WorkspacePresentationState.ResultPageOf`, in `MenuDirector.OpenFile` itself, so every caller is covered), the file on its
+own activity so no section's source band stands over the result; the understanding's section is no longer what Changes
+opens there. Not yet: the understanding's account of the change as a later part of the same page, in FIELD's words.
+
 What Cursor, Bolt and Lovable give as the diff and the code view, from the result's Changes. Every row of Changes is
 pressed (`RoomBar.FileRow`: the result action `room-file`, its key the path as the folder names it) where a computer
 can be asked (`RoomResult.ReadsFiles`: never in the demonstration, whose recording holds no file contents); the director
@@ -3833,7 +3839,10 @@ permission prompt, and whether a ray that leaves the button while pinching ends 
 
 ## Not built yet
 
-Code, diffs, tests and output in the workspace; the Understanding section's full lists (every
+In the redesign, the understanding's account of a change (what changed, why, how it was built): since every way to what
+changed opens the result's page of changed files (SCREENS's one Changes, the lead's 2026-11-12T1115Z), the account is
+not shown there; it comes as a later part of that page in the batch after 1111-b100 (XR computes the answers for that
+page, FIELD words its source line without the provider's name, SCREENS draws the part). Code, diffs, tests and output in the workspace; the Understanding section's full lists (every
 changed file, every review item, the explanation's diagrams), which it summarizes in seven lines;
 reading a real execution's understanding and evaluation end to end, which waits for a real Claude
 Code or Codex run ([understanding-and-evaluation.md](../validation/understanding-and-evaluation.md));

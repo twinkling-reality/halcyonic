@@ -746,6 +746,15 @@ namespace Halcyonic.Client
         };
 
         /// <summary>
+        /// Where the redesign shows a task's section instead (SCREENS's one Changes, the lead's decision of 2026-11-12T1115Z):
+        /// what changed is the files, so the file's Changes opens the result's page of changed files, whose rows open the file
+        /// reading, never the understanding's section with its source band. Null where the section shows as itself (the older
+        /// view, and every other section).
+        /// </summary>
+        public static RoomResultPage? ResultPageOf(FileSection section, bool roomDesign) =>
+            roomDesign && section == FileSection.Changes ? RoomResultPage.Changes : (RoomResultPage?)null;
+
+        /// <summary>
         /// Builds the control-plane command for a direct room screen action (<see cref="KitScreenAction.MakeAVrVersion"/>
         /// or <see cref="KitScreenAction.TryIt"/>) when the project state supports it, or null when the action opens
         /// a workspace flow instead.
