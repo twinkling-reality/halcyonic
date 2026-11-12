@@ -115,3 +115,20 @@ test('a declaration that does not hold stops the start, saying which file and wh
   });
   assert.throws(() => new HostProviders({ dir, dataDir: tmpdir() }), /same key file/);
 });
+
+test('the list gives the providers by their ids, ascending, whatever order the folder is read in: none is put first by code', (t) => {
+  const dir = folder(t);
+  for (const id of ['zeta', 'alpha', 'mid'])
+    declare(dir, id, {
+      key: {
+        file: `${id}-key`,
+        variable: 'K',
+        field: 'Key',
+        header: { name: 'Authorization', scheme: 'Bearer' },
+      },
+    });
+  assert.deepEqual(
+    new HostProviders({ dir, dataDir: tmpdir() }).list().map((provider) => provider.id),
+    ['alpha', 'mid', 'zeta'],
+  );
+});

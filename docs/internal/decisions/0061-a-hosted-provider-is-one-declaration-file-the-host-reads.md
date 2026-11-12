@@ -29,7 +29,9 @@ four edits, and a third meant four more.
    CORE owns its place and the list.
 3. **The host's one list** is `HostProviders` (`apps/control-plane/src/providers.ts`). It reads every declaration
    once, as the plane starts. A declaration that does not hold stops the start, saying which file and why, as a
-   misconfigured runtime does. Two declarations of one key file are refused. It answers:
+   misconfigured runtime does. Two declarations of one key file are refused. It gives the providers in the order
+   of their ids, ascending by character, whatever order a folder is read in. No provider is put first by code: a
+   reader that needs one asks the person. It answers:
    - `list`, `byId`, and `serving(shapes)`;
    - `keyState(id)`: the private file only, never the environment;
    - `readersOf(id)`.
@@ -43,7 +45,13 @@ four edits, and a third meant four more.
    `tuning.effort` and `tuning.outputField` are mapped by each wire shape, which refuses a value it does not know.
    Its list order (the declarations' folder names) is the order Use Model offers the models in.
 7. **The deciding test:** a third provider written in a test as one file reaches every reader with no other file
-   changed. `tooling/architecture.test.ts` keeps vendors' names out of runtime-core and the core packages.
+   changed. `tooling/architecture.test.ts` keeps vendors' names out of runtime-core and the core packages:
+   - every declared provider's id and shown name, read from the declarations themselves, stays out of every core
+     package's production sources;
+   - every agent app's integration name stays out of runtime-core.
+   So a third provider is scanned with no edit there. Agent apps' names still appear in contracts and domain:
+   as data the product carries (a runtime kind, the `CLAUDE.md` rules file), and in comments recording what was
+   verified of an app. The scan does not check those two packages for agent apps' names.
 
 ## Alternatives considered
 

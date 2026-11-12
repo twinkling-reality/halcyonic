@@ -90,6 +90,42 @@ describe('core package boundaries', () => {
     });
   }
 
+  // ADR 0061: no vendor's name in the core. Each declared provider's id and shown name stay out of every core
+  // package, read from the declarations themselves, so a third provider is scanned with no edit here; and every
+  // agent app's integration name stays out of runtime-core, the adapters' and providers' shared shape.
+  const providerNames = readdirSync(join(ROOT, 'providers'), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((entry) => {
+      const declared = JSON.parse(
+        readFileSync(join(ROOT, 'providers', entry.name, 'provider.json'), 'utf8'),
+      ) as { id: string; name: string };
+      return [declared.id, declared.name];
+    });
+  const integrationNames = readdirSync(join(ROOT, 'packages/integrations'), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name !== 'mock')
+    .flatMap((entry) => [entry.name, entry.name.split('-')[0] ?? entry.name]);
+  const named = (names: readonly string[], pkg: string): string[] => {
+    const words = [...new Set(names.map((name) => name.toLowerCase()))];
+    const found: string[] = [];
+    for (const file of productionSources(join(ROOT, pkg, 'src'))) {
+      const source = readFileSync(file, 'utf8').toLowerCase();
+      for (const word of words)
+        if (new RegExp(`(?<![a-z0-9])${word.replace(/[-.]/g, '\\$&')}(?![a-z0-9])`).test(source))
+          found.push(`${file.slice(ROOT.length)} names ${word}`);
+    }
+    return found;
+  };
+  for (const pkg of Object.keys(RULES)) {
+    test(`${pkg} names no declared provider`, () => {
+      assert.ok(providerNames.length > 0, 'the declarations are read');
+      assert.deepEqual(named(providerNames, pkg), []);
+    });
+  }
+  test('packages/runtime-core names no agent app', () => {
+    assert.ok(integrationNames.includes('opencode'), 'the integrations are read');
+    assert.deepEqual(named(integrationNames, 'packages/runtime-core'), []);
+  });
+
   test('the import scanner sees real imports', () => {
     const found = specifiers(readFileSync(join(ROOT, 'packages/domain/src/projection.ts'), 'utf8'));
     assert.ok(found.includes('@halcyonic/contracts'));
