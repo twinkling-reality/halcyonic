@@ -223,7 +223,9 @@ namespace Halcyonic.Client
             "preview_not_running" => "No preview is running. Start it on your computer, then open it again.",
             "preview_too_large" => "That file is too large to show.",
             "not_paired" => "This headset isn't paired with your computer any more. Pair it again.",
-            _ => "The preview isn't answering. Try again.",
+            "preview_unreachable" => "The preview isn't answering. Try again.",
+            // A code with no words here: unknown, said plainly, never another case's words (AUDIT's census, 2026-11-12).
+            _ => "Your computer didn't show this preview. Reason unknown.",
         };
 
         private static string? CodeOf(byte[] body)

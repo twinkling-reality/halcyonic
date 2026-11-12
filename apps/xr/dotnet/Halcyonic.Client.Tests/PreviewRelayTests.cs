@@ -93,6 +93,10 @@ public class PreviewRelayTests
         Assert.That((int)page.StatusCode, Is.EqualTo(409));
         Assert.That(await page.Content.ReadAsStringAsync(), Is.EqualTo(PreviewRelay.WhyNot("preview_not_confined")));
         Assert.That(PreviewRelay.WhyNot("preview_not_confined"), Does.Not.Contain("developer"));
+        // Each code the computer sends has its own words; one it has none for says the reason is unknown.
+        Assert.That(PreviewRelay.WhyNot("preview_unreachable"), Is.EqualTo("The preview isn't answering. Try again."));
+        Assert.That(PreviewRelay.WhyNot("something_new"), Is.EqualTo("Your computer didn't show this preview. Reason unknown."));
+        Assert.That(PreviewRelay.WhyNot(null), Is.EqualTo(PreviewRelay.WhyNot("something_new")));
     }
 
     /// <summary>A request written exactly, as another app on the headset could send it; the status line back.</summary>
