@@ -135,6 +135,8 @@ export class Reattacher {
       this.#deps.projection,
       view.project_id,
       adapter.descriptor,
+      // As a start: never a name a runtime here reads for itself (ADR 0057).
+      (name) => this.#deps.registry.ownsEnvironmentName(name),
     );
     const halt = new AbortController();
     try {

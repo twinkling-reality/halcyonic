@@ -798,6 +798,7 @@ export class CommandService {
       get: (runtimeId) => this.#deps.registry.get(runtimeId),
       queuesInstructions: this.#deps.queuesInstructions === true,
       ...(this.#deps.starters ? { starters: this.#deps.starters } : {}),
+      ownsEnvironmentName: (name) => this.#deps.registry.ownsEnvironmentName(name),
     });
     if (!admission.admitted) return admission;
     const refuse = (code: RejectionCode, message: string): Admission => ({
@@ -2150,6 +2151,13 @@ export class CommandService {
         this.#deps.projection,
         project_id,
         runtime,
+        // As admission asks: a name any runtime here reads for itself.
+        (name) => this.#deps.registry.ownsEnvironmentName(name),
+        (count) =>
+          this.#deps.logger.warn(
+            { withheld: count },
+            'project secrets kept under a name a runtime here reads for itself are not given to the task: remove them on the setup page',
+          ),
       );
       const names = Object.keys(given).sort();
       recorder.record(

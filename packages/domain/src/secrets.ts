@@ -1,7 +1,9 @@
 /**
- * Which names a project secret may not take (ADR 0057): those an agent's runtime, the shell, git,
- * Node or the system's loader read to decide how a program runs, and those Halcyonic sets or passes
- * itself. A secret is for the person's own keys, never to change how an agent or its sandbox runs.
+ * Which names a project secret may not take (ADR 0057): those the shell, git, Node or the system's
+ * loader read to decide how a program runs, and those Halcyonic sets or passes itself. A secret is
+ * for the person's own keys, never to change how an agent or its sandbox runs. Each runtime names
+ * its own on top of these (`RuntimeCatalog.ownsEnvironmentName`, from its adapter), so a new
+ * runtime brings its names with it.
  */
 const RESERVED_NAMES = new Set([
   'PATH',
@@ -38,11 +40,7 @@ const RESERVED_NAMES = new Set([
 
 const RESERVED_PREFIXES = [
   'HALCYONIC_',
-  'OPENCODE_',
-  'CODEX_',
-  'CLAUDE_',
-  'ANTHROPIC_',
-  'OLLAMA_',
+  'OLLAMA_', // the local models' service, which every runtime here may call
   'XDG_',
   'LC_',
   'DYLD_',
@@ -53,12 +51,21 @@ const RESERVED_PREFIXES = [
   'PYTHON',
   'BASH_FUNC_',
   'SANDBOX_',
-  'BUN_', // the bundled Claude Code is a Bun build
 ];
 
-/** Why `name` cannot be a project secret's name, in the product's words, or null when it can. */
-export function reservedSecretName(name: string): string | null {
-  if (RESERVED_NAMES.has(name) || RESERVED_PREFIXES.some((prefix) => name.startsWith(prefix))) {
+/**
+ * Why `name` cannot be a project secret's name, in the product's words, or null when it can:
+ * `owned` says whether a runtime here reads it for itself.
+ */
+export function reservedSecretName(
+  name: string,
+  owned: (name: string) => boolean = () => false,
+): string | null {
+  if (
+    RESERVED_NAMES.has(name) ||
+    RESERVED_PREFIXES.some((prefix) => name.startsWith(prefix)) ||
+    owned(name)
+  ) {
     return `${name} is a name the Mac or an agent uses to run, so a secret can't take it. Choose another name.`;
   }
   return null;

@@ -54,11 +54,17 @@ export function valueProblem(value: unknown): string | null {
   return null;
 }
 
-/** Why `name` cannot be a secret's name, in the product's words, or null when it can. */
-export function nameProblem(name: unknown): string | null {
+/**
+ * Why `name` cannot be a secret's name, in the product's words, or null when it can; `owned` says
+ * whether a runtime here reads it for itself.
+ */
+export function nameProblem(
+  name: unknown,
+  owned: (name: string) => boolean = () => false,
+): string | null {
   if (typeof name !== 'string' || !isSecretName(name).ok)
     return 'A name is capital letters, digits and _, starting with a letter, as API_KEY.';
-  return reservedSecretName(name);
+  return reservedSecretName(name, owned);
 }
 
 interface Staged {
@@ -79,8 +85,17 @@ export class SecretStore {
    */
   readonly #retired: HeldSecret[] = [];
 
-  constructor(dataDir: string) {
+  readonly #owned: (name: string) => boolean;
+
+  /** `owned`: whether a runtime here reads a name for itself, as its adapter declares (ADR 0057). */
+  constructor(dataDir: string, owned: (name: string) => boolean = () => false) {
     this.#root = join(dataDir, SECRETS_FOLDER);
+    this.#owned = owned;
+  }
+
+  /** Why `name` cannot be one of this Mac's secrets now, with the runtimes here, or null. */
+  nameProblem(name: unknown): string | null {
+    return nameProblem(name, this.#owned);
   }
 
   /**
@@ -209,7 +224,14 @@ export function givenSecrets(
   projection: Projection,
   projectId: ProjectId,
   runtime: RuntimeDescriptor,
+  owned: (name: string) => boolean = () => false,
+  withheld?: (count: number) => void,
 ): Record<string, string> {
   if (store === null || store === undefined || runtime.secret_environment !== true) return {};
-  return store.environment(projectId, projection.project(projectId)?.secrets ?? []);
+  // Never a name a runtime here reads for itself, even one kept before it said so (a value kept is
+  // never deleted for it: the person removes it). How many were held back is said, never their values.
+  const kept = projection.project(projectId)?.secrets ?? [];
+  const names = kept.filter((name) => !owned(name));
+  if (names.length < kept.length) withheld?.(kept.length - names.length);
+  return store.environment(projectId, names);
 }

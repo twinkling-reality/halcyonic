@@ -116,7 +116,8 @@ const RESERVED_VARIABLES: ReadonlySet<string> = new Set([
  */
 const RESERVED_PREFIXES: readonly string[] = ['CODEX_', 'OPENAI_'];
 
-function reserved(name: string): boolean {
+/** Whether `name` is a variable Codex's configuration may not set: Codex's or its provider's own. */
+export function reservedVariable(name: string): boolean {
   return (
     RESERVED_VARIABLES.has(name) || RESERVED_PREFIXES.some((prefix) => name.startsWith(prefix))
   );
@@ -209,7 +210,7 @@ export function buildEnvironment(
   additions: Readonly<Record<string, string>>,
   home: string,
 ): Record<string, string> {
-  const refused = Object.keys(additions).filter(reserved);
+  const refused = Object.keys(additions).filter(reservedVariable);
   if (refused.length > 0) {
     throw new Error(`These variables cannot be configured for Codex: ${refused.join(', ')}.`);
   }
