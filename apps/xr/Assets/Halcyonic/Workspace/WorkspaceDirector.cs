@@ -209,6 +209,9 @@ namespace Halcyonic.XR.Workspace
                 Commands = commands,
                 Overview = Overview,
                 ShowProject = ShowProject,
+                // Pairing from the first screen (LINK's cut): only where a pairing panel stands and nothing is paired or pairing.
+                PairOffered = () => Pairing is IPairingSettings pairing && pairing.Now.Address == null && pairing.Now.Step == PairingStep.Idle,
+                Pair = () => Pairing?.Pair(),
                 RecordedUsage = now => connection.DemonstrationUsageLimits(now),
                 MakeNewProject = host => NewProjectColumn.Create(host, commands, () => DraftsOf()),
                 File = FileFor,

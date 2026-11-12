@@ -71,6 +71,12 @@ namespace Halcyonic.XR.Workspace
             /// <summary>Shows (true) or hides (false) a project's work on the stage, kept on this device, as Projects' Show and Hide ask.</summary>
             public Action<string, bool> ShowProject { get; set; } = (_, _) => { };
 
+            /// <summary>This headset holds no pairing and none is under way (LINK: the pairing panel's own state).</summary>
+            public Func<bool>? PairOffered { get; set; }
+
+            /// <summary>Starts pairing, as Settings' Pair Computer does.</summary>
+            public Action? Pair { get; set; }
+
             /// <summary>Reads the computer's folders for Projects; the API when null.</summary>
             public Func<CancellationToken, Task<LocationsResponse>>? ReadLocations { get; set; }
 
@@ -254,7 +260,8 @@ namespace Halcyonic.XR.Workspace
                 [MenuPlace.Projects] = () => new ProjectsColumn(director.Bound(), setup.Commands ?? throw new InvalidOperationException("Projects sends through the host's command factory."),
                     director.memory.ProjectsFor(director.State?.Journal?.JournalId), setup.Overview, setup.ShowProject, setup.ReadLocations, director.OpenProjectTasks,
                     setup.SpatialWorkspace ? line => MenuFrameView.ProjectListLineHeight(line, Glaze.Menu.FileColumnDegrees) : null,
-                    setup.SpatialWorkspace ? () => director.PageHeight(director.TitleRows("Projects", Glaze.Menu.FileColumnDegrees), besideMenu: true) : null, workspaceControls: setup.SpatialWorkspace),
+                    setup.SpatialWorkspace ? () => director.PageHeight(director.TitleRows("Projects", Glaze.Menu.FileColumnDegrees), besideMenu: true) : null, workspaceControls: setup.SpatialWorkspace,
+                    pairOffered: setup.PairOffered, pair: setup.Pair),
                 [MenuPlace.Usage] = () => new UsageColumn(director.Bound(), setup.RecordedUsage),
                 [MenuPlace.Settings] = () => new SettingsHubColumn(director.Bound(), setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList(), setup.Appearance, setup.AppearanceSaved),
             });

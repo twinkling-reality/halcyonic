@@ -143,6 +143,34 @@ public class ProjectsScreensTests
         finally { RoomDesign.Enabled = was; }
     }
 
+    /// <summary>
+    /// Pairing from the first screen (LINK's cut, 2026-11-12): while the recording plays because no computer is reached and this
+    /// headset holds no pairing, Pair Computer is the main action and New Project steps down; anywhere else it is not offered.
+    /// </summary>
+    [Test]
+    public void WithNoComputerReachedAndNoPairingPairComputerLeadsTheFirstScreen()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var state = State();
+            state.Demonstration = true; state.FoldersOpen = false; state.PairOffered = true;
+            var frame = ProjectsScreens.Projects(state);
+            Assert.That((frame.Footer[PromptSlot.FarRight]!.Id, frame.Footer[PromptSlot.FarRight]!.Main), Is.EqualTo((ProjectsScreens.PairComputer, true)));
+            var bar = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
+            Assert.That(bar.Column.Take(2).Select(action => (action.Control.Action, action.Main)), Is.EqualTo(new[]
+            {
+                (ProjectsScreens.PairComputer, true), (ProjectsScreens.NewProject, false),
+            }));
+            state.PairOffered = false;
+            Assert.That(ProjectsScreens.Projects(state).Footer.All.Any(each => each.Prompt.Id == ProjectsScreens.PairComputer), Is.False, "paired, or pairing: not offered");
+            state.PairOffered = true; state.Demonstration = false;
+            Assert.That(ProjectsScreens.Projects(state).Footer.All.Any(each => each.Prompt.Id == ProjectsScreens.PairComputer), Is.False, "a computer reached: not offered");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
     [Test]
     public void AChosenProjectSlidesOutItsWorkAndTheFooterCarriesItsActions()
     {

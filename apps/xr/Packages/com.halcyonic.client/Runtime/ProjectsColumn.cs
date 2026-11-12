@@ -58,9 +58,15 @@ namespace Halcyonic.Client
         /// </param>
         /// <param name="show">Shows (true) or hides (false) a project's work on the stage, kept on this device.</param>
         /// <param name="readLocations">Reads the host's folders; the host's API when null, as on the headset.</param>
+        private readonly Func<bool>? pairOffered;
+        private readonly Action? pair;
+
         public ProjectsColumn(IMenuHost host, CommandFactory commands, ProjectsMemory memory, Func<WorkOverview?> overview, Action<string, bool> show,
-            Func<CancellationToken, Task<LocationsResponse>>? readLocations = null, Action<string>? openTasks = null, Func<PageLine, double>? lineHeight = null, Func<double>? pageHeight = null, bool workspaceControls = false)
+            Func<CancellationToken, Task<LocationsResponse>>? readLocations = null, Action<string>? openTasks = null, Func<PageLine, double>? lineHeight = null, Func<double>? pageHeight = null, bool workspaceControls = false,
+            Func<bool>? pairOffered = null, Action? pair = null)
         {
+            this.pairOffered = pairOffered;
+            this.pair = pair;
             this.host = host ?? throw new ArgumentNullException(nameof(host));
             this.commands = commands ?? throw new ArgumentNullException(nameof(commands));
             this.memory = memory ?? throw new ArgumentNullException(nameof(memory));
@@ -93,6 +99,7 @@ namespace Halcyonic.Client
             ChosenFolder = chosenFolder,
             ChosenProblem = chosenProblem,
             FoldersOpen = foldersOpen,
+            PairOffered = pair != null && pairOffered?.Invoke() == true,
             LineHeight = lineHeight, AvailableHeight = pageHeight?.Invoke() ?? 0,
             TextSize = host.TextSize,
             Connection = memory.Connection,
@@ -149,6 +156,9 @@ namespace Halcyonic.Client
                     return;
                 case ProjectsScreens.NewProject:
                     host.OpenNewProject(null, null);
+                    return;
+                case ProjectsScreens.PairComputer when pair != null:
+                    pair();
                     return;
                 case ProjectsScreens.AddTask when target.AddTaskTo != null:
                     host.OpenNewProject(target.AddTaskTo, target.AddTaskName);
