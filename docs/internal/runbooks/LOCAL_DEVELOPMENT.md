@@ -274,8 +274,9 @@ Anthropic API Key, and press Add Key, then Restart to Apply. The page keeps it a
 `~/.halcyonic/anthropic-api-key`, readable only by you, shows it afterwards only as Key Stored, and a
 stored key turns Claude Agent on at the next start
 ([ADR 0053](../decisions/0053-the-macs-setup-runs-from-a-page-beside-pairing.md), amendment of
-2026-11-12). Remove Key, pressed twice, takes it away. Every agent app whose package declares a key
-gets the same field.
+2026-11-12). Remove Key, pressed twice, takes it away. Every hosted provider declared in
+`providers/<id>/provider.json` that something here reads gets the same field
+([ADR 0061](../decisions/0061-a-hosted-provider-is-one-declaration-file-the-host-reads.md)).
 
 `ANTHROPIC_API_KEY` in the environment, or a cloud provider's variables, work too and take
 precedence over the file; with those, turn the runtime on yourself:

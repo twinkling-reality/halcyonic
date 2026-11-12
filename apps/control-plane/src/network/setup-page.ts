@@ -22,7 +22,7 @@ import {
   type SetupStep,
   tunnelProgram,
 } from '../cli/mac-setup.ts';
-import { type KeyView, LONGEST_KEY } from '../keys/agent-keys.ts';
+import { type KeyView, LONGEST_KEY } from '../keys/provider-keys.ts';
 import { matchesPin, type Pins } from '../pins.ts';
 import { plainLine } from '../preview/check-output.ts';
 import { isPinnedTunnel, TUNNEL_PIN } from '../preview/share.ts';
@@ -125,7 +125,7 @@ export interface SetupPageDeps {
   readonly stopShare?: (projectId: string) => 'stopped' | 'not_shared' | 'refused';
   /** Each project's secrets by name, with Set and Remove (ADR 0057); absent where none are kept. */
   readonly secrets?: PageSecrets;
-  /** The person's own keys for the agent apps whose adapters declare one (R2); absent where none is declared. */
+  /** The person's own keys for the declared providers something here reads (ADR 0061); absent where none is. */
   readonly keys?: PageKeys;
 }
 
@@ -133,9 +133,9 @@ export interface SetupPageDeps {
 export interface PageKeys {
   list(): readonly KeyView[];
   /** The refusal's words, or null once kept. */
-  store(runtimeId: unknown, value: unknown): string | null;
+  store(id: unknown, value: unknown): string | null;
   /** The refusal's words, or null once removed. */
-  remove(runtimeId: unknown): string | null;
+  remove(id: unknown): string | null;
 }
 
 /** A project as the page's secrets section lists it: its name and its secrets' names, never a value. */
@@ -364,15 +364,15 @@ export interface SetupState {
     } | null;
   } | null;
   /**
-   * Each agent app whose adapter declares that it takes a key, in the declarations' words, with whether one is
+   * Each declared provider something here reads, in its declaration's words, with what reads it, whether a key is
    * stored and since when; null where none is declared. A key is never in the page's state.
    */
   readonly keys: {
     readonly apps: readonly KeyView[];
-    /** What this session's last add or remove was refused with, said in that app's card. */
-    readonly problem: { readonly runtime_id: string; readonly text: string } | null;
+    /** What this session's last add or remove was refused with, said in that key's card. */
+    readonly problem: { readonly id: string; readonly text: string } | null;
     /** A Remove Key waiting for its second press: which app, and what it will do. */
-    readonly confirm: { readonly runtime_id: string; readonly text: string } | null;
+    readonly confirm: { readonly id: string; readonly text: string } | null;
   } | null;
 }
 
@@ -608,10 +608,10 @@ interface Press {
   secretProblem: { project_id: string; text: string } | null;
   /** A Remove asked once, acting only on a second press of the same secret. */
   secretConfirm: { project_id: string; name: string; text: string } | null;
-  /** The last refusal of a key's add or remove, said in its agent app's card. */
-  keyProblem: { runtime_id: string; text: string } | null;
+  /** The last refusal of a key's add or remove, said in that key's card. */
+  keyProblem: { id: string; text: string } | null;
   /** A Remove Key asked once, acting only on a second press for the same app. */
-  keyConfirm: { runtime_id: string; text: string } | null;
+  keyConfirm: { id: string; text: string } | null;
 }
 
 /** The most sessions whose presses are kept; the pairing page keeps fewer sessions than this. */
@@ -735,38 +735,31 @@ export class SetupView {
   }
 
   /**
-   * Keeps the person's key for an agent app by their press: one press, the key typed or pasted for it, never
-   * returned. A refusal is said in that app's card. A kept key takes effect at the next start, which the page
-   * offers as Restart to Apply.
+   * Keeps the person's key for a declared provider by their press: one press, the key typed or pasted for it, never
+   * returned. A refusal is said in that key's card. A kept key takes effect as its readers read it: at the next start
+   * where one reads it then (the page offers Restart to Apply), else at once.
    */
-  async setKey(
-    runtimeId: unknown,
-    value: unknown,
-    session: string = ONE_SESSION,
-  ): Promise<SetupState> {
+  async setKey(id: unknown, value: unknown, session: string = ONE_SESSION): Promise<SetupState> {
     const here = this.#press(session);
     // One question stands at a time: a press here forgets any other asked first.
     here.confirm = null;
     here.secretConfirm = null;
     here.keyConfirm = null;
     const keys = this.#deps.keys;
-    const problem =
-      keys === undefined ? 'No agent app takes a key here.' : keys.store(runtimeId, value);
+    const problem = keys === undefined ? 'Nothing here takes a key.' : keys.store(id, value);
     // The steps say whether a key is stored, so they are checked again at once.
     if (problem === null) this.#steps = null;
     here.keyProblem =
-      problem === null
-        ? null
-        : { runtime_id: typeof runtimeId === 'string' ? runtimeId : '', text: problem };
+      problem === null ? null : { id: typeof id === 'string' ? id : '', text: problem };
     return this.state(session);
   }
 
   /**
-   * Removes an agent app's key on the second press for the same app, as a secret's Remove asks first: a removed
-   * key can never be seen or put back. The first press says what it will do.
+   * Removes a declared provider's key on the second press for the same key, as a secret's Remove asks first: a
+   * removed key can never be seen or put back. The first press says what it will do, by each reader's timing.
    */
   async removeKey(
-    runtimeId: unknown,
+    id: unknown,
     confirmed: unknown,
     session: string = ONE_SESSION,
   ): Promise<SetupState> {
@@ -776,22 +769,22 @@ export class SetupView {
     here.secretConfirm = null;
     here.keyProblem = null;
     const keys = this.#deps.keys;
-    const app = keys?.list().find((each) => each.runtime_id === runtimeId);
-    if (typeof runtimeId !== 'string' || keys === undefined || app === undefined) {
+    const card = keys?.list().find((each) => each.id === id);
+    if (typeof id !== 'string' || keys === undefined || card === undefined) {
       here.keyConfirm = null;
       return this.state(session);
     }
-    if (confirmed !== true || here.keyConfirm?.runtime_id !== runtimeId) {
+    if (confirmed !== true || here.keyConfirm?.id !== id) {
       here.keyConfirm = {
-        runtime_id: runtimeId,
-        text: `Halcyonic deletes its copy. ${app.app} needs a key again from the next start.`,
+        id,
+        text: removeWords(card),
       };
       return this.state(session);
     }
     here.keyConfirm = null;
-    const problem = keys.remove(runtimeId);
+    const problem = keys.remove(id);
     if (problem === null) this.#steps = null;
-    here.keyProblem = problem === null ? null : { runtime_id: runtimeId, text: problem };
+    here.keyProblem = problem === null ? null : { id, text: problem };
     return this.state(session);
   }
 
@@ -1124,17 +1117,41 @@ export function mountSetup(view: SetupView): (routes: PageRoutes) => void {
     routes.post(
       '/setup/keys/set',
       (request, session) => {
-        const body = (request.body ?? {}) as { runtime_id?: unknown; value?: unknown };
-        return view.setKey(body.runtime_id, body.value, session);
+        const body = (request.body ?? {}) as { id?: unknown; value?: unknown };
+        return view.setKey(body.id, body.value, session);
       },
       { bodyLimit: KEY_BODY_LIMIT },
     );
     routes.post('/setup/keys/remove', (request, session) => {
-      const body = (request.body ?? {}) as { runtime_id?: unknown; confirmed?: unknown };
-      return view.removeKey(body.runtime_id, body.confirmed, session);
+      const body = (request.body ?? {}) as { id?: unknown; confirmed?: unknown };
+      return view.removeKey(body.id, body.confirmed, session);
     });
     routes.post('/setup/keys/cancel', (_request, session) => view.cancelKey(session));
   };
+}
+
+/**
+ * What Remove Key will do, said before its second press, from each reader's own name and timing: one that reads the
+ * key at its start needs a key again from the next start, one that reads it at each use stops using it at once.
+ */
+export function removeWords(card: KeyView): string {
+  const names = (reads: 'at_start' | 'at_each_use') =>
+    card.readers.filter((reader) => reader.reads === reads).map((reader) => reader.name);
+  const listed = (all: readonly string[]) =>
+    all.length <= 2 ? all.join(' and ') : `${all.slice(0, -1).join(', ')} and ${all.at(-1)}`;
+  const atStart = names('at_start');
+  const atOnce = names('at_each_use');
+  const parts = [
+    ...(atStart.length === 0
+      ? []
+      : [
+          `${listed(atStart)} ${atStart.length === 1 ? 'needs' : 'need'} a key again from the next start`,
+        ]),
+    ...(atOnce.length === 0
+      ? []
+      : [`${listed(atOnce)} ${atOnce.length === 1 ? 'stops' : 'stop'} using it at once`]),
+  ];
+  return `Halcyonic deletes its copy.${parts.length === 0 ? '' : ` ${parts.join(', and ')}.`}`;
 }
 
 /** Runs a download's command in a process group of its own, with a small environment, no shell. */

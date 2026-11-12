@@ -6,6 +6,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -23,11 +24,11 @@ import { confinedProfile, SANDBOX_EXEC } from '@halcyonic/seatbelt';
 import { ConfigError, loadConfig } from './config.ts';
 import { looksLikeCredential, redaction, redactSecrets } from './core/redaction.ts';
 import { createDirectoryPolicy } from './directory-policy.ts';
-import { AgentKeys } from './keys/agent-keys.ts';
+import { ProviderKeys } from './keys/provider-keys.ts';
 import { loadOrCreateNetworkIdentity } from './network/certificate.ts';
-import { HostProviders } from './providers.ts';
+import { HostProviders, PROVIDERS_DIR } from './providers.ts';
 import {
-  AGENT_KEYS,
+  AGENT_KEY_READERS,
   ANTHROPIC_KEY_FILE,
   CLAUDE_AGENT_PROCESS_RECORD,
   CODEX_SERVER_RECORD,
@@ -115,12 +116,15 @@ describe('runtime composition', () => {
       false,
       'no key and no switch: off',
     );
-    const keys = new AgentKeys(dataDir, AGENT_KEYS);
-    assert.equal(keys.store('claude-agent', 'not-a-real-key'), null);
+    const keys = new ProviderKeys(
+      dataDir,
+      new HostProviders({ dataDir, readers: AGENT_KEY_READERS }),
+    );
+    assert.equal(keys.store('anthropic', 'not-a-real-key'), null);
     assert.ok(
       adapters({}, HOST, dataDir).some((adapter) => adapter.descriptor.kind === 'claude-agent'),
     );
-    assert.equal(keys.remove('claude-agent'), null);
+    assert.equal(keys.remove('anthropic'), null);
     assert.equal(
       adapters({}, HOST, dataDir).some((adapter) => adapter.descriptor.kind === 'claude-agent'),
       false,
@@ -158,6 +162,13 @@ describe('runtime composition', () => {
         dataDir,
       ).some((adapter) => adapter.descriptor.kind === 'claude-agent'),
     );
+  });
+
+  test("the held secrets' Anthropic key file is the one Anthropic's declaration names", () => {
+    const declared = JSON.parse(
+      readFileSync(join(PROVIDERS_DIR, 'anthropic', 'provider.json'), 'utf8'),
+    ) as { key: { file: string } };
+    assert.equal(ANTHROPIC_KEY_FILE, declared.key.file);
   });
 
   test('a key file other users can read, or an empty one, stops startup', () => {

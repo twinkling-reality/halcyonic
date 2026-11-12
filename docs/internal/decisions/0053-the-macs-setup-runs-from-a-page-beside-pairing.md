@@ -128,10 +128,11 @@ by `pnpm mac-setup agent-apps` in a browser on a scratch page.
 This replaces decision 3's "the page says Claude Agent is set up by hand". The owner asked for one place to give a
 key, and for it to serve any agent app, not one vendor's.
 
-- **The adapter says it takes a key.** An integration package declares an `AgentKey` (`packages/runtime-core`): its
-  runtime id, the app's name, the variable the runtime reads, its file in the data folder, and the field's caption.
-  The control plane lists the declarations it hosts (`AGENT_KEYS` in `runtimes.ts`). The page draws one card for
-  each, in those words only. Its own code names no vendor, and a test checks that.
+- **The declarations say what takes a key** (as built after ADR 0061, in 1111-b110). The page draws one card for
+  each declared provider whose key something here reads: the provider's `name`, its key's `field` as the caption,
+  and each reader by the name and timing it declares ("Used by Claude Agent and ..."). A provider nothing reads is
+  not offered. Its own code names no vendor, and a test checks that. (First built on an `AgentKey` per agent app,
+  which ADR 0061 replaced.)
 - **One field, never echoed.** Under Agent apps, a card without a key shows a password field and Add Key. A key is one
   run of printable characters, at most 4096. Anything else is refused in that app's card, in words that never repeat
   it. The field is cleared before the key is sent. Add Key is quiet at rest and takes the accent only while its own
@@ -159,6 +160,9 @@ key, and for it to serve any agent app, not one vendor's.
   a start. With `HALCYONIC_CLAUDE_AGENT=1` and no `ANTHROPIC_API_KEY` in the environment, the start still stops on
   such a file, as before, and on no key and no cloud provider at all; the steps say so before that start. The app's
   card says its file isn't used, and Add Key replaces it. The owner had given no key when this was decided.
-- A second provider gets a field by declaring its `AgentKey` and being listed in `AGENT_KEYS`. Its runtime
-  registers when its key is stored, in its own branch of `createRuntimeAdapters`. The tests prove the page and the
-  keeping with a test adapter's declaration beside Claude Agent's. No second hosted runtime exists yet.
+- **When a key takes effect follows its readers.** A reader that reads a key at its start (Claude Agent) makes a
+  kept, replaced or removed key wait for Restart to Apply; one that reads it at each use (the assistant) takes it at
+  once and asks for no restart. Remove Key's question says each reader's part by its timing.
+- A third provider gets its card by its one declaration file. The tests prove it with a test provider's file beside
+  Anthropic's own declaration, and a test reader beside Claude Agent's. An agent app that a stored key turns on still
+  registers in its own branch of `createRuntimeAdapters`.

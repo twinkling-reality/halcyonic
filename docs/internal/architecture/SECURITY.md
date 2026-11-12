@@ -68,11 +68,11 @@ network" below). The threats it defends against now are:
 It is not a sandbox against other processes running as the same user; those can read the token,
 the network listener's key and the journal, as with Salidium.
 
-The person's key for an agent app that declares one (`AgentKey`) is typed or pasted on the setup page, sent once
+The person's key for a declared provider that something here reads ([ADR 0061](../decisions/0061-a-hosted-provider-is-one-declaration-file-the-host-reads.md)) is typed or pasted on the setup page, sent once
 over the page's session and origin checks, and written to its declared file in the data directory, mode 0600,
 through a temporary file renamed into place. It is never in the page's state, a log, the journal or an event; the
-page shows only Key Stored and when, and removes it on a second press. A stored key turns its runtime on at the
-next start; the settings file still cannot ([ADR 0053](../decisions/0053-the-macs-setup-runs-from-a-page-beside-pairing.md),
+page shows only Key Stored and when, and removes it on a second press. A stored key turns on a reader that says it
+does (Claude Agent) at the next start; the settings file still cannot ([ADR 0053](../decisions/0053-the-macs-setup-runs-from-a-page-beside-pairing.md),
 amendment of 2026-11-12).
 
 When the Claude Agent runtime is enabled, by `HALCYONIC_CLAUDE_AGENT=1` or a stored key, the Anthropic API key

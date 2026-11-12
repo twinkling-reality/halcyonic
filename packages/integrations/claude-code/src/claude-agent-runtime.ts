@@ -59,6 +59,7 @@ import {
   prepareConfinedFolder,
 } from './confinement.ts';
 import { buildEnvironment, cloudProvider, type ModelHost, modelHost } from './environment.ts';
+import { CLAUDE_AGENT_RUNTIME_ID } from './key-reader.ts';
 import { ProcessGuard, type StaleProcess } from './process-guard.ts';
 
 /**
@@ -229,7 +230,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     this.#confinement = options.confinement ?? null;
     this.#planSwitchWaitMs = options.planSwitchWaitMs ?? LEAVE_PLAN_WAIT_MS;
     this.descriptor = {
-      runtime_id: options.runtimeId ?? ('claude-agent' as RuntimeId),
+      runtime_id: options.runtimeId ?? (CLAUDE_AGENT_RUNTIME_ID as RuntimeId),
       kind: 'claude-agent',
       display_name: 'Claude Agent',
       synthetic: false,

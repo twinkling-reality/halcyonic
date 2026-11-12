@@ -60,5 +60,5 @@ four edits, and a third meant four more.
   protocol in the host, not the provider's.
 - The vendor's words, its address and its key's names live only in its own folder.
 - Every key file is a held secret by declaration. A reader that reads a key at its start says so, and Add Key then
-  asks for a restart.
+  asks for a restart. Add Key offers no card for a provider nothing here reads, since its key would do nothing.
 - Revisit when a provider needs something a declaration cannot state, such as a sign-in that is not a key.
