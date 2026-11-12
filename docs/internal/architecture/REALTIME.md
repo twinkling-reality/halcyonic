@@ -211,7 +211,9 @@ client                                   server
     `secrets`, `queued_instructions`, `approvals`, `decisions`, `questions`, and `pictures` (the folder's pictures
     as the pictures read finds them, each given to an instruction as `{path, kind: 'image'}`), and `models` (every
     model of every runtime that lists its own, each row's `detail` naming its runtime; the start's admission and
-    the runtime check the pair against a fresh list), and `own_check_scripts` (each script by name with its command
+    the runtime check the pair against a fresh list. Where the runtime's latest execution failed with
+    `credential_refused` since this host read its credentials, its models are shown with no action and the detail
+    says the key was refused; a refusal from before that is unknown, so they are offered and the detail says it), and `own_check_scripts` (each script by name with its command
     as read now; the choice carries the command's digest), and `folders` (first a new folder in each available root,
     then the roots' folders no project uses, newest change first; a used folder is never offered, and New Project's
     new folder takes its name from the project's, made folder-safe by the host as

@@ -36,6 +36,11 @@ export interface ChoiceSources {
   readonly locations: () => LocationsResponse;
   /** The commands of a project's own that may be its check, as the own check's find reads them, or null. */
   readonly scripts: (projectId: string) => Promise<readonly OwnCheckScript[] | null>;
+  /**
+   * Whether the provider refused the credential a runtime holds: `refused` since this host read it,
+   * `refused_before` when that was before (the key may have been replaced since: unknown), or null.
+   */
+  readonly credential: (runtimeId: string) => 'refused' | 'refused_before' | null;
   /** The person's catalog, read now; null where none is set up or it cannot be read by index. */
   readonly catalog: () => Promise<CatalogResponse | null>;
 }
@@ -201,12 +206,21 @@ export async function choiceRows(
       const rows: HeldRow[] = [];
       for (const runtime of sources.runtimes()) {
         if (runtime.model_choice !== 'listed' || !runtime.capabilities.start_execution) continue;
+        // A model its provider refused the key for is shown, never offered as ready; a refusal from
+        // before this host read its key leaves it offered, saying so, since nobody knows yet.
+        const credential = sources.credential(runtime.runtime_id);
+        const detail =
+          credential === 'refused'
+            ? `${runtime.display_name}: its key was refused. Give it a new key on this Mac.`
+            : credential === 'refused_before'
+              ? `${runtime.display_name}: its key was refused before, and is not tried since.`
+              : runtime.display_name;
         for (const model of await sources.models(runtime))
           rows.push(
             row(rows.length, 'model', model.display_name, model.model_ref, {
-              detail: runtime.display_name,
+              detail,
               theirs: true,
-              actions: ['execution.start'],
+              actions: credential === 'refused' ? [] : ['execution.start'],
             }),
           );
       }

@@ -46,6 +46,7 @@ import {
 } from '@halcyonic/domain';
 import {
   type Clock,
+  CREDENTIAL_REFUSED,
   checkProjectLocation,
   type ExecutionContext,
   type InstructionPicture,
@@ -256,8 +257,29 @@ export class CommandService {
   /** Resends of refused answers compared in the current fixed minute, by principal. */
   readonly #resends = new Map<string, { readonly minute: number; count: number }>();
 
+  /** When this host read the credentials its runtimes hold: they are read once, as it starts. */
+  readonly #credentialsReadAt: string;
+
   constructor(deps: CommandServiceDeps) {
     this.#deps = deps;
+    this.#credentialsReadAt = deps.clock.now().toISOString();
+  }
+
+  /**
+   * Whether the provider refused the credential a runtime holds, from the journal: the runtime's
+   * latest execution failed with CREDENTIAL_REFUSED, since this host read its credentials or before.
+   */
+  #credential(runtimeId: string): 'refused' | 'refused_before' | null {
+    let latest: ExecutionView | undefined;
+    for (const execution of this.#deps.projection.executions())
+      if (
+        execution.runtime.runtime_id === runtimeId &&
+        (latest === undefined || execution.updated_at > latest.updated_at)
+      )
+        latest = execution;
+    if (latest?.status !== 'failed' || latest.status_reason?.code !== CREDENTIAL_REFUSED)
+      return null;
+    return latest.updated_at >= this.#credentialsReadAt ? 'refused' : 'refused_before';
   }
 
   /**
@@ -754,6 +776,7 @@ export class CommandService {
                 : [{ project_id: project.project_id, path: project.location.path }],
             ),
         ),
+      credential: (runtimeId) => this.#credential(runtimeId),
       catalog: async () => {
         const read = this.#deps.catalogLinks?.read;
         if (read === undefined) return null;
