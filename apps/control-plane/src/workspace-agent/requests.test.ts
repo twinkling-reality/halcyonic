@@ -2837,3 +2837,123 @@ test('go_to picks one of the places the client named, by index, and the client g
     await f.close();
   }
 });
+
+function submitAct(
+  f: Awaited<ReturnType<typeof fixture>>,
+  act: { command_type: string; values: Record<string, unknown>; lists?: Record<string, string> },
+  title: string,
+) {
+  const outcome = f.controlPlane.commands.submit(
+    {
+      schema_version: 1,
+      command_id: f.ids.next() as CommandId,
+      issued_at: f.time.now().toISOString(),
+      client: { name: 'synthetic', version: null, device_label: null },
+      command_type: 'workspace.request.submit',
+      payload: {
+        project_id: f.projectId,
+        workstream_id: null,
+        execution_id: null,
+        text: title,
+        act: { lists: {}, ...act } as never,
+      },
+    },
+    'http',
+    { kind: 'local' },
+  );
+  assert.equal(outcome.disposition, 'accepted', JSON.stringify(outcome.command?.rejection));
+  const result = outcome.command?.result;
+  return f.controlPlane.projection.workspaceRequest(
+    result?.kind === 'workspace_request_created' ? result.request_id : '',
+  );
+}
+
+test("the person's own press goes through the same preparation: done at once, with no model asked (ADR 0060, section 2)", async () => {
+  const f = await fixture({ actions: standIn([NEW_TASK]) });
+  try {
+    const before = f.controlPlane.projection.workstreams(f.projectId).length;
+    const request = submitAct(
+      f,
+      { command_type: 'workstream.create', values: { title: 'Night Sky' } },
+      'New Task',
+    );
+    await settle();
+    assert.equal(f.turns, 0, 'no model is asked for a press');
+    assert.equal(request?.status, 'responded');
+    const step = request?.steps.find((candidate) => candidate.tool_name === 'act');
+    assert.equal(step?.proposal?.confirm, 'none');
+    assert.equal(step?.status, 'confirmed');
+    const tasks = f.controlPlane.projection.workstreams(f.projectId);
+    assert.equal(tasks.length, before + 1);
+    assert.ok(tasks.some((task) => task.title === 'Night Sky'));
+  } finally {
+    await f.close();
+  }
+});
+
+test('a press on a reviewed entry waits for the one card; a list that changed, a secret or an entry not here does nothing (ADR 0060, C3)', async () => {
+  const rows: Record<string, ListRow[]> = {
+    versions: [
+      { kind: 'version', label: 'Yesterday Evening', detail: null, theirs: false, value: VERSION },
+    ],
+  };
+  const withSecret: ActionEntry = {
+    command_type: 'workstream.create',
+    title: 'New Task',
+    description: 'x',
+    confirm: 'none',
+    sayable: false,
+    needs: [{ name: 'title', kind: 'secret', label: 'Key', required: true }],
+  };
+  const f = await fixture({ actions: standIn([RESTORE, withSecret], rows) });
+  try {
+    const { listDigest } = await import('./actions.ts');
+    const digest = listDigest(rows.versions ?? []);
+    const waiting = submitAct(
+      f,
+      {
+        command_type: 'project.restore',
+        values: { checkpoint_id: 0 },
+        lists: { versions: digest },
+      },
+      'Restore',
+    );
+    assert.equal(waiting?.status, 'waiting_for_human');
+    assert.equal(waiting?.steps[0]?.status, 'waiting');
+    assert.equal(waiting?.steps[0]?.proposal?.confirm, 'review');
+    const changed = submitAct(
+      f,
+      {
+        command_type: 'project.restore',
+        values: { checkpoint_id: 0 },
+        lists: { versions: 'b'.repeat(64) },
+      },
+      'Restore',
+    );
+    assert.equal(changed?.status, 'failed');
+    assert.equal(
+      changed?.steps[0]?.summary,
+      'The list versions changed since it was shown; nothing was done.',
+    );
+    const before = f.controlPlane.projection.workstreams(f.projectId).length;
+    const secret = submitAct(
+      f,
+      { command_type: 'workstream.create', values: { title: 'k' } },
+      'New Task',
+    );
+    assert.equal(secret?.status, 'failed');
+    assert.equal(
+      secret?.steps[0]?.summary,
+      'A secret is given in its own field, never through a request.',
+    );
+    assert.equal(f.controlPlane.projection.workstreams(f.projectId).length, before);
+    const absent = submitAct(f, { command_type: 'project.check', values: {} }, 'Check');
+    assert.equal(
+      absent?.steps[0]?.summary,
+      'That is not one of the things that can be done here now.',
+    );
+    assert.equal(f.turns, 0);
+  } finally {
+    await f.close();
+  }
+});

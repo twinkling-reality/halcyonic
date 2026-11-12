@@ -1,6 +1,6 @@
 # ADR 0060: The computer says what can be done here, and buttons, saying it and one review read that one list
 
-- Status: Accepted (read by CORE, SCREENS and AUDIT2). The assistant's part is built against a stand-in of the host's list: `propose_command`, `read_choices`, `go_to`, the waiting proposal and the rule of origin, tested with a synthetic model; the host's list, the review builder, the `act` path, the confirm and the projection's keeping of proposed commands are not built yet; no model run; headset pending
+- Status: Accepted (read by CORE, SCREENS and AUDIT2). The assistant's part is built against a stand-in of the host's list: `propose_command`, `read_choices`, `go_to`, the waiting proposal, the rule of origin and the person's press through `act` (secrets refused), tested with a synthetic model; the host's list, the review builder, the confirm and the projection's keeping of proposed commands are not built yet; no model run; headset pending
 - Date: 2026-11-12
 
 ## Context

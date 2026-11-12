@@ -1,4 +1,5 @@
 import Type from 'typebox';
+import { ActionValues } from './commands.ts';
 import { EventId, Position, Text } from './primitives.ts';
 
 const strict = { additionalProperties: false } as const;
@@ -23,16 +24,7 @@ export const WORKSPACE_TOOL_ARGUMENTS = {
   propose_command: Type.Object(
     {
       command_type: Text(128),
-      values: Type.Record(
-        Type.String({ pattern: '^[a-z][a-z0-9_]{0,63}$' }),
-        Type.Union([
-          Text(32000),
-          Type.Integer({ minimum: 0, maximum: 1_000_000 }),
-          Type.Boolean(),
-          Type.Array(Type.Integer({ minimum: 0, maximum: 31 }), { maxItems: 8 }),
-        ]),
-        { maxProperties: 16 },
-      ),
+      values: ActionValues,
     },
     strict,
   ),

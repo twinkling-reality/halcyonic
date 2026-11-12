@@ -469,6 +469,11 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
           causedBy(command.command_id),
         ),
       );
+      // The person's own press on an entry: prepared as the assistant's proposal is, and no model is asked (ADR 0060).
+      if (command.payload.act) {
+        this.#act(view, command.payload.act, principal);
+        return { kind: 'workspace_request_created', request_id: view.request_id };
+      }
       this.#budgets.set(view.request_id, { turns: 0, calls: 0, activeMs: 0 });
       this.#schedule(view.request_id);
       return { kind: 'workspace_request_created', request_id: view.request_id };
@@ -1997,6 +2002,126 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
           (tool.function.name !== 'read_result' || listed),
       ),
     );
+  }
+  /**
+   * The person's own press on an entry of what can be done here (ADR 0060, section 2): one preparation for both
+   * proposers. The entry must be in the host's list for the request's scope now; ids come from the binding and from the
+   * rows of lists whose digest is the one the client read; an entry that needs a secret is never reached this way,
+   * since the request is journaled whole (AUDIT2's C3). Then the command's own confirm decides: done at once, or the
+   * one review card. The person's own words are theirs here, so a `person_words` need takes the value they gave.
+   */
+  #act(
+    request: WorkspaceRequestView,
+    act: NonNullable<CommandOf<'workspace.request.submit'>['payload']['act']>,
+    principal: Principal,
+  ): void {
+    const refuse = (summary: string) => {
+      this.#step(request, 'act', 'rejected', summary);
+      this.#changed(request, 'failed', null);
+    };
+    const source = this.#o.actions;
+    if (!source) {
+      refuse('Nothing can be done here through the list yet.');
+      return;
+    }
+    const scope = this.#actionScope(request);
+    const listed = source
+      .actions(scope)
+      .find((candidate) => candidate.command_type === act.command_type);
+    if (!listed) {
+      refuse('That is not one of the things that can be done here now.');
+      return;
+    }
+    if (listed.needs.some((need) => need.kind === 'secret')) {
+      refuse('A secret is given in its own field, never through a request.');
+      return;
+    }
+    for (const need of listed.needs) {
+      if (need.list === undefined || act.values[need.name] === undefined) continue;
+      const read = act.lists[need.list];
+      if (read === undefined || read !== listDigest(source.list(scope, need.list))) {
+        refuse(`The list ${need.list} changed since it was shown; nothing was done.`);
+        return;
+      }
+    }
+    // The person's words are theirs: what they typed or said for an instruction goes as they gave it.
+    const entry = {
+      ...listed,
+      needs: listed.needs.map((need) =>
+        need.kind === 'person_words' ? { ...need, kind: 'text' as const } : need,
+      ),
+    };
+    const built = buildProposed(entry, scope, act.values, (list) => source.list(scope, list), {
+      command_id: this.#o.ids.next() as CommandId,
+      issued_at: this.#now(),
+    });
+    if (!built.ok) {
+      refuse(`Nothing was done: ${built.reason}.`);
+      return;
+    }
+    const review = source.review(built.command);
+    if (review === null) {
+      refuse('The computer cannot say what this would do, so nothing was done.');
+      return;
+    }
+    const proposal: WorkspaceRequestProposal = {
+      command_type: entry.command_type,
+      confirm: entry.confirm,
+      what_happens: fitted(review.what_happens, 2000),
+      review: review.digest,
+    };
+    if (entry.confirm === 'review') {
+      this.#step(
+        request,
+        'act',
+        'waiting',
+        'Prepared; it waits for the person to confirm the review with one press.',
+        null,
+        null,
+        {
+          proposal,
+          proposed: built.command,
+        },
+      );
+      this.#changed(request, 'waiting_for_human', null);
+      return;
+    }
+    const step = this.#step(
+      request,
+      'act',
+      'prepared',
+      "Prepared from the person's press; it is done at once.",
+      null,
+      null,
+      {
+        proposal,
+        proposed: built.command,
+      },
+    );
+    const submitted = this.#o.controlPlane.commands.submit(built.command, 'internal', principal);
+    const status =
+      this.#o.controlPlane.projection.command(built.command.command_id)?.status ?? null;
+    this.#recordStep(
+      request,
+      {
+        ...step,
+        status:
+          submitted.disposition === 'rejected'
+            ? 'rejected'
+            : status === 'completed'
+              ? 'confirmed'
+              : 'running',
+        command_status: status,
+        summary:
+          submitted.disposition === 'rejected'
+            ? 'Refused when it was submitted; nothing was done.'
+            : "Submitted under the person's own principal; its outcome is the command's own.",
+      },
+      null,
+      null,
+      built.command,
+    );
+    this.#changed(request, submitted.disposition === 'rejected' ? 'failed' : 'responded', null);
   }
   /** Where a request stands, as the host's list of what can be done there reads it. */
   #actionScope(request: WorkspaceRequestView): ActionScope {

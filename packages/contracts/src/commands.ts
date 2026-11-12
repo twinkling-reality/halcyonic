@@ -1,6 +1,7 @@
 import Type, { type Static, type TSchema } from 'typebox';
 import { CatalogRepositoryRef } from './catalog.ts';
 import { CheckpointId, GitObjectId, ReviewDigest } from './checkpoints.ts';
+import { Sha256Hex } from './devices.ts';
 import {
   GitBranchName,
   PagesAddress,
@@ -454,6 +455,36 @@ export const ExecutionDropQueuedInstructionCommand = defineCommand(
  * project; with all three null, about all of the person's work. The last two are read-only (ADR 0030,
  * amended 2026-11-10). Admission refuses any other mix.
  */
+/**
+ * What one entry of what can be done here still needs (ADR 0060), by each need's name: words, a yes or no, a count, or
+ * the index (or indices) of rows of a host list. Never an id: the host fills those.
+ */
+export const ActionValues = Type.Record(
+  Type.String({ pattern: '^[a-z][a-z0-9_]{0,63}$' }),
+  Type.Union([
+    Text(32000),
+    Type.Integer({ minimum: 0, maximum: 1_000_000 }),
+    Type.Boolean(),
+    Type.Array(Type.Integer({ minimum: 0, maximum: 31 }), { maxItems: 8 }),
+  ]),
+  { maxProperties: 16 },
+);
+/**
+ * The person's own press on an entry of what can be done here (ADR 0060): the entry, the values it gathered, and the
+ * digest of each host list it chose a row from, as the client read it. The host prepares it as it prepares the
+ * assistant's proposal; no model is asked.
+ */
+export const WorkspaceRequestAct = Type.Object(
+  {
+    command_type: Text(128),
+    values: ActionValues,
+    /** Empty where no row of a list was chosen. */
+    lists: Type.Record(Type.String({ pattern: '^[a-z][a-z0-9_.]{0,127}$' }), Sha256Hex, {
+      maxProperties: 8,
+    }),
+  },
+  strict,
+);
 /** The places a client can go with a request: its own words for each, at most sixteen (ADR 0060). */
 export const WorkspaceRequestPlaces = Type.Array(Text(40), { maxItems: 16 });
 export const WorkspaceRequestSubmitCommand = defineCommand(
@@ -466,6 +497,8 @@ export const WorkspaceRequestSubmitCommand = defineCommand(
       text: Text(32000),
       /** The places the client can go, by index, for the assistant's `go_to` (ADR 0060). */
       places: Type.Optional(WorkspaceRequestPlaces),
+      /** The person's own press on an entry of what can be done here, with no model asked (ADR 0060). */
+      act: Type.Optional(WorkspaceRequestAct),
     },
     strict,
   ),
