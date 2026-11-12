@@ -5,7 +5,7 @@
  *
  *   pnpm mac-setup login on|off        the person's command: ~/Library/LaunchAgents, the default label
  *   node apps/control-plane/src/cli/login-agent.ts on|off <folder> [--label <label>] [--port <port>]
- *       [--data-dir <folder>]          the same against any folder and label, as a scratch check does
+ *       [--data-dir <folder> --tasks-dir <folder>]   the same against any folder and label, as a scratch check does
  *
  * On refuses while launchd already has the agent (turn it off, then on, to change it) and while a
  * Halcyonic started by hand answers on the port (the agent's starts would fail again and again).
@@ -22,7 +22,7 @@
  * Its environment is PATH (launchd's own is minimal; the PATH of the shell that turns it on is
  * kept, since a project's own check needs npm or pnpm there, AUDIT3's S4), without relative
  * folders, folders inside the checkout or a package's `node_modules/.bin` (which pnpm adds while a
- * script runs), and the two settings in SETTINGS, nothing else, so no secret is ever in it. On
+ * script runs), and the three settings in SETTINGS, nothing else, so no secret is ever in it. On
  * names any other Halcyonic setting it leaves out.
  */
 import { spawnSync } from 'node:child_process';
@@ -35,18 +35,19 @@ import {
   realpathSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
+import { homedir, userInfo } from 'node:os';
 import { delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defaultDataDir, loopbackListener } from '../config.ts';
+import { loopbackListener } from '../config.ts';
 
 /** The agent's launchd label, and so its file's name. */
 export const LOGIN_AGENT_LABEL = 'com.halcyonic.control-plane';
 
 /** The settings an agent may carry besides PATH: where it serves and where its data lives. */
-const SETTINGS = ['HALCYONIC_PORT', 'HALCYONIC_DATA_DIR'] as const;
+const SETTINGS = ['HALCYONIC_PORT', 'HALCYONIC_DATA_DIR', 'HALCYONIC_TASKS_DIR'] as const;
 
 /** The least time between two starts launchd makes, so a refused start does not fill the log. */
 export const THROTTLE_SECONDS = 30;
@@ -74,6 +75,10 @@ export interface LoginAgent {
   readonly logFile: string;
   /** The data folder, made before launchd opens the log inside it. */
   readonly dataDir: string;
+  /** The task copies' folder the plane will use, and clear at its start of copies its journal does not hold. */
+  readonly tasksDir: string;
+  /** The account's usual data and tasks folders, from its own home (what launchd gives), never from HOME. */
+  readonly usual: { readonly dataDir: string; readonly tasksDir: string };
   readonly environment: Readonly<Record<string, string>>;
   /** The Halcyonic settings set where On ran that the agent does not carry, by name only. */
   readonly leftOut: readonly string[];
@@ -139,15 +144,26 @@ export function loginAgentFor(options: {
   readonly env: NodeJS.ProcessEnv;
   readonly label?: string | undefined;
   readonly settings?: { readonly [name in Setting]?: string | undefined };
+  /** The account's own home; the user database's, not HOME. */
+  readonly home?: string | undefined;
 }): LoginAgent {
   const environment: Record<string, string> = {};
   const path = keptPath(options.env.PATH, options.checkout);
   if (path !== undefined) environment.PATH = path;
   for (const name of SETTINGS) {
     const value = options.settings?.[name];
-    if (value !== undefined && value !== '') environment[name] = value;
+    if (value === undefined || value === '') continue;
+    // Folders go in absolute, as judged here: the plane would resolve a relative one against the checkout.
+    environment[name] = name === 'HALCYONIC_PORT' ? value : resolve(value);
   }
-  const dataDir = defaultDataDir({ HALCYONIC_DATA_DIR: environment.HALCYONIC_DATA_DIR });
+  const home = options.home ?? userInfo().homedir;
+  const usual = { dataDir: join(home, '.halcyonic'), tasksDir: join(home, '.halcyonic-tasks') };
+  const dataDir = resolve(environment.HALCYONIC_DATA_DIR ?? usual.dataDir);
+  const tasksDir = resolve(environment.HALCYONIC_TASKS_DIR ?? usual.tasksDir);
+  // Both folders go in as judged, even the usual ones, so nothing launchd itself holds (launchctl setenv) can name
+  // another data folder at login than the one judged here.
+  environment.HALCYONIC_DATA_DIR = dataDir;
+  environment.HALCYONIC_TASKS_DIR = tasksDir;
   const leftOut = Object.keys(options.env)
     .filter((name) => name.startsWith('HALCYONIC_') && !(name in environment))
     .filter((name) => (options.env[name] ?? '') !== '')
@@ -159,6 +175,8 @@ export function loginAgentFor(options: {
     workingDirectory: options.checkout,
     logFile: join(dataDir, 'control-plane.log'),
     dataDir,
+    tasksDir,
+    usual,
     environment,
     leftOut,
   };
@@ -287,6 +305,78 @@ function writeAgentFile(file: string, text: string): void {
   renameSync(partial, file);
 }
 
+/**
+ * A folder as the file system knows it, for telling whether two spellings are one folder: the device and inode of
+ * its nearest part that exists (so links, firmlinks such as /System/Volumes/Data, `..` inside a link's target and
+ * the volume's case are all the kernel's to resolve), then the names below it that do not exist yet. `dangling`
+ * when that nearest part is a link to nothing: where it will lead cannot be told, so a caller refuses it.
+ */
+export function folderIdentity(
+  path: string,
+): { readonly exact: string; readonly folded: string } | 'dangling' {
+  let existing = resolve(path);
+  const tail: string[] = [];
+  while (true) {
+    try {
+      lstatSync(existing);
+      break;
+    } catch {
+      const parent = dirname(existing);
+      if (parent === existing) break;
+      tail.unshift(existing.slice(parent.length).replace(/^[/\\]+/, ''));
+      existing = parent;
+    }
+  }
+  let found: { dev: number; ino: number };
+  try {
+    found = statSync(existing);
+  } catch {
+    return 'dangling';
+  }
+  const root = `${found.dev}:${found.ino}`;
+  return {
+    exact: [root, ...tail].join('/'),
+    folded: [root, ...tail.map((name) => name.toLowerCase())].join('/'),
+  };
+}
+
+/** Whether `path`, or a folder it lies in, is the folder `folded` names, as folderIdentity tells it. */
+function within(path: string, folded: string): boolean {
+  for (let at = resolve(path); ; at = dirname(at)) {
+    const found = folderIdentity(at);
+    if (found !== 'dangling' && found.folded === folded) return true;
+    if (dirname(at) === at) return false;
+  }
+}
+
+/**
+ * Why the agent's folders would harm the person's tasks, or null. Task copies go to the usual tasks folder whatever
+ * the data folder is, and a plane clears that folder of copies its own journal does not hold when it starts (AUDIT3,
+ * 2026-11-12): so another data folder must come with another tasks folder. The data folder counts as the usual one
+ * only when the file system says it is the same folder; the tasks folder counts as the usual one even when its
+ * names differ only in case, so a doubt always refuses. A link to nothing is refused, as is a tasks folder inside the
+ * usual one, and a tasks folder inside or around the data folder, one of the plane's own refusals checked here first
+ * (not its refusal of a tasks folder in a project root, which the plane makes at start).
+ */
+export function foldersProblem(agent: LoginAgent): string | null {
+  const data = folderIdentity(agent.dataDir);
+  const tasks = folderIdentity(agent.tasksDir);
+  if (data === 'dangling' || tasks === 'dangling') {
+    return 'The data or tasks folder is a link to a folder that does not exist, so where it leads cannot be told; name the folder itself.';
+  }
+  if (within(agent.tasksDir, data.folded) || within(agent.dataDir, tasks.folded)) {
+    return 'The tasks folder must be beside the data folder, not inside it or around it; Halcyonic refuses to start that way.';
+  }
+  const usualData = folderIdentity(agent.usual.dataDir);
+  const usualTasks = folderIdentity(agent.usual.tasksDir);
+  const isUsualData = usualData !== 'dangling' && data.exact === usualData.exact;
+  const usesUsualTasks = usualTasks === 'dangling' || within(agent.tasksDir, usualTasks.folded);
+  if (!isUsualData && usesUsualTasks) {
+    return `A data folder other than ${agent.usual.dataDir} needs its own tasks folder (HALCYONIC_TASKS_DIR, or --tasks-dir), or this Halcyonic would clear the task copies in ${agent.usual.tasksDir} when it starts.`;
+  }
+  return null;
+}
+
 /** Turns the agent on in `folder`; the plane answers on `port` once launchd has started it. */
 export async function turnOn(
   agent: LoginAgent,
@@ -296,6 +386,11 @@ export async function turnOn(
 ): Promise<number> {
   if (port < 1) {
     io.print('The agent needs a port of its own; 0 lets the system pick one nobody could find.');
+    return 2;
+  }
+  const problem = foldersProblem(agent);
+  if (problem !== null) {
+    io.print(problem);
     return 2;
   }
   const domain = `gui/${io.uid}`;
@@ -324,6 +419,7 @@ export async function turnOn(
     return 1;
   }
   io.print(`Halcyonic now starts when you log in, with ${agent.node}. Its log: ${agent.logFile}.`);
+  io.print(`Its data folder: ${agent.dataDir}. Its tasks folder: ${agent.tasksDir}.`);
   if (agent.leftOut.length > 0) {
     io.print(
       `Set here but not carried by the agent: ${agent.leftOut.join(', ')}. Halcyonic's own settings file still applies.`,
@@ -376,13 +472,18 @@ export function runLogin(
     checkout: checkoutOf(),
     node: nodeFor(env.PATH, process.execPath, sameExecutable),
     env,
-    settings: { HALCYONIC_PORT: env.HALCYONIC_PORT, HALCYONIC_DATA_DIR: env.HALCYONIC_DATA_DIR },
+    settings: {
+      HALCYONIC_PORT: env.HALCYONIC_PORT,
+      HALCYONIC_DATA_DIR: env.HALCYONIC_DATA_DIR,
+      HALCYONIC_TASKS_DIR: env.HALCYONIC_TASKS_DIR,
+    },
+    home,
   });
   return turnOn(agent, port, folder, io);
 }
 
 const USAGE =
-  'usage: node apps/control-plane/src/cli/login-agent.ts on|off <folder> [--label <label>] [--port <port>] [--data-dir <folder>]';
+  'usage: node apps/control-plane/src/cli/login-agent.ts on|off <folder> [--label <label>] [--port <port>] [--data-dir <folder>] [--tasks-dir <folder>]';
 
 /** The command's words, strictly: every flag known, given once, with a value. */
 export function parseLoginArgs(args: readonly string[]): {
@@ -397,7 +498,8 @@ export function parseLoginArgs(args: readonly string[]): {
   for (let at = 0; at < rest.length; at += 2) {
     const name = rest[at];
     const value = rest[at + 1];
-    if (name === undefined || !['--label', '--port', '--data-dir'].includes(name)) return null;
+    if (name === undefined || !['--label', '--port', '--data-dir', '--tasks-dir'].includes(name))
+      return null;
     if (value === undefined || value.startsWith('--') || flags.has(name)) return null;
     flags.set(name, value);
   }
@@ -418,9 +520,19 @@ export async function main(
   const label = parsed.flags.get('--label') ?? LOGIN_AGENT_LABEL;
   if (parsed.state === 'off') return turnOff(label, folder, io);
   const dataDir = parsed.flags.get('--data-dir');
+  const tasksDir = parsed.flags.get('--tasks-dir');
+  // A data folder named here takes its tasks folder from here too, never from the shell, which may name the
+  // person's own.
+  if ((dataDir === undefined) !== (tasksDir === undefined)) {
+    io.print(
+      '--data-dir and --tasks-dir go together: a scratch data folder needs a scratch tasks folder.',
+    );
+    return 2;
+  }
   const settings = {
     HALCYONIC_PORT: parsed.flags.get('--port') ?? env.HALCYONIC_PORT,
     HALCYONIC_DATA_DIR: dataDir === undefined ? env.HALCYONIC_DATA_DIR : resolve(dataDir),
+    HALCYONIC_TASKS_DIR: tasksDir === undefined ? env.HALCYONIC_TASKS_DIR : resolve(tasksDir),
   };
   const port = loopbackListener({ HALCYONIC_PORT: settings.HALCYONIC_PORT }).port;
   const agent = loginAgentFor({

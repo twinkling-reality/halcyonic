@@ -150,8 +150,8 @@ with today's repository checkout, so it is built: `pnpm mac-setup login on|off`
 `~/Library/LaunchAgents` and has launchd start and stop it in the person's own session (`launchctl
 bootstrap` and `bootout`). It runs the checkout's `apps/control-plane/src/main.ts --restartable` with
 the node on PATH that is the node the command ran with; its environment is PATH (no relative
-folder, none inside the checkout, no `node_modules/.bin`) and only `HALCYONIC_PORT` and
-`HALCYONIC_DATA_DIR`; KeepAlive with SuccessfulExit false starts it again after any exit that is not
+folder, none inside the checkout, no `node_modules/.bin`) and only `HALCYONIC_PORT` and the data
+and tasks folders it judged, always written (another data folder is refused without its own tasks folder); KeepAlive with SuccessfulExit false starts it again after any exit that is not
 a success (Restart to Apply's 75, a crash, a close that failed, a refused start; unlike `Start
 Halcyonic.command`, which stops after a failed close, ADR 0053), with a 30 second throttle and 30
 seconds for a stop before launchd kills; its log is in the data folder. On refuses while launchd has
