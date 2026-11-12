@@ -344,7 +344,8 @@ namespace Halcyonic.XR.UI
             if (stops)
             {
                 var action = bar.Column[0];
-                column[0].Show(action.Words, action.Icon, action.Main, available: true, new Vector2(-total / 2f + panelWidth + gap + core.x / 2f, foot + core.y / 2f), core.x);
+                column[0].Show(action.Words, action.Icon, action.Main, available: true, new Vector2(-total / 2f + panelWidth + gap + core.x / 2f, foot + core.y / 2f), core.x,
+                    doing: RoomButton.Doing(action.Control));
                 controls[column[0]] = action.Control;
             }
             Foot = foot;
@@ -471,7 +472,8 @@ namespace Halcyonic.XR.UI
             var left = -total / 2f;
             foreach (var (button, action, width) in buttons)
             {
-                button.Show(action.Words, action.Icon, action.Main, available: true, new Vector2(left + width / 2f, up), width, aside: action.Chip);
+                button.Show(action.Words, action.Icon, action.Main, available: true, new Vector2(left + width / 2f, up), width, aside: action.Chip,
+                    doing: RoomButton.Doing(action.Control));
                 if (button != talk) controls[button] = action.Control;
                 left += width + gap;
             }
@@ -753,7 +755,7 @@ namespace Halcyonic.XR.UI
                 }
                 var action = bar.Column[index];
                 button.Show(action.Words, action.Icon, action.Main, available: true, centre, cores[index].x, action.Mark, action.Chosen,
-                    action.Mark != AnswerMark.None ? wrap : 0f);
+                    action.Mark != AnswerMark.None ? wrap : 0f, doing: RoomButton.Doing(action.Control));
                 controls[button] = action.Control;
                 // A held action (Hold to Talk in the column) acts at its pinch; every other on its release (the one press).
                 button.Press.ActsOnPinch = action.Control.Holds;
