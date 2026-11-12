@@ -118,7 +118,7 @@ const FIRST_TURN_TOOLS = new Set([
  * so a request without one carries none of it.
  */
 export const LIST_GUIDE =
-  "can_be_done_here is what the computer can do here. To do one, call propose_command with its command_type and the values of its needs (a row of a list by its index, after read_choices). Give the required needs and only the others the person named. It waits for the person's one press: say what will happen, never that it was done. To go to a place, call go_to.";
+  "can_be_done_here is what the computer can do here. To do one, call propose_command with its command_type and the values of its needs (a row of a list by its index, after read_choices). Give every required need and only the optional ones the person named; never ask for an optional one. Where the person gave no title, write a short one from their words. It waits for the person's one press: say what will happen, never that it was done. To go to a place, call go_to.";
 /** The tools of what can be done here (ADR 0060), offered in every scope where the list holds something. */
 const LIST_TOOLS = new Set(['propose_command', 'read_choices', 'go_to']);
 
@@ -2468,7 +2468,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
               needs: entry.needs
                 .map(
                   (need) =>
-                    `${need.name}: ${need.list ? `${need.kind === 'choices' ? `up to ${need.max ?? 1} rows` : 'a row'} of ${need.list}` : need.kind}${need.required ? ', required' : ''}`,
+                    `${need.name}: ${need.list ? `${need.kind === 'choices' ? `up to ${need.max ?? 1} rows` : 'a row'} of ${need.list}` : need.kind}${need.required ? ', required' : ', optional'}`,
                 )
                 .join('; '),
             })),

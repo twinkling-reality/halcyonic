@@ -2623,6 +2623,15 @@ test("a model proposes New Task from the host's list in a project: the host prep
       /"can_be_done_here":\[\{"command_type":"workstream.create","title":"New Task"/,
     );
     assert.ok(seen[0]?.some((m) => m.role === 'system' && m.content === LIST_GUIDE));
+    // Each need says whether it is required or optional, so an optional one is never asked for (the 30B window at
+    // 10:38Z asked the person for a version it did not need), and a missing title is the model's to write.
+    const context = seen[0]?.find((m) => m.content.startsWith('Host context data'))?.content ?? '';
+    assert.match(
+      context,
+      /title: text, required; objective: text, optional; from_checkpoint: a row of versions, optional/,
+    );
+    assert.match(LIST_GUIDE, /never ask for an optional one/);
+    assert.match(LIST_GUIDE, /Where the person gave no title, write a short one from their words/);
     const request = f.controlPlane.projection.workspaceRequest(id);
     assert.equal(request?.status, 'waiting_for_human');
     const step = request?.steps.find((candidate) => candidate.tool_name === 'propose_command');
