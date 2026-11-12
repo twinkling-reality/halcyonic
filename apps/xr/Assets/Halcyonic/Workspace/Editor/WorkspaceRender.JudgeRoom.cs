@@ -18,9 +18,6 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class WorkspaceRender
     {
-        /// <summary>The demonstration's directed task, the one that asks, asks for approval, fails its checks and is corrected.</summary>
-        private const string JudgeDirectedTitle = "Add rate limiting to the sign-in endpoint";
-
         /// <summary>Names a judge must not read on any frame, as JudgeWordsTests lists them.</summary>
         private static readonly string[] JudgeBrands =
         {
@@ -33,8 +30,9 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>
         /// What a judge sees in the redesign (<see cref="RoomDesign.Enabled"/> on), as the release player runs it with no
         /// computer connected: the recorded run moment by moment (launch, at work, the result, Changes, Checks, its end), then
-        /// the labelled demonstration (the question, it asks and Confirm, at work, Build Failed, the written instruction, the
-        /// correction, Build Passed, the restart). At each moment the redesign must draw it and nothing of the older views may
+        /// the labelled demonstration by its own decision points (each question, approval and failed check it offers
+        /// instructions for, each turn at work, its result and Checks, the restart), naming no task, title or count of one
+        /// story. At each moment the redesign must draw it and nothing of the older views may
         /// show; what it draws is held to the frame checks (every word whole, inside a Quest 3S field, contrast at least 4.5:1,
         /// no brand names) at both reading sizes. A press goes through a drawn control where the redesign draws one; where none
         /// is drawn the walk says so and moves the recording on itself, so every later moment is still seen. A task's pages
@@ -62,7 +60,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var context = SynchronizationContext.Current;
                     // As the judge kit walk: the session's acknowledgements continue on the thread pool while the walk holds the Editor's thread.
                     SynchronizationContext.SetSynchronizationContext(null);
-                    try { found.AddRange(RenderJudgeRoomWalk(folder, moments)); }
+                    try { found.AddRange(RenderRoomWalk(folder, moments, null)); }
                     catch (Exception error) { found.Add("judge room: " + error); }
                     finally { SynchronizationContext.SetSynchronizationContext(context); ViewField.Current = null; KeepFontAssetsAsCommitted(); }
                     File.WriteAllText(Path.Combine(folder, "moments.tsv"), string.Join("\n", moments) + "\n");
@@ -75,13 +73,19 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private static IEnumerable<string> RenderJudgeRoomWalk(string folder, List<string> moments)
+        /// <summary>
+        /// The walk's harness, one for both walks: the director set up as the release WorkspaceDirector sets it up, drawn at each
+        /// moment and held to the frame checks, every press through what is drawn. With <paramref name="live"/> null it plays the
+        /// bundled recordings as a judge's headset does; with it, a session to that control plane, as a headset with a token.
+        /// </summary>
+        private static IEnumerable<string> RenderRoomWalk(string folder, List<string> moments, LiveWalk? live)
         {
             var failures = new List<string>();
             var root = new GameObject("Judge room walk");
             var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
             var client = new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" };
             DemonstrationFallback? fallback = null;
+            ControlPlaneApi? api = null;
             try
             {
                 // As ControlPlaneConnection loads them with no control plane configured: the recorded run first where the build
@@ -96,8 +100,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (recording.IsRecordedRun != recordedRun) failures.Add("judge room: " + resource + " holds the wrong kind of recording");
                     return new DemonstrationPlayer(recording, client, new DemonstrationOptions { Speed = recordedRun ? 10 : 1000, Loop = loop });
                 }
-                var hasRecordedRun = Resources.Load<TextAsset>("HalcyonicRecordedRun") != null;
-                fallback = new DemonstrationFallback(null,
+                var hasRecordedRun = live == null && Resources.Load<TextAsset>("HalcyonicRecordedRun") != null;
+                var target = live == null ? null : ControlPlaneTarget.Local(live.Endpoint, live.Token);
+                api = target?.CreateApi();
+                fallback = live != null ? new DemonstrationFallback(target!.CreateSession(client), () => null) : new DemonstrationFallback(null,
                     () => Load("HalcyonicDemonstration", recordedRun: false, loop: !hasRecordedRun),
                     hasRecordedRun ? () => Load("HalcyonicRecordedRun", recordedRun: true, loop: false) : null);
                 fallback.Start();
@@ -127,6 +133,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     _ => "",
                 };
                 var sent = new List<CommandEnvelope>();
+                // Each press a person makes, through a drawn control or the frame of record; each sentence typed; the keyboard
+                // the director opened and has not been answered.
+                var presses = 0;
+                var typed = 0;
+                (string Prompt, Action<string> Done)? keyboard = null;
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
                     // WorkspaceDirector.Start's setup, as a release build gives it.
@@ -144,10 +155,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         sent.Add(command);
                         return submissions.Submit(each => madeIn.SubmitAsync(each), command, ExecutionOf(command));
                     },
-                    Api = () => null,
+                    Api = () => api,
                     Demonstration = () => fallback.Line != null,
                     RecordedRun = () => fallback.ShowingRecordedRun,
-                    KeyboardOffered = () => false,
+                    KeyboardOffered = () => live != null,
+                    // The system keyboard: the walk answers it with the journey's words, as the person's typing would.
+                    Keyboard = (text, prompt, done, dismissed) => keyboard = (prompt, done),
                     // Hold to talk as the release player carries it (ADR 0021, amended): with no computer it must never be offered.
                     Voice = root.AddComponent<HoldToTalk>(),
                     StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, Array.Empty<CharacterTarget>(), null, false),
@@ -158,7 +171,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     Commands = commands,
                     Overview = () => State() is ClientProjection state ? WorkOverview.Of(state, new StageVisibility(), _ => true) : null,
                     RecordedUsage = now => fallback.Line != null ? fallback.UsageLimitsAt(now) : null,
-                    MakeNewProject = host => NewProjectColumn.Create(host, commands),
+                    MakeNewProject = host => live != null
+                        ? new NewProjectFlow(host, commands, new KeptUnknownStart(new WalkPreferences(), () => host.State))
+                        : NewProjectColumn.Create(host, commands),
                     File = (host, task) => Present(task) == null ? null : new FileColumn(host, () => Present(task), commands,
                         () => fallback.Player?.Reads, execution => fallback.InstructionsFor(execution), () => ""),
                 });
@@ -199,9 +214,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add("judge room: waited " + seconds + " s and " + what + " never came");
                     return false;
                 }
-                WorkstreamView? Directed() => State()?.Workstreams.Values.FirstOrDefault(task => task.Title == JudgeDirectedTitle);
                 ExecutionView? Run(WorkstreamView? task) => task != null && State() is ClientProjection state ? state.CurrentExecution(task) : null;
-                ExecutionView? DirectedRun() => Run(Directed());
                 FileColumn? Opened() => navigator.Beside as FileColumn;
 
                 // A press: through the redesign's drawn control where one is bound to the action (not built yet for any judge
@@ -217,12 +230,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         button.Press.SettleForRender();
                         button.Press.PressForRender(990);
+                        presses++;
                         Draw();
                         return true;
                     }
                     if (Opened()?.Frame is MenuFrame record && director.PressForRender(MenuColumn.File, action, key, record, null))
                     {
                         momentFailures.Add("no drawn control for " + action + (key == null ? "" : " " + key) + ": the frame of record took it");
+                        presses++;
                         Draw();
                         return true;
                     }
@@ -281,6 +296,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (!which(control)) continue;
                         press.SettleForRender();
                         press.PressForRender(989);
+                        presses++;
                         Draw();
                         return "pressed row " + control.Action + (control.Key == null ? "" : "/" + control.Key);
                     }
@@ -300,6 +316,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (Drawn(action, key) is not RoomButton button) return false;
                         button.Press.SettleForRender();
                         button.Press.PressForRender(988);
+                        presses++;
                         Fresh();
                         ways.Add("pressed " + action + (key == null ? "" : "/" + key));
                         return true;
@@ -377,8 +394,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (older.Count > 0) gaps.Add("older parts draw: " + string.Join(", ", older));
                     var found = new List<string>(RoomFrameChecks(root, camera, image, eyes, plane));
                     // No computer: a recording plays, so voice is never offered and Hold to Talk never drawn (ADR 0021, amended).
-                    if (director.VoiceOffered) found.Add("voice is offered with no computer");
-                    if (plane.KitShows && plane.Kit.Bar.Talk.gameObject.activeInHierarchy) found.Add("Hold to Talk is drawn with no computer");
+                    if (live == null && director.VoiceOffered) found.Add("voice is offered with no computer");
+                    if (live == null && plane.KitShows && plane.Kit.Bar.Talk.gameObject.activeInHierarchy) found.Add("Hold to Talk is drawn with no computer");
                     found.AddRange(RoomBrands(root));
                     if (covered) found.AddRange(gaps);
                     UnityEngine.Object.DestroyImmediate(image);
@@ -398,6 +415,288 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.AddRange(found.Select(each => name + ": " + each));
                     reachedBy = "";
                     Debug.Log("Halcyonic: judge room: " + name + ": redesign [" + string.Join(", ", redesign) + "], older [" + string.Join(", ", older) + "]");
+                }
+
+                var handled = new HashSet<string>();
+                var decisions = 0;
+                var results = 0;
+                var cancelTried = false;
+                List<(WorkstreamView Task, ExecutionView Run)> Runs()
+                {
+                    var runs = new List<(WorkstreamView Task, ExecutionView Run)>();
+                    if (State() is not ClientProjection now) return runs;
+                    foreach (var each in now.Workstreams.Values)
+                        if (now.CurrentExecution(each) is ExecutionView current) runs.Add((each, current));
+                    return runs;
+                }
+                string ResultKey(ExecutionView run) => "r:" + run.ExecutionId + ":" + (run.LastTestRun?.TestRunId ?? "");
+                string Outcome(ExecutionView run) => run.LastTestRun?.Outcome.ToString().ToLowerInvariant() ?? "unchecked";
+                bool SentSince<T>(int before) => sent.Skip(before).OfType<T>().Any();
+                ExecutionView? Current(string workstreamId) => Runs().FirstOrDefault(pair => pair.Task.WorkstreamId == workstreamId).Run;
+                void Answer(WorkstreamView task, ExecutionView run, QuestionView question)
+                {
+                    OpenSection(task.WorkstreamId, FileSection.Waiting);
+                    // The file reads the waiting decision on its next refresh (the critic of run 19: room-12 showed the answer still sending).
+                    Fresh();
+                    Moment("question");
+                    // The prompt on the band, read to its last part where it pages.
+                    for (var part = 2; part < 8 && plane.KitShows && plane.Kit.Bar.BandNextButton is RoomButton turning; part++)
+                    {
+                        turning.Press.SettleForRender();
+                        turning.Press.PressForRender(992);
+                        presses++;
+                        Draw();
+                        Moment("question part " + part);
+                    }
+                    var before = sent.Count;
+                    var answered = Press(FileScreens.Choose, "0");
+                    if (answered) Moment("answer chosen");
+                    if (sent.Count != before) failures.Add("judge room: choosing an answer sent something");
+                    // The way on is whatever the product draws: Review Answers where it stands, Send Answer, and a Confirm behind
+                    // its lock only where the command's own policy asks one.
+                    if (answered && !SentSince<ExecutionAnswerQuestionCommand>(before) && Press(FileScreens.NextQuestion)) Moment("answers reviewed");
+                    if (answered && !SentSince<ExecutionAnswerQuestionCommand>(before)) answered = Press(FileScreens.SendAnswer);
+                    if (answered && !SentSince<ExecutionAnswerQuestionCommand>(before)) ConfirmBehindLock("answer");
+                    if (!SentSince<ExecutionAnswerQuestionCommand>(before) && Current(task.WorkstreamId)?.PendingQuestions.Any(each => each.QuestionId == question.QuestionId) == true)
+                        SendInstead("the answer", commands.AnswerQuestion(run.ExecutionId, question.QuestionId,
+                            question.Prompts.Select(prompt => new QuestionAnswer { Key = prompt.Key, Selected = prompt.Options.Take(1).Select(option => option.Label).ToList() })));
+                    Moment("answer sent");
+                }
+
+                void Approve(WorkstreamView task, ExecutionView run, ApprovalView approval)
+                {
+                    OpenSection(task.WorkstreamId, FileSection.Waiting);
+                    // The file reads the waiting decision on its next refresh (the critic of run 19: room-12 showed the answer still sending).
+                    Fresh();
+                    Moment("it asks");
+                    if (Drawn(FileScreens.Deny, null) == null && Drawn(FileScreens.Approve, null) != null) momentFailures.Add("Approve stands without Deny");
+                    var before = sent.Count;
+                    var approved = Press(FileScreens.Approve);
+                    // Where Approve asks a confirmation, Cancel once: the request asks again and nothing was sent.
+                    if (approved && !cancelTried && !SentSince<ExecutionRespondToApprovalCommand>(before) && Drawn(FileScreens.Cancel, null) != null)
+                    {
+                        cancelTried = true;
+                        Moment("confirm cancel offered");
+                        Press(FileScreens.Cancel);
+                        if (Drawn(FileScreens.Approve, null) == null) momentFailures.Add("Cancel did not bring the request back to Approve and Deny");
+                        if (SentSince<ExecutionRespondToApprovalCommand>(before)) momentFailures.Add("Cancel sent an answer");
+                        Moment("cancelled asks again");
+                        approved = Press(FileScreens.Approve);
+                    }
+                    for (var part = 0; approved && part < 20 && !SentSince<ExecutionRespondToApprovalCommand>(before) && Opened()?.Steering.CanConfirm != true; part++)
+                    {
+                        if (!Press(FileScreens.NextPart, FileScreens.RequestKey)) break;
+                        Moment("request part " + (part + 2));
+                    }
+                    if (approved && !SentSince<ExecutionRespondToApprovalCommand>(before) && Drawn(FileScreens.Yes, null) is RoomButton confirm)
+                    {
+                        // Confirm arrives behind its lock: drawn, ring part filled, a press taken by nothing.
+                        Draw();
+                        if (plane.Kit.Bar.Locking != confirm) momentFailures.Add("Confirm arrived without its lock");
+                        Moment("confirm locked");
+                        confirm.Press.SettleForRender();
+                        confirm.Press.PressForRender(991);
+                        Draw();
+                        if (SentSince<ExecutionRespondToApprovalCommand>(before)) failures.Add("judge room: Confirm took a press behind its lock");
+                        plane.Kit.Bar.AgeLockForRender(RoomBar.ConfirmLockSeconds);
+                        Draw();
+                        Moment("confirm");
+                        approved = Press(FileScreens.Yes);
+                    }
+                    var answers = sent.Skip(before).OfType<ExecutionRespondToApprovalCommand>().ToList();
+                    if (answers.Count > 1) failures.Add("judge room: one approval sent " + answers.Count + " answers");
+                    if (answers.Any(each => each.Payload.Decision != ApprovalDecision.Approve)) failures.Add("judge room: Approve sent a denial");
+                    if (answers.Count == 0)
+                        SendInstead("Approve", commands.RespondToApproval(run.ExecutionId, approval.ApprovalId, ApprovalDecision.Approve));
+                }
+
+                void Instruct(WorkstreamView task, ExecutionView run)
+                {
+                    // Write Instruction: an offered instruction chosen, read and sent.
+                    OpenSection(task.WorkstreamId, FileSection.Activity);
+                    var before = sent.Count;
+                    var told = Press(FileScreens.TellIt);
+                    if (told) Moment("write instruction");
+                    told = told && Press(FileScreens.Preset, "0");
+                    if (told) Moment("instruction chosen");
+                    // The redesign's way on from a chosen instruction is its main action (tell-it, Review Instruction), then Send.
+                    if (told && !SentSince<ExecutionSendInstructionCommand>(before) && Drawn(FileScreens.TellIt, null) != null && Press(FileScreens.TellIt)) Moment("instruction review");
+                    for (var part = 0; told && part < 8 && Opened()?.Screen.Instruction.Read == false; part++) Press(FileScreens.NextInstructionPart);
+                    if (told && !SentSince<ExecutionSendInstructionCommand>(before)) told = Press(FileScreens.SendInstruction);
+                    if (told && !SentSince<ExecutionSendInstructionCommand>(before)) ConfirmBehindLock("instruction");
+                    if (!SentSince<ExecutionSendInstructionCommand>(before) && fallback.InstructionsFor(run.ExecutionId).FirstOrDefault() is PresetInstruction preset)
+                        SendInstead("the offered instruction", commands.SendInstruction(run.ExecutionId, preset.Text));
+                }
+
+
+                // The live walk (LiveWalkCheck): a person's own journeys against a live control plane, by drawn controls only, each
+                // journey's presses counted and written beside what the same takes in a terminal agent session at a desk.
+                string? journey = null;
+                var journeyDesk = "";
+                var journeyFrom = 0;
+                var journeyTyped = 0;
+                var journeyWays = new List<string>();
+                void Journey(string name, string desk)
+                {
+                    EndJourney();
+                    (journey, journeyDesk, journeyFrom, journeyTyped) = (name, desk, presses, typed);
+                    journeyWays.Clear();
+                }
+                void EndJourney()
+                {
+                    if (journey == null || live == null) return;
+                    var count = presses - journeyFrom;
+                    var words = typed - journeyTyped;
+                    live.Presses.Add(journey + "\t" + count + (words == 0 ? "" : " presses and " + words + " typed") + "\t" + journeyDesk + "\t" + string.Join("; ", journeyWays));
+                    journey = null;
+                }
+                // The redesign's main action drawn now, or a control that opens the keyboard where the person is asked for words.
+                RoomButton? MainDrawn() => plane.KitShows ? plane.Kit.Bar.Column.FirstOrDefault(each => each.gameObject.activeInHierarchy && each.Main) : null;
+                RoomButton? TypeDrawn() => plane.KitShows
+                    ? plane.Kit.Bar.Column.FirstOrDefault(each => each.gameObject.activeInHierarchy && plane.Kit.Bar.ControlOf(each) is KitControl control
+                        && (control.Action.StartsWith("type", StringComparison.Ordinal) || control.Action.Contains("-type")))
+                    : null;
+                string ActionOf(RoomButton button) => plane.Kit.Bar.ControlOf(button) is KitControl control ? control.Action + (control.Key == null ? "" : "/" + control.Key) : "?";
+                void PressDrawn(RoomButton button, string why)
+                {
+                    button.Press.SettleForRender();
+                    button.Press.PressForRender(987);
+                    presses++;
+                    journeyWays.Add(why + " " + ActionOf(button));
+                    Draw();
+                }
+                // Where the redesign draws nothing to press, the frame of record's main prompt, said in the census as such.
+                bool PressFrameMain()
+                {
+                    foreach (var (kind, view) in plane.Shown.Reverse())
+                    {
+                        var prompt = view.Footer.Showing?.All.Select(slot => slot.Prompt).FirstOrDefault(each => each.Main && each.Available);
+                        if (prompt == null || !director.PressForRender(kind, prompt.Id, null, view.Frame ?? view.InPlaceOf, view.Side)) continue;
+                        presses++;
+                        journeyWays.Add("no drawn control: the frame of record's " + prompt.Id + " took it");
+                        Draw();
+                        return true;
+                    }
+                    // The column beside, as New Project under the redesign, which no plane frame stands for.
+                    if (navigator.Beside?.Frame is MenuFrame frame
+                        && frame.Footer.All.Select(slot => slot.Prompt).FirstOrDefault(each => each.Main && each.Available) is Prompt main
+                        && director.PressForRender(MenuColumn.File, main.Id, null, frame, null))
+                    {
+                        presses++;
+                        journeyWays.Add("no drawn control: the frame of record's " + main.Id + " took it");
+                        Draw();
+                        return true;
+                    }
+                    return false;
+                }
+                // Steps the person takes until the goal holds: words where a keyboard is open, a control that asks for words
+                // where words are what is missing, else the screen's main action. Where none is drawn the journey stops there.
+                bool DriveUntil(Func<bool> goal, string label, string words, int steps = 12)
+                {
+                    var wrote = false;
+                    var tried = new HashSet<string>();
+                    for (var step = 1; step <= steps; step++)
+                    {
+                        Fresh();
+                        if (goal()) return true;
+                        Moment(label + " " + step);
+                        if (keyboard is { } open)
+                        {
+                            keyboard = null;
+                            typed++;
+                            wrote = true;
+                            journeyWays.Add("typed into \"" + open.Prompt + "\"");
+                            open.Done(words);
+                            Draw();
+                            continue;
+                        }
+                        if (!wrote && TypeDrawn() is RoomButton type) { PressDrawn(type, "pressed"); continue; }
+                        if (MainDrawn() is RoomButton main) { PressDrawn(main, "pressed main"); continue; }
+                        if (PressFrameMain()) continue;
+                        // No main action to take: the next drawn control this journey has not pressed, as a person tries what
+                        // is there (never Close, Hold to Talk or a control that asks for words already given).
+                        if (plane.KitShows && plane.Kit.Bar.Column.FirstOrDefault(each => each.gameObject.activeInHierarchy && !tried.Contains(ActionOf(each))
+                            && ActionOf(each) != Footer.Close && !ActionOf(each).Contains("talk") && !(wrote && TypeDrawn() == each)) is RoomButton other)
+                        {
+                            tried.Add(ActionOf(other));
+                            PressDrawn(other, "tried");
+                            continue;
+                        }
+                        if (PressRow(control => !tried.Contains("row " + control.Action + (control.Key == null ? "" : "/" + control.Key))) is string row)
+                        {
+                            tried.Add(row.Replace("pressed row ", "row "));
+                            journeyWays.Add("tried " + row.Replace("pressed ", ""));
+                            continue;
+                        }
+                        journeyWays.Add("nothing drawn to press at step " + step + (navigator.Beside?.Frame is MenuFrame stuck
+                            ? " (its frame of record offers: " + string.Join(", ", stuck.Footer.All.Select(slot => slot.Prompt.Id + (slot.Prompt.Main ? " main" : "") + (slot.Prompt.Available ? "" : " unavailable: " + slot.Prompt.Reason))
+                                .Concat(stuck.Lines.Where(line => line.Action != null).Select(line => "line " + line.Action + (line.Available ? "" : " unavailable")))) + ")"
+                            : ""));
+                        return goal();
+                    }
+                    return goal();
+                }
+                void WalkLive(LiveWalk on)
+                {
+                    if (!Until(() => Session()?.Status.IsLive == true && State() != null, "the live control plane", 60)) return;
+                    Moment("live launch");
+                    var projectsBefore = State()!.Projects.Count;
+                    var tasksBefore = State()!.Workstreams.Count;
+
+                    Journey("start a project", "2: make a folder, start the agent in it");
+                    if (Press(ProjectsScreens.NewProject)) journeyWays.Add("pressed " + ProjectsScreens.NewProject);
+                    else journeyWays.Add("no drawn New Project");
+                    var started = DriveUntil(() => State()!.Projects.Count > projectsBefore && State()!.Workstreams.Count > tasksBefore
+                        && State()!.Workstreams.Values.Any(task => State()!.CurrentExecution(task) != null), "new project", on.Idea);
+                    if (!started) failures.Add("live walk: no project and task started through drawn controls (" + string.Join("; ", journeyWays) + ")");
+                    var task = State()!.Workstreams.Values.FirstOrDefault(each => State()!.CurrentExecution(each) != null);
+                    EndJourney();
+                    if (task == null) return;
+
+                    Journey("answer an approval", "1: one key");
+                    if (Until(() => Current(task.WorkstreamId)?.PendingApprovals.Count > 0, "the live task's approval", 60)
+                        && Current(task.WorkstreamId) is ExecutionView asking)
+                    {
+                        Approve(task, asking, asking.PendingApprovals[0]);
+                        decisions++;
+                    }
+                    EndJourney();
+
+                    Journey("read the result", "0: it prints");
+                    if (Until(() => Current(task.WorkstreamId)?.Status == ExecutionStatus.Completed, "the live task's result", 90))
+                    {
+                        Fresh();
+                        Moment("live result");
+                        OpenSection(task.WorkstreamId, FileSection.Activity);
+                        journeyWays.Add(reachedBy);
+                        Moment("live result read");
+                    }
+                    EndJourney();
+
+                    Journey("see what changed", "1: git diff");
+                    OpenSection(task.WorkstreamId, FileSection.Changes);
+                    journeyWays.Add(reachedBy);
+                    Moment("live changes");
+                    EndJourney();
+
+                    Journey("keep it", "0 to 1: the work is in the folder; a commit is 1");
+                    if (Drawn(RoomResult.ShowAdd, null) != null && Press(RoomResult.ShowAdd))
+                    {
+                        journeyWays.Add("pressed " + RoomResult.ShowAdd);
+                        Moment("live keep review");
+                        if (Press(RoomResult.AddConfirm)) journeyWays.Add("pressed " + RoomResult.AddConfirm);
+                        Fresh();
+                        Moment("live kept");
+                    }
+                    else journeyWays.Add("nothing drawn to keep it (Add to Project not offered)");
+                    EndJourney();
+                    if (sent.Count == 0) failures.Add("live walk: nothing was sent");
+                }
+                if (live != null)
+                {
+                    WalkLive(live);
+                    EndJourney();
+                    return failures;
                 }
 
                 Until(() => Session()?.Status.IsLive == true && State()?.Workstreams.Count > 0, "the recording's welcome");
@@ -423,125 +722,95 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 Moment("demonstration launch");
 
-                // The question: read, an answer chosen, sent.
-                if (Until(() => DirectedRun()?.PendingQuestions.Count > 0, "the directed task's question"))
-                {
-                    var directed = Directed()!;
-                    OpenSection(directed.WorkstreamId, FileSection.Waiting);
-                    Moment("question");
-                    // The prompt on the band, read to its last part where it pages.
-                    for (var part = 2; part < 8 && plane.KitShows && plane.Kit.Bar.BandNextButton is RoomButton turning; part++)
-                    {
-                        turning.Press.SettleForRender();
-                        turning.Press.PressForRender(992);
-                        Draw();
-                        Moment("question part " + part);
-                    }
-                    var answered = Press(FileScreens.Choose, "0");
-                    if (answered) Moment("answer chosen");
-                    if (sent.Count != 0) failures.Add("judge room: choosing an answer sent something");
-                    answered = answered && Press(FileScreens.NextQuestion);
-                    if (answered) Moment("answers reviewed");
-                    answered = answered && Press(FileScreens.SendAnswer);
-                    // Send Answer asks for its confirmation: Confirm behind its lock first, then its press sends the one answer.
-                    if (answered && !sent.OfType<ExecutionAnswerQuestionCommand>().Any()) answered = ConfirmBehindLock("answer");
-                    answered = answered && sent.OfType<ExecutionAnswerQuestionCommand>().Count() == 1;
-                    if (!answered && DirectedRun()?.PendingQuestions.FirstOrDefault() is QuestionView question)
-                        SendInstead("the answer", commands.AnswerQuestion(DirectedRun()!.ExecutionId, question.QuestionId,
-                            question.Prompts.Select(prompt => new QuestionAnswer { Key = prompt.Key, Selected = prompt.Options.Take(1).Select(option => option.Label).ToList() })));
-                    Moment("answer sent");
-                }
+                // The demonstration by its own decision points, as the lead's decision of 2026-11-12 asks: whatever waits on the
+                // person (a question, an approval, a failed check its recording offers instructions for) is reached the way a
+                // person reaches it and answered through the drawn controls, as many presses as the product draws and no more
+                // expected; each turn's end is shot as its result and its Checks. No task, title or count of one story is named,
+                // so another recording walks the same way.
+                var demonstration = fallback.Player;
+                var plays = demonstration?.Plays ?? 0;
+                bool Restarted() => !ReferenceEquals(fallback.Player, demonstration) || (fallback.Player?.Plays ?? 0) > plays;
+                // A turn already at rest when the demonstration begins is part of its story, not a result the walk saw arrive.
+                foreach (var (_, settled) in Runs()) if (settled.Status == ExecutionStatus.Completed) handled.Add(ResultKey(settled));
 
-                // It asks, and Confirm: the request read to its last part, then Approve and its confirmation.
-                if (Until(() => DirectedRun()?.PendingApprovals.Count > 0, "the directed task's approval"))
+                // The walk: one thing at a time, in the order a person meets them, until the recording starts again.
+                var walkUntil = DateTime.UtcNow.AddSeconds(240);
+                var atWork = false;
+                var idleSince = DateTime.UtcNow;
+                var closed = false;
+                while (DateTime.UtcNow < walkUntil && !Restarted())
                 {
-                    OpenSection(Directed()!.WorkstreamId, FileSection.Waiting);
-                    Moment("it asks");
-                    if (Drawn(FileScreens.Deny, null) == null && Drawn(FileScreens.Approve, null) != null) momentFailures.Add("Approve stands without Deny");
-                    // Approve, then Cancel: the request asks again and nothing was sent.
-                    if (Press(FileScreens.Approve) && Drawn(FileScreens.Cancel, null) != null)
+                    Pump();
+                    var runsNow = Runs();
+                    if (!atWork && runsNow.FirstOrDefault(pair => pair.Run.ActiveTools.Count > 0).Run != null)
                     {
-                        Moment("confirm cancel offered");
-                        Press(FileScreens.Cancel);
-                        if (Drawn(FileScreens.Approve, null) == null) momentFailures.Add("Cancel did not bring the request back to Approve and Deny");
-                        if (sent.OfType<ExecutionRespondToApprovalCommand>().Any()) momentFailures.Add("Cancel sent an answer");
-                        Moment("cancelled asks again");
+                        Draw();
+                        Moment("at work");
+                        atWork = true;
+                        idleSince = DateTime.UtcNow;
+                        continue;
                     }
-                    var approved = Press(FileScreens.Approve);
-                    for (var part = 0; approved && part < 20 && Opened()?.Steering.CanConfirm != true; part++)
+                    var ended = runsNow.FirstOrDefault(pair => pair.Run.Status == ExecutionStatus.Completed && !handled.Contains(ResultKey(pair.Run)));
+                    if (ended.Run != null)
                     {
-                        if (!Press(FileScreens.NextPart, FileScreens.RequestKey)) break;
-                        Moment("request part " + (part + 2));
+                        handled.Add(ResultKey(ended.Run));
+                        results++;
+                        atWork = false;
+                        Fresh();
+                        var outcome = Outcome(ended.Run);
+                        Moment("result " + outcome);
+                        OpenSection(ended.Task.WorkstreamId, FileSection.Checks);
+                        Moment("checks " + outcome);
+                        idleSince = DateTime.UtcNow;
+                        closed = false;
+                        continue;
                     }
-                    if (approved && Drawn(FileScreens.Yes, null) is RoomButton confirm)
+                    var acted = false;
+                    foreach (var (task, run) in runsNow)
                     {
-                        // Confirm arrives behind its lock: drawn, ring part filled, a press taken by nothing.
-                        Draw();
-                        if (plane.Kit.Bar.Locking != confirm) momentFailures.Add("Confirm arrived without its lock");
-                        Moment("confirm locked");
-                        confirm.Press.SettleForRender();
-                        confirm.Press.PressForRender(991);
-                        Draw();
-                        if (sent.OfType<ExecutionRespondToApprovalCommand>().Any()) failures.Add("judge room: Confirm took a press behind its lock");
-                        plane.Kit.Bar.AgeLockForRender(RoomBar.ConfirmLockSeconds);
-                        Draw();
-                        Moment("confirm");
+                        if (run.PendingQuestions.FirstOrDefault(each => !handled.Contains("q:" + each.QuestionId)) is QuestionView question)
+                        {
+                            handled.Add("q:" + question.QuestionId);
+                            Answer(task, run, question);
+                        }
+                        else if (run.PendingApprovals.FirstOrDefault(each => !handled.Contains("a:" + each.ApprovalId)) is ApprovalView approval)
+                        {
+                            handled.Add("a:" + approval.ApprovalId);
+                            Approve(task, run, approval);
+                        }
+                        else if (run.Status == ExecutionStatus.Completed && run.LastTestRun is TestRunResultView test && test.Outcome != TestOutcome.Passed
+                            && !handled.Contains("i:" + test.TestRunId) && fallback.InstructionsFor(run.ExecutionId).Count > 0)
+                        {
+                            handled.Add("i:" + test.TestRunId);
+                            Instruct(task, run);
+                        }
+                        else continue;
+                        decisions++;
+                        acted = true;
+                        atWork = false;
+                        break;
                     }
-                    else if (approved) Moment("confirm");
-                    approved = approved && Press(FileScreens.Yes) && sent.OfType<ExecutionRespondToApprovalCommand>().Count() == 1;
-                    if (approved && sent.OfType<ExecutionRespondToApprovalCommand>().Single().Payload.Decision != ApprovalDecision.Approve)
-                        failures.Add("judge room: Confirm sent a denial");
-                    if (!approved && DirectedRun()?.PendingApprovals.FirstOrDefault() is ApprovalView approval)
-                        SendInstead("Approve and Confirm", commands.RespondToApproval(DirectedRun()!.ExecutionId, approval.ApprovalId, ApprovalDecision.Approve));
+                    if (acted) { idleSince = DateTime.UtcNow; closed = false; continue; }
+                    // Nothing waits and nothing new arrived: close the file, as a person who has seen the result does, so the
+                    // recording's end hold runs and it starts again.
+                    if (!closed && DateTime.UtcNow - idleSince > TimeSpan.FromSeconds(2) && Opened() != null)
+                    {
+                        CloseFile();
+                        closed = true;
+                    }
+                    Thread.Sleep(20);
                 }
-
-                // At work, then Build Failed.
-                if (Until(() => DirectedRun()?.ActiveTools.Count > 0 || DirectedRun()?.Status == ExecutionStatus.Completed, "the approved turn at work")
-                    && DirectedRun()?.ActiveTools.Count > 0) Moment("at work");
-                if (Until(() => DirectedRun()?.Status == ExecutionStatus.Completed, "the approved turn's end"))
-                {
-                    Fresh();
-                    Moment("result build failed");
-                    OpenSection(Directed()!.WorkstreamId, FileSection.Checks);
-                    Moment("checks build failed");
-                }
-
-                // Write Instruction: an offered instruction chosen, read and sent; the correction at work; Build Passed.
-                if (Directed() is not WorkstreamView directedTask) { failures.Add("judge room: the demonstration's directed task never came"); return failures; }
-                OpenSection(directedTask.WorkstreamId, FileSection.Activity);
-                var told = Press(FileScreens.TellIt);
-                if (told) Moment("write instruction");
-                told = told && Press(FileScreens.Preset, "0");
-                if (told) Moment("instruction chosen");
-                // The redesign's way on from a chosen instruction is its main action (tell-it, Review Instruction), then Confirm.
-                if (told && Drawn(FileScreens.TellIt, null) != null && Press(FileScreens.TellIt)) Moment("instruction review");
-                for (var part = 0; told && part < 8 && Opened()?.Screen.Instruction.Read == false; part++) Press(FileScreens.NextInstructionPart);
-                told = told && Press(FileScreens.SendInstruction);
-                if (told && !sent.OfType<ExecutionSendInstructionCommand>().Any()) ConfirmBehindLock("instruction");
-                told = told && sent.OfType<ExecutionSendInstructionCommand>().Any();
-                if (!told && DirectedRun() is ExecutionView run && fallback.InstructionsFor(run.ExecutionId).FirstOrDefault() is PresetInstruction preset)
-                    SendInstead("the offered instruction", commands.SendInstruction(run.ExecutionId, preset.Text));
-                if (Until(() => DirectedRun()?.ActiveTools.Count > 0 || DirectedRun()?.LastTestRun?.Outcome == TestOutcome.Passed, "the correction at work", 60)
-                    && DirectedRun()?.ActiveTools.Count > 0) Moment("correction at work");
-                if (Until(() => DirectedRun()?.LastTestRun?.Outcome == TestOutcome.Passed, "the passing checks", 60))
-                {
-                    Fresh();
-                    Moment("result build passed");
-                    OpenSection(Directed()!.WorkstreamId, FileSection.Checks);
-                    Moment("checks build passed");
-                }
-
-                // The end: with no file open the end hold runs and the recording starts again.
-                var ending = fallback.Player;
-                var plays = ending?.Plays ?? 0;
-                CloseFile();
-                if (Until(() => !ReferenceEquals(fallback.Player, ending) || (fallback.Player?.Plays ?? 0) > plays, "the restart after the end", 120)) Moment("restarted");
-                if (sent.Count != 3) failures.Add("judge room: " + sent.Count + " commands were sent, not the answer, the approval and the instruction");
+                if (Restarted()) { Draw(); Moment("restarted"); }
+                else failures.Add("judge room: waited 240 s and the restart after the end never came");
+                if (decisions == 0) failures.Add("judge room: the demonstration offered no decision");
+                if (results == 0) failures.Add("judge room: the demonstration showed no result");
+                if (sent.Count != decisions) failures.Add("judge room: " + sent.Count + " commands were sent for " + decisions + " decisions");
             }
             catch (Exception error) { failures.Add("judge room: the walk stopped: " + error); }
             finally
             {
                 fallback?.Dispose();
+                api?.Dispose();
                 UnityEngine.Object.DestroyImmediate(root);
                 texture.Release();
                 UnityEngine.Object.DestroyImmediate(texture);
@@ -556,9 +825,85 @@ namespace Halcyonic.XR.Workspace.Editor
         /// demonstration's launch, the results and Checks, the correction's send and the restart) are listed until their
         /// units land, then added here. Every moment's drawn redesign is held to the frame checks either way.
         /// </summary>
+        /// <summary>
+        /// The live walk: the judges' walk's harness against a live control plane, named by HALCYONIC_LIVE_ENDPOINT and
+        /// HALCYONIC_LIVE_TOKEN_FILE, as a headset with a token reaches one. A person's journeys (start a project with a sentence,
+        /// answer the approval, read the result, see what changed, keep it), every press through what is drawn and every
+        /// sentence through the keyboard's own hook; renders and moments.tsv as the judges' walk writes them, and presses.tsv:
+        /// each journey's presses beside what the same takes in a terminal agent session at a desk. It refuses any plane but a
+        /// scratch one on loopback (never 47800) and any token in the owner's data folder. Renders land in Builds/LiveWalkRenders.
+        /// </summary>
+        public static void LiveWalkCheck()
+        {
+            InstrumentFontAtlas.ValidateSaved();
+            var failures = new List<string>();
+            var endpoint = Environment.GetEnvironmentVariable("HALCYONIC_LIVE_ENDPOINT");
+            var tokenFile = Environment.GetEnvironmentVariable("HALCYONIC_LIVE_TOKEN_FILE");
+            var owners = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".halcyonic"));
+            Uri? uri = null;
+            if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(tokenFile) || !Uri.TryCreate(endpoint, UriKind.Absolute, out uri))
+                failures.Add("live walk: HALCYONIC_LIVE_ENDPOINT and HALCYONIC_LIVE_TOKEN_FILE must name a scratch control plane");
+            else if (!uri.IsLoopback || uri.Port == 47800)
+                failures.Add("live walk: refused " + uri.Host + ":" + uri.Port + ": only a scratch control plane on loopback, never 47800");
+            else if (Path.GetFullPath(tokenFile) is var full && (full == owners || full.StartsWith(owners + Path.DirectorySeparatorChar, StringComparison.Ordinal)))
+                failures.Add("live walk: refused a token in the owner's data folder");
+            else
+            {
+                var was = RoomDesign.Enabled;
+                RoomDesign.Enabled = true;
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "LiveWalkRenders"));
+                Directory.CreateDirectory(folder);
+                foreach (var old in Directory.GetFiles(folder)) File.Delete(old);
+                var moments = new List<string> { "moment\tdrawn by\tdots | older cut | overlaps\tcoverage\tredesign drew\tolder parts drew\tactions drawn\treached by\tfailures" };
+                var live = new LiveWalk(uri!, File.ReadAllText(Path.GetFullPath(tokenFile)).Trim(),
+                    Environment.GetEnvironmentVariable("HALCYONIC_LIVE_IDEA") ?? "A page that says hello and counts my visits");
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                ViewField.Current = FieldChecks.Quest3S;
+                var context = SynchronizationContext.Current;
+                SynchronizationContext.SetSynchronizationContext(null);
+                try { failures.AddRange(RenderRoomWalk(folder, moments, live)); }
+                catch (Exception error) { failures.Add("live walk: " + error); }
+                finally { SynchronizationContext.SetSynchronizationContext(context); ViewField.Current = null; KeepFontAssetsAsCommitted(); RoomDesign.Enabled = was; }
+                File.WriteAllText(Path.Combine(folder, "moments.tsv"), string.Join("\n", moments) + "\n");
+                File.WriteAllText(Path.Combine(folder, "presses.tsv"), "journey\theadset\tdesk\tthe way\n" + string.Join("\n", live.Presses) + "\n");
+                foreach (var row in live.Presses) Debug.Log("Halcyonic: live walk: presses: " + row);
+            }
+            foreach (var failure in failures) Debug.LogError("Halcyonic: live walk: " + failure);
+            if (failures.Count == 0) Debug.Log("Halcyonic: live walk: every check passed");
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
+        /// <summary>A live control plane for the walk, its token, the idea a journey types, and each journey's count as it ends.</summary>
+        private sealed class LiveWalk
+        {
+            public LiveWalk(Uri endpoint, string token, string idea) => (Endpoint, Token, Idea) = (endpoint, token, idea);
+
+            public Uri Endpoint { get; }
+
+            public string Token { get; }
+
+            public string Idea { get; }
+
+            public List<string> Presses { get; } = new List<string>();
+        }
+
+        /// <summary>A device's preferences held in memory for one walk, so a walk keeps nothing in the Editor's own.</summary>
+        private sealed class WalkPreferences : IDevicePreferences
+        {
+            private readonly Dictionary<string, string> kept = new Dictionary<string, string>();
+
+            public string? Get(string key) => kept.TryGetValue(key, out var value) ? value : null;
+
+            public void Set(string key, string? value)
+            {
+                if (value == null) kept.Remove(key);
+                else kept[key] = value;
+            }
+        }
+
         private static readonly string[] CoveredMoments =
         {
-            "recorded at work", "at work", "correction at work", "question", "question part", "answer chosen", "answers reviewed",
+            "recorded at work", "at work", "question", "question part", "answer chosen", "answers reviewed",
             "answer confirm locked", "answer confirm", "answer sent", "it asks", "confirm cancel offered", "cancelled asks again",
             "request part", "confirm locked", "confirm", "write instruction", "instruction chosen",
         };

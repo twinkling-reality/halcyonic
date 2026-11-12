@@ -382,6 +382,24 @@ To see recorded data instead, stop `pnpm dev` and run
 `fixtures/traces/failure_modes.jsonl` shows a failed, an unknown, an interrupted and a finished
 workstream.
 
+### The live walk in the Editor
+
+`WorkspaceRender.LiveWalkCheck` walks a person's own journeys against a live control plane, with the same harness as
+the judges' walk (`JudgeRoomWalkCheck`): the director set up as the release player sets it up, its session made as a
+headset with a token makes one, and every press through a control the redesign draws. The journeys: start a project
+with a sentence, answer the approval, read the result, see what changed, keep it. Typed words go through the
+director's own keyboard hook; the batch Editor has no microphone, so hold to talk is not exercised. Renders and
+`moments.tsv` (with "reached by") land in `Builds/LiveWalkRenders`, beside `presses.tsv`: each journey's presses in
+the headset beside what the same takes in a terminal agent session at a desk.
+
+It reads the plane from `HALCYONIC_LIVE_ENDPOINT` (for example `ws://127.0.0.1:47861/realtime`) and its token from
+`HALCYONIC_LIVE_TOKEN_FILE`, and refuses port 47800 and any token in `~/.halcyonic`: run it against a scratch control
+plane started with its own `HALCYONIC_DATA_DIR`, `HALCYONIC_TASKS_DIR` and `HALCYONIC_PROJECT_ROOTS`, and with no
+agent tool, `gh`, tunnel or companion named, so only the mock runtime runs. A client has no scenario picker, so the
+mock plays its default scenario; to walk an approval, give the plane a scenarios folder
+(`HALCYONIC_MOCK_SCENARIOS_DIR`) whose `simulated_start.json` is a copy of `approval_required.json` with its id
+changed to match. The mock works in no folder, so the journeys that see and keep changes need a folder runtime.
+
 ## Milestone 2 checks in the Simulator
 
 - Three characters appear for the demo's three workstreams, each with its title and a written
