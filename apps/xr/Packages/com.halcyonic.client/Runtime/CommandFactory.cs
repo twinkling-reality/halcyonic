@@ -184,7 +184,7 @@ namespace Halcyonic.Client
         private static List<InstructionAttachment>? AttachmentsOf(IReadOnlyList<string>? pictures) =>
             pictures == null || pictures.Count == 0
                 ? null
-                : pictures.Select(path => new InstructionAttachment { Path = path, Kind = "image" }).ToList();
+                : pictures.Select(path => (InstructionAttachment)new ImageAttachment { Path = path }).ToList();
 
         public ExecutionRespondToApprovalCommand RespondToApproval(
             string executionId,

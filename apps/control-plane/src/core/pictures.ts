@@ -171,16 +171,37 @@ function holdsHostFolder(full: string, protectedFolders: readonly string[]): boo
 }
 
 /**
- * Reads an instruction's pictures from the project's folder, in order. The first that cannot be
- * read refuses them all, so the words are never sent without a picture the person chose.
+ * Reads an instruction's pictures, in order: one of the project's folder from `folder`, one the person
+ * gave through `given` (ADR 0058, amended). The first that cannot be read refuses them all, so the
+ * words are never sent without a picture the person chose.
  */
 export async function readPictures(
-  folder: string,
+  folder: string | null,
   attachments: readonly InstructionAttachment[],
   protectedFolders: readonly string[],
+  given: (id: string) => Promise<InstructionPicture | null> = async () => null,
 ): Promise<PicturesRead> {
   const pictures: InstructionPicture[] = [];
-  for (const { path } of attachments) {
+  for (const attachment of attachments) {
+    if (attachment.kind === 'given') {
+      const picture = await given(attachment.picture).catch(() => null);
+      if (picture === null)
+        return {
+          ok: false,
+          code: 'picture_not_found',
+          message:
+            'A picture you gave is no longer kept, or is not a whole picture, so the instruction was not sent. Give it again.',
+        };
+      pictures.push(picture);
+      continue;
+    }
+    const { path } = attachment;
+    if (folder === null)
+      return {
+        ok: false,
+        code: 'picture_not_found',
+        message: `The picture ${path} comes from the project's folder, and the project has none, so the instruction was not sent.`,
+      };
     const refused = (code: PictureRefusal, why: string): PicturesRead => ({
       ok: false,
       code,

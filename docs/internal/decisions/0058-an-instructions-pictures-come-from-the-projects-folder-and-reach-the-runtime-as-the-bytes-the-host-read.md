@@ -84,3 +84,16 @@ Either way the person believes the agent saw what it never saw.
   - Whether a local model answers about a picture is not shown yet: the one local generation has not run.
 - **Revisit** when a runtime is added or upgraded (each needs its own runtime test before it declares
   `takes_pictures`), or if the person needs pictures from outside the project.
+
+## Amended 2026-11-12: a picture the person gives
+
+A picture need not be in the project's folder. What the person sees in the headset, or a frame of the running game,
+goes with an instruction as a desk session pastes a screenshot (CORE's first report of 2026-11-12, item (a)3):
+- `POST /api/pictures` (this Mac or a paired headset) takes one PNG, JPEG or WebP, whole, at most `PICTURE_BYTES`,
+  refused past it before more is read; the second route that takes anything but JSON, in a scope of its own. The host
+  keeps it once by its SHA-256 in `<data dir>/pictures` (0700; each file 0600), at most 64 for 24 hours, never
+  journaled, never logged, and answers `{picture: {id, media_type, size_bytes}}`.
+- An instruction's attachment may then be `{kind: 'given', picture: <id>}` beside `{kind: 'image', path}`. The host
+  reads it again, checks its digest and that it is a whole picture, and hands the runtime those bytes, as for the
+  folder's. A given picture needs no project folder. `PictureRead.path` is null for one; its `sha256` names it.
+

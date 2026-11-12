@@ -1067,6 +1067,24 @@ namespace Halcyonic.Contracts
         public string Source { get; set; } = "project_files";
     }
 
+    public sealed class GivenPicture
+    {
+        [global::Newtonsoft.Json.JsonProperty("id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Id { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("media_type", Required = global::Newtonsoft.Json.Required.Always)]
+        public PictureMediaType MediaType { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("size_bytes", Required = global::Newtonsoft.Json.Required.Always)]
+        public long SizeBytes { get; set; }
+    }
+
+    public sealed class PictureGivenResponse
+    {
+        [global::Newtonsoft.Json.JsonProperty("picture", Required = global::Newtonsoft.Json.Required.Always)]
+        public GivenPicture Picture { get; set; } = default!;
+    }
+
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ProjectRulesFile
     {
@@ -3689,8 +3707,8 @@ namespace Halcyonic.Contracts
 
     public sealed class PictureRead
     {
-        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
-        public string Path { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Path { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("media_type", Required = global::Newtonsoft.Json.Required.Always)]
         public PictureMediaType MediaType { get; set; }
@@ -4756,13 +4774,65 @@ namespace Halcyonic.Contracts
         public string WorkstreamId { get; set; } = default!;
     }
 
-    public sealed class InstructionAttachment
+    [global::Newtonsoft.Json.JsonConverter(typeof(InstructionAttachmentConverter))]
+    public abstract class InstructionAttachment
     {
+        [global::Newtonsoft.Json.JsonProperty("kind", Order = -2)]
+        public string Kind => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class InstructionAttachmentConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(InstructionAttachment).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["kind"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            InstructionAttachment value = tag switch
+            {
+                "image" => new ImageAttachment(),
+                "given" => new GivenAttachment(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "InstructionAttachment has no string kind."
+                    : "Unknown kind \"" + tag + "\" for InstructionAttachment."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but kind is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class ImageAttachment : InstructionAttachment
+    {
+        protected override string Discriminator => "image";
+
         [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
+    }
 
-        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
-        public string Kind { get; set; } = "image";
+    public sealed class GivenAttachment : InstructionAttachment
+    {
+        protected override string Discriminator => "given";
+
+        [global::Newtonsoft.Json.JsonProperty("picture", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Picture { get; set; } = default!;
     }
 
     public sealed class ExecutionStartPayload
