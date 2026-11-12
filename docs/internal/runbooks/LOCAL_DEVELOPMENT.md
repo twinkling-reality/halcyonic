@@ -138,8 +138,8 @@ through re-attach. Only `Start Halcyonic.command` can start it again, so started
    Settings take effect when it starts. To use changed settings, stop it with Ctrl-C and start it
    again; restarting stops any agent at work, and its task then shows Can't tell yet.
 6. **Connect the headset.** Pairing over Wi-Fi is your choice
-   ([Pair a headset over Wi-Fi](#pair-a-headset-over-wi-fi)): on the pairing page, Turn On Pairing,
-   then Pair Headset, and in the headset choose Settings, then Pair Computer, and type the name and
+   ([Pair a headset over Wi-Fi](#pair-a-headset-over-wi-fi)): on the pairing page, Pair Headset,
+   and in the headset choose Settings, then Pair Computer, and type the name and
    the code the page shows. A development build can also connect over USB
    ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect"). Until the headset reaches your Mac it plays the recorded
    demo, labelled as one; nothing in it reaches an agent.
@@ -752,16 +752,18 @@ later, Firefox); an older one is turned away with words that say so.
 
 On the page, nothing happens until you press:
 
-- **Turn On Pairing** starts the network listener now, with no restart, so agents at work keep
-  working, and keeps it on in the settings file for the next start, as `pnpm mac-setup pairing on`
-  does. The page says first that your computer may ask to allow connections.
-- **Pair Headset** opens a five-minute window and shows the four steps in the headset (Settings,
+- **Pair Headset** turns pairing on first when it is off: it starts the network listener now, with
+  no restart, so agents at work keep working, and keeps it on in the settings file for the next
+  start, as `pnpm mac-setup pairing on` does. The page says first that your computer may ask to
+  allow connections. Then it opens a five-minute window and shows the four steps in the headset (Settings,
   Pair Computer, Pick This Computer, Type the Code), the name to type where the headset does not
   offer it (the Mac's `.local` name, then its numbered addresses), the eight-digit code, the time
   left, and the tries as pips. With no address a headset can reach (no Wi-Fi), it says so and shows
   no code. While the window is open, and only then, your Mac announces itself on the Wi-Fi so a
   headset can find it by name (`dns-sd -B _halcyonic._tcp` in a Terminal shows it); the code still
   decides.
+- **Turn On Pairing**, shown beside it while pairing is off and a headset is already paired, turns
+  pairing on with no window, so the paired headsets connect again without a new code.
 - **Forget**, then **Yes, Forget**, stops accepting a headset, as `pnpm devices revoke` does.
 - **Turn Off Pairing**, then **Yes, Turn Off** (or **Keep On** to take it back), stops the listener now and in the settings, and ends
   an open window with it. Paired headsets disconnect and stay paired; they connect again when pairing

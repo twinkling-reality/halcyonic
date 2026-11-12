@@ -339,10 +339,17 @@ export class PairingPage {
       });
     act('/pairing/on', () => this.#turn('on'));
     act('/pairing/off', () => this.#turn('off'));
-    act('/window', () => {
+    // Pair Headset is one press from off as from on: off, it turns pairing on first, so a first
+    // headset never needs Turn On Pairing as a press of its own (the owner's bar, 2026-11-11).
+    act('/window', async () => {
+      if (this.#controls.network.pairing === null) {
+        if (this.#turning !== null) return;
+        await this.#turn('on');
+      }
       const pairing = this.#controls.network.pairing;
       if (pairing === null) {
-        this.#problem = 'Pairing is off. Turn it on first.';
+        this.#problem ??=
+          "Pairing couldn't turn on. Another app may be using its connection. Try again.";
         return;
       }
       this.#shown = { pairing, code: pairing.open().code };

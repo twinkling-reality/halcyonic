@@ -725,8 +725,8 @@ Any build, a release build included, can pair with the control plane over the lo
 instead, with no cable ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)).
 The Mac and the headset must be on the same network, and not a guest network that keeps devices
 apart. On the Mac, open the pairing page: `Start Halcyonic.command` opens it when it starts the
-control plane, and `pnpm pair` opens it while the control plane runs. There, Turn On Pairing, then
-Pair Headset shows the name and the code ([LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md), "Pair a
+control plane, and `pnpm pair` opens it while the control plane runs. There, Pair Headset (it turns
+pairing on if it is off) shows the name and the code ([LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md), "Pair a
 headset over Wi-Fi"). In a terminal instead:
 
 ```bash
