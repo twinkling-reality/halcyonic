@@ -5,6 +5,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -15,7 +16,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import type { ProjectId } from '@halcyonic/contracts';
-import { GitHubSender } from './github.ts';
+import { GitHubSender, sendTitle } from './github.ts';
 
 // Send to GitHub (ADR 0039, amended), proven only against stand-ins: github.com is a local bare
 // repository the test's own git settings point https://github.com/owner/garden.git at, and `gh` is a
@@ -92,7 +93,11 @@ beforeEach(() => {
   mkdirSync(join(root, 'bin'));
   writeFileSync(
     ghPath,
-    `#!/bin/sh\necho "$* token:\${GH_TOKEN:-none}:\${GITHUB_TOKEN:-none}" >> '${ghLog}'\nif [ "$1" = pr ]; then echo 'https://github.com/owner/garden/pull/7'; fi\nexit 0\n`,
+    `#!/bin/sh\necho "$* token:\${GH_TOKEN:-none}:\${GITHUB_TOKEN:-none}" >> '${ghLog}'\nif [ "$1" = pr ]; then echo 'https://github.com/owner/garden/pull/7'; fi\n` +
+      `if [ "$1" = auth ] && [ -e '${join(root, 'signed-out')}' ]; then exit 1; fi\n` +
+      `if [ "$1" = config ] && [ -e '${join(root, 'ssh')}' ]; then echo ssh; fi\n` +
+      // A repository made: a bare one where the test's git settings send owner/<name>, unless it is there.
+      `if [ "$1" = repo ] && [ "$2" = create ]; then [ -e '${join(root, 'no-github', 'owner')}'/"$3".git ] && exit 1; /usr/bin/git init --bare -q '${join(root, 'no-github', 'owner')}'/"$3".git; [ -e '${join(root, 'refuse-push')}' ] && chmod 555 '${join(root, 'no-github', 'owner')}'/"$3".git/objects; echo "https://github.com/owner/$3"; fi\nexit 0\n`,
   );
   chmodSync(ghPath, 0o755);
 });
@@ -110,7 +115,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     writeFileSync(join(folder, 'node_modules', 'x.js'), 'ignored\n');
     mkdirSync(join(folder, 'inner'));
     writeFileSync(join(folder, 'inner', 'other.txt'), 'another project\n');
-    const reviewed = await sender().review(PROJECT, folder, [join(folder, 'inner')]);
+    const reviewed = await sender().review(PROJECT, folder, [join(folder, 'inner')], 'Lanterns');
     assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
     const send = reviewed.send;
     assert.equal(send.repository, 'owner/garden');
@@ -128,10 +133,10 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     assert.match(send.review, /^[0-9a-f]{64}$/);
     assert.equal(JSON.stringify(send).includes('example.test'), false, 'no address, no author');
     // The same folder reviews the same; a change makes another review.
-    const again = await sender().review(PROJECT, folder, [join(folder, 'inner')]);
+    const again = await sender().review(PROJECT, folder, [join(folder, 'inner')], 'Lanterns');
     assert.equal(again.ok && again.send.review, send.review);
     writeFileSync(join(folder, 'new.ts'), 'export const a = 1;\n');
-    const changed = await sender().review(PROJECT, folder, [join(folder, 'inner')]);
+    const changed = await sender().review(PROJECT, folder, [join(folder, 'inner')], 'Lanterns');
     assert.notEqual(changed.ok && changed.send.review, send.review);
   });
 
@@ -141,7 +146,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     const head = git(folder, 'rev-parse', 'HEAD');
     const status = git(folder, 'status', '--porcelain');
     const branches = git(folder, 'for-each-ref', '--format=%(refname)');
-    const reviewed = await sender().review(PROJECT, folder, []);
+    const reviewed = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.ok(reviewed.ok);
     const stale = await sender().send(PROJECT, folder, [], 'Lanterns', 'f'.repeat(64));
     assert.equal(stale.ok ? null : stale.code, 'review_stale');
@@ -187,7 +192,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     git(folder, 'config', 'core.fsmonitor', join(root, 'evil.sh'));
     git(folder, 'config', 'credential.helper', `!${join(root, 'evil.sh')}`);
     git(folder, 'config', 'core.sshCommand', join(root, 'evil.sh'));
-    const reviewed = await sender().review(PROJECT, folder, []);
+    const reviewed = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.ok(reviewed.ok);
     const sent = await sender().send(PROJECT, folder, [], 'Lanterns', reviewed.send.review);
     assert.ok(sent.ok, sent.ok ? '' : sent.message);
@@ -202,7 +207,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
       GITHUB_TOKEN: 'ghp_ours',
       HALCYONIC_ACCESS: 'x',
     };
-    const reviewed = await sender({ env }).review(PROJECT, folder, []);
+    const reviewed = await sender({ env }).review(PROJECT, folder, [], 'Lanterns');
     assert.ok(reviewed.ok);
     const sent = await sender({ env }).send(PROJECT, folder, [], 'Lanterns', reviewed.send.review);
     assert.ok(sent.ok);
@@ -211,7 +216,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
 
   test('without gh it pushes and opens no pull request, and says so before the press', async () => {
     writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
-    const reviewed = await sender({ gh: null }).review(PROJECT, folder, []);
+    const reviewed = await sender({ gh: null }).review(PROJECT, folder, [], 'Lanterns');
     assert.ok(reviewed.ok);
     assert.equal(reviewed.send.pull_request, false);
     const sent = await sender({ gh: null }).send(
@@ -237,7 +242,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
     // A secret-shaped file the person changes is still never sent: the base's stays.
     writeFileSync(join(folder, '.env.production'), 'API=changed-on-this-mac\n');
-    const reviewed = await sender().review(PROJECT, folder, []);
+    const reviewed = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
     assert.deepEqual(
       reviewed.send.files.files.map((file) => [file.path, file.change]),
@@ -266,14 +271,14 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     mkdirSync(join(folder, 'docs'));
     symlinkSync('../app.txt', join(folder, 'docs', 'readme'));
     symlinkSync('docs/../../elsewhere', join(folder, 'up'));
-    const reviewed = await sender().review(PROJECT, folder, []);
+    const reviewed = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
     assert.deepEqual(
       reviewed.send.files.files.map((file) => [file.path, file.change]),
       [['docs/readme', 'added']],
     );
     assert.deepEqual(reviewed.send.links_left_out, { paths: ['node_modules', 'up'], total: 2 });
-    const sent = await sender().send(PROJECT, folder, [], 'Links', reviewed.send.review);
+    const sent = await sender().send(PROJECT, folder, [], 'Lanterns', reviewed.send.review);
     assert.ok(sent.ok, sent.ok ? '' : sent.message);
     assert.equal(
       git(origin, 'ls-tree', '-r', '--name-only', sent.commit),
@@ -285,7 +290,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     git(folder, 'add', '-A');
     git(folder, 'reset', '-q', 'node_modules', 'up');
     git(folder, 'commit', '-q', '-m', 'the inside link');
-    const only = await sender().review(PROJECT, folder, []);
+    const only = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.equal(only.ok ? null : only.code, 'nothing_to_send');
     assert.match(only.ok ? '' : only.message, /Only links that point outside/);
   });
@@ -298,7 +303,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     writeFileSync(join(folder, 'scratch.log'), 'mine too\n');
     writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
     assert.equal(git(folder, 'status', '--porcelain'), 'M app.txt');
-    const reviewed = await sender().review(PROJECT, folder, []);
+    const reviewed = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.ok(reviewed.ok);
     assert.deepEqual(
       reviewed.send.files.files.map((file) => file.path),
@@ -318,18 +323,18 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     rmSync(exclude, { force: true });
     symlinkSync(rules, exclude);
     assert.equal(git(folder, 'status', '--porcelain'), 'M app.txt', "the person's git hides it");
-    const linked = await sender().review(PROJECT, folder, []);
+    const linked = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.equal(linked.ok ? null : linked.code, 'unreadable_excludes');
     rmSync(exclude);
     writeFileSync(exclude, `${'# padding\n'.repeat(7000)}private-notes.txt\n`);
-    const large = await sender().review(PROJECT, folder, []);
+    const large = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.equal(large.ok ? null : large.code, 'unreadable_excludes');
     assert.match(large.ok ? '' : large.message, /sends nothing/);
     rmSync(exclude);
     // The person's own excludes file, named but not a file Halcyonic can read.
     mkdirSync(join(home, 'not-a-file'));
     git(folder, 'config', '--global', 'core.excludesFile', join(home, 'not-a-file'));
-    const unreadable = await sender().review(PROJECT, folder, []);
+    const unreadable = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.equal(unreadable.ok ? null : unreadable.code, 'unreadable_excludes');
   });
 
@@ -339,7 +344,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     mkdirSync(join(home, '.config', 'git'), { recursive: true });
     writeFileSync(join(home, '.config', 'git', 'ignore'), 'scratch.log\n');
     assert.equal(git(folder, 'status', '--porcelain'), 'M app.txt');
-    const byDefault = await sender().review(PROJECT, folder, []);
+    const byDefault = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.ok(byDefault.ok, byDefault.ok ? '' : byDefault.message);
     assert.deepEqual(
       byDefault.send.files.files.map((file) => file.path),
@@ -349,7 +354,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     writeFileSync(join(root, 'dotfiles-ignore'), 'scratch.log\n');
     symlinkSync(join(root, 'dotfiles-ignore'), join(home, 'linked-ignore'));
     git(folder, 'config', '--global', 'core.excludesFile', join(home, 'linked-ignore'));
-    const linked = await sender().review(PROJECT, folder, []);
+    const linked = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.ok(linked.ok, linked.ok ? '' : linked.message);
     assert.deepEqual(
       linked.send.files.files.map((file) => file.path),
@@ -373,25 +378,25 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
       '*.psd filter=lfs diff=lfs merge=lfs -text\n',
     ]) {
       writeFileSync(join(folder, '.gitattributes'), attributes);
-      const reviewed = await sender().review(PROJECT, folder, []);
+      const reviewed = await sender().review(PROJECT, folder, [], 'Lanterns');
       assert.equal(reviewed.ok ? null : reviewed.code, 'uses_filters', attributes);
     }
     assert.equal(existsSync(marker), false, "the repository's filter never ran");
     assert.equal(existsSync(theirs), false, "the person's own filter never ran");
     // Attributes that name no filter are sent as files.
     writeFileSync(join(folder, '.gitattributes'), '*.txt text eol=lf\n');
-    const plain = await sender().review(PROJECT, folder, []);
+    const plain = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.ok(plain.ok, plain.ok ? '' : plain.message);
   });
 
   test('a review asks nothing of gh; the same work sent twice says it was already sent (AUDIT3 S2, S3)', async () => {
     writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
-    const first = await sender().review(PROJECT, folder, []);
+    const first = await sender().review(PROJECT, folder, [], 'One');
     assert.ok(first.ok);
     assert.equal(existsSync(ghLog), false, 'a review runs no gh');
     const sent = await sender().send(PROJECT, folder, [], 'One', first.send.review);
     assert.ok(sent.ok);
-    const again = await sender().review(PROJECT, folder, []);
+    const again = await sender().review(PROJECT, folder, [], 'Two');
     assert.ok(again.ok);
     const twice = await sender().send(PROJECT, folder, [], 'Two', again.send.review);
     assert.equal(twice.ok ? null : twice.code, 'already_sent');
@@ -406,40 +411,282 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     ]) {
       git(folder, 'remote', 'set-url', 'origin', form);
       writeFileSync(join(folder, 'app.txt'), `${form}\n`);
-      const reviewed = await sender().review(PROJECT, folder, []);
+      const reviewed = await sender().review(PROJECT, folder, [], 'Lanterns');
       assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
-      const sent = await sender().send(PROJECT, folder, [], 'Form', reviewed.send.review);
+      const sent = await sender().send(PROJECT, folder, [], 'Lanterns', reviewed.send.review);
       assert.ok(sent.ok, `${form}: ${sent.ok ? '' : sent.message}`);
       assert.equal(git(origin, 'rev-parse', `refs/heads/${reviewed.send.new_branch}`), sent.commit);
     }
     // Another repository on github.com leads to a path that is not there: the push is refused.
     git(folder, 'remote', 'set-url', 'origin', 'https://github.com/someone/else.git');
     writeFileSync(join(folder, 'app.txt'), 'elsewhere\n');
-    const reviewed = await sender().review(PROJECT, folder, []);
+    const reviewed = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.ok(reviewed.ok);
-    const refused = await sender().send(PROJECT, folder, [], 'Else', reviewed.send.review);
+    const refused = await sender().send(PROJECT, folder, [], 'Lanterns', reviewed.send.review);
     assert.equal(refused.ok ? null : refused.code, 'push_refused');
+  });
+
+  test('a folder that is no repository is sent once as a new private repository, which it then becomes the clone of', async () => {
+    const plain = join(root, 'projects', 'lantern-game');
+    mkdirSync(join(plain, 'src'), { recursive: true });
+    writeFileSync(join(plain, 'index.html'), '<title>Lanterns</title>\n');
+    writeFileSync(join(plain, 'src', 'game.ts'), 'export const lanterns = 3;\n');
+    writeFileSync(join(plain, '.gitignore'), 'dist\n');
+    mkdirSync(join(plain, 'dist'));
+    writeFileSync(join(plain, 'dist', 'built.js'), 'built\n');
+    writeFileSync(join(plain, '.env'), 'KEY=never\n');
+    const reviewed = await sender().review(PROJECT, plain, [], 'Lanterns');
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    assert.equal(reviewed.send.repository, null);
+    assert.deepEqual(reviewed.send.creates, { name: 'lantern-game', visibility: 'private' });
+    assert.equal(reviewed.send.base_commit, null);
+    assert.equal(reviewed.send.new_branch, 'main');
+    assert.equal(reviewed.send.title, 'Lanterns');
+    assert.equal(reviewed.send.pull_request, false);
+    assert.deepEqual(
+      reviewed.send.files.files.map((file) => [file.path, file.change]),
+      [
+        ['.gitignore', 'added'],
+        ['index.html', 'added'],
+        ['src/game.ts', 'added'],
+      ],
+    );
+    // Who can see it is in the digest: a review of it public is another.
+    const shown = await sender().review(PROJECT, plain, [], 'Lanterns', { visibility: 'public' });
+    assert.ok(shown.ok);
+    assert.notEqual(shown.send.review, reviewed.send.review);
+    const crossed = await sender().send(PROJECT, plain, [], 'Lanterns', reviewed.send.review, {
+      visibility: 'public',
+    });
+    assert.equal(crossed.ok ? null : crossed.code, 'review_stale');
+    const recorded: { repository: string; visibility: string }[] = [];
+    const sent = await sender().send(PROJECT, plain, [], 'Lanterns', reviewed.send.review, {
+      onMade: (made) => recorded.push({ ...made }),
+    });
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.equal(sent.send.repository, 'owner/lantern-game');
+    assert.deepEqual(recorded, [{ repository: 'owner/lantern-game', visibility: 'private' }]);
+    assert.equal(sent.cloned, true);
+    assert.equal(sent.pullRequestUrl, null);
+    const asked = readFileSync(ghLog, 'utf8');
+    assert.match(asked, /^repo create lantern-game --private token:none:none$/m);
+    assert.ok(
+      asked.indexOf('auth status') < asked.indexOf('repo create'),
+      'signed in, asked first',
+    );
+    // Nothing of the clone's making names this Mac's paths in the folder's git.
+    assert.equal(existsSync(join(plain, '.git', 'FETCH_HEAD')), false);
+    assert.equal(
+      readdirSync(plain).filter((entry) => entry.startsWith('.git-halcyonic-')).length,
+      0,
+    );
+    const made = join(root, 'no-github', 'owner', 'lantern-game.git');
+    assert.equal(git(made, 'rev-parse', 'refs/heads/main'), sent.commit);
+    assert.equal(
+      git(made, 'ls-tree', '-r', '--name-only', sent.commit),
+      '.gitignore\nindex.html\nsrc/game.ts',
+    );
+    assert.equal(git(made, 'log', '-1', '--format=%s%n%an', sent.commit), 'Lanterns\nTest Person');
+    // The folder is now that repository's clone: its files as committed, untouched.
+    assert.equal(git(plain, 'rev-parse', 'HEAD'), sent.commit);
+    assert.equal(git(plain, 'rev-parse', '--abbrev-ref', 'HEAD'), 'main');
+    assert.equal(
+      git(plain, 'config', 'remote.origin.url'),
+      'https://github.com/owner/lantern-game.git',
+    );
+    assert.equal(git(plain, 'status', '--porcelain'), '?? .env');
+    assert.equal(readFileSync(join(plain, '.env'), 'utf8'), 'KEY=never\n');
+    assert.equal(existsSync(join(plain, '.git', 'hooks')), false);
+    // The next send is the ordinary one: a branch and a pull request on the new repository.
+    writeFileSync(join(plain, 'src', 'game.ts'), 'export const lanterns = 4;\n');
+    const next = await sender().review(PROJECT, plain, [], 'More lanterns');
+    assert.ok(next.ok, next.ok ? '' : next.message);
+    assert.equal(next.send.creates, null);
+    assert.equal(next.send.repository, 'owner/lantern-game');
+    assert.equal(next.send.base_commit, sent.commit);
+    assert.deepEqual(
+      next.send.files.files.map((file) => file.path),
+      ['src/game.ts'],
+    );
+    // The name is taken now: a first send of another folder of that name is refused, nothing pushed.
+    const twin = join(root, 'elsewhere', 'lantern-game');
+    mkdirSync(twin, { recursive: true });
+    writeFileSync(join(twin, 'a.txt'), 'a\n');
+    const twinReview = await sender().review(PROJECT, twin, [], 'Lanterns');
+    assert.ok(twinReview.ok);
+    const refused = await sender().send(PROJECT, twin, [], 'Lanterns', twinReview.send.review);
+    assert.equal(refused.ok ? null : refused.code, 'repository_not_made');
+    assert.equal(existsSync(join(twin, '.git')), false);
+  });
+
+  test('a first send stopped after GitHub made the repository goes into it again; one already holding other work is refused', async () => {
+    const plain = join(root, 'projects', 'stopped');
+    mkdirSync(plain, { recursive: true });
+    writeFileSync(join(plain, 'a.txt'), 'a\n');
+    const recorded: { repository: string; visibility: 'private' | 'public' }[] = [];
+    const first = await sender().review(PROJECT, plain, [], 'Lanterns', { name: 'stopped-game' });
+    assert.ok(first.ok);
+    assert.deepEqual(first.send.creates, { name: 'stopped-game', visibility: 'private' });
+    // GitHub makes it, then refuses the push: here the made repository cannot take objects.
+    const made = join(root, 'no-github', 'owner', 'stopped-game.git');
+    writeFileSync(join(root, 'refuse-push'), '');
+    const once = await sender().send(PROJECT, plain, [], 'Lanterns', first.send.review, {
+      name: 'stopped-game',
+      onMade: (made) => recorded.push({ ...made }),
+    });
+    rmSync(join(root, 'refuse-push'));
+    if (once.ok) assert.fail('the push should have been refused');
+    assert.equal(once.code, 'push_refused');
+    assert.equal(once.effect, 'unknown');
+    assert.deepEqual(recorded, [{ repository: 'owner/stopped-game', visibility: 'private' }]);
+    assert.equal(existsSync(join(plain, '.git')), false);
+    // Again, as the journal says it was made: into it, no second repository asked for.
+    chmodSync(join(made, 'objects'), 0o755);
+    const again = await sender().review(PROJECT, plain, [], 'Lanterns', { made: recorded[0] });
+    assert.ok(again.ok, again.ok ? '' : again.message);
+    assert.equal(again.send.creates, null);
+    assert.equal(again.send.repository, 'owner/stopped-game');
+    const sent = await sender().send(PROJECT, plain, [], 'Lanterns', again.send.review, {
+      made: recorded[0],
+      onMade: () => assert.fail('no second repository'),
+    });
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.equal(git(made, 'rev-parse', 'refs/heads/main'), sent.commit);
+    assert.equal(git(plain, 'rev-parse', 'HEAD'), sent.commit);
+    assert.equal(readFileSync(ghLog, 'utf8').match(/repo create/g)?.length, 1);
+    // A made repository whose main holds work Halcyonic did not send is refused, nothing pushed.
+    const other = join(root, 'projects', 'other');
+    mkdirSync(other, { recursive: true });
+    writeFileSync(join(other, 'b.txt'), 'b\n');
+    const otherMade = { repository: 'owner/stopped-game', visibility: 'private' as const };
+    // Another project's own repository of Halcyonic's holds none of that work.
+    const OTHER = '01a19000-0000-7000-8000-00000000ab02' as ProjectId;
+    const theirs = await sender().review(OTHER, other, [], 'Lanterns', { made: otherMade });
+    assert.ok(theirs.ok);
+    const refused = await sender().send(OTHER, other, [], 'Lanterns', theirs.send.review, {
+      made: otherMade,
+    });
+    assert.equal(refused.ok ? null : refused.code, 'repository_not_empty');
+    assert.equal(git(made, 'rev-parse', 'refs/heads/main'), sent.commit, 'their main untouched');
+  });
+
+  test("a first send whose clone did not take is built on by the next send, never refused as someone else's", async () => {
+    const plain = join(root, 'projects', 'unclonable');
+    mkdirSync(plain, { recursive: true });
+    writeFileSync(join(plain, 'a.txt'), 'a\n');
+    const recorded: { repository: string; visibility: 'private' | 'public' }[] = [];
+    const first = await sender().review(PROJECT, plain, [], 'Lanterns');
+    assert.ok(first.ok);
+    // The folder cannot take a .git: the work goes to GitHub, the clone does not take.
+    chmodSync(plain, 0o555);
+    const sent = await sender().send(PROJECT, plain, [], 'Lanterns', first.send.review, {
+      onMade: (made) => recorded.push({ ...made }),
+    });
+    chmodSync(plain, 0o755);
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.equal(sent.cloned, false);
+    assert.equal(existsSync(join(plain, '.git')), false);
+    assert.equal(
+      readdirSync(plain).filter((entry) => entry.startsWith('.git-halcyonic-')).length,
+      0,
+    );
+    const made = join(root, 'no-github', 'owner', 'unclonable.git');
+    // The person changes the game, and sends again: on top of what the first send pushed.
+    writeFileSync(join(plain, 'a.txt'), 'b\n');
+    const next = await sender().review(PROJECT, plain, [], 'More', { made: recorded[0] });
+    assert.ok(next.ok, next.ok ? '' : next.message);
+    const again = await sender().send(PROJECT, plain, [], 'More', next.send.review, {
+      made: recorded[0],
+    });
+    assert.ok(again.ok, again.ok ? '' : again.message);
+    assert.equal(again.cloned, true);
+    assert.equal(git(made, 'rev-parse', 'refs/heads/main^'), sent.commit, 'built on the first');
+    assert.equal(git(made, 'rev-parse', 'refs/heads/main'), again.commit);
+    assert.equal(git(plain, 'rev-parse', 'HEAD'), again.commit);
+    assert.equal(git(plain, 'status', '--porcelain'), '');
+  });
+
+  test('a first send asks gh whether it is signed in before anything is made, and reaches GitHub as gh says (ssh)', async () => {
+    const plain = join(root, 'projects', 'signed');
+    mkdirSync(plain, { recursive: true });
+    writeFileSync(join(plain, 'a.txt'), 'a\n');
+    writeFileSync(join(root, 'signed-out'), '');
+    const reviewed = await sender().review(PROJECT, plain, [], 'Lanterns');
+    assert.ok(reviewed.ok, 'a review asks gh nothing');
+    const out = await sender().send(PROJECT, plain, [], 'Lanterns', reviewed.send.review);
+    assert.equal(out.ok ? null : out.code, 'gh_signed_out');
+    assert.equal(readFileSync(ghLog, 'utf8').includes('repo create'), false);
+    rmSync(join(root, 'signed-out'));
+    writeFileSync(join(root, 'ssh'), '');
+    const sent = await sender().send(PROJECT, plain, [], 'Lanterns', reviewed.send.review);
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.equal(git(plain, 'config', 'remote.origin.url'), 'git@github.com:owner/signed.git');
+    const named = await sender().review(PROJECT, join(root, 'projects', 'signed'), [], 'Lanterns', {
+      name: '..',
+    });
+    // The folder is its clone now: an ordinary send, which asks no name (here nothing new to send).
+    assert.equal(named.ok ? null : named.code, 'nothing_to_send');
+    // A name GitHub would not take is refused before anything is made.
+    const fresh = join(root, 'projects', 'fresh');
+    mkdirSync(fresh, { recursive: true });
+    writeFileSync(join(fresh, 'a.txt'), 'a\n');
+    const bad = await sender().review(PROJECT, fresh, [], 'Lanterns', { name: '..' });
+    assert.equal(bad.ok ? null : bad.code, 'invalid_name');
+  });
+
+  test('a folder inside another repository is never sent as a new one; without gh none is made', async () => {
+    const inner = join(folder, 'inner');
+    mkdirSync(inner);
+    writeFileSync(join(inner, 'a.txt'), 'a\n');
+    const inside = await sender().review(PROJECT, inner, [], 'Lanterns');
+    assert.equal(inside.ok ? null : inside.code, 'inside_repository');
+    const plain = join(root, 'projects', 'plain');
+    mkdirSync(plain);
+    writeFileSync(join(plain, 'a.txt'), 'a\n');
+    const noGh = await sender({ gh: null }).review(PROJECT, plain, [], 'Lanterns');
+    assert.equal(noGh.ok ? null : noGh.code, 'no_gh');
+    // The home folder kept as a repository of its settings files does not count.
+    git(home, 'init', '-q');
+    const underHome = join(home, 'projects', 'mine');
+    mkdirSync(underHome, { recursive: true });
+    writeFileSync(join(underHome, 'a.txt'), 'a\n');
+    const mine = await sender().review(PROJECT, underHome, [], 'Lanterns');
+    assert.ok(mine.ok, mine.ok ? '' : mine.message);
+  });
+
+  test("the title is the person's, else the project's latest task's, else its name: one line, at most 200 characters", () => {
+    const project = { name: 'Garden' };
+    const tasks = [
+      { title: 'Older task', updated_at: '2026-11-12T01:00:00.000Z' },
+      { title: 'Add\nthree\tlanterns ', updated_at: '2026-11-12T02:00:00.000Z' },
+    ];
+    assert.equal(sendTitle('  Mine\u0007 ', project, tasks), 'Mine');
+    assert.equal(sendTitle(undefined, project, tasks), 'Add three lanterns');
+    assert.equal(sendTitle('', project, []), 'Garden');
+    assert.equal(sendTitle(undefined, undefined, []), 'Changes');
+    assert.equal(sendTitle('x'.repeat(300), project, []).length, 200);
   });
 
   test('every refusal is said in words, and nothing is sent', async () => {
     const plain = join(root, 'projects', 'plain');
     mkdirSync(plain);
     writeFileSync(join(plain, 'a.txt'), 'a\n');
-    const notRepo = await sender().review(PROJECT, plain, []);
+    writeFileSync(join(plain, '.git'), 'gitdir: /elsewhere\n');
+    const notRepo = await sender().review(PROJECT, plain, [], 'Lanterns');
     assert.equal(notRepo.ok ? null : notRepo.code, 'not_a_repository');
-    const nothing = await sender().review(PROJECT, folder, []);
+    const nothing = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.equal(nothing.ok ? null : nothing.code, 'nothing_to_send');
     writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
     git(folder, 'remote', 'set-url', 'origin', 'https://gitlab.example/owner/garden.git');
-    const elsewhere = await sender().review(PROJECT, folder, []);
+    const elsewhere = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.equal(elsewhere.ok ? null : elsewhere.code, 'no_github_origin');
     git(folder, 'remote', 'set-url', 'origin', REMOTE);
     git(folder, 'checkout', '-q', '--detach');
-    const detached = await sender().review(PROJECT, folder, []);
+    const detached = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.equal(detached.ok ? null : detached.code, 'detached_head');
     git(folder, 'checkout', '-q', 'main');
     // A push GitHub refuses: here the stand-in repository is gone.
-    const reviewed = await sender().review(PROJECT, folder, []);
+    const reviewed = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.ok(reviewed.ok);
     rmSync(origin, { recursive: true, force: true });
     const refused = await sender().send(PROJECT, folder, [], 'Lanterns', reviewed.send.review);

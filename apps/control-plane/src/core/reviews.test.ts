@@ -190,3 +190,62 @@ test('Remove Secret is reviewed, since its value cannot be brought back; Take Do
   );
   assert.ok(!smuggled.ok, 'the commit is never a proposer’s to give');
 });
+
+test("a first Send's one review names the repository it makes and who can see it, with the host's own title (ADR 0039, amended)", async () => {
+  const { standInGitHub } = await import('../testing/github-stand-in.ts');
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-first-send-')));
+  after(() => rmSync(base, { recursive: true, force: true }));
+  const stand = standInGitHub(base);
+  mkdirSync(join(stand.projects, 'plain'));
+  writeFileSync(join(stand.projects, 'plain', 'index.html'), '<title>Plain</title>\n');
+  const { controlPlane, commands } = createTestControlPlane({
+    locations: createHostLocations([stand.projects]),
+    github: {
+      git: '/usr/bin/git',
+      gh: stand.ghPath,
+      dataDir: join(base, 'data'),
+      env: { HOME: stand.home },
+    },
+  });
+  const created = controlPlane.commands.submit(
+    commands.createProject('Plain Game', {
+      kind: 'existing_folder',
+      root: stand.projects,
+      folder_name: 'plain',
+    }),
+    'internal',
+  );
+  const projectId = (
+    created.command?.result?.kind === 'project_created' ? created.command.result.project_id : ''
+  ) as ProjectId;
+  const send = (payload: Record<string, unknown>) =>
+    ({
+      ...commands.createProject('unused', null),
+      command_type: 'project.send_to_github',
+      payload: { project_id: projectId, review: '0'.repeat(64), ...payload },
+    }) as never;
+  const built = await buildReview(controlPlane, send({}));
+  assert.ok(built.ok, built.ok ? '' : built.message);
+  assert.equal(built.review.confirm_words, 'Send 1 File');
+  assert.match(built.review.what_happens, /A new private repository of yours holds the project/);
+  assert.deepEqual(built.review.facts, [
+    { kind: 'repository', value: 'plain', theirs: true },
+    { kind: 'branch', value: 'main', theirs: false },
+    { kind: 'words', value: 'Plain Game', theirs: true },
+  ]);
+  assert.deepEqual(built.review.warnings, []);
+  const shown = await buildReview(
+    controlPlane,
+    send({ visibility: 'public', repository_name: 'plain-game' }),
+  );
+  assert.ok(shown.ok);
+  assert.equal(shown.review.facts[0]?.value, 'plain-game');
+  assert.deepEqual(shown.review.warnings, [
+    { code: 'public', line: 'Anyone can see its code and history' },
+  ]);
+  assert.notEqual(
+    shown.review.digest,
+    built.review.digest,
+    'what the press sends is in the digest',
+  );
+});

@@ -40,10 +40,11 @@ async function serve(t: TestContext, name: string, withGitHub = true) {
   );
   const result = created.command?.result;
   const projectId = (result?.kind === 'project_created' ? result.project_id : '') as ProjectId;
-  const review = async () => {
+  const review = async (asked: object = { title: 'Lanterns' }) => {
     const response = await fetch(`${server.baseUrl}/api/projects/${projectId}/github-review`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${server.token}` },
+      headers: { authorization: `Bearer ${server.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify(asked),
     });
     const body = (await response.json()) as unknown;
     assert.ok(validReview(body).ok, JSON.stringify(body));
@@ -53,7 +54,7 @@ async function serve(t: TestContext, name: string, withGitHub = true) {
 }
 
 let next = 0;
-function send(projectId: ProjectId, review: string) {
+function send(projectId: ProjectId, review: string, title: string | null = 'Lanterns') {
   next += 1;
   return {
     schema_version: 1 as const,
@@ -61,7 +62,7 @@ function send(projectId: ProjectId, review: string) {
     issued_at: '2026-11-11T10:00:00.000Z' as never,
     client: { name: 'test', version: null, device_label: null },
     command_type: 'project.send_to_github' as const,
-    payload: { project_id: projectId, title: 'Lanterns', review },
+    payload: { project_id: projectId, ...(title === null ? {} : { title }), review },
   };
 }
 
@@ -117,6 +118,24 @@ describe('Send to GitHub through the control plane (ADR 0039, amended)', {
     );
     assert.equal(journal.includes('file://'), false, 'no address');
     assert.match(readFileSync(stand.ghLog, 'utf8'), /pr create --repo owner\/garden/);
+  });
+
+  test("with no title given, the review shows the host's own and the send goes with it", async (t) => {
+    const { server, stand, projectId, review } = await serve(t, 'titled');
+    writeFileSync(join(stand.folder, 'app.txt'), 'lanterns\n');
+    const read = await review({});
+    assert.ok(read.availability === 'available');
+    assert.equal(read.send.title, 'Garden', "no task yet: the project's name");
+    const bad = await review({ title: 'x', extra: true });
+    assert.equal(bad.availability === 'unavailable' && bad.reason.code, 'invalid_request');
+    const accepted = server.controlPlane.commands.submit(
+      send(projectId, read.send.review, null),
+      'internal',
+    );
+    const done = await settled(server, accepted.command?.command_id ?? '');
+    assert.equal(done.status, 'completed', JSON.stringify(done.failure));
+    const commit = done.result?.kind === 'sent_to_github' ? done.result.commit : '';
+    assert.equal(stand.git(stand.origin, 'log', '-1', '--format=%s', commit), 'Garden');
   });
 
   test('a stale review sends nothing, and a computer without the sender says so', async (t) => {

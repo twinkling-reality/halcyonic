@@ -69,7 +69,7 @@ import type { CheckOutput } from '../preview/check-output.ts';
 import type { HostPreviews } from '../preview/preview.ts';
 import { type ProjectShares, ShareRefused } from '../preview/share.ts';
 import { givenSecrets, type SecretStore } from '../secrets/store.ts';
-import type { GitHubSender } from '../sending/github.ts';
+import { type GitHubSender, sendTitle } from '../sending/github.ts';
 import type { HostStarters } from '../starters.ts';
 import { CHOICE_ROWS_SHOWN, choiceRows, choicesDigest, type HeldRow } from './choices.ts';
 import {
@@ -1486,13 +1486,27 @@ export class CommandService {
         const built = this.#deps.previews?.builtCopy(projectId, check.check_id) ?? null;
         const replaces = this.#deps.projection.project(projectId)?.published?.commit ?? null;
         void github
-          .publish(projectId, folder, check.check_id, built, replaces, command.payload.review)
+          .publish(projectId, folder, check.check_id, built, replaces, command.payload.review, {
+            made: this.#deps.projection.madeRepository(projectId),
+            makePublic: command.payload.make_public === true,
+            // Recorded the moment GitHub made it public, whatever the publish after it does.
+            onMadePublic: (repository) =>
+              this.#deps.recorder.record(
+                controlPlaneDraft(
+                  'project.repository_made_public',
+                  where,
+                  { repository },
+                  this.#now(),
+                  cause,
+                ),
+              ),
+          })
           .then((done) => {
             if (!done.ok) {
               this.#fail(command, scope, {
                 code: done.code,
                 message: done.message,
-                effect: 'none',
+                effect: done.effect ?? 'none',
               });
               return;
             }
@@ -1536,21 +1550,40 @@ export class CommandService {
           .projects()
           .filter((project) => project.project_id !== command.payload.project_id)
           .flatMap((project) => (project.location === null ? [] : [project.location.path]));
+        // The title as the review showed it: the person's, else the host's own (sendTitle).
+        const title = sendTitle(
+          command.payload.title,
+          this.#deps.projection.project(command.payload.project_id),
+          this.#deps.projection.workstreams(command.payload.project_id),
+        );
         void github
-          .send(
-            command.payload.project_id,
-            folder,
-            others,
-            command.payload.title,
-            command.payload.review,
-          )
+          .send(command.payload.project_id, folder, others, title, command.payload.review, {
+            visibility: command.payload.visibility ?? 'private',
+            name: command.payload.repository_name,
+            made: this.#deps.projection.madeRepository(command.payload.project_id),
+            // Recorded the moment GitHub made it, whatever the push after it does.
+            onMade: (made) =>
+              this.#deps.recorder.record(
+                controlPlaneDraft(
+                  'project.repository_made',
+                  {
+                    project_id: command.payload.project_id,
+                    workstream_id: null,
+                    execution_id: null,
+                  },
+                  { repository: made.repository, visibility: made.visibility },
+                  this.#now(),
+                  cause,
+                ),
+              ),
+          })
           .then(
             (sent) => {
               if (!sent.ok) {
                 this.#fail(command, scope, {
                   code: sent.code,
                   message: sent.message,
-                  effect: 'none',
+                  effect: sent.effect ?? 'none',
                 });
                 return;
               }
@@ -1574,6 +1607,11 @@ export class CommandService {
                   cause,
                 ),
               );
+              if (!sent.cloned)
+                this.#deps.logger.warn(
+                  {},
+                  "the work is on GitHub, and the project's folder could not be made its clone",
+                );
               this.#complete(command, scope, {
                 kind: 'sent_to_github',
                 new_branch: sent.send.new_branch,

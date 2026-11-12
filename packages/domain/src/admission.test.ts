@@ -1291,6 +1291,49 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
     assert.equal(opens(), true);
   });
 
+  test('a repository a first send made is kept with who can see it, and made public by its own fact (ADR 0039)', () => {
+    const { b, projection, scope } = setupStarter(true);
+    projection.apply(
+      b.controlPlane('project.sent_to_github', scope, {
+        repository: 'owner/garden',
+        branch: 'main',
+        base_commit: null,
+        new_branch: 'main',
+        commit: 'a'.repeat(40),
+        pull_request_url: null,
+      }),
+    );
+    assert.equal(
+      projection.madeRepository(scope.project_id),
+      undefined,
+      'a send that made nothing',
+    );
+    projection.apply(
+      b.controlPlane('project.repository_made', scope, {
+        repository: 'owner/garden',
+        visibility: 'private',
+      }),
+    );
+    assert.deepEqual(projection.madeRepository(scope.project_id), {
+      repository: 'owner/garden',
+      visibility: 'private',
+    });
+    const madePublic = (repository: string) =>
+      projection.apply(b.controlPlane('project.repository_made_public', scope, { repository }));
+    madePublic('owner/other');
+    assert.equal(
+      projection.madeRepository(scope.project_id)?.visibility,
+      'private',
+      'another repository',
+    );
+    madePublic('owner/garden');
+    assert.equal(projection.madeRepository(scope.project_id)?.visibility, 'public');
+    // It is in the state a checkpoint keeps.
+    const restored = new Projection();
+    restored.restoreState(projection.exportState());
+    assert.equal(restored.madeRepository(scope.project_id)?.visibility, 'public');
+  });
+
   test('a game is published only from a passed, current, confined check, by the person, and unpublished only once published (ADR 0039)', () => {
     const { b, projection, scope, command } = setupStarter(true);
     const result = (type: 'project.publish' | 'project.unpublish') => {

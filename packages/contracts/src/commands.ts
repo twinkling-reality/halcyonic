@@ -1,7 +1,13 @@
 import Type, { type Static, type TSchema } from 'typebox';
 import { CatalogRepositoryRef } from './catalog.ts';
 import { CheckpointId, GitObjectId, ReviewDigest } from './checkpoints.ts';
-import { GitBranchName, PagesAddress, PullRequestUrl } from './github.ts';
+import {
+  GitBranchName,
+  PagesAddress,
+  PullRequestUrl,
+  RepositoryName,
+  RepositoryVisibility,
+} from './github.ts';
 import { FolderName, HostPath, ProjectLocationChoice } from './locations.ts';
 import { OWN_CHECK_SCRIPT_NAMES, OwnCheckChoice } from './own-checks.ts';
 import { CheckId, ShareAddress, ShareWay } from './previews.ts';
@@ -201,23 +207,41 @@ export const ProjectShareStopCommand = defineCommand(
  * Sends the project's work to the person's own GitHub (ADR 0039, amended): one commit of the
  * project's files on top of the branch its folder is on, pushed as a new branch with the person's
  * own git, and a pull request opened with the person's own `gh` where it is signed in. The person's
- * folder, branches and index are never changed. `review` is the digest of the GitHub review the
- * person read (ADR 0051); a send whose review no longer matches sends nothing.
+ * folder, branches and index are never changed. A folder that is no git repository and inside none
+ * is sent once as a new repository of the person's own, made with their `gh` (`visibility`,
+ * private unless they say public; `repository_name`, the folder's unless they name it), pushed as `main`; the folder then becomes that repository's
+ * clone, so every later send is a branch and a pull request. `title` is the commit's message and the
+ * pull request's title; absent, the host's own (the project's latest task's title, else its name),
+ * shown in the review as it will be sent. `review` is the digest of the review the person read, over
+ * every value the press sends (ADR 0051); a send whose review no longer matches sends nothing.
  */
 export const ProjectSendToGitHubCommand = defineCommand(
   'project.send_to_github',
-  Type.Object({ project_id: ProjectId, title: Text(200), review: ReviewDigest }, strict),
+  Type.Object(
+    {
+      project_id: ProjectId,
+      title: Type.Optional(Text(200)),
+      visibility: Type.Optional(RepositoryVisibility),
+      repository_name: Type.Optional(RepositoryName),
+      review: ReviewDigest,
+    },
+    strict,
+  ),
 );
 
 /**
  * Publishes the project's latest passed, confined check's built copy, never its source, to the
  * person's own GitHub Pages (ADR 0039, amended): one commit on the `halcyonic-pages` branch with
- * their own git, never forced, and Pages turned on for it with their own `gh`. `review` is the
- * digest of the publish review the person read (ADR 0051).
+ * their own git, never forced, and Pages turned on for it with their own `gh`. `make_public` first
+ * makes the repository public with their `gh`, since GitHub Free serves pages only from a public
+ * one. `review` is the digest of the publish review the person read (ADR 0051).
  */
 export const ProjectPublishCommand = defineCommand(
   'project.publish',
-  Type.Object({ project_id: ProjectId, review: ReviewDigest }, strict),
+  Type.Object(
+    { project_id: ProjectId, make_public: Type.Optional(Type.Boolean()), review: ReviewDigest },
+    strict,
+  ),
 );
 
 /**

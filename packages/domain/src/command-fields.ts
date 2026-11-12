@@ -92,8 +92,19 @@ export const COMMAND_FIELDS: Readonly<
     project_id: project,
     name: need('choice', 'Secret', { list: 'secrets' }),
   },
-  'project.send_to_github': { project_id: project, title: need('text', 'Title'), review },
-  'project.publish': { project_id: project, review },
+  'project.send_to_github': {
+    project_id: project,
+    title: need('text', 'Title', optional),
+    // No list of who can see it yet: a proposal cannot choose it, and private is the default.
+    visibility: need('choice', 'Who Can See It', optional),
+    repository_name: need('text', 'Repository Name', optional),
+    review,
+  },
+  'project.publish': {
+    project_id: project,
+    make_public: need('yes_no', 'Make Public', optional),
+    review,
+  },
   // One press (R1): the host fills the commit it holds as published, so what comes down is what it
   // published, and the command's own admission refuses one published again since (AUDIT2 S2).
   'project.unpublish': { project_id: project, commit: { from: 'host', fill: 'published_commit' } },
