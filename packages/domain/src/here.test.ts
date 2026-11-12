@@ -175,3 +175,36 @@ describe('the declarations beside the policy', () => {
       assert.match(title, /^[A-Z][A-Za-z]*( (a|to|on|for|[A-Z][A-Za-z]*)){0,2}$/, type);
   });
 });
+
+test('a project’s check is refused by what its starter declares, not by its id (R2)', () => {
+  const b = new EventBuilder();
+  const projection = new Projection();
+  const project = b.project('Room', { path: '/tmp/room', name: 'room', created: false });
+  projection.apply(project.event);
+  projection.apply(
+    b.controlPlane(
+      'project.starter_applied',
+      { project_id: project.projectId, workstream_id: null, execution_id: null },
+      { starter_id: 'any-starter', lockfile: 'a'.repeat(64), files: 1, template: 'b'.repeat(64) },
+    ),
+  );
+  const scope = { project_id: project.projectId, workstream_id: null, execution_id: null };
+  const declares = (check: 'build' | 'none') => ({
+    ...RUNTIMES,
+    starters: {
+      declares: () => ({
+        check,
+        versions: 'kept' as const,
+        copies: 'own' as const,
+        describes: null,
+      }),
+    },
+  });
+  const refused = hereActions(scope, projection, declares('none')).refused;
+  assert.ok(refused.some((r) => r.command_type === 'project.check' && /no build/.test(r.message)));
+  assert.ok(
+    !hereActions(scope, projection, declares('build')).refused.some(
+      (r) => r.command_type === 'project.check' && /no build/.test(r.message),
+    ),
+  );
+});

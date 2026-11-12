@@ -10,3 +10,4 @@ export * from './policy.ts';
 export * from './projection.ts';
 export * from './questions.ts';
 export * from './secrets.ts';
+export * from './starter-declarations.ts';

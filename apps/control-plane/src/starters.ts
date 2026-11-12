@@ -15,10 +15,12 @@ import {
 import { homedir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import type { StarterView } from '@halcyonic/contracts';
+import { STARTER_DEFAULTS, type StarterDeclarations } from '@halcyonic/domain';
 
 /**
  * Starters a new project can begin from (ADR 0037). Each is tracked in the repository under
- * `starters/<id>/`: `starter.json` (its title), the pinned `package-lock.json`, and `template/`, the
+ * `starters/<id>/`: `starter.json` (its title and what it declares: `check`, `versions`, `copies`,
+ * `describes`, `packages`), the pinned `package-lock.json`, and `template/`, the
  * files a project begins with. Its dependencies are installed on each Mac into
  * `<data dir>/starters/<id>/node_modules`, beside `installed.json`, which names the SHA-256 of the
  * lockfile they were installed from; a starter counts as installed only while that matches the
@@ -233,6 +235,32 @@ export class HostStarters {
     if (!this.#installsNothing(id, readFileSync(join(this.#tracked, id, 'package-lock.json'))))
       symlinkSync(join(this.#installed, id, 'node_modules'), join(folder, 'node_modules'), 'dir');
     return { ok: true, lockfile, files: files.length, template: digest };
+  }
+
+  /**
+   * What the starter `id` declares in its `starter.json` (R2): its check, its versions, its copies and
+   * the file it is described by. A value it does not declare, or a starter the host does not have, is
+   * the default; one it declares that the host does not know is the default too, never a guess.
+   */
+  declares(id: string): StarterDeclarations {
+    let parsed: Record<string, unknown> = {};
+    try {
+      if (/^[a-z][a-z0-9-]{0,63}$/.test(id))
+        parsed = JSON.parse(
+          readFileSync(join(this.#tracked, id, 'starter.json'), 'utf8'),
+        ) as Record<string, unknown>;
+    } catch {
+      parsed = {};
+    }
+    return {
+      check: parsed.check === 'none' ? 'none' : STARTER_DEFAULTS.check,
+      versions: parsed.versions === 'none' ? 'none' : STARTER_DEFAULTS.versions,
+      copies: parsed.copies === 'none' ? 'none' : STARTER_DEFAULTS.copies,
+      describes:
+        typeof parsed.describes === 'string' && /^[A-Za-z0-9._-]{1,64}$/.test(parsed.describes)
+          ? parsed.describes
+          : STARTER_DEFAULTS.describes,
+    };
   }
 
   #title(id: string): string | null {

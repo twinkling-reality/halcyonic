@@ -23,6 +23,7 @@ import { foldersOverlap } from './folders.ts';
 import { COMMAND_POLICY } from './policy.ts';
 import type { ExecutionFacts, Projection } from './projection.ts';
 import { reservedSecretName } from './secrets.ts';
+import type { StarterCatalog } from './starter-declarations.ts';
 
 export interface CommandScope {
   project_id: ProjectId | null;
@@ -53,6 +54,8 @@ export interface RuntimeCatalog {
    * journal. Elsewhere, as in a recording, such an instruction is refused as the runtime declares.
    */
   readonly queuesInstructions?: boolean;
+  /** What each starter declares (R2), so no rule compares a starter's id; absent, every starter has a build. */
+  readonly starters?: StarterCatalog;
 }
 
 const NO_SCOPE: CommandScope = { project_id: null, workstream_id: null, execution_id: null };
@@ -345,7 +348,10 @@ function admit(
           );
         }
         // A world is a description, read and validated when it changes (ADR 0049): it has no build.
-        if (project.starter === WORLD_STARTER_ID) {
+        if (
+          project.starter !== null &&
+          runtimes.starters?.declares(project.starter).check === 'none'
+        ) {
           return reject(scope, 'invalid_state', 'A world has no build to check.');
         }
         const taskId = command.payload.workstream_id;

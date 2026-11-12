@@ -1,5 +1,9 @@
 {
   "format": 1,
   "title": "A world of your own to step into",
-  "packages": "none"
+  "packages": "none",
+  "check": "none",
+  "versions": "none",
+  "copies": "none",
+  "describes": "world.json"
 }

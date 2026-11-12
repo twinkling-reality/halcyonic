@@ -19,6 +19,7 @@ import {
   WORLD_STARTER_ID,
   WorldDescription,
 } from '@halcyonic/contracts';
+import { STARTER_DEFAULTS } from '@halcyonic/domain';
 import { HostStarters } from './starters.ts';
 
 const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-world-starter-')));
@@ -143,4 +144,28 @@ describe('the tracked world starter', () => {
     assert.match(guide, /from -180 to 180/);
     assert.match(guide, /at most 8/);
   });
+});
+
+test('a starter says what it is in its own starter.json, and a rule asks that, never its id (R2)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'halcyonic-declares-'));
+  after(() => rmSync(root, { recursive: true, force: true }));
+  const starters = new HostStarters({
+    trackedDir: TRACKED,
+    installedDir: join(root, 'installed'),
+    dataDir: join(root, 'data'),
+    home: join(root, 'home'),
+  });
+  assert.deepEqual(starters.declares(WORLD_STARTER_ID), {
+    check: 'none',
+    versions: 'none',
+    copies: 'none',
+    describes: 'world.json',
+  });
+  assert.deepEqual(
+    starters.declares('iwsdk-vr'),
+    STARTER_DEFAULTS,
+    'one that declares nothing has a build',
+  );
+  assert.deepEqual(starters.declares('no-such-starter'), STARTER_DEFAULTS);
+  assert.deepEqual(starters.declares('../world'), STARTER_DEFAULTS, 'never a path');
 });
