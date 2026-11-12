@@ -118,8 +118,10 @@ namespace Halcyonic.XR
         /// reaches outside that directory.
         /// </summary>
         /// <exception cref="ArgumentException"><paramref name="name"/> is empty, a path, or names a directory.</exception>
+        /// <exception cref="UnattendedReachRefusedException">In batch mode, where nothing the device keeps is read or written.</exception>
         public static string PrivateFile(string name)
         {
+            if (Application.isBatchMode) throw new UnattendedReachRefusedException(UnattendedReach.KeptRefused);
             if (string.IsNullOrWhiteSpace(name) || name == "." || name == ".." || name.IndexOfAny(new[] { '/', '\\', ':' }) >= 0
                 || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || Path.GetFileName(name) != name)
             {

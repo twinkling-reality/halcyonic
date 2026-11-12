@@ -48,4 +48,32 @@ public sealed class ControlPlaneReachTests
             .Where(file => File.ReadAllText(file).Contains("typeof(ControlPlaneSettings)")).Select(Path.GetFileName).ToList();
         Assert.That(editor, Is.Empty, "these set the stored settings' statics instead of handing in stand-ins");
     }
+
+    /// <summary>
+    /// The lead's 08:19Z answer: in batch mode nothing the device keeps is read or written, New Project's drafts included, and
+    /// a check hands New Project a store of its own through the same seam.
+    /// </summary>
+    [Test]
+    public void InBatchModeNewProjectsDraftsNeverReachTheDevicesFile()
+    {
+        var settings = File.ReadAllText(Repository.PathTo("apps/xr/Assets/Halcyonic/Scripts/ControlPlaneSettings.cs"));
+        var file = settings[settings.IndexOf("public static string PrivateFile(string name)", StringComparison.Ordinal)..];
+        Assert.That(file[(file.IndexOf('{') + 1)..].TrimStart(), Does.StartWith("if (Application.isBatchMode) throw new UnattendedReachRefusedException(UnattendedReach.KeptRefused)"));
+
+        var column = File.ReadAllText(Repository.PathTo("apps/xr/Assets/Halcyonic/Workspace/NewProjectColumn.cs"));
+        var reaches = column.Split('\n').Where(line => line.Contains("ControlPlaneSettings.")).ToList();
+        Assert.That(reaches, Has.Count.EqualTo(1));
+        Assert.That(reaches[0], Does.Contain("public static ICreationDraftStore DeviceDrafts()"), "only the device's own store names the private file");
+
+        var assets = Directory.GetFiles(Repository.PathTo("apps/xr/Assets"), "*.cs", SearchOption.AllDirectories)
+            .Select(path => (Path: path, Lines: File.ReadAllLines(path))).ToList();
+        var fileStores = assets.SelectMany(file => file.Lines.Where(line => line.Contains("new FileCreationDraftStore(")).Select(line => Path.GetFileName(file.Path) + ": " + line.Trim())).ToList();
+        Assert.That(fileStores, Has.Count.EqualTo(1));
+        Assert.That(fileStores[0], Does.StartWith("NewProjectColumn.cs: public static ICreationDraftStore DeviceDrafts()"), "the device's drafts file is made in one place");
+        var editor = assets.Where(file => file.Path.Contains(Path.DirectorySeparatorChar + "Editor" + Path.DirectorySeparatorChar, StringComparison.Ordinal)).ToList();
+        var creates = editor.SelectMany(file => file.Lines.Where(line => line.Contains("NewProjectColumn.Create(")).Select(line => Path.GetFileName(file.Path) + ": " + line.Trim())).ToList();
+        Assert.That(creates.Where(line => !line.Contains(", () => new ")), Is.Empty, "these build New Project without a store of their own");
+        Assert.That(editor.Where(file => file.Lines.Any(line => line.Contains("DeviceDrafts") || line.Contains("DraftsOf = NewProjectColumn"))).Select(file => Path.GetFileName(file.Path)),
+            Is.Empty, "these hand New Project the device's drafts instead of a store of their own");
+    }
 }

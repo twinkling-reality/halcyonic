@@ -15,6 +15,9 @@ namespace Halcyonic.Client
         /// <summary>The refusal's words, when nothing names a scratch plane.</summary>
         public const string Refused = "An Editor check may not reach a real control plane. Name a scratch plane with HALCYONIC_ENDPOINT and HALCYONIC_TOKEN_FILE.";
 
+        /// <summary>The refusal's words, when such a run reaches for what this device keeps, such as New Project's drafts.</summary>
+        public const string KeptRefused = "An Editor check may not read or write what this device keeps. Hand it a store of its own.";
+
         /// <summary>The refusal's words, when the endpoint named is not a realtime address.</summary>
         public const string NotAnEndpoint = "The scratch plane's endpoint is not a realtime address (ws or wss).";
 

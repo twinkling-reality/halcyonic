@@ -371,8 +371,10 @@ In batch mode, where every journey, render, walk and check runs, none of those f
 client reaches a control plane only when `HALCYONIC_ENDPOINT` and `HALCYONIC_TOKEN_FILE` are both
 set, for a scratch plane, and otherwise refuses with "An Editor check may not reach a real control
 plane". It never reads the pairing, Unity's persistent data path or `~/.halcyonic` there, so a check
-that reaches for the stored settings fails loudly instead of reaching your own computer. Checks hand
-the workspace stand-ins of their own (`WorkspaceDirector.TargetOf` and `ApiOf`).
+that reaches for the stored settings fails loudly instead of reaching your own computer. New Project's drafts file is refused the same way. Unity's PlayerPrefs are
+not yet covered: in batch mode they are still the Editor's own, and checks that change them restore them by hand.
+Checks hand the workspace stand-ins of their own (`WorkspaceDirector.TargetOf`, `ApiOf` and
+`DraftsOf`, or `NewProjectColumn.Create` with a `MemoryCreationDraftStore`).
 
 - **Keep the editor frontmost.** The editor submitted XR frames only while it was the active
   application; hidden or merely visible, the session stayed at READY and nothing rendered. Run In

@@ -244,6 +244,19 @@ namespace Halcyonic.Client
         void Save(IReadOnlyList<CreationDraft> drafts);
     }
 
+    /// <summary>
+    /// Drafts kept only for as long as the store lasts: what an Editor check hands New Project, since a run with nobody
+    /// at it keeps nothing of the device's (<see cref="UnattendedReach"/>).
+    /// </summary>
+    public sealed class MemoryCreationDraftStore : ICreationDraftStore
+    {
+        private IReadOnlyList<CreationDraft> drafts = Array.Empty<CreationDraft>();
+
+        public IReadOnlyList<CreationDraft> Load() => drafts;
+
+        public void Save(IReadOnlyList<CreationDraft> drafts) => this.drafts = drafts.ToList();
+    }
+
     /// <summary>The drafts as one JSON file, replaced whole on every save, as the pairing is.</summary>
     public sealed class FileCreationDraftStore : ICreationDraftStore
     {

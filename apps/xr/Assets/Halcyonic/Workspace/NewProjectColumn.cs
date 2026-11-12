@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using Halcyonic.Client;
 using UnityEngine;
 
@@ -15,12 +16,19 @@ namespace Halcyonic.XR.Workspace
     {
         private const string DraftsFile = "creation-drafts.json";
 
-        public static NewProjectFlow Create(IMenuHost host, CommandFactory commands)
+        /// <summary>
+        /// New Project over <paramref name="host"/>, its drafts in <paramref name="drafts"/>' store, else the device's
+        /// (<see cref="DeviceDrafts"/>); the demonstration keeps none.
+        /// </summary>
+        public static NewProjectFlow Create(IMenuHost host, CommandFactory commands, Func<ICreationDraftStore>? drafts = null)
         {
             var demonstration = host.Demonstration;
-            var drafts = demonstration ? null : new FileCreationDraftStore(ControlPlaneSettings.PrivateFile(DraftsFile));
-            return new NewProjectFlow(host, commands, new KeptUnknownStart(new PlayerPreferences(), () => host.State), drafts, demonstration ? Recording() : null);
+            var store = demonstration ? null : drafts != null ? drafts() : DeviceDrafts();
+            return new NewProjectFlow(host, commands, new KeptUnknownStart(new PlayerPreferences(), () => host.State), store, demonstration ? Recording() : null);
         }
+
+        /// <summary>The drafts' file in the app's private storage; refused in batch mode, where a check hands in its own.</summary>
+        public static ICreationDraftStore DeviceDrafts() => new FileCreationDraftStore(ControlPlaneSettings.PrivateFile(DraftsFile));
 
         /// <summary>The demonstration's recorded exchange with the companion, or none when it can't be read: then the fixed questions stand in.</summary>
         private static CompanionRecording? Recording()
