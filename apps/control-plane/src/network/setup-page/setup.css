@@ -596,6 +596,88 @@
   border-top: 1px solid var(--rest-edge);
 }
 
+/* Under Agent apps, a card per agent app that takes a key (R2): its name, then the field and Add Key, or Key Stored
+   with when and a quiet Remove Key. A key is never drawn. */
+.key-apps {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+.key-app {
+  padding: 12px 14px 14px;
+  border-radius: 16px;
+  background: var(--well);
+}
+.key-app-name {
+  margin: 0;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.key-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-top: 8px;
+}
+/* Add Key, quiet or holding the accent, is the field's height, sitting on its baseline; only its colour changes
+   when it takes the accent, never its size. */
+.key-form > button {
+  width: auto;
+  box-shadow: none;
+  height: 42px;
+  min-height: 42px;
+  padding: 8px 18px;
+  border-radius: 14px;
+  font-size: 15px;
+}
+.key-form > button .glyph {
+  width: 18px;
+  height: 18px;
+}
+.key-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  margin-top: 4px;
+}
+.key-tile {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  color: var(--good-ink);
+}
+.key-tile .glyph {
+  width: 18px;
+  height: 18px;
+}
+.key-words {
+  min-width: 0;
+}
+.key-stored {
+  margin: 0;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--text);
+}
+.key-when {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--secondary);
+}
+.key-row .secret-remove {
+  margin-top: 0;
+}
+.key-app .question {
+  margin: 0;
+  padding: 10px 0 2px 30px;
+  border-radius: 0;
+  background: none;
+}
+
 /* The phone, last among the secrets' rules so it wins over their base. */
 @media (max-width: 520px) {
   .secret-form {
@@ -657,6 +739,34 @@
   }
   /* The question's two presses, each the card's full width on the phone, stacked: neither is ever narrower than its words. */
   .secret-project .question-actions > button {
+    flex: 1 1 100%;
+  }
+  .key-app {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  /* Key Stored and its when share a line with Remove Key while both fit; else Remove Key drops under them, at the
+     right, as a secret's Remove does. */
+  .key-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 8px;
+  }
+  .key-tile {
+    flex: none;
+  }
+  .key-words {
+    flex: 1 0 auto;
+    max-width: calc(100% - 26px);
+  }
+  .key-row .secret-remove {
+    margin-left: auto;
+  }
+  .key-app .question {
+    padding-left: 26px;
+  }
+  .key-app .question-actions > button {
     flex: 1 1 100%;
   }
 }

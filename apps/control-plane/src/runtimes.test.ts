@@ -23,8 +23,10 @@ import { confinedProfile, SANDBOX_EXEC } from '@halcyonic/seatbelt';
 import { ConfigError, loadConfig } from './config.ts';
 import { looksLikeCredential, redaction, redactSecrets } from './core/redaction.ts';
 import { createDirectoryPolicy } from './directory-policy.ts';
+import { AgentKeys } from './keys/agent-keys.ts';
 import { loadOrCreateNetworkIdentity } from './network/certificate.ts';
 import {
+  AGENT_KEYS,
   ANTHROPIC_KEY_FILE,
   CLAUDE_AGENT_PROCESS_RECORD,
   CODEX_SERVER_RECORD,
@@ -102,6 +104,41 @@ describe('runtime composition', () => {
     writeFileSync(join(dataDir, ANTHROPIC_KEY_FILE), 'not-a-real-key\n', { mode: 0o600 });
     const hosted = adapters({ HALCYONIC_CLAUDE_AGENT: '1' }, HOST, dataDir);
     assert.ok(hosted.some((adapter) => adapter.descriptor.kind === 'claude-agent'));
+  });
+
+  test('a key stored from the setup page turns Claude Agent on with no switch in the environment', () => {
+    const dataDir = mkdtempSync(join(base, 'stored-key-'));
+    assert.equal(
+      adapters({}, HOST, dataDir).some((adapter) => adapter.descriptor.kind === 'claude-agent'),
+      false,
+      'no key and no switch: off',
+    );
+    const keys = new AgentKeys(dataDir, AGENT_KEYS);
+    assert.equal(keys.store('claude-agent', 'not-a-real-key'), null);
+    assert.ok(
+      adapters({}, HOST, dataDir).some((adapter) => adapter.descriptor.kind === 'claude-agent'),
+    );
+    assert.equal(keys.remove('claude-agent'), null);
+    assert.equal(
+      adapters({}, HOST, dataDir).some((adapter) => adapter.descriptor.kind === 'claude-agent'),
+      false,
+      'its key removed: off again',
+    );
+  });
+
+  test('a key file found only by its presence that other users can read, or an empty one, turns nothing on and never stops startup', () => {
+    for (const [content, mode] of [
+      ['not-a-real-key\n', 0o644],
+      ['\n', 0o600],
+    ] as const) {
+      const dataDir = mkdtempSync(join(base, 'hand-placed-'));
+      writeFileSync(join(dataDir, ANTHROPIC_KEY_FILE), content, { mode });
+      chmodSync(join(dataDir, ANTHROPIC_KEY_FILE), mode);
+      assert.deepEqual(
+        adapters({}, HOST, dataDir).map((adapter) => adapter.descriptor.runtime_id),
+        ['mock'],
+      );
+    }
   });
 
   test('a key file other users can read, or an empty one, stops startup', () => {

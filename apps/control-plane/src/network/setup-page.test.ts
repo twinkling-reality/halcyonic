@@ -14,9 +14,12 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import type { AgentKey } from '@halcyonic/runtime-core';
 import { type MacSetupIo, tunnelProgram } from '../cli/mac-setup.ts';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
+import { AgentKeys, storedAt } from '../keys/agent-keys.ts';
 import { APPLE_SILICON_PINS, type Pins } from '../pins.ts';
+import { AGENT_KEYS } from '../runtimes.ts';
 import { readHostSettings, rememberNetworkListener, writeHostSettings } from '../settings.ts';
 import { capturingLogger, createTestControlPlane, startTestServer } from '../testing/harness.ts';
 import {
@@ -125,12 +128,19 @@ function setup(
     stopped?: string[];
     refuseStop?: boolean;
     secrets?: PageSecrets;
+    /** The agent keys declared here; main.ts passes the adapters' own. */
+    keys?: readonly AgentKey[];
   } = {},
 ): Setup {
   const machine = mac(t, options.pins ?? null);
   const { run, runs } = fakeRunner();
   const restarts = { count: 0 };
-  const applied = () => settingsForRestart(readHostSettings(machine.dataDir));
+  const declared = options.keys ?? [];
+  // As main.ts counts them: a kept, replaced or removed key takes effect at the next start.
+  const applied = () =>
+    `${settingsForRestart(readHostSettings(machine.dataDir))}\n${declared
+      .map((key) => `${key.runtimeId}=${storedAt(machine.dataDir, key) ?? ''}`)
+      .join('\n')}`;
   const view = new SetupView(
     {
       dataDir: machine.dataDir,
@@ -155,6 +165,7 @@ function setup(
         return 'stopped';
       },
       ...(options.secrets === undefined ? {} : { secrets: options.secrets }),
+      ...(options.keys === undefined ? {} : { keys: new AgentKeys(machine.dataDir, options.keys) }),
     },
     setupDownloads(machine.dataDir, () => null, options.pins ?? null),
   );
@@ -198,7 +209,7 @@ describe('the setup view', () => {
     assert.doesNotMatch(
       JSON.stringify(state.steps.flatMap((entry) => entry.actions)),
       /claude|anthropic|AGENT_ENV/i,
-      'no press turns on the paid runtime: its words say it is set up by hand only',
+      'no setup action turns on the paid runtime: only its own key, added in its card, does',
     );
     assert.equal(runs.length, 0, 'showing the page runs nothing');
     assert.ok(
@@ -923,6 +934,159 @@ describe('the setup view on the pairing page', () => {
       script,
       /can read every project's secrets on this computer\. Give it test keys only\./,
     );
+  });
+
+  test("an agent app's key is added and removed from the page only behind its session and origin, for every app that declares one, and is never sent back (R2)", async (t) => {
+    // A test adapter's declaration beside the real one, said to be one: no runtime stands behind it.
+    const testAgent: AgentKey = {
+      runtimeId: 'test-agent',
+      app: 'Test Agent',
+      variable: 'TEST_AGENT_KEY',
+      file: 'test-agent-key',
+      field: 'Test Agent Key',
+    };
+    const { view, mac: machine } = setup(t, { keys: [...AGENT_KEYS, testAgent] });
+    const server = await startTestServer({ page: { ports: PORTS, mount: mountSetup(view) } });
+    t.after(() => server.stop());
+    const page = server.page;
+    assert.ok(page);
+    const port = page.port;
+    const link = new URL(page.link());
+    const opened = await call(port, 'GET', `${link.pathname}${link.search}`);
+    const cookie = String(opened.headers['set-cookie']).split(';')[0] ?? '';
+    const headers = {
+      cookie,
+      origin: `http://127.0.0.1:${port}`,
+      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/json',
+    };
+    const before = JSON.parse(
+      (await call(port, 'GET', '/setup/state', { cookie })).body,
+    ) as SetupState;
+    assert.deepEqual(before.keys, {
+      apps: [
+        {
+          runtime_id: 'claude-agent',
+          app: 'Claude Agent',
+          field: 'Anthropic API Key',
+          stored: false,
+          stored_at: null,
+          unusable: false,
+        },
+        {
+          runtime_id: 'test-agent',
+          app: 'Test Agent',
+          field: 'Test Agent Key',
+          stored: false,
+          stored_at: null,
+          unusable: false,
+        },
+      ],
+      problem: null,
+      confirm: null,
+    });
+    assert.equal(before.restart_needed, false);
+    // A long test key, beyond the page's own 1 KiB, as some providers' keys are.
+    const value = `test-key-not-real-${'x'.repeat(2000)}`;
+    const body = JSON.stringify({ runtime_id: 'test-agent', value });
+    for (const forged of [
+      { ...headers, cookie: 'page=forged' },
+      { ...headers, 'sec-fetch-site': 'cross-site' },
+    ]) {
+      assert.equal((await call(port, 'POST', '/setup/keys/set', forged, body)).status, 403);
+    }
+    assert.equal(storedAt(machine.dataDir, testAgent), null);
+    const done = await call(port, 'POST', '/setup/keys/set', headers, body);
+    assert.equal(done.status, 200, done.body);
+    assert.equal(done.body.includes('test-key-not-real'), false, 'the key is never sent back');
+    const kept = JSON.parse(done.body) as SetupState;
+    assert.equal(kept.keys?.apps[1]?.stored, true);
+    assert.equal(kept.keys?.apps[0]?.stored, false, 'only the app it was added for');
+    assert.equal(kept.keys?.problem, null);
+    assert.equal(kept.restart_needed, true, 'a kept key asks for Restart to Apply');
+    assert.equal(readFileSync(join(machine.dataDir, 'test-agent-key'), 'utf8'), `${value}\n`);
+    const read = await call(port, 'GET', '/setup/state', { cookie });
+    assert.equal(read.body.includes('test-key-not-real'), false);
+    // A paste that took more than the key is refused in that app's card, never in What Setup Said.
+    const refused = JSON.parse(
+      (
+        await call(
+          port,
+          'POST',
+          '/setup/keys/set',
+          headers,
+          JSON.stringify({ runtime_id: 'claude-agent', value: 'test key not real' }),
+        )
+      ).body,
+    ) as SetupState;
+    assert.deepEqual(refused.keys?.problem, {
+      runtime_id: 'claude-agent',
+      text: 'That has spaces or line breaks in it. Paste the key alone.',
+    });
+    assert.deepEqual(refused.said, []);
+    assert.equal(storedAt(machine.dataDir, AGENT_KEYS[0] as AgentKey), null);
+    // Remove Key asks first; only a second press for the same app removes it.
+    const remove = (confirmed: boolean, runtimeId = 'test-agent') =>
+      call(
+        port,
+        'POST',
+        '/setup/keys/remove',
+        headers,
+        JSON.stringify({ runtime_id: runtimeId, confirmed }),
+      ).then((answer) => JSON.parse(answer.body) as SetupState);
+    const asked = await remove(false);
+    assert.equal(asked.keys?.apps[1]?.stored, true, 'the first press removes nothing');
+    assert.deepEqual(asked.keys?.confirm, {
+      runtime_id: 'test-agent',
+      text: 'Halcyonic deletes its copy. Test Agent needs a key again from the next start.',
+    });
+    assert.equal(asked.keys?.problem, null, 'a new press clears the last refusal');
+    const other = await remove(true, 'claude-agent');
+    assert.equal(
+      other.keys?.confirm?.runtime_id,
+      'claude-agent',
+      'a second press for another app asks again',
+    );
+    const cancelled = JSON.parse(
+      (await call(port, 'POST', '/setup/keys/cancel', headers, '{}')).body,
+    ) as SetupState;
+    assert.equal(cancelled.keys?.confirm, null);
+    await remove(false);
+    const removed = await remove(true);
+    assert.equal(removed.keys?.apps[1]?.stored, false);
+    assert.equal(removed.keys?.confirm, null);
+    assert.equal(removed.restart_needed, false, 'back as it started');
+    assert.equal(existsSync(join(machine.dataDir, 'test-agent-key')), false);
+    // The page draws whatever the declarations say: no vendor's name is in its own words or code.
+    for (const file of ['setup.js', 'setup.html', 'setup.css']) {
+      const text = readFileSync(new URL(`./setup-page/${file}`, import.meta.url), 'utf8');
+      assert.doesNotMatch(text, /claude|anthropic|openai|codex|opencode/i, file);
+    }
+  });
+
+  test("a key's Remove question and any other question never stand together", async (t) => {
+    const { view, mac: machine } = setup(t, { keys: AGENT_KEYS });
+    const keys = new AgentKeys(machine.dataDir, AGENT_KEYS);
+    assert.equal(keys.store('claude-agent', 'test-key-not-real'), null);
+    const asked = await view.removeKey('claude-agent', false);
+    assert.equal(asked.keys?.confirm?.runtime_id, 'claude-agent');
+    // A step's press that asks first takes its place.
+    const step = await view.act('restart', null, false);
+    assert.equal(step.keys?.confirm, null);
+    assert.equal(step.confirm?.action, 'restart');
+    // And a key's press forgets the step's question.
+    const again = await view.removeKey('claude-agent', false);
+    assert.equal(again.confirm, null);
+    assert.equal(again.keys?.confirm?.runtime_id, 'claude-agent');
+    // A secret's press forgets it too.
+    assert.equal((await view.removeSecret('a-project', 'A_KEY', false)).keys?.confirm, null);
+  });
+
+  test('without a declared key the page offers no key at all', async (t) => {
+    const { view } = setup(t);
+    const state = await view.state();
+    assert.equal(state.keys, null);
+    assert.equal((await view.setKey('test-agent', 'test-key-not-real')).keys, null);
   });
 
   test('a mounted view may add nothing outside /setup', async () => {

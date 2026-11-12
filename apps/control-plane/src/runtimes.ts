@@ -1,6 +1,7 @@
 import { readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import {
+  CLAUDE_AGENT_KEY,
   ClaudeAgentRuntimeAdapter,
   type ClaudeConfinementOptions,
 } from '@halcyonic/integration-claude-code';
@@ -12,7 +13,7 @@ import {
 } from '@halcyonic/integration-codex';
 import type { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
-import type { DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
+import type { AgentKey, DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
 import { type Confinement, TOOL_PREFIXES, toolFoldersFor } from '@halcyonic/seatbelt';
 import { ConfigError, type ControlPlaneConfig, readPrivateFile } from './config.ts';
 import { type HeldSecret, looksLikeCredential } from './core/redaction.ts';
@@ -20,10 +21,22 @@ import { OMNORIUM_CREDENTIAL_FILE } from './intelligence/catalog.ts';
 import { CODEX_HOME_FOLDER } from './intelligence/codex-home.ts';
 import { SEORAK_CREDENTIAL_FILE } from './intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from './intelligence/understanding.ts';
+import { storedAt } from './keys/agent-keys.ts';
 import { NETWORK_KEY_FILE } from './network/certificate.ts';
 
-/** The file in the data directory that may hold the Anthropic API key, instead of the environment. */
-export const ANTHROPIC_KEY_FILE = 'anthropic-api-key';
+/** The file in the data directory that may hold Claude Agent's key, as its package declares it (AgentKey). */
+export const ANTHROPIC_KEY_FILE = CLAUDE_AGENT_KEY.file;
+
+/**
+ * Every agent app here that runs on the person's own key, as each package declares it: the Mac's setup page draws a
+ * field for each, and a stored key turns its app on at the next start.
+ */
+export const AGENT_KEYS: readonly AgentKey[] = [CLAUDE_AGENT_KEY];
+
+/** Whether the person stored a key for the agent app `runtimeId`, read by its declaration in AGENT_KEYS. */
+export function keyStoredFor(dataDir: string, runtimeId: string): boolean {
+  return AGENT_KEYS.some((key) => key.runtimeId === runtimeId && storedAt(dataDir, key) !== null);
+}
 
 /** The file in the data directory where the OpenCode server Halcyonic launched is recorded. */
 export const OPENCODE_SERVER_RECORD = 'opencode-server.json';
@@ -89,7 +102,9 @@ export function createRuntimeAdapters(
 ): RuntimeAdapter[] {
   const adapters: RuntimeAdapter[] = [dependencies.mock];
   const additions = passThrough(config.agentEnvironment, dependencies.environment);
-  if (config.claudeAgent) {
+  // On by the person's own environment switch, or because they stored its key on the setup page (never by the
+  // settings file, which refuses the switch: paid use starts only from the person's own act).
+  if (config.claudeAgent || keyStoredFor(dependencies.dataDir, CLAUDE_AGENT_KEY.runtimeId)) {
     adapters.push(
       new ClaudeAgentRuntimeAdapter({
         directoryPolicy: dependencies.directoryPolicy,

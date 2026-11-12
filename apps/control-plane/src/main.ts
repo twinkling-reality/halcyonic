@@ -31,6 +31,7 @@ import { omnoriumCatalogFor } from './intelligence/catalog.ts';
 import { seorakEvaluationFor } from './intelligence/evaluation.ts';
 import { salidiumUnderstandingFor } from './intelligence/understanding.ts';
 import { openSqliteJournal } from './journal/sqlite-journal.ts';
+import { AgentKeys, storedAt } from './keys/agent-keys.ts';
 import { createHostLocations } from './locations.ts';
 import { DeviceAccess } from './network/devices.ts';
 import { OPEN_LINK_KEEP_MS, openLinkPrivately, sweepOpenLinks } from './network/open-link.ts';
@@ -54,6 +55,7 @@ import { launcherFor } from './preview/launcher.ts';
 import { installBrowser } from './preview/play.ts';
 import { isPinnedTunnel, TUNNEL_PIN } from './preview/share.ts';
 import {
+  AGENT_KEYS,
   createRuntimeAdapters,
   heldSecrets,
   heldToFolder,
@@ -101,6 +103,11 @@ async function main(): Promise<void> {
   let originalOf: (directory: string) => string | null = () => null;
   // Every bound project's folder, read at each start, so no run reaches another project (BOX-3).
   let projectFolders: () => readonly string[] = () => [];
+  // Each declared agent key as kept now, by when it was written and never by its value: read before the adapters
+  // start from them, so the setup page knows a key kept or removed since asks for a restart.
+  const keysKept = (): string =>
+    AGENT_KEYS.map((key) => `${key.runtimeId}=${storedAt(config.dataDir, key) ?? ''}`).join('\n');
+  const keysAtStart = keysKept();
   // Built first, so a misconfigured runtime stops startup before anything else opens.
   const adapters = createRuntimeAdapters(config, {
     mock: new MockRuntimeAdapter({
@@ -116,6 +123,9 @@ async function main(): Promise<void> {
     originalOf: (directory) => originalOf(directory),
     projectFolders: () => projectFolders(),
   });
+  const keyedAtStart = adapters
+    .map((adapter) => adapter.descriptor.runtime_id as string)
+    .filter((id) => AGENT_KEYS.some((key) => key.runtimeId === id));
   // Opened before anything listens, so a speech engine that cannot report its version stops startup.
   const speech = config.speech === null ? null : await WhisperEngine.open(config.speech);
 
@@ -459,16 +469,22 @@ async function main(): Promise<void> {
             {
               dataDir: config.dataDir,
               home: homedir(),
-              io: (print) => localMacSetupIo(print),
+              // The keyed agent apps this start registered, so the page says a key added or removed since waits.
+              io: (print) => ({ ...localMacSetupIo(print), startedWith: keyedAtStart }),
               run: runCommand,
-              appliedAtStart: settingsForRestart(settings),
+              // A kept, replaced or removed agent key also takes effect only at a start, so it counts here.
+              appliedAtStart: `${settingsForRestart(settings)}\n${keysAtStart}`,
               appliedNow: () => {
                 try {
-                  return settingsForRestart(readHostSettings(config.dataDir));
+                  return `${settingsForRestart(readHostSettings(config.dataDir))}\n${keysKept()}`;
                 } catch {
                   return 'unreadable';
                 }
               },
+              // The agent apps whose adapters declare a key, with Add Key and Remove Key (R2).
+              ...(AGENT_KEYS.length === 0
+                ? {}
+                : { keys: new AgentKeys(config.dataDir, AGENT_KEYS) }),
               canRestart: process.argv.includes('--restartable'),
               // What is shared now, for Copy and Stop beside the steps (ADR 0054).
               shared: () =>
