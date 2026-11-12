@@ -23,6 +23,7 @@ import type {
 } from '@halcyonic/contracts';
 import type { Projection } from '@halcyonic/domain';
 import type { Clock } from '@halcyonic/runtime-core';
+import { WIFI_SHARE_PORT_FIRST, WIFI_SHARE_PORT_LAST } from '../config.ts';
 import { type Cause, controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import type { EventPublisher } from '../core/publisher.ts';
 import type { Recorder } from '../core/recorder.ts';
@@ -46,9 +47,8 @@ export const TUNNEL_PIN = {
   sha256: '2136431d5eb467bf447d2ee514b713e192719b143aec1d9e09bf7dc290d5bb12',
 } as const;
 
-/** The ports a share on the Wi-Fi listens on, apart from the previews' and the plays' viewers'. */
-export const WIFI_SHARE_PORT_FIRST = 47970;
-export const WIFI_SHARE_PORT_LAST = 47979;
+/** The ports a share on the Wi-Fi listens on beside 47800 (`portFamily` moves them with a plane). */
+export { WIFI_SHARE_PORT_FIRST, WIFI_SHARE_PORT_LAST };
 
 const ADDRESS = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/;
 

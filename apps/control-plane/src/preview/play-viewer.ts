@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
+import { VIEWER_PORT_FIRST, VIEWER_PORT_LAST } from '../config.ts';
 
 /**
  * The viewer of one play on the Mac (P-A): a small server of its own on 127.0.0.1, apart from the
@@ -14,9 +15,8 @@ import type { WebSocket } from 'ws';
  * origin, or from no page at all, and the WebSocket must name this server's exact origin.
  */
 
-/** The viewers' ports: one per play, apart from the control plane's and the previews' (47930 to 47939). */
-export const VIEWER_PORT_FIRST = 47940;
-export const VIEWER_PORT_LAST = 47949;
+/** The viewers' ports beside 47800 (`portFamily` moves them with a plane on another port). */
+export { VIEWER_PORT_FIRST, VIEWER_PORT_LAST };
 
 /** How long the code in a viewer's link can be used. */
 export const VIEWER_CODE_MS = 60_000;

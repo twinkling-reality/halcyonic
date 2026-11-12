@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { type AddressInfo, isIPv4, isIPv6 } from 'node:net';
 import type { DeviceView, PairingState } from '@halcyonic/contracts';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
-import type { NetworkListenerConfig } from '../config.ts';
+import { type NetworkListenerConfig, portFamily } from '../config.ts';
 import type { ControlPlane } from '../core/control-plane.ts';
 import { LOCAL_PRINCIPAL } from '../http/server.ts';
 import type { DeviceAccess } from './devices.ts';
@@ -32,10 +32,7 @@ export const PAIRING_PAGE_PORT_LAST = 47809;
  * plane on port 0 gets a free port for its page too; one too near the top for a family, port 0 as well.
  */
 export function pairingPagePorts(port: number): readonly [number, number] {
-  const offset = PAIRING_PAGE_PORT_FIRST - 47800;
-  const width = PAIRING_PAGE_PORT_LAST - PAIRING_PAGE_PORT_FIRST;
-  if (port === 0 || port + offset + width > 65535) return [0, 0];
-  return [port + offset, port + offset + width];
+  return portFamily(port).pairingPage;
 }
 
 /** How long the code in a link can be used. */

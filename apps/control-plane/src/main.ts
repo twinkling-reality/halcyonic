@@ -9,7 +9,13 @@ import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
 import { CheckpointStore } from './checkpoints/store.ts';
 import { localMacSetupIo } from './cli/mac-setup.ts';
 import { Companion } from './companion/companion.ts';
-import { type ControlPlaneConfig, defaultDataDir, loadConfig, parseNetwork } from './config.ts';
+import {
+  type ControlPlaneConfig,
+  defaultDataDir,
+  loadConfig,
+  parseNetwork,
+  portFamily,
+} from './config.ts';
 import { ControlPlane } from './core/control-plane.ts';
 import { OllamaUnloader } from './core/ollama-unload.ts';
 import { admittingAlso } from './directory-policy.ts';
@@ -26,7 +32,7 @@ import { openSqliteJournal } from './journal/sqlite-journal.ts';
 import { createHostLocations } from './locations.ts';
 import { DeviceAccess } from './network/devices.ts';
 import { OPEN_LINK_KEEP_MS, openLinkPrivately, sweepOpenLinks } from './network/open-link.ts';
-import { PairingPage, pairingControls, pairingPagePorts } from './network/pairing-page.ts';
+import { PairingPage, pairingControls } from './network/pairing-page.ts';
 import { confinedPreviewTarget } from './network/preview-relay.ts';
 import {
   mountSetup,
@@ -71,6 +77,8 @@ async function main(): Promise<void> {
   // What `pnpm mac-setup` wrote fills in what the environment leaves unset (ADR 0024).
   const settings = readHostSettings(defaultDataDir(process.env));
   const config = loadConfig(withSettings(process.env, settings));
+  // Its side ports follow its own (ADR 0047, amended): a second plane never takes 47800's.
+  const family = portFamily(config.port);
   await mkdir(config.dataDir, { recursive: true, mode: 0o700 });
   await chmod(config.dataDir, 0o700);
   const access = await loadOrCreateAccessToken(config.dataDir);
@@ -236,7 +244,9 @@ async function main(): Promise<void> {
             },
             // Codex confines a starter project's agent here (ADR 0041), when Codex is set up.
             confinesCodex: config.codexBinary !== null,
+            ports: family.previews,
             play: {
+              viewerPorts: family.viewers,
               // The game's sound, as CoreAudio records it for the browser's own processes (S1).
               audible: (pid) => outputInTree(audioOutputFor(config.dataDir), pid),
               // The viewer's one-time link opens in the Mac's default browser: the page there is
@@ -277,6 +287,7 @@ async function main(): Promise<void> {
     ...(process.platform === 'darwin'
       ? {
           share: {
+            wifiPorts: family.shares,
             tunnel: sharingTunnel,
             home: join(config.dataDir, 'share-home'),
             dataDir: config.dataDir,
@@ -384,7 +395,7 @@ async function main(): Promise<void> {
     logger: app.log,
     // A preview reaches a paired headset only when every agent's reads were confined (ADR 0052).
     previewTarget: (projectId) =>
-      confinedPreviewTarget(controlPlane.projection, config.dataDir, projectId),
+      confinedPreviewTarget(controlPlane.projection, config.dataDir, projectId, family.previews),
   });
   registerRoutes(app, controlPlane, sources);
   registerRealtime(app, controlPlane);
@@ -433,8 +444,7 @@ async function main(): Promise<void> {
         remember: (on) => rememberNetworkListener(config.dataDir, on),
       }),
       {
-        // Its ports follow the control plane's own (ADR 0047), so a second plane never takes 47800's.
-        ports: pairingPagePorts(config.port),
+        ports: family.pairingPage,
         // The setup view beside pairing (ADR 0053): every step `pnpm mac-setup` checks, with its presses.
         mount: mountSetup(
           new SetupView(

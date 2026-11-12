@@ -749,9 +749,10 @@ describe('pnpm mac-setup', () => {
     const machine = mac(t);
     machine.answers.push('no');
     assert.equal(await machine.run('pairing', 'on'), 1);
+    // The listener's port follows the plane's own: this machine's plane runs on 47999 (ADR 0047).
     assert.match(
       text(machine),
-      /opens a second listener, encrypted, on port 47801, to every device on your network/,
+      /opens a second listener, encrypted, on port 48000, to every device on your network/,
     );
     assert.match(text(machine), /Anyone on your network can try in that time/);
     assert.match(text(machine), /until you revoke it with pnpm devices revoke/);

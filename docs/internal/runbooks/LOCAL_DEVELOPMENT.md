@@ -778,7 +778,8 @@ HALCYONIC_NETWORK_HOST=0.0.0.0 pnpm dev
 `0.0.0.0` listens on every IPv4 interface; name one address, such as `192.168.1.23`, to listen on
 that one only. `pnpm mac-setup pairing on` keeps `0.0.0.0` in the settings file instead, after
 saying what it opens and asking, and `pnpm mac-setup pairing off` takes it out; either takes effect
-at the next start. The port is 47801 (`HALCYONIC_NETWORK_PORT`). The first start creates the listener's
+at the next start. The port is 47801 (`HALCYONIC_NETWORK_PORT`; on another `HALCYONIC_PORT`, that port
+plus 1). The first start creates the listener's
 TLS identity, `network-key.pem` and `network-certificate.pem` in the data directory, and logs its
 certificate's SHA-256, which is not secret; the `control plane ready` line names the listener. If
 macOS asks whether `node` may accept incoming connections, allow it: the listener serves nothing

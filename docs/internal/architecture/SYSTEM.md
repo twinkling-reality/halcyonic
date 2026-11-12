@@ -150,12 +150,17 @@ may have changed files unread (#13).
 
 ## Ports
 
-What listens on the Mac, and where. Test suites use their own ports, on loopback only.
+What listens on the Mac, and where. Test suites use their own ports, on loopback only. Every port
+below is the 47800 family's. A control plane on another `HALCYONIC_PORT` keeps the same layout moved to
+its own port, its previews', viewers' and shares' ranges 1000 higher (`portFamily`, ADR 0047 amended):
+on 47900, 47901, 47902 to 47909, 49030 to 49039, 49040 to 49049 and 49070 to 49079. So no second plane
+takes one of 47800's, and none reaches the ports the system hands out (49152 up). Each port is found
+free in its range and recorded where a client reads it.
 
 | Ports | Interface | What |
 | --- | --- | --- |
 | 47800 (`HALCYONIC_PORT`) | loopback | The control plane: HTTP and WebSocket |
-| 47801 (`HALCYONIC_NETWORK_PORT`) | `HALCYONIC_NETWORK_HOST` | The TLS listener for paired devices, when turned on |
+| 47801 (`HALCYONIC_NETWORK_PORT`, else the plane's port plus 1) | `HALCYONIC_NETWORK_HOST` | The TLS listener for paired devices, when turned on |
 | 47802 to 47809 | loopback | The pairing page ([ADR 0047](../decisions/0047-pairing-starts-from-a-page-on-the-mac.md)): the control plane's port plus 2 to plus 9, first free, so a plane on another port keeps to its own; a plane on port 0 gets a free port for its page too |
 | 47930 to 47939 | loopback | A project's preview, and a check's own server |
 | 47940 to 47949 | loopback | The viewer of a game played on the Mac |
@@ -170,7 +175,7 @@ Environment variables, all optional:
 | `HALCYONIC_HOST` | `127.0.0.1` | Must be a loopback address; anything else is refused |
 | `HALCYONIC_PORT` | `47800` | HTTP and WebSocket port |
 | `HALCYONIC_NETWORK_HOST` | none | An IP address, such as `0.0.0.0` for every interface, turns on the TLS listener for paired devices ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)); unset, nothing listens beyond loopback |
-| `HALCYONIC_NETWORK_PORT` | `47801` | The network listener's port; must differ from `HALCYONIC_PORT` |
+| `HALCYONIC_NETWORK_PORT` | `HALCYONIC_PORT` plus 1 (`47801`) | The network listener's port; must differ from `HALCYONIC_PORT` |
 | `HALCYONIC_DATA_DIR` | `~/.halcyonic` | Journal, access token |
 | `HALCYONIC_TASK_COPIES` | `1` | Every task whose runtime is held to its folder works in its own copy of its project's folder ([ADR 0045](../decisions/0045-each-task-works-in-a-copy-of-its-own.md)), and nothing its agent does reaches the project until the person adds it, on the headset's Add to Project or the Mac's. `0` turns copies off: every task works in its project's folder, one at a time. On by default since the headset offers Add to Project |
 | `HALCYONIC_TASKS_DIR` | `~/.halcyonic-tasks` | Every task's own copy of its project's folder, `<project id>/<task id>/<folder name>` ([ADR 0045](../decisions/0045-each-task-works-in-a-copy-of-its-own.md)); beside the data folder, never inside it or around it (startup refuses either); mode 0700; only the runtimes are given it, never a client. Copies are made where undo is on (`HALCYONIC_GIT_BIN`); at start, before listening, the host removes every copy no task holds (logged as counts) |

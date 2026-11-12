@@ -36,6 +36,7 @@ export function confinedPreviewTarget(
   projection: Projection,
   dataDir: string,
   projectId: string,
+  ports: readonly [number, number] = [PREVIEW_PORT_FIRST, PREVIEW_PORT_LAST],
 ): PreviewTarget {
   const preview = projection.preview(projectId);
   if (preview === undefined)
@@ -51,7 +52,7 @@ export function confinedPreviewTarget(
       "The agents' reads were not confined to the project's folder, so its preview stays on this computer.",
     );
   const port = preview.port;
-  if (!Number.isInteger(port) || port < PREVIEW_PORT_FIRST || port > PREVIEW_PORT_LAST)
+  if (!Number.isInteger(port) || port < ports[0] || port > ports[1])
     return refuse('preview_not_running', 'The preview is not on a preview port.');
   let record: { port?: unknown; check_id?: unknown };
   try {

@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync }
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { after, describe, test } from 'node:test';
-import { ConfigError, loadConfig, readOpenCodeSettings } from './config.ts';
+import { ConfigError, loadConfig, portFamily, readOpenCodeSettings } from './config.ts';
 
 const base = mkdtempSync(join(tmpdir(), 'halcyonic-config-'));
 after(() => rmSync(base, { recursive: true, force: true }));
@@ -96,6 +96,49 @@ describe('configuration', () => {
       host: '::',
       port: 47801,
     });
+  });
+
+  test('keeps a plane’s side ports beside its own, so a second plane never takes 47800’s', () => {
+    assert.deepEqual(portFamily(47800), {
+      network: 47801,
+      pairingPage: [47802, 47809],
+      previews: [47930, 47939],
+      viewers: [47940, 47949],
+      shares: [47970, 47979],
+    });
+    // Another plane: the same layout at its own port, its wide ranges 1000 higher.
+    assert.deepEqual(portFamily(47900), {
+      network: 47901,
+      pairingPage: [47902, 47909],
+      previews: [49030, 49039],
+      viewers: [49040, 49049],
+      shares: [49070, 49079],
+    });
+    // On port 0 the system gives the listener and the page a port; the wide ranges sit off 47800's.
+    assert.deepEqual(portFamily(0), {
+      network: 0,
+      pairingPage: [0, 0],
+      previews: [48930, 48939],
+      viewers: [48940, 48949],
+      shares: [48970, 48979],
+    });
+    assert.equal(portFamily(65000).network, 0, 'too near the top for a whole family');
+    // No plane in the lanes' blocks (47840 to 47969) or a test's takes a port of 47800's family, and
+    // none reaches the system's own (49152 up).
+    const owner = portFamily(47800);
+    const taken = (f: ReturnType<typeof portFamily>) => [f.previews, f.viewers, f.shares];
+    for (let port = 47801; port <= 47969; port += 1) {
+      for (const [first, last] of [...taken(portFamily(port)), ...taken(portFamily(0))]) {
+        for (const [ownFirst, ownLast] of taken(owner))
+          assert.ok(last < ownFirst || first > ownLast, `${port}: ${first} to ${last}`);
+        assert.ok(first > 47979 && last < 49152, `${port}: ${first} to ${last}`);
+      }
+    }
+    assert.deepEqual(
+      loadConfig({ HALCYONIC_PORT: '47900', HALCYONIC_NETWORK_HOST: '0.0.0.0' }).network,
+      { host: '0.0.0.0', port: 47901 },
+      "the listener's default follows the plane's port",
+    );
   });
 
   test('the network listener takes an IP address and a port of its own', () => {
