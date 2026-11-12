@@ -209,12 +209,7 @@ async function main(): Promise<void> {
                   copies: {
                     directory: config.tasksDir,
                     protect: [config.dataDir],
-                    heldToFolder: heldToFolder(adapters, {
-                      starterOf: (directory) => starterOf(directory),
-                      originalOf: (directory) => originalOf(directory),
-                      dataDir: config.dataDir,
-                      projectFolders: () => projectFolders(),
-                    }),
+                    heldToFolder: heldToFolder(adapters),
                   },
                 }
               : {}),

@@ -41,14 +41,19 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
    - **OpenCode** is held on macOS since BOX-3: every execution's folder has a sandboxed server of
      its own that writes that folder alone, so in a copy it writes only that copy. Elsewhere it has
      no sandbox, and gets no copy.
-   - **Claude Code** is not: it runs with no sandbox. It gets no copy.
-   A runtime not held works in the project's folder, one task at a time (FOLDER), its task refused
-   a copy in words (`copy_refused` `runtime_unconfined`), and a task with a copy is never started
-   with one. VRIFY's sandbox for every agent (ADR 0048) is what will hold Claude Code. So the claim
-   "each agent sees and changes only its copy" holds for the writes of a sandboxed Codex or OpenCode
-   agent; each still reads what its sandbox lets it, and a Claude Code agent, working in the
-   project's folder, can read and write anywhere, other tasks' copies included, which is why an add
-   brings only what the person was shown (4). The copy is an APFS clone made just before the task's first start, ignored
+   - **Claude Code** is held where it runs inside Halcyonic's closed profile (ADR 0048, BOX-4): a
+     new app's project, made from a starter, and so its copies, on macOS with no cloud provider
+     switched on (since VRIFY's unit 4c, 2026-11-12). Its record there still says not confined, for
+     what its commands can read (the sign-in key is in their environment); what they write is the
+     copy and its own place alone. Any other folder runs as before, with no sandbox, and gets no copy.
+   Each adapter answers this for itself from the confinement it applies at a start
+   (`RuntimeAdapter.holdsFolder`); the host names no runtime. A runtime not held works in the
+   project's folder, one task at a time (FOLDER), its task refused a copy in words (`copy_refused`
+   `runtime_unconfined`), and a task with a copy is never started with one. So the claim "each agent
+   sees and changes only its copy" holds for the writes of a sandboxed agent; each still reads what
+   its sandbox lets it, and a Claude Code agent outside the profile, working in the project's folder,
+   can read and write anywhere, other tasks' copies included, which is why an add brings only what
+   the person was shown (4). The copy is an APFS clone made just before the task's first start, ignored
    files included so dependencies and builds work, in
    `<HALCYONIC_TASKS_DIR, default ~/.halcyonic-tasks>/<project id>/<task id>/<the folder's own name>`:
    a folder of Halcyonic's own beside its data folder, never inside it and never inside the project.

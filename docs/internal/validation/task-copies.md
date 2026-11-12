@@ -60,9 +60,28 @@ question asked by any runtime in a folder it had not seen.
   Node version on the agent's PATH; the agent's own `env -i ... OPENSSL_CONF= npx tsc --noEmit` then
   exited 0. Not checked in the project's own folder, so not known to be the copy's.
 
+## Claude Code in its own copy (2026-11-12, 04:36Z, a scratch control plane, no model)
+
+Unit 4c: each adapter answers whether it holds a folder (`RuntimeAdapter.holdsFolder`), and the host asks it.
+A scratch control plane on loopback ran the Claude Code CLI the Agent SDK bundles (2.1.283) inside Halcyonic's
+closed profile, with a dummy key and `ANTHROPIC_BASE_URL` at a fake Messages API on loopback that asks for one
+Bash call, then says "Done.". Its own home, data, roots and tasks folders; git configured, so checkpoints and
+copies are on. One new app from the VR starter, two tasks started side by side on Claude Code, the command
+approved once each:
+- both starts completed; each task recorded `workstream.copy_made`, two folders under the tasks folder;
+- each command ran in its own copy (`pwd`), wrote `where.txt` there, and was refused writing the project's folder
+  (exit 1) and listing the projects folder (exit 1); the project's folder got neither file;
+- each copy's change to add was `where.txt` alone;
+- each run was recorded not confined, with the reason that the sign-in key is inside with it (AUDIT BOX-4 F1).
+Found on the way and fixed in its own commit: listing Claude Code's models failed on the real CLI every time
+("ps never showed process ... with its session id"): the listing's process carried no session id for the process
+guard to know it by. It now carries its label as one, and the plane lists five models. A listing leaves no
+transcript in the scratch home.
+
 ## Not verified
 
-- Claude Code in a copy (it needs a hosted model, which no lane may use).
+- Claude Code in a copy against the real Messages API (no lane may use a hosted model); only the fake one below.
+- Claude Code in a copy of a project made from a version, or of a project that is not a new app's (it gets no copy there).
 - Whether Salidium and Seorak follow an execution whose folder is a copy.
 - Clone time for a folder with a real `node_modules` of 100,000 files (extrapolated, not measured).
 - A volume that cannot clone (`cp -c` on a non-APFS volume).
