@@ -132,6 +132,7 @@ namespace Halcyonic.XR.Workspace
             hint = OnboardingHint.Create(transform);
             // Hold to talk's one voice, in development builds; the menu tells the held column what it heard.
             voice = gameObject.AddComponent<HoldToTalk>();
+            voice.ApiOf = () => ControlPlaneSettings.Api();
         }
 
         private void OnEnable()

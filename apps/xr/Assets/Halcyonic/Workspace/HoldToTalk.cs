@@ -60,11 +60,17 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Recording, or waiting for the Mac's answer.</summary>
         public bool Busy => capturing == this || pending != null;
 
+        /// <summary>
+        /// The computer a clip goes to, as the one who set this voice up says (the workspace director's wiring), never the device's
+        /// stored settings read here, so a check driving the voice can only ever reach the computer it set up.
+        /// </summary>
+        public Func<ControlPlaneApi?> ApiOf { get; set; } = () => null;
+
         /// <summary>The hold started: record, once the microphone may be used.</summary>
         public void Begin()
         {
             if (Busy || capturing != null || FocusGuard.InputSuspended) return;
-            api = ControlPlaneSettings.Api();
+            api = ApiOf();
             if (api == null)
             {
                 Said?.Invoke(VoiceText.Unreachable);

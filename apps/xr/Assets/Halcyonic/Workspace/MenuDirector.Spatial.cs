@@ -201,7 +201,8 @@ namespace Halcyonic.XR.Workspace
             var run = now.Execution?.ExecutionId;
             var (page, part) = setup.Presentation.ResultPageFor(now.Character.WorkstreamId, run);
             var task = State!.Workstreams.TryGetValue(now.Character.WorkstreamId, out var work) ? work : null;
-            var target = ControlPlaneSettings.Target();
+            // Only the computer this director was set up for, never the device's stored one (the night's security fix, 2026-11-12).
+            var target = setup.ConnectionTarget();
             return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (target, Demonstration), task,
                 page == RoomResultPage.History ? HistoryFor(projectId) : null, page == RoomResultPage.Share ? ShareFor(projectId) : null,
                 canSend: CanSendShare, relays: HeadsetRelay.Serves(target), relayBuilt: HeadsetRelay.Built);
@@ -798,7 +799,8 @@ namespace Halcyonic.XR.Workspace
         private void PlayInHeadset(string projectId)
         {
             if (Demonstration || State?.Projects.TryGetValue(projectId, out var project) != true) return;
-            var target = ControlPlaneSettings.Target();
+            // Only the computer this director was set up for, never the device's stored one (the night's security fix, 2026-11-12).
+            var target = setup.ConnectionTarget();
             var relays = HeadsetRelay.Serves(target);
             if (!HeadsetPlay.Stands(HeadsetPlay.For(project!, target, Demonstration, relays: relays))) return;
             if (HeadsetPlay.CommandFor(project!, target, Demonstration, setup.Commands, relays: relays) is CommandEnvelope command)
@@ -837,7 +839,8 @@ namespace Halcyonic.XR.Workspace
                 return;
             }
             // HeadsetBrowser opens only an address HeadsetPlay.IsOpenable admits; null opens nothing.
-            var target = ControlPlaneSettings.Target();
+            // Only the computer this director was set up for, never the device's stored one (the night's security fix, 2026-11-12).
+            var target = setup.ConnectionTarget();
             HeadsetBrowser.Open(headsetPlay.Advance(State, target, Demonstration,
                 relay: HeadsetRelay.Serves(target) ? project => HeadsetRelay.PortFor(target, project) : null));
         }
