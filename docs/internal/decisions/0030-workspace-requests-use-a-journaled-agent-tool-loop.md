@@ -191,3 +191,6 @@ answer from.
     step was confirmed after the person's last words, and only while every step of the request is still in its view;
     an instruction sent before a continuation never held it (AUDIT2, 2026-11-12). The host writes it, since the host
     knows what it cut; the reply stays `reported`.
+  - Every answer is asked for in a few short sentences of the model's own, as to a person: never the computer's field
+    names, ids, timestamps, headings or markup (the 30B window of 2026-11-12: both answers were right and read like a
+    log).
