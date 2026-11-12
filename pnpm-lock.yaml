@@ -20,6 +20,9 @@ importers:
 
   apps/control-plane:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: 0.128.0
+        version: 0.128.0(zod@4.6.5)
       '@fastify/websocket':
         specifier: ^11.3.1
         version: 11.3.1

@@ -9,6 +9,7 @@
     "dev": "node --watch src/main.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.128.0",
     "@fastify/websocket": "^11.3.1",
     "@halcyonic/contracts": "workspace:*",
     "@halcyonic/domain": "workspace:*",

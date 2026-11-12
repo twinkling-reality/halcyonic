@@ -215,3 +215,27 @@ answer from.
   is about), a bracketed list or an ISO time is not kept: the model is asked once more, offered no tool, to say it in
   a few plain sentences. A path or a file name is never one.
 
+
+## Amendment, 2026-11-12: a hosted provider, when the person stored its key
+
+This changes "never a hosted model" (the lead, 2026-11-10) on the owner's offer of their own key (the lead, 2026-11-12).
+What was read and seen is in [hosted-assistant.md](../validation/hosted-assistant.md).
+
+- **Which model.** The local model stays the assistant unless a declared provider has its key stored: its private
+  file in the data folder, the product's own entry, refused when other users can read it. The environment is never
+  read for the assistant, so a developer's shell or a test suite's plane that inherits a key variable stays local. A provider is
+  a declaration (`workspace-agent/providers/`): its protocol, its address, its key's variable, file and header, and
+  its models. The protocols are the host's, two from the start: Anthropic's Messages API and the OpenAI-compatible
+  Chat Completions shape. No code outside a provider's folder names a vendor.
+- **Chosen at every turn.** The model is chosen again at every status read and every turn, so storing or removing a
+  key takes effect at the next turn. A key that is stored but refused, or that other users can read, keeps the
+  assistant unavailable with that reason. It never falls back to another model unsaid.
+- **Where it ran is said.** The assistant's status and every reply say where the model ran: `served: remote` with
+  the provider's declared name, or `this_mac`. The headset shows "On <provider> · <model>".
+- **Same list, tools and press.** The same list of what can be done here, the same tools and the same one press as
+  on the local model. A hosted model's proposal waits for the person exactly as a local one's does.
+- **Where it may send.** A key goes only to its provider's declared https address, or to this Mac for a proof
+  (`HALCYONIC_ASSISTANT_UPSTREAM`, loopback only). `HALCYONIC_ASSISTANT_MODEL` picks one of the declared models.
+- **What leaves the Mac.** On a hosted provider, what the request reads goes to that provider: the host's
+  instructions and lists, project and task names, the Mac's evidence in words, quoted agent text, and the person's
+  words within the request's bound. SECURITY.md lists it.

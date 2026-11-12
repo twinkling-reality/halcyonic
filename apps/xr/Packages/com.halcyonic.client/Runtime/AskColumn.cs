@@ -116,6 +116,8 @@ namespace Halcyonic.Client
 
         /// <summary>The model that wrote the reply, from the reply alone; never the one offered (AUDIT MUST 2).</summary>
         private string? repliedBy;
+        /// <summary>The hosted provider that wrote the reply, as it declares its name; null on this computer.</summary>
+        private string? repliedOn;
         private bool unavailable, notSent, stopped;
 
         public AskColumn(CommandFactory commands, AskScope scope)
@@ -257,6 +259,7 @@ namespace Halcyonic.Client
             {
                 reply = view.Reply.Text;
                 repliedBy = view.Reply.Model;
+                repliedOn = view.Reply.Served == AssistantServed.Remote ? view.Reply.Provider : null;
             }
             switch (status)
             {
@@ -380,7 +383,10 @@ namespace Halcyonic.Client
             get
             {
                 var named = repliedBy == null ? null : CaptureNames.ModelNameOrNull(KitPresenter.ShortModelName(repliedBy) ?? repliedBy);
-                return named == null ? null : LineWords.Ours(Words.AnsweredBy) + LineWords.TheirName(named);
+                if (named == null) return null;
+                var by = LineWords.Ours(Words.AnsweredBy) + LineWords.TheirName(named);
+                // Where it ran is said whenever it is not this computer (ADR 0030, 2026-11-12).
+                return string.IsNullOrWhiteSpace(repliedOn) ? by : by + LineWords.Ours(" on ") + LineWords.TheirName(repliedOn);
             }
         }
 

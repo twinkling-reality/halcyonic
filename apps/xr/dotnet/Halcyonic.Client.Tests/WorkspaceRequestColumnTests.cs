@@ -45,6 +45,24 @@ public class WorkspaceRequestColumnTests
         _ = column.Frame; column.Tick(); return column;
     }
 
+    [Test]
+    public void TheAssistantSaysWhereItRunsThisComputerOrTheHostedProviderNamed()
+    {
+        string? Source(WorkspaceAgentStatus status)
+        {
+            var host = new FileMenuHost();
+            var column = new WorkspaceRequestColumn(host, Commands, Context(), () => true, _ => Task.FromResult(status), null);
+            _ = column.Frame; column.Tick(); Draw(host, column); column.Tick();
+            return column.Frame!.Source;
+        }
+        Assert.That(Source(new AvailableWorkspaceAgent { Model = "Local model" }), Is.EqualTo("On This Computer · Local model"));
+        // A test provider, as a second declaration would name itself: nothing here names a vendor.
+        Assert.That(Source(new AvailableWorkspaceAgent { Model = "test-model-1", Served = AssistantServed.Remote, Provider = "Test Hosted" }),
+            Is.EqualTo("On Test Hosted · test-model-1"));
+        Assert.That(Source(new AvailableWorkspaceAgent { Model = "test-model-1", Served = AssistantServed.Remote }), Is.EqualTo("Workspace Assistant"),
+            "a remote assistant that does not say where it runs is not offered");
+    }
+
     [TestCase(TextSize.Standard)]
     [TestCase(TextSize.Larger)]
     public void AnOpenEndedTypedDraftSendsOnlyFromExplicitCurrentReadStart(TextSize size)

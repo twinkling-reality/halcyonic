@@ -75,6 +75,7 @@ import { Transcriptions } from './speech/transcriptions.ts';
 import { WhisperEngine } from './speech/whisper.ts';
 import { HostStarters, originalFolderOf, originalRefusal } from './starters.ts';
 import { OllamaWorkspaceModel } from './workspace-agent/ollama.ts';
+import { assistantModel } from './workspace-agent/providers/assistant.ts';
 import { WorkspaceRequests } from './workspace-agent/requests.ts';
 
 async function main(): Promise<void> {
@@ -388,7 +389,11 @@ async function main(): Promise<void> {
   const workspaceRequests = new WorkspaceRequests({
     controlPlane,
     ids,
-    model: new OllamaWorkspaceModel({ config: config.assistant }),
+    model: assistantModel({
+      local: new OllamaWorkspaceModel({ config: config.assistant }),
+      dataDir: config.dataDir,
+      environment: process.env,
+    }),
     understanding,
     evaluation,
   });

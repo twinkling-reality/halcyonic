@@ -1023,9 +1023,9 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
           request,
           'model',
           'failed',
-          'The local model refused this turn (' +
-            result.code.replace(/[^a-z0-9_]/gi, '').slice(0, 64) +
-            ').',
+          // The transport's own words, never the model's or the provider's (they can repeat inputs and keys); the model
+          // may be the local one or a hosted provider's.
+          `The model did not answer this turn: ${fitted(result.message, 200)} (${result.code.replace(/[^a-z0-9_]/gi, '').slice(0, 64)}).`,
         );
         this.#changed(request, 'failed', request.reply);
         return;
@@ -1083,6 +1083,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
             epistemic: 'reported',
             model: result.model,
             served: result.served,
+            ...(result.provider === undefined ? {} : { provider: result.provider }),
           }
         : request.reply;
       if (result.toolCalls.length > 8) {
@@ -1150,6 +1151,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
                   epistemic: 'reported' as const,
                   model: result.model,
                   served: result.served,
+                  ...(result.provider === undefined ? {} : { provider: result.provider }),
                 }
               : reply;
           // A paused batch remains a complete native tool protocol exchange. Later calls were

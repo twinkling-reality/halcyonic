@@ -651,6 +651,7 @@ describe('the C# bindings', () => {
    */
   const OPTIONAL_MEMBERS = [
     'AutoFixView.failed_steps', // the steps that failed in the check a fix chain answered
+    'AvailableWorkspaceAgent.provider', // where a remote assistant runs, by its declared provider (ADR 0030, 2026-11-12)
     'CheckFindings.laptop', // M1.8b
     'CheckFindings.notes', // M1.8b
     'CheckFindings.own_permissions', // whether a check's browser had permissions of its own (S1)
@@ -716,6 +717,7 @@ describe('the C# bindings', () => {
     'RuntimeToolCompletedPayload.turn_id', // a completed tool's turn
     'VersionEntry.pruned_at', // when the host stopped keeping a version (ADR 0036)
     'WorkspaceRequestChangedPayload.observed', // what the computer saw, when no reply came
+    'WorkspaceRequestReply.provider', // where a remote reply ran, by its declared provider (ADR 0030, 2026-11-12)
     'WorkspaceRequestResumePayload.confirm', // the person's one press on a waiting proposal (ADR 0060)
     'WorkspaceRequestStep.place', // the client's place the assistant picked (ADR 0060)
     'WorkspaceRequestStep.proposal', // what the assistant proposed (ADR 0060)

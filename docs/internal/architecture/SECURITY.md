@@ -84,6 +84,17 @@ Seorak attributes them to Halcyonic. `ANTHROPIC_BASE_URL` is not inherited, beca
 API key is sent and a tool that launches the control plane may set it for its own endpoint; a
 gateway must be passed on purpose.
 
+The assistant runs in the control plane itself, never in an agent's process. When a hosted provider the product
+declares has its key stored (ADR 0030, amendment of 2026-11-12), the control plane reads that key at each turn from
+its private file only (refused when other users can read it; never from the environment), and sends it only to the
+provider's declared https address, or to loopback for a proof, refusing redirects. The SDK is given that key with
+no environment token, profile or base URL and its logging off; it still applies `ANTHROPIC_CUSTOM_HEADERS` from the
+plane's own environment, which only the Mac's owner sets. Text inside the record a turn is sent as cannot open or
+close the record's marks, so agent or project text cannot pose as the model's own earlier calls. A key never reaches an event, the journal, a log or a reply: a
+provider's error text is never relayed, only the host's own words and a code. On a hosted provider, what a request
+reads leaves the Mac for that provider: the host's instructions and lists, project and task names, the Mac's evidence
+in words, the agent's quoted text and the person's words within the request's bound.
+
 Claude Code loads the person's own settings only (`settingSources: ['user']`, since 2026-11-11; inside the closed profile none at all, since the agent can write the folder's own configuration), for
 each task and for listing models: their `CLAUDE.md` and hooks load, so Salidium and Seorak observe
 the session. Nothing of a project's own loads by itself: not its `CLAUDE.md`, `CLAUDE.local.md` or
