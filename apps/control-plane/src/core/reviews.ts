@@ -4,24 +4,30 @@ import type {
   ChangedFiles,
   CheckpointId,
   CommandEnvelope,
+  GitHubPublishReviewRequest,
   GitHubPublishReviewResponse,
+  GitHubSendReviewRequest,
   GitHubSendReviewResponse,
   PathList,
   ProjectId,
   ReviewKind,
 } from '@halcyonic/contracts';
 import { COMMAND_FIELDS } from '@halcyonic/domain';
+import { sendTitle } from '../sending/github.ts';
 import type { ControlPlane } from './control-plane.ts';
 import { readRules, rulesReview } from './project-rules.ts';
 import { locationReview, reviewDigest } from './review.ts';
 
 /**
- * Send's review (ADR 0039, amended): what a send would do, read before the press. The same read the
- * button's route answers and the one review card is built from.
+ * Send's review (ADR 0039, amended): what a send would do with the values the press will send, read
+ * before it: the title as it goes (the person's, else the host's own), who can see a repository a
+ * first send would make, and its name. The same read the button's route answers and the one review
+ * card is built from.
  */
 export async function sendReviewOf(
   controlPlane: ControlPlane,
   projectId: ProjectId,
+  values: GitHubSendReviewRequest = {},
 ): Promise<GitHubSendReviewResponse> {
   const unavailable = (code: string, message: string): GitHubSendReviewResponse => ({
     availability: 'unavailable',
@@ -38,7 +44,16 @@ export async function sendReviewOf(
     .filter((project) => project.project_id !== projectId)
     .flatMap((project) => (project.location === null ? [] : [project.location.path]));
   try {
-    const reviewed = await github.review(projectId, folder, others);
+    const title = sendTitle(
+      values.title,
+      controlPlane.projection.project(projectId),
+      controlPlane.projection.workstreams(projectId),
+    );
+    const reviewed = await github.review(projectId, folder, others, title, {
+      visibility: values.visibility ?? 'private',
+      name: values.repository_name,
+      made: controlPlane.projection.madeRepository(projectId),
+    });
     return reviewed.ok
       ? { availability: 'available', send: reviewed.send }
       : unavailable(reviewed.code, reviewed.message);
@@ -47,10 +62,11 @@ export async function sendReviewOf(
   }
 }
 
-/** Publish's review (ADR 0039, amended), as its route answers it. */
+/** Publish's review (ADR 0039, amended), as its route answers it, with whether the press makes it public. */
 export async function publishReviewOf(
   controlPlane: ControlPlane,
   projectId: ProjectId,
+  values: GitHubPublishReviewRequest = {},
 ): Promise<GitHubPublishReviewResponse> {
   const unavailable = (code: string, message: string): GitHubPublishReviewResponse => ({
     availability: 'unavailable',
@@ -81,6 +97,10 @@ export async function publishReviewOf(
       check.check_id,
       controlPlane.previews?.builtCopy(projectId, check.check_id) ?? null,
       project.published?.commit ?? null,
+      {
+        made: controlPlane.projection.madeRepository(projectId),
+        makePublic: values.make_public === true,
+      },
     );
     return reviewed.ok
       ? { availability: 'available', publish: reviewed.publish }
@@ -146,19 +166,47 @@ export async function buildReview(
   const { projection } = controlPlane;
   switch (command.command_type) {
     case 'project.send_to_github': {
-      const read = await sendReviewOf(controlPlane, command.payload.project_id);
+      const { title, visibility, repository_name } = command.payload;
+      const read = await sendReviewOf(controlPlane, command.payload.project_id, {
+        ...(title === undefined ? {} : { title }),
+        ...(visibility === undefined ? {} : { visibility }),
+        ...(repository_name === undefined ? {} : { repository_name }),
+      });
       if (read.availability !== 'available') return no(read.reason.code, read.reason.message);
       const { send } = read;
       const listed = files(send.files);
+      // A first send makes the person's repository: its name and who can see it are what the press does.
+      if (send.creates !== null)
+        return review({
+          digest: send.review,
+          confirm_words: `Send ${count(send.files.total, 'File', 'Files')}`,
+          what_happens:
+            send.creates.visibility === 'public'
+              ? 'A new public repository of yours holds the project, and the folder becomes its clone'
+              : 'A new private repository of yours holds the project, and the folder becomes its clone',
+          facts: [
+            { kind: 'repository', value: send.creates.name, theirs: true },
+            { kind: 'branch', value: send.new_branch, theirs: false },
+            { kind: 'words', value: send.title, theirs: true },
+          ],
+          items: listed.items,
+          items_total: listed.total,
+          warnings:
+            send.creates.visibility === 'public'
+              ? [{ code: 'public', line: 'Anyone can see its code and history' }]
+              : [],
+        });
       return review({
         digest: send.review,
         confirm_words: `Send ${count(send.files.total, 'File', 'Files')}`,
         what_happens: "The project's work goes to its repository as a new branch",
         facts: [
-          { kind: 'repository', value: send.repository, theirs: true },
+          ...(send.repository === null
+            ? []
+            : [{ kind: 'repository' as const, value: send.repository, theirs: true }]),
           { kind: 'branch', value: send.new_branch, theirs: false },
           { kind: 'branch', value: send.branch, theirs: true },
-          { kind: 'words', value: command.payload.title, theirs: true },
+          { kind: 'words', value: send.title, theirs: true },
         ],
         items: listed.items,
         items_total: listed.total,
@@ -168,7 +216,11 @@ export async function buildReview(
       });
     }
     case 'project.publish': {
-      const read = await publishReviewOf(controlPlane, command.payload.project_id);
+      const read = await publishReviewOf(controlPlane, command.payload.project_id, {
+        ...(command.payload.make_public === undefined
+          ? {}
+          : { make_public: command.payload.make_public }),
+      });
       if (read.availability !== 'available') return no(read.reason.code, read.reason.message);
       const { publish } = read;
       return review({
@@ -183,6 +235,21 @@ export async function buildReview(
         items_total: publish.files,
         warnings: [
           { code: 'public', line: 'Anyone with its address can play it' },
+          ...(publish.make_public
+            ? [
+                {
+                  code: 'made_public',
+                  line: 'The repository becomes public first: anyone can see its code and history',
+                },
+              ]
+            : publish.visibility === 'private'
+              ? [
+                  {
+                    code: 'private_repository',
+                    line: 'GitHub Free serves no page from a private repository',
+                  },
+                ]
+              : []),
           ...(publish.replaces === null
             ? []
             : [{ code: 'replaces', line: 'It replaces the game published before' }]),

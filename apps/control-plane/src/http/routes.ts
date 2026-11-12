@@ -19,7 +19,9 @@ import {
   EventsQuery,
   type EventsResponse,
   ExecutionId,
+  GitHubPublishReviewRequest,
   type GitHubPublishReviewResponse,
+  GitHubSendReviewRequest,
   type GitHubSendReviewResponse,
   type HealthResponse,
   HereQuery,
@@ -97,6 +99,8 @@ const validateCompanionReply = compileValidator(CompanionReplyResponse);
 const validateToolResultsQuery = compileValidator(ToolResultsQuery);
 const validateResultEventId = compileValidator(EventId);
 const validateLocationReview = compileValidator(LocationReviewRequest);
+const validateSendReview = compileValidator(GitHubSendReviewRequest);
+const validatePublishReview = compileValidator(GitHubPublishReviewRequest);
 
 /**
  * The largest request for a companion reply: 24,000 characters of exchange (ADR 0025), each of
@@ -995,7 +999,16 @@ export function registerRoutes(
           availability: 'unavailable',
           reason: { code: 'invalid_request', message: 'That is not a project.' },
         };
-      return publishReviewOf(controlPlane, projectId as ProjectId);
+      const asked = validatePublishReview(request.body ?? {});
+      if (!asked.ok)
+        return {
+          availability: 'unavailable',
+          reason: {
+            code: 'invalid_request',
+            message: 'The review request is not one Halcyonic takes.',
+          },
+        };
+      return publishReviewOf(controlPlane, projectId as ProjectId, asked.value);
     },
   );
   app.get('/api/projects/:project_id/published/code', async (request, reply) => {
@@ -1023,7 +1036,16 @@ export function registerRoutes(
           availability: 'unavailable',
           reason: { code: 'invalid_request', message: 'That is not a project.' },
         };
-      return sendReviewOf(controlPlane, projectId as ProjectId);
+      const asked = validateSendReview(request.body ?? {});
+      if (!asked.ok)
+        return {
+          availability: 'unavailable',
+          reason: {
+            code: 'invalid_request',
+            message: 'The review request is not one Halcyonic takes.',
+          },
+        };
+      return sendReviewOf(controlPlane, projectId as ProjectId, asked.value);
     },
   );
   app.post('/api/projects/:project_id/location-review', async (request, reply) => {

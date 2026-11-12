@@ -682,8 +682,12 @@ describe('the C# bindings', () => {
     'ProjectCheckpointRecordedPayload.turn_id', // History
     'ProjectOwnCheckRecordedPayload.workstream_id', // ADR 0055, as ADR 0045
     'ProjectOwnCheckRunView.workstream_id', // ADR 0055
+    'ProjectPublishPayload.make_public', // ADR 0039, amended: the first Send, its title, Make Public
     'ProjectRestorePayload.review', // the review a restore carries (ADR 0051)
     'ProjectRulesSetPayload.review', // the review turning a project's rules on carries (E5)
+    'ProjectSendToGithubPayload.repository_name', // ADR 0039, amended: the first Send, its title, Make Public
+    'ProjectSendToGithubPayload.title', // ADR 0039, amended: the first Send, its title, Make Public
+    'ProjectSendToGithubPayload.visibility', // ADR 0039, amended: the first Send, its title, Make Public
     'ProjectSetLocationPayload.review', // the review a rebinding carries (ADR 0051)
     'ProjectView.check', // M1.8e
     'ProjectView.mac_play', // M1.8e

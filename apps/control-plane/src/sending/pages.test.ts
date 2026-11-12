@@ -76,6 +76,121 @@ describe('Publish to GitHub Pages (ADR 0039, amended)', {
     assert.deepEqual(reviewed.publish.links_left_out, { paths: ['assets/escape'], total: 1 });
   });
 
+  test('a repository Halcyonic made private is said so, Make Public makes it public first, and the choice is in the digest', async () => {
+    const made = { repository: 'owner/garden', visibility: 'private' as const };
+    const plain = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null);
+    assert.ok(plain.ok);
+    assert.equal(plain.publish.visibility, 'unknown', 'a review asks GitHub nothing');
+    const shown = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null, { made });
+    assert.ok(shown.ok);
+    assert.equal(shown.publish.visibility, 'private');
+    assert.equal(shown.publish.make_public, false);
+    const opening = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null, {
+      made,
+      makePublic: true,
+    });
+    assert.ok(opening.ok);
+    assert.equal(opening.publish.make_public, true);
+    assert.notEqual(opening.publish.review, shown.publish.review);
+    const crossed = await sender().publish(
+      PROJECT,
+      stand.folder,
+      CHECK,
+      built,
+      null,
+      shown.publish.review,
+      {
+        made,
+        makePublic: true,
+      },
+    );
+    assert.equal(crossed.ok ? null : crossed.code, 'review_stale');
+    const opened: string[] = [];
+    const done = await sender().publish(
+      PROJECT,
+      stand.folder,
+      CHECK,
+      built,
+      null,
+      opening.publish.review,
+      {
+        made,
+        makePublic: true,
+        onMadePublic: (repository) => opened.push(repository),
+      },
+    );
+    assert.ok(done.ok, done.ok ? '' : done.message);
+    assert.deepEqual(opened, ['owner/garden'], 'recorded the moment it was made public');
+    const log = readFileSync(stand.ghLog, 'utf8');
+    assert.ok(
+      log.indexOf(
+        'repo edit owner/garden --visibility public --accept-visibility-change-consequences',
+      ) < log.indexOf('api --method POST repos/owner/garden/pages'),
+      'made public before pages are asked for',
+    );
+    // Already public: there is nothing to make public.
+    const open = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null, {
+      made: { ...made, visibility: 'public' },
+      makePublic: true,
+    });
+    assert.ok(open.ok);
+    assert.equal(open.publish.make_public, false);
+  });
+
+  test('a site GitHub does not keep is no publish: the branch comes down again and the refusal says why', async () => {
+    writeFileSync(join(root, 'pages-refused'), '');
+    const made = { repository: 'owner/garden', visibility: 'private' as const };
+    const reviewed = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null, {
+      made,
+    });
+    assert.ok(reviewed.ok);
+    const refused = await sender().publish(
+      PROJECT,
+      stand.folder,
+      CHECK,
+      built,
+      null,
+      reviewed.publish.review,
+      {
+        made,
+      },
+    );
+    assert.equal(refused.ok ? null : refused.code, 'pages_refused');
+    assert.match(
+      refused.ok ? '' : refused.message,
+      /private repository on a free plan.*Make Public/,
+    );
+    assert.equal(refused.ok ? null : (refused.effect ?? 'none'), 'none');
+    assert.throws(
+      () => stand.git(stand.origin, 'rev-parse', '--verify', BRANCH),
+      'no Pages branch is left',
+    );
+    // Made public first and then refused: that it is public now is recorded and said.
+    const opened: string[] = [];
+    const opening = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null, {
+      made,
+      makePublic: true,
+    });
+    assert.ok(opening.ok);
+    const after = await sender().publish(
+      PROJECT,
+      stand.folder,
+      CHECK,
+      built,
+      null,
+      opening.publish.review,
+      {
+        made,
+        makePublic: true,
+        onMadePublic: (repository) => opened.push(repository),
+      },
+    );
+    assert.equal(after.ok ? null : after.code, 'pages_refused');
+    assert.match(after.ok ? '' : after.message, /owner\/garden is public now/);
+    assert.deepEqual(opened, ['owner/garden']);
+    assert.throws(() => stand.git(stand.origin, 'rev-parse', '--verify', BRANCH));
+  });
+
   test('a publish pushes the built copy alone to the Pages branch, turns Pages on, and a second builds on the first, never forced', async () => {
     const head = stand.git(stand.folder, 'rev-parse', 'HEAD');
     const status = stand.git(stand.folder, 'status', '--porcelain');

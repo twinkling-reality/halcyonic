@@ -4375,8 +4375,15 @@
                   "$ref": "#/$defs/GitBranchName"
                 },
                 "base_commit": {
-                  "type": "string",
-                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "new_branch": {
                   "$ref": "#/$defs/GitBranchName"
@@ -4394,6 +4401,255 @@
                       "type": "null"
                     }
                   ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "project.repository_made"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "repository",
+                "visibility"
+              ],
+              "properties": {
+                "repository": {
+                  "$ref": "#/$defs/RepositoryFullName"
+                },
+                "visibility": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "private"
+                    },
+                    {
+                      "type": "string",
+                      "const": "public"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "project.repository_made_public"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "repository"
+              ],
+              "properties": {
+                "repository": {
+                  "$ref": "#/$defs/RepositoryFullName"
                 }
               },
               "additionalProperties": false
@@ -12152,7 +12408,6 @@
               "type": "object",
               "required": [
                 "project_id",
-                "title",
                 "review"
               ],
               "properties": {
@@ -12165,6 +12420,22 @@
                   "minLength": 1,
                   "maxLength": 200,
                   "pattern": "\\S"
+                },
+                "visibility": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "private"
+                    },
+                    {
+                      "type": "string",
+                      "const": "public"
+                    }
+                  ]
+                },
+                "repository_name": {
+                  "type": "string",
+                  "pattern": "^(?!\\.\\.?$)[A-Za-z0-9._-]{1,100}$"
                 },
                 "review": {
                   "$ref": "#/$defs/ReviewDigest"
@@ -12216,6 +12487,9 @@
                 "project_id": {
                   "type": "string",
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "make_public": {
+                  "type": "boolean"
                 },
                 "review": {
                   "$ref": "#/$defs/ReviewDigest"
@@ -15116,9 +15390,11 @@
       "required": [
         "project_id",
         "repository",
+        "creates",
         "branch",
         "base_commit",
         "new_branch",
+        "title",
         "files",
         "links_left_out",
         "pull_request",
@@ -15130,17 +15406,70 @@
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
         },
         "repository": {
-          "$ref": "#/$defs/RepositoryFullName"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RepositoryFullName"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "creates": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "name",
+                "visibility"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "pattern": "^(?!\\.\\.?$)[A-Za-z0-9._-]{1,100}$"
+                },
+                "visibility": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "private"
+                    },
+                    {
+                      "type": "string",
+                      "const": "public"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "branch": {
           "$ref": "#/$defs/GitBranchName"
         },
         "base_commit": {
-          "type": "string",
-          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "new_branch": {
           "$ref": "#/$defs/GitBranchName"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
         },
         "files": {
           "$ref": "#/$defs/ChangedFiles"
@@ -15153,6 +15482,34 @@
         },
         "review": {
           "$ref": "#/$defs/ReviewDigest"
+        }
+      },
+      "additionalProperties": false
+    },
+    "GitHubSendReviewRequest": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "visibility": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "private"
+            },
+            {
+              "type": "string",
+              "const": "public"
+            }
+          ]
+        },
+        "repository_name": {
+          "type": "string",
+          "pattern": "^(?!\\.\\.?$)[A-Za-z0-9._-]{1,100}$"
         }
       },
       "additionalProperties": false
@@ -15208,6 +15565,8 @@
         "check_id",
         "files",
         "links_left_out",
+        "visibility",
+        "make_public",
         "replaces",
         "address",
         "review"
@@ -15231,6 +15590,25 @@
         "links_left_out": {
           "$ref": "#/$defs/PathList"
         },
+        "visibility": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "private"
+            },
+            {
+              "type": "string",
+              "const": "public"
+            },
+            {
+              "type": "string",
+              "const": "unknown"
+            }
+          ]
+        },
+        "make_public": {
+          "type": "boolean"
+        },
         "replaces": {
           "anyOf": [
             {
@@ -15247,6 +15625,15 @@
         },
         "review": {
           "$ref": "#/$defs/ReviewDigest"
+        }
+      },
+      "additionalProperties": false
+    },
+    "GitHubPublishReviewRequest": {
+      "type": "object",
+      "properties": {
+        "make_public": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

@@ -496,13 +496,16 @@ Every text in them is outside words, from the project's files or its build, as `
 
 ## Send to GitHub's review
 
-- `POST /api/projects/:project_id/github-review` [ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md): what a send would do, read
-  before the press: `available` with the repository (owner/name only), the branch and its last
+- `POST /api/projects/:project_id/github-review` [ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md), with the body
+  `{title?, visibility?, repository_name?}` the press will send (an empty one takes the host's own): what a send would do, read
+  before the press, with the title as it goes and, for a folder that is no repository, `creates` (the new
+  repository's name and who can see it): `available` with the repository (owner/name only), the branch and its last
   commit, the new branch, the files with how each changed, `links_left_out` (links in the folder
   that point outside it, never sent), whether a pull request can be opened, and the `review` digest `project.send_to_github` carries back; or `unavailable` with why, in the
   product's words. Nothing leaves the Mac.
 
-- `POST /api/projects/:project_id/publish-review`: what Publish would do: `available` with the
+- `POST /api/projects/:project_id/publish-review`, with the body `{make_public?}`: what Publish would do, with
+  who can see the repository as far as this Mac knows and whether the press makes it public first: `available` with the
   repository (owner/name), the check, how many of its built files go, `links_left_out` (links in the
   built copy that point outside it, never published), the commit of the last publish
   it builds on, the expected address and the `review` digest `project.publish` carries back; or

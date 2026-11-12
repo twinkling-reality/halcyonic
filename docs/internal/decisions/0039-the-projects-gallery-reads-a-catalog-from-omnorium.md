@@ -143,6 +143,54 @@ only while the Mac runs). It is built on Send to GitHub's pieces, and the lead d
   person's git settings, and a `.gitattributes` among them that names a filter is refused (`uses_filters`). A private repository
   on a plan without Pages fails at GitHub's end, and nothing is recorded as published.
 
+## Amendment, 2026-11-12: the first Send makes the repository, and nothing asks more than the desk
+
+From the owner's bar of 2026-11-11 (no more steps than an ordinary agent session at a desk, nothing for one
+case) and the lead's decision of 2026-11-12 (one list, one review card, a confirm only where the policy says).
+
+- **A game made in the headset has no repository, and its first Send makes one.** A project folder with no
+  `.git`, inside no other repository (the person's home folder kept as a repository of settings files does
+  not count), is sent once as a new repository of the person's own: the review names it (the folder's name
+  unless the person names it, `repository_name`) and who can see it, private unless the person says public
+  (`visibility`), with every file as git would add it, and `main`. Its owner is the account `gh` is signed
+  in to, which a review never asks (`repository` null in the review). At the press gh is asked whether it is
+  signed in (`gh_signed_out`, nothing made), then `gh repo create <name> --private|--public`, recorded at once
+  as `project.repository_made {repository, visibility}` whatever follows; then `main` is pushed (over ssh
+  where the person's gh says so). A name GitHub does not take, or a create it does not confirm, is refused
+  (`repository_not_made`, effect unknown). A push GitHub refuses after the repository was made says so
+  (`push_refused`, effect unknown), and the next Send of the folder goes into that repository, as the journal
+  holds it, never making a second: an empty `main` takes the push, a `main` holding Halcyonic's own earlier
+  send (one whose clone did not take) is built on, never forced, and anything else in it is refused
+  (`repository_not_empty`). Then the folder becomes the
+  repository's clone, with no one's git settings, templates or hooks, whole or not at all: its git folder is
+  built beside, in the folder, holding `main` and `origin/main` at the sent commit (pushed in, so no fetch
+  record names this Mac's paths), `origin` the repository and the index as that commit, and is made `.git`
+  in one rename, which fails where a `.git` appeared meanwhile; the files are not touched. So every later Send
+  is the ordinary branch and pull request, Publish and Take Down read the same origin, and the person's own
+  git at a desk sees an ordinary repository. `project.sent_to_github` records a null `base_commit` for it.
+- **The title is never required.** `title` is optional; absent, the host's own is used: the project's latest
+  task's title (the person's words), else the project's name, made one line with control characters and
+  runs of spaces as one space and clipped to 200 characters as a typed one is. The review takes the values
+  the press will send (`POST .../github-review {title?, visibility?}`) and shows the title exactly as it
+  goes; the digest covers it and who can see a repository it would make, so a press with other values is
+  `review_stale`.
+- **Publish on a private repository.** GitHub serves pages from a public repository only on GitHub Free; a
+  private one's pages need a paid plan (GitHub's plans page and "Creating a GitHub Pages site", read
+  2026-11-12, `docs/internal/validation/sending-to-github.md`). The journal knows who can see a repository
+  a first Send made, as it was made and public once a publish made it so; Publish's review says it
+  (`visibility` `private`, `public`, or `unknown` for any other repository, since a review asks GitHub
+  nothing) and `project.publish {make_public}` first makes it public with the person's gh (`gh repo edit
+  --visibility public`), shown in the review and covered by its digest: one press, as anything that
+  becomes public. It is recorded the moment GitHub made it public, `project.repository_made_public
+  {repository}`, whatever the publish after it does, and a refusal after it says the repository is public
+  now.
+- **A site GitHub does not keep is no publish.** After turning pages on, the address is read back; where
+  GitHub answers none, the Pages branch just pushed is deleted again (only while it holds that commit) and
+  the publish is refused (`pages_refused`, naming Make Public where the repository is private), so nothing
+  is recorded as published with no address.
+- **Take Down is one press.** It keeps the published commit it carries (`project.unpublish {commit}`), so a
+  screen showing an older publish never takes down a newer one; no client adds a press of its own.
+
 ## Alternatives considered
 
 - **Halcyonic signs in to GitHub itself**, with an OAuth device flow or a GitHub App of its own. It

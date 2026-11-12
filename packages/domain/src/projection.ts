@@ -248,10 +248,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * version a task starts from (`from_checkpoint`, ADR 0045). 12: what the computer saw of a request
  * that ended with no reply (`observed`, LOOP C). 13: each project's published game (ADR 0039,
  * amended). 14: each project's secrets by name (ADR 0057). 15: each project's rules while on (`rules`, E5).
- * 16: when a start found a task's copy gone (`missing_at`, ADR 0045); each raised past the base's
- * again at the rebase.
+ * 16: when a start found a task's copy gone (`missing_at`, ADR 0045). 17: who can see each repository
+ * a first send of Halcyonic's made (ADR 0039, amended); each raised past the base's again at the rebase.
  */
-export const PROJECTION_STATE_FORMAT = 16;
+export const PROJECTION_STATE_FORMAT = 17;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -277,6 +277,7 @@ export interface ProjectionState {
   readonly shares: ReadonlyMap<unknown, unknown>;
   readonly published: ReadonlyMap<unknown, unknown>;
   readonly secrets: ReadonlyMap<unknown, unknown>;
+  readonly madeRepositories: ReadonlyMap<unknown, unknown>;
   readonly checkOutputs: ReadonlyMap<unknown, unknown>;
   readonly resultStarts: ReadonlyMap<unknown, unknown>;
   readonly results: ReadonlyMap<unknown, unknown>;
@@ -381,6 +382,14 @@ export class Projection {
   readonly #published = new Map<ProjectId, ProjectPublishedView>();
   /** Each project's secrets by name, sorted (ADR 0057): never a value, which only the store holds. */
   readonly #secrets = new Map<ProjectId, readonly SecretName[]>();
+  /**
+   * Each repository a send of Halcyonic's made for a project, and who can see it as far as the journal
+   * says: as it was made, then public once a publish made it so. Nothing else changes it here.
+   */
+  readonly #madeRepositories = new Map<
+    ProjectId,
+    { readonly repository: string; readonly visibility: 'private' | 'public' }
+  >();
   readonly #shares = new Map<
     ProjectId,
     { readonly checkId: CheckId; readonly url: string; readonly way: ShareWay }
@@ -457,6 +466,7 @@ export class Projection {
       shares: this.#shares,
       published: this.#published,
       secrets: this.#secrets,
+      madeRepositories: this.#madeRepositories,
       checkOutputs: this.#checkOutputs,
       resultStarts: this.#resultStarts,
       results: this.#results,
@@ -499,6 +509,7 @@ export class Projection {
       !(state.shares instanceof Map) ||
       !(state.published instanceof Map) ||
       !(state.secrets instanceof Map) ||
+      !(state.madeRepositories instanceof Map) ||
       !(state.checkOutputs instanceof Map) ||
       !(state.resultStarts instanceof Map) ||
       !(state.results instanceof Map) ||
@@ -539,6 +550,8 @@ export class Projection {
     for (const [key, value] of state.published as Map<never, never>)
       this.#published.set(key, value);
     for (const [key, value] of state.secrets as Map<never, never>) this.#secrets.set(key, value);
+    for (const [key, value] of state.madeRepositories as Map<never, never>)
+      this.#madeRepositories.set(key, value);
     for (const [key, value] of state.checkOutputs as Map<never, never>)
       this.#checkOutputs.set(key, value);
     for (const [key, value] of state.resultStarts as Map<never, never>)
@@ -1131,6 +1144,13 @@ export class Projection {
       : { passedBefore: folder.before, passedEarlier: folder.earlier };
   }
 
+  /** The repository a first send of Halcyonic's made for the project, and who can see it, if one did. */
+  madeRepository(
+    projectId: string,
+  ): { readonly repository: string; readonly visibility: 'private' | 'public' } | undefined {
+    return this.#madeRepositories.get(projectId as ProjectId);
+  }
+
   /** The project's latest check, or undefined when it has none. */
   latestCheck(projectId: string): ProjectCheck | undefined {
     const state = this.#checks.get(projectId as ProjectId);
@@ -1706,6 +1726,19 @@ export class Projection {
       case 'project.sent_to_github':
         // The journal's fact (ADR 0039, amended); the command's result carries the pull request.
         return;
+      case 'project.repository_made':
+        // Who can see it, which Publish's review reads; a later first send of the folder goes into it.
+        this.#madeRepositories.set(event.project_id, {
+          repository: event.payload.repository,
+          visibility: event.payload.visibility,
+        });
+        return;
+      case 'project.repository_made_public': {
+        const made = this.#madeRepositories.get(event.project_id);
+        if (made?.repository === event.payload.repository)
+          this.#madeRepositories.set(event.project_id, { ...made, visibility: 'public' });
+        return;
+      }
       case 'project.mac_play.started':
         this.#macPlays.set(event.project_id, event.payload.check_id);
         if (this.#projects.has(event.project_id)) changes.projects.add(event.project_id);

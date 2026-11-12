@@ -3,7 +3,7 @@ import { RepositoryFullName } from './catalog.ts';
 import { GitObjectId, PathList, ReviewDigest } from './checkpoints.ts';
 import { ChangedFiles } from './copies.ts';
 import { CheckId, ShareCode } from './previews.ts';
-import { ErrorInfo, Nullable, ProjectId, Timestamp } from './primitives.ts';
+import { ErrorInfo, Nullable, ProjectId, Text, Timestamp } from './primitives.ts';
 
 const strict = { additionalProperties: false } as const;
 
@@ -26,20 +26,43 @@ export const PullRequestUrl = Type.String({
 });
 export type PullRequestUrl = Static<typeof PullRequestUrl>;
 
+/** A repository's name as GitHub takes one: letters, digits, dots, hyphens, underscores; never . or .. */
+export const RepositoryName = Type.String({ pattern: '^(?!\\.\\.?$)[A-Za-z0-9._-]{1,100}$' });
+export type RepositoryName = Static<typeof RepositoryName>;
+
+/** Who can see a repository on GitHub. */
+export const RepositoryVisibility = Type.Union([Type.Literal('private'), Type.Literal('public')]);
+export type RepositoryVisibility = Static<typeof RepositoryVisibility>;
+
 /**
  * What Send to GitHub would do, for the person to read before the press (ADR 0039, amended): the
  * repository by owner and name only (never its address), the branch the project's folder is on and
- * its last commit, the new branch it would push, the files that differ from that commit, the links in
- * the folder that are not sent because they point outside it, and whether a pull request can be opened
- * on this Mac. `review` is the digest the command carries back (ADR 0051).
+ * its last commit, the new branch it would push, the title exactly as it goes, the files that differ
+ * from that commit, the links in the folder that are not sent because they point outside it, and
+ * whether a pull request can be opened on this Mac. For a folder that is no repository yet,
+ * `creates` names the repository the send makes in the person's own account and who can see it;
+ * its owner is the account `gh` is signed in to, which a review never asks (`repository` null),
+ * there is no commit to build on (`base_commit` null) and `main` is pushed. `review` is the
+ * digest the command carries back, over every value the press sends (ADR 0051).
  */
 export const GitHubSendReview = Type.Object(
   {
     project_id: ProjectId,
-    repository: RepositoryFullName,
+    repository: Nullable(RepositoryFullName),
+    creates: Nullable(
+      Type.Object(
+        {
+          name: RepositoryName,
+          visibility: RepositoryVisibility,
+        },
+        strict,
+      ),
+    ),
     branch: GitBranchName,
-    base_commit: GitObjectId,
+    base_commit: Nullable(GitObjectId),
     new_branch: GitBranchName,
+    /** The commit's message and the pull request's title, as sent: the person's, or the host's own. */
+    title: Text(200),
     files: ChangedFiles,
     /** Links the folder holds that point outside it: never sent (a starter's `node_modules` is one). */
     links_left_out: PathList,
@@ -49,6 +72,20 @@ export const GitHubSendReview = Type.Object(
   strict,
 );
 export type GitHubSendReview = Static<typeof GitHubSendReview>;
+
+/**
+ * The body of `POST /api/projects/:project_id/github-review`: the values the press will send, so the
+ * review shows the title exactly as it goes and covers both (an empty body takes the host's own).
+ */
+export const GitHubSendReviewRequest = Type.Object(
+  {
+    title: Type.Optional(Text(200)),
+    visibility: Type.Optional(RepositoryVisibility),
+    repository_name: Type.Optional(RepositoryName),
+  },
+  strict,
+);
+export type GitHubSendReviewRequest = Static<typeof GitHubSendReviewRequest>;
 
 /** `POST /api/projects/:project_id/github-review`: the review, or why there is nothing to send. */
 export const GitHubSendReviewResponse = Type.Union([
@@ -75,7 +112,10 @@ export const PAGES_BRANCH = 'halcyonic-pages';
  * What Publish would do, for the person to read before the press: the repository by owner and name,
  * the check whose built copy goes (never the source), how many files it holds, the links in it that
  * are not published because they point outside it, the commit of the last publish it builds on (null
- * for a first), the address it is expected at, and the digest the command carries back (ADR 0051).
+ * for a first), the address it is expected at, who can see the repository as far as this Mac knows
+ * (`private` for one Halcyonic made private and has not made public, else `unknown`: a review asks
+ * GitHub nothing), whether the press first makes it public, and the digest the command carries back
+ * (ADR 0051). GitHub Free serves pages only from a public repository.
  */
 export const GitHubPublishReview = Type.Object(
   {
@@ -84,6 +124,12 @@ export const GitHubPublishReview = Type.Object(
     check_id: CheckId,
     files: Type.Integer({ minimum: 1 }),
     links_left_out: PathList,
+    visibility: Type.Union([
+      Type.Literal('private'),
+      Type.Literal('public'),
+      Type.Literal('unknown'),
+    ]),
+    make_public: Type.Boolean(),
     replaces: Nullable(GitObjectId),
     address: PagesAddress,
     review: ReviewDigest,
@@ -91,6 +137,13 @@ export const GitHubPublishReview = Type.Object(
   strict,
 );
 export type GitHubPublishReview = Static<typeof GitHubPublishReview>;
+
+/** The body of `POST /api/projects/:project_id/publish-review`: whether the press makes it public first. */
+export const GitHubPublishReviewRequest = Type.Object(
+  { make_public: Type.Optional(Type.Boolean()) },
+  strict,
+);
+export type GitHubPublishReviewRequest = Static<typeof GitHubPublishReviewRequest>;
 
 /** `POST /api/projects/:project_id/publish-review`: the review, or why nothing can be published. */
 export const GitHubPublishReviewResponse = Type.Union([

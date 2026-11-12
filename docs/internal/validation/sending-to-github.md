@@ -99,6 +99,62 @@ The first real send to GitHub is the owner's own, with their press.
    - a Take Down carrying another commit than the published one is refused `review_stale` (admission);
    - a publish review runs no gh.
 
+## The first Send, the title and Make Public, on the same stand-ins (2026-11-12)
+
+- **A folder that is no repository** (`lantern-game`, with a `.gitignore` naming `dist`, a built `dist/` and a
+  `.env`): the review names no repository, `creates {name: lantern-game, visibility: private}`, `main`, no base,
+  the title as given, and the three files git would add (`.gitignore`, `index.html`, `src/game.ts`; never
+  `dist/` or `.env`). A review of it public has another digest, and a press with the other visibility is
+  `review_stale`. The press asks the stand-in gh `repo create lantern-game --private` (no token reaches it),
+  pushes one commit with no parent as `main` (the title as its message, the git author from git's own
+  settings), and the folder is then that repository's clone: HEAD on `main` at the sent commit, `origin` its
+  address, `git status` showing only the untracked `.env`, the `.env` unchanged, no `hooks` folder. Its next
+  send is the ordinary one: `repository owner/lantern-game`, the base the first send's commit, one changed file.
+- **Refused:** a second folder of the same name (`repository_not_made`, its folder left with no `.git`); a
+  folder inside another repository (`inside_repository`); no gh (`no_gh`); gh signed out at the press
+  (`gh_signed_out`, no `repo create` asked); a name GitHub would not take, `..` (`invalid_name`). A folder under a
+  home folder kept as a repository is sent as its own. Gh is asked `auth status` before `repo create`; the made
+  repository is handed to the journal at once (`onMade`); the clone leaves no `FETCH_HEAD` and nothing beside.
+- **A first send stopped after GitHub made the repository** (the stand-in's new repository refuses objects):
+  `push_refused`, effect unknown, the folder left with no `.git`, the made repository handed to the journal
+  once. The next review, with the journal's made repository, names it and makes none (`creates` null); its
+  press pushes `main` there and clones the folder, and `repo create` was asked once in all. Another folder
+  sent into that repository, whose `main` holds work Halcyonic did not send, is refused
+  `repository_not_empty` and its `main` is untouched.
+- **Ssh:** where gh's `git_protocol` is `ssh`, the clone's `origin` is `git@github.com:owner/<name>.git`.
+- **A clone that did not take** (the folder cannot take a `.git`): the send completes with the work on GitHub,
+  `cloned` false, no `.git` and nothing beside left in the folder. After a change, the next send, into the
+  journal's made repository, commits on top of that first commit (`main^` is it), pushes `main` without a
+  force, and clones the folder, `git status` clean. A git folder a killed send left beside, named
+  `.git-halcyonic-*`, is never sent and is removed by the next clone.
+- **The title** (`sendTitle`): the person's own made one line; else the latest task's title; else the
+  project's name; never over 200 characters. Through the control plane, a review with an empty body shows
+  the project's name (`Garden`), a send with no title goes with it as the commit's message, and a body with
+  an unknown field is refused `invalid_request`.
+- **Publish:** a repository the journal says a first send made private is reviewed `private`; any other is
+  `unknown` (a review asks GitHub nothing). Make Public is in the digest (a press without the choice it was
+  reviewed with is `review_stale`), and its press asks gh `repo edit owner/garden --visibility public
+  --accept-visibility-change-consequences` before pages are turned on. A repository already public has nothing
+  to make public. Where GitHub answers no pages address, the publish is refused `pages_refused` with Make
+  Public named for a private repository, and the Pages branch it pushed is gone again. Make Public is handed to
+  the journal the moment it is done (`onMadePublic`).
+- **The journal:** `project.repository_made` keeps who can see a repository a first send made;
+  `project.repository_made_public` turns it public, for that repository only; both survive a checkpoint. A
+  publish that made it public and was then refused records it, says it is public now, and leaves no Pages branch.
+
+## GitHub's own rule for pages (read 2026-11-12, working rule 2)
+
+- GitHub's plans (https://docs.github.com/en/get-started/learning-about-github/githubs-plans): GitHub Free for
+  personal accounts lists pages in public repositories only; Pro and Team list pages among the tools for
+  private repositories.
+- "Creating a GitHub Pages site"
+  (https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site): on GitHub
+  Free or GitHub Free for organizations, the repository must be public.
+- The REST API's "Create a GitHub Pages site" (https://docs.github.com/en/rest/pages/pages#create-a-github-pages-site)
+  documents 201, 409 and 422 and does not say what 409 means. Neither "Delete a GitHub Pages site" nor
+  "Unpublishing a GitHub Pages site" says whether a site stops being served when its source branch is deleted:
+  Take Down deletes the branch, and whether the address then stops answering is for the real run to show.
+
 ## Not proven
 
 - A real push to github.com over https with the macOS keychain's credential helper, or over ssh with an

@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { lstat, mkdir, open, realpath, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, open, readdir, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, posix, relative, sep } from 'node:path';
 import {
   type ChangedFiles,
@@ -8,6 +8,7 @@ import {
   type GitHubSendReview,
   PAGES_BRANCH,
   type ProjectId,
+  type RepositoryVisibility,
 } from '@halcyonic/contracts';
 import { secretShapedPath } from '@halcyonic/runtime-core';
 import { readGitHubOrigin } from '../catalog-match.ts';
@@ -41,7 +42,42 @@ export interface GitHubSenderDeps {
   readonly env: NodeJS.ProcessEnv;
 }
 
-export type SendFailure = { readonly ok: false; readonly code: string; readonly message: string };
+/** A refusal in the product's words; `effect` says when something on GitHub may have changed anyway. */
+export type SendFailure = {
+  readonly ok: false;
+  readonly code: string;
+  readonly message: string;
+  readonly effect?: 'unknown';
+};
+
+/** What this Mac's journal says of a repository a send of Halcyonic's made, which Publish reads. */
+export interface MadeRepository {
+  readonly repository: string;
+  readonly visibility: RepositoryVisibility;
+}
+
+/**
+ * A send's choices and what the journal knows: who can see a repository it makes (private unless
+ * public), its name (the folder's unless given), the repository an earlier first send made for this
+ * project, and `onMade`, called the moment GitHub has made one, so the journal holds it even when
+ * what follows fails.
+ */
+export interface SendOptions {
+  readonly visibility?: RepositoryVisibility;
+  readonly name?: string | undefined;
+  readonly made?: MadeRepository | undefined;
+  readonly onMade?: (made: MadeRepository) => void;
+}
+
+/**
+ * Publish's choices: the repository the journal knows was made, whether to make it public first, and
+ * `onMadePublic`, called the moment GitHub has made it public, whatever follows.
+ */
+export interface PublishOptions {
+  readonly made?: MadeRepository | undefined;
+  readonly makePublic?: boolean;
+  readonly onMadePublic?: (repository: string) => void;
+}
 
 interface Prepared {
   readonly send: GitHubSendReview;
@@ -71,14 +107,17 @@ export class GitHubSender {
     projectId: ProjectId,
     folder: string,
     otherFolders: readonly string[],
+    title: string,
+    options: SendOptions = {},
   ): Promise<{ readonly ok: true; readonly send: GitHubSendReview } | SendFailure> {
-    const prepared = await this.#prepare(projectId, folder, otherFolders);
+    const prepared = await this.#prepare(projectId, folder, otherFolders, title, options);
     return prepared.ok ? { ok: true, send: prepared.prepared.send } : prepared;
   }
 
   /**
    * Sends what `review` described, checked again first: a folder changed since sends nothing. The
-   * push never forces and never names a branch that is there.
+   * push never forces and never names a branch that is there. A folder that is no repository yet is
+   * sent once as a new repository of the person's own, and becomes its clone.
    */
   async send(
     projectId: ProjectId,
@@ -86,16 +125,19 @@ export class GitHubSender {
     otherFolders: readonly string[],
     title: string,
     review: string,
+    options: SendOptions = {},
   ): Promise<
     | {
         readonly ok: true;
-        readonly send: GitHubSendReview;
+        readonly send: GitHubSendReview & { readonly repository: string };
         readonly commit: string;
         readonly pullRequestUrl: string | null;
+        /** False when the work is on GitHub but the folder could not be made its clone. */
+        readonly cloned: boolean;
       }
     | SendFailure
   > {
-    const prepared = await this.#prepare(projectId, folder, otherFolders);
+    const prepared = await this.#prepare(projectId, folder, otherFolders, title, options);
     if (!prepared.ok) return prepared;
     const { send, repository, tree, ssh } = prepared.prepared;
     if (send.review !== review)
@@ -115,6 +157,8 @@ export class GitHubSender {
         'no_author',
         'Git on this computer has no name and email to sign the commit with. Set them in git, then send again.',
       );
+    if (send.creates !== null || send.repository === null || send.base_commit === null)
+      return this.#sendNew(folder, prepared.prepared, title, options);
     const committed = await this.#run(this.#deps.git, [
       '--git-dir',
       repository,
@@ -129,6 +173,7 @@ export class GitHubSender {
     if (committed.code !== 0 || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit))
       return refuse('send_failed', 'The commit could not be made, so nothing was sent.');
     const remote = remoteOf(send.repository, ssh);
+    const sentTo = { ...send, repository: send.repository };
     const pushed = await this.#run(
       this.#deps.git,
       [
@@ -182,7 +227,214 @@ export class GitHubSender {
       );
       if (opened.code === 0) pullRequestUrl = PULL_REQUEST.exec(opened.stdout)?.[0] ?? null;
     }
-    return { ok: true, send, commit, pullRequestUrl };
+    return { ok: true, send: sentTo, commit, pullRequestUrl, cloned: true };
+  }
+
+  /**
+   * The first send of a folder that is no repository: asked of gh only now, whether it is signed in;
+   * then a new repository of the person's own, made with their gh as the review named it and recorded
+   * at once (`onMade`), or the one an earlier first send made for this project; the work pushed as
+   * its `main`, never forced; then the folder made its clone, so the person's git, every later send,
+   * Publish and Take Down see an ordinary repository. A send that stopped after GitHub made the
+   * repository is sent again into it: an empty `main` takes the push, and a `main` holding
+   * Halcyonic's own earlier send (a clone that did not take) is built on, or only cloned where the
+   * work is the same. Anything else in it is refused.
+   */
+  async #sendNew(
+    folder: string,
+    prepared: Prepared,
+    title: string,
+    options: SendOptions,
+  ): Promise<
+    | {
+        readonly ok: true;
+        readonly send: GitHubSendReview & { readonly repository: string };
+        readonly commit: string;
+        readonly pullRequestUrl: null;
+        readonly cloned: boolean;
+      }
+    | SendFailure
+  > {
+    const { send, repository, tree } = prepared;
+    const gh = this.#deps.gh;
+    if (gh === null)
+      return refuse(
+        'no_gh',
+        "Making a repository on GitHub needs GitHub's own command line tool on this computer, signed in.",
+      );
+    if ((await this.#run(gh, ['auth', 'status'], 15_000)).code !== 0)
+      return refuse(
+        'gh_signed_out',
+        "GitHub's command line tool on this computer isn't signed in, so nothing was sent.",
+      );
+    let fullName: string;
+    if (send.creates !== null) {
+      const { name, visibility } = send.creates;
+      const made = await this.#run(gh, ['repo', 'create', name, `--${visibility}`], 60_000);
+      const named = REPOSITORY_ADDRESS.exec(made.stdout);
+      if (made.code !== 0 || named === null || named[2] !== name)
+        return {
+          ...refuse(
+            'repository_not_made',
+            `GitHub didn't make a repository named ${name}, or didn't say so, so nothing was pushed. Your account may hold one of that name already: send it with another name.`,
+          ),
+          effect: 'unknown',
+        };
+      fullName = `${named[1]}/${named[2]}`;
+      options.onMade?.({ repository: fullName, visibility });
+    } else if (send.repository !== null) fullName = send.repository;
+    else return refuse('send_failed', 'Halcyonic could not prepare the send.');
+    // The person's own choice of how their git reaches GitHub, as gh keeps it.
+    const protocol = await this.#run(
+      gh,
+      ['config', 'get', 'git_protocol', '-h', 'github.com'],
+      15_000,
+    );
+    const remote = remoteOf(fullName, protocol.code === 0 && protocol.stdout.trim() === 'ssh');
+    const there = await this.#run(
+      this.#deps.git,
+      ['--git-dir', repository, 'ls-remote', '--heads', remote, 'refs/heads/main'],
+      60_000,
+    );
+    if (there.code !== 0)
+      return {
+        ...refuse(
+          'push_refused',
+          `GitHub has the repository ${fullName}, but this computer couldn't reach it, so nothing was pushed. Check that it can push there, then send again.`,
+        ),
+        effect: 'unknown',
+      };
+    const held = there.stdout.trim().split(/\s/)[0] ?? '';
+    // What `main` holds, if anything: a commit Halcyonic itself sent is known by its own repository
+    // holding it (a first send whose clone did not take); anything else is someone else's work.
+    let parent: string | null = null;
+    if (held !== '') {
+      const ours = await this.#run(this.#deps.git, [
+        '--git-dir',
+        repository,
+        'cat-file',
+        '-e',
+        `${held}^{commit}`,
+      ]);
+      if (ours.code !== 0)
+        return refuse(
+          'repository_not_empty',
+          `${fullName} already has commits Halcyonic didn't send, so nothing was pushed. Send it with git yourself.`,
+        );
+      parent = held;
+    }
+    const sameTree =
+      parent !== null &&
+      (
+        await this.#run(this.#deps.git, [
+          '--git-dir',
+          repository,
+          'rev-parse',
+          '--verify',
+          '--quiet',
+          `${parent}^{tree}`,
+        ])
+      ).stdout.trim() === tree;
+    let commit: string;
+    if (parent !== null && sameTree) commit = parent;
+    else {
+      const committed = await this.#run(this.#deps.git, [
+        '--git-dir',
+        repository,
+        'commit-tree',
+        tree,
+        ...(parent === null ? [] : ['-p', parent]),
+        '-m',
+        title,
+      ]);
+      commit = committed.stdout.trim();
+      if (committed.code !== 0 || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit))
+        return refuse('send_failed', 'The commit could not be made, so nothing was pushed.');
+      // On top of Halcyonic's own earlier commit, or into an empty `main`: never a force.
+      const pushed = await this.#run(
+        this.#deps.git,
+        [
+          '--git-dir',
+          repository,
+          '-c',
+          'core.hooksPath=/dev/null',
+          'push',
+          '--quiet',
+          remote,
+          `${commit}:refs/heads/main`,
+        ],
+        120_000,
+      );
+      if (pushed.code !== 0)
+        return {
+          ...refuse(
+            'push_refused',
+            `GitHub has the repository ${fullName}, but didn't take the push. Check that this computer can push to it, then send again.`,
+          ),
+          effect: 'unknown',
+        };
+    }
+    const cloned = await this.#cloneInto(folder, repository, commit, remote);
+    return {
+      ok: true,
+      send: { ...send, repository: fullName },
+      commit,
+      pullRequestUrl: null,
+      cloned,
+    };
+  }
+
+  /**
+   * Makes the folder the repository's clone, with none of anyone's git settings, templates or hooks,
+   * whole or not at all: its git folder is built beside, in the folder, as a bare repository holding
+   * the sent commit as `main` and `origin/main` (pushed in from Halcyonic's own repository, so no
+   * fetch record names this Mac's paths), `origin` the repository and the index as that commit; then
+   * it is made the folder's `.git` in one rename, which fails where a `.git` appeared meanwhile.
+   * The files themselves are never touched. False when it did not take; nothing is left behind.
+   */
+  async #cloneInto(
+    folder: string,
+    repository: string,
+    commit: string,
+    remote: string,
+  ): Promise<boolean> {
+    for (const entry of await readdir(folder).catch(() => [] as string[]))
+      if (entry.startsWith(CLONE_ASIDE))
+        await rm(join(folder, entry), { recursive: true, force: true });
+    const aside = join(folder, `${CLONE_ASIDE}${process.pid}-${Date.now()}`);
+    const none = { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
+    const steps: string[][] = [
+      ['init', '--bare', '--quiet', '--template=', '-b', 'main', aside],
+      [
+        '--git-dir',
+        repository,
+        '-c',
+        'core.hooksPath=/dev/null',
+        'push',
+        '--quiet',
+        aside,
+        `${commit}:refs/remotes/origin/main`,
+      ],
+      ['--git-dir', aside, 'update-ref', 'refs/heads/main', commit],
+      ['--git-dir', aside, 'config', 'remote.origin.url', remote],
+      ['--git-dir', aside, 'config', 'remote.origin.fetch', '+refs/heads/*:refs/remotes/origin/*'],
+      ['--git-dir', aside, 'config', 'branch.main.remote', 'origin'],
+      ['--git-dir', aside, 'config', 'branch.main.merge', 'refs/heads/main'],
+      ['--git-dir', aside, 'read-tree', 'refs/heads/main'],
+      ['--git-dir', aside, 'config', 'core.bare', 'false'],
+      ['--git-dir', aside, 'config', 'core.logAllRefUpdates', 'true'],
+    ];
+    try {
+      for (const step of steps)
+        if ((await this.#run(this.#deps.git, step, 60_000, none)).code !== 0) return false;
+      if ((await lstat(join(folder, '.git')).catch(() => null)) !== null) return false;
+      await rename(aside, join(folder, '.git'));
+      return true;
+    } catch {
+      return false;
+    } finally {
+      await rm(aside, { recursive: true, force: true });
+    }
   }
 
   /** Halcyonic's own bare repository for the project, made on first use in the person's object format. */
@@ -211,8 +463,16 @@ export class GitHubSender {
     checkId: CheckId,
     built: string | null,
     replaces: string | null,
+    options: PublishOptions = {},
   ): Promise<{ readonly ok: true; readonly publish: GitHubPublishReview } | SendFailure> {
-    const prepared = await this.#preparePublish(projectId, folder, checkId, built, replaces);
+    const prepared = await this.#preparePublish(
+      projectId,
+      folder,
+      checkId,
+      built,
+      replaces,
+      options,
+    );
     return prepared.ok ? { ok: true, publish: prepared.publish } : prepared;
   }
 
@@ -224,6 +484,7 @@ export class GitHubSender {
     built: string | null,
     replaces: string | null,
     review: string,
+    options: PublishOptions = {},
   ): Promise<
     | {
         readonly ok: true;
@@ -233,7 +494,14 @@ export class GitHubSender {
       }
     | SendFailure
   > {
-    const prepared = await this.#preparePublish(projectId, folder, checkId, built, replaces);
+    const prepared = await this.#preparePublish(
+      projectId,
+      folder,
+      checkId,
+      built,
+      replaces,
+      options,
+    );
     if (!prepared.ok) return prepared;
     const { publish, repository, tree, ssh } = prepared;
     if (publish.review !== review)
@@ -247,6 +515,33 @@ export class GitHubSender {
         'gh_signed_out',
         "GitHub's command line tool on this computer isn't signed in, so nothing was published.",
       );
+    const gh = this.#deps.gh as string;
+    // Made public first, as the review said: GitHub Free serves pages only from a public repository.
+    if (publish.make_public) {
+      const opened = await this.#run(
+        gh,
+        [
+          'repo',
+          'edit',
+          publish.repository,
+          '--visibility',
+          'public',
+          '--accept-visibility-change-consequences',
+        ],
+        60_000,
+      );
+      if (opened.code !== 0)
+        return {
+          ...refuse(
+            'not_made_public',
+            `GitHub didn't make ${publish.repository} public, or didn't say so, so nothing was published.`,
+          ),
+          effect: 'unknown',
+        };
+      options.onMadePublic?.(publish.repository);
+    }
+    // Said after a refusal once the repository was made public: that stays, and is recorded.
+    const madeNote = publish.make_public ? ` ${publish.repository} is public now.` : '';
     const committed = await this.#run(this.#deps.git, [
       '--git-dir',
       repository,
@@ -276,11 +571,11 @@ export class GitHubSender {
     if (pushed.code !== 0)
       return refuse(
         'push_refused',
-        `GitHub didn't take the publish, so nothing changed there. If the repository has a ${PAGES_BRANCH} branch Halcyonic did not write, remove it first.`,
+        `GitHub didn't take the publish, so no page changed.${madeNote} If the repository has a ${PAGES_BRANCH} branch Halcyonic did not write, remove it first.`,
       );
     // Pages turned on for the branch (GitHub answers that it is on already, after the first time),
-    // then its own address, as GitHub says it, or none.
-    const gh = this.#deps.gh as string;
+    // then its own address, as GitHub says it. A site GitHub does not keep is no publish: the branch
+    // just pushed comes down again, only while it still holds that commit.
     await this.#run(
       gh,
       [
@@ -301,12 +596,32 @@ export class GitHubSender {
       60_000,
     );
     const said = asked.stdout.trim();
-    const address =
-      asked.code === 0 && PAGES_ADDRESS.test(said)
-        ? said.endsWith('/')
-          ? said
-          : `${said}/`
-        : null;
+    if (asked.code !== 0) {
+      const removed = await this.#run(
+        this.#deps.git,
+        [
+          '--git-dir',
+          repository,
+          '-c',
+          'core.hooksPath=/dev/null',
+          'push',
+          '--quiet',
+          `--force-with-lease=refs/heads/${PAGES_BRANCH}:${commit}`,
+          remoteOf(publish.repository, ssh),
+          `:refs/heads/${PAGES_BRANCH}`,
+        ],
+        120_000,
+      );
+      const failure = refuse(
+        'pages_refused',
+        publish.visibility === 'private' && !publish.make_public
+          ? "GitHub doesn't serve pages from a private repository on a free plan, so nothing was published. Publish it again with Make Public."
+          : `GitHub didn't turn on pages for ${publish.repository}, so nothing was published.${madeNote} A private repository needs a paid plan for them.`,
+      );
+      // The branch just pushed came down again, so nothing beyond what was recorded is left.
+      return removed.code === 0 ? failure : { ...failure, effect: 'unknown' };
+    }
+    const address = PAGES_ADDRESS.test(said) ? (said.endsWith('/') ? said : `${said}/`) : null;
     return { ok: true, publish, commit, address };
   }
 
@@ -370,6 +685,7 @@ export class GitHubSender {
     checkId: CheckId,
     built: string | null,
     replaces: string | null,
+    options: PublishOptions,
   ): Promise<
     | {
         readonly ok: true;
@@ -412,11 +728,18 @@ export class GitHubSender {
       name === `${owner}.github.io`
         ? `https://${owner}.github.io/`
         : `https://${owner}.github.io/${name}/`;
+    // Who can see it as far as the journal says, for a repository a send of Halcyonic's made; else
+    // unknown, since a review asks GitHub nothing.
+    const visibility =
+      options.made?.repository === origin.fullName ? options.made.visibility : 'unknown';
+    const makePublic = options.makePublic === true && visibility !== 'public';
     const facts = {
       repository: origin.fullName,
       check_id: checkId,
       tree: tree.tree,
       links_left_out: tree.outside,
+      visibility,
+      make_public: makePublic,
       replaces,
       branch: PAGES_BRANCH,
     };
@@ -426,6 +749,8 @@ export class GitHubSender {
       check_id: checkId,
       files: tree.files,
       links_left_out: pathList(tree.outside),
+      visibility,
+      make_public: makePublic,
       replaces,
       address,
       review: reviewDigest('project.publish', { project_id: projectId }, facts),
@@ -437,9 +762,12 @@ export class GitHubSender {
     projectId: ProjectId,
     folder: string,
     otherFolders: readonly string[],
+    title: string,
+    options: SendOptions,
   ): Promise<{ readonly ok: true; readonly prepared: Prepared } | SendFailure> {
     const git = await lstat(join(folder, '.git')).catch(() => null);
-    if (git === null || !git.isDirectory())
+    if (git === null) return this.#prepareNew(projectId, folder, otherFolders, title, options);
+    if (!git.isDirectory())
       return refuse('not_a_repository', "The project's folder isn't a git repository of its own.");
     const origin = await readGitHubOrigin(folder);
     if (origin === null)
@@ -500,21 +828,108 @@ export class GitHubSender {
       base_commit: base,
       tree,
       new_branch: newBranch,
+      title,
       files,
       links_left_out: built.outside,
     };
     const send: GitHubSendReview = {
       project_id: projectId,
       repository: origin.fullName,
+      creates: null,
       branch,
       base_commit: base,
       new_branch: newBranch,
+      title,
       files,
       links_left_out: pathList(built.outside),
       pull_request: pullRequest,
       review: reviewDigest('project.send_to_github', { project_id: projectId }, facts),
     };
     return { ok: true, prepared: { send, ssh: origin.ssh, tree, repository } };
+  }
+
+  /**
+   * A send of a folder that is no git repository: every file the folder holds as git would add it, and
+   * `main`, into the repository an earlier first send made for this project, as the journal says, or
+   * into a new one it would make (named for the folder unless the person names it, in the account gh
+   * is signed in to, which a review never asks). A folder inside another repository is refused; the
+   * person's home folder kept as a repository of its own settings files does not count.
+   */
+  async #prepareNew(
+    projectId: ProjectId,
+    folder: string,
+    otherFolders: readonly string[],
+    title: string,
+    options: SendOptions,
+  ): Promise<{ readonly ok: true; readonly prepared: Prepared } | SendFailure> {
+    if (await insideRepository(folder, this.#deps.env.HOME ?? null))
+      return refuse(
+        'inside_repository',
+        "The project's folder is inside another git repository, so it isn't sent as one of its own. Send that repository with git yourself.",
+      );
+    if (this.#deps.gh === null)
+      return refuse(
+        'no_gh',
+        "Making a repository on GitHub needs GitHub's own command line tool on this computer, signed in.",
+      );
+    const name = options.name ?? slug(basename(folder));
+    if (!REPOSITORY_NAME.test(name))
+      return refuse(
+        'invalid_name',
+        'A repository name holds only letters, digits, dots, hyphens and underscores, at most 100.',
+      );
+    const repository = await this.#repository(projectId, 'sha1');
+    if (repository === null) return refuse('send_failed', 'Halcyonic could not prepare the send.');
+    const built = await this.#tree(repository, folder, otherFolders, null, null);
+    if (!built.ok) return built;
+    if (built.files === 0)
+      return refuse(
+        'nothing_to_send',
+        built.outside.length > 0
+          ? "The project's folder holds only links that point outside it, and those are never sent."
+          : "The project's folder holds nothing to send.",
+      );
+    const listed = await this.#run(this.#deps.git, [
+      '--git-dir',
+      repository,
+      'ls-tree',
+      '-r',
+      '-z',
+      '--name-only',
+      built.tree,
+    ]);
+    if (listed.code !== 0) return refuse('send_failed', "The project's files could not be read.");
+    const files = changedFileList(
+      listed.stdout
+        .split('\0')
+        .filter((path) => path !== '')
+        .map((path) => ({ path, change: 'added' as const })),
+    );
+    const made = options.made;
+    const creates =
+      made === undefined ? { name, visibility: options.visibility ?? 'private' } : null;
+    const facts = {
+      creates,
+      into: made?.repository ?? null,
+      tree: built.tree,
+      title,
+      files,
+      links_left_out: built.outside,
+    };
+    const send: GitHubSendReview = {
+      project_id: projectId,
+      repository: made?.repository ?? null,
+      creates,
+      branch: 'main',
+      base_commit: null,
+      new_branch: 'main',
+      title,
+      files,
+      links_left_out: pathList(built.outside),
+      pull_request: false,
+      review: reviewDigest('project.send_to_github', { project_id: projectId }, facts),
+    };
+    return { ok: true, prepared: { send, ssh: false, tree: built.tree, repository } };
   }
 
   /**
@@ -552,6 +967,7 @@ export class GitHubSender {
     }
     const held = (path: string) =>
       secretShapedPath(path) ||
+      path.split('/')[0]?.startsWith(CLONE_ASIDE) === true ||
       inside.some((other) => path === other || path.startsWith(`${other}/`));
     // What tells git which files the person keeps out, all of it read, or nothing is sent (AUDIT3
     // reread): the folder's `info/exclude` as a small regular file, never through a link, since an
@@ -790,6 +1206,60 @@ export class GitHubSender {
 /** The origin's address as the person's git reaches it, built from owner/name, never read out. */
 function remoteOf(fullName: string, ssh: boolean): string {
   return ssh ? `git@github.com:${fullName}.git` : `https://github.com/${fullName}.git`;
+}
+
+/**
+ * The title a send goes with, as its review shows it: the person's own, else the project's latest
+ * task's title, else the project's name. One line, control characters and runs of spaces made one
+ * space, at most 200 characters, as a typed one is held (Text(200)).
+ */
+export function sendTitle(
+  given: string | undefined,
+  project: { readonly name: string } | undefined,
+  tasks: readonly { readonly title: string; readonly updated_at: string }[],
+): string {
+  const latest = [...tasks].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.title;
+  for (const candidate of [given, latest, project?.name]) {
+    const flat = [...(candidate ?? '')]
+      .map((character) => {
+        const code = character.codePointAt(0) ?? 0;
+        return code < 0x20 || code === 0x7f || /\s/u.test(character) ? ' ' : character;
+      })
+      .join('')
+      .replace(/ +/g, ' ')
+      .trim();
+    const clean = [...flat].slice(0, 200).join('').trim();
+    if (clean !== '') return clean;
+  }
+  return 'Changes';
+}
+
+/** The start of the name of a clone's git folder while it is built beside, in the project's folder. */
+const CLONE_ASIDE = '.git-halcyonic-';
+
+/** A repository's name as GitHub takes one: letters, digits, dots, hyphens, underscores; never . or .. */
+const REPOSITORY_NAME = /^(?!\.\.?$)[A-Za-z0-9._-]{1,100}$/;
+
+/** A repository's address as `gh repo create` prints it: owner and name. */
+const REPOSITORY_ADDRESS =
+  /https:\/\/github\.com\/([A-Za-z0-9][A-Za-z0-9-]{0,38})\/([A-Za-z0-9._-]{1,100})(?![A-Za-z0-9._/-])/;
+
+/**
+ * Whether a folder above this one, up to the file system's root, holds a `.git`: then the folder is
+ * part of that repository. The person's home folder is passed over, since a home kept as a
+ * repository of its settings files is no project.
+ */
+async function insideRepository(folder: string, home: string | null): Promise<boolean> {
+  const real = await realpath(folder);
+  const homeReal = home === null ? null : await realpath(home).catch(() => null);
+  let parent = dirname(real);
+  for (;;) {
+    if (parent !== homeReal && (await lstat(join(parent, '.git')).catch(() => null)) !== null)
+      return true;
+    const up = dirname(parent);
+    if (up === parent) return false;
+    parent = up;
+  }
 }
 
 const PAGES_ADDRESS = /^https:\/\/[A-Za-z0-9-]{1,39}\.github\.io\/(?:[A-Za-z0-9._-]{1,100}\/?)?$/;

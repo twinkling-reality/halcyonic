@@ -5,7 +5,8 @@ import { join } from 'node:path';
 /**
  * A project folder whose origin is `https://github.com/owner/garden.git`, which the test's own git
  * settings (in `home`) point at a local bare repository, and a stand-in `gh` that records each call
- * and answers with a pull request's address, and with a Pages address when asked for one. Its https,
+ * and answers with a pull request's address, and with a Pages address when asked for one (none once a
+ * file `pages-refused` is in `root`, as GitHub answers for a site it does not keep). Its https,
  * `git@` and `ssh://` forms all lead there, and any other github.com address to a path that is not
  * there: nothing reaches github.com, and no one's sign-in is used (ADR 0039, amended).
  */
@@ -52,7 +53,7 @@ export function standInGitHub(root: string) {
   git(folder, 'push', '-q', 'origin', 'main');
   writeFileSync(
     ghPath,
-    `#!/bin/sh\necho "$* token:\${GH_TOKEN:-none}" >> '${ghLog}'\nif [ "$1" = pr ]; then echo 'https://github.com/owner/garden/pull/7'; fi\nif [ "$1" = api ] && [ "$3" = '--jq' ]; then echo 'https://owner.github.io/garden/'; fi\nexit 0\n`,
+    `#!/bin/sh\necho "$* token:\${GH_TOKEN:-none}" >> '${ghLog}'\nif [ "$1" = pr ]; then echo 'https://github.com/owner/garden/pull/7'; fi\nif [ "$1" = api ] && [ "$3" = '--jq' ]; then [ -e '${join(root, 'pages-refused')}' ] && exit 1; echo 'https://owner.github.io/garden/'; fi\nexit 0\n`,
   );
   chmodSync(ghPath, 0o755);
   return { home, projects, folder, origin, ghLog, ghPath, git };

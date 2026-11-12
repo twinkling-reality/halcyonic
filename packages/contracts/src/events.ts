@@ -22,7 +22,7 @@ import {
 import { ChangedFiles, ConflictedFiles, CopyRefusalCode } from './copies.ts';
 import { DeviceLabel, Principal, Sha256Hex } from './devices.ts';
 import { FilesObserved } from './file-changes.ts';
-import { GitBranchName, PagesAddress, PullRequestUrl } from './github.ts';
+import { GitBranchName, PagesAddress, PullRequestUrl, RepositoryVisibility } from './github.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
 import {
   OWN_CHECK_SCRIPT_NAMES,
@@ -503,6 +503,22 @@ export const ProjectPublished = projectEvent(
   ),
 );
 
+/**
+ * A first send of a folder that was no repository made `repository` in the person's own account with
+ * their gh, seen by `visibility` (ADR 0039, amended), recorded the moment GitHub made it, whatever the
+ * push after it did.
+ */
+export const ProjectRepositoryMade = projectEvent(
+  'project.repository_made',
+  Type.Object({ repository: RepositoryFullName, visibility: RepositoryVisibility }, strict),
+);
+
+/** A publish made `repository` public with the person's gh before it asked for pages (ADR 0039). */
+export const ProjectRepositoryMadePublic = projectEvent(
+  'project.repository_made_public',
+  Type.Object({ repository: RepositoryFullName }, strict),
+);
+
 /** The published game was taken down: `branch` of `repository` was deleted. */
 export const ProjectUnpublished = projectEvent(
   'project.unpublished',
@@ -535,7 +551,8 @@ export const ProjectSentToGitHub = projectEvent(
     {
       repository: RepositoryFullName,
       branch: GitBranchName,
-      base_commit: GitObjectId,
+      /** Null for a first send that made the repository. */
+      base_commit: Nullable(GitObjectId),
       new_branch: GitBranchName,
       commit: GitObjectId,
       pull_request_url: Nullable(PullRequestUrl),
@@ -1196,6 +1213,8 @@ export const EVENT_VARIANTS = [
   ProjectShareStarted,
   ProjectShareStopped,
   ProjectSentToGitHub,
+  ProjectRepositoryMade,
+  ProjectRepositoryMadePublic,
   ProjectPublished,
   ProjectUnpublished,
   ProjectSecretStored,
