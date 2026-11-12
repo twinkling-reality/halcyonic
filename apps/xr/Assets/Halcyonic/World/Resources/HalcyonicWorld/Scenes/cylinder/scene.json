@@ -1,0 +1,43 @@
+{
+  "format": 1,
+  "scene": "cylinder",
+  "says": "The inside of a vast turning cylinder, seen from a balcony high on its near end: land all round and overhead, towns and a lake on it, a chain of small suns along its middle, long windows down its length, and a sun low in a window at the far end.",
+  "lights": [
+    {
+      "light": "sunset",
+      "says": "The sun low in the window at the far end, and the warm light it sends down the world",
+      "when": "day"
+    },
+    {
+      "light": "beam",
+      "says": "That sun's gold beam through the long window on the right, lying as a band of gold across the land on the left",
+      "when": "day"
+    },
+    {
+      "light": "suns",
+      "says": "The chain of small suns along the world's middle, dim at dusk, and the warm light they cast on the land overhead",
+      "when": "day"
+    },
+    {
+      "light": "skylight",
+      "says": "The sky's light coming in through the long windows",
+      "when": "day"
+    },
+    { "light": "moon", "says": "The night's cold light", "when": "night" },
+    {
+      "light": "towns",
+      "says": "Every town's windows and street lamps, and the balcony's lanterns",
+      "when": "all"
+    }
+  ],
+  "places": [
+    { "place": "tower", "says": "The lantern tower on the knoll by the lake below the balcony" },
+    { "place": "lake", "says": "The town just past the lake, a little to the right" },
+    { "place": "left", "says": "A town up the land rising on the left" },
+    { "place": "right", "says": "A town up the land rising on the right" },
+    { "place": "overhead", "says": "A town high overhead, toward the right" },
+    { "place": "far_left", "says": "A town far down the world, up on the left" },
+    { "place": "far_right", "says": "A town far down the world, up on the right" },
+    { "place": "far_end", "says": "A town at the foot of the far end, under the sunset" }
+  ]
+}

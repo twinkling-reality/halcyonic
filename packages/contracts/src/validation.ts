@@ -10,7 +10,7 @@ import {
 import { EVENT_VARIANTS, type EventEnvelope } from './events.ts';
 import { type ClientMessage, HelloMessage, PingMessage } from './realtime.ts';
 import { toolResultProblem } from './tool-results.ts';
-import { WorldDescription } from './world.ts';
+import { WorldDescription, WorldDescriptionFormat1, WorldScene } from './world.ts';
 
 export interface ValidationIssue {
   /** JSON Pointer to the offending value, `/` for the root. */
@@ -127,7 +127,7 @@ function checkEventSemantics(event: EventEnvelope): ValidationIssue[] {
     issues.push({ path: '/provenance/epistemic', message: 'agent text must be "reported"' });
   }
   if (
-    event.event_type === 'project.world.observed' &&
+    (event.event_type === 'project.world.observed' || event.event_type === 'project.world.read') &&
     (event.payload.description === null) === (event.payload.refused === null)
   ) {
     issues.push({
@@ -156,14 +156,68 @@ export function parseEventEnvelope(value: unknown): Validated<EventEnvelope> {
 }
 
 const validateWorldDescription = compileValidator(WorldDescription);
+const validateWorldDescriptionFormat1 = compileValidator(WorldDescriptionFormat1);
+const validateWorldScene = compileValidator(WorldScene);
+
+/** The first name in a list given twice, by its position, or null. */
+function twice<T>(items: readonly T[], name: (item: T) => string): number | null {
+  const seen = new Set<string>();
+  for (const [index, item] of items.entries()) {
+    if (seen.has(name(item))) return index;
+    seen.add(name(item));
+  }
+  return null;
+}
 
 /**
- * Validates a world's description as parsed from its file (ADR 0049): a member it does not name, a
- * number outside its range, a colour that is not six hexadecimal digits or a list past its cap is
- * refused, with where.
+ * Validates a scene's manifest (ADR 0049): its shape, and each of its lights and places named once.
  */
-export function parseWorldDescription(value: unknown): Validated<WorldDescription> {
-  return validateWorldDescription(value);
+export function parseWorldScene(value: unknown): Validated<WorldScene> {
+  const validated = validateWorldScene(value);
+  if (!validated.ok) return validated;
+  const light = twice(validated.value.lights, (l) => l.light);
+  if (light !== null) return invalid(`/lights/${light}/light`, 'names a light already named');
+  const place = twice(validated.value.places, (p) => p.place);
+  if (place !== null) return invalid(`/places/${place}/place`, 'names a place already named');
+  return validated;
+}
+
+/**
+ * Validates a world's description as parsed from its file against the scenes the Mac has (ADR 0049,
+ * format 2): a member it does not name, a number outside its range, a colour that is not six
+ * hexadecimal digits or a list past its cap is refused, and so is a scene the Mac does not have, a light
+ * its scene does not have, missing or given twice, and a place its scene does not have or given twice;
+ * each with where.
+ */
+export function parseWorldDescription(
+  value: unknown,
+  scenes: ReadonlyMap<string, WorldScene>,
+): Validated<WorldDescription> {
+  const validated = validateWorldDescription(value);
+  if (!validated.ok) return validated;
+  const description = validated.value;
+  const scene = scenes.get(description.scene);
+  if (scene === undefined) return invalid('/scene', 'is not a scene this computer has');
+  const lights = new Set(scene.lights.map((l) => l.light));
+  for (const [index, light] of description.lights.entries())
+    if (!lights.has(light.light))
+      return invalid(`/lights/${index}/light`, 'is not a light of its scene');
+  const light = twice(description.lights, (l) => l.light);
+  if (light !== null) return invalid(`/lights/${light}/light`, 'is a light already given');
+  if (description.lights.length !== lights.size)
+    return invalid('/lights', 'does not give every light of its scene');
+  const places = new Set(scene.places.map((p) => p.place));
+  for (const [index, place] of description.places.entries())
+    if (!places.has(place.at)) return invalid(`/places/${index}/at`, 'is not a place of its scene');
+  const place = twice(description.places, (p) => p.at);
+  if (place !== null)
+    return invalid(`/places/${place}/at`, 'is a place already given to a project');
+  return validated;
+}
+
+/** Validates a format 1 description (an open sea, before 2026-11-12), only to bring its world forward. */
+export function parseWorldDescriptionFormat1(value: unknown): Validated<WorldDescriptionFormat1> {
+  return validateWorldDescriptionFormat1(value);
 }
 
 /** How deep a client message may nest objects and arrays; every contract needs far fewer. */

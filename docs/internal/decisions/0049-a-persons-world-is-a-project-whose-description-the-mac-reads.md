@@ -1,6 +1,6 @@
 # ADR 0049: A person's world is a project whose description the Mac reads and the headset draws
 
-- Status: Proposed. Built and tested on this Mac: the description's contract, the Mac's own reading of it after
+- Status: Proposed (decision 9 added 2026-11-12, on WORLDS's branch, not landed). Built and tested on this Mac: the description's contract, the Mac's own reading of it after
   a turn, the event and the project's view that carry it, and the world starter; the headset's own check of a
   description, its night and its places, and its sound composed in code; the headset's showing of a world rendered
   offline (decision 8), checked in Editor renders against the picture. Run once with a local model: a spoken
@@ -35,10 +35,11 @@ Read from the code and from current public documentation on 2026-11-10:
    description file, `world.json`, and a guide for its agent. Its agent is a task like any other. A project is a
    world only by that starter (`WORLD_STARTER_ID`), never by what its folder happens to hold.
 2. **The description is data, never code.** `WorldDescription` in `packages/contracts` names everything a world
-   can say: a sky, a sun or moon, stars, clouds, mist, water, the ground the person is on, wind, and at most 8
-   places, each a project's name with a bearing and a distance. Every number has a range, every colour is six
-   hexadecimal digits, nothing else may be present, and no member can hold a path, an address, a file name or a
-   picture. A place's project name is the one free text: a client compares it with the names of the projects it
+   can say (format 2 since 2026-11-12, decision 9: its scene, how far night has come, each of the scene's lights
+   with a brightness and a tint, the haze, and which of the scene's places is which project's; format 1's sky,
+   disc, stars, clouds, mist, water, ground, wind and places by bearing are kept only so old journals read).
+   Every number has a range, every colour is six hexadecimal digits, nothing else may be present, and no member
+   can hold a path, an address, a file name or a picture. A place's project name is the one free text: a client compares it with the names of the projects it
    knows and never draws it, opens it or uses it as a path.
 3. **The Mac reads the file itself.** When the starter's files are in a project's folder, and after each turn
    the Mac observed there, the control plane opens `world.json` at the top of the project's own folder without
@@ -69,6 +70,23 @@ Read from the code and from current public documentation on 2026-11-10:
    moves it. A build without the pictures keeps the stock Virtual Space. Changes that need a new picture (the
    land, the season, the hour) are a re-render on the Mac, minutes, not seconds; their vocabulary is a later
    contract change.
+
+9. **Every member moves something seen; each scene declares its own lights and places** (amended 2026-11-12,
+   from WORLDS's count: of format 1's 25 members the headset drew two, and the scene rendered had none of its
+   sea). The offline render comes apart into linear light layers that sum exactly to the picture (each light
+   alone, the air from the depth). A scene ships a manifest, `WorldScene` (`starters/world/scenes/<scene>.json`),
+   naming each light (with one plain line and whether it shines by day, by night or at all times) and each
+   place (one line). A description names its scene and gives each of its lights once (`brightness` 0 to 4, 1 as
+   made, and a tint) and at most each of its places once; the Mac validates it against the manifest, the
+   headset mixes the layers the manifest names by those values (day lights fade as `night` rises, night lights
+   come), so a spoken change shows within seconds with no render, and the agent's guide lists exactly the
+   manifest's lights and places (a test holds the guide to the manifest). A later scene costs its pictures and
+   a manifest, not a contract change. Events are never rewritten: format 1's `project.world.observed` stays
+   readable and the projection takes nothing from it; the Mac records `project.world.read`. A world found in
+   format 1 (after a turn, or when the Mac starts and a world has no reading of format 2) is brought forward
+   once, `project.world.brought_forward`: its format 2 file keeps how far night had come and its places in
+   order, in the starter's scene, and its guide is replaced only if it is the format 1 guide as written. No
+   person's world silently becomes the stock one.
 
 ## Alternatives considered
 

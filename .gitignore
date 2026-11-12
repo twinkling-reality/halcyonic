@@ -74,3 +74,8 @@ coverage/
 /apps/xr/Assets/StreamingAssets.meta
 /apps/xr/Assets/Resources/PerformanceTestRun*.json
 /apps/xr/Assets/Resources/PerformanceTestRun*.json.meta
+
+# A world scene's baked pictures stay private (ADR 0049); the build copies them in. Only its manifest is tracked.
+apps/xr/Assets/Halcyonic/World/Resources/HalcyonicWorld/Scenes/*/*
+!apps/xr/Assets/Halcyonic/World/Resources/HalcyonicWorld/Scenes/*/scene.json
+!apps/xr/Assets/Halcyonic/World/Resources/HalcyonicWorld/Scenes/*/scene.json.meta

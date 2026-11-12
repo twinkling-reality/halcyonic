@@ -90,6 +90,8 @@ const ROOTS: readonly string[] = [
   'RuntimesResponse',
   'RuntimeModelsResponse',
   'LocationsResponse',
+  // A scene's manifest, which the headset reads beside its pictures (ADR 0049).
+  'WorldScene',
   'StartersResponse',
   'EventsResponse',
   'CommandSubmissionResponse',

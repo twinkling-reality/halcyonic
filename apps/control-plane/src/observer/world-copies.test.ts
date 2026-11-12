@@ -31,7 +31,7 @@ const TRACKED = fileURLToPath(new URL('../../../../starters', import.meta.url));
 const starting = JSON.parse(
   readFileSync(join(TRACKED, WORLD_STARTER_ID, 'template', WORLD_FILE), 'utf8'),
 );
-const night = { ...starting, stars: 0.9 };
+const night = { ...starting, night: 0.9 };
 
 async function until(check: () => boolean, what: string) {
   for (let i = 0; i < 1000; i += 1) {
@@ -131,7 +131,7 @@ test("a world project's task gets no copy: it changes the world in place, and th
     );
   };
   const events = (): EventEnvelope[] => [...journal.readAll()].map((s) => s.event);
-  const worlds = () => events().filter((e) => e.event_type === 'project.world.observed').length;
+  const worlds = () => events().filter((e) => e.event_type === 'project.world.read').length;
   const made = submit('project.create', {
     name: 'My World',
     location: {
@@ -169,14 +169,14 @@ test("a world project's task gets no copy: it changes the world in place, and th
   const shown = () =>
     (
       controlPlane.projection.project(projectId)?.world?.description as
-        | { stars?: number }
+        | { night?: number }
         | undefined
-    )?.stars;
+    )?.night;
   await until(() => worlds() === 2, 'the world read again after the turn');
-  assert.equal(shown(), night.stars, 'the world shown is the one the turn wrote');
+  assert.equal(shown(), night.night, 'the world shown is the one the turn wrote');
   assert.equal(
-    JSON.parse(readFileSync(join(projects, 'world', WORLD_FILE), 'utf8')).stars,
-    night.stars,
+    JSON.parse(readFileSync(join(projects, 'world', WORLD_FILE), 'utf8')).night,
+    night.night,
   );
   await controlPlane.close();
 });

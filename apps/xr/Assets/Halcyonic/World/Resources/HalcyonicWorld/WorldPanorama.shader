@@ -1,16 +1,11 @@
-// A person's world as it was rendered for them: one picture all round, drawn on a shell shaped by the
-// picture's own depth so near things stand nearer. Four pictures of one render are mixed live: dusk and
-// night, each with and without the one place lit. Their light was summed in linear light and given one view
-// transform before they were saved, so each is a finished picture and the mix is a crossfade between them.
+// A person's world as it was mixed for them: one picture all round, drawn on a shell shaped by the picture's own
+// depth so near things stand nearer. The picture is the scene's layers mixed by the person's description
+// (WorldMix.shader), made again only when the mix changes.
 Shader "Halcyonic/World/Panorama"
 {
     Properties
     {
-        _PanoDusk ("Dusk", 2D) = "black" {}
-        _PanoNight ("Night", 2D) = "black" {}
-        _PanoDuskPlace ("Dusk, the place lit", 2D) = "black" {}
-        _PanoNightPlace ("Night, the place lit", 2D) = "black" {}
-        _PanoPlaceOn ("Place on", Range(0, 1)) = 0
+        _PanoMixed ("The mixed world", 2D) = "black" {}
     }
     SubShader
     {
@@ -27,11 +22,7 @@ Shader "Halcyonic/World/Panorama"
             #include "UnityCG.cginc"
             #include "HalcyonicWorld.cginc"
 
-            sampler2D _PanoDusk;
-            sampler2D _PanoNight;
-            sampler2D _PanoDuskPlace;
-            sampler2D _PanoNightPlace;
-            half _PanoPlaceOn;
+            sampler2D _PanoMixed;
 
             struct appdata
             {
@@ -80,11 +71,9 @@ Shader "Halcyonic/World/Panorama"
             {
                 float2 dx, dy;
                 float2 uv = PanoUv(i.dir, dx, dy);
-                half3 dusk = lerp(tex2Dgrad(_PanoDusk, uv, dx, dy).rgb, tex2Dgrad(_PanoDuskPlace, uv, dx, dy).rgb, _PanoPlaceOn);
-                half3 night = lerp(tex2Dgrad(_PanoNight, uv, dx, dy).rgb, tex2Dgrad(_PanoNightPlace, uv, dx, dy).rgb, _PanoPlaceOn);
-                half3 c = lerp(dusk, night, _WorldNight);
+                half3 c = tex2Dgrad(_PanoMixed, uv, dx, dy).rgb;
                 // The arrival: the picture opens outward from the person, near things first.
-                c *= lerp(0.0, 1.0, WorldArrived(i.distance));
+                c *= WorldArrived(i.distance);
                 return half4(c, 1.0);
             }
             ENDCG

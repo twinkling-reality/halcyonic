@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
-import type { CommandEnvelope, CommandId, WorldDescription } from '@halcyonic/contracts';
+import type {
+  CommandEnvelope,
+  CommandId,
+  WorldDescription,
+  WorldDescriptionFormat1,
+} from '@halcyonic/contracts';
 import { admitCommand } from './admission.ts';
 import { Projection } from './projection.ts';
 import { EventBuilder } from './testing/events.ts';
@@ -9,7 +14,7 @@ import { EventBuilder } from './testing/events.ts';
 const starting = JSON.parse(
   readFileSync(new URL('../../../starters/world/template/world.json', import.meta.url), 'utf8'),
 ) as WorldDescription;
-const night: WorldDescription = { ...starting, stars: 0.9 };
+const night: WorldDescription = { ...starting, night: 1 };
 const refused = {
   code: 'not_json',
   where: null,
@@ -39,7 +44,7 @@ describe("a world project's description in current state (ADR 0049)", () => {
     const { b, projection, scope, projectId } = made('world');
     assert.equal(projection.project(projectId)?.world, undefined);
     assert.equal(projection.world(projectId), undefined);
-    const first = b.controlPlane('project.world.observed', scope, {
+    const first = b.controlPlane('project.world.read', scope, {
       description: starting,
       refused: null,
     });
@@ -53,38 +58,58 @@ describe("a world project's description in current state (ADR 0049)", () => {
       observed_at: first.event.occurred_at,
     });
     projection.apply(
-      b.controlPlane('project.world.observed', scope, { description: night, refused: null }),
+      b.controlPlane('project.world.read', scope, { description: night, refused: null }),
     );
     assert.deepEqual(projection.world(projectId)?.description, night);
   });
 
   test('a refused reading keeps the last valid description and says why; a valid one clears the why', () => {
     const { b, projection, scope, projectId } = made('world');
-    projection.apply(
-      b.controlPlane('project.world.observed', scope, { description: null, refused }),
-    );
+    projection.apply(b.controlPlane('project.world.read', scope, { description: null, refused }));
     assert.deepEqual(projection.world(projectId)?.description, null);
     assert.deepEqual(projection.world(projectId)?.refused, refused);
     projection.apply(
-      b.controlPlane('project.world.observed', scope, { description: night, refused: null }),
+      b.controlPlane('project.world.read', scope, { description: night, refused: null }),
     );
-    projection.apply(
-      b.controlPlane('project.world.observed', scope, { description: null, refused }),
-    );
+    projection.apply(b.controlPlane('project.world.read', scope, { description: null, refused }));
     assert.deepEqual(projection.world(projectId)?.description, night);
     assert.deepEqual(projection.world(projectId)?.refused, refused);
     projection.apply(
-      b.controlPlane('project.world.observed', scope, { description: starting, refused: null }),
+      b.controlPlane('project.world.read', scope, { description: starting, refused: null }),
     );
     assert.deepEqual(projection.project(projectId)?.world?.description, starting);
     assert.equal(projection.project(projectId)?.world?.refused, null);
+  });
+
+  test('a format 1 reading, written before format 2, stays readable and gives the world nothing', () => {
+    const { b, projection, scope, projectId } = made('world');
+    projection.apply(
+      b.controlPlane('project.world.read', scope, { description: night, refused: null }),
+    );
+    const sea: WorldDescriptionFormat1 = {
+      format: 1,
+      sky: { zenith: '#27405E', band: null, horizon: '#F0C9A8' },
+      disc: null,
+      stars: 0.25,
+      clouds: { amount: 0.2, colour: '#E9B7A6' },
+      mist: { amount: 0.45, colour: '#E6C4B0' },
+      water: { near: '#1B3148', far: '#6E8AA6', ripple: 0.25, shine: 0.7 },
+      ground: { colour: '#2B2F36', radius: 3 },
+      wind: { bearing: 60, strength: 0.2 },
+      places: [],
+    };
+    const applied = projection.apply(
+      b.controlPlane('project.world.observed', scope, { description: sea, refused: null }),
+    );
+    assert.deepEqual(applied.changes.projects, []);
+    assert.deepEqual(projection.world(projectId)?.description, night);
   });
 
   test('a reading for a project that does not exist is noted and changes nothing', () => {
     const { b, projection } = made('world');
     const unknown = { project_id: b.id() as never, workstream_id: null, execution_id: null };
     const applied = projection.apply(
-      b.controlPlane('project.world.observed', unknown, { description: starting, refused: null }),
+      b.controlPlane('project.world.read', unknown, { description: starting, refused: null }),
     );
     assert.equal(applied.notes[0]?.code, 'unknown_entity');
     assert.equal(projection.world(unknown.project_id), undefined);

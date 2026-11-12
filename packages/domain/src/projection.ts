@@ -249,9 +249,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * that ended with no reply (`observed`, LOOP C). 13: each project's published game (ADR 0039,
  * amended). 14: each project's secrets by name (ADR 0057). 15: each project's rules while on (`rules`, E5).
  * 16: when a start found a task's copy gone (`missing_at`, ADR 0045). 17: who can see each repository
- * a first send of Halcyonic's made (ADR 0039, amended); each raised past the base's again at the rebase.
+ * a first send of Halcyonic's made (ADR 0039, amended). 18: a world's description is format 2 and only
+ * `project.world.read` gives it (ADR 0049); each raised past the base's again at the rebase.
  */
-export const PROJECTION_STATE_FORMAT = 17;
+export const PROJECTION_STATE_FORMAT = 18;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -1772,7 +1773,13 @@ export class Projection {
       case 'execution.rules_given':
         // A record of what the host put before a task's first instruction (E5); nothing to keep.
         return;
-      case 'project.world.observed': {
+      case 'project.world.observed':
+        // Format 1, written before 2026-11-12: kept readable, and nothing of it is taken (ADR 0049).
+        return;
+      case 'project.world.brought_forward':
+        // What the world is now arrives as its reading, `project.world.read`, which follows it.
+        return;
+      case 'project.world.read': {
         if (!this.#projects.has(event.project_id)) {
           notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
           return;

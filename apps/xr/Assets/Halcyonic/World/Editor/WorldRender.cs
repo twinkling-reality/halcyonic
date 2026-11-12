@@ -2,6 +2,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using Halcyonic.Client;
+using Halcyonic.Contracts;
+using Newtonsoft.Json;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -9,32 +13,49 @@ using UnityEngine;
 namespace Halcyonic.XR.World.Editor
 {
     /// <summary>
-    /// Renders a person's world as the eyes would see it, without a headset: views from where the picture was rendered,
-    /// in an empty scene each, into <c>Builds/WorldRenders</c>. In batch mode, with graphics:
-    /// <c>-executeMethod Halcyonic.XR.World.Editor.WorldRender.Check</c>, with <c>HALCYONIC_WORLD_PANORAMA</c> naming a
-    /// folder of pictures (<c>dusk.png</c>, <c>night.png</c>, <c>dusk-place.png</c>, <c>night-place.png</c>,
-    /// <c>depth-512x256.f32</c>); without it, the pictures the build holds under
-    /// <c>Resources/HalcyonicWorld/Pictures</c>. <c>HALCYONIC_WORLD_ONLY</c> narrows to the views whose names hold it.
-    /// A render is a picture of what is drawn, never proof of how it looks or runs on the headset.
+    /// Renders a person's world as the eyes would see it, without a headset: views from where the scene was rendered, each
+    /// mixed from a description as the headset mixes it (ADR 0049, decision 9), in an empty scene each, into
+    /// <c>Builds/WorldRenders</c>. In batch mode, with graphics: <c>-executeMethod Halcyonic.XR.World.Editor.WorldRender.Check</c>,
+    /// with <c>HALCYONIC_WORLD_SCENE</c> naming a folder a bake left; without it, the first scene the build holds. The
+    /// descriptions are the world starter's own (<c>HALCYONIC_WORLD_STARTER</c> names its <c>world.json</c>) with one change
+    /// each, as a person would speak it. <c>HALCYONIC_WORLD_ONLY</c> narrows to the views whose names hold it. A render is
+    /// a picture of what is drawn, never proof of how it looks or runs on the headset.
     /// </summary>
     public static class WorldRender
     {
         private const int Width = 2000;
         private const int Height = 1800;
 
-        private static readonly (string Name, float Pitch, float Yaw, float Night, float Place, Vector3 Head)[] Shots =
+        private static readonly (string Name, float Pitch, float Yaw, Action<WorldDescription> Change, string[] Lit)[] Shots =
         {
-            ("pano-ahead", 8f, 0f, 0f, 0f, Vector3.zero),
-            ("pano-up", 35f, 0f, 0f, 0f, Vector3.zero),
-            ("pano-overhead", 86f, 0f, 0f, 0f, Vector3.zero),
-            ("pano-left", 6f, -80f, 0f, 0f, Vector3.zero),
-            ("pano-down", -35f, 0f, 0f, 0f, Vector3.zero),
-            ("pano-place", 8f, 0f, 0f, 1f, Vector3.zero),
-            ("pano-turn", 8f, 0f, 0.5f, 0f, Vector3.zero),
-            ("pano-night", 8f, 0f, 1f, 0f, Vector3.zero),
-            ("pano-night-up", 35f, 0f, 1f, 1f, Vector3.zero),
-            ("pano-moved", 8f, 0f, 0f, 0f, new Vector3(0.2f, 0.1f, 0.15f)),
+            ("as-made-ahead", 8f, 0f, _ => { }, new string[0]),
+            ("as-made-up", 35f, 0f, _ => { }, new string[0]),
+            ("as-made-overhead", 86f, 0f, _ => { }, new string[0]),
+            ("as-made-left", 6f, -80f, _ => { }, new string[0]),
+            ("as-made-right", 6f, 80f, _ => { }, new string[0]),
+            ("as-made-down", -35f, 0f, _ => { }, new string[0]),
+            ("night-ahead", 8f, 0f, d => d.Night = 1, new string[0]),
+            ("night-up", 35f, 0f, d => d.Night = 1, new string[0]),
+            ("half-night", 8f, 0f, d => d.Night = 0.5, new string[0]),
+            ("warmer-sunset", 8f, 0f, d => Light(d, "sunset", 2, "#FFB070"), new string[0]),
+            ("suns-off", 35f, 0f, d => Light(d, "suns", 0, "#FFFFFF"), new string[0]),
+            ("clear-air", 8f, 0f, d => d.Haze.Thickness = 0.3, new string[0]),
+            ("thick-air", 8f, 0f, d => d.Haze.Thickness = 2, new string[0]),
+            ("towns-bright-night", 8f, 0f, d => { d.Night = 1; Light(d, "towns", 3, "#FFFFFF"); }, new string[0]),
+            ("places-lit", 8f, 0f, _ => { }, new[] { "*" }),
+            ("places-lit-night", 8f, 0f, d => d.Night = 1, new[] { "*" }),
+            ("places-lit-up", 35f, 0f, _ => { }, new[] { "*" }),
         };
+
+        /// <summary>A light changed as a person would say it: its brightness times the starter's ("twice as bright"), its tint as given.</summary>
+        private static void Light(WorldDescription d, string light, double times, string colour)
+        {
+            foreach (var l in d.Lights.Where(l => l.Light == light))
+            {
+                l.Brightness = System.Math.Min(4, l.Brightness * times);
+                l.Colour = colour;
+            }
+        }
 
         [MenuItem("Halcyonic/Render the World")]
         public static void Menu() => Run(exitWhenDone: false);
@@ -44,7 +65,9 @@ namespace Halcyonic.XR.World.Editor
         private static void Run(bool exitWhenDone)
         {
             var only = Environment.GetEnvironmentVariable("HALCYONIC_WORLD_ONLY");
-            var from = Environment.GetEnvironmentVariable("HALCYONIC_WORLD_PANORAMA");
+            var from = Environment.GetEnvironmentVariable("HALCYONIC_WORLD_SCENE");
+            var starterPath = Environment.GetEnvironmentVariable("HALCYONIC_WORLD_STARTER");
+            if (string.IsNullOrEmpty(starterPath)) starterPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "..", "starters", "world", "template", "world.json"));
             var failures = new List<string>();
             var rendered = 0;
             var made = new List<Texture2D>();
@@ -52,30 +75,30 @@ namespace Halcyonic.XR.World.Editor
             {
                 var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "WorldRenders"));
                 Directory.CreateDirectory(folder);
-                Texture2D? Picture(string name)
-                {
-                    if (string.IsNullOrEmpty(from)) return Resources.Load<Texture2D>(WorldView.PicturesPath + name);
-                    var path = Path.Combine(from, name + ".png");
-                    if (!File.Exists(path)) return null;
-                    var texture = new Texture2D(2, 2, TextureFormat.RGBA32, true, false) { wrapModeU = TextureWrapMode.Repeat, wrapModeV = TextureWrapMode.Clamp, anisoLevel = 4, filterMode = FilterMode.Trilinear, hideFlags = HideFlags.DontSave };
-                    texture.LoadImage(File.ReadAllBytes(path));
-                    made.Add(texture);
-                    return texture;
-                }
-                var dusk = Picture("dusk");
-                var night = Picture("night");
-                if (dusk == null || night == null) throw new InvalidOperationException("no dusk and night pictures");
-                var duskPlace = Picture("dusk-place");
-                var nightPlace = Picture("night-place");
-                var depth = Depth(from);
+                string? why;
+                var pictures = string.IsNullOrEmpty(from)
+                    ? WorldPictures.InBuild().Where(WorldPictures.PicturesInBuild).Select(scene => WorldPictures.FromBuild(scene, out _)).FirstOrDefault(p => p != null)
+                    : WorldPictures.FromFolder(from, made, out why);
+                if (pictures == null) throw new InvalidOperationException("no scene's pictures");
+                var starting = File.ReadAllText(starterPath);
                 foreach (var shot in Shots)
                 {
                     if (!string.IsNullOrEmpty(only) && shot.Name.IndexOf(only, StringComparison.OrdinalIgnoreCase) < 0) continue;
-                    var problem = RenderOne(shot, folder, dusk, night, duskPlace, nightPlace, depth);
+                    var description = JsonConvert.DeserializeObject<WorldDescription>(starting)!;
+                    shot.Change(description);
+                    var mix = WorldOf.Read(description, pictures.Scene, new List<ProjectView>(), out why);
+                    if (mix == null)
+                    {
+                        failures.Add(shot.Name + ": its description is not one (" + why + ")");
+                        continue;
+                    }
+                    var lit = shot.Lit.Contains("*") ? pictures.Scene.Places.Select(p => p.Place).ToArray() : shot.Lit;
+                    var problem = RenderOne(shot.Name, shot.Pitch, shot.Yaw, folder, pictures, mix, lit);
                     if (problem != null) failures.Add(shot.Name + ": " + problem);
                     rendered++;
                 }
                 if (rendered == 0) failures.Add("no view was rendered");
+                else Measure(pictures, starting);
             }
             catch (Exception exception)
             {
@@ -91,30 +114,7 @@ namespace Halcyonic.XR.World.Editor
             if (exitWhenDone) EditorApplication.Exit(failures.Count > 0 ? 1 : 0);
         }
 
-        private static float[]? Depth(string? from)
-        {
-            byte[]? bytes = null;
-            if (string.IsNullOrEmpty(from))
-            {
-                var asset = Resources.Load<TextAsset>(WorldView.PicturesPath + "depth");
-                if (asset != null) bytes = asset.bytes;
-            }
-            else
-            {
-                var path = Path.Combine(from, "depth-" + WorldView.DepthWidth + "x" + WorldView.DepthHeight + ".f32");
-                if (File.Exists(path)) bytes = File.ReadAllBytes(path);
-            }
-            if (bytes == null || bytes.Length != WorldView.DepthWidth * WorldView.DepthHeight * 4) return null;
-            var top = new float[WorldView.DepthWidth * WorldView.DepthHeight];
-            Buffer.BlockCopy(bytes, 0, top, 0, bytes.Length);
-            var depth = new float[top.Length];
-            for (var row = 0; row < WorldView.DepthHeight; row++)
-                Array.Copy(top, row * WorldView.DepthWidth, depth, (WorldView.DepthHeight - 1 - row) * WorldView.DepthWidth, WorldView.DepthWidth);
-            return depth;
-        }
-
-        private static string? RenderOne((string Name, float Pitch, float Yaw, float Night, float Place, Vector3 Head) shot, string folder,
-            Texture2D dusk, Texture2D night, Texture2D? duskPlace, Texture2D? nightPlace, float[]? depth)
+        private static string? RenderOne(string name, float pitch, float yaw, string folder, WorldPictures pictures, WorldMix mix, IReadOnlyCollection<string> lit)
         {
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var root = new GameObject("Halcyonic world");
@@ -123,9 +123,9 @@ namespace Halcyonic.XR.World.Editor
             try
             {
                 var world = root.AddComponent<WorldView>();
-                world.BuildPanoramaNow(dusk, night, duskPlace, nightPlace, depth, depth == null ? 0 : WorldView.DepthWidth, depth == null ? 0 : WorldView.DepthHeight);
-                world.Apply(shot.Night, shot.Place, WorldView.Arrived);
-                eye.transform.SetPositionAndRotation(new Vector3(0f, WorldView.Eyes, 0f) + shot.Head, Quaternion.Euler(-shot.Pitch, shot.Yaw, 0f));
+                world.BuildNow(pictures);
+                world.MixNow(mix, lit, WorldView.Arrived);
+                eye.transform.SetPositionAndRotation(new Vector3(0f, WorldView.Eyes, 0f), Quaternion.Euler(-pitch, yaw, 0f));
                 var camera = eye.AddComponent<Camera>();
                 camera.clearFlags = CameraClearFlags.SolidColor;
                 camera.backgroundColor = Color.black;
@@ -145,13 +145,69 @@ namespace Halcyonic.XR.World.Editor
                 image.Apply();
                 RenderTexture.active = previous;
                 camera.targetTexture = null;
-                File.WriteAllBytes(Path.Combine(folder, shot.Name + ".png"), image.EncodeToPNG());
+                File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG());
                 var problem = Empty(image) ? "the frame is one flat colour" : null;
                 UnityEngine.Object.DestroyImmediate(image);
                 return problem;
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(eye);
+                UnityEngine.Object.DestroyImmediate(root);
+                target.Release();
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        /// <summary>
+        /// Times, on this Mac's GPU (never the headset's), one mix of every layer into the panorama, and one view drawn
+        /// from the mixed panorama: each made to finish before the clock stops, by reading one pixel back. The headset
+        /// pays the first only while a change eases in, the second every frame.
+        /// </summary>
+        private static void Measure(WorldPictures pictures, string starting)
+        {
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Halcyonic world");
+            var eye = new GameObject("Eyes") { tag = "MainCamera" };
+            var target = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+            var probe = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+            try
+            {
+                var world = root.AddComponent<WorldView>();
+                world.BuildNow(pictures);
+                var mix = WorldOf.Read(JsonConvert.DeserializeObject<WorldDescription>(starting)!, pictures.Scene, new List<ProjectView>(), out _)!;
+                var camera = eye.AddComponent<Camera>();
+                camera.enabled = false;
+                camera.fieldOfView = 90f;
+                camera.targetTexture = target;
+                eye.transform.SetPositionAndRotation(new Vector3(0f, WorldView.Eyes, 0f), Quaternion.Euler(-35f, 0f, 0f));
+                void Settle()
+                {
+                    var previous = RenderTexture.active;
+                    RenderTexture.active = target;
+                    probe.ReadPixels(new Rect(0, 0, 1, 1), 0, 0);
+                    RenderTexture.active = previous;
+                }
+                double Time(Action step, int times)
+                {
+                    step();
+                    Settle();
+                    var clock = System.Diagnostics.Stopwatch.StartNew();
+                    for (var i = 0; i < times; i++) step();
+                    Settle();
+                    return clock.Elapsed.TotalMilliseconds / times;
+                }
+                var mixing = Time(() => world.MixNow(mix, new string[0], WorldView.Arrived), 10);
+                var viewing = Time(() => camera.Render(), 20);
+                var size = 0L;
+                foreach (var texture in pictures.Lights.Values) size += UnityEngine.Profiling.Profiler.GetRuntimeMemorySizeLong(texture);
+                Debug.Log("Halcyonic world render: on this Mac, a mix of every layer takes " + mixing.ToString("F2") + " ms and a view from the mixed picture " + viewing.ToString("F2")
+                    + " ms (2000 x 1800); the light layers as loaded here take " + (size / 1048576) + " MB (uncompressed, not as the headset's build holds them).");
+                camera.targetTexture = null;
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(probe);
                 UnityEngine.Object.DestroyImmediate(eye);
                 UnityEngine.Object.DestroyImmediate(root);
                 target.Release();

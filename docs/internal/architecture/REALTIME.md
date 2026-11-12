@@ -118,7 +118,10 @@ client                                   server
   project's `world.json`: `description` (the newest valid one, kept while a later reading is
   refused, or null until one was valid), `refused` (why the file as last read is not a description,
   or null) and `observed_at`. A client validates the description again before it draws, since the
-  generated bindings do not enforce ranges or patterns.
+  generated bindings do not enforce ranges or patterns. Since 2026-11-12 a description is format 2:
+  its scene, the scene's lights and air as the headset mixes them, and which of the scene's places
+  is which project's; format 1 readings are no longer taken into the view (the Mac brings such a
+  world forward and reads it again).
 - **Acknowledgements.** `command_ack` reports `accepted`, `rejected`, `duplicate` or `conflict`.
   Because events are recorded while the command is handled, a client may receive the command's
   events before its acknowledgement; correlate by `command_id`.
