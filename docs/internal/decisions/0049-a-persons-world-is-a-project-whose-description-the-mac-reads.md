@@ -84,8 +84,9 @@ Read from the code and from current public documentation on 2026-11-10:
    a manifest, not a contract change. Events are never rewritten: format 1's `project.world.observed` stays
    readable and the projection takes nothing from it; the Mac records `project.world.read`. A world found in
    format 1 (after a turn, or when the Mac starts and a world has no reading of format 2) is brought forward
-   once, `project.world.brought_forward`: its format 2 file keeps how far night had come and its places in
-   order, in the starter's scene, and its guide is replaced only if it is the format 1 guide as written. No
+   once, `project.world.brought_forward`: the person's format 1 file is kept whole beside it first (named in
+   the event, by its hash), then its format 2 file keeps how far night had come and its places in order, in
+   the starter's scene, and its guide is replaced only if it is the format 1 guide as written. No
    person's world silently becomes the stock one.
 
 ## Alternatives considered

@@ -224,15 +224,18 @@ export const WorldObservedFormat1 = Type.Object(
 export type WorldObservedFormat1 = Static<typeof WorldObservedFormat1>;
 
 /**
- * The Mac brought a world made before format 2 forward, once (ADR 0049): it read a format 1
- * description, wrote the format 2 one that keeps what maps (how far night had come, its places in
- * order) for the starter's scene, and replaced the world's guide when it was the format 1 guide as the
- * starter wrote it (`replaced`), or left a guide someone had changed (`kept`). Its reading follows as
- * `project.world.read`.
+ * The Mac brought a world made before format 2 forward, once (ADR 0049): it kept the person's format 1
+ * file whole beside it first, under `kept` (its name and the first twelve hexadecimal digits of its
+ * SHA-256, so the same file is kept once), then wrote the format 2 description that keeps what maps
+ * (how far night had come, its places in order) for the starter's scene, and replaced the world's guide
+ * when it was the format 1 guide as the starter wrote it (`replaced`), or left a guide someone had
+ * changed (`kept`). Its reading follows as `project.world.read`.
  */
 export const WorldBroughtForward = Type.Object(
   {
     from_format: Type.Literal(1),
+    /** The old file's name beside the new one: nothing the person's world said is lost. */
+    kept: Type.String({ pattern: '^[A-Za-z0-9._-]{1,96}$' }),
     scene: WorldName,
     guide: Type.Union([Type.Literal('replaced'), Type.Literal('kept')]),
   },

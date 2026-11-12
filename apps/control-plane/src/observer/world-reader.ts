@@ -268,7 +268,18 @@ async function bringForward(
   old: WorldDescriptionFormat1,
   starter: WorldStarter,
   file: string,
-): Promise<'replaced' | 'kept'> {
+): Promise<{ guide: 'replaced' | 'kept'; kept: string }> {
+  // The person's own file first, whole and unchanged, beside the new one (AUDIT F1): named by its hash, so
+  // the same file is kept once, and a copy already there is never written over.
+  const bytes = await readBytes(folder, file);
+  if (typeof bytes === 'string') throw new Error('the format 1 file could not be read again');
+  const dot = file.lastIndexOf('.');
+  const stem = dot > 0 ? file.slice(0, dot) : file;
+  const extension = dot > 0 ? file.slice(dot) : '';
+  const kept = `${stem}.format1-${createHash('sha256').update(bytes).digest('hex').slice(0, 12)}${extension}`;
+  const already = await readBytes(folder, kept);
+  if (typeof already === 'string') await replaceFile(folder, kept, bytes);
+  else if (!already.equals(bytes)) throw new Error('a different file holds the kept name');
   const description = broughtForward(old, starter);
   await replaceFile(folder, file, Buffer.from(`${JSON.stringify(description, null, 2)}\n`));
   const guide = await readBytes(folder, 'AGENTS.md');
@@ -277,9 +288,9 @@ async function bringForward(
     createHash('sha256').update(guide).digest('hex') === FORMAT1_GUIDE
   ) {
     await replaceFile(folder, 'AGENTS.md', starter.guide);
-    return 'replaced';
+    return { guide: 'replaced', kept };
   }
-  return 'kept';
+  return { guide: 'kept', kept };
 }
 
 /** Whether a reading says what the project's world already says, so there is nothing new to record. */
@@ -342,12 +353,12 @@ export function attachWorldReader(attachment: WorldReaderAttachment): WorldReade
         let reading = await read(folder, starter.scenes, file);
         if (reading.kind === 'format1') {
           // A world made before format 2 is brought forward once, never shown as the stock one.
-          const guide = await bringForward(folder, reading.description, starter, file);
+          const { guide, kept } = await bringForward(folder, reading.description, starter, file);
           attachment.recorder.record(
             controlPlaneDraft(
               'project.world.brought_forward',
               scope,
-              { from_format: 1, scene: starter.starting.scene, guide },
+              { from_format: 1, kept, scene: starter.starting.scene, guide },
               now(),
               NO_CAUSE,
             ),

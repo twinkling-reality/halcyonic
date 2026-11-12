@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   lstatSync,
@@ -484,11 +485,14 @@ describe('a world project through the control plane', () => {
     const first = forward()[0];
     if (first?.event_type !== 'project.world.brought_forward')
       return assert.fail('not brought forward');
+    const sha = createHash('sha256').update(FORMAT1).digest('hex').slice(0, 12);
     assert.deepEqual(first.payload, {
       from_format: 1,
+      kept: `world.format1-${sha}.json`,
       scene: STARTER.starting.scene,
       guide: 'replaced',
     });
+    assert.equal(readFileSync(join(plane.folder, `world.format1-${sha}.json`), 'utf8'), FORMAT1);
     assert.equal(first.provenance.epistemic, 'observed');
     const expected = broughtForward(JSON.parse(FORMAT1), STARTER);
     assert.deepEqual(JSON.parse(readFileSync(join(plane.folder, WORLD_FILE), 'utf8')), expected);
@@ -514,6 +518,60 @@ describe('a world project through the control plane', () => {
       readFileSync(join(plane.folder, 'AGENTS.md'), 'utf8'),
       'A guide the person wrote.\n',
     );
+    await plane.controlPlane.close();
+  });
+
+  test("a format 1 world's own file is kept whole beside the new one, named in the event, never lost (AUDIT F1)", async () => {
+    const plane = worldPlane('kept', [], WORLD_STARTER_ID, false);
+    // A person's own world: their sky, their sun, their places at their bearings, written by their agent.
+    const own = {
+      ...JSON.parse(FORMAT1),
+      sky: { zenith: '#112233', band: '#AA5533', horizon: '#FFCC99' },
+      disc: { bearing: -40, height: 6, size: 3, colour: '#FFEEDD', glow: 0.8 },
+      places: [{ project: 'Garden', bearing: 75, distance: 20 }],
+    };
+    const bytes = Buffer.from(`${JSON.stringify(own, null, 2)}\n`);
+    writeFileSync(join(plane.folder, WORLD_FILE), bytes);
+    const reader = attachWorldReader({
+      publisher: plane.controlPlane.publisher,
+      recorder: plane.controlPlane.recorder,
+      projection: plane.controlPlane.projection,
+      clock: { now: () => new Date('2026-11-12T08:10:00.000Z') } as never,
+      logger: capturingLogger().logger,
+      starter: STARTER,
+      starters: plane.starters,
+    });
+    await reader.readUnread();
+    const event = [...plane.journal.readAll()]
+      .map((stored) => stored.event)
+      .find((e) => e.event_type === 'project.world.brought_forward');
+    if (event?.event_type !== 'project.world.brought_forward')
+      return assert.fail('not brought forward');
+    const kept = (event.payload as { kept?: string }).kept;
+    const sha = createHash('sha256').update(bytes).digest('hex').slice(0, 12);
+    assert.equal(kept, `world.format1-${sha}.json`);
+    assert.deepEqual(
+      readFileSync(join(plane.folder, kept as string)),
+      bytes,
+      "the person's own file, byte for byte",
+    );
+    // Brought forward again (the same old file) keeps the one copy, never a second or a changed one.
+    writeFileSync(join(plane.folder, WORLD_FILE), bytes);
+    await reader.readUnread();
+    plane.controlPlane.recorder.record(
+      controlPlaneDraft(
+        'project.world.observed',
+        { project_id: plane.projectId, workstream_id: null, execution_id: null },
+        { description: own, refused: null },
+        '2026-11-12T08:10:01.000Z' as never,
+        NO_CAUSE,
+      ),
+    );
+    assert.deepEqual(
+      readdirSync(plane.folder).filter((name) => name.startsWith('world.format1-')),
+      [kept],
+    );
+    reader.detach();
     await plane.controlPlane.close();
   });
 
