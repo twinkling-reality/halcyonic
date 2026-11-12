@@ -129,6 +129,9 @@ export function modelRefOf(model: ModelRef): string {
   return `${model.providerID}/${model.id}`;
 }
 
+/** No provider reached through a key gate. */
+const NONE_GATED: ReadonlySet<string> = new Set();
+
 /** What people call the providers OpenCode 2.0.18 discovers or ships; any other keeps its id. */
 const PROVIDER_NAMES: Readonly<Record<string, string>> = {
   ollama: 'Ollama',
@@ -143,12 +146,15 @@ const PROVIDER_NAMES: Readonly<Record<string, string>> = {
  * never reads as the hosted one. Where it runs is decided from the address OpenCode sends its
  * requests to, never from its name.
  */
-export function toRuntimeModel(model: OpenCodeModel): RuntimeModel {
+export function toRuntimeModel(
+  model: OpenCodeModel,
+  gated: ReadonlySet<string> = NONE_GATED,
+): RuntimeModel {
   const provider = PROVIDER_NAMES[model.providerID] ?? model.providerID;
   return {
     model_ref: modelRefOf(model),
     display_name: clipName(`${model.name} (${provider})`),
-    served: servedBy(model),
+    served: servedBy(model, gated),
     tool_calling:
       model.tools === true ? 'declared' : model.tools === false ? 'not_declared' : 'unknown',
     context_tokens: model.contextTokens,
@@ -163,9 +169,15 @@ export function toRuntimeModel(model: OpenCodeModel): RuntimeModel {
  * anywhere else, `unknown` without an address. Ollama serves the models it names with a `cloud`
  * tag from its own hosted service, whatever address OpenCode reaches Ollama at, so those are
  * `remote`; a cloud model copied to a name without that tag would still read as this Mac's, a gap
- * OpenCode's list gives no way to close.
+ * OpenCode's list gives no way to close. A provider in `gated`, the ids the server reaches through Halcyonic's
+ * key gate, is `remote` whatever its address: the gate listens on loopback, and every request goes on to the
+ * provider's own host (VRIFY, 2026-11-12).
  */
-export function servedBy(model: OpenCodeModel): ModelServed {
+export function servedBy(
+  model: OpenCodeModel,
+  gated: ReadonlySet<string> = NONE_GATED,
+): ModelServed {
+  if (gated.has(model.providerID)) return 'remote';
   if (model.baseUrl === null) return 'unknown';
   let host: string;
   try {

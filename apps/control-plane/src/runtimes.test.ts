@@ -17,7 +17,7 @@ import type { ExecutionId, ProjectId, WorkstreamId } from '@halcyonic/contracts'
 import { ClaudeAgentRuntimeAdapter, EnvironmentError } from '@halcyonic/integration-claude-code';
 import { CodexRuntimeAdapter } from '@halcyonic/integration-codex';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
-import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
+import { OPENCODE_KEY_READER, OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import { RuntimeActionError } from '@halcyonic/runtime-core';
 import { confinedProfile, SANDBOX_EXEC } from '@halcyonic/seatbelt';
 import { ConfigError, loadConfig } from './config.ts';
@@ -25,6 +25,7 @@ import { looksLikeCredential, redaction, redactSecrets } from './core/redaction.
 import { createDirectoryPolicy } from './directory-policy.ts';
 import { AgentKeys } from './keys/agent-keys.ts';
 import { loadOrCreateNetworkIdentity } from './network/certificate.ts';
+import { HostProviders } from './providers.ts';
 import {
   AGENT_KEYS,
   ANTHROPIC_KEY_FILE,
@@ -36,6 +37,7 @@ import {
   codexEnvironment,
   createRuntimeAdapters,
   foldersInside,
+  gatedProviders,
   heldSecrets,
   heldToFolder,
   OLLAMA_PORT,
@@ -420,6 +422,105 @@ describe("which runtimes may work in a task's own copy (ADR 0045)", () => {
     assert.equal(cloud('claude-agent', copy), false);
     // Without the runtime registered, nothing is held.
     assert.equal(heldToFolder(adapters({}, HOST, dataDir))('codex', copy), false);
+  });
+});
+
+describe('which hosted providers an agent app reaches through its key gate (VRIFY, 2026-11-12; ADR 0061)', () => {
+  /** One provider declaration file, as the repository's providers/<id>/provider.json are written. */
+  function declare(
+    dir: string,
+    id: string,
+    speaks: string[],
+    header: { name: string; scheme: string | null },
+  ) {
+    mkdirSync(join(dir, id), { recursive: true });
+    writeFileSync(
+      join(dir, id, 'provider.json'),
+      JSON.stringify({
+        format: 1,
+        id,
+        name: `Host ${id}`,
+        speaks,
+        upstream: `https://${id}.example.test/v1`,
+        key: {
+          file: `${id}-key`,
+          variable: `${id.toUpperCase().replace(/-/g, '_')}_KEY`,
+          header,
+          field: `Key for ${id}`,
+        },
+        models: [`${id}-1`],
+      }),
+    );
+  }
+  function keep(dataDir: string, id: string) {
+    writeFileSync(join(dataDir, `${id}-key`), `value-of-${id}\n`, { mode: 0o600 });
+  }
+
+  test("OpenCode's reader reaches each declared provider serving Chat Completions with a stored key; a third is one file and nothing else", () => {
+    const dir = mkdtempSync(join(base, 'providers-'));
+    const dataDir = mkdtempSync(join(base, 'provider-keys-'));
+    declare(dir, 'chat-host', ['chat_completions', 'responses'], {
+      name: 'authorization',
+      scheme: 'Bearer',
+    });
+    declare(dir, 'messages-host', ['messages'], { name: 'x-api-key', scheme: null });
+    declare(dir, 'odd-scheme', ['chat_completions'], { name: 'authorization', scheme: 'Token' });
+    for (const id of ['chat-host', 'messages-host', 'odd-scheme']) keep(dataDir, id);
+    const routed = () =>
+      gatedProviders(
+        new HostProviders({ dir, dataDir, readers: [OPENCODE_KEY_READER] }),
+        OPENCODE_KEY_READER,
+      );
+    assert.deepEqual(routed(), [
+      {
+        id: 'chat-host',
+        name: 'Host chat-host',
+        upstream: 'https://chat-host.example.test/v1',
+        header: 'authorization',
+        bearer: true,
+        key: 'value-of-chat-host',
+        models: ['chat-host-1'],
+      },
+    ]);
+    // A third provider: one declaration file and its stored key, nothing else changed.
+    declare(dir, 'third-host', ['chat_completions'], { name: 'api-key', scheme: null });
+    keep(dataDir, 'third-host');
+    assert.deepEqual(
+      routed().map((each) => [each.id, each.header, each.bearer]),
+      [
+        ['chat-host', 'authorization', true],
+        ['third-host', 'api-key', false],
+      ],
+    );
+    // Its key removed: not offered.
+    rmSync(join(dataDir, 'chat-host-key'));
+    assert.deepEqual(
+      routed().map((each) => each.id),
+      ['third-host'],
+    );
+  });
+
+  test("on the repository's own declarations, a stored Meta key gives OpenCode Meta's models, and an Anthropic key gives it nothing", () => {
+    const dataDir = mkdtempSync(join(base, 'provider-keys-'));
+    const routed = () =>
+      gatedProviders(
+        new HostProviders({ dataDir, readers: [OPENCODE_KEY_READER] }),
+        OPENCODE_KEY_READER,
+      ).map((each) => [each.id, each.upstream, each.header, each.bearer, each.models]);
+    assert.deepEqual(routed(), []);
+    // Anthropic serves Messages alone, which OpenCode's reader does not speak.
+    writeFileSync(join(dataDir, 'anthropic-api-key'), 'fake-anthropic-key\n', { mode: 0o600 });
+    assert.deepEqual(routed(), []);
+    writeFileSync(join(dataDir, 'meta-api-key'), 'LLM_fake-meta-key\n', { mode: 0o600 });
+    assert.deepEqual(routed(), [
+      [
+        'meta',
+        'https://api.meta.ai/v1',
+        'authorization',
+        true,
+        ['muse-wonder-1.0', 'muse-spark-1.3'],
+      ],
+    ]);
   });
 });
 

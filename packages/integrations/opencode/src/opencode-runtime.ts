@@ -34,7 +34,14 @@ import {
   type StartExecutionResult,
   systemClock,
 } from '@halcyonic/runtime-core';
-import { type Confinement, confinedHomeEnvironment, confinedProfile } from '@halcyonic/seatbelt';
+import {
+  type ApiGate,
+  type Confinement,
+  confinedHomeEnvironment,
+  confinedProfile,
+  type GatedProvider,
+  startProviderGate,
+} from '@halcyonic/seatbelt';
 import { type HttpResponse, type OpenCodeClient, TransportError } from './client.ts';
 import {
   askedCall,
@@ -155,6 +162,16 @@ function realOrGiven(path: string): string {
   } catch {
     return path;
   }
+}
+
+/** How OpenCode's OpenAI-compatible provider presents its key: `Authorization: Bearer`, whatever the provider declares. */
+const OPENCODE_PRESENTS = { header: 'authorization', bearer: true } as const;
+
+/** A hosted provider at its gate for one server: the gate holds the key, the server this credential. */
+interface ProviderGate {
+  readonly provider: GatedProvider;
+  readonly gate: ApiGate;
+  readonly credential: string;
 }
 
 /** A server's sandbox: its profile, and the environments it and its shell commands run with. */
@@ -418,6 +435,13 @@ export interface OpenCodeRuntimeOptions {
      */
     readonly forFolder?: (folder: string) => Pick<Confinement, 'readable' | 'originals'>;
   } | null;
+  /**
+   * The hosted providers a sandboxed server may reach (VRIFY, 2026-11-12), read at each launch so a
+   * key stored on the setup page takes effect at the next one: each through a gate of its own that
+   * holds the person's key, OpenCode given only that server's run credential (key-gate.ts). Unused
+   * without a sandbox.
+   */
+  readonly hostedProviders?: () => readonly GatedProvider[];
 }
 
 export type StaleServerResult =
@@ -457,6 +481,8 @@ interface Connection {
    * loads a location on its first request, and its list settles moments later.
    */
   listingSince: number | null;
+  /** The ids of the hosted providers this server reaches through a key gate: their models are remote. */
+  readonly gated: ReadonlySet<string>;
   /**
    * The environment the server's shell commands run with, instead of the server's own: inside the
    * sandbox, a home of the server's own and the product's Node first on the PATH (BOX-3b).
@@ -539,6 +565,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   readonly #port: number | null;
   readonly #startupTimeoutMs: number;
   readonly #sandbox: OpenCodeRuntimeOptions['sandbox'];
+  readonly #hostedProviders: () => readonly GatedProvider[];
   readonly #silenceTimeoutMs: number;
   readonly #reconnectDelaysMs: readonly number[];
   readonly #snapshotRetryDelaysMs: readonly number[];
@@ -567,6 +594,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     this.#port = options.port ?? null;
     this.#startupTimeoutMs = options.startupTimeoutMs ?? 30_000;
     this.#sandbox = options.sandbox ?? null;
+    this.#hostedProviders = options.hostedProviders ?? (() => []);
     this.#silenceTimeoutMs = options.streamSilenceTimeoutMs ?? 45_000;
     this.#reconnectDelaysMs = options.reconnectDelaysMs ?? [100, 250, 500, 1000, 2000, 4000];
     this.#snapshotRetryDelaysMs = options.snapshotRetryDelaysMs ?? [1000, 3000];
@@ -693,7 +721,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     const listed = await read();
     const models = new Map<string, RuntimeModel>();
     for (const entry of listed) {
-      const model = toRuntimeModel(entry);
+      const model = toRuntimeModel(entry, connection.gated);
       // A reference the contract cannot carry is not offered.
       if (/^\S{1,256}$/.test(model.model_ref) && !models.has(model.model_ref)) {
         models.set(model.model_ref, model);
@@ -1247,6 +1275,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     slot: Slot,
     port: number,
     gate: OllamaGate | null,
+    hosted: readonly ProviderGate[] = [],
   ): Promise<SandboxSetup | null> {
     if (this.#sandbox === null || this.#sandbox === undefined) {
       // On macOS OpenCode runs only inside the sandbox (ADR 0028): its ask before a shell command
@@ -1288,13 +1317,22 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
         .filter(Boolean)
         .join(':'),
     };
-    if (gate !== null) {
-      // OpenCode ranks this above every settings file, global and project (core/src/config.ts),
-      // so no settings move it off the gate; the variable is reserved, so nothing else sets it.
-      environment.OPENCODE_CONFIG_CONTENT = JSON.stringify({
-        providers: { ollama: { settings: { baseURL: gate.baseUrl } } },
-      });
+    // OpenCode ranks this above every settings file, global and project (core/src/config.ts), so no
+    // settings move it off the gates; the variable is reserved, so nothing else sets it. It is the
+    // server's alone: its commands run with their own environment, never this one.
+    const providers: Record<string, unknown> = {};
+    if (gate !== null) providers.ollama = { settings: { baseURL: gate.baseUrl } };
+    for (const { provider, gate: keyGate, credential } of hosted) {
+      // A hosted provider at its gate: OpenCode holds this server's run credential, never the key.
+      providers[provider.id] = {
+        name: provider.name,
+        package: '@opencode/ai/providers/openai-compatible',
+        settings: { baseURL: keyGate.url, apiKey: credential },
+        models: Object.fromEntries(provider.models.map((model) => [model, { name: model }])),
+      };
     }
+    if (Object.keys(providers).length > 0)
+      environment.OPENCODE_CONFIG_CONTENT = JSON.stringify({ providers });
     const named = slot.folder === null ? null : (this.#sandbox.forFolder?.(slot.folder) ?? null);
     const text = confinedProfile({
       // The slot's own folder and nothing else of the person's: never the other projects under the
@@ -1309,7 +1347,12 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       // The pinned binary's package, read only.
       runtimeFolder: dirname(dirname(realOrGiven(this.#binaryPath))),
       toolFolders: this.#sandbox.toolFolders,
-      loopbackPorts: [...this.#sandbox.loopbackPorts, ...(gate === null ? [] : [gate.port]), port],
+      loopbackPorts: [
+        ...this.#sandbox.loopbackPorts,
+        ...(gate === null ? [] : [gate.port]),
+        ...hosted.map((each) => each.gate.port),
+        port,
+      ],
       listenPorts: [port],
     });
     // Written whole under a new name, then moved into place, never through a link at its path.
@@ -1344,10 +1387,29 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
         );
       }
     }
+    // Each hosted provider through a gate of its own, holding the key; this server holds a run credential.
+    const hosted: ProviderGate[] = [];
+    const closeHosted = () => Promise.all(hosted.map((each) => each.gate.close()));
+    if (this.#sandbox !== null && this.#sandbox !== undefined) {
+      try {
+        for (const provider of this.#hostedProviders()) {
+          // OpenCode's OpenAI-compatible provider sends its key as `Authorization: Bearer`.
+          const keyGate = await startProviderGate(provider, OPENCODE_PRESENTS);
+          hosted.push({ provider, gate: keyGate, credential: keyGate.issue() });
+        }
+      } catch (error) {
+        await gate?.close();
+        await closeHosted();
+        throw new RuntimeActionError(
+          'runtime_unavailable',
+          `Could not open OpenCode's way to a hosted model: ${message(error)}`,
+        );
+      }
+    }
     let server: OpenCodeServer;
     let sandboxed: SandboxSetup | null = null;
     try {
-      sandboxed = await this.#sandboxFor(slot, port, gate);
+      sandboxed = await this.#sandboxFor(slot, port, gate, hosted);
       server = await launchServer({
         binaryPath: this.#binaryPath,
         environment: sandboxed?.environment ?? this.#environment,
@@ -1359,9 +1421,12 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       });
     } catch (error) {
       await gate?.close();
+      await closeHosted();
       throw error;
     }
-    const gone = server.exited.then(() => gate?.close());
+    const gone = server.exited.then(async () => {
+      await Promise.all([gate?.close(), closeHosted()]);
+    });
     if (this.#closing !== null) {
       await server.stop();
       await gone;
@@ -1372,6 +1437,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       server,
       commands: sandboxed?.commands ?? this.#environment,
       listingSince: null,
+      gated: new Set(hosted.map((each) => each.provider.id)),
       halted: new AbortController(),
       gone,
       readiness: readiness(),

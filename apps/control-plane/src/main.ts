@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
-import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
+import { OPENCODE_KEY_READER, OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
 import { CheckpointStore } from './checkpoints/store.ts';
 import { localMacSetupIo } from './cli/mac-setup.ts';
@@ -111,8 +111,17 @@ async function main(): Promise<void> {
   const keysKept = (): string =>
     AGENT_KEYS.map((key) => `${key.runtimeId}=${storedAt(config.dataDir, key) ?? ''}`).join('\n');
   const keysAtStart = keysKept();
+  // The host's one list of declared hosted providers, read once as the plane starts (ADR 0061): a declaration that
+  // does not hold stops the start. Each reader of the providers' keys declares itself here (the assistant reads at
+  // each use and never turns on by itself). Built before the adapters, which reach providers through it, and handed
+  // to the plane and the assistant as the same instance.
+  const providers = new HostProviders({
+    dataDir: config.dataDir,
+    readers: [ASSISTANT_READER, OPENCODE_KEY_READER],
+  });
   // Built first, so a misconfigured runtime stops startup before anything else opens.
   const adapters = createRuntimeAdapters(config, {
+    providers,
     mock: new MockRuntimeAdapter({
       scenarios: loadScenarios(config.scenariosDir),
       models: MOCK_MODELS,
@@ -203,9 +212,6 @@ async function main(): Promise<void> {
     app.log.warn(`the tunnel binary is not the pinned ${TUNNEL_PIN.version}: sharing is off`);
   // The person's catalog (ADR 0039): its last answer checks links, so it exists before the control plane.
   const catalog = omnoriumCatalogFor(config.dataDir);
-  // Read once as the plane starts: a declaration that does not hold stops the start (ADR 0061). Each reader of the
-  // providers' keys declares itself here; the assistant reads at each use and never turns on by itself.
-  const providers = new HostProviders({ dataDir: config.dataDir, readers: [ASSISTANT_READER] });
   const controlPlane = new ControlPlane({
     journal,
     adapters,

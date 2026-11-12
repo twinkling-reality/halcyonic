@@ -12,9 +12,20 @@ import {
   SIGN_IN_VARIABLES,
 } from '@halcyonic/integration-codex';
 import type { MockRuntimeAdapter } from '@halcyonic/integration-mock';
-import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
-import type { AgentKey, DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
-import { type Confinement, TOOL_PREFIXES, toolFoldersFor } from '@halcyonic/seatbelt';
+import { OPENCODE_KEY_READER, OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
+import {
+  type AgentKey,
+  type DirectoryPolicy,
+  type KeyReader,
+  type RuntimeAdapter,
+  readerReaches,
+} from '@halcyonic/runtime-core';
+import {
+  type Confinement,
+  type GatedProvider,
+  TOOL_PREFIXES,
+  toolFoldersFor,
+} from '@halcyonic/seatbelt';
 import { ConfigError, type ControlPlaneConfig, readPrivateFile } from './config.ts';
 import { type HeldSecret, looksLikeCredential } from './core/redaction.ts';
 import { OMNORIUM_CREDENTIAL_FILE } from './intelligence/catalog.ts';
@@ -23,6 +34,7 @@ import { SEORAK_CREDENTIAL_FILE } from './intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from './intelligence/understanding.ts';
 import { storedAt } from './keys/agent-keys.ts';
 import { NETWORK_KEY_FILE } from './network/certificate.ts';
+import type { HostProviders } from './providers.ts';
 
 /** The file in the data directory that may hold Claude Agent's key, as its package declares it (AgentKey). */
 export const ANTHROPIC_KEY_FILE = CLAUDE_AGENT_KEY.file;
@@ -51,6 +63,8 @@ export { CODEX_HOME_FOLDER } from './intelligence/codex-home.ts';
 
 export interface RuntimeDependencies {
   readonly mock: MockRuntimeAdapter;
+  /** The host's one list of declared hosted providers (ADR 0061): an agent app reaches those its reader reaches. */
+  readonly providers?: HostProviders;
   readonly directoryPolicy: DirectoryPolicy;
   /** The control plane's own environment, from which pass-through variables are copied. */
   readonly environment: NodeJS.ProcessEnv;
@@ -127,6 +141,12 @@ export function createRuntimeAdapters(
         env: openCodeEnvironment(config, additions),
         foldersInside: (folder) => foldersInside(folder, dependencies.projectFolders?.() ?? []),
         sandbox: process.platform === 'darwin' ? openCodeSandbox(config, dependencies) : null,
+        // Every declared hosted provider OpenCode speaks to whose key the person stored, read at
+        // each server launch, each through its own key gate (VRIFY, 2026-11-12).
+        hostedProviders: () =>
+          dependencies.providers === undefined
+            ? []
+            : gatedProviders(dependencies.providers, OPENCODE_KEY_READER),
       }),
     );
   }
@@ -144,6 +164,36 @@ export function createRuntimeAdapters(
     );
   }
   return adapters;
+}
+
+/**
+ * The hosted providers an agent app reaches through a key gate (VRIFY, 2026-11-12; ADR 0061): each provider of the
+ * host's one list that the app's own reader reaches (it serves a shape the app needs) and whose key the person stored,
+ * so a provider is one declaration file for the assistant and the agent apps alike, and no code of its own. A key in
+ * a header with a scheme other than none or `Bearer` is not offered: the gate writes no other.
+ */
+export function gatedProviders(
+  providers: Pick<HostProviders, 'list' | 'keyState'>,
+  reader: KeyReader,
+): GatedProvider[] {
+  return providers.list().flatMap((provider) => {
+    if (!readerReaches(reader, provider)) return [];
+    const scheme = provider.key.header.scheme;
+    if (scheme !== null && scheme.toLowerCase() !== 'bearer') return [];
+    const key = providers.keyState(provider.id);
+    if (key.kind !== 'stored') return [];
+    return [
+      {
+        id: provider.id,
+        name: provider.name,
+        upstream: provider.upstream,
+        header: provider.key.header.name,
+        bearer: scheme !== null,
+        key: key.value,
+        models: provider.models,
+      },
+    ];
+  });
 }
 
 /**
