@@ -1018,7 +1018,8 @@ namespace Halcyonic.XR.UI
         private void Pips(int used, int of, RoomTone tone, Vector2 centre)
         {
             // The node's own fill at 60 percent: never louder than the mark it hangs on.
-            var lit = tone switch { RoomTone.Good => Rgb(GoodFill, 0.6f), RoomTone.Bad => Rgb(BadFill, 0.6f), RoomTone.Attention => Rgb(Attention, 0.6f), _ => Rgb(WorkingFill, 0.6f) };
+            // A try used is its tone's full fill: at 60 percent a failed try's red stood at 1.6:1 on the glass, under 3:1 for a mark (the critic, 2026-11-12).
+            var lit = tone switch { RoomTone.Good => Rgb(GoodFill), RoomTone.Bad => Rgb(BadFill), RoomTone.Attention => Rgb(Attention), _ => Rgb(WorkingFill) };
             var pitch = S(PipDp + PipGapDp);
             var from = centre.x - pitch * (of - 1) / 2f;
             for (var index = 0; index < of; index++)

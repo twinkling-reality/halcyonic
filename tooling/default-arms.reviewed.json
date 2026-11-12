@@ -67,7 +67,7 @@
   },
   {
     "file": "apps/xr/Assets/Halcyonic/UI.Interaction/Room/RoomCardView.cs",
-    "answer": "Rgb(WorkingFill, 0.6f)",
+    "answer": "Rgb(WorkingFill)",
     "count": 1,
     "why": "style: Pip colour for Quiet, Skipped and Working; a look only."
   },
