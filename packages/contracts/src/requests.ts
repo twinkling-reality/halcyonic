@@ -1,4 +1,5 @@
 import Type, { type Static } from 'typebox';
+import { ActionReviewSaid } from './actions.ts';
 import { ReviewDigest } from './checkpoints.ts';
 import { CommandType, WorkspaceRequestPlaces } from './commands.ts';
 import {
@@ -58,6 +59,11 @@ export const WorkspaceRequestProposal = Type.Object(
     confirm: Type.Enum(['none', 'undo', 'review']),
     what_happens: Text(2000),
     review: Nullable(ReviewDigest),
+    /**
+     * The words given that go out with the command, each by the host's label for its field and exactly as it will be
+     * sent (AUDIT2's N2): the card shows them whole, as the proposer's, for every proposal, reviewed or not.
+     */
+    said: Type.Array(ActionReviewSaid, { maxItems: 12 }),
   },
   strict,
 );

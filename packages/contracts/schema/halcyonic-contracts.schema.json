@@ -1265,7 +1265,8 @@
             "command_type",
             "confirm",
             "what_happens",
-            "review"
+            "review",
+            "said"
           ],
           "properties": {
             "command_type": {
@@ -1293,6 +1294,13 @@
                   "type": "null"
                 }
               ]
+            },
+            "said": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ActionReviewSaid"
+              },
+              "maxItems": 12
             }
           },
           "additionalProperties": false
