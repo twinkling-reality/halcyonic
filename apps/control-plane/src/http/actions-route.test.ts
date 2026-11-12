@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { HereAction, HereResponse } from '@halcyonic/contracts';
+import type { ChoicesResponse, HereAction, HereResponse } from '@halcyonic/contracts';
 import { startTestServer } from '../testing/harness.ts';
 
 const types = (actions: readonly HereAction[]) =>
@@ -64,4 +64,33 @@ test('GET /api/actions lists what can be done where the person stands, from the 
   assert.deepEqual(loose.body.actions, []);
   assert.equal((await get('?project_id=not-an-id')).status, 400);
   assert.equal((await get('?project_id=01920000-0000-7000-8000-000000000b02&x=1')).status, 400);
+});
+
+test('GET /api/actions/choices answers a list by index, its digest, and no id (ADR 0060)', async (t) => {
+  const server = await startTestServer();
+  t.after(() => server.stop());
+  const get = (query: string) =>
+    fetch(`${server.baseUrl}/api/actions/choices${query}`, {
+      headers: { authorization: `Bearer ${server.token}` },
+    });
+  const runtimes = await get('?list=runtimes');
+  assert.equal(runtimes.status, 200);
+  const body = (await runtimes.json()) as ChoicesResponse;
+  assert.equal(body.list, 'runtimes');
+  assert.ok(body.rows.length > 0 && body.rows.length === body.total);
+  assert.deepEqual(
+    body.rows.map((row) => row.index),
+    body.rows.map((_, index) => index),
+  );
+  for (const row of body.rows) {
+    assert.equal(row.kind, 'runtime');
+    assert.deepEqual(row.actions, ['execution.start']);
+    assert.ok(!('value' in row), 'the id a row stands for stays the host’s');
+  }
+  const again = (await (await get('?list=runtimes')).json()) as ChoicesResponse;
+  assert.equal(again.digest, body.digest, 'the same rows read the same');
+  // A list this host cannot read by index yet, or one this place does not have.
+  assert.equal((await get('?list=models')).status, 404);
+  assert.equal((await get('?list=versions')).status, 404, 'all work has no versions');
+  assert.equal((await get('?list=nothing')).status, 400);
 });

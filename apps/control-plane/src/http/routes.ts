@@ -4,6 +4,8 @@ import {
   CheckpointId,
   type CheckpointsResponse,
   CheckStepOutputQuery,
+  ChoicesQuery,
+  type ChoicesResponse,
   COMMAND_SCHEMA_VERSION,
   CommandId,
   type CommandSubmissionResponse,
@@ -73,6 +75,7 @@ const validateEventsQuery = compileValidator(EventsQuery);
 const validateCatalogResponse = compileValidator(CatalogResponse);
 const validateProjectId = compileValidator(ProjectId);
 const validateHereQuery = compileValidator(HereQuery);
+const validateChoicesQuery = compileValidator(ChoicesQuery);
 const validateExecutionId = compileValidator(ExecutionId);
 const validateRuntimeId = compileValidator(RuntimeId);
 const validateCheckpointId = compileValidator(CheckpointId);
@@ -258,6 +261,28 @@ export function registerRoutes(
       position: controlPlane.projection.position,
       actions: controlPlane.commands.here(scope),
     };
+    return body;
+  });
+
+  // One of the host's lists, by index, for a choice or a list card (ADR 0060); the ids stay the host's.
+  app.get('/api/actions/choices', async (request, reply) => {
+    const query = validateChoicesQuery(request.query);
+    if (!query.ok)
+      return reply
+        .code(400)
+        .send(errorBody('invalid_request', 'list must be a list, and the scope ids must be ids.'));
+    const scope = {
+      project_id: query.value.project_id ?? null,
+      workstream_id: query.value.workstream_id ?? null,
+      execution_id: query.value.execution_id ?? null,
+    };
+    const body: ChoicesResponse | null = controlPlane.commands.choices(scope, query.value.list);
+    if (body === null)
+      return reply
+        .code(404)
+        .send(
+          errorBody('read_unavailable', 'That list is not one this place has, or not here yet.'),
+        );
     return body;
   });
 

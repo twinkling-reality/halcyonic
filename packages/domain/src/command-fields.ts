@@ -88,7 +88,7 @@ export const COMMAND_FIELDS: Readonly<
     project_id: project,
     name: need('choice', 'Secret', { list: 'secrets' }),
   },
-  'project.send_to_github': { project_id: project, title: need('text', 'Title', optional), review },
+  'project.send_to_github': { project_id: project, title: need('text', 'Title'), review },
   'project.publish': { project_id: project, review },
   // What comes down is what the person was shown: the published commit, carried as its review.
   'project.unpublish': { project_id: project, commit: review },
@@ -99,7 +99,7 @@ export const COMMAND_FIELDS: Readonly<
   'project.unlink_catalog': { project_id: project },
   'workstream.create': {
     project_id: project,
-    title: need('text', 'Title', optional),
+    title: need('text', 'Title'),
     objective: need('text', 'Goal', optional),
     from_checkpoint: need('choice', 'From Version', { ...optional, list: 'versions' }),
   },
