@@ -543,16 +543,16 @@ public class IntelligenceFeedTests
         const string Leak = "Seorak at http://127.0.0.1:7600 refused: visit http://203.0.113.9/unlock";
         foreach (var (code, why) in new[]
         {
-            ("not_running", "Not Running · Start It · Refresh"),
-            ("timed_out", "No Answer · Refresh Soon"),
-            ("rate_limited", "Too Many Requests · Refresh Later"),
-            ("credential_malformed", "Credential Wrong Kind · Not Sent · Set Up Another"),
-            ("insufficient_scope", "Credential Lacks Access · Set Up Another"),
-            ("result_limit", "Result Limit Reached · Refresh"),
-            ("instance_mismatch", "Wrong Source Answered · Check Setup on Computer"),
-            ("invalid_evaluation", "Answer Unreadable · Check Version on Computer"),
-            ("native_id_unknown", "Session Unknown Yet · Refresh Soon"),
-            ("something_new", "No Reason Given · Refresh"),
+            ("not_running", "Not Running, start it on your computer"),
+            ("timed_out", "No Answer"),
+            ("rate_limited", "Too Many Requests, wait a while before you refresh"),
+            ("credential_malformed", "Wrong Kind of Credential, it was not sent; set up another"),
+            ("insufficient_scope", "Credential Lacks Access, set up another"),
+            ("result_limit", "Result Limit Reached"),
+            ("instance_mismatch", "Wrong Source Answered, check the setup on your computer"),
+            ("invalid_evaluation", "Answer Unreadable, check that both run the same version"),
+            ("native_id_unknown", "Session Not Known Yet"),
+            ("something_new", "Reason Unknown"),
         })
         {
             Assert.That(IntelligenceText.Why(new ErrorInfo { Code = code, Message = Leak }), Is.EqualTo(why), code);
@@ -564,7 +564,7 @@ public class IntelligenceFeedTests
             Result = new UnavailableEvaluation { Reason = new ErrorInfo { Code = "not_running", Message = Leak } },
         }, now, recorded: false);
         var line = EvaluationPresenter.Measurement(unavailable, false, null, now, Intelligence.Utc).Single().Text;
-        Assert.That(line, Is.EqualTo("Seorak · Measurement Unavailable · Not Running · Start It · Refresh"));
+        Assert.That(line, Is.EqualTo("Seorak · Measurement Unavailable · Not Running, start it on your computer"));
     }
 }
 

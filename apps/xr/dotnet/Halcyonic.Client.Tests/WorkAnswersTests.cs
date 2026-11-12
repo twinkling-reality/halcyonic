@@ -490,13 +490,13 @@ public class UnderstandingAnswersTests
         var cases = new Dictionary<string, (string Json, string Provenance)>
         {
             ["not_found"] = (Intelligence.Failure("not_found", "not_observed", "Salidium has not observed this session."),
-                "Salidium · No Conclusions · Task Not Seen Yet · Refresh Soon"),
+                "Salidium · No Conclusions · Task Not Seen Yet"),
             ["unavailable"] = (Intelligence.Failure("unavailable", "not_running", "Salidium is not running: it has not published its discovery file."),
-                "Salidium · Conclusions Unavailable · Not Running · Start It · Refresh"),
+                "Salidium · Conclusions Unavailable · Not Running, start it on your computer"),
             ["incompatible"] = (Intelligence.Failure("incompatible", "invalid_document", "The session report does not match Salidium consumer contract v1."),
-                "Salidium · Conclusions Unreadable · Answer Unreadable · Check Version on Computer"),
+                "Salidium · Conclusions Unreadable · Answer Unreadable, check that both run the same version"),
             ["unauthorized"] = (Intelligence.Failure("unauthorized", "credential_missing", "No Salidium credential is configured."),
-                "Salidium · Conclusions Not Allowed · Credential Missing · Set Up on Computer"),
+                "Salidium · Conclusions Not Allowed · Credential Missing, set one up on your computer"),
         };
         foreach (UnderstandPrompt prompt in Enum.GetValues(typeof(UnderstandPrompt)))
         {
@@ -515,10 +515,10 @@ public class UnderstandingAnswersTests
     {
         var notAsked = Intelligence.Failure("not_found", "native_id_unknown", "The runtime has not reported its session id yet.");
         Assert.That(Answers.Understand(UnderstandPrompt.WhatChanged, notAsked).Provenance,
-            Is.EqualTo("No Conclusions · Session Unknown Yet · Refresh Soon"));
+            Is.EqualTo("No Conclusions · Session Not Known Yet"));
         var section = Answers.Checked(notAsked, notAsked);
-        Assert.That(section.Provenance, Is.EqualTo("No Conclusions · Session Unknown Yet · Refresh Soon"));
-        Assert.That(section.Lines.Single(line => line.Source).Text, Is.EqualTo("Not Measured · Session Unknown Yet · Refresh Soon"));
+        Assert.That(section.Provenance, Is.EqualTo("No Conclusions · Session Not Known Yet"));
+        Assert.That(section.Lines.Single(line => line.Source).Text, Is.EqualTo("Not Measured · Session Not Known Yet"));
     }
 
     [Test]
@@ -777,10 +777,10 @@ public class CheckedTests
 
         var cases = new Dictionary<string, string>
         {
-            ["not_found"] = "Seorak · Not Measured · No Reason Given · Refresh",
-            ["unavailable"] = "Seorak · Measurement Unavailable · No Reason Given · Refresh",
-            ["incompatible"] = "Seorak · Measurement Unreadable · No Reason Given · Refresh",
-            ["unauthorized"] = "Seorak · Measurement Not Allowed · No Reason Given · Refresh",
+            ["not_found"] = "Seorak · Not Measured · Reason Unknown",
+            ["unavailable"] = "Seorak · Measurement Unavailable · Reason Unknown",
+            ["incompatible"] = "Seorak · Measurement Unreadable · Reason Unknown",
+            ["unauthorized"] = "Seorak · Measurement Not Allowed · Reason Unknown",
         };
         foreach (var (availability, words) in cases)
         {
@@ -1205,7 +1205,7 @@ public class AnswerPagesTests
         var down = Brief(unavailable);
         Assert.That(down.Count, Is.EqualTo(2), "Salidium's checks, then Seorak's state, each on a page of its own");
         Assert.That(down[0].Provenance, Does.StartWith("Salidium"));
-        Assert.That(down[1].Provenance, Is.EqualTo("Seorak · Measurement Unavailable · Not Running · Start It · Refresh"));
+        Assert.That(down[1].Provenance, Is.EqualTo("Seorak · Measurement Unavailable · Not Running, start it on your computer"));
         Assert.That(down[1].Lines, Is.Empty, "why Seorak has none is its source line");
 
         var up = Brief(measured);

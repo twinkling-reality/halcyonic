@@ -260,7 +260,7 @@ public class QuestionTests
             CommandId = "c1", CommandType = CommandType.ExecutionAnswerQuestion, Status = status, ExecutionId = "e1",
             IssuedAt = Samples.Time, Failure = failure, Rejection = rejection,
         };
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Accepted)).Text, Is.EqualTo("Sent · Awaiting Agent"));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Accepted)).Text, Is.EqualTo("Sent, waiting for the agent"));
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Completed)).Text, Is.EqualTo("Confirmed · Answer Received"));
         var unconfirmed = new CommandFailure { Code = "question_unconfirmed", Message = "Codex did not confirm.", Effect = FailureEffect.Unknown };
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Failed, unconfirmed)).Text, Is.EqualTo(WorkspaceText.AnswerNotConfirmed));

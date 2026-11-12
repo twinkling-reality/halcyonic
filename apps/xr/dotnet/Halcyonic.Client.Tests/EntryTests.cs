@@ -972,7 +972,7 @@ public class QuestionLedWorkspaceTests
         Assert.That(need.Notes, Has.None.Contains("Once Agent Confirms"));
         CommandView Decision(CommandStatus status) => new()
         { CommandId = "c1", CommandType = CommandType.ExecutionRespondToApproval, Status = status, ExecutionId = "e1", IssuedAt = Samples.Time };
-        Assert.That(WorkspacePresenter.Feedback(Decision(CommandStatus.Accepted)).Text, Is.EqualTo("Sent · Awaiting Agent"), "an answer counts once confirmed, not when sent");
+        Assert.That(WorkspacePresenter.Feedback(Decision(CommandStatus.Accepted)).Text, Is.EqualTo("Sent, waiting for the agent"), "an answer counts once confirmed, not when sent");
         Assert.That(WorkspacePresenter.Feedback(Decision(CommandStatus.Completed)).Text, Is.EqualTo("Confirmed · Decision Received"));
 
         work.Change(execution => execution.PendingApprovals.Add(WaitingWork.Approval("approval-2", "Drop the table", "2026-09-26T09:05:00.000Z")));

@@ -288,15 +288,25 @@ namespace Halcyonic.Client
             return new CommandFeedback(command.CommandId, command.CommandType, command.Status, text);
         }
 
-        /// <summary>Accepted is not done: sent, and what it waits for.</summary>
-        internal static string Pending(CommandType type) => type switch
+        /// <summary>
+        /// Accepted is not done: sent, and what it waits for (FIELD's words, 2026-11-12). Only a command an agent answers waits for
+        /// the agent; every other one waits for the computer, which is true of every command, a new one included (AUDIT's census of
+        /// 2026-11-12: project create, check, preview, share and restore read "Awaiting Agent" before).
+        /// </summary>
+        internal static string Pending(CommandType type) => PendingNotice(type).Phrase;
+
+        /// <summary>The same as a title and a line apart.</summary>
+        public static Notice PendingNotice(CommandType type) => new Notice(SentTitle, type switch
         {
-            CommandType.WorkspaceRequestSubmit or CommandType.WorkspaceRequestResume => "Sent · Awaiting Confirmation",
-            CommandType.WorkspaceRequestCancel => "Stop Planning Sent · Awaiting Confirmation",
-            CommandType.ExecutionInterrupt => "Sent · Awaiting Stop",
-            CommandType.ExecutionStart => "Sent · Awaiting Start",
-            _ => "Sent · Awaiting Agent",
-        };
+            CommandType.WorkspaceRequestSubmit or CommandType.WorkspaceRequestResume => "Waiting for confirmation",
+            CommandType.WorkspaceRequestCancel => "Stopping the plan",
+            CommandType.ExecutionInterrupt => "Waiting for it to stop",
+            CommandType.ExecutionStart => "Waiting for it to start",
+            CommandType.ExecutionSendInstruction or CommandType.ExecutionAnswerQuestion or CommandType.ExecutionRespondToApproval => "Waiting for the agent",
+            _ => "Waiting for your computer",
+        });
+
+        private const string SentTitle = "Sent";
 
         /// <summary>Only the control plane's completed record says so.</summary>
         private static string Done(CommandType type) => type switch

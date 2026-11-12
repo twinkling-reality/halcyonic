@@ -350,7 +350,8 @@ namespace Halcyonic.Client
             ControlPlaneRequestException { InnerException: System.Net.Http.HttpRequestException _ } => Unreachable,
             OperationCanceledException _ => "companion_too_slow",
             Newtonsoft.Json.JsonException _ => "companion_unreadable",
-            _ => "companion_failed",
+            // Not the host's companion_failed, which says the model was asked and failed: here nothing says it was asked.
+            _ => "companion_error_unknown",
         };
 
         private static int Utf8(string text) => System.Text.Encoding.UTF8.GetByteCount(text);

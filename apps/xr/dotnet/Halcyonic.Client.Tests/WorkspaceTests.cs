@@ -495,7 +495,7 @@ public class WorkspacePresenterTests
             Failure = status == CommandStatus.Failed ? new CommandFailure { Code = "timeout", Message = "The runtime did not confirm.", Effect = FailureEffect.Unknown } : null,
             Result = null,
         };
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Accepted)).Text, Is.EqualTo("Sent · Awaiting Stop"));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Accepted)).Text, Is.EqualTo("Sent, waiting for it to stop"));
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Completed)).Text, Is.EqualTo("Confirmed · Stopped"));
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected)).Text, Is.EqualTo("Refused · Not Possible Now · See Activity"),
             "by the refusal's code, never the control plane's message");
