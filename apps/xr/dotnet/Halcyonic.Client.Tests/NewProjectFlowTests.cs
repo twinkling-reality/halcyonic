@@ -91,9 +91,9 @@ public class NewProjectFlowTests
             return Height?.Invoke(subjectRows, besideMenu) ?? MenuPage.Height(TextSize, subjectRows, besideMenu: besideMenu, focused: focused);
         }
 
-        public void OpenFile(string workstreamId)
-        {
-        }
+        public List<string> Opened { get; } = new();
+
+        public void OpenFile(string workstreamId) => Opened.Add(workstreamId);
 
         public void OpenNewProject(string? projectId, string? projectName)
         {
@@ -2542,6 +2542,35 @@ public class NewProjectFlowTests
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
         Assert.That(flow.Frame!.Card?.More?.Text ?? "", Is.EqualTo(VoiceText.HeardNote), "the heard words' note on the recap");
         Assert.That(host.Sent, Is.Empty);
+    });
+
+    /// <summary>The lead's first journey: once started, the task's own file opens where the person is, once, so its approval is one press away.</summary>
+    [Test]
+    public void Where_the_redesigns_view_draws_it_a_started_task_opens_its_file_once() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = RoomRecapped(host, roomLines: _ => 1);
+        var beside = true;
+        flow.ShownBeside = () => beside;
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        var project = host.Sent.Single();
+        host.State = With(Completed(project, new ProjectCreatedResult { ProjectId = "p1" }));
+        flow.Tick();
+        var workstream = host.Sent.Last();
+        host.State = With(Completed(project, new ProjectCreatedResult { ProjectId = "p1" }), Completed(workstream, new WorkstreamCreatedResult { WorkstreamId = "w1" }));
+        flow.Tick();
+        var start = host.Sent.Last();
+        Assume.That(start, Is.InstanceOf<ExecutionStartCommand>());
+        Assert.That(host.Opened, Is.Empty, "not before it started");
+        host.State = With(Completed(project, new ProjectCreatedResult { ProjectId = "p1" }), Completed(workstream, new WorkstreamCreatedResult { WorkstreamId = "w1" }),
+            Completed(start, new ExecutionCreatedResult { ExecutionId = "e1" }));
+        beside = false;
+        flow.Tick();
+        Assert.That(host.Opened, Is.Empty, "never over what the person moved to");
+        beside = true;
+        flow.Tick();
+        flow.Tick();
+        Assert.That(host.Opened, Is.EqualTo(new[] { "w1" }), "its file, once, where New Project stands");
     });
 
     /// <summary>What is sent is what the recap showed: a change made after it was drawn sends nothing until the recap is drawn again.</summary>

@@ -129,6 +129,7 @@ namespace Halcyonic.XR.Workspace
                 flow.RoomLines = room ? (roomLines ??= words => plane.Kit.Bar.Lines(words, false)) : null;
                 // The recap counts as shown for Start Task's one press only while its card stands whole (R1; RoomCardView.LaidWhole).
                 flow.RecapShownWhole = room ? (recapShownWhole ??= () => plane.Kit.Bar.Card?.LaidWhole == true) : null;
+                flow.ShownBeside = room ? () => navigator.Beside == flow && !navigator.IsCompact : null;
             }
             // With nothing beside the menu (the Projects place, the launch screen), the menu's own frame is the one a reader takes.
             var frame = navigator.Beside != null ? navigator.Beside.Frame : menuFrame;
