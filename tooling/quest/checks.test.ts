@@ -448,7 +448,7 @@ describe('headset session checks', () => {
     assert.equal(checkConnection(live).pass, true);
     const unproved = log(
       unity(
-        'connection Refused: Code Withheld · Host Unverified · Copy Current Code · Check App · Restart App',
+        "connection Refused: Code Withheld, the computer wasn't verified; copy the current code, then restart the app",
       ),
     );
     assert.equal(checkConnection(unproved).pass, false);
@@ -472,7 +472,7 @@ describe('headset session checks', () => {
       'not yet found unreachable',
     );
     const refused = log(
-      unity('connection Refused: Access Code Refused · Mismatch · Copy Current Code · Restart App'),
+      unity('connection Refused: Access Code Refused, copy the current code, then restart the app'),
     );
     assert.equal(checkConnection(refused, 'refused').pass, true);
     const protocol = log(
