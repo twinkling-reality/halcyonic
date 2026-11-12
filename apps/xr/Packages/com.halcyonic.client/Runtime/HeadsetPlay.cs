@@ -24,7 +24,7 @@ namespace Halcyonic.Client
         NoWayToHeadset,
         /// <summary>
         /// The headset reaches the computer over the network and this build carries no relay: the relay is in development
-        /// builds only (ADR 0052, the lead's decision of 2026-11-11), and a release build cannot use the cable either.
+        /// builds only (ADR 0052, the lead's decision of 2026-11-11). Over the cable a release build still plays as before.
         /// </summary>
         NotInThisBuild,
         /// <summary>No control plane is configured.</summary>
@@ -112,7 +112,7 @@ namespace Halcyonic.Client
         public static string? RefusalLine(PlayInHeadset play) => play switch
         {
             // FIELD's rule (2026-11-11): a foot line takes no full stop at its end; a stop between two sentences stays.
-            PlayInHeadset.NotConfined => "This app stays on your computer. Its agents could read outside its folder",
+            PlayInHeadset.NotConfined => "This app stays on your computer. It may read outside its folder",
             PlayInHeadset.NoWayToHeadset => "Connect the headset by cable to play this app in it",
             PlayInHeadset.NotInThisBuild => "Playing without a cable is not in this build",
             _ => null,
