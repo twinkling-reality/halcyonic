@@ -89,10 +89,14 @@ namespace Halcyonic.Client
 
         public RoomResult(bool isVr, bool canMakeVr, bool canTry, bool? passed, ObservedTurn? observed, IReadOnlyList<CheckStepOutcome>? steps,
             RoomResultPage page = RoomResultPage.Result, int part = 0, Halcyonic.Client.PlayInHeadset? play = null, RoomAdd? add = null, string? addReview = null,
-            HistoryColumn? history = null, ShareColumn? share = null, bool canShare = false)
+            HistoryColumn? history = null, ShareColumn? share = null, bool canShare = false, IReadOnlyList<ProjectPlace>? places = null)
         {
             AddReview = addReview;
             Play = play;
+            // The project's one list of places (LINK's ProjectPlaces, the lead's 11:37Z); where none is given, as in a fixed state, the
+            // same rule from Play: Play in Headset where it stands.
+            Places = places ?? (play is Halcyonic.Client.PlayInHeadset given && HeadsetPlay.Stands(given)
+                ? new[] { new ProjectPlace(ProjectPlaceKind.PlayInHeadset, HeadsetPlay.ActionWords, "") } : Array.Empty<ProjectPlace>());
             Add = add;
             History = page == RoomResultPage.History ? history : null;
             Share = page == RoomResultPage.Share ? share : null;
@@ -124,6 +128,9 @@ namespace Halcyonic.Client
 
         /// <summary>Whether Play in Headset stands for the project, and if not why (<see cref="HeadsetPlay.For"/>); null where unknown.</summary>
         public Halcyonic.Client.PlayInHeadset? Play { get; }
+
+        /// <summary>The places the project offers now (<see cref="ProjectPlaces.Of"/>): the result's Play is drawn from this list, never a Play of its own.</summary>
+        public IReadOnlyList<ProjectPlace> Places { get; }
 
         /// <summary>The project's history where the History page shows (DEVICE's <see cref="HistoryColumn"/>); null on every other page.</summary>
         public HistoryColumn? History { get; }
@@ -258,7 +265,8 @@ namespace Halcyonic.Client
                 history, share,
                 // DEVICE's Share stands only where this headset can send to the computer (never in the demonstration; AUDIT reread
                 // MUST 1), and where the host would admit it (TASKS's conditions) or a share stands to stop.
-                canShare: canSend && (way?.Demonstration != true) && (project.Share != null || ShareColumn.Reason(project) == null));
+                canShare: canSend && (way?.Demonstration != true) && (project.Share != null || ShareColumn.Reason(project) == null),
+                places: way is { } at ? ProjectPlaces.Of(project, at.Target, at.Demonstration, relays: relays, relayBuilt: relayBuilt) : Array.Empty<ProjectPlace>());
         }
     }
 

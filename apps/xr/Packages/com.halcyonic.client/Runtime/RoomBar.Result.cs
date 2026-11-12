@@ -171,8 +171,12 @@ namespace Halcyonic.Client
                     if (result.CanTry) column.Add(Own(RoomResult.TryBuild, KitScreenModel.Words(KitScreenAction.TryIt), main: column.Count == 0, GlazeIcon.OpenNow));
                     // DEVICE's Play in Headset beside Try Build, where it stands. Where it does not, it is not drawn: an action that
                     // cannot act has no disabled look (BUILD-SPEC-v4 1.4); where its refusal's words stand is FIELD's to say.
-                    if (result.Play is PlayInHeadset play && HeadsetPlay.Stands(play))
-                        column.Add(Own(RoomResult.PlayInHeadset, HeadsetPlay.ActionWords, main: column.Count == 0, GlazeIcon.OpenNow));
+                    // The project's places from its one list (LINK's ProjectPlaces): Play in Headset where the list has it, by its kind, never its label.
+                    foreach (var place in result.Places)
+                    {
+                        if (place.Kind == ProjectPlaceKind.PlayInHeadset)
+                            column.Add(Own(RoomResult.PlayInHeadset, place.Label, main: column.Count == 0, GlazeIcon.OpenNow));
+                    }
                     // DEVICE's Share, where the host would admit it or a share stands (FIELD: an action of a passed result at rest).
                     if (result.CanShare) column.Add(Own(RoomResult.ShowShare, ShareText.Share, main: column.Count == 0, GlazeIcon.Next));
                     // The one Changes (the lead, 11:15Z): always offered at rest, its page saying Nothing Changed where none did and the plain
