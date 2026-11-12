@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { request as httpRequest, type IncomingMessage } from 'node:http';
+import { connect } from 'node:net';
 import { join } from 'node:path';
 import { Transform } from 'node:stream';
 import { PREVIEW_PORT_FIRST, PREVIEW_PORT_LAST } from '@halcyonic/contracts';
 import type { Projection } from '@halcyonic/domain';
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { RawData, WebSocket } from 'ws';
 import { errorBody } from '../http/server.ts';
 
 /**
@@ -188,4 +190,144 @@ export function registerPreviewRelay(
   };
   app.get('/api/projects/:project_id/preview', relay);
   app.get('/api/projects/:project_id/preview/*', relay);
+}
+
+/** How many preview streams one device may hold at once, how long one may sit idle, how often each re-asks its gate. */
+export interface PreviewStreamLimits {
+  readonly perDevice: number;
+  readonly idleMs: number;
+  readonly checkMs: number;
+}
+
+/**
+ * A browser opens about six connections to one address; the listener allows a device eight in all, its realtime
+ * connection among them.
+ */
+export const PREVIEW_STREAM_LIMITS: PreviewStreamLimits = {
+  perDevice: 6,
+  idleMs: 60_000,
+  checkMs: 1_000,
+};
+
+/** The WebSocket close code a stream ends with when its gate no longer admits it: 4000 plus the HTTP status. */
+const GATE_CLOSED = 4409;
+/** The close code where the preview's own server did not take the connection. */
+const PREVIEW_UNREACHABLE = 4502;
+
+/**
+ * Registers `GET /api/projects/:project_id/preview-stream`, a WebSocket upgrade for a paired device only (ADR 0052,
+ * amended 2026-11-12): one browser connection on the headset, carried whole to the preview's own server on this Mac,
+ * so an app plays in the headset as it does at the desk (any method, live reload, its own WebSockets). The upgrade is
+ * admitted by `target`, the same gate as the file route; the Mac then dials 127.0.0.1 at the port the gate names,
+ * never one the request names, and pipes bytes both ways. Each open stream re-asks the gate, and whether its device is
+ * still paired, every `checkMs`; when either says no, an idle `idleMs` passes, or the listener closes (pairing turned
+ * off), the stream ends at once. A device holds at most `perDevice` streams.
+ */
+export function registerPreviewStream(
+  app: FastifyInstance,
+  target: (projectId: string) => PreviewTarget,
+  isActive: (deviceId: string) => boolean,
+  limits: PreviewStreamLimits = PREVIEW_STREAM_LIMITS,
+): void {
+  const open = new Map<string, Set<() => void>>();
+  // Pairing turned off closes the listener: every stream it holds ends with it.
+  app.addHook('onClose', async () => {
+    for (const ends of open.values()) for (const end of [...ends]) end();
+  });
+  app.get(
+    '/api/projects/:project_id/preview-stream',
+    {
+      websocket: true,
+      preHandler: async (request, reply) => {
+        const principal = request.principal;
+        if (principal?.kind !== 'device') {
+          return reply
+            .code(403)
+            .send(errorBody('forbidden', 'Only a paired device reads a preview.'));
+        }
+        const { project_id: projectId } = request.params as { project_id: string };
+        if (!PROJECT_ID.test(projectId)) {
+          return reply.code(400).send(errorBody('invalid_request', 'The project id is invalid.'));
+        }
+        if ((open.get(principal.device_id)?.size ?? 0) >= limits.perDevice) {
+          return reply
+            .code(429)
+            .send(
+              errorBody(
+                'too_many_streams',
+                `A device holds at most ${limits.perDevice} preview connections at once.`,
+              ),
+            );
+        }
+        const found = target(projectId);
+        if (!found.ok) return reply.code(409).send(errorBody(found.code, found.message));
+      },
+    },
+    (socket: WebSocket, request) => {
+      const principal = request.principal;
+      const { project_id: projectId } = request.params as { project_id: string };
+      const found = target(projectId);
+      if (principal?.kind !== 'device' || !found.ok) {
+        socket.close(GATE_CLOSED, found.ok ? 'forbidden' : found.code);
+        return;
+      }
+      const deviceId = principal.device_id;
+      const port = found.port;
+      const ends = open.get(deviceId) ?? new Set<() => void>();
+      open.set(deviceId, ends);
+      // Only this Mac's own loopback, at the port the gate named.
+      const upstream = connect({ host: '127.0.0.1', port });
+      let ended = false;
+      let idle: NodeJS.Timeout | undefined;
+      const touch = () => {
+        if (idle !== undefined) clearTimeout(idle);
+        idle = setTimeout(() => end(1000, 'idle'), limits.idleMs);
+        idle.unref();
+      };
+      const end = (code = 1000, reason = 'ended') => {
+        if (ended) return;
+        ended = true;
+        clearInterval(check);
+        if (idle !== undefined) clearTimeout(idle);
+        upstream.destroy();
+        if (socket.readyState === socket.OPEN || socket.readyState === socket.CONNECTING) {
+          socket.close(code, reason);
+        }
+        ends.delete(end);
+        if (ends.size === 0) open.delete(deviceId);
+      };
+      ends.add(end);
+      const check = setInterval(() => {
+        if (!isActive(deviceId)) return end(GATE_CLOSED, 'not_paired');
+        const now = target(projectId);
+        if (!now.ok) return end(GATE_CLOSED, now.code);
+        if (now.port !== port) end(GATE_CLOSED, 'preview_not_latest');
+      }, limits.checkMs);
+      check.unref();
+      touch();
+      // The browser's bytes to the preview, and the preview's back, as they come; a slow headset slows the preview.
+      let unsent = 0;
+      upstream.on('data', (chunk: Buffer) => {
+        touch();
+        unsent += 1;
+        if (unsent > 16) upstream.pause();
+        socket.send(chunk, { binary: true }, () => {
+          unsent -= 1;
+          if (unsent <= 4) upstream.resume();
+        });
+      });
+      upstream.on('error', () => end(PREVIEW_UNREACHABLE, 'preview_unreachable'));
+      upstream.on('end', () => end());
+      upstream.on('close', () => end());
+      socket.on('message', (data: RawData) => {
+        touch();
+        const chunks = Array.isArray(data) ? data : [data];
+        for (const chunk of chunks) {
+          upstream.write(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as ArrayBuffer));
+        }
+      });
+      socket.on('close', () => end());
+      socket.on('error', () => end());
+    },
+  );
 }

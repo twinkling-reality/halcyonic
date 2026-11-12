@@ -147,6 +147,8 @@ export class WebSocketRefused extends Error {
  */
 export class TlsWebSocket {
   readonly messages: string[] = [];
+  /** Every binary frame's bytes, in order: the preview stream's carriage. */
+  bytes: Buffer = Buffer.alloc(0);
   /** The close frame's code and reason, or 1006 when the connection ended without one. */
   readonly closed: Promise<{ code: number; reason: string }>;
   /** When the connection itself has ended, whoever ended it. */
@@ -235,6 +237,22 @@ export class TlsWebSocket {
     this.#write(0x1, Buffer.from(text, 'utf8'));
   }
 
+  /** A binary frame, as the headset's preview stream sends the browser's bytes. */
+  sendBytes(payload: Buffer): void {
+    this.#write(0x2, payload);
+  }
+
+  /** Until the binary frames so far hold `text`. */
+  async waitForBytes(text: string, timeoutMs = 5000): Promise<string> {
+    const deadline = Date.now() + timeoutMs;
+    while (!this.bytes.toString('latin1').includes(text)) {
+      if (Date.now() > deadline)
+        throw new Error(`no bytes with ${JSON.stringify(text)} within ${timeoutMs} ms`);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    return this.bytes.toString('latin1');
+  }
+
   sendJson(value: unknown): void {
     this.send(JSON.stringify(value));
   }
@@ -307,6 +325,8 @@ export class TlsWebSocket {
           this.#waiters.splice(this.#waiters.indexOf(waiter), 1);
           waiter.resolve(text);
         }
+      } else if (frame.opcode === 0x2) {
+        this.bytes = Buffer.concat([this.bytes, frame.payload]);
       } else if (frame.opcode === 0x9) {
         if (!this.#hostile) this.#write(0xa, frame.payload);
       } else if (frame.opcode === 0x8) {

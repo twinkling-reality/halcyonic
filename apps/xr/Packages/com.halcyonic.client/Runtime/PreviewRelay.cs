@@ -5,8 +5,8 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,39 +14,38 @@ using System.Threading.Tasks;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// A project's preview, shown in the headset's browser with no cable (ADR 0052): this answers the
-    /// browser on the headset's own loopback address, <c>http://127.0.0.1:&lt;Port&gt;/</c>, which a browser
-    /// treats as a secure context, so WebXR is offered, and asks the paired computer for each file over
-    /// the pinned connection (<c>/api/projects/&lt;id&gt;/preview/...</c>), where the computer relays it from
-    /// that project's preview only when every agent's reads were confined. Only GET and HEAD, one request
-    /// a connection; the device credential never reaches the browser, and nothing but the file's own
-    /// description comes back. The headset's app must keep running while the browser is in front: the
-    /// Unity layer holds an Android foreground service while a relay is open (ADR 0052).
+    /// A project's preview, shown in the headset's browser with no cable (ADR 0052, amended 2026-11-12): this answers the
+    /// browser on the headset's own loopback address, <c>http://127.0.0.1:&lt;Port&gt;/</c>, which a browser treats as a
+    /// secure context, so WebXR is offered, and carries each browser connection whole to the paired computer over one
+    /// pinned WebSocket (<c>/api/projects/&lt;id&gt;/preview-stream</c>), where the computer pipes it to that project's
+    /// preview only when every agent's reads were confined. So the app plays as at the desk: any method, its own
+    /// WebSockets, live reload. Each connection's first request must name this address as its Host and must not be a
+    /// service worker's; it goes on with <c>Connection: close</c>, so the browser's next request comes on a new
+    /// connection and meets both checks again (a WebSocket upgrade keeps its connection). The device credential is on
+    /// the WebSocket's upgrade only, never in the browser's bytes. The headset's app must keep running while the browser
+    /// is in front: the Unity layer holds an Android foreground service while a relay is open (ADR 0052).
     /// </summary>
     public sealed class PreviewRelay : IDisposable
     {
-        /// <summary>The largest file relayed, as the computer's relay allows.</summary>
-        public const int MaxFileBytes = 32 * 1024 * 1024;
-
         private const int MaxHeadBytes = 16 * 1024;
 
-        private static readonly string[] PassedRequestHeaders = { "Accept", "Accept-Language", "Range", "If-None-Match", "If-Modified-Since" };
-
-        private static readonly string[] PassedResponseHeaders = { "Content-Type", "Content-Range", "Accept-Ranges", "ETag", "Last-Modified" };
+        /// <summary>The computer's close codes for a stream its gate stopped (4409) or whose preview did not answer (4502).</summary>
+        private const int GateClosed = 4409;
+        private const int PreviewUnreachable = 4502;
 
         private readonly TcpListener listener;
-        private readonly HttpMessageInvoker invoker;
+        private readonly PairedReach reach;
         private readonly string credential;
-        private readonly Uri preview;
+        private readonly Uri stream;
         private readonly CancellationTokenSource stopping = new CancellationTokenSource();
         private readonly Task accepting;
 
-        private PreviewRelay(TcpListener listener, HttpMessageHandler handler, string credential, Uri preview)
+        private PreviewRelay(TcpListener listener, PairedReach reach, string credential, Uri stream)
         {
             this.listener = listener;
-            invoker = new HttpMessageInvoker(handler, disposeHandler: true);
+            this.reach = reach;
             this.credential = credential;
-            this.preview = preview;
+            this.stream = stream;
             accepting = Task.Run(AcceptAsync);
         }
 
@@ -67,8 +66,8 @@ namespace Halcyonic.Client
             var listener = new TcpListener(IPAddress.Loopback, port);
             listener.Start();
             var reach = PairedReach.For(pairing);
-            var preview = new UriBuilder("https", reach.Typed.Contains(":") ? "[" + reach.Typed.Trim('[', ']') + "]" : reach.Typed, reach.Port, "/api/projects/" + projectId + "/preview").Uri;
-            return new PreviewRelay(listener, new PinnedHttpHandler(reach, MaxFileBytes), pairing.Credential, preview);
+            var stream = new UriBuilder("wss", reach.Typed.Contains(":") ? "[" + reach.Typed.Trim('[', ']') + "]" : reach.Typed, reach.Port, "/api/projects/" + projectId + "/preview-stream").Uri;
+            return new PreviewRelay(listener, reach, pairing.Credential, stream);
         }
 
         public void Dispose()
@@ -83,7 +82,6 @@ namespace Halcyonic.Client
             {
                 // Stopping ends the accept loop by throwing.
             }
-            invoker.Dispose();
         }
 
         private async Task AcceptAsync()
@@ -110,15 +108,29 @@ namespace Halcyonic.Client
         private async Task ServeAsync(TcpClient client)
         {
             using (client)
-            using (var timeout = CancellationTokenSource.CreateLinkedTokenSource(stopping.Token))
             {
-                timeout.CancelAfter(TimeSpan.FromSeconds(30));
-                var stream = client.GetStream();
+                var browser = client.GetStream();
                 try
                 {
-                    var head = await ReadRequestHeadAsync(stream, timeout.Token).ConfigureAwait(false);
+                    RequestHead? head;
+                    using (var waiting = CancellationTokenSource.CreateLinkedTokenSource(stopping.Token))
+                    {
+                        waiting.CancelAfter(TimeSpan.FromSeconds(30));
+                        head = await ReadRequestHeadAsync(browser, waiting.Token).ConfigureAwait(false);
+                    }
                     if (head == null) return;
-                    await RespondAsync(stream, head, timeout.Token).ConfigureAwait(false);
+                    // A page elsewhere that renamed itself to this address cannot read through it.
+                    if (!string.Equals(head.Header("Host"), "127.0.0.1:" + Port.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal))
+                    {
+                        await WriteAsync(browser, 403, "Forbidden", Plain("Open the preview at its address."), head.Method, stopping.Token).ConfigureAwait(false);
+                        return;
+                    }
+                    if (head.Header("Service-Worker") != null)
+                    {
+                        await WriteAsync(browser, 403, "Forbidden", Plain("A preview is not relayed as a service worker."), head.Method, stopping.Token).ConfigureAwait(false);
+                        return;
+                    }
+                    await CarryAsync(browser, head).ConfigureAwait(false);
                 }
                 catch (Exception)
                 {
@@ -127,91 +139,102 @@ namespace Halcyonic.Client
             }
         }
 
-        private async Task RespondAsync(Stream stream, RequestHead head, CancellationToken cancellationToken)
+        /// <summary>The browser's connection, from its first request on, carried both ways until either side ends it.</summary>
+        private async Task CarryAsync(NetworkStream browser, RequestHead head)
         {
-            if (head.Method != "GET" && head.Method != "HEAD")
-            {
-                await WriteAsync(stream, 405, "Method Not Allowed", Plain("A preview is only read."), head.Method, cancellationToken).ConfigureAwait(false);
-                return;
-            }
-            // A page elsewhere that renamed itself to this address cannot read through it.
-            if (!string.Equals(head.Header("Host"), "127.0.0.1:" + Port.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal))
-            {
-                await WriteAsync(stream, 403, "Forbidden", Plain("Open the preview at its address."), head.Method, cancellationToken).ConfigureAwait(false);
-                return;
-            }
-            if (head.Header("Service-Worker") != null)
-            {
-                await WriteAsync(stream, 403, "Forbidden", Plain("A preview is not relayed as a service worker."), head.Method, cancellationToken).ConfigureAwait(false);
-                return;
-            }
-            // Only a path inside the preview: a URI collapses dot segments, so a target climbing out of it,
-            // in any spelling, would reach the computer's other routes with this device's credential (AUDIT2).
-            var target = InsidePreview(head.Target);
-            if (target == null)
-            {
-                await WriteAsync(stream, 400, "Bad Request", Plain("That is not a path in this preview."), head.Method, cancellationToken).ConfigureAwait(false);
-                return;
-            }
-            using var request = new HttpRequestMessage(new HttpMethod(head.Method), target);
-            request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + credential);
-            foreach (var name in PassedRequestHeaders)
-            {
-                var value = head.Header(name);
-                if (value != null) request.Headers.TryAddWithoutValidation(name, value);
-            }
-            HttpResponseMessage answer;
+            PinnedConnection connection;
+            WebSocket tunnel;
             try
             {
-                answer = await invoker.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            }
-            catch (HttpRequestException)
-            {
-                await WriteAsync(stream, 502, "Bad Gateway", Plain("Your computer isn't answering."), head.Method, cancellationToken).ConfigureAwait(false);
-                return;
-            }
-            using (answer)
-            {
-                var body = await answer.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-                // The computer's refusal, said in the product's words by its code alone, never its message.
-                var status = (int)answer.StatusCode;
-                if (status == 401 || status == 403 || status == 409 || status == 502)
+                var (opened, host) = await reach.OpenAsync(stopping.Token).ConfigureAwait(false);
+                connection = opened;
+                try
                 {
-                    var code = status == 401 || status == 403 ? "not_paired" : CodeOf(body);
-                    await WriteAsync(stream, status, answer.ReasonPhrase ?? "", Plain(WhyNot(code)), head.Method, cancellationToken).ConfigureAwait(false);
-                    return;
-                }
-                var headers = new List<KeyValuePair<string, string>>();
-                foreach (var name in PassedResponseHeaders)
-                {
-                    if (answer.Headers.TryGetValues(name, out var values) || answer.Content.Headers.TryGetValues(name, out values))
+                    using (connection.CloseOn(stopping.Token))
                     {
-                        headers.Add(new KeyValuePair<string, string>(name, string.Join(", ", values)));
+                        tunnel = await WebSocketUpgrade.ConnectAsync(
+                            connection.Stream,
+                            PairedReach.At(stream, host),
+                            new[] { new KeyValuePair<string, string>("Authorization", "Bearer " + credential) },
+                            stopping.Token).ConfigureAwait(false);
                     }
                 }
-                await WriteAsync(stream, (int)answer.StatusCode, answer.ReasonPhrase ?? "", (headers, body), head.Method, cancellationToken).ConfigureAwait(false);
+                catch
+                {
+                    connection.Dispose();
+                    throw;
+                }
             }
-        }
-
-        /// <summary>
-        /// The preview's URI for a request target, or null unless its path stays inside the preview: no <c>.</c>
-        /// or <c>..</c> segment, no backslash and no escaped dot, slash or backslash in the path, and, once built,
-        /// a path that is the preview's own or below it.
-        /// </summary>
-        public Uri? InsidePreview(string requestTarget)
-        {
-            if (!requestTarget.StartsWith("/", StringComparison.Ordinal) || requestTarget.Length > 2048) return null;
-            var question = requestTarget.IndexOf('?');
-            var path = question < 0 ? requestTarget : requestTarget.Substring(0, question);
-            if (path.IndexOf('\\') >= 0) return null;
-            foreach (var escaped in new[] { "%2e", "%2f", "%5c" })
+            catch (UpgradeRefusedException refused)
             {
-                if (path.IndexOf(escaped, StringComparison.OrdinalIgnoreCase) >= 0) return null;
+                // The computer's refusal, said in the product's words by its code alone, never its message.
+                var code = refused.Status == 401 || refused.Status == 403 ? "not_paired" : refused.Code;
+                await WriteAsync(browser, refused.Status, "Refused", Plain(WhyNot(code)), head.Method, stopping.Token).ConfigureAwait(false);
+                return;
             }
-            if (path.Split('/').Any(segment => segment == "." || segment == "..")) return null;
-            var uri = new Uri(preview + requestTarget);
-            var root = preview.AbsolutePath;
-            return uri.AbsolutePath == root || uri.AbsolutePath.StartsWith(root + "/", StringComparison.Ordinal) ? uri : null;
+            catch (Exception) when (!stopping.IsCancellationRequested)
+            {
+                await WriteAsync(browser, 502, "Bad Gateway", Plain("Your computer isn't answering."), head.Method, stopping.Token).ConfigureAwait(false);
+                return;
+            }
+            using (connection)
+            using (tunnel)
+            using (var ending = CancellationTokenSource.CreateLinkedTokenSource(stopping.Token))
+            {
+                var first = Encoding.ASCII.GetBytes(head.Forwarded(closeAfter: !head.IsWebSocketUpgrade));
+                await tunnel.SendAsync(new ArraySegment<byte>(first), WebSocketMessageType.Binary, true, ending.Token).ConfigureAwait(false);
+                var answered = false;
+                var up = Task.Run(async () =>
+                {
+                    var buffer = new byte[16 * 1024];
+                    while (true)
+                    {
+                        var read = await browser.ReadAsync(buffer, 0, buffer.Length, ending.Token).ConfigureAwait(false);
+                        if (read == 0) return;
+                        await tunnel.SendAsync(new ArraySegment<byte>(buffer, 0, read), WebSocketMessageType.Binary, true, ending.Token).ConfigureAwait(false);
+                    }
+                });
+                var down = Task.Run(async () =>
+                {
+                    var buffer = new byte[16 * 1024];
+                    while (true)
+                    {
+                        var received = await tunnel.ReceiveAsync(new ArraySegment<byte>(buffer), ending.Token).ConfigureAwait(false);
+                        if (received.MessageType == WebSocketMessageType.Close) return;
+                        answered = true;
+                        await browser.WriteAsync(buffer, 0, received.Count, ending.Token).ConfigureAwait(false);
+                    }
+                });
+                // The stream lasts as long as the computer's side: a browser that has sent all it will still gets its
+                // answer, and a browser gone for good fails the next write, which ends it too.
+                try
+                {
+                    await down.ConfigureAwait(false);
+                }
+                catch (Exception) when (!stopping.IsCancellationRequested)
+                {
+                    // The browser went away mid-answer, or the computer dropped the stream.
+                }
+                finally
+                {
+                    ending.Cancel();
+                }
+                try
+                {
+                    await up.ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    // Cancelled as the stream ended.
+                }
+                // A stream the computer ended before any byte came back: why, in the product's words.
+                var closed = (int?)tunnel.CloseStatus;
+                if (!answered && (closed == GateClosed || closed == PreviewUnreachable))
+                {
+                    var code = closed == PreviewUnreachable ? "preview_unreachable" : tunnel.CloseStatusDescription;
+                    await WriteAsync(browser, closed == PreviewUnreachable ? 502 : 409, "Refused", Plain(WhyNot(code)), head.Method, stopping.Token).ConfigureAwait(false);
+                }
+            }
         }
 
         /// <summary>Why the computer shows no preview here, by its refusal's code, in the product's words.</summary>
@@ -224,21 +247,10 @@ namespace Halcyonic.Client
             "preview_too_large" => "That file is too large to show.",
             "not_paired" => "This headset isn't paired with your computer any more. Pair it again.",
             "preview_unreachable" => "The preview isn't answering. Try again.",
+            "too_many_streams" => "This app opened too many connections at once. Reload it.",
             // A code with no words here: unknown, said plainly, never another case's words (AUDIT's census, 2026-11-12).
             _ => "Your computer didn't show this preview. Reason unknown.",
         };
-
-        private static string? CodeOf(byte[] body)
-        {
-            try
-            {
-                return Newtonsoft.Json.Linq.JObject.Parse(Encoding.UTF8.GetString(body))["error"]?.Value<string>("code");
-            }
-            catch (Newtonsoft.Json.JsonException)
-            {
-                return null;
-            }
-        }
 
         private static (List<KeyValuePair<string, string>> Headers, byte[] Body) Plain(string text) =>
             (new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>("Content-Type", "text/plain; charset=utf-8") }, Encoding.UTF8.GetBytes(text));
@@ -287,12 +299,16 @@ namespace Halcyonic.Client
         private sealed class RequestHead
         {
             private readonly Dictionary<string, string> headers;
+            private readonly string requestLine;
+            private readonly IReadOnlyList<string> lines;
 
-            private RequestHead(string method, string target, Dictionary<string, string> headers)
+            private RequestHead(string method, string target, Dictionary<string, string> headers, string requestLine, IReadOnlyList<string> lines)
             {
                 Method = method;
                 Target = target;
                 this.headers = headers;
+                this.requestLine = requestLine;
+                this.lines = lines;
             }
 
             public string Method { get; }
@@ -300,6 +316,28 @@ namespace Halcyonic.Client
             public string Target { get; }
 
             public string? Header(string name) => headers.TryGetValue(name, out var value) ? value : null;
+
+            /// <summary>A WebSocket's opening request, which keeps its connection for the socket's life.</summary>
+            public bool IsWebSocketUpgrade => string.Equals(Header("Upgrade"), "websocket", StringComparison.OrdinalIgnoreCase);
+
+            /// <summary>
+            /// The head as it goes on, with <c>Connection: close</c> in place of the browser's own where
+            /// <paramref name="closeAfter"/>, so the app's server answers once and the browser's next request comes on a
+            /// connection of its own.
+            /// </summary>
+            public string Forwarded(bool closeAfter)
+            {
+                var text = new StringBuilder(requestLine).Append("\r\n");
+                foreach (var line in lines)
+                {
+                    var name = line.Substring(0, line.IndexOf(':')).Trim();
+                    if (closeAfter && (name.Equals("Connection", StringComparison.OrdinalIgnoreCase) || name.Equals("Keep-Alive", StringComparison.OrdinalIgnoreCase)))
+                        continue;
+                    text.Append(line).Append("\r\n");
+                }
+                if (closeAfter) text.Append("Connection: close\r\n");
+                return text.Append("\r\n").ToString();
+            }
 
             public static RequestHead? Parse(string text)
             {
@@ -313,7 +351,7 @@ namespace Halcyonic.Client
                     if (colon <= 0) return null;
                     headers[line.Substring(0, colon).Trim()] = line.Substring(colon + 1).Trim();
                 }
-                return new RequestHead(start[0], start[1], headers);
+                return new RequestHead(start[0], start[1], headers, lines[0], lines.Skip(1).ToList());
             }
         }
     }

@@ -1476,9 +1476,12 @@ launch/return, process recreation and current-frame action behavior need separat
   `SameAs` tells whether a client made for one target serves another.
 - **`PreviewRelay`** shows a project's preview in the headset's browser with no cable
   ([ADR 0052](../decisions/0052-a-preview-reaches-a-paired-headset-through-a-loopback-relay.md)): it
-  listens on the headset's 127.0.0.1, takes GET and HEAD for its own `Host`, one request a connection,
-  and asks the paired computer for the same path over the pinned connection; the computer relays it
-  only for a confined, passed check's running preview. A refusal is said by its code
+  listens on the headset's 127.0.0.1 and carries each browser connection whole over one pinned WebSocket
+  (`/api/projects/<id>/preview-stream`, amended 2026-11-12), so any method, the app's own WebSockets and
+  any file size pass as at the desk; the computer pipes it only to a confined, passed check's running
+  preview. Each connection's first request must name the relay's own `Host` and not be a service
+  worker's, and goes on with `Connection: close`, so every request meets both checks (an upgrade keeps
+  its connection). The credential is on the WebSocket's upgrade only. A refusal is said by its code
   (`PreviewRelay.WhyNot`). While a relay is open the Unity layer holds `PreviewRelayService`, a
   foreground service in the native layer, so the process keeps running with the browser in front; the
   action that opens it is DEVICE's (not built yet).
