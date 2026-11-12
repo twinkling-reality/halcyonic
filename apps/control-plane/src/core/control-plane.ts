@@ -298,7 +298,10 @@ export class ControlPlane {
             logger: options.logger,
           });
     this.protectedFolders = options.observeFiles?.protect ?? [];
-    this.github = options.github === undefined ? null : new GitHubSender(options.github);
+    // What the host holds as secrets, as redaction reads them: none of it is sent, published or saved aside.
+    const held = () => [...(options.secrets?.() ?? []), ...(this.projectSecrets?.held() ?? [])];
+    this.github =
+      options.github === undefined ? null : new GitHubSender({ held, ...options.github });
     this.shares =
       this.previews === null || options.share === undefined
         ? null
@@ -395,6 +398,7 @@ export class ControlPlane {
               store: options.checkpoints.store,
               downloads: options.checkpoints.keeping.downloads,
               now: () => options.clock.now(),
+              held: () => [...(options.secrets?.() ?? []), ...(this.projectSecrets?.held() ?? [])],
               ...(options.checkpoints.keeping.reveal === undefined
                 ? {}
                 : { reveal: options.checkpoints.keeping.reveal }),

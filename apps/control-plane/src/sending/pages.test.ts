@@ -399,3 +399,43 @@ describe('Publish to GitHub Pages (ADR 0039, amended)', {
     assert.equal(stand.git(stand.origin, 'rev-parse', BRANCH), theirs, 'their commit is kept');
   });
 });
+
+describe('a built copy holding a secret the host keeps is never published (the lead, 2026-11-12)', {
+  skip: process.platform !== 'darwin',
+}, () => {
+  test('Publish refuses at the review and the press, naming the file and the secret, never the value', async () => {
+    const held = [{ what: 'MY_SERVICE_KEY', value: 'svc-held-value-0123456789abcdef' }];
+    const holding = new GitHubSender({
+      git: '/usr/bin/git',
+      gh: stand.ghPath,
+      dataDir: join(root, 'data'),
+      env: { HOME: stand.home },
+      held: () => held,
+    });
+    writeFileSync(
+      join(built, 'assets', 'app.js'),
+      `fetch("/x", { headers: { k: ${JSON.stringify(held[0]?.value)} } });\n`,
+    );
+    const reviewed = await holding.publishReview(PROJECT, stand.folder, CHECK, built, null);
+    assert.equal(reviewed.ok ? null : reviewed.code, 'holds_secret');
+    assert.equal(
+      reviewed.ok ? '' : reviewed.message,
+      'assets/app.js holds a secret this Mac keeps (MY_SERVICE_KEY), so nothing was published. Take it out of the file, then try again.',
+    );
+    const plain = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null);
+    assert.ok(plain.ok);
+    const pressed = await holding.publish(
+      PROJECT,
+      stand.folder,
+      CHECK,
+      built,
+      null,
+      plain.publish.review,
+    );
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.throws(
+      () => stand.git(stand.origin, 'rev-parse', '--verify', BRANCH),
+      'nothing was pushed',
+    );
+  });
+});
