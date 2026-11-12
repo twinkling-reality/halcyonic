@@ -14798,6 +14798,10 @@
         },
         "picture_input": {
           "$ref": "#/$defs/ModelToolCalling"
+        },
+        "provider": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,31}$"
         }
       },
       "additionalProperties": false
