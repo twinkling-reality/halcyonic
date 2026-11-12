@@ -34,7 +34,10 @@ namespace Halcyonic.Client
             if (fix == null || fix.State != AutoFixViewState.Fixing || fix.Attempt < 1 || fix.Cap < 1) return null;
             // What is being fixed, named in the line ("Working on Build by itself"), the tries as pips on the status's mark:
             // a node of its own under the mark repeated the mark (the critics, 2026-11-11).
-            var line = fix.FailedSteps is { Count: > 0 } failed ? FixingOn(failed.Distinct().Select(FailedStepWords).ToList()) : FixingLine;
+            // A step this client cannot name leaves the plain line, never another step's name: a line that named only some of
+            // the steps would say less than is being fixed (AUDIT's F1, 2026-11-12).
+            var named = fix.FailedSteps is { Count: > 0 } failed ? failed.Distinct().Select(FailedStepWords).ToList() : null;
+            var line = named != null && named.All(each => each != null) ? FixingOn(named.Select(each => each!).ToList()) : FixingLine;
             return new RoomCard(status: new RoomCardStatus(FixingTitle, line, RoomTone.Working), trackAt: (int)fix.Attempt, trackOf: (int)fix.Cap);
         }
 
@@ -45,13 +48,21 @@ namespace Halcyonic.Client
             return "Working on " + named + " by itself";
         }
 
-        /// <summary>A failed step's name, as the checks card names its steps (<see cref="RoomResult.StepWords"/>).</summary>
-        public static string FailedStepWords(AutoFixViewFailedStepsItem step) => step switch
+        /// <summary>
+        /// A failed step's name, as the checks card names its steps (<see cref="RoomResult.StepWords"/>), a project's own check
+        /// (ADR 0055) <see cref="OwnCheckWords"/>; null for any step this client does not know.
+        /// </summary>
+        public static string? FailedStepWords(AutoFixViewFailedStepsItem step) => step switch
         {
             AutoFixViewFailedStepsItem.Typecheck => RoomResult.StepWords(CheckStepKind.TypeCheck),
             AutoFixViewFailedStepsItem.Build => RoomResult.StepWords(CheckStepKind.Build),
-            _ => RoomResult.StepWords(CheckStepKind.PageDrawn),
+            AutoFixViewFailedStepsItem.Page => RoomResult.StepWords(CheckStepKind.PageDrawn),
+            AutoFixViewFailedStepsItem.OwnCheck => OwnCheckWords,
+            _ => null,
         };
+
+        /// <summary>A project's own check where the fixing line names it: the view carries no script's name.</summary>
+        public const string OwnCheckWords = "Project Check";
 
         /// <summary>
         /// The card a result at rest shows where a chain of tries ended (the addendum's A7 and A17): "All Passing" over its

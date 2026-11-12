@@ -59,6 +59,20 @@ public sealed class RoomFixingTests
     }
 
     [Test]
+    public void A_try_names_the_page_step_and_a_projects_own_check_and_never_names_an_unknown_step_as_another()
+    {
+        var fix = Fix(AutoFixViewState.Fixing, 1);
+        fix.FailedSteps = new System.Collections.Generic.List<AutoFixViewFailedStepsItem> { AutoFixViewFailedStepsItem.Page };
+        Assert.That(RoomBar.FixingCard(fix)!.Status!.Value.Line, Is.EqualTo("Working on " + RoomResult.StepWords(CheckStepKind.PageDrawn) + " by itself"));
+        fix.FailedSteps = new System.Collections.Generic.List<AutoFixViewFailedStepsItem> { AutoFixViewFailedStepsItem.OwnCheck };
+        Assert.That(RoomBar.FixingCard(fix)!.Status!.Value.Line, Is.EqualTo("Working on Project Check by itself"), "a project's own check, never Page Drawn (AUDIT's F1)");
+        fix.FailedSteps = new System.Collections.Generic.List<AutoFixViewFailedStepsItem> { (AutoFixViewFailedStepsItem)99 };
+        Assert.That(RoomBar.FixingCard(fix)!.Status!.Value.Line, Is.EqualTo(RoomBar.FixingLine), "a step this client does not know: the plain line");
+        fix.FailedSteps = new System.Collections.Generic.List<AutoFixViewFailedStepsItem> { AutoFixViewFailedStepsItem.Build, (AutoFixViewFailedStepsItem)99 };
+        Assert.That(RoomBar.FixingCard(fix)!.Status!.Value.Line, Is.EqualTo(RoomBar.FixingLine), "never a line naming less than is being fixed");
+    }
+
+    [Test]
     public void No_try_under_way_gives_no_fixing_card()
     {
         Assert.That(AtWork(null).Card, Is.Null);
