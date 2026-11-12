@@ -57,7 +57,9 @@ public sealed class RoomReviewTests
         Assert.That(RoomReview.Parts(review, 2), Is.EqualTo(4));
 
         var second = RoomReview.Card(review, part: 1, taskPages: 2);
-        Assert.That((second.DescriptionPage, second.More!.Text, second.Status), Is.EqualTo(((int?)1, "Part 2 of 4", (RoomCardStatus?)null)), "a page of the task, no warning yet");
+        Assert.That((second.DescriptionPage, second.More!.Text), Is.EqualTo(((int?)1, "Part 2 of 4")), "a page of the task");
+        // Confirm stands on every part (R1: paging is never required), so the warning does too: none is confirmed unseen.
+        Assert.That(second.Status!.Value.Title, Is.EqualTo(RoomReview.CheckTitle), "the warning on a page of the task too");
 
         var runs = RoomReview.Card(review, part: 2, taskPages: 2);
         Assert.That(runs.Slots.Select(slot => (slot.Kind, slot.Value.Text)).Take(2), Is.EqualTo(new[] { (RoomKind.Folder, "kite-run-2"), (RoomKind.Agent, "Agent Studio") }),
@@ -115,6 +117,14 @@ public sealed class RoomReviewTests
         // A kind this client has no words for is said as unknown in plain words, never as another kind's name (R3).
         var other = new ReviewSheet(null, facts: new[] { new ReviewFact(RoomKind.Folder, LineWords.TheirName("kite-run")) }, checks: new[] { new ReviewCheck(ReviewCheckKind.Other) });
         Assert.That(RoomReview.Card(other, part: 1).Status!.Value.Line, Is.EqualTo("It names something to check"));
+        // What happens in the host's words under the title; the items a page at a time after the facts; the host's own warning line.
+        var items = Enumerable.Range(1, 7).Select(index => new RoomListRow(RoomKind.Changed, LineWords.TheirName("file" + index + ".js"), "Edited", mono: true)).ToArray();
+        var send = new ReviewSheet(LineWords.TheirName("Kite Run"), RoomCardHead.Project, facts: new[] { new ReviewFact(RoomKind.Folder, LineWords.TheirName("kite-run"), mono: true, slot: true) },
+            checks: new[] { new ReviewCheck(ReviewCheckKind.Other, line: "This cannot be undone") }, line: LineWords.Ours("Your files go to the project's repository as a new branch"), items: items);
+        Assert.That(RoomReview.Parts(send, 1), Is.EqualTo(3), "seven items: five with the facts, two after, then what to check");
+        var first = RoomReview.Card(send, part: 0);
+        Assert.That((first.Description!.Text, first.List.Count, first.Status!.Value.Line), Is.EqualTo(("Your files go to the project's repository as a new branch", 5, "This cannot be undone")));
+        Assert.That(RoomReview.Card(send, part: 1).List.Select(row => row.Name.Text), Is.EqualTo(new[] { "file6.js", "file7.js" }));
         var alone = new ReviewSheet(LineWords.TheirName("Kite Run"));
         Assert.That((RoomReview.Parts(alone, 1), RoomReview.Card(alone).More), Is.EqualTo((1, (LineWords?)null)), "one part says no part number");
     }

@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -30,17 +31,22 @@ namespace Halcyonic.Client
         public bool Slot { get; }
     }
 
-    /// <summary>One thing to check before Yes: its kind, and the value itself where one is to be seen (a web address, whole).</summary>
+    /// <summary>
+    /// One thing to check before Yes: its kind, the value itself where one is to be seen (a web address, whole), and the host's
+    /// own line for it where the host says one ("This cannot be undone"); without one, the kind's words say it.
+    /// </summary>
     public readonly struct ReviewCheck
     {
-        public ReviewCheck(ReviewCheckKind kind, LineWords? shown = null)
+        public ReviewCheck(ReviewCheckKind kind, LineWords? shown = null, string? line = null)
         {
             Kind = kind;
             Shown = shown;
+            Line = string.IsNullOrWhiteSpace(line) ? null : line;
         }
 
         public ReviewCheckKind Kind { get; }
         public LineWords? Shown { get; }
+        public string? Line { get; }
     }
 
     /// <summary>
@@ -52,8 +58,12 @@ namespace Halcyonic.Client
         /// <param name="title">What the command acts on, as a project's name.</param>
         /// <param name="words">The long words the command sends, as a task or a message: paged as the card's description.</param>
         /// <param name="checkWords">The person's own sentences that hold what is to be checked, shown on the check's part.</param>
+        /// <param name="line">What happens, in one plain line of the host's words ("Your files go to the project's repository as a new branch").</param>
+        /// <param name="items">What the command touches, in the order to read (a file and how it changes), a page at a time.</param>
+        /// <param name="itemsTotal">How many items there are in all where the host sent only some; the items' own count otherwise.</param>
         public ReviewSheet(LineWords? title, RoomCardHead head = RoomCardHead.None, LineWords? words = null, IReadOnlyList<ReviewFact>? facts = null,
-            IReadOnlyList<ReviewCheck>? checks = null, LineWords? checkWords = null)
+            IReadOnlyList<ReviewCheck>? checks = null, LineWords? checkWords = null, LineWords? line = null, IReadOnlyList<RoomListRow>? items = null,
+            int? itemsTotal = null)
         {
             Title = title;
             Head = head;
@@ -61,7 +71,14 @@ namespace Halcyonic.Client
             Facts = facts ?? new ReviewFact[0];
             Checks = checks ?? new ReviewCheck[0];
             CheckWords = checkWords == null || checkWords.IsEmpty ? null : checkWords;
+            Line = line == null || line.IsEmpty ? null : line;
+            Items = items ?? new RoomListRow[0];
+            ItemsTotal = itemsTotal is int total && total > Items.Count ? total : Items.Count;
         }
+
+        public LineWords? Line { get; }
+        public IReadOnlyList<RoomListRow> Items { get; }
+        public int ItemsTotal { get; }
 
         public LineWords? Title { get; }
         public RoomCardHead Head { get; }
@@ -122,7 +139,27 @@ namespace Halcyonic.Client
         public static string PartOf(int part, int parts) => "Part " + (part + 1) + " of " + parts;
 
         /// <summary>The parts of <paramref name="sheet"/> whose words made <paramref name="wordPages"/> pages.</summary>
-        public static int Parts(ReviewSheet sheet, int wordPages) => WordParts(sheet, wordPages) + 1 + (sheet.Checks.Count > 0 ? 1 : 0);
+        public static int Parts(ReviewSheet sheet, int wordPages) => WordParts(sheet, wordPages) + FactParts(sheet) + (sheet.Checks.Count > 0 ? 1 : 0);
+
+        /// <summary>The facts' parts: the first holds the facts and the first page of items, each later one the next page of items.</summary>
+        private static int FactParts(ReviewSheet sheet)
+        {
+            var rows = sheet.Facts.Count(fact => !fact.Slot) + Math.Max(0, sheet.Facts.Count(fact => fact.Slot) - RoomCard.MostSlots);
+            var first = Math.Max(0, RoomCard.ListAPage - rows);
+            var rest = Math.Max(0, sheet.Items.Count - first);
+            return 1 + (rest + RoomCard.ListAPage - 1) / RoomCard.ListAPage;
+        }
+
+        /// <summary>
+        /// Where there is something to check, every part carries it as the status under the title, so a Confirm offered on any
+        /// part is never pressed with a warning unseen (Confirm stands on every part; paging is never required, R1).
+        /// </summary>
+        private static RoomCardStatus? Warned(ReviewSheet sheet) =>
+            sheet.Checks.Count == 0 ? (RoomCardStatus?)null : new RoomCardStatus(CheckTitle, CheckLineOf(sheet), RoomTone.Attention, RoomKind.Failed);
+
+        /// <summary>The check's line: the host's own line for the first thing to check where it says one, else the kinds' words.</summary>
+        public static string CheckLineOf(ReviewSheet sheet) => sheet.Checks.Select(check => check.Line).FirstOrDefault(line => line != null)
+            ?? CheckLine(sheet.Checks.Select(check => check.Kind));
 
         private static int WordParts(ReviewSheet sheet, int wordPages) => sheet.Words == null ? 0 : wordPages < 1 ? 1 : wordPages;
 
@@ -134,27 +171,36 @@ namespace Halcyonic.Client
         public static RoomCard Card(ReviewSheet sheet, int part = 0, int wordPages = 1)
         {
             var pages = WordParts(sheet, wordPages);
+            var factParts = FactParts(sheet);
             var parts = Parts(sheet, wordPages);
             var at = part < 0 ? 0 : part >= parts ? parts - 1 : part;
             var foot = parts > 1 ? LineWords.Ours(PartOf(at, parts)) : null;
+            var warned = Warned(sheet);
             if (at < pages)
-                return new RoomCard(sheet.Title, sheet.Words, sheet.Head, more: foot, descriptionPage: at);
+                return new RoomCard(sheet.Title, sheet.Words, sheet.Head, status: warned, more: foot, descriptionPage: at);
 
-            if (at == pages + 1)
+            if (at == pages + factParts)
             {
                 // What to check, shown, not only named: the person's own sentences that hold it, under a short line that says
                 // what kind of thing it is, and each value to be seen as a name to type, in mono under its mark.
-                var line = CheckLine(sheet.Checks.Select(check => check.Kind));
                 var shown = sheet.Checks.Where(check => check.Shown != null).Take(RoomCard.MostSlots)
                     .Select(check => new RoomSlot(MarkOf(check.Kind), check.Shown!, mono: true)).ToList();
-                return new RoomCard(sheet.Title, sheet.CheckWords, status: new RoomCardStatus(CheckTitle, line, RoomTone.Attention, RoomKind.Failed), slots: shown, more: foot);
+                return new RoomCard(sheet.Title, sheet.CheckWords, status: warned, slots: shown, more: foot);
             }
 
             // Each fact its value alone, its kind's own mark saying what it is: no note that names a field (the critic, 2026-11-11).
-            var slots = sheet.Facts.Where(fact => fact.Slot).Take(RoomCard.MostSlots).Select(fact => new RoomSlot(fact.Mark, fact.Value, fact.Mono)).ToList();
-            var rows = sheet.Facts.Where(fact => !fact.Slot).Concat(sheet.Facts.Where(fact => fact.Slot).Skip(RoomCard.MostSlots))
+            var factRows = sheet.Facts.Where(fact => !fact.Slot).Concat(sheet.Facts.Where(fact => fact.Slot).Skip(RoomCard.MostSlots))
                 .Select(fact => new RoomListRow(fact.Mark, fact.Value, null, mono: fact.Mono)).ToList();
-            return new RoomCard(sheet.Title, slots: slots, list: rows, more: foot);
+            var firstItems = Math.Max(0, RoomCard.ListAPage - factRows.Count);
+            var page = at - pages;
+            if (page == 0)
+            {
+                var slots = sheet.Facts.Where(fact => fact.Slot).Take(RoomCard.MostSlots).Select(fact => new RoomSlot(fact.Mark, fact.Value, fact.Mono)).ToList();
+                var rows = factRows.Concat(sheet.Items.Take(firstItems)).ToList();
+                return new RoomCard(sheet.Title, sheet.Line, status: warned, slots: slots, list: rows, more: foot);
+            }
+            var later = sheet.Items.Skip(firstItems + (page - 1) * RoomCard.ListAPage).Take(RoomCard.ListAPage).ToList();
+            return new RoomCard(sheet.Title, status: warned, list: later, more: foot);
         }
 
         /// <summary>The mark a value to check stands under: a web address its link.</summary>
