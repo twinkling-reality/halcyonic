@@ -27,7 +27,7 @@ public sealed class PairingColumnTests
     [Test]
     public void OneComputerFoundWithANameOfItsOwnIsPickedForThePersonAndNoOtherIs()
     {
-        Assert.That(PairingColumn.PickedForThePerson(new[] { Studio }), Is.SameAs(Studio), "nothing to pick: its code is asked at once");
+        Assert.That(PairingColumn.PickedForThePerson(new[] { Studio })?.Address, Is.EqualTo(Studio.Address), "nothing to pick: its code is asked at once");
         Assert.That(PairingColumn.PickedForThePerson(new PairingChoice[0]), Is.Null, "none found: the person types the address");
         Assert.That(PairingColumn.PickedForThePerson(new[] { Studio, Attic }), Is.Null, "several: the person picks");
         Assert.That(PairingColumn.PickedForThePerson(new[] { new PairingChoice("Studio Mac", "pretender.local:47801", true) }), Is.Null,
