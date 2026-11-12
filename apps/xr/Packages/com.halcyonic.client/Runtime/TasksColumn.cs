@@ -78,6 +78,9 @@ namespace Halcyonic.Client
             get
             {
                 if (ask == null || !host.Connected || host.Demonstration) return false;
+                // Under the redesign a project's own list stands as a card whose actions are its column's, not page rows, so Ask
+                // stands at every text size (the critic of 2026-11-12: it showed at Standard and not at Larger).
+                if (RoomDesign.Enabled && project?.Invoke() != null) return true;
                 var needed = (project?.Invoke() != null && allProjects != null ? 1 : 0) + (NewTaskProject() != null ? 1 : 0) + 2;
                 return host.PageRows(false) >= needed && MenuPage.Rows(needed) <= host.PageHeight(1, besideMenu: true);
             }
