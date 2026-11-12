@@ -4,58 +4,187 @@ using System.Linq;
 
 namespace Halcyonic.Client
 {
+    /// <summary>What a review asks the person to look at before Yes: a web address it names, something it runs, or anything else.</summary>
+    public enum ReviewCheckKind
+    {
+        Other,
+        WebAddress,
+        Command,
+    }
+
+    /// <summary>One fact of a review: its kind's mark, its value alone, set in mono where it is a name to type.</summary>
+    public readonly struct ReviewFact
+    {
+        /// <param name="slot">Short enough to stand as a slot of the card's loadout; else a row under the slots.</param>
+        public ReviewFact(RoomKind mark, LineWords value, bool mono = false, bool slot = false)
+        {
+            Mark = mark;
+            Value = value;
+            Mono = mono;
+            Slot = slot;
+        }
+
+        public RoomKind Mark { get; }
+        public LineWords Value { get; }
+        public bool Mono { get; }
+        public bool Slot { get; }
+    }
+
+    /// <summary>One thing to check before Yes: its kind, and the value itself where one is to be seen (a web address, whole).</summary>
+    public readonly struct ReviewCheck
+    {
+        public ReviewCheck(ReviewCheckKind kind, LineWords? shown = null)
+        {
+            Kind = kind;
+            Shown = shown;
+        }
+
+        public ReviewCheckKind Kind { get; }
+        public LineWords? Shown { get; }
+    }
+
     /// <summary>
-    /// The review before Start as cards (the addendum's A17, XR's drawn check of 0750Z): exactly what will be sent, every
-    /// item of <see cref="NewWorkReview"/> in a part of a card, never a label joined on a dot. It reads in parts, so no card
-    /// stands taller than a panel holds in view (the critics and the parts check, 2026-11-11):
+    /// One review, of any command (the lead's decision of 2026-11-12: ONE card reads every command's review): what it acts on,
+    /// the command's own long words where it sends some, its facts, and what to check. Nothing in it says which command it is.
+    /// </summary>
+    public sealed class ReviewSheet
+    {
+        /// <param name="title">What the command acts on, as a project's name.</param>
+        /// <param name="words">The long words the command sends, as a task or a message: paged as the card's description.</param>
+        /// <param name="checkWords">The person's own sentences that hold what is to be checked, shown on the check's part.</param>
+        public ReviewSheet(LineWords? title, RoomCardHead head = RoomCardHead.None, LineWords? words = null, IReadOnlyList<ReviewFact>? facts = null,
+            IReadOnlyList<ReviewCheck>? checks = null, LineWords? checkWords = null)
+        {
+            Title = title;
+            Head = head;
+            Words = words == null || words.IsEmpty ? null : words;
+            Facts = facts ?? new ReviewFact[0];
+            Checks = checks ?? new ReviewCheck[0];
+            CheckWords = checkWords == null || checkWords.IsEmpty ? null : checkWords;
+        }
+
+        public LineWords? Title { get; }
+        public RoomCardHead Head { get; }
+        public LineWords? Words { get; }
+        public IReadOnlyList<ReviewFact> Facts { get; }
+        public IReadOnlyList<ReviewCheck> Checks { get; }
+        public LineWords? CheckWords { get; }
+    }
+
+    /// <summary>
+    /// The review before Yes as cards (the addendum's A17), for any command's <see cref="ReviewSheet"/>: exactly what will be done,
+    /// every fact in a part of a card, never a label joined on a dot. It reads in parts, so no card stands taller than a panel
+    /// holds in view (the critics and the parts check, 2026-11-11):
     /// <list type="bullet">
-    /// <item>The task, in the person's words: the project's name with its head, the first task as the description, four
-    /// lines a part (<see cref="RoomCard.DescriptionPageLines"/>), as many parts as it takes.</item>
-    /// <item>How it runs: the project's name; the folder, the model (its exact id where one is named, else its name, else
-    /// the agent app) and the level as slots; then rows, each its value alone under its kind's mark: the task's name (the
-    /// flag), the agent app where the model took its slot, where the model runs, "From" the folder it moves from.</item>
-    /// <item>Where the first task names something to check, a last part right before Yes: the project's name over the status
-    /// "Check First" (Attention, the alert's mark) with a short line of what kind of thing it is, then the person's own
-    /// sentences that hold it, so what is to be checked is in view.</item>
+    /// <item>The command's own words where it sends some: the title with its head, the words as the description, four lines a
+    /// part (<see cref="RoomCard.DescriptionPageLines"/>), as many parts as it takes.</item>
+    /// <item>Its facts: the title; the short facts as slots, then the rest as rows, each its value alone under its kind's mark.</item>
+    /// <item>Where there is something to check, a last part right before Yes: the title over the status "Check First"
+    /// (Attention, the alert's mark) with a short line of what kind of thing it is, the person's own sentences that hold it,
+    /// and each value to be seen in mono in a slot, so what is to be checked is in view.</item>
     /// </list>
-    /// Every part's foot line says which it is: "Part 2 of 3". The task's parts are as many as the card's view made of its
-    /// description (<c>RoomCardView.DescriptionPages</c>, shown with part 0); <see cref="Parts"/> counts them all. Each part
-    /// counts as read when its frame is reported drawn with the card standing whole (<c>RoomCardView.LaidWhole</c>).
+    /// Every part's foot line says which it is: "Part 2 of 3". The words' parts are as many as the card's view made of its
+    /// description (<c>RoomCardView.DescriptionPages</c>, shown with part 0); <see cref="Parts(ReviewSheet, int)"/> counts them
+    /// all. Each part counts as read when its frame is reported drawn with the card standing whole (<c>RoomCardView.LaidWhole</c>).
     /// </summary>
     public static class RoomReview
     {
         public const string CheckTitle = "Check First";
 
-        // A status's line adds to its title, and ends in no full stop (the critic, 2026-11-11).
-        public const string CheckAddressLine = "It names a web address";
-        public const string CheckCommandLine = "It names something to run";
-        public const string CheckBothLine = "It names an address and something to run";
+        /// <summary>The words before the folder a move leaves: "From kite-run".</summary>
+        public const string MovesFrom = "From ";
+
+        /// <summary>What a kind of thing to check is called in the check's line: the one table (R3).</summary>
+        public static string CheckWordsOf(ReviewCheckKind kind) => kind switch
+        {
+            ReviewCheckKind.WebAddress => "a web address",
+            ReviewCheckKind.Command => "something to run",
+            _ => "something to check",
+        };
 
         /// <summary>
-        /// The sentences of the first task, as the person wrote them, that hold what to check: each sentence the task's
-        /// warnings find something in, in order; null where none stands alone (the whole task is then on its own pages).
+        /// The check's line, adding to its title and ending in no full stop (the critic, 2026-11-11): "It names a web address",
+        /// "It names a web address and something to run".
         /// </summary>
-        public static LineWords? Naming(LineWords firstTask)
+        public static string CheckLine(IEnumerable<ReviewCheckKind> kinds)
         {
-            var text = firstTask.Text;
+            var named = kinds.Distinct().OrderBy(kind => kind == ReviewCheckKind.Other ? 1 : 0).Select(CheckWordsOf).ToList();
+            if (named.Count == 0) return "It names " + CheckWordsOf(ReviewCheckKind.Other);
+            var said = named.Count == 1 ? named[0] : string.Join(", ", named.Take(named.Count - 1)) + " and " + named[named.Count - 1];
+            return "It names " + said;
+        }
+
+        public static string CheckAddressLine => CheckLine(new[] { ReviewCheckKind.WebAddress });
+        public static string CheckCommandLine => CheckLine(new[] { ReviewCheckKind.Command });
+        public static string CheckBothLine => CheckLine(new[] { ReviewCheckKind.WebAddress, ReviewCheckKind.Command });
+
+        /// <summary>The foot line naming a part: "Part 2 of 3".</summary>
+        public static string PartOf(int part, int parts) => "Part " + (part + 1) + " of " + parts;
+
+        /// <summary>The parts of <paramref name="sheet"/> whose words made <paramref name="wordPages"/> pages.</summary>
+        public static int Parts(ReviewSheet sheet, int wordPages) => WordParts(sheet, wordPages) + 1 + (sheet.Checks.Count > 0 ? 1 : 0);
+
+        private static int WordParts(ReviewSheet sheet, int wordPages) => sheet.Words == null ? 0 : wordPages < 1 ? 1 : wordPages;
+
+        /// <summary>
+        /// The review's part <paramref name="part"/> (from 0) of <see cref="Parts(ReviewSheet, int)"/>: a page of the words while
+        /// <paramref name="part"/> is under their pages, then the facts, then what to check where there is any. Measure the
+        /// words' pages with part 0 at any count, then show each part with the count the view gave.
+        /// </summary>
+        public static RoomCard Card(ReviewSheet sheet, int part = 0, int wordPages = 1)
+        {
+            var pages = WordParts(sheet, wordPages);
+            var parts = Parts(sheet, wordPages);
+            var at = part < 0 ? 0 : part >= parts ? parts - 1 : part;
+            var foot = parts > 1 ? LineWords.Ours(PartOf(at, parts)) : null;
+            if (at < pages)
+                return new RoomCard(sheet.Title, sheet.Words, sheet.Head, more: foot, descriptionPage: at);
+
+            if (at == pages + 1)
+            {
+                // What to check, shown, not only named: the person's own sentences that hold it, under a short line that says
+                // what kind of thing it is, and each value to be seen as a name to type, in mono under its mark.
+                var line = CheckLine(sheet.Checks.Select(check => check.Kind));
+                var shown = sheet.Checks.Where(check => check.Shown != null).Take(RoomCard.MostSlots)
+                    .Select(check => new RoomSlot(MarkOf(check.Kind), check.Shown!, mono: true)).ToList();
+                return new RoomCard(sheet.Title, sheet.CheckWords, status: new RoomCardStatus(CheckTitle, line, RoomTone.Attention, RoomKind.Failed), slots: shown, more: foot);
+            }
+
+            // Each fact its value alone, its kind's own mark saying what it is: no note that names a field (the critic, 2026-11-11).
+            var slots = sheet.Facts.Where(fact => fact.Slot).Take(RoomCard.MostSlots).Select(fact => new RoomSlot(fact.Mark, fact.Value, fact.Mono)).ToList();
+            var rows = sheet.Facts.Where(fact => !fact.Slot).Concat(sheet.Facts.Where(fact => fact.Slot).Skip(RoomCard.MostSlots))
+                .Select(fact => new RoomListRow(fact.Mark, fact.Value, null, mono: fact.Mono)).ToList();
+            return new RoomCard(sheet.Title, slots: slots, list: rows, more: foot);
+        }
+
+        /// <summary>The mark a value to check stands under: a web address its link.</summary>
+        public static RoomKind MarkOf(ReviewCheckKind kind) => kind == ReviewCheckKind.WebAddress ? RoomKind.Link : RoomKind.None;
+
+        /// <summary>
+        /// The sentences of <paramref name="text"/>, as the person wrote them, that hold what to check: each sentence the task's
+        /// warnings find something in, in order; null where none stands alone.
+        /// </summary>
+        public static LineWords? Naming(LineWords text)
+        {
+            var words = text.Text;
             var sentences = new List<string>();
             var start = 0;
-            for (var index = 0; index < text.Length; index++)
+            for (var index = 0; index < words.Length; index++)
             {
-                var end = index == text.Length - 1 || ((text[index] == '.' || text[index] == '!' || text[index] == '?') && char.IsWhiteSpace(text[index + 1])) || text[index] == '\n';
+                var end = index == words.Length - 1 || ((words[index] == '.' || words[index] == '!' || words[index] == '?') && char.IsWhiteSpace(words[index + 1])) || words[index] == '\n';
                 if (!end) continue;
-                var sentence = text.Substring(start, index + 1 - start).Trim();
+                var sentence = words.Substring(start, index + 1 - start).Trim();
                 if (sentence.Length > 0 && TaskWarnings.Of(sentence).Count > 0) sentences.Add(sentence);
                 start = index + 1;
             }
             return sentences.Count == 0 ? null : LineWords.Theirs(string.Join(" ", sentences));
         }
 
-        /// <summary>The web addresses the first task names, each whole as written, its sentence's end left off.</summary>
-        public static IReadOnlyList<string> Addresses(string firstTask)
+        /// <summary>The web addresses <paramref name="text"/> names, each whole as written, its sentence's end left off.</summary>
+        public static IReadOnlyList<string> Addresses(string text)
         {
             var found = new List<string>();
-            foreach (var word in firstTask.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries))
+            foreach (var word in text.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries))
             {
                 var bare = word.TrimEnd('.', ',', ';', ':', '!', '?', ')', '"', '\'').TrimStart('(', '"', '\'');
                 if (bare.Length > 0 && TaskWarnings.Of(bare).Contains(TaskWarnings.WebAddress) && !found.Contains(bare)) found.Add(bare);
@@ -63,72 +192,51 @@ namespace Halcyonic.Client
             return found;
         }
 
-        /// <summary>The words before the folder a move leaves: "From kite-run".</summary>
-        public const string MovesFrom = "From ";
-
-        /// <summary>The foot line naming a part: "Part 2 of 3".</summary>
-        public static string PartOf(int part, int parts) => "Part " + (part + 1) + " of " + parts;
-
-        /// <summary>The parts of <paramref name="review"/> whose first task made <paramref name="taskPages"/> pages.</summary>
-        public static int Parts(NewWorkReview review, int taskPages) => (taskPages < 1 ? 1 : taskPages) + 1 + (Warnings(review).Count > 0 ? 1 : 0);
-
-        private static List<string> Warnings(NewWorkReview review) =>
-            review.Items.Where(each => each.Kind == ReviewItemKind.Warning).Select(each => each.Label.Trim()).Where(each => each.Length > 0).ToList();
-
         /// <summary>
-        /// The review's part <paramref name="part"/> (from 0) of <see cref="Parts"/>: a page of the task while
-        /// <paramref name="part"/> is under <paramref name="taskPages"/>, then how it runs, then the note to check where
-        /// there is one. Measure the task's pages with part 0 at any count, then show each part with the count the view gave.
+        /// The review a new task's start sends (<see cref="NewWorkReview"/>), as the one sheet every command's review is read on.
+        /// This is the one place that knows the start's items; it gives way to the host's general review when that lands.
         /// </summary>
-        public static RoomCard Card(NewWorkReview review, int part = 0, int taskPages = 1)
+        public static ReviewSheet SheetOf(NewWorkReview review)
         {
             LineWords? Value(ReviewItemKind kind)
             {
                 var item = review.Items.FirstOrDefault(each => each.Kind == kind);
                 return item == null || item.ValueRuns.IsEmpty ? null : item.ValueRuns;
             }
-            var pages = taskPages < 1 ? 1 : taskPages;
-            var parts = Parts(review, pages);
-            var at = part < 0 ? 0 : part >= parts ? parts - 1 : part;
-            var foot = LineWords.Ours(PartOf(at, parts));
-            var title = Value(ReviewItemKind.Project);
-            if (at < pages)
-                return new RoomCard(title, Value(ReviewItemKind.FirstTask) ?? LineWords.Ours(""), RoomCardHead.Project, more: foot, descriptionPage: at);
-
-            var warnings = Warnings(review);
-            if (at == pages + 1)
-            {
-                // What to check, shown, not only named: the person's own sentences that hold it, under a short line that says
-                // what kind of thing it is (the critic, 2026-11-11: "check it" with nothing to look at).
-                var address = warnings.Contains(TaskWarnings.WebAddress);
-                var command = warnings.Contains(TaskWarnings.Command);
-                var line = address && command ? CheckBothLine : address ? CheckAddressLine : command ? CheckCommandLine : string.Join(" ", warnings);
-                var task = review.Items.FirstOrDefault(each => each.Kind == ReviewItemKind.FirstTask);
-                // The person's sentence where it names something to run, which has no slot of its own; an address alone stands
-                // only in its slot, so it is never shown twice.
-                var naming = task == null || !command ? null : Naming(task.ValueRuns);
-                // The address itself as a name to type, in mono under the link's mark, so it is seen at a glance.
-                var shown = task == null ? new List<RoomSlot>() : Addresses(task.ValueRuns.Text).Take(RoomCard.MostSlots).Select(each => new RoomSlot(RoomKind.Link, LineWords.Theirs(each), mono: true)).ToList();
-                return new RoomCard(title, naming, status: new RoomCardStatus(CheckTitle, line, RoomTone.Attention, RoomKind.Failed), slots: shown, more: foot);
-            }
-
+            var facts = new List<ReviewFact>();
             // The model by the exact id the start sends where it has one: the one the person reads is the one that runs.
             var model = Value(ReviewItemKind.ModelId) ?? Value(ReviewItemKind.Model);
-            var slots = new List<RoomSlot>();
             // A folder's name and a model's exact id are names to type, set in mono.
-            if (Value(ReviewItemKind.Folder) is LineWords folder) slots.Add(new RoomSlot(RoomKind.Folder, folder, mono: true));
-            if (model != null) slots.Add(new RoomSlot(RoomKind.Agent, model, mono: Value(ReviewItemKind.ModelId) != null));
-            else if (Value(ReviewItemKind.AgentApp) is LineWords agent) slots.Add(new RoomSlot(RoomKind.Agent, agent));
-            slots.Add(new RoomSlot(RoomKind.Level, LineWords.Ours(AgentColumn.LevelWords(review.NeverAsk))));
-
-            // Each row its value alone, its kind's own mark saying what it is: no note that names a field (the critic, 2026-11-11).
-            var rows = new List<RoomListRow>();
-            if (Value(ReviewItemKind.TaskName) is LineWords name) rows.Add(new RoomListRow(RoomKind.Task, name, null));
+            if (Value(ReviewItemKind.Folder) is LineWords folder) facts.Add(new ReviewFact(RoomKind.Folder, folder, mono: true, slot: true));
+            if (model != null) facts.Add(new ReviewFact(RoomKind.Agent, model, mono: Value(ReviewItemKind.ModelId) != null, slot: true));
+            else if (Value(ReviewItemKind.AgentApp) is LineWords agent) facts.Add(new ReviewFact(RoomKind.Agent, agent, slot: true));
+            facts.Add(new ReviewFact(RoomKind.Level, LineWords.Ours(AgentColumn.LevelWords(review.NeverAsk)), slot: true));
+            if (Value(ReviewItemKind.TaskName) is LineWords name) facts.Add(new ReviewFact(RoomKind.Task, name));
             // The agent app stands as a row only where the model took its slot, so nothing sent goes unshown.
-            if (model != null && Value(ReviewItemKind.AgentApp) is LineWords app) rows.Add(new RoomListRow(RoomKind.App, app, null));
-            if (Value(ReviewItemKind.ModelLocation) is LineWords where) rows.Add(new RoomListRow(RoomKind.Computer, where, null));
-            if (Value(ReviewItemKind.FolderNow) is LineWords before) rows.Add(new RoomListRow(RoomKind.Folder, LineWords.Ours(MovesFrom) + before, null));
-            return new RoomCard(title, slots: slots, list: rows, more: foot);
+            if (model != null && Value(ReviewItemKind.AgentApp) is LineWords app) facts.Add(new ReviewFact(RoomKind.App, app));
+            if (Value(ReviewItemKind.ModelLocation) is LineWords where) facts.Add(new ReviewFact(RoomKind.Computer, where));
+            if (Value(ReviewItemKind.FolderNow) is LineWords before) facts.Add(new ReviewFact(RoomKind.Folder, LineWords.Ours(MovesFrom) + before));
+
+            var task = Value(ReviewItemKind.FirstTask);
+            var warnings = review.Items.Where(each => each.Kind == ReviewItemKind.Warning).Select(each => each.Label.Trim()).Where(each => each.Length > 0).Distinct().ToList();
+            var checks = new List<ReviewCheck>();
+            foreach (var warning in warnings)
+            {
+                var kind = warning == TaskWarnings.WebAddress ? ReviewCheckKind.WebAddress : warning == TaskWarnings.Command ? ReviewCheckKind.Command : ReviewCheckKind.Other;
+                // An address stands only in its slot, so it is never shown twice; something to run has no slot of its own.
+                var addresses = kind == ReviewCheckKind.WebAddress && task != null ? Addresses(task.Text) : new string[0];
+                if (addresses.Count > 0) checks.AddRange(addresses.Select(address => new ReviewCheck(kind, LineWords.Theirs(address))));
+                else checks.Add(new ReviewCheck(kind));
+            }
+            var command = checks.Any(check => check.Kind == ReviewCheckKind.Command);
+            return new ReviewSheet(Value(ReviewItemKind.Project), RoomCardHead.Project, task ?? LineWords.Ours(""), facts, checks,
+                command && task != null ? Naming(task) : null);
         }
+
+        /// <summary>The parts of a new task's <paramref name="review"/> whose first task made <paramref name="taskPages"/> pages.</summary>
+        public static int Parts(NewWorkReview review, int taskPages) => Parts(SheetOf(review), taskPages);
+
+        /// <summary>A new task's review's part <paramref name="part"/>, as <see cref="Card(ReviewSheet, int, int)"/>.</summary>
+        public static RoomCard Card(NewWorkReview review, int part = 0, int taskPages = 1) => Card(SheetOf(review), part, taskPages);
     }
 }
