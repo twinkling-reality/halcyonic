@@ -115,7 +115,7 @@ namespace Halcyonic.Client
         public const string Line = "Each is sent when this turn ends.";
         public const string Next = "Next";
         public const string ItsTurn = "Waiting for Its Turn";
-        public const string ItsTurnLine = "It is sent when this turn ends.";
+        public const string ItsTurnLine = "It is sent when this turn ends";
         public const string Drop = "Drop";
         public const string NotSent = "Not Sent";
         public const string SendAgain = "Send Again";
@@ -124,12 +124,12 @@ namespace Halcyonic.Client
         /// <summary>Why a waiting instruction was not sent, by its code (FIELD's 1426Z, A6); the plainest line for a code not listed.</summary>
         public static string Why(string code) => code switch
         {
-            "queued_turn_failed" => "The turn before it ended in an error.",
-            "queued_stopped" => "The turn was stopped before it ended.",
-            "queued_session_lost" => "The agent's session could not be picked up again.",
-            "queued_files_restored" => "The project's files were put back.",
-            Dropped => "You dropped it.",
-            _ => "Nothing was sent.",
+            "queued_turn_failed" => "The turn before it ended in an error",
+            "queued_stopped" => "The turn was stopped before it ended",
+            "queued_session_lost" => "The agent's session could not be picked up again",
+            "queued_files_restored" => "The project's files were put back",
+            Dropped => "You dropped it",
+            _ => "Nothing was sent",
         };
         public const string Back = "Back";
 

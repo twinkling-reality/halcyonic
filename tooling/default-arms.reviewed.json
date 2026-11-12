@@ -394,5 +394,11 @@
     "answer": "EntryText.FolderProblem(null, code)",
     "count": 1,
     "why": "true: Every other failure code goes to FolderProblem, which gives folder words only for the folder codes and null for the rest, so nothing is claimed."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WaitingInstructions.cs",
+    "answer": "\"Nothing was sent\"",
+    "count": 1,
+    "why": "truth: every queued_ failure the host journals leaves the instruction unsent (effect none), so for a code the table does not word the line is still true; the four known codes keep their own lines."
   }
 ]

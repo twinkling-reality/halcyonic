@@ -58,7 +58,7 @@ public class WaitingInstructionsTests
         }
         var stopped = UnsentInstruction.Of(With(Command("c1", "2026-11-11T18:00:00.000Z", CommandStatus.Failed, "queued_stopped")), "e1", Sent.GetValueOrDefault, _ => false)!.Value;
         var card = stopped.Card();
-        Assert.That((card.Status!.Value.Title, card.Status.Value.Line, card.Description!.Text), Is.EqualTo((WaitingText.NotSent, "The turn was stopped before it ended.", "Make the tail longer.")));
+        Assert.That((card.Status!.Value.Title, card.Status.Value.Line, card.Description!.Text), Is.EqualTo((WaitingText.NotSent, "The turn was stopped before it ended", "Make the tail longer.")));
         Assert.That(stopped.SendsAgain, Is.True);
         Assert.That(UnsentInstruction.Of(With(Command("c1", "2026-11-11T18:00:00.000Z", CommandStatus.Failed, "queued_dropped")), "e1", Sent.GetValueOrDefault, _ => false)!.Value.SendsAgain,
             Is.False, "after You dropped it, Back alone");
@@ -68,7 +68,8 @@ public class WaitingInstructionsTests
             Is.Null, "gone Back from: the result shows again");
         Assert.That(UnsentInstruction.Of(With(Command("c1", "2026-11-11T18:00:00.000Z", CommandStatus.Failed, "runtime_refused")), "e1", Sent.GetValueOrDefault, _ => false),
             Is.Null, "only an instruction that waited");
-        foreach (var code in new[] { "queued_turn_failed", "queued_session_lost", "queued_files_restored" }) Assert.That(WaitingText.Why(code), Does.EndWith("."));
+        // A status's line ends in no full stop (FIELD's rule of 2026-11-11T1915Z).
+        foreach (var code in new[] { "queued_turn_failed", "queued_session_lost", "queued_files_restored" }) Assert.That(WaitingText.Why(code), Does.Not.EndWith("."));
     }
 
     private static MenuFrame MenuFrameStub() => new(LineWords.Ours("Task"), new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)));
