@@ -96,7 +96,7 @@ namespace Halcyonic.XR.UI.Editor
             AssetDatabase.CreateAsset(atlas, BuildingPath);
             AssetDatabase.AddObjectToAsset(atlas.atlasTexture, atlas);
             AssetDatabase.AddObjectToAsset(atlas.material, atlas);
-            AssetDatabase.SaveAssets();
+            FontAssetsKept.Save();
             if (AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath) == null)
             {
                 var error = AssetDatabase.MoveAsset(BuildingPath, AssetPath);
@@ -115,7 +115,7 @@ namespace Halcyonic.XR.UI.Editor
             if (saved.name == Name) return;
             saved.name = Name;
             EditorUtility.SetDirty(saved);
-            AssetDatabase.SaveAssets();
+            FontAssetsKept.Save();
         }
 
         private static void Discard(TMP_FontAsset atlas)
