@@ -703,16 +703,21 @@ namespace Halcyonic.Client
             var title = RecapTitle(idea);
             var slots = new List<RoomSlot>();
             var folder = EntryText.FolderFactPartsOf(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true);
-            var folderWords = folder.Name ?? folder.Place ?? (folder.Kind == FolderFactKind.NotChosen ? LineWords.Ours("Not Chosen") : null);
+            // The folder and where it is, as the review names it (a fresh critic, 2026-11-12): the recap is what Start Task sends.
+            var folderWords = folder.Name is LineWords named && folder.Place is LineWords place ? named + LineWords.Ours(" in ") + place
+                : folder.Name ?? folder.Place ?? (folder.Kind == FolderFactKind.NotChosen ? LineWords.Ours("Not Chosen") : null);
+            // Whether it is made new, as the review says it (FIELD's words to come).
+            if (folderWords != null && folder.Kind == FolderFactKind.NewFolder) folderWords = LineWords.Ours("New Folder, ") + folderWords;
             if (folderWords != null) slots.Add(new RoomSlot(RoomKind.Folder, folderWords));
             if (draft.Runtime is RuntimeDescriptor runtime)
             {
                 LineWords agent;
                 if (runtime.Synthetic) agent = LineWords.Ours(live ? "Practice Run" : "Simulated");
-                else if (runtime.ModelChoice == ModelChoice.Listed)
-                    agent = draft.Model is RuntimeModel model ? LineWords.TheirName(CaptureNames.ModelName(model.DisplayName ?? model.ModelRef)) : LineWords.Ours("Not Chosen");
                 else agent = LineWords.TheirName(CaptureNames.AgentName(runtime.DisplayName));
                 slots.Add(new RoomSlot(RoomKind.Agent, agent));
+                // The agent app and, where it lists models, the model, each its own slot: the recap is what Start Task sends (R1).
+                if (!runtime.Synthetic && runtime.ModelChoice == ModelChoice.Listed)
+                    slots.Add(new RoomSlot(RoomKind.Agent, draft.Model is RuntimeModel model ? LineWords.TheirName(CaptureNames.ModelName(model.DisplayName ?? model.ModelRef)) : LineWords.Ours("Not Chosen")));
                 if (!runtime.Synthetic) slots.Add(new RoomSlot(RoomKind.Level, LineWords.Ours(AgentColumn.LevelWords(draft.StartsNeverAsk))));
             }
             return new RoomCard(title, idea.FirstTask.Length > 0 ? LineWords.TheirName(idea.FirstTask) : null, RoomCardHead.Project, slots: slots, more: note);

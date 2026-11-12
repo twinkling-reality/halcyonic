@@ -1298,7 +1298,18 @@ launch/return, process recreation and current-frame action behavior need separat
   measured it, each part from the wrapped row where it was split, never cut, with Next part as the
   last row of every part but the last; Yes, start task appears in the middle only once the
   last part has shown, with Cancel where Start task was pressed. Start task then shows
-  each step and the next action its outcome allows.
+  each step and the next action its outcome allows. Where the redesign's view draws New Project
+  (its `RoomLines` given), R1 of the lead's decision of 2026-11-12 holds instead: a typed or heard
+  idea lands on its recap, and Start task on the recap drawn sends that request at once, with no
+  review between, where the card shows all the review would: the card's own view says it stands
+  whole (`RecapShownWhole`, from `RoomCardView.LaidWhole`: title, slots and foot uncut), the first
+  task within the description's four lines, the folder named with where it is, said new where it
+  is made, and of a kind the card leaves no doubt of (a new project's new folder, or a project's
+  own), the agent app and its model each named, the model's name shared by no other listed model,
+  and nothing the review warns of (the task's warnings, a project moving folder, a model served
+  off this computer). The model's id and its tool use stay on the review alone. It sends only while the request is still the
+  one that recap frame was built with, and a change since draws the recap again. Where the card
+  cuts the first task, and for a start tried again, Start task opens the review as before.
 - **`WorkspaceScreens`** builds every screen of the open workspace as a `PanelModel` from its
   presentation, the steering and what the workspace is in the middle of (`WorkspaceScreen`: the
   tab chosen, a notice, the instructions offered where no keyboard is, and the agent's question or

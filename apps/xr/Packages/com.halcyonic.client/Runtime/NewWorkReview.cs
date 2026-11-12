@@ -303,6 +303,16 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// The request was shown whole where it was asked for, as the redesign's recap shows it (R1, the lead's decision of
+        /// 2026-11-12): one page, every line read at <paramref name="now"/>, so its Confirm is the press that asked.
+        /// </summary>
+        internal void ShownWhole(double now)
+        {
+            Paginate(items.Select(_ => 1).ToList(), Math.Max(1, items.Count));
+            Drawn(now);
+        }
+
+        /// <summary>
         /// The panel drew the page showing, at <paramref name="now"/> seconds on a steady clock: its
         /// lines count as read. Returns whether that made the final action available.
         /// </summary>
