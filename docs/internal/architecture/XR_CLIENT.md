@@ -2607,7 +2607,13 @@ it is on in development builds and the editor, and since ON-1b (2026-11-11, once
 walk drew the redesign) in release builds too (`RoomDesignDefault`, apart from `CapturePresets`, which only development builds compile), so every journey and every build
 runs through it. A frame no reader of the redesign takes still falls back to the older views (known: the no-projects
 page, New Project's page of changes past six actions, a composer offering Read Results), and ON-2 removes the kit
-parts it replaced once those have readers. Checks that walk
+parts it replaced once those have readers. A host code with words of its own is a `Notice`: a title and a line
+apart (FIELD's rule, 2026-11-12), drawn apart where a status stands and as one phrase ("Sent, waiting for your computer")
+in a slot of one string, never joined on a dot; every table's default arm reads "Reason Unknown", never another case's
+words (AUDIT's census of 2026-11-12). So far: a pending command (`WorkspacePresenter.PendingNotice`: only a command an
+agent answers waits for the agent, every other one for the computer), a source's reason (`IntelligenceText.Reason`, the
+host's `own_sources_not_set_up` its own), and the companion's failures (`CompanionText.Failure`: the host's
+`companion_failed` is "No Reply"; a local error the client cannot name has its own code and is "Reason Unknown"). Checks that walk
 the older views on purpose turn it off inside themselves until then: KitRender's old-kit states,
 `WorkspaceRender.KitSpatialCheck` and `KitActivityComposerCheck` (the old kit's spine, rail, pills and switch),
 `ShowTaskHereCheck` (the older file's Show Task Here and its one-character shelf) and New Project's older review

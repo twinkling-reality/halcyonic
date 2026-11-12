@@ -350,7 +350,7 @@ public class CompanionWordsTests
     }
 
     [Test]
-    public void EveryFailureIsSaidFromItsCodeWithANextStep()
+    public void EveryFailureIsSaidFromItsCodeInTrueWordsNeverJoinedOnDots()
     {
         foreach (var code in new[]
                  {
@@ -361,8 +361,9 @@ public class CompanionWordsTests
         {
             var words = CompanionText.Failure(code);
             Assert.That(words, Is.Not.Null.And.Not.Empty, code);
-            Assert.That(words, Does.Contain("Retry").Or.Contain("Type Idea").Or.Contain("Continue Without"), code);
+            Assert.That(words, Does.Not.Contain("\u00b7"), code + ": never joined on a dot (FIELD, 2026-11-12)");
         }
+        Assert.That(CompanionText.Failure("something_new"), Is.EqualTo("Reason Unknown"));
         Assert.That(CompanionText.Failure("companion_cancelled"), Is.Null);
     }
 
@@ -992,7 +993,8 @@ public class CompanionExchangeHardeningTests
         Assert.That(CompanionExchange.CodeOf(new ControlPlaneRequestException("x", new HttpRequestException("refused"))), Is.EqualTo(CompanionExchange.Unreachable));
         Assert.That(CompanionExchange.CodeOf(new TaskCanceledException("timeout")), Is.EqualTo("companion_too_slow"));
         Assert.That(CompanionExchange.CodeOf(new Newtonsoft.Json.JsonReaderException("bad")), Is.EqualTo("companion_unreadable"));
-        Assert.That(CompanionText.Failure(CompanionExchange.CodeOf(new InvalidOperationException())), Is.EqualTo(CompanionText.CouldNotAsk));
+        Assert.That(CompanionText.Failure(CompanionExchange.CodeOf(new InvalidOperationException())), Is.EqualTo(Notice.Unknown.Phrase), "a local error nothing names is unknown, never another case's words");
+        Assert.That(CompanionText.Failure("companion_failed"), Is.EqualTo(CompanionText.NoReply), "the host's own: the model was asked and failed");
     }
 
     [Test]

@@ -495,32 +495,40 @@ namespace Halcyonic.Client
         /// or the source's words. The source is named only by the provenance line before it, so the why never
         /// names it (settled by the coordinator, 2026-10-07).
         /// </summary>
-        public static string Why(ErrorInfo reason) => reason.Code switch
+        public static string Why(ErrorInfo reason) => Reason(reason).Phrase;
+
+        /// <summary>
+        /// The same as a title and a line apart (FIELD's words, 2026-11-12): Refresh is the button, so no line repeats it, and a
+        /// code with no words of its own is "Reason Unknown", never another case's words (AUDIT's census: the host's
+        /// own_sources_not_set_up read "No Reason Given · Refresh").
+        /// </summary>
+        public static Notice Reason(ErrorInfo reason) => reason.Code switch
         {
-            "not_running" => "Not Running · Start It · Refresh",
-            "unreachable" or "timed_out" => "No Answer · Refresh Soon",
-            "temporarily_unavailable" or "server_error" => "Busy · Refresh Soon",
-            "rate_limited" => "Too Many Requests · Refresh Later",
-            "credential_missing" => "Credential Missing · Set Up on Computer",
+            "own_sources_not_set_up" => new Notice("Session Not Seen", "Its source hasn't been told where this app keeps sessions; Setup on your computer shows how"),
+            "not_running" => new Notice("Not Running", "Start it on your computer"),
+            "unreachable" or "timed_out" => new Notice("No Answer"),
+            "temporarily_unavailable" or "server_error" => new Notice("Source Busy"),
+            "rate_limited" => new Notice("Too Many Requests", "Wait a while before you refresh"),
+            "credential_missing" => new Notice("Credential Missing", "Set one up on your computer"),
             // Neither reader sends a credential that isn't one of its kind (their tests: no request with it).
-            "credential_malformed" => "Credential Wrong Kind · Not Sent · Set Up Another",
-            "credential_rejected" => "Credential Refused · Set Up New One",
-            "credential_forbidden" or "insufficient_scope" => "Credential Lacks Access · Set Up Another",
-            "outside_credential_restriction" => "Credential Covers Other Work · Set Up Another",
-            "not_captured" or "not_observed" => "Task Not Seen Yet · Refresh Soon",
-            "not_yet_computed" => "Not Computed Yet · Refresh Soon",
-            "not_retained" => "Task No Longer Kept",
-            "runtime_not_observed" => "Agent App Not Followed",
-            "not_resolvable" or "not_observable" => "Task Not Found by Name",
-            "result_limit" => "Result Limit Reached · Refresh",
+            "credential_malformed" => new Notice("Wrong Kind of Credential", "It was not sent; set up another"),
+            "credential_rejected" => new Notice("Credential Refused", "Set up a new one"),
+            "credential_forbidden" or "insufficient_scope" => new Notice("Credential Lacks Access", "Set up another"),
+            "outside_credential_restriction" => new Notice("Credential for Other Work", "Set up another"),
+            "not_captured" or "not_observed" => new Notice("Task Not Seen Yet"),
+            "not_yet_computed" => new Notice("Not Computed Yet"),
+            "not_retained" => new Notice("Task No Longer Kept"),
+            "runtime_not_observed" => new Notice("Agent App Not Followed"),
+            "not_resolvable" or "not_observable" => new Notice("Task Not Found", "Nothing goes by its name"),
+            "result_limit" => new Notice("Result Limit Reached"),
             "invalid_document" or "unexpected_status" or "unsupported_contract" or "answer_too_large" or "invalid_understanding" or "invalid_evaluation"
-                => "Answer Unreadable · Check Version on Computer",
-            "host_not_allowed" or "origin_not_allowed" => "Request Turned Away · Check Setup on Computer",
+                => new Notice("Answer Unreadable", "Check that both run the same version"),
+            "host_not_allowed" or "origin_not_allowed" => new Notice("Request Turned Away", "Check the setup on your computer"),
             // Salidium's reader asks the port who it is before any credential goes, but that question is sent.
-            "instance_mismatch" => "Wrong Source Answered · Check Setup on Computer",
-            "discovery_unreadable" => "Setup Unreadable · Check on Computer",
-            NotAsked => "Session Unknown Yet · Refresh Soon",
-            _ => "No Reason Given · Refresh",
+            "instance_mismatch" => new Notice("Wrong Source Answered", "Check the setup on your computer"),
+            "discovery_unreadable" => new Notice("Setup Unreadable", "Check it on your computer"),
+            NotAsked => new Notice("Session Not Known Yet"),
+            _ => Notice.Unknown,
         };
 
         /// <summary>

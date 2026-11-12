@@ -80,14 +80,24 @@ namespace Halcyonic.Client
         /// <summary>The person's own words, beside the first task the companion suggested in its place.</summary>
         public const string YourOwnWords = "Your Words";
 
-        public const string NotSetUp = "Companion Not Set Up · Type Idea or Answer Questions";
-        public const string CantRun = "Companion Unavailable · Type Idea or Answer Questions";
-        public const string TooSlow = "Companion Timed Out · Model May Be Busy · Retry or Continue Without";
-        public const string Unreadable = "Answer Unreadable · Not Shown · Retry or Continue Without";
-        public const string Busy = "Companion Busy · Retry Soon";
-        public const string Unreached = "Computer Unreachable · Retry or Continue Without";
-        public const string TooMany = "Too Many Questions · Retry Soon";
-        public const string CouldNotAsk = "Companion Not Asked · Retry or Continue Without";
+        // FIELD's words (2026-11-12), each a title and its line as one phrase (Notice.Phrase), never joined on a dot; Retry and
+        // Continue Without are buttons, so no line repeats them.
+        public const string NotSetUp = "Companion Not Set Up, type your idea or answer the questions";
+        public const string CantRun = "Companion Unavailable, type your idea or answer the questions";
+        public const string TooSlow = "Companion Timed Out, the model may be busy";
+        public const string Unreadable = "Answer Unreadable, it was not shown";
+        public const string Busy = "Companion Busy";
+        public const string Unreached = "Computer Unreachable";
+        public const string TooMany = "Too Many Questions, wait a moment before you retry";
+
+        /// <summary>The person ended the turn before a reply, so the companion was not asked to finish.</summary>
+        public const string CouldNotAsk = "Companion Not Asked";
+
+        /// <summary>The companion was asked and failed (the host's companion_failed; AUDIT's census read "Companion Not Asked").</summary>
+        public const string NoReply = "No Reply, the companion was asked and failed";
+
+        /// <summary>The computer turned the question away before the companion saw it.</summary>
+        public const string NotAsked = "Not Asked, your computer turned the question away";
 
         /// <summary>The person's words are longer than the companion takes.</summary>
         public static string TooLong(int limit) => "Too Long · Under " + limit.ToString("N0", CultureInfo.InvariantCulture) + " Characters";
@@ -109,7 +119,10 @@ namespace Halcyonic.Client
             "companion_busy" or "companion_busy_on_mac" => Busy,
             "rate_limited" => TooMany,
             CompanionExchange.Unreachable => Unreached,
-            _ => CouldNotAsk,
+            "companion_failed" => NoReply,
+            "invalid_exchange" or "invalid_companion_request" => NotAsked,
+            // A code with no words of its own says it is unknown, never another case's words.
+            _ => Notice.Unknown.Phrase,
         };
 
         /// <summary>In the demonstration: the companion's replies were recorded, and nothing is asked.</summary>

@@ -300,7 +300,8 @@ public class CommandSubmissionsTests
             Assert.That(calls, Is.EqualTo(1));
             Assert.That(submissions.StateOf(command.CommandId), Is.EqualTo(SubmissionState.Acknowledged));
             var feedback = submissions.FeedbackFor("e1", new ClientProjection(), 1).Single();
-            Assert.That(feedback.Text, Does.EndWith("Sent · Awaiting Confirmation"));
+            // A request waits for its confirmation; a plan's stop says it is stopping (FIELD, 2026-11-12); neither waits for an agent.
+            Assert.That(feedback.Text, Is.EqualTo(command is WorkspaceRequestCancelCommand ? "Sent, stopping the plan" : "Sent, waiting for confirmation"));
             Assert.That(feedback.Status, Is.Null, "an acknowledgement is not a journaled outcome");
             var recorded = WorkspacePresenter.Feedback(new CommandView
             {
@@ -381,7 +382,7 @@ public class CommandSubmissionsTests
         Assert.That(sending.Waits, Is.True, "sending is under way, so its line shimmers");
 
         work.State.ApplyEvent(Carrying(2, Record(command, CommandStatus.Accepted)), new StateChanges());
-        Assert.That(work.Present(submissions: submissions).Commands.Single().Text, Is.EqualTo("Sent · Awaiting Stop"), "accepted is not done");
+        Assert.That(work.Present(submissions: submissions).Commands.Single().Text, Is.EqualTo("Sent, waiting for it to stop"), "accepted is not done");
 
         work.State.ApplyEvent(Carrying(3, Record(command, CommandStatus.Completed)), new StateChanges());
         var done = work.Present(submissions: submissions).Commands.Single();
@@ -525,7 +526,7 @@ public class CommandSubmissionsSessionTests
         await submitting;
 
         Assert.That(submissions.StateOf(command.CommandId), Is.EqualTo(SubmissionState.Acknowledged));
-        Assert.That(submissions.FeedbackFor("e1", session.State, 5).Single().Text, Is.EqualTo("Sent · Awaiting Stop"));
+        Assert.That(submissions.FeedbackFor("e1", session.State, 5).Single().Text, Is.EqualTo("Sent, waiting for it to stop"));
     }
 
     [Test]
