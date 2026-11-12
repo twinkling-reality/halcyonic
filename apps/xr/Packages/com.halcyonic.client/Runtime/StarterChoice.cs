@@ -21,8 +21,8 @@ namespace Halcyonic.Client
         /// <summary>The action on the page of changes, and the page's own line (the lead's yes in A16).</summary>
         public const string StartFrom = "Start From";
 
-        /// <summary>The review's label (its "{label} · {value}" form, as every review item).</summary>
-        public const string ReviewLabel = "Start From · ";
+        /// <summary>The review's label before the starter's own name, joined on no dot (AUDIT's MUST 4): "Starts From A World of Your Own".</summary>
+        public const string ReviewLabel = "Starts From ";
 
         /// <summary>The page of changes' action that opens the choice.</summary>
         public const string Open = "start-from";
@@ -67,7 +67,8 @@ namespace Halcyonic.Client
                 lines.Add(new PageLine(Title(starter), action: Choose, key: starter.StarterId, choice: true, chosen: idea.Folder?.StarterId == starter.StarterId,
                     answerMark: AnswerMark.Single));
             if (pages > 1)
-                lines.Add(new PageLine("Next Choices · " + (at + 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture),
+                // The page's place stands apart as the line's fact, never joined to the action's words on a dot (AUDIT's MUST 4).
+                lines.Add(new PageLine("Next Choices", fact: (at + 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture),
                     icon: GlazeIcon.Next, action: NextChoices));
             var footer = new Footer(new Prompt(Footer.Close, EntryText.Close, GlazeIcon.Close, PromptKind.Close), farRight: new Prompt(NewProjectScreens.Done, EntryText.Back, GlazeIcon.Back));
             return new MenuFrame(NewProjectScreens.Subject(idea), footer, sections: NewProjectScreens.Sections(NewProjectStep.Recap, idea, startReached), lines: lines);

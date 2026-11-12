@@ -85,7 +85,8 @@ namespace Halcyonic.Client
                 // The level the start will use, its own row (AUDIT: the review names it before the start); a practice run asks nothing.
                 level: runtime.Synthetic ? null : LineWords.Ours(PlanStart.LevelWords(draft)),
                 tools: model == null ? null : LineWords.Written(EntryText.Tools(model.ToolCalling)),
-                startFrom: sends?.StarterId != null && starter?.StarterId == sends.StarterId ? StarterChoice.Title(starter) : null,
+                // The starter the start sends, by its own name; one the computer no longer lists by its id, so it is never sent unnamed (AUDIT's SHOULD).
+                startFrom: sends?.StarterId is string sent ? (starter?.StarterId == sent ? StarterChoice.Title(starter) : Raw(sent)) : null,
                 plan: draft.StartsPlan);
         }
 

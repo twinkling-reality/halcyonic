@@ -901,6 +901,42 @@ public class BuildSequenceTests
         var moved = new NewWorkReview("Recipes", "Title", "Agent", "Model", "on your computer", "none", "Plan dinners.", "recipes in Projects");
         Assert.That(Of("Recipes", "Plan dinners.").SameRequest(moved), Is.False, "a folder chosen since is a change");
     }
+
+    /// <summary>
+    /// AUDIT's MUSTs 3 and 4 and its SHOULD on b100 (2026-11-12): the review a person confirms from names the starter by its
+    /// own name and never as "VR Starter" for another; the level, Plan First included, stands in its own slot, never joined
+    /// to the model on a dot; and a starter the computer no longer lists is still named, so nothing goes out unnamed.
+    /// </summary>
+    [Test]
+    public void TheReviewNamesTheStarterByItsOwnNameAndHoldsTheLevelApartWithNoDot()
+    {
+        var root = new LocationRoot { Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false, Folders = new List<LocationFolder>() };
+        var idea = new ProjectIdea();
+        idea.UseIdea("Plan dinners for the week.");
+        idea.Rename("Dinners");
+        idea.ChooseFolder(ProjectFolder.NewStarter(root, "dinners", "world")!);
+        var draft = Draft();
+        draft.ChooseRuntime(new RuntimeDescriptor
+        {
+            RuntimeId = "planning", DisplayName = "Planning runtime", Kind = "mock", Synthetic = false, ModelChoice = ModelChoice.None, OffersNeverAsk = true, OffersPlan = true,
+            Capabilities = new RuntimeCapabilities { StartExecution = true },
+        });
+        draft.Plan = true;
+        var world = new StarterView { StarterId = "world", Title = "A World of Your Own", Installed = true };
+        var review = EntryScreens.ReviewOf(idea, draft, null, live: true, world);
+        string ValueOf(ReviewItemKind kind) => review.Items.Single(item => item.Kind == kind).ValueRuns.Text;
+        Assert.That(ValueOf(ReviewItemKind.Folder), Does.Not.Contain("VR Starter").And.Not.Contain("·"), "the folder line names no starter it was not");
+        Assert.That(ValueOf(ReviewItemKind.Starter), Is.EqualTo("A World of Your Own"));
+        Assert.That(ValueOf(ReviewItemKind.Model), Does.Not.Contain("·").And.Not.Contain(PlanStart.PlanFirst), "the model alone, the level apart");
+        var runs = RoomReview.Card(review, part: 1, taskPages: 1);
+        Assert.That(runs.Slots.Single(slot => slot.Kind == RoomKind.Level).Value.Text, Is.EqualTo(PlanStart.PlanFirst));
+        Assert.That(runs.Words().Concat(runs.List.Select(row => row.Name.Text)), Has.Some.EqualTo("A World of Your Own"), "the redesign's review shows the starter");
+        Assert.That(runs.AnyDot, Is.False);
+        // The computer no longer lists the starter the folder holds: the review still names it, by its id.
+        var unlisted = EntryScreens.ReviewOf(idea, draft, null, live: true, starter: null);
+        Assert.That(unlisted.Items.Single(item => item.Kind == ReviewItemKind.Starter).ValueRuns.Text, Is.EqualTo("world"));
+        Assert.That(review.Items.Where(item => item.Kind == ReviewItemKind.Starter).Select(item => item.Label + item.Value), Has.None.Contains("·"));
+    }
 }
 
 public class EntryWordsTests
