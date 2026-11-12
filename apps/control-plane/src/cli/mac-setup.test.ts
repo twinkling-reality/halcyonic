@@ -403,7 +403,7 @@ describe('pnpm mac-setup', () => {
       assert.doesNotMatch(output, /won't start/);
       assert.match(
         output,
-        /Claude Agent is on from Halcyonic's next start\. Every task on it is paid for with the ANTHROPIC_API_KEY in Halcyonic's environment\./,
+        /Claude Agent is on from Halcyonic's next start\. Every task on it is paid for with the ANTHROPIC_API_KEY in Halcyonic's environment, unless your own Claude Code settings sign it in another way\./,
       );
       machine.env = { ...machine.env, HALCYONIC_CLAUDE_AGENT: '', ANTHROPIC_API_KEY: '' };
     }
@@ -436,11 +436,11 @@ describe('pnpm mac-setup', () => {
     assert.doesNotMatch(output, /won't start/);
     assert.match(
       output,
-      /Claude Agent is on from Halcyonic's next start\. Every task on it is paid for through your Amazon Bedrock account, set in Halcyonic's environment\./,
+      /Claude Agent is on from Halcyonic's next start\. Every task on it is paid for through your Amazon Bedrock account, set in Halcyonic's environment, unless your own Claude Code settings sign it in another way\./,
     );
     assert.match(
       output,
-      /Its models run on a remote service, Amazon Bedrock: nothing starts on one without its second press, and a task on one is paid for through your Amazon Bedrock account\./,
+      /Its models run on a remote service, Amazon Bedrock: nothing starts on one without its second press, and a task on one is paid for through your Amazon Bedrock account, unless your own Claude Code settings sign it in another way\./,
     );
     machine.env = { ...machine.env, HALCYONIC_CLAUDE_AGENT: '', CLAUDE_CODE_USE_BEDROCK: '' };
     // In Terminal, with a key stored: on from the next start, whatever runs now, and counted as an agent app.
@@ -449,7 +449,7 @@ describe('pnpm mac-setup', () => {
     output = text(machine);
     assert.match(
       output,
-      /Claude Agent is on from Halcyonic's next start, with your key stored on this computer\. Every task on it is paid for with that key\./,
+      /Claude Agent is on from Halcyonic's next start, with your key stored on this computer\. Every task on it is paid for with that key, unless your own Claude Code settings sign it in another way\./,
     );
     assert.match(
       output,
@@ -483,7 +483,7 @@ describe('pnpm mac-setup', () => {
     output = text(machine);
     assert.match(
       output,
-      /Claude Agent is on\. Every task on it is paid for with the ANTHROPIC_API_KEY in Halcyonic's environment, not the stored key\./,
+      /Claude Agent is on\. Every task on it is paid for with the ANTHROPIC_API_KEY in Halcyonic's environment, not the stored key, unless your own Claude Code settings sign it in another way\./,
     );
     assert.doesNotMatch(output, /with your key stored on this computer/);
     machine.env = { ...machine.env, ANTHROPIC_API_KEY: '' };

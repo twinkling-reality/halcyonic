@@ -984,6 +984,7 @@ describe('the setup view on the pairing page', () => {
             { name: 'Test Assistant', reads: 'at_each_use' },
           ],
           applies: 'next_start',
+          held_outside: [],
           stored: false,
           stored_at: null,
           unusable: false,
@@ -994,6 +995,7 @@ describe('the setup view on the pairing page', () => {
           field: 'Thirdprovider API Key',
           readers: [{ name: 'Test Assistant', reads: 'at_each_use' }],
           applies: 'at_once',
+          held_outside: [],
           stored: false,
           stored_at: null,
           unusable: false,
@@ -1089,6 +1091,12 @@ describe('the setup view on the pairing page', () => {
     assert.equal(removed.keys?.apps[1]?.stored, false);
     assert.equal(removed.keys?.confirm, null);
     assert.equal(existsSync(join(machine.dataDir, 'thirdprovider-api-key')), false);
+    // An agent app that runs outside the sandbox on a connected folder holds the key: the card says so, plainly.
+    const drawn = readFileSync(new URL('./setup-page/setup.js', import.meta.url), 'utf8');
+    assert.match(
+      drawn,
+      /On a folder you connected, \$\{listed\(outside\)\} \$\{one \? 'runs' : 'run'\} with your own access, and a task there can read and keep a copy of this key\. Apps made here are held to their own copy and hold no key, unless a cloud provider is switched on in Halcyonic's environment\./,
+    );
     // The page draws whatever the declarations say: no vendor's name is in its own words or code.
     for (const file of ['setup.js', 'setup.html', 'setup.css']) {
       const text = readFileSync(new URL(`./setup-page/${file}`, import.meta.url), 'utf8');

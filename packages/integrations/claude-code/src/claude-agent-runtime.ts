@@ -297,9 +297,16 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     return this.#scopeFor(directory).folder !== null;
   }
 
-  /** Outside the closed profile it has no sandbox at all: on a folder the person connected, always. */
-  runsOutsideSandbox(): boolean {
+  /**
+   * Outside the closed profile it has no sandbox at all: on a folder the person connected, always. Declared on the class
+   * too, so the host can say it before any instance runs (the setup page's key card).
+   */
+  static runsOutsideSandbox(): boolean {
     return true;
+  }
+
+  runsOutsideSandbox(): boolean {
+    return ClaudeAgentRuntimeAdapter.runsOutsideSandbox();
   }
 
   /** Claude Code's and its provider's own variables, and Bun's, which the bundled build runs on. */

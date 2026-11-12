@@ -515,7 +515,13 @@ async function main(): Promise<void> {
                 }
               },
               // A card for each declared provider something here reads, with Add Key and Remove Key (ADR 0061).
-              keys: new ProviderKeys(config.dataDir, providers),
+              // Each agent app that reads a key into its own run and, as its adapter's class declares, runs outside the
+              // sandbox on a connected folder, whether or not it runs now: the card says a task there can copy the key.
+              keys: new ProviderKeys(config.dataDir, providers, () =>
+                KEYED_AGENT_APPS.filter((keyed) => keyed.runsOutsideSandbox()).map(
+                  (keyed) => keyed.reader.name,
+                ),
+              ),
               canRestart: process.argv.includes('--restartable'),
               // What is shared now, for Copy and Stop beside the steps (ADR 0054).
               shared: () =>
