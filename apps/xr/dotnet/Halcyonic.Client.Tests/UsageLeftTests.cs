@@ -95,7 +95,7 @@ public class UsageLeftTests
         Assert.That(glance.Rows.Select(row => row.Title), Is.EqualTo(new[] { "Codex · Weekly" }));
         var later = Present(Available, DateTimeOffset.Parse("2026-10-06T09:00:01Z"));
         Assert.That(later.Rows, Is.Empty);
-        Assert.That(later.Note, Is.EqualTo("No Reading Since Reset · Refresh Later"));
+        Assert.That(later.Note, Is.EqualTo("No Reading Since Reset"));
         Assert.That(later.Source, Is.Null, "with no rows, nothing to say they come from");
     }
 
@@ -143,7 +143,7 @@ public class UsageLeftTests
         var glance = Present(Failure(availability, code));
         Assert.That(glance.Rows, Is.Empty);
         Assert.That(glance.Failed, Is.False, "not being set up is said plainly, not as a failure");
-        Assert.That(glance.Note, Is.EqualTo("Usage Left Not Set Up · Set Up on Computer"));
+        Assert.That(glance.Note, Is.EqualTo("Usage Left Not Set Up, set it up on your computer"));
     }
 
     [Test]
@@ -163,7 +163,7 @@ public class UsageLeftTests
     {
         var glance = Present(Failure(availability, code));
         Assert.That(glance.Failed, Is.True);
-        Assert.That(glance.Note, Is.EqualTo("Usage Unreadable · Retry Later"));
+        Assert.That(glance.Note, Is.EqualTo("Usage Unreadable"));
     }
 
     [Test]
@@ -172,7 +172,7 @@ public class UsageLeftTests
         var glance = UsageLeftPresenter.Unreachable();
         Assert.That(glance.Failed, Is.True);
         Assert.That(glance.Rows, Is.Empty);
-        Assert.That(glance.Note, Is.EqualTo("Computer Unreachable · Refresh"));
+        Assert.That(glance.Note, Is.EqualTo("Computer Unreachable"));
     }
 
     [Test]
