@@ -1028,20 +1028,22 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The redesign's page of what can be changed: page <paramref name="page"/> (from 0) of its things to change, as many as
-        /// a list card holds (<see cref="RoomCard.ListAPage"/>), the levels, which are answers, on every page, and Next Page in
-        /// the footer where the things run past one page. The page is clamped to those there are.
+        /// a list card holds (<see cref="RoomCard.ListAPage"/>), the levels, which are answers, on every page, and a Next Page
+        /// line where the things run past one page (its footer's far right is Back, so the pager is a line, as a row turns the
+        /// older panel's pages). The page is clamped to those there are.
         /// </summary>
         public static MenuFrame ChangesPage(MenuFrame frame, ref int page)
         {
-            static bool Change(PageLine line) => line.Action != null && line.Available && !line.Choice;
+            static bool Change(PageLine line) => line.Action != null && line.Available && !line.Choice && line.Action != NewProjectScreens.NextPage;
             var changes = frame.Lines.Where(Change).ToList();
             var pages = Math.Max(1, (changes.Count + RoomCard.ListAPage - 1) / RoomCard.ListAPage);
             if (page < 0 || page >= pages) page = 0;
             if (pages == 1) return frame;
             var shown = changes.Skip(page * RoomCard.ListAPage).Take(RoomCard.ListAPage).ToList();
             var lines = frame.Lines.Where(line => !Change(line) || shown.Contains(line)).ToList();
-            var next = new Prompt(Footer.NextPage, Footer.NextPageWords(page, pages), GlazeIcon.Next, PromptKind.NextPage);
-            return frame.With(frame.Footer.WithNext(next), lines, frame.Side);
+            lines.Add(new PageLine(Footer.NextPageWords(page, pages), icon: GlazeIcon.Next, action: NewProjectScreens.NextPage,
+                key: page.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            return frame.With(frame.Footer, lines, frame.Side);
         }
 
         /// <summary>Where each page of <paramref name="all"/> starts: whole lines in order, at least one a page, as many as <paramref name="room"/> holds.</summary>

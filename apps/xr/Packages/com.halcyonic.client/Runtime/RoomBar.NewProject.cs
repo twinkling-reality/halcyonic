@@ -163,10 +163,10 @@ namespace Halcyonic.Client
                     // mark, its words and a chevron, five a page (NewProjectFlow.ChangesPage pages the rest), so the page never
                     // runs past a column's six. The levels are answers, so they stand in the column, marked, as A1's moment has
                     // them; then Next Page where the things run past a page, Start Over and Back.
-                    var changes = frame.Lines.Where(line => line.Action != null && line.Available && !line.Choice).ToList();
+                    var changes = frame.Lines.Where(line => line.Action != null && line.Available && !line.Choice && line.Action != NewProjectScreens.NextPage).ToList();
                     var rows = changes.Take(RoomCard.ListAPage).Select(line => new RoomListRow(line.Kind, line.Runs, null, press: Line(line).Control)).ToList();
                     var column = frame.Lines.Where(line => line.Action != null && line.Available && line.Choice).Select(line => Line(line)).ToList();
-                    if (Offered(Footer.NextPage) is Prompt next) column.Add(Of(next, KitPlace.Step));
+                    if (frame.Lines.FirstOrDefault(line => line.Action == NewProjectScreens.NextPage) is PageLine next) column.Add(Line(next));
                     if (Offered(NewProjectScreens.StartOver) is Prompt over) column.Add(Of(over, KitPlace.Route));
                     column.Add(Of(prompts.First(prompt => prompt.Id == NewProjectScreens.BackToRecap), KitPlace.Back));
                     var page = new RoomBar(RoomBarState.Choose, column: column, lines: changes.Select(line => line.Runs).ToList());
