@@ -205,13 +205,18 @@ namespace Halcyonic.Client
                 var typing = frame.Lines.FirstOrDefault(line => line.Action == NewProjectScreens.TypeIdea);
                 var worded = typing != null && typing.Rows > 1;
                 var column = new List<RoomAction>();
-                if (main is { Available: true }) column.Add(Of(main, KitPlace.Forward, isMain: true));
+                // The one coloured action is the journey's next step: before an idea stands, Type (the idea itself); once it is
+                // written, the step forward (the lead's desk-parity journey, 2026-11-12: Start Questions led an empty field).
+                var leadsType = typing != null && !worded;
+                if (main is { Available: true }) column.Add(Of(main, KitPlace.Forward, isMain: !leadsType));
                 KitControl? field = null;
                 if (typing != null)
                 {
                     var type = Line(typing, Type, GlazeIcon.Type);
                     field = type.Control;
-                    column.Add(new RoomAction(type.Control, main: column.Count == 0));
+                    var typeAction = new RoomAction(type.Control, main: leadsType || column.Count == 0);
+                    if (leadsType) column.Insert(0, typeAction);
+                    else column.Add(typeAction);
                 }
                 if (hold != null) column.Add(Of(hold, KitPlace.Talk));
                 foreach (var line in frame.Lines.Where(line => line.Action != null && line.Available && line != typing)) column.Add(Line(line));
