@@ -66,6 +66,17 @@ namespace Halcyonic.Client
             _ => ConnectionText.Phase(connection),
         };
 
+        /// <summary>
+        /// The agent's latest message of the latest turn only, a reported claim: what a finished turn says it made. Null where that
+        /// turn said nothing, never an earlier turn's words (a fresh critic, 2026-11-12).
+        /// </summary>
+        public static ActivityEntry? TurnReportOf(ActivityEntry? report, IReadOnlyList<KitTrailEntry> trail)
+        {
+            if (report is not { Reported: true, Kind: ActivityKind.Message }) return null;
+            var began = trail.LastOrDefault(each => each.Entry.Kind == ActivityKind.Turn && each.Entry.Text == ActivityLog.RoundStarted)?.Entry.Position;
+            return began == null || report.Position > began ? report : null;
+        }
+
         /// <summary>The agent's latest message, a reported claim, read in the slate; null where it has said nothing yet.</summary>
         public static ActivityEntry? ReportOf(IReadOnlyList<ActivityEntry> activity) =>
             activity.LastOrDefault(entry => entry.Kind == ActivityKind.Message && entry.Reported);

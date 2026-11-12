@@ -2641,7 +2641,8 @@ projects), Settings, more usage windows than the card's two, a folder's details 
 connecting is one press), and the folder page's sentences (reading, none free, not connected). A task at rest whose result says
 nothing, as after a restart, says how its run stands (B, FIELD's table): `RoomStanding.Of` maps the run's status and reason
 code to one status ("Turn Finished" over "Nothing checked yet", never Good; "Turn Failed" with the computer's message whole
-under it, theirs; "Turn Stopped"; "Run Not Reached", "Run Lost", "Start Unknown"; any other code "Outcome Unknown"), drawn
+under it, theirs; a finished turn with the agent's own last report of that turn as the card's description, reported and theirs, so it
+says what was made (the lead's first journey, 2026-11-12); "Turn Stopped"; "Run Not Reached", "Run Lost", "Start Unknown"; any other code "Outcome Unknown"), drawn
 as the result's card with the file's Close and nothing on the band. A host code with words of its own is a `Notice`: a title and a line
 apart (FIELD's rule, 2026-11-12), drawn apart where a status stands and as one phrase ("Sent, waiting for your computer")
 in a slot of one string, never joined on a dot; every table's default arm reads "Reason Unknown", never another case's
