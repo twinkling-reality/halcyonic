@@ -4971,6 +4971,15 @@ namespace Halcyonic.Contracts
         public WorkspaceRequestSubmitPayloadAct? Act { get; set; }
     }
 
+    public sealed class WorkspaceRequestResumePayloadConfirm
+    {
+        [global::Newtonsoft.Json.JsonProperty("step_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string StepId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Review { get; set; } = default!;
+    }
+
     public sealed class WorkspaceRequestResumePayload
     {
         [global::Newtonsoft.Json.JsonProperty("request_id", Required = global::Newtonsoft.Json.Required.Always)]
@@ -4978,6 +4987,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Text { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("confirm", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public WorkspaceRequestResumePayloadConfirm? Confirm { get; set; }
     }
 
     public sealed class WorkspaceRequestCancelPayload

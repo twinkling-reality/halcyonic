@@ -1,6 +1,6 @@
 # ADR 0060: The computer says what can be done here, and buttons, saying it and one review read that one list
 
-- Status: Accepted (read by CORE, SCREENS and AUDIT2). The assistant's part is built against a stand-in of the host's list: `propose_command`, `read_choices`, `go_to`, the waiting proposal, the rule of origin and the person's press through `act` (secrets refused), tested with a synthetic model; the host's list, the review builder, the confirm and the projection's keeping of proposed commands are not built yet; no model run; headset pending
+- Status: Accepted (read by CORE, SCREENS and AUDIT2). Built and tested with a synthetic model: `propose_command`, `read_choices`, `go_to`, the waiting proposal and the rule of origin, the person's press through `act` (secrets refused), the confirm through resume, and the host's list as admission allows it today (section 6). CORE's `offered()`, declarations and generic review are not built yet. No model run yet; headset pending
 - Date: 2026-11-12
 
 ## Context
@@ -96,13 +96,15 @@ A command reached through the list is never built by its proposer.
     is the host's review.
   - So starting a task by voice is: say it, then one Send that shows what will start (R1). An agent's words can
     never start another agent.
-- **The confirm:** `workspace.request.confirm { request_id, step_id, review }`.
-  - It is admitted only from the request's own owner (the principal `#owns` checks today).
+- **The confirm:** `workspace.request.resume { request_id, text: null, confirm: { step_id, review } }`. A request
+  waits for the person, and the person resumes it. This saves a new command type, which would have changed every
+  welcome's policy list and the recorded demonstrations (the lead and AUDIT2, 2026-11-12).
+  - It is admitted only from the request's own owner: the command service's owner check for resume (N1).
   - The host re-checks the digest (`review_stale` otherwise), then submits the prepared command, with that digest,
     under that principal.
   - Cancel, or a new request on the same scope, rejects a waiting proposal.
-- **The assistant can never confirm.** No `workspace.request.*` command is ever a prepared command, and none is
-  admitted from the coordinator's dispatch. No tool answers a runtime's approval or question. A proposal is data
+- **The assistant can never confirm.** No `workspace.request.*` command is ever a prepared command or a list entry,
+  and no tool sends one. No tool answers a runtime's approval or question. A proposal is data
   until the press, and the reply stays `reported`.
 
 ### 4. What may be said (R6)
@@ -131,7 +133,20 @@ The list enforces this with `sayable` false. The request loop drops the same ent
   name is the model's. A place is not a command: the client goes there at once, with no press.
 - The model never supplies an id (ADR 0030; `workspace-tools.ts`).
 
-### 6. What stays as it is until the general thing replaces it (R5)
+### 6. The list before CORE's declarations
+
+Until CORE's `offered()` and declarations land, the host's list is one table of entries whose admission depends on
+the domain's checks alone (`workspace-agent/host-actions.ts`). Each entry is listed in a scope only when a probe of
+it, built with placeholder values, passes `admitCommand` there now, so the list never holds what the host would
+refuse. There are two entries:
+- `workstream.create`, "New Task": a title, and the person's own words as its objective. Sayable.
+- `execution.send_instruction`, "Send", on a task that takes words now. For buttons only: the assistant keeps
+  `continue_task`.
+
+Entries with refusals beyond admission (a check, a preview, a share, sending, publishing, restoring) wait for
+`offered()`. CORE then moves the table beside `COMMAND_POLICY` and replaces the probe.
+
+### 7. What stays as it is until the general thing replaces it (R5)
 
 - `continue_task` keeps sending the person's words whole. In the list it is the task scope's
   `execution.send_instruction` entry; it is retired into `propose_command` once a window shows the local model
@@ -164,8 +179,9 @@ items_total, warnings }`, with one reader per command type for its facts.
   day it lands it is reachable by button, by saying it and by the one card, with no client code and no new tool.
 - **Contract changes, made once, each in the rule 27 queue:**
   - LOOP: `workspace-tools.ts` gains `propose_command`, `read_choices` and `go_to`. `WorkspaceRequestStep` gains
-    `proposal`. `step_recorded` gains `proposed_command`. `workspace.request.submit` gains `act` and `places`. The
-    view gains `go_to`. `workspace.request.confirm` is new.
+    `proposal` and `place`. `step_recorded` gains `proposed_command`. `workspace.request.submit` gains `act` and
+    `places`. The view gains `places`. `workspace.request.resume` gains `confirm`. The projection keeps a proposal's
+    command in the same map as an instruction, so its saved state keeps its shape and format.
   - CORE: the list's view and route, the declarations, and the review.
 - **After a restart**, a waiting proposal is still in the journal. Its owner's Confirm is admitted, since it is their
   own press re-checked by its digest. Any further model step needs Resume, as before.

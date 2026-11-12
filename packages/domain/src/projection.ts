@@ -250,9 +250,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * amended). 14: each project's secrets by name (ADR 0057). 15: each project's rules while on (`rules`, E5).
  * 16: when a start found a task's copy gone (`missing_at`, ADR 0045). 17: who can see each repository
  * a first send of Halcyonic's made (ADR 0039, amended). 18: a world's description is format 2 and only
- * `project.world.read` gives it (ADR 0049); each raised past the base's again at the rebase.
+ * `project.world.read` gives it (ADR 0049). 19: a request's prepared commands hold proposals and presses beside
+ * instructions (ADR 0060); each raised past the base's again at the rebase.
  */
-export const PROJECTION_STATE_FORMAT = 18;
+export const PROJECTION_STATE_FORMAT = 19;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -424,10 +425,11 @@ export class Projection {
     {
       view: WorkspaceRequestView;
       principal: Principal | null;
-      prepared: Map<
-        string,
-        { command: CommandOf<'execution.send_instruction'>; step: WorkspaceRequestStep }
-      >;
+      /**
+       * Each step's prepared command: an instruction (`continue_task`), or, on a step that holds a `proposal`, the
+       * command a proposal or a press prepared (ADR 0060). One map, so the saved state keeps its shape.
+       */
+      prepared: Map<string, { command: CommandEnvelope; step: WorkspaceRequestStep }>;
       bindings: Map<
         string,
         {
@@ -820,16 +822,37 @@ export class Projection {
     id: string,
     step: string,
   ): CommandOf<'execution.send_instruction'> | undefined {
-    const command = this.#requests.get(id)?.prepared.get(step)?.command;
-    return command ? structuredClone(command) : undefined;
+    const prepared = this.#requests.get(id)?.prepared.get(step);
+    return prepared &&
+      !prepared.step.proposal &&
+      prepared.command.command_type === 'execution.send_instruction'
+      ? structuredClone(prepared.command)
+      : undefined;
+  }
+  /** The command a proposal or a press prepared on one step, with that step as it was recorded (ADR 0060). */
+  workspaceProposal(
+    id: string,
+    step: string,
+  ): { command: CommandEnvelope; step: WorkspaceRequestStep } | undefined {
+    const prepared = this.#requests.get(id)?.prepared.get(step);
+    return prepared?.step.proposal ? structuredClone(prepared) : undefined;
   }
 
   /** All action receipts remain discoverable when the bounded public view evicts them. */
   workspacePreparedActions(
     id: string,
   ): { command: CommandOf<'execution.send_instruction'>; step: WorkspaceRequestStep }[] {
-    return [...(this.#requests.get(id)?.prepared.values() ?? [])].map((value) =>
-      structuredClone(value),
+    return [...(this.#requests.get(id)?.prepared.values() ?? [])].flatMap((value) =>
+      !value.step.proposal && value.command.command_type === 'execution.send_instruction'
+        ? [
+            structuredClone(
+              value as {
+                command: CommandOf<'execution.send_instruction'>;
+                step: WorkspaceRequestStep;
+              },
+            ),
+          ]
+        : [],
     );
   }
 
@@ -1333,16 +1356,29 @@ export class Projection {
           else request.view.observed = structuredClone(event.payload.observed);
         } else {
           const step = event.payload.step,
-            command = event.payload.prepared_command;
+            instruction = event.payload.prepared_command,
+            proposed = event.payload.proposed_command;
           if (
-            command &&
+            instruction &&
             (request.view.execution_id === null ||
-              command.payload.execution_id !== request.view.execution_id ||
-              command.command_id !== step.command_id)
+              instruction.payload.execution_id !== request.view.execution_id ||
+              instruction.command_id !== step.command_id)
           ) {
             notes.push(note('unknown_entity', event, 'prepared request command does not match'));
             return;
           }
+          // A proposal's or a press's command (ADR 0060): only on a step that holds the proposal, named by its id.
+          if (
+            proposed &&
+            (instruction ||
+              !step.proposal ||
+              proposed.command_id !== step.command_id ||
+              proposed.command_type !== step.proposal.command_type)
+          ) {
+            notes.push(note('unknown_entity', event, 'proposed request command does not match'));
+            return;
+          }
+          const command: CommandEnvelope | null = instruction ?? proposed ?? null;
           const binding = request.bindings.get(step.step_id),
             retained = request.prepared.get(step.step_id);
           if (

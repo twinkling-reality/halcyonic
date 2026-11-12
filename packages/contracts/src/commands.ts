@@ -505,7 +505,20 @@ export const WorkspaceRequestSubmitCommand = defineCommand(
 );
 export const WorkspaceRequestResumeCommand = defineCommand(
   'workspace.request.resume',
-  Type.Object({ request_id: WorkspaceRequestId, text: Nullable(Text(32000)) }, strict),
+  Type.Object(
+    {
+      request_id: WorkspaceRequestId,
+      text: Nullable(Text(32000)),
+      /**
+       * The person's one press on a waiting proposal (ADR 0060): the step, and the digest of what they were shown.
+       * Only the request's own owner resumes it; the host checks the digest again before it submits what it holds.
+       */
+      confirm: Type.Optional(
+        Type.Object({ step_id: WorkspaceRequestId, review: Sha256Hex }, strict),
+      ),
+    },
+    strict,
+  ),
 );
 export const WorkspaceRequestCancelCommand = defineCommand(
   'workspace.request.cancel',
