@@ -112,7 +112,7 @@ public class LiveControlPlaneTests
         await Until(s => s.Status.Phase == ConnectionPhase.Refused, "the stale token is not sent", seconds: 20);
         Assert.That(session.Status.AccessRefused, Is.True);
         Assert.That(session.Status.Detail, Is.EqualTo(ConnectionText.AccessTokenUnproved));
-        Assert.That(ConnectionText.WhyNotLive(session.Status), Does.StartWith("Code Withheld · Host Unverified"));
+        Assert.That(ConnectionText.WhyNotLive(session.Status), Does.StartWith("Code Withheld, the computer wasn't verified"));
         Assert.That(DemonstrationFallback.Describe(DemonstrationReason.Unreachable, session.Status),
             Does.EndWith(ConnectionText.AccessTokenUnproved));
         // The control plane logs every request at this level: it was asked for proofs, and never for

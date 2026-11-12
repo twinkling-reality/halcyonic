@@ -159,6 +159,11 @@ public class CharacterPresenterTests
                 Assert.That(why, Does.Not.EndWith("."), code.ToString());
                 Assert.That(why.Split(new[] { " · " }, StringSplitOptions.None).Length, Is.GreaterThan(1), code.ToString());
             }
+            // A notice in FIELD's form (2026-11-12): its title and its line as one phrase, with no final stop.
+            else if (why.Contains(", "))
+            {
+                Assert.That(why, Does.Not.EndWith("."), code.ToString());
+            }
             else
             {
                 Assert.That(why, Does.EndWith("."), code.ToString());

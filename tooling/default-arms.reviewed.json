@@ -109,9 +109,9 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/ConnectionText.cs",
-    "answer": "\"Connection Ended · \" + TriesAgain",
+    "answer": "\"Connection Ended, \" + TriesAgain",
     "count": 1,
-    "why": "generic: Any fatal error code other than the four listed ends the session through Ending.Failed, which retries, so Connection Ended and Retrying hold for all of them."
+    "why": "generic: Any fatal error code other than the four listed ends the session through Ending.Failed, which retries, so Connection Ended and trying again hold for every such code."
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/ConnectionText.cs",
