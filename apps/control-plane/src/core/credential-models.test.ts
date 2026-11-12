@@ -94,8 +94,17 @@ test('a model whose provider refused the key is shown, never offered as ready; a
   );
   const refused = await controlPlane.commands.choices(scopeOf(controlPlane), 'models');
   assert.ok(refused !== null && refused.rows.length > 0);
-  for (const row of refused.rows) {
-    assert.deepEqual(row.actions, [], 'a refused key offers none of its models');
+  const hosted = (rows: readonly { label: string }[]) =>
+    rows.filter((row) => row.label.startsWith('Simulated hosted model'));
+  const local = (rows: readonly { label: string }[]) =>
+    rows.filter((row) => !row.label.startsWith('Simulated hosted model'));
+  assert.equal(hosted(refused.rows).length, 1);
+  for (const row of local(refused.rows) as typeof refused.rows) {
+    assert.deepEqual(row.actions, ['execution.start'], 'a key never serves a model on this Mac');
+    assert.equal(row.detail, 'Mock runtime (development fixture)');
+  }
+  for (const row of hosted(refused.rows) as typeof refused.rows) {
+    assert.deepEqual(row.actions, [], 'a refused key offers none of its hosted models');
     assert.equal(
       row.detail,
       'Mock runtime (development fixture): its key was refused. Give it a new key on this Mac.',
@@ -107,8 +116,8 @@ test('a model whose provider refused the key is shown, never offered as ready; a
   t.after(() => second.controlPlane.close());
   const again = await second.controlPlane.commands.choices(scopeOf(second.controlPlane), 'models');
   assert.ok(again !== null && again.rows.length > 0);
-  for (const row of again.rows) {
-    assert.deepEqual(row.actions, ['execution.start']);
+  assert.ok(again.rows.every((row) => row.actions.includes('execution.start')));
+  for (const row of hosted(again.rows) as typeof again.rows) {
     assert.equal(
       row.detail,
       'Mock runtime (development fixture): its key was refused before, and is not tried since.',

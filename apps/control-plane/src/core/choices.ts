@@ -206,23 +206,25 @@ export async function choiceRows(
       const rows: HeldRow[] = [];
       for (const runtime of sources.runtimes()) {
         if (runtime.model_choice !== 'listed' || !runtime.capabilities.start_execution) continue;
-        // A model its provider refused the key for is shown, never offered as ready; a refusal from
-        // before this host read its key leaves it offered, saying so, since nobody knows yet.
+        // A hosted model whose provider refused the key is shown, never offered as ready; a refusal from
+        // before this host read its key leaves it offered, saying so, since nobody knows yet. A key never
+        // serves a model on this Mac, so a runtime's own local models are offered whatever its key.
         const credential = sources.credential(runtime.runtime_id);
-        const detail =
-          credential === 'refused'
-            ? `${runtime.display_name}: its key was refused. Give it a new key on this Mac.`
-            : credential === 'refused_before'
-              ? `${runtime.display_name}: its key was refused before, and is not tried since.`
-              : runtime.display_name;
-        for (const model of await sources.models(runtime))
+        for (const model of await sources.models(runtime)) {
+          const keyed = model.served === 'remote' ? credential : null;
           rows.push(
             row(rows.length, 'model', model.display_name, model.model_ref, {
-              detail,
+              detail:
+                keyed === 'refused'
+                  ? `${runtime.display_name}: its key was refused. Give it a new key on this Mac.`
+                  : keyed === 'refused_before'
+                    ? `${runtime.display_name}: its key was refused before, and is not tried since.`
+                    : runtime.display_name,
               theirs: true,
-              actions: credential === 'refused' ? [] : ['execution.start'],
+              actions: keyed === 'refused' ? [] : ['execution.start'],
             }),
           );
+        }
       }
       return rows;
     }
