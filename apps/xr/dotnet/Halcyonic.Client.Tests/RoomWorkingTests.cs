@@ -89,7 +89,9 @@ public class RoomWorkingTests
         // At rest: nothing at work; how the run stands is its card (B, 2026-11-12), with the one Changes (the lead's 11:15Z) and the file's
         // own Close in the column.
         Assert.That((bar.Working, bar.State, bar.Step, bar.Card?.Status?.Title), Is.EqualTo((false, RoomBarState.Rest, (RoomWorkStep?)null, (string?)RoomStanding.Finished)));
-        Assert.That(bar.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.ShowChanges, Footer.Close }));
+        // With no check of the computer's own, Checks opens the file's Checks section (AUDIT's census: every page a drawn press away).
+        Assert.That(bar.Column.Select(action => (action.Control.Action, action.Control.Key)),
+            Is.EqualTo(new[] { (RoomResult.ShowChanges, (string?)null), (MenuFrame.ChooseSection, (string?)FileScreens.Key(FileSection.Checks)), (Footer.Close, (string?)null) }));
     }
 
     [Test]

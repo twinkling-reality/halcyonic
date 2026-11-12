@@ -6,6 +6,9 @@ namespace Halcyonic.Client
 {
     public sealed partial class RoomBar
     {
+        /// <summary>The file's Checks section, by the key its frame names it (FileSection.Checks).</summary>
+        private static readonly string ChecksSectionKey = FileScreens.Key(FileSection.Checks);
+
         /// <summary>
         /// The result at rest over what the loop made of the frame (DESIGN's BUILD-SPEC-v4 2.5 to 2.8). It stands only with
         /// the row or its place (at rest, talking, or nothing to send), never over a draft, a confirmation or Sent.
@@ -191,6 +194,11 @@ namespace Halcyonic.Client
                     // not-seen words where the computer could not say, as a desk always has its Changes (JUDGE's live-17: unreached otherwise).
                     column.Add(Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next));
                     if (result.Steps.Count > 0) column.Add(Own(RoomResult.ShowChecks, RoomResult.ChecksWords, main: false, GlazeIcon.Next));
+                    // Where the computer ran no check of its own but the file reads what the run's checks found (its Checks section),
+                    // Checks opens that section: every page of a result a drawn press away (AUDIT's census, 2026-11-12).
+                    else if (frame.Sections.Any(section => section.Key == ChecksSectionKey))
+                        column.Add(new RoomAction(new KitControl(KitPlace.Section, frame, MenuFrame.ChooseSection, ChecksSectionKey, RoomResult.ChecksWords,
+                            GlazeIcon.Next, true, null, false), main: false, icon: GlazeIcon.Next));
                     // The agent's words stand on the band beside its result, never beside how a run stands (B): nothing extra.
                     // Beside how a run stands, only that turn's own words, on the band, read by parts and never cut (the card stays whole).
                     band = card != null && ReferenceEquals(card, binding.Model.Standing)
