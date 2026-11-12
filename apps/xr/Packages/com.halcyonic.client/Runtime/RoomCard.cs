@@ -90,6 +90,8 @@ namespace Halcyonic.Client
 
         /// <summary>Something waiting its turn, as an instruction waits for a turn to end (ADR 0056): the clock, as a check not yet run.</summary>
         Waiting,
+        /// <summary>Whose words a card holds, as the agent's or a model's account of a change: the speech bubble, never a pointer.</summary>
+        Says,
     }
 
     /// <summary>How a card's status, step or row stands: its colour.</summary>

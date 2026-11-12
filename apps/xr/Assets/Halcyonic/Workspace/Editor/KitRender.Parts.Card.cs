@@ -387,7 +387,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 // Each row's tile at the card's left, its name 14 dp after the tile, its note ending at the card's right.
                 var tiles = view.Plates.Where(each => each.What.StartsWith("row tile", StringComparison.Ordinal)).ToList();
-                Require(tiles.Count == card.List.Count, "the list draws " + tiles.Count + " tiles for " + card.List.Count + " rows");
+                Require(tiles.Count == card.List.Count(row => row.Kind != RoomKind.None), "the list draws " + tiles.Count + " tiles for " + card.List.Count(row => row.Kind != RoomKind.None) + " marked rows");
                 Require(tiles.All(each => Mathf.Abs(each.Plate.transform.localPosition.x - each.Plate.Size.x / 2f) < slack), "a row's tile does not stand at the card's left");
                 foreach (var row in card.List)
                 {
