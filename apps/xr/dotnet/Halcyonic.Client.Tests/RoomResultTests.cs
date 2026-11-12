@@ -104,10 +104,10 @@ public class RoomResultTests
     [Test]
     public void WhatTheComputerDoesNotKnowIsLeftOut()
     {
-        // No observation, no check: the loop's own view, the row alone.
+        // No observation, no check: how the run stands (B, 2026-11-12), and nothing guessed: no slot, no count, no band.
         var nothing = Bar(new RoomResult(false, false, false, null, null, null));
-        Assert.That((nothing.Result, nothing.Pair, nothing.State, nothing.Band), Is.EqualTo((false, false, RoomBarState.Rest, (string?)null)), Show(nothing));
-        Assert.That(Bar(null).Result, Is.False);
+        Assert.That((nothing.Result, nothing.Card?.Status?.Title, nothing.Card?.Slots.Count, nothing.Band), Is.EqualTo((true, (string?)RoomStanding.Finished, (int?)0, (string?)null)), Show(nothing));
+        Assert.That(Bar(null, status: ExecutionStatus.Running).Result, Is.False, "a run under way says nothing of a result");
 
         // A check and no observation: the check is the panel's one line; no count is guessed, and no Changes.
         var checkedOnly = Bar(new RoomResult(false, false, false, false, null, Steps(buildFails: true)));
@@ -406,6 +406,22 @@ public class RoomResultTests
         finally { RoomDesign.Enabled = was; }
     }
 
+    /// <summary>
+    /// B (FIELD's table, 2026-11-12): a task at rest whose result says nothing, as after a restart, says how its run stands on
+    /// the result's own card, the row at rest kept beside it; a result with something to say keeps its own card.
+    /// </summary>
+    [TestCase(ExecutionStatus.Completed, RoomStanding.Finished)]
+    [TestCase(ExecutionStatus.Interrupted, RoomStanding.Stopped)]
+    [TestCase(ExecutionStatus.Unknown, RoomStanding.Unknown)]
+    public void ATaskAtRestWithNothingReadSaysHowItsRunStands(ExecutionStatus status, string title)
+    {
+        var bar = Bar(RoomResult.Nothing, says: null, status: status);
+        Assert.That((bar.Card?.Status?.Title, bar.Result), Is.EqualTo(((string?)title, true)), Show(bar));
+        Assert.That((bar.Column.Last().Control.Place, bar.Band), Is.EqualTo((KitPlace.Close, (string?)null)), "the file's own Close last, and nothing on the band");
+        var known = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()), status: status);
+        Assert.That(known.Card!.Status?.Title, Is.Not.EqualTo(title), "a result with something to say keeps its own card");
+    }
+
     [Test]
     public void TheResultAndItsPagesEndWithTheFilesOwnCloseAndTheRowAtRestWithProjects()
     {
@@ -414,10 +430,10 @@ public class RoomResultTests
         Assert.That((result.Column.Last().Control.Place, result.Column.Last().Main, result.Column.Count(action => action.Control.Place == KitPlace.Close)), Is.EqualTo((KitPlace.Close, false, 1)), Show(result));
         var changes = Bar(new RoomResult(false, true, false, true, Turn(Observed), Steps(), RoomResultPage.Changes));
         Assert.That(changes.Column.Last().Control.Place, Is.EqualTo(KitPlace.Close));
-        // At rest with nothing known, no pair: "Projects" last in the row, never main, raising the same Close.
+        // At rest with nothing known: how the run stands (B), and the file's own Close last in the column, never main.
         var nothing = Bar(new RoomResult(false, false, false, null, null, null));
-        var back = nothing.Row.Last();
-        Assert.That((back.Words, back.Main, back.Control.Place), Is.EqualTo((RoomBar.ProjectsWords, false, KitPlace.Close)), Show(nothing));
+        var back = nothing.Column.Last();
+        Assert.That((nothing.Card?.Status?.Title, back.Main, back.Control.Place), Is.EqualTo(((string?)RoomStanding.Finished, false, KitPlace.Close)), Show(nothing));
     }
 
     [Test]

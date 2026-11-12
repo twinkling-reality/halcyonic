@@ -439,7 +439,8 @@ namespace Halcyonic.Client
         {
             var loop = Loop(binding, voice, sentAwaitingStart);
             var model = binding.Model;
-            if (!model.Working && model.Result is RoomResult result) return Resulting(binding, result, loop);
+            // A task at rest with no result read says how its run stands (B), on the same result moment.
+            if (!model.Working && (model.Result ?? (model.Standing != null ? RoomResult.Nothing : null)) is RoomResult result) return Resulting(binding, result, loop);
             if (!model.Working || loop.Pair || loop.State == RoomBarState.Sent) return loop;
             // That a request is under way is not said in words while the agent works: the field and the cursor say it.
             if (loop.State == RoomBarState.Words && loop.Words.Text == FileScreens.RequestUnderWay) loop = new RoomBar(RoomBarState.Hidden);

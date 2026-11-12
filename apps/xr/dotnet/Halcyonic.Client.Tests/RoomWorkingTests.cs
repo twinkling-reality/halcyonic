@@ -86,7 +86,9 @@ public class RoomWorkingTests
         var work = Work(ExecutionStatus.Completed);
         var (_, column) = Open(() => Present(work, WorkspaceAction.Instruct));
         var bar = Bar(column);
-        Assert.That((bar.Working, bar.State, bar.Column.Count, bar.Step), Is.EqualTo((false, RoomBarState.Rest, 0, (RoomWorkStep?)null)));
+        // At rest: nothing at work; how the run stands is its card (B, 2026-11-12), with the file's own Close alone in the column.
+        Assert.That((bar.Working, bar.State, bar.Step, bar.Card?.Status?.Title), Is.EqualTo((false, RoomBarState.Rest, (RoomWorkStep?)null, (string?)RoomStanding.Finished)));
+        Assert.That(bar.Column.Select(action => action.Control.Place), Is.EqualTo(new[] { KitPlace.Close }));
     }
 
     [Test]

@@ -28,7 +28,7 @@ namespace Halcyonic.Client
             // only while the folder is as it was checked. That the tries ran out stays true whatever the folder did (AUDIT, 2026-11-11).
             if (binding.Model.AutoFix?.Reason == Halcyonic.Contracts.AutoFixEndReason.Passed && result.Passed != true) fixedLine = null;
             var ranOut = fixedLine != null && binding.Model.AutoFix!.Reason == Halcyonic.Contracts.AutoFixEndReason.CapReached;
-            if (loop.Pair || loop.State is RoomBarState.Sent or RoomBarState.Words || !result.Any && fixedLine == null) return loop;
+            if (loop.Pair || loop.State is RoomBarState.Sent or RoomBarState.Words || !result.Any && fixedLine == null && binding.Model.Standing == null) return loop;
             var frame = binding.Frame;
             // The view draws each action's glyph by its words (RoomGlyphs); the icon is the nearest of the product's own.
             RoomAction Own(string action, string words, bool main, GlazeIcon icon) =>
@@ -153,7 +153,8 @@ namespace Halcyonic.Client
                 default:
                     // FIELD's result card (A17): the task's name as its title, the check and the files changed (or waiting to be
                     // added) as slots, an ended chain of tries as its status first. No sentence: the check is a slot now.
-                    card = RoomPanelCards.Result(result, frame.SubjectRuns, binding.Model.AutoFix, result.Add?.Slot);
+                    // Where the result says nothing, how the run stands (B).
+                    card = RoomPanelCards.Result(result, frame.SubjectRuns, binding.Model.AutoFix, result.Add?.Slot) ?? binding.Model.Standing;
                     // Kept, said (the lead's R1): once the host recorded the add and nothing newer waits, the card's status says
                     // so, with no line, since nothing on the headset can undo it yet; a chain of tries that ended keeps its status.
                     if (result.Add?.State == RoomAddState.Added) card = Said(card, frame.SubjectRuns, new RoomCardStatus(RoomAdd.AddedWords, null, RoomTone.Good));
@@ -173,7 +174,8 @@ namespace Halcyonic.Client
                     if (result.CanShare) column.Add(Own(RoomResult.ShowShare, ShareText.Share, main: column.Count == 0, GlazeIcon.Next));
                     if (result.Observed != null) column.Add(Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next));
                     if (result.Steps.Count > 0) column.Add(Own(RoomResult.ShowChecks, RoomResult.ChecksWords, main: false, GlazeIcon.Next));
-                    band = binding.Model.Report?.Text;
+                    // The agent's words stand on the band beside its result, never beside how a run stands (B): nothing extra.
+                    band = card != null && ReferenceEquals(card, binding.Model.Standing) ? null : binding.Model.Report?.Text;
                     break;
             }
             if (facts != null)
