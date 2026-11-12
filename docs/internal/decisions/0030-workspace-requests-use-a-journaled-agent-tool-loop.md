@@ -204,4 +204,14 @@ answer from.
   bound task stay `continue_task`'s.
 - A request may carry the places the client can go (`places`), and the model picks one by index with `go_to`; a place
   is not a command, and the client goes at once.
+## Amendment, 2026-11-12: the host's facts in sentences, and an answer that reads like records
+
+- What the Mac observed of a task reaches the model in sentences, from one table of the host's codes to words
+  (`workspace-agent/fact-words.ts`): its state, the files its turns changed, the computer's check and any retry it
+  sent back. A project's latest check and a task's status read the same way. The file paths and page errors the
+  agent wrote stay beside them as quoted data. So there is no field name or code for the model to repeat (the 30B
+  window of 2026-11-12: both answers were right and read like a printout).
+- An answer that still holds an identifier joined by underscores (not in the person's words or the names the request
+  is about), a bracketed list or an ISO time is not kept: the model is asked once more, offered no tool, to say it in
+  a few plain sentences. A path or a file name is never one.
 

@@ -24,6 +24,7 @@ import { capturingLogger, createTestControlPlane } from '../testing/harness.ts';
 import type { ToolDefinition, ToolMessage, ToolTurnResult } from './ollama.ts';
 import {
   ANSWER_AGAIN,
+  ANSWER_IN_WORDS,
   ANSWER_LAST,
   ANSWER_NOW,
   ANSWERING,
@@ -1653,8 +1654,11 @@ test('a whole-project request reads two tasks by the host list and cannot instru
     const toolResults = (seen.at(-1) ?? []).filter((message) => message.role === 'tool');
     const text = toolResults.map((message) => message.content).join('\n');
     assert.match(text, /Second synthetic task/);
-    assert.match(text, /not_started/);
-    assert.match(text, /"evidence":\{"observed_by":"the Mac, not the agent"/);
+    assert.match(text, /"status":"not started"/);
+    assert.match(
+      text,
+      /"evidence":\{"said_by":"the Mac, not the agent","in_words":\["The task is /,
+    );
     assert.match(text, /tool_not_offered/);
     assert.ok(
       request?.steps.some((step) => step.tool_name === 'tool_call' && step.status === 'rejected'),
@@ -1769,25 +1773,26 @@ test('the host context gives what the Mac saw a task change, and says not checke
     );
     const data = JSON.parse(fresh?.content.slice(QUOTED_PREFIX.length) ?? '{}') as {
       observed_by_the_mac: {
-        changes: {
-          created: number;
-          changed: number;
-          files_newest_first: { path: { text: string }; how: string }[];
-        };
-        check: { state: string };
+        in_words: string[];
+        files_newest_first: { path: string; how: string }[];
       };
     };
     const evidence = data.observed_by_the_mac;
-    assert.equal(evidence.changes.created, 1);
-    assert.equal(evidence.changes.changed, 1);
+    // The facts in sentences (the lead, 2026-11-12): no field name or code for the model to repeat.
+    assert.ok(
+      evidence.in_words.includes(
+        'The Mac saw 1 turn change files: 1 created, 1 changed and 0 deleted in all.',
+      ),
+      JSON.stringify(evidence.in_words),
+    );
+    assert.ok(evidence.in_words.includes('The computer has not checked these files.'));
     assert.deepEqual(
-      evidence.changes.files_newest_first.map((file) => [file.path.text, file.how]),
+      evidence.files_newest_first.map((file) => [file.path, file.how]),
       [
         ['src/new.ts', 'created'],
         ['src/game.ts', 'changed'],
       ],
     );
-    assert.equal(evidence.check.state, 'not_checked');
   } finally {
     await f.close();
   }
@@ -2914,6 +2919,45 @@ test('new words from the person before the press replace the waiting proposal, a
       !f.controlPlane.projection
         .workstreams(f.projectId)
         .some((task) => task.title === 'Night Sky'),
+    );
+  } finally {
+    await f.close();
+  }
+});
+
+test("an answer that reads like the computer's records is asked for once more in sentences, and only that one is kept", async () => {
+  const seen: ToolMessage[][] = [];
+  const f = await fixture({
+    requestText: 'Did its check pass?',
+    turn: async (messages) => {
+      seen.push([...messages]);
+      return seen.length === 1
+        ? answer(
+            [],
+            'Yes.\n* check state: passed\n* type_check: passed\n* first_errors []\nRecorded at 2026-11-12T04:44:49.108Z.',
+          )
+        : answer([], 'Yes. It type-checks, it builds, and the page drew with no errors.');
+    },
+  });
+  try {
+    const id = f.submit();
+    for (let i = 0; i < 10; i++) await settle();
+    const request = f.coordinator.read(id, { kind: 'local' });
+    assert.equal(seen.length, 2);
+    assert.ok(
+      seen[1]?.some((message) => message.role === 'system' && message.content === ANSWER_IN_WORDS),
+    );
+    assert.equal(
+      request?.reply?.text,
+      'Yes. It type-checks, it builds, and the page drew with no errors.',
+    );
+    assert.ok(
+      request?.steps.some(
+        (step) =>
+          step.tool_name === 'model' &&
+          step.status === 'rejected' &&
+          step.summary.includes('a time'),
+      ),
     );
   } finally {
     await f.close();
