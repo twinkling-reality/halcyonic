@@ -49,6 +49,8 @@ export const SETTING_NAMES = [
   'HALCYONIC_TUNNEL_BIN',
   // The person's own gh, which Send to GitHub runs for their reviewed command only (ADR 0039).
   'HALCYONIC_GH_BIN',
+  // Where task copies go, when not beside the data folder: kept for a plane started by a login service.
+  'HALCYONIC_TASKS_DIR',
 ] as const;
 export type SettingName = (typeof SETTING_NAMES)[number];
 

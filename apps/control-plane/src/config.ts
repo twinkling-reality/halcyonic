@@ -737,8 +737,11 @@ function parseTasksDir(env: NodeJS.ProcessEnv): string {
   const raw = env.HALCYONIC_TASKS_DIR;
   if (raw !== undefined && !isAbsolute(raw))
     throw new ConfigError(`HALCYONIC_TASKS_DIR must be an absolute path, got "${raw}".`);
-  const tasks = resolve(raw ?? join(homedir(), '.halcyonic-tasks'));
   const data = defaultDataDir(env);
+  // Beside the plane's own data folder, never the account's: the owner's ~/.halcyonic keeps
+  // ~/.halcyonic-tasks, and a plane on a scratch data folder can never reach a person's copies
+  // (AUDIT3, 2026-11-12), whatever a runner forgets to set.
+  const tasks = resolve(raw ?? `${data}-tasks`);
   const inside = (base: string, path: string) =>
     path === base || path.startsWith(base.endsWith(sep) ? base : base + sep);
   if (inside(data, tasks) || inside(tasks, data))
