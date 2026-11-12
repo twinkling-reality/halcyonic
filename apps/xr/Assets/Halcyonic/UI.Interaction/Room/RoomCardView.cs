@@ -194,6 +194,15 @@ namespace Halcyonic.XR.UI
         private readonly List<KitControl?> rowControls = new List<KitControl?>();
         private int rowPressesUsed;
 
+        /// <summary>The card's own press, where the card is the way in, and the accent face that shows it, felt on hover.</summary>
+        private KitPress? cardPress;
+        private RoomShape? cardFace;
+        private Vector2 cardFaceSize;
+        private bool? cardFaceLit;
+
+        /// <summary>The control a press on the card raises, while the shown card takes one.</summary>
+        private KitControl? cardControl;
+
         /// <summary>A row picked from a list (<see cref="RoomListRow.Press"/>): its own control, for the bar to act on.</summary>
         public event System.Action<KitControl>? RowPressed;
 
@@ -382,8 +391,62 @@ namespace Halcyonic.XR.UI
             }
             HideUnused();
             Size = new Vector2(width, down);
+            LayCardPress(card, width, down);
             return down;
         }
+
+        /// <summary>
+        /// A card that is the way in (<see cref="RoomCard.Press"/>): its whole face a press target behind the parts that take
+        /// their own, an accent face under its words that brightens while it will take the press.
+        /// </summary>
+        private void LayCardPress(RoomCard card, float width, float tall)
+        {
+            cardControl = card.Press;
+            if (card.Press == null)
+            {
+                if (cardPress != null) cardPress.gameObject.SetActive(false);
+                if (cardFace != null) cardFace.gameObject.SetActive(false);
+                return;
+            }
+            var pad = S(CardPressPadDp);
+            var size = new Vector2(width + 2f * pad, tall + 2f * pad);
+            if (cardPress == null)
+            {
+                var go = new GameObject("Card press");
+                go.transform.SetParent(transform, false);
+                cardPress = KitPress.Create(go, size);
+                cardPress.Pressed += () => { if (cardControl is KitControl pressed) RowPressed?.Invoke(pressed); };
+                cardFace = RoomShape.Create(transform, "Card face", order - 6);
+            }
+            cardPress.gameObject.SetActive(true);
+            cardPress.Resize(size);
+            cardPress.Available = true;
+            // Behind the rows' and slots' own targets, so a part that takes its own press keeps it.
+            cardPress.transform.localPosition = new Vector3(width / 2f, -tall / 2f, -RoomType.Units(0.4f));
+            cardFace!.gameObject.SetActive(true);
+            cardFace.transform.localPosition = new Vector3(width / 2f, -tall / 2f, -RoomType.Units(0.1f));
+            cardFaceSize = size;
+            cardFaceLit = null;
+            PaintCardFace();
+        }
+
+        /// <summary>The room round a pressable card's words that its face and target reach.</summary>
+        public const float CardPressPadDp = 10f;
+
+        private void PaintCardFace()
+        {
+            if (cardFace == null || cardPress == null || !cardFace.gameObject.activeSelf) return;
+            var lit = cardPress.Hovered || cardPress.Pressing;
+            if (cardFaceLit == lit) return;
+            cardFaceLit = lit;
+            // The accent's ground at rest, a step brighter while it will take the press; its edge the accent itself.
+            cardFace.Draw(cardFaceSize, S(TileCornerDp), AsShown(Rgb(Accent, lit ? 0.22f : 0.12f)), AsShown(Rgb(Accent, lit ? 0.85f : 0.55f)), S(1.5f));
+        }
+
+        private void Update() => PaintCardFace();
+
+        /// <summary>Whether the shown card is itself a press target, and the control it raises.</summary>
+        public KitControl? CardTarget => cardPress != null && cardPress.gameObject.activeSelf ? cardControl : null;
 
         private float LayStatus(RoomCardStatus status, RoomCard card, float width, float down)
         {

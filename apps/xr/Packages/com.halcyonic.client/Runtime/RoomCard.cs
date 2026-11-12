@@ -329,8 +329,9 @@ namespace Halcyonic.Client
         public RoomCard(LineWords? title = null, LineWords? description = null, RoomCardHead head = RoomCardHead.None, RoomCardStatus? status = null,
             IReadOnlyList<RoomSlot>? slots = null, IReadOnlyList<RoomCardStep>? steps = null, int? trackAt = null, int? trackOf = null,
             IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, LineWords? more = null, RoomCode? code = null,
-            IReadOnlyList<RoomReadingRow>? reading = null, int? descriptionPage = null, bool titleMono = false)
+            IReadOnlyList<RoomReadingRow>? reading = null, int? descriptionPage = null, bool titleMono = false, KitControl? press = null)
         {
+            Press = press;
             TitleMono = titleMono;
             DescriptionPage = descriptionPage is int page && page >= 0 ? page : (int?)null;
             Code = code;
@@ -347,6 +348,13 @@ namespace Halcyonic.Client
             Gauges = gauges ?? new RoomGauge[0];
             More = more == null || more.IsEmpty ? null : more;
         }
+
+        /// <summary>
+        /// What a press anywhere on the card raises, where the card itself is the way in (a waiting request where the person
+        /// stands opens it: the lead's desk-parity journey, 2026-11-12); null for a card that only says. A card that takes a
+        /// press stands in the moment's one accent, its whole face the target.
+        /// </summary>
+        public KitControl? Press { get; }
 
         /// <summary>The slots a loadout holds at most: three in a row, or four as two rows of two (a new folder from a starter).</summary>
         public const int MostSlots = 4;
