@@ -197,8 +197,10 @@ client                                   server
   - `GET /api/actions/choices?list=&<the scope's ids>` answers `ChoicesResponse` `{scope, list, position, digest,
     rows, total}`: one of the host's lists, at most 32 rows, each `{index, kind, label, detail, theirs, actions}`,
     and never the id a row stands for. Today: `tasks`, `versions`, `runtimes`, `approval_levels`, `share_ways`,
-    `secrets`, `queued_instructions`, `approvals`, `decisions`, `questions`. `models`, `pictures`, `folders`,
-    `catalog` and `own_check_scripts` answer 404 `read_unavailable` until they are read by index.
+    `secrets`, `queued_instructions`, `approvals`, `decisions`, `questions`, and `pictures` (the folder's pictures
+    as the pictures read finds them, each given to an instruction as `{path, kind: 'image'}`). `models` (whose
+    runtime is the start's own choice), `folders` (a new project's place and name together), `catalog` and
+    `own_check_scripts` answer 404 `read_unavailable` until they are read by index.
   - One preparation (`CommandService.prepare`) builds a command from `{scope, command_type, values, read}` for a
     person's press and the assistant's proposal alike: only a command the scope offers now; the scope's ids and the
     host's fills (`options: {}`); each need's value, a choice by its index in a list whose digest is still the one

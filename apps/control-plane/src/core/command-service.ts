@@ -80,7 +80,7 @@ import {
   NO_CAUSE,
 } from './drafts.ts';
 import { type OllamaUnloader, ollamaModelFrom } from './ollama-unload.ts';
-import { readPictures } from './pictures.ts';
+import { listPictures, readPictures } from './pictures.ts';
 import { type Preparation, type Prepared, prepareCommand } from './prepare.ts';
 import { readRules, rulesReview, withRules } from './project-rules.ts';
 import { type Reattacher, SESSION_LOST } from './reattach.ts';
@@ -588,9 +588,9 @@ export class CommandService {
    * digest a choice by index carries back. Null when the scope does not hold together, or the list is
    * not one it has, or one this host cannot read yet.
    */
-  choices(scope: HereScope, list: ChoiceList): ChoicesResponse | null {
+  async choices(scope: HereScope, list: ChoiceList): Promise<ChoicesResponse | null> {
     if (!this.#scopeHolds(scope)) return null;
-    const rows = this.#choiceRows(scope, list);
+    const rows = await this.#choiceRows(scope, list);
     if (rows === null) return null;
     return {
       scope,
@@ -607,7 +607,7 @@ export class CommandService {
    * press and the assistant's proposal alike: only a command this scope offers now, its payload built
    * by the host from the values given. Nothing is submitted here.
    */
-  prepare(given: Preparation): Prepared {
+  async prepare(given: Preparation): Promise<Prepared> {
     if (!this.#scopeHolds(given.scope))
       return { ok: false, code: 'invalid_state', message: 'That place no longer holds together.' };
     const offered = this.here(given.scope).some(
@@ -616,17 +616,19 @@ export class CommandService {
     if (!offered)
       return { ok: false, code: 'invalid_state', message: 'That cannot be done here now.' };
     return prepareCommand(given, {
-      rows: (list) => {
-        const rows = this.#choiceRows(given.scope, list);
+      rows: async (list) => {
+        const rows = await this.#choiceRows(given.scope, list);
         return rows === null ? null : { rows, digest: choicesDigest(list, rows) };
       },
     });
   }
 
-  #choiceRows(scope: HereScope, list: ChoiceList): HeldRow[] | null {
+  #choiceRows(scope: HereScope, list: ChoiceList): Promise<HeldRow[] | null> {
     return choiceRows(list, scope, {
       projection: this.#deps.projection,
       runtimes: () => this.#deps.registry.descriptors(),
+      pictures: async (folder) =>
+        (await listPictures(folder, this.#deps.protectedFolders ?? [])).pictures,
     });
   }
 

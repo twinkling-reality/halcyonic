@@ -44,7 +44,7 @@ test('the one review: what the list offers, prepared from values, reviewed with 
     .here(scope)
     .find((action) => action.kind === 'command' && action.command_type === 'project.rules.set');
   assert.ok(rules?.kind === 'command' && rules.confirm === 'review');
-  const prepared = controlPlane.commands.prepare(given('project.rules.set', { on: true }));
+  const prepared = await controlPlane.commands.prepare(given('project.rules.set', { on: true }));
   assert.ok(prepared.ok, prepared.ok ? '' : prepared.message);
   const built = await buildReview(controlPlane, prepared.command);
   assert.ok(built.ok, built.ok ? '' : built.message);
