@@ -715,7 +715,12 @@ describe('the C# bindings', () => {
     'RuntimeToolCompletedPayload.turn_id', // a completed tool's turn
     'VersionEntry.pruned_at', // when the host stopped keeping a version (ADR 0036)
     'WorkspaceRequestChangedPayload.observed', // what the computer saw, when no reply came
+    'WorkspaceRequestStep.place', // the client's place the assistant picked (ADR 0060)
+    'WorkspaceRequestStep.proposal', // what the assistant proposed (ADR 0060)
+    'WorkspaceRequestStepRecordedPayload.proposed_command', // the command a proposal prepared (ADR 0060)
+    'WorkspaceRequestSubmitPayload.places', // the places the client can go (ADR 0060)
     'WorkspaceRequestView.observed', // the same, on the view
+    'WorkspaceRequestView.places', // the places the client can go (ADR 0060)
     'WorkstreamAddToProjectPayload.review', // the review an add carries (ADR 0051)
     'WorkstreamCopyChangesReadPayload.files', // how each file a copy's reading found changed (ADR 0045)
     'WorkstreamCopyChangesReadPayload.review', // the review a copy's reading is, for an add (ADR 0051)

@@ -454,6 +454,8 @@ export const ExecutionDropQueuedInstructionCommand = defineCommand(
  * project; with all three null, about all of the person's work. The last two are read-only (ADR 0030,
  * amended 2026-11-10). Admission refuses any other mix.
  */
+/** The places a client can go with a request: its own words for each, at most sixteen (ADR 0060). */
+export const WorkspaceRequestPlaces = Type.Array(Text(40), { maxItems: 16 });
 export const WorkspaceRequestSubmitCommand = defineCommand(
   'workspace.request.submit',
   Type.Object(
@@ -462,6 +464,8 @@ export const WorkspaceRequestSubmitCommand = defineCommand(
       workstream_id: Nullable(WorkstreamId),
       execution_id: Nullable(ExecutionId),
       text: Text(32000),
+      /** The places the client can go, by index, for the assistant's `go_to` (ADR 0060). */
+      places: Type.Optional(WorkspaceRequestPlaces),
     },
     strict,
   ),

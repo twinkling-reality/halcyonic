@@ -1,4 +1,5 @@
 import {
+  type CommandEnvelope,
   type CommandId,
   type CommandOf,
   type CommandResult,
@@ -12,6 +13,7 @@ import {
   type WorkspaceAgentStatus,
   type WorkspaceRequestId,
   type WorkspaceRequestObserved,
+  type WorkspaceRequestProposal,
   type WorkspaceRequestReply,
   type WorkspaceRequestStatus,
   type WorkspaceRequestStep,
@@ -32,6 +34,14 @@ import { ToolResults } from '../core/tool-results.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
+import {
+  type ActionScope,
+  type ActionsHere,
+  buildProposed,
+  CHOICES_LISTED,
+  listDigest,
+  sayable,
+} from './actions.ts';
 import { checkOfTask, hostDetails, taskEvidence, turnStatus } from './evidence.ts';
 import {
   TOOL_MODEL_BOUNDS,
@@ -58,6 +68,8 @@ interface Options {
   evaluation: EvaluationSource;
   /** Wakes a request whose wait for the Mac's reading of a turn ran out; the system's by default. */
   scheduler?: Scheduler;
+  /** What can be done where a request stands (ADR 0060), the host's; absent, nothing can be proposed. */
+  actions?: ActionsHere | null;
 }
 /**
  * The head of the host's quoted data block: the Mac's evidence and the agent's reported words, in a
@@ -96,7 +108,21 @@ export const READ_FOR_IT = 'What was read for this request, oldest first:';
  * chose to look and again never sent it. A question that needs no change is answered in words on that turn, from the
  * same context, and every read is offered from the second turn on.
  */
-const FIRST_TURN_TOOLS = new Set(['continue_task', 'ask_person']);
+const FIRST_TURN_TOOLS = new Set([
+  'continue_task',
+  'ask_person',
+  'propose_command',
+  'read_choices',
+  'go_to',
+]);
+/**
+ * How the model uses what can be done here (ADR 0060), sent as its own message only where the list holds something,
+ * so a request without one carries none of it.
+ */
+export const LIST_GUIDE =
+  "In any scope: when the person asks for something can_be_done_here lists, call propose_command with its command_type and the values its needs name; for a need with a list, call read_choices first and give the row's index. The computer prepares it and the person confirms it with one press, so never say it was done: say what will happen once they confirm. To go to one of the places listed, call go_to with its index.";
+/** The tools of what can be done here (ADR 0060), offered in every scope where the list holds something. */
+const LIST_TOOLS = new Set(['propose_command', 'read_choices', 'go_to']);
 
 /**
  * The host's own lists and one task's view: built from the projection, each outside name already clipped, each list
@@ -174,6 +200,11 @@ const descriptions: Record<keyof typeof WORKSPACE_TOOL_ARGUMENTS, string> = {
   read_projects: "List the person's projects by index, with task counts and the latest check.",
   read_project_at:
     'Read one project of the read_projects list, by its index, as read_project does.',
+  propose_command:
+    'Propose one entry of can_be_done_here, by its command_type, with the values its needs name: words, true or false, a number, or the index of a row read_choices listed. The computer prepares it; nothing happens until the person presses once on the card it shows.',
+  read_choices:
+    'Read one list the computer holds, by the name in lists_here or in a need of can_be_done_here: its rows by index, in its own words.',
+  go_to: 'Take the person to one of the places listed in places, by its index.',
 };
 /** A request bound to a task and its current execution; a whole-project request binds neither. */
 type TaskRequest = WorkspaceRequestView & {
@@ -187,7 +218,7 @@ function bound(request: WorkspaceRequestView): request is TaskRequest {
   );
 }
 /** The only tools a whole-project request is offered: reads, and asking the person. */
-const PROJECT_TOOLS = new Set(['read_project', 'read_task', 'ask_person']);
+const PROJECT_TOOLS = new Set(['read_project', 'read_task', 'ask_person', ...LIST_TOOLS]);
 /** The reads of a project's or all work's lists, which a task's request is not offered. */
 const SCOPE_READS = new Set(['read_project', 'read_task', 'read_projects', 'read_project_at']);
 /**
@@ -195,7 +226,7 @@ const SCOPE_READS = new Set(['read_project', 'read_task', 'read_projects', 'read
  * it is answered from what the host lists, never bounced back (the lead, 2026-11-11: the 30B model asked "which
  * project?" where the person wanted a summary).
  */
-const ALL_WORK_TOOLS = new Set(['read_projects', 'read_project_at', 'read_task']);
+const ALL_WORK_TOOLS = new Set(['read_projects', 'read_project_at', 'read_task', ...LIST_TOOLS]);
 const tools: ToolDefinition[] = Object.entries(WORKSPACE_TOOL_ARGUMENTS).map(
   ([name, parameters]) => ({
     type: 'function',
@@ -344,6 +375,8 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
   /** For a request about all work: the project list read_projects gave, and the one read_project_at chose. */
   readonly #projectLists = new Map<string, ProjectId[]>();
   readonly #chosen = new Map<string, ProjectId>();
+  /** The digest of each host list this request read, by its name, for a proposal's indices; transient. */
+  readonly #listReads = new Map<string, Map<string, string>>();
   readonly #unsubscribe: () => void;
   #closed = false;
   /** Ends the wake-up timers of requests waiting for the Mac's reading of a turn. */
@@ -417,6 +450,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         workstream_id: command.payload.workstream_id,
         execution_id: command.payload.execution_id,
         original_text: command.payload.text,
+        ...(command.payload.places ? { places: command.payload.places } : {}),
         status: 'running',
         reply: null,
         steps: [],
@@ -453,6 +487,15 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       this.#lists.delete(request.request_id);
       this.#projectLists.delete(request.request_id);
       this.#chosen.delete(request.request_id);
+      this.#listReads.delete(request.request_id);
+      // A proposal still waiting for the person's press is never done once the request is cancelled.
+      for (const step of request.steps)
+        if (step.proposal && step.status === 'waiting')
+          this.#recordStep(
+            request,
+            { ...step, status: 'rejected', summary: 'Cancelled before the person confirmed it.' },
+            null,
+          );
       this.#changed(request, 'stopped', request.reply);
       return null;
     }
@@ -494,6 +537,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     this.#lists.clear();
     this.#projectLists.clear();
     this.#chosen.clear();
+    this.#listReads.clear();
   }
   #admitPlanning(principal: Principal): void {
     if (this.#active.size + this.#queued.size >= 4)
@@ -686,6 +730,11 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
   async #run(id: string, controller: AbortController): Promise<void> {
     let request = this.#current(id, controller);
     if (!request) return;
+    // A proposal waiting for the person's one press holds the request there: the model is not asked again (ADR 0060).
+    if (request.steps.some((step) => step.proposal && step.status === 'waiting')) {
+      this.#changed(request, 'waiting_for_human', request.reply);
+      return;
+    }
     const pending = this.#observe(request);
     if (pending.blocked) {
       this.#changed(
@@ -724,8 +773,12 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
             reported_reply: request.reply
               ? { ...request.reply, text: fitted(request.reply.text, 600) }
               : null,
+            ...this.#hereContext(request),
           }),
       },
+      ...(Object.keys(this.#hereContext(request)).length > 0
+        ? [{ role: 'system' as const, content: LIST_GUIDE }]
+        : []),
     ];
     if (this.#conversations.has(id)) {
       const last = messages.findLastIndex(
@@ -1046,6 +1099,8 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       return { data: { availability: 'unavailable', reason: 'tool_not_offered' } };
     }
     const plane = this.#o.controlPlane;
+    if (name === 'propose_command' || name === 'read_choices' || name === 'go_to')
+      return this.#listTool(request, name, args, controller);
     if (
       name === 'read_project' ||
       name === 'read_task' ||
@@ -1352,6 +1407,186 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       default:
         return { data: { availability: 'unavailable', reason: 'unsupported_tool' } };
     }
+  }
+  /**
+   * The tools of what can be done here (ADR 0060). read_choices reads one host list by name. propose_command builds
+   * the command an entry names from the binding, the model's values and the rows it read (never an id from the
+   * model), and goes by the rule of origin: a model's proposal never acts without the person's one press, except an
+   * undo-kind command in the same scope; the person's own words to the bound task stay continue_task's. go_to picks
+   * one of the client's places; a place is not a command, so the client goes at once.
+   */
+  async #listTool(
+    request: WorkspaceRequestView,
+    name: 'propose_command' | 'read_choices' | 'go_to',
+    args: Record<string, unknown>,
+    controller: AbortController,
+  ): Promise<{ data: unknown; pause?: WorkspaceRequestStatus }> {
+    const source = this.#o.actions;
+    const scope = this.#actionScope(request);
+    const here = this.#here(request);
+    if (name === 'go_to') {
+      const index = args.index as number;
+      const label = request.places?.[index];
+      if (label === undefined) {
+        this.#step(request, name, 'rejected', 'No place has that index.');
+        return { data: { availability: 'unavailable', reason: 'no_such_place' } };
+      }
+      this.#step(request, name, 'confirmed', `The client goes to its place ${index}.`, null, null, {
+        place: index,
+      });
+      return { data: { availability: 'going', place: index } };
+    }
+    if (!source) return { data: { availability: 'unavailable', reason: 'nothing_listed_here' } };
+    if (name === 'read_choices') {
+      const list = args.list as string;
+      if (!here.lists.has(list)) {
+        this.#step(request, name, 'rejected', 'That list is not one of those here.');
+        return { data: { availability: 'unavailable', reason: 'no_such_list' } };
+      }
+      const rows = source.list(scope, list);
+      const reads = this.#listReads.get(request.request_id) ?? new Map<string, string>();
+      reads.set(list, listDigest(rows));
+      this.#listReads.set(request.request_id, reads);
+      this.#step(
+        request,
+        name,
+        'confirmed',
+        `The host's list ${list} was read: ${rows.length} rows.`,
+      );
+      return {
+        data: {
+          list,
+          rows_total: rows.length,
+          rows: rows.slice(0, CHOICES_LISTED).map((row, index) => ({
+            index,
+            kind: row.kind,
+            label: row.theirs ? this.#outside(row.label, 120).text : row.label,
+            detail: row.detail === null ? null : this.#outside(row.detail, 200).text,
+            theirs: row.theirs,
+          })),
+        },
+      };
+    }
+    const entry = here.entries.find((candidate) => candidate.command_type === args.command_type);
+    if (!entry) {
+      this.#step(
+        request,
+        name,
+        'rejected',
+        'That is not one of the things that can be done here now.',
+      );
+      return { data: { availability: 'unavailable', reason: 'not_here' } };
+    }
+    const values = (args.values ?? {}) as Record<string, unknown>;
+    // Indices name rows of the list as it was read: never a list unread, and never one that changed since.
+    for (const need of entry.needs) {
+      if (need.list === undefined || values[need.name] === undefined) continue;
+      const read = this.#listReads.get(request.request_id)?.get(need.list);
+      const reason =
+        read === undefined
+          ? 'list_not_read'
+          : read !== listDigest(source.list(scope, need.list))
+            ? 'list_changed'
+            : null;
+      if (reason !== null) {
+        this.#step(
+          request,
+          name,
+          'rejected',
+          `Read the list ${need.list} again before choosing from it.`,
+        );
+        return { data: { availability: 'unavailable', reason, list: need.list } };
+      }
+    }
+    const personWords = [
+      request.original_text,
+      ...this.#o.controlPlane.projection.workspaceRequestDirections(request.request_id),
+    ].join('\n\n');
+    const built = buildProposed(entry, scope, values, (list) => source.list(scope, list), {
+      command_id: this.#o.ids.next() as CommandId,
+      issued_at: this.#now(),
+      person_words: personWords,
+    });
+    if (!built.ok) {
+      this.#step(request, name, 'rejected', `Nothing was prepared: ${built.reason}.`);
+      return {
+        data: { availability: 'unavailable', reason: built.reason, field: built.field ?? null },
+      };
+    }
+    const review = source.review(built.command);
+    if (review === null) {
+      this.#step(
+        request,
+        name,
+        'rejected',
+        'The computer cannot say what this would do, so nothing was prepared.',
+      );
+      return { data: { availability: 'unavailable', reason: 'no_review' } };
+    }
+    const proposal: WorkspaceRequestProposal = {
+      command_type: entry.command_type,
+      confirm: entry.confirm,
+      what_happens: fitted(review.what_happens, 2000),
+      review: review.digest,
+    };
+    if (entry.confirm !== 'undo') {
+      this.#step(
+        request,
+        name,
+        'waiting',
+        'Prepared; it waits for the person to confirm it with one press.',
+        null,
+        null,
+        { proposal, proposed: built.command },
+      );
+      return {
+        data: { availability: 'waiting_for_person', what_happens: proposal.what_happens },
+        pause: 'waiting_for_human',
+      };
+    }
+    // An undo-kind command in the same scope: done at once, under the request's own principal, as continue_task is.
+    const step = this.#step(
+      request,
+      name,
+      'prepared',
+      'Prepared; it is done at once and can be undone.',
+      null,
+      null,
+      { proposal, proposed: built.command },
+    );
+    if (!this.#current(request.request_id, controller))
+      return {
+        data: { availability: 'unavailable', reason: 'authority_expired' },
+        pause: 'interrupted',
+      };
+    const owner = this.#o.controlPlane.projection.workspaceRequestOwner(request.request_id);
+    if (!owner)
+      return {
+        data: { availability: 'unavailable', reason: 'principal_missing' },
+        pause: 'interrupted',
+      };
+    const submitted = this.#o.controlPlane.commands.submit(built.command, 'internal', owner);
+    const status =
+      this.#o.controlPlane.projection.command(built.command.command_id)?.status ?? null;
+    this.#recordStep(
+      request,
+      {
+        ...step,
+        status: submitted.disposition === 'rejected' ? 'rejected' : 'running',
+        command_status: status,
+        summary: "Submitted through the original principal; its outcome is the command's own.",
+      },
+      null,
+      null,
+      built.command,
+    );
+    return {
+      data: {
+        availability: submitted.disposition === 'rejected' ? 'rejected' : 'submitted',
+        command_status: status,
+        what_happens: proposal.what_happens,
+      },
+    };
   }
   /**
    * read_project and read_task: the bound project's tasks, read-only, by the index of the host's own
@@ -1733,8 +1968,11 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
   }
   #toolsFor(request: WorkspaceRequestView): ToolDefinition[] {
     if (!bound(request))
-      return tools.filter((tool) =>
-        (request.project_id === null ? ALL_WORK_TOOLS : PROJECT_TOOLS).has(tool.function.name),
+      return this.#listTools(
+        request,
+        tools.filter((tool) =>
+          (request.project_id === null ? ALL_WORK_TOOLS : PROJECT_TOOLS).has(tool.function.name),
+        ),
       );
     const offered = tools.filter((tool) => !SCOPE_READS.has(tool.function.name));
     const plane = this.#o.controlPlane,
@@ -1751,11 +1989,98 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
           : false);
     // One result is read from the list read_results gives; before that list there is none to name.
     const listed = request.steps.some((step) => step.tool_name === 'read_results');
-    return offered.filter(
-      (tool) =>
-        (tool.function.name !== 'continue_task' || canContinue) &&
-        (tool.function.name !== 'read_result' || listed),
+    return this.#listTools(
+      request,
+      offered.filter(
+        (tool) =>
+          (tool.function.name !== 'continue_task' || canContinue) &&
+          (tool.function.name !== 'read_result' || listed),
+      ),
     );
+  }
+  /** Where a request stands, as the host's list of what can be done there reads it. */
+  #actionScope(request: WorkspaceRequestView): ActionScope {
+    return {
+      project_id: request.project_id,
+      workstream_id: request.workstream_id,
+      execution_id: request.execution_id,
+    };
+  }
+  /** What this request may propose now and the lists it may read (ADR 0060): the host's list, never the model's. */
+  #here(request: WorkspaceRequestView) {
+    const source = this.#o.actions;
+    if (!source) return { entries: [], looks: [], lists: new Set<string>() };
+    const scope = this.#actionScope(request);
+    const entries = sayable(source.actions(scope));
+    const looks = source.looks(scope);
+    const lists = new Set([
+      ...looks.map((look) => look.opens),
+      ...entries.flatMap((entry) => entry.needs.flatMap((need) => (need.list ? [need.list] : []))),
+    ]);
+    return { entries, looks, lists };
+  }
+  /**
+   * The list tools as offered now: propose_command only with something to propose, its command_type one of those
+   * entries; read_choices only with a list to read; go_to only where the client named places.
+   */
+  #listTools(request: WorkspaceRequestView, offered: ToolDefinition[]): ToolDefinition[] {
+    const here = this.#here(request);
+    const places = request.places?.length ?? 0;
+    return offered.flatMap((tool) => {
+      const name = tool.function.name;
+      if (name === 'propose_command') {
+        if (here.entries.length === 0) return [];
+        const parameters = structuredClone(tool.function.parameters) as {
+          properties: { command_type: Record<string, unknown> };
+        };
+        parameters.properties.command_type = {
+          type: 'string',
+          enum: here.entries.map((entry) => entry.command_type),
+        };
+        return [{ ...tool, function: { ...tool.function, parameters } }];
+      }
+      if (name === 'read_choices') return here.lists.size > 0 ? [tool] : [];
+      if (name === 'go_to') return places > 0 ? [tool] : [];
+      return [tool];
+    });
+  }
+  /** What the model is told of what can be done here: the host's titles, descriptions and needs, never an id. */
+  #hereContext(request: WorkspaceRequestView): Record<string, unknown> {
+    const here = this.#here(request);
+    return {
+      ...(here.entries.length > 0
+        ? {
+            can_be_done_here: here.entries.map((entry) => ({
+              command_type: entry.command_type,
+              title: entry.title,
+              description: entry.description,
+              // The person's own words are the host's to fill, never the model's: it is not told of them.
+              needs: entry.needs
+                .filter((need) => need.kind !== 'person_words')
+                .map((need) => ({
+                  name: need.name,
+                  kind: need.kind,
+                  label: need.label,
+                  required: need.required,
+                  ...(need.list ? { list: need.list } : {}),
+                  ...(need.most ? { most: need.most } : {}),
+                })),
+            })),
+          }
+        : {}),
+      ...(here.looks.length > 0
+        ? {
+            lists_here: here.looks.map((look) => ({
+              list: look.opens,
+              title: look.title,
+              description: look.description,
+            })),
+          }
+        : {}),
+      ...(request.places?.length
+        ? { places: request.places.map((label, index) => ({ index, label })) }
+        : {}),
+    };
   }
   #outside(text: string, maximum: number): { text: string; complete: boolean } {
     const redacted = this.#o.controlPlane.redaction.held(text);
@@ -1964,6 +2289,11 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     summary: string,
     command: CommandOf<'execution.send_instruction'> | null = null,
     externalCommand: CommandId | null = null,
+    extra: {
+      proposal?: WorkspaceRequestProposal;
+      proposed?: CommandEnvelope;
+      place?: number;
+    } = {},
   ): WorkspaceRequestStep {
     const facts = bound(request)
       ? this.#o.controlPlane.projection.executionFacts(request.execution_id)
@@ -1972,6 +2302,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       step_id: this.#o.ids.next() as WorkspaceRequestId,
       tool_name: tool,
       status,
+      // A proposal's command id is in its proposed command; the step names it once the projection keeps those.
       command_id: command?.command_id ?? null,
       command_status: null,
       observation_position: this.#o.controlPlane.projection.position,
@@ -1981,8 +2312,10 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       observed_turn_id: null,
       runtime_status: null,
       summary,
+      ...(extra.proposal ? { proposal: extra.proposal } : {}),
+      ...(extra.place !== undefined ? { place: extra.place } : {}),
     };
-    this.#recordStep(request, step, command, externalCommand);
+    this.#recordStep(request, step, command, externalCommand, extra.proposed);
     return step;
   }
   #recordStep(
@@ -1990,18 +2323,26 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     step: WorkspaceRequestStep,
     command: CommandOf<'execution.send_instruction'> | null,
     externalCommand: CommandId | null = null,
+    proposed?: CommandEnvelope,
   ): void {
     this.#o.controlPlane.recorder.record(
       controlPlaneDraft(
         'workspace.request.step_recorded',
         this.#scope(request),
-        { request_id: request.request_id, step, prepared_command: command },
+        {
+          request_id: request.request_id,
+          step,
+          prepared_command: command,
+          ...(proposed ? { proposed_command: proposed } : {}),
+        },
         this.#now(),
         command
           ? causedBy(command.command_id)
           : externalCommand
             ? causedBy(externalCommand)
-            : NO_CAUSE,
+            : proposed
+              ? causedBy(proposed.command_id)
+              : NO_CAUSE,
       ),
     );
   }

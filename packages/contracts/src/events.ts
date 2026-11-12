@@ -1028,6 +1028,8 @@ export const WorkspaceRequestStepRecorded = requestEvent(
       request_id: WorkspaceRequestId,
       step: WorkspaceRequestStep,
       prepared_command: Nullable(ExecutionSendInstructionCommand),
+      /** Only on a `propose_command` step: the whole command the host built, durable before anything acts (ADR 0060). */
+      proposed_command: Type.Optional(CommandEnvelope),
     },
     strict,
   ),

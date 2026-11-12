@@ -194,3 +194,14 @@ answer from.
   - Every answer is asked for in a few short sentences of the model's own, as to a person: never the computer's field
     names, ids, timestamps, headings or markup (the 30B window of 2026-11-12: both answers were right and read like a
     log).
+
+## Amendment, 2026-11-12: proposing from what can be done here (ADR 0060)
+
+- A request in any scope (a task, a project, all work) may propose one entry of the host's list of what can be done
+  there, through `propose_command`, and read the host's lists through `read_choices`. A project request and an
+  all-work request are no longer read-only for that one tool. They still change nothing on the model's word: a
+  proposal waits for the person's one press, except an undo-kind command in the same scope; the person's words to the
+  bound task stay `continue_task`'s.
+- A request may carry the places the client can go (`places`), and the model picks one by index with `go_to`; a place
+  is not a command, and the client goes at once.
+

@@ -1,4 +1,6 @@
 import Type, { type Static } from 'typebox';
+import { ReviewDigest } from './checkpoints.ts';
+import { CommandType, WorkspaceRequestPlaces } from './commands.ts';
 import {
   CommandId,
   ErrorInfo,
@@ -45,6 +47,21 @@ export const WorkspaceRequestReply = Type.Object(
   },
   strict,
 );
+/**
+ * A command the assistant proposed from what can be done here (ADR 0060). `confirm` is the command's own: `none` and
+ * `undo` are done at once, `review` waits for the person's one press, which carries `review` back. `what_happens` is
+ * the host's own words, never the model's.
+ */
+export const WorkspaceRequestProposal = Type.Object(
+  {
+    command_type: CommandType,
+    confirm: Type.Enum(['none', 'undo', 'review']),
+    what_happens: Text(2000),
+    review: Nullable(ReviewDigest),
+  },
+  strict,
+);
+export type WorkspaceRequestProposal = Static<typeof WorkspaceRequestProposal>;
 export const WorkspaceRequestStep = Type.Object(
   {
     step_id: WorkspaceRequestId,
@@ -60,6 +77,10 @@ export const WorkspaceRequestStep = Type.Object(
     runtime_status: Nullable(ExecutionStatus),
     /** Host-authored receipt/availability only; model text belongs in reported reply. */
     summary: Text(2000),
+    /** Only on a `propose_command` step: what was proposed (ADR 0060). */
+    proposal: Type.Optional(WorkspaceRequestProposal),
+    /** Only on a `go_to` step: the index of the client's place the assistant picked; the client goes there. */
+    place: Type.Optional(Type.Integer({ minimum: 0, maximum: 15 })),
   },
   strict,
 );
@@ -141,6 +162,8 @@ export const WorkspaceRequestView = Type.Object(
     workstream_id: Nullable(WorkstreamId),
     execution_id: Nullable(ExecutionId),
     original_text: Text(32000),
+    /** The places the client said it can go (ADR 0060), in its own words, by index. */
+    places: Type.Optional(WorkspaceRequestPlaces),
     status: WorkspaceRequestStatus,
     reply: Nullable(WorkspaceRequestReply),
     /**
