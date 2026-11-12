@@ -86,16 +86,18 @@ namespace Halcyonic.XR.UI
         {
             label.richText = false;
             label.parseCtrlCharacters = true;
+            // The room's faces draw no ground under outside text, so its words keep only their own spacing.
+            var padded = !KitType.IsRoomFace(label.font);
             if (fits != null && words.OursAfterTheirs)
             {
                 words = words.CutToFit(tried =>
                 {
-                    var text = tried.ForTextMeshPro().Text;
+                    var text = tried.ForTextMeshPro(padded).Text;
                     label.text = text;
                     return fits(text);
                 });
             }
-            var (shown, ranges) = words.ForTextMeshPro();
+            var (shown, ranges) = words.ForTextMeshPro(padded);
             label.text = shown;
             Lean(ranges);
             return ranges;

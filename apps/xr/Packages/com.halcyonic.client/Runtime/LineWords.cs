@@ -183,7 +183,11 @@ namespace Halcyonic.Client
         /// follows the ground's edge as it follows a letter, clear of it and nearer than a word space
         /// (lane V's rule). Outside text not yet spelled (<see cref="Unspelled"/>) is refused: it never reaches a label.
         /// </summary>
-        public (string Text, IReadOnlyList<(int Start, int End)> Theirs) ForTextMeshPro()
+        /// <param name="padded">
+        /// The room for a ground: false where no ground is drawn under outside text (the room's faces), so where the runs
+        /// meet only their own spacing stands, never a second space (the critic, 2026-11-12: "New  kite-run  in  Projects").
+        /// </param>
+        public (string Text, IReadOnlyList<(int Start, int End)> Theirs) ForTextMeshPro(bool padded = true)
         {
             if (Runs.Any(run => !run.Spelled)) throw new InvalidOperationException("Outside text reaches a label only once spelled by its builder's rule.");
             var text = new StringBuilder();
@@ -191,7 +195,7 @@ namespace Halcyonic.Client
             for (var index = 0; index < Runs.Count; index++)
             {
                 var run = Runs[index];
-                if (index > 0)
+                if (index > 0 && padded)
                 {
                     var ours = run.Theirs ? Runs[index - 1].Text : run.Text;
                     text.Append((run.Theirs ? ours[ours.Length - 1] : ours[0]) == ' ' ? Pad : NarrowPad);

@@ -368,4 +368,14 @@ public class LineWordsTests
 
         Assert.That(cut.Runs[1].Text, Is.EqualTo(expected));
     }
+
+    [Test]
+    public void Where_no_ground_is_drawn_the_runs_keep_only_their_own_spacing()
+    {
+        var line = LineWords.Ours("New ") + LineWords.TheirName("kite-run") + LineWords.Ours(" in Projects");
+        Assert.That(line.ForTextMeshPro().Text, Is.EqualTo("New  kite-run  in Projects"), "a ground's room where one is drawn");
+        var (text, theirs) = line.ForTextMeshPro(padded: false);
+        Assert.That(text, Is.EqualTo("New kite-run in Projects"), "the room's faces: one space, never two");
+        Assert.That(text.Substring(theirs[0].Start, theirs[0].End - theirs[0].Start), Is.EqualTo("kite-run"), "the run's edges still on its words");
+    }
 }

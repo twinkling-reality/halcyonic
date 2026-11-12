@@ -852,6 +852,9 @@ namespace Halcyonic.XR.UI
                             // A count of lines added or removed carries the change's own hue, as its rows' marks do.
                             Glyph(GlyphOf(slot.Kind), SlotGlyphDp, Rgb(slot.Kind == RoomKind.Added ? Passed : Failed), mark, "slot " + slot.Kind);
                             break;
+                        case RoomKind.None:
+                            // A slot with no kind says its value alone: no mark (the critic, 2026-11-12).
+                            break;
                         default:
                             Glyph(GlyphOf(slot.Kind), SlotGlyphDp, Rgb(TileInk, 0.86f), mark, "slot " + slot.Kind);
                             break;
@@ -1030,10 +1033,14 @@ namespace Halcyonic.XR.UI
                     Glyph(RoomGlyph.Chevron, ChevronDp, White(0.55f), new Vector2(width - S(ChevronDp) / 2f, -middle), "row chevron");
                     RowTarget(row.Press!, new Vector2(width / 2f, -middle), new Vector2(width, rowTall + 2f * S(RowPadDp)));
                 }
-                var tileCentre = new Vector2(S(RowTileDp) / 2f, -middle);
-                Plate(new Vector2(S(RowTileDp), S(RowTileDp)), S(RowTileCornerDp), ground, tileCentre, "row tile " + row.Kind,
-                    row.Chosen ? Rgb(Accent, 0.70f) : Color.clear, row.Chosen ? S(1.5f) : 0f);
-                Glyph(glyph, RowGlyphDp, ink, tileCentre, "row " + row.Kind);
+                // A row with no kind draws no mark: a minus in a tile read as a control to collapse (the critic, 2026-11-12).
+                if (row.Kind != RoomKind.None)
+                {
+                    var tileCentre = new Vector2(S(RowTileDp) / 2f, -middle);
+                    Plate(new Vector2(S(RowTileDp), S(RowTileDp)), S(RowTileCornerDp), ground, tileCentre, "row tile " + row.Kind,
+                        row.Chosen ? Rgb(Accent, 0.70f) : Color.clear, row.Chosen ? S(1.5f) : 0f);
+                    Glyph(glyph, RowGlyphDp, ink, tileCentre, "row " + row.Kind);
+                }
                 down = top + rowTall + S(RowPadDp);
             }
             return down;
@@ -1101,6 +1108,7 @@ namespace Halcyonic.XR.UI
             RoomKind.NotRun => RoomGlyph.Wait,
             RoomKind.Waiting => RoomGlyph.Wait,
             RoomKind.Task => RoomGlyph.Flag,
+            RoomKind.Says => RoomGlyph.Bubble,
             RoomKind.ToAdd => RoomGlyph.File,
             RoomKind.Changed => RoomGlyph.Wave,
             RoomKind.Added => RoomGlyph.Plus,
