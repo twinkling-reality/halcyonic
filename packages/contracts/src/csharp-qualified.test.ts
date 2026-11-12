@@ -21,3 +21,16 @@ test('the generated C# names every library type it writes on a member in full, s
   for (const pattern of bare)
     assert.doesNotMatch(GENERATED, pattern, `written in full: ${pattern.source}`);
 });
+
+test('every list or map member that cannot be null starts empty, however its type is written (1111-b82)', () => {
+  // Written in full, `List<` no longer began the type's name, so the generator stopped giving such a
+  // member `= new ...()`, and 501 client tests read null where an empty list was.
+  const collections = GENERATED.split('\n').filter((line) =>
+    /public global::System\.Collections\.Generic\.(List|Dictionary)<[^?]*> \w+ \{ get; set; \}/.test(
+      line,
+    ),
+  );
+  assert.ok(collections.length > 50, `found ${collections.length}`);
+  for (const line of collections)
+    assert.match(line, /\} = new global::System\.Collections\.Generic\./, line.trim());
+});

@@ -465,7 +465,10 @@ function renderMember(member: Member): string[] {
   if (member.constant !== undefined) {
     initializer = ` = ${JSON.stringify(member.constant)};`;
   } else if (!member.type.nullable && !member.type.valueType) {
-    initializer = /^(List|Dictionary)</.test(member.type.name)
+    // A collection starts empty, never null, whether or not its type is written in full.
+    initializer = /^(global::System\.Collections\.Generic\.)?(List|Dictionary)</.test(
+      member.type.name,
+    )
       ? ` = new ${member.type.name}();`
       : ' = default!;';
   }
