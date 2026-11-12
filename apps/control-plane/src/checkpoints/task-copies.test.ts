@@ -39,6 +39,16 @@ async function shown(made: { directory: string; baseTree: string }): Promise<str
   return (await copies.readChanges(PROJECT, TASK, made.directory, made.baseTree))?.tree ?? null;
 }
 
+/** Whether anything, a link that leads nowhere included, is at `path`. */
+function lstatExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function write(relative: string, content: string, mode?: number): void {
   const path = join(folder, relative);
   mkdirSync(join(path, '..'), { recursive: true });
@@ -258,6 +268,41 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     assert.equal(again.kind, 'added');
     assert.equal(readFileSync(join(folder, 'b.txt'), 'utf8'), 'from the task\n');
     assert.equal(readFileSync(join(folder, 'a.txt'), 'utf8'), 'two\n');
+  });
+
+  test('an add never brings a link the task made that points outside the project, and says so; one inside it comes as a link', async () => {
+    write('a.txt', 'one\n');
+    const made = await copies.prepare(PROJECT, TASK, folder);
+    assert.ok(made.ok);
+    // A task's command can make links in its copy: to the person's home, to the project's own folder.
+    symlinkSync('/etc/hosts', join(made.directory, 'home-link'));
+    symlinkSync('../../escape', join(made.directory, 'up'));
+    symlinkSync('a.txt', join(made.directory, 'inside'));
+    const refused = await copies.add(
+      PROJECT,
+      TASK,
+      { copy: made.directory, base: made.baseTree, folder, reviewed: await shown(made) },
+      async () => '01920000-0000-7000-8000-0000000000d0',
+    );
+    assert.equal(refused.kind === 'failed' && refused.code, 'link_outside');
+    assert.match(
+      refused.kind === 'failed' ? refused.message : '',
+      /a link to a place outside the project \(home-link and 1 more\)/,
+    );
+    assert.equal(refused.kind === 'failed' && refused.written, false);
+    for (const name of ['home-link', 'up', 'inside'])
+      assert.equal(existsSync(join(folder, name)) || lstatExists(join(folder, name)), false, name);
+    // The task removes them; the add goes through, and the inside link arrives as a link.
+    rmSync(join(made.directory, 'home-link'));
+    rmSync(join(made.directory, 'up'));
+    const added = await copies.add(
+      PROJECT,
+      TASK,
+      { copy: made.directory, base: made.baseTree, folder, reviewed: await shown(made) },
+      async () => '01920000-0000-7000-8000-0000000000d1',
+    );
+    assert.equal(added.kind, 'added');
+    assert.equal(readlinkSync(join(folder, 'inside')), 'a.txt');
   });
 
   test('an add brings only what the person was shown: a file written after it, by anyone, stops it (AUDIT2)', async () => {

@@ -140,6 +140,11 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
      agent this computer cannot keep to one folder (`capability_unsupported`). It never falls back
      to the project's folder, which holds another version.
    - A new project from a version is not part of it.
+- **Amended 2026-11-12 (AUDIT3's finding in 4c): a link out never comes in.** A task's command can make a
+  link in its copy whose target leaves the project's folder (one to the person's home, one to the project's
+  own folder by its absolute path). An add whose work holds a new or changed link like that is refused, in
+  words naming the first (`link_outside`), and nothing is written; a link inside the folder is added as a link.
+  It is the same rule, one function (`linkLeavesFolder`), that keeps such links from Send and Publish.
 
 ## Alternatives considered
 

@@ -78,6 +78,15 @@ Found on the way and fixed in its own commit: listing Claude Code's models faile
 guard to know it by. It now carries its label as one, and the plane lists five models. A listing leaves no
 transcript in the scratch home.
 
+## A link out never comes in (2026-11-12, `task-copies.test.ts`)
+
+- A copy holding `home-link` to `/etc/hosts`, `up` to `../../escape` and `inside` to `a.txt`: the add is refused
+  `link_outside`, "The task's work holds a link to a place outside the project (home-link and 1 more), so nothing
+  was added", nothing written (none of the three in the project's folder). With the two removed, the add goes
+  through and `inside` arrives as a link to `a.txt`.
+- AUDIT3 saw the fault on a scratch plane (VRIFY 4c's run): an add wrote a copy's `plink` and `home-link` into the
+  project's folder with their absolute targets, listed as plain added files.
+
 ## Not verified
 
 - Claude Code in a copy against the real Messages API (no lane may use a hosted model); only the fake one below.

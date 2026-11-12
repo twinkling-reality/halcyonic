@@ -7,6 +7,7 @@ import type { CheckpointFailureCode, FileChangeKind } from '@halcyonic/contracts
 import { toolFoldersFor } from '@halcyonic/seatbelt';
 import { NO_LINK } from '../observer/file-observer.ts';
 import { ancestors, resolved, SANDBOX_EXEC, SYSTEM_READS, subpaths } from '../seatbelt.ts';
+import { linkLeavesFolder } from './links.ts';
 
 /**
  * Checkpoints of project folders, kept by the host in a git repository of its own per project
@@ -568,6 +569,36 @@ export class CheckpointStore {
   }
 
   /** The paths that differ between two trees, in git's order; null when they cannot be read. */
+  /**
+   * The links `to` holds, new or changed since `from`, whose target leaves the project's folder
+   * (`linkLeavesFolder`), by path. Null when they cannot be read.
+   */
+  async linksLeaving(projectId: string, from: string, to: string): Promise<string[] | null> {
+    if (!OBJECT_ID.test(from) || !OBJECT_ID.test(to)) return null;
+    const repository = await this.#repository(projectId);
+    const diff = await this.#run(repository, null, null, [
+      'diff-tree',
+      '-r',
+      '-z',
+      '--no-renames',
+      from,
+      to,
+    ]);
+    if (diff.code !== 0) return null;
+    // Raw entries: ":<old mode> <new mode> <old id> <new id> <status>" then the path.
+    const parts = splitNul(diff.stdout);
+    const leaving: string[] = [];
+    for (let at = 0; at + 1 < parts.length; at += 2) {
+      const fields = (parts[at] ?? '').split(' ');
+      const path = parts[at + 1] ?? '';
+      if (fields[1] !== '120000') continue;
+      const target = await this.#run(repository, null, null, ['cat-file', 'blob', fields[3] ?? '']);
+      if (target.code !== 0) return null;
+      if (linkLeavesFolder(path, target.stdout.toString())) leaving.push(path);
+    }
+    return leaving;
+  }
+
   async changedPaths(projectId: string, from: string, to: string): Promise<string[] | null> {
     if (!OBJECT_ID.test(from) || !OBJECT_ID.test(to)) return null;
     const repository = await this.#repository(projectId);

@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { lstat, mkdir, open, readdir, realpath, rename, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, posix, relative, sep } from 'node:path';
+import { basename, dirname, join, relative, sep } from 'node:path';
 import {
   type ChangedFiles,
   type CheckId,
@@ -13,6 +13,7 @@ import {
 import { secretShapedPath } from '@halcyonic/runtime-core';
 import { readGitHubOrigin } from '../catalog-match.ts';
 import { changedFileList, pathList } from '../checkpoints/checkpointer.ts';
+import { linkLeavesFolder } from '../checkpoints/links.ts';
 import { reviewDigest } from '../core/review.ts';
 
 /**
@@ -1169,9 +1170,7 @@ export class GitHubSender {
         object,
       ]);
       if (target.code !== 0) return null;
-      const resolved = posix.normalize(posix.join(posix.dirname(path), target.stdout));
-      if (target.stdout.startsWith('/') || resolved === '..' || resolved.startsWith('../'))
-        outside.add(path);
+      if (linkLeavesFolder(path, target.stdout)) outside.add(path);
     }
     return outside;
   }
