@@ -194,6 +194,16 @@ client                                   server
     admission refuses for the state. The command service then leaves out what this host cannot do at all.
   - A scope whose ids do not hold together lists nothing; ids that are not ids are refused with 400. A client reads
     it again once the journal passes `position`.
+  - `GET /api/actions/choices?list=&<the scope's ids>` answers `ChoicesResponse` `{scope, list, position, digest,
+    rows, total}`: one of the host's lists, at most 32 rows, each `{index, kind, label, detail, theirs, actions}`,
+    and never the id a row stands for. Today: `tasks`, `versions`, `runtimes`, `approval_levels`, `share_ways`,
+    `secrets`, `queued_instructions`, `approvals`, `decisions`, `questions`. `models`, `pictures`, `folders`,
+    `catalog` and `own_check_scripts` answer 404 `read_unavailable` until they are read by index.
+  - One preparation (`CommandService.prepare`) builds a command from `{scope, command_type, values, read}` for a
+    person's press and the assistant's proposal alike: only a command the scope offers now; the scope's ids and the
+    host's fills (`options: {}`); each need's value, a choice by its index in a list whose digest is still the one
+    read (`choices_changed` otherwise); an id given for any other field is refused. A review field is left for the
+    review. The command meets its own validator there, and the whole admission when submitted.
 - **A project's own rules** (ADR 0059). `GET /api/projects/:project_id/rules` reads the project's `AGENTS.md`,
   else its `CLAUDE.md`, at its folder's top: `file`, `state` (`none`, `off`, `on`, `changed`, `too_large`,
   `unreadable`), `size_bytes`, the `text` whole (at most 32 KB) and its `review`.

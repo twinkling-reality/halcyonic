@@ -3,6 +3,8 @@ import type {
   CatalogRepositoryRef,
   CheckId,
   CheckpointId,
+  ChoiceList,
+  ChoicesResponse,
   CommandEnvelope,
   CommandFailure,
   CommandId,
@@ -69,6 +71,7 @@ import { type ProjectShares, ShareRefused } from '../preview/share.ts';
 import { givenSecrets, type SecretStore } from '../secrets/store.ts';
 import type { GitHubSender } from '../sending/github.ts';
 import { type HostStarters, VR_STARTER, vrVersionInstruction } from '../starters.ts';
+import { CHOICE_ROWS_SHOWN, choiceRows, choicesDigest, type HeldRow } from './choices.ts';
 import {
   type Cause,
   causedBy,
@@ -78,6 +81,7 @@ import {
 } from './drafts.ts';
 import { type OllamaUnloader, ollamaModelFrom } from './ollama-unload.ts';
 import { readPictures } from './pictures.ts';
+import { type Preparation, type Prepared, prepareCommand } from './prepare.ts';
 import { readRules, rulesReview, withRules } from './project-rules.ts';
 import { type Reattacher, SESSION_LOST } from './reattach.ts';
 import type { Recorder } from './recorder.ts';
@@ -565,14 +569,7 @@ export class CommandService {
    */
   here(scope: HereScope): HereAction[] {
     const { projection } = this.#deps;
-    if (scope.project_id === null && (scope.workstream_id !== null || scope.execution_id !== null))
-      return [];
-    if (scope.project_id !== null && projection.project(scope.project_id) === undefined) return [];
-    if (scope.workstream_id !== null) {
-      const task = projection.workstream(scope.workstream_id);
-      if (task === undefined || task.project_id !== scope.project_id) return [];
-      if (task.current_execution_id !== scope.execution_id) return [];
-    } else if (scope.execution_id !== null) return [];
+    if (!this.#scopeHolds(scope)) return [];
     const listed = hereActions(scope, projection, {
       get: (runtimeId) => this.#deps.registry.get(runtimeId),
       queuesInstructions: this.#deps.queuesInstructions === true,
@@ -582,6 +579,68 @@ export class CommandService {
         action.kind !== 'command' ||
         (this.#hostRefusal(action.command_type, scope.project_id) === null &&
           this.#hostLacks(action.command_type, scope.project_id) === null),
+    );
+  }
+
+  /**
+   * The rows of one of the host's lists for a scope (ADR 0060), as of the journal's position, with the
+   * digest a choice by index carries back. Null when the scope does not hold together, or the list is
+   * not one it has, or one this host cannot read yet.
+   */
+  choices(scope: HereScope, list: ChoiceList): ChoicesResponse | null {
+    if (!this.#scopeHolds(scope)) return null;
+    const rows = this.#choiceRows(scope, list);
+    if (rows === null) return null;
+    return {
+      scope,
+      list,
+      position: this.#deps.projection.position,
+      digest: choicesDigest(list, rows),
+      rows: rows.slice(0, CHOICE_ROWS_SHOWN).map((held) => held.row),
+      total: rows.length,
+    };
+  }
+
+  /**
+   * The one preparation of a command reached through the list (ADR 0060, addition A), for a person's
+   * press and the assistant's proposal alike: only a command this scope offers now, its payload built
+   * by the host from the values given. Nothing is submitted here.
+   */
+  prepare(given: Preparation): Prepared {
+    if (!this.#scopeHolds(given.scope))
+      return { ok: false, code: 'invalid_state', message: 'That place no longer holds together.' };
+    const offered = this.here(given.scope).some(
+      (action) => action.kind === 'command' && action.command_type === given.command_type,
+    );
+    if (!offered)
+      return { ok: false, code: 'invalid_state', message: 'That cannot be done here now.' };
+    return prepareCommand(given, {
+      rows: (list) => {
+        const rows = this.#choiceRows(given.scope, list);
+        return rows === null ? null : { rows, digest: choicesDigest(list, rows) };
+      },
+    });
+  }
+
+  #choiceRows(scope: HereScope, list: ChoiceList): HeldRow[] | null {
+    return choiceRows(list, scope, {
+      projection: this.#deps.projection,
+      runtimes: () => this.#deps.registry.descriptors(),
+    });
+  }
+
+  /** Whether a scope's ids hold together: a task in its project, and its current execution. */
+  #scopeHolds(scope: HereScope): boolean {
+    const { projection } = this.#deps;
+    if (scope.project_id === null)
+      return scope.workstream_id === null && scope.execution_id === null;
+    if (projection.project(scope.project_id) === undefined) return false;
+    if (scope.workstream_id === null) return scope.execution_id === null;
+    const task = projection.workstream(scope.workstream_id);
+    return (
+      task !== undefined &&
+      task.project_id === scope.project_id &&
+      task.current_execution_id === scope.execution_id
     );
   }
 
