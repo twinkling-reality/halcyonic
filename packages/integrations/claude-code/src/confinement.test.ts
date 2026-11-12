@@ -317,6 +317,37 @@ describe("the gate holds the agent app's key, the agent holds none (VRIFY, 2026-
     assert.equal(reached.length, 1);
   });
 
+  test('an app presenting its run credential in a header of its own never sends it upstream (AUDIT3 S1)', async (t) => {
+    const seen: (string | null)[] = [];
+    const api = createServer((req, res) => {
+      seen.push((req.headers['x-run-credential'] as string | undefined) ?? null);
+      res.end('{}');
+    });
+    const port = await listening(api);
+    const gate = await startProviderGate(
+      {
+        id: 'third',
+        name: 'A third host',
+        upstream: `http://127.0.0.1:${port}/v1`,
+        header: 'api-key',
+        bearer: false,
+        key: REAL,
+        models: ['third-1'],
+      },
+      { header: 'x-run-credential', bearer: false },
+    );
+    t.after(async () => {
+      await gate.close();
+      api.close();
+    });
+    const run = gate.issue();
+    assert.equal(
+      (await toGate(gate.port, '/chat/completions', { 'x-run-credential': run })).status,
+      200,
+    );
+    assert.deepEqual(seen, [null]);
+  });
+
   test('a gate without a key, or with a header name that is not one, is never opened', async () => {
     const presented = { header: 'x-api-key', bearer: false };
     await assert.rejects(
@@ -328,6 +359,35 @@ describe("the gate holds the agent app's key, the agent holds none (VRIFY, 2026-
     await assert.rejects(
       startApiGate(new URL('ftp://127.0.0.1:9'), { header: 'x-api-key', value: REAL }, presented),
     );
+  });
+
+  test("the gate sends a key only where a provider's declaration may (one rule, upstreamProblem)", async () => {
+    const presented = { header: 'x-api-key', bearer: false };
+    const credential = { header: 'x-api-key', value: REAL };
+    // In clear text off this Mac, or an address carrying more than a place: never opened.
+    for (const refused of [
+      'http://api.example.com',
+      'http://192.168.1.20:8080',
+      'https://user:pass@api.example.com',
+      'https://api.example.com/v1?key=x',
+    ])
+      await assert.rejects(startApiGate(new URL(refused), credential, presented), refused);
+    for (const declaration of [CLAUDE_CODE_KEY_GATE])
+      await assert.rejects(
+        startKeyGate(declaration, {
+          [declaration.keyVariable]: REAL,
+          [declaration.baseVariable]: 'http://gateway.example.com',
+        }),
+      );
+    // https anywhere, or this Mac for proofs: opened.
+    for (const allowed of [
+      'https://api.example.com/v1',
+      'http://127.0.0.1:9',
+      'http://localhost:9',
+    ]) {
+      const gate = await startApiGate(new URL(allowed), credential, presented);
+      await gate.close();
+    }
   });
 });
 

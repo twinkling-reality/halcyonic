@@ -42,6 +42,13 @@ is recorded confined, and what it makes can be checked, played, published and sh
   (Claude Code: `x-api-key`, the person's key), and sends it to the declared upstream (`ANTHROPIC_BASE_URL` of the
   plane, else `https://api.anthropic.com`), a gateway's own path first. It streams the answer back unbuffered.
   Anything else, a proxied request for another host or any CONNECT, gets 403.
+- The gate opens only on an upstream the one rule a provider's declaration is read by allows (`upstreamProblem` in
+  runtime-core, ADR 0061): https, or http to this Mac for proofs, and no address carrying a name, password, query or
+  fragment. A plane's `ANTHROPIC_BASE_URL` in clear text off the Mac opens no gate, so no key is sent unencrypted
+  (AUDIT2's note N2, 2026-11-12; `confinement.test.ts`, failed first: the old gate opened on `http://` anywhere).
+- The header an app presents its run credential in never goes upstream, whatever its name, beside the fixed list of
+  credential headers (AUDIT3's S1; `confinement.test.ts`, failed first: a credential presented in a header of its own
+  reached the upstream).
 - The adapter records a run inside the profile as confined. Without a key there is no gate and no confined start.
 
 ## Seen (the real Claude Code CLI the Agent SDK bundles, 2.1.283, inside the closed profile; a fake API; a fake key)
