@@ -22,6 +22,7 @@ namespace Halcyonic.Client
             Agent,
             NewProject,
             Projects,
+            Folders,
             Tasks,
             Menu,
             Pairing,

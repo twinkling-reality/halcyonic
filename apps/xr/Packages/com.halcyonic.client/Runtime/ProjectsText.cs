@@ -39,6 +39,11 @@ namespace Halcyonic.Client
         public const string NoFolders = "No Folders Allowed";
         public const string AllowAFolder = "Allow on Computer · Try Again";
 
+        /// <summary>The problems as a card's status lines (FIELD, 2026-11-12), the redesign's in place of the side panel.</summary>
+        public const string FoldersUnreadLine = "Your computer couldn't list its folders";
+
+        public const string NoFoldersLine = "Allow a folder on your computer, then try again";
+
         public const string Shown = "Shown";
         public const string Hidden = "Hidden";
         public const string Yes = "Yes";
