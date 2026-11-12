@@ -55,24 +55,23 @@ namespace Halcyonic.Client
                     break;
                 case RoomResultPage.Add:
                     // What adding brings, as FIELD's review card (the task as its title, where its work goes, the files as its
-                    // list); its confirming action names the act, Add to Project, behind its lock; and Back. Nothing to confirm
-                    // where adding no longer stands.
-                    // Nothing on the headset can undo an add yet (Restore is not offered), so the review says nothing of undoing,
-                    // and every file is shown before the add can be confirmed: five a page, the confirming action on the last
-                    // page alone, and only where the host listed every file (AUDIT, 2026-11-11). Undo comes back with History.
+                    // list); its confirming action names the act, Add to Project, the one press (the lead's R1, 2026-11-12: no
+                    // forced paging, no lock; the add's digest still guards that what is added is the reading these files came
+                    // from); and Back. Nothing to confirm where adding no longer stands, or where the host did not list every file.
+                    // Nothing on the headset can undo an add yet (Restore is not offered), so the review says nothing of undoing.
+                    // Five files a page; Next Page reads on, never in the way of the add. Undo comes back with History.
                     if (result.Add is { State: RoomAddState.Ready } adding)
                     {
                         var project = binding.Model.ProjectName.Length > 0 ? LineWords.Ours("Into ") + LineWords.TheirName(binding.Model.ProjectName) + LineWords.Ours(".") : (LineWords?)null;
                         card = new RoomCard(frame.SubjectRuns, project,
                             list: adding.Paths.Skip(result.Part * RoomCard.ListAPage).Take(RoomCard.ListAPage)
                                 .Select(path => new RoomListRow(RoomKind.ToAdd, LineWords.Theirs(path), mono: true)).ToList());
-                        var last = result.Part + 1 >= result.Parts;
-                        if (!last) column.Add(Own(RoomResult.NextPage, Footer.NextPageWords(result.Part, result.Parts), main: true, GlazeIcon.Next));
                         // The add carries the digest of the reading these files came from, taken with them (TASKS's call note):
                         // without one there is no add to offer (nothing left, no reading yet, or a reading from before).
-                        else if (adding.Paths.Count == adding.Count && result.AddReview is string review)
+                        if (adding.Paths.Count == adding.Count && result.AddReview is string review)
                             column.Add(new RoomAction(new KitControl(KitPlace.Step, frame, RoomResult.AddConfirm, review, adding.ConfirmWords, GlazeIcon.Next, true, null, false),
-                                main: true, locks: true, icon: GlazeIcon.Next));
+                                main: true, icon: GlazeIcon.Next));
+                        if (result.Part + 1 < result.Parts) column.Add(Own(RoomResult.NextPage, Footer.NextPageWords(result.Part, result.Parts), main: column.Count == 0, GlazeIcon.Next));
                     }
                     column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
                     break;
@@ -155,6 +154,9 @@ namespace Halcyonic.Client
                     // FIELD's result card (A17): the task's name as its title, the check and the files changed (or waiting to be
                     // added) as slots, an ended chain of tries as its status first. No sentence: the check is a slot now.
                     card = RoomPanelCards.Result(result, frame.SubjectRuns, binding.Model.AutoFix, result.Add?.Slot);
+                    // Kept, said (the lead's R1): once the host recorded the add and nothing newer waits, the card's status says
+                    // so, with no line, since nothing on the headset can undo it yet; a chain of tries that ended keeps its status.
+                    if (result.Add?.State == RoomAddState.Added) card = Said(card, frame.SubjectRuns, new RoomCardStatus(RoomAdd.AddedWords, null, RoomTone.Good));
                     if (ranOut && instruct != null) column.Add(new RoomAction(instruct, main: true, WorkspaceText.Label(WorkspaceAction.Instruct)));
                     // A13: the task's work to add to its project leads where there is some; where the project changed the same
                     // files, Let Agent Fix leads to FIELD's card naming them.
@@ -189,5 +191,11 @@ namespace Halcyonic.Client
                 Ended = fixedLine,
             };
         }
+
+        /// <summary><paramref name="card"/> with <paramref name="status"/> where it has none, or a card of the task's name and that status alone.</summary>
+        private static RoomCard Said(RoomCard? card, LineWords task, RoomCardStatus status) => card == null
+            ? new RoomCard(task, head: RoomCardHead.Picture, status: status)
+            : card.Status != null ? card
+            : new RoomCard(card.Title, card.Description, card.Head, status, card.Slots, card.Steps, card.TrackAt, card.TrackOf, card.List, card.Gauges, card.More);
     }
 }
