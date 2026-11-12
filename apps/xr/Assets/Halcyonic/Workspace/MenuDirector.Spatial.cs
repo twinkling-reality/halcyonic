@@ -213,12 +213,16 @@ namespace Halcyonic.XR.Workspace
             var task = State!.Workstreams.TryGetValue(now.Character.WorkstreamId, out var work) ? work : null;
             // Only the computer this director was set up for, never the device's stored one (the night's security fix, 2026-11-12).
             var target = setup.ConnectionTarget();
+            // The understanding's account on the Changes page (SCREENS's ChangesAccount): the open file reads it while that page shows.
+            var openFile = navigator.Beside is FileColumn open && open.Now?.Character.WorkstreamId == now.Character.WorkstreamId ? open : null;
+            if (openFile != null) openFile.ResultChangesShown = () => page == RoomResultPage.Changes;
             return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (target, Demonstration), task,
                 page == RoomResultPage.History ? HistoryFor(projectId) : null, page == RoomResultPage.Share ? ShareFor(projectId) : null,
                 canSend: CanSendShare, relays: HeadsetRelay.Serves(target), relayBuilt: HeadsetRelay.Built,
                 file: page == RoomResultPage.File ? FileReadFor(now.Character.WorkstreamId) : null,
                 start: RunStart.Of(now.Execution, now.Runtime),
-                waiting: WaitingFor(now));
+                waiting: WaitingFor(now),
+                account: page == RoomResultPage.Changes ? openFile?.Account() : null);
         }
 
         /// <summary>

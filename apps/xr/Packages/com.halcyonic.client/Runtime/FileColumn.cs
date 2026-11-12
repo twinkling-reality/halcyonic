@@ -883,7 +883,7 @@ namespace Halcyonic.Client
         {
             var execution = Now?.Execution;
             var clock = host.Clock;
-            if (Screen.Section == FileSection.Changes || Screen.Section == FileSection.Checks)
+            if (Screen.Section == FileSection.Changes || Screen.Section == FileSection.Checks || ResultChangesShown?.Invoke() == true)
             {
                 understanding.Show(execution?.ExecutionId, execution?.UpdatedAt, clock, TimeSpan.FromSeconds(2));
             }
@@ -1140,6 +1140,25 @@ namespace Halcyonic.Client
         {
             var rows = host.TitleRows(presentation.Character.Title, Glaze.Menu.FileColumnDegrees);
             return new HeightBudget(host.PageHeight(rows, besideMenu: false, focused: budgetFocused));
+        }
+
+        /// <summary>
+        /// Whether the redesign shows this task's result on its Changes page, given by the menu's director: the understanding is
+        /// read then as for the Changes section, so the page can carry its account (SCREENS's ChangesAccount).
+        /// </summary>
+        public Func<bool>? ResultChangesShown { get; set; }
+
+        /// <summary>
+        /// The understanding's account of the last turn for the result's Changes page: its three brief answers as the Changes
+        /// section reads them (what changed, why, how it is built), never the source's own provenance. Null until anything is read.
+        /// </summary>
+        public ChangesAccount? Account()
+        {
+            if (understanding.Last == null && understanding.Error == null) return null;
+            var room = new AnswerRoom(host.PageRows(sourceLine: false), line => host.RowsOf(FileScreens.Line(line, rows: 1), Glaze.Menu.FileColumnDegrees));
+            var clock = host.Clock;
+            SectionPresentation Brief(UnderstandPrompt prompt) => UnderstandingPresenter.Present(prompt, understanding, clock, host.Zone, room, AnswerDepth.Brief);
+            return new ChangesAccount(Brief(UnderstandPrompt.WhatChanged), Brief(UnderstandPrompt.WhyChanged), Brief(UnderstandPrompt.HowBuilt));
         }
 
         private FileAnswer? Understand(UnderstandPrompt prompt, AnswerRoom room, DateTimeOffset clock) =>
