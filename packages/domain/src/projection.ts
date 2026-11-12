@@ -247,10 +247,11 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * execution's queued instructions (ADR 0056). 10: each project's own check (ADR 0055). 11: the
  * version a task starts from (`from_checkpoint`, ADR 0045). 12: what the computer saw of a request
  * that ended with no reply (`observed`, LOOP C). 13: each project's published game (ADR 0039,
- * amended). 14: each project's secrets by name (ADR 0057). 15: each project's rules while on (`rules`, E5);
- * each raised past the base's again at the rebase.
+ * amended). 14: each project's secrets by name (ADR 0057). 15: each project's rules while on (`rules`, E5).
+ * 16: when a start found a task's copy gone (`missing_at`, ADR 0045); each raised past the base's
+ * again at the rebase.
  */
-export const PROJECTION_STATE_FORMAT = 15;
+export const PROJECTION_STATE_FORMAT = 16;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -1826,6 +1827,8 @@ export class Projection {
       }
       case 'workstream.copy_made':
       case 'workstream.copy_refused':
+      case 'workstream.copy_missing':
+      case 'workstream.copy_found':
       case 'workstream.copy_changes_read':
       case 'workstream.added':
       case 'workstream.add_conflicted':
@@ -2070,6 +2073,12 @@ export class Projection {
         return;
       }
       switch (event.event_type) {
+        case 'workstream.copy_missing':
+          copy.missing_at = event.occurred_at;
+          break;
+        case 'workstream.copy_found':
+          delete copy.missing_at;
+          break;
         case 'workstream.copy_changes_read':
           copy.to_add = clonePathList(event.payload.changed);
           // A reading recorded before readings said how each file changed leaves it unknown.

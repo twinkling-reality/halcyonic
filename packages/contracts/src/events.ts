@@ -627,6 +627,22 @@ export const WorkstreamCopyMade = workstreamEvent(
   ),
 );
 
+/**
+ * At the control plane's start, the task's copy's folder (`directory`, as `workstream.copy_made`
+ * recorded it) was not there: whatever the task did there and the person did not add is not on this
+ * Mac any more. Recorded once, until a later start finds the folder again (ADR 0045, amended).
+ */
+export const WorkstreamCopyMissing = workstreamEvent(
+  'workstream.copy_missing',
+  Type.Object({ directory: HostPath }, strict),
+);
+
+/** A later start found the task's copy's folder there again, after `workstream.copy_missing`. */
+export const WorkstreamCopyFound = workstreamEvent(
+  'workstream.copy_found',
+  Type.Object({ directory: HostPath }, strict),
+);
+
 /** The task could not have a copy of its own, so its start works in the project's own folder. */
 export const WorkstreamCopyRefused = workstreamEvent(
   'workstream.copy_refused',
@@ -1190,6 +1206,8 @@ export const EVENT_VARIANTS = [
   WorkstreamCreated,
   WorkstreamCopyMade,
   WorkstreamCopyRefused,
+  WorkstreamCopyMissing,
+  WorkstreamCopyFound,
   WorkstreamCopyChangesRead,
   WorkstreamAdded,
   WorkstreamAddConflicted,

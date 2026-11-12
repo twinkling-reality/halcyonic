@@ -675,6 +675,7 @@ describe('the C# bindings', () => {
     'ExecutionView.queued_instructions', // instructions waiting for the turn to end (ADR 0056)
     'ExecutionView.unconfined_reason', // why its start was not counted confined (BOX-4, PLAN 4a)
     'LocationRoot.label', // a location's label
+    'OwnCopy.missing_at', // ADR 0045, amended: a start found the task's copy gone
     'ProjectCheckPayload.workstream_id', // the task whose copy a check checks (ADR 0045)
     'ProjectCheckRecordedPayload.workstream_id', // ADR 0045
     'ProjectCheckedResult.ready', // project_checked's ready

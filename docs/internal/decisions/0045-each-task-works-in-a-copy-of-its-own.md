@@ -164,10 +164,17 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
   the copy it is given), and every lookup of a project by its folder must also know a task's copy.
 - Disk: a clone shares blocks until changed, but a project with very many files takes longer to
   copy per new task. A copy is kept while its task exists (Halcyonic has no command that removes a
-  task). At every start, before anything can start a task, the host removes each copy no task holds:
-  one a start left when it stopped before recording it, or one a journal that no longer names it left
-  behind. Only a folder `<project id>/<task id>` of real folders named by ids is ever removed, never
-  one that holds a recorded copy, and the removal runs confined to the copies' folder; anything else
-  there is left and counted.
+  task). At every start the host counts what the copies' folder holds that its journal does not, and
+  removes none of it (amended 2026-11-12, AUDIT3's finding: a sweep that removed each copy its own
+  journal did not hold would delete another control plane's copies on the same Mac, or a task's
+  unadded work after a person restores an older journal). A folder no journal here holds is not known
+  to be anyone's leftover; it stays, and the start says how many in the log. The journal records no
+  copy as let go, so nothing is removed by a start at all; what a start left when it stopped before
+  recording its copy is removed by that task's next start, inside the copies' folder, as before. What
+  this no longer clears: a stopped start's copy of a task that never starts again stays on disk.
+  The same start says each copy its own journal holds whose folder is gone: `workstream.copy_missing`,
+  recorded once (and `workstream.copy_found` if a later start finds it again), so the task's view
+  carries `missing_at` and the log counts them at warn. That is how a person's plane tells them what
+  was lost, with nobody reading their folders.
 - Revisit if a runtime asks anything new for a folder it has not seen, or if Salidium and Seorak
   cannot follow an execution whose folder is a copy.

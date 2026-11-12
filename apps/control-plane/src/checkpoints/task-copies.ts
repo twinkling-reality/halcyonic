@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { lstat, mkdir, readdir, realpath, rmdir } from 'node:fs/promises';
+import { lstat, mkdir, readdir, realpath } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import type {
   ChangedFile,
@@ -165,44 +165,41 @@ export class TaskCopies {
   }
 
   /**
-   * Removes every copy no task holds (ADR 0045): what a start left when it stopped before its copy
-   * was recorded, or what a journal that no longer names it left behind. Only a folder at
-   * `<project id>/<task id>` inside the copies' folder, both names ids and both real folders, is
-   * ever removed, and only when no path in `kept` lies inside it; removal runs confined to the
-   * copies' folder. Anything else there is left as it is and counted. Run before any start can
-   * make a copy, so a copy being made is never taken for one no task holds.
+   * Counts, and never removes, what the copies' folder holds that `kept`, this journal's own copies,
+   * does not (ADR 0045, amended 2026-11-12): `unheld`, each folder `<project id>/<task id>` of real
+   * folders named by ids with no kept copy inside it, and `other`, anything else there. A folder this
+   * journal does not hold is not known to be anyone's leftover: it can be another control plane's on
+   * this Mac, or a task's unadded work that a restored older journal no longer names, so it is left
+   * where it is and said. This journal records no copy as let go, so there is nothing it may remove; a
+   * start that stopped before recording its copy is cleared by that task's next start (`prepare`).
    */
-  async sweep(kept: ReadonlySet<string>): Promise<{ removed: number; left: number }> {
+  async unheld(kept: ReadonlySet<string>): Promise<{ unheld: number; other: number }> {
     let root: string;
     try {
       root = await realpath(this.#directory);
     } catch {
-      return { removed: 0, left: 0 };
+      return { unheld: 0, other: 0 };
     }
-    let removed = 0;
-    let left = 0;
+    let unheld = 0;
+    let other = 0;
     const realDirectory = async (path: string) =>
       (await lstat(path).catch(() => null))?.isDirectory() === true;
     for (const project of await readdir(root)) {
       const projectPath = join(root, project);
       if (!ID_PATTERN.test(project) || !(await realDirectory(projectPath))) {
-        left += 1;
+        other += 1;
         continue;
       }
       for (const task of await readdir(projectPath)) {
         const taskPath = join(projectPath, task);
         if (!ID_PATTERN.test(task) || !(await realDirectory(taskPath))) {
-          left += 1;
+          other += 1;
           continue;
         }
-        if ([...kept].some((path) => within(taskPath, path))) continue;
-        await removeInside(root, `${project}/${task}`);
-        removed += 1;
+        if (![...kept].some((path) => within(taskPath, path))) unheld += 1;
       }
-      // An empty project folder goes too; one still holding anything stays.
-      await rmdir(projectPath).catch(() => undefined);
     }
-    return { removed, left };
+    return { unheld, other };
   }
 
   /**

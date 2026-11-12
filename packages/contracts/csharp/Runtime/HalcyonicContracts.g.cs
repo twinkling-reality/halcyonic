@@ -2328,6 +2328,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("conflict", Required = Required.AllowNull)]
         public ConflictedFiles? Conflict { get; set; }
+
+        [JsonProperty("missing_at", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? MissingAt { get; set; }
     }
 
     public sealed class RefusedCopy : WorkstreamCopy
@@ -3685,6 +3688,18 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("message", Required = Required.Always)]
         public string Message { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamCopyMissingPayload
+    {
+        [JsonProperty("directory", Required = Required.Always)]
+        public string Directory { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamCopyFoundPayload
+    {
+        [JsonProperty("directory", Required = Required.Always)]
+        public string Directory { get; set; } = default!;
     }
 
     public sealed class WorkstreamCopyChangesReadPayload
@@ -5352,6 +5367,8 @@ namespace Halcyonic.Contracts
                 "workstream.created" => new WorkstreamCreatedEvent(),
                 "workstream.copy_made" => new WorkstreamCopyMadeEvent(),
                 "workstream.copy_refused" => new WorkstreamCopyRefusedEvent(),
+                "workstream.copy_missing" => new WorkstreamCopyMissingEvent(),
+                "workstream.copy_found" => new WorkstreamCopyFoundEvent(),
                 "workstream.copy_changes_read" => new WorkstreamCopyChangesReadEvent(),
                 "workstream.added" => new WorkstreamAddedEvent(),
                 "workstream.add_conflicted" => new WorkstreamAddConflictedEvent(),
@@ -5681,6 +5698,22 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public WorkstreamCopyRefusedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamCopyMissingEvent : EventEnvelope
+    {
+        protected override string Discriminator => "workstream.copy_missing";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkstreamCopyMissingPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkstreamCopyFoundEvent : EventEnvelope
+    {
+        protected override string Discriminator => "workstream.copy_found";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkstreamCopyFoundPayload Payload { get; set; } = default!;
     }
 
     public sealed class WorkstreamCopyChangesReadEvent : EventEnvelope

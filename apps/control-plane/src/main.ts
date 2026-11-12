@@ -345,15 +345,19 @@ async function main(): Promise<void> {
     );
   };
   controlPlane.reconcile();
-  // Copies no task holds go before anything can start a task (ADR 0045); only counts are logged.
-  if (controlPlane.copies !== null) {
-    const held = new Set<string>();
-    for (const workstream of controlPlane.projection.workstreams())
-      if (workstream.copy?.state === 'own') held.add(workstream.copy.directory);
-    const swept = await controlPlane.copies.sweep(held);
-    if (swept.removed > 0 || swept.left > 0)
-      app.log.info({ removed: swept.removed, left: swept.left }, 'task copies swept');
-  }
+  // Before anything can start a task (ADR 0045, amended): each task whose copy is gone says so, and
+  // what the copies' folder holds that this journal does not is never removed, only counted.
+  const copies = await controlPlane.noteCopies();
+  if (copies !== null && copies.missing > 0)
+    app.log.warn(
+      { missing: copies.missing },
+      'task copies this journal holds are gone from this Mac',
+    );
+  if (copies !== null && (copies.unheld > 0 || copies.other > 0))
+    app.log.warn(
+      { unheld: copies.unheld, other: copies.other },
+      "task copies this journal does not hold are left where they are: another control plane's, or work an older journal does not name",
+    );
   const transcriptions = new Transcriptions({
     engine: speech,
     clock: systemClock,
