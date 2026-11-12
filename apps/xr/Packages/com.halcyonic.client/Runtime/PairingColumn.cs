@@ -64,6 +64,13 @@ namespace Halcyonic.Client
 
         public void Looking() => Set(PairingColumnStep.Looking);
 
+        /// <summary>
+        /// The one computer a search found, where there is nothing for the person to pick: exactly one, and no other
+        /// announcing its name. Null where there are none, several, or a name another shares (the person tells them apart).
+        /// </summary>
+        public static PairingChoice? PickedForThePerson(IReadOnlyList<PairingChoice> found) =>
+            found != null && found.Count == 1 && !found[0].SharesItsName ? found[0] : null;
+
         public void Found(IReadOnlyList<PairingChoice> computers)
         {
             found = computers.Take(RoomCard.ListAPage).ToList();

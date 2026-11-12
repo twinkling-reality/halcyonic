@@ -257,7 +257,9 @@ both costs now have an answer that needs no new dependency and no new permission
   an earlier one under the same name, and a name that came with another host, port or pin is
   marked (`SharesItsName`), so a device answering as the person's Mac shows beside it.
 - **The headset asks before it opens the keyboard**, and offers what it found by name; the person
-  picks one, or types an address as before. Nothing found is no failure.
+  picks one, or types an address as before. Nothing found is no failure. Amended 2026-11-12: where
+  exactly one computer answers and no other used its name, there is nothing to pick, so its code is
+  asked at once (the number pad titled by its name); a pad closed unanswered goes back to the list.
 - **Discovery is still never trusted.** Any device on the network can announce `_halcyonic._tcp`
   with any name and any `pin=`. The pin prefix only lets the headset leave out an answer whose
   certificate it would refuse anyway; the code and the certificate bound into the SRP proofs decide,
