@@ -168,6 +168,22 @@ describe('the declarations beside the policy', () => {
       assert.equal(saying.confirm === 'undo', saying.undo !== undefined, type);
     }
     assert.equal(COMMAND_SAYING['project.preview.start'].undo, 'project.preview.stop');
+    // A reviewed policy with one press is only where the press is itself the decision (AUDIT2 S3):
+    const onePress = Object.entries(COMMAND_SAYING)
+      .filter(
+        ([type, saying]) =>
+          saying.confirm === 'none' &&
+          COMMAND_POLICY[type as keyof typeof COMMAND_POLICY] === 'review_required',
+      )
+      .map(([type]) => type)
+      .sort();
+    assert.deepEqual(onePress, [
+      'execution.interrupt', // Stop: the press is the decision (R1)
+      'execution.respond_to_approval', // Approve or Deny: the press is the answer (R1)
+      'project.secret.set', // the value typed in its own field is what the person reads
+      'project.unpublish', // Take Down: one press, Publish puts it back (R1)
+    ]);
+    assert.equal(COMMAND_SAYING['project.secret.remove'].confirm, 'review', 'cannot be undone');
   });
 
   test('every title is one to three words in Title Case', () => {

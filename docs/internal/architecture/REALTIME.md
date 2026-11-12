@@ -214,6 +214,12 @@ client                                   server
     functions their routes answer with, Restore through its preview, Add from the task's copy's reading, Change
     Folder, Project Rules, Share and Choose Check from their own facts. The digest is the one the button's own
     review gives (ADR 0051), so a command carrying it back is admitted exactly as from a button.
+  - Take Down is one press (R1): the preparation fills its `commit` from the host's own record of what it
+    published, never from a proposer, and its admission refuses one published again since. Remove Secret is
+    reviewed (`review_required`, confirm `review`), since its value cannot be brought back; Save a Copy is done on
+    its press (`low_consequence`). A reviewed policy with one press stays only where the press is the decision:
+    Stop, Approve or Deny, a secret typed in its own field, and Take Down.
+  - A starter the host's catalog cannot read has no build to check (AUDIT2 S1).
 - **A project's own rules** (ADR 0059). `GET /api/projects/:project_id/rules` reads the project's `AGENTS.md`,
   else its `CLAUDE.md`, at its folder's top: `file`, `state` (`none`, `off`, `on`, `changed`, `too_large`,
   `unreadable`), `size_bytes`, the `text` whole (at most 32 KB) and its `review`.

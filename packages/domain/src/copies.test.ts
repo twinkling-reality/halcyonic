@@ -562,7 +562,8 @@ describe("keeping a project's work (F3)", () => {
     const shown = admit(keep('project.show_in_finder'));
     assert.equal(shown.admitted && shown.policy, 'low_consequence');
     const saved = admit(keep('project.save_copy'));
-    assert.equal(saved.admitted && saved.policy, 'review_required', 'a deliberate press');
+    // A copy written beside the person's files, never over one, is done on its one press (R1, AUDIT2 S3).
+    assert.equal(saved.admitted && saved.policy, 'low_consequence', 'done on the press');
     // A turn at work may leave a file half written in the copy (AUDIT2 S1), as a restore waits.
     const busy = task('Busy');
     const turn = running(busy, '/work/app');

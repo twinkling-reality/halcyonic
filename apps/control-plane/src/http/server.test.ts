@@ -377,15 +377,17 @@ describe('realtime protocol', () => {
     assert.equal(policies.get('execution.drop_queued_instruction'), 'low_consequence');
     // Which of the project's own commands its check runs: the person reads them first (ADR 0055).
     assert.equal(policies.get('project.own_check.choose'), 'review_required');
-    // Setting a project secret gives later tasks a key; removing one gives them nothing (ADR 0057).
+    // Setting a project secret gives later tasks a key (ADR 0057); removing one deletes a value the
+    // person may not have elsewhere, which cannot be undone, so it is reviewed too (the lead, 2026-11-12).
     assert.equal(policies.get('project.secret.set'), 'review_required');
-    assert.equal(policies.get('project.secret.remove'), 'low_consequence');
+    assert.equal(policies.get('project.secret.remove'), 'review_required');
     assert.equal(policies.get('project.publish'), 'review_required');
     assert.equal(policies.get('project.unpublish'), 'review_required');
     assert.equal(policies.get('project.send_to_github'), 'review_required');
-    // Showing the project in Finder changes nothing; saving a copy writes a file on the Mac (F3).
+    // Showing the project in Finder changes nothing; saving a copy writes a new file beside the person's,
+    // never over one, done on its one press (F3; R1, AUDIT2 S3).
     assert.equal(policies.get('project.show_in_finder'), 'low_consequence');
-    assert.equal(policies.get('project.save_copy'), 'review_required');
+    assert.equal(policies.get('project.save_copy'), 'low_consequence');
     assert.equal(policies.get('project.share.start'), 'review_required');
     assert.equal(policies.get('project.share.stop'), 'low_consequence');
     // Adding a task's work writes the person's folder, as a restore does; fitting writes only the

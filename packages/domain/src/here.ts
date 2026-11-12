@@ -94,7 +94,7 @@ export function boundCommand(commandType: Listed, scope: HereScope): CommandEnve
     } else if (field.from === 'execution') {
       if (scope.execution_id === null) return null;
       payload[name] = scope.execution_id;
-    } else if (field.from === 'host') payload[name] = {};
+    } else if (field.from === 'host' && field.fill === 'empty') payload[name] = {};
   }
   return { command_type: commandType, payload } as unknown as CommandEnvelope;
 }
