@@ -2599,9 +2599,7 @@ walk drew the redesign) in release builds too (`RoomDesignDefault`, apart from `
 runs through it. A frame no reader of the redesign takes still falls back to the older views (known: the no-projects
 page, New Project's page of changes past six actions, a composer offering Read Results), and ON-2 removes the kit
 parts it replaced once those have readers. Checks that walk
-the older views on purpose turn it off inside themselves until then: `WorkspaceRender.JudgeKitWalkCheck`, the walk of
-the path a release player showed before ON-1b (the judges' build is a release build, so since ON-1b it shows the
-redesign, which `JudgeRoomWalkCheck` walks), KitRender's old-kit states,
+the older views on purpose turn it off inside themselves until then: KitRender's old-kit states,
 `WorkspaceRender.KitSpatialCheck` and `KitActivityComposerCheck` (the old kit's spine, rail, pills and switch),
 `ShowTaskHereCheck` (the older file's Show Task Here and its one-character shelf) and New Project's older review
 boundary. Under the redesign New Project's steps and the agent's page stand in the workspace, where FIELD's readers

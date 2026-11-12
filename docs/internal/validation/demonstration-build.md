@@ -121,6 +121,8 @@ eyes on the far Quest 3S stage. Each step is held to the plane's checks at both 
 
 ### The judge path with the kit (2026-11-04)
 
+Kept as history: the walk below was removed on 2026-11-12, once release builds drew the redesign.
+
 Since KIT-ON (2026-11-03) the kit draws a task's file on the headset by default, and the release
 player runs a spatial workspace. `WorkspaceRender.JudgeKitWalkCheck` walks that path as the release
 player runs it: no token and no control plane, so the real `DemonstrationFallback` plays the bundled
@@ -161,8 +163,10 @@ must draw it and no older view may show; what the redesign draws is held to the 
 word whole, inside a Quest 3S field with the head level, at least 4.5:1, no brand names) at Standard
 and Larger text. A press goes through a drawn control; where none is drawn the walk says so and
 moves the recording on itself, so every later moment is still seen. Renders and the moment list
-(`moments.tsv`) land in `Builds/JudgeRoomRenders`. It replaces `JudgeKitWalkCheck` once the switch
-is on by default.
+(`moments.tsv`) land in `Builds/JudgeRoomRenders`. Since ON-1b a release build draws the redesign, so this
+is the judges' walk; `JudgeKitWalkCheck`, the walk of the older path above, was removed then (the judges' build is a
+release build, and none of them draws that path any more). The judges' build itself, not this walk, is the proof of
+what a judge gets.
 
 What it showed on main e95cf9bb (JUDGE, 2026-11-10), the same at both sizes: the redesign draws no
 judge moment yet. The recorded run's launch, result, Changes, Checks and end, and the

@@ -18,6 +18,18 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class WorkspaceRender
     {
+        /// <summary>The demonstration's directed task, the one that asks, asks for approval, fails its checks and is corrected.</summary>
+        private const string JudgeDirectedTitle = "Add rate limiting to the sign-in endpoint";
+
+        /// <summary>Names a judge must not read on any frame, as JudgeWordsTests lists them.</summary>
+        private static readonly string[] JudgeBrands =
+        {
+            "Claude", "Anthropic", "OpenAI", "Codex", "OpenCode", "GPT", "Gemini", "Llama", "Qwen", "Ollama", "Mistral",
+            "Meta", "Quest", "Oculus", "Horizon", "Apple", "Mac", "macOS", "iPhone", "Android", "Google", "YouTube",
+            "GitHub", "Microsoft", "Windows", "Unity", "Salidium", "Seorak", "Omnorium", "Stripe", "Postgres", "PostgreSQL",
+            "Redis", "Docker", "AWS", "npm", "React",
+        };
+
         /// <summary>
         /// What a judge sees in the redesign (<see cref="RoomDesign.Enabled"/> on), as the release player runs it with no
         /// computer connected: the recorded run moment by moment (launch, at work, the result, Changes, Checks, its end), then
