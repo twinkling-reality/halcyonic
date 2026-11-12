@@ -38,6 +38,14 @@ describe('configuration', () => {
       '/d/tasks',
     );
     assert.throws(() => loadConfig({ HALCYONIC_TASKS_DIR: 'tasks' }), /absolute/);
+    // Beside the data folder it was given, not the account's (AUDIT3, 2026-11-12): two planes of one
+    // home on two data folders never share, nor sweep, each other's copies; the owner's stays.
+    const owner = loadConfig({});
+    assert.equal(owner.tasksDir, `${owner.dataDir}-tasks`, 'the owner keeps ~/.halcyonic-tasks');
+    const one = loadConfig({ HALCYONIC_DATA_DIR: '/d/scratch/one' }).tasksDir;
+    const two = loadConfig({ HALCYONIC_DATA_DIR: '/d/scratch/two' }).tasksDir;
+    assert.deepEqual([one, two], ['/d/scratch/one-tasks', '/d/scratch/two-tasks']);
+    for (const tasks of [one, two]) assert.notEqual(tasks, owner.tasksDir);
     // Never in a project root, nor around one (AUDIT2 S1).
     const projects = join(base, 'roots-for-tasks');
     mkdirSync(projects, { recursive: true });

@@ -57,6 +57,10 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
    files included so dependencies and builds work, in
    `<HALCYONIC_TASKS_DIR, default ~/.halcyonic-tasks>/<project id>/<task id>/<the folder's own name>`:
    a folder of Halcyonic's own beside its data folder, never inside it and never inside the project.
+   (Amended 2026-11-12: the default is the data folder's own path plus `-tasks`, so `~/.halcyonic-tasks`
+   beside `~/.halcyonic` as before, and a plane on another data folder, a test's or a scratch one, has
+   its own and never reaches, nor sweeps, a person's copies. `HALCYONIC_TASKS_DIR` may also be set in
+   the settings file.)
    Every later start of the task, with any agent held to it, works in the same copy.
 2. The copy's base is the tree of the copy as it was made, kept in the project's checkpoint store
    (`workstream.copy_made`). Halcyonic writes nothing to the person's `.git`: no branch, no ref. The
