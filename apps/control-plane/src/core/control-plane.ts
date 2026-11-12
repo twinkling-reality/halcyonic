@@ -24,7 +24,7 @@ import type { EventJournal } from '../journal/journal.ts';
 import { createHostLocations, type HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
 import { FileObserver } from '../observer/file-observer.ts';
-import { attachWorldReader } from '../observer/world-reader.ts';
+import { attachWorldReader, type WorldReader } from '../observer/world-reader.ts';
 import { OwnChecks, type OwnChecksDeps } from '../own-check/own-check.ts';
 import { HostPreviews, type HostPreviewsDeps } from '../preview/preview.ts';
 import { ProjectShares, type ProjectSharesDeps } from '../preview/share.ts';
@@ -192,6 +192,8 @@ export class ControlPlane {
   readonly redaction: Redaction;
   readonly #ids: IdGenerator;
   readonly #logger: Logger;
+  /** The Mac's reader of world projects' descriptions, when it reads folders at all (ADR 0049). */
+  #worlds: WorldReader | null = null;
   readonly #snapshotFinishedCommands: number;
   /**
    * Per project, the folders that need an automatic check: a task's id for its own copy (ADR 0045),
@@ -308,7 +310,8 @@ export class ControlPlane {
     });
     // A world's description is read wherever the Mac reads folders at all (ADR 0049).
     if (this.files !== null)
-      attachWorldReader({
+      this.#worlds = attachWorldReader({
+        starters: this.starters,
         publisher: this.publisher,
         recorder: this.recorder,
         projection: this.projection,
@@ -651,6 +654,10 @@ export class ControlPlane {
    */
   reconcile(): void {
     if (this.journal.info.origin !== 'live') return;
+    // A world with no reading of format 2 (made before it) is read now, so it is brought forward, not left stock.
+    void this.#worlds
+      ?.readUnread()
+      .catch((error: unknown) => this.#logger.warn({ err: error }, 'worlds not read'));
     const { cut, ...result } = this.commands.reconcileAfterRestart();
     if (result.executions > 0 || result.commands > 0) {
       this.#logger.warn(result, 'marked in-flight work unknown after restart');

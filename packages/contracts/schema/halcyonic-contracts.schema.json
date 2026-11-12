@@ -5437,7 +5437,7 @@
               "$ref": "#/$defs/ControlPlaneSource"
             },
             "payload": {
-              "$ref": "#/$defs/WorldObserved"
+              "$ref": "#/$defs/WorldObservedFormat1"
             }
           },
           "additionalProperties": false
@@ -5693,6 +5693,224 @@
             },
             "payload": {
               "$ref": "#/$defs/ProjectRulesOn"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "project.world.read"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "$ref": "#/$defs/WorldObserved"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "project.world.brought_forward"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "$ref": "#/$defs/WorldBroughtForward"
             }
           },
           "additionalProperties": false
@@ -17500,6 +17718,235 @@
       "type": "object",
       "required": [
         "format",
+        "scene",
+        "night",
+        "lights",
+        "haze",
+        "places"
+      ],
+      "properties": {
+        "format": {
+          "type": "number",
+          "const": 2
+        },
+        "scene": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,31}$"
+        },
+        "night": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "lights": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorldLight"
+          },
+          "maxItems": 8
+        },
+        "haze": {
+          "$ref": "#/$defs/WorldHaze"
+        },
+        "places": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorldPlace"
+          },
+          "maxItems": 8
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorldLight": {
+      "type": "object",
+      "required": [
+        "light",
+        "brightness",
+        "colour"
+      ],
+      "properties": {
+        "light": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,31}$"
+        },
+        "brightness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "colour": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorldHaze": {
+      "type": "object",
+      "required": [
+        "thickness",
+        "colour"
+      ],
+      "properties": {
+        "thickness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "colour": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorldPlace": {
+      "type": "object",
+      "required": [
+        "project",
+        "at"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "at": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,31}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorldRefused": {
+      "type": "object",
+      "required": [
+        "code",
+        "where",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "missing"
+            },
+            {
+              "type": "string",
+              "const": "not_a_file"
+            },
+            {
+              "type": "string",
+              "const": "too_large"
+            },
+            {
+              "type": "string",
+              "const": "not_text"
+            },
+            {
+              "type": "string",
+              "const": "not_json"
+            },
+            {
+              "type": "string",
+              "const": "not_a_description"
+            }
+          ]
+        },
+        "where": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(/[a-z_]{1,32}|/[0-9]{1,4}){1,8}$",
+              "maxLength": 120
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorldObserved": {
+      "type": "object",
+      "required": [
+        "description",
+        "refused"
+      ],
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorldDescription"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "refused": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorldRefused"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProjectWorldView": {
+      "type": "object",
+      "required": [
+        "description",
+        "refused",
+        "observed_at"
+      ],
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorldDescription"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "refused": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorldRefused"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorldDescriptionFormat1": {
+      "type": "object",
+      "required": [
+        "format",
         "sky",
         "disc",
         "stars",
@@ -17704,14 +18151,14 @@
         "places": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/WorldPlace"
+            "$ref": "#/$defs/WorldPlaceFormat1"
           },
           "maxItems": 8
         }
       },
       "additionalProperties": false
     },
-    "WorldPlace": {
+    "WorldPlaceFormat1": {
       "type": "object",
       "required": [
         "project",
@@ -17738,63 +18185,7 @@
       },
       "additionalProperties": false
     },
-    "WorldRefused": {
-      "type": "object",
-      "required": [
-        "code",
-        "where",
-        "message"
-      ],
-      "properties": {
-        "code": {
-          "anyOf": [
-            {
-              "type": "string",
-              "const": "missing"
-            },
-            {
-              "type": "string",
-              "const": "not_a_file"
-            },
-            {
-              "type": "string",
-              "const": "too_large"
-            },
-            {
-              "type": "string",
-              "const": "not_text"
-            },
-            {
-              "type": "string",
-              "const": "not_json"
-            },
-            {
-              "type": "string",
-              "const": "not_a_description"
-            }
-          ]
-        },
-        "where": {
-          "anyOf": [
-            {
-              "type": "string",
-              "pattern": "^(/[a-z_]{1,32}|/[0-9]{1,4}){1,8}$",
-              "maxLength": 120
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "message": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 2000
-        }
-      },
-      "additionalProperties": false
-    },
-    "WorldObserved": {
+    "WorldObservedFormat1": {
       "type": "object",
       "required": [
         "description",
@@ -17804,7 +18195,7 @@
         "description": {
           "anyOf": [
             {
-              "$ref": "#/$defs/WorldDescription"
+              "$ref": "#/$defs/WorldDescriptionFormat1"
             },
             {
               "type": "null"
@@ -17824,41 +18215,138 @@
       },
       "additionalProperties": false
     },
-    "ProjectWorldView": {
+    "WorldBroughtForward": {
       "type": "object",
       "required": [
-        "description",
-        "refused",
-        "observed_at"
+        "from_format",
+        "scene",
+        "guide"
       ],
       "properties": {
-        "description": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/WorldDescription"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "from_format": {
+          "type": "number",
+          "const": 1
         },
-        "refused": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/WorldRefused"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "observed_at": {
+        "scene": {
           "type": "string",
-          "format": "date-time",
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          "pattern": "^[a-z][a-z0-9_]{0,31}$"
+        },
+        "guide": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "replaced"
+            },
+            {
+              "type": "string",
+              "const": "kept"
+            }
+          ]
         }
       },
       "additionalProperties": false
+    },
+    "WorldScene": {
+      "type": "object",
+      "required": [
+        "format",
+        "scene",
+        "says",
+        "lights",
+        "places"
+      ],
+      "properties": {
+        "format": {
+          "type": "number",
+          "const": 1
+        },
+        "scene": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,31}$"
+        },
+        "says": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400,
+          "pattern": "\\S"
+        },
+        "lights": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorldSceneLight"
+          },
+          "minItems": 1,
+          "maxItems": 8
+        },
+        "places": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorldScenePlace"
+          },
+          "maxItems": 8
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorldSceneLight": {
+      "type": "object",
+      "required": [
+        "light",
+        "says",
+        "when"
+      ],
+      "properties": {
+        "light": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,31}$"
+        },
+        "says": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "when": {
+          "$ref": "#/$defs/WorldLightWhen"
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorldScenePlace": {
+      "type": "object",
+      "required": [
+        "place",
+        "says"
+      ],
+      "properties": {
+        "place": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,31}$"
+        },
+        "says": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorldLightWhen": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "day"
+        },
+        {
+          "type": "string",
+          "const": "night"
+        },
+        {
+          "type": "string",
+          "const": "all"
+        }
+      ]
     },
     "LocationsResponse": {
       "type": "object",

@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "sky": { "zenith": "#27405E", "band": "#D99A84", "horizon": "#F0C9A8" },
+  "disc": { "bearing": -25, "height": 4, "size": 2.2, "colour": "#FFE2B8", "glow": 0.6 },
+  "stars": 0.25,
+  "clouds": { "amount": 0.2, "colour": "#E9B7A6" },
+  "mist": { "amount": 0.45, "colour": "#E6C4B0" },
+  "water": { "near": "#1B3148", "far": "#6E8AA6", "ripple": 0.25, "shine": 0.7 },
+  "ground": { "colour": "#2B2F36", "radius": 3 },
+  "wind": { "bearing": 60, "strength": 0.2 },
+  "places": []
+}

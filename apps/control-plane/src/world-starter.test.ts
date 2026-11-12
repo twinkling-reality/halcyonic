@@ -15,11 +15,13 @@ import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   parseWorldDescription,
+  parseWorldScene,
   WORLD_FILE,
   WORLD_STARTER_ID,
   WorldDescription,
 } from '@halcyonic/contracts';
 import { STARTER_DEFAULTS } from '@halcyonic/domain';
+import { loadWorldStarter } from './observer/world-reader.ts';
 import { HostStarters } from './starters.ts';
 
 const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-world-starter-')));
@@ -96,33 +98,40 @@ describe('the tracked world starter', () => {
     assert.equal(existsSync(join(TRACKED, WORLD_STARTER_ID, 'host')), false);
   });
 
-  test('its description is one the contract takes', () => {
+  test('its description is one the contract takes, in a scene the starter has', () => {
+    const starter = loadWorldStarter();
+    assert.equal(starter.scenes.size >= 1, true);
     const parsed = parseWorldDescription(
       JSON.parse(readFileSync(join(template, WORLD_FILE), 'utf8')),
+      starter.scenes,
     );
     assert.equal(parsed.ok, true, JSON.stringify(parsed));
+    // Each scene's manifest is named by its scene, and every one is one.
+    for (const name of readdirSync(join(TRACKED, WORLD_STARTER_ID, 'scenes')))
+      assert.equal(
+        parseWorldScene(
+          JSON.parse(readFileSync(join(TRACKED, WORLD_STARTER_ID, 'scenes', name), 'utf8')),
+        ).ok,
+        true,
+        name,
+      );
   });
 
-  test("its guide names every member of the description, with each number's range", () => {
+  test("its guide names every member of the description with its range, and its scene's lights and places as the manifest says them, nothing more", () => {
     const guide = readFileSync(join(template, 'AGENTS.md'), 'utf8');
+    const rows = guide.split('\n').filter((line) => line.startsWith('| `'));
     const members: string[] = [];
     const ranges: string[] = [];
-    // A row for every member that holds a value, for the part that may be null and for the list.
     const walk = (schema: unknown, path: string): void => {
       const node = schema as {
         properties?: Record<string, unknown>;
         items?: unknown;
-        anyOf?: { properties?: unknown }[];
         minimum?: number;
         maximum?: number;
       };
       if (typeof node.minimum === 'number' && typeof node.maximum === 'number')
         ranges.push(`${path}: ${node.minimum} to ${node.maximum}`);
-      const part = node.anyOf?.find((option) => option.properties !== undefined);
-      if (part !== undefined) {
-        members.push(path);
-        walk(part, path);
-      } else if (node.items !== undefined) {
+      if (node.items !== undefined) {
         members.push(path);
         walk(node.items, `${path}[]`);
       } else if (node.properties !== undefined) {
@@ -131,18 +140,30 @@ describe('the tracked world starter', () => {
       } else members.push(path);
     };
     walk(WorldDescription, '');
-    assert.equal(members.length, 27);
+    assert.equal(members.length, 12);
     for (const member of members) assert.ok(guide.includes(`\`${member}\``), member);
-    // An amount (0 to 1) and a bearing (-180 to 180) are named once, by word; every other range on its member's row.
     for (const range of ranges) {
       const [member, bounds] = range.split(': ') as [string, string];
-      const row = guide.split('\n').find((line) => line.startsWith(`| \`${member}\``)) ?? '';
-      const word = bounds === '0 to 1' ? 'amount' : bounds === '-180 to 180' ? 'bearing' : bounds;
-      assert.ok(row.includes(word), `${member}: ${bounds}`);
+      const row = rows.find((line) => line.startsWith(`| \`${member}\``)) ?? '';
+      assert.ok(row.endsWith(`| ${bounds} |`), `${member}: ${bounds}`);
     }
-    assert.match(guide, /Amounts run from 0 \(none\) to 1/);
-    assert.match(guide, /from -180 to 180/);
     assert.match(guide, /at most 8/);
+    const description = JSON.parse(readFileSync(join(template, WORLD_FILE), 'utf8'));
+    const scene = loadWorldStarter().scenes.get(description.scene);
+    if (scene === undefined) return assert.fail('no scene');
+    assert.ok(guide.includes(`\`${scene.scene}\``));
+    const when = {
+      day: 'By day: fades as night comes',
+      night: 'By night: comes as night does',
+      all: 'Day and night',
+    };
+    const lightRows = scene.lights.map((l) => `| \`${l.light}\` | ${l.says} | ${when[l.when]} |`);
+    const placeRows = scene.places.map((p) => `| \`${p.place}\` | ${p.says} |`);
+    for (const row of [...lightRows, ...placeRows]) assert.ok(rows.includes(row), row);
+    // Every row the guide has is a member's, a light's or a place's: it promises nothing the scene lacks.
+    const named = new Set([...lightRows, ...placeRows]);
+    const memberRows = rows.filter((row) => !named.has(row));
+    assert.equal(memberRows.length, members.length, memberRows.join('\n'));
   });
 });
 

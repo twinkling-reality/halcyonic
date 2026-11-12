@@ -2248,85 +2248,25 @@ namespace Halcyonic.Contracts
         public string PublishedAt { get; set; } = default!;
     }
 
-    public sealed class WorldDescriptionSky
+    public sealed class WorldLight
     {
-        [global::Newtonsoft.Json.JsonProperty("zenith", Required = global::Newtonsoft.Json.Required.Always)]
-        public string Zenith { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("light", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Light { get; set; } = default!;
 
-        [global::Newtonsoft.Json.JsonProperty("band", Required = global::Newtonsoft.Json.Required.AllowNull)]
-        public string? Band { get; set; }
-
-        [global::Newtonsoft.Json.JsonProperty("horizon", Required = global::Newtonsoft.Json.Required.Always)]
-        public string Horizon { get; set; } = default!;
-    }
-
-    public sealed class WorldDescriptionDisc
-    {
-        [global::Newtonsoft.Json.JsonProperty("bearing", Required = global::Newtonsoft.Json.Required.Always)]
-        public double Bearing { get; set; }
-
-        [global::Newtonsoft.Json.JsonProperty("height", Required = global::Newtonsoft.Json.Required.Always)]
-        public double Height { get; set; }
-
-        [global::Newtonsoft.Json.JsonProperty("size", Required = global::Newtonsoft.Json.Required.Always)]
-        public double Size { get; set; }
-
-        [global::Newtonsoft.Json.JsonProperty("colour", Required = global::Newtonsoft.Json.Required.Always)]
-        public string Colour { get; set; } = default!;
-
-        [global::Newtonsoft.Json.JsonProperty("glow", Required = global::Newtonsoft.Json.Required.Always)]
-        public double Glow { get; set; }
-    }
-
-    public sealed class WorldDescriptionClouds
-    {
-        [global::Newtonsoft.Json.JsonProperty("amount", Required = global::Newtonsoft.Json.Required.Always)]
-        public double Amount { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("brightness", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Brightness { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("colour", Required = global::Newtonsoft.Json.Required.Always)]
         public string Colour { get; set; } = default!;
     }
 
-    public sealed class WorldDescriptionMist
+    public sealed class WorldHaze
     {
-        [global::Newtonsoft.Json.JsonProperty("amount", Required = global::Newtonsoft.Json.Required.Always)]
-        public double Amount { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("thickness", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Thickness { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("colour", Required = global::Newtonsoft.Json.Required.Always)]
         public string Colour { get; set; } = default!;
-    }
-
-    public sealed class WorldDescriptionWater
-    {
-        [global::Newtonsoft.Json.JsonProperty("near", Required = global::Newtonsoft.Json.Required.Always)]
-        public string Near { get; set; } = default!;
-
-        [global::Newtonsoft.Json.JsonProperty("far", Required = global::Newtonsoft.Json.Required.Always)]
-        public string Far { get; set; } = default!;
-
-        [global::Newtonsoft.Json.JsonProperty("ripple", Required = global::Newtonsoft.Json.Required.Always)]
-        public double Ripple { get; set; }
-
-        [global::Newtonsoft.Json.JsonProperty("shine", Required = global::Newtonsoft.Json.Required.Always)]
-        public double Shine { get; set; }
-    }
-
-    public sealed class WorldDescriptionGround
-    {
-        [global::Newtonsoft.Json.JsonProperty("colour", Required = global::Newtonsoft.Json.Required.Always)]
-        public string Colour { get; set; } = default!;
-
-        [global::Newtonsoft.Json.JsonProperty("radius", Required = global::Newtonsoft.Json.Required.Always)]
-        public double Radius { get; set; }
-    }
-
-    public sealed class WorldDescriptionWind
-    {
-        [global::Newtonsoft.Json.JsonProperty("bearing", Required = global::Newtonsoft.Json.Required.Always)]
-        public double Bearing { get; set; }
-
-        [global::Newtonsoft.Json.JsonProperty("strength", Required = global::Newtonsoft.Json.Required.Always)]
-        public double Strength { get; set; }
     }
 
     public sealed class WorldPlace
@@ -2334,41 +2274,26 @@ namespace Halcyonic.Contracts
         [global::Newtonsoft.Json.JsonProperty("project", Required = global::Newtonsoft.Json.Required.Always)]
         public string Project { get; set; } = default!;
 
-        [global::Newtonsoft.Json.JsonProperty("bearing", Required = global::Newtonsoft.Json.Required.Always)]
-        public double Bearing { get; set; }
-
-        [global::Newtonsoft.Json.JsonProperty("distance", Required = global::Newtonsoft.Json.Required.Always)]
-        public double Distance { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("at", Required = global::Newtonsoft.Json.Required.Always)]
+        public string At { get; set; } = default!;
     }
 
     public sealed class WorldDescription
     {
         [global::Newtonsoft.Json.JsonProperty("format", Required = global::Newtonsoft.Json.Required.Always)]
-        public long Format { get; set; } = 1;
+        public long Format { get; set; } = 2;
 
-        [global::Newtonsoft.Json.JsonProperty("sky", Required = global::Newtonsoft.Json.Required.Always)]
-        public WorldDescriptionSky Sky { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("scene", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Scene { get; set; } = default!;
 
-        [global::Newtonsoft.Json.JsonProperty("disc", Required = global::Newtonsoft.Json.Required.AllowNull)]
-        public WorldDescriptionDisc? Disc { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("night", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Night { get; set; }
 
-        [global::Newtonsoft.Json.JsonProperty("stars", Required = global::Newtonsoft.Json.Required.Always)]
-        public double Stars { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("lights", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<WorldLight> Lights { get; set; } = new global::System.Collections.Generic.List<WorldLight>();
 
-        [global::Newtonsoft.Json.JsonProperty("clouds", Required = global::Newtonsoft.Json.Required.Always)]
-        public WorldDescriptionClouds Clouds { get; set; } = default!;
-
-        [global::Newtonsoft.Json.JsonProperty("mist", Required = global::Newtonsoft.Json.Required.Always)]
-        public WorldDescriptionMist Mist { get; set; } = default!;
-
-        [global::Newtonsoft.Json.JsonProperty("water", Required = global::Newtonsoft.Json.Required.Always)]
-        public WorldDescriptionWater Water { get; set; } = default!;
-
-        [global::Newtonsoft.Json.JsonProperty("ground", Required = global::Newtonsoft.Json.Required.Always)]
-        public WorldDescriptionGround Ground { get; set; } = default!;
-
-        [global::Newtonsoft.Json.JsonProperty("wind", Required = global::Newtonsoft.Json.Required.Always)]
-        public WorldDescriptionWind Wind { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("haze", Required = global::Newtonsoft.Json.Required.Always)]
+        public WorldHaze Haze { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("places", Required = global::Newtonsoft.Json.Required.Always)]
         public global::System.Collections.Generic.List<WorldPlace> Places { get; set; } = new global::System.Collections.Generic.List<WorldPlace>();
@@ -4054,10 +3979,136 @@ namespace Halcyonic.Contracts
         public string Name { get; set; } = default!;
     }
 
-    public sealed class WorldObserved
+    public sealed class WorldDescriptionFormat1Sky
+    {
+        [global::Newtonsoft.Json.JsonProperty("zenith", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Zenith { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("band", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Band { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("horizon", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Horizon { get; set; } = default!;
+    }
+
+    public sealed class WorldDescriptionFormat1Disc
+    {
+        [global::Newtonsoft.Json.JsonProperty("bearing", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Bearing { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("height", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Height { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("size", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Size { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("colour", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Colour { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("glow", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Glow { get; set; }
+    }
+
+    public sealed class WorldDescriptionFormat1Clouds
+    {
+        [global::Newtonsoft.Json.JsonProperty("amount", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Amount { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("colour", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Colour { get; set; } = default!;
+    }
+
+    public sealed class WorldDescriptionFormat1Mist
+    {
+        [global::Newtonsoft.Json.JsonProperty("amount", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Amount { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("colour", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Colour { get; set; } = default!;
+    }
+
+    public sealed class WorldDescriptionFormat1Water
+    {
+        [global::Newtonsoft.Json.JsonProperty("near", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Near { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("far", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Far { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("ripple", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Ripple { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("shine", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Shine { get; set; }
+    }
+
+    public sealed class WorldDescriptionFormat1Ground
+    {
+        [global::Newtonsoft.Json.JsonProperty("colour", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Colour { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("radius", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Radius { get; set; }
+    }
+
+    public sealed class WorldDescriptionFormat1Wind
+    {
+        [global::Newtonsoft.Json.JsonProperty("bearing", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Bearing { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("strength", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Strength { get; set; }
+    }
+
+    public sealed class WorldPlaceFormat1
+    {
+        [global::Newtonsoft.Json.JsonProperty("project", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Project { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("bearing", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Bearing { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("distance", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Distance { get; set; }
+    }
+
+    public sealed class WorldDescriptionFormat1
+    {
+        [global::Newtonsoft.Json.JsonProperty("format", Required = global::Newtonsoft.Json.Required.Always)]
+        public long Format { get; set; } = 1;
+
+        [global::Newtonsoft.Json.JsonProperty("sky", Required = global::Newtonsoft.Json.Required.Always)]
+        public WorldDescriptionFormat1Sky Sky { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("disc", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public WorldDescriptionFormat1Disc? Disc { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("stars", Required = global::Newtonsoft.Json.Required.Always)]
+        public double Stars { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("clouds", Required = global::Newtonsoft.Json.Required.Always)]
+        public WorldDescriptionFormat1Clouds Clouds { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("mist", Required = global::Newtonsoft.Json.Required.Always)]
+        public WorldDescriptionFormat1Mist Mist { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("water", Required = global::Newtonsoft.Json.Required.Always)]
+        public WorldDescriptionFormat1Water Water { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("ground", Required = global::Newtonsoft.Json.Required.Always)]
+        public WorldDescriptionFormat1Ground Ground { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("wind", Required = global::Newtonsoft.Json.Required.Always)]
+        public WorldDescriptionFormat1Wind Wind { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("places", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<WorldPlaceFormat1> Places { get; set; } = new global::System.Collections.Generic.List<WorldPlaceFormat1>();
+    }
+
+    public sealed class WorldObservedFormat1
     {
         [global::Newtonsoft.Json.JsonProperty("description", Required = global::Newtonsoft.Json.Required.AllowNull)]
-        public WorldDescription? Description { get; set; }
+        public WorldDescriptionFormat1? Description { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("refused", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorldRefused? Refused { get; set; }
@@ -4076,6 +4127,34 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("changed", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Changed { get; set; }
+    }
+
+    public sealed class WorldObserved
+    {
+        [global::Newtonsoft.Json.JsonProperty("description", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public WorldDescription? Description { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("refused", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public WorldRefused? Refused { get; set; }
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum WorldBroughtForwardGuide
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "replaced")] Replaced,
+        [global::System.Runtime.Serialization.EnumMember(Value = "kept")] Kept,
+    }
+
+    public sealed class WorldBroughtForward
+    {
+        [global::Newtonsoft.Json.JsonProperty("from_format", Required = global::Newtonsoft.Json.Required.Always)]
+        public long FromFormat { get; set; } = 1;
+
+        [global::Newtonsoft.Json.JsonProperty("scene", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Scene { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("guide", Required = global::Newtonsoft.Json.Required.Always)]
+        public WorldBroughtForwardGuide Guide { get; set; }
     }
 
     public sealed class WorkstreamCreatedPayload
@@ -5804,6 +5883,8 @@ namespace Halcyonic.Contracts
                 "project.world.observed" => new ProjectWorldObservedEvent(),
                 "project.rules.updated" => new ProjectRulesUpdatedEvent(),
                 "execution.rules_given" => new ExecutionRulesGivenEvent(),
+                "project.world.read" => new ProjectWorldReadEvent(),
+                "project.world.brought_forward" => new ProjectWorldBroughtForwardEvent(),
                 "workstream.created" => new WorkstreamCreatedEvent(),
                 "workstream.copy_made" => new WorkstreamCopyMadeEvent(),
                 "workstream.copy_refused" => new WorkstreamCopyRefusedEvent(),
@@ -6121,7 +6202,7 @@ namespace Halcyonic.Contracts
         protected override string Discriminator => "project.world.observed";
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
-        public WorldObserved Payload { get; set; } = default!;
+        public WorldObservedFormat1 Payload { get; set; } = default!;
     }
 
     public sealed class ProjectRulesUpdatedEvent : EventEnvelope
@@ -6138,6 +6219,22 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectRulesOn Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectWorldReadEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.world.read";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public WorldObserved Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectWorldBroughtForwardEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.world.brought_forward";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public WorldBroughtForward Payload { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreatedEvent : EventEnvelope
@@ -6951,6 +7048,53 @@ namespace Halcyonic.Contracts
     {
         [global::Newtonsoft.Json.JsonProperty("roots", Required = global::Newtonsoft.Json.Required.Always)]
         public global::System.Collections.Generic.List<LocationRoot> Roots { get; set; } = new global::System.Collections.Generic.List<LocationRoot>();
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum WorldLightWhen
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "day")] Day,
+        [global::System.Runtime.Serialization.EnumMember(Value = "night")] Night,
+        [global::System.Runtime.Serialization.EnumMember(Value = "all")] All,
+    }
+
+    public sealed class WorldSceneLight
+    {
+        [global::Newtonsoft.Json.JsonProperty("light", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Light { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("says", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Says { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("when", Required = global::Newtonsoft.Json.Required.Always)]
+        public WorldLightWhen When { get; set; }
+    }
+
+    public sealed class WorldScenePlace
+    {
+        [global::Newtonsoft.Json.JsonProperty("place", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Place { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("says", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Says { get; set; } = default!;
+    }
+
+    public sealed class WorldScene
+    {
+        [global::Newtonsoft.Json.JsonProperty("format", Required = global::Newtonsoft.Json.Required.Always)]
+        public long Format { get; set; } = 1;
+
+        [global::Newtonsoft.Json.JsonProperty("scene", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Scene { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("says", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Says { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("lights", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<WorldSceneLight> Lights { get; set; } = new global::System.Collections.Generic.List<WorldSceneLight>();
+
+        [global::Newtonsoft.Json.JsonProperty("places", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<WorldScenePlace> Places { get; set; } = new global::System.Collections.Generic.List<WorldScenePlace>();
     }
 
     public sealed class StarterView

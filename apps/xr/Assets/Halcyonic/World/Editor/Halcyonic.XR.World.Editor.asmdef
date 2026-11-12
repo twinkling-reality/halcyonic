@@ -2,7 +2,9 @@
   "name": "Halcyonic.XR.World.Editor",
   "rootNamespace": "Halcyonic.XR.World.Editor",
   "references": [
-    "Halcyonic.XR.World"
+    "Halcyonic.XR.World",
+    "Halcyonic.Client",
+    "Halcyonic.Contracts"
   ],
   "includePlatforms": [
     "Editor"

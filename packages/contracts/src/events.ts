@@ -75,7 +75,7 @@ import { SecretName, SecretNames } from './secrets.ts';
 import { StarterId } from './starters.ts';
 import { ToolResult } from './tool-results.ts';
 import { EVENT_SCHEMA_VERSION } from './versions.ts';
-import { WorldObserved } from './world.ts';
+import { WorldBroughtForward, WorldObserved, WorldObservedFormat1 } from './world.ts';
 
 const strict = { additionalProperties: false } as const;
 
@@ -611,12 +611,25 @@ export const ProjectMacPlayStopped = projectEvent(
 );
 
 /**
- * The Mac itself read a world project's description file (ADR 0049): when the world starter was
- * applied, and after a turn in the project's folder, whenever what it found differs from what it
+ * Format 1's reading of a world project's description file (ADR 0049 before 2026-11-12). Kept only so
+ * that journals written before format 2 stay readable: the Mac no longer records it, and the projection
+ * takes nothing from it.
+ */
+export const ProjectWorldObserved = projectEvent('project.world.observed', WorldObservedFormat1);
+
+/**
+ * The Mac itself read a world project's description file (ADR 0049, format 2): when the world starter
+ * was applied, and after a turn in the project's folder, whenever what it found differs from what it
  * last recorded. The description is the file's content as the Mac validated it; the agent's own
  * account of its edit is never the source.
  */
-export const ProjectWorldObserved = projectEvent('project.world.observed', WorldObserved);
+export const ProjectWorldRead = projectEvent('project.world.read', WorldObserved);
+
+/** The Mac brought a world made before format 2 forward, once, in its own folder (ADR 0049). */
+export const ProjectWorldBroughtForward = projectEvent(
+  'project.world.brought_forward',
+  WorldBroughtForward,
+);
 
 /**
  * The project's rules were turned on or off (E5): by the person's `project.rules.set`, or by the host
@@ -1251,6 +1264,8 @@ export const EVENT_VARIANTS = [
   ProjectWorldObserved,
   ProjectRulesUpdated,
   ExecutionRulesGiven,
+  ProjectWorldRead,
+  ProjectWorldBroughtForward,
   WorkstreamCreated,
   WorkstreamCopyMade,
   WorkstreamCopyRefused,
