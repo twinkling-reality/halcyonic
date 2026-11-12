@@ -910,8 +910,9 @@ describe('the setup view on the pairing page', () => {
     assert.deepEqual(removed.secrets?.projects[0]?.secrets, []);
     assert.equal(removed.secrets?.confirm, null);
     const shown = await call(port, 'GET', '/setup', { cookie });
-    assert.match(shown.body, /<h2>Project Secrets<\/h2>/);
-    assert.match(shown.body, /An agent given a key can use it, print it, and send it/);
+    // An Optional row that opens, as the steps do; its one line still says what an agent can do with a key.
+    assert.match(shown.body, /<span class="step-name">Project Secrets<\/span>/);
+    assert.match(shown.body, /its agent can use, print or send them\. Give it test keys\./);
     // The two extra lines are written from the state's names; their places are on the page.
     assert.match(shown.body, /id="secrets-some"/);
     assert.match(shown.body, /id="secrets-open" class="secret-alert"/);

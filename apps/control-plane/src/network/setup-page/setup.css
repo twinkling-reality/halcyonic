@@ -407,16 +407,19 @@
     padding: 2px 14px 16px;
   }
 }
-/* Each project's secrets by name (ADR 0057): a row per secret with Remove, and a name and a hidden
-   field to set one. A value is never drawn. */
-.secrets-note {
-  margin: 0 0 10px;
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--quiet);
+/* Each project's secrets by name (ADR 0057), inside an Optional row that opens: a card per project, a list row per
+   secret with its key mark and a quiet Remove, and a captioned name and hidden value to set one. A value is never
+   drawn. */
+#optional-steps:not(:empty) + .secrets-steps {
+  margin-top: 8px;
+}
+.secret-projects {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
 }
 .secret-project {
-  padding: 12px;
+  padding: 12px 14px 14px;
   border-radius: 16px;
   background: var(--well);
 }
@@ -430,36 +433,113 @@
   font-weight: 600;
   overflow-wrap: anywhere;
 }
-.secret-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.secret-none {
+  margin: 0;
   padding: 4px 0;
-}
-.secret-name {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 20px;
   color: var(--secondary);
-  overflow-wrap: anywhere;
+}
+.secret-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 12px;
+}
+.secret-row + .secret-row {
+  border-top: 1px solid var(--rest-edge);
+}
+.secret-tile {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 44px;
+  color: var(--secondary);
+}
+.secret-tile .glyph {
+  width: 18px;
+  height: 18px;
+}
+.secret-name {
+  min-width: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  padding: 12px 0;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--text);
+  /* Breaks after an underscore first; a name with none breaks where it must, never past the card. */
+  overflow-wrap: break-word;
+}
+/* Quieter than a row's own action: no fill until pointed at, the words in the quiet tone. */
+.secret-remove {
+  flex: none;
+  min-height: 36px;
+  margin: 4px -12px 0 0;
+  padding: 6px 12px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--secondary);
+}
+.secret-remove:hover:not(:disabled) {
+  color: var(--text);
 }
 .secret-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-top: 12px;
+}
+/* Set as the page's main press, sized to the fields beside it, not the full width a main press takes elsewhere. */
+.secret-form > .main {
+  width: auto;
+  box-shadow: none;
+  height: 42px;
+  min-height: 42px;
+  padding: 8px 18px;
+  font-size: 15px;
+}
+.secret-add {
+  margin-top: 10px;
+}
+.secret-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.secret-caption {
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--secondary);
 }
 .secret-form input {
-  flex: 1 1 140px;
+  width: 100%;
   min-width: 0;
+  height: 42px;
+  box-sizing: border-box;
   padding: 9px 12px;
-  border: 1px solid var(--rest-edge);
+  border: 1px solid var(--quiet);
   border-radius: 12px;
   background: var(--tile);
   color: var(--text);
   font: inherit;
   font-size: 15px;
+}
+/* An example, quieter than a typed name, and still legible on the field. */
+.secret-form input::placeholder {
+  color: var(--quiet);
+  opacity: 1;
+}
+@media (prefers-color-scheme: light) {
+  /* Light's quiet tone is under 4.5:1 on a field: between it and the captions' tone instead. */
+  .secret-form input::placeholder {
+    color: color-mix(in srgb, var(--secondary) 55%, var(--quiet));
+  }
+}
+/* A typed name in the same mono as the kept ones. */
+.secret-form .secret-typed-name {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 .secret-form input:focus-visible {
   outline: 2px solid var(--focus);
@@ -469,13 +549,25 @@
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  margin: 0 0 10px;
-  padding: 10px 12px;
+  margin: 10px 0 0;
+  padding: 10px 14px;
   border-radius: 12px;
   background: var(--well);
+  position: relative;
   color: var(--secondary);
   font-size: 15px;
   line-height: 20px;
+}
+/* A warning by a straight bar at its edge, in the failing tone, never the accent. */
+.secret-alert::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--bad);
 }
 .secret-alert p {
   margin: 0;
@@ -492,6 +584,84 @@
   line-height: 20px;
   color: var(--bad-ink);
 }
+/* A Remove's question stands under its own row, indented to the name, with no line between them; the next row's
+   line comes after it. */
 .secret-project .question {
-  margin: 6px 0 8px;
+  margin: 0;
+  padding: 2px 0 12px 30px;
+  border-radius: 0;
+  background: none;
+}
+.secret-project .question + .secret-row {
+  border-top: 1px solid var(--rest-edge);
+}
+
+/* The phone, last among the secrets' rules so it wins over their base. */
+@media (max-width: 520px) {
+  .secret-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Room for a 19-character name and its Remove on one line: a little less around both. */
+  .secret-project {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .secret-row {
+    column-gap: 4px;
+  }
+  .secret-alert {
+    gap: 6px;
+  }
+  /* Indented to the name: the 18px mark and the phone's 4px gap. */
+  .secret-project .question {
+    padding-left: 22px;
+  }
+  .secret-remove {
+    gap: 6px;
+    margin-right: -10px;
+    padding: 6px 10px 6px 4px;
+    font-size: 14px;
+  }
+  /* A name and its Remove share a line when both fit; else Remove drops under the name, at the right, and the name
+     breaks only when it alone is wider than the card. */
+  .secret-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .secret-tile {
+    flex: none;
+  }
+  .secret-name {
+    flex: 1 0 auto;
+    max-width: calc(100% - 24px);
+    font-size: 13px;
+  }
+  /* Beside the name when both fit (any name to 19 characters); at the right under a longer one. */
+  .secret-remove {
+    margin-left: auto;
+  }
+  .secret-add {
+    margin-top: 10px;
+  }
+  /* Under a long name, Remove stays with its secret, and the form keeps its distance. */
+  .secret-name {
+    padding-bottom: 4px;
+  }
+  .secret-form {
+    margin-top: 16px;
+  }
+  .secret-form > button {
+    width: 100%;
+    justify-content: center;
+  }
+  /* The question's two presses, each the card's full width on the phone, stacked: neither is ever narrower than its words. */
+  .secret-project .question-actions > button {
+    flex: 1 1 100%;
+  }
+}
+
+/* Last, as on the pairing page: this sheet loads after page.css, so its displays would otherwise win over hidden. */
+[hidden] {
+  display: none;
 }
