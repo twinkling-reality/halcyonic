@@ -744,10 +744,11 @@ namespace Halcyonic.Client
                 lines.Add(new PageLine(AgentColumn.AskFirstWords, action: ChooseLevel, key: AgentColumn.Ask, choice: true, chosen: !draft.StartsNeverAsk, answerMark: AnswerMark.Single));
                 lines.Add(new PageLine(AgentColumn.NeverAskWords, action: ChooseLevel, key: AgentColumn.Never, choice: true, chosen: draft.StartsNeverAsk, answerMark: AnswerMark.Single));
             }
-            if (!existing && words) lines.Add(new PageLine(EntryText.ProjectName, icon: GlazeIcon.Change, action: Rename, opens: true));
-            if (words || ChangeFor(idea) != TaskChange.Words) lines.Add(new PageLine(EntryText.FirstTask, icon: GlazeIcon.Change, action: ChangeTask, opens: true));
-            lines.Add(new PageLine(EntryText.ChooseAnotherFolder, icon: GlazeIcon.Change, action: ChooseWhere, opens: true));
-            lines.Add(new PageLine(EntryText.MoreOptions, icon: GlazeIcon.Change, action: MoreOptions, opens: true));
+            // Each thing to change says what it is about, so the page of changes marks it without knowing its action (R3).
+            if (!existing && words) lines.Add(new PageLine(EntryText.ProjectName, icon: GlazeIcon.Change, action: Rename, opens: true).Marked(RoomKind.Project));
+            if (words || ChangeFor(idea) != TaskChange.Words) lines.Add(new PageLine(EntryText.FirstTask, icon: GlazeIcon.Change, action: ChangeTask, opens: true).Marked(RoomKind.Task));
+            lines.Add(new PageLine(EntryText.ChooseAnotherFolder, icon: GlazeIcon.Change, action: ChooseWhere, opens: true).Marked(RoomKind.Folder));
+            lines.Add(new PageLine(EntryText.MoreOptions, icon: GlazeIcon.Change, action: MoreOptions, opens: true).Marked(RoomKind.Agent));
             var footer = new Footer(Close(), rare: new Prompt(StartOver, EntryText.StartOver, GlazeIcon.StartOver, available: startOverProblem == null, reason: startOverProblem,
                     safeInPlace: true),
                 farRight: new Prompt(BackToRecap, EntryText.Back, GlazeIcon.Back));

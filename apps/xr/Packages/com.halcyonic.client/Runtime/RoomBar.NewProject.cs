@@ -14,20 +14,6 @@ namespace Halcyonic.Client
         public const string ChangeTitle = "Change";
 
         /// <summary>
-        /// The mark of a thing on the page of changes: the project's name its cube, the first task its flag, where it starts
-        /// from its pin, the folder its folder, how it runs the agent's orb; anything else a dash.
-        /// </summary>
-        public static RoomKind ChangeKind(string action) => action switch
-        {
-            NewProjectScreens.Rename => RoomKind.Project,
-            NewProjectScreens.ChangeTask => RoomKind.Task,
-            NewProjectScreens.ChooseWhere => RoomKind.Folder,
-            NewProjectScreens.MoreOptions => RoomKind.Agent,
-            _ when action.IndexOf("start", System.StringComparison.OrdinalIgnoreCase) >= 0 && action.IndexOf("from", System.StringComparison.OrdinalIgnoreCase) >= 0 => RoomKind.Starter,
-            _ => RoomKind.None,
-        };
-
-        /// <summary>
         /// The panel's words as rows parted by hairlines, each with its mark (<see cref="RoomRows"/>), where a moment
         /// gives them so: the recap's facts, a start's steps. <see cref="Lines"/> holds the same words for a view that
         /// draws no rows. Null where the panel is one block of words.
@@ -178,7 +164,7 @@ namespace Halcyonic.Client
                     // runs past a column's six. The levels are answers, so they stand in the column, marked, as A1's moment has
                     // them; then Next Page where the things run past a page, Start Over and Back.
                     var changes = frame.Lines.Where(line => line.Action != null && line.Available && !line.Choice).ToList();
-                    var rows = changes.Take(RoomCard.ListAPage).Select(line => new RoomListRow(ChangeKind(line.Action!), line.Runs, null, press: Line(line).Control)).ToList();
+                    var rows = changes.Take(RoomCard.ListAPage).Select(line => new RoomListRow(line.Kind, line.Runs, null, press: Line(line).Control)).ToList();
                     var column = frame.Lines.Where(line => line.Action != null && line.Available && line.Choice).Select(line => Line(line)).ToList();
                     if (Offered(Footer.NextPage) is Prompt next) column.Add(Of(next, KitPlace.Step));
                     if (Offered(NewProjectScreens.StartOver) is Prompt over) column.Add(Of(over, KitPlace.Route));

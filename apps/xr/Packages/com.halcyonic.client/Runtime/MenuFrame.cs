@@ -233,6 +233,19 @@ namespace Halcyonic.Client
             FromRow = fromRow;
         }
 
+        /// <summary>
+        /// What the line is about, said by the line itself (R3, 2026-11-12): the kind whose mark a card's row draws beside it, so a
+        /// reader never tells a line's kind from its action's id or its words. <see cref="RoomKind.None"/> where nothing is said.
+        /// </summary>
+        public RoomKind Kind { get; private set; }
+
+        /// <summary>This line, saying it is about <paramref name="kind"/> (<see cref="Kind"/>).</summary>
+        public PageLine Marked(RoomKind kind)
+        {
+            Kind = kind;
+            return this;
+        }
+
         /// <summary>An explicitly known project identity with its host-owned task summary below.</summary>
         public bool ProjectIdentity { get; private set; }
 
