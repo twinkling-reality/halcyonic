@@ -25,8 +25,9 @@ public class WaitingInstructionsTests
         Assert.That((card.Title!.Text, card.Description!.Text), Is.EqualTo((WaitingText.Title, WaitingText.Line)));
         Assert.That(card.List.Select(row => (row.Name.Text, row.Note, row.Press!.Key)), Is.EqualTo(new[]
         {
-            ("Make the tail longer.", (string?)WaitingText.Next, (string?)"c1"), ("And blue.", WaitingText.Waiting, "c2"), (WaitingText.NotKept, WaitingText.Waiting, "c3"),
+            ("Make the tail longer.", (string?)WaitingText.Next, (string?)"c1"), ("And blue.", null, "c2"), (WaitingText.NotKept, null, "c3"),
         }));
+        Assert.That(card.List.All(row => row.Kind == RoomKind.Waiting), Is.True, "every waiting row takes the waiting mark");
         Assert.That(card.List.Take(2).All(row => row.Name.AllTheirs), Is.True, "the person's words are theirs, never the product's");
         Assert.That(card.AnyDot, Is.False);
         Assert.That(card.Words().Any(words => words.Contains("ueue") || words.Contains("Sent")), Is.False, "never queued, never sent for one that waits");
