@@ -5,6 +5,7 @@ import type {
   ChoiceRowKind,
   CommandType,
   HereScope,
+  OwnCheckScript,
   ProjectPicture,
   RuntimeDescriptor,
   RuntimeModel,
@@ -29,6 +30,8 @@ export interface ChoiceSources {
   readonly pictures: (folder: string) => Promise<readonly ProjectPicture[]>;
   /** The models a runtime that lists them can use now, from its own list, or none when it cannot say. */
   readonly models: (runtime: RuntimeDescriptor) => Promise<readonly RuntimeModel[]>;
+  /** The commands of a project's own that may be its check, as the own check's find reads them, or null. */
+  readonly scripts: (projectId: string) => Promise<readonly OwnCheckScript[] | null>;
 }
 
 /** One line of the host's words or someone else's, clipped to fit, never with an ellipsis. */
@@ -196,11 +199,29 @@ export async function choiceRows(
       }
       return rows;
     }
-    // Not offered by index yet: where a new project goes (a folder and its name together), the catalog,
-    // and a project's own scripts.
+    case 'own_check_scripts': {
+      // Each by its name and its command as read now: the choice carries the command's digest, so a
+      // command changed since it was shown is refused when the check is chosen (ADR 0055).
+      if (project === undefined) return null;
+      const scripts = await sources.scripts(project.project_id);
+      if (scripts === null) return null;
+      return scripts.map((script, index) =>
+        row(
+          index,
+          'script',
+          script.name,
+          { name: script.name, command_sha256: script.command_sha256 },
+          {
+            detail: script.command,
+            theirs: true,
+            actions: ['project.own_check.choose'],
+          },
+        ),
+      );
+    }
+    // Not offered by index yet: where a new project goes (a folder and its name together), and the catalog.
     case 'folders':
     case 'catalog':
-    case 'own_check_scripts':
       return null;
     default: {
       const unhandled: never = list;

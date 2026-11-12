@@ -184,3 +184,53 @@ test('words that leave the Mac are cleaned the one way: no hidden characters, on
   assert.equal(cleanWords('Make the whole sky a deep night blue', true, 20), 'Make the whole sky');
   assert.equal(cleanWords('\u0000​', true, 20), '', 'nothing left is no words');
 });
+
+test('a project’s own commands are chosen by their places in the list, each with its command’s digest (ADR 0055)', async (t) => {
+  const { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { createHostLocations } = await import('../locations.ts');
+  const { createTestControlPlane } = await import('../testing/harness.ts');
+  const { managersOn, commandSha256 } = await import('../own-check/own-check.ts');
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-prepare-scripts-')));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'site'));
+  writeFileSync(
+    join(root, 'site', 'package.json'),
+    JSON.stringify({ name: 'site', scripts: { test: 'node --test', lint: 'echo lint' } }),
+  );
+  const { controlPlane, commands } = createTestControlPlane({
+    locations: createHostLocations([root]),
+    ownChecks: {
+      dataDir: join(root, 'data'),
+      home: '/Users/someone',
+      node: process.execPath,
+      managers: managersOn(process.env.PATH),
+    },
+  });
+  t.after(() => controlPlane.ownChecks?.close());
+  const created = controlPlane.commands.submit(
+    commands.createProject('Site', { kind: 'existing_folder', root, folder_name: 'site' }),
+    'internal',
+  );
+  const projectId =
+    created.command?.result?.kind === 'project_created' ? created.command.result.project_id : '';
+  const scope = { project_id: projectId, workstream_id: null, execution_id: null } as HereScope;
+  const scripts = await controlPlane.commands.choices(scope, 'own_check_scripts');
+  assert.ok(scripts !== null);
+  const names = scripts.rows.map((r) => r.label);
+  assert.ok(names.includes('test') && names.includes('lint'), names.join(', '));
+  const prepared = await controlPlane.commands.prepare({
+    scope,
+    command_type: 'project.own_check.choose',
+    values: { scripts: [names.indexOf('test')] },
+    read: { own_check_scripts: scripts.digest },
+    command_id: randomUUID() as CommandId,
+    issued_at: '2026-11-12T05:45:00.000Z',
+    client: TEST_CLIENT,
+  });
+  assert.ok(prepared.ok, prepared.ok ? '' : prepared.message);
+  assert.deepEqual((prepared.command.payload as { scripts?: unknown }).scripts, [
+    { name: 'test', command_sha256: commandSha256('node --test') },
+  ]);
+});
