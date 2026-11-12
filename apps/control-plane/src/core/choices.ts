@@ -7,6 +7,7 @@ import type {
   HereScope,
   ProjectPicture,
   RuntimeDescriptor,
+  RuntimeModel,
 } from '@halcyonic/contracts';
 import type { Projection } from '@halcyonic/domain';
 
@@ -26,6 +27,8 @@ export interface ChoiceSources {
   readonly runtimes: () => readonly RuntimeDescriptor[];
   /** The pictures of a project's folder an instruction may carry, as the pictures read finds them. */
   readonly pictures: (folder: string) => Promise<readonly ProjectPicture[]>;
+  /** The models a runtime that lists them can use now, from its own list, or none when it cannot say. */
+  readonly models: (runtime: RuntimeDescriptor) => Promise<readonly RuntimeModel[]>;
 }
 
 /** One line of the host's words or someone else's, clipped to fit, never with an ellipsis. */
@@ -176,9 +179,25 @@ export async function choiceRows(
         ),
       );
     }
-    // Not offered by index yet: a runtime's models (which runtime is the start's own choice), where a new
-    // project goes (a folder and its name together), the catalog, and a project's own scripts.
-    case 'models':
+    case 'models': {
+      // Every model of every runtime that lists its own, each naming its runtime; the start's admission and
+      // its runtime check the pair again against a fresh list before anything runs (ADR 0016).
+      const rows: HeldRow[] = [];
+      for (const runtime of sources.runtimes()) {
+        if (runtime.model_choice !== 'listed' || !runtime.capabilities.start_execution) continue;
+        for (const model of await sources.models(runtime))
+          rows.push(
+            row(rows.length, 'model', model.display_name, model.model_ref, {
+              detail: runtime.display_name,
+              theirs: true,
+              actions: ['execution.start'],
+            }),
+          );
+      }
+      return rows;
+    }
+    // Not offered by index yet: where a new project goes (a folder and its name together), the catalog,
+    // and a project's own scripts.
     case 'folders':
     case 'catalog':
     case 'own_check_scripts':

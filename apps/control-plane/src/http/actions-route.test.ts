@@ -89,8 +89,15 @@ test('GET /api/actions/choices answers a list by index, its digest, and no id (A
   }
   const again = (await (await get('?list=runtimes')).json()) as ChoicesResponse;
   assert.equal(again.digest, body.digest, 'the same rows read the same');
+  // Every listed model of every runtime that lists its own, each naming its runtime; the mock lists none.
+  const models = await get('?list=models');
+  assert.equal(models.status, 200);
+  for (const row of ((await models.json()) as ChoicesResponse).rows) {
+    assert.equal(row.kind, 'model');
+    assert.ok(row.detail !== null, 'each model names its runtime');
+  }
   // A list this host cannot read by index yet, or one this place does not have.
-  assert.equal((await get('?list=models')).status, 404);
+  assert.equal((await get('?list=catalog')).status, 404);
   assert.equal((await get('?list=versions')).status, 404, 'all work has no versions');
   assert.equal((await get('?list=nothing')).status, 400);
 });
