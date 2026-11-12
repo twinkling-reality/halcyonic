@@ -300,6 +300,38 @@ describe('Publish to GitHub Pages (ADR 0039, amended)', {
     assert.equal(existsSync(stand.ghLog), false, 'a review runs no gh');
   });
 
+  test("a repository's owner and name are the same in any case: as gh spells them, and as a folder's origin does (the first real run)", async () => {
+    // gh printed the account with capitals; the folder's origin spells it in lower case.
+    const made = { repository: 'Owner/Garden', visibility: 'private' as const };
+    const reviewed = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null, {
+      made,
+      makePublic: true,
+    });
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    assert.equal(reviewed.publish.visibility, 'private');
+    assert.equal(
+      reviewed.publish.make_public,
+      true,
+      'Make Public is offered for the repository Halcyonic made',
+    );
+    const done = await sender().publish(
+      PROJECT,
+      stand.folder,
+      CHECK,
+      built,
+      null,
+      reviewed.publish.review,
+      { made, makePublic: true },
+    );
+    assert.ok(done.ok, done.ok ? '' : done.message);
+    // Taken down from the repository it went to, whatever case the record spells it in.
+    const down = await sender().unpublish(PROJECT, stand.folder, {
+      repository: 'OWNER/garden',
+      commit: done.commit,
+    });
+    assert.ok(down.ok, down.ok ? '' : down.message);
+  });
+
   test("Take Down acts on the repository the game was published to, never the folder's origin now (AUDIT3 U1)", async () => {
     const reviewed = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null);
     assert.ok(reviewed.ok);
