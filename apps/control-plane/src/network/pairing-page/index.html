@@ -22,6 +22,7 @@
   <symbol id="g-next" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></symbol>
   <symbol id="g-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
   <symbol id="g-back" viewBox="0 0 24 24"><path d="M9 7.5L4.5 12 9 16.5"/><path d="M5 12h9.5a5 5 0 0 1 0 10"/></symbol>
+  <symbol id="g-folder" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
   <symbol id="g-close" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></symbol>
 </svg>
 
@@ -34,6 +35,15 @@
     </div>
     <a class="page-link" id="setup-link" href="/setup">Set Up This Computer<svg class="glyph" aria-hidden="true"><use href="#g-next"/></svg></a>
   </header>
+
+  <!-- A Halcyonic on another data folder says which one, so it is never taken for this computer's usual one. -->
+  <section id="elsewhere" class="elsewhere" hidden>
+    <svg class="glyph" aria-hidden="true"><use href="#g-folder"/></svg>
+    <div>
+      <p class="elsewhere-title">Another Data Folder</p>
+      <p class="elsewhere-line" id="elsewhere-line"></p>
+    </div>
+  </section>
 
   <!-- Where pairing stands: a title word over a quieter line, beside its mark. -->
   <section class="state" id="state" data-tone="quiet">

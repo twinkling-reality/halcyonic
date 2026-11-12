@@ -771,7 +771,10 @@ link works once, within a minute; run `pnpm pair` again for another. It reaches 
 file only you can read, in `~/.halcyonic/open-links`, never in a command's arguments, and that file
 goes within a minute; `pnpm pair --print` also prints the link, for a browser it did not open. The
 page needs a browser that says which page each request comes from (current Chrome, Safari 16.4 or
-later, Firefox); an older one is turned away with words that say so.
+later, Firefox); an older one is turned away with words that say so. A Halcyonic started on a data folder
+other than the usual `~/.halcyonic` (`HALCYONIC_DATA_DIR`) says so under the head of both this page and
+the setup page, **Another Data Folder**, naming its folder, so a second Halcyonic on one computer is
+never taken for the usual one.
 
 On the page, nothing happens until you press:
 

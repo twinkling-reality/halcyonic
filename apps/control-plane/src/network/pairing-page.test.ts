@@ -179,8 +179,29 @@ describe('the pairing page', () => {
     const state = await read(server, cookie);
     assert.equal(state.pairing, 'off');
     assert.equal(state.code, null);
+    assert.equal(state.data_folder, null, 'the usual data folder says nothing');
     assert.equal(server.networkSwitch?.on, false, 'opening the page turns no listener on');
     assert.deepEqual(settings(server), {}, 'and writes no setting');
+  });
+
+  test('a Halcyonic on another data folder says which one, on the page, in general words', async (t) => {
+    const server = await startTestServer({
+      page: { ports: PORTS, dataFolder: '~/.halcyonic-second/data' },
+    });
+    t.after(() => server.stop());
+    const port = page(server).port;
+    const link = new URL(page(server).link());
+    const first = await call(port, 'GET', `${link.pathname}${link.search}`);
+    const cookie = String(first.headers['set-cookie']).split(';')[0] ?? '';
+    assert.equal((await read(server, cookie)).data_folder, '~/.halcyonic-second/data');
+    const shown = await call(port, 'GET', '/', { cookie });
+    assert.match(shown.body, /<section id="elsewhere" class="elsewhere" hidden>/);
+    assert.match(shown.body, /<p class="elsewhere-title">Another Data Folder<\/p>/);
+    const script = await call(port, 'GET', '/page.js', { cookie });
+    assert.match(
+      script.body,
+      /This Halcyonic keeps its data in \$\{folder\}, not in the usual ~\/\.halcyonic\./,
+    );
   });
 
   test('answers no other name, no other page and no press without its origin', async (t) => {

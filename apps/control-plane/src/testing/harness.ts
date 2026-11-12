@@ -171,6 +171,8 @@ export interface TestServerOptions extends TestControlPlaneOptions {
     };
     /** More of the page, as main mounts the setup view (ADR 0053). */
     readonly mount?: (routes: PageRoutes) => void;
+    /** The data folder the page says, where it is not the usual one. */
+    readonly dataFolder?: string | null;
   };
   readonly logLevel?: LogLevel;
   /** Receives both listeners' log lines, for tests that check what is logged. */
@@ -277,6 +279,9 @@ export async function startTestServer(options: TestServerOptions = {}) {
           {
             ports: options.page.ports,
             ...(options.page.mount === undefined ? {} : { mount: options.page.mount }),
+            ...(options.page.dataFolder === undefined
+              ? {}
+              : { dataFolder: options.page.dataFolder }),
           },
         );
   registerRoutes(app, harness.controlPlane, sources);

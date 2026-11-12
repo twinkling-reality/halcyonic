@@ -9,6 +9,7 @@ import {
   loadConfig,
   portFamily,
   readOpenCodeSettings,
+  unusualDataFolder,
 } from './config.ts';
 
 const base = mkdtempSync(join(tmpdir(), 'halcyonic-config-'));
@@ -525,4 +526,27 @@ test('a saved copy goes in the account’s Downloads from its own plane, and bes
     downloadsDir('/Users/someone/scratch/data', '/Users/someone'),
     '/Users/someone/scratch/data-downloads',
   );
+});
+
+test('a data folder other than the usual one is said as the person reads it, home as ~; the usual one is not said', () => {
+  const home = '/Users/someone';
+  assert.equal(unusualDataFolder('/Users/someone/.halcyonic', home), null);
+  assert.equal(unusualDataFolder('/Users/someone/.halcyonic/', home), null);
+  assert.equal(
+    unusualDataFolder('/Users/someone/.halcyonic-second/data', home),
+    '~/.halcyonic-second/data',
+  );
+  assert.equal(unusualDataFolder('/Volumes/Other/halcyonic', home), '/Volumes/Other/halcyonic');
+  assert.equal(
+    unusualDataFolder('/Users/someoneelse/.halcyonic', home),
+    '/Users/someoneelse/.halcyonic',
+  );
+});
+
+test('an alias of the usual data folder (a link to it) is the usual one, and says nothing', () => {
+  const home = mkdtempSync(join(base, 'home-'));
+  mkdirSync(join(home, '.halcyonic'));
+  symlinkSync(join(home, '.halcyonic'), join(home, 'link-to-usual'));
+  assert.equal(unusualDataFolder(join(home, 'link-to-usual'), home), null);
+  assert.equal(unusualDataFolder(join(home, '.halcyonic-second'), home), '~/.halcyonic-second');
 });

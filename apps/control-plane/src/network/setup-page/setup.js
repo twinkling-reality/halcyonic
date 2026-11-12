@@ -780,10 +780,22 @@ function stepItem(step, running, main, open) {
 }
 
 let drawnSteps = '';
+/** A Halcyonic on another data folder says which one, under the head, as the pairing page does. */
+function elsewhere(folder) {
+  $('elsewhere').hidden = folder === null;
+  // The tab says it too, so two of them side by side are told apart.
+  document.title = folder === null ? 'Set Up This Computer' : `Set Up This Computer (${folder})`;
+  $('elsewhere-line').textContent =
+    folder === null
+      ? ''
+      : `This Halcyonic keeps its data in ${folder}, not in the usual ~/.halcyonic.`;
+}
+
 function draw() {
   const gone = problem !== null;
   const running = !gone && state !== null && state.job !== null && state.job.state === 'running';
   status(...standing());
+  elsewhere(state?.data_folder ?? null);
   for (const id of ['restart', 'confirm-top', 'job', 'said', 'shared', 'check', 'pairing-link'])
     $(id).hidden = gone;
   $('steps-block').hidden = gone || state === null;
