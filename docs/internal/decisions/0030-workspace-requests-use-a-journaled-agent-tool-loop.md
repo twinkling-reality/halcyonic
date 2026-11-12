@@ -174,14 +174,20 @@ answer from.
   measured as the transport measures it, so long words never make a body it refuses (AUDIT2, 2026-11-11).
 - No request the contract accepts fails for its length (the lead, 2026-11-11; 9,600 characters of words made a first
   turn of 13,742 bytes, past the transport's 12,288, while the contract allows 32,000):
-  - The model reads the person's words within 2,560 bytes as the body escapes them, and each continuation within
-    1,024: whole where they fit; otherwise the first two thirds and the last third of that room, cut between
-    characters, around a gap in which the computer says how many characters it left out and that the words go to the
-    task whole.
+  - All the person's words share one budget, 3,584 bytes as the body escapes them, however many continuations a
+    request takes (AUDIT2, 2026-11-12: a bound per message let five continuations of 900 characters pass the
+    transport's bound). The request itself takes at most 2,560 and each continuation at most 1,024. The newest
+    continuation is placed first, then each older one in the room left, always keeping room for the request. Each is
+    whole where it fits; otherwise the first two thirds and the last third of its room, cut between characters,
+    around a gap in which the computer says how many characters it left out and that the words go to the task whole.
+    A continuation that cannot be given 320 bytes is left out with every older one, under one marked line that says
+    how many and how many characters.
   - Words on their way to an agent are never shortened. `continue_task` sends the person's whole words, by the host,
     never retyped by the model. Where the host's framing and the model's follow-up would push them past the
     instruction limit, the person's words go alone and whole (a request alone is within that limit by its contract).
     Only continuations that together pass the limit still pause for the person, with nothing sent and nothing cut.
   - A reply written from a shortened view ends with the host's own sentence: how many of how many characters the
-    answer read, the beginning and the end, and, once the host confirmed a `continue_task` step, that all of them
-    went to the agent. The host writes it, since the host knows what it cut; the reply stays `reported`.
+    answer read, the beginning and the end. It says that all of them went to the agent only when a `continue_task`
+    step was confirmed after the person's last words, and only while every step of the request is still in its view;
+    an instruction sent before a continuation never held it (AUDIT2, 2026-11-12). The host writes it, since the host
+    knows what it cut; the reply stays `reported`.

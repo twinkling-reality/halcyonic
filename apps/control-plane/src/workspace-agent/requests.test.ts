@@ -1395,6 +1395,117 @@ test('a long all-work request is answered, and the answer says it read only part
   }
 });
 
+test('a request with many long continuations is never refused for its length: older ones are left out under a marked line (AUDIT2 F1)', async () => {
+  const bodies: number[] = [];
+  const seen: ToolMessage[][] = [];
+  const f = await fixture({
+    requestText: 'Make the pond bigger.',
+    turn: async (messages, tools) => {
+      seen.push([...messages]);
+      const body = Buffer.byteLength(JSON.stringify({ messages, tools: tools ?? [] }));
+      bodies.push(body);
+      if (body > 12_288)
+        return {
+          kind: 'failed',
+          code: 'context_limit',
+          message: 'This request needs less context before it can continue.',
+        };
+      return answer([], 'Noted.');
+    },
+  });
+  try {
+    const id = f.submit();
+    for (let i = 0; i < 4; i++) await settle();
+    // Eight continuations of 900 characters each, a dictated paragraph each, as AUDIT2's probe sent.
+    for (let n = 1; n <= 8; n++) {
+      // A person speaks a paragraph every few seconds, within the coordinator's starts per minute.
+      await f.time.advance(8_000);
+      const more =
+        `Continuation ${n}: ${'and put more lilies around the edge of the water '.repeat(30)}`.slice(
+          0,
+          900,
+        );
+      const outcome = f.controlPlane.commands.submit(f.command('resume', id, more), 'http', {
+        kind: 'local',
+      });
+      assert.equal(outcome.disposition, 'accepted', JSON.stringify(outcome.command?.rejection));
+      for (let i = 0; i < 4; i++) await settle();
+      const request = f.coordinator.read(id, { kind: 'local' });
+      assert.equal(
+        request?.status,
+        'responded',
+        `after continuation ${n}: ${JSON.stringify(bodies)}`,
+      );
+    }
+    assert.ok(
+      bodies.every((body) => body <= 12_288),
+      JSON.stringify(bodies),
+    );
+    // The newest continuation is read whole; the earliest are said to be left out, by count and characters.
+    const last = seen.at(-1) ?? [];
+    const users = last
+      .filter((message) => message.role === 'user')
+      .map((message) => message.content);
+    assert.ok(users.some((text) => text.startsWith('Continuation 8: ')));
+    assert.ok(
+      users.some((text) =>
+        /^\[The computer left out the person's \d+ earliest continuations here, \d+ characters/.test(
+          text,
+        ),
+      ),
+    );
+    assert.ok(!users.some((text) => text.startsWith('Continuation 1: ')));
+    const request = f.coordinator.read(id, { kind: 'local' });
+    assert.match(
+      request?.reply?.text ?? '',
+      /^Noted\. Your words were long, so this answer comes from \d+ of their \d+ characters/,
+    );
+    assert.doesNotMatch(request?.reply?.text ?? '', /went to the agent/);
+  } finally {
+    await f.close();
+  }
+});
+
+test('the host says all the words went to the agent only when an instruction was confirmed after the last of them (AUDIT2 F2)', async () => {
+  const words = 'Make the garden path wind past the pond, with stepping stones. '
+    .repeat(100)
+    .slice(0, 6000);
+  let modelTurn = 0;
+  const f = await fixture({
+    mode: 'immediate',
+    requestText: words,
+    turn: async () => {
+      modelTurn++;
+      return modelTurn === 1
+        ? answer([{ name: 'continue_task', arguments: { text: 'Do what the person asked.' } }])
+        : answer([], modelTurn === 2 ? 'The path change was sent.' : 'Noted, nothing sent.');
+    },
+  });
+  try {
+    const id = f.submit();
+    for (let i = 0; i < 8; i++) await settle();
+    let request = f.coordinator.read(id, { kind: 'local' });
+    assert.equal(request?.status, 'responded');
+    assert.equal(f.instructions, 1);
+    // Sent after the person's only words: true, and said.
+    assert.match(request?.reply?.text ?? '', /All of them went to the agent\.$/);
+    const outcome = f.controlPlane.commands.submit(
+      f.command('resume', id, 'Also put a red bench by the pond, and tell me if it fits.'),
+      'http',
+      { kind: 'local' },
+    );
+    assert.equal(outcome.disposition, 'accepted');
+    for (let i = 0; i < 8; i++) await settle();
+    request = f.coordinator.read(id, { kind: 'local' });
+    assert.equal(f.instructions, 1, 'nothing more was sent');
+    assert.match(request?.reply?.text ?? '', /^Noted, nothing sent\. Your words were long/);
+    // The bench never went to the agent, so the host does not say every word did.
+    assert.doesNotMatch(request?.reply?.text ?? '', /went to the agent/);
+  } finally {
+    await f.close();
+  }
+});
+
 test('words with a continuation past the instruction limit pause for a person without truncation, dispatch or an automatic retry', async () => {
   let modelTurn = 0;
   const f = await fixture({
@@ -1425,7 +1536,7 @@ test('words with a continuation past the instruction limit pause for a person wi
           s.tool_name === 'continue_task' &&
           s.status === 'waiting' &&
           s.command_id === null &&
-          s.summary.includes('original direction was not truncated'),
+          s.summary.includes("the person's words together exceed the runtime instruction limit"),
       ),
     );
     assert.ok(!request.steps.some((s) => s.tool_name === 'read_workspace'));
