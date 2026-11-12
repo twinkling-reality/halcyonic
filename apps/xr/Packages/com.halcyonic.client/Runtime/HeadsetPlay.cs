@@ -114,7 +114,7 @@ namespace Halcyonic.Client
             // FIELD's rule (2026-11-11): a foot line takes no full stop at its end; a stop between two sentences stays.
             PlayInHeadset.NotConfined => "This app stays on your computer. It may read outside its folder",
             PlayInHeadset.NoWayToHeadset => "Connect the headset by cable to play this app in it",
-            PlayInHeadset.NotInThisBuild => "Playing without a cable is not in this build",
+            PlayInHeadset.NotInThisBuild => "Playing in the headset needs the cable in this build",
             _ => null,
         };
 

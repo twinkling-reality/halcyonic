@@ -45,7 +45,7 @@ public sealed class RoomPanelCardsTests
     {
         RoomCard Card(PlayInHeadset? play) =>
             RoomPanelCards.Result(new RoomResult(false, true, false, true, Turn(Observed), Steps(), play: play), Task)!;
-        Assert.That(Card(PlayInHeadset.NotInThisBuild).More?.Text, Is.EqualTo("Playing without a cable is not in this build"));
+        Assert.That(Card(PlayInHeadset.NotInThisBuild).More?.Text, Is.EqualTo("Playing in the headset needs the cable in this build"));
         Assert.That(Card(PlayInHeadset.NotConfined).More?.Text, Is.EqualTo("This app stays on your computer. It may read outside its folder"));
         Assert.That(Card(PlayInHeadset.NoWayToHeadset).More?.Text, Is.EqualTo("Connect the headset by cable to play this app in it"));
         foreach (var play in new[] { PlayInHeadset.NotInThisBuild, PlayInHeadset.NotConfined, PlayInHeadset.NoWayToHeadset })
