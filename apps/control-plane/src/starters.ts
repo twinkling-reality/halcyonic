@@ -20,7 +20,7 @@ import { STARTER_DEFAULTS, type StarterDeclarations } from '@halcyonic/domain';
 /**
  * Starters a new project can begin from (ADR 0037). Each is tracked in the repository under
  * `starters/<id>/`: `starter.json` (its title and what it declares: `check`, `versions`, `copies`,
- * `describes`, `packages`), the pinned `package-lock.json`, and `template/`, the
+ * `describes`, `packages`, `vr_version`), the pinned `package-lock.json`, and `template/`, the
  * files a project begins with. Its dependencies are installed on each Mac into
  * `<data dir>/starters/<id>/node_modules`, beside `installed.json`, which names the SHA-256 of the
  * lockfile they were installed from; a starter counts as installed only while that matches the
@@ -54,35 +54,26 @@ export type StarterApplied =
 
 const ID = /^[a-z][a-z0-9-]{0,62}$/;
 
-/** The starter a VR version of a project begins from (M1.8c-1). */
+/**
+ * The starter this Mac's setup installs first, which a new app begins from by default (M1.8c-1). Which
+ * starter a VR version begins from is not this name: the starters say it themselves
+ * (`HostStarters.vrVersion`).
+ */
 export const VR_STARTER = 'iwsdk-vr';
 
 /**
- * What the host asks a VR version's agent to do (M1.8c-1, M1.8-PLAN section 5): read the original in
- * its folder, change nothing there, and build its main play in its own project from the starter, in a
- * world that fits. Since V1 it asks for the main play only, started from the whole small game in the
- * starter's AGENTS.md: a local model that ported a whole 2D game, with its screens, failed its first
- * check and ran a fix-up past 58 minutes. Since VRIFY it also covers an app that is not a game (a sky, a terrain
- * model, a lesson): its most striking view, rebuilt from the original's own drawing code with the starter's
- * `setupScene`, as the starter's AGENTS.md says under "A view from another app".
+ * A starter that makes VR versions of other apps, as its `starter.json` says (`"vr_version"`): its
+ * id, and the instruction a VR version's agent gets for an original in `originalFolder` (M1.8c-1,
+ * M1.8-PLAN section 5). The instruction is the starter's own file, so it names the starter's own
+ * kit and checks, and a starter for another framework brings its own.
  */
-export function vrVersionInstruction(originalFolder: string): string {
-  return [
-    `Make a VR version of the web app in ${originalFolder}.`,
-    'Read that folder to understand the app: what you see, what you do, and whether it is a game.',
-    'Do not change anything there.',
-    'Build it in this project with the Immersive Web SDK, so it works in VR with controllers or hands and on a laptop with a mouse and keyboard.',
-    'If it is a game, build its main play:',
-    "start from the whole small game at the end of this project's AGENTS.md and change it into this one, importing from src/kit.ts.",
-    'Keep to the main play and its score: leave out title, end and pause screens, menus and best scores.',
-    'Set it in the world from src/worlds.ts that fits the original, and keep its feel.',
-    "If it is not a game, bring its one most striking view, the scene people open it for, as 'A view from another app' in this project's AGENTS.md says, and leave out its other pages, forms and settings.",
-    'Read every input through src/play-input.ts.',
-    'Copy pictures and sounds you need from the original into public/ and name them in src/assets.ts.',
-    "Put the app's name and one line on what to do on its welcome card.",
-    'Run npx tsc --noEmit and fix every error it reports before you finish.',
-  ].join(' ');
+export interface VrVersionStarter {
+  readonly starter_id: string;
+  instruction(originalFolder: string): string;
 }
+
+/** The instruction file a starter names: a plain name beside its `starter.json`. */
+const INSTRUCTION_FILE = /^[a-z0-9][a-z0-9-]{0,62}\.txt$/;
 
 /** The host's facts an original is weighed against (AUDIT M18C1-M1). */
 export interface OriginalBounds {
@@ -195,6 +186,27 @@ export class HostStarters {
     return views;
   }
 
+  /**
+   * The starter a VR version of a project begins from, as the starters say it themselves: the one
+   * whose `starter.json` names the instruction a VR version's agent gets (`"vr_version"`, a text file
+   * beside it, one sentence a line, `{original}` standing for the original's folder). Null when no
+   * starter says so, when more than one does, or when its instruction cannot be read.
+   */
+  vrVersion(): VrVersionStarter | null {
+    if (!existsSync(this.#tracked)) return null;
+    const found: VrVersionStarter[] = [];
+    for (const id of readdirSync(this.#tracked).sort()) {
+      if (!ID.test(id) || this.#title(id) === null) continue;
+      const text = this.#vrInstruction(id);
+      if (text !== null)
+        found.push({
+          starter_id: id,
+          instruction: (originalFolder) => text.replaceAll('{original}', originalFolder),
+        });
+    }
+    return found.length === 1 ? (found[0] ?? null) : null;
+  }
+
   /** The SHA-256 of the lockfile the starter's shared dependencies were installed from, while it matches the tracked one; else null. */
   lockfile(id: string): string | null {
     return ID.test(id) ? this.#installedLockfile(id) : null;
@@ -292,6 +304,25 @@ export class HostStarters {
       return declared.packages === 'none' && pinsNothing(lockfile);
     } catch {
       return false;
+    }
+  }
+
+  /** The VR version instruction the starter names, its lines joined with spaces; null when it names none or it cannot be read. */
+  #vrInstruction(id: string): string | null {
+    try {
+      const declared = JSON.parse(
+        readFileSync(join(this.#tracked, id, 'starter.json'), 'utf8'),
+      ) as { vr_version?: unknown };
+      const file = declared.vr_version;
+      if (typeof file !== 'string' || !INSTRUCTION_FILE.test(file)) return null;
+      const text = readFileSync(join(this.#tracked, id, file), 'utf8')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line !== '')
+        .join(' ');
+      return text.includes('{original}') ? text : null;
+    } catch {
+      return null;
     }
   }
 

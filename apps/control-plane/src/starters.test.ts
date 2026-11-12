@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -34,6 +35,10 @@ const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-starters-')));
 after(() => rmSync(base, { recursive: true, force: true }));
 
 const LOCK = '{"name":"starter","lockfileVersion":3,"packages":{}}\n';
+/** The VR starter's own instruction for a VR version's agent, as the repository tracks it. */
+const REAL_VR_INSTRUCTION = fileURLToPath(
+  new URL('../../../starters/iwsdk-vr/vr-version.txt', import.meta.url),
+);
 
 /** A tracked starter `vr` with a two-file template, and, when asked, its installed dependencies. */
 function setup(
@@ -43,6 +48,8 @@ function setup(
     id?: string;
     dataDir?: string;
     home?: string;
+    /** Whether its starter.json says it makes VR versions, with the repository's own instruction; by default the VR starter's. */
+    vrVersion?: boolean;
   } = {},
 ) {
   const id = options.id ?? 'vr';
@@ -52,10 +59,16 @@ function setup(
   const projects = join(root, 'projects');
   mkdirSync(join(tracked, id, 'template', 'src'), { recursive: true });
   mkdirSync(projects, { recursive: true });
+  const vrVersion = options.vrVersion ?? id === VR_STARTER;
   writeFileSync(
     join(tracked, id, 'starter.json'),
-    JSON.stringify({ format: 1, title: 'A VR app' }),
+    JSON.stringify({
+      format: 1,
+      title: 'A VR app',
+      ...(vrVersion && { vr_version: 'vr-version.txt' }),
+    }),
   );
+  if (vrVersion) copyFileSync(REAL_VR_INSTRUCTION, join(tracked, id, 'vr-version.txt'));
   writeFileSync(join(tracked, id, 'package-lock.json'), LOCK);
   writeFileSync(join(tracked, id, 'template', 'index.html'), '<html></html>\n');
   writeFileSync(join(tracked, id, 'template', 'src', 'index.ts'), 'export {};\n');
@@ -301,6 +314,17 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     mkdirSync(join(projects, 'garden'));
     writeFileSync(join(projects, 'garden', 'game.js'), 'game');
     const originalId = created({ kind: 'existing_folder', root: projects, folder_name: 'garden' });
+    // Offered on the original, since a starter here says it makes VR versions.
+    const here = await controlPlane.commands.here({
+      project_id: originalId as never,
+      workstream_id: null,
+      execution_id: null,
+    });
+    assert.ok(
+      here.some(
+        (action) => action.kind === 'command' && action.command_type === 'project.make_vr_version',
+      ),
+    );
     const before = [...journal.readAll()].length;
     const outcome = make(originalId);
     assert.equal(outcome.command?.status, 'completed', JSON.stringify(outcome.command));
@@ -413,6 +437,86 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     assert.equal(refused.command?.rejection?.code, 'capability_unsupported');
     assert.equal(existsSync(join(two.projects, 'garden-vr')), false);
     await two.controlPlane.close();
+  });
+
+  test('the starter that says it makes VR versions is the one used, whatever its name, with its own instruction', () => {
+    const named = setup('vr-any-name', {
+      installed: 'matching',
+      id: 'headset-kit',
+      vrVersion: true,
+    });
+    const version = named.starters.vrVersion();
+    assert.equal(version?.starter_id, 'headset-kit');
+    const instruction = version?.instruction('/Users/someone/dev/garden') ?? '';
+    assert.ok(
+      instruction.startsWith('Make a VR version of the web app in /Users/someone/dev/garden. '),
+    );
+    assert.equal(instruction.includes('{original}'), false);
+    assert.equal(instruction.includes('\n'), false);
+  });
+
+  test('no starter makes VR versions where none says so, or where two do, and the command is refused in words', async () => {
+    assert.equal(
+      setup('vr-none', {
+        installed: 'matching',
+        id: VR_STARTER,
+        vrVersion: false,
+      }).starters.vrVersion(),
+      null,
+    );
+    const two = setup('vr-two', { installed: 'matching', id: 'one-kit', vrVersion: true });
+    mkdirSync(join(two.tracked, 'other-kit'), { recursive: true });
+    for (const name of ['starter.json', 'package-lock.json', 'vr-version.txt'])
+      copyFileSync(join(two.tracked, 'one-kit', name), join(two.tracked, 'other-kit', name));
+    assert.equal(two.starters.vrVersion(), null);
+    const fixture = setup('vr-unsaid', { installed: 'matching', id: VR_STARTER, vrVersion: false });
+    const harness = createTestControlPlane({
+      locations: createHostLocations([fixture.projects]),
+      starters: fixture.starters,
+    });
+    mkdirSync(join(fixture.projects, 'garden'));
+    const created = harness.controlPlane.commands.submit(
+      harness.commands.createProject('Garden', {
+        kind: 'existing_folder',
+        root: fixture.projects,
+        folder_name: 'garden',
+      }),
+      'internal',
+    );
+    const result = created.command?.result;
+    const originalId = (result?.kind === 'project_created' ? result.project_id : '') as never;
+    // The list of what can be done here does not offer it either.
+    const here = await harness.controlPlane.commands.here({
+      project_id: originalId,
+      workstream_id: null,
+      execution_id: null,
+    });
+    assert.equal(
+      here.some(
+        (action) => action.kind === 'command' && action.command_type === 'project.make_vr_version',
+      ),
+      false,
+    );
+    const refused = harness.controlPlane.commands.submit(
+      {
+        ...harness.commands.createProject('unused', null),
+        command_type: 'project.make_vr_version',
+        payload: {
+          original_project_id: (result?.kind === 'project_created'
+            ? result.project_id
+            : '') as never,
+          root: fixture.projects,
+          folder_name: 'garden-vr',
+        },
+      },
+      'internal',
+    );
+    assert.deepEqual(refused.command?.rejection, {
+      code: 'capability_unsupported',
+      message: 'No starter on this computer makes VR versions.',
+    });
+    assert.equal(existsSync(join(fixture.projects, 'garden-vr')), false);
+    await harness.controlPlane.close();
   });
 });
 
