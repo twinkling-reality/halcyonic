@@ -56,6 +56,11 @@ export interface RuntimeCatalog {
   readonly queuesInstructions?: boolean;
   /** What each starter declares (R2), so no rule compares a starter's id. */
   readonly starters?: StarterCatalog;
+  /**
+   * Whether a runtime here reads `name` for itself, as its adapter says, so a project's secret may
+   * not take it (ADR 0057). Absent: only the names every program runs by are refused.
+   */
+  ownsEnvironmentName?(name: string): boolean;
 }
 
 const NO_SCOPE: CommandScope = { project_id: null, workstream_id: null, execution_id: null };
@@ -276,7 +281,10 @@ function admit(
         return held.includes(name)
           ? { admitted: true, policy, scope, runtime: null }
           : reject(scope, 'invalid_state', `This project has no secret named ${name}.`);
-      const reserved = reservedSecretName(name);
+      const reserved = reservedSecretName(
+        name,
+        (taken) => runtimes.ownsEnvironmentName?.(taken) === true,
+      );
       if (reserved !== null) return reject(scope, 'invalid_state', reserved);
       if (!held.includes(name) && held.length >= MAX_PROJECT_SECRETS)
         return reject(

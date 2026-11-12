@@ -217,7 +217,11 @@ export class ControlPlane {
     this.#ids = options.ids;
     this.#logger = options.logger;
     this.projectSecrets =
-      options.projectSecrets === undefined ? null : new SecretStore(options.projectSecrets.dataDir);
+      options.projectSecrets === undefined
+        ? null
+        : new SecretStore(options.projectSecrets.dataDir, (name) =>
+            this.registry.ownsEnvironmentName(name),
+          );
     // A project secret is known to redaction from the moment the page stages it (ADR 0057).
     this.redaction = redaction(() => [
       ...(options.secrets?.() ?? []),

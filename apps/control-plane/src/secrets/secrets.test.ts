@@ -18,7 +18,7 @@ import {
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import { pageSecrets } from '../network/setup-page.ts';
 import { createTestControlPlane } from '../testing/harness.ts';
-import { SecretStore } from './store.ts';
+import { givenSecrets, SecretStore } from './store.ts';
 
 // A project secret's life through the control plane (ADR 0057): set on the Mac's page, kept in the
 // store alone, known by name everywhere else, given to a start whose runtime takes it, taken out of
@@ -59,6 +59,8 @@ function takingRuntime(runtimeId: string, takes: boolean) {
   };
   const adapter: RuntimeAdapter = {
     descriptor,
+    // A runtime's own variables, as each adapter names its own (Claude Code's CLAUDE_, OpenCode's ...).
+    ownsEnvironmentName: (name) => name.startsWith('STUB_'),
     validateStartOptions: () => ({ ok: true }),
     startExecution: async (request) => {
       starts.push(request);
@@ -217,13 +219,47 @@ describe('project secrets through the control plane (ADR 0057)', () => {
     await harness.controlPlane.close();
   });
 
+  test('a start is never given a name its runtime reads for itself, even one kept before the runtime said so', () => {
+    const { harness, projectId, store } = setUp();
+    const runtime = harness.controlPlane.registry.get('taking');
+    assert.ok(runtime !== undefined);
+    // Kept as the journal holds it, as a store before this runtime declared its names would have.
+    store.stage(
+      '01a19000-0000-7000-8000-0000000000c1',
+      projectId,
+      'PROJECT_TEST_KEY' as never,
+      VALUE,
+    );
+    store.commit('01a19000-0000-7000-8000-0000000000c1', projectId, 'PROJECT_TEST_KEY' as never);
+    const projection = { project: () => ({ secrets: ['PROJECT_TEST_KEY'] }) } as never;
+    const withheld: number[] = [];
+    assert.deepEqual(Object.keys(givenSecrets(store, projection, projectId, runtime)), [
+      'PROJECT_TEST_KEY',
+    ]);
+    assert.deepEqual(
+      givenSecrets(
+        store,
+        projection,
+        projectId,
+        runtime,
+        (name) => name === 'PROJECT_TEST_KEY',
+        (count) => withheld.push(count),
+      ),
+      {},
+    );
+    assert.deepEqual(withheld, [1], 'how many were held back is said');
+  });
+
   test('a reserved name, a short value and an unknown project are refused in words, and nothing stays staged', async () => {
     const { harness, dataDir, projectId, page, store } = setUp();
     assert.match(
       page.set(projectId, 'PATH', VALUE) ?? '',
       /PATH is a name the Mac or an agent uses/,
     );
-    assert.match(page.set(projectId, 'OPENCODE_PASSWORD', VALUE) ?? '', /a secret can't take it/);
+    assert.match(
+      page.set(projectId, 'STUB_TOKEN', VALUE) ?? '',
+      /STUB_TOKEN is a name .* a secret can't take it/,
+    );
     assert.match(page.set(projectId, 'lower', VALUE) ?? '', /capital letters, digits and _/);
     assert.match(page.set(projectId, 'PROJECT_TEST_KEY', 'short') ?? '', /at least 8 characters/);
     assert.equal(

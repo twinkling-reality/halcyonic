@@ -2054,3 +2054,11 @@ describe("Claude Code's own plan mode (PLAN 4b)", () => {
     assert.equal(runs.length, 0, 'Claude Code was launched');
   });
 });
+
+test("Claude Code says it runs outside Halcyonic's sandbox on a folder the person connected, and names its own variables (ADR 0057)", () => {
+  const { adapter } = setup();
+  assert.equal(adapter.runsOutsideSandbox(), true);
+  for (const name of ['CLAUDE_CODE_USE_BEDROCK', 'ANTHROPIC_API_KEY', 'BUN_CONFIG_REGISTRY'])
+    assert.equal(adapter.ownsEnvironmentName(name), true, name);
+  assert.equal(adapter.ownsEnvironmentName('PROJECT_TEST_KEY'), false);
+});

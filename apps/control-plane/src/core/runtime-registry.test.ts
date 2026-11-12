@@ -45,3 +45,31 @@ test('a control plane on the person own journal says it, as its admission holds 
     ],
   );
 });
+
+test("each runtime says for itself whether it can run outside Halcyonic's sandbox and which names it reads (ADR 0057)", () => {
+  const registry = new RuntimeRegistry();
+  const real = (id: string, facts: Partial<Pick<MockRuntimeAdapter, never>> & object) => {
+    const adapter = runtime(id, false);
+    Object.defineProperty(adapter, 'descriptor', {
+      value: { ...adapter.descriptor, synthetic: false },
+    });
+    Object.assign(adapter, facts);
+    return adapter;
+  };
+  registry.register(real('inside', { runsOutsideSandbox: () => false }));
+  registry.register(
+    real('outside', {
+      runsOutsideSandbox: () => true,
+      ownsEnvironmentName: (name: string) => name.startsWith('OUTSIDE_'),
+    }),
+  );
+  // One that does not say is taken as can, never as inside; a synthetic one touches no files.
+  registry.register(real('silent', {}));
+  registry.register(runtime('mock', false));
+  assert.deepEqual(
+    registry.outsideSandbox().map((d) => d.runtime_id),
+    ['outside', 'silent'],
+  );
+  assert.equal(registry.ownsEnvironmentName('OUTSIDE_TOKEN'), true);
+  assert.equal(registry.ownsEnvironmentName('API_KEY'), false);
+});

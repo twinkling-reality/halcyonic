@@ -43,6 +43,26 @@ export class RuntimeRegistry implements RuntimeCatalog {
     return this.#adapters.get(runtimeId);
   }
 
+  /** Whether a runtime here reads `name` for itself, as its adapter declares (ADR 0057). */
+  ownsEnvironmentName(name: string): boolean {
+    return [...this.#adapters.values()].some(
+      (adapter) => adapter.ownsEnvironmentName?.(name) === true,
+    );
+  }
+
+  /**
+   * The runtimes whose starts can run with no sandbox of Halcyonic's around them, as each adapter
+   * declares, and those that do not say, which are taken as can (never as inside); none that is
+   * synthetic, which touches no files.
+   */
+  outsideSandbox(): RuntimeDescriptor[] {
+    return [...this.#adapters.values()]
+      .filter(
+        (adapter) => !adapter.descriptor.synthetic && adapter.runsOutsideSandbox?.() !== false,
+      )
+      .map((adapter) => this.#described(adapter.descriptor));
+  }
+
   descriptors(): RuntimeDescriptor[] {
     return [...this.#adapters.values()].map((adapter) => this.#described(adapter.descriptor));
   }

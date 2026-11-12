@@ -82,6 +82,7 @@ import {
   describeExit,
   type ExitStatus,
   launchServer,
+  reservedVariable,
   unappliedSettings,
 } from './server.ts';
 import {
@@ -393,6 +394,16 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
    */
   holdsFolder(directory: string): boolean {
     return this.#confinement?.forDirectory(directory)?.project === directory;
+  }
+
+  /** Outside Halcyonic's sandbox where it has no confinement of Halcyonic's (off macOS): its own only. */
+  runsOutsideSandbox(): boolean {
+    return this.#confinement === null;
+  }
+
+  /** The variables its configuration never sets: Codex's and its provider's own (`server.ts`). */
+  ownsEnvironmentName(name: string): boolean {
+    return reservedVariable(name);
   }
 
   /**

@@ -1,5 +1,5 @@
 import type { CommandOf, Principal, ReceivedVia } from '@halcyonic/contracts';
-import { nameProblem, type SecretStore, valueProblem } from './store.ts';
+import { type SecretStore, valueProblem } from './store.ts';
 
 /**
  * Sets a project secret as its caller (ADR 0057): the Mac's setup page, or a paired device or a
@@ -24,7 +24,7 @@ export function submitSecretSet<Outcome>(
 ):
   | { readonly ok: false; readonly problem: string }
   | { readonly ok: true; readonly outcome: Outcome } {
-  const problem = nameProblem(command.payload.name) ?? valueProblem(value);
+  const problem = deps.store.nameProblem(command.payload.name) ?? valueProblem(value);
   if (problem !== null) return { ok: false, problem };
   try {
     deps.store.stage(

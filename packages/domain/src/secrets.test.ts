@@ -80,14 +80,12 @@ describe('admitting a secret set or removal (ADR 0057)', () => {
     for (const name of [
       'PATH',
       'HOME',
-      'OPENCODE_PASSWORD',
       'DYLD_INSERT_LIBRARIES',
       'NODE_OPTIONS',
       'GIT_DIR',
       'HTTPS_PROXY',
       'ALL_PROXY',
       'SSL_CERT_FILE',
-      'BUN_CONFIG_REGISTRY',
     ]) {
       const refused = admitCommand(
         command('project.secret.set', projectId, name),
@@ -96,6 +94,29 @@ describe('admitting a secret set or removal (ADR 0057)', () => {
       );
       assert.equal(!refused.admitted && refused.rejection.code, 'invalid_state', name);
     }
+    // A runtime's own names are refused as that runtime here says, so a new one brings its names.
+    const owning = {
+      ...(catalog as object),
+      ownsEnvironmentName: (name: string) => name.startsWith('OPENCODE_'),
+    } as never;
+    const owned = admitCommand(
+      command('project.secret.set', projectId, 'OPENCODE_PASSWORD'),
+      projection,
+      owning,
+    );
+    assert.equal(!owned.admitted && owned.rejection.code, 'invalid_state');
+    assert.match(
+      !owned.admitted ? owned.rejection.message : '',
+      /OPENCODE_PASSWORD is a name the Mac or an agent uses/,
+    );
+    assert.equal(
+      admitCommand(
+        command('project.secret.set', projectId, 'OPENCODE_PASSWORD'),
+        projection,
+        catalog,
+      ).admitted,
+      true,
+    );
     for (let at = 0; at < MAX_PROJECT_SECRETS; at += 1) store(`KEY_${at}`);
     const full = admitCommand(
       command('project.secret.set', projectId, 'ONE_MORE'),

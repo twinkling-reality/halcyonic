@@ -307,6 +307,11 @@ describe("one OpenCode server per folder inside Halcyonic's sandbox (BOX-3)", ()
     });
     t.after(() => open.close());
     assert.equal(open.serverRecordFileFor('/Users/someone/dev/garden'), recordFile);
+    // Outside Halcyonic's sandbox exactly where it runs without one; OpenCode's own variables either way.
+    assert.equal(sandboxed.runsOutsideSandbox(), false);
+    assert.equal(open.runsOutsideSandbox(), true);
+    assert.equal(sandboxed.ownsEnvironmentName('OPENCODE_CONFIG'), true);
+    assert.equal(open.ownsEnvironmentName('PROJECT_TEST_KEY'), false);
   });
 });
 

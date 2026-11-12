@@ -280,6 +280,18 @@ export interface RuntimeAdapter {
    * itself. Absent, or false, the runtime is not held, and its tasks get no copy.
    */
   holdsFolder?(directory: string): boolean;
+  /**
+   * Whether a start of it on this computer can run with no sandbox of Halcyonic's around it, on
+   * some folder, so its commands can read every file the person can: the data folder, every
+   * project's secrets with it (ADR 0057). The adapter answers from the confinement it applies.
+   * Absent means not known, which is said as can, never as inside.
+   */
+  runsOutsideSandbox?(): boolean;
+  /**
+   * Whether `name` is an environment variable the runtime, or the provider it calls, reads for
+   * itself, so a project's secret may not take it (ADR 0057): each runtime names its own.
+   */
+  ownsEnvironmentName?(name: string): boolean;
   startExecution?(request: StartExecutionRequest): Promise<StartExecutionResult>;
   /**
    * `leave_plan` (PLAN), on the request: leave the runtime's plan mode in the same session first,

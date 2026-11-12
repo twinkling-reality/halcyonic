@@ -654,6 +654,16 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     return this.sandboxed;
   }
 
+  /** Outside Halcyonic's sandbox exactly where its server runs unsandboxed (never on macOS). */
+  runsOutsideSandbox(): boolean {
+    return !this.sandboxed;
+  }
+
+  /** OpenCode's own variables, which move its configuration and its data. */
+  ownsEnvironmentName(name: string): boolean {
+    return name.startsWith('OPENCODE_');
+  }
+
   /**
    * The models OpenCode offers, from `GET /api/model` at the server's own location, field by
    * field: never `/api/provider`, and never a provider's settings, keys or headers. Launches the

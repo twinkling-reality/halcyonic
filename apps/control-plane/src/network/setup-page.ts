@@ -210,7 +210,7 @@ export function pageSecrets(deps: {
     outside: deps.outside,
     set: (projectId, name, value) => {
       if (!known(projectId)) return 'That project is not on this Mac.';
-      const named = nameProblem(name);
+      const named = deps.store.nameProblem(name);
       if (named !== null) return named;
       const set = submitSecretSet(
         {

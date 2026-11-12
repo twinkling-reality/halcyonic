@@ -499,11 +499,10 @@ async function main(): Promise<void> {
                               !descriptor.synthetic && descriptor.secret_environment !== true,
                           )
                           .map((descriptor) => descriptor.display_name),
-                      // Claude Code runs outside Halcyonic's sandbox on a folder the person connected.
+                      // Each runtime that says it can run with no sandbox of Halcyonic's, or does not say.
                       outside: () =>
                         controlPlane.registry
-                          .descriptors()
-                          .filter((descriptor) => descriptor.kind === 'claude-agent')
+                          .outsideSandbox()
                           .map((descriptor) => descriptor.display_name),
                       nextId: () => ids.next(),
                       now: () => systemClock.now(),

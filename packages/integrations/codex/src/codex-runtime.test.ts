@@ -2174,3 +2174,28 @@ describe('a confined project (ADR 0041)', () => {
     assert.ok(!received().some((message) => message.method === 'thread/start'));
   });
 });
+
+test("Codex without a confinement of Halcyonic's says it runs outside it, and names Codex's and its provider's variables (ADR 0057)", (t) => {
+  const { runtime } = adapter(t);
+  assert.equal(runtime.runsOutsideSandbox(), true);
+  for (const name of ['CODEX_HOME', 'OPENAI_API_KEY', 'OPENAI_BASE_URL'])
+    assert.equal(runtime.ownsEnvironmentName(name), true, name);
+  assert.equal(runtime.ownsEnvironmentName('PROJECT_TEST_KEY'), false);
+});
+
+test("Codex with Halcyonic's confinement says it runs inside it (ADR 0057)", (t) => {
+  const directory = temporary(t);
+  const runtime = new CodexRuntimeAdapter({
+    binaryPath: '/nonexistent/codex',
+    codexHome: join(temporary(t), 'codex-home'),
+    serverRecordFile: join(directory, 'server.json'),
+    directoryPolicy: allowOnly(directory),
+    confinement: {
+      forDirectory: () => null,
+      toolFolders: toolFoldersFor(process.execPath),
+      loopbackPorts: [],
+    },
+  });
+  t.after(() => runtime.close());
+  assert.equal(runtime.runsOutsideSandbox(), false);
+});

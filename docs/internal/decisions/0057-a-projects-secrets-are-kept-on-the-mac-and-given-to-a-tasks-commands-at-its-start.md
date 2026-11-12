@@ -38,8 +38,13 @@ What was true on 2026-11-11, before this decision:
    and the name; `project.secret.stored` (with whether it replaced one) and `project.secret.removed` record
    them; `ProjectView.secrets` lists the names, sorted. A name is capitals, digits and `_`, at most 64
    characters, and never one the Mac or an agent runs by (`PATH`, `HOME`, `TMPDIR`, the shell's own, and any
-   starting `HALCYONIC_`, `OPENCODE_`, `CODEX_`, `CLAUDE_`, `ANTHROPIC_`, `OLLAMA_`, `XDG_`, `LC_`, `DYLD_`,
-   `LD_`, `GIT_`, `NODE_`, `NPM_CONFIG_`, `PYTHON`, `SANDBOX_`, `BUN_`), nor one that changes where a program
+   starting `HALCYONIC_`, `OLLAMA_`, `XDG_`, `LC_`, `DYLD_`, `LD_`, `GIT_`, `NODE_`, `NPM_CONFIG_`, `PYTHON`,
+   `SANDBOX_`), nor one a runtime here reads for itself, which each adapter names
+   (`RuntimeAdapter.ownsEnvironmentName`, amended 2026-11-12: Claude Code's `CLAUDE_`, `ANTHROPIC_` and `BUN_`,
+   OpenCode's `OPENCODE_`, Codex's `CODEX_` and `OPENAI_`; admission and the store ask the runtimes here, and a
+   start or a re-attach is never given one, even one kept before its runtime said so: such a value is never
+   deleted for it, it is held back and the start says how many at warn, and the person removes it on the
+   page), nor one that changes where a program
    connects or what it trusts (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, `SSL_CERT_FILE`,
    `SSL_CERT_DIR`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE`), since Claude Code gets the secrets in its whole
    process environment (AUDIT3). A project keeps at most 32. Removing one is low consequence, from any
@@ -108,7 +113,10 @@ What was true on 2026-11-11, before this decision:
   person connected (not one made from a starter, ADR 0048) runs with the person's own access, so its
   commands can read `<data dir>/secrets` of any project, as they could already read the rest of the data
   folder. Halcyonic hands each task only its own project's secrets; it cannot stop such a run reading the
-  rest. The page says so whenever such an agent is set up here (`unconfined_agent`). Keeping values where an
+  rest. The page says so whenever such an agent is set up here (`unconfined_agent`). Which agents that is,
+  each runtime says for itself (`RuntimeAdapter.runsOutsideSandbox`, amended 2026-11-12): Claude Code always
+  (a connected folder has no sandbox), OpenCode where its server runs without Halcyonic's sandbox, Codex
+  where it has no confinement of Halcyonic's; one that does not say is named too, never taken as inside. Keeping values where an
   unconfined run cannot simply read them (the Keychain) is the way to close it, and is not built.
 - **After a restart, an old value is no longer known.** A task re-attached then is given the current values,
   but its runtime's own history (OpenCode's session, Codex's rollout) may hold an old one it printed before,

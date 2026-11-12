@@ -271,6 +271,16 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     return this.#scopeFor(directory).folder !== null;
   }
 
+  /** Outside the closed profile it has no sandbox at all: on a folder the person connected, always. */
+  runsOutsideSandbox(): boolean {
+    return true;
+  }
+
+  /** Claude Code's and its provider's own variables, and Bun's, which the bundled build runs on. */
+  ownsEnvironmentName(name: string): boolean {
+    return ['CLAUDE_', 'ANTHROPIC_', 'BUN_'].some((prefix) => name.startsWith(prefix));
+  }
+
   /**
    * The models Claude Code offers, from the Agent SDK's `supportedModels()`, which answers once a
    * Claude Code process has started. The process gets no prompt and is closed at once; it runs
