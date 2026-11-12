@@ -645,6 +645,12 @@ export class CommandService {
         const read = await readRuntimeModels(adapter, MODEL_LIST_TIMEOUT_MS, this.#deps.redaction);
         return read.availability === 'available' ? read.models : [];
       },
+      scripts: async (projectId) => {
+        const found = await this.#deps.ownChecks
+          ?.found(projectId as ProjectId)
+          .catch(() => undefined);
+        return found === undefined ? null : found.scripts;
+      },
     });
   }
 
