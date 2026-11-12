@@ -996,13 +996,10 @@ namespace Halcyonic.Client
         /// </summary>
         private MenuFrame Paged(MenuFrame frame)
         {
-            // The redesign draws the page of what can be changed as a list card of its own, five rows and its levels in the
-            // column (RoomBar.NewProject), so the older panel's height never cuts it.
+            // The redesign draws the page of what can be changed as a list card of its own, five rows a page and its levels in
+            // the column (RoomBar.NewProject), so the older panel's height never cuts it and a sixth thing pages, never drops.
             if (RoomDesign.Enabled && frame.Footer.All.Any(each => each.Prompt.Id == NewProjectScreens.BackToRecap))
-            {
-                linePage = 0;
-                return frame;
-            }
+                return ChangesPage(frame, ref linePage);
             var room = PageRoom(frame) - Note(frame.Source) - Note(frame.Reason);
             var all = frame.Lines;
             if (Height(all, 0, all.Count) <= room)
@@ -1027,6 +1024,24 @@ namespace Halcyonic.Client
                 key: linePage.ToString(System.Globalization.CultureInfo.InvariantCulture)));
             var side = opens >= from && opens < to ? frame.Side : null;
             return frame.With(footer, lines, side);
+        }
+
+        /// <summary>
+        /// The redesign's page of what can be changed: page <paramref name="page"/> (from 0) of its things to change, as many as
+        /// a list card holds (<see cref="RoomCard.ListAPage"/>), the levels, which are answers, on every page, and Next Page in
+        /// the footer where the things run past one page. The page is clamped to those there are.
+        /// </summary>
+        public static MenuFrame ChangesPage(MenuFrame frame, ref int page)
+        {
+            static bool Change(PageLine line) => line.Action != null && line.Available && !line.Choice;
+            var changes = frame.Lines.Where(Change).ToList();
+            var pages = Math.Max(1, (changes.Count + RoomCard.ListAPage - 1) / RoomCard.ListAPage);
+            if (page < 0 || page >= pages) page = 0;
+            if (pages == 1) return frame;
+            var shown = changes.Skip(page * RoomCard.ListAPage).Take(RoomCard.ListAPage).ToList();
+            var lines = frame.Lines.Where(line => !Change(line) || shown.Contains(line)).ToList();
+            var next = new Prompt(Footer.NextPage, Footer.NextPageWords(page, pages), GlazeIcon.Next, PromptKind.NextPage);
+            return frame.With(frame.Footer.WithNext(next), lines, frame.Side);
         }
 
         /// <summary>Where each page of <paramref name="all"/> starts: whole lines in order, at least one a page, as many as <paramref name="room"/> holds.</summary>
