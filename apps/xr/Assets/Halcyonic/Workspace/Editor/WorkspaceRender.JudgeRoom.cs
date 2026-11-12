@@ -560,7 +560,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     var words = typed - journeyTyped;
                     // A journey nothing drawn finished is not a count of zero: it is said as not reached.
                     var reached = !journeyWays.Any(way => way.Contains("the walk opened it") || way.StartsWith("nothing drawn", StringComparison.Ordinal));
-                    var headset = reached ? count + (words == 0 ? "" : " presses and " + words + " typed") : "not reached by what is drawn (" + count + " presses before it)";
+                    var notRun = journeyWays.Any(way => way.StartsWith("not run", StringComparison.Ordinal));
+                    var headset = notRun ? "not run" : reached ? count + (words == 0 ? "" : " presses and " + words + " typed") : "not reached by what is drawn (" + count + " presses before it)";
                     live.Presses.Add(journey + "\t" + headset + "\t" + journeyDesk + "\t" + string.Join("; ", journeyWays));
                     journey = null;
                 }
@@ -569,6 +570,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 RoomButton? TypeDrawn() => plane.KitShows
                     ? plane.Kit.Bar.Column.FirstOrDefault(each => each.gameObject.activeInHierarchy && plane.Kit.Bar.ControlOf(each) is KitControl control
                         && (control.Action.StartsWith("type", StringComparison.Ordinal) || control.Action.Contains("-type")))
+                        ?? (plane.Kit.Bar.Type.gameObject.activeInHierarchy ? plane.Kit.Bar.Type : null)
                     : null;
                 string ActionOf(RoomButton button) => plane.Kit.Bar.ControlOf(button) is KitControl control ? control.Action + (control.Key == null ? "" : "/" + control.Key) : "?";
                 void PressDrawn(RoomButton button, string why)
@@ -720,6 +722,26 @@ namespace Halcyonic.XR.Workspace.Editor
                         Moment("live kept");
                     }
                     else journeyWays.Add("nothing drawn to keep it (Add to Project not offered)");
+                    EndJourney();
+                    // Give the next instruction at rest, typed and picked from the ready-made ones (lead, 12:04Z); said needs a
+                    // microphone, which a batch Editor has none of, so it is listed by what is drawn and not run.
+                    int Instructions() => sent.OfType<ExecutionSendInstructionCommand>().Count();
+                    Fresh();
+                    Journey("give the next instruction, typed", "1 typed + 1: type it, Enter");
+                    var told = Instructions();
+                    if (!DriveUntil(() => Instructions() > told, "instruct typed", on.NextInstruction, 6)) journeyWays.Add("nothing drawn sent it");
+                    EndJourney();
+                    Until(() => Current(task.WorkstreamId)?.Status == ExecutionStatus.Completed, "the instructed turn's end", 90);
+                    Fresh();
+                    Journey("give the next instruction, picked", "1 typed + 1: a desk has no ready-made ones");
+                    told = Instructions();
+                    if (Press(FileScreens.TellIt)) { journeyWays.Add("pressed " + FileScreens.TellIt); Moment("instruct picked 1"); }
+                    if (Press(FileScreens.Preset, "0")) { journeyWays.Add("pressed " + FileScreens.Preset + "/0"); Moment("instruct picked 2"); }
+                    if (!DriveUntil(() => Instructions() > told, "instruct picked", "", 4)) journeyWays.Add("nothing drawn sent it");
+                    EndJourney();
+                    Journey("give the next instruction, said", "1 typed + 1: type it, Enter");
+                    journeyWays.Add("not run: a batch Editor has no microphone; Hold to Talk "
+                        + (plane.KitShows && plane.Kit.Bar.Talk.gameObject.activeInHierarchy ? "is drawn" : "is not drawn"));
                     EndJourney();
                     if (sent.Count == 0) failures.Add("live walk: nothing was sent");
                 }
@@ -914,6 +936,9 @@ namespace Halcyonic.XR.Workspace.Editor
             public string Token { get; }
 
             public string Idea { get; }
+
+            /// <summary>The words the walk types as the next instruction at rest.</summary>
+            public string NextInstruction => "Add a button that resets the count";
 
             public List<string> Presses { get; } = new List<string>();
         }
