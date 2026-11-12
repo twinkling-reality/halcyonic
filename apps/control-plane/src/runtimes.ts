@@ -408,7 +408,8 @@ export async function stopStaleRuntimeServers(
  * environment does not set it. A key file other users can read is refused, like the access token's.
  */
 function withAnthropicKey(environment: NodeJS.ProcessEnv, dataDir: string): NodeJS.ProcessEnv {
-  if (environment.ANTHROPIC_API_KEY) return environment;
+  // A value of spaces alone is no key: the file's key is used instead, as the runtime's own check reads it.
+  if ((environment.ANTHROPIC_API_KEY ?? '').trim() !== '') return environment;
   const path = join(dataDir, ANTHROPIC_KEY_FILE);
   let mode: number;
   try {

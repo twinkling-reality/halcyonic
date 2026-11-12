@@ -361,7 +361,7 @@ describe('pnpm mac-setup', () => {
       output = text(machine);
       assert.match(
         output,
-        /~\/\.halcyonic\/anthropic-api-key can be read by other users or is empty, so Claude Agent doesn't use it\. If it holds the key, run chmod 600 on it; else adding its key again replaces it\./,
+        /~\/\.halcyonic\/anthropic-api-key can be read by other users or is empty, so Claude Agent doesn't use it\. If it holds the key, run chmod 600 on it\. Otherwise, adding its key again replaces it\./,
       );
       assert.equal(status(machine, 'Agent apps'), 'To do');
       assert.match(output, /Claude Agent is off\./);
@@ -383,7 +383,7 @@ describe('pnpm mac-setup', () => {
       output = text(machine);
       assert.match(
         output,
-        /Claude Agent is switched on in Halcyonic's environment, but ~\/\.halcyonic\/anthropic-api-key can be read by other users or is empty, so Halcyonic won't start until it is fixed\. If it holds the key, run chmod 600 on it; else adding its key again replaces it\./,
+        /Claude Agent is switched on in Halcyonic's environment, but ~\/\.halcyonic\/anthropic-api-key can be read by other users or is empty, so Halcyonic won't start until it is fixed\. If it holds the key, run chmod 600 on it\. Otherwise: Start Halcyonic once without HALCYONIC_CLAUDE_AGENT=1, then add its key under Agent Apps on the setup page\./,
       );
       assert.match(
         output,
@@ -402,6 +402,34 @@ describe('pnpm mac-setup', () => {
       );
       machine.env = { ...machine.env, HALCYONIC_CLAUDE_AGENT: '', ANTHROPIC_API_KEY: '' };
     }
+    // The switch with no key anywhere and no cloud provider: the start stops, and the steps say so.
+    rmSync(join(machine.dataDir, 'anthropic-api-key'));
+    machine.env = { ...machine.env, HALCYONIC_CLAUDE_AGENT: '1' };
+    await machine.run();
+    output = text(machine);
+    assert.match(
+      output,
+      /Claude Agent is switched on in Halcyonic's environment, but it has no key and no cloud provider, so Halcyonic won't start until it has one\. Start Halcyonic once without HALCYONIC_CLAUDE_AGENT=1, then add its key under Agent Apps on the setup page\./,
+    );
+    assert.match(
+      output,
+      /Claude Agent is switched on, but it has no key and no cloud provider, so Halcyonic won't start until it has one\./,
+    );
+    assert.equal(status(machine, 'Agent apps'), 'To do');
+    // With a cloud provider's switch it starts, paid through that account.
+    machine.env = { ...machine.env, CLAUDE_CODE_USE_BEDROCK: '1' };
+    await machine.run();
+    output = text(machine);
+    assert.doesNotMatch(output, /won't start/);
+    assert.match(
+      output,
+      /Claude Agent is on from Halcyonic's next start\. Every task on it is paid for through your Amazon Bedrock account, set in Halcyonic's environment\./,
+    );
+    assert.match(
+      output,
+      /Its models run on a remote service, Amazon Bedrock: nothing starts on one without its second press, and a task on one is paid for through that account\./,
+    );
+    machine.env = { ...machine.env, HALCYONIC_CLAUDE_AGENT: '', CLAUDE_CODE_USE_BEDROCK: '' };
     // In Terminal, with a key stored: on from the next start, whatever runs now, and counted as an agent app.
     assert.equal(keys.store('claude-agent', 'test-key-not-real'), null);
     await machine.run();
@@ -1163,7 +1191,11 @@ describe('pnpm mac-setup', () => {
       /Halcyonic's own Codex settings don't name one yet, so Codex has no model to offer/,
     );
     assert.match(text(machine), /pnpm mac-setup local-model /);
-    machine.env = { ...machine.env, HALCYONIC_CLAUDE_AGENT: '1' };
+    machine.env = {
+      ...machine.env,
+      HALCYONIC_CLAUDE_AGENT: '1',
+      ANTHROPIC_API_KEY: 'test-key-not-real',
+    };
     await machine.run();
     assert.equal(status(machine, 'Where work goes, and what it costs'), 'Look at this');
     assert.match(

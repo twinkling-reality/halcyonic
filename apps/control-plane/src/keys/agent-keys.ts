@@ -97,7 +97,7 @@ export class AgentKeys {
 /**
  * `key`'s file as the app would take it: `stored` where it is a file of its own that only the person can read and holds
  * a key, `unusable` where it is a file the app would refuse (other users can read it, or it is empty), else `none`.
- * A file larger than any key the page keeps is counted as one without being read. The key read here never leaves
+ * A file larger than four times the longest key the page keeps (LONGEST_KEY) is counted as one without being read. The key read here never leaves
  * this function.
  */
 export function keyFile(
