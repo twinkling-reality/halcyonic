@@ -333,6 +333,22 @@ describe('the pairing page', () => {
     assert.equal(read.status, 200, 'the paired device is accepted again');
   });
 
+  test('Pair Headset from off turns pairing on and opens the window, in one press', async (t) => {
+    const server = await start(t);
+    const cookie = await signIn(server);
+    assert.equal((await read(server, cookie)).pairing, 'off');
+    const opened = await press(server, cookie, '/window');
+    assert.equal(opened.pairing, 'on');
+    assert.equal(opened.problem, null);
+    assert.equal(opened.window?.state, 'open');
+    assert.match(opened.code ?? '', /^\d{8}$/);
+    assert.equal(settings(server).HALCYONIC_NETWORK_HOST, '0.0.0.0', 'kept on for the next start');
+    const paired = await pairDevice(listenerTarget(server), opened.code ?? '', {
+      label: 'Quest 3',
+    });
+    assert.equal(server.controlPlane.projection.device(paired.deviceId)?.revoked_at, null);
+  });
+
   test('forgets a headset, and lets the code go when the person turns pairing off', async (t) => {
     const server = await start(t);
     const cookie = await signIn(server);

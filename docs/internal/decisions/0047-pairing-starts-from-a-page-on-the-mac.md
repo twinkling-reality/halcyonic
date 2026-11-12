@@ -63,6 +63,11 @@ one call on `Pairing` in the same process.
 - **`Start Halcyonic.command`** at the repository root starts the control plane from Finder with a
   double-click, in a login shell, with `--open-pairing-page`.
 
+- **Amended 2026-11-12: one press to pair.** Pair Headset turns pairing on first when it is off, then
+  opens the window, so a first headset takes one press on the Mac, not two. Turn On Pairing stands
+  beside it only while pairing is off and a headset is already paired, to bring those back without a
+  new code. Nothing still opens on its own: both wait for the person's press.
+
 ## Alternatives considered
 
 - A page served by the control plane itself: it would have to accept browsers, which its loopback

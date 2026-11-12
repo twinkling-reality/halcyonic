@@ -655,6 +655,11 @@ button:focus-visible,
   }
 }
 
+/* Under the one main press, a quieter one, shaped as Turn Off Pairing is. */
+.actions > .rest {
+  margin-top: 20px;
+}
+
 /* Last, so it wins over every display above at the same weight. */
 [hidden] {
   display: none;

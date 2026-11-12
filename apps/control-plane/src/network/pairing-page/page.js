@@ -104,7 +104,6 @@ const PROBLEMS = {
     "Couldn't Turn Off",
     'Quit the app on this computer and start it again.',
   ],
-  'Pairing is off. Turn it on first.': ['Pairing Off', 'Turn it on first.'],
   "That headset isn't paired with this computer.": [
     'Not Paired Here',
     "That headset isn't paired with this computer.",
@@ -161,7 +160,15 @@ function standing(on, open, reachable, outcome) {
     ];
   if (state.turning === 'off')
     return ['working', 'hourglass', 'Turning Off', 'Paired headsets stay paired.'];
-  if (!on) return ['quiet', 'off', 'Pairing Off', 'No headset can join until you turn it on.'];
+  if (!on)
+    return [
+      'quiet',
+      'off',
+      'Pairing Off',
+      state.headsets.length > 0
+        ? 'Turn On Pairing lets your paired headsets back in, with no new code.'
+        : 'No headset can join until you pair one.',
+    ];
   if (open && !reachable)
     return ['bad', 'alert', 'No Wi-Fi Address', 'Join Wi-Fi on this computer, then pair.'];
   if (open)
@@ -257,8 +264,10 @@ function draw() {
   const busy = state.turning !== null;
   show('window', open && reachable && !busy);
   show('main-actions', !busy && (!on || !open));
-  show('turn-on', !on);
-  show('pair', on && !open);
+  // Pair Headset turns pairing on by itself, so from off it is the one press; Turn On Pairing stands
+  // beside it only to bring back headsets already paired, without a new code.
+  show('turn-on', !on && state.headsets.length > 0);
+  show('pair', !open);
   show('hint', !on && !busy);
   for (const id of ['turn-on', 'pair', 'turn-off']) $(id).disabled = busy;
   // While Turn Off asks again, nothing else wears a colour: Pair Headset waits, and Keep On takes it back.
