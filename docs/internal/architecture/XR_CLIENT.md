@@ -2740,7 +2740,14 @@ in order, as before.
   the answer may still take effect (`ApprovalInFlight`, the frame's Sending prompt, `KitPlace.Sending`) the sentence
   bar reads Sending, sweeping, and the column is empty, until `runtime.approval.resolved` takes the approval away. A
   confirmation that lapses reads in the sentence bar in the product's words (Not Sent · Confirm Timed Out · Press
-  Again and the others), with both answers back. **The rule for a long request: it is read once, under its
+  Again and the others), with both answers back. Since R1 of the lead's decision (2026-11-12) the answer pressed
+  is the decision where the redesign's panel draws the request: a denial goes at its press, and an approval goes the
+  moment its request is drawn whole in one part (`FileColumn`'s `decidedOnce`), so neither shows a Confirm; a request
+  longer than one part still pages, and only then asks its Confirm. Only a person's press decides (`DecideOnPress`;
+  capture presets turn it off), and only for the approval and request the frame pressed on showed; the work is read
+  afresh before the send, and the steering's own checks (the approval still the one armed, its request unchanged, the
+  session live) hold as before. Cancel, or a press that arms another answer, lets the decision lapse.
+  **The rule for a long request: it is read once, under its
   confirmation.** Before its answer a request shows its first eight lines (`RoomBar.RequestLines`), the same lines its
   confirmation's first part shows, with Approve and Deny; the product's read rule lives after the answer is pressed
   (every arming is read afresh, part by part, before Confirm), so paging before Approve as well would have the person
