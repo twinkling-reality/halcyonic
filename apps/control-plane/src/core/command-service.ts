@@ -1,6 +1,7 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import type {
   CatalogRepositoryRef,
+  CatalogResponse,
   CheckId,
   CheckpointId,
   ChoiceList,
@@ -97,6 +98,7 @@ const ROWS_ADMITTED: ReadonlySet<ChoiceList> = new Set([
   'queued_instructions',
   'approvals',
   'runtimes',
+  'catalog',
 ]);
 
 /**
@@ -130,6 +132,8 @@ export interface WorkspaceRequestHandler {
  * so a client can link only what the person was shown. The catalog itself stays outside the core.
  */
 export interface CatalogLinks {
+  /** The catalog read now, for its list by index; absent, the catalog is not offered by index. */
+  read?(): Promise<CatalogResponse>;
   check(
     ref: CatalogRepositoryRef,
   ): { readonly ok: true } | { readonly ok: false; readonly message: string };
@@ -720,6 +724,11 @@ export class CommandService {
       );
       if (place !== null) return place.message;
     }
+    // A link names only what the catalog last read holds, and never a sample's (the admission's check).
+    if (command.command_type === 'project.link_catalog') {
+      const known = this.#deps.catalogLinks?.check(command.payload.catalog);
+      if (known !== undefined && !known.ok) return known.message;
+    }
     return null;
   }
 
@@ -745,6 +754,11 @@ export class CommandService {
                 : [{ project_id: project.project_id, path: project.location.path }],
             ),
         ),
+      catalog: async () => {
+        const read = this.#deps.catalogLinks?.read;
+        if (read === undefined) return null;
+        return read.call(this.#deps.catalogLinks).catch(() => null);
+      },
       scripts: async (projectId) => {
         const found = await this.#deps.ownChecks
           ?.found(projectId as ProjectId)
