@@ -153,3 +153,13 @@ computer, as a judge's, is still never asked: the open asks only where voice is 
 no demonstration of any kind, recorded or for a computer that cannot be reached). The rules are `MicrophoneAsk` in the client core; the open's question
 is `MicrophoneAtOpen` in the Unity layer. The line's words and the Settings path are FIELD's, and the flow is proven
 on the headset when it is next connected.
+
+## Amendment of 2026-11-12: a heard draft read whole is sent by its one Send
+
+The lead's decision of 2026-11-12 (R1: a confirm exists only where the command's policy says so) replaces "a spoken
+instruction to a running agent always asks 'Send this instruction?' first". The draft, marked as heard, is shown in the
+field it was spoken for, part by part where it is long, and Send stands only once every part has been shown at the
+current text size (`FileInstruction.Read`); that reading is the review, and Send is the one press. A heard instruction is
+then sent exactly as a typed one: at once, or after the confirmation the command's own policy asks for. So a mishearing is
+still never sent unread, and the headset no longer adds a press the desk does not have. Voice is still never wired to
+approve, deny, stop or confirm anything.

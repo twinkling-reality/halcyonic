@@ -143,18 +143,8 @@ public class InstructionSettingsTests
             navigator.MenuVisibility(false);
             Assert.That((file.Screen.Instruction.Words, file.Screen.Instruction.Part, file.Screen.Instruction.Read), Is.EqualTo((words, partRead, true)));
             Assert.That(navigator.Act(MenuColumn.File, FileScreens.SendInstruction, null, ready, null), Is.False, "Expand grants no old target authority");
+            // Heard or typed, the draft read whole goes on its one Send (the lead's R1, 2026-11-12).
             FilePress(FileScreens.SendInstruction);
-            if (forgetting)
-            {
-                Assert.That(file.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct));
-                Assert.That(host.Sent, Is.Empty, "spoken origin retains reviewed Yes after Compact");
-                for (var part = 0; part < 100 && !file.Steering.CanConfirm; part++)
-                {
-                    DrawFile();
-                    if (!file.Steering.CanConfirm) FilePress(FileScreens.NextPart, FileScreens.RequestKey);
-                }
-                FilePress(FileScreens.Yes);
-            }
             Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo(words));
             Assert.That(saved, Is.Zero);
             Assert.That(confirmed, Is.Empty);

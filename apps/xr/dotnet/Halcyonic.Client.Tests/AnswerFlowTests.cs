@@ -224,9 +224,8 @@ public class AnswerFlowTests
         column.Drawn(column.Frame!, null);
         Assert.That((column.Frame!.Footer[PromptSlot.FarRight]!.Id, column.Frame.Footer[PromptSlot.FarRight]!.Available), Is.EqualTo((FileScreens.SendInstruction, true)));
         column.Act(FileScreens.SendInstruction, null);
-        Assert.That(column.Steering.Instruction, Is.EqualTo("Add pagination"));
-        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct));
-        Assert.That(host.Sent, Is.Empty, "the spoken instruction still requires confirmation after explicit Send");
+        Assert.That((column.Steering.Armed, ((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text), Is.EqualTo(((WorkspaceAction?)null, "Add pagination")),
+            "the current recording's draft, read whole, goes on its one Send (the lead's R1, 2026-11-12)");
     }
     [TestCase("free_text")] [TestCase("secret")] [TestCase("approval")]
     public void AQuestionChangedBetweenDrawAndPressNeverOpensAnIncompatibleKeyboard(string change)

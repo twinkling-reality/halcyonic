@@ -891,6 +891,31 @@ public class WorkspaceSteeringTests
         Assert.That(steering.Spoken("Add a test.", work.Present()).Step, Is.EqualTo(SteeringStep.None), "not while the keyboard is open");
     }
 
+    /// <summary>
+    /// A heard instruction drawn whole in its draft is its own review: Send is the one press, as for typed words, and a
+    /// heard draft not yet shown whole sends nothing (the lead's R1, 2026-11-12; ADR 0021 amended).
+    /// </summary>
+    [Test]
+    public void AHeardDraftShownWholeIsSentByItsOneSend()
+    {
+        var work = new WaitingWork();
+        work.Change(execution =>
+        {
+            execution.Status = ExecutionStatus.Completed;
+            execution.PendingApprovals.Clear();
+        }, WorkstreamStatus.Completed);
+        var steering = Steering();
+        var draft = new FileInstruction();
+        var execution = work.Present().Execution!.ExecutionId;
+        draft.Restore(execution, "Add a test for the expiry.", true, 0);
+        Assert.That(steering.SendInstruction(draft, work.Present()).Message, Is.EqualTo(FileScreens.InstructionNotRead), "not shown yet: nothing goes");
+        draft.Drawn(now);
+        var sent = steering.SendInstruction(draft, work.Present());
+        Assert.That(sent.Step, Is.EqualTo(SteeringStep.Send), sent.Message);
+        Assert.That(((ExecutionSendInstructionCommand)sent.Command!).Payload.Text, Is.EqualTo("Add a test for the expiry."));
+        Assert.That(steering.Armed, Is.Null, "no second press waits");
+    }
+
     [Test]
     public void CancellingDropsWhatWasArmed()
     {
