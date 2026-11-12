@@ -89,6 +89,8 @@ test('a key the API refuses fails the turn as credential_refused, never as a tur
       DISABLE_ERROR_REPORTING: '1',
     },
     pathToClaudeCodeExecutable: BINARY,
+    // This Mac's own managed Claude Code settings are not the test's: none.
+    remainingSettings: async () => ({}),
   });
   t.after(() => adapter.close());
   const observed: RuntimeObservation[] = [];

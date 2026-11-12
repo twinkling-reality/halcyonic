@@ -189,6 +189,8 @@ test('a Claude Code plan runs in its plan mode, recorded a plan, its write asked
       NO_PROXY: '127.0.0.1,localhost,::1',
     },
     pathToClaudeCodeExecutable: BINARY,
+    // This Mac's own managed Claude Code settings are not the test's: none.
+    remainingSettings: async () => ({}),
   });
   t.after(() => adapter.close());
   assert.equal(adapter.descriptor.offers_plan, true);

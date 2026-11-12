@@ -147,6 +147,8 @@ function adapterFor(
     },
     environment: { ...fakeEnvironment(directory), ...extra },
     pathToClaudeCodeExecutable: EXECUTABLE,
+    // This Mac's own managed Claude Code settings are not the test's: none.
+    remainingSettings: () => ({}),
     ...(queryFunction !== undefined && { query: queryFunction }),
   });
 }
@@ -250,7 +252,7 @@ describe('the adapter through the real Agent SDK', () => {
     }
   });
 
-  test("the process gets the chosen session id, the built environment and the person's own settings only", async () => {
+  test('the process gets the chosen session id, the built environment and no settings file at all', async () => {
     const directory = scratch('launch');
     const adapter = adapterFor(directory);
     try {
@@ -267,8 +269,9 @@ describe('the adapter through the real Agent SDK', () => {
         assert.equal(recorded.args[recorded.args.indexOf(flag) + 1], value, flag);
       }
       assert.ok(recorded.args.includes('--verbose'));
-      // The person's own settings only (E5): never a project's CLAUDE.md, AGENTS.md or hooks.
-      assert.ok(recorded.args.includes('--setting-sources=user'), recorded.args.join(' '));
+      // No settings file (E5, VRIFY 2026-11-12): never a project's CLAUDE.md, AGENTS.md or hooks, and not the
+      // person's own settings wholesale, whose env could add a credential that outranks the key.
+      assert.ok(recorded.args.includes('--setting-sources='), recorded.args.join(' '));
       assert.equal(recorded.cwd, WORKDIR);
 
       // macOS CoreFoundation sets __CF_USER_TEXT_ENCODING inside every process it loads into; it

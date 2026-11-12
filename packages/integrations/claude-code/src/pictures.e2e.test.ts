@@ -145,6 +145,8 @@ test("an instruction's pictures reach the API as base64 image blocks before its 
       DISABLE_ERROR_REPORTING: '1',
     },
     pathToClaudeCodeExecutable: BINARY,
+    // This Mac's own managed Claude Code settings are not the test's: none.
+    remainingSettings: async () => ({}),
   });
   t.after(() => adapter.close());
   assert.equal(adapter.descriptor.takes_pictures, true);

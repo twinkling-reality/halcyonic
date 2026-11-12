@@ -50,8 +50,38 @@ function hooks(prefix: string, more: Record<string, unknown> = {}): string {
   });
 }
 
-// The person's own Claude Code configuration: their instructions and a hook, which still load.
-writeFileSync(join(ROOT, 'config', 'settings.json'), hooks('user'));
+// The person's own Claude Code configuration: their instructions; a hook of their own; a token in its `env`, which
+// would outrank the key (a fake); and Salidium's and Seorak's observation hooks in each project's own shape, each
+// only creating a marker file.
+const SETTINGS_TOKEN = 'fake-settings-token-for-a-test';
+const OBSERVERS = join(ROOT, 'observers');
+mkdirSync(join(OBSERVERS, 'salidium', 'hooks'), { recursive: true });
+mkdirSync(join(OBSERVERS, 'seorak', 'bin'), { recursive: true });
+const SALIDIUM_RELAY = join(OBSERVERS, 'salidium', 'hooks', 'relay.sh');
+writeFileSync(SALIDIUM_RELAY, `#!/bin/sh\n/usr/bin/touch ${join(MARKS, 'salidium-')}"$2"\n`, {
+  mode: 0o700,
+});
+const SEORAK_PROMPT = join(OBSERVERS, 'seorak', 'bin', 'hook-user-prompt.mjs');
+writeFileSync(SEORAK_PROMPT, `/usr/bin/touch ${join(MARKS, 'seorak-UserPromptSubmit')}\n`);
+const seorakMarker = `--seorak-hook-path=${Buffer.from(`file://${SEORAK_PROMPT}`).toString('base64url')}`;
+const personal = JSON.parse(hooks('user', { env: { ANTHROPIC_AUTH_TOKEN: SETTINGS_TOKEN } })) as {
+  hooks: Record<string, unknown[]>;
+};
+personal.hooks.UserPromptSubmit = [
+  ...(personal.hooks.UserPromptSubmit ?? []),
+  {
+    hooks: [
+      {
+        type: 'command',
+        command: `SALIDIUM_HOOK=1 '${SALIDIUM_RELAY}' claude-code UserPromptSubmit retain`,
+        async: true,
+        timeout: 5,
+      },
+    ],
+  },
+  { hooks: [{ type: 'command', command: `'/bin/sh' '${SEORAK_PROMPT}' ${seorakMarker}` }] },
+];
+writeFileSync(join(ROOT, 'config', 'settings.json'), JSON.stringify(personal));
 writeFileSync(join(ROOT, 'config', 'CLAUDE.md'), 'The person says: user-rules-5b0e.\n');
 
 // A project with its own CLAUDE.md, CLAUDE.local.md, rules folder and skill, hooks in both of its
@@ -93,7 +123,10 @@ writeFileSync(join(AGENTS, 'AGENTS.md'), 'The project says: agents-md-rules-e8d2
 /** A Messages API that answers Done to everything and keeps each request's body. */
 function fakeApi() {
   const bodies: string[] = [];
+  /** For each request, whether it carried an Authorization header (only whether: never its value). */
+  const authorized: boolean[] = [];
   const server = createServer((req, res) => {
+    authorized.push(req.headers.authorization !== undefined);
     let raw = '';
     req.on('data', (chunk) => {
       raw += chunk;
@@ -154,7 +187,7 @@ function fakeApi() {
       res.end();
     });
   });
-  return { server, bodies };
+  return { server, bodies, authorized };
 }
 
 async function listen(server: Server): Promise<string> {
@@ -172,7 +205,7 @@ async function until(check: () => boolean, ms: number, what: () => string): Prom
 
 const marked = (name: string) => existsSync(join(MARKS, name));
 
-test("Claude Code loads the person's own settings and instructions, and none of a project's own", {
+test("Claude Code loads none of the person's settings but Salidium's and Seorak's hooks and their instructions, and none of a project's own; the stored key alone pays", {
   skip: SKIP,
   timeout: 240_000,
 }, async (t) => {
@@ -200,6 +233,8 @@ test("Claude Code loads the person's own settings and instructions, and none of 
       DISABLE_ERROR_REPORTING: '1',
     },
     pathToClaudeCodeExecutable: BINARY,
+    // This Mac's own managed Claude Code settings are not the test's: none.
+    remainingSettings: async () => ({}),
   });
   t.after(() => adapter.close());
 
@@ -229,9 +264,22 @@ test("Claude Code loads the person's own settings and instructions, and none of 
   };
 
   const withClaudeMd = await run(RULES, 1, 'MARKER-RULES');
-  // The person's own instructions and hooks load: the observers' hooks keep running.
+  // The person's own instructions load, and the observers' hooks keep running.
   assert.match(withClaudeMd, /user-rules-5b0e/, "the person's own CLAUDE.md");
-  assert.ok(marked('user-prompt'), "the person's own prompt hook ran");
+  await until(
+    () => marked('salidium-UserPromptSubmit') && marked('seorak-UserPromptSubmit'),
+    10_000,
+    () => "Salidium's and Seorak's prompt hooks to run",
+  );
+  // Nothing else of the person's settings: not their other hook, and not the token in their env, which would pay
+  // for the task instead of the stored key.
+  assert.equal(marked('user-prompt'), false, "the person's other prompt hook ran");
+  assert.ok(api.authorized.length > 0);
+  assert.equal(
+    api.authorized.filter(Boolean).length,
+    0,
+    "a request carried the person's settings token as Authorization",
+  );
   // None of the project's own: its CLAUDE.md, the hooks of either of its settings files.
   assert.doesNotMatch(withClaudeMd, /claude-md-rules-71c4/, "the project's CLAUDE.md was sent");
   assert.doesNotMatch(
