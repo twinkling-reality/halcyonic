@@ -68,6 +68,12 @@ export function personalSettings(environment: Readonly<Record<string, string>>):
   } catch {
     instructions = null;
   }
+  if (instructions !== null && Buffer.byteLength(instructions) > INSTRUCTIONS_LIMIT) {
+    throw new RuntimeActionError(
+      'runtime_start_failed',
+      `Claude Agent was not started: ${join(folder, INSTRUCTIONS_FILE)} is over ${INSTRUCTIONS_LIMIT / 1024} KB, more than Halcyonic passes to a task.`,
+    );
+  }
   return { hooks, instructions: instructions?.trim() === '' ? null : instructions };
 }
 
@@ -108,12 +114,15 @@ export function observationHooks(settings: unknown): Record<string, HookGroup[]>
 /** The person's own instructions file, as Claude Code names it in its configuration folder. */
 const INSTRUCTIONS_FILE = 'CLAUDE.md';
 
+/** The most of the person's instructions passed to a task (AUDIT3): 64 KB. */
+const INSTRUCTIONS_LIMIT = 64 * 1024;
+
 /** The integrations whose hooks a task outside the sandbox passes on, each with its own project's rule. */
 const OBSERVERS: readonly {
   readonly name: string;
   readonly recognises: (command: string, event: string) => boolean;
 }[] = [
-  { name: 'Salidium', recognises: (command) => isSalidiumHook(command) },
+  { name: 'Salidium', recognises: (command, event) => isSalidiumHook(command, event) },
   { name: 'Seorak', recognises: (command, event) => isSeorakHook(command, event) },
 ];
 
@@ -139,9 +148,27 @@ export function personalSetupUsed(): PersonalSetupUse {
   };
 }
 
-/** Salidium's own rule (its `isSalidiumHook`): `SALIDIUM_HOOK=1 '<home>/hooks/relay.sh' ...`. */
-export function isSalidiumHook(command: string): boolean {
-  return command.startsWith("SALIDIUM_HOOK=1 '") && /\/hooks\/relay\.sh'(?:\s|$)/.test(command);
+/** Salidium's levels of pressure, one per event (its `CLAUDE_CODE_HOOK_EVENT_BUDGET`). */
+const SALIDIUM_PRESSURES = '(?:shed-first|shed-second|lifecycle|retain)';
+
+/** A single-quoted absolute path, apostrophes written the way `apostrophe` writes them, nothing else. */
+function quotedPath(apostrophe: string): string {
+  return `'(/(?:[^'\\r\\n]|${apostrophe})*)'`;
+}
+
+/**
+ * Salidium's command, whole, as its installer writes it for `event` (its `relayCommand` and
+ * `buildClaudeCodeHooks`): `SALIDIUM_HOOK=1 '<home>/hooks/relay.sh' claude-code <event> <pressure>`, anchored at both
+ * ends, so nothing can follow or precede it (AUDIT3 F1). Older installs (a path under `/.salidium/hooks/` run through
+ * `/bin/sh`) are not recognised, so not passed.
+ */
+export function isSalidiumHook(command: string, event: string): boolean {
+  if (!/^[A-Za-z]{1,40}$/.test(event)) return false;
+  const whole = new RegExp(
+    `^SALIDIUM_HOOK=1 ${quotedPath("'\\\\''")} claude-code ${event} ${SALIDIUM_PRESSURES}$`,
+  );
+  const found = whole.exec(command);
+  return found !== null && (found[1] as string).endsWith('/hooks/relay.sh');
 }
 
 /** Seorak's script for each event it observes (its `EVENT_BINS`). */
@@ -157,33 +184,48 @@ const SEORAK_SCRIPTS: Readonly<Record<string, string>> = {
 };
 
 /**
- * Seorak's own rule (its `seorakCommandPath`), strictly: a `--seorak-hook-path=` argument that decodes to an
- * absolute file URL whose script is that event's own.
+ * Seorak's command, whole, as its installer writes it on this platform (its `commandFor`):
+ * `'<node>' '<script>' --seorak-hook-path=<base64url file URL of the script>`, anchored at both ends; the script is
+ * that event's own and the marker names the very same script (AUDIT3 F1).
  */
 export function isSeorakHook(command: string, event: string): boolean {
   const script = SEORAK_SCRIPTS[event];
   if (script === undefined) return false;
-  const marker = /(?:^|\s)--seorak-hook-path=([A-Za-z0-9_-]+)(?:\s|$)/.exec(command);
-  if (marker === null) return false;
-  let path: string;
+  const apostrophe = `'"'"'`;
+  const whole = new RegExp(
+    `^${quotedPath(apostrophe)} ${quotedPath(apostrophe)} --seorak-hook-path=([A-Za-z0-9_-]+)$`,
+  );
+  const found = whole.exec(command);
+  if (found === null) return false;
+  const path = (found[2] as string).replaceAll(apostrophe, "'");
+  if (!path.endsWith(`/${script}`)) return false;
+  let marked: string;
   try {
-    path = fileURLToPath(Buffer.from(marker[1] as string, 'base64url').toString('utf8'));
+    marked = fileURLToPath(Buffer.from(found[3] as string, 'base64url').toString('utf8'));
   } catch {
     return false;
   }
-  return isAbsolute(path) && path.endsWith(`/${script}`);
+  return isAbsolute(marked) && marked === path;
 }
 
-/** Environment variables a settings tier may not set for a run: each names or picks a credential. */
+/**
+ * Environment variables a settings tier may not set for a run: each names or picks a credential, sends the requests
+ * that carry the key elsewhere or lets something read them (a proxy, a certificate authority, TLS checks off), or
+ * loads code into the process that holds the key (AUDIT3 F2).
+ */
 const CREDENTIAL_VARIABLE =
-  /^(ANTHROPIC_|CLAUDE_CODE_USE_|CLAUDE_CODE_OAUTH_TOKEN$|AWS_|GOOGLE_APPLICATION_CREDENTIALS$|CLOUD_ML_REGION$)/;
+  /^(ANTHROPIC_|CLAUDE_CODE_USE_|CLAUDE_CODE_OAUTH_TOKEN$|CLAUDE_CODE_CLIENT_|CLAUDE_CODE_.*(CERT|KEY|TOKEN|HOST|URL|PROXY|AUTH)|AWS_|GOOGLE_APPLICATION_CREDENTIALS$|CLOUD_ML_REGION$|NODE_OPTIONS$|NODE_EXTRA_CA_CERTS$|NODE_TLS_REJECT_UNAUTHORIZED$|SSL_CERT_(FILE|DIR)$)/;
+const PROXY_VARIABLE = /^(https?_proxy|all_proxy)$/i;
 
-/** Settings that fetch a credential by running a command. */
+/** Settings that fetch a credential, or run a command of the tier's own beside the key. */
 const CREDENTIAL_HELPERS = [
   'apiKeyHelper',
   'awsAuthRefresh',
   'awsCredentialExport',
   'gcpAuthRefresh',
+  'otelHeadersHelper',
+  'hooks',
+  'statusLine',
 ];
 
 /**
@@ -193,8 +235,8 @@ const CREDENTIAL_HELPERS = [
 export function credentialSettings(effective: unknown): string[] {
   const settings = record(effective);
   if (settings === null) return [];
-  const named = Object.keys(record(settings.env) ?? {}).filter((name) =>
-    CREDENTIAL_VARIABLE.test(name),
+  const named = Object.keys(record(settings.env) ?? {}).filter(
+    (name) => CREDENTIAL_VARIABLE.test(name) || PROXY_VARIABLE.test(name),
   );
   for (const helper of CREDENTIAL_HELPERS) {
     if (settings[helper] !== undefined && settings[helper] !== null) named.push(helper);
@@ -208,7 +250,7 @@ export function refuseOtherCredentials(effective: unknown): void {
   if (named.length === 0) return;
   throw new RuntimeActionError(
     'runtime_start_failed',
-    `Claude Agent was not started: this Mac's managed Claude Code settings set ${named.join(', ')}, which would pay for the task instead of the key you stored.`,
+    `Claude Agent was not started: this Mac's managed Claude Code settings set ${named.join(', ')}, which could pay for the task instead of the key you stored, send its requests elsewhere, or run beside it.`,
   );
 }
 
