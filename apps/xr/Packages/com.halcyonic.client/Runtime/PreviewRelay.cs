@@ -205,11 +205,14 @@ namespace Halcyonic.Client
                         await browser.WriteAsync(buffer, 0, received.Count, ending.Token).ConfigureAwait(false);
                     }
                 });
-                // The stream lasts as long as the computer's side: a browser that has sent all it will still gets its
-                // answer, and a browser gone for good fails the next write, which ends it too.
+                // The stream ends when the computer's side ends, or soon after the browser's: a browser that has sent all
+                // it will gets two seconds for an answer still coming, and one that closed frees its stream at once
+                // after, so a page that reloads never holds streams it no longer uses.
                 try
                 {
-                    await down.ConfigureAwait(false);
+                    var over = await Task.WhenAny(down, up).ConfigureAwait(false);
+                    if (over == up) await Task.WhenAny(down, Task.Delay(TimeSpan.FromSeconds(2), ending.Token)).ConfigureAwait(false);
+                    if (down.IsFaulted) await down.ConfigureAwait(false);
                 }
                 catch (Exception) when (!stopping.IsCancellationRequested)
                 {
