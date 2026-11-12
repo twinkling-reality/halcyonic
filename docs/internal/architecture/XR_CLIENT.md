@@ -1310,8 +1310,9 @@ launch/return, process recreation and current-frame action behavior need separat
   off this computer). The model's id and its tool use stay on the review alone. It sends only while the request is still the
   one that recap frame was built with, and a change since draws the recap again. Where the card
   cuts the first task, and for a start tried again, Start task opens the review as before. Once
-  started, the redesign's Starting page offers Open Task as its main action, which opens the task's
-  file, where anything it asks waits for the person (the file turns to Waiting by itself). Under the
+  started, under the redesign, the task's file opens by itself, once a start and only while New
+  Project shows, so anything it asks (an approval first) waits where the person is (the file turns
+  to Waiting by itself); the Starting page still offers Open Task as its main action for a return. Under the
   redesign the start is drawn as a card (`NewProjectScreens.StartingCard`): the project as its
   title, how the start stands as its status (Starting, Task Started, Not Started, Start Unknown),
   and each step a node in its tone, never facts joined on a dot.

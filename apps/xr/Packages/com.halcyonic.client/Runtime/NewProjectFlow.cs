@@ -100,6 +100,9 @@ namespace Halcyonic.Client
 
         /// <summary>The request as the recap being built shows it, where the card shows it whole; taken as drawn once that frame is drawn.</summary>
         private NewWorkReview? recapBuilt;
+
+        /// <summary>The start whose task's file this flow has opened, once, as it started.</summary>
+        private BuildSequence? openedStarted;
         private int measuredPartRows;
 
         /// <summary>The frame given to the director, built once for each change, so a drawn report names the very frame it drew.</summary>
@@ -953,6 +956,14 @@ namespace Halcyonic.Client
             }
             RestoreDrafts();
             var changed = PollCompanion() | PollModels() | PollFolders() | AdvanceBuild();
+            // The lead's first journey (2026-11-12): once started, the task's own file opens where the person is, so what it asks,
+            // an approval first, is there to answer in one press. Only while New Project shows, once a start, and where the redesign draws it.
+            if (IsOpen && ReviewForRoom && ShownBeside?.Invoke() == true && sequence is { Started: true, WorkstreamId: string started } && !ReferenceEquals(openedStarted, sequence))
+            {
+                openedStarted = sequence;
+                host.OpenFile(started);
+                return;
+            }
             var from = BuiltFrom();
             if (from != shownFrom)
             {
@@ -1671,6 +1682,12 @@ namespace Halcyonic.Client
         /// only while this holds; without it, Start Task opens the review.
         /// </summary>
         public Func<bool>? RecapShownWhole { get; set; }
+
+        /// <summary>
+        /// Whether New Project stands beside the menu now, the workspace not folded away, given by the host that draws it: a started
+        /// task's file opens by itself only then, never over a file the person moved to (a fresh critic, 2026-11-12).
+        /// </summary>
+        public Func<bool>? ShownBeside { get; set; }
 
         /// <summary>
         /// Keeps the request as <paramref name="recap"/> shows it, for Start Task's one press (R1), only where the redesign's card shows
