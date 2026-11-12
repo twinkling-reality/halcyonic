@@ -59,6 +59,17 @@ preview's port and nothing else on the Mac.
 - **A relay in the Android service in Java:** a second implementation of the pinned transports and the
   relay, outside the tested client core.
 
+- **Amended 2026-11-12: a byte stream, not file by file.** The headset carries each browser connection
+  whole over one pinned WebSocket to `GET /api/projects/:id/preview-stream`, which the Mac admits by the
+  same gate and pipes to 127.0.0.1 at the gate's port only, so an app plays in the headset as at the desk
+  (any method and status, its own WebSockets, no 32 MiB cap). The two checks the file route made per
+  request stay per request: the headset reads each connection's first request head, requires its own
+  `Host` and no `Service-Worker`, and forwards it with `Connection: close` (an upgrade keeps its
+  connection). Bounds: 6 streams a device; 60 s idle; each stream re-asks the gate and its device's
+  pairing every second and ends at once on a stale check, a stopped or moved preview, a forgotten device
+  or the listener closing. The file route stays for builds that predate the stream and goes once none
+  is in use. Development builds only, as before.
+
 ## Consequences
 
 - With pairing on and a confined, passed check's preview running, the headset shows the app with no cable.
