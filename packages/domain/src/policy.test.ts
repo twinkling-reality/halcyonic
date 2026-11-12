@@ -7,7 +7,7 @@ test('every command says what it does in one plain line of the host’s own', ()
   for (const [type, { description }] of Object.entries(COMMAND_SAYING)) {
     assert.ok(description.length > 0 && description.length <= 160, `${type}: one short line`);
     assert.match(description, /^[A-Z].*\.$/, `${type}: a sentence`);
-    assert.doesNotMatch(description, /[\n—]|GitHub/, `${type}: one line, no dash, no brand`);
+    assert.doesNotMatch(description, /[\n\u2014]|GitHub/, `${type}: one line, no dash, no brand`);
   }
 });
 
