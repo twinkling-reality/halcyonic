@@ -260,7 +260,7 @@ export function registerRoutes(
     const body: HereResponse = {
       scope,
       position: controlPlane.projection.position,
-      actions: controlPlane.commands.here(scope),
+      actions: await controlPlane.commands.here(scope),
     };
     return body;
   });

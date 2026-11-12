@@ -567,7 +567,7 @@ export class CommandService {
    * What can be done here now (ADR 0060): the one admission's probe for the scope, less what this
    * host cannot do at all. A scope whose ids do not hold together lists nothing.
    */
-  here(scope: HereScope): HereAction[] {
+  async here(scope: HereScope): Promise<HereAction[]> {
     const { projection } = this.#deps;
     if (!this.#scopeHolds(scope)) return [];
     const listed = hereActions(scope, projection, {
@@ -575,12 +575,21 @@ export class CommandService {
       queuesInstructions: this.#deps.queuesInstructions === true,
       ...(this.#deps.starters ? { starters: this.#deps.starters } : {}),
     });
-    return listed.actions.filter(
+    const kept = listed.actions.filter(
       (action) =>
         action.kind !== 'command' ||
         (this.#hostRefusal(action.command_type, scope.project_id) === null &&
           this.#hostLacks(action.command_type, scope.project_id) === null),
     );
+    // Choose Check only where the folder has commands to choose, as the own check's own find says.
+    const choose = kept.findIndex(
+      (action) => action.kind === 'command' && action.command_type === 'project.own_check.choose',
+    );
+    if (choose !== -1 && scope.project_id !== null) {
+      const found = await this.#deps.ownChecks?.found(scope.project_id).catch(() => undefined);
+      if (found === undefined || found.scripts.length === 0) kept.splice(choose, 1);
+    }
+    return kept;
   }
 
   /**
@@ -610,7 +619,7 @@ export class CommandService {
   async prepare(given: Preparation): Promise<Prepared> {
     if (!this.#scopeHolds(given.scope))
       return { ok: false, code: 'invalid_state', message: 'That place no longer holds together.' };
-    const offered = this.here(given.scope).some(
+    const offered = (await this.here(given.scope)).some(
       (action) => action.kind === 'command' && action.command_type === given.command_type,
     );
     if (!offered)
