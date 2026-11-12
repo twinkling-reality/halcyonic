@@ -20,7 +20,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly string[] PairingStates =
         {
             "49-pairing-looking", "49-pairing-found", "49-pairing-several", "49-pairing-same-name", "49-pairing-none", "49-pairing-code",
-            "49-pairing-paired", "49-pairing-refused",
+            "49-pairing-paired", "49-pairing-refused", "49-pairing-unreachable", "49-pairing-unknown",
         };
 
         private static PartShot PairingShot(string state, Transform root, Vector3 eyes, string name)
@@ -40,6 +40,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 case "49-pairing-code": column.Code("Studio Mac", studio.Address); break;
                 case "49-pairing-paired": column.Code("Studio Mac", studio.Address); column.Paired(); break;
                 case "49-pairing-refused": column.Refused("wrong_code", 1); break;
+                // Nothing answered: its own words, never "Pairing Refused" (AUDIT's census, 2026-11-12).
+                case "49-pairing-unreachable": column.Refused("unreachable", null); break;
+                // A code the headset has no words for: Reason Unknown, with no line.
+                case "49-pairing-unknown": column.Refused("something_new", null); break;
                 default: column.Looking(); break;
             }
             var frame = column.Frame!;
@@ -49,7 +53,7 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(bar.Card != null && !bar.Card.AnyDot, "the pairing card joins facts on a dot: " + (bar.Card == null ? "" : string.Join(" | ", bar.Card.Words())));
             Require(bar.Column.Count > 0 && bar.Column[bar.Column.Count - 1].Place == KitPlace.Close, "Close is not the last action");
             Require(bar.Column.Count(action => action.Main) <= 1, "more than one main action");
-            if (state is "49-pairing-none" or "49-pairing-refused")
+            if (state is "49-pairing-none" or "49-pairing-refused" or "49-pairing-unreachable" or "49-pairing-unknown")
                 Require(bar.Column[0].Main, "the step's way on is not the main action, first");
 
             var plane = new GameObject("Plane").transform;
