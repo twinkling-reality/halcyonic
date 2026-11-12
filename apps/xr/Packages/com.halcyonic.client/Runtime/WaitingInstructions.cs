@@ -95,13 +95,16 @@ namespace Halcyonic.Client
         /// <summary>At rest: the newest instruction that waited and was not sent, until the person goes Back from it.</summary>
         public UnsentInstruction? NotSent { get; }
 
-        /// <summary>The waiting list (FIELD's 1426Z, A2): its title, its one line, a row each, oldest first, pressed to its page.</summary>
+        /// <summary>
+        /// The waiting list (FIELD's 1426Z, A2): its title, its one line, a row each, oldest first, pressed to its page, each
+        /// with the waiting mark. Only the first carries a note, Next: the title already says the rest wait.
+        /// </summary>
         public RoomCard ListCard(Func<WaitingInstruction, KitControl> press) => new RoomCard(LineWords.Ours(WaitingText.Title), LineWords.Ours(WaitingText.Line),
-            list: Items.Select((item, index) => new RoomListRow(RoomKind.NotRun, item.Shown, index == 0 ? WaitingText.Next : WaitingText.Waiting, press: press(item))).ToList());
+            list: Items.Select((item, index) => new RoomListRow(RoomKind.Waiting, item.Shown, index == 0 ? WaitingText.Next : null, press: press(item))).ToList());
 
         /// <summary>One waiting instruction's page (A3): its status, its words as the line under it.</summary>
         public RoomCard? PageCard() => Opened is WaitingInstruction item
-            ? new RoomCard(description: item.Shown, status: new RoomCardStatus(WaitingText.ItsTurn, WaitingText.ItsTurnLine, RoomTone.Quiet))
+            ? new RoomCard(description: item.Shown, status: new RoomCardStatus(WaitingText.ItsTurn, WaitingText.ItsTurnLine, RoomTone.Quiet, RoomKind.Waiting))
             : null;
     }
 
@@ -111,7 +114,6 @@ namespace Halcyonic.Client
         public const string Title = "Waiting";
         public const string Line = "Each is sent when this turn ends.";
         public const string Next = "Next";
-        public const string Waiting = "Waiting";
         public const string ItsTurn = "Waiting for Its Turn";
         public const string ItsTurnLine = "It is sent when this turn ends.";
         public const string Drop = "Drop";

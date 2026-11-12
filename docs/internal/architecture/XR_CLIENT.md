@@ -4572,7 +4572,7 @@ presence, contextual moment cards and the on-demand project screen:
   (`CommandSubmissions.InstructionOf`, in memory only, never logged), else the placeholder "Your Instruction". While
   the turn runs and any wait, the result reaches the bar (`KitFileBinding`: at rest, or while instructions wait) and
   the working bar stands FIELD's waiting list beside Stop: title Waiting, "Each is sent when this turn ends.", a row
-  each with its words (theirs), "Next" on the first and "Waiting" on the rest, each pressed to its page
+  each with its words (theirs), "Next" on the first alone (the title says the rest wait), each with the waiting mark (the clock), each pressed to its page
   (`room-waiting-open`, key the command). A page reads "Waiting for Its Turn" over "It is sent when this turn ends.",
   its words under it, then Drop (never main, no confirmation: nothing was sent) and Back; Drop sends
   `execution.drop_queued_instruction` (`CommandFactory.DropQueuedInstruction`) and the row leaves once the host
