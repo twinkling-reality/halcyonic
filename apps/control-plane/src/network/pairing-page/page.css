@@ -660,6 +660,52 @@ button:focus-visible,
   margin-top: 20px;
 }
 
+/* A Halcyonic on another data folder: which folder, under the head, in the quiet tone with a straight bar at its edge,
+   never the accent, which stays on the page's one main action. Both pages load this sheet. Its words start where the
+   head's and the status's do: the 56px mark column and its 16px gap. */
+.elsewhere {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 16px;
+  margin-top: 20px;
+  padding: 12px 16px 12px 0;
+  border-radius: 14px;
+  background: var(--well);
+}
+.elsewhere::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--quiet);
+}
+.elsewhere > .glyph {
+  justify-self: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  color: var(--secondary);
+}
+.elsewhere-title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--text);
+}
+.elsewhere-line {
+  margin: 2px 0 0;
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--secondary);
+  overflow-wrap: anywhere;
+}
+
 /* Last, so it wins over every display above at the same weight. */
 [hidden] {
   display: none;

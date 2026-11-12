@@ -127,6 +127,8 @@ export interface SetupPageDeps {
   readonly secrets?: PageSecrets;
   /** The person's own keys for the declared providers something here reads (ADR 0061); absent where none is. */
   readonly keys?: PageKeys;
+  /** The data folder, as the person reads it, where it is not the usual one; absent or null where it is. */
+  readonly dataFolder?: string | null;
 }
 
 /** The agent apps' keys as the page reaches them: whether each is stored and when, never a key (AgentKeys). */
@@ -332,6 +334,8 @@ export interface SetupState {
   /** What the last action printed, as setup prints it. */
   readonly said: readonly string[];
   readonly restarting: boolean;
+  /** The data folder this Halcyonic keeps its data in, where it is not the usual one; null where it is. */
+  readonly data_folder: string | null;
   /**
    * Each game shared now (ADR 0054), for Copy and Stop. `address_text` is the Wi-Fi address to show,
    * null for a link: a link's address carries the tunnel service's name and is never shown, only
@@ -706,6 +710,7 @@ export class SetupView {
       confirm: here.confirm,
       said: here.said,
       restarting: this.#restarting,
+      data_folder: this.#deps.dataFolder ?? null,
       shared: (this.#deps.shared?.() ?? []).map((share) => ({
         project_id: share.project_id,
         name: share.name,

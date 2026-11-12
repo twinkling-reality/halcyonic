@@ -96,6 +96,12 @@ export interface PairingPageOptions {
    * own routes. Nothing it adds reaches pairing's state.
    */
   readonly mount?: (routes: PageRoutes) => void;
+  /**
+   * The data folder this Halcyonic keeps its journal and keys in, as the person reads it, where it is not the usual
+   * one; null or absent where it is. The page says it, so a second Halcyonic on this computer is never taken for the
+   * usual one.
+   */
+  readonly dataFolder?: string | null;
 }
 
 /** What a view mounted on the page may add: routes behind the page's session and checks, under `/setup`. */
@@ -150,6 +156,8 @@ export interface PageState {
   }[];
   /** Why the last press did not do what it said, in the page's words; null when it did. */
   readonly problem: string | null;
+  /** The data folder, where it is not the usual one (PairingPageOptions.dataFolder); null where it is. */
+  readonly data_folder: string | null;
 }
 
 const ASSETS: Readonly<Record<string, { readonly type: string; readonly body: Buffer }>> = {
@@ -181,6 +189,7 @@ export class PairingPage {
   readonly #app: FastifyInstance;
   readonly #controls: PairingPageControls;
   readonly #linkMs: number;
+  readonly #dataFolder: string | null;
   readonly #now: () => number;
   readonly #mount: ((routes: PageRoutes) => void) | undefined;
   /** Unused link codes, by their hash, with when each runs out. */
@@ -202,6 +211,7 @@ export class PairingPage {
     linkMs: number,
     now: () => number,
     mount?: (routes: PageRoutes) => void,
+    dataFolder: string | null = null,
   ) {
     this.#app = app;
     this.#port = port;
@@ -209,6 +219,7 @@ export class PairingPage {
     this.#linkMs = linkMs;
     this.#now = now;
     this.#mount = mount;
+    this.#dataFolder = dataFolder;
   }
 
   /** Serves the page on the first free port of its range. */
@@ -226,6 +237,7 @@ export class PairingPage {
         options.linkMs ?? PAGE_LINK_MS,
         options.now ?? Date.now,
         options.mount,
+        options.dataFolder ?? null,
       );
       page.#routes();
       try {
@@ -302,6 +314,7 @@ export class PairingPage {
           connected: connected.includes(device.device_id),
         })),
       problem: this.#problem,
+      data_folder: this.#dataFolder,
     };
   }
 

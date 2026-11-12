@@ -17,6 +17,7 @@ import {
   loadConfig,
   parseNetwork,
   portFamily,
+  unusualDataFolder,
 } from './config.ts';
 import { ControlPlane } from './core/control-plane.ts';
 import { OllamaUnloader } from './core/ollama-unload.ts';
@@ -117,6 +118,8 @@ async function main(): Promise<void> {
   });
   // Each key a reader reads at its start, as kept now, by when it was written and never by its value: read before the
   // adapters start from them, so the setup page knows a key kept or removed since asks for a restart.
+  // Both Mac pages say which data folder this Halcyonic keeps, where it is not the usual one.
+  const dataFolder = unusualDataFolder(config.dataDir);
   const keysKept = (): string => keysReadAtStart(config.dataDir, providers);
   const keysAtStart = keysKept();
   // Built first, so a misconfigured runtime stops startup before anything else opens.
@@ -487,11 +490,13 @@ async function main(): Promise<void> {
       }),
       {
         ports: family.pairingPage,
+        dataFolder,
         // The setup view beside pairing (ADR 0053): every step `pnpm mac-setup` checks, with its presses.
         mount: mountSetup(
           new SetupView(
             {
               dataDir: config.dataDir,
+              dataFolder,
               home: homedir(),
               // The keyed agent apps this start registered, so the page says a key added or removed since waits.
               io: (print) => ({

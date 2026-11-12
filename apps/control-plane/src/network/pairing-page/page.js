@@ -240,8 +240,20 @@ function headsetRow(headset) {
   return row;
 }
 
+/** A Halcyonic on another data folder says which one, under the head, as the setup page does. */
+function elsewhere(folder) {
+  show('elsewhere', folder !== null);
+  // The tab says it too, so two of them side by side are told apart.
+  document.title = folder === null ? 'Pairing' : `Pairing (${folder})`;
+  document.getElementById('elsewhere-line').textContent =
+    folder === null
+      ? ''
+      : `This Halcyonic keeps its data in ${folder}, not in the usual ~/.halcyonic.`;
+}
+
 function draw() {
   if (state === null) return;
+  elsewhere(state.data_folder ?? null);
   const gone = state.closed === true || state.unreachable === true;
   show('setup-link', !gone);
   if (gone) {

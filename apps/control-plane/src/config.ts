@@ -220,6 +220,31 @@ export function defaultDataDir(env: NodeJS.ProcessEnv = process.env): string {
   return resolve(env.HALCYONIC_DATA_DIR ?? join(homedir(), '.halcyonic'));
 }
 
+/**
+ * `dataDir` as the person reads it, with their home folder as ~, where it is not the usual ~/.halcyonic; null where it
+ * is. The Mac's pages say it, so a second Halcyonic on one computer is never taken for the usual one.
+ */
+export function unusualDataFolder(
+  dataDir: string,
+  home: string = userInfo().homedir,
+): string | null {
+  // The account's own home, never a launcher's HOME; an alias of the usual folder (a link, another case) is the same.
+  const real = (path: string) => {
+    try {
+      return realpathSync.native(path);
+    } catch {
+      return resolve(path);
+    }
+  };
+  const folder = resolve(dataDir);
+  if (folder === resolve(home, '.halcyonic') || real(folder) === real(resolve(home, '.halcyonic')))
+    return null;
+  const root = resolve(home);
+  return folder === root || folder.startsWith(`${root}${sep}`)
+    ? `~${folder.slice(root.length)}`
+    : folder;
+}
+
 /** The loopback address and port the control plane serves, as validated for the control plane. */
 export function loopbackListener(env: NodeJS.ProcessEnv = process.env): {
   host: string;

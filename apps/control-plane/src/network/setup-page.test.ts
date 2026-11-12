@@ -130,6 +130,8 @@ function setup(
     stopped?: string[];
     refuseStop?: boolean;
     secrets?: PageSecrets;
+    /** The data folder the page says, where it is not the usual one. */
+    dataFolder?: string;
     /** A folder of provider declarations and the readers of their keys; main.ts passes the host's own list. */
     providers?: { readonly dir: string; readonly readers: readonly KeyReader[] };
   } = {},
@@ -175,6 +177,7 @@ function setup(
       },
       ...(options.secrets === undefined ? {} : { secrets: options.secrets }),
       ...(providers === undefined ? {} : { keys: new ProviderKeys(machine.dataDir, providers) }),
+      ...(options.dataFolder === undefined ? {} : { dataFolder: options.dataFolder }),
     },
     setupDownloads(machine.dataDir, () => null, options.pins ?? null),
   );
@@ -1121,6 +1124,19 @@ describe('the setup view on the pairing page', () => {
     assert.equal(again.keys?.confirm?.id, 'anthropic');
     // A secret's press forgets it too.
     assert.equal((await view.removeSecret('a-project', 'A_KEY', false)).keys?.confirm, null);
+  });
+
+  test('a Halcyonic on another data folder says which one on the setup page too; the usual one says nothing', async (t) => {
+    assert.equal((await setup(t).view.state()).data_folder, null);
+    const { view } = setup(t, { dataFolder: '~/.halcyonic-second/data' });
+    assert.equal((await view.state()).data_folder, '~/.halcyonic-second/data');
+    const html = readFileSync(new URL('./setup-page/setup.html', import.meta.url), 'utf8');
+    assert.match(html, /<section id="elsewhere" class="elsewhere" hidden>/);
+    const script = readFileSync(new URL('./setup-page/setup.js', import.meta.url), 'utf8');
+    assert.match(
+      script,
+      /This Halcyonic keeps its data in \$\{folder\}, not in the usual ~\/\.halcyonic\./,
+    );
   });
 
   test('without a declared key the page offers no key at all', async (t) => {
