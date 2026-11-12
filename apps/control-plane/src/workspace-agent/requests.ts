@@ -107,6 +107,9 @@ const KEY_FAILURES = new Set([
   'key_unreadable',
   'key_malformed',
   'model_not_offered',
+  'model_not_found',
+  'provider_address',
+  'provider_declaration',
 ]);
 
 /**
@@ -1042,11 +1045,15 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         if (
           KEY_FAILURES.has(result.code) &&
           this.#o.controlPlane.projection.assistantModel() !== null &&
-          (await this.#offerThisComputer(request))
+          (await this.#offerThisComputer(request, controller))
         ) {
+          request = this.#current(id, controller);
+          if (!request) return;
           this.#changed(request, 'waiting_for_human', request.reply);
           return;
         }
+        request = this.#current(id, controller);
+        if (!request) return;
         this.#changed(request, 'failed', request.reply);
         return;
       }
@@ -2407,7 +2414,10 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
    * chosen hosted model could not be used (D2): prepared and shown as any proposal, waiting for the person's press.
    * False where it cannot be offered, and the request then fails as before.
    */
-  async #offerThisComputer(request: WorkspaceRequestView): Promise<boolean> {
+  async #offerThisComputer(
+    request: WorkspaceRequestView,
+    controller: AbortController,
+  ): Promise<boolean> {
     const plane = this.#o.controlPlane;
     const scope: HereScope = { project_id: null, workstream_id: null, execution_id: null };
     const list = await plane.commands.choices(scope, 'assistant_models').catch(() => null);
@@ -2431,7 +2441,8 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     if ((prepared.command.payload as { model?: unknown }).model !== null) return false;
     const shown = await this.#shown('none', prepared.command, entry.description);
     if (!shown.ok) return false;
-    const current = plane.projection.workspaceRequest(request.request_id);
+    // A request cancelled or stopped while the list was read gets no offer and is not brought back.
+    const current = this.#current(request.request_id, controller);
     if (!current) return false;
     this.#step(
       current,

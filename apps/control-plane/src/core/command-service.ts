@@ -255,6 +255,8 @@ export class CommandService {
     this.#workspaceRequests = handler;
   }
   #assistantModels: (() => Promise<readonly AssistantModelOption[]>) | null = null;
+  /** How many choices of where the assistant runs were pressed, so the last press is the one kept. */
+  #choices = 0;
   /** Where the assistant may run, read at each use (ADR 0030, 2026-11-12); absent means Use Model is not offered. */
   attachAssistantModels(options: () => Promise<readonly AssistantModelOption[]>): void {
     if (this.#assistantModels !== null) throw new Error('assistant models already attached');
@@ -2236,7 +2238,18 @@ export class CommandService {
         // Only a place the assistant offers now, as the list read it: a hosted model whose key is gone or refused since
         // the press is refused in words, and the choice stays as it was (the lead's D1 and D2, 2026-11-12).
         const wanted = command.payload.model;
+        // Choices land in the order they were pressed: a hosted choice still reading its options when a later choice
+        // arrives is dropped, never journaled after it (review of 65097d77b).
+        const order = ++this.#choices;
         const chosen = () => {
+          if (order !== this.#choices) {
+            this.#fail(command, admission.scope, {
+              code: 'invalid_state',
+              message: 'A later choice of where the assistant runs replaced this one.',
+              effect: 'none',
+            });
+            return;
+          }
           recorder.record(
             controlPlaneDraft(
               'assistant.model.chosen',

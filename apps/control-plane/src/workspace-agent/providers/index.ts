@@ -14,7 +14,8 @@ export const PROTOCOLS: ReadonlyMap<WireShape, Protocol> = new Map<WireShape, Pr
  * read at each use, and never turned on by a stored key (the lead's D1): the person chooses with Use Model.
  */
 export const ASSISTANT_READER: KeyReader = {
-  name: 'The Assistant',
+  // The word the headset already shows for the assistant (the lead, 2026-11-12).
+  name: 'Workspace Assistant',
   providers: 'all',
   needs: [...PROTOCOLS.keys()],
   reads: 'at_each_use',

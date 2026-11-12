@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import type { CommandId, HereScope, WorkspaceAgentStatus } from '@halcyonic/contracts';
+import { Projection } from '@halcyonic/domain';
 import type { HostedProvider } from '@halcyonic/runtime-core';
 import { createUuidV7Generator } from '../ids.ts';
 import { createTestControlPlane } from '../testing/harness.ts';
@@ -41,9 +42,13 @@ function plane(t: { after: (fn: () => unknown) => void }, refuse: boolean) {
   writeFileSync(join(dir, provider.key.file), `${FAKE}\n`);
   chmodSync(join(dir, provider.key.file), 0o600);
   let hostedTurns = 0;
+  let hostedChecks = 0;
   let localTurns = 0;
   const protocol: Protocol = {
-    check: async () => (refuse ? { ok: false, ...KEY_REFUSED } : { ok: true }),
+    check: async () => {
+      hostedChecks++;
+      return refuse ? { ok: false, ...KEY_REFUSED } : { ok: true };
+    },
     turn: async () => {
       hostedTurns++;
       return refuse
@@ -130,6 +135,8 @@ function plane(t: { after: (fn: () => unknown) => void }, refuse: boolean) {
     envelope,
     ask,
     counts: () => ({ hosted: hostedTurns, local: localTurns }),
+    /** Every request that carried the key to the provider: its turns and its status checks. */
+    sent: () => hostedTurns + hostedChecks,
   };
 }
 
@@ -181,9 +188,16 @@ test('a stored key offers its models and moves nothing until the person presses 
   assert.equal(reply?.served, 'remote');
   assert.equal(reply?.provider, 'Test Hosted');
   assert.deepEqual(p.counts(), { hosted: 1, local: 1 });
-  // Remembered: the journal holds it, so a projection rebuilt from it chooses the same.
-  const exported = p.h.controlPlane.projection.exportState();
-  assert.deepEqual(exported.assistantModel, { provider_id: 'test-hosted', model: 'test-model-1' });
+  // Remembered: a projection restored from the exported state, and one rebuilt from the journal, choose the same.
+  const restored = new Projection();
+  restored.restoreState(p.h.controlPlane.projection.exportState());
+  assert.deepEqual(restored.assistantModel(), {
+    provider_id: 'test-hosted',
+    model: 'test-model-1',
+  });
+  const rebuilt = new Projection();
+  for (const stored of p.h.controlPlane.journal.readAll()) rebuilt.apply(stored);
+  assert.deepEqual(rebuilt.assistantModel(), { provider_id: 'test-hosted', model: 'test-model-1' });
 });
 
 test('a model the list does not offer now is refused in words, and the choice stays', async (t) => {
@@ -230,9 +244,13 @@ test('a refused key is said in words, never sent again, and this computer is one
   assert.deepEqual(held?.command.payload, { model: null });
   assert.equal(p.counts().hosted, 1);
   // The refused key is not sent again: a status read and a new request spend nothing more.
+  const sent = p.sent();
   const status = await p.assistant.status();
   assert.equal(status.availability === 'unavailable' && status.reason.code, 'key_refused');
-  assert.equal(p.counts().hosted, 1);
+  const again = p.ask('And now?');
+  await settle();
+  assert.equal(p.coordinator.read(again, { kind: 'local' })?.status, 'waiting_for_human');
+  assert.equal(p.sent(), sent, 'neither the status read nor the new request sent the refused key');
   // The one press: the request goes on, on this computer's model.
   p.h.controlPlane.commands.submit(
     p.envelope('workspace.request.resume', {
@@ -249,4 +267,25 @@ test('a refused key is said in words, never sent again, and this computer is one
   assert.equal(request?.status, 'responded');
   assert.equal(request?.reply?.served, 'this_mac');
   assert.deepEqual(p.counts(), { hosted: 1, local: 1 });
+});
+
+test('the last press decides: a hosted choice still reading its options never lands after a later one', async (t) => {
+  const p = plane(t, false);
+  const hosted = p.h.controlPlane.commands.submit(
+    p.envelope('assistant.model.choose', {
+      model: { provider_id: 'test-hosted', model: 'test-model-1' },
+    }),
+    'http',
+    { kind: 'local' },
+  );
+  // Pressed before the hosted choice has read its options: this computer's model, recorded at once.
+  p.h.controlPlane.commands.submit(p.envelope('assistant.model.choose', { model: null }), 'http', {
+    kind: 'local',
+  });
+  await settle();
+  assert.equal(p.h.controlPlane.projection.assistantModel(), null);
+  assert.equal(
+    p.h.controlPlane.projection.command(hosted.command?.command_id as CommandId)?.status,
+    'failed',
+  );
 });

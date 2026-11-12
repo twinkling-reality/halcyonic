@@ -85,7 +85,7 @@ stand-ins. The test provider needs nothing but its declaration. As amended for D
 
 - a stored key alone moves nothing; the person's choice runs a tool round on it;
 - a chosen model with its key removed says so at the next read, never falling back;
-- a refused key says so, is never sent again, and a new key is tried;
+- a refused key says so, is never sent again while the plane runs, and a new key is tried;
 - a key file others can read sends nothing;
 - a refusal is a failure in words;
 - a key in the environment is never read, so a plane that inherits one stays local and sends nothing.
@@ -96,20 +96,19 @@ Meta's pages were read again that day ([meta-models.md](meta-models.md)). Its Ch
 OpenAI-compatible shape the seam already has, so Meta is a declaration (`providers/meta/provider.json`, ADR 0061), not code of
 its own:
 
-- **Protocol and key.** `openai_chat` at `https://api.meta.ai/v1`. The key is `META_API_KEY`, the variable Muse Code
+- **Wire shape and key.** `chat_completions` (it also serves `responses`) at `https://api.meta.ai/v1`. The key is `META_API_KEY`, the variable Muse Code
   and OpenCode's built-in `meta` provider read, kept in `<data dir>/meta-api-key` and sent as `Authorization: Bearer`.
 - **Models.** `muse-wonder-1.0` first, then `muse-spark-1.3`. No `-contributor` id is declared, since those let Meta
   train on the content.
 - **Effort and output.** Effort `low`, sent as `reasoning_effort`, since Muse Wonder otherwise thinks at `max`. The
   output is bounded by `max_completion_tokens`, which counts that thinking.
 - **Refusals.** A refusal is read as `content_filter` or the message's `refusal` text, and that text is never relayed.
-- **Which provider runs.** Whichever model the person chose with Use Model. Meta's models are listed first, since
-  Meta is declared first.
+- **Which provider runs.** Whichever model the person chose with Use Model, which lists the models in the host
+  list's own order (ADR 0061).
 
 The seam gained a declared `effort` and output field (`tuning` in the declaration, ADR 0061), each mapped by its
-protocol. Each
-protocol refuses an effort or field it does not document. After review, two changes avoid shapes Meta does not
-confirm:
+protocol. Each protocol refuses an effort or field it does not document. After review, two changes avoid shapes Meta
+does not confirm:
 
 - The status check reads the one model's record (`GET /models/{model}`) instead of the list, whose shape and paging
   are not shown.
