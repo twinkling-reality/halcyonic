@@ -230,6 +230,8 @@ export function registerPreviewStream(
   limits: PreviewStreamLimits = PREVIEW_STREAM_LIMITS,
 ): void {
   const open = new Map<string, Set<() => void>>();
+  /** The place each admitted upgrade holds until its stream takes it. */
+  const holds = new WeakMap<IncomingMessage, () => void>();
   // Pairing turned off closes the listener: every stream it holds ends with it.
   app.addHook('onClose', async () => {
     for (const ends of open.values()) for (const end of [...ends]) end();
@@ -261,6 +263,17 @@ export function registerPreviewStream(
         }
         const found = target(projectId);
         if (!found.ok) return reply.code(409).send(errorBody(found.code, found.message));
+        // The place is held now, before the upgrade, so streams opened together cannot pass the cap together; an
+        // upgrade that never completes gives it back within ten seconds.
+        const ends = open.get(principal.device_id) ?? new Set<() => void>();
+        open.set(principal.device_id, ends);
+        const hold = () => {
+          ends.delete(hold);
+          if (ends.size === 0) open.delete(principal.device_id);
+        };
+        ends.add(hold);
+        setTimeout(hold, 10_000).unref();
+        holds.set(request.raw, hold);
       },
     },
     (socket: WebSocket, request) => {
@@ -273,6 +286,7 @@ export function registerPreviewStream(
       }
       const deviceId = principal.device_id;
       const port = found.port;
+      holds.get(request.raw)?.();
       const ends = open.get(deviceId) ?? new Set<() => void>();
       open.set(deviceId, ends);
       // Only this Mac's own loopback, at the port the gate named.
@@ -319,11 +333,19 @@ export function registerPreviewStream(
       upstream.on('error', () => end(PREVIEW_UNREACHABLE, 'preview_unreachable'));
       upstream.on('end', () => end());
       upstream.on('close', () => end());
+      // And a preview slow to read slows the headset: the stream stops reading until the preview has drained.
       socket.on('message', (data: RawData) => {
         touch();
         const chunks = Array.isArray(data) ? data : [data];
+        let full = false;
         for (const chunk of chunks) {
-          upstream.write(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as ArrayBuffer));
+          full =
+            !upstream.write(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as ArrayBuffer)) ||
+            full;
+        }
+        if (full) {
+          socket.pause();
+          upstream.once('drain', () => socket.resume());
         }
       });
       socket.on('close', () => end());

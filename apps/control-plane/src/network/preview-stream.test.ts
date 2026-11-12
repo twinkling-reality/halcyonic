@@ -115,6 +115,26 @@ describe('the preview stream on the network listener (ADR 0052, amended 2026-11-
     assert.equal(preview.dialled(), 3, 'nothing dialled for a refused stream');
   });
 
+  test('holds the cap for streams opened together: exactly that many open', async (t) => {
+    const preview = await echoServer(t);
+    const { open } = await pairedServer(t, () => ({ ok: true, port: preview.port }), {
+      perDevice: 2,
+      idleMs: 60_000,
+      checkMs: 50,
+    });
+    const tries = await Promise.allSettled([open(), open(), open()]);
+    const opened = tries.filter((each) => each.status === 'fulfilled');
+    const refused = tries.filter(
+      (each) =>
+        each.status === 'rejected' &&
+        each.reason instanceof WebSocketRefused &&
+        each.reason.status === 429,
+    );
+    assert.equal(opened.length, 2, 'two of three, at a cap of two');
+    assert.equal(refused.length, 1);
+    for (const each of opened) if (each.status === 'fulfilled') await each.value.close();
+  });
+
   test('closes at once when the gate no longer admits it, its device is forgotten, it idles, or pairing goes off', async (t) => {
     const preview = await echoServer(t);
     let allowed: PreviewTarget = { ok: true, port: preview.port };
