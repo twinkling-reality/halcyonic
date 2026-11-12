@@ -24,6 +24,9 @@ namespace Halcyonic.XR.UI
         private readonly HashSet<int> rays = new HashSet<int>();
         private readonly HashSet<int> gazes = new HashSet<int>();
         private readonly HashSet<int> pressing = new HashSet<int>();
+
+        /// <summary>Where each press under way began: a ray's origin and direction, a finger's point.</summary>
+        private readonly Dictionary<int, Pose> pressedAt = new Dictionary<int, Pose>();
         private BoundsClipper? clipper;
         private ClippedPlaneSurface? flatPatch;
         private CylinderClipper? curveClipper;
@@ -50,6 +53,15 @@ namespace Halcyonic.XR.UI
         /// <summary>A pinch on the ray, or a poke that pressed through the surface.</summary>
         public event Action? Selected;
 
+        /// <summary>As <see cref="Selected"/>, saying whether a ray made it (true) or a finger (false).</summary>
+        public event Action<bool>? SelectedBy;
+
+        /// <summary>
+        /// A press under way on a target that does not drag moved: how far a ray turned from where it pinched, in degrees,
+        /// how far a finger travelled, in metres, and whether a ray still meets this target.
+        /// </summary>
+        public event Action<float, float, bool>? PressMoved;
+
         /// <summary>
         /// A press that <see cref="Selected"/> reported ended: let go (false), or cancelled (true), as when
         /// the interactable is disabled.
@@ -75,6 +87,12 @@ namespace Halcyonic.XR.UI
         public bool GazeHovered => gazes.Count > 0;
 
         public bool Hovered => HandHovered || GazeHovered;
+
+        /// <summary>A ray is on it.</summary>
+        public bool RayHovered => rays.Count > 0;
+
+        /// <summary>Whether a ray from <paramref name="pose"/> meets this target's surface, inside its bounds.</summary>
+        public bool RayMeets(Pose pose) => patch == null || patch.Raycast(new Ray(pose.position, pose.forward), out _);
 
         /// <summary>The rectangle's size, as laid out on its host's plane; zero for a sphere.</summary>
         public Vector2 Size => size;
@@ -252,6 +270,7 @@ namespace Halcyonic.XR.UI
             if (pressing.Count > 0)
             {
                 pressing.Clear();
+                pressedAt.Clear();
                 Released?.Invoke(true);
             }
             if (hands.Count == 0 && gazes.Count == 0) return;
@@ -276,12 +295,20 @@ namespace Halcyonic.XR.UI
                 // A target that drags follows one press at a time.
                 if (drags && holder != null) return;
                 pressing.Add(pointer.Identifier);
+                pressedAt[pointer.Identifier] = pointer.Pose;
                 if (drags)
                 {
                     holder = pointer.Identifier;
                     held = TakeHold(pointer.Pose, fromRay);
                 }
+                SelectedBy?.Invoke(fromRay);
                 Selected?.Invoke();
+            }
+            else if (pointer.Type == PointerEventType.Move && !drags && pressedAt.TryGetValue(pointer.Identifier, out var from))
+            {
+                var turned = fromRay ? Vector3.Angle(from.forward, pointer.Pose.forward) : 0f;
+                var travelled = fromRay ? 0f : Vector3.ProjectOnPlane(pointer.Pose.position - from.position, transform.forward).magnitude;
+                PressMoved?.Invoke(turned, travelled, fromRay && RayMeets(pointer.Pose));
             }
             else if (pointer.Type == PointerEventType.Move && drags && held != null && holder == pointer.Identifier)
             {
@@ -304,6 +331,7 @@ namespace Halcyonic.XR.UI
         /// <summary>A press ended: the point held is let go of, and for a target that drags, its one press.</summary>
         private void LetGo(int pointer)
         {
+            pressedAt.Remove(pointer);
             held = null;
             if (holder == pointer) holder = null;
         }

@@ -175,6 +175,7 @@ namespace Halcyonic.XR.UI
             go.transform.SetParent(parent, false);
             var view = go.AddComponent<RoomBarView>();
             view.talk = RoomButton.Create(go.transform, "Hold to Talk", RoomButtonSize.Home);
+            view.talk.Press.ActsOnPinch = true;
             view.talk.Pressed += () => view.TalkPressed?.Invoke();
             view.talk.Press.Target.Released += cancelled => view.TalkReleased?.Invoke(cancelled);
             view.talkSweep = GlazeShimmer.On(view.talk.Words);
@@ -749,6 +750,8 @@ namespace Halcyonic.XR.UI
                 button.Show(action.Words, action.Icon, action.Main, available: true, centre, cores[index].x, action.Mark, action.Chosen,
                     action.Mark != AnswerMark.None ? wrap : 0f);
                 controls[button] = action.Control;
+                // A held action (Hold to Talk in the column) acts at its pinch; every other on its release (the one press).
+                button.Press.ActsOnPinch = action.Control.Holds;
                 if (action.Locks) locks = button;
             }
             // Confirm's lock starts when it arrives and holds through the frames the file draws again while it stands.
