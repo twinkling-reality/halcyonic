@@ -102,18 +102,6 @@
     "why": "true: Only page 4 of the five-page theme preview reaches it, and its lines are inert specimens under Preview and Examples; note it puts an Agent Reported chip on example words no agent said."
   },
   {
-    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/CompanionExchange.cs",
-    "answer": "\"companion_failed\"",
-    "count": 1,
-    "why": "generic: Any exception not a coded control plane error, an unreachable request, a timeout or unreadable JSON gets the code companion_failed, a generic code that is true for all of them (the words it leads to are judged at CompanionText.cs:112)."
-  },
-  {
-    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/CompanionText.cs",
-    "answer": "CouldNotAsk",
-    "count": 1,
-    "why": "KNOWN WRONG, owed: companion_failed needs words of its own. The Mac's own companion_failed, sent when the model was asked and then answered an HTTP error, stopped with an error or was cut off, reaches it, and so do this side's catch-all exceptions after sending, yet it says Companion Not Asked."
-  },
-  {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/ConnectText.cs",
     "answer": "Ours(\"Connect Unconfirmed · \") + Named(connection.Folder.ProjectName) + Ours(\" · Check Projects\")",
     "count": 1,
@@ -190,12 +178,6 @@
     "answer": "\"Host Unverified · Code Not Sent · Check App · Refresh\"",
     "count": 1,
     "why": "true: A guarded arm: only a TokenNotSentException with Unproved reaches it, and Host Unverified, Code Not Sent is true."
-  },
-  {
-    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/IntelligencePresentation.cs",
-    "answer": "\"No Reason Given · Refresh\"",
-    "count": 1,
-    "why": "KNOWN WRONG, owed: own_sources_not_set_up needs words of its own. Every unlisted reason code reaches it, including own_sources_not_set_up, which the control plane sends for Salidium and Seorak not_found answers, so the headset says No Reason Given when a reason was given."
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/IntelligencePresentation.cs",
@@ -294,24 +276,6 @@
     "why": "routing: Only Typed reaches it, since None is replaced first and Typed implies words, so Make Recap on the idea is right."
   },
   {
-    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/PairingCards.cs",
-    "answer": "(\"Pairing Refused\", \"Open pairing on your computer again, then try again.\")",
-    "count": 1,
-    "why": "KNOWN WRONG, owed: unreachable, invalid_code and error need words of their own. Pairing failures that were never refused reach it, unreachable (nothing answered), invalid_code (never sent) and error (any other exception), yet the card says Pairing Refused and to open pairing again."
-  },
-  {
-    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/PairingClient.cs",
-    "answer": "Refused",
-    "count": 1,
-    "why": "true: Only real refusals reach it, a pair_refused message or an HTTP upgrade refusal with an unlisted or null code, and Pairing Refused is true for them."
-  },
-  {
-    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/PreviewRelay.cs",
-    "answer": "\"The preview isn't answering. Try again.\"",
-    "count": 1,
-    "why": "KNOWN WRONG, owed: a status the relay passes through unnamed is said as not answering. A 409 or 502 the preview app itself sends is passed through by the computer's relay and reaches it with no known code, yet it says the preview is not answering when the preview did answer."
-  },
-  {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/ProjectIdea.cs",
     "answer": "\"New project\"",
     "count": 1,
@@ -355,9 +319,9 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/UsageLeftPresentation.cs",
-    "answer": "Failure(\"Usage Unreadable · Retry Later\")",
+    "answer": "Failure(Unreadable)",
     "count": 1,
-    "why": "generic: Unavailable usage limits with codes other than the four listed say Usage Unreadable with Retry Later, a true generic failure."
+    "why": "generic: Unavailable usage limits with codes other than the four listed say Usage Unreadable, a true generic failure."
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/VoiceText.cs",
@@ -385,9 +349,9 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WorkspacePresentation.cs",
-    "answer": "\"Sent · Awaiting Agent\"",
+    "answer": "\"Waiting for your computer\"",
     "count": 1,
-    "why": "KNOWN WRONG, owed: each command's pending words, from one table of the host's codes. Host commands no agent takes reach it, such as ProjectCreate, ProjectCheck, preview, share and ExecutionDropQueuedInstruction, yet it says Sent and Awaiting Agent."
+    "why": "generic: every pending command an agent does not answer (project create, check, preview, share, restore, a new command type) waits for the computer, which is true of each; the three an agent answers have their own line."
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WorkspacePresentationState.cs",
