@@ -175,7 +175,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         ? new NewProjectFlow(host, commands, new KeptUnknownStart(new WalkPreferences(), () => host.State))
                         : NewProjectColumn.Create(host, commands, () => new MemoryCreationDraftStore()),
                     File = (host, task) => Present(task) == null ? null : new FileColumn(host, () => Present(task), commands,
-                        () => fallback.Player?.Reads, execution => fallback.InstructionsFor(execution), () => ""),
+                        // A live walk reads a file's sections (its Changes, its checks) from its own plane, as the headset reads them
+                        // from the one it is on; the recorded walk reads the recording's (the lead's first journey, 2026-11-12).
+                        () => (IIntelligenceReader?)api ?? fallback.Player?.Reads, execution => fallback.InstructionsFor(execution), () => ""),
                 });
                 director.Open();
                 var navigator = director.Navigator;
