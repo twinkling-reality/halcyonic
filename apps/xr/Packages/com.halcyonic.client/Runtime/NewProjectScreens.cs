@@ -709,8 +709,8 @@ namespace Halcyonic.Client
             // The folder and where it is, as the review names it (a fresh critic, 2026-11-12): the recap is what Start Task sends.
             var folderWords = folder.Name is LineWords named && folder.Place is LineWords place ? named + LineWords.Ours(" in ") + place
                 : folder.Name ?? folder.Place ?? (folder.Kind == FolderFactKind.NotChosen ? LineWords.Ours("Not Chosen") : null);
-            // Whether it is made new, as the review says it (FIELD's words to come).
-            if (folderWords != null && folder.Kind == FolderFactKind.NewFolder) folderWords = LineWords.Ours("New Folder, ") + folderWords;
+            // Whether it is made new, one phrase, ours around theirs (FIELD's words 13:42Z): "New kite-run in Projects".
+            if (folderWords != null && folder.Kind == FolderFactKind.NewFolder) folderWords = LineWords.Ours("New ") + folderWords;
             if (folderWords != null) slots.Add(new RoomSlot(RoomKind.Folder, folderWords));
             if (draft.Runtime is RuntimeDescriptor runtime)
             {

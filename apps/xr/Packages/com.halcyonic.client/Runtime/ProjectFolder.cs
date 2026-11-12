@@ -184,8 +184,8 @@ namespace Halcyonic.Client
             if (FolderName == null) return Ours("Directly in ") + root;
             var folder = name(FolderName);
             // " in " between a folder and its place, never a bare separator, which would join two names into one of theirs.
-            // A new folder from a starter: the starter is named by the review's own row, by its own name (AUDIT's MUST 3), never here.
-            if (IsNew && !string.IsNullOrEmpty(StarterId)) return Ours("New Folder, ") + folder + Ours(" in ") + root;
+            // A new folder from a starter, one phrase, ours around theirs (FIELD's words 13:42Z): the starter is named by the review's own row, by its own name (AUDIT's MUST 3), never here.
+            if (IsNew && !string.IsNullOrEmpty(StarterId)) return Ours("New ") + folder + Ours(" in ") + root;
             if (IsNew) return Ours("New Folder · ") + folder + Ours(" in ") + root;
             return folder + Ours(PlaceGone ? " · " : " in ") + root;
         }
@@ -196,7 +196,7 @@ namespace Halcyonic.Client
             var root = PlaceGone ? PlaceUnlisted : name(RootName);
             if (FolderName == null) return "Directly in " + root;
             var folder = name(FolderName);
-            if (IsNew && !string.IsNullOrEmpty(StarterId)) return "New Folder, " + folder + " in " + root;
+            if (IsNew && !string.IsNullOrEmpty(StarterId)) return "New " + folder + " in " + root;
             if (IsNew) return "New Folder · " + folder + " in " + root;
             // A gone place reads as its own segment: "shop · Place Unlisted".
             return folder + (PlaceGone ? " · " : " in ") + root;
