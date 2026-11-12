@@ -61,6 +61,7 @@ import type { ControlPlane } from '../core/control-plane.ts';
 import { ProjectReads } from '../core/project-reads.ts';
 import { type Redaction, withinLimit } from '../core/redaction.ts';
 import { locationReview } from '../core/review.ts';
+import { publishReviewOf, sendReviewOf } from '../core/reviews.ts';
 import { MODEL_LIST_TIMEOUT_MS, readRuntimeModels } from '../core/runtime-models.ts';
 import { ToolResults } from '../core/tool-results.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
@@ -986,44 +987,12 @@ export function registerRoutes(
     '/api/projects/:project_id/publish-review',
     async (request): Promise<GitHubPublishReviewResponse> => {
       const projectId = (request.params as { project_id: string }).project_id;
-      const unavailable = (code: string, message: string): GitHubPublishReviewResponse => ({
-        availability: 'unavailable',
-        reason: { code, message },
-      });
       if (!validateProjectId(projectId).ok)
-        return unavailable('invalid_request', 'That is not a project.');
-      const project = controlPlane.projection.project(projectId);
-      const folder = project?.location?.path;
-      if (project === undefined || folder === undefined)
-        return unavailable('location_required', 'The project has no folder on this computer.');
-      const github = controlPlane.github;
-      if (github === null)
-        return unavailable('unavailable', "Publishing to GitHub isn't set up on this computer.");
-      const check = controlPlane.projection.latestCheck(projectId);
-      if (check === undefined || !check.findings.passed || check.files !== 'current')
-        return unavailable(
-          'invalid_state',
-          'Only a passed check can be published. Check the game first.',
-        );
-      if (!check.findings.reads_confined)
-        return unavailable(
-          'invalid_state',
-          'Not every agent run in this project was confined, so it is not published.',
-        );
-      try {
-        const reviewed = await github.publishReview(
-          projectId as ProjectId,
-          folder,
-          check.check_id,
-          controlPlane.previews?.builtCopy(projectId as ProjectId, check.check_id) ?? null,
-          project.published?.commit ?? null,
-        );
-        return reviewed.ok
-          ? { availability: 'available', publish: reviewed.publish }
-          : unavailable(reviewed.code, reviewed.message);
-      } catch {
-        return unavailable('publish_failed', "The checked game's built files could not be read.");
-      }
+        return {
+          availability: 'unavailable',
+          reason: { code: 'invalid_request', message: 'That is not a project.' },
+        };
+      return publishReviewOf(controlPlane, projectId as ProjectId);
     },
   );
   app.get('/api/projects/:project_id/published/code', async (request, reply) => {
@@ -1046,30 +1015,12 @@ export function registerRoutes(
     '/api/projects/:project_id/github-review',
     async (request): Promise<GitHubSendReviewResponse> => {
       const projectId = (request.params as { project_id: string }).project_id;
-      const unavailable = (code: string, message: string): GitHubSendReviewResponse => ({
-        availability: 'unavailable',
-        reason: { code, message },
-      });
       if (!validateProjectId(projectId).ok)
-        return unavailable('invalid_request', 'That is not a project.');
-      const folder = controlPlane.projection.project(projectId)?.location?.path;
-      if (folder === undefined)
-        return unavailable('location_required', 'The project has no folder on this computer.');
-      const github = controlPlane.github;
-      if (github === null)
-        return unavailable('unavailable', "Sending to GitHub isn't set up on this computer.");
-      const others = controlPlane.projection
-        .projects()
-        .filter((project) => project.project_id !== projectId)
-        .flatMap((project) => (project.location === null ? [] : [project.location.path]));
-      try {
-        const reviewed = await github.review(projectId as ProjectId, folder, others);
-        return reviewed.ok
-          ? { availability: 'available', send: reviewed.send }
-          : unavailable(reviewed.code, reviewed.message);
-      } catch {
-        return unavailable('send_failed', "The project's files could not be read.");
-      }
+        return {
+          availability: 'unavailable',
+          reason: { code: 'invalid_request', message: 'That is not a project.' },
+        };
+      return sendReviewOf(controlPlane, projectId as ProjectId);
     },
   );
   app.post('/api/projects/:project_id/location-review', async (request, reply) => {
