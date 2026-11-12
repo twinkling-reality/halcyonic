@@ -103,26 +103,43 @@ namespace Halcyonic.Client
         public static RoomCard Refused(string? code, long? attemptsLeft = null)
         {
             var (title, line) = Why(code);
-            var status = new RoomCardStatus(title, line, RoomTone.Bad);
+            var status = new RoomCardStatus(title, line.Length == 0 ? null : line, RoomTone.Bad);
             if (code == "wrong_code" && attemptsLeft is long left && left >= 0 && left < Tries)
                 return new RoomCard(status: status, trackAt: Tries - (int)left, trackOf: Tries);
             return new RoomCard(status: status);
         }
 
-        /// <summary>A refusal's title word and its quieter line, by its code.</summary>
+        /// <summary>
+        /// A refusal's title and its quieter line, by its code: each code the client or the computer really sends has its own
+        /// words (FIELD's, 2026-11-12), and a code nobody named reads "Reason Unknown" with no line, never another case's
+        /// words (R3). The line is empty where there is none.
+        /// </summary>
         public static (string Title, string Line) Why(string? code) => code switch
         {
-            "pairing_closed" => ("Pairing Closed", "Press Pair Headset on your computer, then try again."),
-            "wrong_code" => ("Code Refused", "Check the code on your computer and type it again."),
-            "too_many_requests" => ("Pairing Paused", "Too many tries. Try again in a minute."),
-            "busy" => ("Computer Busy", "Try again in a moment."),
-            "timeout" => ("Timed Out", "Pairing took too long. Try again."),
-            "connection_lost" => ("Connection Lost", "Check the address and that pairing is open."),
-            "protocol_error" => ("Can't Pair", "What answered doesn't pair the way your computer does."),
-            "not_secure" => ("No Secure Connection", "Check the address and port, then try again in a minute."),
-            "server_not_proven" => ("Not Verified", "Nothing was paired. Check the address."),
-            _ => ("Pairing Refused", "Open pairing on your computer again, then try again."),
+            "unreachable" => ("Computer Not Found", "Nothing answered at that address; check it, and that both are on one network"),
+            "invalid_code" => ("Code Incomplete", "The code is the eight digits on your computer; type it again"),
+            "refused" => ("Pairing Refused", "Your computer turned it away; press Pair Headset there, then try again"),
+            "pairing_closed" => ("Pairing Closed", "Press Pair Headset on your computer, then try again"),
+            "wrong_code" => ("Code Refused", "Check the code on your computer and type it again"),
+            "too_many_requests" => ("Pairing Paused", "Too many tries; try again in a minute"),
+            "busy" => ("Computer Busy", "Try again in a moment"),
+            "timeout" => ("Timed Out", "Pairing took too long"),
+            "connection_lost" => ("Connection Lost", "Check the address, and that pairing is open"),
+            "protocol_error" => ("Can't Pair", "What answered doesn't pair the way your computer does"),
+            "not_secure" => ("No Secure Connection", "Check the address and port, then try again in a minute"),
+            "server_not_proven" => ("Not Verified", "Nothing was paired; check the address"),
+            _ => (ReasonUnknown, ""),
         };
+
+        /// <summary>The words of a code nobody named: unknown, said plainly.</summary>
+        public const string ReasonUnknown = "Reason Unknown";
+
+        /// <summary>A refusal's words as one spoken message: its title and its line as two sentences, never joined on a dot.</summary>
+        public static string Said(string? code)
+        {
+            var (title, line) = Why(code);
+            return line.Length == 0 ? title + "." : title + ". " + char.ToUpperInvariant(line[0]) + line.Substring(1) + ".";
+        }
 
         private static RoomListRow Row(PairingChoice choice) =>
             choice.SharesItsName

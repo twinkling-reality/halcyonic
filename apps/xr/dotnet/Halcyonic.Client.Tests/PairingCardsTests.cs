@@ -28,7 +28,8 @@ public sealed class PairingCardsTests
 
     private static readonly string?[] Codes =
     {
-        "pairing_closed", "wrong_code", "too_many_requests", "busy", "timeout", "connection_lost", "protocol_error", "not_secure", "server_not_proven",
+        "unreachable", "invalid_code", "refused", "pairing_closed", "wrong_code", "too_many_requests", "busy", "timeout", "connection_lost",
+        "protocol_error", "not_secure", "server_not_proven",
         "something_new", null,
     };
 
@@ -135,12 +136,23 @@ public sealed class PairingCardsTests
     }
 
     [Test]
-    public void EachRefusalHasItsOwnTitleAndAnUnknownOneReadsAsRefused()
+    public void EachRefusalHasItsOwnWordsAndAnUnknownOneSaysItIsUnknown()
     {
         var titles = Codes.Take(Codes.Length - 2).Select(code => PairingCards.Refused(code).Status!.Value.Title).ToList();
         Assert.That(titles.Distinct().Count(), Is.EqualTo(titles.Count), string.Join(", ", titles));
-        Assert.That(PairingCards.Refused("something_new").Status?.Title, Is.EqualTo("Pairing Refused"));
-        Assert.That(PairingCards.Refused(null).Status?.Title, Is.EqualTo("Pairing Refused"));
+        // AUDIT's census (2026-11-12): a code with no words of its own never borrows another case's.
+        foreach (var unknown in new[] { "something_new", "error", null })
+        {
+            Assert.That(PairingCards.Refused(unknown).Status?.Title, Is.EqualTo("Reason Unknown"), unknown ?? "no code");
+            Assert.That(PairingCards.Refused(unknown).Status?.Line, Is.Null, unknown ?? "no code");
+        }
+        // Nothing was refused where nothing answered, or where the code was never sent.
+        Assert.That(PairingCards.Refused("unreachable").Status?.Title, Is.EqualTo("Computer Not Found"));
+        Assert.That(PairingCards.Refused("invalid_code").Status?.Title, Is.EqualTo("Code Incomplete"));
+        var lines = Codes.Select(code => PairingCards.Refused(code).Status?.Line ?? "").Where(line => line.Length > 0).ToList();
+        Assert.That(lines, Has.None.EndsWith("."), "a status line ends with no stop");
+        Assert.That(lines, Has.None.Contains("·"), "nothing joined on a dot");
+        Assert.That(PairingClient.WhyRefused("unreachable"), Is.EqualTo("Computer Not Found. Nothing answered at that address; check it, and that both are on one network."));
         Assert.That(Codes.All(code => PairingCards.Refused(code).Status?.Tone == RoomTone.Bad), Is.True);
     }
 

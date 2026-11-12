@@ -3490,7 +3490,11 @@ paired ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md), 
   exchange whose connection closed partway "The connection closed before
   pairing finished. Check the address and that pairing is open on your computer, then try again.";
   and anything else unexpected "Couldn't pair this headset. Check the address, then
-  try again.", never an exception's words. On success the pairing
+  try again.", never an exception's words. Since 2026-11-12 every refusal's message is the pairing
+  card's own title and line for its code said as two sentences (`PairingCards.Said`, FIELD's words:
+  nothing answered is Computer Not Found, a code that is not eight digits Code Incomplete), and a
+  code with no words of its own says "Reason Unknown.", never another case's words (AUDIT's census).
+  On success the pairing
   is saved through
   `ControlPlaneSettings.PairingStore` and the `ControlPlaneConnection` is disabled and enabled
   again, so it connects to the paired control plane as at startup.

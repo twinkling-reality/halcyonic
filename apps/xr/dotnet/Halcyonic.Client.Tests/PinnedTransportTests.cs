@@ -270,7 +270,7 @@ public class PinnedTransportTests
             {
                 var refused = Assert.ThrowsAsync<PairingException>(() => PairingClient.PairAsync("127.0.0.1", port, "12345678", "Quest 3"));
                 Assert.That((refused!.Code, refused.Message), Is.EqualTo(("not_secure",
-                    "127.0.0.1:" + port + " · No Secure Connection · Check Address and Port · Retry in 1 min")),
+                    "No Secure Connection. Check the address and port, then try again in a minute.")),
                     answer.Length > 0 ? "not TLS" : "closed at once");
                 await serving;
             }
@@ -504,12 +504,12 @@ public class PinnedTransportTests
         }
         foreach (var (code, words) in new[]
         {
-            ("too_many_requests", "Pairing Paused · Too Many Tries · Retry in 1 min"),
-            ("busy", "Computer Busy · Retry"),
-            ("timeout", "Pairing Timed Out · Try Again"),
-            ("invalid_message", "Pairing Refused · Reopen Pairing · Try Again"),
-            ("internal_error", "Pairing Refused · Reopen Pairing · Try Again"),
-            ((string?)null, "Pairing Refused · Reopen Pairing · Try Again"),
+            ("too_many_requests", "Pairing Paused. Too many tries; try again in a minute."),
+            ("busy", "Computer Busy. Try again in a moment."),
+            ("timeout", "Timed Out. Pairing took too long."),
+            ("invalid_message", "Reason Unknown."),
+            ("internal_error", "Reason Unknown."),
+            ((string?)null, "Reason Unknown."),
         })
         {
             Assert.That(PairingClient.WhyRefused(code), Is.EqualTo(words), code ?? "no code");
