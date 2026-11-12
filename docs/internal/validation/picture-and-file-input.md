@@ -177,13 +177,16 @@ colour is the square in the picture? Answer with one word. Do not use any tools.
 The same model through Ollama's own chat API, with no runtime and thinking off (10:22Z), answered "unknown" for a 32
 by 32 red square and "red" for a 256 by 256 one. So the size of the test pictures explains the three answers above,
 not the runtimes or the endpoints (inference: the same model gave the same answer at 32 pixels). Through the runtimes
-at 256 pixels it is not run yet; what a model reads from a small picture is the model's, and the host does not
-enlarge one.
+at 256 pixels (10:41Z to 10:42Z), the same three tasks named their colours: Codex with the folder's red square
+"red" (17 s), OpenCode with the folder's blue square "blue" (14 s), and Codex with the green square given through
+`POST /api/pictures` "green" (16 s), each with its `pictures_read` and the given one's `path` null. A picture with
+an instruction reaches a local model through both runtimes, and the model answers about it (reported). What a
+model reads from a small picture is the model's, and the host does not enlarge one.
 
 ## Not verified
 1. What Codex's `model/list` reports as image input under the Ollama provider. Codex sends a picture to any model.
 2. OpenCode inside Halcyonic's macOS sandbox, and its Ollama gate passing a picture to Ollama. OpenCode lists
    Ollama's models as text only, so through OpenCode an Ollama model is refused pictures today.
-3. Whether Ollama's own endpoints take a picture from Codex or OpenCode for this model: the one local generation
-   gave "unknown" for every 32 pixel picture (above); at 256 pixels through the runtimes is not run yet.
+3. Any local model but muse-glimmer:30b-mlx, and any picture but a one-colour square: the local runs above used
+   that model alone, and 32 pixel squares were read as "unknown".
 4. A JPEG or WebP whose structure is whole but whose pixels are broken: the host's check does not decode them.
