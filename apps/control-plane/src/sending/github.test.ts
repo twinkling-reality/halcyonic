@@ -97,7 +97,7 @@ beforeEach(() => {
       `if [ "$1" = auth ] && [ -e '${join(root, 'signed-out')}' ]; then exit 1; fi\n` +
       `if [ "$1" = config ] && [ -e '${join(root, 'ssh')}' ]; then echo ssh; fi\n` +
       // A repository made: a bare one where the test's git settings send owner/<name>, unless it is there.
-      `if [ "$1" = repo ] && [ "$2" = create ]; then [ -e '${join(root, 'no-github', 'owner')}'/"$3".git ] && exit 1; /usr/bin/git init --bare -q '${join(root, 'no-github', 'owner')}'/"$3".git; [ -e '${join(root, 'refuse-push')}' ] && chmod 555 '${join(root, 'no-github', 'owner')}'/"$3".git/objects; echo "https://github.com/owner/$3"; fi\nexit 0\n`,
+      `if [ "$1" = repo ] && [ "$2" = create ]; then [ -e '${join(root, 'no-github', 'owner')}'/"$5".git ] && exit 1; /usr/bin/git init --bare -q '${join(root, 'no-github', 'owner')}'/"$5".git; [ -e '${join(root, 'refuse-push')}' ] && chmod 555 '${join(root, 'no-github', 'owner')}'/"$5".git/objects; echo "https://github.com/owner/$5"; fi\nexit 0\n`,
   );
   chmodSync(ghPath, 0o755);
 });
@@ -469,7 +469,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     assert.equal(sent.cloned, true);
     assert.equal(sent.pullRequestUrl, null);
     const asked = readFileSync(ghLog, 'utf8');
-    assert.match(asked, /^repo create lantern-game --private token:none:none$/m);
+    assert.match(asked, /^repo create --private -- lantern-game token:none:none$/m);
     assert.ok(
       asked.indexOf('auth status') < asked.indexOf('repo create'),
       'signed in, asked first',
@@ -494,7 +494,9 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
       git(plain, 'config', 'remote.origin.url'),
       'https://github.com/owner/lantern-game.git',
     );
-    assert.equal(git(plain, 'status', '--porcelain'), '?? .env');
+    // What the send kept out stays out of the person's own git too (AUDIT3 S2).
+    assert.equal(git(plain, 'status', '--porcelain'), '');
+    assert.equal(readFileSync(join(plain, '.git', 'info', 'exclude'), 'utf8'), '/.env\n');
     assert.equal(readFileSync(join(plain, '.env'), 'utf8'), 'KEY=never\n');
     assert.equal(existsSync(join(plain, '.git', 'hooks')), false);
     // The next send is the ordinary one: a branch and a pull request on the new repository.
@@ -632,6 +634,9 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     writeFileSync(join(fresh, 'a.txt'), 'a\n');
     const bad = await sender().review(PROJECT, fresh, [], 'Lanterns', { name: '..' });
     assert.equal(bad.ok ? null : bad.code, 'invalid_name');
+    // Never one gh would read as a flag (AUDIT3 S3).
+    const flag = await sender().review(PROJECT, fresh, [], 'Lanterns', { name: '--public' });
+    assert.equal(flag.ok ? null : flag.code, 'invalid_name');
   });
 
   test('a folder inside another repository is never sent as a new one; without gh none is made', async () => {

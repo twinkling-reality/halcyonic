@@ -128,6 +128,14 @@ describe('Publish to GitHub Pages (ADR 0039, amended)', {
       ) < log.indexOf('api --method POST repos/owner/garden/pages'),
       'made public before pages are asked for',
     );
+    // A repository the journal does not say this project's first Send made private is never made public by
+    // a press: one the person had before keeps who can see it (AUDIT3 S1).
+    const theirs = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null, {
+      makePublic: true,
+    });
+    assert.ok(theirs.ok);
+    assert.equal(theirs.publish.visibility, 'unknown');
+    assert.equal(theirs.publish.make_public, false);
     // Already public: there is nothing to make public.
     const open = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null, {
       made: { ...made, visibility: 'public' },

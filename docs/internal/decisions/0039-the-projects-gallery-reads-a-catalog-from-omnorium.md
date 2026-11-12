@@ -165,7 +165,10 @@ case) and the lead's decision of 2026-11-12 (one list, one review card, a confir
   repository's clone, with no one's git settings, templates or hooks, whole or not at all: its git folder is
   built beside, in the folder, holding `main` and `origin/main` at the sent commit (pushed in, so no fetch
   record names this Mac's paths), `origin` the repository and the index as that commit, and is made `.git`
-  in one rename, which fails where a `.git` appeared meanwhile; the files are not touched. So every later Send
+  in one rename, which fails where a `.git` appeared meanwhile; the files are not touched. The paths the send
+  kept out (secret-shaped files, other projects' folders, links leaving the folder) are written, anchored, into
+  the clone's `.git/info/exclude`, so the person's own `git add -A` at a desk keeps them out too (AUDIT3 S2).
+  A name the person gives starts with a letter or digit, and gh is given it after `--` (AUDIT3 S3). So every later Send
   is the ordinary branch and pull request, Publish and Take Down read the same origin, and the person's own
   git at a desk sees an ordinary repository. `project.sent_to_github` records a null `base_commit` for it.
 - **The title is never required.** `title` is optional; absent, the host's own is used: the project's latest
@@ -181,7 +184,8 @@ case) and the lead's decision of 2026-11-12 (one list, one review card, a confir
   (`visibility` `private`, `public`, or `unknown` for any other repository, since a review asks GitHub
   nothing) and `project.publish {make_public}` first makes it public with the person's gh (`gh repo edit
   --visibility public`), shown in the review and covered by its digest: one press, as anything that
-  becomes public. It is recorded the moment GitHub made it public, `project.repository_made_public
+  becomes public. Only a repository this project's own first Send made private is ever made public so; one
+  the person had before keeps who can see it, whatever a client asks (AUDIT3 S1). It is recorded the moment GitHub made it public, `project.repository_made_public
   {repository}`, whatever the publish after it does, and a refusal after it says the repository is public
   now.
 - **A site GitHub does not keep is no publish.** After turning pages on, the address is read back; where

@@ -12435,7 +12435,7 @@
                 },
                 "repository_name": {
                   "type": "string",
-                  "pattern": "^(?!\\.\\.?$)[A-Za-z0-9._-]{1,100}$"
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"
                 },
                 "review": {
                   "$ref": "#/$defs/ReviewDigest"
@@ -15426,7 +15426,7 @@
               "properties": {
                 "name": {
                   "type": "string",
-                  "pattern": "^(?!\\.\\.?$)[A-Za-z0-9._-]{1,100}$"
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"
                 },
                 "visibility": {
                   "anyOf": [
@@ -15509,7 +15509,7 @@
         },
         "repository_name": {
           "type": "string",
-          "pattern": "^(?!\\.\\.?$)[A-Za-z0-9._-]{1,100}$"
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"
         }
       },
       "additionalProperties": false
