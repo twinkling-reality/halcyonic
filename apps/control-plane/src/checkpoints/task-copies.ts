@@ -31,7 +31,14 @@ export interface TaskCopiesOptions {
   readonly directory: string;
   readonly store: Pick<
     CheckpointStore,
-    'take' | 'treeOf' | 'keep' | 'changedPaths' | 'changedFiles' | 'merge' | 'apply'
+    | 'take'
+    | 'treeOf'
+    | 'keep'
+    | 'changedPaths'
+    | 'changedFiles'
+    | 'linksLeaving'
+    | 'merge'
+    | 'apply'
   >;
   /** A UUID naming the base's tree in the store, as a checkpoint's id does. */
   readonly nextId: () => string;
@@ -262,6 +269,15 @@ export class TaskCopies {
       const added = await this.#store.changedPaths(projectId, project, merged.tree);
       if (added === null) return failed('store_failed', 'The changes could not be read.');
       if (added.length === 0) return { kind: 'nothing' };
+      // A link the task made that points outside the project never reaches the person's folder: one
+      // rule with Send and Publish (`linkLeavesFolder`). Nothing is written, and the refusal says where.
+      const leaving = await this.#store.linksLeaving(projectId, project, merged.tree);
+      if (leaving === null) return failed('store_failed', 'The changes could not be read.');
+      if (leaving.length > 0)
+        return failed(
+          'link_outside',
+          `The task's work holds a link to a place outside the project (${leaving[0]}${leaving.length > 1 ? ` and ${leaving.length - 1} more` : ''}), so nothing was added. Have the task remove it, then add again.`,
+        );
       const checkpointId = await keepFirst();
       if (checkpointId === null)
         return failed(
