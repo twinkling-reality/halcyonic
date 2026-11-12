@@ -68,6 +68,19 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   rule decides both what a try is sent for and these steps (`fixSteps` in the domain): a type check or
   build that exited other than 0, and a page that threw or showed nothing at all, never the starter's
   own look (AUDIT2, 2026-11-11).
+- What a starter's check refuses beyond building and drawing goes back too (VRIFY, 2026-11-12). A
+  starter declares it in its own `starter.json` (`check_refuses`: each entry a kind the host knows how
+  to find checkably, never a judgement of quality, and the starter's own words for the agent). The
+  check records each one it finds as `refusals` in its findings, with the file, and does not pass. The
+  try's text then carries `The check refused it:` and, for each, the starter's words and the file. The
+  one kind today, `original_share_image`, is a file of the checked folder that is byte for byte an image
+  the VR version's original names for link previews in its own pages (`og:image`, `twitter:image`):
+  the real run of 2026-11-12 (Codex on the local 30B) made a VR version of a classroom app from its share
+  picture, which the VR starter's instructions forbid, and its check passed. A second refusal, that the
+  starter's own scene still stands where the original's look should be, is not declared: the source
+  scan cannot tell the starter's untouched scene from a chosen world (`setupLook(world)` and
+  `setupLook(world, 'meadow')` read alike), so it would refuse a fitting choice. `failed_steps` names no
+  step for a refusal; clients say a fixing try in their own general words.
 - On wherever checks are; `ControlPlaneOptions.autoFix: false` turns it off.
 
 ## Alternatives considered

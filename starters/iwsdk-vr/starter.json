@@ -1,5 +1,11 @@
 {
   "format": 1,
   "title": "A VR app you can try in the headset",
-  "vr_version": "vr-version.txt"
+  "vr_version": "vr-version.txt",
+  "check_refuses": [
+    {
+      "kind": "original_share_image",
+      "words": "This project holds the original app's share picture, the image its pages name for link previews, which is not the app itself. Remove the file and bring the original's own view from its own files, as this project's AGENTS.md says under \"A view from another app\" (for pages: their own words and pictures, never the share image or the banner)."
+    }
+  ]
 }

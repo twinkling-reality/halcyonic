@@ -2018,6 +2018,24 @@ namespace Halcyonic.Contracts
         public global::System.Collections.Generic.List<CheckNotesItemsItem> Items { get; set; } = new global::System.Collections.Generic.List<CheckNotesItemsItem>();
     }
 
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum CheckRefusalKind
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "original_share_image")] OriginalShareImage,
+    }
+
+    public sealed class CheckRefusal
+    {
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
+        public CheckRefusalKind Kind { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("words", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Words { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("file", Required = global::Newtonsoft.Json.Required.Always)]
+        public string File { get; set; } = default!;
+    }
+
     public sealed class CheckFindings
     {
         [global::Newtonsoft.Json.JsonProperty("tsc", Required = global::Newtonsoft.Json.Required.Always)]
@@ -2052,6 +2070,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("own_permissions", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? OwnPermissions { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("refusals", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<CheckRefusal>? Refusals { get; set; }
     }
 
     public sealed class ProjectViewCheck

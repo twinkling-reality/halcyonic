@@ -161,8 +161,30 @@ export const CheckNotes = Type.Object(
 export type CheckNotes = Static<typeof CheckNotes>;
 
 /**
+ * What a starter's check refuses beyond building and drawing, as its own `starter.json` declares it
+ * (`check_refuses`): a kind the host knows how to find, checkably, never a judgement of quality.
+ * - `original_share_image`: a file of the checked folder is, byte for byte, an image the VR version's
+ *   original names for link previews in its own pages (`og:image`, `twitter:image`).
+ */
+export const CheckRefusalKind = Type.Union([Type.Literal('original_share_image')]);
+export type CheckRefusalKind = Static<typeof CheckRefusalKind>;
+
+/** One refusal: its kind, the starter's own words for the agent, and the file it was found in, relative to the folder checked. */
+export const CheckRefusal = Type.Object(
+  {
+    kind: CheckRefusalKind,
+    words: Text(400),
+    file: Text(300),
+  },
+  strict,
+);
+export type CheckRefusal = Static<typeof CheckRefusal>;
+
+/**
  * A finished check, as the host observed it. `passed` is every finding at once: type check 0, build
- * 0, the page opened, no uncaught exception, something drawn; never that the game works.
+ * 0, the page opened, no uncaught exception, something drawn, and nothing its starter refuses
+ * (`refusals`, absent on checks recorded before it and where nothing was refused); never that the
+ * game works.
  * `reads_confined` says whether every execution in the project ran on a runtime that confines a
  * starter project's agent to its folder (ADR 0041) and, for a VR version (M1.8c-1), lets it read its
  * original's folder only read-only, with the original's version control and secret-shaped files and
@@ -187,6 +209,7 @@ export const CheckFindings = Type.Object(
     notes: Type.Optional(CheckNotes),
     ready: Type.Optional(Type.Boolean()),
     own_permissions: Type.Optional(Type.Boolean()),
+    refusals: Type.Optional(Type.Array(CheckRefusal, { minItems: 1, maxItems: 8 })),
   },
   strict,
 );

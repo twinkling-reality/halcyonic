@@ -433,7 +433,7 @@ export class AutoFix {
     return null;
   }
 
-  /** The host's words and the page's errors; null when the check gave an agent nothing to act on. */
+  /** The host's words, the page's errors and the starter's refusals; null when the check gave an agent nothing to act on. */
   #instruction(projectId: ProjectId, check: ProjectCheck): string | null {
     // One rule with the fix view's `failed_steps`: the steps a try is sent for (fixSteps).
     const steps = fixSteps(check.findings);
@@ -450,9 +450,15 @@ export class AutoFix {
         page.exceptions.length > 0
           ? `\n\nThe page stopped on these errors:\n${page.exceptions.map((line) => `- ${line}`).join('\n')}`
           : "\n\nThe page showed nothing in the check's 10 seconds.";
+    // What the starter's check refuses, in the starter's own words, with the file it was found in.
+    const refusals = check.findings.refusals ?? [];
+    const refusedPart =
+      refusals.length === 0
+        ? ''
+        : `\n\nThe check refused it:\n${refusals.map((each) => `- ${each.words} (${each.file})`).join('\n')}`;
     const codeSteps = steps.includes('typecheck') || steps.includes('build');
-    if (!(codeSteps && lines) && pagePart === '') return null;
-    return AUTO_FIX_WORDS + pagePart;
+    if (!(codeSteps && lines) && pagePart === '' && refusedPart === '') return null;
+    return AUTO_FIX_WORDS + pagePart + refusedPart;
   }
 
   #send(

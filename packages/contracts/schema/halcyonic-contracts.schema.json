@@ -16615,6 +16615,14 @@
         },
         "own_permissions": {
           "type": "boolean"
+        },
+        "refusals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckRefusal"
+          },
+          "minItems": 1,
+          "maxItems": 8
         }
       },
       "additionalProperties": false
@@ -16874,6 +16882,40 @@
         }
       },
       "additionalProperties": false
+    },
+    "CheckRefusal": {
+      "type": "object",
+      "required": [
+        "kind",
+        "words",
+        "file"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/CheckRefusalKind"
+        },
+        "words": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400,
+          "pattern": "\\S"
+        },
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "\\S"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CheckRefusalKind": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "original_share_image"
+        }
+      ]
     },
     "CheckStep": {
       "type": "object",

@@ -655,6 +655,7 @@ describe('the C# bindings', () => {
     'CheckFindings.notes', // M1.8b
     'CheckFindings.own_permissions', // whether a check's browser had permissions of its own (S1)
     'CheckFindings.ready', // M1.8b
+    'CheckFindings.refusals', // what a starter's check refuses, as its starter.json declares it (VRIFY, 2026-11-12)
     'CheckFindings.vr', // M1.8b
     'CheckLaptop.exceptions_during', // M1.8g
     'CheckLaptop.response_seen', // M1.8g

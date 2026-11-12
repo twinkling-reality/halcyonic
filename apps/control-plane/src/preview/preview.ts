@@ -40,6 +40,7 @@ import {
 } from './play.ts';
 import { buildProfile, SANDBOX_EXEC } from './profiles.ts';
 import { hostFilesDigest, referenceKey, StarterReferences } from './reference.ts';
+import { refusalsFor } from './refusals.ts';
 
 export interface HostPreviewsDeps {
   readonly recorder: Recorder;
@@ -244,11 +245,20 @@ export class HostPreviews {
         onServer: (pid) =>
           this.#writeRecord(projectId, { pid, copy: join(cache, 'dist') }, 'check'),
       });
-      const findings = this.#findings(
+      // What the starter refuses beyond building and drawing, found in the folder checked: a VR
+      // version's share picture of its original, where the starter declares it (VRIFY, 2026-11-12).
+      const refusals = await refusalsFor(
+        new HostStarters(this.#deps.starters).checkRefusals(project.starter),
+        folder,
+        this.#originalFolder(projectId),
+      ).catch(() => []);
+      const observed = this.#findings(
         projectId,
         result,
         chrome === null ? null : launcher !== null,
       );
+      const findings: CheckFindings =
+        refusals.length === 0 ? observed : { ...observed, passed: false, ready: false, refusals };
       this.#deps.recorder.record(
         controlPlaneDraft(
           'project.check.recorded',
@@ -555,6 +565,13 @@ export class HostPreviews {
     return png === null
       ? { kind: 'unavailable', why: "the starter's own picture could not be taken" }
       : { kind: 'compared', png };
+  }
+
+  /** The folder of the project a VR version was made from, or null for any other project. */
+  #originalFolder(projectId: ProjectId): string | null {
+    const original = this.#deps.projection.madeFrom(projectId);
+    if (original === null) return null;
+    return this.#deps.projection.project(original)?.location?.path ?? null;
   }
 
   /** `ownPermissions` is whether the browser started through the launcher, or null when none was started. */
