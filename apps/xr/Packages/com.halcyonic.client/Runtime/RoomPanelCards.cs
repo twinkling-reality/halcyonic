@@ -122,9 +122,11 @@ namespace Halcyonic.Client
         /// resets; the provider's own label leaning where several providers report. The card's line says the numbers are
         /// at most what is left, as reported, never a current value. Null where there is no reading.
         /// </summary>
-        public static RoomCard? Usage(IReadOnlyList<UsageLeftRow> rows)
+        /// <param name="assistant">The assistant's row (<see cref="Assistant"/>), under the gauges; null where it is not read.</param>
+        /// <param name="assistantReason">Where the assistant cannot run, the host's own words why, as the card's foot; null otherwise.</param>
+        public static RoomCard? Usage(IReadOnlyList<UsageLeftRow> rows, RoomListRow? assistant = null, string? assistantReason = null)
         {
-            if (rows.Count == 0) return null;
+            if (rows.Count == 0 && assistant == null) return null;
             var several = rows.Select(row => row.Agent ?? "").Distinct().Count() > 1;
             var gauges = rows.Take(2).Select(row =>
             {
@@ -133,7 +135,32 @@ namespace Halcyonic.Client
                 var label = several && !row.Label.IsEmpty ? row.Label + LineWords.Ours(" ") + window : window;
                 return new RoomGauge(label, row.Left, row.Resets.Length > 0 ? "Resets " + row.Resets : null, week ? RoomKind.Week : RoomKind.Session);
             }).ToList();
-            return new RoomCard(LineWords.Ours(UsageTitle), LineWords.Ours(UsageLine), gauges: gauges);
+            return new RoomCard(LineWords.Ours(UsageTitle), gauges.Count > 0 ? LineWords.Ours(UsageLine) : null, gauges: gauges,
+                list: assistant == null ? null : new[] { assistant },
+                more: assistant != null && !string.IsNullOrWhiteSpace(assistantReason) ? LineWords.Ours(assistantReason!.Trim()) : null);
+        }
+
+        public const string AssistantWords = "Assistant";
+
+        public const string AssistantUnavailable = "Unavailable";
+
+        /// <summary>
+        /// The assistant's row of the usage card (the lead, 2026-11-12): the model it runs on, as its maker names it and in the
+        /// face of a name to type; under it what the row is and where the model runs, this computer or the provider's own name;
+        /// the row's press the host's Use Model, its chevron. Where the assistant cannot run there is no model to name: the row
+        /// says it is unavailable, and the host's own words why stand as the card's foot (<see cref="Usage"/>). Label, value
+        /// and where are each their own words, never joined by a mark.
+        /// </summary>
+        /// <param name="model">The model's id, theirs; null or empty where the assistant cannot run.</param>
+        /// <param name="provider">The provider's own name where the model is hosted; null where it runs on this computer.</param>
+        /// <param name="press">The host's entry that chooses the model, as XR raises it; null where none is offered.</param>
+        public static RoomListRow Assistant(string? model, string? provider, KitControl? press)
+        {
+            if (string.IsNullOrWhiteSpace(model))
+                return new RoomListRow(RoomKind.Agent, LineWords.Ours(AssistantWords), AssistantUnavailable, RoomTone.Bad, press: press);
+            var where = string.IsNullOrWhiteSpace(provider) ? LineWords.Ours(CaptureNames.Host) : LineWords.TheirName(provider!.Trim());
+            return new RoomListRow(RoomKind.Agent, LineWords.TheirName(model!.Trim()), mono: true, press: press,
+                under: LineWords.Ours(AssistantWords + " on ") + where);
         }
     }
 }
