@@ -27,3 +27,14 @@ enabled, and already uses `OVRManager` and `OVRCameraRig`, so `OVRInput` is avai
   decides it.
 - Whether the app's own pinch handling (`GazeHover`) already ignores pinches while the system gesture is in progress
   (VRC.Quest.Input.8): not checked in this change.
+
+## Talking from anywhere (verified 2026-11-12)
+- **The B button.** Meta's pages reserve only the Meta button; A, B, X and Y are "title-specific actions" (the Touch
+  button-mapping note above), and the [OVRInput page](https://developers.meta.com/horizon/documentation/unity/unity-ovrinput/)
+  documents reading B for an app's own logic. Neither names a requirement that reserves B. So the right controller's B
+  button, held, talks to the assistant from anywhere (`OVRInput.RawButton.B`, `MenuDirector.TalkAnywhere`).
+- **A held left-hand pinch: not possible as documented.** The non-dominant hand's palm-up pinch reaches the app only as a
+  `Button.Start` event when the gesture completes ([hand-tracking interactions](https://developers.meta.com/horizon/documentation/unity/unity-handtracking-interactions/));
+  nothing documents seeing it while it is held, and the OVRHand reference page was unreachable (404). So with hands it
+  opens the menu, as above, and talking stays the task's own Hold to Talk and the Ask card's.
+- Not verified: a current Quest requirement page on A/B/X/Y (the button note is from 2017, written for Rift Touch).
