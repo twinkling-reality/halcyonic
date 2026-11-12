@@ -54,6 +54,7 @@ import { audioOutputFor, outputInTree } from './preview/audio-output.ts';
 import { launcherFor } from './preview/launcher.ts';
 import { installBrowser } from './preview/play.ts';
 import { isPinnedTunnel, TUNNEL_PIN } from './preview/share.ts';
+import { HostProviders } from './providers.ts';
 import {
   AGENT_KEYS,
   createRuntimeAdapters,
@@ -236,6 +237,8 @@ async function main(): Promise<void> {
     // A project folder holding the journal and token is never read, as it is never checkpointed.
     observeFiles: { protect: [config.dataDir] },
     catalogLinks: catalog,
+    // Read once as the plane starts: a declaration that does not hold stops the start (ADR 0061).
+    providers: new HostProviders({ dataDir: config.dataDir }),
     starters: new HostStarters({
       trackedDir: fileURLToPath(new URL('../../../starters', import.meta.url)),
       installedDir: join(config.dataDir, 'starters'),

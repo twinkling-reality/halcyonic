@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "id": "anthropic",
+  "name": "Anthropic",
+  "speaks": ["messages"],
+  "upstream": "https://api.anthropic.com",
+  "key": {
+    "file": "anthropic-api-key",
+    "variable": "ANTHROPIC_API_KEY",
+    "header": { "name": "x-api-key", "scheme": null },
+    "field": "Anthropic API Key"
+  },
+  "models": ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-2"]
+}
