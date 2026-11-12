@@ -389,9 +389,9 @@ namespace Halcyonic.XR.UI
                 var (_, tall) = Text(KitRole.Body, MoreDp, MoreLineDp, White(NoteAlpha), card.More, 0f, -down, width, 2);
                 down += tall;
             }
+            LayCardPress(card, width, down);
             HideUnused();
             Size = new Vector2(width, down);
-            LayCardPress(card, width, down);
             return down;
         }
 
@@ -408,7 +408,9 @@ namespace Halcyonic.XR.UI
                 if (cardFace != null) cardFace.gameObject.SetActive(false);
                 return;
             }
-            var pad = S(CardPressPadDp);
+            // The face is the card: it fills the panel to its edge (the critic, 2026-11-12: a grey rim round an accent face read as
+            // a card inside a card), and the chevron of a way in stands in the panel's right margin, clear of every word.
+            var pad = S(RoomGeometry.PanelPadDp);
             var size = new Vector2(width + 2f * pad, tall + 2f * pad);
             if (cardPress == null)
             {
@@ -428,10 +430,8 @@ namespace Halcyonic.XR.UI
             cardFaceSize = size;
             cardFaceLit = null;
             PaintCardFace();
+            Glyph(RoomGlyph.Chevron, ChevronDp, White(0.85f), new Vector2(width + pad / 2f, -tall / 2f), "card chevron");
         }
-
-        /// <summary>The room round a pressable card's words that its face and target reach.</summary>
-        public const float CardPressPadDp = 10f;
 
         private void PaintCardFace()
         {
@@ -440,7 +440,8 @@ namespace Halcyonic.XR.UI
             if (cardFaceLit == lit) return;
             cardFaceLit = lit;
             // The accent's ground at rest, a step brighter while it will take the press; its edge the accent itself.
-            cardFace.Draw(cardFaceSize, S(TileCornerDp), AsShown(Rgb(Accent, lit ? 0.22f : 0.12f)), AsShown(Rgb(Accent, lit ? 0.85f : 0.55f)), S(1.5f));
+            // Firm enough to read over the bright room (at 0.12 and 0.55 the face stood at 1.1:1 and its edge at 1.9:1 there).
+            cardFace.Draw(cardFaceSize, S(RoomGeometry.PanelCornerDp), AsShown(Rgb(Accent, lit ? 0.28f : 0.20f)), AsShown(Rgb(Accent, 1f)), S(lit ? 3f : 2f));
         }
 
         private void Update() => PaintCardFace();
@@ -1080,8 +1081,8 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private void Pips(int used, int of, RoomTone tone, Vector2 centre)
         {
-            // The node's own fill at 60 percent: never louder than the mark it hangs on.
-            // A try used is its tone's full fill: at 60 percent a failed try's red stood at 1.6:1 on the glass, under 3:1 for a mark (the critic, 2026-11-12).
+            // A try used is its tone's full fill inside a light ring: the red alone stood at 1.6:1 on the glass over the bright
+            // room even at full fill, under 3:1 for a mark (the critics, 2026-11-12), so the ring carries it.
             var lit = tone switch { RoomTone.Good => Rgb(GoodFill), RoomTone.Bad => Rgb(BadFill), RoomTone.Attention => Rgb(Attention), _ => Rgb(WorkingFill) };
             var pitch = S(PipDp + PipGapDp);
             var from = centre.x - pitch * (of - 1) / 2f;
@@ -1091,7 +1092,8 @@ namespace Halcyonic.XR.UI
                 var spent = index < used;
                 // Filled where used, hollow where left: like a game's lives, in the node's own colour; a squircle, as the node.
                 // A try left is a ring firm enough to read over the bright room, a try spent the fill.
-                Plate(new Vector2(S(PipDp), S(PipDp)), S(PipCornerDp), spent ? lit : Color.clear, at, spent ? "pip used" : "pip", new Color(lit.r, lit.g, lit.b, 0.9f), spent ? 0f : S(PipLineDp), front: true);
+                Plate(new Vector2(S(PipDp), S(PipDp)), S(PipCornerDp), spent ? lit : Color.clear, at, spent ? "pip used" : "pip",
+                    spent ? White(0.92f) : new Color(lit.r, lit.g, lit.b, 0.9f), S(PipLineDp), front: true);
             }
         }
 
