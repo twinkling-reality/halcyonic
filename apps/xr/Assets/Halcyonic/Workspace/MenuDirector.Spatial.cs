@@ -33,7 +33,10 @@ namespace Halcyonic.XR.Workspace
         private bool SeparateWorkspace => setup.SpatialWorkspace && placement == null && !ShelfYieldsChooserAtLarger
             && (navigator.Beside is FileColumn || navigator.Beside is TaskResultsColumn || navigator.Beside is WorkspaceRequestColumn
                 || RoomDesign.Enabled && (navigator.Beside is NewProjectFlow || navigator.Beside is AgentColumn)
-                || navigator.Beside == null && (navigator.Place == MenuPlace.Projects || navigator.Place == MenuPlace.Tasks));
+                || navigator.Beside == null && (navigator.Place == MenuPlace.Projects || navigator.Place == MenuPlace.Tasks
+                    // The menu (A4) under the redesign, where its reader draws it (2026-11-12 census); a page it has no reader for
+                    // still falls back to the older view in the workspace, as Projects' does.
+                    || RoomDesign.Enabled && navigator.Place == MenuPlace.Usage));
 
         private void ConfigureSpatialComposer()
         {

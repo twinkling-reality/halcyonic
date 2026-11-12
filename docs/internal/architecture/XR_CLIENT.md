@@ -2613,7 +2613,15 @@ in a slot of one string, never joined on a dot; every table's default arm reads 
 words (AUDIT's census of 2026-11-12). So far: a pending command (`WorkspacePresenter.PendingNotice`: only a command an
 agent answers waits for the agent, every other one for the computer), a source's reason (`IntelligenceText.Reason`, the
 host's `own_sources_not_set_up` its own), and the companion's failures (`CompanionText.Failure`: the host's
-`companion_failed` is "No Reply"; a local error the client cannot name has its own code and is "Reason Unknown"). Checks that walk
+`companion_failed` is "No Reply"; a local error the client cannot name has its own code and is "Reason Unknown"). The census of 2026-11-12 found that only the judges' walk had reached zero: the readers run only
+where `MenuDirector.SeparateWorkspace` admits the place, and Tasks, Settings, Usage and Pairing fell to the older views.
+Since then the menu (the addendum's A4 and A15) is the usage card (`RoomBar.Menu`, known by the chosen section Usage) with
+the column Settings, Compact, Refresh, Close: Compact (`UsageColumn.Compact`, never main) clears the room to the characters,
+and a character picked brings the workspace back. The Projects card offers Settings, then Usage. The controller's Menu
+button and the left hand's palm-up pinch (Meta's `Button.Start`; the Meta button and the dominant hand's gesture stay the
+system's, `docs/internal/validation/xr-menu-input.md`) open the menu from anywhere, out of Compact too, and pressed on the
+menu go back to Projects (`MenuDirector.MenuFromAnywhere`). Still older: a project's tasks, Settings, Pairing, more usage
+windows than the card's two, and the no-projects page. Checks that walk
 the older views on purpose turn it off inside themselves until then: KitRender's old-kit states,
 `WorkspaceRender.KitSpatialCheck` and `KitActivityComposerCheck` (the old kit's spine, rail, pills and switch),
 `ShowTaskHereCheck` (the older file's Show Task Here and its one-character shelf) and New Project's older review

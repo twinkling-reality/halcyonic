@@ -33,12 +33,63 @@ public class UsageColumnTests
         }
         """;
 
+    /// <summary>Two windows of one agent app, as the redesign's usage card holds them.</summary>
+    private const string TwoWindows = """
+        {
+          "availability": "available",
+          "source": { "system": "seorak", "synthetic": false, "api_version": "v1" },
+          "complete": true,
+          "readings": [
+            { "agent": "claude", "label": "Claude Code", "window": "rolling-5h", "used_percent": 40.2,
+              "resets_at": "2026-09-30T21:05:00.000Z", "observed_at": "2026-09-30T19:08:00.000Z",
+              "freshness": "fresh", "account": { "state": "unidentified" } },
+            { "agent": "claude", "label": "Claude Code", "window": "weekly", "used_percent": 15.1,
+              "resets_at": "2026-10-06T09:00:00.000Z", "observed_at": "2026-09-30T19:18:00.000Z",
+              "freshness": "fresh", "account": { "state": "unidentified" } }
+          ]
+        }
+        """;
+
     private static AvailableUsageLimits Recorded => (AvailableUsageLimits)Json.AssertRoundTrips<UsageLimitsResponse>(Limits);
 
     private static (UsageColumn Usage, FakeMenuHost Host) Demonstration(AvailableUsageLimits? limits)
     {
         var host = new FakeMenuHost { Demonstration = true, Connected = false, Clock = Now, Height = MenuPage.Rows(6) };
         return (new UsageColumn(host, _ => limits), host);
+    }
+
+    /// <summary>
+    /// The menu under the redesign (the addendum's A4 and A15): the usage card with its windows as wells, and the column
+    /// Settings, Compact, Close (no Refresh in a recording), Compact never main; more windows than the card holds, and the
+    /// older view draws the page. Known by the chosen section Usage, never by its title.
+    /// </summary>
+    [Test]
+    public void TheRedesignsMenuIsTheUsageCardWithSettingsCompactAndClose()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var two = (AvailableUsageLimits)Json.AssertRoundTrips<UsageLimitsResponse>(TwoWindows);
+            var (usage, _) = Demonstration(two);
+            var sections = new MenuBar(MenuPlace.Usage, "Nothing Waiting").Sections();
+            var bar = RoomBar.OfFrame(usage.Frame!.WithSections(sections, sections.Count), VoiceStage.Idle)!;
+            Assert.That(bar, Is.Not.Null, "the redesign draws the menu");
+            Assert.That(bar.Card!.Gauges.Count, Is.EqualTo(2));
+            Assert.That(bar.Column.Select(action => (action.Control.Action, action.Control.Key)), Is.EqualTo(new[]
+            {
+                (MenuFrame.ChooseSection, (string?)nameof(MenuPlace.Settings)), (UsageColumn.Compact, null), (Footer.Close, null),
+            }));
+            Assert.That(bar.Column.Any(action => action.Main), Is.False, "Compact is never main");
+
+            var (none, _) = Demonstration(null);
+            var empty = RoomBar.OfFrame(none.Frame!.WithSections(sections, sections.Count), VoiceStage.Idle)!;
+            Assert.That((empty.Card!.Gauges.Count, empty.Card.Description?.Text), Is.EqualTo((0, none.Frame!.Lines.Single().Words)), "the panel's one line, the product's own");
+
+            var (four, _) = Demonstration(Recorded);
+            Assert.That(RoomBar.OfFrame(four.Frame!.WithSections(sections, sections.Count), VoiceStage.Idle), Is.Null, "four windows: the older view, until the card holds them");
+        }
+        finally { RoomDesign.Enabled = was; }
     }
 
     [Test]

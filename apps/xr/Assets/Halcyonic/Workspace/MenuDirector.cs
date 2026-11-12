@@ -366,6 +366,20 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Closes the menu to its bar.</summary>
         public void CloseMenu() => MinimizeWorkspace();
 
+        /// <summary>
+        /// The menu from anywhere (the lead, 2026-11-12: a menu a person must walk back to Projects for is a step the desk does
+        /// not have): under the redesign the menu button opens the menu (A4) over whatever stands, out of Compact too, and pressed
+        /// again on the menu it goes back to Projects. A task's view put aside stays saved, as any Close keeps it.
+        /// </summary>
+        public void MenuFromAnywhere()
+        {
+            if (!RoomDesign.Enabled || Away || FocusGuard.InputSuspended || plane.Repositioning || drag != null || placement != null) return;
+            var onMenu = !setup.Presentation.Minimized && navigator.Beside == null && navigator.Place == MenuPlace.Usage;
+            if (navigator.Beside != null) navigator.CloseBeside();
+            Open(onMenu ? MenuPlace.Projects : MenuPlace.Usage);
+            dirty = true;
+        }
+
         /// <summary>The computer has had no task yet: the menu asks the first question, with Settings alone in its row (<see cref="MenuNavigator.BeforeFirstTask"/>).</summary>
         public bool BeforeFirstTask
         {
@@ -578,6 +592,9 @@ namespace Halcyonic.XR.Workspace
             RecoverViews();
             RecoverWorkspace(FollowNow);
             placement?.Tick();
+            // The controller's Menu button, and the left hand's palm-up pinch, which Meta gives the app as Start; the Meta button
+            // and the dominant hand's gesture stay the system's (docs/internal/validation/xr-menu-input.md).
+            if (OVRInput.GetDown(OVRInput.Button.Start)) MenuFromAnywhere();
             navigator.Tick();
             memory.TickFiles(navigator.Beside);
             AdvanceHeadsetPlay();
@@ -856,6 +873,10 @@ namespace Halcyonic.XR.Workspace
             if (RoomDesign.Enabled && from == MenuColumn.File && side == null && action == AgentColumn.Open) return OpenAgentPage(frame);
             // The result's own actions are none of the file's frame's: taken here, by the frame's own rule.
             if (RoomDesign.Enabled && from == MenuColumn.File && side == null && RoomResult.Actions.Contains(action)) return OnResultActed(action, key, frame);
+            // The menu's Compact (A15) clears the room to the characters, only from the menu's frame as drawn that offers it; a
+            // character picked is the way back.
+            if (RoomDesign.Enabled && action == UsageColumn.Compact && frame != null && frame.Footer.All.Any(each => each.Prompt.Id == action && each.Prompt.Available))
+                return OrganizationStanding(from, frame, side) && MinimizeWorkspace();
             if (!navigator.Act(from, action, key, frame, side)) return false;
             setup.Acted?.Invoke(from, action, key);
             return true;
