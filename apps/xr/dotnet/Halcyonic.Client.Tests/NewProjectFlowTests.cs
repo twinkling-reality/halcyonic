@@ -2652,7 +2652,9 @@ public class NewProjectFlowTests
         flow.Open(null, null);
         var empty = Bar(flow);
         Assert.That((empty.State, empty.Caret, empty.Body.Text, empty.Sentence), Is.EqualTo((RoomBarState.Draft, true, "", EntryText.IdeaPrompt)));
-        Assert.That(Reads(empty), Is.EqualTo(new[] { EntryText.StartQuestions, RoomBar.Type, EntryText.Close }));
+        // Before an idea stands, Type is the one coloured action, first; the questions wait beside it (the desk-parity journey, 2026-11-12).
+        Assert.That(Reads(empty), Is.EqualTo(new[] { RoomBar.Type, EntryText.StartQuestions, EntryText.Close }));
+        Assert.That(empty.Column.Single(action => action.Main).Control.Action, Is.EqualTo(NewProjectScreens.TypeIdea), "Type is the main action on an empty field");
         Assert.That(empty.Field!.Action, Is.EqualTo(NewProjectScreens.TypeIdea), "the panel is the field: a press on it types");
         host.Typed.Enqueue("A page of race times for my running club");
         Press(flow, NewProjectScreens.TypeIdea, null);
@@ -2787,7 +2789,7 @@ public class NewProjectFlowTests
         var bar = Bar(flow);
         var talk = bar.Column.Single(action => action.Control.Action == NewProjectScreens.HoldToTalk);
         Assert.That((talk.Place, talk.Control.Holds, talk.Words, talk.Main), Is.EqualTo((KitPlace.Talk, true, VoiceText.HoldToTalk, false)), "held, it records, as the row's does");
-        Assert.That(Reads(bar), Is.EqualTo(new[] { EntryText.StartQuestions, RoomBar.Type, VoiceText.HoldToTalk, EntryText.Close }));
+        Assert.That(Reads(bar), Is.EqualTo(new[] { RoomBar.Type, EntryText.StartQuestions, VoiceText.HoldToTalk, EntryText.Close }));
         Press(flow, NewProjectScreens.BeginQuestions, null);
         Assert.That(Bar(flow).Column.Count(action => action.Place == KitPlace.Talk), Is.EqualTo(1), "a question can be answered aloud too");
     });
