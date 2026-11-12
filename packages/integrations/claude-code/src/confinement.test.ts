@@ -14,6 +14,7 @@ import {
   SANDBOX_EXEC,
   startApiGate,
   startKeyGate,
+  startProviderGate,
 } from '@halcyonic/seatbelt';
 import { CLAUDE_CODE_KEY_GATE } from './claude-agent-runtime.ts';
 import { confinedFolder, confinedLaunch, findInConfinedStore } from './confinement.ts';
@@ -277,6 +278,43 @@ describe("the gate holds the agent app's key, the agent holds none (VRIFY, 2026-
     }
     // No key where the declaration says: no gate.
     await assert.rejects(startKeyGate(SECOND, { OPENAI_BASE_URL: 'http://127.0.0.1:9' }));
+  });
+
+  test("a provider's declared header and the app's way of presenting are apart: the app's Bearer run credential in, the provider's own header out", async (t) => {
+    const reached: Record<string, string | null>[] = [];
+    const api = createServer((req, res) => {
+      reached.push({
+        apiKey: (req.headers['api-key'] as string | undefined) ?? null,
+        authorization: req.headers.authorization ?? null,
+      });
+      res.end('{}');
+    });
+    const port = await listening(api);
+    const gate = await startProviderGate(
+      {
+        id: 'third',
+        name: 'A third host',
+        upstream: `http://127.0.0.1:${port}/v1`,
+        header: 'api-key',
+        bearer: false,
+        key: REAL,
+        models: ['third-1'],
+      },
+      { header: 'authorization', bearer: true },
+    );
+    t.after(async () => {
+      await gate.close();
+      api.close();
+    });
+    const run = gate.issue();
+    assert.equal(
+      (await toGate(gate.port, '/chat/completions', { authorization: `Bearer ${run}` })).status,
+      200,
+    );
+    assert.deepEqual(reached, [{ apiKey: REAL, authorization: null }]);
+    // The run credential in the provider's header, not the app's way: refused, nothing reaches the upstream.
+    assert.equal((await toGate(gate.port, '/chat/completions', { 'api-key': run })).status, 403);
+    assert.equal(reached.length, 1);
   });
 
   test('a gate without a key, or with a header name that is not one, is never opened', async () => {

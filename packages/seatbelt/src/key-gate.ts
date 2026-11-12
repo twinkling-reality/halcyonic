@@ -64,6 +64,44 @@ export interface KeyGateDeclaration {
   readonly upstream: string;
 }
 
+/**
+ * A hosted model's provider as an agent app reaches it through the gate (VRIFY, 2026-11-12): what the
+ * host declares of it (its upstream, the header and scheme its key travels in, its models) and the
+ * person's stored key, which only the gate ever holds. The app is pointed at the gate and given a run
+ * credential in the key's place.
+ */
+export interface GatedProvider {
+  /** Opaque, stable, lowercase: the provider's id, as the app names its models (`<id>/<model>`). */
+  readonly id: string;
+  /** The provider's name, as the host declares it. */
+  readonly name: string;
+  /** The provider's API address, a path of its own included (for example `https://host/v1`). */
+  readonly upstream: string;
+  /** The header its key travels in, and whether it is written after `Bearer `. */
+  readonly header: string;
+  readonly bearer: boolean;
+  /** The person's key: given to the gate alone. */
+  readonly key: string;
+  /** The model ids it offers. */
+  readonly models: readonly string[];
+}
+
+/**
+ * Opens the gate for a hosted provider: its key added in the provider's declared header, a run credential taken the
+ * way the app presents a key (`presented`, the app's own: an OpenAI-compatible client sends `Authorization: Bearer`
+ * whatever the provider declares), so a provider's header and an app's way of sending are never confused.
+ */
+export function startProviderGate(
+  provider: GatedProvider,
+  presented: PresentedCredential,
+): Promise<ApiGate> {
+  return startApiGate(
+    new URL(provider.upstream),
+    { header: provider.header, value: provider.bearer ? `Bearer ${provider.key}` : provider.key },
+    presented,
+  );
+}
+
 /** The person's key for the app, from the plane's environment where its declaration says; null for none. */
 export function declaredKey(
   declaration: KeyGateDeclaration,

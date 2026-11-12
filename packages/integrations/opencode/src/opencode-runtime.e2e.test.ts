@@ -10,13 +10,15 @@ import { createHash } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { createServer } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
@@ -2752,4 +2754,125 @@ describe("OpenCode reaches Ollama only through Halcyonic's gate (ADR 0028)", {
       );
     },
   );
+});
+
+describe("OpenCode reaches a hosted provider only through Halcyonic's key gate (VRIFY, 2026-11-12)", {
+  skip: SKIP || (process.platform !== 'darwin' ? 'Seatbelt is macOS only' : false),
+}, () => {
+  /** A fake key for a stand-in of Meta's documented shape: never a real one. */
+  const KEY = 'LLM_fake-meta-key-for-a-test';
+
+  test("a Meta-shaped stand-in gets the person's key from the gate alone; OpenCode lists the model, runs a turn on it, and holds no key", async (t) => {
+    const sandbox = await createSandbox();
+    // The stand-in: OpenAI-compatible under /v1, the key as a Bearer token (dev.meta.ai's shape),
+    // refusing anything else, and passing a taken request on to the scripted provider.
+    const scripted = new URL(sandbox.provider.baseUrl);
+    const seen: { readonly authorization: string | null; readonly path: string }[] = [];
+    const standIn = createServer((req, res) => {
+      seen.push({ authorization: req.headers.authorization ?? null, path: req.url ?? '' });
+      if (req.headers.authorization !== `Bearer ${KEY}`) {
+        req.resume();
+        res.writeHead(401, { 'content-type': 'application/json' }).end('{}');
+        return;
+      }
+      const out = httpRequest(
+        {
+          host: scripted.hostname,
+          port: scripted.port,
+          method: req.method,
+          path: req.url,
+          headers: { ...req.headers, host: scripted.host },
+        },
+        (answer) => {
+          res.writeHead(answer.statusCode ?? 502, answer.headers);
+          answer.pipe(res);
+        },
+      );
+      req.pipe(out);
+    });
+    await new Promise<void>((resolve) => standIn.listen(0, '127.0.0.1', () => resolve()));
+    const standInPort = (standIn.address() as AddressInfo).port;
+    const base = sandboxOf(sandbox);
+    assert.ok(base !== null);
+    const runtime = new OpenCodeRuntimeAdapter({
+      binaryPath: BINARY,
+      serverRecordFile: sandbox.recordFile,
+      directoryPolicy: allowOnly(sandbox.project),
+      env: sandbox.env,
+      sandbox: base,
+      hostedProviders: () => [
+        {
+          id: 'meta',
+          name: 'Meta (a stand-in)',
+          upstream: `http://127.0.0.1:${standInPort}/v1`,
+          header: 'authorization',
+          bearer: true,
+          key: KEY,
+          models: ['muse-wonder-1.0'],
+        },
+      ],
+    });
+    t.after(async () => {
+      await runtime.close();
+      standIn.close();
+      await sandbox.cleanup();
+    });
+    const listed = await runtime.listModels();
+    const hostedModel = listed.find((model) => model.model_ref === 'meta/muse-wonder-1.0');
+    assert.ok(hostedModel, listed.map((model) => model.model_ref).join(', '));
+    // Reached at the gate's loopback address, served by the provider's host: remote, never this Mac's.
+    assert.equal(hostedModel.served, 'remote');
+    const execution = new Execution();
+    await runtime.startExecution({
+      execution: execution.context,
+      instruction: 'Hello.',
+      options: {},
+      directory: sandbox.project,
+      model_ref: 'meta/muse-wonder-1.0',
+      emit: execution.emit,
+    });
+    await until(
+      () =>
+        execution
+          .types()
+          .some((type) => type === 'runtime.turn.completed' || type === 'runtime.turn.failed'),
+      60_000,
+      'the turn to end',
+    );
+    assert.deepEqual(
+      execution.observations
+        .filter((item) => item.type === 'runtime.turn.failed')
+        .map((item) => item.payload),
+      [],
+    );
+    // Every request reached the stand-in through the gate, the key in the declared header.
+    assert.ok(
+      seen.some((each) => each.path.endsWith('/chat/completions')),
+      JSON.stringify(seen.map((each) => each.path)),
+    );
+    assert.ok(
+      seen.every((each) => each.authorization === `Bearer ${KEY}`),
+      'a request reached the stand-in without the key',
+    );
+    // The server's profile reaches the gate, never the stand-in itself.
+    const profile = readFileSync(profileOf(sandbox), 'utf8');
+    assert.ok(
+      !profile.includes(`(remote ip "localhost:${standInPort}")`),
+      'the sandbox reaches the stand-in directly',
+    );
+    // No file of the sandbox, OpenCode's own place among them, holds the key.
+    const holding: string[] = [];
+    const walk = (at: string) => {
+      for (const name of readdirSync(at)) {
+        const path = join(at, name);
+        const stat = lstatSync(path);
+        if (stat.isSymbolicLink()) continue;
+        if (stat.isDirectory()) walk(path);
+        else if (stat.isFile() && readFileSync(path).includes(KEY)) holding.push(path);
+      }
+    };
+    walk(sandbox.root);
+    assert.deepEqual(holding, []);
+    assert.deepEqual(sandbox.egress, [], 'OpenCode tried to reach the network');
+  });
 });

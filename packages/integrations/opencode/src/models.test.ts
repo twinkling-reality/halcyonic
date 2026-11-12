@@ -206,6 +206,25 @@ describe('OpenCode model listing', () => {
     assert.equal(quiet.served, 'unknown');
   });
 
+  test("a hosted provider reached through Halcyonic's key gate on loopback is remote, never this Mac's", () => {
+    const meta = {
+      providerID: 'meta',
+      id: 'muse-wonder-1.0',
+      name: 'muse-wonder-1.0',
+      tools: null,
+      contextTokens: null,
+      input: null,
+      // The gate's own address: loopback, though every request goes on to the provider's host.
+      baseUrl: 'http://127.0.0.1:53120',
+      package: '@opencode/ai/providers/openai-compatible',
+    };
+    const gated = new Set(['meta']);
+    assert.equal(servedBy(meta, gated), 'remote');
+    assert.equal(toRuntimeModel(meta, gated).served, 'remote');
+    // Only the providers the server reaches through a gate: a local one on loopback stays this Mac's.
+    assert.equal(servedBy({ ...meta, providerID: 'ollama', id: 'qwen3.6:35b' }, gated), 'this_mac');
+  });
+
   test('matches a model by provider and id, never by name', () => {
     const [local] = parseModels(LISTED);
     assert.ok(local !== undefined);
@@ -236,23 +255,26 @@ describe('OpenCode model listing', () => {
       },
     ]);
     assert.equal(parsed.length, 2);
-    assert.deepEqual(parsed.map(toRuntimeModel), [
-      {
-        model_ref: 'ollama/muse-glimmer:30b-mlx',
-        display_name: 'muse-glimmer:30b-mlx (Ollama)',
-        served: 'this_mac',
-        tool_calling: 'declared',
-        context_tokens: 65536,
-        picture_input: 'declared',
-      },
-      {
-        model_ref: 'ollama/llama3.3:70b',
-        display_name: 'llama3.3:70b (Ollama)',
-        served: 'this_mac',
-        tool_calling: 'declared',
-        context_tokens: 131072,
-        picture_input: 'not_declared',
-      },
-    ]);
+    assert.deepEqual(
+      parsed.map((model) => toRuntimeModel(model)),
+      [
+        {
+          model_ref: 'ollama/muse-glimmer:30b-mlx',
+          display_name: 'muse-glimmer:30b-mlx (Ollama)',
+          served: 'this_mac',
+          tool_calling: 'declared',
+          context_tokens: 65536,
+          picture_input: 'declared',
+        },
+        {
+          model_ref: 'ollama/llama3.3:70b',
+          display_name: 'llama3.3:70b (Ollama)',
+          served: 'this_mac',
+          tool_calling: 'declared',
+          context_tokens: 131072,
+          picture_input: 'not_declared',
+        },
+      ],
+    );
   });
 });
