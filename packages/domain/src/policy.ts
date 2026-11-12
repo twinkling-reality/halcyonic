@@ -39,6 +39,9 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'project.send': 'review_required',
   'project.publish': 'review_required',
   'project.unpublish': 'review_required',
+  // The way back after a publish made the repository public: it narrows who can see it, as stopping a
+  // share does; only the repository Halcyonic made and made public, one press (ADR 0039, amended).
+  'project.make_private': 'low_consequence',
   // Gives the project's later tasks a key their agents can use and repeat (ADR 0057): a deliberate
   // press on this Mac's own page, which holds the value; removing one gives them nothing.
   'project.secret.set': 'review_required',
@@ -199,6 +202,13 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
   'project.unpublish': {
     title: 'Take Down',
     description: "Take the project's published page down.",
+    sayable: true,
+    confirm: 'none',
+  },
+  'project.make_private': {
+    title: 'Make Private',
+    description:
+      'Make the repository Halcyonic made for the project and made public private again.',
     sayable: true,
     confirm: 'none',
   },

@@ -257,6 +257,16 @@ export const ProjectUnpublishCommand = defineCommand(
 );
 
 /**
+ * Makes the repository the project's first Send made, and a publish's Make Public opened, private
+ * again with the person's own gh: the way back after a publish that made it public and then failed
+ * (ADR 0039, amended). Only that repository, as this Mac's journal names it; never one the person had.
+ */
+export const ProjectMakePrivateCommand = defineCommand(
+  'project.make_private',
+  Type.Object({ project_id: ProjectId }, strict),
+);
+
+/**
  * Records that the person set a project secret on this Mac's setup page (ADR 0057). The command
  * names the secret only: the page wrote its value into Halcyonic's own store, outside the journal,
  * before submitting it, and a set whose value the store does not hold for this command fails. A
@@ -543,6 +553,7 @@ export const COMMAND_VARIANTS = [
   ProjectSendCommand,
   ProjectPublishCommand,
   ProjectUnpublishCommand,
+  ProjectMakePrivateCommand,
   ProjectSecretSetCommand,
   ProjectSecretRemoveCommand,
   ProjectLinkCatalogCommand,
@@ -584,6 +595,7 @@ export const CommandType = Type.Union([
   Type.Literal('project.send'),
   Type.Literal('project.publish'),
   Type.Literal('project.unpublish'),
+  Type.Literal('project.make_private'),
   Type.Literal('project.secret.set'),
   Type.Literal('project.secret.remove'),
   Type.Literal('project.link_catalog'),

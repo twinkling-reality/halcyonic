@@ -556,6 +556,27 @@ function admit(
       return { admitted: true, policy, scope, runtime: null };
     }
 
+    case 'project.make_private': {
+      // The way back after Make Public (ADR 0039, amended): only the repository this project's first Send
+      // made, while this Mac's journal says Halcyonic made it public, and with no game published from it.
+      const projectId = command.payload.project_id;
+      const project = projection.project(projectId);
+      if (project === undefined)
+        return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
+      const scope = { ...NO_SCOPE, project_id: projectId };
+      if (project.location === null)
+        return reject(scope, 'location_required', 'The project has no folder on this computer.');
+      if (projection.madeRepository(projectId)?.visibility !== 'public')
+        return reject(
+          scope,
+          'invalid_state',
+          'Halcyonic made no repository of this project public, so there is nothing to make private.',
+        );
+      if (project.published !== undefined)
+        return reject(scope, 'invalid_state', 'The game is published from it. Take it down first.');
+      return { admitted: true, policy, scope, runtime: null };
+    }
+
     case 'project.share.start':
     case 'project.share.stop': {
       const projectId = command.payload.project_id;

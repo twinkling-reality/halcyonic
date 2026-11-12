@@ -791,6 +791,7 @@ export class CommandService {
       case 'project.send':
       case 'project.publish':
       case 'project.unpublish':
+      case 'project.make_private':
         return this.#deps.github ? null : "Sending isn't set up on this computer.";
       case 'project.show_in_finder':
       case 'project.save_copy':
@@ -1644,6 +1645,52 @@ export class CommandService {
               address: done.address,
             });
           }, lost);
+        return;
+      }
+      case 'project.make_private': {
+        // The way back after Make Public (ADR 0039, amended): the repository the journal says Halcyonic
+        // made and made public, made private with the person's own gh, recorded once GitHub did it.
+        const scope = admission.scope;
+        const projectId = command.payload.project_id;
+        const github = this.#deps.github;
+        const made = this.#deps.projection.madeRepository(projectId);
+        if (!github || made === undefined) {
+          this.#fail(command, scope, {
+            code: 'unavailable',
+            message: "Making the repository private isn't set up on this computer.",
+            effect: 'none',
+          });
+          return;
+        }
+        const where = { project_id: projectId, workstream_id: null, execution_id: null };
+        void github.makePrivate(made.repository).then(
+          (done) => {
+            if (!done.ok) {
+              this.#fail(command, scope, {
+                code: done.code,
+                message: done.message,
+                effect: done.effect ?? 'none',
+              });
+              return;
+            }
+            this.#deps.recorder.record(
+              controlPlaneDraft(
+                'project.repository_made_private',
+                where,
+                { repository: made.repository },
+                this.#now(),
+                cause,
+              ),
+            );
+            this.#complete(command, scope, null);
+          },
+          () =>
+            this.#fail(command, scope, {
+              code: 'make_private_failed',
+              message: 'The change could not be finished. Look on GitHub before trying again.',
+              effect: 'unknown',
+            }),
+        );
         return;
       }
       case 'project.send': {

@@ -127,6 +127,8 @@ export const COMMAND_FIELDS: Readonly<
   // One press (R1): the host fills the commit it holds as published, so what comes down is what it
   // published, and the command's own admission refuses one published again since (AUDIT2 S2).
   'project.unpublish': { project_id: project, commit: { from: 'host', fill: 'published_commit' } },
+  // One press: the host acts on the repository its own journal says it made and made public, no other.
+  'project.make_private': { project_id: project },
   'project.link_catalog': {
     project_id: project,
     catalog: need('choice', 'Repository', { list: 'catalog' }),

@@ -371,7 +371,7 @@ describe('realtime protocol', () => {
     const policies = new Map(
       welcome.command_policies.map((entry) => [entry.command_type, entry.policy]),
     );
-    assert.equal(policies.size, 33);
+    assert.equal(policies.size, 34);
     assert.equal(policies.get('project.rules.set'), 'review_required');
     // Dropping an instruction before it is sent changes nothing but the queue (ADR 0056).
     assert.equal(policies.get('execution.drop_queued_instruction'), 'low_consequence');
@@ -383,6 +383,8 @@ describe('realtime protocol', () => {
     assert.equal(policies.get('project.secret.remove'), 'review_required');
     assert.equal(policies.get('project.publish'), 'review_required');
     assert.equal(policies.get('project.unpublish'), 'review_required');
+    // The way back after Make Public narrows who can see the repository, as stopping a share does (run 2).
+    assert.equal(policies.get('project.make_private'), 'low_consequence');
     assert.equal(policies.get('project.send'), 'review_required');
     // Showing the project in Finder changes nothing; saving a copy writes a new file beside the person's,
     // never over one, done on its one press (F3; R1, AUDIT2 S3).

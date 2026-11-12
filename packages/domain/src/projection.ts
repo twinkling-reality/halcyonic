@@ -1782,6 +1782,15 @@ export class Projection {
           this.#madeRepositories.set(event.project_id, { ...made, visibility: 'public' });
         return;
       }
+      case 'project.repository_made_private': {
+        const made = this.#madeRepositories.get(event.project_id);
+        if (
+          made !== undefined &&
+          made.repository.toLowerCase() === event.payload.repository.toLowerCase()
+        )
+          this.#madeRepositories.set(event.project_id, { ...made, visibility: 'private' });
+        return;
+      }
       case 'project.mac_play.started':
         this.#macPlays.set(event.project_id, event.payload.check_id);
         if (this.#projects.has(event.project_id)) changes.projects.add(event.project_id);

@@ -278,6 +278,7 @@ namespace Halcyonic.Client
             ProjectSendCommand _ => CommandType.ProjectSend,
             ProjectPublishCommand _ => CommandType.ProjectPublish,
             ProjectUnpublishCommand _ => CommandType.ProjectUnpublish,
+            ProjectMakePrivateCommand _ => CommandType.ProjectMakePrivate,
             ProjectSecretSetCommand _ => CommandType.ProjectSecretSet,
             ProjectSecretRemoveCommand _ => CommandType.ProjectSecretRemove,
             ProjectLinkCatalogCommand _ => CommandType.ProjectLinkCatalog,
