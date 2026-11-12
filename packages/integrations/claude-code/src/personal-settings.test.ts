@@ -11,6 +11,7 @@ import {
   observationHooks,
   personalConfigFolder,
   personalSettings,
+  personalSetupUsed,
   refuseOtherCredentials,
 } from './personal-settings.ts';
 
@@ -117,6 +118,33 @@ describe("the person's own Claude Code set-up, as an unconfined run takes it (VR
         error.code === 'runtime_start_failed' &&
         /is not JSON/.test(error.message),
     );
+  });
+
+  test('what a task uses of the set-up is said from what passes: the instructions file it reads and the integrations whose hooks pass, nothing else', () => {
+    const used = personalSetupUsed();
+    assert.deepEqual(used, {
+      instructions: 'CLAUDE.md',
+      hooksOf: ['Salidium', 'Seorak'],
+      restUsed: false,
+    });
+    // The file it names is the one read, and a hook of each integration it names passes.
+    const config = join(ROOT, 'said');
+    mkdirSync(config);
+    writeFileSync(join(config, used.instructions), 'Mine.\n');
+    writeFileSync(
+      join(config, 'settings.json'),
+      JSON.stringify({
+        hooks: {
+          UserPromptSubmit: [
+            { hooks: [{ type: 'command', command: salidium('UserPromptSubmit') }] },
+            { hooks: [{ type: 'command', command: seorak('hook-user-prompt.mjs') }] },
+          ],
+        },
+      }),
+    );
+    const taken = personalSettings({ HOME: ROOT, CLAUDE_CONFIG_DIR: config });
+    assert.equal(taken.instructions, 'Mine.\n');
+    assert.equal(taken.hooks.UserPromptSubmit?.length, used.hooksOf.length);
   });
 
   test('settings left that name another credential refuse the run, by name and never by value', () => {

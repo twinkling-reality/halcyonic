@@ -64,7 +64,7 @@ export function personalSettings(environment: Readonly<Record<string, string>>):
   }
   let instructions: string | null;
   try {
-    instructions = readFileSync(join(folder, 'CLAUDE.md'), 'utf8');
+    instructions = readFileSync(join(folder, INSTRUCTIONS_FILE), 'utf8');
   } catch {
     instructions = null;
   }
@@ -86,7 +86,8 @@ export function observationHooks(settings: unknown): Record<string, HookGroup[]>
       for (const hook of entry.hooks) {
         const h = record(hook);
         if (h === null || h.type !== 'command' || typeof h.command !== 'string') continue;
-        if (!isSalidiumHook(h.command) && !isSeorakHook(h.command, event)) continue;
+        if (!OBSERVERS.some((observer) => observer.recognises(h.command as string, event)))
+          continue;
         kept.push({
           type: 'command',
           command: h.command,
@@ -102,6 +103,40 @@ export function observationHooks(settings: unknown): Record<string, HookGroup[]>
     }
   }
   return out;
+}
+
+/** The person's own instructions file, as Claude Code names it in its configuration folder. */
+const INSTRUCTIONS_FILE = 'CLAUDE.md';
+
+/** The integrations whose hooks a task outside the sandbox passes on, each with its own project's rule. */
+const OBSERVERS: readonly {
+  readonly name: string;
+  readonly recognises: (command: string, event: string) => boolean;
+}[] = [
+  { name: 'Salidium', recognises: (command) => isSalidiumHook(command) },
+  { name: 'Seorak', recognises: (command, event) => isSeorakHook(command, event) },
+];
+
+/**
+ * What of the person's own Claude Code set-up a task outside the sandbox uses, read from what the adapter passes
+ * (the lead, 2026-11-12: the page says it from this, never from a list of its own): their instructions file, the
+ * hooks of the named integrations, and nothing else of their settings.
+ */
+export interface PersonalSetupUse {
+  /** The person's own instructions file, passed whole. */
+  readonly instructions: string;
+  /** The integrations whose hooks are passed on, by name. */
+  readonly hooksOf: readonly string[];
+  /** Whether anything else of the person's settings is used: never. */
+  readonly restUsed: false;
+}
+
+export function personalSetupUsed(): PersonalSetupUse {
+  return {
+    instructions: INSTRUCTIONS_FILE,
+    hooksOf: OBSERVERS.map((observer) => observer.name),
+    restUsed: false,
+  };
 }
 
 /** Salidium's own rule (its `isSalidiumHook`): `SALIDIUM_HOOK=1 '<home>/hooks/relay.sh' ...`. */

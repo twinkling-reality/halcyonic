@@ -37,6 +37,9 @@ the stored key: a task could be paid for by a credential the person never chose 
   - The person's own `CLAUDE.md`, appended to Claude Code's preset system prompt; its `@` imports are not followed.
   - Nothing else: no `env`, `apiKeyHelper`, permissions, model, other hooks, plugins or status line.
   - A settings file that is there but is not JSON refuses the run in words.
+  - What a task uses is declared once, from what passes: `personalSetupUsed()` (exported by the package) names the
+    instructions file read and the integrations whose hooks pass (`OBSERVERS`, the same list the hook filter uses),
+    and says nothing else is used, so a page saying it reads the adapter, never a list of its own.
 - Before every unconfined start, resume and listing the settings Claude Code still applies with no file loaded (the
   managed tier, through the SDK's `resolveSettings`) are checked: an `env` naming `ANTHROPIC_*`, `CLAUDE_CODE_USE_*`,
   `CLAUDE_CODE_OAUTH_TOKEN`, `AWS_*`, `GOOGLE_APPLICATION_CREDENTIALS` or `CLOUD_ML_REGION`, or an `apiKeyHelper`,
