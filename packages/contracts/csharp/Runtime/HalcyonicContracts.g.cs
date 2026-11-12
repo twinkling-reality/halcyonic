@@ -54,127 +54,127 @@ namespace Halcyonic.Contracts
 
     public sealed class HereScope
     {
-        [JsonProperty("project_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ProjectId { get; set; }
 
-        [JsonProperty("workstream_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? WorkstreamId { get; set; }
 
-        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ExecutionId { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum CommandType
     {
-        [EnumMember(Value = "project.create")] ProjectCreate,
-        [EnumMember(Value = "project.make_vr_version")] ProjectMakeVrVersion,
-        [EnumMember(Value = "project.set_location")] ProjectSetLocation,
-        [EnumMember(Value = "project.rules.set")] ProjectRulesSet,
-        [EnumMember(Value = "project.restore")] ProjectRestore,
-        [EnumMember(Value = "project.check")] ProjectCheck,
-        [EnumMember(Value = "project.own_check.choose")] ProjectOwnCheckChoose,
-        [EnumMember(Value = "project.preview.start")] ProjectPreviewStart,
-        [EnumMember(Value = "project.preview.stop")] ProjectPreviewStop,
-        [EnumMember(Value = "project.open_on_mac")] ProjectOpenOnMac,
-        [EnumMember(Value = "project.show_in_finder")] ProjectShowInFinder,
-        [EnumMember(Value = "project.save_copy")] ProjectSaveCopy,
-        [EnumMember(Value = "project.share.start")] ProjectShareStart,
-        [EnumMember(Value = "project.share.stop")] ProjectShareStop,
-        [EnumMember(Value = "project.send_to_github")] ProjectSendToGithub,
-        [EnumMember(Value = "project.publish")] ProjectPublish,
-        [EnumMember(Value = "project.unpublish")] ProjectUnpublish,
-        [EnumMember(Value = "project.secret.set")] ProjectSecretSet,
-        [EnumMember(Value = "project.secret.remove")] ProjectSecretRemove,
-        [EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
-        [EnumMember(Value = "project.unlink_catalog")] ProjectUnlinkCatalog,
-        [EnumMember(Value = "workstream.create")] WorkstreamCreate,
-        [EnumMember(Value = "workstream.add_to_project")] WorkstreamAddToProject,
-        [EnumMember(Value = "workstream.fit_to_project")] WorkstreamFitToProject,
-        [EnumMember(Value = "execution.start")] ExecutionStart,
-        [EnumMember(Value = "execution.send_instruction")] ExecutionSendInstruction,
-        [EnumMember(Value = "execution.respond_to_approval")] ExecutionRespondToApproval,
-        [EnumMember(Value = "execution.answer_question")] ExecutionAnswerQuestion,
-        [EnumMember(Value = "execution.interrupt")] ExecutionInterrupt,
-        [EnumMember(Value = "execution.drop_queued_instruction")] ExecutionDropQueuedInstruction,
-        [EnumMember(Value = "workspace.request.submit")] WorkspaceRequestSubmit,
-        [EnumMember(Value = "workspace.request.resume")] WorkspaceRequestResume,
-        [EnumMember(Value = "workspace.request.cancel")] WorkspaceRequestCancel,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.create")] ProjectCreate,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.make_vr_version")] ProjectMakeVrVersion,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.set_location")] ProjectSetLocation,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.rules.set")] ProjectRulesSet,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.restore")] ProjectRestore,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.check")] ProjectCheck,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.own_check.choose")] ProjectOwnCheckChoose,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.preview.start")] ProjectPreviewStart,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.preview.stop")] ProjectPreviewStop,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.open_on_mac")] ProjectOpenOnMac,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.show_in_finder")] ProjectShowInFinder,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.save_copy")] ProjectSaveCopy,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.share.start")] ProjectShareStart,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.share.stop")] ProjectShareStop,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.send_to_github")] ProjectSendToGithub,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.publish")] ProjectPublish,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.unpublish")] ProjectUnpublish,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.secret.set")] ProjectSecretSet,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.secret.remove")] ProjectSecretRemove,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.unlink_catalog")] ProjectUnlinkCatalog,
+        [global::System.Runtime.Serialization.EnumMember(Value = "workstream.create")] WorkstreamCreate,
+        [global::System.Runtime.Serialization.EnumMember(Value = "workstream.add_to_project")] WorkstreamAddToProject,
+        [global::System.Runtime.Serialization.EnumMember(Value = "workstream.fit_to_project")] WorkstreamFitToProject,
+        [global::System.Runtime.Serialization.EnumMember(Value = "execution.start")] ExecutionStart,
+        [global::System.Runtime.Serialization.EnumMember(Value = "execution.send_instruction")] ExecutionSendInstruction,
+        [global::System.Runtime.Serialization.EnumMember(Value = "execution.respond_to_approval")] ExecutionRespondToApproval,
+        [global::System.Runtime.Serialization.EnumMember(Value = "execution.answer_question")] ExecutionAnswerQuestion,
+        [global::System.Runtime.Serialization.EnumMember(Value = "execution.interrupt")] ExecutionInterrupt,
+        [global::System.Runtime.Serialization.EnumMember(Value = "execution.drop_queued_instruction")] ExecutionDropQueuedInstruction,
+        [global::System.Runtime.Serialization.EnumMember(Value = "workspace.request.submit")] WorkspaceRequestSubmit,
+        [global::System.Runtime.Serialization.EnumMember(Value = "workspace.request.resume")] WorkspaceRequestResume,
+        [global::System.Runtime.Serialization.EnumMember(Value = "workspace.request.cancel")] WorkspaceRequestCancel,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ConfirmKind
     {
-        [EnumMember(Value = "none")] None,
-        [EnumMember(Value = "undo")] Undo,
-        [EnumMember(Value = "review")] Review,
+        [global::System.Runtime.Serialization.EnumMember(Value = "none")] None,
+        [global::System.Runtime.Serialization.EnumMember(Value = "undo")] Undo,
+        [global::System.Runtime.Serialization.EnumMember(Value = "review")] Review,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum NeedKind
     {
-        [EnumMember(Value = "text")] Text,
-        [EnumMember(Value = "choice")] Choice,
-        [EnumMember(Value = "choices")] Choices,
-        [EnumMember(Value = "yes_no")] YesNo,
-        [EnumMember(Value = "count")] Count,
-        [EnumMember(Value = "answers")] Answers,
-        [EnumMember(Value = "secret")] Secret,
+        [global::System.Runtime.Serialization.EnumMember(Value = "text")] Text,
+        [global::System.Runtime.Serialization.EnumMember(Value = "choice")] Choice,
+        [global::System.Runtime.Serialization.EnumMember(Value = "choices")] Choices,
+        [global::System.Runtime.Serialization.EnumMember(Value = "yes_no")] YesNo,
+        [global::System.Runtime.Serialization.EnumMember(Value = "count")] Count,
+        [global::System.Runtime.Serialization.EnumMember(Value = "answers")] Answers,
+        [global::System.Runtime.Serialization.EnumMember(Value = "secret")] Secret,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ChoiceList
     {
-        [EnumMember(Value = "tasks")] Tasks,
-        [EnumMember(Value = "versions")] Versions,
-        [EnumMember(Value = "runtimes")] Runtimes,
-        [EnumMember(Value = "models")] Models,
-        [EnumMember(Value = "approval_levels")] ApprovalLevels,
-        [EnumMember(Value = "folders")] Folders,
-        [EnumMember(Value = "pictures")] Pictures,
-        [EnumMember(Value = "catalog")] Catalog,
-        [EnumMember(Value = "share_ways")] ShareWays,
-        [EnumMember(Value = "own_check_scripts")] OwnCheckScripts,
-        [EnumMember(Value = "secrets")] Secrets,
-        [EnumMember(Value = "queued_instructions")] QueuedInstructions,
-        [EnumMember(Value = "approvals")] Approvals,
-        [EnumMember(Value = "decisions")] Decisions,
-        [EnumMember(Value = "questions")] Questions,
+        [global::System.Runtime.Serialization.EnumMember(Value = "tasks")] Tasks,
+        [global::System.Runtime.Serialization.EnumMember(Value = "versions")] Versions,
+        [global::System.Runtime.Serialization.EnumMember(Value = "runtimes")] Runtimes,
+        [global::System.Runtime.Serialization.EnumMember(Value = "models")] Models,
+        [global::System.Runtime.Serialization.EnumMember(Value = "approval_levels")] ApprovalLevels,
+        [global::System.Runtime.Serialization.EnumMember(Value = "folders")] Folders,
+        [global::System.Runtime.Serialization.EnumMember(Value = "pictures")] Pictures,
+        [global::System.Runtime.Serialization.EnumMember(Value = "catalog")] Catalog,
+        [global::System.Runtime.Serialization.EnumMember(Value = "share_ways")] ShareWays,
+        [global::System.Runtime.Serialization.EnumMember(Value = "own_check_scripts")] OwnCheckScripts,
+        [global::System.Runtime.Serialization.EnumMember(Value = "secrets")] Secrets,
+        [global::System.Runtime.Serialization.EnumMember(Value = "queued_instructions")] QueuedInstructions,
+        [global::System.Runtime.Serialization.EnumMember(Value = "approvals")] Approvals,
+        [global::System.Runtime.Serialization.EnumMember(Value = "decisions")] Decisions,
+        [global::System.Runtime.Serialization.EnumMember(Value = "questions")] Questions,
     }
 
     public sealed class HereNeed
     {
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("kind", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
         public NeedKind Kind { get; set; }
 
-        [JsonProperty("label", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.Always)]
         public string Label { get; set; } = default!;
 
-        [JsonProperty("required", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("required", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Required { get; set; }
 
-        [JsonProperty("list", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("list", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public ChoiceList? List { get; set; }
 
-        [JsonProperty("max", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("max", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Max { get; set; }
     }
 
-    [JsonConverter(typeof(HereActionConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(HereActionConverter))]
     public abstract class HereAction
     {
-        [JsonProperty("kind", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Order = -2)]
         public string Kind => Discriminator;
 
         protected abstract string Discriminator { get; }
 
-        [JsonProperty("title", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("title", Required = global::Newtonsoft.Json.Required.Always)]
         public string Title { get; set; } = default!;
 
-        [JsonProperty("description", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("description", Required = global::Newtonsoft.Json.Required.Always)]
         public string Description { get; set; } = default!;
     }
 
@@ -218,239 +218,239 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "command";
 
-        [JsonProperty("command_type", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_type", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandType CommandType { get; set; }
 
-        [JsonProperty("confirm", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("confirm", Required = global::Newtonsoft.Json.Required.Always)]
         public ConfirmKind Confirm { get; set; }
 
-        [JsonProperty("undo", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("undo", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public CommandType? Undo { get; set; }
 
-        [JsonProperty("sayable", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("sayable", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Sayable { get; set; }
 
-        [JsonProperty("needs", Required = Required.Always)]
-        public List<HereNeed> Needs { get; set; } = new List<HereNeed>();
+        [global::Newtonsoft.Json.JsonProperty("needs", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<HereNeed> Needs { get; set; } = default!;
     }
 
     public sealed class HereListAction : HereAction
     {
         protected override string Discriminator => "list";
 
-        [JsonProperty("list", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("list", Required = global::Newtonsoft.Json.Required.Always)]
         public ChoiceList List { get; set; }
     }
 
     public sealed class HereResponse
     {
-        [JsonProperty("scope", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("scope", Required = global::Newtonsoft.Json.Required.Always)]
         public HereScope Scope { get; set; } = default!;
 
-        [JsonProperty("position", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("position", Required = global::Newtonsoft.Json.Required.Always)]
         public long Position { get; set; }
 
-        [JsonProperty("actions", Required = Required.Always)]
-        public List<HereAction> Actions { get; set; } = new List<HereAction>();
+        [global::Newtonsoft.Json.JsonProperty("actions", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<HereAction> Actions { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ChoiceRowKind
     {
-        [EnumMember(Value = "task")] Task,
-        [EnumMember(Value = "version")] Version,
-        [EnumMember(Value = "runtime")] Runtime,
-        [EnumMember(Value = "model")] Model,
-        [EnumMember(Value = "approval_level")] ApprovalLevel,
-        [EnumMember(Value = "folder")] Folder,
-        [EnumMember(Value = "picture")] Picture,
-        [EnumMember(Value = "repository")] Repository,
-        [EnumMember(Value = "share_way")] ShareWay,
-        [EnumMember(Value = "script")] Script,
-        [EnumMember(Value = "secret")] Secret,
-        [EnumMember(Value = "instruction")] Instruction,
-        [EnumMember(Value = "approval")] Approval,
-        [EnumMember(Value = "decision")] Decision,
-        [EnumMember(Value = "question")] Question,
+        [global::System.Runtime.Serialization.EnumMember(Value = "task")] Task,
+        [global::System.Runtime.Serialization.EnumMember(Value = "version")] Version,
+        [global::System.Runtime.Serialization.EnumMember(Value = "runtime")] Runtime,
+        [global::System.Runtime.Serialization.EnumMember(Value = "model")] Model,
+        [global::System.Runtime.Serialization.EnumMember(Value = "approval_level")] ApprovalLevel,
+        [global::System.Runtime.Serialization.EnumMember(Value = "folder")] Folder,
+        [global::System.Runtime.Serialization.EnumMember(Value = "picture")] Picture,
+        [global::System.Runtime.Serialization.EnumMember(Value = "repository")] Repository,
+        [global::System.Runtime.Serialization.EnumMember(Value = "share_way")] ShareWay,
+        [global::System.Runtime.Serialization.EnumMember(Value = "script")] Script,
+        [global::System.Runtime.Serialization.EnumMember(Value = "secret")] Secret,
+        [global::System.Runtime.Serialization.EnumMember(Value = "instruction")] Instruction,
+        [global::System.Runtime.Serialization.EnumMember(Value = "approval")] Approval,
+        [global::System.Runtime.Serialization.EnumMember(Value = "decision")] Decision,
+        [global::System.Runtime.Serialization.EnumMember(Value = "question")] Question,
     }
 
     public sealed class ChoiceRow
     {
-        [JsonProperty("index", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("index", Required = global::Newtonsoft.Json.Required.Always)]
         public long Index { get; set; }
 
-        [JsonProperty("kind", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
         public ChoiceRowKind Kind { get; set; }
 
-        [JsonProperty("label", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.Always)]
         public string Label { get; set; } = default!;
 
-        [JsonProperty("detail", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("detail", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Detail { get; set; }
 
-        [JsonProperty("theirs", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("theirs", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Theirs { get; set; }
 
-        [JsonProperty("actions", Required = Required.Always)]
-        public List<CommandType> Actions { get; set; } = new List<CommandType>();
+        [global::Newtonsoft.Json.JsonProperty("actions", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<CommandType> Actions { get; set; } = default!;
     }
 
     public sealed class ChoicesResponse
     {
-        [JsonProperty("scope", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("scope", Required = global::Newtonsoft.Json.Required.Always)]
         public HereScope Scope { get; set; } = default!;
 
-        [JsonProperty("list", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("list", Required = global::Newtonsoft.Json.Required.Always)]
         public ChoiceList List { get; set; }
 
-        [JsonProperty("position", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("position", Required = global::Newtonsoft.Json.Required.Always)]
         public long Position { get; set; }
 
-        [JsonProperty("digest", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("digest", Required = global::Newtonsoft.Json.Required.Always)]
         public string Digest { get; set; } = default!;
 
-        [JsonProperty("rows", Required = Required.Always)]
-        public List<ChoiceRow> Rows { get; set; } = new List<ChoiceRow>();
+        [global::Newtonsoft.Json.JsonProperty("rows", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ChoiceRow> Rows { get; set; } = default!;
 
-        [JsonProperty("total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ReviewKind
     {
-        [EnumMember(Value = "file_added")] FileAdded,
-        [EnumMember(Value = "file_changed")] FileChanged,
-        [EnumMember(Value = "file_removed")] FileRemoved,
-        [EnumMember(Value = "folder")] Folder,
-        [EnumMember(Value = "repository")] Repository,
-        [EnumMember(Value = "branch")] Branch,
-        [EnumMember(Value = "address")] Address,
-        [EnumMember(Value = "task")] Task,
-        [EnumMember(Value = "version")] Version,
-        [EnumMember(Value = "script")] Script,
-        [EnumMember(Value = "words")] Words,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "file_added")] FileAdded,
+        [global::System.Runtime.Serialization.EnumMember(Value = "file_changed")] FileChanged,
+        [global::System.Runtime.Serialization.EnumMember(Value = "file_removed")] FileRemoved,
+        [global::System.Runtime.Serialization.EnumMember(Value = "folder")] Folder,
+        [global::System.Runtime.Serialization.EnumMember(Value = "repository")] Repository,
+        [global::System.Runtime.Serialization.EnumMember(Value = "branch")] Branch,
+        [global::System.Runtime.Serialization.EnumMember(Value = "address")] Address,
+        [global::System.Runtime.Serialization.EnumMember(Value = "task")] Task,
+        [global::System.Runtime.Serialization.EnumMember(Value = "version")] Version,
+        [global::System.Runtime.Serialization.EnumMember(Value = "script")] Script,
+        [global::System.Runtime.Serialization.EnumMember(Value = "words")] Words,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class ActionReviewFact
     {
-        [JsonProperty("kind", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
         public ReviewKind Kind { get; set; }
 
-        [JsonProperty("value", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("value", Required = global::Newtonsoft.Json.Required.Always)]
         public string Value { get; set; } = default!;
 
-        [JsonProperty("theirs", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("theirs", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Theirs { get; set; }
     }
 
     public sealed class ActionReviewItem
     {
-        [JsonProperty("kind", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
         public ReviewKind Kind { get; set; }
 
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("note", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("note", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Note { get; set; }
 
-        [JsonProperty("theirs", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("theirs", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Theirs { get; set; }
     }
 
     public sealed class ActionReviewWarning
     {
-        [JsonProperty("code", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("code", Required = global::Newtonsoft.Json.Required.Always)]
         public string Code { get; set; } = default!;
 
-        [JsonProperty("line", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("line", Required = global::Newtonsoft.Json.Required.Always)]
         public string Line { get; set; } = default!;
     }
 
     public sealed class ActionReviewSaid
     {
-        [JsonProperty("label", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.Always)]
         public string Label { get; set; } = default!;
 
-        [JsonProperty("words", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("words", Required = global::Newtonsoft.Json.Required.Always)]
         public string Words { get; set; } = default!;
     }
 
     public sealed class ActionReview
     {
-        [JsonProperty("command_type", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_type", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandType CommandType { get; set; }
 
-        [JsonProperty("digest", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("digest", Required = global::Newtonsoft.Json.Required.Always)]
         public string Digest { get; set; } = default!;
 
-        [JsonProperty("confirm_words", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("confirm_words", Required = global::Newtonsoft.Json.Required.Always)]
         public string ConfirmWords { get; set; } = default!;
 
-        [JsonProperty("what_happens", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("what_happens", Required = global::Newtonsoft.Json.Required.Always)]
         public string WhatHappens { get; set; } = default!;
 
-        [JsonProperty("facts", Required = Required.Always)]
-        public List<ActionReviewFact> Facts { get; set; } = new List<ActionReviewFact>();
+        [global::Newtonsoft.Json.JsonProperty("facts", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ActionReviewFact> Facts { get; set; } = default!;
 
-        [JsonProperty("items", Required = Required.Always)]
-        public List<ActionReviewItem> Items { get; set; } = new List<ActionReviewItem>();
+        [global::Newtonsoft.Json.JsonProperty("items", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ActionReviewItem> Items { get; set; } = default!;
 
-        [JsonProperty("items_total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("items_total", Required = global::Newtonsoft.Json.Required.Always)]
         public long ItemsTotal { get; set; }
 
-        [JsonProperty("warnings", Required = Required.Always)]
-        public List<ActionReviewWarning> Warnings { get; set; } = new List<ActionReviewWarning>();
+        [global::Newtonsoft.Json.JsonProperty("warnings", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ActionReviewWarning> Warnings { get; set; } = default!;
 
-        [JsonProperty("said", Required = Required.Always)]
-        public List<ActionReviewSaid> Said { get; set; } = new List<ActionReviewSaid>();
+        [global::Newtonsoft.Json.JsonProperty("said", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ActionReviewSaid> Said { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum CheckpointReason
     {
-        [EnumMember(Value = "before_task")] BeforeTask,
-        [EnumMember(Value = "after_turn")] AfterTurn,
-        [EnumMember(Value = "before_restore")] BeforeRestore,
-        [EnumMember(Value = "before_add")] BeforeAdd,
+        [global::System.Runtime.Serialization.EnumMember(Value = "before_task")] BeforeTask,
+        [global::System.Runtime.Serialization.EnumMember(Value = "after_turn")] AfterTurn,
+        [global::System.Runtime.Serialization.EnumMember(Value = "before_restore")] BeforeRestore,
+        [global::System.Runtime.Serialization.EnumMember(Value = "before_add")] BeforeAdd,
     }
 
     public sealed class CheckpointView
     {
-        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("checkpoint_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckpointId { get; set; } = default!;
 
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public CheckpointReason Reason { get; set; }
 
-        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ExecutionId { get; set; }
 
-        [JsonProperty("recorded_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("recorded_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string RecordedAt { get; set; } = default!;
 
-        [JsonProperty("tree", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tree", Required = global::Newtonsoft.Json.Required.Always)]
         public string Tree { get; set; } = default!;
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public long Files { get; set; }
 
-        [JsonProperty("project_head", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("project_head", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ProjectHead { get; set; }
 
-        [JsonProperty("turn_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("turn_id", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? TurnId { get; set; }
     }
 
-    [JsonConverter(typeof(HistoryFolderConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(HistoryFolderConverter))]
     public abstract class HistoryFolder
     {
-        [JsonProperty("kind", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Order = -2)]
         public string Kind => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -501,51 +501,51 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "task_copy";
 
-        [JsonProperty("workstream_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string WorkstreamId { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum CheckpointFailureCode
     {
-        [EnumMember(Value = "location_missing")] LocationMissing,
-        [EnumMember(Value = "nested_repository")] NestedRepository,
-        [EnumMember(Value = "too_large")] TooLarge,
-        [EnumMember(Value = "unreadable")] Unreadable,
-        [EnumMember(Value = "holds_host_data")] HoldsHostData,
-        [EnumMember(Value = "store_failed")] StoreFailed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "location_missing")] LocationMissing,
+        [global::System.Runtime.Serialization.EnumMember(Value = "nested_repository")] NestedRepository,
+        [global::System.Runtime.Serialization.EnumMember(Value = "too_large")] TooLarge,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unreadable")] Unreadable,
+        [global::System.Runtime.Serialization.EnumMember(Value = "holds_host_data")] HoldsHostData,
+        [global::System.Runtime.Serialization.EnumMember(Value = "store_failed")] StoreFailed,
     }
 
     public sealed class CheckpointFailure
     {
-        [JsonProperty("code", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("code", Required = global::Newtonsoft.Json.Required.Always)]
         public CheckpointFailureCode Code { get; set; }
 
-        [JsonProperty("message", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("message", Required = global::Newtonsoft.Json.Required.Always)]
         public string Message { get; set; } = default!;
     }
 
     public sealed class ErrorInfo
     {
-        [JsonProperty("code", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("code", Required = global::Newtonsoft.Json.Required.Always)]
         public string Code { get; set; } = default!;
 
-        [JsonProperty("message", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("message", Required = global::Newtonsoft.Json.Required.Always)]
         public string Message { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(HistoryEntryConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(HistoryEntryConverter))]
     public abstract class HistoryEntry
     {
-        [JsonProperty("kind", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Order = -2)]
         public string Kind => Discriminator;
 
         protected abstract string Discriminator { get; }
 
-        [JsonProperty("entry_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("entry_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string EntryId { get; set; } = default!;
 
-        [JsonProperty("at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("at", Required = global::Newtonsoft.Json.Required.Always)]
         public string At { get; set; } = default!;
     }
 
@@ -591,19 +591,19 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "version";
 
-        [JsonProperty("checkpoint", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("checkpoint", Required = global::Newtonsoft.Json.Required.Always)]
         public CheckpointView Checkpoint { get; set; } = default!;
 
-        [JsonProperty("folder", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("folder", Required = global::Newtonsoft.Json.Required.Always)]
         public HistoryFolder Folder { get; set; } = default!;
 
-        [JsonProperty("previous", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("previous", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Previous { get; set; }
 
-        [JsonProperty("changed_files", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("changed_files", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? ChangedFiles { get; set; }
 
-        [JsonProperty("pruned_at", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("pruned_at", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? PrunedAt { get; set; }
     }
 
@@ -611,13 +611,13 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "not_kept";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public CheckpointReason Reason { get; set; }
 
-        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ExecutionId { get; set; }
 
-        [JsonProperty("failure", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("failure", Required = global::Newtonsoft.Json.Required.Always)]
         public CheckpointFailure Failure { get; set; } = default!;
     }
 
@@ -625,22 +625,22 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "restored";
 
-        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("checkpoint_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckpointId { get; set; } = default!;
 
-        [JsonProperty("before_restore_checkpoint_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("before_restore_checkpoint_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string BeforeRestoreCheckpointId { get; set; } = default!;
 
-        [JsonProperty("changed_back", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("changed_back", Required = global::Newtonsoft.Json.Required.Always)]
         public long ChangedBack { get; set; }
 
-        [JsonProperty("removed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("removed", Required = global::Newtonsoft.Json.Required.Always)]
         public long Removed { get; set; }
 
-        [JsonProperty("returned", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("returned", Required = global::Newtonsoft.Json.Required.Always)]
         public long Returned { get; set; }
 
-        [JsonProperty("project_head_moved", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("project_head_moved", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public bool? ProjectHeadMoved { get; set; }
     }
 
@@ -648,26 +648,26 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "restore_incomplete";
 
-        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("checkpoint_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckpointId { get; set; } = default!;
 
-        [JsonProperty("before_restore_checkpoint_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("before_restore_checkpoint_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? BeforeRestoreCheckpointId { get; set; }
 
-        [JsonProperty("written", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("written", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Written { get; set; }
 
-        [JsonProperty("not_restored", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("not_restored", Required = global::Newtonsoft.Json.Required.Always)]
         public long NotRestored { get; set; }
 
-        [JsonProperty("failure", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("failure", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Failure { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(ProjectHistoryResultConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(ProjectHistoryResultConverter))]
     public abstract class ProjectHistoryResult
     {
-        [JsonProperty("availability", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
         public string Availability => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -713,13 +713,13 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "available";
 
-        [JsonProperty("entries", Required = Required.Always)]
-        public List<HistoryEntry> Entries { get; set; } = new List<HistoryEntry>();
+        [global::Newtonsoft.Json.JsonProperty("entries", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<HistoryEntry> Entries { get; set; } = default!;
 
-        [JsonProperty("more", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("more", Required = global::Newtonsoft.Json.Required.Always)]
         public bool More { get; set; }
 
-        [JsonProperty("total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
     }
 
@@ -727,23 +727,23 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "unavailable";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
     public sealed class ProjectHistoryResponse
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("result", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("result", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectHistoryResult Result { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(CheckpointsResultConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(CheckpointsResultConverter))]
     public abstract class CheckpointsResult
     {
-        [JsonProperty("availability", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
         public string Availability => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -789,58 +789,58 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "available";
 
-        [JsonProperty("checkpoints", Required = Required.Always)]
-        public List<CheckpointView> Checkpoints { get; set; } = new List<CheckpointView>();
+        [global::Newtonsoft.Json.JsonProperty("checkpoints", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<CheckpointView> Checkpoints { get; set; } = default!;
     }
 
     public sealed class UnavailableCheckpoints : CheckpointsResult
     {
         protected override string Discriminator => "unavailable";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
     public sealed class CheckpointsResponse
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("result", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("result", Required = global::Newtonsoft.Json.Required.Always)]
         public CheckpointsResult Result { get; set; } = default!;
     }
 
     public sealed class PathList
     {
-        [JsonProperty("paths", Required = Required.Always)]
-        public List<string> Paths { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("paths", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Paths { get; set; } = default!;
 
-        [JsonProperty("total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
     }
 
     public sealed class RestorePreview
     {
-        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("checkpoint_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckpointId { get; set; } = default!;
 
-        [JsonProperty("changed_back", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("changed_back", Required = global::Newtonsoft.Json.Required.Always)]
         public PathList ChangedBack { get; set; } = default!;
 
-        [JsonProperty("removed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("removed", Required = global::Newtonsoft.Json.Required.Always)]
         public PathList Removed { get; set; } = default!;
 
-        [JsonProperty("returned", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("returned", Required = global::Newtonsoft.Json.Required.Always)]
         public PathList Returned { get; set; } = default!;
 
-        [JsonProperty("project_head_moved", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("project_head_moved", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public bool? ProjectHeadMoved { get; set; }
     }
 
-    [JsonConverter(typeof(RestorePreviewResultConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(RestorePreviewResultConverter))]
     public abstract class RestorePreviewResult
     {
-        [JsonProperty("availability", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
         public string Availability => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -886,10 +886,10 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "available";
 
-        [JsonProperty("preview", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("preview", Required = global::Newtonsoft.Json.Required.Always)]
         public RestorePreview Preview { get; set; } = default!;
 
-        [JsonProperty("review", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Always)]
         public string Review { get; set; } = default!;
     }
 
@@ -897,371 +897,371 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "unavailable";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
     public sealed class RestorePreviewResponse
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("result", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("result", Required = global::Newtonsoft.Json.Required.Always)]
         public RestorePreviewResult Result { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum FileChangeKind
     {
-        [EnumMember(Value = "added")] Added,
-        [EnumMember(Value = "changed")] Changed,
-        [EnumMember(Value = "removed")] Removed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "added")] Added,
+        [global::System.Runtime.Serialization.EnumMember(Value = "changed")] Changed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "removed")] Removed,
     }
 
     public sealed class ProjectChangedFile
     {
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("change", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("change", Required = global::Newtonsoft.Json.Required.Always)]
         public FileChangeKind Change { get; set; }
 
-        [JsonProperty("added_lines", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("added_lines", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? AddedLines { get; set; }
 
-        [JsonProperty("removed_lines", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("removed_lines", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? RemovedLines { get; set; }
 
-        [JsonProperty("binary", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("binary", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Binary { get; set; }
     }
 
     public sealed class ProjectChangesResponse
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("from", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("from", Required = global::Newtonsoft.Json.Required.Always)]
         public string From { get; set; } = default!;
 
-        [JsonProperty("to", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("to", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? To { get; set; }
 
-        [JsonProperty("files", Required = Required.Always)]
-        public List<ProjectChangedFile> Files { get; set; } = new List<ProjectChangedFile>();
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ProjectChangedFile> Files { get; set; } = default!;
 
-        [JsonProperty("files_total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files_total", Required = global::Newtonsoft.Json.Required.Always)]
         public long FilesTotal { get; set; }
 
-        [JsonProperty("complete", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("complete", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Complete { get; set; }
 
-        [JsonProperty("source", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
         public string Source { get; set; } = "project_files";
     }
 
     public sealed class ProjectFileChangeResponse
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("from", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("from", Required = global::Newtonsoft.Json.Required.Always)]
         public string From { get; set; } = default!;
 
-        [JsonProperty("to", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("to", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? To { get; set; }
 
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("change", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("change", Required = global::Newtonsoft.Json.Required.Always)]
         public FileChangeKind Change { get; set; }
 
-        [JsonProperty("binary", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("binary", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Binary { get; set; }
 
-        [JsonProperty("withheld", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("withheld", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Withheld { get; set; }
 
-        [JsonProperty("diff", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("diff", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Diff { get; set; }
 
-        [JsonProperty("complete", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("complete", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Complete { get; set; }
 
-        [JsonProperty("source", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
         public string Source { get; set; } = "project_files";
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ProjectFileKind
     {
-        [EnumMember(Value = "text")] Text,
-        [EnumMember(Value = "binary")] Binary,
-        [EnumMember(Value = "too_large")] TooLarge,
-        [EnumMember(Value = "withheld")] Withheld,
+        [global::System.Runtime.Serialization.EnumMember(Value = "text")] Text,
+        [global::System.Runtime.Serialization.EnumMember(Value = "binary")] Binary,
+        [global::System.Runtime.Serialization.EnumMember(Value = "too_large")] TooLarge,
+        [global::System.Runtime.Serialization.EnumMember(Value = "withheld")] Withheld,
     }
 
     public sealed class ProjectFileResponse
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("kind", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectFileKind Kind { get; set; }
 
-        [JsonProperty("size_bytes", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("size_bytes", Required = global::Newtonsoft.Json.Required.Always)]
         public long SizeBytes { get; set; }
 
-        [JsonProperty("text", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Text { get; set; }
 
-        [JsonProperty("lines", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("lines", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Lines { get; set; }
 
-        [JsonProperty("modified_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("modified_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string ModifiedAt { get; set; } = default!;
 
-        [JsonProperty("source", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
         public string Source { get; set; } = "project_files";
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum PictureMediaType
     {
-        [EnumMember(Value = "image/png")] ImagePng,
-        [EnumMember(Value = "image/jpeg")] ImageJpeg,
-        [EnumMember(Value = "image/webp")] ImageWebp,
+        [global::System.Runtime.Serialization.EnumMember(Value = "image/png")] ImagePng,
+        [global::System.Runtime.Serialization.EnumMember(Value = "image/jpeg")] ImageJpeg,
+        [global::System.Runtime.Serialization.EnumMember(Value = "image/webp")] ImageWebp,
     }
 
     public sealed class ProjectPicture
     {
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("media_type", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("media_type", Required = global::Newtonsoft.Json.Required.Always)]
         public PictureMediaType MediaType { get; set; }
 
-        [JsonProperty("size_bytes", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("size_bytes", Required = global::Newtonsoft.Json.Required.Always)]
         public long SizeBytes { get; set; }
 
-        [JsonProperty("modified_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("modified_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string ModifiedAt { get; set; } = default!;
     }
 
     public sealed class ProjectPicturesResponse
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("pictures", Required = Required.Always)]
-        public List<ProjectPicture> Pictures { get; set; } = new List<ProjectPicture>();
+        [global::Newtonsoft.Json.JsonProperty("pictures", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ProjectPicture> Pictures { get; set; } = default!;
 
-        [JsonProperty("pictures_total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("pictures_total", Required = global::Newtonsoft.Json.Required.Always)]
         public long PicturesTotal { get; set; }
 
-        [JsonProperty("source", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
         public string Source { get; set; } = "project_files";
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ProjectRulesFile
     {
-        [EnumMember(Value = "AGENTS.md")] AGENTSMd,
-        [EnumMember(Value = "CLAUDE.md")] CLAUDEMd,
+        [global::System.Runtime.Serialization.EnumMember(Value = "AGENTS.md")] AGENTSMd,
+        [global::System.Runtime.Serialization.EnumMember(Value = "CLAUDE.md")] CLAUDEMd,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ProjectRulesState
     {
-        [EnumMember(Value = "none")] None,
-        [EnumMember(Value = "off")] Off,
-        [EnumMember(Value = "on")] On,
-        [EnumMember(Value = "changed")] Changed,
-        [EnumMember(Value = "too_large")] TooLarge,
-        [EnumMember(Value = "unreadable")] Unreadable,
+        [global::System.Runtime.Serialization.EnumMember(Value = "none")] None,
+        [global::System.Runtime.Serialization.EnumMember(Value = "off")] Off,
+        [global::System.Runtime.Serialization.EnumMember(Value = "on")] On,
+        [global::System.Runtime.Serialization.EnumMember(Value = "changed")] Changed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "too_large")] TooLarge,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unreadable")] Unreadable,
     }
 
     public sealed class ProjectRulesResponse
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("file", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("file", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public ProjectRulesFile? File { get; set; }
 
-        [JsonProperty("state", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("state", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectRulesState State { get; set; }
 
-        [JsonProperty("size_bytes", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("size_bytes", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? SizeBytes { get; set; }
 
-        [JsonProperty("text", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Text { get; set; }
 
-        [JsonProperty("review", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Review { get; set; }
 
-        [JsonProperty("source", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
         public string Source { get; set; } = "project_files";
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum CheckOutputStep
     {
-        [EnumMember(Value = "typecheck")] Typecheck,
-        [EnumMember(Value = "build")] Build,
+        [global::System.Runtime.Serialization.EnumMember(Value = "typecheck")] Typecheck,
+        [global::System.Runtime.Serialization.EnumMember(Value = "build")] Build,
     }
 
     public sealed class CheckStepOutputResponse
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("step", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("step", Required = global::Newtonsoft.Json.Required.Always)]
         public CheckOutputStep Step { get; set; }
 
-        [JsonProperty("exit", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("exit", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Exit { get; set; }
 
-        [JsonProperty("lines", Required = Required.Always)]
-        public List<string> Lines { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("lines", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Lines { get; set; } = default!;
 
-        [JsonProperty("lines_total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("lines_total", Required = global::Newtonsoft.Json.Required.Always)]
         public long LinesTotal { get; set; }
 
-        [JsonProperty("complete", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("complete", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Complete { get; set; }
 
-        [JsonProperty("source", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
         public string Source { get; set; } = "check_output";
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ShareWayState
     {
-        [EnumMember(Value = "ready")] Ready,
-        [EnumMember(Value = "not_set_up")] NotSetUp,
-        [EnumMember(Value = "no_network")] NoNetwork,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "ready")] Ready,
+        [global::System.Runtime.Serialization.EnumMember(Value = "not_set_up")] NotSetUp,
+        [global::System.Runtime.Serialization.EnumMember(Value = "no_network")] NoNetwork,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class SharingWaysResponse
     {
-        [JsonProperty("link", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("link", Required = global::Newtonsoft.Json.Required.Always)]
         public ShareWayState Link { get; set; }
 
-        [JsonProperty("wifi", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("wifi", Required = global::Newtonsoft.Json.Required.Always)]
         public ShareWayState Wifi { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum OwnCheckManager
     {
-        [EnumMember(Value = "npm")] Npm,
-        [EnumMember(Value = "pnpm")] Pnpm,
-        [EnumMember(Value = "yarn")] Yarn,
-        [EnumMember(Value = "go")] Go,
+        [global::System.Runtime.Serialization.EnumMember(Value = "npm")] Npm,
+        [global::System.Runtime.Serialization.EnumMember(Value = "pnpm")] Pnpm,
+        [global::System.Runtime.Serialization.EnumMember(Value = "yarn")] Yarn,
+        [global::System.Runtime.Serialization.EnumMember(Value = "go")] Go,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum OwnCheckScriptName
     {
-        [EnumMember(Value = "test")] Test,
-        [EnumMember(Value = "check")] Check,
-        [EnumMember(Value = "typecheck")] Typecheck,
-        [EnumMember(Value = "lint")] Lint,
-        [EnumMember(Value = "build")] Build,
+        [global::System.Runtime.Serialization.EnumMember(Value = "test")] Test,
+        [global::System.Runtime.Serialization.EnumMember(Value = "check")] Check,
+        [global::System.Runtime.Serialization.EnumMember(Value = "typecheck")] Typecheck,
+        [global::System.Runtime.Serialization.EnumMember(Value = "lint")] Lint,
+        [global::System.Runtime.Serialization.EnumMember(Value = "build")] Build,
     }
 
     public sealed class OwnCheckScript
     {
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public OwnCheckScriptName Name { get; set; }
 
-        [JsonProperty("command", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command", Required = global::Newtonsoft.Json.Required.Always)]
         public string Command { get; set; } = default!;
 
-        [JsonProperty("command_sha256", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_sha256", Required = global::Newtonsoft.Json.Required.Always)]
         public string CommandSha256 { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum OwnCheckNotFound
     {
-        [EnumMember(Value = "no_manifest")] NoManifest,
-        [EnumMember(Value = "manifest_unreadable")] ManifestUnreadable,
-        [EnumMember(Value = "no_scripts")] NoScripts,
-        [EnumMember(Value = "manager_missing")] ManagerMissing,
+        [global::System.Runtime.Serialization.EnumMember(Value = "no_manifest")] NoManifest,
+        [global::System.Runtime.Serialization.EnumMember(Value = "manifest_unreadable")] ManifestUnreadable,
+        [global::System.Runtime.Serialization.EnumMember(Value = "no_scripts")] NoScripts,
+        [global::System.Runtime.Serialization.EnumMember(Value = "manager_missing")] ManagerMissing,
     }
 
     public sealed class OwnCheckFoundResponse
     {
-        [JsonProperty("manager", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("manager", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public OwnCheckManager? Manager { get; set; }
 
-        [JsonProperty("scripts", Required = Required.Always)]
-        public List<OwnCheckScript> Scripts { get; set; } = new List<OwnCheckScript>();
+        [global::Newtonsoft.Json.JsonProperty("scripts", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<OwnCheckScript> Scripts { get; set; } = default!;
 
-        [JsonProperty("reason", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public OwnCheckNotFound? Reason { get; set; }
     }
 
     public sealed class ChangedFile
     {
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("change", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("change", Required = global::Newtonsoft.Json.Required.Always)]
         public FileChangeKind Change { get; set; }
     }
 
     public sealed class ChangedFiles
     {
-        [JsonProperty("files", Required = Required.Always)]
-        public List<ChangedFile> Files { get; set; } = new List<ChangedFile>();
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ChangedFile> Files { get; set; } = default!;
 
-        [JsonProperty("total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
     }
 
     public sealed class GitHubSendReview
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("repository", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("repository", Required = global::Newtonsoft.Json.Required.Always)]
         public string Repository { get; set; } = default!;
 
-        [JsonProperty("branch", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("branch", Required = global::Newtonsoft.Json.Required.Always)]
         public string Branch { get; set; } = default!;
 
-        [JsonProperty("base_commit", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("base_commit", Required = global::Newtonsoft.Json.Required.Always)]
         public string BaseCommit { get; set; } = default!;
 
-        [JsonProperty("new_branch", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("new_branch", Required = global::Newtonsoft.Json.Required.Always)]
         public string NewBranch { get; set; } = default!;
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public ChangedFiles Files { get; set; } = default!;
 
-        [JsonProperty("pull_request", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("pull_request", Required = global::Newtonsoft.Json.Required.Always)]
         public bool PullRequest { get; set; }
 
-        [JsonProperty("review", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Always)]
         public string Review { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(GitHubSendReviewResponseConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(GitHubSendReviewResponseConverter))]
     public abstract class GitHubSendReviewResponse
     {
-        [JsonProperty("availability", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
         public string Availability => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -1307,7 +1307,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "available";
 
-        [JsonProperty("send", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("send", Required = global::Newtonsoft.Json.Required.Always)]
         public GitHubSendReview Send { get; set; } = default!;
     }
 
@@ -1315,38 +1315,38 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "unavailable";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
     public sealed class GitHubPublishReview
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("repository", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("repository", Required = global::Newtonsoft.Json.Required.Always)]
         public string Repository { get; set; } = default!;
 
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public long Files { get; set; }
 
-        [JsonProperty("replaces", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("replaces", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Replaces { get; set; }
 
-        [JsonProperty("address", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("address", Required = global::Newtonsoft.Json.Required.Always)]
         public string Address { get; set; } = default!;
 
-        [JsonProperty("review", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Always)]
         public string Review { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(GitHubPublishReviewResponseConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(GitHubPublishReviewResponseConverter))]
     public abstract class GitHubPublishReviewResponse
     {
-        [JsonProperty("availability", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
         public string Availability => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -1392,7 +1392,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "available";
 
-        [JsonProperty("publish", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("publish", Required = global::Newtonsoft.Json.Required.Always)]
         public GitHubPublishReview Publish { get; set; } = default!;
     }
 
@@ -1400,294 +1400,294 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "unavailable";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
     public sealed class ShareCode
     {
-        [JsonProperty("size", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("size", Required = global::Newtonsoft.Json.Required.Always)]
         public long Size { get; set; }
 
-        [JsonProperty("rows", Required = Required.Always)]
-        public List<string> Rows { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("rows", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Rows { get; set; } = default!;
     }
 
     public sealed class PublishedCodeResponse
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("address", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("address", Required = global::Newtonsoft.Json.Required.Always)]
         public string Address { get; set; } = default!;
 
-        [JsonProperty("code", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("code", Required = global::Newtonsoft.Json.Required.Always)]
         public ShareCode Code { get; set; } = default!;
     }
 
     public sealed class ClientInfo
     {
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("version", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("version", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Version { get; set; }
 
-        [JsonProperty("device_label", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("device_label", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? DeviceLabel { get; set; }
     }
 
     public sealed class ProjectSecretSetRequest
     {
-        [JsonProperty("command_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CommandId { get; set; } = default!;
 
-        [JsonProperty("issued_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("issued_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string IssuedAt { get; set; } = default!;
 
-        [JsonProperty("client", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("client", Required = global::Newtonsoft.Json.Required.Always)]
         public ClientInfo Client { get; set; } = default!;
 
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("value", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("value", Required = global::Newtonsoft.Json.Required.Always)]
         public string Value { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ShareWay
     {
-        [EnumMember(Value = "link")] Link,
-        [EnumMember(Value = "wifi")] Wifi,
+        [global::System.Runtime.Serialization.EnumMember(Value = "link")] Link,
+        [global::System.Runtime.Serialization.EnumMember(Value = "wifi")] Wifi,
     }
 
     public sealed class ShareCodeResponse
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("way", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("way", Required = global::Newtonsoft.Json.Required.Always)]
         public ShareWay Way { get; set; }
 
-        [JsonProperty("code", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("code", Required = global::Newtonsoft.Json.Required.Always)]
         public ShareCode Code { get; set; } = default!;
     }
 
     public sealed class ToolResultsQuery
     {
-        [JsonProperty("journal_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("journal_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string JournalId { get; set; } = default!;
 
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("workstream_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string WorkstreamId { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ToolResultsAvailability
     {
-        [EnumMember(Value = "available")] Available,
-        [EnumMember(Value = "unsupported")] Unsupported,
-        [EnumMember(Value = "unknown")] Unknown,
-        [EnumMember(Value = "unavailable")] Unavailable,
+        [global::System.Runtime.Serialization.EnumMember(Value = "available")] Available,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unsupported")] Unsupported,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unavailable")] Unavailable,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ToolResultSummaryKind
     {
-        [EnumMember(Value = "command")] Command,
-        [EnumMember(Value = "file_changes")] FileChanges,
+        [global::System.Runtime.Serialization.EnumMember(Value = "command")] Command,
+        [global::System.Runtime.Serialization.EnumMember(Value = "file_changes")] FileChanges,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ToolResultCompletion
     {
-        [EnumMember(Value = "completed")] Completed,
-        [EnumMember(Value = "failed")] Failed,
-        [EnumMember(Value = "declined")] Declined,
-        [EnumMember(Value = "interrupted")] Interrupted,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "completed")] Completed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "failed")] Failed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "declined")] Declined,
+        [global::System.Runtime.Serialization.EnumMember(Value = "interrupted")] Interrupted,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class ToolResultSummary
     {
-        [JsonProperty("event_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("event_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string EventId { get; set; } = default!;
 
-        [JsonProperty("position", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("position", Required = global::Newtonsoft.Json.Required.Always)]
         public long Position { get; set; }
 
-        [JsonProperty("occurred_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("occurred_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string OccurredAt { get; set; } = default!;
 
-        [JsonProperty("runtime_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("runtime_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string RuntimeId { get; set; } = default!;
 
-        [JsonProperty("epistemic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Required = global::Newtonsoft.Json.Required.Always)]
         public string Epistemic { get; set; } = "observed";
 
-        [JsonProperty("native_type", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("native_type", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? NativeType { get; set; }
 
-        [JsonProperty("kind", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolResultSummaryKind Kind { get; set; }
 
-        [JsonProperty("completion", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("completion", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolResultCompletion Completion { get; set; }
 
-        [JsonProperty("title", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("title", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Title { get; set; }
 
-        [JsonProperty("exit_code", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("exit_code", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? ExitCode { get; set; }
 
-        [JsonProperty("files_total", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("files_total", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? FilesTotal { get; set; }
 
-        [JsonProperty("body_available", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("body_available", Required = global::Newtonsoft.Json.Required.Always)]
         public bool BodyAvailable { get; set; }
 
-        [JsonProperty("retained_complete", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("retained_complete", Required = global::Newtonsoft.Json.Required.Always)]
         public bool RetainedComplete { get; set; }
     }
 
     public sealed class ToolResultsResponse
     {
-        [JsonProperty("journal_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("journal_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string JournalId { get; set; } = default!;
 
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("workstream_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string WorkstreamId { get; set; } = default!;
 
-        [JsonProperty("execution_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ExecutionId { get; set; } = default!;
 
-        [JsonProperty("availability", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolResultsAvailability Availability { get; set; }
 
-        [JsonProperty("total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
 
-        [JsonProperty("earlier", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("earlier", Required = global::Newtonsoft.Json.Required.Always)]
         public long Earlier { get; set; }
 
-        [JsonProperty("results", Required = Required.Always)]
-        public List<ToolResultSummary> Results { get; set; } = new List<ToolResultSummary>();
+        [global::Newtonsoft.Json.JsonProperty("results", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ToolResultSummary> Results { get; set; } = default!;
     }
 
     public sealed class ToolResultRedaction
     {
-        [JsonProperty("policy", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("policy", Required = global::Newtonsoft.Json.Required.Always)]
         public string Policy { get; set; } = "known_held_values";
 
-        [JsonProperty("replacements", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("replacements", Required = global::Newtonsoft.Json.Required.Always)]
         public long Replacements { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ToolResultBodyAvailability
     {
-        [EnumMember(Value = "available")] Available,
-        [EnumMember(Value = "absent")] Absent,
-        [EnumMember(Value = "source_over_limit")] SourceOverLimit,
-        [EnumMember(Value = "omitted_scope")] OmittedScope,
-        [EnumMember(Value = "malformed")] Malformed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "available")] Available,
+        [global::System.Runtime.Serialization.EnumMember(Value = "absent")] Absent,
+        [global::System.Runtime.Serialization.EnumMember(Value = "source_over_limit")] SourceOverLimit,
+        [global::System.Runtime.Serialization.EnumMember(Value = "omitted_scope")] OmittedScope,
+        [global::System.Runtime.Serialization.EnumMember(Value = "malformed")] Malformed,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ToolResultBodyTruncation
     {
-        [EnumMember(Value = "none")] None,
-        [EnumMember(Value = "body_bound")] BodyBound,
-        [EnumMember(Value = "aggregate_bound")] AggregateBound,
-        [EnumMember(Value = "source_limit")] SourceLimit,
-        [EnumMember(Value = "scope")] Scope,
-        [EnumMember(Value = "absent")] Absent,
-        [EnumMember(Value = "malformed")] Malformed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "none")] None,
+        [global::System.Runtime.Serialization.EnumMember(Value = "body_bound")] BodyBound,
+        [global::System.Runtime.Serialization.EnumMember(Value = "aggregate_bound")] AggregateBound,
+        [global::System.Runtime.Serialization.EnumMember(Value = "source_limit")] SourceLimit,
+        [global::System.Runtime.Serialization.EnumMember(Value = "scope")] Scope,
+        [global::System.Runtime.Serialization.EnumMember(Value = "absent")] Absent,
+        [global::System.Runtime.Serialization.EnumMember(Value = "malformed")] Malformed,
     }
 
     public sealed class ToolResultBody
     {
-        [JsonProperty("text", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Text { get; set; }
 
-        [JsonProperty("availability", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolResultBodyAvailability Availability { get; set; }
 
-        [JsonProperty("complete", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("complete", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Complete { get; set; }
 
-        [JsonProperty("truncation", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("truncation", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolResultBodyTruncation Truncation { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ToolResultFileKind
     {
-        [EnumMember(Value = "add")] Add,
-        [EnumMember(Value = "update")] Update,
-        [EnumMember(Value = "delete")] Delete,
+        [global::System.Runtime.Serialization.EnumMember(Value = "add")] Add,
+        [global::System.Runtime.Serialization.EnumMember(Value = "update")] Update,
+        [global::System.Runtime.Serialization.EnumMember(Value = "delete")] Delete,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ToolResultPathScope
     {
-        [EnumMember(Value = "project_relative")] ProjectRelative,
-        [EnumMember(Value = "outside_project")] OutsideProject,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project_relative")] ProjectRelative,
+        [global::System.Runtime.Serialization.EnumMember(Value = "outside_project")] OutsideProject,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class ToolResultFile
     {
-        [JsonProperty("kind", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolResultFileKind Kind { get; set; }
 
-        [JsonProperty("path", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Path { get; set; }
 
-        [JsonProperty("path_scope", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path_scope", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolResultPathScope PathScope { get; set; }
 
-        [JsonProperty("path_complete", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path_complete", Required = global::Newtonsoft.Json.Required.Always)]
         public bool PathComplete { get; set; }
 
-        [JsonProperty("move_path", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("move_path", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? MovePath { get; set; }
 
-        [JsonProperty("move_path_scope", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("move_path_scope", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public ToolResultPathScope? MovePathScope { get; set; }
 
-        [JsonProperty("move_path_complete", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("move_path_complete", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public bool? MovePathComplete { get; set; }
 
-        [JsonProperty("patch", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("patch", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolResultBody Patch { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(ToolResultConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(ToolResultConverter))]
     public abstract class ToolResult
     {
-        [JsonProperty("kind", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Order = -2)]
         public string Kind => Discriminator;
 
         protected abstract string Discriminator { get; }
 
-        [JsonProperty("tool_call_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tool_call_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ToolCallId { get; set; } = default!;
 
-        [JsonProperty("turn_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("turn_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? TurnId { get; set; }
 
-        [JsonProperty("completion", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("completion", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolResultCompletion Completion { get; set; }
 
-        [JsonProperty("redaction", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("redaction", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolResultRedaction Redaction { get; set; } = default!;
     }
 
@@ -1731,10 +1731,10 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "command";
 
-        [JsonProperty("exit_code", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("exit_code", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? ExitCode { get; set; }
 
-        [JsonProperty("output", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("output", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolResultBody Output { get; set; } = default!;
     }
 
@@ -1742,710 +1742,710 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "file_changes";
 
-        [JsonProperty("files", Required = Required.Always)]
-        public List<ToolResultFile> Files { get; set; } = new List<ToolResultFile>();
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ToolResultFile> Files { get; set; } = default!;
 
-        [JsonProperty("files_total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files_total", Required = global::Newtonsoft.Json.Required.Always)]
         public long FilesTotal { get; set; }
 
-        [JsonProperty("list_complete", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("list_complete", Required = global::Newtonsoft.Json.Required.Always)]
         public bool ListComplete { get; set; }
     }
 
     public sealed class ToolResultResponse
     {
-        [JsonProperty("journal_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("journal_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string JournalId { get; set; } = default!;
 
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("workstream_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string WorkstreamId { get; set; } = default!;
 
-        [JsonProperty("execution_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ExecutionId { get; set; } = default!;
 
-        [JsonProperty("summary", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("summary", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolResultSummary Summary { get; set; } = default!;
 
-        [JsonProperty("result", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("result", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolResult Result { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum JournalOrigin
     {
-        [EnumMember(Value = "live")] Live,
-        [EnumMember(Value = "fixture")] Fixture,
+        [global::System.Runtime.Serialization.EnumMember(Value = "live")] Live,
+        [global::System.Runtime.Serialization.EnumMember(Value = "fixture")] Fixture,
     }
 
     public sealed class JournalInfo
     {
-        [JsonProperty("journal_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("journal_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string JournalId { get; set; } = default!;
 
-        [JsonProperty("origin", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("origin", Required = global::Newtonsoft.Json.Required.Always)]
         public JournalOrigin Origin { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum PolicyCategory
     {
-        [EnumMember(Value = "low_consequence")] LowConsequence,
-        [EnumMember(Value = "review_required")] ReviewRequired,
-        [EnumMember(Value = "high_consequence")] HighConsequence,
+        [global::System.Runtime.Serialization.EnumMember(Value = "low_consequence")] LowConsequence,
+        [global::System.Runtime.Serialization.EnumMember(Value = "review_required")] ReviewRequired,
+        [global::System.Runtime.Serialization.EnumMember(Value = "high_consequence")] HighConsequence,
     }
 
     public sealed class CommandPolicy
     {
-        [JsonProperty("command_type", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_type", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandType CommandType { get; set; }
 
-        [JsonProperty("policy", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("policy", Required = global::Newtonsoft.Json.Required.Always)]
         public PolicyCategory Policy { get; set; }
     }
 
     public sealed class ProjectLocation
     {
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("created", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("created", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Created { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ProjectViewCheckFiles
     {
-        [EnumMember(Value = "unknown")] Unknown,
-        [EnumMember(Value = "current")] Current,
-        [EnumMember(Value = "changed")] Changed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "current")] Current,
+        [global::System.Runtime.Serialization.EnumMember(Value = "changed")] Changed,
     }
 
     public sealed class CheckStep
     {
-        [JsonProperty("exit", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("exit", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Exit { get; set; }
 
-        [JsonProperty("seconds", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("seconds", Required = global::Newtonsoft.Json.Required.Always)]
         public double Seconds { get; set; }
     }
 
     public sealed class CheckOwn
     {
-        [JsonProperty("share", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("share", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public double? Share { get; set; }
 
-        [JsonProperty("reference", Required = Required.Always)]
-        public JToken Reference { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("reference", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::Newtonsoft.Json.Linq.JToken Reference { get; set; } = default!;
     }
 
     public sealed class CheckPagePicturesItem
     {
-        [JsonProperty("at_ms", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("at_ms", Required = global::Newtonsoft.Json.Required.Always)]
         public long AtMs { get; set; }
 
-        [JsonProperty("sha256", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("sha256", Required = global::Newtonsoft.Json.Required.Always)]
         public string Sha256 { get; set; } = default!;
     }
 
     public sealed class CheckPage
     {
-        [JsonProperty("exceptions", Required = Required.Always)]
-        public List<string> Exceptions { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("exceptions", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Exceptions { get; set; } = default!;
 
-        [JsonProperty("exception_count", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("exception_count", Required = global::Newtonsoft.Json.Required.Always)]
         public long ExceptionCount { get; set; }
 
-        [JsonProperty("console_errors", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("console_errors", Required = global::Newtonsoft.Json.Required.Always)]
         public long ConsoleErrors { get; set; }
 
-        [JsonProperty("canvases", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("canvases", Required = global::Newtonsoft.Json.Required.Always)]
         public long Canvases { get; set; }
 
-        [JsonProperty("edges_at_3s", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("edges_at_3s", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? EdgesAt3s { get; set; }
 
-        [JsonProperty("edges_at_10s", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("edges_at_10s", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? EdgesAt10s { get; set; }
 
-        [JsonProperty("drawn", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("drawn", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Drawn { get; set; }
 
-        [JsonProperty("own", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("own", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public CheckOwn? Own { get; set; }
 
-        [JsonProperty("pictures", Required = Required.Always)]
-        public List<CheckPagePicturesItem> Pictures { get; set; } = new List<CheckPagePicturesItem>();
+        [global::Newtonsoft.Json.JsonProperty("pictures", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<CheckPagePicturesItem> Pictures { get; set; } = default!;
     }
 
     public sealed class CheckLaptop
     {
-        [JsonProperty("layer", Required = Required.Always)]
-        public JToken Layer { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("layer", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::Newtonsoft.Json.Linq.JToken Layer { get; set; } = default!;
 
-        [JsonProperty("targets", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("targets", Required = global::Newtonsoft.Json.Required.Always)]
         public long Targets { get; set; }
 
-        [JsonProperty("mouse", Required = Required.Always)]
-        public JToken Mouse { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("mouse", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::Newtonsoft.Json.Linq.JToken Mouse { get; set; } = default!;
 
-        [JsonProperty("key", Required = Required.Always)]
-        public JToken Key { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("key", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::Newtonsoft.Json.Linq.JToken Key { get; set; } = default!;
 
-        [JsonProperty("screen_changed", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("screen_changed", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public bool? ScreenChanged { get; set; }
 
-        [JsonProperty("response_seen", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("response_seen", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? ResponseSeen { get; set; }
 
-        [JsonProperty("response_unknown", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public JToken? ResponseUnknown { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("response_unknown", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::Newtonsoft.Json.Linq.JToken? ResponseUnknown { get; set; }
 
-        [JsonProperty("exceptions_during", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("exceptions_during", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public long? ExceptionsDuring { get; set; }
 
-        [JsonProperty("ready", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("ready", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Ready { get; set; }
     }
 
     public sealed class CheckVr
     {
-        [JsonProperty("offered", Required = Required.Always)]
-        public JToken Offered { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("offered", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::Newtonsoft.Json.Linq.JToken Offered { get; set; } = default!;
 
-        [JsonProperty("how", Required = Required.AllowNull)]
-        public JToken? How { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("how", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public global::Newtonsoft.Json.Linq.JToken? How { get; set; }
 
-        [JsonProperty("exceptions", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("exceptions", Required = global::Newtonsoft.Json.Required.Always)]
         public long Exceptions { get; set; }
 
-        [JsonProperty("ready", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("ready", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Ready { get; set; }
     }
 
     public sealed class CheckNotesItemsItem
     {
-        [JsonProperty("kind", Required = Required.Always)]
-        public JToken Kind { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::Newtonsoft.Json.Linq.JToken Kind { get; set; } = default!;
 
-        [JsonProperty("file", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("file", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? File { get; set; }
 
-        [JsonProperty("line", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("line", Required = global::Newtonsoft.Json.Required.Always)]
         public long Line { get; set; }
     }
 
     public sealed class CheckNotes
     {
-        [JsonProperty("scanned", Required = Required.Always)]
-        public JToken Scanned { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("scanned", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::Newtonsoft.Json.Linq.JToken Scanned { get; set; } = default!;
 
-        [JsonProperty("items", Required = Required.Always)]
-        public List<CheckNotesItemsItem> Items { get; set; } = new List<CheckNotesItemsItem>();
+        [global::Newtonsoft.Json.JsonProperty("items", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<CheckNotesItemsItem> Items { get; set; } = default!;
     }
 
     public sealed class CheckFindings
     {
-        [JsonProperty("tsc", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tsc", Required = global::Newtonsoft.Json.Required.Always)]
         public CheckStep Tsc { get; set; } = default!;
 
-        [JsonProperty("build", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("build", Required = global::Newtonsoft.Json.Required.Always)]
         public CheckStep Build { get; set; } = default!;
 
-        [JsonProperty("page", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("page", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public CheckPage? Page { get; set; }
 
-        [JsonProperty("unknown", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("unknown", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Unknown { get; set; }
 
-        [JsonProperty("passed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("passed", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Passed { get; set; }
 
-        [JsonProperty("reads_confined", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reads_confined", Required = global::Newtonsoft.Json.Required.Always)]
         public bool ReadsConfined { get; set; }
 
-        [JsonProperty("laptop", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("laptop", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public CheckLaptop? Laptop { get; set; }
 
-        [JsonProperty("vr", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("vr", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public CheckVr? Vr { get; set; }
 
-        [JsonProperty("notes", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("notes", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public CheckNotes? Notes { get; set; }
 
-        [JsonProperty("ready", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("ready", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? Ready { get; set; }
 
-        [JsonProperty("own_permissions", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("own_permissions", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? OwnPermissions { get; set; }
     }
 
     public sealed class ProjectViewCheck
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("recorded_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("recorded_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string RecordedAt { get; set; } = default!;
 
-        [JsonProperty("position", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("position", Required = global::Newtonsoft.Json.Required.Always)]
         public long Position { get; set; }
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectViewCheckFiles Files { get; set; }
 
-        [JsonProperty("findings", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("findings", Required = global::Newtonsoft.Json.Required.Always)]
         public CheckFindings Findings { get; set; } = default!;
 
-        [JsonProperty("workstream_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? WorkstreamId { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ProjectOwnCheckRunViewFiles
     {
-        [EnumMember(Value = "unknown")] Unknown,
-        [EnumMember(Value = "current")] Current,
-        [EnumMember(Value = "changed")] Changed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "current")] Current,
+        [global::System.Runtime.Serialization.EnumMember(Value = "changed")] Changed,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum OwnCheckFindingsOutcome
     {
-        [EnumMember(Value = "ran")] Ran,
-        [EnumMember(Value = "command_changed")] CommandChanged,
-        [EnumMember(Value = "manager_missing")] ManagerMissing,
-        [EnumMember(Value = "manifest_unreadable")] ManifestUnreadable,
+        [global::System.Runtime.Serialization.EnumMember(Value = "ran")] Ran,
+        [global::System.Runtime.Serialization.EnumMember(Value = "command_changed")] CommandChanged,
+        [global::System.Runtime.Serialization.EnumMember(Value = "manager_missing")] ManagerMissing,
+        [global::System.Runtime.Serialization.EnumMember(Value = "manifest_unreadable")] ManifestUnreadable,
     }
 
     public sealed class OwnCheckRun
     {
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public OwnCheckScriptName Name { get; set; }
 
-        [JsonProperty("exit", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("exit", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Exit { get; set; }
 
-        [JsonProperty("seconds", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("seconds", Required = global::Newtonsoft.Json.Required.Always)]
         public double Seconds { get; set; }
 
-        [JsonProperty("timed_out", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("timed_out", Required = global::Newtonsoft.Json.Required.Always)]
         public bool TimedOut { get; set; }
 
-        [JsonProperty("refused", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("refused", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Refused { get; set; }
 
-        [JsonProperty("left_running", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("left_running", Required = global::Newtonsoft.Json.Required.Always)]
         public bool LeftRunning { get; set; }
     }
 
     public sealed class OwnCheckWritten
     {
-        [JsonProperty("created", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("created", Required = global::Newtonsoft.Json.Required.Always)]
         public long Created { get; set; }
 
-        [JsonProperty("changed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("changed", Required = global::Newtonsoft.Json.Required.Always)]
         public long Changed { get; set; }
 
-        [JsonProperty("deleted", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("deleted", Required = global::Newtonsoft.Json.Required.Always)]
         public long Deleted { get; set; }
 
-        [JsonProperty("paths", Required = Required.Always)]
-        public List<string> Paths { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("paths", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Paths { get; set; } = default!;
     }
 
     public sealed class OwnCheckFindings
     {
-        [JsonProperty("outcome", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("outcome", Required = global::Newtonsoft.Json.Required.Always)]
         public OwnCheckFindingsOutcome Outcome { get; set; }
 
-        [JsonProperty("manager", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("manager", Required = global::Newtonsoft.Json.Required.Always)]
         public OwnCheckManager Manager { get; set; }
 
-        [JsonProperty("runs", Required = Required.Always)]
-        public List<OwnCheckRun> Runs { get; set; } = new List<OwnCheckRun>();
+        [global::Newtonsoft.Json.JsonProperty("runs", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<OwnCheckRun> Runs { get; set; } = default!;
 
-        [JsonProperty("passed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("passed", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Passed { get; set; }
 
-        [JsonProperty("written", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("written", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public OwnCheckWritten? Written { get; set; }
     }
 
     public sealed class ProjectOwnCheckRunView
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("recorded_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("recorded_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string RecordedAt { get; set; } = default!;
 
-        [JsonProperty("position", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("position", Required = global::Newtonsoft.Json.Required.Always)]
         public long Position { get; set; }
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectOwnCheckRunViewFiles Files { get; set; }
 
-        [JsonProperty("first", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("first", Required = global::Newtonsoft.Json.Required.Always)]
         public bool First { get; set; }
 
-        [JsonProperty("findings", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("findings", Required = global::Newtonsoft.Json.Required.Always)]
         public OwnCheckFindings Findings { get; set; } = default!;
 
-        [JsonProperty("workstream_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? WorkstreamId { get; set; }
     }
 
     public sealed class ProjectOwnCheckView
     {
-        [JsonProperty("manager", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("manager", Required = global::Newtonsoft.Json.Required.Always)]
         public OwnCheckManager Manager { get; set; }
 
-        [JsonProperty("scripts", Required = Required.Always)]
-        public List<OwnCheckScript> Scripts { get; set; } = new List<OwnCheckScript>();
+        [global::Newtonsoft.Json.JsonProperty("scripts", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<OwnCheckScript> Scripts { get; set; } = default!;
 
-        [JsonProperty("chosen_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("chosen_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string ChosenAt { get; set; } = default!;
 
-        [JsonProperty("latest", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("latest", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public ProjectOwnCheckRunView? Latest { get; set; }
 
-        [JsonProperty("ever_passed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("ever_passed", Required = global::Newtonsoft.Json.Required.Always)]
         public bool EverPassed { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ProjectViewPreviewFiles
     {
-        [EnumMember(Value = "unknown")] Unknown,
-        [EnumMember(Value = "current")] Current,
-        [EnumMember(Value = "changed")] Changed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "current")] Current,
+        [global::System.Runtime.Serialization.EnumMember(Value = "changed")] Changed,
     }
 
     public sealed class ProjectViewPreview
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("port", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("port", Required = global::Newtonsoft.Json.Required.Always)]
         public long Port { get; set; }
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectViewPreviewFiles Files { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ProjectViewMacPlayFiles
     {
-        [EnumMember(Value = "unknown")] Unknown,
-        [EnumMember(Value = "current")] Current,
-        [EnumMember(Value = "changed")] Changed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "current")] Current,
+        [global::System.Runtime.Serialization.EnumMember(Value = "changed")] Changed,
     }
 
     public sealed class ProjectViewMacPlay
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectViewMacPlayFiles Files { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ProjectShareViewFiles
     {
-        [EnumMember(Value = "unknown")] Unknown,
-        [EnumMember(Value = "current")] Current,
-        [EnumMember(Value = "changed")] Changed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "current")] Current,
+        [global::System.Runtime.Serialization.EnumMember(Value = "changed")] Changed,
     }
 
     public sealed class ProjectShareView
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("url", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("url", Required = global::Newtonsoft.Json.Required.Always)]
         public string Url { get; set; } = default!;
 
-        [JsonProperty("way", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("way", Required = global::Newtonsoft.Json.Required.Always)]
         public ShareWay Way { get; set; }
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectShareViewFiles Files { get; set; }
     }
 
     public sealed class ProjectPublishedView
     {
-        [JsonProperty("repository", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("repository", Required = global::Newtonsoft.Json.Required.Always)]
         public string Repository { get; set; } = default!;
 
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("commit", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("commit", Required = global::Newtonsoft.Json.Required.Always)]
         public string Commit { get; set; } = default!;
 
-        [JsonProperty("address", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("address", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Address { get; set; }
 
-        [JsonProperty("published_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("published_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string PublishedAt { get; set; } = default!;
     }
 
     public sealed class WorldDescriptionSky
     {
-        [JsonProperty("zenith", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("zenith", Required = global::Newtonsoft.Json.Required.Always)]
         public string Zenith { get; set; } = default!;
 
-        [JsonProperty("band", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("band", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Band { get; set; }
 
-        [JsonProperty("horizon", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("horizon", Required = global::Newtonsoft.Json.Required.Always)]
         public string Horizon { get; set; } = default!;
     }
 
     public sealed class WorldDescriptionDisc
     {
-        [JsonProperty("bearing", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("bearing", Required = global::Newtonsoft.Json.Required.Always)]
         public double Bearing { get; set; }
 
-        [JsonProperty("height", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("height", Required = global::Newtonsoft.Json.Required.Always)]
         public double Height { get; set; }
 
-        [JsonProperty("size", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("size", Required = global::Newtonsoft.Json.Required.Always)]
         public double Size { get; set; }
 
-        [JsonProperty("colour", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("colour", Required = global::Newtonsoft.Json.Required.Always)]
         public string Colour { get; set; } = default!;
 
-        [JsonProperty("glow", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("glow", Required = global::Newtonsoft.Json.Required.Always)]
         public double Glow { get; set; }
     }
 
     public sealed class WorldDescriptionClouds
     {
-        [JsonProperty("amount", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("amount", Required = global::Newtonsoft.Json.Required.Always)]
         public double Amount { get; set; }
 
-        [JsonProperty("colour", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("colour", Required = global::Newtonsoft.Json.Required.Always)]
         public string Colour { get; set; } = default!;
     }
 
     public sealed class WorldDescriptionMist
     {
-        [JsonProperty("amount", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("amount", Required = global::Newtonsoft.Json.Required.Always)]
         public double Amount { get; set; }
 
-        [JsonProperty("colour", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("colour", Required = global::Newtonsoft.Json.Required.Always)]
         public string Colour { get; set; } = default!;
     }
 
     public sealed class WorldDescriptionWater
     {
-        [JsonProperty("near", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("near", Required = global::Newtonsoft.Json.Required.Always)]
         public string Near { get; set; } = default!;
 
-        [JsonProperty("far", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("far", Required = global::Newtonsoft.Json.Required.Always)]
         public string Far { get; set; } = default!;
 
-        [JsonProperty("ripple", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("ripple", Required = global::Newtonsoft.Json.Required.Always)]
         public double Ripple { get; set; }
 
-        [JsonProperty("shine", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("shine", Required = global::Newtonsoft.Json.Required.Always)]
         public double Shine { get; set; }
     }
 
     public sealed class WorldDescriptionGround
     {
-        [JsonProperty("colour", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("colour", Required = global::Newtonsoft.Json.Required.Always)]
         public string Colour { get; set; } = default!;
 
-        [JsonProperty("radius", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("radius", Required = global::Newtonsoft.Json.Required.Always)]
         public double Radius { get; set; }
     }
 
     public sealed class WorldDescriptionWind
     {
-        [JsonProperty("bearing", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("bearing", Required = global::Newtonsoft.Json.Required.Always)]
         public double Bearing { get; set; }
 
-        [JsonProperty("strength", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("strength", Required = global::Newtonsoft.Json.Required.Always)]
         public double Strength { get; set; }
     }
 
     public sealed class WorldPlace
     {
-        [JsonProperty("project", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project", Required = global::Newtonsoft.Json.Required.Always)]
         public string Project { get; set; } = default!;
 
-        [JsonProperty("bearing", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("bearing", Required = global::Newtonsoft.Json.Required.Always)]
         public double Bearing { get; set; }
 
-        [JsonProperty("distance", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("distance", Required = global::Newtonsoft.Json.Required.Always)]
         public double Distance { get; set; }
     }
 
     public sealed class WorldDescription
     {
-        [JsonProperty("format", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("format", Required = global::Newtonsoft.Json.Required.Always)]
         public long Format { get; set; } = 1;
 
-        [JsonProperty("sky", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("sky", Required = global::Newtonsoft.Json.Required.Always)]
         public WorldDescriptionSky Sky { get; set; } = default!;
 
-        [JsonProperty("disc", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("disc", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorldDescriptionDisc? Disc { get; set; }
 
-        [JsonProperty("stars", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("stars", Required = global::Newtonsoft.Json.Required.Always)]
         public double Stars { get; set; }
 
-        [JsonProperty("clouds", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("clouds", Required = global::Newtonsoft.Json.Required.Always)]
         public WorldDescriptionClouds Clouds { get; set; } = default!;
 
-        [JsonProperty("mist", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("mist", Required = global::Newtonsoft.Json.Required.Always)]
         public WorldDescriptionMist Mist { get; set; } = default!;
 
-        [JsonProperty("water", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("water", Required = global::Newtonsoft.Json.Required.Always)]
         public WorldDescriptionWater Water { get; set; } = default!;
 
-        [JsonProperty("ground", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("ground", Required = global::Newtonsoft.Json.Required.Always)]
         public WorldDescriptionGround Ground { get; set; } = default!;
 
-        [JsonProperty("wind", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("wind", Required = global::Newtonsoft.Json.Required.Always)]
         public WorldDescriptionWind Wind { get; set; } = default!;
 
-        [JsonProperty("places", Required = Required.Always)]
-        public List<WorldPlace> Places { get; set; } = new List<WorldPlace>();
+        [global::Newtonsoft.Json.JsonProperty("places", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<WorldPlace> Places { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum WorldRefusedCode
     {
-        [EnumMember(Value = "missing")] Missing,
-        [EnumMember(Value = "not_a_file")] NotAFile,
-        [EnumMember(Value = "too_large")] TooLarge,
-        [EnumMember(Value = "not_text")] NotText,
-        [EnumMember(Value = "not_json")] NotJson,
-        [EnumMember(Value = "not_a_description")] NotADescription,
+        [global::System.Runtime.Serialization.EnumMember(Value = "missing")] Missing,
+        [global::System.Runtime.Serialization.EnumMember(Value = "not_a_file")] NotAFile,
+        [global::System.Runtime.Serialization.EnumMember(Value = "too_large")] TooLarge,
+        [global::System.Runtime.Serialization.EnumMember(Value = "not_text")] NotText,
+        [global::System.Runtime.Serialization.EnumMember(Value = "not_json")] NotJson,
+        [global::System.Runtime.Serialization.EnumMember(Value = "not_a_description")] NotADescription,
     }
 
     public sealed class WorldRefused
     {
-        [JsonProperty("code", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("code", Required = global::Newtonsoft.Json.Required.Always)]
         public WorldRefusedCode Code { get; set; }
 
-        [JsonProperty("where", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("where", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Where { get; set; }
 
-        [JsonProperty("message", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("message", Required = global::Newtonsoft.Json.Required.Always)]
         public string Message { get; set; } = default!;
     }
 
     public sealed class ProjectWorldView
     {
-        [JsonProperty("description", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("description", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorldDescription? Description { get; set; }
 
-        [JsonProperty("refused", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("refused", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorldRefused? Refused { get; set; }
 
-        [JsonProperty("observed_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("observed_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string ObservedAt { get; set; } = default!;
     }
 
     public sealed class ProjectRulesOn
     {
-        [JsonProperty("file", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("file", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectRulesFile File { get; set; }
 
-        [JsonProperty("sha256", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("sha256", Required = global::Newtonsoft.Json.Required.Always)]
         public string Sha256 { get; set; } = default!;
     }
 
     public sealed class ProjectView
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("location", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("location", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public ProjectLocation? Location { get; set; }
 
-        [JsonProperty("starter", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("starter", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Starter { get; set; }
 
-        [JsonProperty("created_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("created_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string CreatedAt { get; set; } = default!;
 
-        [JsonProperty("updated_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("updated_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string UpdatedAt { get; set; } = default!;
 
-        [JsonProperty("check", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("check", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ProjectViewCheck? Check { get; set; }
 
-        [JsonProperty("own_check", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("own_check", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ProjectOwnCheckView? OwnCheck { get; set; }
 
-        [JsonProperty("preview", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("preview", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ProjectViewPreview? Preview { get; set; }
 
-        [JsonProperty("mac_play", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("mac_play", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ProjectViewMacPlay? MacPlay { get; set; }
 
-        [JsonProperty("share", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("share", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ProjectShareView? Share { get; set; }
 
-        [JsonProperty("published", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("published", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ProjectPublishedView? Published { get; set; }
 
-        [JsonProperty("secrets", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public List<string>? Secrets { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("secrets", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<string>? Secrets { get; set; }
 
-        [JsonProperty("world", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("world", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ProjectWorldView? World { get; set; }
 
-        [JsonProperty("rules", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("rules", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ProjectRulesOn? Rules { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum WorkstreamStatus
     {
-        [EnumMember(Value = "created")] Created,
-        [EnumMember(Value = "starting")] Starting,
-        [EnumMember(Value = "running")] Running,
-        [EnumMember(Value = "verifying")] Verifying,
-        [EnumMember(Value = "waiting_for_human")] WaitingForHuman,
-        [EnumMember(Value = "completed")] Completed,
-        [EnumMember(Value = "failed")] Failed,
-        [EnumMember(Value = "interrupted")] Interrupted,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "created")] Created,
+        [global::System.Runtime.Serialization.EnumMember(Value = "starting")] Starting,
+        [global::System.Runtime.Serialization.EnumMember(Value = "running")] Running,
+        [global::System.Runtime.Serialization.EnumMember(Value = "verifying")] Verifying,
+        [global::System.Runtime.Serialization.EnumMember(Value = "waiting_for_human")] WaitingForHuman,
+        [global::System.Runtime.Serialization.EnumMember(Value = "completed")] Completed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "failed")] Failed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "interrupted")] Interrupted,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum AttentionLevel
     {
-        [EnumMember(Value = "none")] None,
-        [EnumMember(Value = "notice")] Notice,
-        [EnumMember(Value = "action_required")] ActionRequired,
+        [global::System.Runtime.Serialization.EnumMember(Value = "none")] None,
+        [global::System.Runtime.Serialization.EnumMember(Value = "notice")] Notice,
+        [global::System.Runtime.Serialization.EnumMember(Value = "action_required")] ActionRequired,
     }
 
-    [JsonConverter(typeof(AttentionReasonConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(AttentionReasonConverter))]
     public abstract class AttentionReason
     {
-        [JsonProperty("kind", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Order = -2)]
         public string Kind => Discriminator;
 
         protected abstract string Discriminator { get; }
 
-        [JsonProperty("execution_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ExecutionId { get; set; } = default!;
     }
 
@@ -2492,7 +2492,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "approval_pending";
 
-        [JsonProperty("approval_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("approval_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ApprovalId { get; set; } = default!;
     }
 
@@ -2500,7 +2500,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "question_pending";
 
-        [JsonProperty("question_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("question_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string QuestionId { get; set; } = default!;
     }
 
@@ -2518,63 +2518,63 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "verification_failed";
 
-        [JsonProperty("test_run_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("test_run_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string TestRunId { get; set; } = default!;
     }
 
     public sealed class Attention
     {
-        [JsonProperty("level", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("level", Required = global::Newtonsoft.Json.Required.Always)]
         public AttentionLevel Level { get; set; }
 
-        [JsonProperty("reasons", Required = Required.Always)]
-        public List<AttentionReason> Reasons { get; set; } = new List<AttentionReason>();
+        [global::Newtonsoft.Json.JsonProperty("reasons", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<AttentionReason> Reasons { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ConflictKind
     {
-        [EnumMember(Value = "text")] Text,
-        [EnumMember(Value = "binary")] Binary,
-        [EnumMember(Value = "deleted")] Deleted,
-        [EnumMember(Value = "other")] Other,
+        [global::System.Runtime.Serialization.EnumMember(Value = "text")] Text,
+        [global::System.Runtime.Serialization.EnumMember(Value = "binary")] Binary,
+        [global::System.Runtime.Serialization.EnumMember(Value = "deleted")] Deleted,
+        [global::System.Runtime.Serialization.EnumMember(Value = "other")] Other,
     }
 
     public sealed class ConflictedFile
     {
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("kind", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
         public ConflictKind Kind { get; set; }
     }
 
     public sealed class ConflictedFiles
     {
-        [JsonProperty("files", Required = Required.Always)]
-        public List<ConflictedFile> Files { get; set; } = new List<ConflictedFile>();
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ConflictedFile> Files { get; set; } = default!;
 
-        [JsonProperty("total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum CopyRefusalCode
     {
-        [EnumMember(Value = "linked_repository")] LinkedRepository,
-        [EnumMember(Value = "nested_repository")] NestedRepository,
-        [EnumMember(Value = "too_large")] TooLarge,
-        [EnumMember(Value = "cannot_clone")] CannotClone,
-        [EnumMember(Value = "location_missing")] LocationMissing,
-        [EnumMember(Value = "holds_host_data")] HoldsHostData,
-        [EnumMember(Value = "copy_failed")] CopyFailed,
-        [EnumMember(Value = "runtime_unconfined")] RuntimeUnconfined,
+        [global::System.Runtime.Serialization.EnumMember(Value = "linked_repository")] LinkedRepository,
+        [global::System.Runtime.Serialization.EnumMember(Value = "nested_repository")] NestedRepository,
+        [global::System.Runtime.Serialization.EnumMember(Value = "too_large")] TooLarge,
+        [global::System.Runtime.Serialization.EnumMember(Value = "cannot_clone")] CannotClone,
+        [global::System.Runtime.Serialization.EnumMember(Value = "location_missing")] LocationMissing,
+        [global::System.Runtime.Serialization.EnumMember(Value = "holds_host_data")] HoldsHostData,
+        [global::System.Runtime.Serialization.EnumMember(Value = "copy_failed")] CopyFailed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "runtime_unconfined")] RuntimeUnconfined,
     }
 
-    [JsonConverter(typeof(WorkstreamCopyConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(WorkstreamCopyConverter))]
     public abstract class WorkstreamCopy
     {
-        [JsonProperty("state", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("state", Order = -2)]
         public string State => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -2620,34 +2620,34 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "own";
 
-        [JsonProperty("directory", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("directory", Required = global::Newtonsoft.Json.Required.Always)]
         public string Directory { get; set; } = default!;
 
-        [JsonProperty("made_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("made_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string MadeAt { get; set; } = default!;
 
-        [JsonProperty("base_tree", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("base_tree", Required = global::Newtonsoft.Json.Required.Always)]
         public string BaseTree { get; set; } = default!;
 
-        [JsonProperty("to_add", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("to_add", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public PathList? ToAdd { get; set; }
 
-        [JsonProperty("to_add_files", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("to_add_files", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public ChangedFiles? ToAddFiles { get; set; }
 
-        [JsonProperty("to_add_review", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("to_add_review", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ToAddReview { get; set; }
 
-        [JsonProperty("to_add_read_at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("to_add_read_at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ToAddReadAt { get; set; }
 
-        [JsonProperty("last_added_at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("last_added_at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? LastAddedAt { get; set; }
 
-        [JsonProperty("conflict", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("conflict", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public ConflictedFiles? Conflict { get; set; }
 
-        [JsonProperty("missing_at", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("missing_at", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? MissingAt { get; set; }
     }
 
@@ -2655,91 +2655,91 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "refused";
 
-        [JsonProperty("code", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("code", Required = global::Newtonsoft.Json.Required.Always)]
         public CopyRefusalCode Code { get; set; }
 
-        [JsonProperty("refused_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("refused_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string RefusedAt { get; set; } = default!;
     }
 
     public sealed class WorkstreamView
     {
-        [JsonProperty("workstream_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string WorkstreamId { get; set; } = default!;
 
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("title", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("title", Required = global::Newtonsoft.Json.Required.Always)]
         public string Title { get; set; } = default!;
 
-        [JsonProperty("objective", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("objective", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Objective { get; set; }
 
-        [JsonProperty("status", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("status", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkstreamStatus Status { get; set; }
 
-        [JsonProperty("attention", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("attention", Required = global::Newtonsoft.Json.Required.Always)]
         public Attention Attention { get; set; } = default!;
 
-        [JsonProperty("current_execution_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("current_execution_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? CurrentExecutionId { get; set; }
 
-        [JsonProperty("execution_ids", Required = Required.Always)]
-        public List<string> ExecutionIds { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("execution_ids", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> ExecutionIds { get; set; } = default!;
 
-        [JsonProperty("copy", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("copy", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public WorkstreamCopy? Copy { get; set; }
 
-        [JsonProperty("from_checkpoint", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("from_checkpoint", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? FromCheckpoint { get; set; }
 
-        [JsonProperty("created_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("created_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string CreatedAt { get; set; } = default!;
 
-        [JsonProperty("updated_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("updated_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string UpdatedAt { get; set; } = default!;
     }
 
     public sealed class RuntimeRef
     {
-        [JsonProperty("runtime_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("runtime_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string RuntimeId { get; set; } = default!;
 
-        [JsonProperty("kind", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
         public string Kind { get; set; } = default!;
 
-        [JsonProperty("display_name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("display_name", Required = global::Newtonsoft.Json.Required.Always)]
         public string DisplayName { get; set; } = default!;
 
-        [JsonProperty("synthetic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("synthetic", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Synthetic { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ApprovalLevel
     {
-        [EnumMember(Value = "ask")] Ask,
-        [EnumMember(Value = "never_ask")] NeverAsk,
+        [global::System.Runtime.Serialization.EnumMember(Value = "ask")] Ask,
+        [global::System.Runtime.Serialization.EnumMember(Value = "never_ask")] NeverAsk,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ExecutionStatus
     {
-        [EnumMember(Value = "starting")] Starting,
-        [EnumMember(Value = "running")] Running,
-        [EnumMember(Value = "verifying")] Verifying,
-        [EnumMember(Value = "waiting_for_human")] WaitingForHuman,
-        [EnumMember(Value = "completed")] Completed,
-        [EnumMember(Value = "failed")] Failed,
-        [EnumMember(Value = "interrupted")] Interrupted,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "starting")] Starting,
+        [global::System.Runtime.Serialization.EnumMember(Value = "running")] Running,
+        [global::System.Runtime.Serialization.EnumMember(Value = "verifying")] Verifying,
+        [global::System.Runtime.Serialization.EnumMember(Value = "waiting_for_human")] WaitingForHuman,
+        [global::System.Runtime.Serialization.EnumMember(Value = "completed")] Completed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "failed")] Failed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "interrupted")] Interrupted,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
-    [JsonConverter(typeof(ApprovalSubjectConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(ApprovalSubjectConverter))]
     public abstract class ApprovalSubject
     {
-        [JsonProperty("kind", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Order = -2)]
         public string Kind => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -2784,354 +2784,354 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "tool_use";
 
-        [JsonProperty("tool_name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tool_name", Required = global::Newtonsoft.Json.Required.Always)]
         public string ToolName { get; set; } = default!;
 
-        [JsonProperty("summary", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("summary", Required = global::Newtonsoft.Json.Required.Always)]
         public string Summary { get; set; } = default!;
     }
 
     public sealed class ApprovalView
     {
-        [JsonProperty("approval_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("approval_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ApprovalId { get; set; } = default!;
 
-        [JsonProperty("subject", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("subject", Required = global::Newtonsoft.Json.Required.Always)]
         public ApprovalSubject Subject { get; set; } = default!;
 
-        [JsonProperty("approvable", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("approvable", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Approvable { get; set; }
 
-        [JsonProperty("requested_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("requested_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string RequestedAt { get; set; } = default!;
     }
 
     public sealed class QuestionOption
     {
-        [JsonProperty("label", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.Always)]
         public string Label { get; set; } = default!;
 
-        [JsonProperty("description", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("description", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Description { get; set; }
     }
 
     public sealed class QuestionPrompt
     {
-        [JsonProperty("key", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("key", Required = global::Newtonsoft.Json.Required.Always)]
         public string Key { get; set; } = default!;
 
-        [JsonProperty("header", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("header", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Header { get; set; }
 
-        [JsonProperty("text", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.Always)]
         public string Text { get; set; } = default!;
 
-        [JsonProperty("options", Required = Required.Always)]
-        public List<QuestionOption> Options { get; set; } = new List<QuestionOption>();
+        [global::Newtonsoft.Json.JsonProperty("options", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<QuestionOption> Options { get; set; } = default!;
 
-        [JsonProperty("multiple", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("multiple", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Multiple { get; set; }
 
-        [JsonProperty("free_text", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("free_text", Required = global::Newtonsoft.Json.Required.Always)]
         public bool FreeText { get; set; }
 
-        [JsonProperty("secret", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("secret", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Secret { get; set; }
     }
 
     public sealed class QuestionView
     {
-        [JsonProperty("question_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("question_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string QuestionId { get; set; } = default!;
 
-        [JsonProperty("prompts", Required = Required.Always)]
-        public List<QuestionPrompt> Prompts { get; set; } = new List<QuestionPrompt>();
+        [global::Newtonsoft.Json.JsonProperty("prompts", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<QuestionPrompt> Prompts { get; set; } = default!;
 
-        [JsonProperty("answerable", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("answerable", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Answerable { get; set; }
 
-        [JsonProperty("asked_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("asked_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string AskedAt { get; set; } = default!;
     }
 
     public sealed class ToolActivityView
     {
-        [JsonProperty("tool_call_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tool_call_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ToolCallId { get; set; } = default!;
 
-        [JsonProperty("tool_name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tool_name", Required = global::Newtonsoft.Json.Required.Always)]
         public string ToolName { get; set; } = default!;
 
-        [JsonProperty("title", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("title", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Title { get; set; }
 
-        [JsonProperty("started_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("started_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string StartedAt { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ExecutionViewToolActivity
     {
-        [EnumMember(Value = "unknown")] Unknown,
-        [EnumMember(Value = "running")] Running,
-        [EnumMember(Value = "none")] None,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "running")] Running,
+        [global::System.Runtime.Serialization.EnumMember(Value = "none")] None,
     }
 
     public sealed class TestRunView
     {
-        [JsonProperty("test_run_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("test_run_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string TestRunId { get; set; } = default!;
 
-        [JsonProperty("label", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Label { get; set; }
 
-        [JsonProperty("started_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("started_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string StartedAt { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum TestOutcome
     {
-        [EnumMember(Value = "passed")] Passed,
-        [EnumMember(Value = "failed")] Failed,
-        [EnumMember(Value = "errored")] Errored,
+        [global::System.Runtime.Serialization.EnumMember(Value = "passed")] Passed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "failed")] Failed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "errored")] Errored,
     }
 
     public sealed class TestRunResultView
     {
-        [JsonProperty("test_run_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("test_run_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string TestRunId { get; set; } = default!;
 
-        [JsonProperty("label", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Label { get; set; }
 
-        [JsonProperty("outcome", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("outcome", Required = global::Newtonsoft.Json.Required.Always)]
         public TestOutcome Outcome { get; set; }
 
-        [JsonProperty("summary", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("summary", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Summary { get; set; }
 
-        [JsonProperty("completed_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("completed_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string CompletedAt { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum AutoFixViewState
     {
-        [EnumMember(Value = "fixing")] Fixing,
-        [EnumMember(Value = "ended")] Ended,
+        [global::System.Runtime.Serialization.EnumMember(Value = "fixing")] Fixing,
+        [global::System.Runtime.Serialization.EnumMember(Value = "ended")] Ended,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum AutoFixEndReason
     {
-        [EnumMember(Value = "passed")] Passed,
-        [EnumMember(Value = "cap_reached")] CapReached,
-        [EnumMember(Value = "person_stopped")] PersonStopped,
-        [EnumMember(Value = "person_instructed")] PersonInstructed,
-        [EnumMember(Value = "waiting_on_person")] WaitingOnPerson,
-        [EnumMember(Value = "project_busy")] ProjectBusy,
-        [EnumMember(Value = "runtime_cannot")] RuntimeCannot,
-        [EnumMember(Value = "turn_failed")] TurnFailed,
-        [EnumMember(Value = "no_change")] NoChange,
-        [EnumMember(Value = "nothing_to_send")] NothingToSend,
-        [EnumMember(Value = "check_unavailable")] CheckUnavailable,
-        [EnumMember(Value = "send_failed")] SendFailed,
-        [EnumMember(Value = "several_tasks")] SeveralTasks,
-        [EnumMember(Value = "host_restarted")] HostRestarted,
-        [EnumMember(Value = "failing_before")] FailingBefore,
-        [EnumMember(Value = "never_passed")] NeverPassed,
-        [EnumMember(Value = "check_refused")] CheckRefused,
+        [global::System.Runtime.Serialization.EnumMember(Value = "passed")] Passed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "cap_reached")] CapReached,
+        [global::System.Runtime.Serialization.EnumMember(Value = "person_stopped")] PersonStopped,
+        [global::System.Runtime.Serialization.EnumMember(Value = "person_instructed")] PersonInstructed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "waiting_on_person")] WaitingOnPerson,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project_busy")] ProjectBusy,
+        [global::System.Runtime.Serialization.EnumMember(Value = "runtime_cannot")] RuntimeCannot,
+        [global::System.Runtime.Serialization.EnumMember(Value = "turn_failed")] TurnFailed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "no_change")] NoChange,
+        [global::System.Runtime.Serialization.EnumMember(Value = "nothing_to_send")] NothingToSend,
+        [global::System.Runtime.Serialization.EnumMember(Value = "check_unavailable")] CheckUnavailable,
+        [global::System.Runtime.Serialization.EnumMember(Value = "send_failed")] SendFailed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "several_tasks")] SeveralTasks,
+        [global::System.Runtime.Serialization.EnumMember(Value = "host_restarted")] HostRestarted,
+        [global::System.Runtime.Serialization.EnumMember(Value = "failing_before")] FailingBefore,
+        [global::System.Runtime.Serialization.EnumMember(Value = "never_passed")] NeverPassed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "check_refused")] CheckRefused,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum AutoFixViewFailedStepsItem
     {
-        [EnumMember(Value = "typecheck")] Typecheck,
-        [EnumMember(Value = "build")] Build,
-        [EnumMember(Value = "page")] Page,
-        [EnumMember(Value = "own_check")] OwnCheck,
+        [global::System.Runtime.Serialization.EnumMember(Value = "typecheck")] Typecheck,
+        [global::System.Runtime.Serialization.EnumMember(Value = "build")] Build,
+        [global::System.Runtime.Serialization.EnumMember(Value = "page")] Page,
+        [global::System.Runtime.Serialization.EnumMember(Value = "own_check")] OwnCheck,
     }
 
     public sealed class AutoFixView
     {
-        [JsonProperty("state", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("state", Required = global::Newtonsoft.Json.Required.Always)]
         public AutoFixViewState State { get; set; }
 
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("attempt", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("attempt", Required = global::Newtonsoft.Json.Required.Always)]
         public long Attempt { get; set; }
 
-        [JsonProperty("cap", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("cap", Required = global::Newtonsoft.Json.Required.Always)]
         public long Cap { get; set; }
 
-        [JsonProperty("reason", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public AutoFixEndReason? Reason { get; set; }
 
-        [JsonProperty("failed_steps", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public List<AutoFixViewFailedStepsItem>? FailedSteps { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("failed_steps", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<AutoFixViewFailedStepsItem>? FailedSteps { get; set; }
     }
 
     public sealed class ExecutionViewQueuedInstructionsItem
     {
-        [JsonProperty("command_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CommandId { get; set; } = default!;
 
-        [JsonProperty("queued_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("queued_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string QueuedAt { get; set; } = default!;
     }
 
     public sealed class ExecutionView
     {
-        [JsonProperty("execution_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ExecutionId { get; set; } = default!;
 
-        [JsonProperty("workstream_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string WorkstreamId { get; set; } = default!;
 
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("runtime", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("runtime", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeRef Runtime { get; set; } = default!;
 
-        [JsonProperty("native_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("native_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? NativeId { get; set; }
 
-        [JsonProperty("model_ref", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("model_ref", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ModelRef { get; set; }
 
-        [JsonProperty("approval_level", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("approval_level", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ApprovalLevel? ApprovalLevel { get; set; }
 
-        [JsonProperty("plan", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("plan", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? Plan { get; set; }
 
-        [JsonProperty("plan_left", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("plan_left", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? PlanLeft { get; set; }
 
-        [JsonProperty("unconfined_reason", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("unconfined_reason", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? UnconfinedReason { get; set; }
 
-        [JsonProperty("instruction", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("instruction", Required = global::Newtonsoft.Json.Required.Always)]
         public string Instruction { get; set; } = default!;
 
-        [JsonProperty("directory", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("directory", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Directory { get; set; }
 
-        [JsonProperty("status", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("status", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionStatus Status { get; set; }
 
-        [JsonProperty("status_reason", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("status_reason", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public ErrorInfo? StatusReason { get; set; }
 
-        [JsonProperty("pending_approvals", Required = Required.Always)]
-        public List<ApprovalView> PendingApprovals { get; set; } = new List<ApprovalView>();
+        [global::Newtonsoft.Json.JsonProperty("pending_approvals", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ApprovalView> PendingApprovals { get; set; } = default!;
 
-        [JsonProperty("pending_questions", Required = Required.Always)]
-        public List<QuestionView> PendingQuestions { get; set; } = new List<QuestionView>();
+        [global::Newtonsoft.Json.JsonProperty("pending_questions", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<QuestionView> PendingQuestions { get; set; } = default!;
 
-        [JsonProperty("active_tools", Required = Required.Always)]
-        public List<ToolActivityView> ActiveTools { get; set; } = new List<ToolActivityView>();
+        [global::Newtonsoft.Json.JsonProperty("active_tools", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ToolActivityView> ActiveTools { get; set; } = default!;
 
-        [JsonProperty("tool_activity", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tool_activity", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionViewToolActivity ToolActivity { get; set; }
 
-        [JsonProperty("active_test_run", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("active_test_run", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public TestRunView? ActiveTestRun { get; set; }
 
-        [JsonProperty("last_test_run", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("last_test_run", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public TestRunResultView? LastTestRun { get; set; }
 
-        [JsonProperty("turn_count", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("turn_count", Required = global::Newtonsoft.Json.Required.Always)]
         public long TurnCount { get; set; }
 
-        [JsonProperty("auto_fix", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("auto_fix", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public AutoFixView? AutoFix { get; set; }
 
-        [JsonProperty("queued_instructions", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public List<ExecutionViewQueuedInstructionsItem>? QueuedInstructions { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("queued_instructions", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<ExecutionViewQueuedInstructionsItem>? QueuedInstructions { get; set; }
 
-        [JsonProperty("created_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("created_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string CreatedAt { get; set; } = default!;
 
-        [JsonProperty("started_at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("started_at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? StartedAt { get; set; }
 
-        [JsonProperty("updated_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("updated_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string UpdatedAt { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum CommandStatus
     {
-        [EnumMember(Value = "accepted")] Accepted,
-        [EnumMember(Value = "rejected")] Rejected,
-        [EnumMember(Value = "completed")] Completed,
-        [EnumMember(Value = "failed")] Failed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "accepted")] Accepted,
+        [global::System.Runtime.Serialization.EnumMember(Value = "rejected")] Rejected,
+        [global::System.Runtime.Serialization.EnumMember(Value = "completed")] Completed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "failed")] Failed,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum RejectionCode
     {
-        [EnumMember(Value = "request_not_found")] RequestNotFound,
-        [EnumMember(Value = "project_not_found")] ProjectNotFound,
-        [EnumMember(Value = "workstream_not_found")] WorkstreamNotFound,
-        [EnumMember(Value = "execution_not_found")] ExecutionNotFound,
-        [EnumMember(Value = "runtime_not_found")] RuntimeNotFound,
-        [EnumMember(Value = "approval_not_found")] ApprovalNotFound,
-        [EnumMember(Value = "approval_not_whole")] ApprovalNotWhole,
-        [EnumMember(Value = "question_not_found")] QuestionNotFound,
-        [EnumMember(Value = "invalid_answer")] InvalidAnswer,
-        [EnumMember(Value = "model_required")] ModelRequired,
-        [EnumMember(Value = "capability_unsupported")] CapabilityUnsupported,
-        [EnumMember(Value = "invalid_state")] InvalidState,
-        [EnumMember(Value = "invalid_runtime_options")] InvalidRuntimeOptions,
-        [EnumMember(Value = "location_required")] LocationRequired,
-        [EnumMember(Value = "location_missing")] LocationMissing,
-        [EnumMember(Value = "location_not_allowed")] LocationNotAllowed,
-        [EnumMember(Value = "location_exists")] LocationExists,
-        [EnumMember(Value = "checkpoint_not_found")] CheckpointNotFound,
-        [EnumMember(Value = "demonstration")] Demonstration,
-        [EnumMember(Value = "device_revoked")] DeviceRevoked,
-        [EnumMember(Value = "review_required")] ReviewRequired,
-        [EnumMember(Value = "review_stale")] ReviewStale,
+        [global::System.Runtime.Serialization.EnumMember(Value = "request_not_found")] RequestNotFound,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project_not_found")] ProjectNotFound,
+        [global::System.Runtime.Serialization.EnumMember(Value = "workstream_not_found")] WorkstreamNotFound,
+        [global::System.Runtime.Serialization.EnumMember(Value = "execution_not_found")] ExecutionNotFound,
+        [global::System.Runtime.Serialization.EnumMember(Value = "runtime_not_found")] RuntimeNotFound,
+        [global::System.Runtime.Serialization.EnumMember(Value = "approval_not_found")] ApprovalNotFound,
+        [global::System.Runtime.Serialization.EnumMember(Value = "approval_not_whole")] ApprovalNotWhole,
+        [global::System.Runtime.Serialization.EnumMember(Value = "question_not_found")] QuestionNotFound,
+        [global::System.Runtime.Serialization.EnumMember(Value = "invalid_answer")] InvalidAnswer,
+        [global::System.Runtime.Serialization.EnumMember(Value = "model_required")] ModelRequired,
+        [global::System.Runtime.Serialization.EnumMember(Value = "capability_unsupported")] CapabilityUnsupported,
+        [global::System.Runtime.Serialization.EnumMember(Value = "invalid_state")] InvalidState,
+        [global::System.Runtime.Serialization.EnumMember(Value = "invalid_runtime_options")] InvalidRuntimeOptions,
+        [global::System.Runtime.Serialization.EnumMember(Value = "location_required")] LocationRequired,
+        [global::System.Runtime.Serialization.EnumMember(Value = "location_missing")] LocationMissing,
+        [global::System.Runtime.Serialization.EnumMember(Value = "location_not_allowed")] LocationNotAllowed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "location_exists")] LocationExists,
+        [global::System.Runtime.Serialization.EnumMember(Value = "checkpoint_not_found")] CheckpointNotFound,
+        [global::System.Runtime.Serialization.EnumMember(Value = "demonstration")] Demonstration,
+        [global::System.Runtime.Serialization.EnumMember(Value = "device_revoked")] DeviceRevoked,
+        [global::System.Runtime.Serialization.EnumMember(Value = "review_required")] ReviewRequired,
+        [global::System.Runtime.Serialization.EnumMember(Value = "review_stale")] ReviewStale,
     }
 
     public sealed class CommandRejection
     {
-        [JsonProperty("code", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("code", Required = global::Newtonsoft.Json.Required.Always)]
         public RejectionCode Code { get; set; }
 
-        [JsonProperty("message", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("message", Required = global::Newtonsoft.Json.Required.Always)]
         public string Message { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum FailureEffect
     {
-        [EnumMember(Value = "none")] None,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "none")] None,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class CommandFailure
     {
-        [JsonProperty("code", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("code", Required = global::Newtonsoft.Json.Required.Always)]
         public string Code { get; set; } = default!;
 
-        [JsonProperty("message", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("message", Required = global::Newtonsoft.Json.Required.Always)]
         public string Message { get; set; } = default!;
 
-        [JsonProperty("effect", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("effect", Required = global::Newtonsoft.Json.Required.Always)]
         public FailureEffect Effect { get; set; }
     }
 
-    [JsonConverter(typeof(CommandResultConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(CommandResultConverter))]
     public abstract class CommandResult
     {
-        [JsonProperty("kind", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Order = -2)]
         public string Kind => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -3188,7 +3188,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workspace_request_created";
 
-        [JsonProperty("request_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("request_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string RequestId { get; set; } = default!;
     }
 
@@ -3196,7 +3196,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project_created";
 
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
     }
 
@@ -3204,7 +3204,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream_created";
 
-        [JsonProperty("workstream_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string WorkstreamId { get; set; } = default!;
     }
 
@@ -3212,7 +3212,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution_created";
 
-        [JsonProperty("execution_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ExecutionId { get; set; } = default!;
     }
 
@@ -3220,7 +3220,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project_restored";
 
-        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("checkpoint_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckpointId { get; set; } = default!;
     }
 
@@ -3228,13 +3228,13 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project_saved";
 
-        [JsonProperty("file", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("file", Required = global::Newtonsoft.Json.Required.Always)]
         public string File { get; set; } = default!;
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public long Files { get; set; }
 
-        [JsonProperty("bytes", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("bytes", Required = global::Newtonsoft.Json.Required.Always)]
         public long Bytes { get; set; }
     }
 
@@ -3242,13 +3242,13 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "share_started";
 
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("url", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("url", Required = global::Newtonsoft.Json.Required.Always)]
         public string Url { get; set; } = default!;
 
-        [JsonProperty("way", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("way", Required = global::Newtonsoft.Json.Required.Always)]
         public ShareWay Way { get; set; }
     }
 
@@ -3256,10 +3256,10 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "published";
 
-        [JsonProperty("commit", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("commit", Required = global::Newtonsoft.Json.Required.Always)]
         public string Commit { get; set; } = default!;
 
-        [JsonProperty("address", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("address", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Address { get; set; }
     }
 
@@ -3267,13 +3267,13 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "sent_to_github";
 
-        [JsonProperty("new_branch", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("new_branch", Required = global::Newtonsoft.Json.Required.Always)]
         public string NewBranch { get; set; } = default!;
 
-        [JsonProperty("commit", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("commit", Required = global::Newtonsoft.Json.Required.Always)]
         public string Commit { get; set; } = default!;
 
-        [JsonProperty("pull_request_url", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("pull_request_url", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? PullRequestUrl { get; set; }
     }
 
@@ -3281,10 +3281,10 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream_added";
 
-        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("checkpoint_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckpointId { get; set; } = default!;
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public long Files { get; set; }
     }
 
@@ -3292,7 +3292,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream_fitted";
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public long Files { get; set; }
     }
 
@@ -3300,13 +3300,13 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project_checked";
 
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("passed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("passed", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Passed { get; set; }
 
-        [JsonProperty("ready", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("ready", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? Ready { get; set; }
     }
 
@@ -3314,161 +3314,161 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "preview_started";
 
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("port", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("port", Required = global::Newtonsoft.Json.Required.Always)]
         public long Port { get; set; }
     }
 
     public sealed class CommandView
     {
-        [JsonProperty("command_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CommandId { get; set; } = default!;
 
-        [JsonProperty("command_type", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_type", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandType CommandType { get; set; }
 
-        [JsonProperty("status", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("status", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandStatus Status { get; set; }
 
-        [JsonProperty("project_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ProjectId { get; set; }
 
-        [JsonProperty("workstream_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? WorkstreamId { get; set; }
 
-        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ExecutionId { get; set; }
 
-        [JsonProperty("issued_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("issued_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string IssuedAt { get; set; } = default!;
 
-        [JsonProperty("updated_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("updated_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string UpdatedAt { get; set; } = default!;
 
-        [JsonProperty("rejection", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("rejection", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public CommandRejection? Rejection { get; set; }
 
-        [JsonProperty("failure", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("failure", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public CommandFailure? Failure { get; set; }
 
-        [JsonProperty("result", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("result", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public CommandResult? Result { get; set; }
     }
 
     public sealed class RuntimeCapabilities
     {
-        [JsonProperty("start_execution", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("start_execution", Required = global::Newtonsoft.Json.Required.Always)]
         public bool StartExecution { get; set; }
 
-        [JsonProperty("instruct_at_rest", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("instruct_at_rest", Required = global::Newtonsoft.Json.Required.Always)]
         public bool InstructAtRest { get; set; }
 
-        [JsonProperty("instruct_while_running", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("instruct_while_running", Required = global::Newtonsoft.Json.Required.Always)]
         public bool InstructWhileRunning { get; set; }
 
-        [JsonProperty("respond_to_approval", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("respond_to_approval", Required = global::Newtonsoft.Json.Required.Always)]
         public bool RespondToApproval { get; set; }
 
-        [JsonProperty("interrupt", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("interrupt", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Interrupt { get; set; }
 
-        [JsonProperty("answer_question", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("answer_question", Required = global::Newtonsoft.Json.Required.Always)]
         public bool AnswerQuestion { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ModelChoice
     {
-        [EnumMember(Value = "none")] None,
-        [EnumMember(Value = "listed")] Listed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "none")] None,
+        [global::System.Runtime.Serialization.EnumMember(Value = "listed")] Listed,
     }
 
     public sealed class RuntimeDescriptor
     {
-        [JsonProperty("runtime_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("runtime_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string RuntimeId { get; set; } = default!;
 
-        [JsonProperty("kind", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
         public string Kind { get; set; } = default!;
 
-        [JsonProperty("display_name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("display_name", Required = global::Newtonsoft.Json.Required.Always)]
         public string DisplayName { get; set; } = default!;
 
-        [JsonProperty("synthetic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("synthetic", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Synthetic { get; set; }
 
-        [JsonProperty("capabilities", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("capabilities", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeCapabilities Capabilities { get; set; } = default!;
 
-        [JsonProperty("model_choice", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("model_choice", Required = global::Newtonsoft.Json.Required.Always)]
         public ModelChoice ModelChoice { get; set; }
 
-        [JsonProperty("uses_project_location", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("uses_project_location", Required = global::Newtonsoft.Json.Required.Always)]
         public bool UsesProjectLocation { get; set; }
 
-        [JsonProperty("reports_tool_activity", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reports_tool_activity", Required = global::Newtonsoft.Json.Required.Always)]
         public bool ReportsToolActivity { get; set; }
 
-        [JsonProperty("reports_tool_results", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("reports_tool_results", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? ReportsToolResults { get; set; }
 
-        [JsonProperty("approval_may_leave_sandbox", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("approval_may_leave_sandbox", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? ApprovalMayLeaveSandbox { get; set; }
 
-        [JsonProperty("offers_never_ask", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("offers_never_ask", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? OffersNeverAsk { get; set; }
 
-        [JsonProperty("offers_plan", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("offers_plan", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? OffersPlan { get; set; }
 
-        [JsonProperty("secret_environment", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("secret_environment", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? SecretEnvironment { get; set; }
 
-        [JsonProperty("resumes_after_restart", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("resumes_after_restart", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? ResumesAfterRestart { get; set; }
 
-        [JsonProperty("takes_pictures", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("takes_pictures", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? TakesPictures { get; set; }
 
-        [JsonProperty("holds_instructions", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("holds_instructions", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? HoldsInstructions { get; set; }
     }
 
     public sealed class Snapshot
     {
-        [JsonProperty("journal", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("journal", Required = global::Newtonsoft.Json.Required.Always)]
         public JournalInfo Journal { get; set; } = default!;
 
-        [JsonProperty("position", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("position", Required = global::Newtonsoft.Json.Required.Always)]
         public long Position { get; set; }
 
-        [JsonProperty("projects", Required = Required.Always)]
-        public List<ProjectView> Projects { get; set; } = new List<ProjectView>();
+        [global::Newtonsoft.Json.JsonProperty("projects", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ProjectView> Projects { get; set; } = default!;
 
-        [JsonProperty("workstreams", Required = Required.Always)]
-        public List<WorkstreamView> Workstreams { get; set; } = new List<WorkstreamView>();
+        [global::Newtonsoft.Json.JsonProperty("workstreams", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<WorkstreamView> Workstreams { get; set; } = default!;
 
-        [JsonProperty("executions", Required = Required.Always)]
-        public List<ExecutionView> Executions { get; set; } = new List<ExecutionView>();
+        [global::Newtonsoft.Json.JsonProperty("executions", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ExecutionView> Executions { get; set; } = default!;
 
-        [JsonProperty("commands", Required = Required.Always)]
-        public List<CommandView> Commands { get; set; } = new List<CommandView>();
+        [global::Newtonsoft.Json.JsonProperty("commands", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<CommandView> Commands { get; set; } = default!;
 
-        [JsonProperty("runtimes", Required = Required.Always)]
-        public List<RuntimeDescriptor> Runtimes { get; set; } = new List<RuntimeDescriptor>();
+        [global::Newtonsoft.Json.JsonProperty("runtimes", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<RuntimeDescriptor> Runtimes { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(ProvenanceConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(ProvenanceConverter))]
     public abstract class Provenance
     {
-        [JsonProperty("epistemic", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Order = -2)]
         public string Epistemic => Discriminator;
 
         protected abstract string Discriminator { get; }
 
-        [JsonProperty("native_type", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("native_type", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? NativeType { get; set; }
     }
 
@@ -3523,14 +3523,14 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "inferred";
 
-        [JsonProperty("rule", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("rule", Required = global::Newtonsoft.Json.Required.Always)]
         public string Rule { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(EventSourceConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(EventSourceConverter))]
     public abstract class EventSource
     {
-        [JsonProperty("kind", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Order = -2)]
         public string Kind => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -3581,700 +3581,700 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime";
 
-        [JsonProperty("runtime_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("runtime_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string RuntimeId { get; set; } = default!;
     }
 
     public sealed class ProjectCreatedPayload
     {
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("location", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("location", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public ProjectLocation? Location { get; set; }
     }
 
     public sealed class ProjectLocationSetPayload
     {
-        [JsonProperty("location", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("location", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectLocation Location { get; set; } = default!;
     }
 
     public sealed class ProjectStarterAppliedPayload
     {
-        [JsonProperty("starter_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("starter_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string StarterId { get; set; } = default!;
 
-        [JsonProperty("lockfile", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("lockfile", Required = global::Newtonsoft.Json.Required.Always)]
         public string Lockfile { get; set; } = default!;
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public long Files { get; set; }
 
-        [JsonProperty("template", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("template", Required = global::Newtonsoft.Json.Required.Always)]
         public string Template { get; set; } = default!;
     }
 
     public sealed class ProjectMadeFromPayload
     {
-        [JsonProperty("original_project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("original_project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string OriginalProjectId { get; set; } = default!;
 
-        [JsonProperty("instruction", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("instruction", Required = global::Newtonsoft.Json.Required.Always)]
         public string Instruction { get; set; } = default!;
     }
 
     public sealed class CatalogRepositoryRef
     {
-        [JsonProperty("source", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
         public string Source { get; set; } = "omnorium";
 
-        [JsonProperty("repository_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("repository_id", Required = global::Newtonsoft.Json.Required.Always)]
         public long RepositoryId { get; set; }
 
-        [JsonProperty("full_name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("full_name", Required = global::Newtonsoft.Json.Required.Always)]
         public string FullName { get; set; } = default!;
     }
 
     public sealed class ProjectCatalogLinkedPayload
     {
-        [JsonProperty("catalog", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("catalog", Required = global::Newtonsoft.Json.Required.Always)]
         public CatalogRepositoryRef Catalog { get; set; } = default!;
 
-        [JsonProperty("previous", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("previous", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public CatalogRepositoryRef? Previous { get; set; }
     }
 
     public sealed class ProjectCatalogUnlinkedPayload
     {
-        [JsonProperty("previous", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("previous", Required = global::Newtonsoft.Json.Required.Always)]
         public CatalogRepositoryRef Previous { get; set; } = default!;
     }
 
     public sealed class ProjectCheckpointRecordedPayload
     {
-        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("checkpoint_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckpointId { get; set; } = default!;
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public CheckpointReason Reason { get; set; }
 
-        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ExecutionId { get; set; }
 
-        [JsonProperty("tree", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tree", Required = global::Newtonsoft.Json.Required.Always)]
         public string Tree { get; set; } = default!;
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public long Files { get; set; }
 
-        [JsonProperty("project_head", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("project_head", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ProjectHead { get; set; }
 
-        [JsonProperty("turn_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("turn_id", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? TurnId { get; set; }
     }
 
     public sealed class ProjectCheckpointFailedPayload
     {
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public CheckpointReason Reason { get; set; }
 
-        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ExecutionId { get; set; }
 
-        [JsonProperty("failure", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("failure", Required = global::Newtonsoft.Json.Required.Always)]
         public CheckpointFailure Failure { get; set; } = default!;
     }
 
     public sealed class ProjectCheckpointsPrunedPayload
     {
-        [JsonProperty("checkpoint_ids", Required = Required.Always)]
-        public List<string> CheckpointIds { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("checkpoint_ids", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> CheckpointIds { get; set; } = default!;
 
-        [JsonProperty("kept", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("kept", Required = global::Newtonsoft.Json.Required.Always)]
         public long Kept { get; set; }
     }
 
     public sealed class ExecutionInstructionQueuedPayload
     {
-        [JsonProperty("command_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CommandId { get; set; } = default!;
 
-        [JsonProperty("position", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("position", Required = global::Newtonsoft.Json.Required.Always)]
         public long Position { get; set; }
     }
 
     public sealed class ExecutionInstructionDequeuedPayload
     {
-        [JsonProperty("command_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CommandId { get; set; } = default!;
     }
 
     public sealed class PictureRead
     {
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("media_type", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("media_type", Required = global::Newtonsoft.Json.Required.Always)]
         public PictureMediaType MediaType { get; set; }
 
-        [JsonProperty("size_bytes", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("size_bytes", Required = global::Newtonsoft.Json.Required.Always)]
         public long SizeBytes { get; set; }
 
-        [JsonProperty("sha256", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("sha256", Required = global::Newtonsoft.Json.Required.Always)]
         public string Sha256 { get; set; } = default!;
     }
 
     public sealed class ExecutionInstructionPicturesReadPayload
     {
-        [JsonProperty("command_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CommandId { get; set; } = default!;
 
-        [JsonProperty("pictures", Required = Required.Always)]
-        public List<PictureRead> Pictures { get; set; } = new List<PictureRead>();
+        [global::Newtonsoft.Json.JsonProperty("pictures", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<PictureRead> Pictures { get; set; } = default!;
     }
 
     public sealed class ProjectRestoredPayload
     {
-        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("checkpoint_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckpointId { get; set; } = default!;
 
-        [JsonProperty("before_restore_checkpoint_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("before_restore_checkpoint_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string BeforeRestoreCheckpointId { get; set; } = default!;
 
-        [JsonProperty("tree", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tree", Required = global::Newtonsoft.Json.Required.Always)]
         public string Tree { get; set; } = default!;
 
-        [JsonProperty("files_compared", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files_compared", Required = global::Newtonsoft.Json.Required.Always)]
         public long FilesCompared { get; set; }
 
-        [JsonProperty("changed_back", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("changed_back", Required = global::Newtonsoft.Json.Required.Always)]
         public PathList ChangedBack { get; set; } = default!;
 
-        [JsonProperty("removed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("removed", Required = global::Newtonsoft.Json.Required.Always)]
         public PathList Removed { get; set; } = default!;
 
-        [JsonProperty("returned", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("returned", Required = global::Newtonsoft.Json.Required.Always)]
         public PathList Returned { get; set; } = default!;
 
-        [JsonProperty("project_head_moved", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("project_head_moved", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public bool? ProjectHeadMoved { get; set; }
     }
 
     public sealed class ProjectRestoreIncompletePayload
     {
-        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("checkpoint_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckpointId { get; set; } = default!;
 
-        [JsonProperty("before_restore_checkpoint_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("before_restore_checkpoint_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? BeforeRestoreCheckpointId { get; set; }
 
-        [JsonProperty("written", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("written", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Written { get; set; }
 
-        [JsonProperty("not_restored", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("not_restored", Required = global::Newtonsoft.Json.Required.Always)]
         public PathList NotRestored { get; set; } = default!;
 
-        [JsonProperty("failure", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("failure", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Failure { get; set; } = default!;
     }
 
     public sealed class ProjectCheckRecordedPayload
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("findings", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("findings", Required = global::Newtonsoft.Json.Required.Always)]
         public CheckFindings Findings { get; set; } = default!;
 
-        [JsonProperty("workstream_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? WorkstreamId { get; set; }
     }
 
     public sealed class ProjectOwnCheckChosenPayload
     {
-        [JsonProperty("manager", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("manager", Required = global::Newtonsoft.Json.Required.Always)]
         public OwnCheckManager Manager { get; set; }
 
-        [JsonProperty("scripts", Required = Required.Always)]
-        public List<OwnCheckScript> Scripts { get; set; } = new List<OwnCheckScript>();
+        [global::Newtonsoft.Json.JsonProperty("scripts", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<OwnCheckScript> Scripts { get; set; } = default!;
     }
 
     public sealed class ProjectOwnCheckRecordedPayload
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("first", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("first", Required = global::Newtonsoft.Json.Required.Always)]
         public bool First { get; set; }
 
-        [JsonProperty("findings", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("findings", Required = global::Newtonsoft.Json.Required.Always)]
         public OwnCheckFindings Findings { get; set; } = default!;
 
-        [JsonProperty("workstream_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? WorkstreamId { get; set; }
     }
 
     public sealed class ProjectPreviewStartedPayload
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("port", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("port", Required = global::Newtonsoft.Json.Required.Always)]
         public long Port { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum PreviewStopReason
     {
-        [EnumMember(Value = "asked")] Asked,
-        [EnumMember(Value = "new_check")] NewCheck,
-        [EnumMember(Value = "server_exited")] ServerExited,
-        [EnumMember(Value = "host_restarted")] HostRestarted,
+        [global::System.Runtime.Serialization.EnumMember(Value = "asked")] Asked,
+        [global::System.Runtime.Serialization.EnumMember(Value = "new_check")] NewCheck,
+        [global::System.Runtime.Serialization.EnumMember(Value = "server_exited")] ServerExited,
+        [global::System.Runtime.Serialization.EnumMember(Value = "host_restarted")] HostRestarted,
     }
 
     public sealed class ProjectPreviewStoppedPayload
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public PreviewStopReason Reason { get; set; }
     }
 
     public sealed class ProjectMacPlayStartedPayload
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
     }
 
     public sealed class ProjectMacPlayStoppedPayload
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("reason", Required = Required.Always)]
-        public JToken Reason { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::Newtonsoft.Json.Linq.JToken Reason { get; set; } = default!;
     }
 
     public sealed class ProjectShareStartedPayload
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("url", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("url", Required = global::Newtonsoft.Json.Required.Always)]
         public string Url { get; set; } = default!;
 
-        [JsonProperty("way", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("way", Required = global::Newtonsoft.Json.Required.Always)]
         public ShareWay Way { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ShareStopReason
     {
-        [EnumMember(Value = "asked")] Asked,
-        [EnumMember(Value = "preview_stopped")] PreviewStopped,
-        [EnumMember(Value = "ended")] Ended,
-        [EnumMember(Value = "host_stopped")] HostStopped,
+        [global::System.Runtime.Serialization.EnumMember(Value = "asked")] Asked,
+        [global::System.Runtime.Serialization.EnumMember(Value = "preview_stopped")] PreviewStopped,
+        [global::System.Runtime.Serialization.EnumMember(Value = "ended")] Ended,
+        [global::System.Runtime.Serialization.EnumMember(Value = "host_stopped")] HostStopped,
     }
 
     public sealed class ProjectShareStoppedPayload
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ShareStopReason Reason { get; set; }
     }
 
     public sealed class ProjectSentToGithubPayload
     {
-        [JsonProperty("repository", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("repository", Required = global::Newtonsoft.Json.Required.Always)]
         public string Repository { get; set; } = default!;
 
-        [JsonProperty("branch", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("branch", Required = global::Newtonsoft.Json.Required.Always)]
         public string Branch { get; set; } = default!;
 
-        [JsonProperty("base_commit", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("base_commit", Required = global::Newtonsoft.Json.Required.Always)]
         public string BaseCommit { get; set; } = default!;
 
-        [JsonProperty("new_branch", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("new_branch", Required = global::Newtonsoft.Json.Required.Always)]
         public string NewBranch { get; set; } = default!;
 
-        [JsonProperty("commit", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("commit", Required = global::Newtonsoft.Json.Required.Always)]
         public string Commit { get; set; } = default!;
 
-        [JsonProperty("pull_request_url", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("pull_request_url", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? PullRequestUrl { get; set; }
     }
 
     public sealed class ProjectPublishedPayload
     {
-        [JsonProperty("repository", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("repository", Required = global::Newtonsoft.Json.Required.Always)]
         public string Repository { get; set; } = default!;
 
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("branch", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("branch", Required = global::Newtonsoft.Json.Required.Always)]
         public string Branch { get; set; } = default!;
 
-        [JsonProperty("commit", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("commit", Required = global::Newtonsoft.Json.Required.Always)]
         public string Commit { get; set; } = default!;
 
-        [JsonProperty("address", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("address", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Address { get; set; }
     }
 
     public sealed class ProjectUnpublishedPayload
     {
-        [JsonProperty("repository", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("repository", Required = global::Newtonsoft.Json.Required.Always)]
         public string Repository { get; set; } = default!;
 
-        [JsonProperty("branch", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("branch", Required = global::Newtonsoft.Json.Required.Always)]
         public string Branch { get; set; } = default!;
     }
 
     public sealed class ProjectSecretStoredPayload
     {
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("replaced", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("replaced", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Replaced { get; set; }
     }
 
     public sealed class ProjectSecretRemovedPayload
     {
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
     }
 
     public sealed class WorldObserved
     {
-        [JsonProperty("description", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("description", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorldDescription? Description { get; set; }
 
-        [JsonProperty("refused", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("refused", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorldRefused? Refused { get; set; }
     }
 
     public sealed class ProjectRulesUpdatedPayload
     {
-        [JsonProperty("on", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("on", Required = global::Newtonsoft.Json.Required.Always)]
         public bool On { get; set; }
 
-        [JsonProperty("file", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("file", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public ProjectRulesFile? File { get; set; }
 
-        [JsonProperty("sha256", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("sha256", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Sha256 { get; set; }
 
-        [JsonProperty("changed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("changed", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Changed { get; set; }
     }
 
     public sealed class WorkstreamCreatedPayload
     {
-        [JsonProperty("title", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("title", Required = global::Newtonsoft.Json.Required.Always)]
         public string Title { get; set; } = default!;
 
-        [JsonProperty("objective", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("objective", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Objective { get; set; }
 
-        [JsonProperty("from_checkpoint", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("from_checkpoint", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? FromCheckpoint { get; set; }
     }
 
     public sealed class WorkstreamCopyMadePayload
     {
-        [JsonProperty("directory", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("directory", Required = global::Newtonsoft.Json.Required.Always)]
         public string Directory { get; set; } = default!;
 
-        [JsonProperty("base_tree", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("base_tree", Required = global::Newtonsoft.Json.Required.Always)]
         public string BaseTree { get; set; } = default!;
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public long Files { get; set; }
     }
 
     public sealed class WorkstreamCopyRefusedPayload
     {
-        [JsonProperty("code", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("code", Required = global::Newtonsoft.Json.Required.Always)]
         public CopyRefusalCode Code { get; set; }
 
-        [JsonProperty("message", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("message", Required = global::Newtonsoft.Json.Required.Always)]
         public string Message { get; set; } = default!;
     }
 
     public sealed class WorkstreamCopyMissingPayload
     {
-        [JsonProperty("directory", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("directory", Required = global::Newtonsoft.Json.Required.Always)]
         public string Directory { get; set; } = default!;
     }
 
     public sealed class WorkstreamCopyFoundPayload
     {
-        [JsonProperty("directory", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("directory", Required = global::Newtonsoft.Json.Required.Always)]
         public string Directory { get; set; } = default!;
     }
 
     public sealed class WorkstreamCopyChangesReadPayload
     {
-        [JsonProperty("tree", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tree", Required = global::Newtonsoft.Json.Required.Always)]
         public string Tree { get; set; } = default!;
 
-        [JsonProperty("changed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("changed", Required = global::Newtonsoft.Json.Required.Always)]
         public PathList Changed { get; set; } = default!;
 
-        [JsonProperty("files", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ChangedFiles? Files { get; set; }
 
-        [JsonProperty("review", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? Review { get; set; }
     }
 
     public sealed class WorkstreamAddedPayload
     {
-        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("checkpoint_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckpointId { get; set; } = default!;
 
-        [JsonProperty("task_tree", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("task_tree", Required = global::Newtonsoft.Json.Required.Always)]
         public string TaskTree { get; set; } = default!;
 
-        [JsonProperty("project_tree", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_tree", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectTree { get; set; } = default!;
 
-        [JsonProperty("merged_tree", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("merged_tree", Required = global::Newtonsoft.Json.Required.Always)]
         public string MergedTree { get; set; } = default!;
 
-        [JsonProperty("added", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("added", Required = global::Newtonsoft.Json.Required.Always)]
         public PathList Added { get; set; } = default!;
     }
 
     public sealed class WorkstreamAddConflictedPayload
     {
-        [JsonProperty("task_tree", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("task_tree", Required = global::Newtonsoft.Json.Required.Always)]
         public string TaskTree { get; set; } = default!;
 
-        [JsonProperty("project_tree", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_tree", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectTree { get; set; } = default!;
 
-        [JsonProperty("conflicted", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("conflicted", Required = global::Newtonsoft.Json.Required.Always)]
         public ConflictedFiles Conflicted { get; set; } = default!;
     }
 
     public sealed class WorkstreamFittedPayload
     {
-        [JsonProperty("project_tree", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_tree", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectTree { get; set; } = default!;
 
-        [JsonProperty("fitted_tree", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("fitted_tree", Required = global::Newtonsoft.Json.Required.Always)]
         public string FittedTree { get; set; } = default!;
 
-        [JsonProperty("written", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("written", Required = global::Newtonsoft.Json.Required.Always)]
         public PathList Written { get; set; } = default!;
     }
 
     public sealed class ExecutionCreatedPayload
     {
-        [JsonProperty("runtime", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("runtime", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeRef Runtime { get; set; } = default!;
 
-        [JsonProperty("instruction", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("instruction", Required = global::Newtonsoft.Json.Required.Always)]
         public string Instruction { get; set; } = default!;
 
-        [JsonProperty("directory", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("directory", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Directory { get; set; }
 
-        [JsonProperty("secret_names", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public List<string>? SecretNames { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("secret_names", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<string>? SecretNames { get; set; }
     }
 
     public sealed class FileCreated
     {
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("lines", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("lines", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Lines { get; set; }
 
-        [JsonProperty("bytes", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("bytes", Required = global::Newtonsoft.Json.Required.Always)]
         public long Bytes { get; set; }
     }
 
     public sealed class FilesObservedCreated
     {
-        [JsonProperty("files", Required = Required.Always)]
-        public List<FileCreated> Files { get; set; } = new List<FileCreated>();
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<FileCreated> Files { get; set; } = default!;
 
-        [JsonProperty("total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
     }
 
     public sealed class FileChanged
     {
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("lines_before", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("lines_before", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? LinesBefore { get; set; }
 
-        [JsonProperty("lines_after", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("lines_after", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? LinesAfter { get; set; }
 
-        [JsonProperty("bytes", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("bytes", Required = global::Newtonsoft.Json.Required.Always)]
         public long Bytes { get; set; }
     }
 
     public sealed class FilesObservedChanged
     {
-        [JsonProperty("files", Required = Required.Always)]
-        public List<FileChanged> Files { get; set; } = new List<FileChanged>();
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<FileChanged> Files { get; set; } = default!;
 
-        [JsonProperty("total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
     }
 
     public sealed class FileDeleted
     {
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("lines_before", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("lines_before", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? LinesBefore { get; set; }
     }
 
     public sealed class FilesObservedDeleted
     {
-        [JsonProperty("files", Required = Required.Always)]
-        public List<FileDeleted> Files { get; set; } = new List<FileDeleted>();
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<FileDeleted> Files { get; set; } = default!;
 
-        [JsonProperty("total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum FilesObservedSkippedCode
     {
-        [EnumMember(Value = "no_baseline")] NoBaseline,
-        [EnumMember(Value = "too_large")] TooLarge,
-        [EnumMember(Value = "location_missing")] LocationMissing,
-        [EnumMember(Value = "unreadable")] Unreadable,
-        [EnumMember(Value = "holds_host_data")] HoldsHostData,
+        [global::System.Runtime.Serialization.EnumMember(Value = "no_baseline")] NoBaseline,
+        [global::System.Runtime.Serialization.EnumMember(Value = "too_large")] TooLarge,
+        [global::System.Runtime.Serialization.EnumMember(Value = "location_missing")] LocationMissing,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unreadable")] Unreadable,
+        [global::System.Runtime.Serialization.EnumMember(Value = "holds_host_data")] HoldsHostData,
     }
 
     public sealed class FilesObservedSkipped
     {
-        [JsonProperty("code", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("code", Required = global::Newtonsoft.Json.Required.Always)]
         public FilesObservedSkippedCode Code { get; set; }
 
-        [JsonProperty("message", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("message", Required = global::Newtonsoft.Json.Required.Always)]
         public string Message { get; set; } = default!;
     }
 
     public sealed class FilesObserved
     {
-        [JsonProperty("turn_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("turn_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? TurnId { get; set; }
 
-        [JsonProperty("created", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("created", Required = global::Newtonsoft.Json.Required.Always)]
         public FilesObservedCreated Created { get; set; } = default!;
 
-        [JsonProperty("changed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("changed", Required = global::Newtonsoft.Json.Required.Always)]
         public FilesObservedChanged Changed { get; set; } = default!;
 
-        [JsonProperty("deleted", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("deleted", Required = global::Newtonsoft.Json.Required.Always)]
         public FilesObservedDeleted Deleted { get; set; } = default!;
 
-        [JsonProperty("not_read", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("not_read", Required = global::Newtonsoft.Json.Required.Always)]
         public long NotRead { get; set; }
 
-        [JsonProperty("skipped", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("skipped", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public FilesObservedSkipped? Skipped { get; set; }
     }
 
     public sealed class ExecutionCheckOutputGivenPayload
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("parts", Required = Required.Always)]
-        public List<JToken> Parts { get; set; } = new List<JToken>();
+        [global::Newtonsoft.Json.JsonProperty("parts", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<global::Newtonsoft.Json.Linq.JToken> Parts { get; set; } = default!;
 
-        [JsonProperty("lines", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("lines", Required = global::Newtonsoft.Json.Required.Always)]
         public long Lines { get; set; }
 
-        [JsonProperty("bytes", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("bytes", Required = global::Newtonsoft.Json.Required.Always)]
         public long Bytes { get; set; }
     }
 
     public sealed class ExecutionAutoFixSentPayload
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("attempt", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("attempt", Required = global::Newtonsoft.Json.Required.Always)]
         public long Attempt { get; set; }
 
-        [JsonProperty("cap", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("cap", Required = global::Newtonsoft.Json.Required.Always)]
         public long Cap { get; set; }
 
-        [JsonProperty("command_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CommandId { get; set; } = default!;
     }
 
     public sealed class ExecutionAutoFixEndedPayload
     {
-        [JsonProperty("check_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckId { get; set; } = default!;
 
-        [JsonProperty("attempts", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("attempts", Required = global::Newtonsoft.Json.Required.Always)]
         public long Attempts { get; set; }
 
-        [JsonProperty("cap", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("cap", Required = global::Newtonsoft.Json.Required.Always)]
         public long Cap { get; set; }
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public AutoFixEndReason Reason { get; set; }
     }
 
     public sealed class ExecutionStartFailedPayload
     {
-        [JsonProperty("error", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("error", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Error { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum StateUnknownCode
     {
-        [EnumMember(Value = "control_plane_restarted")] ControlPlaneRestarted,
-        [EnumMember(Value = "start_outcome_unknown")] StartOutcomeUnknown,
-        [EnumMember(Value = "session_lost")] SessionLost,
+        [global::System.Runtime.Serialization.EnumMember(Value = "control_plane_restarted")] ControlPlaneRestarted,
+        [global::System.Runtime.Serialization.EnumMember(Value = "start_outcome_unknown")] StartOutcomeUnknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "session_lost")] SessionLost,
     }
 
     public sealed class ExecutionStateUnknownPayload
     {
-        [JsonProperty("code", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("code", Required = global::Newtonsoft.Json.Required.Always)]
         public StateUnknownCode Code { get; set; }
 
-        [JsonProperty("message", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("message", Required = global::Newtonsoft.Json.Required.Always)]
         public string Message { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(ProjectLocationChoiceConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(ProjectLocationChoiceConverter))]
     public abstract class ProjectLocationChoice
     {
-        [JsonProperty("kind", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Order = -2)]
         public string Kind => Discriminator;
 
         protected abstract string Discriminator { get; }
 
-        [JsonProperty("root", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("root", Required = global::Newtonsoft.Json.Required.Always)]
         public string Root { get; set; } = default!;
 
-        [JsonProperty("folder_name", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("folder_name", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? FolderName { get; set; }
     }
 
@@ -4329,392 +4329,392 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "new_from_starter";
 
-        [JsonProperty("starter_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("starter_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string StarterId { get; set; } = default!;
     }
 
     public sealed class ProjectCreatePayload
     {
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("location", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("location", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public ProjectLocationChoice? Location { get; set; }
     }
 
     public sealed class ProjectMakeVrVersionPayload
     {
-        [JsonProperty("original_project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("original_project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string OriginalProjectId { get; set; } = default!;
 
-        [JsonProperty("root", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("root", Required = global::Newtonsoft.Json.Required.Always)]
         public string Root { get; set; } = default!;
 
-        [JsonProperty("folder_name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("folder_name", Required = global::Newtonsoft.Json.Required.Always)]
         public string FolderName { get; set; } = default!;
     }
 
     public sealed class ProjectSetLocationPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("location", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("location", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectLocationChoice Location { get; set; } = default!;
 
-        [JsonProperty("review", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? Review { get; set; }
     }
 
     public sealed class ProjectRulesSetPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("on", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("on", Required = global::Newtonsoft.Json.Required.Always)]
         public bool On { get; set; }
 
-        [JsonProperty("review", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? Review { get; set; }
     }
 
     public sealed class ProjectRestorePayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("checkpoint_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CheckpointId { get; set; } = default!;
 
-        [JsonProperty("review", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? Review { get; set; }
     }
 
     public sealed class ProjectCheckPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("workstream_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? WorkstreamId { get; set; }
     }
 
     public sealed class OwnCheckChoice
     {
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public OwnCheckScriptName Name { get; set; }
 
-        [JsonProperty("command_sha256", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_sha256", Required = global::Newtonsoft.Json.Required.Always)]
         public string CommandSha256 { get; set; } = default!;
     }
 
     public sealed class ProjectOwnCheckChoosePayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("scripts", Required = Required.Always)]
-        public List<OwnCheckChoice> Scripts { get; set; } = new List<OwnCheckChoice>();
+        [global::Newtonsoft.Json.JsonProperty("scripts", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<OwnCheckChoice> Scripts { get; set; } = default!;
     }
 
     public sealed class ProjectPreviewStartPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
     }
 
     public sealed class ProjectPreviewStopPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
     }
 
     public sealed class ProjectOpenOnMacPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
     }
 
     public sealed class ProjectShowInFinderPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
     }
 
     public sealed class ProjectSaveCopyPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
     }
 
     public sealed class ProjectShareStartPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("way", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("way", Required = global::Newtonsoft.Json.Required.Always)]
         public ShareWay Way { get; set; }
     }
 
     public sealed class ProjectShareStopPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
     }
 
     public sealed class ProjectSendToGithubPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("title", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("title", Required = global::Newtonsoft.Json.Required.Always)]
         public string Title { get; set; } = default!;
 
-        [JsonProperty("review", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Always)]
         public string Review { get; set; } = default!;
     }
 
     public sealed class ProjectPublishPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("review", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Always)]
         public string Review { get; set; } = default!;
     }
 
     public sealed class ProjectUnpublishPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("commit", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("commit", Required = global::Newtonsoft.Json.Required.Always)]
         public string Commit { get; set; } = default!;
     }
 
     public sealed class ProjectSecretSetPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
     }
 
     public sealed class ProjectSecretRemovePayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
     }
 
     public sealed class ProjectLinkCatalogPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("catalog", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("catalog", Required = global::Newtonsoft.Json.Required.Always)]
         public CatalogRepositoryRef Catalog { get; set; } = default!;
     }
 
     public sealed class ProjectUnlinkCatalogPayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreatePayload
     {
-        [JsonProperty("project_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [JsonProperty("title", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("title", Required = global::Newtonsoft.Json.Required.Always)]
         public string Title { get; set; } = default!;
 
-        [JsonProperty("objective", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("objective", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Objective { get; set; }
 
-        [JsonProperty("from_checkpoint", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("from_checkpoint", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? FromCheckpoint { get; set; }
     }
 
     public sealed class WorkstreamAddToProjectPayload
     {
-        [JsonProperty("workstream_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string WorkstreamId { get; set; } = default!;
 
-        [JsonProperty("review", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? Review { get; set; }
     }
 
     public sealed class WorkstreamFitToProjectPayload
     {
-        [JsonProperty("workstream_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string WorkstreamId { get; set; } = default!;
     }
 
     public sealed class InstructionAttachment
     {
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("kind", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
         public string Kind { get; set; } = "image";
     }
 
     public sealed class ExecutionStartPayload
     {
-        [JsonProperty("workstream_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string WorkstreamId { get; set; } = default!;
 
-        [JsonProperty("runtime_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("runtime_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string RuntimeId { get; set; } = default!;
 
-        [JsonProperty("instruction", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("instruction", Required = global::Newtonsoft.Json.Required.Always)]
         public string Instruction { get; set; } = default!;
 
-        [JsonProperty("options", Required = Required.Always)]
-        public Dictionary<string, JToken> Options { get; set; } = new Dictionary<string, JToken>();
+        [global::Newtonsoft.Json.JsonProperty("options", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.Dictionary<string, global::Newtonsoft.Json.Linq.JToken> Options { get; set; } = default!;
 
-        [JsonProperty("model_ref", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("model_ref", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ModelRef { get; set; }
 
-        [JsonProperty("approval_level", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("approval_level", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ApprovalLevel? ApprovalLevel { get; set; }
 
-        [JsonProperty("plan", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("plan", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? Plan { get; set; }
 
-        [JsonProperty("attachments", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public List<InstructionAttachment>? Attachments { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("attachments", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<InstructionAttachment>? Attachments { get; set; }
     }
 
     public sealed class ExecutionSendInstructionPayload
     {
-        [JsonProperty("execution_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ExecutionId { get; set; } = default!;
 
-        [JsonProperty("text", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.Always)]
         public string Text { get; set; } = default!;
 
-        [JsonProperty("leave_plan", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("leave_plan", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? LeavePlan { get; set; }
 
-        [JsonProperty("attachments", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
-        public List<InstructionAttachment>? Attachments { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("attachments", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<InstructionAttachment>? Attachments { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ApprovalDecision
     {
-        [EnumMember(Value = "approve")] Approve,
-        [EnumMember(Value = "deny")] Deny,
+        [global::System.Runtime.Serialization.EnumMember(Value = "approve")] Approve,
+        [global::System.Runtime.Serialization.EnumMember(Value = "deny")] Deny,
     }
 
     public sealed class ExecutionRespondToApprovalPayload
     {
-        [JsonProperty("execution_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ExecutionId { get; set; } = default!;
 
-        [JsonProperty("approval_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("approval_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ApprovalId { get; set; } = default!;
 
-        [JsonProperty("decision", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("decision", Required = global::Newtonsoft.Json.Required.Always)]
         public ApprovalDecision Decision { get; set; }
 
-        [JsonProperty("message", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("message", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Message { get; set; }
     }
 
     public sealed class QuestionAnswer
     {
-        [JsonProperty("key", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("key", Required = global::Newtonsoft.Json.Required.Always)]
         public string Key { get; set; } = default!;
 
-        [JsonProperty("selected", Required = Required.Always)]
-        public List<string> Selected { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("selected", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Selected { get; set; } = default!;
 
-        [JsonProperty("text", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Text { get; set; }
     }
 
     public sealed class ExecutionAnswerQuestionPayload
     {
-        [JsonProperty("execution_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ExecutionId { get; set; } = default!;
 
-        [JsonProperty("question_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("question_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string QuestionId { get; set; } = default!;
 
-        [JsonProperty("answers", Required = Required.Always)]
-        public List<QuestionAnswer> Answers { get; set; } = new List<QuestionAnswer>();
+        [global::Newtonsoft.Json.JsonProperty("answers", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<QuestionAnswer> Answers { get; set; } = default!;
     }
 
     public sealed class ExecutionInterruptPayload
     {
-        [JsonProperty("execution_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ExecutionId { get; set; } = default!;
     }
 
     public sealed class ExecutionDropQueuedInstructionPayload
     {
-        [JsonProperty("execution_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ExecutionId { get; set; } = default!;
 
-        [JsonProperty("command_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CommandId { get; set; } = default!;
     }
 
     public sealed class WorkspaceRequestSubmitPayload
     {
-        [JsonProperty("project_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ProjectId { get; set; }
 
-        [JsonProperty("workstream_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? WorkstreamId { get; set; }
 
-        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ExecutionId { get; set; }
 
-        [JsonProperty("text", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.Always)]
         public string Text { get; set; } = default!;
     }
 
     public sealed class WorkspaceRequestResumePayload
     {
-        [JsonProperty("request_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("request_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string RequestId { get; set; } = default!;
 
-        [JsonProperty("text", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Text { get; set; }
     }
 
     public sealed class WorkspaceRequestCancelPayload
     {
-        [JsonProperty("request_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("request_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string RequestId { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(CommandEnvelopeConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(CommandEnvelopeConverter))]
     public abstract class CommandEnvelope
     {
-        [JsonProperty("command_type", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("command_type", Order = -2)]
         public string CommandType => Discriminator;
 
         protected abstract string Discriminator { get; }
 
-        [JsonProperty("schema_version", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("schema_version", Required = global::Newtonsoft.Json.Required.Always)]
         public long SchemaVersion { get; set; } = 1;
 
-        [JsonProperty("command_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CommandId { get; set; } = default!;
 
-        [JsonProperty("issued_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("issued_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string IssuedAt { get; set; } = default!;
 
-        [JsonProperty("client", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("client", Required = global::Newtonsoft.Json.Required.Always)]
         public ClientInfo Client { get; set; } = default!;
     }
 
@@ -4789,7 +4789,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.create";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectCreatePayload Payload { get; set; } = default!;
     }
 
@@ -4797,7 +4797,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.make_vr_version";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectMakeVrVersionPayload Payload { get; set; } = default!;
     }
 
@@ -4805,7 +4805,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.set_location";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectSetLocationPayload Payload { get; set; } = default!;
     }
 
@@ -4813,7 +4813,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.rules.set";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectRulesSetPayload Payload { get; set; } = default!;
     }
 
@@ -4821,7 +4821,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.restore";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectRestorePayload Payload { get; set; } = default!;
     }
 
@@ -4829,7 +4829,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.check";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectCheckPayload Payload { get; set; } = default!;
     }
 
@@ -4837,7 +4837,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.own_check.choose";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectOwnCheckChoosePayload Payload { get; set; } = default!;
     }
 
@@ -4845,7 +4845,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.preview.start";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectPreviewStartPayload Payload { get; set; } = default!;
     }
 
@@ -4853,7 +4853,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.preview.stop";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectPreviewStopPayload Payload { get; set; } = default!;
     }
 
@@ -4861,7 +4861,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.open_on_mac";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectOpenOnMacPayload Payload { get; set; } = default!;
     }
 
@@ -4869,7 +4869,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.show_in_finder";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectShowInFinderPayload Payload { get; set; } = default!;
     }
 
@@ -4877,7 +4877,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.save_copy";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectSaveCopyPayload Payload { get; set; } = default!;
     }
 
@@ -4885,7 +4885,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.share.start";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectShareStartPayload Payload { get; set; } = default!;
     }
 
@@ -4893,7 +4893,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.share.stop";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectShareStopPayload Payload { get; set; } = default!;
     }
 
@@ -4901,7 +4901,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.send_to_github";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectSendToGithubPayload Payload { get; set; } = default!;
     }
 
@@ -4909,7 +4909,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.publish";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectPublishPayload Payload { get; set; } = default!;
     }
 
@@ -4917,7 +4917,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.unpublish";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectUnpublishPayload Payload { get; set; } = default!;
     }
 
@@ -4925,7 +4925,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.secret.set";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectSecretSetPayload Payload { get; set; } = default!;
     }
 
@@ -4933,7 +4933,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.secret.remove";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectSecretRemovePayload Payload { get; set; } = default!;
     }
 
@@ -4941,7 +4941,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.link_catalog";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectLinkCatalogPayload Payload { get; set; } = default!;
     }
 
@@ -4949,7 +4949,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.unlink_catalog";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectUnlinkCatalogPayload Payload { get; set; } = default!;
     }
 
@@ -4957,7 +4957,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream.create";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkstreamCreatePayload Payload { get; set; } = default!;
     }
 
@@ -4965,7 +4965,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream.add_to_project";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkstreamAddToProjectPayload Payload { get; set; } = default!;
     }
 
@@ -4973,7 +4973,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream.fit_to_project";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkstreamFitToProjectPayload Payload { get; set; } = default!;
     }
 
@@ -4981,7 +4981,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.start";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionStartPayload Payload { get; set; } = default!;
     }
 
@@ -4989,7 +4989,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.send_instruction";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionSendInstructionPayload Payload { get; set; } = default!;
     }
 
@@ -4997,7 +4997,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.respond_to_approval";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionRespondToApprovalPayload Payload { get; set; } = default!;
     }
 
@@ -5005,7 +5005,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.answer_question";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionAnswerQuestionPayload Payload { get; set; } = default!;
     }
 
@@ -5013,7 +5013,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.interrupt";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionInterruptPayload Payload { get; set; } = default!;
     }
 
@@ -5021,7 +5021,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.drop_queued_instruction";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionDropQueuedInstructionPayload Payload { get; set; } = default!;
     }
 
@@ -5029,7 +5029,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workspace.request.submit";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkspaceRequestSubmitPayload Payload { get; set; } = default!;
     }
 
@@ -5037,7 +5037,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workspace.request.resume";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkspaceRequestResumePayload Payload { get; set; } = default!;
     }
 
@@ -5045,22 +5045,22 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workspace.request.cancel";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkspaceRequestCancelPayload Payload { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ReceivedVia
     {
-        [EnumMember(Value = "http")] Http,
-        [EnumMember(Value = "websocket")] Websocket,
-        [EnumMember(Value = "internal")] Internal,
+        [global::System.Runtime.Serialization.EnumMember(Value = "http")] Http,
+        [global::System.Runtime.Serialization.EnumMember(Value = "websocket")] Websocket,
+        [global::System.Runtime.Serialization.EnumMember(Value = "internal")] Internal,
     }
 
-    [JsonConverter(typeof(PrincipalConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(PrincipalConverter))]
     public abstract class Principal
     {
-        [JsonProperty("kind", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Order = -2)]
         public string Kind => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -5111,477 +5111,477 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "device";
 
-        [JsonProperty("device_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("device_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string DeviceId { get; set; } = default!;
     }
 
     public sealed class CommandAcceptedPayload
     {
-        [JsonProperty("command", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandEnvelope Command { get; set; } = default!;
 
-        [JsonProperty("policy", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("policy", Required = global::Newtonsoft.Json.Required.Always)]
         public PolicyCategory Policy { get; set; }
 
-        [JsonProperty("received_via", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("received_via", Required = global::Newtonsoft.Json.Required.Always)]
         public ReceivedVia ReceivedVia { get; set; }
 
-        [JsonProperty("principal", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("principal", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public Principal? Principal { get; set; }
     }
 
     public sealed class CommandRejectedPayload
     {
-        [JsonProperty("command", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandEnvelope Command { get; set; } = default!;
 
-        [JsonProperty("rejection", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("rejection", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandRejection Rejection { get; set; } = default!;
 
-        [JsonProperty("received_via", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("received_via", Required = global::Newtonsoft.Json.Required.Always)]
         public ReceivedVia ReceivedVia { get; set; }
 
-        [JsonProperty("principal", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("principal", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public Principal? Principal { get; set; }
     }
 
     public sealed class CommandCompletedPayload
     {
-        [JsonProperty("command_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CommandId { get; set; } = default!;
 
-        [JsonProperty("command_type", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_type", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandType CommandType { get; set; }
 
-        [JsonProperty("result", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("result", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public CommandResult? Result { get; set; }
     }
 
     public sealed class CommandFailedPayload
     {
-        [JsonProperty("command_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CommandId { get; set; } = default!;
 
-        [JsonProperty("command_type", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_type", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandType CommandType { get; set; }
 
-        [JsonProperty("failure", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("failure", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandFailure Failure { get; set; } = default!;
     }
 
     public sealed class DevicePairedPayload
     {
-        [JsonProperty("device_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("device_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string DeviceId { get; set; } = default!;
 
-        [JsonProperty("label", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.Always)]
         public string Label { get; set; } = default!;
 
-        [JsonProperty("credential_sha256", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("credential_sha256", Required = global::Newtonsoft.Json.Required.Always)]
         public string CredentialSha256 { get; set; } = default!;
 
-        [JsonProperty("certificate_sha256", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("certificate_sha256", Required = global::Newtonsoft.Json.Required.Always)]
         public string CertificateSha256 { get; set; } = default!;
     }
 
     public sealed class DeviceRevokedPayload
     {
-        [JsonProperty("device_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("device_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string DeviceId { get; set; } = default!;
 
-        [JsonProperty("revoked_by", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("revoked_by", Required = global::Newtonsoft.Json.Required.Always)]
         public Principal RevokedBy { get; set; } = default!;
     }
 
     public sealed class WorkspaceRequestReply
     {
-        [JsonProperty("text", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.Always)]
         public string Text { get; set; } = default!;
 
-        [JsonProperty("epistemic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Required = global::Newtonsoft.Json.Required.Always)]
         public string Epistemic { get; set; } = "reported";
 
-        [JsonProperty("model", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("model", Required = global::Newtonsoft.Json.Required.Always)]
         public string Model { get; set; } = default!;
 
-        [JsonProperty("served", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("served", Required = global::Newtonsoft.Json.Required.Always)]
         public string Served { get; set; } = "this_mac";
     }
 
     public sealed class WorkspaceRequestObservedTaskFiles
     {
-        [JsonProperty("created", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("created", Required = global::Newtonsoft.Json.Required.Always)]
         public long Created { get; set; }
 
-        [JsonProperty("changed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("changed", Required = global::Newtonsoft.Json.Required.Always)]
         public long Changed { get; set; }
 
-        [JsonProperty("deleted", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("deleted", Required = global::Newtonsoft.Json.Required.Always)]
         public long Deleted { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum WorkspaceRequestObservedTaskCheckFiles
     {
-        [EnumMember(Value = "unknown")] Unknown,
-        [EnumMember(Value = "current")] Current,
-        [EnumMember(Value = "changed")] Changed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "current")] Current,
+        [global::System.Runtime.Serialization.EnumMember(Value = "changed")] Changed,
     }
 
     public sealed class WorkspaceRequestObservedTaskCheck
     {
-        [JsonProperty("passed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("passed", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Passed { get; set; }
 
-        [JsonProperty("files", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkspaceRequestObservedTaskCheckFiles Files { get; set; }
     }
 
     public sealed class WorkspaceRequestObservedTask
     {
-        [JsonProperty("status", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("status", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionStatus Status { get; set; }
 
-        [JsonProperty("turns", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("turns", Required = global::Newtonsoft.Json.Required.Always)]
         public long Turns { get; set; }
 
-        [JsonProperty("files", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorkspaceRequestObservedTaskFiles? Files { get; set; }
 
-        [JsonProperty("check", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("check", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorkspaceRequestObservedTaskCheck? Check { get; set; }
 
-        [JsonProperty("sent", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("sent", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Sent { get; set; }
     }
 
     public sealed class WorkspaceRequestTaskCounts
     {
-        [JsonProperty("total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
 
-        [JsonProperty("running", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("running", Required = global::Newtonsoft.Json.Required.Always)]
         public long Running { get; set; }
 
-        [JsonProperty("waiting_on_you", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("waiting_on_you", Required = global::Newtonsoft.Json.Required.Always)]
         public long WaitingOnYou { get; set; }
 
-        [JsonProperty("failed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("failed", Required = global::Newtonsoft.Json.Required.Always)]
         public long Failed { get; set; }
     }
 
     public sealed class WorkspaceRequestObservedProjects
     {
-        [JsonProperty("total", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
 
-        [JsonProperty("checks_failed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("checks_failed", Required = global::Newtonsoft.Json.Required.Always)]
         public long ChecksFailed { get; set; }
     }
 
     public sealed class WorkspaceRequestObserved
     {
-        [JsonProperty("task", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("task", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorkspaceRequestObservedTask? Task { get; set; }
 
-        [JsonProperty("tasks", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("tasks", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorkspaceRequestTaskCounts? Tasks { get; set; }
 
-        [JsonProperty("projects", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("projects", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorkspaceRequestObservedProjects? Projects { get; set; }
     }
 
     public sealed class WorkspaceRequestStep
     {
-        [JsonProperty("step_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("step_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string StepId { get; set; } = default!;
 
-        [JsonProperty("tool_name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tool_name", Required = global::Newtonsoft.Json.Required.Always)]
         public string ToolName { get; set; } = default!;
 
-        [JsonProperty("status", Required = Required.Always)]
-        public JToken Status { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("status", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::Newtonsoft.Json.Linq.JToken Status { get; set; } = default!;
 
-        [JsonProperty("command_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? CommandId { get; set; }
 
-        [JsonProperty("command_status", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("command_status", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public CommandStatus? CommandStatus { get; set; }
 
-        [JsonProperty("observation_position", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("observation_position", Required = global::Newtonsoft.Json.Required.Always)]
         public long ObservationPosition { get; set; }
 
-        [JsonProperty("active_turn_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("active_turn_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ActiveTurnId { get; set; }
 
-        [JsonProperty("had_active_turn", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("had_active_turn", Required = global::Newtonsoft.Json.Required.Always)]
         public bool HadActiveTurn { get; set; }
 
-        [JsonProperty("observation_after", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("observation_after", Required = global::Newtonsoft.Json.Required.Always)]
         public long ObservationAfter { get; set; }
 
-        [JsonProperty("observed_turn_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("observed_turn_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ObservedTurnId { get; set; }
 
-        [JsonProperty("runtime_status", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("runtime_status", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public ExecutionStatus? RuntimeStatus { get; set; }
 
-        [JsonProperty("summary", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("summary", Required = global::Newtonsoft.Json.Required.Always)]
         public string Summary { get; set; } = default!;
     }
 
     public sealed class WorkspaceRequestView
     {
-        [JsonProperty("request_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("request_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string RequestId { get; set; } = default!;
 
-        [JsonProperty("journal_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("journal_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string JournalId { get; set; } = default!;
 
-        [JsonProperty("project_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ProjectId { get; set; }
 
-        [JsonProperty("workstream_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? WorkstreamId { get; set; }
 
-        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ExecutionId { get; set; }
 
-        [JsonProperty("original_text", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("original_text", Required = global::Newtonsoft.Json.Required.Always)]
         public string OriginalText { get; set; } = default!;
 
-        [JsonProperty("status", Required = Required.Always)]
-        public JToken Status { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("status", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::Newtonsoft.Json.Linq.JToken Status { get; set; } = default!;
 
-        [JsonProperty("reply", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("reply", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorkspaceRequestReply? Reply { get; set; }
 
-        [JsonProperty("observed", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("observed", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public WorkspaceRequestObserved? Observed { get; set; }
 
-        [JsonProperty("steps", Required = Required.Always)]
-        public List<WorkspaceRequestStep> Steps { get; set; } = new List<WorkspaceRequestStep>();
+        [global::Newtonsoft.Json.JsonProperty("steps", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<WorkspaceRequestStep> Steps { get; set; } = default!;
 
-        [JsonProperty("earlier_steps", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("earlier_steps", Required = global::Newtonsoft.Json.Required.Always)]
         public long EarlierSteps { get; set; }
 
-        [JsonProperty("created_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("created_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string CreatedAt { get; set; } = default!;
 
-        [JsonProperty("updated_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("updated_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string UpdatedAt { get; set; } = default!;
     }
 
     public sealed class WorkspaceRequestCreatedPayload
     {
-        [JsonProperty("request", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("request", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkspaceRequestView Request { get; set; } = default!;
 
-        [JsonProperty("principal", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("principal", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public Principal? Principal { get; set; }
     }
 
     public sealed class WorkspaceRequestChangedPayload
     {
-        [JsonProperty("request_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("request_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string RequestId { get; set; } = default!;
 
-        [JsonProperty("status", Required = Required.Always)]
-        public JToken Status { get; set; } = default!;
+        [global::Newtonsoft.Json.JsonProperty("status", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::Newtonsoft.Json.Linq.JToken Status { get; set; } = default!;
 
-        [JsonProperty("reply", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("reply", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorkspaceRequestReply? Reply { get; set; }
 
-        [JsonProperty("observed", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("observed", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public WorkspaceRequestObserved? Observed { get; set; }
     }
 
     public sealed class WorkspaceRequestStepRecordedPayload
     {
-        [JsonProperty("request_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("request_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string RequestId { get; set; } = default!;
 
-        [JsonProperty("step", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("step", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkspaceRequestStep Step { get; set; } = default!;
 
-        [JsonProperty("prepared_command", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("prepared_command", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public ExecutionSendInstructionCommand? PreparedCommand { get; set; }
     }
 
     public sealed class RuntimeExecutionStartedPayload
     {
-        [JsonProperty("native_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("native_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? NativeId { get; set; }
 
-        [JsonProperty("confined", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("confined", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? Confined { get; set; }
 
-        [JsonProperty("unconfined_reason", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("unconfined_reason", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? UnconfinedReason { get; set; }
 
-        [JsonProperty("approval_level", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("approval_level", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ApprovalLevel? ApprovalLevel { get; set; }
 
-        [JsonProperty("plan", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("plan", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? Plan { get; set; }
     }
 
     public sealed class RuntimeTurnStartedPayload
     {
-        [JsonProperty("turn_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("turn_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? TurnId { get; set; }
     }
 
     public sealed class RuntimeTurnCompletedPayload
     {
-        [JsonProperty("turn_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("turn_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? TurnId { get; set; }
     }
 
     public sealed class RuntimeTurnFailedPayload
     {
-        [JsonProperty("turn_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("turn_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? TurnId { get; set; }
 
-        [JsonProperty("error", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("error", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Error { get; set; } = default!;
     }
 
     public sealed class RuntimeTurnInterruptedPayload
     {
-        [JsonProperty("turn_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("turn_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? TurnId { get; set; }
     }
 
     public sealed class RuntimeApprovalRequestedPayload
     {
-        [JsonProperty("approval_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("approval_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ApprovalId { get; set; } = default!;
 
-        [JsonProperty("subject", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("subject", Required = global::Newtonsoft.Json.Required.Always)]
         public ApprovalSubject Subject { get; set; } = default!;
 
-        [JsonProperty("complete", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("complete", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Complete { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ApprovalResolution
     {
-        [EnumMember(Value = "approved")] Approved,
-        [EnumMember(Value = "denied")] Denied,
+        [global::System.Runtime.Serialization.EnumMember(Value = "approved")] Approved,
+        [global::System.Runtime.Serialization.EnumMember(Value = "denied")] Denied,
     }
 
     public sealed class RuntimeApprovalResolvedPayload
     {
-        [JsonProperty("approval_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("approval_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ApprovalId { get; set; } = default!;
 
-        [JsonProperty("decision", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("decision", Required = global::Newtonsoft.Json.Required.Always)]
         public ApprovalResolution Decision { get; set; }
     }
 
     public sealed class RuntimeQuestionAskedPayload
     {
-        [JsonProperty("question_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("question_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string QuestionId { get; set; } = default!;
 
-        [JsonProperty("prompts", Required = Required.Always)]
-        public List<QuestionPrompt> Prompts { get; set; } = new List<QuestionPrompt>();
+        [global::Newtonsoft.Json.JsonProperty("prompts", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<QuestionPrompt> Prompts { get; set; } = default!;
 
-        [JsonProperty("answerable", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("answerable", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Answerable { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum QuestionOutcome
     {
-        [EnumMember(Value = "answered")] Answered,
-        [EnumMember(Value = "dismissed")] Dismissed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "answered")] Answered,
+        [global::System.Runtime.Serialization.EnumMember(Value = "dismissed")] Dismissed,
     }
 
     public sealed class RuntimeQuestionResolvedPayload
     {
-        [JsonProperty("question_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("question_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string QuestionId { get; set; } = default!;
 
-        [JsonProperty("outcome", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("outcome", Required = global::Newtonsoft.Json.Required.Always)]
         public QuestionOutcome Outcome { get; set; }
     }
 
     public sealed class RuntimeToolStartedPayload
     {
-        [JsonProperty("tool_call_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tool_call_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ToolCallId { get; set; } = default!;
 
-        [JsonProperty("tool_name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tool_name", Required = global::Newtonsoft.Json.Required.Always)]
         public string ToolName { get; set; } = default!;
 
-        [JsonProperty("title", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("title", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Title { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ToolOutcome
     {
-        [EnumMember(Value = "succeeded")] Succeeded,
-        [EnumMember(Value = "failed")] Failed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "succeeded")] Succeeded,
+        [global::System.Runtime.Serialization.EnumMember(Value = "failed")] Failed,
     }
 
     public sealed class RuntimeToolCompletedPayload
     {
-        [JsonProperty("tool_call_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tool_call_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ToolCallId { get; set; } = default!;
 
-        [JsonProperty("turn_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("turn_id", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? TurnId { get; set; }
 
-        [JsonProperty("outcome", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("outcome", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolOutcome Outcome { get; set; }
     }
 
     public sealed class RuntimeAgentMessagePayload
     {
-        [JsonProperty("text", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.Always)]
         public string Text { get; set; } = default!;
     }
 
     public sealed class RuntimeTestRunStartedPayload
     {
-        [JsonProperty("test_run_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("test_run_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string TestRunId { get; set; } = default!;
 
-        [JsonProperty("label", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Label { get; set; }
     }
 
     public sealed class RuntimeTestRunCompletedPayload
     {
-        [JsonProperty("test_run_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("test_run_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string TestRunId { get; set; } = default!;
 
-        [JsonProperty("outcome", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("outcome", Required = global::Newtonsoft.Json.Required.Always)]
         public TestOutcome Outcome { get; set; }
 
-        [JsonProperty("summary", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("summary", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Summary { get; set; }
     }
 
     public sealed class RuntimeConnectionLostPayload
     {
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public string Reason { get; set; } = default!;
     }
 
     public sealed class RuntimeConnectionRestoredPayload
     {
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public string Reason { get; set; } = default!;
     }
 
     public sealed class RuntimeModelUsedPayload
     {
-        [JsonProperty("model_ref", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("model_ref", Required = global::Newtonsoft.Json.Required.Always)]
         public string ModelRef { get; set; } = default!;
     }
 
@@ -5589,51 +5589,51 @@ namespace Halcyonic.Contracts
     {
     }
 
-    [JsonConverter(typeof(EventEnvelopeConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(EventEnvelopeConverter))]
     public abstract class EventEnvelope
     {
-        [JsonProperty("event_type", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("event_type", Order = -2)]
         public string EventType => Discriminator;
 
         protected abstract string Discriminator { get; }
 
-        [JsonProperty("schema_version", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("schema_version", Required = global::Newtonsoft.Json.Required.Always)]
         public long SchemaVersion { get; set; } = 1;
 
-        [JsonProperty("event_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("event_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string EventId { get; set; } = default!;
 
-        [JsonProperty("source_native_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("source_native_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? SourceNativeId { get; set; }
 
-        [JsonProperty("sequence", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("sequence", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Sequence { get; set; }
 
-        [JsonProperty("occurred_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("occurred_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string OccurredAt { get; set; } = default!;
 
-        [JsonProperty("ingested_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("ingested_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string IngestedAt { get; set; } = default!;
 
-        [JsonProperty("correlation_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("correlation_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? CorrelationId { get; set; }
 
-        [JsonProperty("causation_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("causation_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? CausationId { get; set; }
 
-        [JsonProperty("provenance", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("provenance", Required = global::Newtonsoft.Json.Required.Always)]
         public Provenance Provenance { get; set; } = default!;
 
-        [JsonProperty("project_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ProjectId { get; set; }
 
-        [JsonProperty("workstream_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? WorkstreamId { get; set; }
 
-        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ExecutionId { get; set; }
 
-        [JsonProperty("source", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
         public EventSource Source { get; set; } = default!;
     }
 
@@ -5750,7 +5750,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.created";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectCreatedPayload Payload { get; set; } = default!;
     }
 
@@ -5758,7 +5758,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.location_set";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectLocationSetPayload Payload { get; set; } = default!;
     }
 
@@ -5766,7 +5766,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.starter_applied";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectStarterAppliedPayload Payload { get; set; } = default!;
     }
 
@@ -5774,7 +5774,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.made_from";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectMadeFromPayload Payload { get; set; } = default!;
     }
 
@@ -5782,7 +5782,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.catalog_linked";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectCatalogLinkedPayload Payload { get; set; } = default!;
     }
 
@@ -5790,7 +5790,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.catalog_unlinked";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectCatalogUnlinkedPayload Payload { get; set; } = default!;
     }
 
@@ -5798,7 +5798,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.checkpoint.recorded";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectCheckpointRecordedPayload Payload { get; set; } = default!;
     }
 
@@ -5806,7 +5806,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.checkpoint.failed";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectCheckpointFailedPayload Payload { get; set; } = default!;
     }
 
@@ -5814,7 +5814,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.checkpoints.pruned";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectCheckpointsPrunedPayload Payload { get; set; } = default!;
     }
 
@@ -5822,7 +5822,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.instruction.queued";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionInstructionQueuedPayload Payload { get; set; } = default!;
     }
 
@@ -5830,7 +5830,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.instruction.dequeued";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionInstructionDequeuedPayload Payload { get; set; } = default!;
     }
 
@@ -5838,7 +5838,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.instruction.pictures_read";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionInstructionPicturesReadPayload Payload { get; set; } = default!;
     }
 
@@ -5846,7 +5846,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.restored";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectRestoredPayload Payload { get; set; } = default!;
     }
 
@@ -5854,7 +5854,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.restore_incomplete";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectRestoreIncompletePayload Payload { get; set; } = default!;
     }
 
@@ -5862,7 +5862,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.check.recorded";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectCheckRecordedPayload Payload { get; set; } = default!;
     }
 
@@ -5870,7 +5870,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.own_check.chosen";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectOwnCheckChosenPayload Payload { get; set; } = default!;
     }
 
@@ -5878,7 +5878,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.own_check.recorded";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectOwnCheckRecordedPayload Payload { get; set; } = default!;
     }
 
@@ -5886,7 +5886,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.preview.started";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectPreviewStartedPayload Payload { get; set; } = default!;
     }
 
@@ -5894,7 +5894,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.preview.stopped";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectPreviewStoppedPayload Payload { get; set; } = default!;
     }
 
@@ -5902,7 +5902,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.mac_play.started";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectMacPlayStartedPayload Payload { get; set; } = default!;
     }
 
@@ -5910,7 +5910,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.mac_play.stopped";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectMacPlayStoppedPayload Payload { get; set; } = default!;
     }
 
@@ -5918,7 +5918,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.share.started";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectShareStartedPayload Payload { get; set; } = default!;
     }
 
@@ -5926,7 +5926,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.share.stopped";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectShareStoppedPayload Payload { get; set; } = default!;
     }
 
@@ -5934,7 +5934,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.sent_to_github";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectSentToGithubPayload Payload { get; set; } = default!;
     }
 
@@ -5942,7 +5942,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.published";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectPublishedPayload Payload { get; set; } = default!;
     }
 
@@ -5950,7 +5950,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.unpublished";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectUnpublishedPayload Payload { get; set; } = default!;
     }
 
@@ -5958,7 +5958,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.secret.stored";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectSecretStoredPayload Payload { get; set; } = default!;
     }
 
@@ -5966,7 +5966,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.secret.removed";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectSecretRemovedPayload Payload { get; set; } = default!;
     }
 
@@ -5974,7 +5974,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.world.observed";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorldObserved Payload { get; set; } = default!;
     }
 
@@ -5982,7 +5982,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "project.rules.updated";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectRulesUpdatedPayload Payload { get; set; } = default!;
     }
 
@@ -5990,7 +5990,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.rules_given";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectRulesOn Payload { get; set; } = default!;
     }
 
@@ -5998,7 +5998,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream.created";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkstreamCreatedPayload Payload { get; set; } = default!;
     }
 
@@ -6006,7 +6006,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream.copy_made";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkstreamCopyMadePayload Payload { get; set; } = default!;
     }
 
@@ -6014,7 +6014,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream.copy_refused";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkstreamCopyRefusedPayload Payload { get; set; } = default!;
     }
 
@@ -6022,7 +6022,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream.copy_missing";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkstreamCopyMissingPayload Payload { get; set; } = default!;
     }
 
@@ -6030,7 +6030,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream.copy_found";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkstreamCopyFoundPayload Payload { get; set; } = default!;
     }
 
@@ -6038,7 +6038,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream.copy_changes_read";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkstreamCopyChangesReadPayload Payload { get; set; } = default!;
     }
 
@@ -6046,7 +6046,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream.added";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkstreamAddedPayload Payload { get; set; } = default!;
     }
 
@@ -6054,7 +6054,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream.add_conflicted";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkstreamAddConflictedPayload Payload { get; set; } = default!;
     }
 
@@ -6062,7 +6062,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workstream.fitted";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkstreamFittedPayload Payload { get; set; } = default!;
     }
 
@@ -6070,7 +6070,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.created";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionCreatedPayload Payload { get; set; } = default!;
     }
 
@@ -6078,7 +6078,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.files.observed";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public FilesObserved Payload { get; set; } = default!;
     }
 
@@ -6086,7 +6086,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.check_output_given";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionCheckOutputGivenPayload Payload { get; set; } = default!;
     }
 
@@ -6094,7 +6094,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.auto_fix.sent";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionAutoFixSentPayload Payload { get; set; } = default!;
     }
 
@@ -6102,7 +6102,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.auto_fix.ended";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionAutoFixEndedPayload Payload { get; set; } = default!;
     }
 
@@ -6110,7 +6110,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.start_failed";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionStartFailedPayload Payload { get; set; } = default!;
     }
 
@@ -6118,7 +6118,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "execution.state_unknown";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionStateUnknownPayload Payload { get; set; } = default!;
     }
 
@@ -6126,7 +6126,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "command.accepted";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandAcceptedPayload Payload { get; set; } = default!;
     }
 
@@ -6134,7 +6134,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "command.rejected";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandRejectedPayload Payload { get; set; } = default!;
     }
 
@@ -6142,7 +6142,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "command.completed";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandCompletedPayload Payload { get; set; } = default!;
     }
 
@@ -6150,7 +6150,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "command.failed";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandFailedPayload Payload { get; set; } = default!;
     }
 
@@ -6158,7 +6158,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "device.paired";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public DevicePairedPayload Payload { get; set; } = default!;
     }
 
@@ -6166,7 +6166,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "device.revoked";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public DeviceRevokedPayload Payload { get; set; } = default!;
     }
 
@@ -6174,7 +6174,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workspace.request.created";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkspaceRequestCreatedPayload Payload { get; set; } = default!;
     }
 
@@ -6182,7 +6182,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workspace.request.changed";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkspaceRequestChangedPayload Payload { get; set; } = default!;
     }
 
@@ -6190,7 +6190,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "workspace.request.step_recorded";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkspaceRequestStepRecordedPayload Payload { get; set; } = default!;
     }
 
@@ -6198,7 +6198,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.execution.started";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeExecutionStartedPayload Payload { get; set; } = default!;
     }
 
@@ -6206,7 +6206,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.turn.started";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeTurnStartedPayload Payload { get; set; } = default!;
     }
 
@@ -6214,7 +6214,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.turn.completed";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeTurnCompletedPayload Payload { get; set; } = default!;
     }
 
@@ -6222,7 +6222,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.turn.failed";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeTurnFailedPayload Payload { get; set; } = default!;
     }
 
@@ -6230,7 +6230,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.turn.interrupted";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeTurnInterruptedPayload Payload { get; set; } = default!;
     }
 
@@ -6238,7 +6238,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.approval.requested";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeApprovalRequestedPayload Payload { get; set; } = default!;
     }
 
@@ -6246,7 +6246,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.approval.resolved";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeApprovalResolvedPayload Payload { get; set; } = default!;
     }
 
@@ -6254,7 +6254,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.question.asked";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeQuestionAskedPayload Payload { get; set; } = default!;
     }
 
@@ -6262,7 +6262,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.question.resolved";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeQuestionResolvedPayload Payload { get; set; } = default!;
     }
 
@@ -6270,7 +6270,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.tool.started";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeToolStartedPayload Payload { get; set; } = default!;
     }
 
@@ -6278,7 +6278,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.tool.completed";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeToolCompletedPayload Payload { get; set; } = default!;
     }
 
@@ -6286,7 +6286,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.tool.result";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ToolResult Payload { get; set; } = default!;
     }
 
@@ -6294,7 +6294,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.agent_message";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeAgentMessagePayload Payload { get; set; } = default!;
     }
 
@@ -6302,7 +6302,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.test_run.started";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeTestRunStartedPayload Payload { get; set; } = default!;
     }
 
@@ -6310,7 +6310,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.test_run.completed";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeTestRunCompletedPayload Payload { get; set; } = default!;
     }
 
@@ -6318,7 +6318,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.connection.lost";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeConnectionLostPayload Payload { get; set; } = default!;
     }
 
@@ -6326,7 +6326,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.connection.restored";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeConnectionRestoredPayload Payload { get; set; } = default!;
     }
 
@@ -6334,7 +6334,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.model.used";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeModelUsedPayload Payload { get; set; } = default!;
     }
 
@@ -6342,59 +6342,59 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "runtime.plan.left";
 
-        [JsonProperty("payload", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimePlanLeftPayload Payload { get; set; } = default!;
     }
 
     public sealed class EntityChanges
     {
-        [JsonProperty("projects", Required = Required.Always)]
-        public List<ProjectView> Projects { get; set; } = new List<ProjectView>();
+        [global::Newtonsoft.Json.JsonProperty("projects", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ProjectView> Projects { get; set; } = default!;
 
-        [JsonProperty("workstreams", Required = Required.Always)]
-        public List<WorkstreamView> Workstreams { get; set; } = new List<WorkstreamView>();
+        [global::Newtonsoft.Json.JsonProperty("workstreams", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<WorkstreamView> Workstreams { get; set; } = default!;
 
-        [JsonProperty("executions", Required = Required.Always)]
-        public List<ExecutionView> Executions { get; set; } = new List<ExecutionView>();
+        [global::Newtonsoft.Json.JsonProperty("executions", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ExecutionView> Executions { get; set; } = default!;
 
-        [JsonProperty("commands", Required = Required.Always)]
-        public List<CommandView> Commands { get; set; } = new List<CommandView>();
+        [global::Newtonsoft.Json.JsonProperty("commands", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<CommandView> Commands { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum CommandAckDisposition
     {
-        [EnumMember(Value = "accepted")] Accepted,
-        [EnumMember(Value = "rejected")] Rejected,
-        [EnumMember(Value = "duplicate")] Duplicate,
-        [EnumMember(Value = "conflict")] Conflict,
+        [global::System.Runtime.Serialization.EnumMember(Value = "accepted")] Accepted,
+        [global::System.Runtime.Serialization.EnumMember(Value = "rejected")] Rejected,
+        [global::System.Runtime.Serialization.EnumMember(Value = "duplicate")] Duplicate,
+        [global::System.Runtime.Serialization.EnumMember(Value = "conflict")] Conflict,
     }
 
     public sealed class ValidationIssue
     {
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("message", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("message", Required = global::Newtonsoft.Json.Required.Always)]
         public string Message { get; set; } = default!;
     }
 
     public sealed class ErrorBody
     {
-        [JsonProperty("code", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("code", Required = global::Newtonsoft.Json.Required.Always)]
         public string Code { get; set; } = default!;
 
-        [JsonProperty("message", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("message", Required = global::Newtonsoft.Json.Required.Always)]
         public string Message { get; set; } = default!;
 
-        [JsonProperty("issues", Required = Required.Always)]
-        public List<ValidationIssue> Issues { get; set; } = new List<ValidationIssue>();
+        [global::Newtonsoft.Json.JsonProperty("issues", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ValidationIssue> Issues { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(ServerMessageConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(ServerMessageConverter))]
     public abstract class ServerMessage
     {
-        [JsonProperty("type", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("type", Order = -2)]
         public string Type => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -6444,30 +6444,30 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "welcome";
 
-        [JsonProperty("protocol", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("protocol", Required = global::Newtonsoft.Json.Required.Always)]
         public long Protocol { get; set; } = 1;
 
-        [JsonProperty("journal", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("journal", Required = global::Newtonsoft.Json.Required.Always)]
         public JournalInfo Journal { get; set; } = default!;
 
-        [JsonProperty("head", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("head", Required = global::Newtonsoft.Json.Required.Always)]
         public long Head { get; set; }
 
-        [JsonProperty("resumed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("resumed", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Resumed { get; set; }
 
-        [JsonProperty("server_time", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("server_time", Required = global::Newtonsoft.Json.Required.Always)]
         public string ServerTime { get; set; } = default!;
 
-        [JsonProperty("command_policies", Required = Required.Always)]
-        public List<CommandPolicy> CommandPolicies { get; set; } = new List<CommandPolicy>();
+        [global::Newtonsoft.Json.JsonProperty("command_policies", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<CommandPolicy> CommandPolicies { get; set; } = default!;
     }
 
     public sealed class SnapshotMessage : ServerMessage
     {
         protected override string Discriminator => "snapshot";
 
-        [JsonProperty("snapshot", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("snapshot", Required = global::Newtonsoft.Json.Required.Always)]
         public Snapshot Snapshot { get; set; } = default!;
     }
 
@@ -6475,13 +6475,13 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "event";
 
-        [JsonProperty("position", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("position", Required = global::Newtonsoft.Json.Required.Always)]
         public long Position { get; set; }
 
-        [JsonProperty("event", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("event", Required = global::Newtonsoft.Json.Required.Always)]
         public EventEnvelope Event { get; set; } = default!;
 
-        [JsonProperty("changes", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("changes", Required = global::Newtonsoft.Json.Required.Always)]
         public EntityChanges Changes { get; set; } = default!;
     }
 
@@ -6489,13 +6489,13 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "command_ack";
 
-        [JsonProperty("command_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CommandId { get; set; } = default!;
 
-        [JsonProperty("disposition", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("disposition", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandAckDisposition Disposition { get; set; }
 
-        [JsonProperty("command", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("command", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public CommandView? Command { get; set; }
     }
 
@@ -6503,7 +6503,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "pong";
 
-        [JsonProperty("nonce", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("nonce", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Nonce { get; set; }
     }
 
@@ -6511,26 +6511,26 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "error";
 
-        [JsonProperty("error", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("error", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorBody Error { get; set; } = default!;
 
-        [JsonProperty("fatal", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("fatal", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Fatal { get; set; }
     }
 
     public sealed class ResumeCursor
     {
-        [JsonProperty("journal_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("journal_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string JournalId { get; set; } = default!;
 
-        [JsonProperty("position", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("position", Required = global::Newtonsoft.Json.Required.Always)]
         public long Position { get; set; }
     }
 
-    [JsonConverter(typeof(ClientMessageConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(ClientMessageConverter))]
     public abstract class ClientMessage
     {
-        [JsonProperty("type", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("type", Order = -2)]
         public string Type => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -6577,13 +6577,13 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "hello";
 
-        [JsonProperty("protocol", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("protocol", Required = global::Newtonsoft.Json.Required.Always)]
         public long Protocol { get; set; } = 1;
 
-        [JsonProperty("client", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("client", Required = global::Newtonsoft.Json.Required.Always)]
         public ClientInfo Client { get; set; } = default!;
 
-        [JsonProperty("resume", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("resume", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public ResumeCursor? Resume { get; set; }
     }
 
@@ -6591,7 +6591,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "command";
 
-        [JsonProperty("command", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandEnvelope Command { get; set; } = default!;
     }
 
@@ -6599,87 +6599,87 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "ping";
 
-        [JsonProperty("nonce", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("nonce", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Nonce { get; set; }
     }
 
     public sealed class HealthResponse
     {
-        [JsonProperty("status", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("status", Required = global::Newtonsoft.Json.Required.Always)]
         public string Status { get; set; } = "ok";
     }
 
     public sealed class ProjectsResponse
     {
-        [JsonProperty("journal", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("journal", Required = global::Newtonsoft.Json.Required.Always)]
         public JournalInfo Journal { get; set; } = default!;
 
-        [JsonProperty("position", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("position", Required = global::Newtonsoft.Json.Required.Always)]
         public long Position { get; set; }
 
-        [JsonProperty("projects", Required = Required.Always)]
-        public List<ProjectView> Projects { get; set; } = new List<ProjectView>();
+        [global::Newtonsoft.Json.JsonProperty("projects", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ProjectView> Projects { get; set; } = default!;
     }
 
     public sealed class WorkstreamsResponse
     {
-        [JsonProperty("journal", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("journal", Required = global::Newtonsoft.Json.Required.Always)]
         public JournalInfo Journal { get; set; } = default!;
 
-        [JsonProperty("position", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("position", Required = global::Newtonsoft.Json.Required.Always)]
         public long Position { get; set; }
 
-        [JsonProperty("workstreams", Required = Required.Always)]
-        public List<WorkstreamView> Workstreams { get; set; } = new List<WorkstreamView>();
+        [global::Newtonsoft.Json.JsonProperty("workstreams", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<WorkstreamView> Workstreams { get; set; } = default!;
     }
 
     public sealed class RuntimesResponse
     {
-        [JsonProperty("runtimes", Required = Required.Always)]
-        public List<RuntimeDescriptor> Runtimes { get; set; } = new List<RuntimeDescriptor>();
+        [global::Newtonsoft.Json.JsonProperty("runtimes", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<RuntimeDescriptor> Runtimes { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ModelServed
     {
-        [EnumMember(Value = "this_mac")] ThisMac,
-        [EnumMember(Value = "remote")] Remote,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "this_mac")] ThisMac,
+        [global::System.Runtime.Serialization.EnumMember(Value = "remote")] Remote,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ModelToolCalling
     {
-        [EnumMember(Value = "declared")] Declared,
-        [EnumMember(Value = "not_declared")] NotDeclared,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "declared")] Declared,
+        [global::System.Runtime.Serialization.EnumMember(Value = "not_declared")] NotDeclared,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class RuntimeModel
     {
-        [JsonProperty("model_ref", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("model_ref", Required = global::Newtonsoft.Json.Required.Always)]
         public string ModelRef { get; set; } = default!;
 
-        [JsonProperty("display_name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("display_name", Required = global::Newtonsoft.Json.Required.Always)]
         public string DisplayName { get; set; } = default!;
 
-        [JsonProperty("served", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("served", Required = global::Newtonsoft.Json.Required.Always)]
         public ModelServed Served { get; set; }
 
-        [JsonProperty("tool_calling", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tool_calling", Required = global::Newtonsoft.Json.Required.Always)]
         public ModelToolCalling ToolCalling { get; set; }
 
-        [JsonProperty("context_tokens", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("context_tokens", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? ContextTokens { get; set; }
 
-        [JsonProperty("picture_input", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("picture_input", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ModelToolCalling? PictureInput { get; set; }
     }
 
-    [JsonConverter(typeof(RuntimeModelsResultConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(RuntimeModelsResultConverter))]
     public abstract class RuntimeModelsResult
     {
-        [JsonProperty("availability", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
         public string Availability => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -6725,733 +6725,733 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "available";
 
-        [JsonProperty("models", Required = Required.Always)]
-        public List<RuntimeModel> Models { get; set; } = new List<RuntimeModel>();
+        [global::Newtonsoft.Json.JsonProperty("models", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<RuntimeModel> Models { get; set; } = default!;
     }
 
     public sealed class UnavailableModels : RuntimeModelsResult
     {
         protected override string Discriminator => "unavailable";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
     public sealed class RuntimeModelsResponse
     {
-        [JsonProperty("runtime_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("runtime_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string RuntimeId { get; set; } = default!;
 
-        [JsonProperty("result", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("result", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimeModelsResult Result { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum LocationRootStatus
     {
-        [EnumMember(Value = "available")] Available,
-        [EnumMember(Value = "missing")] Missing,
+        [global::System.Runtime.Serialization.EnumMember(Value = "available")] Available,
+        [global::System.Runtime.Serialization.EnumMember(Value = "missing")] Missing,
     }
 
     public sealed class LocationFolder
     {
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("repository", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("repository", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public bool? Repository { get; set; }
 
-        [JsonProperty("changed_at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("changed_at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ChangedAt { get; set; }
 
-        [JsonProperty("used_by", Required = Required.Always)]
-        public List<string> UsedBy { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("used_by", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> UsedBy { get; set; } = default!;
     }
 
     public sealed class LocationRoot
     {
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("label", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? Label { get; set; }
 
-        [JsonProperty("status", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("status", Required = global::Newtonsoft.Json.Required.Always)]
         public LocationRootStatus Status { get; set; }
 
-        [JsonProperty("repository", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("repository", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public bool? Repository { get; set; }
 
-        [JsonProperty("changed_at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("changed_at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ChangedAt { get; set; }
 
-        [JsonProperty("used_by", Required = Required.Always)]
-        public List<string> UsedBy { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("used_by", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> UsedBy { get; set; } = default!;
 
-        [JsonProperty("folders", Required = Required.Always)]
-        public List<LocationFolder> Folders { get; set; } = new List<LocationFolder>();
+        [global::Newtonsoft.Json.JsonProperty("folders", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<LocationFolder> Folders { get; set; } = default!;
 
-        [JsonProperty("folders_truncated", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("folders_truncated", Required = global::Newtonsoft.Json.Required.Always)]
         public bool FoldersTruncated { get; set; }
     }
 
     public sealed class LocationsResponse
     {
-        [JsonProperty("roots", Required = Required.Always)]
-        public List<LocationRoot> Roots { get; set; } = new List<LocationRoot>();
+        [global::Newtonsoft.Json.JsonProperty("roots", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<LocationRoot> Roots { get; set; } = default!;
     }
 
     public sealed class StarterView
     {
-        [JsonProperty("starter_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("starter_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string StarterId { get; set; } = default!;
 
-        [JsonProperty("title", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("title", Required = global::Newtonsoft.Json.Required.Always)]
         public string Title { get; set; } = default!;
 
-        [JsonProperty("installed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("installed", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Installed { get; set; }
     }
 
     public sealed class StartersResponse
     {
-        [JsonProperty("starters", Required = Required.Always)]
-        public List<StarterView> Starters { get; set; } = new List<StarterView>();
+        [global::Newtonsoft.Json.JsonProperty("starters", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<StarterView> Starters { get; set; } = default!;
     }
 
     public sealed class StoredEvent
     {
-        [JsonProperty("position", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("position", Required = global::Newtonsoft.Json.Required.Always)]
         public long Position { get; set; }
 
-        [JsonProperty("event", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("event", Required = global::Newtonsoft.Json.Required.Always)]
         public EventEnvelope Event { get; set; } = default!;
     }
 
     public sealed class EventsResponse
     {
-        [JsonProperty("journal", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("journal", Required = global::Newtonsoft.Json.Required.Always)]
         public JournalInfo Journal { get; set; } = default!;
 
-        [JsonProperty("head", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("head", Required = global::Newtonsoft.Json.Required.Always)]
         public long Head { get; set; }
 
-        [JsonProperty("events", Required = Required.Always)]
-        public List<StoredEvent> Events { get; set; } = new List<StoredEvent>();
+        [global::Newtonsoft.Json.JsonProperty("events", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<StoredEvent> Events { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum SubmissionDisposition
     {
-        [EnumMember(Value = "accepted")] Accepted,
-        [EnumMember(Value = "rejected")] Rejected,
-        [EnumMember(Value = "duplicate")] Duplicate,
+        [global::System.Runtime.Serialization.EnumMember(Value = "accepted")] Accepted,
+        [global::System.Runtime.Serialization.EnumMember(Value = "rejected")] Rejected,
+        [global::System.Runtime.Serialization.EnumMember(Value = "duplicate")] Duplicate,
     }
 
     public sealed class CommandSubmissionResponse
     {
-        [JsonProperty("disposition", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("disposition", Required = global::Newtonsoft.Json.Required.Always)]
         public SubmissionDisposition Disposition { get; set; }
 
-        [JsonProperty("command", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandView Command { get; set; } = default!;
     }
 
     public sealed class ErrorResponse
     {
-        [JsonProperty("error", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("error", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorBody Error { get; set; } = default!;
     }
 
     public sealed class UnderstandingSourceContract
     {
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("major", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("major", Required = global::Newtonsoft.Json.Required.Always)]
         public long Major { get; set; }
 
-        [JsonProperty("minor", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("minor", Required = global::Newtonsoft.Json.Required.Always)]
         public long Minor { get; set; }
     }
 
     public sealed class UnderstandingSource
     {
-        [JsonProperty("system", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("system", Required = global::Newtonsoft.Json.Required.Always)]
         public string System { get; set; } = "salidium";
 
-        [JsonProperty("synthetic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("synthetic", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Synthetic { get; set; }
 
-        [JsonProperty("version", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("version", Required = global::Newtonsoft.Json.Required.Always)]
         public string Version { get; set; } = default!;
 
-        [JsonProperty("contract", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("contract", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingSourceContract Contract { get; set; } = default!;
 
-        [JsonProperty("instance_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("instance_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string InstanceId { get; set; } = default!;
 
-        [JsonProperty("generated_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("generated_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string GeneratedAt { get; set; } = default!;
 
-        [JsonProperty("evidence_sequence", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("evidence_sequence", Required = global::Newtonsoft.Json.Required.Always)]
         public long EvidenceSequence { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UnderstandingVerdictTone
     {
-        [EnumMember(Value = "pass")] Pass,
-        [EnumMember(Value = "fail")] Fail,
-        [EnumMember(Value = "attention")] Attention,
-        [EnumMember(Value = "working")] Working,
-        [EnumMember(Value = "neutral")] Neutral,
+        [global::System.Runtime.Serialization.EnumMember(Value = "pass")] Pass,
+        [global::System.Runtime.Serialization.EnumMember(Value = "fail")] Fail,
+        [global::System.Runtime.Serialization.EnumMember(Value = "attention")] Attention,
+        [global::System.Runtime.Serialization.EnumMember(Value = "working")] Working,
+        [global::System.Runtime.Serialization.EnumMember(Value = "neutral")] Neutral,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UnderstandingEpistemic
     {
-        [EnumMember(Value = "observed")] Observed,
-        [EnumMember(Value = "reported")] Reported,
-        [EnumMember(Value = "inferred")] Inferred,
-        [EnumMember(Value = "planned")] Planned,
-        [EnumMember(Value = "explained")] Explained,
+        [global::System.Runtime.Serialization.EnumMember(Value = "observed")] Observed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "reported")] Reported,
+        [global::System.Runtime.Serialization.EnumMember(Value = "inferred")] Inferred,
+        [global::System.Runtime.Serialization.EnumMember(Value = "planned")] Planned,
+        [global::System.Runtime.Serialization.EnumMember(Value = "explained")] Explained,
     }
 
     public sealed class UnderstandingVerdict
     {
-        [JsonProperty("headline", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("headline", Required = global::Newtonsoft.Json.Required.Always)]
         public string Headline { get; set; } = default!;
 
-        [JsonProperty("tone", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tone", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingVerdictTone Tone { get; set; }
 
-        [JsonProperty("because", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("because", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Because { get; set; }
 
-        [JsonProperty("at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? At { get; set; }
 
-        [JsonProperty("epistemic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingEpistemic Epistemic { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UnderstandingStatementAuthor
     {
-        [EnumMember(Value = "agent")] Agent,
-        [EnumMember(Value = "subagent")] Subagent,
+        [global::System.Runtime.Serialization.EnumMember(Value = "agent")] Agent,
+        [global::System.Runtime.Serialization.EnumMember(Value = "subagent")] Subagent,
     }
 
     public sealed class UnderstandingStatement
     {
-        [JsonProperty("text", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.Always)]
         public string Text { get; set; } = default!;
 
-        [JsonProperty("author", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("author", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public UnderstandingStatementAuthor? Author { get; set; }
 
-        [JsonProperty("at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? At { get; set; }
 
-        [JsonProperty("epistemic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingEpistemic Epistemic { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UnderstandingWaitingKind
     {
-        [EnumMember(Value = "permission")] Permission,
-        [EnumMember(Value = "question")] Question,
-        [EnumMember(Value = "input")] Input,
+        [global::System.Runtime.Serialization.EnumMember(Value = "permission")] Permission,
+        [global::System.Runtime.Serialization.EnumMember(Value = "question")] Question,
+        [global::System.Runtime.Serialization.EnumMember(Value = "input")] Input,
     }
 
     public sealed class UnderstandingWaiting
     {
-        [JsonProperty("kind", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingWaitingKind Kind { get; set; }
 
-        [JsonProperty("summary", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("summary", Required = global::Newtonsoft.Json.Required.Always)]
         public string Summary { get; set; } = default!;
 
-        [JsonProperty("since", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("since", Required = global::Newtonsoft.Json.Required.Always)]
         public string Since { get; set; } = default!;
 
-        [JsonProperty("epistemic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingEpistemic Epistemic { get; set; }
     }
 
     public sealed class UnderstandingRevisionAnchor
     {
-        [JsonProperty("head", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("head", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Head { get; set; }
 
-        [JsonProperty("branch", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("branch", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Branch { get; set; }
 
-        [JsonProperty("at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("at", Required = global::Newtonsoft.Json.Required.Always)]
         public string At { get; set; } = default!;
 
-        [JsonProperty("epistemic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Required = global::Newtonsoft.Json.Required.Always)]
         public string Epistemic { get; set; } = "observed";
     }
 
     public sealed class UnderstandingRevision
     {
-        [JsonProperty("at_start", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("at_start", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public UnderstandingRevisionAnchor? AtStart { get; set; }
 
-        [JsonProperty("at_latest_turn_end", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("at_latest_turn_end", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public UnderstandingRevisionAnchor? AtLatestTurnEnd { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UnderstandingChangeKind
     {
-        [EnumMember(Value = "add")] Add,
-        [EnumMember(Value = "update")] Update,
-        [EnumMember(Value = "delete")] Delete,
-        [EnumMember(Value = "move")] Move,
+        [global::System.Runtime.Serialization.EnumMember(Value = "add")] Add,
+        [global::System.Runtime.Serialization.EnumMember(Value = "update")] Update,
+        [global::System.Runtime.Serialization.EnumMember(Value = "delete")] Delete,
+        [global::System.Runtime.Serialization.EnumMember(Value = "move")] Move,
     }
 
     public sealed class UnderstandingChangedFileCoverage
     {
-        [JsonProperty("verified_after", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("verified_after", Required = global::Newtonsoft.Json.Required.Always)]
         public bool VerifiedAfter { get; set; }
 
-        [JsonProperty("by", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("by", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? By { get; set; }
 
-        [JsonProperty("epistemic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Required = global::Newtonsoft.Json.Required.Always)]
         public string Epistemic { get; set; } = "inferred";
     }
 
     public sealed class UnderstandingChangedFile
     {
-        [JsonProperty("path", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
         public string Path { get; set; } = default!;
 
-        [JsonProperty("repository_path", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("repository_path", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? RepositoryPath { get; set; }
 
-        [JsonProperty("change_count", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("change_count", Required = global::Newtonsoft.Json.Required.Always)]
         public long ChangeCount { get; set; }
 
-        [JsonProperty("lines_added", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("lines_added", Required = global::Newtonsoft.Json.Required.Always)]
         public long LinesAdded { get; set; }
 
-        [JsonProperty("lines_removed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("lines_removed", Required = global::Newtonsoft.Json.Required.Always)]
         public long LinesRemoved { get; set; }
 
-        [JsonProperty("lines_removed_exact", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("lines_removed_exact", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public bool? LinesRemovedExact { get; set; }
 
-        [JsonProperty("kinds", Required = Required.Always)]
-        public List<UnderstandingChangeKind> Kinds { get; set; } = new List<UnderstandingChangeKind>();
+        [global::Newtonsoft.Json.JsonProperty("kinds", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UnderstandingChangeKind> Kinds { get; set; } = default!;
 
-        [JsonProperty("last_changed_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("last_changed_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string LastChangedAt { get; set; } = default!;
 
-        [JsonProperty("coverage", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("coverage", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingChangedFileCoverage Coverage { get; set; } = default!;
 
-        [JsonProperty("reason", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public UnderstandingStatement? Reason { get; set; }
     }
 
     public sealed class UnderstandingCommit
     {
-        [JsonProperty("sha", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("sha", Required = global::Newtonsoft.Json.Required.Always)]
         public string Sha { get; set; } = default!;
 
-        [JsonProperty("at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("at", Required = global::Newtonsoft.Json.Required.Always)]
         public string At { get; set; } = default!;
     }
 
     public sealed class UnderstandingChanges
     {
-        [JsonProperty("summary", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("summary", Required = global::Newtonsoft.Json.Required.Always)]
         public string Summary { get; set; } = default!;
 
-        [JsonProperty("files", Required = Required.Always)]
-        public List<UnderstandingChangedFile> Files { get; set; } = new List<UnderstandingChangedFile>();
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UnderstandingChangedFile> Files { get; set; } = default!;
 
-        [JsonProperty("commits", Required = Required.Always)]
-        public List<UnderstandingCommit> Commits { get; set; } = new List<UnderstandingCommit>();
+        [global::Newtonsoft.Json.JsonProperty("commits", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UnderstandingCommit> Commits { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UnderstandingVerificationRunMethod
     {
-        [EnumMember(Value = "test")] Test,
-        [EnumMember(Value = "typecheck")] Typecheck,
-        [EnumMember(Value = "lint")] Lint,
-        [EnumMember(Value = "build")] Build,
-        [EnumMember(Value = "other")] Other,
+        [global::System.Runtime.Serialization.EnumMember(Value = "test")] Test,
+        [global::System.Runtime.Serialization.EnumMember(Value = "typecheck")] Typecheck,
+        [global::System.Runtime.Serialization.EnumMember(Value = "lint")] Lint,
+        [global::System.Runtime.Serialization.EnumMember(Value = "build")] Build,
+        [global::System.Runtime.Serialization.EnumMember(Value = "other")] Other,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UnderstandingVerificationRunOutcome
     {
-        [EnumMember(Value = "pass")] Pass,
-        [EnumMember(Value = "fail")] Fail,
-        [EnumMember(Value = "partial")] Partial,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "pass")] Pass,
+        [global::System.Runtime.Serialization.EnumMember(Value = "fail")] Fail,
+        [global::System.Runtime.Serialization.EnumMember(Value = "partial")] Partial,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UnderstandingVerificationRunScope
     {
-        [EnumMember(Value = "full")] Full,
-        [EnumMember(Value = "partial")] Partial,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "full")] Full,
+        [global::System.Runtime.Serialization.EnumMember(Value = "partial")] Partial,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class UnderstandingVerificationRunCounts
     {
-        [JsonProperty("passed", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("passed", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Passed { get; set; }
 
-        [JsonProperty("failed", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("failed", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Failed { get; set; }
 
-        [JsonProperty("skipped", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("skipped", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Skipped { get; set; }
 
-        [JsonProperty("total", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Total { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UnderstandingVerificationRunExitObservation
     {
-        [EnumMember(Value = "explicit")] Explicit,
-        [EnumMember(Value = "inferred_success")] InferredSuccess,
-        [EnumMember(Value = "inferred_failure")] InferredFailure,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "explicit")] Explicit,
+        [global::System.Runtime.Serialization.EnumMember(Value = "inferred_success")] InferredSuccess,
+        [global::System.Runtime.Serialization.EnumMember(Value = "inferred_failure")] InferredFailure,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class UnderstandingVerificationRunExit
     {
-        [JsonProperty("code", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("code", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Code { get; set; }
 
-        [JsonProperty("observation", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("observation", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingVerificationRunExitObservation Observation { get; set; }
     }
 
     public sealed class UnderstandingVerificationRun
     {
-        [JsonProperty("method", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("method", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingVerificationRunMethod Method { get; set; }
 
-        [JsonProperty("runner", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("runner", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Runner { get; set; }
 
-        [JsonProperty("label", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.Always)]
         public string Label { get; set; } = default!;
 
-        [JsonProperty("outcome", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("outcome", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingVerificationRunOutcome Outcome { get; set; }
 
-        [JsonProperty("at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("at", Required = global::Newtonsoft.Json.Required.Always)]
         public string At { get; set; } = default!;
 
-        [JsonProperty("scope", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("scope", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingVerificationRunScope Scope { get; set; }
 
-        [JsonProperty("counts", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("counts", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public UnderstandingVerificationRunCounts? Counts { get; set; }
 
-        [JsonProperty("exit", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("exit", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingVerificationRunExit Exit { get; set; } = default!;
 
-        [JsonProperty("caveats", Required = Required.Always)]
-        public List<string> Caveats { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("caveats", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Caveats { get; set; } = default!;
 
-        [JsonProperty("stale", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("stale", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Stale { get; set; }
 
-        [JsonProperty("later_unreadable", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("later_unreadable", Required = global::Newtonsoft.Json.Required.Always)]
         public long LaterUnreadable { get; set; }
 
-        [JsonProperty("epistemic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingEpistemic Epistemic { get; set; }
     }
 
     public sealed class UnderstandingVerification
     {
-        [JsonProperty("summary", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("summary", Required = global::Newtonsoft.Json.Required.Always)]
         public string Summary { get; set; } = default!;
 
-        [JsonProperty("latest_by_method", Required = Required.Always)]
-        public List<UnderstandingVerificationRun> LatestByMethod { get; set; } = new List<UnderstandingVerificationRun>();
+        [global::Newtonsoft.Json.JsonProperty("latest_by_method", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UnderstandingVerificationRun> LatestByMethod { get; set; } = default!;
 
-        [JsonProperty("unverified_files", Required = Required.Always)]
-        public List<string> UnverifiedFiles { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("unverified_files", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> UnverifiedFiles { get; set; } = default!;
 
-        [JsonProperty("statements", Required = Required.Always)]
-        public List<UnderstandingStatement> Statements { get; set; } = new List<UnderstandingStatement>();
+        [global::Newtonsoft.Json.JsonProperty("statements", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UnderstandingStatement> Statements { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UnderstandingReviewGroupSeverity
     {
-        [EnumMember(Value = "info")] Info,
-        [EnumMember(Value = "low")] Low,
-        [EnumMember(Value = "medium")] Medium,
-        [EnumMember(Value = "high")] High,
+        [global::System.Runtime.Serialization.EnumMember(Value = "info")] Info,
+        [global::System.Runtime.Serialization.EnumMember(Value = "low")] Low,
+        [global::System.Runtime.Serialization.EnumMember(Value = "medium")] Medium,
+        [global::System.Runtime.Serialization.EnumMember(Value = "high")] High,
     }
 
     public sealed class UnderstandingReviewItem
     {
-        [JsonProperty("label", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.Always)]
         public string Label { get; set; } = default!;
 
-        [JsonProperty("instance", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("instance", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Instance { get; set; }
 
-        [JsonProperty("created_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("created_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string CreatedAt { get; set; } = default!;
 
-        [JsonProperty("repeats", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("repeats", Required = global::Newtonsoft.Json.Required.Always)]
         public long Repeats { get; set; }
 
-        [JsonProperty("epistemic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingEpistemic Epistemic { get; set; }
     }
 
     public sealed class UnderstandingReviewGroup
     {
-        [JsonProperty("rule", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("rule", Required = global::Newtonsoft.Json.Required.Always)]
         public string Rule { get; set; } = default!;
 
-        [JsonProperty("label", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.Always)]
         public string Label { get; set; } = default!;
 
-        [JsonProperty("severity", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("severity", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingReviewGroupSeverity Severity { get; set; }
 
-        [JsonProperty("occurrences", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("occurrences", Required = global::Newtonsoft.Json.Required.Always)]
         public long Occurrences { get; set; }
 
-        [JsonProperty("latest_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("latest_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string LatestAt { get; set; } = default!;
 
-        [JsonProperty("items", Required = Required.Always)]
-        public List<UnderstandingReviewItem> Items { get; set; } = new List<UnderstandingReviewItem>();
+        [global::Newtonsoft.Json.JsonProperty("items", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UnderstandingReviewItem> Items { get; set; } = default!;
     }
 
     public sealed class UnderstandingReview
     {
-        [JsonProperty("summary", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("summary", Required = global::Newtonsoft.Json.Required.Always)]
         public string Summary { get; set; } = default!;
 
-        [JsonProperty("open", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("open", Required = global::Newtonsoft.Json.Required.Always)]
         public long Open { get; set; }
 
-        [JsonProperty("resolved", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("resolved", Required = global::Newtonsoft.Json.Required.Always)]
         public long Resolved { get; set; }
 
-        [JsonProperty("groups", Required = Required.Always)]
-        public List<UnderstandingReviewGroup> Groups { get; set; } = new List<UnderstandingReviewGroup>();
+        [global::Newtonsoft.Json.JsonProperty("groups", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UnderstandingReviewGroup> Groups { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UnderstandingRemainingItemStatus
     {
-        [EnumMember(Value = "pending")] Pending,
-        [EnumMember(Value = "in_progress")] InProgress,
-        [EnumMember(Value = "failing")] Failing,
-        [EnumMember(Value = "reported")] Reported,
+        [global::System.Runtime.Serialization.EnumMember(Value = "pending")] Pending,
+        [global::System.Runtime.Serialization.EnumMember(Value = "in_progress")] InProgress,
+        [global::System.Runtime.Serialization.EnumMember(Value = "failing")] Failing,
+        [global::System.Runtime.Serialization.EnumMember(Value = "reported")] Reported,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UnderstandingRemainingItemSource
     {
-        [EnumMember(Value = "plan")] Plan,
-        [EnumMember(Value = "verification")] Verification,
-        [EnumMember(Value = "agent")] Agent,
+        [global::System.Runtime.Serialization.EnumMember(Value = "plan")] Plan,
+        [global::System.Runtime.Serialization.EnumMember(Value = "verification")] Verification,
+        [global::System.Runtime.Serialization.EnumMember(Value = "agent")] Agent,
     }
 
     public sealed class UnderstandingRemainingItem
     {
-        [JsonProperty("text", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.Always)]
         public string Text { get; set; } = default!;
 
-        [JsonProperty("status", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("status", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingRemainingItemStatus Status { get; set; }
 
-        [JsonProperty("source", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingRemainingItemSource Source { get; set; }
 
-        [JsonProperty("epistemic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingEpistemic Epistemic { get; set; }
     }
 
     public sealed class UnderstandingRemaining
     {
-        [JsonProperty("summary", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("summary", Required = global::Newtonsoft.Json.Required.Always)]
         public string Summary { get; set; } = default!;
 
-        [JsonProperty("items", Required = Required.Always)]
-        public List<UnderstandingRemainingItem> Items { get; set; } = new List<UnderstandingRemainingItem>();
+        [global::Newtonsoft.Json.JsonProperty("items", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UnderstandingRemainingItem> Items { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UnderstandingExplanationStatus
     {
-        [EnumMember(Value = "generated")] Generated,
-        [EnumMember(Value = "generating")] Generating,
-        [EnumMember(Value = "disabled")] Disabled,
-        [EnumMember(Value = "unavailable")] Unavailable,
-        [EnumMember(Value = "failed")] Failed,
-        [EnumMember(Value = "none")] None,
+        [global::System.Runtime.Serialization.EnumMember(Value = "generated")] Generated,
+        [global::System.Runtime.Serialization.EnumMember(Value = "generating")] Generating,
+        [global::System.Runtime.Serialization.EnumMember(Value = "disabled")] Disabled,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unavailable")] Unavailable,
+        [global::System.Runtime.Serialization.EnumMember(Value = "failed")] Failed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "none")] None,
     }
 
     public sealed class UnderstandingExplanationContentWhat
     {
-        [JsonProperty("summary", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("summary", Required = global::Newtonsoft.Json.Required.Always)]
         public string Summary { get; set; } = default!;
 
-        [JsonProperty("currently", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("currently", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Currently { get; set; }
     }
 
     public sealed class UnderstandingExplanationLane
     {
-        [JsonProperty("title", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("title", Required = global::Newtonsoft.Json.Required.Always)]
         public string Title { get; set; } = default!;
 
-        [JsonProperty("steps", Required = Required.Always)]
-        public List<string> Steps { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("steps", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Steps { get; set; } = default!;
     }
 
     public sealed class UnderstandingExplanationContentWhy
     {
-        [JsonProperty("summary", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("summary", Required = global::Newtonsoft.Json.Required.Always)]
         public string Summary { get; set; } = default!;
 
-        [JsonProperty("lanes", Required = Required.Always)]
-        public List<UnderstandingExplanationLane> Lanes { get; set; } = new List<UnderstandingExplanationLane>();
+        [global::Newtonsoft.Json.JsonProperty("lanes", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UnderstandingExplanationLane> Lanes { get; set; } = default!;
 
-        [JsonProperty("chain", Required = Required.Always)]
-        public List<string> Chain { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("chain", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Chain { get; set; } = default!;
     }
 
     public sealed class UnderstandingExplanationContentHow
     {
-        [JsonProperty("summary", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("summary", Required = global::Newtonsoft.Json.Required.Always)]
         public string Summary { get; set; } = default!;
 
-        [JsonProperty("root", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("root", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Root { get; set; }
 
-        [JsonProperty("steps", Required = Required.Always)]
-        public List<string> Steps { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("steps", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Steps { get; set; } = default!;
     }
 
     public sealed class UnderstandingExplanationContentApproachChange
     {
-        [JsonProperty("from", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("from", Required = global::Newtonsoft.Json.Required.Always)]
         public string From { get; set; } = default!;
 
-        [JsonProperty("from_steps", Required = Required.Always)]
-        public List<string> FromSteps { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("from_steps", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> FromSteps { get; set; } = default!;
 
-        [JsonProperty("why", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("why", Required = global::Newtonsoft.Json.Required.Always)]
         public string Why { get; set; } = default!;
 
-        [JsonProperty("to", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("to", Required = global::Newtonsoft.Json.Required.Always)]
         public string To { get; set; } = default!;
 
-        [JsonProperty("to_steps", Required = Required.Always)]
-        public List<string> ToSteps { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("to_steps", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> ToSteps { get; set; } = default!;
     }
 
     public sealed class UnderstandingExplanationContent
     {
-        [JsonProperty("what", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("what", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingExplanationContentWhat What { get; set; } = default!;
 
-        [JsonProperty("why", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("why", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingExplanationContentWhy Why { get; set; } = default!;
 
-        [JsonProperty("how", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("how", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingExplanationContentHow How { get; set; } = default!;
 
-        [JsonProperty("approach_change", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("approach_change", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public UnderstandingExplanationContentApproachChange? ApproachChange { get; set; }
     }
 
     public sealed class UnderstandingExplanation
     {
-        [JsonProperty("status", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("status", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingExplanationStatus Status { get; set; }
 
-        [JsonProperty("current", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("current", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Current { get; set; }
 
-        [JsonProperty("based_on_sequence", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("based_on_sequence", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? BasedOnSequence { get; set; }
 
-        [JsonProperty("generated_at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("generated_at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? GeneratedAt { get; set; }
 
-        [JsonProperty("model", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("model", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Model { get; set; }
 
-        [JsonProperty("epistemic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Required = global::Newtonsoft.Json.Required.Always)]
         public string Epistemic { get; set; } = "explained";
 
-        [JsonProperty("content", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("content", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public UnderstandingExplanationContent? Content { get; set; }
     }
 
     public sealed class Understanding
     {
-        [JsonProperty("source", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingSource Source { get; set; } = default!;
 
-        [JsonProperty("verdict", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("verdict", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingVerdict Verdict { get; set; } = default!;
 
-        [JsonProperty("latest_statement", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("latest_statement", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public UnderstandingStatement? LatestStatement { get; set; }
 
-        [JsonProperty("waiting", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("waiting", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public UnderstandingWaiting? Waiting { get; set; }
 
-        [JsonProperty("revision", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("revision", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingRevision Revision { get; set; } = default!;
 
-        [JsonProperty("changes", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("changes", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingChanges Changes { get; set; } = default!;
 
-        [JsonProperty("verification", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("verification", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingVerification Verification { get; set; } = default!;
 
-        [JsonProperty("review", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingReview Review { get; set; } = default!;
 
-        [JsonProperty("remaining", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("remaining", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingRemaining Remaining { get; set; } = default!;
 
-        [JsonProperty("explanation", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("explanation", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingExplanation Explanation { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(UnderstandingResultConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(UnderstandingResultConverter))]
     public abstract class UnderstandingResult
     {
-        [JsonProperty("availability", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
         public string Availability => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -7500,7 +7500,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "available";
 
-        [JsonProperty("understanding", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("understanding", Required = global::Newtonsoft.Json.Required.Always)]
         public Understanding Understanding { get; set; } = default!;
     }
 
@@ -7508,7 +7508,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "not_found";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
@@ -7516,7 +7516,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "unavailable";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
@@ -7524,7 +7524,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "incompatible";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
@@ -7532,323 +7532,323 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "unauthorized";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
     public sealed class UnderstandingResponse
     {
-        [JsonProperty("execution_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ExecutionId { get; set; } = default!;
 
-        [JsonProperty("result", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("result", Required = global::Newtonsoft.Json.Required.Always)]
         public UnderstandingResult Result { get; set; } = default!;
     }
 
     public sealed class EvaluationSource
     {
-        [JsonProperty("system", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("system", Required = global::Newtonsoft.Json.Required.Always)]
         public string System { get; set; } = "seorak";
 
-        [JsonProperty("synthetic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("synthetic", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Synthetic { get; set; }
 
-        [JsonProperty("api_version", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("api_version", Required = global::Newtonsoft.Json.Required.Always)]
         public string ApiVersion { get; set; } = "v1";
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum EvaluationAvailabilityState
     {
-        [EnumMember(Value = "available")] Available,
-        [EnumMember(Value = "partial")] Partial,
-        [EnumMember(Value = "unavailable")] Unavailable,
+        [global::System.Runtime.Serialization.EnumMember(Value = "available")] Available,
+        [global::System.Runtime.Serialization.EnumMember(Value = "partial")] Partial,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unavailable")] Unavailable,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum EvaluationAvailabilityReason
     {
-        [EnumMember(Value = "not_captured")] NotCaptured,
-        [EnumMember(Value = "not_retained")] NotRetained,
-        [EnumMember(Value = "not_yet_computed")] NotYetComputed,
-        [EnumMember(Value = "outside_credential_restriction")] OutsideCredentialRestriction,
-        [EnumMember(Value = "temporarily_unavailable")] TemporarilyUnavailable,
-        [EnumMember(Value = "result_limit")] ResultLimit,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "not_captured")] NotCaptured,
+        [global::System.Runtime.Serialization.EnumMember(Value = "not_retained")] NotRetained,
+        [global::System.Runtime.Serialization.EnumMember(Value = "not_yet_computed")] NotYetComputed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "outside_credential_restriction")] OutsideCredentialRestriction,
+        [global::System.Runtime.Serialization.EnumMember(Value = "temporarily_unavailable")] TemporarilyUnavailable,
+        [global::System.Runtime.Serialization.EnumMember(Value = "result_limit")] ResultLimit,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class EvaluationAvailability
     {
-        [JsonProperty("state", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("state", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationAvailabilityState State { get; set; }
 
-        [JsonProperty("reason", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public EvaluationAvailabilityReason? Reason { get; set; }
     }
 
     public sealed class EvaluationDateRange
     {
-        [JsonProperty("from", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("from", Required = global::Newtonsoft.Json.Required.Always)]
         public string From { get; set; } = default!;
 
-        [JsonProperty("through", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("through", Required = global::Newtonsoft.Json.Required.Always)]
         public string Through { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum EvaluationCoverageOmission
     {
-        [EnumMember(Value = "outside_retention")] OutsideRetention,
-        [EnumMember(Value = "capture_unavailable")] CaptureUnavailable,
-        [EnumMember(Value = "projection_pending")] ProjectionPending,
-        [EnumMember(Value = "credential_restriction")] CredentialRestriction,
-        [EnumMember(Value = "result_limit")] ResultLimit,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "outside_retention")] OutsideRetention,
+        [global::System.Runtime.Serialization.EnumMember(Value = "capture_unavailable")] CaptureUnavailable,
+        [global::System.Runtime.Serialization.EnumMember(Value = "projection_pending")] ProjectionPending,
+        [global::System.Runtime.Serialization.EnumMember(Value = "credential_restriction")] CredentialRestriction,
+        [global::System.Runtime.Serialization.EnumMember(Value = "result_limit")] ResultLimit,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class EvaluationCoverage
     {
-        [JsonProperty("requested", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("requested", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationDateRange Requested { get; set; } = default!;
 
-        [JsonProperty("observed", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("observed", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public EvaluationDateRange? Observed { get; set; }
 
-        [JsonProperty("matched_sessions", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("matched_sessions", Required = global::Newtonsoft.Json.Required.Always)]
         public long MatchedSessions { get; set; }
 
-        [JsonProperty("included_sessions", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("included_sessions", Required = global::Newtonsoft.Json.Required.Always)]
         public long IncludedSessions { get; set; }
 
-        [JsonProperty("complete", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("complete", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Complete { get; set; }
 
-        [JsonProperty("omissions", Required = Required.Always)]
-        public List<EvaluationCoverageOmission> Omissions { get; set; } = new List<EvaluationCoverageOmission>();
+        [global::Newtonsoft.Json.JsonProperty("omissions", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<EvaluationCoverageOmission> Omissions { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum EvaluationFreshnessState
     {
-        [EnumMember(Value = "fresh")] Fresh,
-        [EnumMember(Value = "stale")] Stale,
-        [EnumMember(Value = "revalidating")] Revalidating,
+        [global::System.Runtime.Serialization.EnumMember(Value = "fresh")] Fresh,
+        [global::System.Runtime.Serialization.EnumMember(Value = "stale")] Stale,
+        [global::System.Runtime.Serialization.EnumMember(Value = "revalidating")] Revalidating,
     }
 
     public sealed class EvaluationFreshness
     {
-        [JsonProperty("state", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("state", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationFreshnessState State { get; set; }
 
-        [JsonProperty("generated_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("generated_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string GeneratedAt { get; set; } = default!;
 
-        [JsonProperty("data_through", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("data_through", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? DataThrough { get; set; }
 
-        [JsonProperty("stale_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("stale_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string StaleAt { get; set; } = default!;
     }
 
     public sealed class EvaluationCost
     {
-        [JsonProperty("availability", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationAvailability Availability { get; set; } = default!;
 
-        [JsonProperty("coverage", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("coverage", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationCoverage Coverage { get; set; } = default!;
 
-        [JsonProperty("freshness", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("freshness", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationFreshness Freshness { get; set; } = default!;
 
-        [JsonProperty("estimated_usd", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("estimated_usd", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public double? EstimatedUsd { get; set; }
 
-        [JsonProperty("note", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("note", Required = global::Newtonsoft.Json.Required.Always)]
         public string Note { get; set; } = "Estimated from token counts at list prices. Not a bill.";
     }
 
     public sealed class EvaluationActivity
     {
-        [JsonProperty("availability", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationAvailability Availability { get; set; } = default!;
 
-        [JsonProperty("coverage", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("coverage", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationCoverage Coverage { get; set; } = default!;
 
-        [JsonProperty("freshness", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("freshness", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationFreshness Freshness { get; set; } = default!;
 
-        [JsonProperty("started_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("started_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string StartedAt { get; set; } = default!;
 
-        [JsonProperty("ended_at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("ended_at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? EndedAt { get; set; }
 
-        [JsonProperty("elapsed_seconds", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("elapsed_seconds", Required = global::Newtonsoft.Json.Required.Always)]
         public double ElapsedSeconds { get; set; }
 
-        [JsonProperty("tool_calls", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("tool_calls", Required = global::Newtonsoft.Json.Required.Always)]
         public long ToolCalls { get; set; }
 
-        [JsonProperty("prompts", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("prompts", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Prompts { get; set; }
     }
 
     public sealed class EvaluationUncommitted
     {
-        [JsonProperty("files_touched", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("files_touched", Required = global::Newtonsoft.Json.Required.Always)]
         public long FilesTouched { get; set; }
 
-        [JsonProperty("lines_added", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("lines_added", Required = global::Newtonsoft.Json.Required.Always)]
         public long LinesAdded { get; set; }
 
-        [JsonProperty("lines_removed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("lines_removed", Required = global::Newtonsoft.Json.Required.Always)]
         public long LinesRemoved { get; set; }
 
-        [JsonProperty("generated_lines_excluded", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("generated_lines_excluded", Required = global::Newtonsoft.Json.Required.Always)]
         public long GeneratedLinesExcluded { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum EvaluationLineSurvivalFate
     {
-        [EnumMember(Value = "retained")] Retained,
-        [EnumMember(Value = "overwritten")] Overwritten,
-        [EnumMember(Value = "unreachable")] Unreachable,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "retained")] Retained,
+        [global::System.Runtime.Serialization.EnumMember(Value = "overwritten")] Overwritten,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unreachable")] Unreachable,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class EvaluationLineSurvival
     {
-        [JsonProperty("rung", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("rung", Required = global::Newtonsoft.Json.Required.Always)]
         public string Rung { get; set; } = "3d";
 
-        [JsonProperty("fate", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("fate", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationLineSurvivalFate Fate { get; set; }
 
-        [JsonProperty("rate", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("rate", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public double? Rate { get; set; }
 
-        [JsonProperty("lines_authored", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("lines_authored", Required = global::Newtonsoft.Json.Required.Always)]
         public long LinesAuthored { get; set; }
 
-        [JsonProperty("lines_surviving", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("lines_surviving", Required = global::Newtonsoft.Json.Required.Always)]
         public long LinesSurviving { get; set; }
 
-        [JsonProperty("commits_checked", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("commits_checked", Required = global::Newtonsoft.Json.Required.Always)]
         public long CommitsChecked { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum EvaluationEndReason
     {
-        [EnumMember(Value = "clear")] Clear,
-        [EnumMember(Value = "resume")] Resume,
-        [EnumMember(Value = "logout")] Logout,
-        [EnumMember(Value = "prompt_input_exit")] PromptInputExit,
-        [EnumMember(Value = "bypass_permissions_disabled")] BypassPermissionsDisabled,
-        [EnumMember(Value = "other")] Other,
-        [EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "clear")] Clear,
+        [global::System.Runtime.Serialization.EnumMember(Value = "resume")] Resume,
+        [global::System.Runtime.Serialization.EnumMember(Value = "logout")] Logout,
+        [global::System.Runtime.Serialization.EnumMember(Value = "prompt_input_exit")] PromptInputExit,
+        [global::System.Runtime.Serialization.EnumMember(Value = "bypass_permissions_disabled")] BypassPermissionsDisabled,
+        [global::System.Runtime.Serialization.EnumMember(Value = "other")] Other,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class EvaluationOutcomeMeasure
     {
-        [JsonProperty("commits_landed", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("commits_landed", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? CommitsLanded { get; set; }
 
-        [JsonProperty("uncommitted", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("uncommitted", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public EvaluationUncommitted? Uncommitted { get; set; }
 
-        [JsonProperty("line_survival", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("line_survival", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public EvaluationLineSurvival? LineSurvival { get; set; }
 
-        [JsonProperty("error_count", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("error_count", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? ErrorCount { get; set; }
 
-        [JsonProperty("first_error_at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("first_error_at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? FirstErrorAt { get; set; }
 
-        [JsonProperty("end_reason", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("end_reason", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public EvaluationEndReason? EndReason { get; set; }
     }
 
     public sealed class EvaluationOutcome
     {
-        [JsonProperty("availability", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationAvailability Availability { get; set; } = default!;
 
-        [JsonProperty("coverage", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("coverage", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationCoverage Coverage { get; set; } = default!;
 
-        [JsonProperty("freshness", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("freshness", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationFreshness Freshness { get; set; } = default!;
 
-        [JsonProperty("measure", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("measure", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public EvaluationOutcomeMeasure? Measure { get; set; }
     }
 
     public sealed class EvaluationVerificationKind
     {
-        [JsonProperty("label", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.Always)]
         public string Label { get; set; } = default!;
 
-        [JsonProperty("runs", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("runs", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Runs { get; set; }
 
-        [JsonProperty("passed", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("passed", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? Passed { get; set; }
 
-        [JsonProperty("pass_rate", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("pass_rate", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public double? PassRate { get; set; }
     }
 
     public sealed class EvaluationVerificationLens
     {
-        [JsonProperty("by_kind", Required = Required.Always)]
-        public List<EvaluationVerificationKind> ByKind { get; set; } = new List<EvaluationVerificationKind>();
+        [global::Newtonsoft.Json.JsonProperty("by_kind", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<EvaluationVerificationKind> ByKind { get; set; } = default!;
 
-        [JsonProperty("empty_reason", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("empty_reason", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? EmptyReason { get; set; }
     }
 
     public sealed class EvaluationVerification
     {
-        [JsonProperty("availability", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationAvailability Availability { get; set; } = default!;
 
-        [JsonProperty("coverage", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("coverage", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationCoverage Coverage { get; set; } = default!;
 
-        [JsonProperty("freshness", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("freshness", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationFreshness Freshness { get; set; } = default!;
 
-        [JsonProperty("lens", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("lens", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public EvaluationVerificationLens? Lens { get; set; }
     }
 
     public sealed class Evaluation
     {
-        [JsonProperty("source", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationSource Source { get; set; } = default!;
 
-        [JsonProperty("cost", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("cost", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationCost Cost { get; set; } = default!;
 
-        [JsonProperty("activity", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        [global::Newtonsoft.Json.JsonProperty("activity", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public EvaluationActivity? Activity { get; set; }
 
-        [JsonProperty("outcome", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("outcome", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationOutcome Outcome { get; set; } = default!;
 
-        [JsonProperty("verification", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("verification", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationVerification Verification { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(EvaluationResultConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(EvaluationResultConverter))]
     public abstract class EvaluationResult
     {
-        [JsonProperty("availability", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
         public string Availability => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -7897,7 +7897,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "available";
 
-        [JsonProperty("evaluation", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("evaluation", Required = global::Newtonsoft.Json.Required.Always)]
         public Evaluation Evaluation { get; set; } = default!;
     }
 
@@ -7905,7 +7905,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "not_found";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
@@ -7913,7 +7913,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "unavailable";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
@@ -7921,7 +7921,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "incompatible";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
@@ -7929,70 +7929,70 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "unauthorized";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
     public sealed class EvaluationResponse
     {
-        [JsonProperty("execution_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ExecutionId { get; set; } = default!;
 
-        [JsonProperty("result", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("result", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationResult Result { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UsageLimitWindow
     {
-        [EnumMember(Value = "rolling-5h")] Rolling5h,
-        [EnumMember(Value = "weekly")] Weekly,
+        [global::System.Runtime.Serialization.EnumMember(Value = "rolling-5h")] Rolling5h,
+        [global::System.Runtime.Serialization.EnumMember(Value = "weekly")] Weekly,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum UsageLimitFreshness
     {
-        [EnumMember(Value = "fresh")] Fresh,
-        [EnumMember(Value = "stale")] Stale,
+        [global::System.Runtime.Serialization.EnumMember(Value = "fresh")] Fresh,
+        [global::System.Runtime.Serialization.EnumMember(Value = "stale")] Stale,
     }
 
     public sealed class UsageLimitAccount
     {
-        [JsonProperty("state", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("state", Required = global::Newtonsoft.Json.Required.Always)]
         public string State { get; set; } = "unidentified";
     }
 
     public sealed class UsageLimit
     {
-        [JsonProperty("agent", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("agent", Required = global::Newtonsoft.Json.Required.Always)]
         public string Agent { get; set; } = default!;
 
-        [JsonProperty("label", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.Always)]
         public string Label { get; set; } = default!;
 
-        [JsonProperty("window", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("window", Required = global::Newtonsoft.Json.Required.Always)]
         public UsageLimitWindow Window { get; set; }
 
-        [JsonProperty("used_percent", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("used_percent", Required = global::Newtonsoft.Json.Required.Always)]
         public double UsedPercent { get; set; }
 
-        [JsonProperty("resets_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("resets_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string ResetsAt { get; set; } = default!;
 
-        [JsonProperty("observed_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("observed_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string ObservedAt { get; set; } = default!;
 
-        [JsonProperty("freshness", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("freshness", Required = global::Newtonsoft.Json.Required.Always)]
         public UsageLimitFreshness Freshness { get; set; }
 
-        [JsonProperty("account", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("account", Required = global::Newtonsoft.Json.Required.Always)]
         public UsageLimitAccount Account { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(UsageLimitsResponseConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(UsageLimitsResponseConverter))]
     public abstract class UsageLimitsResponse
     {
-        [JsonProperty("availability", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
         public string Availability => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -8040,21 +8040,21 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "available";
 
-        [JsonProperty("source", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationSource Source { get; set; } = default!;
 
-        [JsonProperty("complete", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("complete", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Complete { get; set; }
 
-        [JsonProperty("readings", Required = Required.Always)]
-        public List<UsageLimit> Readings { get; set; } = new List<UsageLimit>();
+        [global::Newtonsoft.Json.JsonProperty("readings", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UsageLimit> Readings { get; set; } = default!;
     }
 
     public sealed class UnavailableUsageLimits : UsageLimitsResponse
     {
         protected override string Discriminator => "unavailable";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
@@ -8062,7 +8062,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "unauthorized";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
@@ -8070,220 +8070,220 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "incompatible";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
     public sealed class CatalogSource
     {
-        [JsonProperty("system", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("system", Required = global::Newtonsoft.Json.Required.Always)]
         public string System { get; set; } = "omnorium";
 
-        [JsonProperty("api_version", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("api_version", Required = global::Newtonsoft.Json.Required.Always)]
         public string ApiVersion { get; set; } = "1";
 
-        [JsonProperty("synthetic", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("synthetic", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Synthetic { get; set; }
 
-        [JsonProperty("sample", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("sample", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Sample { get; set; }
     }
 
     public sealed class AvailableSync
     {
-        [JsonProperty("repositories_at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("repositories_at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? RepositoriesAt { get; set; }
 
-        [JsonProperty("repositories_failed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("repositories_failed", Required = global::Newtonsoft.Json.Required.Always)]
         public bool RepositoriesFailed { get; set; }
 
-        [JsonProperty("activity_at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("activity_at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ActivityAt { get; set; }
 
-        [JsonProperty("activity_failed", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("activity_failed", Required = global::Newtonsoft.Json.Required.Always)]
         public bool ActivityFailed { get; set; }
     }
 
     public sealed class CatalogGroup
     {
-        [JsonProperty("group_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("group_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string GroupId { get; set; } = default!;
 
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("order", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("order", Required = global::Newtonsoft.Json.Required.Always)]
         public long Order { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum CatalogRepositoryVisibility
     {
-        [EnumMember(Value = "public")] Public,
-        [EnumMember(Value = "private")] Private,
-        [EnumMember(Value = "internal")] Internal,
+        [global::System.Runtime.Serialization.EnumMember(Value = "public")] Public,
+        [global::System.Runtime.Serialization.EnumMember(Value = "private")] Private,
+        [global::System.Runtime.Serialization.EnumMember(Value = "internal")] Internal,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum CatalogRepositoryAccess
     {
-        [EnumMember(Value = "ok")] Ok,
-        [EnumMember(Value = "removed")] Removed,
-        [EnumMember(Value = "not_found")] NotFound,
+        [global::System.Runtime.Serialization.EnumMember(Value = "ok")] Ok,
+        [global::System.Runtime.Serialization.EnumMember(Value = "removed")] Removed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "not_found")] NotFound,
     }
 
     public sealed class CatalogRepository
     {
-        [JsonProperty("repository_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("repository_id", Required = global::Newtonsoft.Json.Required.Always)]
         public long RepositoryId { get; set; }
 
-        [JsonProperty("full_name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("full_name", Required = global::Newtonsoft.Json.Required.Always)]
         public string FullName { get; set; } = default!;
 
-        [JsonProperty("primary", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("primary", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Primary { get; set; }
 
-        [JsonProperty("visibility", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("visibility", Required = global::Newtonsoft.Json.Required.Always)]
         public CatalogRepositoryVisibility Visibility { get; set; }
 
-        [JsonProperty("fork", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("fork", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Fork { get; set; }
 
-        [JsonProperty("archived", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("archived", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Archived { get; set; }
 
-        [JsonProperty("language", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("language", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Language { get; set; }
 
-        [JsonProperty("description", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("description", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Description { get; set; }
 
-        [JsonProperty("pushed_at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("pushed_at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? PushedAt { get; set; }
 
-        [JsonProperty("access", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("access", Required = global::Newtonsoft.Json.Required.Always)]
         public CatalogRepositoryAccess Access { get; set; }
     }
 
     public sealed class CatalogStateSessions
     {
-        [JsonProperty("running", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("running", Required = global::Newtonsoft.Json.Required.Always)]
         public long Running { get; set; }
 
-        [JsonProperty("awaiting_input", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("awaiting_input", Required = global::Newtonsoft.Json.Required.Always)]
         public long AwaitingInput { get; set; }
     }
 
     public sealed class CatalogState
     {
-        [JsonProperty("state", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("state", Required = global::Newtonsoft.Json.Required.Always)]
         public string State { get; set; } = default!;
 
-        [JsonProperty("active", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("active", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Active { get; set; }
 
-        [JsonProperty("last_activity_at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("last_activity_at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? LastActivityAt { get; set; }
 
-        [JsonProperty("sessions", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("sessions", Required = global::Newtonsoft.Json.Required.Always)]
         public CatalogStateSessions Sessions { get; set; } = default!;
 
-        [JsonProperty("unknown", Required = Required.Always)]
-        public List<string> Unknown { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("unknown", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Unknown { get; set; } = default!;
     }
 
     public sealed class CatalogAttentionPullRequest
     {
-        [JsonProperty("number", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("number", Required = global::Newtonsoft.Json.Required.Always)]
         public long Number { get; set; }
 
-        [JsonProperty("title", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("title", Required = global::Newtonsoft.Json.Required.Always)]
         public string Title { get; set; } = default!;
     }
 
     public sealed class CatalogAttention
     {
-        [JsonProperty("kind", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
         public string Kind { get; set; } = default!;
 
-        [JsonProperty("repository_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("repository_id", Required = global::Newtonsoft.Json.Required.Always)]
         public long RepositoryId { get; set; }
 
-        [JsonProperty("pull_request", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("pull_request", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public CatalogAttentionPullRequest? PullRequest { get; set; }
 
-        [JsonProperty("at", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("at", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? At { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum CatalogLocalSuggestionsItemRule
     {
-        [EnumMember(Value = "github_origin_full_name")] GithubOriginFullName,
-        [EnumMember(Value = "folder_name_equals_repository_name")] FolderNameEqualsRepositoryName,
+        [global::System.Runtime.Serialization.EnumMember(Value = "github_origin_full_name")] GithubOriginFullName,
+        [global::System.Runtime.Serialization.EnumMember(Value = "folder_name_equals_repository_name")] FolderNameEqualsRepositoryName,
     }
 
     public sealed class CatalogLocalSuggestionsItem
     {
-        [JsonProperty("root", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("root", Required = global::Newtonsoft.Json.Required.Always)]
         public string Root { get; set; } = default!;
 
-        [JsonProperty("folder_name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("folder_name", Required = global::Newtonsoft.Json.Required.Always)]
         public string FolderName { get; set; } = default!;
 
-        [JsonProperty("rule", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("rule", Required = global::Newtonsoft.Json.Required.Always)]
         public CatalogLocalSuggestionsItemRule Rule { get; set; }
     }
 
     public sealed class CatalogLocal
     {
-        [JsonProperty("project_ids", Required = Required.Always)]
-        public List<string> ProjectIds { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("project_ids", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> ProjectIds { get; set; } = default!;
 
-        [JsonProperty("suggestions", Required = Required.Always)]
-        public List<CatalogLocalSuggestionsItem> Suggestions { get; set; } = new List<CatalogLocalSuggestionsItem>();
+        [global::Newtonsoft.Json.JsonProperty("suggestions", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<CatalogLocalSuggestionsItem> Suggestions { get; set; } = default!;
     }
 
     public sealed class CatalogProject
     {
-        [JsonProperty("catalog_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("catalog_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string CatalogId { get; set; } = default!;
 
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("group_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("group_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? GroupId { get; set; }
 
-        [JsonProperty("group_order", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("group_order", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? GroupOrder { get; set; }
 
-        [JsonProperty("repositories", Required = Required.Always)]
-        public List<CatalogRepository> Repositories { get; set; } = new List<CatalogRepository>();
+        [global::Newtonsoft.Json.JsonProperty("repositories", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<CatalogRepository> Repositories { get; set; } = default!;
 
-        [JsonProperty("state", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("state", Required = global::Newtonsoft.Json.Required.Always)]
         public CatalogState State { get; set; } = default!;
 
-        [JsonProperty("attention", Required = Required.Always)]
-        public List<CatalogAttention> Attention { get; set; } = new List<CatalogAttention>();
+        [global::Newtonsoft.Json.JsonProperty("attention", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<CatalogAttention> Attention { get; set; } = default!;
 
-        [JsonProperty("local", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("local", Required = global::Newtonsoft.Json.Required.Always)]
         public CatalogLocal Local { get; set; } = default!;
     }
 
     public sealed class AvailableTruncated
     {
-        [JsonProperty("projects", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("projects", Required = global::Newtonsoft.Json.Required.Always)]
         public long Projects { get; set; }
 
-        [JsonProperty("repositories", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("repositories", Required = global::Newtonsoft.Json.Required.Always)]
         public long Repositories { get; set; }
     }
 
-    [JsonConverter(typeof(CatalogResponseConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(CatalogResponseConverter))]
     public abstract class CatalogResponse
     {
-        [JsonProperty("availability", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
         public string Availability => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -8331,25 +8331,25 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "available";
 
-        [JsonProperty("provenance", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("provenance", Required = global::Newtonsoft.Json.Required.Always)]
         public string Provenance { get; set; } = "reported";
 
-        [JsonProperty("source", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
         public CatalogSource Source { get; set; } = default!;
 
-        [JsonProperty("generated_at", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("generated_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string GeneratedAt { get; set; } = default!;
 
-        [JsonProperty("sync", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("sync", Required = global::Newtonsoft.Json.Required.Always)]
         public AvailableSync Sync { get; set; } = default!;
 
-        [JsonProperty("groups", Required = Required.Always)]
-        public List<CatalogGroup> Groups { get; set; } = new List<CatalogGroup>();
+        [global::Newtonsoft.Json.JsonProperty("groups", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<CatalogGroup> Groups { get; set; } = default!;
 
-        [JsonProperty("projects", Required = Required.Always)]
-        public List<CatalogProject> Projects { get; set; } = new List<CatalogProject>();
+        [global::Newtonsoft.Json.JsonProperty("projects", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<CatalogProject> Projects { get; set; } = default!;
 
-        [JsonProperty("truncated", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("truncated", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public AvailableTruncated? Truncated { get; set; }
     }
 
@@ -8357,7 +8357,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "unavailable";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
@@ -8365,7 +8365,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "unauthorized";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
@@ -8373,28 +8373,28 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "incompatible";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
     public sealed class TranscriptionEngine
     {
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("version", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("version", Required = global::Newtonsoft.Json.Required.Always)]
         public string Version { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(TranscriptionResponseConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(TranscriptionResponseConverter))]
     public abstract class TranscriptionResponse
     {
-        [JsonProperty("outcome", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("outcome", Order = -2)]
         public string Outcome => Discriminator;
 
         protected abstract string Discriminator { get; }
 
-        [JsonProperty("engine", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("engine", Required = global::Newtonsoft.Json.Required.Always)]
         public TranscriptionEngine Engine { get; set; } = default!;
     }
 
@@ -8438,10 +8438,10 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "heard";
 
-        [JsonProperty("text", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.Always)]
         public string Text { get; set; } = default!;
 
-        [JsonProperty("language", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("language", Required = global::Newtonsoft.Json.Required.Always)]
         public string Language { get; set; } = default!;
     }
 
@@ -8452,17 +8452,17 @@ namespace Halcyonic.Contracts
 
     public sealed class CompanionModel
     {
-        [JsonProperty("name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("served", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("served", Required = global::Newtonsoft.Json.Required.Always)]
         public string Served { get; set; } = "this_mac";
     }
 
-    [JsonConverter(typeof(CompanionStatusConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(CompanionStatusConverter))]
     public abstract class CompanionStatus
     {
-        [JsonProperty("availability", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
         public string Availability => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -8508,10 +8508,10 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "available";
 
-        [JsonProperty("companion", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("companion", Required = global::Newtonsoft.Json.Required.Always)]
         public CompanionModel Companion { get; set; } = default!;
 
-        [JsonProperty("max_questions", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("max_questions", Required = global::Newtonsoft.Json.Required.Always)]
         public long MaxQuestions { get; set; }
     }
 
@@ -8519,62 +8519,62 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "unavailable";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum CompanionStart
     {
-        [EnumMember(Value = "idea")] Idea,
-        [EnumMember(Value = "help")] Help,
+        [global::System.Runtime.Serialization.EnumMember(Value = "idea")] Idea,
+        [global::System.Runtime.Serialization.EnumMember(Value = "help")] Help,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum CompanionWant
     {
-        [EnumMember(Value = "next")] Next,
-        [EnumMember(Value = "proposal")] Proposal,
+        [global::System.Runtime.Serialization.EnumMember(Value = "next")] Next,
+        [global::System.Runtime.Serialization.EnumMember(Value = "proposal")] Proposal,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum CompanionView
     {
-        [EnumMember(Value = "clear")] Clear,
-        [EnumMember(Value = "unclear")] Unclear,
-        [EnumMember(Value = "not_buildable")] NotBuildable,
+        [global::System.Runtime.Serialization.EnumMember(Value = "clear")] Clear,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unclear")] Unclear,
+        [global::System.Runtime.Serialization.EnumMember(Value = "not_buildable")] NotBuildable,
     }
 
     public sealed class CompanionQuestion
     {
-        [JsonProperty("text", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.Always)]
         public string Text { get; set; } = default!;
 
-        [JsonProperty("choices", Required = Required.Always)]
-        public List<string> Choices { get; set; } = new List<string>();
+        [global::Newtonsoft.Json.JsonProperty("choices", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Choices { get; set; } = default!;
     }
 
     public sealed class CompanionProposal
     {
-        [JsonProperty("project_name", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("project_name", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectName { get; set; } = default!;
 
-        [JsonProperty("first_task", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("first_task", Required = global::Newtonsoft.Json.Required.Always)]
         public string FirstTask { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(CompanionReplyConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(CompanionReplyConverter))]
     public abstract class CompanionReply
     {
-        [JsonProperty("next", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("next", Order = -2)]
         public string Next => Discriminator;
 
         protected abstract string Discriminator { get; }
 
-        [JsonProperty("line", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("line", Required = global::Newtonsoft.Json.Required.Always)]
         public string Line { get; set; } = default!;
 
-        [JsonProperty("view", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("view", Required = global::Newtonsoft.Json.Required.Always)]
         public CompanionView View { get; set; }
     }
 
@@ -8618,7 +8618,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "ask";
 
-        [JsonProperty("question", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("question", Required = global::Newtonsoft.Json.Required.Always)]
         public CompanionQuestion Question { get; set; } = default!;
     }
 
@@ -8626,14 +8626,14 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "propose";
 
-        [JsonProperty("proposal", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("proposal", Required = global::Newtonsoft.Json.Required.Always)]
         public CompanionProposal Proposal { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(CompanionExchangeTurnConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(CompanionExchangeTurnConverter))]
     public abstract class CompanionExchangeTurn
     {
-        [JsonProperty("from", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("from", Order = -2)]
         public string From => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -8679,7 +8679,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "person";
 
-        [JsonProperty("text", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.Always)]
         public string Text { get; set; } = default!;
     }
 
@@ -8687,38 +8687,38 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "companion";
 
-        [JsonProperty("reply", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reply", Required = global::Newtonsoft.Json.Required.Always)]
         public CompanionReply Reply { get; set; } = default!;
     }
 
     public sealed class CompanionRepliesRequest
     {
-        [JsonProperty("start", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("start", Required = global::Newtonsoft.Json.Required.Always)]
         public CompanionStart Start { get; set; }
 
-        [JsonProperty("want", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("want", Required = global::Newtonsoft.Json.Required.Always)]
         public CompanionWant Want { get; set; }
 
-        [JsonProperty("messages", Required = Required.Always)]
-        public List<CompanionExchangeTurn> Messages { get; set; } = new List<CompanionExchangeTurn>();
+        [global::Newtonsoft.Json.JsonProperty("messages", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<CompanionExchangeTurn> Messages { get; set; } = default!;
     }
 
     public sealed class CompanionReplyResponse
     {
-        [JsonProperty("reply", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reply", Required = global::Newtonsoft.Json.Required.Always)]
         public CompanionReply Reply { get; set; } = default!;
 
-        [JsonProperty("provenance", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("provenance", Required = global::Newtonsoft.Json.Required.Always)]
         public string Provenance { get; set; } = "reported";
 
-        [JsonProperty("companion", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("companion", Required = global::Newtonsoft.Json.Required.Always)]
         public CompanionModel Companion { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(PairingClientMessageConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(PairingClientMessageConverter))]
     public abstract class PairingClientMessage
     {
-        [JsonProperty("type", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("type", Order = -2)]
         public string Type => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -8764,10 +8764,10 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "pair_request";
 
-        [JsonProperty("protocol", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("protocol", Required = global::Newtonsoft.Json.Required.Always)]
         public long Protocol { get; set; } = 1;
 
-        [JsonProperty("device_label", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("device_label", Required = global::Newtonsoft.Json.Required.Always)]
         public string DeviceLabel { get; set; } = default!;
     }
 
@@ -8775,17 +8775,17 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "pair_proof";
 
-        [JsonProperty("client_public", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("client_public", Required = global::Newtonsoft.Json.Required.Always)]
         public string ClientPublic { get; set; } = default!;
 
-        [JsonProperty("proof", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("proof", Required = global::Newtonsoft.Json.Required.Always)]
         public string Proof { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(PairingServerMessageConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(PairingServerMessageConverter))]
     public abstract class PairingServerMessage
     {
-        [JsonProperty("type", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("type", Order = -2)]
         public string Type => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -8832,10 +8832,10 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "pair_challenge";
 
-        [JsonProperty("salt", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("salt", Required = global::Newtonsoft.Json.Required.Always)]
         public string Salt { get; set; } = default!;
 
-        [JsonProperty("server_public", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("server_public", Required = global::Newtonsoft.Json.Required.Always)]
         public string ServerPublic { get; set; } = default!;
     }
 
@@ -8843,13 +8843,13 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "pair_accepted";
 
-        [JsonProperty("device_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("device_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string DeviceId { get; set; } = default!;
 
-        [JsonProperty("credential", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("credential", Required = global::Newtonsoft.Json.Required.Always)]
         public string Credential { get; set; } = default!;
 
-        [JsonProperty("proof", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("proof", Required = global::Newtonsoft.Json.Required.Always)]
         public string Proof { get; set; } = default!;
     }
 
@@ -8857,129 +8857,129 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "pair_refused";
 
-        [JsonProperty("error", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("error", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Error { get; set; } = default!;
 
-        [JsonProperty("attempts_left", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("attempts_left", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? AttemptsLeft { get; set; }
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum WorkspaceSurface
     {
-        [EnumMember(Value = "task")] Task,
-        [EnumMember(Value = "request")] Request,
+        [global::System.Runtime.Serialization.EnumMember(Value = "task")] Task,
+        [global::System.Runtime.Serialization.EnumMember(Value = "request")] Request,
     }
 
-    [JsonConverter(typeof(StringEnumConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum WorkspaceSection
     {
-        [EnumMember(Value = "waiting")] Waiting,
-        [EnumMember(Value = "activity")] Activity,
-        [EnumMember(Value = "changes")] Changes,
-        [EnumMember(Value = "checks")] Checks,
+        [global::System.Runtime.Serialization.EnumMember(Value = "waiting")] Waiting,
+        [global::System.Runtime.Serialization.EnumMember(Value = "activity")] Activity,
+        [global::System.Runtime.Serialization.EnumMember(Value = "changes")] Changes,
+        [global::System.Runtime.Serialization.EnumMember(Value = "checks")] Checks,
     }
 
     public sealed class WorkspaceInstructionDraft
     {
-        [JsonProperty("text", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.Always)]
         public string Text { get; set; } = default!;
 
-        [JsonProperty("spoken", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("spoken", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Spoken { get; set; }
 
-        [JsonProperty("part", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("part", Required = global::Newtonsoft.Json.Required.Always)]
         public long Part { get; set; }
     }
 
     public sealed class WorkspaceRequestContinuation
     {
-        [JsonProperty("request_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("request_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? RequestId { get; set; }
 
-        [JsonProperty("pending_command_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("pending_command_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? PendingCommandId { get; set; }
 
-        [JsonProperty("text", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.Always)]
         public string Text { get; set; } = default!;
 
-        [JsonProperty("spoken", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("spoken", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Spoken { get; set; }
 
-        [JsonProperty("part", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("part", Required = global::Newtonsoft.Json.Required.Always)]
         public long Part { get; set; }
     }
 
     public sealed class WorkspaceContinuation
     {
-        [JsonProperty("version", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("version", Required = global::Newtonsoft.Json.Required.Always)]
         public long Version { get; set; } = 1;
 
-        [JsonProperty("handoff_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("handoff_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string HandoffId { get; set; } = default!;
 
-        [JsonProperty("connection_key", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("connection_key", Required = global::Newtonsoft.Json.Required.Always)]
         public string ConnectionKey { get; set; } = default!;
 
-        [JsonProperty("journal_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("journal_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? JournalId { get; set; }
 
-        [JsonProperty("project_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ProjectId { get; set; }
 
-        [JsonProperty("workstream_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? WorkstreamId { get; set; }
 
-        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ExecutionId { get; set; }
 
-        [JsonProperty("surface", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("surface", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkspaceSurface Surface { get; set; }
 
-        [JsonProperty("section", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("section", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkspaceSection Section { get; set; }
 
-        [JsonProperty("page", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("page", Required = global::Newtonsoft.Json.Required.Always)]
         public long Page { get; set; }
 
-        [JsonProperty("instruction", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("instruction", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorkspaceInstructionDraft? Instruction { get; set; }
 
-        [JsonProperty("request", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("request", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public WorkspaceRequestContinuation? Request { get; set; }
     }
 
     public sealed class WorkspaceViewStore
     {
-        [JsonProperty("version", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("version", Required = global::Newtonsoft.Json.Required.Always)]
         public long Version { get; set; } = 1;
 
-        [JsonProperty("selected", Required = Required.AllowNull)]
+        [global::Newtonsoft.Json.JsonProperty("selected", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Selected { get; set; }
 
-        [JsonProperty("views", Required = Required.Always)]
-        public List<WorkspaceContinuation> Views { get; set; } = new List<WorkspaceContinuation>();
+        [global::Newtonsoft.Json.JsonProperty("views", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<WorkspaceContinuation> Views { get; set; } = default!;
     }
 
     public sealed class WorkspaceRequestResponse
     {
-        [JsonProperty("request", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("request", Required = global::Newtonsoft.Json.Required.Always)]
         public WorkspaceRequestView Request { get; set; } = default!;
     }
 
     public sealed class WorkspaceCommandResponse
     {
-        [JsonProperty("journal_id", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("journal_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string JournalId { get; set; } = default!;
 
-        [JsonProperty("command", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("command", Required = global::Newtonsoft.Json.Required.Always)]
         public CommandView Command { get; set; } = default!;
     }
 
-    [JsonConverter(typeof(WorkspaceAgentStatusConverter))]
+    [global::Newtonsoft.Json.JsonConverter(typeof(WorkspaceAgentStatusConverter))]
     public abstract class WorkspaceAgentStatus
     {
-        [JsonProperty("availability", Order = -2)]
+        [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
         public string Availability => Discriminator;
 
         protected abstract string Discriminator { get; }
@@ -9025,10 +9025,10 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "available";
 
-        [JsonProperty("model", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("model", Required = global::Newtonsoft.Json.Required.Always)]
         public string Model { get; set; } = default!;
 
-        [JsonProperty("served", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("served", Required = global::Newtonsoft.Json.Required.Always)]
         public string Served { get; set; } = "this_mac";
     }
 
@@ -9036,7 +9036,7 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "unavailable";
 
-        [JsonProperty("reason", Required = Required.Always)]
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public ErrorInfo Reason { get; set; } = default!;
     }
 }

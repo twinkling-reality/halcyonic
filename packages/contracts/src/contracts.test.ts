@@ -630,11 +630,11 @@ describe('the C# bindings', () => {
     ).join('\n');
     assert.match(
       members,
-      /\[JsonProperty\("found", Required = Required\.Default, NullValueHandling = NullValueHandling\.Ignore\)\]\s+public ProbeFound\? Found \{ get; set; \}/,
+      /\[global::Newtonsoft\.Json\.JsonProperty\("found", Required = global::Newtonsoft\.Json\.Required\.Default, NullValueHandling = global::Newtonsoft\.Json\.NullValueHandling\.Ignore\)\]\s+public ProbeFound\? Found \{ get; set; \}/,
     );
     assert.match(
       members,
-      /\[JsonProperty\("names", Required = Required\.Default, NullValueHandling = NullValueHandling\.Ignore\)\]\s+public List<string>\? Names \{ get; set; \}/,
+      /\[global::Newtonsoft\.Json\.JsonProperty\("names", Required = global::Newtonsoft\.Json\.Required\.Default, NullValueHandling = global::Newtonsoft\.Json\.NullValueHandling\.Ignore\)\]\s+public global::System\.Collections\.Generic\.List<string>\? Names \{ get; set; \}/,
     );
     assert.match(members, /public long\? Level \{ get; set; \}/);
     // A constant still cannot be optional: its absence would read as a different value.
@@ -731,7 +731,10 @@ describe('the C# bindings', () => {
     lines.forEach((line, index) => {
       const opened = /^\s*public (?:sealed |abstract |partial )*class (\w+)/.exec(line);
       if (opened) owner = opened[1] ?? '?';
-      const member = /\[JsonProperty\("(\w+)", Required = Required\.Default/.exec(line);
+      const member =
+        /\[(?:global::Newtonsoft\.Json\.)?JsonProperty\("(\w+)", Required = (?:global::Newtonsoft\.Json\.)?Required\.Default/.exec(
+          line,
+        );
       if (member) {
         found.push({
           name: `${owner}.${member[1]}`,
@@ -758,7 +761,7 @@ describe('the C# bindings', () => {
     for (const member of found) {
       assert.match(
         member.attribute,
-        /NullValueHandling = NullValueHandling\.Ignore\)\]$/,
+        /NullValueHandling = (?:global::Newtonsoft\.Json\.)?NullValueHandling\.Ignore\)\]$/,
         member.name,
       );
       assert.match(member.declaration, /^public \S+\? \w+ \{ get; set; \}$/, member.name);
