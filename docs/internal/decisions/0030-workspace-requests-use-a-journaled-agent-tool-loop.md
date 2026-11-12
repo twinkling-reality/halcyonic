@@ -244,8 +244,8 @@ What was read and seen is in [hosted-assistant.md](../validation/hosted-assistan
   - The choice is read at every status read and every turn.
   - When the chosen model's key is gone, unusable or refused, the assistant stays chosen and says so in words. It
     never falls back to another model unsaid.
-  - A refused key is never sent again; its digest, kept in memory only, marks it. A new key stored in its place is
-    tried.
+  - A refused key is never sent again while the plane runs; its digest, kept in memory only, marks it. After a
+    restart it is tried once more, and a new key stored in its place is tried.
   - A request that meets such a key does not just fail. The host itself records a waiting proposal of Use Model with
     this computer's model, one press, and the request goes on there once it is pressed.
 - **Where it ran is said.** The assistant's status and every reply say where the model ran: `served: remote` with
@@ -255,7 +255,7 @@ What was read and seen is in [hosted-assistant.md](../validation/hosted-assistan
 - **Where it may send.** A key goes only to its provider's declared https address, or to this Mac for a proof
   (`HALCYONIC_ASSISTANT_UPSTREAM`, loopback only).
 - **The two real providers.** Meta's Model API (Chat Completions, `muse-wonder-1.0` first) and Anthropic's
-  (Messages, `claude-opus-5-5` first) are declared. Meta's models are offered first in Use Model's list.
+  (Messages, `claude-opus-5-5` first) are declared. Use Model offers the models in the host list's own order (ADR 0061); none is put first by code.
   Each declares how hard its model thinks (`low` for both) and never a model that trains on the content. Meta adds
   steering text of its own, unpublished, to every prompt, so on Meta the instructions the model followed are never
   only Halcyonic's.
