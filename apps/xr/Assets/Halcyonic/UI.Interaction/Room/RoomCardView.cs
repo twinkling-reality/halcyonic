@@ -295,6 +295,10 @@ namespace Halcyonic.XR.UI
         public float Show(RoomCard card, float width)
         {
             gameObject.SetActive(true);
+            // A card that is the way in lays its words a chevron's room narrower, so the chevron stands at the text's own inset
+            // from the edge and never meets a word (the critic, 2026-11-12: it sat 7 px from the ring against a 36 px inset).
+            var full = width;
+            if (card.Press != null) width = Mathf.Max(S(StepDp), full - S(CardChevronDp + RowGapDp));
             foreach (var role in new List<KitRole>(textsUsed.Keys)) textsUsed[role] = 0;
             platesUsed = 0;
             glyphsUsed = 0;
@@ -390,9 +394,9 @@ namespace Halcyonic.XR.UI
                 var (_, tall) = Text(KitRole.Body, MoreDp, MoreLineDp, White(NoteAlpha), card.More, 0f, -down, width, 2);
                 down += tall;
             }
-            LayCardPress(card, width, down);
+            LayCardPress(card, full, down);
             HideUnused();
-            Size = new Vector2(width, down);
+            Size = new Vector2(full, down);
             return down;
         }
 
@@ -436,8 +440,8 @@ namespace Halcyonic.XR.UI
                 : card.Status is RoomCardStatus good && good.Tone == RoomTone.Good ? GoodFill : Accent;
             cardFaceLit = null;
             PaintCardFace();
-            // The way on, centred in the panel's right margin, weighing as a capital's stem.
-            Glyph(RoomGlyph.Chevron, CardChevronDp, White(0.90f), new Vector2(width + pad / 2f, -tall / 2f), "card chevron", CardChevronStroke);
+            // The way on at the words' right edge, the panel's pad from its ring as the text is from the left, a capital's stem in weight.
+            Glyph(RoomGlyph.Chevron, CardChevronDp, White(0.90f), new Vector2(width - S(CardChevronDp) / 2f, -tall / 2f), "card chevron", CardChevronStroke);
         }
 
         private void PaintCardFace()
