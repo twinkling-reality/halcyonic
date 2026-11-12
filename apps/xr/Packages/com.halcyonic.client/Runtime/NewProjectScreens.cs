@@ -695,9 +695,12 @@ namespace Halcyonic.Client
         /// warning that the folder moves stands as the card's quiet foot line, its runs as given: a companion's words stay
         /// its own, leaning (AUDIT's F1).
         /// </summary>
+        /// <summary>The recap's title: the project's name, or Not Named Yet.</summary>
+        public static LineWords RecapTitle(ProjectIdea idea) => idea.Name.Length > 0 ? LineWords.TheirName(idea.Name) : LineWords.Ours(EntryText.NotNamedYet);
+
         public static RoomCard RecapCard(ProjectIdea idea, NewWorkDraft draft, ProjectLocation? currentFolder, bool live, LineWords? note)
         {
-            var title = idea.Name.Length > 0 ? LineWords.TheirName(idea.Name) : LineWords.Ours(EntryText.NotNamedYet);
+            var title = RecapTitle(idea);
             var slots = new List<RoomSlot>();
             var folder = EntryText.FolderFactPartsOf(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true);
             var folderWords = folder.Name ?? folder.Place ?? (folder.Kind == FolderFactKind.NotChosen ? LineWords.Ours("Not Chosen") : null);
@@ -762,7 +765,9 @@ namespace Halcyonic.Client
                     new Prompt(ConfirmStartOver, EntryText.ConfirmStartOver, GlazeIcon.StartOver, PromptKind.Yes, safeInPlace: true),
                     new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
             }
-            return new MenuFrame(Subject(idea), footer, sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines);
+            // The page's card names the project as the recap's does (a title names the thing, the verb stays on the button: the
+            // critic, 2026-11-12); its rows are the lines, which the bar draws.
+            return new MenuFrame(Subject(idea), footer, sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines).WithCard(new RoomCard(RecapTitle(idea)));
         }
 
         /// <summary>

@@ -450,6 +450,9 @@ namespace Halcyonic.XR.UI
                 GlazeIcon.Next => RoomGlyph.Next,
                 GlazeIcon.Back => RoomGlyph.Back,
                 GlazeIcon.Refresh => RoomGlyph.Again,
+                // Starting over turns back to the beginning; starting a task plays it (the addendum's A3, the critic of 2026-11-12).
+                GlazeIcon.StartOver => RoomGlyph.Again,
+                GlazeIcon.StartBuilding => RoomGlyph.Play,
                 GlazeIcon.Change => RoomGlyph.Pencil,
                 GlazeIcon.CreateProject => RoomGlyph.Plus,
                 // The agent's own, on the action that names it where no level stands after its name.

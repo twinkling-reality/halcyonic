@@ -93,10 +93,11 @@ namespace Halcyonic.XR.UI
         public const float RowNoteLineDp = 20f;
 
         /// <summary>
-        /// A note's white, in the reading face: a step quieter than a name, legible over the bright room and the dark one
-        /// (0.72 passed the contrast check over the bright room; the kind's colour is the mark's alone).
+        /// The quiet words' white, in the reading face, for every note, a status's line, a card's foot line and a gauge's words:
+        /// a step quieter than a name, legible over the bright room and the dark one (0.66 measured 4.05:1 and 0.72 4.55:1 over
+        /// the bright room, under the 4.5:1 floor's margin, the critic of 2026-11-12; the kind's colour is the mark's alone).
         /// </summary>
-        public const float NoteAlpha = 0.72f;
+        public const float NoteAlpha = 0.78f;
 
         /// <summary>
         /// A green or red mark's tile and its ink: a deep tint under a light glyph, so the mark reads over the bright room
@@ -397,7 +398,7 @@ namespace Halcyonic.XR.UI
             TextMeshPro? lineLabel = null;
             if (status.Line != null)
             {
-                var laidLine = Text(KitRole.Body, LineTypeDp, LineLineDp, White(0.66f), LineWords.Ours(status.Line), left, -(down + tall + S(2f)), column, 3);
+                var laidLine = Text(KitRole.Body, LineTypeDp, LineLineDp, White(NoteAlpha), LineWords.Ours(status.Line), left, -(down + tall + S(2f)), column, 3);
                 lineLabel = laidLine.Label;
                 tall += S(2f) + laidLine.Tall;
             }
@@ -596,7 +597,7 @@ namespace Halcyonic.XR.UI
             foreach (var gauge in gauges)
             {
                 if (gauge.Note == null) { notes.Add(null); continue; }
-                var (note, _) = Text(KitRole.Body, GaugeResetDp, GaugeResetLineDp, White(0.62f), LineWords.Ours(gauge.Note), 0f, 0f, RoomType.Units(2000f), 1);
+                var (note, _) = Text(KitRole.Body, GaugeResetDp, GaugeResetLineDp, White(NoteAlpha), LineWords.Ours(gauge.Note), 0f, 0f, RoomType.Units(2000f), 1);
                 notes.Add(note);
                 noteWidth = Mathf.Max(noteWidth, RoomCursor.WordsWidth(note, 0f));
             }
@@ -614,7 +615,7 @@ namespace Halcyonic.XR.UI
                 var (number, _) = Text(KitRole.Title, GaugeNumberDp, GaugeNumberLineDp, Color.white, LineWords.Ours(gauge.PercentLeft + "%"), x, -line, inner, 1);
                 x += RoomCursor.WordsWidth(number, 0f) + S(10f);
                 // The window's word on the number's baseline: its line's foot against the number's.
-                Text(KitRole.Label, GaugeLabelDp, GaugeLabelLineDp, White(0.66f), gauge.Label, x, -(line + S(GaugeNumberLineDp) - S(GaugeLabelLineDp) - S(4f)), inner, 1);
+                Text(KitRole.Label, GaugeLabelDp, GaugeLabelLineDp, White(NoteAlpha), gauge.Label, x, -(line + S(GaugeNumberLineDp) - S(GaugeLabelLineDp) - S(4f)), inner, 1);
                 var middle = line + S(GaugeNumberLineDp) + S(14f) + Mathf.Max(S(TrackTallDp), S(GaugeResetLineDp)) / 2f;
                 Plate(new Vector2(bar, S(TrackTallDp)), S(TrackTallDp) / 2f, White(0.10f), new Vector2(S(GaugePadXDp) + bar / 2f, -middle), "gauge track");
                 var filled = bar * gauge.PercentLeft / 100f;
