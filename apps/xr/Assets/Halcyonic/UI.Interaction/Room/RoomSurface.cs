@@ -159,8 +159,12 @@ namespace Halcyonic.XR.UI
             new RoomGlassLook(WithAlpha(Hex(0x3C4247), TintAlpha), WithAlpha(Hex(0x343A3F), TintAlpha), Hex(0x505559), Hex(0x484E52), 1f, shadow: false,
                 innerColour: new Color(1f, 1f, 1f, 0.12f), innerCornerDp: 0f);
 
-        /// <summary>The tint's alpha in Unity's linear blend: the page's 0.72 over a white wall (DESIGN's FINISH-3).</summary>
-        public const float TintAlpha = 0.86f;
+        /// <summary>
+        /// The tint's alpha in Unity's linear blend: firmer than the page's 0.72 over a white wall (DESIGN's FINISH-3), since at
+        /// 0.86 a bright room's hard edges showed crisp behind the words and the quiet words' contrast hung on the wall behind
+        /// (the critic, 2026-11-12).
+        /// </summary>
+        public const float TintAlpha = 0.91f;
 
         /// <summary>The kind's corner in dp (DESIGN's FINISH-3): panels 20, a bar 22, a name tag 14.</summary>
         public static float CornerDp(RoomSurfaceKind kind) => kind == RoomSurfaceKind.Bar ? 22f : kind == RoomSurfaceKind.Tag ? 14f : RoomGeometry.PanelCornerDp;

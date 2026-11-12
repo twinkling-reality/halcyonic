@@ -185,7 +185,7 @@ namespace Halcyonic.Client
                 // what kind of thing it is, and each value to be seen as a name to type, in mono under its mark.
                 var shown = sheet.Checks.Where(check => check.Shown != null).Take(RoomCard.MostSlots)
                     .Select(check => new RoomSlot(MarkOf(check.Kind), check.Shown!, mono: true)).ToList();
-                return new RoomCard(sheet.Title, sheet.CheckWords, status: warned, slots: shown, more: foot);
+                return new RoomCard(sheet.Title, sheet.CheckWords, sheet.Head, status: warned, slots: shown, more: foot);
             }
 
             // Each fact its value alone, its kind's own mark saying what it is: no note that names a field (the critic, 2026-11-11).
@@ -197,10 +197,11 @@ namespace Halcyonic.Client
             {
                 var slots = sheet.Facts.Where(fact => fact.Slot).Take(RoomCard.MostSlots).Select(fact => new RoomSlot(fact.Mark, fact.Value, fact.Mono)).ToList();
                 var rows = factRows.Concat(sheet.Items.Take(firstItems)).ToList();
-                return new RoomCard(sheet.Title, sheet.Line, status: warned, slots: slots, list: rows, more: foot);
+                return new RoomCard(sheet.Title, sheet.Line, sheet.Head, status: warned, slots: slots, list: rows, more: foot);
             }
             var later = sheet.Items.Skip(firstItems + (page - 1) * RoomCard.ListAPage).Take(RoomCard.ListAPage).ToList();
-            return new RoomCard(sheet.Title, status: warned, list: later, more: foot);
+            // Every part under the same header, so paging never moves the title or changes its form (the critic, 2026-11-12).
+            return new RoomCard(sheet.Title, head: sheet.Head, status: warned, list: later, more: foot);
         }
 
         /// <summary>The mark a value to check stands under: a web address its link.</summary>
