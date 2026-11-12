@@ -758,6 +758,46 @@ namespace Halcyonic.XR.UI
             return top - S(TileGapDp);
         }
 
+        /// <summary>The steps as rows, each its mark at the left and its name beside it on one line, where a row of columns cannot hold them.</summary>
+        private float LayStepRows(IReadOnlyList<RoomCardStep> steps, TextMeshPro[] labels, float width, float down)
+        {
+            var left = S(StepDp) + S(RowGapDp);
+            for (var index = 0; index < steps.Count; index++)
+            {
+                var step = steps[index];
+                var top = down + index * (S(StepDp) + S(StepRowGapDp));
+                var centre = new Vector2(S(StepDp) / 2f, -(top + S(StepDp) / 2f));
+                StepMark(step, centre);
+                var label = labels[index];
+                label.textWrappingMode = TextWrappingModes.Normal;
+                label.alignment = TextAlignmentOptions.Left;
+                var laid = KitType.Lay(label, width - left, 2);
+                var tall = Mathf.Max(laid.Lines, 1) * S(StepNameLineDp);
+                label.rectTransform.sizeDelta = new Vector2(width - left, label.rectTransform.sizeDelta.y);
+                label.transform.localPosition = new Vector3(left, -(top + (S(StepDp) - tall) / 2f), -RoomType.Units(0.5f));
+            }
+            return down + steps.Count * S(StepDp) + (steps.Count - 1) * S(StepRowGapDp);
+        }
+
+        /// <summary>The gap between two steps standing as rows.</summary>
+        public const float StepRowGapDp = 10f;
+
+        private void StepMark(RoomCardStep step, Vector2 centre)
+        {
+            var (ground, ink, glyph, edge) = step.Tone switch
+            {
+                RoomTone.Good => (Rgb(GoodFill), Color.white, (RoomGlyph?)RoomGlyph.Check, Color.clear),
+                RoomTone.Bad => (Rgb(BadFill), Color.white, RoomGlyph.Alert, Color.clear),
+                RoomTone.Working => (Rgb(WorkingFill), Color.white, RoomGlyph.Wrench, Color.clear),
+                // Not run: an outline that holds over the bright room, nothing in it.
+                RoomTone.Skipped => (Color.clear, Color.clear, (RoomGlyph?)null, White(0.46f)),
+                _ => (Rgb(QuietFill), Color.white, RoomGlyph.Wait, Color.clear),
+            };
+            Plate(new Vector2(S(StepDp), S(StepDp)), S(StepCornerDp), ground, centre, "step " + step.Name, edge, edge.a > 0f ? S(2f) : 0f);
+            if (glyph is RoomGlyph shown) Glyph(shown, StepGlyphDp, ink, centre, "step " + step.Name, MarkStroke);
+            if (step.TriesOf > 0) Pips(step.TriesUsed, step.TriesOf, step.Tone, new Vector2(centre.x, centre.y - S(StepDp) / 2f - S(PipDropDp) + S(PipDp) / 2f));
+        }
+
         private float LaySteps(IReadOnlyList<RoomCardStep> steps, float width, float down)
         {
             // Each step as wide as its name or its mark, whichever is wider; the joins share what is left.
@@ -783,12 +823,17 @@ namespace Halcyonic.XR.UI
             {
                 widest = Mathf.Max(S(StepDp), (width - least) / steps.Count);
                 tallest = 0f;
+                var whole = true;
                 foreach (var label in labels)
                 {
                     label.textWrappingMode = TextWrappingModes.Normal;
                     var wrapped = KitType.Lay(label, widest, 2);
+                    label.ForceMeshUpdate(true);
+                    whole &= !label.isTextOverflowing;
                     tallest = Mathf.Max(tallest, Mathf.Max(wrapped.Lines, 1) * S(StepNameLineDp));
                 }
+                // Not even two lines a column hold a name: the steps stand as rows, each its mark and its name beside it.
+                if (!whole) return LayStepRows(steps, labels, width, down);
             }
             for (var index = 0; index < widths.Length; index++) widths[index] = widest;
             var sum = widest * widths.Length;
@@ -800,18 +845,7 @@ namespace Halcyonic.XR.UI
             {
                 var step = steps[index];
                 var centre = new Vector2(x + widths[index] / 2f, middle);
-                var (ground, ink, glyph, edge) = step.Tone switch
-                {
-                    RoomTone.Good => (Rgb(GoodFill), Color.white, (RoomGlyph?)RoomGlyph.Check, Color.clear),
-                    RoomTone.Bad => (Rgb(BadFill), Color.white, RoomGlyph.Alert, Color.clear),
-                    RoomTone.Working => (Rgb(WorkingFill), Color.white, RoomGlyph.Wrench, Color.clear),
-                    // Not run: an outline that holds over the bright room, nothing in it.
-                    RoomTone.Skipped => (Color.clear, Color.clear, (RoomGlyph?)null, White(0.46f)),
-                    _ => (Rgb(QuietFill), Color.white, RoomGlyph.Wait, Color.clear),
-                };
-                Plate(new Vector2(S(StepDp), S(StepDp)), S(StepCornerDp), ground, centre, "step " + step.Name, edge, edge.a > 0f ? S(2f) : 0f);
-                if (glyph is RoomGlyph shown) Glyph(shown, StepGlyphDp, ink, centre, "step " + step.Name, MarkStroke);
-                if (step.TriesOf > 0) Pips(step.TriesUsed, step.TriesOf, step.Tone, new Vector2(centre.x, centre.y - S(StepDp) / 2f - S(PipDropDp) + S(PipDp) / 2f));
+                StepMark(step, centre);
                 // The name centred under its mark.
                 var label = labels[index];
                 label.rectTransform.sizeDelta = new Vector2(widths[index], label.rectTransform.sizeDelta.y);
