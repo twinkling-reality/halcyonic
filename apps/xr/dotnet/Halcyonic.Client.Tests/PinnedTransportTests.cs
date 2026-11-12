@@ -306,8 +306,8 @@ public class PinnedTransportTests
         using (var api = local.CreateApi()) Assert.That(api.AccessRefused, Is.EqualTo(ConnectionText.AccessTokenRefused), "a refused request says what the connection says");
         using (var api = paired.CreateApi()) Assert.That(api.AccessRefused, Is.EqualTo(ConnectionText.PairingRefused));
         Assert.That((local.TurnedAway, paired.TurnedAway), Is.EqualTo((
-            "Connection Refused · Retrying · Restart Computer App if Repeated",
-            "Connection Refused · Retrying · Pair Again if Repeated")),
+            "Connection Refused, trying again; restart the app on the computer if this repeats",
+            "Connection Refused, trying again; pair again if this repeats")),
             "a turned-away connection's way on is true for how this headset reaches the computer");
         var client = new Halcyonic.Contracts.ClientInfo { Name = "halcyonic-xr", Version = "test", DeviceLabel = "Quest" };
         foreach (var target in new[] { local, paired })

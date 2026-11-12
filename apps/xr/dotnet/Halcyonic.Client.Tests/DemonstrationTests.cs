@@ -941,11 +941,11 @@ public class DemonstrationFallbackTests
     {
         var waiting = DemonstrationFallback.Describe(
             DemonstrationReason.Unreachable, new ConnectionStatus(ConnectionPhase.WaitingToRetry, ConnectionText.NoAnswer(TimeSpan.FromSeconds(10))));
-        Assert.That(waiting, Does.EndWith(ConnectionText.Unreachable + " · No Answer in 10 s"));
+        Assert.That(waiting, Does.EndWith(ConnectionText.Unreachable + ". No Answer, nothing in 10 s"));
 
         var refused = DemonstrationFallback.Describe(
             DemonstrationReason.Unreachable, new ConnectionStatus(ConnectionPhase.Refused, ConnectionText.OtherVersion));
-        Assert.That(refused, Does.EndWith("App Refused · Version Mismatch · Install Same Version"));
+        Assert.That(refused, Does.EndWith("Different Versions, install the same version on the headset and the computer"));
 
         var token = DemonstrationFallback.Describe(
             DemonstrationReason.Unreachable, new ConnectionStatus(ConnectionPhase.Refused, ConnectionText.AccessTokenRefused, accessRefused: true));

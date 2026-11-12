@@ -44,10 +44,10 @@ public class HostTextTests
             Assert.That(detail, Does.Not.Contain("access token").IgnoreCase, "shown after Can't reach your computer: " + detail);
         }
         Assert.That(ConnectionText.AccessTokenRefused, Is.EqualTo(
-            "Access Code Refused · Mismatch · Copy Current Code · Restart App"));
+            "Access Code Refused, copy the current code, then restart the app"));
         Assert.That(ConnectionText.AccessTokenUnproved, Is.EqualTo(
-            "Code Withheld · Host Unverified · Copy Current Code · Check App · Restart App"));
-        Assert.That(ConnectionText.Unreachable, Is.EqualTo("Computer Unreachable · Retrying · Check App and Network"));
+            "Code Withheld, the computer wasn't verified; copy the current code, then restart the app"));
+        Assert.That(ConnectionText.Unreachable, Is.EqualTo("Computer Unreachable, trying again; check the app and the network"));
         Assert.That(EntryText.NoFolders, Is.EqualTo("No Folders Allowed · Allow on Computer · Try Again"));
         Assert.That(EntryText.DemoCannotStart, Is.EqualTo("Demo · No New Work"));
         Assert.That(SettingsText.YourMac, Is.EqualTo("Your Computer"));
