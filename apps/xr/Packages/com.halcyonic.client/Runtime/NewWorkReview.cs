@@ -364,7 +364,11 @@ namespace Halcyonic.Client
 
         // The bundled TMP font cannot show every character. Spell each non-ASCII code point and
         // control character in ASCII, and double a literal backslash so a typed marker differs.
-        private static string Safe(string value)
+        /// <summary>
+        /// Text that goes out, spelled for a label character for character: every printable character as it is, a backslash
+        /// doubled, anything else as its code point. Shared by every review of what will be sent (SCREENS's ReviewCard too).
+        /// </summary>
+        internal static string Safe(string value)
         {
             var result = new StringBuilder(value.Length);
             for (var index = 0; index < value.Length; index++)
