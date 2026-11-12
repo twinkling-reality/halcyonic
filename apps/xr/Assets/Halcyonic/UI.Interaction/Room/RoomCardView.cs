@@ -1019,7 +1019,8 @@ namespace Halcyonic.XR.UI
                 var underTall = 0f;
                 if (row.Under != null)
                 {
-                    (underLabel, underTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), row.Under, nameLeft, 0f, nameWidth, 1);
+                    // Outside words lead cut on one line; the product's own (a host's reason) are never cut, and take up to three.
+                    (underLabel, underTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), row.Under, nameLeft, 0f, nameWidth, row.Under.AllTheirs ? 1 : 3);
                     if (row.Under.AllTheirs) underTall = Excerpt(underLabel, row.Under, nameWidth, 1, RowNoteLineDp);
                 }
                 var block = nameTall + (underLabel != null ? S(2f) + underTall : 0f);

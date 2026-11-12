@@ -156,22 +156,22 @@ public sealed class RoomPanelCardsTests
         var choose = new KitControl(KitPlace.Choice, frame, "assistant.model.choose", null, "Use Model", null, available: true, reason: null, holds: false);
         var rows = new[] { new UsageLeftRow(LineWords.Ours(UsageLeftPresenter.Weekly), "At most 38% left", 38, window: UsageLeftPresenter.Weekly) };
 
-        var here = RoomPanelCards.Usage(rows, RoomPanelCards.Assistant("glimmer-30b-q4", null, choose))!;
+        var here = RoomPanelCards.Usage(rows, RoomPanelCards.Assistant("glimmer-30b-q4", null, null, choose))!;
         var row = here.List.Single();
-        Assert.That((row.Kind, row.Name.Text, row.Name.AllTheirs, row.Mono), Is.EqualTo((RoomKind.Agent, "glimmer-30b-q4", true, true)), "the model, as its maker names it");
+        Assert.That((row.Kind, row.Name.Text, row.Name.AllTheirs, row.Mono), Is.EqualTo((RoomKind.Computer, "glimmer-30b-q4", true, false)), "the model, as its maker names it, where it runs its tile");
         Assert.That(row.Under!.Text, Is.EqualTo("Assistant on " + CaptureNames.Host), "what the row is, and where the model runs");
         Assert.That(row.Press, Is.SameAs(choose), "the row presses to the host's Use Model");
-        Assert.That((here.Gauges.Count, here.More), Is.EqualTo((1, (LineWords?)null)));
+        Assert.That(here.Gauges.Count, Is.EqualTo(1));
 
-        var hosted = RoomPanelCards.Usage(rows, RoomPanelCards.Assistant("muse-wonder-1.0", "Meta", choose))!.List.Single();
-        Assert.That(hosted.Under!.Text, Is.EqualTo("Assistant on Meta"));
+        var hosted = RoomPanelCards.Usage(rows, RoomPanelCards.Assistant("muse-wonder-1.0", "Meta", null, choose))!.List.Single();
+        Assert.That((hosted.Under!.Text, hosted.Kind), Is.EqualTo(("Assistant Hosted by Meta", RoomKind.Link)));
         Assert.That((hosted.Under.Runs.First().Theirs, hosted.Under.Runs.Last().Theirs), Is.EqualTo((false, true)), "the provider's name is theirs, the row's word ours");
 
         var reason = "Meta refused its key. Give it a new key on this computer.";
-        var refused = RoomPanelCards.Usage(new UsageLeftRow[0], RoomPanelCards.Assistant(null, null, choose), reason)!;
+        var refused = RoomPanelCards.Usage(new UsageLeftRow[0], RoomPanelCards.Assistant(null, null, reason, choose))!;
         Assert.That((refused.List.Single().Name.Text, refused.List.Single().Note, refused.List.Single().Tone),
-            Is.EqualTo((RoomPanelCards.AssistantWords, RoomPanelCards.AssistantUnavailable, RoomTone.Bad)), "no model to name: it says it cannot run");
-        Assert.That(refused.More!.Text, Is.EqualTo(reason), "the host's own words why, as the card's foot");
+            Is.EqualTo((RoomPanelCards.AssistantUnavailable, (string?)null, RoomTone.Bad)), "no model to name: it says it cannot run");
+        Assert.That((refused.List.Single().Under!.Text, refused.More), Is.EqualTo((reason, (LineWords?)null)), "the host's own words why, under the row they belong to");
         Assert.That((refused.Gauges.Count, refused.Description), Is.EqualTo((0, (LineWords?)null)), "no reading, no line about one");
         Assert.That(here.AnyDot || refused.AnyDot, Is.False);
     }

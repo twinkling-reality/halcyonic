@@ -33,7 +33,7 @@ namespace Halcyonic.Client
         public const string WeekWords = "Week";
 
         /// <summary>What a usage card says of its numbers: at most what is left, as the provider reported it, never a current value.</summary>
-        public const string UsageLine = "At most what is left, as the provider last reported it.";
+        public const string UsageLine = "At most what is left, as last reported.";
 
         /// <summary>
         /// The result at rest: the task's name as the title beside the result's picture; its facts as slots (the check, and
@@ -123,8 +123,7 @@ namespace Halcyonic.Client
         /// at most what is left, as reported, never a current value. Null where there is no reading.
         /// </summary>
         /// <param name="assistant">The assistant's row (<see cref="Assistant"/>), under the gauges; null where it is not read.</param>
-        /// <param name="assistantReason">Where the assistant cannot run, the host's own words why, as the card's foot; null otherwise.</param>
-        public static RoomCard? Usage(IReadOnlyList<UsageLeftRow> rows, RoomListRow? assistant = null, string? assistantReason = null)
+        public static RoomCard? Usage(IReadOnlyList<UsageLeftRow> rows, RoomListRow? assistant = null)
         {
             if (rows.Count == 0 && assistant == null) return null;
             var several = rows.Select(row => row.Agent ?? "").Distinct().Count() > 1;
@@ -136,31 +135,33 @@ namespace Halcyonic.Client
                 return new RoomGauge(label, row.Left, row.Resets.Length > 0 ? "Resets " + row.Resets : null, week ? RoomKind.Week : RoomKind.Session);
             }).ToList();
             return new RoomCard(LineWords.Ours(UsageTitle), gauges.Count > 0 ? LineWords.Ours(UsageLine) : null, gauges: gauges,
-                list: assistant == null ? null : new[] { assistant },
-                more: assistant != null && !string.IsNullOrWhiteSpace(assistantReason) ? LineWords.Ours(assistantReason!.Trim()) : null);
+                list: assistant == null ? null : new[] { assistant });
         }
 
         public const string AssistantWords = "Assistant";
 
-        public const string AssistantUnavailable = "Unavailable";
+        public const string AssistantUnavailable = "Assistant Unavailable";
 
         /// <summary>
-        /// The assistant's row of the usage card (the lead, 2026-11-12): the model it runs on, as its maker names it and in the
-        /// face of a name to type; under it what the row is and where the model runs, this computer or the provider's own name;
-        /// the row's press the host's Use Model, its chevron. Where the assistant cannot run there is no model to name: the row
-        /// says it is unavailable, and the host's own words why stand as the card's foot (<see cref="Usage"/>). Label, value
-        /// and where are each their own words, never joined by a mark.
+        /// The assistant's row of the usage card (the lead, 2026-11-12): the model it runs on, as its maker names it, the row's
+        /// main line; under it what the row is and where the model runs, this computer or the provider's own name, and the tile
+        /// says where too (the computer, or the link out to a host); the row's press is the host's Use Model, its chevron.
+        /// Where the assistant cannot run there is no model to name: the row says the assistant is unavailable, and the host's own
+        /// words why stand under it across the row, whole (the critic, 2026-11-12: a foot apart read as the card's). Label, value and where are
+        /// each their own words, never joined by a mark.
         /// </summary>
         /// <param name="model">The model's id, theirs; null or empty where the assistant cannot run.</param>
         /// <param name="provider">The provider's own name where the model is hosted; null where it runs on this computer.</param>
+        /// <param name="reason">Where the assistant cannot run, the host's own words why; ignored where it can.</param>
         /// <param name="press">The host's entry that chooses the model, as XR raises it; null where none is offered.</param>
-        public static RoomListRow Assistant(string? model, string? provider, KitControl? press)
+        public static RoomListRow Assistant(string? model, string? provider, string? reason, KitControl? press)
         {
             if (string.IsNullOrWhiteSpace(model))
-                return new RoomListRow(RoomKind.Agent, LineWords.Ours(AssistantWords), AssistantUnavailable, RoomTone.Bad, press: press);
-            var where = string.IsNullOrWhiteSpace(provider) ? LineWords.Ours(CaptureNames.Host) : LineWords.TheirName(provider!.Trim());
-            return new RoomListRow(RoomKind.Agent, LineWords.TheirName(model!.Trim()), mono: true, press: press,
-                under: LineWords.Ours(AssistantWords + " on ") + where);
+                return new RoomListRow(RoomKind.Agent, LineWords.Ours(AssistantUnavailable), tone: RoomTone.Bad, press: press,
+                    under: string.IsNullOrWhiteSpace(reason) ? null : LineWords.Ours(reason!.Trim()));
+            var hosted = !string.IsNullOrWhiteSpace(provider);
+            var where = hosted ? LineWords.Ours(AssistantWords + " Hosted by ") + LineWords.TheirName(provider!.Trim()) : LineWords.Ours(AssistantWords + " on " + CaptureNames.Host);
+            return new RoomListRow(hosted ? RoomKind.Link : RoomKind.Computer, LineWords.TheirName(model!.Trim()), press: press, under: where);
         }
     }
 }
