@@ -551,6 +551,17 @@ public class RoomResultTests
     }
 
     /// <summary>Every step kind has words of its own; one with none is unknown, never another step's name (2026-11-12).</summary>
+    /// <summary>The lead's 11:37Z: the result's Play is the project's places list's entry, never a Play of its own.</summary>
+    [Test]
+    public void TheResultsPlayIsDrawnFromTheProjectsOnePlacesList()
+    {
+        var listed = Bar(new RoomResult(false, false, true, true, null, Steps(), play: PlayInHeadset.Offered,
+            places: new[] { new ProjectPlace(ProjectPlaceKind.PlayInHeadset, HeadsetPlay.ActionWords, "p1") }));
+        Assert.That(listed.Column.Select(action => action.Control.Action), Does.Contain(RoomResult.PlayInHeadset));
+        var unlisted = Bar(new RoomResult(false, false, true, true, null, Steps(), play: PlayInHeadset.Offered, places: Array.Empty<ProjectPlace>()));
+        Assert.That(unlisted.Column.Select(action => action.Control.Action), Has.None.EqualTo(RoomResult.PlayInHeadset), "no list entry, no Play");
+    }
+
     [Test]
     public void EveryCheckStepIsNamedByItsOwnKind()
     {
