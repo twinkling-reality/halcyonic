@@ -627,6 +627,9 @@ namespace Halcyonic.XR.UI
             return down + count * tall + (count - 1) * S(GaugeGapDp);
         }
 
+        /// <summary>The most lines a slot's value wraps to where it is wider than the card: a long web address, whole.</summary>
+        public const int SlotValueLines = 6;
+
         private float LaySlots(IReadOnlyList<RoomSlot> slots, float width, float down)
         {
             var count = Mathf.Min(slots.Count, RoomCard.MostSlots);
@@ -635,6 +638,7 @@ namespace Halcyonic.XR.UI
             // a row of its own, and every row still meets both edges.
             var values = new List<(TextMeshPro Label, float Tall)>();
             var least = new float[count];
+            var extra = new int[count];
             for (var index = 0; index < count; index++)
             {
                 var laid = slots[index].Mono
@@ -642,6 +646,15 @@ namespace Halcyonic.XR.UI
                     : Text(KitRole.Body, CaptionTypeDp, CaptionLineDp, Color.white, slots[index].Value, 0f, 0f, RoomType.Units(2000f), 1);
                 values.Add(laid);
                 least[index] = Mathf.Min(width, Mathf.Max(RoomCursor.WordsWidth(laid.Label, 0f), S(SlotGlyphBoxDp)) + 2f * S(SlotPadDp));
+                if (RoomCursor.WordsWidth(laid.Label, 0f) + 2f * S(SlotPadDp) > width + 1e-4f)
+                {
+                    // A value wider than the card (a long web address) is shown whole, wrapped on the card's width in a well of
+                    // its own, never cut (the critic, 2026-11-12; every value that goes out is shown whole, ADR 0060).
+                    laid.Label.textWrappingMode = TextWrappingModes.Normal;
+                    var wrapped = KitType.Lay(laid.Label, width - 2f * S(SlotPadDp), SlotValueLines);
+                    extra[index] = Mathf.Max(wrapped.Lines, 1) - 1;
+                    least[index] = width;
+                }
             }
             var rows = new List<List<int>> { new List<int>() };
             var used = 0f;
@@ -666,6 +679,8 @@ namespace Halcyonic.XR.UI
             var columns = new List<float>();
             foreach (var row in rows)
             {
+                var rowWell = well;
+                foreach (var index in row) rowWell = Mathf.Max(rowWell, well + extra[index] * S(CaptionLineDp));
                 var sum = 0f;
                 foreach (var index in row) sum += least[index];
                 var share = (width - S(TileGapDp) * (row.Count - 1) - sum) / row.Count;
@@ -688,7 +703,7 @@ namespace Halcyonic.XR.UI
                     if (columns.Count < rows[0].Count) columns.Add(tile);
                     place++;
                     values[index].Label.rectTransform.sizeDelta = new Vector2(tile - 2f * S(SlotPadDp), values[index].Label.rectTransform.sizeDelta.y);
-                    Plate(new Vector2(tile, well), S(TileCornerDp), White(WellAlpha), new Vector2(x + tile / 2f, -(top + well / 2f)), "slot " + slot.Kind, under: true);
+                    Plate(new Vector2(tile, rowWell), S(TileCornerDp), White(WellAlpha), new Vector2(x + tile / 2f, -(top + rowWell / 2f)), "slot " + slot.Kind, under: true);
                     // The glyph's drawn edge on the value's left edge: its box moved left by where its ink starts.
                     var glyphOf = slot.Kind == RoomKind.Level ? (RoomGlyph?)null : slot.Kind == RoomKind.Passed ? RoomGlyph.Check : slot.Kind == RoomKind.Failed ? RoomGlyph.Alert : GlyphOf(slot.Kind);
                     var ink = glyphOf is RoomGlyph drawn ? RoomGlyphs.InkLeft(drawn) / RoomGlyphs.Grid * S(SlotGlyphDp) : 0f;
@@ -719,7 +734,7 @@ namespace Halcyonic.XR.UI
                     values[index].Label.transform.localPosition = new Vector3(x + S(SlotPadDp), -(top + S(SlotPadDp) + S(SlotGlyphBoxDp) + S(CaptionGapDp)), -RoomType.Units(0.5f));
                     x += tile + S(TileGapDp);
                 }
-                top += well + S(TileGapDp);
+                top += rowWell + S(TileGapDp);
             }
             return top - S(TileGapDp);
         }
