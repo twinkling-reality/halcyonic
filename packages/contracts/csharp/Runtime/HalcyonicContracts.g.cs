@@ -4938,6 +4938,18 @@ namespace Halcyonic.Contracts
         public string CommandId { get; set; } = default!;
     }
 
+    public sealed class WorkspaceRequestSubmitPayloadAct
+    {
+        [global::Newtonsoft.Json.JsonProperty("command_type", Required = global::Newtonsoft.Json.Required.Always)]
+        public string CommandType { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("values", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.Dictionary<string, global::Newtonsoft.Json.Linq.JToken> Values { get; set; } = new global::System.Collections.Generic.Dictionary<string, global::Newtonsoft.Json.Linq.JToken>();
+
+        [global::Newtonsoft.Json.JsonProperty("lists", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.Dictionary<string, global::Newtonsoft.Json.Linq.JToken> Lists { get; set; } = new global::System.Collections.Generic.Dictionary<string, global::Newtonsoft.Json.Linq.JToken>();
+    }
+
     public sealed class WorkspaceRequestSubmitPayload
     {
         [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
@@ -4954,6 +4966,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("places", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public global::System.Collections.Generic.List<string>? Places { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("act", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public WorkspaceRequestSubmitPayloadAct? Act { get; set; }
     }
 
     public sealed class WorkspaceRequestResumePayload

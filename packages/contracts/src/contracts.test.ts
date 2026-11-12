@@ -718,6 +718,7 @@ describe('the C# bindings', () => {
     'WorkspaceRequestStep.place', // the client's place the assistant picked (ADR 0060)
     'WorkspaceRequestStep.proposal', // what the assistant proposed (ADR 0060)
     'WorkspaceRequestStepRecordedPayload.proposed_command', // the command a proposal prepared (ADR 0060)
+    'WorkspaceRequestSubmitPayload.act', // the person's own press on an entry (ADR 0060)
     'WorkspaceRequestSubmitPayload.places', // the places the client can go (ADR 0060)
     'WorkspaceRequestView.observed', // the same, on the view
     'WorkspaceRequestView.places', // the places the client can go (ADR 0060)
