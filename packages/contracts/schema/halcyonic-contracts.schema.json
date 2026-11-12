@@ -894,6 +894,16 @@
           "maxLength": 32000,
           "pattern": "\\S"
         },
+        "places": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40,
+            "pattern": "\\S"
+          },
+          "maxItems": 16
+        },
         "status": {
           "$ref": "#/$defs/WorkspaceRequestStatus"
         },
@@ -1248,6 +1258,49 @@
           "minLength": 1,
           "maxLength": 2000,
           "pattern": "\\S"
+        },
+        "proposal": {
+          "type": "object",
+          "required": [
+            "command_type",
+            "confirm",
+            "what_happens",
+            "review"
+          ],
+          "properties": {
+            "command_type": {
+              "$ref": "#/$defs/CommandType"
+            },
+            "confirm": {
+              "enum": [
+                "none",
+                "undo",
+                "review"
+              ]
+            },
+            "what_happens": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000,
+              "pattern": "\\S"
+            },
+            "review": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ReviewDigest"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "place": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
         }
       },
       "additionalProperties": false
@@ -9399,6 +9452,9 @@
                       "type": "null"
                     }
                   ]
+                },
+                "proposed_command": {
+                  "$ref": "#/$defs/CommandEnvelope"
                 }
               },
               "additionalProperties": false
@@ -13770,6 +13826,16 @@
                   "minLength": 1,
                   "maxLength": 32000,
                   "pattern": "\\S"
+                },
+                "places": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40,
+                    "pattern": "\\S"
+                  },
+                  "maxItems": 16
                 }
               },
               "additionalProperties": false
