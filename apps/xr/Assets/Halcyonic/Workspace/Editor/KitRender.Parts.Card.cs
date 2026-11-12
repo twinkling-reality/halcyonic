@@ -263,7 +263,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 label.ForceMeshUpdate(true);
                 var words = label.GetParsedText();
                 // A paged description runs on past its page by design (its page breaks between lines); every other label is whole.
-                Require(label.textInfo.characterCount > 0 && (label == view.PagedDescription || !label.isTextOverflowing) && !words.Contains("…"), "\"" + words + "\" is cut");
+                // An excerpt row's outside words show their lead cut at a word, the ellipsis theirs; nothing else is ever cut.
+                var excerpt = view.Excerpts.Contains(label);
+                Require(label.textInfo.characterCount > 0 && (label == view.PagedDescription || !label.isTextOverflowing) && (excerpt || !words.Contains("…")), "\"" + words + "\" is cut");
+                if (excerpt) Require(words.EndsWith("…", StringComparison.Ordinal) && !words.EndsWith(" …", StringComparison.Ordinal), "\"" + words + "\" is an excerpt not ended at a word");
                 // A file's own line may hold any character: only the card's own words are read for the separator.
                 Require(view.ReadingShown.Contains(label) || !words.Contains(KitMomentWords.Dot.Trim()), "\"" + words + "\" joins facts on a dot");
                 var bounds = label.textBounds;
@@ -342,8 +345,11 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             if (card.Slots.Count > 1)
                 Require(Mathf.Abs(Left("slot")) < slack && Mathf.Abs(Right("slot") - inner) < slack, "the slots do not meet the card's two edges");
-            if (card.Slots.Count == 1)
+            // A lone slot stands at its own width at the left; one whose value is wider than the card wraps whole across it.
+            if (card.Slots.Count == 1 && view.SlotsWrapped == 0)
                 Require(Mathf.Abs(Left("slot")) < slack && Right("slot") < inner - slack, "a card's one slot does not stand at its own width at the left");
+            if (card.Slots.Count == 1 && view.SlotsWrapped == 1)
+                Require(Mathf.Abs(Left("slot")) < slack && Mathf.Abs(Right("slot") - inner) < slack, "a wrapped slot does not span the card");
             if (card.Gauges.Count > 0)
             {
                 Require(Mathf.Abs(Left("gauge tile")) < slack && Mathf.Abs(Right("gauge tile") - inner) < slack, "the gauges do not meet the card's two edges");
@@ -380,7 +386,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     // Leaning outside words stand a hair apart from ours (GlazeRuns), so a name is matched by its words, not its spaces.
                     string Words(string text) => string.Join(" ", text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-                    var nameLabel = view.Shown.FirstOrDefault(label => Words(label.GetParsedText()) == Words(row.Name.Text));
+                    // An excerpt shows the lead of its words, cut at a word: matched by that lead.
+                    var nameLabel = view.Shown.FirstOrDefault(label => Words(label.GetParsedText()) == Words(row.Name.Text)
+                        || (row.Excerpt && view.Excerpts.Contains(label) && Words(row.Name.Text).StartsWith(Words(label.GetParsedText()).TrimEnd('…'), StringComparison.Ordinal)));
                     Require(nameLabel != null, row.Name.Text + " is not shown");
                     if (nameLabel != null)
                         Require(nameLabel.transform.localPosition.x + nameLabel.textBounds.min.x >= RoomType.Scaled(RoomCardView.RowTileDp + RoomCardView.RowGapDp) - unit * 1.5f,

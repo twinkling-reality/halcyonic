@@ -221,6 +221,12 @@ namespace Halcyonic.XR.UI
         /// <summary>Every label the card shows now, in the order it laid them: for checks.</summary>
         public List<TextMeshPro> Shown { get; } = new List<TextMeshPro>();
 
+        /// <summary>The labels shown as an excerpt of outside words, their lead cut at a word (a row that opens them whole).</summary>
+        public List<TextMeshPro> Excerpts { get; } = new List<TextMeshPro>();
+
+        /// <summary>How many slots' values were wider than the card and wrapped whole in a well of their own.</summary>
+        public int SlotsWrapped { get; private set; }
+
         /// <summary>Every tile, mark and plate the card shows now, with what it is: for checks.</summary>
         public List<(RoomShape Plate, string What)> Plates { get; } = new List<(RoomShape, string)>();
 
@@ -286,6 +292,8 @@ namespace Halcyonic.XR.UI
             PagedDescription = null;
             DescriptionPages = 1;
             Shown.Clear();
+            Excerpts.Clear();
+            SlotsWrapped = 0;
             ReadingShown.Clear();
             Plates.Clear();
             Glyphs.Clear();
@@ -654,6 +662,7 @@ namespace Halcyonic.XR.UI
                     var wrapped = KitType.Lay(laid.Label, width - 2f * S(SlotPadDp), SlotValueLines);
                     extra[index] = Mathf.Max(wrapped.Lines, 1) - 1;
                     least[index] = width;
+                    SlotsWrapped++;
                 }
             }
             var rows = new List<List<int>> { new List<int>() };
@@ -877,8 +886,19 @@ namespace Halcyonic.XR.UI
                 label.ForceMeshUpdate(true);
                 return !label.isTextOverflowing;
             });
+            // At a word: where the cut fell inside one, back to the space before it, so no word is shown in part.
+            var text = cut.Text;
+            if (text.EndsWith("\u2026", System.StringComparison.Ordinal))
+            {
+                var body = text.Substring(0, text.Length - 1).TrimEnd();
+                var whole = words.Text;
+                var space = body.LastIndexOf(' ');
+                if (body.Length < whole.Length && !char.IsWhiteSpace(whole[body.Length]) && space > 0) body = body.Substring(0, space);
+                cut = LineWords.TheirName(body.TrimEnd(' ', ',', ';', ':') + "\u2026");
+            }
             runs.Set(cut);
             var laid = KitType.Lay(label, width, lines);
+            Excerpts.Add(label);
             return Mathf.Max(laid.Lines, 1) * S(lineDp);
         }
 
