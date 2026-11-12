@@ -904,7 +904,11 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var was = RoomDesign.Enabled;
                 RoomDesign.Enabled = true;
-                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "LiveWalkRenders"));
+                // One size a run, since a live plane's state goes on from one run to the next: HALCYONIC_LIVE_SIZE=Larger
+                // walks at the larger reading size, on a fresh plane of its own.
+                var larger = Environment.GetEnvironmentVariable("HALCYONIC_LIVE_SIZE") == "Larger";
+                if (larger) GlazeText.SetScale(Comfort.LargerTextScale);
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "LiveWalkRenders", larger ? "Larger" : ""));
                 Directory.CreateDirectory(folder);
                 foreach (var old in Directory.GetFiles(folder)) File.Delete(old);
                 var moments = new List<string> { "moment\tdrawn by\tdots | older cut | overlaps\tcoverage\tredesign drew\tolder parts drew\tactions drawn\treached by\tfailures" };
@@ -916,7 +920,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 SynchronizationContext.SetSynchronizationContext(null);
                 try { failures.AddRange(RenderRoomWalk(folder, moments, live)); }
                 catch (Exception error) { failures.Add("live walk: " + error); }
-                finally { SynchronizationContext.SetSynchronizationContext(context); ViewField.Current = null; KeepFontAssetsAsCommitted(); RoomDesign.Enabled = was; }
+                finally { SynchronizationContext.SetSynchronizationContext(context); ViewField.Current = null; KeepFontAssetsAsCommitted(); RoomDesign.Enabled = was; if (larger) GlazeText.SetScale(1f); }
                 File.WriteAllText(Path.Combine(folder, "moments.tsv"), string.Join("\n", moments) + "\n");
                 File.WriteAllText(Path.Combine(folder, "presses.tsv"), "journey\theadset\tdesk\tthe way\n" + string.Join("\n", live.Presses) + "\n");
                 foreach (var row in live.Presses) Debug.Log("Halcyonic: live walk: presses: " + row);
