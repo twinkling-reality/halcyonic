@@ -183,6 +183,17 @@ client                                   server
     `sha256`) records what was read, never the bytes, before the runtime is given them.
   - `RuntimeModel.picture_input` says whether the runtime's list says a model takes pictures; OpenCode refuses,
     with no effect, a model it lists as text only.
+- **What can be done here** (ADR 0060). `GET /api/actions?project_id=&workstream_id=&execution_id=` (all
+  absent for all work; a task's scope names its project and its current execution) answers `HereResponse`
+  `{scope, position, actions}`: what the host would admit there now, in its order, the main action first.
+  - Each `command` entry: `command_type`, `title`, `description`, `confirm` (`none`, `undo` with its `undo`
+    command, or `review`), `sayable`, and `needs` (`name`, `kind`, `label`, `required`, `list`, `max`). A `list`
+    entry opens one of the host's lists (a project's tasks, its versions).
+  - It is computed by the one admission in a probe mode (`admitHere`): only what the scope binds is given, so a
+    check of a value the person still gives waits for the whole admission, and the list never offers what that
+    admission refuses for the state. The command service then leaves out what this host cannot do at all.
+  - A scope whose ids do not hold together lists nothing; ids that are not ids are refused with 400. A client reads
+    it again once the journal passes `position`.
 - **A project's own rules** (ADR 0059). `GET /api/projects/:project_id/rules` reads the project's `AGENTS.md`,
   else its `CLAUDE.md`, at its folder's top: `file`, `state` (`none`, `off`, `on`, `changed`, `too_large`,
   `unreadable`), `size_bytes`, the `text` whole (at most 32 KB) and its `review`.

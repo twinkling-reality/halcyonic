@@ -1,5 +1,24 @@
 import type { TSchema } from 'typebox';
 import {
+  ActionReview,
+  ActionReviewFact,
+  ActionReviewItem,
+  ActionReviewWarning,
+  ChoiceList,
+  ChoiceRow,
+  ChoiceRowKind,
+  ChoicesQuery,
+  ChoicesResponse,
+  ConfirmKind,
+  HereAction,
+  HereNeed,
+  HereQuery,
+  HereResponse,
+  HereScope,
+  NeedKind,
+  ReviewKind,
+} from './actions.ts';
+import {
   CommandSubmissionResponse,
   ErrorResponse,
   EvaluationResponse,
@@ -300,6 +319,23 @@ import {
  * for it, so every language calls each concept by the same name.
  */
 export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
+  ActionReview,
+  ChoiceList,
+  ChoiceRow,
+  ChoiceRowKind,
+  ChoicesQuery,
+  ChoicesResponse,
+  ConfirmKind,
+  HereAction,
+  HereNeed,
+  HereQuery,
+  HereResponse,
+  HereScope,
+  NeedKind,
+  ActionReviewFact,
+  ActionReviewItem,
+  ReviewKind,
+  ActionReviewWarning,
   WorkspaceCommandResponse,
   WorkspaceAgentStatus,
   WorkspaceRequestResponse,

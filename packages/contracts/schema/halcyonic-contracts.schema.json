@@ -10,6 +10,721 @@
     "pairing_protocol": 1
   },
   "$defs": {
+    "ActionReview": {
+      "type": "object",
+      "required": [
+        "command_type",
+        "digest",
+        "confirm_words",
+        "what_happens",
+        "facts",
+        "items",
+        "items_total",
+        "warnings"
+      ],
+      "properties": {
+        "command_type": {
+          "$ref": "#/$defs/CommandType"
+        },
+        "digest": {
+          "$ref": "#/$defs/ReviewDigest"
+        },
+        "confirm_words": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "pattern": "\\S"
+        },
+        "what_happens": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "facts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ActionReviewFact"
+          },
+          "maxItems": 4
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ActionReviewItem"
+          },
+          "maxItems": 200
+        },
+        "items_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ActionReviewWarning"
+          },
+          "maxItems": 8
+        }
+      },
+      "additionalProperties": false
+    },
+    "ChoiceList": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "tasks"
+        },
+        {
+          "type": "string",
+          "const": "versions"
+        },
+        {
+          "type": "string",
+          "const": "runtimes"
+        },
+        {
+          "type": "string",
+          "const": "models"
+        },
+        {
+          "type": "string",
+          "const": "approval_levels"
+        },
+        {
+          "type": "string",
+          "const": "folders"
+        },
+        {
+          "type": "string",
+          "const": "pictures"
+        },
+        {
+          "type": "string",
+          "const": "catalog"
+        },
+        {
+          "type": "string",
+          "const": "share_ways"
+        },
+        {
+          "type": "string",
+          "const": "own_check_scripts"
+        },
+        {
+          "type": "string",
+          "const": "secrets"
+        },
+        {
+          "type": "string",
+          "const": "queued_instructions"
+        },
+        {
+          "type": "string",
+          "const": "approvals"
+        },
+        {
+          "type": "string",
+          "const": "decisions"
+        },
+        {
+          "type": "string",
+          "const": "questions"
+        }
+      ]
+    },
+    "ChoiceRow": {
+      "type": "object",
+      "required": [
+        "index",
+        "kind",
+        "label",
+        "detail",
+        "theirs",
+        "actions"
+      ],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "kind": {
+          "$ref": "#/$defs/ChoiceRowKind"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 400,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "theirs": {
+          "type": "boolean"
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CommandType"
+          },
+          "maxItems": 8
+        }
+      },
+      "additionalProperties": false
+    },
+    "ChoiceRowKind": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "task"
+        },
+        {
+          "type": "string",
+          "const": "version"
+        },
+        {
+          "type": "string",
+          "const": "runtime"
+        },
+        {
+          "type": "string",
+          "const": "model"
+        },
+        {
+          "type": "string",
+          "const": "approval_level"
+        },
+        {
+          "type": "string",
+          "const": "folder"
+        },
+        {
+          "type": "string",
+          "const": "picture"
+        },
+        {
+          "type": "string",
+          "const": "repository"
+        },
+        {
+          "type": "string",
+          "const": "share_way"
+        },
+        {
+          "type": "string",
+          "const": "script"
+        },
+        {
+          "type": "string",
+          "const": "secret"
+        },
+        {
+          "type": "string",
+          "const": "instruction"
+        },
+        {
+          "type": "string",
+          "const": "approval"
+        },
+        {
+          "type": "string",
+          "const": "decision"
+        },
+        {
+          "type": "string",
+          "const": "question"
+        }
+      ]
+    },
+    "ChoicesQuery": {
+      "type": "object",
+      "required": [
+        "list"
+      ],
+      "properties": {
+        "project_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "workstream_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "execution_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "list": {
+          "$ref": "#/$defs/ChoiceList"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ChoicesResponse": {
+      "type": "object",
+      "required": [
+        "scope",
+        "list",
+        "position",
+        "digest",
+        "rows",
+        "total"
+      ],
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/HereScope"
+        },
+        "list": {
+          "$ref": "#/$defs/ChoiceList"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "digest": {
+          "$ref": "#/$defs/ReviewDigest"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ChoiceRow"
+          },
+          "maxItems": 32
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "ConfirmKind": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "none"
+        },
+        {
+          "type": "string",
+          "const": "undo"
+        },
+        {
+          "type": "string",
+          "const": "review"
+        }
+      ]
+    },
+    "HereAction": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "command_type",
+            "title",
+            "description",
+            "confirm",
+            "undo",
+            "sayable",
+            "needs"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "command"
+            },
+            "command_type": {
+              "$ref": "#/$defs/CommandType"
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "pattern": "\\S"
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "\\S"
+            },
+            "confirm": {
+              "$ref": "#/$defs/ConfirmKind"
+            },
+            "undo": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/CommandType"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sayable": {
+              "type": "boolean"
+            },
+            "needs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/HereNeed"
+              },
+              "maxItems": 12
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "list",
+            "title",
+            "description"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "list"
+            },
+            "list": {
+              "$ref": "#/$defs/ChoiceList"
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "pattern": "\\S"
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "\\S"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "HereNeed": {
+      "type": "object",
+      "required": [
+        "name",
+        "kind",
+        "label",
+        "required",
+        "list",
+        "max"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z_]*$"
+        },
+        "kind": {
+          "$ref": "#/$defs/NeedKind"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "pattern": "\\S"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "list": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChoiceList"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "HereQuery": {
+      "type": "object",
+      "properties": {
+        "project_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "workstream_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "execution_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "HereResponse": {
+      "type": "object",
+      "required": [
+        "scope",
+        "position",
+        "actions"
+      ],
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/HereScope"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HereAction"
+          },
+          "maxItems": 64
+        }
+      },
+      "additionalProperties": false
+    },
+    "HereScope": {
+      "type": "object",
+      "required": [
+        "project_id",
+        "workstream_id",
+        "execution_id"
+      ],
+      "properties": {
+        "project_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "workstream_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "execution_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "NeedKind": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "text"
+        },
+        {
+          "type": "string",
+          "const": "choice"
+        },
+        {
+          "type": "string",
+          "const": "choices"
+        },
+        {
+          "type": "string",
+          "const": "yes_no"
+        },
+        {
+          "type": "string",
+          "const": "count"
+        },
+        {
+          "type": "string",
+          "const": "answers"
+        },
+        {
+          "type": "string",
+          "const": "secret"
+        }
+      ]
+    },
+    "ActionReviewFact": {
+      "type": "object",
+      "required": [
+        "kind",
+        "value",
+        "theirs"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/ReviewKind"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400,
+          "pattern": "\\S"
+        },
+        "theirs": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ActionReviewItem": {
+      "type": "object",
+      "required": [
+        "kind",
+        "name",
+        "note",
+        "theirs"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/ReviewKind"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400,
+          "pattern": "\\S"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "theirs": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ReviewKind": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "file_added"
+        },
+        {
+          "type": "string",
+          "const": "file_changed"
+        },
+        {
+          "type": "string",
+          "const": "file_removed"
+        },
+        {
+          "type": "string",
+          "const": "folder"
+        },
+        {
+          "type": "string",
+          "const": "repository"
+        },
+        {
+          "type": "string",
+          "const": "branch"
+        },
+        {
+          "type": "string",
+          "const": "address"
+        },
+        {
+          "type": "string",
+          "const": "task"
+        },
+        {
+          "type": "string",
+          "const": "version"
+        },
+        {
+          "type": "string",
+          "const": "script"
+        },
+        {
+          "type": "string",
+          "const": "words"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "ActionReviewWarning": {
+      "type": "object",
+      "required": [
+        "code",
+        "line"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z_]*$",
+          "maxLength": 64
+        },
+        "line": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        }
+      },
+      "additionalProperties": false
+    },
     "WorkspaceCommandResponse": {
       "type": "object",
       "required": [
