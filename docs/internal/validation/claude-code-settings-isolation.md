@@ -30,21 +30,29 @@ the stored key: a task could be paid for by a credential the person never chose 
 - Every Claude Agent start, resume and model listing passes `settingSources: []`, inside the sandbox and out.
 - Outside the sandbox the person's set-up is passed explicitly (`personal-settings.ts`), read from where Claude Code
   reads it (`CLAUDE_CONFIG_DIR`, else `~/.claude`) in the run's own environment:
-  - Salidium's and Seorak's hooks only, recognised by each project's own rule (Salidium: a command beginning
-    `SALIDIUM_HOOK=1 '` that names `/hooks/relay.sh'`; Seorak: a `--seorak-hook-path=` argument decoding to an
-    absolute file URL of that event's script), each entry's type, command, async and timeout copied, passed in the
-    flag tier as `settings: { hooks }`. A listing is no task and carries none.
-  - The person's own `CLAUDE.md`, appended to Claude Code's preset system prompt; its `@` imports are not followed.
+  - Salidium's and Seorak's hooks only, each recognised as its project's installer writes the WHOLE command, anchored
+    at both ends, so nothing can come before or after it (AUDIT3 F1): Salidium,
+    `SALIDIUM_HOOK=1 '<absolute>/hooks/relay.sh' claude-code <that event> <one of its four pressures>`; Seorak,
+    `'<absolute node>' '<absolute script>' --seorak-hook-path=<base64url file URL>`, the script that event's own and
+    the marker naming the very same file. Each entry's type, command, async and timeout are copied and passed in the
+    flag tier as `settings: { hooks }`. Salidium's older form (a `/.salidium/hooks/` path through `/bin/sh`) is not
+    recognised, so not passed. A listing is no task and carries none.
+  - The person's own `CLAUDE.md`, appended to Claude Code's preset system prompt, at most 64 KB (larger refuses the run
+    in words); its `@` imports are not followed.
   - Nothing else: no `env`, `apiKeyHelper`, permissions, model, other hooks, plugins or status line.
   - A settings file that is there but is not JSON refuses the run in words.
   - What a task uses is declared once, from what passes: `personalSetupUsed()` (exported by the package) names the
     instructions file read and the integrations whose hooks pass (`OBSERVERS`, the same list the hook filter uses),
     and says nothing else is used, so a page saying it reads the adapter, never a list of its own.
 - Before every unconfined start, resume and listing the settings Claude Code still applies with no file loaded (the
-  managed tier, through the SDK's `resolveSettings`) are checked: an `env` naming `ANTHROPIC_*`, `CLAUDE_CODE_USE_*`,
-  `CLAUDE_CODE_OAUTH_TOKEN`, `AWS_*`, `GOOGLE_APPLICATION_CREDENTIALS` or `CLOUD_ML_REGION`, or an `apiKeyHelper`,
-  `awsAuthRefresh`, `awsCredentialExport` or `gcpAuthRefresh`, refuses the run in words naming the setting, never its
-  value. A resolver that fails refuses too.
+  managed tier, through the SDK's `resolveSettings`) are checked (AUDIT3 F2). An `env` naming a credential or a
+  provider (`ANTHROPIC_*`, `CLAUDE_CODE_USE_*`, `CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_CLIENT_*` and any other
+  `CLAUDE_CODE_*` naming a certificate, key, token, host, URL, proxy or auth, `AWS_*`,
+  `GOOGLE_APPLICATION_CREDENTIALS`, `CLOUD_ML_REGION`), a proxy (`HTTP(S)_PROXY`, `ALL_PROXY`, either case), what lets
+  a proxy read the requests (`NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, `NODE_TLS_REJECT_UNAUTHORIZED`)
+  or code loaded beside the key (`NODE_OPTIONS`); or a command of the tier's own (`apiKeyHelper`, `awsAuthRefresh`,
+  `awsCredentialExport`, `gcpAuthRefresh`, `otelHeadersHelper`, `hooks`, `statusLine`): each refuses the run in words
+  naming the setting, never its value. A resolver that fails refuses too.
 
 ## Seen
 
@@ -57,6 +65,10 @@ loaded. The other Claude end to end tests (confined, plan, resume, credential, p
 and the file that is not JSON.
 
 ## Not verified
+
+- An unconfined run still holds the person's key itself in its environment (the agent, its commands and every hook
+  passed), as before this change; only confined runs go through the key gate. AUDIT3's next unit: the gate for
+  unconfined runs too.
 
 - Whether Claude Code with the person's real config folder ever sends their `/login` subscription token beside a
   key. Not tested: it would send their token to a test's process.
