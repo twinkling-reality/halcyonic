@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import type { ProjectId } from '@halcyonic/contracts';
-import { GitHubSender, sendTitle } from './github.ts';
+import { GitHubSender, gitSaid, sendTitle } from './github.ts';
 
 // Send to GitHub (ADR 0039, amended), proven only against stand-ins: github.com is a local bare
 // repository the test's own git settings point https://github.com/owner/garden.git at, and `gh` is a
@@ -788,4 +788,47 @@ describe('a tree holding a secret the host keeps is never sent (the lead, 2026-1
     assert.equal(encoded.ok ? null : encoded.code, 'holds_secret');
     assert.match(encoded.ok ? '' : encoded.message, /^blob\.txt holds/);
   });
+});
+
+test("a refused push keeps git's own most telling line, with the owner, every address and every path on this Mac masked (run 2)", () => {
+  const rejected = [
+    'To https://github.com/Owner/garden.git',
+    ' ! [remote rejected] abc -> halcyonic-pages (push declined due to repository rule violations)',
+    "error: failed to push some refs to 'https://github.com/Owner/garden.git'",
+  ].join('\n');
+  assert.equal(
+    gitSaid(rejected, 'owner/garden'),
+    ' Git said: "! [remote rejected] abc -> halcyonic-pages (push declined due to repository rule violations)"',
+  );
+  // GitHub's own refusal code is told before git's summary; the login in any case is masked.
+  assert.equal(
+    gitSaid(
+      'remote: error: GH013: Repository rule violations found for refs/heads/x by OWNER.\nerror: failed to push',
+      'owner/garden',
+    ),
+    ' Git said: "remote: error: GH013: Repository rule violations found for refs/heads/x by <owner>."',
+  );
+  assert.equal(
+    gitSaid(
+      "fatal: unable to access 'https://github.com/owner/garden.git/': Could not resolve host",
+      'owner/garden',
+    ),
+    ' Git said: "fatal: unable to access \'<address>\': Could not resolve host"',
+  );
+  assert.equal(
+    gitSaid(
+      'fatal: could not read from git@github.com:owner/garden.git and /Users/someone/dev/garden',
+      'owner/garden',
+    ),
+    ' Git said: "fatal: could not read from <address> and <path>"',
+  );
+  assert.equal(gitSaid('', 'owner/garden'), '', 'git said nothing: nothing is made up');
+  assert.equal(gitSaid('To x\n', 'owner/garden'), '');
+  const long = gitSaid(`error: ${'a'.repeat(400)}`, 'owner/garden');
+  assert.ok(long.length < 220 && long.endsWith('…"'));
+  const controls = gitSaid('error: bad\u0007\u001b[31m thing', 'owner/garden');
+  assert.ok(
+    Array.from(controls).every((ch) => ch.charCodeAt(0) >= 0x20 && ch.charCodeAt(0) !== 0x7f),
+    'no control character is kept',
+  );
 });
