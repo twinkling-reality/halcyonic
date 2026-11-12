@@ -84,6 +84,8 @@ interface Prepared {
   readonly ssh: boolean;
   readonly tree: string;
   readonly repository: string;
+  /** What the folder holds that the send kept out (a first send's): its clone's git keeps them out too. */
+  readonly withheld?: readonly string[];
 }
 
 /** The person's environment as git and gh need it, and nothing that could carry one of our tokens. */
@@ -270,7 +272,7 @@ export class GitHubSender {
     let fullName: string;
     if (send.creates !== null) {
       const { name, visibility } = send.creates;
-      const made = await this.#run(gh, ['repo', 'create', name, `--${visibility}`], 60_000);
+      const made = await this.#run(gh, ['repo', 'create', `--${visibility}`, '--', name], 60_000);
       const named = REPOSITORY_ADDRESS.exec(made.stdout);
       if (made.code !== 0 || named === null || named[2] !== name)
         return {
@@ -374,7 +376,13 @@ export class GitHubSender {
           effect: 'unknown',
         };
     }
-    const cloned = await this.#cloneInto(folder, repository, commit, remote);
+    const cloned = await this.#cloneInto(
+      folder,
+      repository,
+      commit,
+      remote,
+      prepared.withheld ?? [],
+    );
     return {
       ok: true,
       send: { ...send, repository: fullName },
@@ -397,6 +405,7 @@ export class GitHubSender {
     repository: string,
     commit: string,
     remote: string,
+    withheld: readonly string[],
   ): Promise<boolean> {
     for (const entry of await readdir(folder).catch(() => [] as string[]))
       if (entry.startsWith(CLONE_ASIDE))
@@ -427,6 +436,13 @@ export class GitHubSender {
     try {
       for (const step of steps)
         if ((await this.#run(this.#deps.git, step, 60_000, none)).code !== 0) return false;
+      // What the send kept out stays out of the person's own git too: each path, as it is, anchored (AUDIT3 S2).
+      await mkdir(join(aside, 'info'), { recursive: true, mode: 0o700 });
+      await writeFile(
+        join(aside, 'info', 'exclude'),
+        withheld.map((path) => `/${path.replace(/[\\*?[\]!# ]/g, (c) => `\\${c}`)}\n`).join(''),
+        { mode: 0o600 },
+      );
       if ((await lstat(join(folder, '.git')).catch(() => null)) !== null) return false;
       await rename(aside, join(folder, '.git'));
       return true;
@@ -732,7 +748,9 @@ export class GitHubSender {
     // unknown, since a review asks GitHub nothing.
     const visibility =
       options.made?.repository === origin.fullName ? options.made.visibility : 'unknown';
-    const makePublic = options.makePublic === true && visibility !== 'public';
+    // Only a repository this project's own first Send made private is ever made public by a press: never
+    // one the person had before, whose code and history would all go public with it (AUDIT3 S1).
+    const makePublic = options.makePublic === true && visibility === 'private';
     const facts = {
       repository: origin.fullName,
       check_id: checkId,
@@ -876,7 +894,7 @@ export class GitHubSender {
     if (!REPOSITORY_NAME.test(name))
       return refuse(
         'invalid_name',
-        'A repository name holds only letters, digits, dots, hyphens and underscores, at most 100.',
+        'A repository name starts with a letter or digit and holds only letters, digits, dots, hyphens and underscores, at most 100.',
       );
     const repository = await this.#repository(projectId, 'sha1');
     if (repository === null) return refuse('send_failed', 'Halcyonic could not prepare the send.');
@@ -929,7 +947,10 @@ export class GitHubSender {
       pull_request: false,
       review: reviewDigest('project.send_to_github', { project_id: projectId }, facts),
     };
-    return { ok: true, prepared: { send, ssh: false, tree: built.tree, repository } };
+    return {
+      ok: true,
+      prepared: { send, ssh: false, tree: built.tree, repository, withheld: built.withheld },
+    };
   }
 
   /**
@@ -954,6 +975,8 @@ export class GitHubSender {
         readonly files: number;
         /** Links the folder holds, pointing outside it, that the tree does not carry as the folder has them. */
         readonly outside: readonly string[];
+        /** Everything the folder holds, as staged, that the tree does not carry as the folder has it. */
+        readonly withheld: readonly string[];
       }
     | SendFailure
   > {
@@ -1116,6 +1139,9 @@ export class GitHubSender {
             tree,
             files: kept.length,
             outside: [...outside].filter((path) => before.get(path) !== now.get(path)),
+            withheld: [...now.keys()].filter(
+              (path) => keep(path) && before.get(path) !== now.get(path),
+            ),
           }
         : unreadable;
     } finally {
@@ -1238,7 +1264,7 @@ export function sendTitle(
 const CLONE_ASIDE = '.git-halcyonic-';
 
 /** A repository's name as GitHub takes one: letters, digits, dots, hyphens, underscores; never . or .. */
-const REPOSITORY_NAME = /^(?!\.\.?$)[A-Za-z0-9._-]{1,100}$/;
+const REPOSITORY_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 
 /** A repository's address as `gh repo create` prints it: owner and name. */
 const REPOSITORY_ADDRESS =

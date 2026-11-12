@@ -26,8 +26,8 @@ export const PullRequestUrl = Type.String({
 });
 export type PullRequestUrl = Static<typeof PullRequestUrl>;
 
-/** A repository's name as GitHub takes one: letters, digits, dots, hyphens, underscores; never . or .. */
-export const RepositoryName = Type.String({ pattern: '^(?!\\.\\.?$)[A-Za-z0-9._-]{1,100}$' });
+/** A repository's name as GitHub takes one: a letter or digit first, then letters, digits, . - _. */
+export const RepositoryName = Type.String({ pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$' });
 export type RepositoryName = Static<typeof RepositoryName>;
 
 /** Who can see a repository on GitHub. */

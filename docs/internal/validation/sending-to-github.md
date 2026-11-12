@@ -108,11 +108,13 @@ The first real send to GitHub is the owner's own, with their press.
   `review_stale`. The press asks the stand-in gh `repo create lantern-game --private` (no token reaches it),
   pushes one commit with no parent as `main` (the title as its message, the git author from git's own
   settings), and the folder is then that repository's clone: HEAD on `main` at the sent commit, `origin` its
-  address, `git status` showing only the untracked `.env`, the `.env` unchanged, no `hooks` folder. Its next
+  address, `git status` clean with `/.env` in its `.git/info/exclude` (what the send kept out stays out of the
+  person's own git), the `.env` unchanged, no `hooks` folder. Its next
   send is the ordinary one: `repository owner/lantern-game`, the base the first send's commit, one changed file.
 - **Refused:** a second folder of the same name (`repository_not_made`, its folder left with no `.git`); a
   folder inside another repository (`inside_repository`); no gh (`no_gh`); gh signed out at the press
-  (`gh_signed_out`, no `repo create` asked); a name GitHub would not take, `..` (`invalid_name`). A folder under a
+  (`gh_signed_out`, no `repo create` asked); a name GitHub would not take, `..`, or one gh would read as a flag,
+  `--public` (`invalid_name`); gh is asked `repo create --private -- <name>`. A folder under a
   home folder kept as a repository is sent as its own. Gh is asked `auth status` before `repo create`; the made
   repository is handed to the journal at once (`onMade`); the clone leaves no `FETCH_HEAD` and nothing beside.
 - **A first send stopped after GitHub made the repository** (the stand-in's new repository refuses objects):
@@ -135,7 +137,8 @@ The first real send to GitHub is the owner's own, with their press.
   `unknown` (a review asks GitHub nothing). Make Public is in the digest (a press without the choice it was
   reviewed with is `review_stale`), and its press asks gh `repo edit owner/garden --visibility public
   --accept-visibility-change-consequences` before pages are turned on. A repository already public has nothing
-  to make public. Where GitHub answers no pages address, the publish is refused `pages_refused` with Make
+  to make public, and neither has one the journal does not say this project's first Send made (`unknown`).
+  Where GitHub answers no pages address, the publish is refused `pages_refused` with Make
   Public named for a private repository, and the Pages branch it pushed is gone again. Make Public is handed to
   the journal the moment it is done (`onMadePublic`).
 - **The journal:** `project.repository_made` keeps who can see a repository a first send made;
