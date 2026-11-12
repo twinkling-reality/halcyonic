@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -183,6 +183,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 // A value wider than the card, as a long web address to check: whole, wrapped in its own well, never cut.
                 "47-card-slot-long" => new RoomCard(Theirs("Kite Run"), status: new RoomCardStatus(RoomReview.CheckTitle, RoomReview.CheckAddressLine, RoomTone.Attention, RoomKind.Failed),
                     slots: new[] { new RoomSlot(RoomKind.Link, Theirs("https://assets.example.com/weather/v2/regions/coastal/wind-speeds-hourly.json"), mono: true) }),
+                // A request waiting on the person, where they stand: the card itself is the way in, in the moment's accent.
+                "47-card-waiting" => new RoomCard(Theirs("Tail"), status: new RoomCardStatus("Needs You", "The agent asks to run a command", RoomTone.Attention, RoomKind.Waiting),
+                    press: CardRowControl("open-request")),
                 // All work's tasks: each row its project under its name, a long instruction of the person's own cut at a word.
                 "47-card-tasks-all" => new RoomCard(Ours("Tasks"), list: new[]
                 {
@@ -236,6 +239,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // the card meets both its edges.
             var slack = unit * 0.05f;
             Require(view.LaidWhole, "the card does not say it stands whole, though it is shown");
+            Require((card.Press != null) == (view.CardTarget != null), card.Press != null ? "a card that is the way in takes no press" : "a card that only says takes a press");
             if (card.DescriptionPage is int asked)
             {
                 var paged = view.PagedDescription;
