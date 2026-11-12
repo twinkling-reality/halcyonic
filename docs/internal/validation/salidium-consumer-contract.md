@@ -386,3 +386,25 @@ discovery document gives, without a credential; at 0.8.3 or before, or when Sali
 there answers `not_found` (`own_sources_not_set_up`): not told where Halcyonic keeps them, or not seen yet.
 Tested against the fake daemon at 0.8.3 and 0.9.0 (`understanding.test.ts`), and the version rule
 (`client.test.ts`). Not run against a real Salidium after 0.8.3: none is released.
+
+## Salidium 0.9.0, read without a real credential (2026-11-12)
+
+- **Running on 47822:** a Salidium daemon whose discovery document gives version 0.9.0. Read through Halcyonic's
+  own client only (`connect`, `SalidiumClient.version` and `understand` from `packages/integrations/salidium`, the
+  same source as at 60a0d8830). No real credential was read or sent; the only token sent was a well-formed one that
+  was never issued (all zeros).
+- **Found and verified:** the discovery file in Salidium's home and the discovery endpoint it names agree on the
+  instance, so the client accepts the daemon. The discovery document gives `salidium.version` 0.9.0, one contract
+  entry, `salidium.consumer` major 1 minor 1, at `http://127.0.0.1:47822`, and the providers `claude-code`, `codex`
+  and `salidium/opencode`. Major 1 minor 1 is the entry this client accepts.
+- **The version rule:** `readsOtherToolsSources('0.9.0')` is true, so for a session in Halcyonic's own Codex home,
+  a confined Codex home or its sandboxed OpenCode store, Halcyonic can now ask Salidium instead of answering
+  `runtime_not_observed` on its own (for OpenCode only while the daemon lists `salidium/opencode`, as it does).
+- **Refusals as Halcyonic reads them:** with no credential configured, every observed runtime (`claude-agent`,
+  `codex`, `opencode`) answers `unauthorized` (`credential_missing`) before any request carries one, and `mock`
+  answers `unavailable` (`runtime_not_observed`). With the never-issued token, the session lookup for each of the
+  three providers answered in 1 to 3 ms, read as `unauthorized` (`credential_rejected`).
+- **Not checked:** a report of a real session from 0.9.0. That needs a consumer credential: the person's, which
+  only the control plane on their own data reads, or one of a separate scratch Salidium instance. So whether 0.9.0
+  finds the sessions of tasks Halcyonic runs, through any extra-sources variables a person may have set, is still
+  not seen; it shows on a task's Understand on the person's own control plane.
