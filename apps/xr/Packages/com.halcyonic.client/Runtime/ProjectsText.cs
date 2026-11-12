@@ -20,6 +20,9 @@ namespace Halcyonic.Client
 
         public const string FoldersHeading = "Folders";
         public const string NewProject = "New Project";
+
+        /// <summary>Pairing from the first screen (LINK's cut, 2026-11-12): the setting's own words (SpaceSettings).</summary>
+        public const string PairComputer = "Pair Computer";
         public const string ShowOnStage = "Show on Stage";
         public const string HideFromStage = "Hide from Stage";
         public const string Close = "Close";

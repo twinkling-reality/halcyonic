@@ -26,6 +26,12 @@ namespace Halcyonic.Client
         public const string ShowProject = "projects-show-project";
         public const string HideProject = "projects-hide-project";
         public const string Connect = "projects-connect";
+
+        /// <summary>
+        /// Pair with a computer from the first screen (LINK's cut, 2026-11-12): offered only while the recording plays because no
+        /// computer is reached and this headset holds no pairing, and then the main action, since nothing else there can act.
+        /// </summary>
+        public const string PairComputer = "projects-pair-computer";
         public const string TryAgain = "projects-try-again";
         public const string ChooseAnother = "projects-choose-another";
         public const string ChooseProblem = "projects-choose-folders-problem";
@@ -61,6 +67,9 @@ namespace Halcyonic.Client
 
             /// <summary>Explicitly expanded folder discovery while known projects stay first.</summary>
             public bool FoldersOpen { get; set; }
+
+            /// <summary>This headset holds no pairing and none is under way, so Pair Computer can start one.</summary>
+            public bool PairOffered { get; set; }
             public Func<PageLine, double>? LineHeight { get; set; }
             public double AvailableHeight { get; set; }
 
@@ -260,10 +269,14 @@ namespace Halcyonic.Client
                 // Under the redesign a problem with the folders is the card's status, and Try Again stands in its column as the
                 // main action, with no side panel to open first (FIELD, 2026-11-12); the older view keeps its row and panel.
                 var tryAgain = RoomDesign.Enabled && projects.Count == 0 && problem != null && FoldersVisible(state);
+                var pair = state.Demonstration && state.PairOffered;
                 footer = new Footer(close,
-                    rare: projects.Count > 0 && !state.Demonstration ? new Prompt(FolderNavigation, state.FoldersOpen ? "Back to Projects" : "Connect Folder", GlazeIcon.ConnectProjects) : null,
+                    // In a recording Connect Folder is never offered, so New Project takes its place where Pair Computer leads.
+                    rare: pair ? new Prompt(NewProject, ProjectsText.NewProject, GlazeIcon.CreateProject)
+                        : projects.Count > 0 && !state.Demonstration ? new Prompt(FolderNavigation, state.FoldersOpen ? "Back to Projects" : "Connect Folder", GlazeIcon.ConnectProjects) : null,
                     secondary: tryAgain ? new Prompt(NewProject, ProjectsText.NewProject, GlazeIcon.CreateProject) : null,
                     farRight: tryAgain ? new Prompt(ReadAgain, EntryText.TryAgain, GlazeIcon.Refresh, main: true)
+                        : pair ? new Prompt(PairComputer, ProjectsText.PairComputer, GlazeIcon.ConnectProjects, main: true)
                         : new Prompt(NewProject, ProjectsText.NewProject, GlazeIcon.CreateProject, main: true));
             }
             // One prompt pages: Next page, which on the last page reads First page and starts again, at the

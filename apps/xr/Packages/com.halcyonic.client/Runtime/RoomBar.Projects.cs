@@ -50,7 +50,8 @@ namespace Halcyonic.Client
             // The column (FIELD's parts note): New Project, the main action; the place's paging where it has more; Settings, Usage; Close last.
             var column = new List<RoomAction>();
             if (main != null) column.Add(main);
-            column.AddRange(others.Where(action => action.Control.Action == Footer.NextPage));
+            // New Project where it is not the main action (Pair Computer leads with no computer reached), then the paging.
+            column.AddRange(others.Where(action => action.Control.Action is ProjectsScreens.NewProject or Footer.NextPage));
             column.AddRange(places);
             column.AddRange(leaving);
             return new RoomBar(RoomBarState.Page, body: LineWords.Ours(ProjectsTitle), column: column)
