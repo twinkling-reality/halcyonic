@@ -5605,6 +5605,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Review { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("said", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ActionReviewSaid> Said { get; set; } = new global::System.Collections.Generic.List<ActionReviewSaid>();
     }
 
     public sealed class WorkspaceRequestStep

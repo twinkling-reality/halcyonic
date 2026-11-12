@@ -35,7 +35,7 @@ import type { ControlPlane } from '../core/control-plane.ts';
 import { causedBy, controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { fitted } from '../core/redaction.ts';
 import { reviewDigest } from '../core/review.ts';
-import { buildReview } from '../core/reviews.ts';
+import { buildReview, saidIn } from '../core/reviews.ts';
 import { ToolResults } from '../core/tool-results.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
@@ -1716,6 +1716,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         confirm: entry.confirm,
         what_happens: fitted(shown.what_happens, 2000),
         review: shown.digest,
+        said: shown.said,
       },
     };
   }
@@ -1725,7 +1726,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     command: CommandEnvelope,
     description: string,
   ): Promise<
-    | { ok: true; what_happens: string; digest: string }
+    | { ok: true; what_happens: string; digest: string; said: ReturnType<typeof saidIn> }
     | { ok: false; code: string; message: string }
   > {
     if (confirm !== 'review')
@@ -1733,10 +1734,16 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         ok: true,
         what_happens: description,
         digest: reviewDigest(command.command_type, command.payload, {}),
+        said: saidIn(command),
       };
     const built = await buildReview(this.#o.controlPlane, command);
     if (!built.ok) return { ok: false, code: built.code, message: built.message };
-    return { ok: true, what_happens: built.review.what_happens, digest: built.review.digest };
+    return {
+      ok: true,
+      what_happens: built.review.what_happens,
+      digest: built.review.digest,
+      said: built.review.said,
+    };
   }
   /**
    * read_project and read_task: the bound project's tasks, read-only, by the index of the host's own

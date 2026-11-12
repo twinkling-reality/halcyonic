@@ -2629,6 +2629,8 @@ test("a model proposes New Task from the host's list in a project: the host prep
     assert.equal(step?.status, 'waiting');
     assert.equal(step?.proposal?.command_type, 'workstream.create');
     assert.equal(step?.proposal?.confirm, 'none');
+    // The words that go out are on the proposal, by their labels, exactly as they will be sent (AUDIT2's N2).
+    assert.deepEqual(step?.proposal?.said, [{ label: 'Title', words: 'Night Sky' }]);
     // Nothing happened on the model's word, and the model is not asked again while it waits.
     assert.equal(f.controlPlane.projection.workstreams(f.projectId).length, tasksBefore);
     assert.equal(f.turns, 1);
