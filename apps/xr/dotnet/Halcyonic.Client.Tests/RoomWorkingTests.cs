@@ -120,6 +120,21 @@ public class RoomWorkingTests
         Assert.That(RoomBar.Of(plain, VoiceStage.Idle, false, WorkMarkKind.Practice).Notice, Is.Null, "a practice run is live");
     }
 
+    /// <summary>
+    /// The result's Changes page carries the understanding's account only once it is read (SCREENS's seam): nothing before any read, and
+    /// a read that could not answer gives no part, never guessed words.
+    /// </summary>
+    [Test]
+    public void TheAccountForTheResultsChangesIsNothingBeforeTheUnderstandingAnswers()
+    {
+        var work = Work(ExecutionStatus.Completed);
+        var (_, column) = Open(() => Present(work, WorkspaceAction.Instruct));
+        Assert.That(column.Account(), Is.Null, "nothing before any read");
+        column.ResultChangesShown = () => true;
+        column.Tick();
+        Assert.That(column.Account()?.Parts ?? 0, Is.EqualTo(0), "a read with nothing to read gives no part");
+    }
+
     [Test]
     public void AtRestNothingIsAtWork()
     {
