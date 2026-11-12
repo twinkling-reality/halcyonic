@@ -766,9 +766,14 @@ namespace Halcyonic.XR.UI
             }
             var rows = new List<List<int>> { new List<int>() };
             var used = 0f;
-            // Four stand as two rows of two (a new folder from a starter); fewer fill one row, wrapping where it cannot hold them.
-            if (count == 4) rows = new List<List<int>> { new List<int> { 0, 1 }, new List<int> { 2, 3 } };
-            for (var index = 0; index < (count == 4 ? 0 : count); index++)
+            // Four stand as two rows of two (a new folder from a starter) where each holds half the card; otherwise, and for
+            // fewer, they fill a row, wrapping where it cannot hold them, so no well is ever narrower than its value (the parts
+            // check, 2026-11-12: a long folder forced into half a row squeezed the level to "Neve...").
+            var half = (width - S(TileGapDp)) / 2f;
+            var pairs = count == 4;
+            for (var index = 0; index < count; index++) pairs &= least[index] <= half + 1e-4f;
+            if (pairs) rows = new List<List<int>> { new List<int> { 0, 1 }, new List<int> { 2, 3 } };
+            for (var index = 0; index < (pairs ? 0 : count); index++)
             {
                 var row = rows[rows.Count - 1];
                 var need = least[index] + (row.Count > 0 ? S(TileGapDp) : 0f);
@@ -785,8 +790,17 @@ namespace Halcyonic.XR.UI
             var top = down;
             // The first row's wells, by place: a row wrapped under it stands on the same columns, never stretched past them.
             var columns = new List<float>();
+            var rowIndex = 0;
             foreach (var row in rows)
             {
+                // A row under the first keeps the first row's columns only where they hold every value in it; else it lays its own.
+                var aligned = rowIndex > 0 && row.Count > 1 && columns.Count >= row.Count;
+                if (aligned)
+                {
+                    var need = 0f;
+                    for (var at = 0; at < row.Count; at++) need += Mathf.Max(least[row[at]], columns[at]);
+                    aligned = need + S(TileGapDp) * (row.Count - 1) <= width + 1e-4f;
+                }
                 var rowWell = well;
                 foreach (var index in row) rowWell = Mathf.Max(rowWell, well + extra[index] * S(CaptionLineDp));
                 var sum = 0f;
@@ -805,9 +819,10 @@ namespace Halcyonic.XR.UI
                     // the card (the critic, 2026-11-11). A wrapped row keeps the first row's columns, so its wells line up; a
                     // wrapped slot alone spans the card, never leaving a hole beside it.
                     var tile = count == 1 ? least[index]
-                        : columns.Count < rows[0].Count ? (evenFits ? even : least[index] + Mathf.Max(0f, share))
+                        : rowIndex == 0 ? (evenFits ? even : least[index] + Mathf.Max(0f, share))
                         : row.Count == 1 ? width
-                        : Mathf.Min(width - x, Mathf.Max(least[index], columns[Mathf.Min(place, columns.Count - 1)]));
+                        : aligned ? Mathf.Max(least[index], columns[row.IndexOf(index)])
+                        : evenFits ? even : least[index] + Mathf.Max(0f, share);
                     if (columns.Count < rows[0].Count) columns.Add(tile);
                     place++;
                     values[index].Label.rectTransform.sizeDelta = new Vector2(tile - 2f * S(SlotPadDp), values[index].Label.rectTransform.sizeDelta.y);
@@ -844,6 +859,7 @@ namespace Halcyonic.XR.UI
                     values[index].Label.transform.localPosition = new Vector3(x + S(SlotPadDp), -(top + S(SlotPadDp) + S(SlotGlyphBoxDp) + S(CaptionGapDp)), -RoomType.Units(0.5f));
                     x += tile + S(TileGapDp);
                 }
+                rowIndex++;
                 top += rowWell + S(TileGapDp);
             }
             return top - S(TileGapDp);
