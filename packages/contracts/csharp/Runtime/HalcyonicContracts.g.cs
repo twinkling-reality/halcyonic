@@ -101,6 +101,7 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "workspace.request.submit")] WorkspaceRequestSubmit,
         [global::System.Runtime.Serialization.EnumMember(Value = "workspace.request.resume")] WorkspaceRequestResume,
         [global::System.Runtime.Serialization.EnumMember(Value = "workspace.request.cancel")] WorkspaceRequestCancel,
+        [global::System.Runtime.Serialization.EnumMember(Value = "assistant.model.choose")] AssistantModelChoose,
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -141,6 +142,7 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "approvals")] Approvals,
         [global::System.Runtime.Serialization.EnumMember(Value = "decisions")] Decisions,
         [global::System.Runtime.Serialization.EnumMember(Value = "questions")] Questions,
+        [global::System.Runtime.Serialization.EnumMember(Value = "assistant_models")] AssistantModels,
     }
 
     public sealed class HereNeed
@@ -5032,6 +5034,21 @@ namespace Halcyonic.Contracts
         public string RequestId { get; set; } = default!;
     }
 
+    public sealed class AssistantModelChoosePayloadModel
+    {
+        [global::Newtonsoft.Json.JsonProperty("provider_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string ProviderId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("model", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Model { get; set; } = default!;
+    }
+
+    public sealed class AssistantModelChoosePayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("model", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public AssistantModelChoosePayloadModel? Model { get; set; }
+    }
+
     [global::Newtonsoft.Json.JsonConverter(typeof(CommandEnvelopeConverter))]
     public abstract class CommandEnvelope
     {
@@ -5101,6 +5118,7 @@ namespace Halcyonic.Contracts
                 "workspace.request.submit" => new WorkspaceRequestSubmitCommand(),
                 "workspace.request.resume" => new WorkspaceRequestResumeCommand(),
                 "workspace.request.cancel" => new WorkspaceRequestCancelCommand(),
+                "assistant.model.choose" => new AssistantModelChooseCommand(),
                 _ => throw new JsonSerializationException(tag == null
                     ? "CommandEnvelope has no string command_type."
                     : "Unknown command_type \"" + tag + "\" for CommandEnvelope."),
@@ -5393,6 +5411,14 @@ namespace Halcyonic.Contracts
         public WorkspaceRequestCancelPayload Payload { get; set; } = default!;
     }
 
+    public sealed class AssistantModelChooseCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "assistant.model.choose";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public AssistantModelChoosePayload Payload { get; set; } = default!;
+    }
+
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ReceivedVia
     {
@@ -5535,6 +5561,21 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("revoked_by", Required = global::Newtonsoft.Json.Required.Always)]
         public Principal RevokedBy { get; set; } = default!;
+    }
+
+    public sealed class AssistantModelChosenPayloadModel
+    {
+        [global::Newtonsoft.Json.JsonProperty("provider_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string ProviderId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("model", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Model { get; set; } = default!;
+    }
+
+    public sealed class AssistantModelChosenPayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("model", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public AssistantModelChosenPayloadModel? Model { get; set; }
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -6094,6 +6135,7 @@ namespace Halcyonic.Contracts
                 "command.failed" => new CommandFailedEvent(),
                 "device.paired" => new DevicePairedEvent(),
                 "device.revoked" => new DeviceRevokedEvent(),
+                "assistant.model.chosen" => new AssistantModelChosenEvent(),
                 "workspace.request.created" => new WorkspaceRequestCreatedEvent(),
                 "workspace.request.changed" => new WorkspaceRequestChangedEvent(),
                 "workspace.request.step_recorded" => new WorkspaceRequestStepRecordedEvent(),
@@ -6606,6 +6648,14 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public DeviceRevokedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class AssistantModelChosenEvent : EventEnvelope
+    {
+        protected override string Discriminator => "assistant.model.chosen";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public AssistantModelChosenPayload Payload { get; set; } = default!;
     }
 
     public sealed class WorkspaceRequestCreatedEvent : EventEnvelope

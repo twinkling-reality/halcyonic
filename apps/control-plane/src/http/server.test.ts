@@ -371,8 +371,10 @@ describe('realtime protocol', () => {
     const policies = new Map(
       welcome.command_policies.map((entry) => [entry.command_type, entry.policy]),
     );
-    assert.equal(policies.size, 34);
+    assert.equal(policies.size, 35);
     assert.equal(policies.get('project.rules.set'), 'review_required');
+    // Where the assistant runs: a hosted model is paid with the person's key, so the press is read first (D1).
+    assert.equal(policies.get('assistant.model.choose'), 'review_required');
     // Dropping an instruction before it is sent changes nothing but the queue (ADR 0056).
     assert.equal(policies.get('execution.drop_queued_instruction'), 'low_consequence');
     // Which of the project's own commands its check runs: the person reads them first (ADR 0055).

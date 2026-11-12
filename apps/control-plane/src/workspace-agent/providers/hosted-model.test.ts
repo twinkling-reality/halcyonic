@@ -5,6 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { type TestContext, test } from 'node:test';
+import type { AssistantHostedModel } from '@halcyonic/contracts';
 import type { Model } from '../assistant-model.ts';
 import type { ToolDefinition, ToolMessage } from '../ollama.ts';
 import { anthropicProvider } from './anthropic/declaration.ts';
@@ -187,6 +188,23 @@ function declarations(anthropicUrl: string, otherUrl: string): HostedProvider[] 
   ];
 }
 
+/**
+ * The assistant as the plane builds it, with the person's choice: by default the first declared model of the first
+ * provider given, as if they had pressed Use Model on it (the lead's D1). `chosen: () => null` is this computer's.
+ */
+function hostedOn(
+  options: Omit<Parameters<typeof assistantModel>[0], 'chosen'> & {
+    chosen?: () => AssistantHostedModel | null;
+  },
+) {
+  const first = (options.providers ?? [])[0];
+  return assistantModel({
+    chosen: () =>
+      first === undefined ? null : { provider_id: first.id, model: first.models[0] ?? '' },
+    ...options,
+  });
+}
+
 function dataDir(t: TestContext): string {
   const dir = mkdtempSync(join(tmpdir(), 'hosted-assistant-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -204,15 +222,32 @@ for (const which of [0, 1, 2] as const) {
     'a test-only declaration',
   ][which];
 
-  test(`${label}: no key stored keeps the local model; a stored key runs a tool round on the provider`, async (t) => {
+  test(`${label}: a stored key alone moves nothing; the person's choice runs a tool round on it`, async (t) => {
     const a = await upstream(t, shapes.anthropic_messages(false));
     const b = await upstream(t, shapes.openai_chat(false));
     const provider = declarations(a.url, b.url)[which] as HostedProvider;
     const seen = which === 0 ? a.seen : b.seen;
     const dir = dataDir(t);
-    const model = assistantModel({ local, dataDir: dir, environment: {}, providers: [provider] });
-    assert.deepEqual(await model.status(), await local.status());
+    // Chosen, but no key stored: said, and nothing is sent; never this computer's model in its place (D2).
+    const model = hostedOn({ local, dataDir: dir, environment: {}, providers: [provider] });
+    assert.deepEqual(await model.status(), {
+      availability: 'unavailable',
+      reason: { code: 'key_not_stored', message: `No key is stored for ${provider.name}.` },
+    });
     assert.equal(seen.length, 0, 'nothing is sent while no key is stored');
+    // A key stored and nothing chosen: this computer's model runs, and nothing is sent (D1).
+    store(dir, provider.key.file, GOOD);
+    const unchosen = hostedOn({
+      local,
+      dataDir: dir,
+      environment: {},
+      providers: [provider],
+      chosen: () => null,
+    });
+    assert.deepEqual(await unchosen.status(), await local.status());
+    assert.equal((await unchosen.turn(ask, tools)).kind === 'answered' && 'this_mac', 'this_mac');
+    assert.equal(seen.length, 0, 'a stored key alone spends nothing');
+    rmSync(join(dir, provider.key.file));
 
     store(dir, provider.key.file, GOOD);
     assert.deepEqual(await model.status(), {
@@ -292,9 +327,10 @@ for (const which of [0, 1, 2] as const) {
       assert.equal(wire.find((message) => message.role === 'tool')?.tool_call_id, 'call_a');
     }
 
-    // Removing the key brings the local model back at the next read, with no restart.
+    // Removing the key is said at the next read, with no restart; the choice stays the person's.
     rmSync(join(dir, provider.key.file));
-    assert.deepEqual(await model.status(), await local.status());
+    const removed = await model.status();
+    assert.equal(removed.availability === 'unavailable' && removed.reason.code, 'key_not_stored');
   });
 
   test(`${label}: a refused key says so in words and never falls back or repeats the key`, async (t) => {
@@ -303,19 +339,25 @@ for (const which of [0, 1, 2] as const) {
     const provider = declarations(a.url, b.url)[which] as HostedProvider;
     const dir = dataDir(t);
     store(dir, provider.key.file, BAD);
-    const model = assistantModel({ local, dataDir: dir, environment: {}, providers: [provider] });
+    const model = hostedOn({ local, dataDir: dir, environment: {}, providers: [provider] });
     const status = await model.status();
     assert.deepEqual(status, {
       availability: 'unavailable',
       reason: { code: 'key_refused', message: 'The provider refused the stored key.' },
     });
+    const sent = a.seen.length + b.seen.length;
+    // The refused key is never sent again (D2): the turn says so without a request.
     const turn = await model.turn(ask, tools);
     assert.deepEqual(turn, {
       kind: 'failed',
       code: 'key_refused',
-      message: 'The provider refused the stored key.',
+      message: `${provider.name} refused its key. Give it a new key on this computer.`,
     });
+    assert.equal(a.seen.length + b.seen.length, sent, 'a refused key spends nothing more');
     assert.ok(!JSON.stringify([status, turn]).includes(BAD));
+    // A new key in its place is tried.
+    store(dir, provider.key.file, GOOD);
+    assert.equal((await model.status()).availability, 'available');
   });
 
   test(`${label}: a key file others can read is not used, and nothing is sent`, async (t) => {
@@ -324,7 +366,7 @@ for (const which of [0, 1, 2] as const) {
     const provider = declarations(a.url, b.url)[which] as HostedProvider;
     const dir = dataDir(t);
     store(dir, provider.key.file, GOOD, 0o644);
-    const model = assistantModel({ local, dataDir: dir, environment: {}, providers: [provider] });
+    const model = hostedOn({ local, dataDir: dir, environment: {}, providers: [provider] });
     const status = await model.status();
     assert.equal(status.availability === 'unavailable' && status.reason.code, 'key_file_open');
     assert.equal((await model.turn(ask, tools)).kind, 'failed');
@@ -337,7 +379,7 @@ for (const which of [0, 1, 2] as const) {
     const provider = declarations(a.url, b.url)[which] as HostedProvider;
     const dir = dataDir(t);
     store(dir, provider.key.file, GOOD);
-    const model = assistantModel({ local, dataDir: dir, environment: {}, providers: [provider] });
+    const model = hostedOn({ local, dataDir: dir, environment: {}, providers: [provider] });
     assert.deepEqual(await model.turn(ask, tools), {
       kind: 'failed',
       code: 'model_refused',
@@ -345,19 +387,19 @@ for (const which of [0, 1, 2] as const) {
     });
   });
 
-  test(`${label}: a key in the environment is never read, so an inheriting plane stays local and sends nothing`, async (t) => {
+  test(`${label}: a key in the environment is never read, so an inheriting plane sends nothing`, async (t) => {
     const a = await upstream(t, shapes.anthropic_messages(false));
     const b = await upstream(t, shapes.openai_chat(false));
     const provider = declarations(a.url, b.url)[which] as HostedProvider;
-    const model = assistantModel({
+    const model = hostedOn({
       local,
       dataDir: dataDir(t),
       environment: { [provider.key.variable]: GOOD },
       providers: [provider],
     });
-    assert.deepEqual(await model.status(), await local.status());
-    const turn = await model.turn(ask, tools);
-    assert.equal(turn.kind === 'answered' && turn.served, 'this_mac');
+    const status = await model.status();
+    assert.equal(status.availability === 'unavailable' && status.reason.code, 'key_not_stored');
+    assert.equal((await model.turn(ask, tools)).kind, 'failed');
     assert.equal(a.seen.length + b.seen.length, 0);
   });
 }
@@ -367,7 +409,7 @@ test('the stand-in address may only be this Mac: any other sends nothing', async
   const dir = dataDir(t);
   store(dir, anthropicProvider.key.file, GOOD);
   for (const elsewhere of ['https://example.com', 'http://10.0.0.2:80', 'not an address']) {
-    const model = assistantModel({
+    const model = hostedOn({
       local,
       dataDir: dir,
       environment: { HALCYONIC_ASSISTANT_UPSTREAM: elsewhere },
@@ -378,7 +420,7 @@ test('the stand-in address may only be this Mac: any other sends nothing', async
   }
   assert.equal(a.seen.length, 0);
   // The declared upstream itself must be https or this Mac too.
-  const model = assistantModel({
+  const model = hostedOn({
     local,
     dataDir: dir,
     environment: {},
@@ -388,30 +430,34 @@ test('the stand-in address may only be this Mac: any other sends nothing', async
   assert.equal(status.availability === 'unavailable' && status.reason.code, 'provider_address');
 });
 
-test('a named model must be one the provider declares; otherwise its first is used', async (t) => {
+test('a chosen model runs only where its provider declares it, and says so where it does not', async (t) => {
   const a = await upstream(t, shapes.anthropic_messages(false));
   const dir = dataDir(t);
   store(dir, anthropicProvider.key.file, GOOD);
-  for (const [named, used] of [
-    ['claude-sonnet-5-5', 'claude-sonnet-5-5'],
-    ['some-other-model', 'claude-opus-5-5'],
-  ] as const) {
-    const model = assistantModel({
+  const on = (model: string) =>
+    hostedOn({
       local,
       dataDir: dir,
-      environment: { HALCYONIC_ASSISTANT_MODEL: named },
+      environment: {},
       providers: [{ ...anthropicProvider, upstream: a.url }],
+      chosen: () => ({ provider_id: 'anthropic', model }),
     });
-    const status = await model.status();
-    assert.equal(status.availability === 'available' && status.model, used);
-  }
+  const sonnet = await on('claude-sonnet-5-5').status();
+  assert.equal(sonnet.availability === 'available' && sonnet.model, 'claude-sonnet-5-5');
+  assert.deepEqual(await on('some-other-model').status(), {
+    availability: 'unavailable',
+    reason: {
+      code: 'model_not_offered',
+      message: 'The model you chose is no longer offered here.',
+    },
+  });
 });
 
 test('a call to a tool not offered is refused, whatever the protocol', async (t) => {
   const a = await upstream(t, shapes.anthropic_messages(false));
   const dir = dataDir(t);
   store(dir, anthropicProvider.key.file, GOOD);
-  const model = assistantModel({
+  const model = hostedOn({
     local,
     dataDir: dir,
     environment: {},
@@ -497,7 +543,7 @@ test('a redirect from the provider carries the key nowhere', async (t) => {
   assert.equal(a.seen.length, 0);
   const dir = dataDir(t);
   store(dir, anthropicProvider.key.file, GOOD);
-  const model = assistantModel({
+  const model = hostedOn({
     local,
     dataDir: dir,
     environment: {},
@@ -508,24 +554,34 @@ test('a redirect from the provider carries the key nowhere', async (t) => {
   assert.equal(elsewhere.seen.length, 0);
 });
 
-test('with keys stored for two providers, the first declared runs the assistant', async (t) => {
+test('with keys stored for two providers and nothing chosen, this computer runs and both are offered', async (t) => {
   const a = await upstream(t, shapes.anthropic_messages(false));
   const b = await upstream(t, shapes.openai_chat(false));
-  const [first, second] = declarations(a.url, b.url);
+  const [first, second] = declarations(a.url, b.url) as [HostedProvider, HostedProvider];
   const dir = dataDir(t);
-  store(dir, (first as HostedProvider).key.file, GOOD);
-  store(dir, (second as HostedProvider).key.file, GOOD);
+  store(dir, first.key.file, GOOD);
+  store(dir, second.key.file, BAD, 0o644);
   const both = assistantModel({
     local,
     dataDir: dir,
     environment: {},
-    providers: [second as HostedProvider, first as HostedProvider],
+    providers: [second, first],
+    chosen: () => null,
   });
-  const status = await both.status();
-  assert.equal(
-    status.availability === 'available' && status.provider,
-    (second as HostedProvider).name,
+  assert.deepEqual(await both.status(), await local.status());
+  assert.deepEqual(
+    (await both.options()).map((option) => [option.label, option.detail, option.usable]),
+    [
+      ["This Computer's Model", 'local-model:tag', true],
+      ...second.models.map((model) => [
+        model,
+        'The stored key can be read by other users, so it is not used.',
+        false,
+      ]),
+      ...first.models.map((model) => [model, `On ${first.name}`, true]),
+    ],
   );
+  assert.equal(a.seen.length + b.seen.length, 0, 'offering reads no network');
 });
 
 test('a Chat Completions refusal given as the message refusal text is declined, its text never relayed', async (t) => {
@@ -547,7 +603,7 @@ test('a Chat Completions refusal given as the message refusal text is declined, 
   );
   const dir = dataDir(t);
   store(dir, metaProvider.key.file, GOOD);
-  const model = assistantModel({
+  const model = hostedOn({
     local,
     dataDir: dir,
     environment: {},
@@ -566,17 +622,27 @@ test('the declared providers declare no model that trains on the content', () =>
     assert.ok(provider.models.every((id) => !id.includes('contributor')));
 });
 
-test('as the product declares them, Meta runs the assistant when both keys are stored', async (t) => {
+test('as the product declares them, Meta is offered first, and runs once chosen', async (t) => {
   const b = await upstream(t, shapes.openai_chat(false));
   const dir = dataDir(t);
   store(dir, metaProvider.key.file, GOOD);
   store(dir, anthropicProvider.key.file, GOOD);
   // The real registry, both providers pointed at the one stand-in on this Mac.
+  let chosen: AssistantHostedModel | null = null;
   const model = assistantModel({
     local,
     dataDir: dir,
     environment: { HALCYONIC_ASSISTANT_UPSTREAM: `${b.url}/v1` },
+    chosen: () => chosen,
   });
+  const labels = (await model.options()).map((option) => option.label);
+  assert.deepEqual(labels, [
+    "This Computer's Model",
+    ...metaProvider.models,
+    ...anthropicProvider.models,
+  ]);
+  assert.deepEqual(await model.status(), await local.status());
+  chosen = { provider_id: 'meta', model: 'muse-wonder-1.0' };
   assert.deepEqual(await model.status(), {
     availability: 'available',
     model: 'muse-wonder-1.0',
@@ -603,7 +669,7 @@ test('a declaration with an effort or output field its protocol does not know se
   const dir = dataDir(t);
   store(dir, metaProvider.key.file, GOOD);
   for (const bad of [{ effort: 'none' }, { outputField: 'model' }]) {
-    const model = assistantModel({
+    const model = hostedOn({
       local,
       dataDir: dir,
       environment: {},

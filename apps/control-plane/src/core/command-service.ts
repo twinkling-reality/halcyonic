@@ -77,6 +77,7 @@ import { givenSecrets, type SecretStore } from '../secrets/store.ts';
 import { type GitHubSender, sendTitle } from '../sending/github.ts';
 import type { HostStarters } from '../starters.ts';
 import {
+  type AssistantModelOption,
   CHOICE_ROWS_SHOWN,
   choiceRows,
   choicesDigest,
@@ -252,6 +253,12 @@ export class CommandService {
   attachWorkspaceRequests(handler: WorkspaceRequestHandler): void {
     if (this.#workspaceRequests !== null) throw new Error('workspace coordinator already attached');
     this.#workspaceRequests = handler;
+  }
+  #assistantModels: (() => Promise<readonly AssistantModelOption[]>) | null = null;
+  /** Where the assistant may run, read at each use (ADR 0030, 2026-11-12); absent means Use Model is not offered. */
+  attachAssistantModels(options: () => Promise<readonly AssistantModelOption[]>): void {
+    if (this.#assistantModels !== null) throw new Error('assistant models already attached');
+    this.#assistantModels = options;
   }
   /**
    * Keyed digests of refused commands as sent, by id, with who sent them, for those the journal
@@ -794,6 +801,7 @@ export class CommandService {
         ),
       credential: (runtimeId) => this.#credential(runtimeId),
       providerName: (id) => this.#deps.providers?.byId(id)?.name ?? null,
+      assistantModels: async () => (this.#assistantModels ? this.#assistantModels() : null),
       catalog: async () => {
         const read = this.#deps.catalogLinks?.read;
         if (read === undefined) return null;
@@ -842,6 +850,10 @@ export class CommandService {
       case 'project.share.start':
       case 'project.share.stop':
         return this.#deps.shares ? null : 'This computer cannot share a game.';
+      case 'assistant.model.choose':
+        return this.#assistantModels
+          ? null
+          : 'This computer has no assistant to choose a model for.';
       case 'project.send':
       case 'project.publish':
       case 'project.unpublish':
@@ -2218,6 +2230,57 @@ export class CommandService {
             effect: 'none',
           });
         else this.#complete(command, admission.scope, null);
+        return;
+      }
+      case 'assistant.model.choose': {
+        // Only a place the assistant offers now, as the list read it: a hosted model whose key is gone or refused since
+        // the press is refused in words, and the choice stays as it was (the lead's D1 and D2, 2026-11-12).
+        const wanted = command.payload.model;
+        const chosen = () => {
+          recorder.record(
+            controlPlaneDraft(
+              'assistant.model.chosen',
+              { project_id: null, workstream_id: null, execution_id: null },
+              { model: wanted },
+              this.#now(),
+              cause,
+            ),
+          );
+          this.#complete(command, admission.scope, null);
+        };
+        // This computer's model is always offered: chosen at once, so a request resumed by the press runs on it.
+        if (wanted === null) {
+          chosen();
+          return;
+        }
+        void (async () => {
+          const options = (await this.#assistantModels?.().catch(() => null)) ?? null;
+          const offered = options?.find(
+            (option) =>
+              option.usable &&
+              (option.model === null
+                ? wanted === null
+                : wanted !== null &&
+                  option.model.provider_id === wanted.provider_id &&
+                  option.model.model === wanted.model),
+          );
+          if (offered === undefined) {
+            const refused = options?.find(
+              (option) =>
+                option.model !== null &&
+                wanted !== null &&
+                option.model.provider_id === wanted.provider_id &&
+                option.model.model === wanted.model,
+            );
+            this.#fail(command, admission.scope, {
+              code: 'invalid_state',
+              message: refused?.detail ?? 'The assistant does not offer that model now.',
+              effect: 'none',
+            });
+            return;
+          }
+          chosen();
+        })();
         return;
       }
       case 'execution.drop_queued_instruction': {

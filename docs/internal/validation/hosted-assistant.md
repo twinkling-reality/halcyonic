@@ -79,15 +79,13 @@ Four changes followed, each with a test that fails without it:
 
 ## A second, different declaration
 
-`hosted-model.test.ts` runs the same tests through the one `HostedWorkspaceModel` for two declarations. One is the
-real declaration for the owner's key. The other is a test provider with the OpenAI-compatible protocol, its own
-variable and file, and its key as `authorization: Bearer`, against its own stand-in. The second needs nothing but its
-declaration. For each, the tests cover:
+`hosted-model.test.ts` runs the same tests through the one `HostedWorkspaceModel` for each declaration: the real ones
+for the owner's keys (Anthropic's, and Meta's below) and a test provider with its own variable and file, against
+stand-ins. The test provider needs nothing but its declaration. As amended for D1 and D2 (below), for each:
 
-- no key stored keeps the local model;
-- a stored key runs a tool round;
-- removing the key brings the local model back at the next read;
-- a refused key says so and never repeats the key;
+- a stored key alone moves nothing; the person's choice runs a tool round on it;
+- a chosen model with its key removed says so at the next read, never falling back;
+- a refused key says so, is never sent again, and a new key is tried;
 - a key file others can read sends nothing;
 - a refusal is a failure in words;
 - a key in the environment is never read, so a plane that inherits one stays local and sends nothing.
@@ -105,7 +103,8 @@ its own:
 - **Effort and output.** Effort `low`, sent as `reasoning_effort`, since Muse Wonder otherwise thinks at `max`. The
   output is bounded by `max_completion_tokens`, which counts that thinking.
 - **Refusals.** A refusal is read as `content_filter` or the message's `refusal` text, and that text is never relayed.
-- **Which provider runs.** When keys are stored for both, Meta's runs the assistant, since it is declared first.
+- **Which provider runs.** Whichever model the person chose with Use Model. Meta's models are listed first, since
+  Meta is declared first.
 
 The seam gained a declared `effort`, which each protocol puts where its shape says, and a declared output field. Each
 protocol refuses an effort or field it does not document. After review, two changes avoid shapes Meta does not
@@ -136,6 +135,21 @@ Unknown until a real call to Meta:
 - whether Meta accepts the host's system message after the person's words, as OpenAI's shape does.
 
 Meta adds steering text of its own, unpublished, to every prompt.
+
+## The person's choice and a refused key (the lead's D1 and D2, 2026-11-12)
+
+`assistant-choice.test.ts` runs both in one plane with a test provider and an in-process protocol:
+
+- **D1.** A stored key offers its model in `assistant_models`, after "This Computer's Model". A request then runs on
+  this computer and the key spends nothing. Use Model is pressed as any entry: prepared from a row and the list's
+  digest, then reviewed. The next request runs on the hosted model, and the choice is in the projection's exported
+  state.
+- **A model not offered.** A choice of a model the list does not offer is refused, and the choice stays.
+- **D2.** A refused key leaves the request waiting, not failed. Its step says the provider refused the key, and the
+  host's own proposal of this computer's model waits beside it. A status read and later turns send nothing more with
+  that key. The one press brings the choice back to this computer, and the request answers there.
+
+The test fails without the host's offer.
 
 ## Not verified
 

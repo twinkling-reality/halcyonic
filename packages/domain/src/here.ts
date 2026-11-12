@@ -52,8 +52,10 @@ const PROJECT_ORDER: readonly Listed[] = [
   'project.unlink_catalog',
   'project.secret.set',
   'project.secret.remove',
+  // Where the assistant runs is the person's to choose from any place (ADR 0030, 2026-11-12).
+  'assistant.model.choose',
 ];
-const ALL_ORDER: readonly Listed[] = ['project.create'];
+const ALL_ORDER: readonly Listed[] = ['project.create', 'assistant.model.choose'];
 
 /** The lists a project's scope opens, each the same one shape (ADR 0060, addition B). */
 const PROJECT_LISTS: readonly Extract<HereAction, { kind: 'list' }>[] = [

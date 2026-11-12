@@ -530,6 +530,26 @@ export const WorkspaceRequestResumeCommand = defineCommand(
     strict,
   ),
 );
+/**
+ * A hosted model the assistant may run on, by its declared provider's id and one of that provider's declared models.
+ * Opaque strings, never parsed for meaning.
+ */
+export const AssistantHostedModel = Type.Object(
+  { provider_id: Text(64), model: Text(200) },
+  strict,
+);
+export type AssistantHostedModel = Static<typeof AssistantHostedModel>;
+
+/**
+ * The person chooses where the assistant runs (ADR 0030, amendment of 2026-11-12, the lead's D1): this computer's
+ * model (`model: null`), or one hosted model whose provider has the person's key stored, from the host's list
+ * `assistant_models`. Storing a key never chooses for them; the choice is remembered until they choose again.
+ */
+export const AssistantModelChooseCommand = defineCommand(
+  'assistant.model.choose',
+  Type.Object({ model: Nullable(AssistantHostedModel) }, strict),
+);
+
 export const WorkspaceRequestCancelCommand = defineCommand(
   'workspace.request.cancel',
   Type.Object({ request_id: WorkspaceRequestId }, strict),
@@ -570,6 +590,7 @@ export const COMMAND_VARIANTS = [
   WorkspaceRequestSubmitCommand,
   WorkspaceRequestResumeCommand,
   WorkspaceRequestCancelCommand,
+  AssistantModelChooseCommand,
 ] as const;
 
 export const CommandEnvelope = Type.Union([...COMMAND_VARIANTS]);
@@ -612,6 +633,7 @@ export const CommandType = Type.Union([
   Type.Literal('workspace.request.submit'),
   Type.Literal('workspace.request.resume'),
   Type.Literal('workspace.request.cancel'),
+  Type.Literal('assistant.model.choose'),
 ]);
 
 /**

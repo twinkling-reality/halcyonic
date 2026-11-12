@@ -423,6 +423,30 @@ export async function buildReview(
         items_total: command.payload.scripts.length,
         warnings: [],
       });
+    case 'assistant.model.choose': {
+      // Where the assistant will run, read before the one press (the lead's D1, 2026-11-12): a hosted model is paid
+      // with the person's key, and what each request reads goes to its provider.
+      const chosen = command.payload.model;
+      return review({
+        digest: reviewDigest('assistant.model.choose', {}, { model: chosen }),
+        confirm_words: chosen === null ? "Use This Computer's Model" : 'Use This Model',
+        what_happens:
+          chosen === null
+            ? "The assistant runs on this computer's model, and nothing it reads leaves this computer"
+            : 'The assistant runs on this hosted model, paid with your key, and what each request reads goes to it',
+        facts:
+          chosen === null
+            ? []
+            : [
+                { kind: 'words', value: chosen.model, theirs: true },
+                { kind: 'address', value: chosen.provider_id, theirs: true },
+              ],
+        items: [],
+        items_total: 0,
+        warnings:
+          chosen === null ? [] : [{ code: 'paid', line: 'Each request is paid with your key' }],
+      });
+    }
     default:
       return no('invalid_state', 'This command has no review: one press does it.');
   }

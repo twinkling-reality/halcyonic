@@ -1,6 +1,7 @@
 import type {
   ApprovalLevel,
   ApprovalView,
+  AssistantHostedModel,
   CatalogRepositoryRef,
   ChangedFiles,
   CheckFilesState,
@@ -251,9 +252,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * 16: when a start found a task's copy gone (`missing_at`, ADR 0045). 17: who can see each repository
  * a first send of Halcyonic's made (ADR 0039, amended). 18: a world's description is format 2 and only
  * `project.world.read` gives it (ADR 0049). 19: a request's prepared commands hold proposals and presses beside
- * instructions (ADR 0060); each raised past the base's again at the rebase.
+ * instructions (ADR 0060); each raised past the base's again at the rebase. 20: where the person chose the assistant
+ * to run (`assistantModel`, ADR 0030, 2026-11-12).
  */
-export const PROJECTION_STATE_FORMAT = 19;
+export const PROJECTION_STATE_FORMAT = 20;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -290,6 +292,8 @@ export interface ProjectionState {
   readonly worlds: ReadonlyMap<unknown, unknown>;
   readonly autoFixCommands: ReadonlySet<unknown>;
   readonly devices: DeviceRegistryState;
+  /** Where the person chose the assistant to run: null for this computer's model. */
+  readonly assistantModel: AssistantHostedModel | null;
 }
 
 /** What re-attaching an execution after a restart needs from the journal (ADR 0046). */
@@ -403,6 +407,7 @@ export class Projection {
   /** The instructions the host sent on its own for a failed check (ADR 0044). */
   readonly #autoFixCommands = new Set<CommandId>();
   readonly #devices = new DeviceRegistry();
+  #assistantModel: AssistantHostedModel | null = null;
   readonly #resultStarts = new Map<
     string,
     Map<string, { turn: string | null; title: string | null }>
@@ -480,6 +485,7 @@ export class Projection {
       worlds: this.#worlds,
       autoFixCommands: this.#autoFixCommands,
       devices: this.#devices.exportState(),
+      assistantModel: this.#assistantModel,
     };
   }
 
@@ -528,6 +534,7 @@ export class Projection {
       throw new Error('the state is not one this projection exported');
     }
     this.#devices.restoreState(state.devices);
+    this.#assistantModel = state.assistantModel;
     for (const [key, value] of state.projects as Map<never, never>) this.#projects.set(key, value);
     for (const [key, value] of state.workstreams as Map<never, never>)
       this.#workstreams.set(key, value);
@@ -1286,6 +1293,11 @@ export class Projection {
   /** Every device ever paired, revoked ones included. */
   devices(): DeviceView[] {
     return this.#devices.devices();
+  }
+
+  /** Where the person chose the assistant to run, or null for this computer's model (never chosen counts as null). */
+  assistantModel(): AssistantHostedModel | null {
+    return this.#assistantModel;
   }
 
   device(deviceId: string): DeviceView | undefined {
@@ -2084,6 +2096,10 @@ export class Projection {
         changes.commands.add(event.payload.command_id);
         return;
       }
+      case 'assistant.model.chosen':
+        // The person's own choice of where the assistant runs: no project's entity either.
+        this.#assistantModel = event.payload.model;
+        return;
       case 'device.paired':
       case 'device.revoked':
         // Devices are no project's entity, so the event changes none that clients hold.
