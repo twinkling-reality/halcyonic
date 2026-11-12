@@ -40,9 +40,9 @@ test('the one review: what the list offers, prepared from values, reviewed with 
   });
 
   // Project Rules: offered with a readable rules file, its review the button's own digest.
-  const rules = controlPlane.commands
-    .here(scope)
-    .find((action) => action.kind === 'command' && action.command_type === 'project.rules.set');
+  const rules = (await controlPlane.commands.here(scope)).find(
+    (action) => action.kind === 'command' && action.command_type === 'project.rules.set',
+  );
   assert.ok(rules?.kind === 'command' && rules.confirm === 'review');
   const prepared = await controlPlane.commands.prepare(given('project.rules.set', { on: true }));
   assert.ok(prepared.ok, prepared.ok ? '' : prepared.message);
