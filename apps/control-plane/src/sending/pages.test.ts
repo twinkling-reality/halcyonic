@@ -6,6 +6,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -65,6 +66,14 @@ describe('Publish to GitHub Pages (ADR 0039, amended)', {
     assert.equal(noGh.ok ? null : noGh.code, 'no_gh');
     const noBuild = await sender().publishReview(PROJECT, stand.folder, CHECK, null, null);
     assert.equal(noBuild.ok ? null : noBuild.code, 'no_built_copy');
+  });
+
+  test('a link in the built copy that points outside it is never published, and the review lists it', async () => {
+    symlinkSync('/etc', join(built, 'assets', 'escape'));
+    const reviewed = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null);
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    assert.equal(reviewed.publish.files, 2);
+    assert.deepEqual(reviewed.publish.links_left_out, { paths: ['assets/escape'], total: 1 });
   });
 
   test('a publish pushes the built copy alone to the Pages branch, turns Pages on, and a second builds on the first, never forced', async () => {

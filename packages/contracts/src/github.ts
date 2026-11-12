@@ -1,6 +1,6 @@
 import Type, { type Static } from 'typebox';
 import { RepositoryFullName } from './catalog.ts';
-import { GitObjectId, ReviewDigest } from './checkpoints.ts';
+import { GitObjectId, PathList, ReviewDigest } from './checkpoints.ts';
 import { ChangedFiles } from './copies.ts';
 import { CheckId, ShareCode } from './previews.ts';
 import { ErrorInfo, Nullable, ProjectId, Timestamp } from './primitives.ts';
@@ -29,9 +29,9 @@ export type PullRequestUrl = Static<typeof PullRequestUrl>;
 /**
  * What Send to GitHub would do, for the person to read before the press (ADR 0039, amended): the
  * repository by owner and name only (never its address), the branch the project's folder is on and
- * its last commit, the new branch it would push, the files that differ from that commit, and whether
- * a pull request can be opened on this Mac. `review` is the digest the command carries back (ADR
- * 0051).
+ * its last commit, the new branch it would push, the files that differ from that commit, the links in
+ * the folder that are not sent because they point outside it, and whether a pull request can be opened
+ * on this Mac. `review` is the digest the command carries back (ADR 0051).
  */
 export const GitHubSendReview = Type.Object(
   {
@@ -41,6 +41,8 @@ export const GitHubSendReview = Type.Object(
     base_commit: GitObjectId,
     new_branch: GitBranchName,
     files: ChangedFiles,
+    /** Links the folder holds that point outside it: never sent (a starter's `node_modules` is one). */
+    links_left_out: PathList,
     pull_request: Type.Boolean(),
     review: ReviewDigest,
   },
@@ -71,9 +73,9 @@ export const PAGES_BRANCH = 'halcyonic-pages';
 
 /**
  * What Publish would do, for the person to read before the press: the repository by owner and name,
- * the check whose built copy goes (never the source), how many files it holds, the commit of the
- * last publish it builds on (null for a first), the address it is expected at, and the digest the
- * command carries back (ADR 0051).
+ * the check whose built copy goes (never the source), how many files it holds, the links in it that
+ * are not published because they point outside it, the commit of the last publish it builds on (null
+ * for a first), the address it is expected at, and the digest the command carries back (ADR 0051).
  */
 export const GitHubPublishReview = Type.Object(
   {
@@ -81,6 +83,7 @@ export const GitHubPublishReview = Type.Object(
     repository: RepositoryFullName,
     check_id: CheckId,
     files: Type.Integer({ minimum: 1 }),
+    links_left_out: PathList,
     replaces: Nullable(GitObjectId),
     address: PagesAddress,
     review: ReviewDigest,

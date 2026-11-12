@@ -15120,6 +15120,7 @@
         "base_commit",
         "new_branch",
         "files",
+        "links_left_out",
         "pull_request",
         "review"
       ],
@@ -15143,6 +15144,9 @@
         },
         "files": {
           "$ref": "#/$defs/ChangedFiles"
+        },
+        "links_left_out": {
+          "$ref": "#/$defs/PathList"
         },
         "pull_request": {
           "type": "boolean"
@@ -15203,6 +15207,7 @@
         "repository",
         "check_id",
         "files",
+        "links_left_out",
         "replaces",
         "address",
         "review"
@@ -15222,6 +15227,9 @@
         "files": {
           "type": "integer",
           "minimum": 1
+        },
+        "links_left_out": {
+          "$ref": "#/$defs/PathList"
         },
         "replaces": {
           "anyOf": [

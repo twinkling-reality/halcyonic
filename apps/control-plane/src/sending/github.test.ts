@@ -255,6 +255,41 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     );
   });
 
+  test('a link pointing outside the folder is never sent, as a starter project holds node_modules; a link inside it is', async () => {
+    // A starter's .gitignore says node_modules/, which a link does not match.
+    writeFileSync(join(folder, '.gitignore'), 'node_modules/\n');
+    git(folder, 'add', '.gitignore');
+    git(folder, 'commit', '-q', '-m', 'ignore as a starter does');
+    git(folder, 'push', '-q', 'origin', 'main');
+    mkdirSync(join(root, 'shared', 'node_modules'), { recursive: true });
+    symlinkSync(join(root, 'shared', 'node_modules'), join(folder, 'node_modules'), 'dir');
+    mkdirSync(join(folder, 'docs'));
+    symlinkSync('../app.txt', join(folder, 'docs', 'readme'));
+    symlinkSync('docs/../../elsewhere', join(folder, 'up'));
+    const reviewed = await sender().review(PROJECT, folder, []);
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    assert.deepEqual(
+      reviewed.send.files.files.map((file) => [file.path, file.change]),
+      [['docs/readme', 'added']],
+    );
+    assert.deepEqual(reviewed.send.links_left_out, { paths: ['node_modules', 'up'], total: 2 });
+    const sent = await sender().send(PROJECT, folder, [], 'Links', reviewed.send.review);
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.equal(
+      git(origin, 'ls-tree', '-r', '--name-only', sent.commit),
+      '.gitignore\napp.txt\ndocs/readme',
+    );
+    assert.equal(git(origin, 'cat-file', 'blob', `${sent.commit}:docs/readme`), '../app.txt');
+    assert.match(git(origin, 'ls-tree', sent.commit, 'docs/readme'), /^120000 blob /);
+    // Where only such a link differs, the refusal says so.
+    git(folder, 'add', '-A');
+    git(folder, 'reset', '-q', 'node_modules', 'up');
+    git(folder, 'commit', '-q', '-m', 'the inside link');
+    const only = await sender().review(PROJECT, folder, []);
+    assert.equal(only.ok ? null : only.code, 'nothing_to_send');
+    assert.match(only.ok ? '' : only.message, /Only links that point outside/);
+  });
+
   test("a file the person's own git excludes is never sent: the folder's info/exclude and their excludes file (AUDIT3 G2)", async () => {
     writeFileSync(join(folder, '.git', 'info', 'exclude'), 'private-notes.txt\n');
     writeFileSync(join(folder, 'private-notes.txt'), 'only mine\n');
