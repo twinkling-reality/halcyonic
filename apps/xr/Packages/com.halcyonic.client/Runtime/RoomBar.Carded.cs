@@ -21,7 +21,8 @@ namespace Halcyonic.Client
             var leaving = new List<RoomAction>();
             foreach (var (_, prompt) in frame.Footer.All)
             {
-                if (!prompt.Available) continue;
+                // Next Page pages the lines the card stands in for, so a press would change nothing a person sees.
+                if (!prompt.Available || prompt.Kind == PromptKind.NextPage) continue;
                 if (prompt.Holds) return null;
                 var leaves = prompt.Kind is PromptKind.Close or PromptKind.Cancel;
                 var leads = main == null && !leaves && prompt.Main;
