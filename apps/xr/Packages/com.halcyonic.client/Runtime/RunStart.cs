@@ -53,12 +53,12 @@ namespace Halcyonic.Client
         /// <summary>FIELD's words (1424Z): a task that is a plan, while its run is not at rest.</summary>
         public const string Planning = "Planning";
 
-        public const string PlanningLine = "It plans first, then waits for you to carry it out.";
+        public const string PlanningLine = "It plans first, then waits for you to carry it out";
 
         /// <summary>FIELD's words (1424Z): a plan whose run ended, waiting for the person.</summary>
         public const string PlanReady = "Plan Ready";
 
-        public const string PlanReadyLine = "Read it, then carry it out or change it.";
+        public const string PlanReadyLine = "Read it, then carry it out or change it";
 
         /// <summary>FIELD's words (1424Z): the press that carries the plan out, the main action.</summary>
         public const string CarryOutPlan = "Carry Out Plan";

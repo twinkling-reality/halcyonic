@@ -4573,7 +4573,7 @@ presence, contextual moment cards and the on-demand project screen:
   the turn runs and any wait, the result reaches the bar (`KitFileBinding`: at rest, or while instructions wait) and
   the working bar stands FIELD's waiting list beside Stop: title Waiting, "Each is sent when this turn ends.", a row
   each with its words (theirs), "Next" on the first alone (the title says the rest wait), each with the waiting mark (the clock), each pressed to its page
-  (`room-waiting-open`, key the command). A page reads "Waiting for Its Turn" over "It is sent when this turn ends.",
+  (`room-waiting-open`, key the command). A page reads "Waiting for Its Turn" over "It is sent when this turn ends",
   its words under it, then Drop (never main, no confirmation: nothing was sent) and Back; Drop sends
   `execution.drop_queued_instruction` (`CommandFactory.DropQueuedInstruction`) and the row leaves once the host
   records it. At rest, the run's newest instruction that waited and was not sent (`command.failed` with a `queued_`
@@ -4587,7 +4587,7 @@ presence, contextual moment cards and the on-demand project screen:
   own record (`ExecutionView.plan`, `plan_left`, `unconfined_reason`; `RunStart.Of`, with the run's runtime). The
   result's card (`RoomPanelCards.Result`) says, in FIELD's words, Plan Ready (the attention tone) over "Read it, then
   carry it out or change it." where the task is a plan and its run is at rest (completed), Planning (tone working) over
-  "It plans first, then waits for you to carry it out." for a plan whose run is not, and nothing new once the plan was
+  "It plans first, then waits for you to carry it out" for a plan whose run is not, and nothing new once the plan was
   carried out (`plan_left`); and a slot under the folder's mark, Not Kept to Folder, where the Mac gave a reason (the
   reason's own sentence is not shown: it names the mechanism; FIELD to word a line). Where the task is a plan at rest on
   a runtime that offers plans, Carry Out Plan leads the result's column as its main action
