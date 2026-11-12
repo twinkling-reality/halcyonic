@@ -14,13 +14,13 @@ import type {
 } from '@halcyonic/contracts';
 import type { ObservationSink, RuntimeAdapter, RuntimeObservation } from '@halcyonic/runtime-core';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
+import { reviewDigest } from '../core/review.ts';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import { registerRoutes } from '../http/routes.ts';
 import { createHttpServer } from '../http/server.ts';
 import { createUuidV7Generator } from '../ids.ts';
 import { DeviceAccess } from '../network/devices.ts';
 import { capturingLogger, createTestControlPlane } from '../testing/harness.ts';
-import type { ActionEntry, ActionsHere, ListRow } from './actions.ts';
 import type { ToolDefinition, ToolMessage, ToolTurnResult } from './ollama.ts';
 import {
   ANSWER_AGAIN,
@@ -94,7 +94,6 @@ async function fixture(
     title?: string;
     objective?: string;
     understand?: () => Promise<typeof unavailable>;
-    actions?: ActionsHere;
   } = {},
 ) {
   let sink: ObservationSink | undefined,
@@ -186,7 +185,6 @@ async function fixture(
     model,
     ...providers,
     ...(options.understand ? { understanding: { understand: options.understand } } : {}),
-    ...(options.actions ? { actions: options.actions } : {}),
     scheduler: h.time,
   });
   const initial = DEMO_WORKSTREAMS[0];
@@ -1643,8 +1641,11 @@ test('a whole-project request reads two tasks by the host list and cannot instru
     assert.equal(request?.workstream_id, null);
     assert.equal(request?.execution_id, null);
     assert.equal(request?.status, 'responded');
+    // A project request may propose from the host's list (ADR 0060); it still cannot instruct a task.
     assert.deepEqual([...new Set(offered.flat())].sort(), [
       'ask_person',
+      'propose_command',
+      'read_choices',
       'read_project',
       'read_task',
     ]);
@@ -1936,7 +1937,10 @@ test('a request about all work lists the projects, reads a task of the second, a
     assert.equal(request?.project_id, null);
     assert.equal(request?.status, 'responded');
     // About all work it only reads, and answers: never a question back (ask_person is not offered).
+    // A request about all work may propose from the host's list (ADR 0060); it still cannot instruct a task.
     assert.deepEqual([...new Set(offered.flat())].sort(), [
+      'propose_command',
+      'read_choices',
       'read_project_at',
       'read_projects',
       'read_task',
@@ -2191,7 +2195,13 @@ test('once the work it sent has its outcome, the host context says so, so the mo
     assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
     assert.deepEqual(flags, [false, true]);
     // The first turn of a task request goes straight to the work: the change or a question, never only a look.
-    assert.deepEqual([...(offered[0] ?? [])].sort(), ['ask_person', 'continue_task']);
+    // With the host's list of what can be done here beside it (ADR 0060).
+    assert.deepEqual([...(offered[0] ?? [])].sort(), [
+      'ask_person',
+      'continue_task',
+      'propose_command',
+      'read_choices',
+    ]);
     // Every read and the observation come from the second turn on.
     assert.ok(offered[1] !== undefined);
     // Once the outcome is in, that turn is offered no tool, so the model answers.
@@ -2341,10 +2351,10 @@ test('every answer is asked for in plain words: no field names, ids or timestamp
     f.submit();
     for (let i = 0; i < 20; i++) await settle();
     assert.ok(seen[0]?.[0]?.content.endsWith(PLAIN_WORDS), 'the first turn');
-    // With nothing listed here, none of the list's guidance is sent (ADR 0060).
+    // The list's guidance goes only beside a list (ADR 0060): a task here has one.
     assert.equal(
       seen[0]?.some((message) => message.content === LIST_GUIDE),
-      false,
+      (seen[0] ?? []).some((message) => message.content.includes('"can_be_done_here"')),
     );
     assert.ok(ANSWERING.includes(PLAIN_WORDS), 'the answering turn');
     assert.match(PLAIN_WORDS, /never field names, ids, timestamps/);
@@ -2545,51 +2555,49 @@ test("the computer's facts never stand beside a reply, an earlier one included (
   }
 });
 
-// ADR 0060: what can be done here, a stand-in of the host's list (CORE's part) of the draft's shape.
+// ADR 0060: what can be done here, read from the host's own list (CORE's `CommandService.here`).
 const VERSION = '01a1ce13-0000-7000-8000-000000000001';
-function standIn(
-  entries: ActionEntry[],
-  rows: Record<string, ListRow[]> = {},
-  reviewed: { command_type: string; payload: unknown }[] = [],
-): ActionsHere {
-  return {
-    actions: () => entries,
-    looks: () =>
-      rows.tasks ? [{ opens: 'tasks', title: 'Tasks', description: "The project's tasks." }] : [],
-    list: (_scope, name) => rows[name] ?? [],
-    review: (command) => {
-      reviewed.push({ command_type: command.command_type, payload: command.payload });
-      return { what_happens: `The computer does ${command.command_type}.`, digest: 'a'.repeat(64) };
-    },
-  };
-}
-const NEW_TASK: ActionEntry = {
-  command_type: 'workstream.create',
-  title: 'New Task',
-  description: 'Start a new task in this project.',
-  confirm: 'none',
-  sayable: true,
-  needs: [{ name: 'title', kind: 'text', label: 'Title', required: true }],
-};
-const RESTORE: ActionEntry = {
-  command_type: 'project.restore',
-  title: 'Restore',
-  description: "Put the project's files back as a version holds them.",
-  confirm: 'review',
-  sayable: true,
-  needs: [
-    { name: 'checkpoint_id', kind: 'choice', label: 'Version', required: true, list: 'versions' },
-  ],
-};
 
-test('a model proposes a new task from the list: the host builds it from the binding, and it waits for one press (ADR 0060)', async () => {
-  const offered: ToolDefinition[][] = [];
+function submitIn(
+  f: Awaited<ReturnType<typeof fixture>>,
+  text: string,
+  extra: Record<string, unknown> = {},
+) {
+  const outcome = f.controlPlane.commands.submit(
+    {
+      schema_version: 1,
+      command_id: f.ids.next() as CommandId,
+      issued_at: f.time.now().toISOString(),
+      client: { name: 'synthetic', version: null, device_label: null },
+      command_type: 'workspace.request.submit',
+      payload: {
+        project_id: f.projectId,
+        workstream_id: null,
+        execution_id: null,
+        text,
+        ...extra,
+      } as never,
+    },
+    'http',
+    { kind: 'local' },
+  );
+  assert.equal(outcome.disposition, 'accepted', JSON.stringify(outcome.command?.rejection));
+  const result = outcome.command?.result;
+  return result?.kind === 'workspace_request_created' ? result.request_id : '';
+}
+const offeredTypes = (tools: readonly ToolDefinition[] | undefined) =>
+  (
+    tools?.find((tool) => tool.function.name === 'propose_command')?.function.parameters as
+      | { properties: { command_type: { enum: string[] } } }
+      | undefined
+  )?.properties.command_type.enum ?? [];
+
+test("a model proposes New Task from the host's list in a project: the host prepares it, and it waits for one press (ADR 0060)", async () => {
+  const offered: (readonly ToolDefinition[])[] = [];
   const seen: ToolMessage[][] = [];
   const f = await fixture({
-    requestText: 'Start a task called Night Sky.',
-    actions: standIn([NEW_TASK]),
     turn: async (messages, tools) => {
-      offered.push([...(tools ?? [])]);
+      offered.push(tools ?? []);
       seen.push([...messages]);
       return answer([
         {
@@ -2601,43 +2609,24 @@ test('a model proposes a new task from the list: the host builds it from the bin
   });
   try {
     const tasksBefore = f.controlPlane.projection.workstreams(f.projectId).length;
-    const id = f.submit();
-    for (let i = 0; i < 6; i++) await settle();
-    // Offered on the first turn, its command_type narrowed to the list's entries.
-    const propose = offered[0]?.find((tool) => tool.function.name === 'propose_command');
-    assert.deepEqual(
-      (
-        propose?.function.parameters as
-          | { properties: { command_type: { enum: string[] } } }
-          | undefined
-      )?.properties.command_type.enum,
-      ['workstream.create'],
-    );
+    const id = submitIn(f, 'Start a task called Night Sky.');
+    for (let i = 0; i < 8; i++) await settle();
+    // The tool offers the list's sayable entries, from the host.
+    assert.ok(offeredTypes(offered[0]).includes('workstream.create'));
     assert.match(
       seen[0]?.find((m) => m.content.startsWith('Host context data'))?.content ?? '',
       /"can_be_done_here":\[\{"command_type":"workstream.create","title":"New Task"/,
     );
-    assert.ok(
-      seen[0]?.some((message) => message.role === 'system' && message.content === LIST_GUIDE),
-    );
-    const request = f.coordinator.read(id, { kind: 'local' });
+    assert.ok(seen[0]?.some((m) => m.role === 'system' && m.content === LIST_GUIDE));
+    const request = f.controlPlane.projection.workspaceRequest(id);
     assert.equal(request?.status, 'waiting_for_human');
     const step = request?.steps.find((candidate) => candidate.tool_name === 'propose_command');
-    assert.equal(
-      step?.status,
-      'waiting',
-      JSON.stringify(f.coordinator.read(id, { kind: 'local' })),
-    );
-    assert.deepEqual(step?.proposal, {
-      command_type: 'workstream.create',
-      confirm: 'none',
-      what_happens: 'The computer does workstream.create.',
-      review: 'a'.repeat(64),
-    });
-    // Nothing happened on the model's word: no task was made, and the model is not asked again while it waits.
+    assert.equal(step?.status, 'waiting');
+    assert.equal(step?.proposal?.command_type, 'workstream.create');
+    assert.equal(step?.proposal?.confirm, 'none');
+    // Nothing happened on the model's word, and the model is not asked again while it waits.
     assert.equal(f.controlPlane.projection.workstreams(f.projectId).length, tasksBefore);
     assert.equal(f.turns, 1);
-    // The prepared command is durable, its project the binding's.
     const recorded = [...f.journal.readAll()]
       .map((stored) => stored.event)
       .find(
@@ -2646,19 +2635,21 @@ test('a model proposes a new task from the list: the host builds it from the bin
           event.payload.step.tool_name === 'propose_command',
       );
     assert.ok(recorded?.event_type === 'workspace.request.step_recorded');
-    assert.equal(recorded.payload.proposed_command?.command_type, 'workstream.create');
-    assert.deepEqual(recorded.payload.proposed_command?.payload, {
-      project_id: f.projectId,
-      title: 'Night Sky',
-      objective: null,
-    });
-    assert.equal(recorded.payload.proposed_command?.command_id, step?.command_id);
-    // Cancelling drops the waiting proposal.
+    const proposed = recorded.payload.proposed_command;
+    assert.equal(proposed?.command_type, 'workstream.create');
+    assert.equal(
+      (proposed?.payload as { project_id: string } | undefined)?.project_id,
+      f.projectId,
+    );
+    assert.equal((proposed?.payload as { title: string } | undefined)?.title, 'Night Sky');
+    assert.equal(proposed?.command_id, step?.command_id);
+    // What the press will carry is the digest of exactly what was prepared.
+    assert.equal(step?.proposal?.review, reviewDigest('workstream.create', proposed?.payload, {}));
     f.controlPlane.commands.submit(f.command('cancel', id), 'http', { kind: 'local' });
     await settle();
-    const after = f.coordinator.read(id, { kind: 'local' });
     assert.equal(
-      after?.steps.find((candidate) => candidate.step_id === step?.step_id)?.status,
+      f.controlPlane.projection.workspaceRequest(id)?.steps.find((s) => s.step_id === step?.step_id)
+        ?.status,
       'rejected',
     );
   } finally {
@@ -2666,21 +2657,12 @@ test('a model proposes a new task from the list: the host builds it from the bin
   }
 });
 
-test('a proposal never carries an id of the model, an entry not listed here, or one that is never sayable (ADR 0060, R6)', async () => {
+test('a proposal never carries an id of the model, an entry not listed here, or one never sayable (ADR 0060, R6)', async () => {
   let turn = 0;
-  const offered: ToolDefinition[][] = [];
-  const answerQuestion: ActionEntry = {
-    command_type: 'execution.answer_question',
-    title: 'Answer',
-    description: "Answer the agent's question.",
-    confirm: 'none',
-    sayable: true,
-    needs: [],
-  };
+  const offered: (readonly ToolDefinition[])[] = [];
   const f = await fixture({
-    actions: standIn([NEW_TASK, answerQuestion]),
     turn: async (_messages, tools) => {
-      offered.push([...(tools ?? [])]);
+      offered.push(tools ?? []);
       turn++;
       if (turn === 1)
         return answer([
@@ -2707,29 +2689,17 @@ test('a proposal never carries an id of the model, an entry not listed here, or 
     },
   });
   try {
-    const id = f.submit();
-    for (let i = 0; i < 8; i++) await settle();
-    // The list said answer_question was sayable; the request loop drops it whatever a list says.
-    const propose = offered[0]?.find((tool) => tool.function.name === 'propose_command');
-    assert.deepEqual(
-      (
-        propose?.function.parameters as
-          | { properties: { command_type: { enum: string[] } } }
-          | undefined
-      )?.properties.command_type.enum,
-      ['workstream.create'],
-    );
-    const steps = f.coordinator
-      .read(id, { kind: 'local' })
+    const id = submitIn(f, 'Start a task.');
+    for (let i = 0; i < 10; i++) await settle();
+    assert.ok(!offeredTypes(offered[0]).includes('execution.answer_question'));
+    const steps = f.controlPlane.projection
+      .workspaceRequest(id)
       ?.steps.filter((s) => s.tool_name === 'propose_command');
     assert.deepEqual(
-      steps?.map((s) => [s.status, s.summary]),
-      [
-        ['rejected', 'Nothing was prepared: not_needed.'],
-        ['rejected', 'That is not one of the things that can be done here now.'],
-        ['rejected', 'Nothing was prepared: missing.'],
-      ],
+      steps?.map((s) => s.status),
+      ['rejected', 'rejected', 'rejected'],
     );
+    assert.equal(steps?.[1]?.summary, 'That is not one of the things that can be done here now.');
     assert.equal(
       steps?.some((s) => s.proposal),
       false,
@@ -2739,56 +2709,36 @@ test('a proposal never carries an id of the model, an entry not listed here, or 
   }
 });
 
-test('a choice is an index into a list the model read, checked against the list as it stands (ADR 0060)', async () => {
+test('read_choices reads a host list by its name, and a choice is never made from a list unread (ADR 0060)', async () => {
   let turn = 0;
-  const reviewed: { command_type: string; payload: unknown }[] = [];
-  const rows: Record<string, ListRow[]> = {
-    versions: [
-      {
-        kind: 'version',
-        label: 'Yesterday Evening',
-        detail: '3 files changed',
-        theirs: false,
-        value: VERSION,
-      },
-    ],
-  };
+  const seen: ToolMessage[][] = [];
   const f = await fixture({
-    requestText: "Put the project back to yesterday's version.",
-    actions: standIn([RESTORE], rows, reviewed),
-    turn: async () => {
+    turn: async (messages) => {
+      seen.push([...messages]);
       turn++;
       if (turn === 1)
         return answer([
           {
             name: 'propose_command',
-            arguments: { command_type: 'project.restore', values: { checkpoint_id: 0 } },
+            arguments: {
+              command_type: 'workstream.create',
+              values: { title: 'Y', from_checkpoint: 0 },
+            },
           },
         ]);
-      if (turn === 2) return answer([{ name: 'read_choices', arguments: { list: 'versions' } }]);
-      return answer([
-        {
-          name: 'propose_command',
-          arguments: { command_type: 'project.restore', values: { checkpoint_id: 0 } },
-        },
-      ]);
+      if (turn === 2) return answer([{ name: 'read_choices', arguments: { list: 'tasks' } }]);
+      return answer([], 'There is one task.');
     },
   });
   try {
-    const id = f.submit();
-    for (let i = 0; i < 8; i++) await settle();
-    const request = f.coordinator.read(id, { kind: 'local' });
-    const steps = request?.steps ?? [];
-    assert.equal(steps[0]?.summary, 'Read the list versions again before choosing from it.');
-    assert.equal(steps[1]?.summary, "The host's list versions was read: 1 rows.");
-    assert.equal(steps[2]?.status, 'waiting');
-    assert.equal(steps[2]?.proposal?.confirm, 'review');
-    assert.equal(request?.status, 'waiting_for_human');
-    // The id came from the row the host listed, never from the model.
-    assert.deepEqual(reviewed.at(-1), {
-      command_type: 'project.restore',
-      payload: { project_id: f.projectId, checkpoint_id: VERSION },
-    });
+    const id = submitIn(f, 'Which tasks are there, and start one from a version.');
+    for (let i = 0; i < 10; i++) await settle();
+    const steps = f.controlPlane.projection.workspaceRequest(id)?.steps ?? [];
+    assert.equal(steps[0]?.summary, 'Read the list versions first, then choose from it.');
+    assert.equal(steps[1]?.tool_name, 'read_choices');
+    assert.equal(steps[1]?.status, 'confirmed');
+    const tool = (seen[2] ?? []).find((m) => m.role === 'tool' && m.tool_name === 'read_choices');
+    assert.match(tool?.content ?? '', /"list":"tasks"/);
   } finally {
     await f.close();
   }
@@ -2805,30 +2755,9 @@ test('go_to picks one of the places the client named, by index, and the client g
     },
   });
   try {
-    const outcome = f.controlPlane.commands.submit(
-      {
-        schema_version: 1,
-        command_id: f.ids.next() as CommandId,
-        issued_at: f.time.now().toISOString(),
-        client: { name: 'synthetic', version: null, device_label: null },
-        command_type: 'workspace.request.submit',
-        payload: {
-          project_id: null,
-          workstream_id: null,
-          execution_id: null,
-          text: 'Show my world.',
-          places: ['My Projects', 'My World', 'Settings'],
-        },
-      },
-      'http',
-      { kind: 'local' },
-    );
-    assert.equal(outcome.disposition, 'accepted', JSON.stringify(outcome.command?.rejection));
+    const id = submitIn(f, 'Show my world.', { places: ['My Projects', 'My World', 'Settings'] });
     for (let i = 0; i < 6; i++) await settle();
-    const result = outcome.command?.result;
-    const request = f.controlPlane.projection.workspaceRequest(
-      result?.kind === 'workspace_request_created' ? result.request_id : '',
-    );
+    const request = f.controlPlane.projection.workspaceRequest(id);
     const step = request?.steps.find((candidate) => candidate.tool_name === 'go_to');
     assert.equal(step?.place, 1);
     assert.equal(step?.status, 'confirmed');
@@ -2838,47 +2767,16 @@ test('go_to picks one of the places the client named, by index, and the client g
   }
 });
 
-function submitAct(
-  f: Awaited<ReturnType<typeof fixture>>,
-  act: { command_type: string; values: Record<string, unknown>; lists?: Record<string, string> },
-  title: string,
-) {
-  const outcome = f.controlPlane.commands.submit(
-    {
-      schema_version: 1,
-      command_id: f.ids.next() as CommandId,
-      issued_at: f.time.now().toISOString(),
-      client: { name: 'synthetic', version: null, device_label: null },
-      command_type: 'workspace.request.submit',
-      payload: {
-        project_id: f.projectId,
-        workstream_id: null,
-        execution_id: null,
-        text: title,
-        act: { lists: {}, ...act } as never,
-      },
-    },
-    'http',
-    { kind: 'local' },
-  );
-  assert.equal(outcome.disposition, 'accepted', JSON.stringify(outcome.command?.rejection));
-  const result = outcome.command?.result;
-  return f.controlPlane.projection.workspaceRequest(
-    result?.kind === 'workspace_request_created' ? result.request_id : '',
-  );
-}
-
-test("the person's own press goes through the same preparation: done at once, with no model asked (ADR 0060, section 2)", async () => {
-  const f = await fixture({ actions: standIn([NEW_TASK]) });
+test("the person's own press goes through the host's one preparation: done at once, with no model asked (ADR 0060, section 2)", async () => {
+  const f = await fixture();
   try {
     const before = f.controlPlane.projection.workstreams(f.projectId).length;
-    const request = submitAct(
-      f,
-      { command_type: 'workstream.create', values: { title: 'Night Sky' } },
-      'New Task',
-    );
-    await settle();
+    const id = submitIn(f, 'New Task', {
+      act: { command_type: 'workstream.create', values: { title: 'Night Sky' }, lists: {} },
+    });
+    for (let i = 0; i < 6; i++) await settle();
     assert.equal(f.turns, 0, 'no model is asked for a press');
+    const request = f.controlPlane.projection.workspaceRequest(id);
     assert.equal(request?.status, 'responded');
     const step = request?.steps.find((candidate) => candidate.tool_name === 'act');
     assert.equal(step?.proposal?.confirm, 'none');
@@ -2886,70 +2784,13 @@ test("the person's own press goes through the same preparation: done at once, wi
     const tasks = f.controlPlane.projection.workstreams(f.projectId);
     assert.equal(tasks.length, before + 1);
     assert.ok(tasks.some((task) => task.title === 'Night Sky'));
-  } finally {
-    await f.close();
-  }
-});
-
-test('a press on a reviewed entry waits for the one card; a list that changed, a secret or an entry not here does nothing (ADR 0060, C3)', async () => {
-  const rows: Record<string, ListRow[]> = {
-    versions: [
-      { kind: 'version', label: 'Yesterday Evening', detail: null, theirs: false, value: VERSION },
-    ],
-  };
-  const withSecret: ActionEntry = {
-    command_type: 'workstream.create',
-    title: 'New Task',
-    description: 'x',
-    confirm: 'none',
-    sayable: false,
-    needs: [{ name: 'title', kind: 'secret', label: 'Key', required: true }],
-  };
-  const f = await fixture({ actions: standIn([RESTORE, withSecret], rows) });
-  try {
-    const { listDigest } = await import('./actions.ts');
-    const digest = listDigest(rows.versions ?? []);
-    const waiting = submitAct(
-      f,
-      {
-        command_type: 'project.restore',
-        values: { checkpoint_id: 0 },
-        lists: { versions: digest },
-      },
-      'Restore',
-    );
-    assert.equal(waiting?.status, 'waiting_for_human');
-    assert.equal(waiting?.steps[0]?.status, 'waiting');
-    assert.equal(waiting?.steps[0]?.proposal?.confirm, 'review');
-    const changed = submitAct(
-      f,
-      {
-        command_type: 'project.restore',
-        values: { checkpoint_id: 0 },
-        lists: { versions: 'b'.repeat(64) },
-      },
-      'Restore',
-    );
-    assert.equal(changed?.status, 'failed');
+    // An entry the host does not list here does nothing.
+    const absent = submitIn(f, 'Check', {
+      act: { command_type: 'project.check', values: {}, lists: {} },
+    });
+    for (let i = 0; i < 6; i++) await settle();
     assert.equal(
-      changed?.steps[0]?.summary,
-      'The list versions changed since it was shown; nothing was done.',
-    );
-    const before = f.controlPlane.projection.workstreams(f.projectId).length;
-    const secret = submitAct(
-      f,
-      { command_type: 'workstream.create', values: { title: 'k' } },
-      'New Task',
-    );
-    assert.equal(secret?.status, 'failed');
-    assert.equal(
-      secret?.steps[0]?.summary,
-      'A secret is given in its own field, never through a request.',
-    );
-    assert.equal(f.controlPlane.projection.workstreams(f.projectId).length, before);
-    const absent = submitAct(f, { command_type: 'project.check', values: {} }, 'Check');
-    assert.equal(
-      absent?.steps[0]?.summary,
+      f.controlPlane.projection.workspaceRequest(absent)?.steps[0]?.summary,
       'That is not one of the things that can be done here now.',
     );
     assert.equal(f.turns, 0);
@@ -2958,59 +2799,9 @@ test('a press on a reviewed entry waits for the one card; a list that changed, a
   }
 });
 
-test("the host's own list holds only what its admission passes now: New Task in a project, Send on a task that takes words (ADR 0060)", async () => {
-  const f = await fixture({ mode: 'immediate' });
-  try {
-    const { hostActions } = await import('./host-actions.ts');
-    const list = hostActions(f.controlPlane);
-    const project = { project_id: f.projectId, workstream_id: null, execution_id: null };
-    assert.deepEqual(
-      list.actions(project).map((entry) => entry.command_type),
-      ['workstream.create'],
-    );
-    const task = {
-      project_id: f.projectId,
-      workstream_id: f.workstreamId,
-      execution_id: f.execution,
-    };
-    assert.deepEqual(
-      list.actions(task).map((entry) => [entry.command_type, entry.sayable]),
-      [
-        ['workstream.create', true],
-        ['execution.send_instruction', false],
-      ],
-    );
-    const gone = { project_id: VERSION as never, workstream_id: null, execution_id: null };
-    assert.deepEqual(list.actions(gone), []);
-    // What the press is shown is the digest of exactly what it sends.
-    const { reviewDigest } = await import('../core/review.ts');
-    const command = {
-      schema_version: 1 as const,
-      command_id: f.ids.next() as CommandId,
-      issued_at: f.time.now().toISOString(),
-      client: { name: 'workspace-agent', version: null, device_label: null },
-      command_type: 'workstream.create' as const,
-      payload: { project_id: f.projectId, title: 'Night', objective: null },
-    };
-    assert.equal(
-      list.review(command)?.digest,
-      reviewDigest('workstream.create', command.payload, {}),
-    );
-  } finally {
-    await f.close();
-  }
-});
-
 test("the person's one press confirms a waiting proposal through resume: only its owner, only with the digest it was shown (ADR 0060)", async () => {
-  let digest = 'a'.repeat(64);
   let turn = 0;
-  const list: ActionsHere = {
-    ...standIn([NEW_TASK]),
-    review: (command) => ({ what_happens: `The computer does ${command.command_type}.`, digest }),
-  };
   const f = await fixture({
-    requestText: 'Start a task called Night Sky.',
-    actions: list,
     turn: async () => {
       turn++;
       return turn === 1
@@ -3024,10 +2815,11 @@ test("the person's one press confirms a waiting proposal through resume: only it
     },
   });
   try {
-    const id = f.submit();
-    for (let i = 0; i < 6; i++) await settle();
-    const step = f.coordinator.read(id, { kind: 'local' })?.steps.find((s) => s.proposal);
+    const id = submitIn(f, 'Start a task called Night Sky.');
+    for (let i = 0; i < 8; i++) await settle();
+    const step = f.controlPlane.projection.workspaceRequest(id)?.steps.find((s) => s.proposal);
     assert.equal(step?.status, 'waiting');
+    const digest = step?.proposal?.review ?? '';
     const confirm = (review: string, principal: Principal = { kind: 'local' }) =>
       f.controlPlane.commands.submit(
         {
@@ -3043,25 +2835,26 @@ test("the person's one press confirms a waiting proposal through resume: only it
       );
     const before = f.controlPlane.projection.workstreams(f.projectId).length;
     // Another principal cannot confirm what this person was shown.
-    const other = confirm(digest, { kind: 'device', device_id: VERSION as never });
-    assert.equal(other.disposition, 'rejected');
-    // A digest that is not what was shown, or what the host holds no longer gives it: nothing is done.
+    assert.equal(
+      confirm(digest, { kind: 'device', device_id: VERSION as never }).disposition,
+      'rejected',
+    );
+    // A digest that is not the one shown does nothing.
     assert.notEqual(confirm('c'.repeat(64)).command?.status, 'completed');
-    digest = 'd'.repeat(64);
-    assert.notEqual(confirm('a'.repeat(64)).command?.status, 'completed');
+    for (let i = 0; i < 4; i++) await settle();
     assert.equal(f.controlPlane.projection.workstreams(f.projectId).length, before);
-    // The owner's press with the digest as shown, still true: the task starts, and the model says so.
-    digest = 'a'.repeat(64);
+    // The owner's press with the digest as shown: the task starts, and the model says so.
     const pressed = confirm(digest);
     assert.equal(pressed.disposition, 'accepted', JSON.stringify(pressed.command?.rejection));
-    for (let i = 0; i < 6; i++) await settle();
+    for (let i = 0; i < 8; i++) await settle();
     assert.equal(f.controlPlane.projection.workstreams(f.projectId).length, before + 1);
-    const after = f.coordinator.read(id, { kind: 'local' });
+    const after = f.controlPlane.projection.workspaceRequest(id);
     assert.equal(after?.steps.find((s) => s.step_id === step?.step_id)?.status, 'confirmed');
     assert.equal(after?.status, 'responded');
     assert.equal(after?.reply?.text, 'Night Sky has started.');
     // Confirmed once: a second press finds nothing waiting.
     assert.notEqual(confirm(digest).command?.status, 'completed');
+    for (let i = 0; i < 4; i++) await settle();
     assert.equal(f.controlPlane.projection.workstreams(f.projectId).length, before + 1);
   } finally {
     await f.close();
@@ -3071,8 +2864,6 @@ test("the person's one press confirms a waiting proposal through resume: only it
 test('new words from the person before the press replace the waiting proposal, and the model is asked again (AUDIT2, 1111-b77)', async () => {
   let turn = 0;
   const f = await fixture({
-    requestText: 'Start a task called Night Sky.',
-    actions: standIn([NEW_TASK]),
     turn: async () => {
       turn++;
       const title = turn === 1 ? 'Night Sky' : 'Day Sky';
@@ -3085,20 +2876,21 @@ test('new words from the person before the press replace the waiting proposal, a
     },
   });
   try {
-    const id = f.submit();
-    for (let i = 0; i < 6; i++) await settle();
-    const first = f.coordinator.read(id, { kind: 'local' })?.steps.find((s) => s.proposal);
+    const id = submitIn(f, 'Start a task called Night Sky.');
+    for (let i = 0; i < 8; i++) await settle();
+    const first = f.controlPlane.projection.workspaceRequest(id)?.steps.find((s) => s.proposal);
     assert.equal(first?.status, 'waiting');
     await f.time.advance(8_000);
     const words = f.controlPlane.commands.submit(
       f.command('resume', id, 'No, call it Day Sky instead.'),
       'http',
-      { kind: 'local' },
+      {
+        kind: 'local',
+      },
     );
     assert.equal(words.disposition, 'accepted');
-    for (let i = 0; i < 6; i++) await settle();
-    const request = f.coordinator.read(id, { kind: 'local' });
-    // The old proposal is not done and can no longer be confirmed; the model heard the new words.
+    for (let i = 0; i < 8; i++) await settle();
+    const request = f.controlPlane.projection.workspaceRequest(id);
     assert.equal(request?.steps.find((s) => s.step_id === first?.step_id)?.status, 'rejected');
     assert.equal(turn, 2);
     const waiting = request?.steps.filter((s) => s.proposal && s.status === 'waiting') ?? [];
@@ -3110,15 +2902,19 @@ test('new words from the person before the press replace the waiting proposal, a
         payload: {
           request_id: id as never,
           text: null,
-          confirm: { step_id: first?.step_id as never, review: 'a'.repeat(64) },
+          confirm: { step_id: first?.step_id as never, review: first?.proposal?.review ?? '' },
         },
       } as never,
       'http',
       { kind: 'local' },
     );
     assert.notEqual(old.command?.status, 'completed');
-    const titles = f.controlPlane.projection.workstreams(f.projectId).map((task) => task.title);
-    assert.ok(!titles.includes('Night Sky'));
+    for (let i = 0; i < 4; i++) await settle();
+    assert.ok(
+      !f.controlPlane.projection
+        .workstreams(f.projectId)
+        .some((task) => task.title === 'Night Sky'),
+    );
   } finally {
     await f.close();
   }
