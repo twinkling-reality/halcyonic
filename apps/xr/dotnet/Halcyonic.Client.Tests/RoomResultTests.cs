@@ -337,7 +337,7 @@ public class RoomResultTests
     private const string Review = "5f7a0c3e9b1d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a";
 
     [Test]
-    public void AddToProjectLeadsAndItsReviewCardConfirmsBehindItsLock()
+    public void AddToProjectLeadsAndItsReviewCardIsOnePressWithNoForcedPaging()
     {
         var was = RoomDesign.Enabled;
         RoomDesign.Enabled = true;
@@ -353,16 +353,20 @@ public class RoomResultTests
             var review = At(RoomResultPage.Add, Copy(Own(10)));
             Assert.That(review.Card, Is.Not.Null, "the review stands as its card");
             Assert.That((review.Card!.List.Count, review.Card.AnyDot, review.Card.Words().Any(words => words.Contains("undo"))), Is.EqualTo((RoomCard.ListAPage, false, false)));
-            // Every file is shown before the add: the first page offers Next Page, the last page Add to Project behind its lock.
-            Assert.That(review.Column.Where(NotClose).Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.NextPage, RoomResult.Back }), Show(review));
+            // The lead's R1 (2026-11-12): the review card and one press. Add to Project stands on every page, main, with no lock;
+            // Next Page reads on beside it and is never in the way.
+            Assert.That(review.Column.Where(NotClose).Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.AddConfirm, RoomResult.NextPage, RoomResult.Back }), Show(review));
+            Assert.That((review.Column[0].Main, review.Column[0].Locks, review.Column[1].Main), Is.EqualTo((true, false, false)));
             var last = At(RoomResultPage.Add, Copy(Own(10)), part: 1);
             Assert.That(last.Card!.List.Select(row => row.Name.Text), Is.EqualTo(Enumerable.Range(6, 5).Select(index => "src/file" + index + ".ts")));
             var confirm = last.Column[0];
-            Assert.That((confirm.Control.Action, confirm.Words, confirm.Main, confirm.Locks), Is.EqualTo((RoomResult.AddConfirm, RoomAdd.AddToProject, true, true)), Show(last));
+            Assert.That((confirm.Control.Action, confirm.Words, confirm.Main, confirm.Locks), Is.EqualTo((RoomResult.AddConfirm, RoomAdd.AddToProject, true, false)), Show(last));
             // The add carries the digest of the reading these files came from, as its own key (TASKS's call note); with none, no add.
             Assert.That(confirm.Control.Key, Is.EqualTo(Review), "the confirm carries the review it showed");
             Assert.That(At(RoomResultPage.Add, Copy(Own(10)), part: 1, review: null).Column.Where(NotClose).Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.Back }),
                 "no review, no add: nothing left, no reading yet, or a reading from before");
+            Assert.That(At(RoomResultPage.Add, Copy(Own(10)), review: null).Column.Where(NotClose).Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.NextPage, RoomResult.Back }),
+                "with no add to confirm, Next Page leads the reading");
             Assert.That(last.Column.Where(NotClose).Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.AddConfirm, RoomResult.Back }));
             // Where the host listed fewer files than the add brings, the add is never confirmed here: not every file can be shown.
             var partial = Copy(new OwnCopy { Directory = "/c", MadeAt = "2026-11-11T05:00:00.000Z", BaseTree = "b",
@@ -376,6 +380,28 @@ public class RoomResultTests
             Assert.That(At(RoomResultPage.Result, conflict).Column[0].Control.Action, Is.EqualTo(RoomResult.ShowConflict));
             var fitting = At(RoomResultPage.Conflict, conflict);
             Assert.That((fitting.Card != null, fitting.Column[0].Control.Action, fitting.Column[0].Words), Is.EqualTo((true, RoomResult.Fit, RoomAdd.LetAgentFix)));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    /// <summary>
+    /// Kept, said (the lead's R1, 2026-11-12): once the host recorded the add and nothing newer waits, the result card's status
+    /// says "Added to Project", good, with no line (nothing on the headset can undo it yet); a newer wait wins.
+    /// </summary>
+    [Test]
+    public void AnAddTheHostRecordedIsSaidOnTheResultCard()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var added = RoomAdd.Of(new OwnCopy { Directory = "/copies/w1", MadeAt = "2026-11-11T05:00:00.000Z", BaseTree = "base", LastAddedAt = "2026-11-11T05:10:00.000Z" }, working: false);
+            var bar = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps(), add: added));
+            var status = bar.Card!.Status!.Value;
+            Assert.That((status.Title, status.Line, status.Tone), Is.EqualTo((RoomAdd.AddedWords, (string?)null, RoomTone.Good)), Show(bar));
+            Assert.That(bar.Card.Words().Any(words => words.Contains("undo")), Is.False);
+            var waiting = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps(), add: Copy(Own(3))));
+            Assert.That(waiting.Card!.Status, Is.Null, "files waiting again: nothing says Added");
         }
         finally { RoomDesign.Enabled = was; }
     }
