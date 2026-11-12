@@ -555,7 +555,7 @@ glance's (`files/glance-access-token`) alike:
 Every key file is read one way (`readKeyFile`, `workspace-agent/providers/keys.ts`): a regular file of its own, never a link, that only the person can read. A link is refused for use, so no key is used that the held secrets, which read regular files only, do not hold.
 
 Send, Publish and Save a Copy read the whole tree that would leave the Mac, or be set aside in Downloads, before
-it goes, and refuse it (`holds_secret`, effect none) when any file holds a secret the host keeps: the very list
+it goes, and Share reads every file of the built copy it would serve (`heldInFolder`: links followed as the preview server follows them, each real folder once, at most 20,000 files and 512 MB, past which nothing is shared), and each refuses it (`holds_secret`, effect none) when any file holds a secret the host keeps: the very list
 redaction reads (the access token, each runtime's and service's key, the person's project secrets), whoever
 declared it, so no vendor or name is listed here. The forms searched (`apps/control-plane/src/core/held-in-tree.ts`):
 the value exactly (as a file, an env file or a quoted string holds it), JSON-escaped, URL-encoded, and its base64,

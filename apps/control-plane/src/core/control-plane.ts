@@ -310,6 +310,8 @@ export class ControlPlane {
         ? null
         : new ProjectShares({
             ...options.share,
+            builtCopy: (projectId, checkId) => this.previews?.builtCopy(projectId, checkId) ?? null,
+            held,
             recorder: this.recorder,
             projection: this.projection,
             clock: options.clock,

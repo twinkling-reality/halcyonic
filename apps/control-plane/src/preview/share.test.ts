@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer, request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -47,7 +47,14 @@ function standInTunnel(prints: boolean) {
 }
 
 function setup(
-  options: { prints?: boolean; answers?: boolean; previewPort?: number; lan?: string | null } = {},
+  options: {
+    prints?: boolean;
+    answers?: boolean;
+    previewPort?: number;
+    lan?: string | null;
+    builtCopy?: string;
+    held?: readonly { what: string; value: string }[];
+  } = {},
 ) {
   const harness = createTestControlPlane({ logger: capturingLogger().logger });
   const { controlPlane } = harness;
@@ -74,6 +81,8 @@ function setup(
     startTimeoutMs: 2000,
     lanAddress: () => (options.lan === undefined ? '127.0.0.1' : options.lan),
     wifiPorts: [47914, 47919],
+    ...(options.builtCopy === undefined ? {} : { builtCopy: () => options.builtCopy ?? null }),
+    ...(options.held === undefined ? {} : { held: () => options.held ?? [] }),
   });
   shares.attach(controlPlane.publisher);
   const types = () =>
@@ -84,6 +93,67 @@ function setup(
 }
 
 describe('sharing a checked game at an address anyone can open (F1)', () => {
+  test('a built copy holding a secret the host keeps is never shared: refused in words naming the file, nothing recorded (the lead, 2026-11-12)', async (t) => {
+    const built = mkdtempSync(join(tmpdir(), 'halcyonic-share-built-'));
+    t.after(() => rmSync(built, { recursive: true, force: true }));
+    mkdirSync(join(built, 'assets'));
+    writeFileSync(join(built, 'index.html'), '<title>Garden</title>\n');
+    writeFileSync(join(built, 'assets', 'app.js'), 'const key = "share-held-value-0123456789";\n');
+    const held = [{ what: 'MY_SERVICE_KEY', value: 'share-held-value-0123456789' }];
+    const { shares, types } = setup({ builtCopy: built, held });
+    t.after(() => shares.close());
+    for (const way of ['link', 'wifi'] as const) {
+      await assert.rejects(
+        shares.start(PROJECT, way, NO_CAUSE),
+        (error: unknown) =>
+          error instanceof ShareRefused &&
+          error.code === 'holds_secret' &&
+          error.message ===
+            'assets/app.js holds a secret this Mac keeps (MY_SERVICE_KEY), so nothing was shared. Take it out of the file, then try again.',
+      );
+    }
+    assert.deepEqual(types(), [], 'nothing shared, nothing recorded');
+    writeFileSync(join(built, 'assets', 'app.js'), 'const key = null;\n');
+    // A link the build kept, to a file holding the value outside the copy, is read as the server would serve it.
+    const outside = mkdtempSync(join(tmpdir(), 'halcyonic-share-outside-'));
+    t.after(() => rmSync(outside, { recursive: true, force: true }));
+    writeFileSync(join(outside, '.env'), 'KEY=share-held-value-0123456789\n');
+    symlinkSync(join(outside, '.env'), join(built, 'assets', 'env.txt'));
+    symlinkSync(built, join(built, 'loop'));
+    await assert.rejects(
+      shares.start(PROJECT, 'link', NO_CAUSE),
+      (error: unknown) =>
+        error instanceof ShareRefused &&
+        error.code === 'holds_secret' &&
+        error.message.startsWith('assets/env.txt holds'),
+    );
+    rmSync(join(built, 'assets', 'env.txt'));
+    // Two presses at once: the second is refused at once, and only one share is ever started.
+    const [first, second] = await Promise.allSettled([
+      shares.start(PROJECT, 'link', NO_CAUSE),
+      shares.start(PROJECT, 'wifi', NO_CAUSE),
+    ]);
+    assert.equal(first.status, 'fulfilled');
+    assert.equal(second.status, 'rejected');
+    assert.deepEqual(types(), ['project.share.started']);
+  });
+
+  test('a built copy that cannot be read is never shared, and says so', async (t) => {
+    const built = mkdtempSync(join(tmpdir(), 'halcyonic-share-unreadable-'));
+    t.after(() => rmSync(built, { recursive: true, force: true }));
+    const { shares, types } = setup({
+      builtCopy: join(built, 'gone'),
+      held: [{ what: 'K', value: 'unreadable-value-0123' }],
+    });
+    t.after(() => shares.close());
+    await assert.rejects(
+      shares.start(PROJECT, 'link', NO_CAUSE),
+      (error: unknown) =>
+        error instanceof ShareRefused && /built files could not be read/.test(error.message),
+    );
+    assert.deepEqual(types(), []);
+  });
+
   test('recorded only once the address answers; stopped when asked, and the address goes from the view', async (t) => {
     const { controlPlane, shares, types } = setup();
     t.after(() => shares.close());
