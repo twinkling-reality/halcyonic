@@ -523,4 +523,13 @@ public class RoomResultTests
         Assert.That(RoomResult.Of(project, state, null, canSend: false)!.CanShare, Is.False, "the session cannot send");
         Assert.That(RoomResult.Of(project, state, null, way: (null, true), canSend: true)!.CanShare, Is.False, "the demonstration");
     }
+
+    /// <summary>Every step kind has words of its own; one with none is unknown, never another step's name (2026-11-12).</summary>
+    [Test]
+    public void EveryCheckStepIsNamedByItsOwnKind()
+    {
+        Assert.That(System.Enum.GetValues(typeof(CheckStepKind)).Cast<CheckStepKind>().Select(RoomResult.StepWords),
+            Is.EqualTo(new[] { "Type Check", "Build", "Page Drawn", "VR Offered" }));
+        Assert.That(RoomResult.StepWords((CheckStepKind)99), Is.EqualTo("Step Unknown"));
+    }
 }
