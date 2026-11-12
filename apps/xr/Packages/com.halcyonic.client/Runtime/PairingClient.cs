@@ -175,15 +175,7 @@ namespace Halcyonic.Client
         /// whatever answers at the typed address writes that message, so anyone on the network could put
         /// their own words on the headset (settled by the coordinator, 2026-10-07).
         /// </summary>
-        public static string WhyRefused(string? code) => code switch
-        {
-            "pairing_closed" => "Pairing Closed · Open Pairing on Your Computer · Try Again",
-            "wrong_code" => "Code Refused · Check and Retype",
-            "too_many_requests" => "Pairing Paused · Too Many Tries · Retry in 1 min",
-            "busy" => "Computer Busy · Retry",
-            "timeout" => TookTooLong,
-            _ => Refused,
-        };
+        public static string WhyRefused(string? code) => PairingCards.Said(code);
 
         /// <summary>
         /// How an exchange that broke for a reason no refusal names is said, never by the error's words:
@@ -203,22 +195,21 @@ namespace Halcyonic.Client
         /// TLS, or the computer's listener turning away too many tries from one address (settled by the
         /// coordinator, 2026-10-07).
         /// </summary>
-        public static string NotSecure(string address) =>
-            address + " · No Secure Connection · Check Address and Port · Retry in 1 min";
+        public static string NotSecure(string address) => PairingCards.Said("not_secure");
 
         /// <summary>The connection closed or failed before pairing finished (settled by the coordinator, 2026-10-07).</summary>
-        public const string ConnectionLost = "Connection Lost · Check Address and Pairing · Try Again";
+        public static readonly string ConnectionLost = PairingCards.Said("connection_lost");
 
-        public const string Refused = "Pairing Refused · Reopen Pairing · Try Again";
-        public const string TookTooLong = "Pairing Timed Out · Try Again";
+        public static readonly string Refused = PairingCards.Said("refused");
+        public static readonly string TookTooLong = PairingCards.Said("timeout");
 
         /// <summary>What answered broke the exchange, or answered in a way the computer never does.</summary>
-        public const string ProtocolError = "Unknown Pairing Protocol · Check Address · Try Again";
+        public static readonly string ProtocolError = PairingCards.Said("protocol_error");
 
         /// <summary>Pairing failed in a way none of these says, as an address that can't be read (settled by the coordinator, 2026-10-07).</summary>
-        public const string Failed = "Couldn't pair this headset. Check the address, then try again.";
+        public static readonly string Failed = PairingCards.Said(null);
 
-        public const string NotProven = "Host Unverified · Nothing Paired · Check Address";
+        public static readonly string NotProven = PairingCards.Said("server_not_proven");
     }
 
     /// <summary>Pairing did not complete. Nothing was stored.</summary>
