@@ -143,3 +143,18 @@ Whichever is chosen, the pinned OpenCode and Codex binaries are either downloade
 checked against their pins, as the setup does now, or redistributed in the package, which makes it
 larger and makes their licences part of the release. Ollama and its models stay the person's own
 install.
+
+Amended 2026-11-12: launch at login is the one row that needs no fee, terms or account, and it works
+with today's repository checkout, so it is built: `pnpm mac-setup login on|off`
+(`apps/control-plane/src/cli/login-agent.ts`) writes one user LaunchAgent in
+`~/Library/LaunchAgents` and has launchd start and stop it in the person's own session (`launchctl
+bootstrap` and `bootout`). It runs the checkout's `apps/control-plane/src/main.ts --restartable` with
+the node on PATH that is the node the command ran with; its environment is PATH (no relative
+folder, none inside the checkout, no `node_modules/.bin`) and only `HALCYONIC_PORT` and
+`HALCYONIC_DATA_DIR`; KeepAlive with SuccessfulExit false starts it again after any exit that is not
+a success (Restart to Apply's 75, a crash, a close that failed, a refused start; unlike `Start
+Halcyonic.command`, which stops after a failed close, ADR 0053), with a 30 second throttle and 30
+seconds for a stop before launchd kills; its log is in the data folder. On refuses while launchd has
+the agent already or a Halcyonic answers on the port, and removes the file if launchd refuses it. A
+first start with no Terminal at all still needs a packaged app (the signed app row). The other
+rows stay the owner's decisions.

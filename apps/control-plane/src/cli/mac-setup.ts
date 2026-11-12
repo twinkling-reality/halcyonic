@@ -11,6 +11,7 @@
  *   pnpm mac-setup voice                record the voice files, once checked
  *   pnpm mac-setup companion <name|off> let Create's companion ask an Ollama model on this Mac
  *   pnpm mac-setup pairing on|off       let headsets pair over Wi-Fi, or stop it
+ *   pnpm mac-setup login on|off         start Halcyonic whenever you log in, or stop that (login-agent.ts)
  *
  * It never opens a credential: of the Seorak, Salidium, Omnorium and Anthropic files it reads only whether
  * they exist and who may read them. By default it reads no access token and asks the running
@@ -98,6 +99,7 @@ import {
 } from '../settings.ts';
 import { HostStarters, installedSet, recordInstalled, VR_STARTER } from '../starters.ts';
 import { printable } from './devices.ts';
+import { localLoginIo, runLogin } from './login-agent.ts';
 
 /** The repository's tracked starters (ADR 0037). */
 const TRACKED_STARTERS = fileURLToPath(new URL('../../../../starters', import.meta.url));
@@ -268,6 +270,10 @@ export async function runMacSetup(args: readonly string[], io: MacSetupIo): Prom
       return setup.undo(argument);
     case 'tunnel':
       return setup.tunnel(argument);
+    case 'login':
+      return argument === 'on' || argument === 'off'
+        ? runLogin(argument, io.env, io.home, localLoginIo(io.print))
+        : usage(io);
     default:
       return usage(io);
   }
@@ -289,6 +295,7 @@ function usage(io: MacSetupIo): number {
     "  pnpm mac-setup starter              record the VR starter's pinned set, or say how to install it",
     '  pnpm mac-setup undo [git|off]       let Halcyonic undo a task, with /usr/bin/git or the git you name',
     '  pnpm mac-setup tunnel [path|off]    record the checked tunnel program that shares a game at a link',
+    '  pnpm mac-setup login on|off         start Halcyonic whenever you log in, or stop that',
     'Add --with-token to ask the running Halcyonic what it uses: the check then reads its access',
     'token, and sends it only after Halcyonic proves it holds it.',
   ]) {

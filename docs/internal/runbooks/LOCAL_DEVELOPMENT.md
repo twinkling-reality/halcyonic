@@ -137,6 +137,26 @@ through re-attach. Only `Start Halcyonic.command` can start it again, so started
 
    Settings take effect when it starts. To use changed settings, stop it with Ctrl-C and start it
    again; restarting stops any agent at work, and its task then shows Can't tell yet.
+
+   Or have it start whenever you log in, so no window has to stay open: stop the one you started,
+   then run `pnpm mac-setup login on` once. It writes one user LaunchAgent,
+   `~/Library/LaunchAgents/com.halcyonic.control-plane.plist`, has launchd start Halcyonic from this
+   checkout now, and says when it answers. `pnpm mac-setup login off` stops it and removes the file;
+   to change how it starts, turn it off, then on again. What the agent does: it runs
+   `apps/control-plane/src/main.ts --restartable` from this checkout (so keep the checkout where it
+   is) with the `node` on your PATH that is the node you ran the command with (with Homebrew,
+   `/opt/homebrew/bin/node`, a link Homebrew moves to the new version when it upgrades, not tried
+   here; a version manager's per-shell or per-version folder may not last, and On prints the path it
+   chose). It keeps your PATH without relative folders, folders inside the checkout or a
+   `node_modules/.bin`, and `HALCYONIC_PORT` and `HALCYONIC_DATA_DIR` if set, nothing else, so no
+   secret is in it; On names any other `HALCYONIC_` setting it leaves out (the settings file still
+   applies). Its output goes to `control-plane.log` in the data folder, which is never trimmed.
+   launchd starts it again after any exit that is not a success: Restart to Apply on the setup page,
+   a crash, a close that failed, and a start Halcyonic refuses (its port taken, settings it can't
+   read), at most once every 30 seconds, so read that log when it keeps stopping. On refuses while a
+   Halcyonic you started yourself answers on the port, and removes its file if launchd refuses it
+   (as from an ssh session with no one logged in at the Mac). What is checked and not:
+   [mac-host-setup.md](../validation/mac-host-setup.md), "Start at login".
 6. **Connect the headset.** Pairing over Wi-Fi is your choice
    ([Pair a headset over Wi-Fi](#pair-a-headset-over-wi-fi)): on the pairing page, Pair Headset,
    and in the headset choose Settings, then Pair Computer, and type the name and

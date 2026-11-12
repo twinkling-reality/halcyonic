@@ -203,6 +203,50 @@ real. What each download is checked by:
   another build; Halcyonic pins no model digest, and the page's button says so. A pinned digest compared with
   Ollama's `/api/tags` after the pull would close this; not built.
 
+## Start at login (ADR 0024 amended, 2026-11-12)
+
+`pnpm mac-setup login on|off` (`apps/control-plane/src/cli/login-agent.ts`). The keys it writes are
+read from `man launchd.plist` on macOS 26.7: `ProgramArguments`, `WorkingDirectory`,
+`EnvironmentVariables`, `RunAtLoad`, `KeepAlive` with `SuccessfulExit` false ("restarted in the
+inverse condition", so after any exit that is not zero), `ThrottleInterval` (by default a job is not
+spawned more than once every 10 seconds; the agent sets 30), `ExitTimeOut` (the time between the
+stop signal and a kill; the default is "system-defined", the agent sets 30), and `StandardOutPath`
+and `StandardErrorPath` (launchd creates the file if it is missing; On makes the folder first).
+
+Verified on the owner's Mac, 2026-11-12 04:58Z, with a scratch label
+(`com.halcyonic.control-plane.scratch`), its file in a lane's own git-ignored folder (never
+`~/Library/LaunchAgents`), port 47841 and a scratch data folder, through the command's own `on` and
+`off` (`login-agent.ts on|off <folder> --label --port --data-dir`):
+- `~/Library/LaunchAgents` held no Halcyonic file before the run or after it.
+- On, run under `pnpm exec` as `pnpm mac-setup` runs: `launchctl bootstrap gui/<uid>` took the
+  file and launchd started the plane at once (state running, runs 1) as
+  `/opt/homebrew/bin/node .../apps/control-plane/src/main.ts --restartable`, the node found on PATH
+  rather than Homebrew's versioned Cellar folder `process.execPath` gives; `/api/health` answered
+  within seconds and On said so. The written PATH had no `node_modules` folder and none inside
+  the checkout, though pnpm had added them; `ExitTimeOut` and `ThrottleInterval` read 30.
+- On a second time: refused, "already starts when you log in", with nothing changed.
+- A crash: `kill -KILL` of the plane; launchd had a new process within 24 seconds (runs 2),
+  which fits the 30 second throttle counted from the first start, and it answered its health check.
+- Off: `launchctl bootout` stopped it, the job was no longer loaded, the port was free and the file
+  was gone. The plane's log, written by launchd to the scratch data folder, held no error line.
+- Unit tests (`login-agent.test.ts`, launchctl stood in, every data folder the test's own): the file
+  read back by `plutil`, PATH's folders kept and dropped, the settings left out named, strict
+  arguments and ports (`abc` and 0) refused before anything is written, On refusing while launchd
+  has the agent or a plane answers, launchd's refusal said in its words with the file removed, no
+  write through a link, Off.
+
+Not verified:
+- The real label and `~/Library/LaunchAgents`, so also a start at an actual login and macOS's
+  background item notice: installing it on the owner's Mac is the owner's choice.
+- Restart to Apply (exit 75) and a failed close under launchd; only a KILL's restart was seen.
+- On from an ssh session or any session with nobody logged in at the Mac (launchd should refuse
+  `gui/<uid>` there; On then removes the file).
+- Folder access for a node launchd starts: projects in Documents, Desktop or Downloads were read
+  through Terminal's grant before; whether macOS asks again, or refuses, for this node is not known.
+- Voice (`voice-transcription.md` lists its microphone and speech access as unchecked already).
+- A Homebrew upgrade of node (whether `/opt/homebrew/bin/node` follows it), and a version manager's
+  node (nvm, fnm, asdf, mise, volta): the path written may not last.
+
 ## Not verified
 
 - **A person new to Halcyonic** following the runbook's "First run on a Mac" without help. Words
@@ -215,5 +259,5 @@ real. What each download is checked by:
 - **Codex on a local model through the person's own Codex settings**, and voice transcription through
   the scratch control plane beyond its warm-up.
 - **The headset's new words on a Quest**: only the editor renders show them.
-- **Launch at login, and every packaging option** in
+- **Every packaging option other than start at login** in
   [ADR 0024](../decisions/0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md).

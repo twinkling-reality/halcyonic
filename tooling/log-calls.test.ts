@@ -306,6 +306,11 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
       why: "mac-setup's failure: a configuration error, which never repeats a credential, or a file error with its path",
     },
     {
+      file: 'apps/control-plane/src/cli/login-agent.ts',
+      args: '" error instanceof Error ? error.message : String(error) "',
+      why: "the login agent's failure: a configuration error (the port), a label refused, or a file error with its path; its environment holds no secret",
+    },
+    {
       file: 'apps/control-plane/src/cli/record-companion.ts',
       args: '" error instanceof Error ? error.message : String(error) " ,',
       why: "the recorder's failure: fixed words or a path",
