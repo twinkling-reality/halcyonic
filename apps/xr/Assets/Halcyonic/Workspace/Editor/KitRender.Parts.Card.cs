@@ -166,10 +166,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     })!,
                 "47-card-usage" => new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge(Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
                 // The assistant's row under the gauges: on this computer, on a provider's hosted model with a long id, and unable to run.
-                "47-card-usage-here" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("glimmer-30b-q4", null, CardRowControl("use-model")))!,
-                "47-card-usage-hosted" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("muse-wonder-1.0-preview", "Meta", CardRowControl("use-model")))!,
-                "47-card-usage-unavailable" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant(null, null, CardRowControl("use-model")),
-                    "Meta refused its key. Give it a new key on this computer.")!,
+                "47-card-usage-here" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("glimmer-30b-q4", null, null, CardRowControl("use-model")))!,
+                "47-card-usage-hosted" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("muse-wonder-1.0-preview", "Meta", null, CardRowControl("use-model")))!,
+                "47-card-usage-unavailable" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant(null, null, "Meta refused its key. Give it a new key on this computer.", CardRowControl("use-model")))!,
                 "47-card-needs-you" => new RoomCard(Theirs("Tail"), Theirs("Should the tail stream left or right?"),
                     status: new RoomCardStatus("Needs You", "Waiting on your answer", RoomTone.Attention)),
                 "47-card-share" => new RoomCard(Theirs("Kite Run"), status: new RoomCardStatus("Shared", "Scan the code to play", RoomTone.Good),
