@@ -1474,6 +1474,13 @@ launch/return, process recreation and current-frame action behavior need separat
   access token over `LoopbackWebSocketTransport` as over USB, or `Paired`, the device credential over
   the pinned transports. It creates the session's transports and the `ControlPlaneApi`, and
   `SameAs` tells whether a client made for one target serves another.
+- **`ProjectPlaces`** is the one list of the places a project offers here and now (`ProjectPlace`: a
+  `ProjectPlaceKind`, its label and the project), which every screen that shows a project and a spoken
+  request both read (the lead's decision of 2026-11-12, R5): the result's Play, the project's card and
+  "play it" said aloud name the same entry. Its first entry is Play in Headset, there only where
+  `HeadsetPlay.Stands`; its labels are the request's `places` (16 at most), and `At` maps the
+  assistant's `go_to` index back to the entry. A place is not a command: going there may send one the
+  host undoes (Play starts a preview), never one that needs a review. Other places join it as entries.
 - **`PreviewRelay`** shows a project's preview in the headset's browser with no cable
   ([ADR 0052](../decisions/0052-a-preview-reaches-a-paired-headset-through-a-loopback-relay.md)): it
   listens on the headset's 127.0.0.1 and carries each browser connection whole over one pinned WebSocket

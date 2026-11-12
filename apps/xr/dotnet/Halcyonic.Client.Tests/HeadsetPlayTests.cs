@@ -13,17 +13,17 @@ namespace Halcyonic.Client.Tests;
 /// </summary>
 public class HeadsetPlayTests
 {
-    private const string ProjectId = "01a19000-0000-7000-8000-000000000001";
+    internal const string ProjectId = "01a19000-0000-7000-8000-000000000001";
     private const string CheckId = "01a19000-0000-7000-8000-0000000000c1";
     private const string OlderCheckId = "01a19000-0000-7000-8000-0000000000c0";
 
-    private static readonly ControlPlaneTarget Cable =
+    internal static readonly ControlPlaneTarget Cable =
         ControlPlaneTarget.Local(new Uri("ws://127.0.0.1:47800/realtime"), "a-test-access-token");
 
-    private static readonly ControlPlaneTarget Paired = ControlPlaneTarget.Paired(new PairedControlPlane(
+    internal static readonly ControlPlaneTarget Paired = ControlPlaneTarget.Paired(new PairedControlPlane(
         "192.168.1.23", 47801, new string('c', 64), "01a0f0a0-0000-7000-8000-000000000001", "hlcd_" + new string('A', 43)));
 
-    private static ProjectView View(JObject? check = null, JObject? preview = null)
+    internal static ProjectView View(JObject? check = null, JObject? preview = null)
     {
         var json = new JObject
         {
@@ -39,7 +39,7 @@ public class HeadsetPlayTests
         return HalcyonicJson.Deserialize<ProjectView>(json.ToString(), strict: true);
     }
 
-    private static JObject Check(bool passed = true, bool readsConfined = true, string files = "current", string checkId = CheckId) =>
+    internal static JObject Check(bool passed = true, bool readsConfined = true, string files = "current", string checkId = CheckId) =>
         new()
         {
             ["check_id"] = checkId,
@@ -57,7 +57,7 @@ public class HeadsetPlayTests
             },
         };
 
-    private static JObject Preview(string checkId = CheckId, long port = 47930) =>
+    internal static JObject Preview(string checkId = CheckId, long port = 47930) =>
         new() { ["check_id"] = checkId, ["port"] = port, ["files"] = "current" };
 
     [Test]
