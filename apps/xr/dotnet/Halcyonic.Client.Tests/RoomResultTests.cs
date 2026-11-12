@@ -104,9 +104,11 @@ public class RoomResultTests
     [Test]
     public void WhatTheComputerDoesNotKnowIsLeftOut()
     {
-        // No observation, no check: how the run stands (B, 2026-11-12), and nothing guessed: no slot, no count, no band.
+        // No observation, no check: how the run stands (B, 2026-11-12), and nothing guessed: no slot, no count. What the turn made is
+        // the agent's own report on the band, read by parts, the card standing whole (the lead's (b) of 12:04Z).
         var nothing = Bar(new RoomResult(false, false, false, null, null, null));
-        Assert.That((nothing.Result, nothing.Card?.Status?.Title, nothing.Card?.Slots.Count, nothing.Band), Is.EqualTo((true, (string?)RoomStanding.Finished, (int?)0, (string?)null)), Show(nothing));
+        Assert.That((nothing.Result, nothing.Card?.Status?.Title, nothing.Card?.Slots.Count, nothing.Card?.Description), Is.EqualTo((true, (string?)RoomStanding.Finished, (int?)0, (LineWords?)null)), Show(nothing));
+        Assert.That(nothing.Band, Is.EqualTo("I added the golden balloon."), "the turn's own report, on the band");
         Assert.That(Bar(null, status: ExecutionStatus.Running).Result, Is.False, "a run under way says nothing of a result");
 
         // A check and no observation: the check is the panel's one line; no count is guessed, and no Changes.

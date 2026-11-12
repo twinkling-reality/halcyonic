@@ -29,16 +29,13 @@ public sealed class RoomStandingTests
         Assert.That((said.Title + (said.Line ?? "")).Contains('·'), Is.False, "no facts joined on dots");
     }
 
-    /// <summary>The lead's first journey (2026-11-12): a finished turn says what was made, in the agent's own reported words, beside what was checked.</summary>
+    /// <summary>The lead's (b) of 12:04Z: the card at rest stands whole, so what a finished turn made goes on the band, never on the card.</summary>
     [Test]
-    public void AFinishedTurnCarriesTheAgentsOwnReportBesideWhatWasChecked()
+    public void AFinishedTurnsCardIsItsStatusAloneAndStandsWhole()
     {
-        var report = LineWords.Theirs("Made a page that says hello and counts the clicks.");
-        var card = RoomStanding.Card(Run(ExecutionStatus.Completed), LineWords.TheirName("Hello page"), report)!;
-        Assert.That(card.Description, Is.EqualTo(report));
+        var card = RoomStanding.Card(Run(ExecutionStatus.Completed), LineWords.TheirName("Hello page"))!;
+        Assert.That(card.Description, Is.Null, "the agent's words go on the band, read by parts");
         Assert.That((card.Status!.Value.Title, card.Status.Value.Line), Is.EqualTo((RoomStanding.Finished, RoomStanding.FinishedLine)), "never a passed check");
-        Assert.That(RoomStanding.Card(Run(ExecutionStatus.Completed), LineWords.TheirName("Hello page"))!.Description, Is.Null, "no report, no words of ours in its place");
-        Assert.That(RoomStanding.Card(Run(ExecutionStatus.Interrupted), LineWords.TheirName("Hello page"), report)!.Description, Is.Null, "a stopped turn is not said to have made anything");
     }
 
     /// <summary>Only the latest turn's words say what it made: a second turn that said nothing shows no earlier turn's report.</summary>
