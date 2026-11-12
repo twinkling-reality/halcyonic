@@ -1251,6 +1251,9 @@ namespace Halcyonic.Contracts
         [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public ChangedFiles Files { get; set; } = default!;
 
+        [global::Newtonsoft.Json.JsonProperty("links_left_out", Required = global::Newtonsoft.Json.Required.Always)]
+        public PathList LinksLeftOut { get; set; } = default!;
+
         [global::Newtonsoft.Json.JsonProperty("pull_request", Required = global::Newtonsoft.Json.Required.Always)]
         public bool PullRequest { get; set; }
 
@@ -1332,6 +1335,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
         public long Files { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("links_left_out", Required = global::Newtonsoft.Json.Required.Always)]
+        public PathList LinksLeftOut { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("replaces", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Replaces { get; set; }

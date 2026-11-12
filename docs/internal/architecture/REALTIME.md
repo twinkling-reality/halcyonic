@@ -498,12 +498,13 @@ Every text in them is outside words, from the project's files or its build, as `
 
 - `POST /api/projects/:project_id/github-review` [ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md): what a send would do, read
   before the press: `available` with the repository (owner/name only), the branch and its last
-  commit, the new branch, the files with how each changed, whether a pull request can be opened, and
-  the `review` digest `project.send_to_github` carries back; or `unavailable` with why, in the
+  commit, the new branch, the files with how each changed, `links_left_out` (links in the folder
+  that point outside it, never sent), whether a pull request can be opened, and the `review` digest `project.send_to_github` carries back; or `unavailable` with why, in the
   product's words. Nothing leaves the Mac.
 
 - `POST /api/projects/:project_id/publish-review`: what Publish would do: `available` with the
-  repository (owner/name), the check, how many of its built files go, the commit of the last publish
+  repository (owner/name), the check, how many of its built files go, `links_left_out` (links in the
+  built copy that point outside it, never published), the commit of the last publish
   it builds on, the expected address and the `review` digest `project.publish` carries back; or
   `unavailable` with why. Nothing leaves the Mac.
 - `POST /api/projects/:project_id/secrets` (ADR 0057): sets a project secret, write-only, from this Mac

@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { lstat, mkdir, open, realpath, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, relative, sep } from 'node:path';
+import { basename, dirname, join, posix, relative, sep } from 'node:path';
 import {
   type ChangedFiles,
   type CheckId,
@@ -11,7 +11,7 @@ import {
 } from '@halcyonic/contracts';
 import { secretShapedPath } from '@halcyonic/runtime-core';
 import { readGitHubOrigin } from '../catalog-match.ts';
-import { changedFileList } from '../checkpoints/checkpointer.ts';
+import { changedFileList, pathList } from '../checkpoints/checkpointer.ts';
 import { reviewDigest } from '../core/review.ts';
 
 /**
@@ -22,8 +22,9 @@ import { reviewDigest } from '../core/review.ts';
  * The person's repository is only read: its HEAD's branch, its origin and, by a fetch, its commits.
  * Nothing runs inside it with its own settings or hooks, which an agent working there could have
  * written. The commit is built in a bare repository of Halcyonic's own in its data folder, from the
- * folder's files as git sees them, without any file whose name says it may hold secrets and without
- * other projects' folders inside this one; it is pushed from there with no hooks. Git and gh run in
+ * folder's files as git sees them, without any file whose name says it may hold secrets, without
+ * other projects' folders inside this one and without a link that points outside the folder; it is pushed
+ * from there with no hooks. Git and gh run in
  * the person's own environment, so their own credential helper and sign-in are used: Halcyonic
  * passes no token, reads none, and keeps from what they print only an exit code, the commit and the
  * pull request's address.
@@ -415,6 +416,7 @@ export class GitHubSender {
       repository: origin.fullName,
       check_id: checkId,
       tree: tree.tree,
+      links_left_out: tree.outside,
       replaces,
       branch: PAGES_BRANCH,
     };
@@ -423,6 +425,7 @@ export class GitHubSender {
       repository: origin.fullName,
       check_id: checkId,
       files: tree.files,
+      links_left_out: pathList(tree.outside),
       replaces,
       address,
       review: reviewDigest('project.publish', { project_id: projectId }, facts),
@@ -483,7 +486,9 @@ export class GitHubSender {
     if (files.total === 0)
       return refuse(
         'nothing_to_send',
-        "Nothing in the project differs from its branch's last commit.",
+        built.outside.length > 0
+          ? "Only links that point outside the project's folder differ from its branch's last commit, and those are never sent."
+          : "Nothing in the project differs from its branch's last commit.",
       );
     const newBranch = `halcyonic/${slug(basename(folder))}-${tree.slice(0, 8)}`;
     // Whether gh is set up on this Mac, never asked of GitHub: a review sends nothing anywhere (AUDIT3
@@ -496,6 +501,7 @@ export class GitHubSender {
       tree,
       new_branch: newBranch,
       files,
+      links_left_out: built.outside,
     };
     const send: GitHubSendReview = {
       project_id: projectId,
@@ -504,6 +510,7 @@ export class GitHubSender {
       base_commit: base,
       new_branch: newBranch,
       files,
+      links_left_out: pathList(built.outside),
       pull_request: pullRequest,
       review: reviewDigest('project.send_to_github', { project_id: projectId }, facts),
     };
@@ -525,7 +532,16 @@ export class GitHubSender {
     otherFolders: readonly string[],
     base: string | null,
     excludes: string | null = join(folder, '.git', 'info', 'exclude'),
-  ): Promise<{ readonly ok: true; readonly tree: string; readonly files: number } | SendFailure> {
+  ): Promise<
+    | {
+        readonly ok: true;
+        readonly tree: string;
+        readonly files: number;
+        /** Links the folder holds, pointing outside it, that the tree does not carry as the folder has them. */
+        readonly outside: readonly string[];
+      }
+    | SendFailure
+  > {
     const unreadable = refuse('send_failed', "The project's files could not be read.");
     const real = await realpath(folder);
     const inside: string[] = [];
@@ -637,9 +653,15 @@ export class GitHubSender {
           'uses_filters',
           "This project's git runs a filter on its files, as Git LFS does, which Halcyonic doesn't run. Send it with git yourself.",
         );
+      // A link that points outside the folder is never sent, as a secret-shaped path is not: its target is a
+      // place on this computer, never the person's work (a starter's node_modules is a link to the shared
+      // dependencies by their absolute path, which holds the computer's user name).
+      const outside = await this.#outsideLinks(repository, now);
+      if (outside === null) return unreadable;
+      const keep = (path: string) => held(path) || outside.has(path);
       const kept: string[] = [];
-      for (const [path, entry] of now) if (!held(path)) kept.push(entry);
-      for (const [path, entry] of before) if (held(path)) kept.push(entry);
+      for (const [path, entry] of now) if (!keep(path)) kept.push(entry);
+      for (const [path, entry] of before) if (keep(path)) kept.push(entry);
       await rm(index, { force: true });
       if (
         (
@@ -673,11 +695,43 @@ export class GitHubSender {
       );
       const tree = written.stdout.trim();
       return written.code === 0 && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(tree)
-        ? { ok: true, tree, files: kept.length }
+        ? {
+            ok: true,
+            tree,
+            files: kept.length,
+            outside: [...outside].filter((path) => before.get(path) !== now.get(path)),
+          }
         : unreadable;
     } finally {
       await rm(index, { force: true });
     }
+  }
+
+  /**
+   * The staged links whose target leaves the folder: an absolute target, or a relative one that climbs out of
+   * it. A link within the folder is the person's own and is sent as git keeps it. Null when one can't be read.
+   */
+  async #outsideLinks(
+    repository: string,
+    entries: ReadonlyMap<string, string>,
+  ): Promise<ReadonlySet<string> | null> {
+    const outside = new Set<string>();
+    for (const [path, entry] of entries) {
+      const object = /^120000 blob ([0-9a-f]+)\t/.exec(entry)?.[1];
+      if (object === undefined) continue;
+      const target = await this.#run(this.#deps.git, [
+        '--git-dir',
+        repository,
+        'cat-file',
+        'blob',
+        object,
+      ]);
+      if (target.code !== 0) return null;
+      const resolved = posix.normalize(posix.join(posix.dirname(path), target.stdout));
+      if (target.stdout.startsWith('/') || resolved === '..' || resolved.startsWith('../'))
+        outside.add(path);
+    }
+    return outside;
   }
 
   /** Whether any `.gitattributes` in the staged files names a filter, as Git LFS's do. */

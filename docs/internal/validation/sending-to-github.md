@@ -65,6 +65,18 @@ The first real send to GitHub is the owner's own, with their press.
    - an origin in its `git@github.com:` or `ssh://git@github.com/` form reaches the same stand-in, and any other
      github.com address leads to a path that is not there.
    Each of G1, G2, S1 and S2/S3's tests fails on c3d3fe5d's sender and passes on its fix.
+10. **A link that leaves the folder is never sent** (found on 2026-11-12 in a rehearsal on a scratch control plane
+    with a game made from the VR starter: its `.gitignore` says `node_modules/`, which a link does not match, and
+    its `node_modules` is a link to the shared dependencies by an absolute path holding the Mac's user name):
+    with that `.gitignore`, a `node_modules` link to an absolute folder and a link `up` to `docs/../../elsewhere`
+    are neither listed as files nor sent, the review lists them as `links_left_out`, and `docs/readme`, a link to
+    `../app.txt` inside the folder, is sent as a link (mode 120000). Where only such links differ, the refusal
+    says so. A link in Publish's built copy to `/etc` is not published and is listed the same way. The send test
+    fails without the rule (all three listed as added) and passes with it. The starter's own `.gitignore` now
+    names `node_modules` without the slash, so a person's own `git add -A` keeps the link out too.
+    Seen on a scratch control plane (127.0.0.1:47910), a game made from the VR starter with its folder's
+    exclude emptied: Send's review on main 60a0d8830 listed `index.html`, `node_modules`, `src/index.ts`; on the
+    fix, `index.html` and `src/index.ts`.
 
 ## Publish, on the same stand-ins (`sending/pages.test.ts`)
 

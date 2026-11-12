@@ -67,8 +67,9 @@ access. Here the person uses that access on purpose, each time, after reading wh
 
 - **A read, then the person's command.** `POST /api/projects/:id/github-review` says what would go: the
   repository by owner and name only (never its address, which can carry a user part), the branch the
-  folder is on and its last commit, the new branch, the files with how each changed, and whether a
-  pull request can be opened. It answers a review digest (ADR 0051). `project.send_to_github
+  folder is on and its last commit, the new branch, the files with how each changed, the links left
+  out (a link whose target leaves the folder never leaves the Mac: a starter project's `node_modules`
+  is a link to the shared dependencies by an absolute path), and whether a pull request can be opened. It answers a review digest (ADR 0051). `project.send_to_github
   {project_id, title, review}` is review required and checked against the digest again just before
   anything leaves: a folder changed since sends nothing (`review_stale`).
 - **The person's own git and gh, never Halcyonic's sign-in.** Halcyonic holds no GitHub credential,
@@ -117,7 +118,8 @@ only while the Mac runs). It is built on Send to GitHub's pieces, and the lead d
   (`<data dir>/checks/<project>/<check>/dist`), without secret-shaped files. The starter builds with
   relative paths (`base: './'`), so it works under the repository's subpath.
 - **A read first.** `POST /api/projects/:id/publish-review` gives the repository (owner/name), the check,
-  how many files go, the commit of the last publish it builds on, the expected address, and a review
+  how many files go, the links left out as for a send, the commit of the last publish it builds on,
+  the expected address, and a review
   digest checked again just before the push.
 - **One branch of the person's repository, never forced.** The files are one commit on
   `halcyonic-pages`, on top of the last publish (recorded in the journal), pushed from Halcyonic's own
