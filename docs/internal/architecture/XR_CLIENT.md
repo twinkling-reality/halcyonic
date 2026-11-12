@@ -1739,7 +1739,17 @@ ONE Changes (the lead's decision of 2026-11-12T1115Z): what changed is the files
 what changed (the moment's See Changes, the room screen's Why, the result's Changes) opens the result's page of changed
 files for the task's newest run (`WorkspacePresentationState.ResultPageOf`, in `MenuDirector.OpenFile` itself, so every caller is covered), the file on its
 own activity so no section's source band stands over the result; the understanding's section is no longer what Changes
-opens there. Not yet: the understanding's account of the change as a later part of the same page, in FIELD's words.
+opens there. The understanding's account of the change follows the files as later parts of the same page (`ChangesAccount`,
+SCREENS, 2026-11-12): what changed, why and how it was built, a part an answer, each the brief answer XR computes
+(`UnderstandingPresenter`, brief depth): its lead line whole as the card's description (the agent's or a model's words
+alone, leaning, with a slot of the agent's mark saying Agent Says or Model Says), the rest as rows each with its kind (a file's mark, the agent's for what the agent
+said, else none) and how it is known as its quiet note in our words (Agent Says, Model Says, Inferred, Planned), never
+the product's dotted chips; five rows a part, Next Page the
+main action to the last part, History, Checks and Back where they were. An answer with no lines is no part. The
+source's own provenance names the provider's product, so it is never drawn: the foot carries FIELD's source words where
+given, and nothing otherwise. `RoomResult.FileParts` are the files' parts, `RoomResult.Account` the rest. Tests:
+`RoomResultTests.TheUnderstandingsAccountFollowsTheFilesOnChangesAPartAnAnswer`. Not yet: XR computing the three answers
+while the redesign shows the result's Changes page, and passing them to `RoomResult.Of`; until then no account part stands.
 
 What Cursor, Bolt and Lovable give as the diff and the code view, from the result's Changes. Every row of Changes is
 pressed (`RoomBar.FileRow`: the result action `room-file`, its key the path as the folder names it) where a computer
@@ -3839,10 +3849,9 @@ permission prompt, and whether a ray that leaves the button while pinching ends 
 
 ## Not built yet
 
-In the redesign, the understanding's account of a change (what changed, why, how it was built): since every way to what
-changed opens the result's page of changed files (SCREENS's one Changes, the lead's 2026-11-12T1115Z), the account is
-not shown there; it comes as a later part of that page in the batch after 1111-b100 (XR computes the answers for that
-page, FIELD words its source line without the provider's name, SCREENS draws the part). Code, diffs, tests and output in the workspace; the Understanding section's full lists (every
+In the redesign, the understanding's account of a change (what changed, why, how it was built) on the result's page of
+changed files: SCREENS draws its parts (`ChangesAccount`); XR computing the answers for that page and FIELD's source line
+without the provider's name are not built yet, so no account part stands until they are. Code, diffs, tests and output in the workspace; the Understanding section's full lists (every
 changed file, every review item, the explanation's diagrams), which it summarizes in seven lines;
 reading a real execution's understanding and evaluation end to end, which waits for a real Claude
 Code or Codex run ([understanding-and-evaluation.md](../validation/understanding-and-evaluation.md));

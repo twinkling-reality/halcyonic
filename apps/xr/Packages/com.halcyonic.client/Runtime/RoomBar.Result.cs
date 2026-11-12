@@ -57,7 +57,9 @@ namespace Halcyonic.Client
                 case RoomResultPage.Changes:
                     // FIELD's Changes card (A17): each file its kind's mark, its path, a quiet note; five a page (RoomCard.ListAPage).
                     var changes = RoomPanelCards.Changes(result, frame.SubjectRuns, result.ReadsFiles ? change => FileRow(frame, change) : null);
-                    card = changes.List.Count <= RoomCard.ListAPage ? changes
+                    // SCREENS's understanding's account: after the files, a part an answer (what changed, why, how it was built).
+                    card = result.Account is ChangesAccount account && result.Part >= result.FileParts ? account.Card(result.Part - result.FileParts)
+                        : changes.List.Count <= RoomCard.ListAPage ? changes
                         : new RoomCard(changes.Title, changes.Description, changes.Head, changes.Status, changes.Slots, changes.Steps, changes.TrackAt, changes.TrackOf,
                             changes.List.Skip(result.Part * RoomCard.ListAPage).Take(RoomCard.ListAPage).ToList(), changes.Gauges, changes.More);
                     if (result.Part + 1 < result.Parts) column.Add(Own(RoomResult.NextPage, Footer.NextPageWords(result.Part, result.Parts), main: true, GlazeIcon.Next));

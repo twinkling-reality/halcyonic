@@ -36,7 +36,27 @@ namespace Halcyonic.XR.Workspace.Editor
             "63-waiting-list", "63-waiting-page", "63-not-sent",
             // SCREENS's one review card (ReviewCard), any command's review from a stand-in of the host's shape.
             "65-review-add", "65-review-send", "65-review-send-next", "65-review-publish", "65-review-said",
+            // SCREENS's understanding's account on the one Changes page (ChangesAccount): what changed, then why, after the files.
+            "66-account-what", "66-account-why", "66-account-unsourced",
         };
+
+        /// <summary>The understanding's account's part for a state, from brief answers of the presenter's shape (<see cref="ChangesAccount"/>).</summary>
+        private static RoomCard AccountCard(string state)
+        {
+            SectionLine Line(string tag, LineWords said) => new SectionLine(tag, said.Text, SectionTone.Normal, said: said);
+            SectionPresentation Brief(params SectionLine[] lines) => new SectionPresentation(SectionKind.Understanding, "From Salidium 0.6.1", SectionTone.Secondary, lines, simulated: false);
+            // As UnderstandingPresenter's brief answers stand: the count and whether a check followed; the latest reason quoted and how many more.
+            var what = Brief(
+                Line("observed", LineWords.Ours("3 files changed: 1 new, 2 edited")),
+                Line("inferred", LineWords.Ours("All checked after the last change")));
+            var why = Brief(
+                new SectionLine("reported", "\u201cI split the tail into six segments so it moves like cloth, not a stick.\u201d", SectionTone.Claim, rows: 2,
+                    said: LineWords.Theirs("I split the tail into six segments so it moves like cloth, not a stick.")),
+                Line("", LineWords.Ours("And 2 more reasons it gave")));
+            var source = state == "66-account-unsourced" ? (LineWords?)null : LineWords.Ours("From Its Records");
+            var account = new ChangesAccount(what, why, null, source);
+            return account.Card(state == "66-account-why" ? 1 : 0);
+        }
 
         /// <summary>The one review card for a review state, from a synthetic host review (<see cref="ActionReview"/>).</summary>
         private static (RoomCard Card, ActionReview Review, int Page) ReviewOf(string state)
@@ -284,6 +304,17 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.AddRange(reviewShot.Failures.Select(failure => name + ": " + failure));
                     failures.AddRange(RenderShot(state, reviewShot, root, fixture, target, eyes, folder, name));
                     Debug.Log("Halcyonic: file reading: " + name + " rendered: review, actions " + string.Join(" / ", actions.Select(action => action.Words + (action.Main ? "*" : ""))));
+                    return failures;
+                }
+                if (state.StartsWith("66-", StringComparison.Ordinal))
+                {
+                    var told = AccountCard(state);
+                    var toldShot = CardShot(told, root.transform, eyes, name);
+                    if (told.Words().Concat(told.List.Select(row => row.Name.Text)).Any(words => words.Contains("Salidium", StringComparison.Ordinal)))
+                        toldShot.Failures.Add("the account names the provider's product");
+                    if ((state == "66-account-unsourced") != (told.More == null)) toldShot.Failures.Add("the foot's source line stands where it should not, or is missing");
+                    failures.AddRange(toldShot.Failures.Select(failure => name + ": " + failure));
+                    failures.AddRange(RenderShot(state, toldShot, root, fixture, target, eyes, folder, name));
                     return failures;
                 }
                 if (state.StartsWith("62-", StringComparison.Ordinal) || state.StartsWith("63-", StringComparison.Ordinal))
