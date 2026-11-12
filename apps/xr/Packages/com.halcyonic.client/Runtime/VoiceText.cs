@@ -23,7 +23,7 @@ namespace Halcyonic.Client
 
         /// <summary>The words Hold to talk shows in place of its own, laid at the widest so it never changes width under the hand.</summary>
         public static readonly IReadOnlyList<string> TalkReads = new[] { ListeningWords, WritingDownWords };
-        public const string HeardNote = "Transcribed · Check Before Continuing";
+        public const string HeardNote = "Heard, not typed: check the words";
         public const string HeardAnswer = "Transcribed · Check Before Sending";
 
         /// <summary>The first question's idea, heard as New project opened on a later step of a draft kept from before: dropped (settled by the coordinator, 2026-10-08).</summary>
