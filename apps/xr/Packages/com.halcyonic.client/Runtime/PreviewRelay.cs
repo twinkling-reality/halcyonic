@@ -217,7 +217,7 @@ namespace Halcyonic.Client
         /// <summary>Why the computer shows no preview here, by its refusal's code, in the product's words.</summary>
         public static string WhyNot(string? code) => code switch
         {
-            "preview_not_confined" => "This app stays on your computer. Its agents could read outside its folder.",
+            "preview_not_confined" => "This app stays on your computer. It may read outside its folder.",
             "preview_not_passed" => "This preview isn't shown. Its check did not pass.",
             "preview_not_latest" => "This preview is out of date. Check the app again on your computer.",
             "preview_not_running" => "No preview is running. Start it on your computer, then open it again.",
