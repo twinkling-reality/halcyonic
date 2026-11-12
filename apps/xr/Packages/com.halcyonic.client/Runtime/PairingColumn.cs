@@ -117,9 +117,11 @@ namespace Halcyonic.Client
                         return Carded(PairingCards.Paired(name, address), new Footer(close), PairingCards.PairedLine);
                     case PairingColumnStep.Refused:
                     {
-                        var (_, line) = PairingCards.Why(refusal);
+                        // A code with no words of its own has no line: its title stands as the line a view without cards reads.
+                        var (title, line) = PairingCards.Why(refusal);
                         return Carded(PairingCards.Refused(refusal, attemptsLeft),
-                            new Footer(close, secondary: type, farRight: new Prompt(TryAgain, TryAgainWords, GlazeIcon.Refresh, main: true)), line);
+                            new Footer(close, secondary: type, farRight: new Prompt(TryAgain, TryAgainWords, GlazeIcon.Refresh, main: true)),
+                            line.Length == 0 ? title : line);
                     }
                     default:
                         return Carded(PairingCards.Looking(), new Footer(close, secondary: type), PairingCards.LookingLine);
