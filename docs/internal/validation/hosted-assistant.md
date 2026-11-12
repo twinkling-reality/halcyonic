@@ -92,6 +92,51 @@ declaration. For each, the tests cover:
 - a refusal is a failure in words;
 - a key in the environment is never read, so a plane that inherits one stays local and sends nothing.
 
+## Meta's Model API, the second real provider (2026-11-12)
+
+Meta's pages were read again that day ([meta-models.md](meta-models.md)). Its Chat Completions surface is the
+OpenAI-compatible shape the seam already has, so Meta is a declaration (`providers/meta/declaration.ts`), not code of
+its own:
+
+- **Protocol and key.** `openai_chat` at `https://api.meta.ai/v1`. The key is `META_API_KEY`, the variable Muse Code
+  and OpenCode's built-in `meta` provider read, kept in `<data dir>/meta-api-key` and sent as `Authorization: Bearer`.
+- **Models.** `muse-wonder-1.0` first, then `muse-spark-1.3`. No `-contributor` id is declared, since those let Meta
+  train on the content.
+- **Effort and output.** Effort `low`, sent as `reasoning_effort`, since Muse Wonder otherwise thinks at `max`. The
+  output is bounded by `max_completion_tokens`, which counts that thinking.
+- **Refusals.** A refusal is read as `content_filter` or the message's `refusal` text, and that text is never relayed.
+- **Which provider runs.** When keys are stored for both, Meta's runs the assistant, since it is declared first.
+
+The seam gained a declared `effort`, which each protocol puts where its shape says, and a declared output field. Each
+protocol refuses an effort or field it does not document. After review, two changes avoid shapes Meta does not
+confirm:
+
+- The status check reads the one model's record (`GET /models/{model}`) instead of the list, whose shape and paging
+  are not shown.
+- The host's lines go first, as one system message, instead of a system message after the person's words.
+
+**Seen on the scratch plane against a stand-in that speaks the Chat Completions shape Meta documents, fake `LLM_`
+key** (`.private`):
+
+- **Assistant row.** It read available, `served: remote`, provider Meta, model `muse-wonder-1.0`.
+- **New Task.** It was proposed with Title "Garden Lights" and Goal "Light the garden path at night"; the one press
+  made the task, and the reply after it read in plain words.
+- **Refused key.** The row read unavailable with the stand-in refusing the key, and the request failed in the same
+  words.
+- **The key's text.** It was found in no file but its own.
+- **What the stand-in received.** The key only as a Bearer token, `reasoning_effort: low`, `max_completion_tokens:
+  8000`, no `tool_choice`, and the earlier call replayed natively with its `tool_call_id`.
+
+Unknown until a real call to Meta:
+
+- whether Muse Wonder proposes from the list as the stand-in did;
+- how long a turn takes at `low`;
+- the shape of the models list;
+- how a refusal really arrives;
+- whether Meta accepts the host's system message after the person's words, as OpenAI's shape does.
+
+Meta adds steering text of its own, unpublished, to every prompt.
+
 ## Not verified
 
 - No run with a real key. That run is the owner's, once the key is stored through the product's own Add Key.

@@ -10,6 +10,7 @@ import type { ToolDefinition, ToolMessage } from '../ollama.ts';
 import { anthropicProvider } from './anthropic/declaration.ts';
 import { asRecord } from './anthropic/messages.ts';
 import { assistantModel } from './assistant.ts';
+import { metaProvider } from './meta/declaration.ts';
 import { asChat } from './openai-compatible/chat.ts';
 import type { HostedProvider } from './provider.ts';
 
@@ -127,8 +128,13 @@ const shapes = {
   openai_chat: (refuse: boolean) => (seen: Seen) => {
     if (seen.headers.authorization !== `Bearer ${GOOD}`)
       return { status: 401, body: { error: { message: 'bad key' } } };
-    if (seen.method === 'GET')
-      return { status: 200, body: { object: 'list', data: [{ id: 'test-model-1' }] } };
+    if (seen.method === 'GET') {
+      // One model's own record, as GET /models/{model} gives it; a 404 for a model not served.
+      const id = decodeURIComponent(seen.path.split('/').pop() ?? '');
+      return ['muse-wonder-1.0', 'test-model-1'].includes(id)
+        ? { status: 200, body: { id, object: 'model' } }
+        : { status: 404, body: { error: { message: 'not found' } } };
+    }
     const answered = ((seen.body?.messages ?? []) as { role: string }[]).some(
       (message) => message.role === 'tool',
     );
@@ -157,10 +163,14 @@ const shapes = {
   },
 };
 
-/** The two declarations: the real one for the owner's key, and a second, different one, test only. */
+/**
+ * The declarations: the two real ones the owner has keys for, and a third, different one, test only, with no effort
+ * and the default output field, so a provider is a declaration and never code of its own.
+ */
 function declarations(anthropicUrl: string, otherUrl: string): HostedProvider[] {
   return [
     { ...anthropicProvider, upstream: anthropicUrl },
+    { ...metaProvider, upstream: `${otherUrl}/v1` },
     {
       id: 'test-hosted',
       name: 'Test Hosted',
@@ -172,6 +182,7 @@ function declarations(anthropicUrl: string, otherUrl: string): HostedProvider[] 
         header: { name: 'authorization', scheme: 'Bearer' },
       },
       models: ['test-model-1'],
+      effort: null,
     },
   ];
 }
@@ -186,8 +197,12 @@ function store(dir: string, file: string, value: string, mode = 0o600) {
   chmodSync(join(dir, file), mode);
 }
 
-for (const which of [0, 1] as const) {
-  const label = which === 0 ? 'the declared provider' : 'a second, different declaration';
+for (const which of [0, 1, 2] as const) {
+  const label = [
+    'the Messages provider',
+    'the Chat Completions provider',
+    'a test-only declaration',
+  ][which];
 
   test(`${label}: no key stored keeps the local model; a stored key runs a tool round on the provider`, async (t) => {
     const a = await upstream(t, shapes.anthropic_messages(false));
@@ -259,7 +274,20 @@ for (const which of [0, 1] as const) {
       assert.ok(record.includes('<you_called tool=\\"read_task\\">'));
       assert.ok(record.includes('<host_returned tool=\\"read_task\\">'));
     } else {
-      for (const entry of sent) assert.equal(entry.headers.authorization, `Bearer ${GOOD}`);
+      for (const entry of sent) {
+        assert.equal(entry.headers.authorization, `Bearer ${GOOD}`);
+        assert.equal(entry.headers['x-api-key'], undefined);
+        assert.equal(entry.body?.tool_choice, undefined);
+        // The effort and the output field are the declaration's: Meta's thinks low within max_completion_tokens.
+        if (which === 1) {
+          assert.equal(entry.body?.reasoning_effort, 'low');
+          assert.equal(entry.body?.max_completion_tokens, 8000);
+          assert.equal(entry.body?.max_tokens, undefined);
+        } else {
+          assert.equal(entry.body?.reasoning_effort, undefined);
+          assert.equal(entry.body?.max_tokens, 8000);
+        }
+      }
       const wire = sent[1]?.body?.messages as { role: string; tool_call_id?: string }[];
       assert.equal(wire.find((message) => message.role === 'tool')?.tool_call_id, 'call_a');
     }
@@ -478,4 +506,111 @@ test('a redirect from the provider carries the key nowhere', async (t) => {
   assert.equal((await model.turn(ask, tools)).kind, 'failed');
   assert.equal((await model.status()).availability, 'unavailable');
   assert.equal(elsewhere.seen.length, 0);
+});
+
+test('with keys stored for two providers, the first declared runs the assistant', async (t) => {
+  const a = await upstream(t, shapes.anthropic_messages(false));
+  const b = await upstream(t, shapes.openai_chat(false));
+  const [first, second] = declarations(a.url, b.url);
+  const dir = dataDir(t);
+  store(dir, (first as HostedProvider).key.file, GOOD);
+  store(dir, (second as HostedProvider).key.file, GOOD);
+  const both = assistantModel({
+    local,
+    dataDir: dir,
+    environment: {},
+    providers: [second as HostedProvider, first as HostedProvider],
+  });
+  const status = await both.status();
+  assert.equal(
+    status.availability === 'available' && status.provider,
+    (second as HostedProvider).name,
+  );
+});
+
+test('a Chat Completions refusal given as the message refusal text is declined, its text never relayed', async (t) => {
+  const b = await upstream(t, (seen) =>
+    seen.method === 'GET'
+      ? { status: 200, body: { id: 'muse-wonder-1.0', object: 'model' } }
+      : {
+          status: 200,
+          body: {
+            model: 'muse-wonder-1.0',
+            choices: [
+              {
+                finish_reason: 'stop',
+                message: { role: 'assistant', content: null, refusal: 'I will not.' },
+              },
+            ],
+          },
+        },
+  );
+  const dir = dataDir(t);
+  store(dir, metaProvider.key.file, GOOD);
+  const model = assistantModel({
+    local,
+    dataDir: dir,
+    environment: {},
+    providers: [{ ...metaProvider, upstream: `${b.url}/v1` }],
+  });
+  const turn = await model.turn(ask, tools);
+  assert.deepEqual(turn, {
+    kind: 'failed',
+    code: 'model_refused',
+    message: 'Meta declined this request.',
+  });
+});
+
+test('the declared providers declare no model that trains on the content', () => {
+  for (const provider of [metaProvider, anthropicProvider])
+    assert.ok(provider.models.every((id) => !id.includes('contributor')));
+});
+
+test('as the product declares them, Meta runs the assistant when both keys are stored', async (t) => {
+  const b = await upstream(t, shapes.openai_chat(false));
+  const dir = dataDir(t);
+  store(dir, metaProvider.key.file, GOOD);
+  store(dir, anthropicProvider.key.file, GOOD);
+  // The real registry, both providers pointed at the one stand-in on this Mac.
+  const model = assistantModel({
+    local,
+    dataDir: dir,
+    environment: { HALCYONIC_ASSISTANT_UPSTREAM: `${b.url}/v1` },
+  });
+  assert.deepEqual(await model.status(), {
+    availability: 'available',
+    model: 'muse-wonder-1.0',
+    served: 'remote',
+    provider: 'Meta',
+  });
+  assert.equal(b.seen[0]?.path, '/v1/models/muse-wonder-1.0');
+});
+
+test('the chat shape sends the host lines first, as one system message', () => {
+  const wire = asChat([
+    { role: 'system', content: 'Host instructions.' },
+    { role: 'user', content: 'Words.' },
+    { role: 'system', content: 'Host planning resource limits: {}' },
+  ]);
+  assert.deepEqual(wire, [
+    { role: 'system', content: 'Host instructions.\n\nHost planning resource limits: {}' },
+    { role: 'user', content: 'Words.' },
+  ]);
+});
+
+test('a declaration with an effort or output field its protocol does not know sends nothing', async (t) => {
+  const b = await upstream(t, shapes.openai_chat(false));
+  const dir = dataDir(t);
+  store(dir, metaProvider.key.file, GOOD);
+  for (const bad of [{ effort: 'none' }, { outputField: 'model' }]) {
+    const model = assistantModel({
+      local,
+      dataDir: dir,
+      environment: {},
+      providers: [{ ...metaProvider, ...bad, upstream: `${b.url}/v1` }],
+    });
+    const turn = await model.turn(ask, tools);
+    assert.equal(turn.kind === 'failed' && turn.code, 'provider_declaration');
+  }
+  assert.equal(b.seen.filter((entry) => entry.method === 'POST').length, 0);
 });

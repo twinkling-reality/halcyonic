@@ -16,4 +16,6 @@ export const anthropicProvider: HostedProvider = {
     header: { name: 'x-api-key', scheme: null },
   },
   models: ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5', 'claude-fable-5-2'],
+  // Proposing from the host's list needs little thought; the default on Opus 5.5 is medium.
+  effort: 'low',
 };

@@ -17,6 +17,13 @@ export interface HostedProvider {
   readonly key: ProviderKey;
   /** The model ids the provider offers; the first is used unless the person names another. */
   readonly models: readonly string[];
+  /**
+   * How hard the model thinks before it answers, in the provider's own word for it, or null to send
+   * none and take the provider's default. Each protocol puts it where its shape says.
+   */
+  readonly effort: string | null;
+  /** The request field that bounds the model's output, where the protocol's shape lets it vary. */
+  readonly outputField?: string;
 }
 
 /**

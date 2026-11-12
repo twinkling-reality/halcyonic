@@ -235,7 +235,13 @@ What was read and seen is in [hosted-assistant.md](../validation/hosted-assistan
 - **Same list, tools and press.** The same list of what can be done here, the same tools and the same one press as
   on the local model. A hosted model's proposal waits for the person exactly as a local one's does.
 - **Where it may send.** A key goes only to its provider's declared https address, or to this Mac for a proof
-  (`HALCYONIC_ASSISTANT_UPSTREAM`, loopback only). `HALCYONIC_ASSISTANT_MODEL` picks one of the declared models.
+  (`HALCYONIC_ASSISTANT_UPSTREAM`, loopback only). `HALCYONIC_ASSISTANT_MODEL` picks one of the declared models of the
+  provider that runs; a model another provider declares is ignored there, and that provider's first model runs.
+- **The two real providers.** Meta's Model API (Chat Completions, `muse-wonder-1.0` first) and Anthropic's
+  (Messages, `claude-opus-5-5` first) are declared, Meta first, so with both keys stored Meta's runs the assistant.
+  Each declares how hard its model thinks (`low` for both) and never a model that trains on the content. Meta adds
+  steering text of its own, unpublished, to every prompt, so on Meta the instructions the model followed are never
+  only Halcyonic's.
 - **What leaves the Mac.** On a hosted provider, what the request reads goes to that provider: the host's
   instructions and lists, project and task names, the Mac's evidence in words, quoted agent text, and the person's
   words within the request's bound. SECURITY.md lists it.
