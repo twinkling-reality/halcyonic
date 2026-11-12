@@ -4352,6 +4352,177 @@
             },
             "event_type": {
               "type": "string",
+              "const": "project.sent"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "remote",
+                "branch",
+                "base_commit",
+                "new_branch",
+                "commit",
+                "review_request_url"
+              ],
+              "properties": {
+                "remote": {
+                  "type": "object",
+                  "required": [
+                    "host",
+                    "path"
+                  ],
+                  "properties": {
+                    "host": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?)+$"
+                    },
+                    "path": {
+                      "type": "string",
+                      "maxLength": 240,
+                      "pattern": "^(?!.*(?:^|/)\\.\\.?(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "branch": {
+                  "$ref": "#/$defs/GitBranchName"
+                },
+                "base_commit": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "new_branch": {
+                  "$ref": "#/$defs/GitBranchName"
+                },
+                "commit": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                },
+                "review_request_url": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/ReviewRequestUrl"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
               "const": "project.sent_to_github"
             },
             "source": {
@@ -4395,7 +4566,7 @@
                 "pull_request_url": {
                   "anyOf": [
                     {
-                      "$ref": "#/$defs/PullRequestUrl"
+                      "$ref": "#/$defs/ReviewRequestUrl"
                     },
                     {
                       "type": "null"
@@ -12402,7 +12573,7 @@
             },
             "command_type": {
               "type": "string",
-              "const": "project.send_to_github"
+              "const": "project.send"
             },
             "payload": {
               "type": "object",
@@ -13725,12 +13896,12 @@
             "kind",
             "new_branch",
             "commit",
-            "pull_request_url"
+            "review_request_url"
           ],
           "properties": {
             "kind": {
               "type": "string",
-              "const": "sent_to_github"
+              "const": "sent"
             },
             "new_branch": {
               "$ref": "#/$defs/GitBranchName"
@@ -13739,10 +13910,10 @@
               "type": "string",
               "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
             },
-            "pull_request_url": {
+            "review_request_url": {
               "anyOf": [
                 {
-                  "$ref": "#/$defs/PullRequestUrl"
+                  "$ref": "#/$defs/ReviewRequestUrl"
                 },
                 {
                   "type": "null"
@@ -15380,16 +15551,16 @@
       "maxLength": 255,
       "pattern": "^(?!/)(?!.*//)(?!.*\\.\\.)(?!.*\\.lock$)(?!.*/$)[^\\s~^:?*\\[\\\\\\x00-\\x1f\\x7f]+$"
     },
-    "PullRequestUrl": {
+    "ReviewRequestUrl": {
       "type": "string",
       "maxLength": 300,
-      "pattern": "^https://github\\.com/[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}/pull/[0-9]{1,10}$"
+      "pattern": "^https://[A-Za-z0-9.-]{1,253}/[A-Za-z0-9._~/-]{1,240}$"
     },
-    "GitHubSendReview": {
+    "SendReview": {
       "type": "object",
       "required": [
         "project_id",
-        "repository",
+        "remote",
         "creates",
         "branch",
         "base_commit",
@@ -15397,7 +15568,7 @@
         "title",
         "files",
         "links_left_out",
-        "pull_request",
+        "review_request",
         "review"
       ],
       "properties": {
@@ -15405,10 +15576,27 @@
           "type": "string",
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
         },
-        "repository": {
+        "remote": {
           "anyOf": [
             {
-              "$ref": "#/$defs/RepositoryFullName"
+              "type": "object",
+              "required": [
+                "host",
+                "path"
+              ],
+              "properties": {
+                "host": {
+                  "type": "string",
+                  "maxLength": 253,
+                  "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?)+$"
+                },
+                "path": {
+                  "type": "string",
+                  "maxLength": 240,
+                  "pattern": "^(?!.*(?:^|/)\\.\\.?(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+                }
+              },
+              "additionalProperties": false
             },
             {
               "type": "null"
@@ -15477,7 +15665,7 @@
         "links_left_out": {
           "$ref": "#/$defs/PathList"
         },
-        "pull_request": {
+        "review_request": {
           "type": "boolean"
         },
         "review": {
@@ -15486,7 +15674,7 @@
       },
       "additionalProperties": false
     },
-    "GitHubSendReviewRequest": {
+    "SendReviewRequest": {
       "type": "object",
       "properties": {
         "title": {
@@ -15514,7 +15702,7 @@
       },
       "additionalProperties": false
     },
-    "GitHubSendReviewResponse": {
+    "SendReviewResponse": {
       "anyOf": [
         {
           "type": "object",
@@ -15528,7 +15716,7 @@
               "const": "available"
             },
             "send": {
-              "$ref": "#/$defs/GitHubSendReview"
+              "$ref": "#/$defs/SendReview"
             }
           },
           "additionalProperties": false
@@ -15557,7 +15745,7 @@
       "maxLength": 200,
       "pattern": "^https://[A-Za-z0-9-]{1,39}\\.github\\.io/(?:[A-Za-z0-9._-]{1,100}/)?$"
     },
-    "GitHubPublishReview": {
+    "PublishReview": {
       "type": "object",
       "required": [
         "project_id",
@@ -15629,7 +15817,7 @@
       },
       "additionalProperties": false
     },
-    "GitHubPublishReviewRequest": {
+    "PublishReviewRequest": {
       "type": "object",
       "properties": {
         "make_public": {
@@ -15638,7 +15826,7 @@
       },
       "additionalProperties": false
     },
-    "GitHubPublishReviewResponse": {
+    "PublishReviewResponse": {
       "anyOf": [
         {
           "type": "object",
@@ -15652,7 +15840,7 @@
               "const": "available"
             },
             "publish": {
-              "$ref": "#/$defs/GitHubPublishReview"
+              "$ref": "#/$defs/PublishReview"
             }
           },
           "additionalProperties": false
@@ -22280,7 +22468,7 @@
         },
         {
           "type": "string",
-          "const": "project.send_to_github"
+          "const": "project.send"
         },
         {
           "type": "string",

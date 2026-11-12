@@ -690,7 +690,7 @@ export class CommandService {
       case 'project.share.start':
       case 'project.share.stop':
         return this.#deps.shares ? null : 'This computer cannot share a game.';
-      case 'project.send_to_github':
+      case 'project.send':
       case 'project.publish':
       case 'project.unpublish':
         return this.#deps.github ? null : "Sending isn't set up on this computer.";
@@ -1534,7 +1534,7 @@ export class CommandService {
           }, lost);
         return;
       }
-      case 'project.send_to_github': {
+      case 'project.send': {
         // The person's own reviewed send (ADR 0039, amended): never an agent's, never automatic.
         const scope = admission.scope;
         const folder = this.#projectDirectory(scope);
@@ -1590,19 +1590,19 @@ export class CommandService {
               }
               this.#deps.recorder.record(
                 controlPlaneDraft(
-                  'project.sent_to_github',
+                  'project.sent',
                   {
                     project_id: command.payload.project_id,
                     workstream_id: null,
                     execution_id: null,
                   },
                   {
-                    repository: sent.send.repository,
+                    remote: sent.send.remote,
                     branch: sent.send.branch,
                     base_commit: sent.send.base_commit,
                     new_branch: sent.send.new_branch,
                     commit: sent.commit,
-                    pull_request_url: sent.pullRequestUrl,
+                    review_request_url: sent.reviewRequestUrl,
                   },
                   this.#now(),
                   cause,
@@ -1611,19 +1611,20 @@ export class CommandService {
               if (!sent.cloned)
                 this.#deps.logger.warn(
                   {},
-                  "the work is on GitHub, and the project's folder could not be made its clone",
+                  "the work is in the new repository, and the project's folder could not be made its clone",
                 );
               this.#complete(command, scope, {
-                kind: 'sent_to_github',
+                kind: 'sent',
                 new_branch: sent.send.new_branch,
                 commit: sent.commit,
-                pull_request_url: sent.pullRequestUrl,
+                review_request_url: sent.reviewRequestUrl,
               });
             },
             () =>
               this.#fail(command, scope, {
                 code: 'send_failed',
-                message: 'The send could not be finished. Look on GitHub before sending again.',
+                message:
+                  "The send could not be finished. Look at the repository's host before sending again.",
                 effect: 'unknown',
               }),
           );

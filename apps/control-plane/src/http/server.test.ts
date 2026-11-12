@@ -383,7 +383,7 @@ describe('realtime protocol', () => {
     assert.equal(policies.get('project.secret.remove'), 'review_required');
     assert.equal(policies.get('project.publish'), 'review_required');
     assert.equal(policies.get('project.unpublish'), 'review_required');
-    assert.equal(policies.get('project.send_to_github'), 'review_required');
+    assert.equal(policies.get('project.send'), 'review_required');
     // Showing the project in Finder changes nothing; saving a copy writes a new file beside the person's,
     // never over one, done on its one press (F3; R1, AUDIT2 S3).
     assert.equal(policies.get('project.show_in_finder'), 'low_consequence');

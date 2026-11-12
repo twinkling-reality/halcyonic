@@ -18,13 +18,36 @@ export const GitBranchName = Type.String({
 });
 export type GitBranchName = Static<typeof GitBranchName>;
 
-/** A pull request's own address on github.com, as the person's `gh` printed it. */
-export const PullRequestUrl = Type.String({
+/**
+ * A review request's own address (a pull request on github.com), as the host's tool printed it: an
+ * https address on the repository's host, at most 300 characters.
+ */
+export const ReviewRequestUrl = Type.String({
   maxLength: 300,
-  pattern:
-    '^https://github\\.com/[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}/pull/[0-9]{1,10}$',
+  pattern: '^https://[A-Za-z0-9.-]{1,253}/[A-Za-z0-9._~/-]{1,240}$',
 });
-export type PullRequestUrl = Static<typeof PullRequestUrl>;
+export type ReviewRequestUrl = Static<typeof ReviewRequestUrl>;
+
+/**
+ * Where a project's work is sent: the host and the repository's path on it, as the folder's own
+ * remote names them (`origin`), never its address with a user part. `github.com` and
+ * `owner/name`; `gitlab.example` and `group/sub/name`.
+ */
+export const SendRemote = Type.Object(
+  {
+    host: Type.String({
+      maxLength: 253,
+      pattern:
+        '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?)+$',
+    }),
+    path: Type.String({
+      maxLength: 240,
+      pattern: '^(?!.*(?:^|/)\\.\\.?(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$',
+    }),
+  },
+  strict,
+);
+export type SendRemote = Static<typeof SendRemote>;
 
 /** A repository's name as GitHub takes one: a letter or digit first, then letters, digits, . - _. */
 export const RepositoryName = Type.String({ pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$' });
@@ -35,20 +58,21 @@ export const RepositoryVisibility = Type.Union([Type.Literal('private'), Type.Li
 export type RepositoryVisibility = Static<typeof RepositoryVisibility>;
 
 /**
- * What Send to GitHub would do, for the person to read before the press (ADR 0039, amended): the
- * repository by owner and name only (never its address), the branch the project's folder is on and
- * its last commit, the new branch it would push, the title exactly as it goes, the files that differ
- * from that commit, the links in the folder that are not sent because they point outside it, and
- * whether a pull request can be opened on this Mac. For a folder that is no repository yet,
- * `creates` names the repository the send makes in the person's own account and who can see it;
- * its owner is the account `gh` is signed in to, which a review never asks (`repository` null),
- * there is no commit to build on (`base_commit` null) and `main` is pushed. `review` is the
- * digest the command carries back, over every value the press sends (ADR 0051).
+ * What Send would do, for the person to read before the press (ADR 0039, amended): the folder's own
+ * remote by host and path (never its address), the branch the project's folder is on and its last
+ * commit, the new branch it would push, the title exactly as it goes, the files that differ from
+ * that commit, the links in the folder that are not sent because they point outside it, and whether
+ * a review request (a pull request) can be opened there from this Mac: only on a host whose tool is
+ * set up here (`gh` for github.com). For a folder that is no repository yet, `creates` names the
+ * repository the send makes in the person's own account and who can see it; its owner is the account
+ * the tool is signed in to, which a review never asks (`remote` null), there is no commit to build
+ * on (`base_commit` null) and `main` is pushed. `review` is the digest the command carries back,
+ * over every value the press sends (ADR 0051).
  */
-export const GitHubSendReview = Type.Object(
+export const SendReview = Type.Object(
   {
     project_id: ProjectId,
-    repository: Nullable(RepositoryFullName),
+    remote: Nullable(SendRemote),
     creates: Nullable(
       Type.Object(
         {
@@ -66,18 +90,18 @@ export const GitHubSendReview = Type.Object(
     files: ChangedFiles,
     /** Links the folder holds that point outside it: never sent (a starter's `node_modules` is one). */
     links_left_out: PathList,
-    pull_request: Type.Boolean(),
+    review_request: Type.Boolean(),
     review: ReviewDigest,
   },
   strict,
 );
-export type GitHubSendReview = Static<typeof GitHubSendReview>;
+export type SendReview = Static<typeof SendReview>;
 
 /**
- * The body of `POST /api/projects/:project_id/github-review`: the values the press will send, so the
+ * The body of `POST /api/projects/:project_id/send-review`: the values the press will send, so the
  * review shows the title exactly as it goes and covers both (an empty body takes the host's own).
  */
-export const GitHubSendReviewRequest = Type.Object(
+export const SendReviewRequest = Type.Object(
   {
     title: Type.Optional(Text(200)),
     visibility: Type.Optional(RepositoryVisibility),
@@ -85,14 +109,14 @@ export const GitHubSendReviewRequest = Type.Object(
   },
   strict,
 );
-export type GitHubSendReviewRequest = Static<typeof GitHubSendReviewRequest>;
+export type SendReviewRequest = Static<typeof SendReviewRequest>;
 
-/** `POST /api/projects/:project_id/github-review`: the review, or why there is nothing to send. */
-export const GitHubSendReviewResponse = Type.Union([
-  Type.Object({ availability: Type.Literal('available'), send: GitHubSendReview }, strict),
+/** `POST /api/projects/:project_id/send-review`: the review, or why there is nothing to send. */
+export const SendReviewResponse = Type.Union([
+  Type.Object({ availability: Type.Literal('available'), send: SendReview }, strict),
   Type.Object({ availability: Type.Literal('unavailable'), reason: ErrorInfo }, strict),
 ]);
-export type GitHubSendReviewResponse = Static<typeof GitHubSendReviewResponse>;
+export type SendReviewResponse = Static<typeof SendReviewResponse>;
 
 /**
  * A published game's lasting address on the person's own GitHub Pages (ADR 0039, amended: Publish):
@@ -117,7 +141,7 @@ export const PAGES_BRANCH = 'halcyonic-pages';
  * GitHub nothing), whether the press first makes it public, and the digest the command carries back
  * (ADR 0051). GitHub Free serves pages only from a public repository.
  */
-export const GitHubPublishReview = Type.Object(
+export const PublishReview = Type.Object(
   {
     project_id: ProjectId,
     repository: RepositoryFullName,
@@ -136,21 +160,21 @@ export const GitHubPublishReview = Type.Object(
   },
   strict,
 );
-export type GitHubPublishReview = Static<typeof GitHubPublishReview>;
+export type PublishReview = Static<typeof PublishReview>;
 
 /** The body of `POST /api/projects/:project_id/publish-review`: whether the press makes it public first. */
-export const GitHubPublishReviewRequest = Type.Object(
+export const PublishReviewRequest = Type.Object(
   { make_public: Type.Optional(Type.Boolean()) },
   strict,
 );
-export type GitHubPublishReviewRequest = Static<typeof GitHubPublishReviewRequest>;
+export type PublishReviewRequest = Static<typeof PublishReviewRequest>;
 
 /** `POST /api/projects/:project_id/publish-review`: the review, or why nothing can be published. */
-export const GitHubPublishReviewResponse = Type.Union([
-  Type.Object({ availability: Type.Literal('available'), publish: GitHubPublishReview }, strict),
+export const PublishReviewResponse = Type.Union([
+  Type.Object({ availability: Type.Literal('available'), publish: PublishReview }, strict),
   Type.Object({ availability: Type.Literal('unavailable'), reason: ErrorInfo }, strict),
 ]);
-export type GitHubPublishReviewResponse = Static<typeof GitHubPublishReviewResponse>;
+export type PublishReviewResponse = Static<typeof PublishReviewResponse>;
 
 /**
  * A project's game as last published: the check it came from, the commit on the Pages branch, and

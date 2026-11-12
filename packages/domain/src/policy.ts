@@ -36,7 +36,7 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   // A shared link lets anyone with it open the game: a deliberate press; stopping it is not.
   'project.share.start': 'review_required',
   'project.share.stop': 'low_consequence',
-  'project.send_to_github': 'review_required',
+  'project.send': 'review_required',
   'project.publish': 'review_required',
   'project.unpublish': 'review_required',
   // Gives the project's later tasks a key their agents can use and repeat (ADR 0057): a deliberate
@@ -182,7 +182,7 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
     sayable: true,
     confirm: 'review',
   },
-  'project.send_to_github': {
+  'project.send': {
     title: 'Send for Review',
     description:
       "Send the project's work to the person's own repository as a new branch for review.",

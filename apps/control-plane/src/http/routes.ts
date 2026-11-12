@@ -19,10 +19,6 @@ import {
   EventsQuery,
   type EventsResponse,
   ExecutionId,
-  GitHubPublishReviewRequest,
-  type GitHubPublishReviewResponse,
-  GitHubSendReviewRequest,
-  type GitHubSendReviewResponse,
   type HealthResponse,
   HereQuery,
   type HereResponse,
@@ -39,11 +35,15 @@ import {
   ProjectSecretSetRequest,
   type ProjectsResponse,
   type PublishedCodeResponse,
+  PublishReviewRequest,
+  type PublishReviewResponse,
   parseCommandEnvelope,
   type RestorePreviewResponse,
   RuntimeId,
   type RuntimeModelsResponse,
   type RuntimesResponse,
+  SendReviewRequest,
+  type SendReviewResponse,
   type ShareCodeResponse,
   type SharingWaysResponse,
   type Snapshot,
@@ -99,8 +99,8 @@ const validateCompanionReply = compileValidator(CompanionReplyResponse);
 const validateToolResultsQuery = compileValidator(ToolResultsQuery);
 const validateResultEventId = compileValidator(EventId);
 const validateLocationReview = compileValidator(LocationReviewRequest);
-const validateSendReview = compileValidator(GitHubSendReviewRequest);
-const validatePublishReview = compileValidator(GitHubPublishReviewRequest);
+const validateSendReview = compileValidator(SendReviewRequest);
+const validatePublishReview = compileValidator(PublishReviewRequest);
 
 /**
  * The largest request for a companion reply: 24,000 characters of exchange (ADR 0025), each of
@@ -992,7 +992,7 @@ export function registerRoutes(
   // Publish's review and the published address as a code to scan (ADR 0039, amended).
   app.post(
     '/api/projects/:project_id/publish-review',
-    async (request): Promise<GitHubPublishReviewResponse> => {
+    async (request): Promise<PublishReviewResponse> => {
       const projectId = (request.params as { project_id: string }).project_id;
       if (!validateProjectId(projectId).ok)
         return {
@@ -1028,8 +1028,8 @@ export function registerRoutes(
 
   // Send to GitHub's review (ADR 0039, amended): what a send would do, read before the press.
   app.post(
-    '/api/projects/:project_id/github-review',
-    async (request): Promise<GitHubSendReviewResponse> => {
+    '/api/projects/:project_id/send-review',
+    async (request): Promise<SendReviewResponse> => {
       const projectId = (request.params as { project_id: string }).project_id;
       if (!validateProjectId(projectId).ok)
         return {

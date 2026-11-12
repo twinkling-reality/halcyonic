@@ -22,7 +22,13 @@ import {
 import { ChangedFiles, ConflictedFiles, CopyRefusalCode } from './copies.ts';
 import { DeviceLabel, Principal, Sha256Hex } from './devices.ts';
 import { FilesObserved } from './file-changes.ts';
-import { GitBranchName, PagesAddress, PullRequestUrl, RepositoryVisibility } from './github.ts';
+import {
+  GitBranchName,
+  PagesAddress,
+  RepositoryVisibility,
+  ReviewRequestUrl,
+  SendRemote,
+} from './github.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
 import {
   OWN_CHECK_SCRIPT_NAMES,
@@ -541,7 +547,29 @@ export const ProjectSecretRemoved = projectEvent(
 );
 
 /**
- * The project's work was pushed to the person's own GitHub (ADR 0039, amended): `commit`, on top of
+ * The project's work was pushed to the folder's own remote (ADR 0039, amended): `commit`, on top of
+ * `base_commit` (null for a first send's `main`) of `branch`, as `new_branch` of `remote`, and the
+ * review request the host's tool opened, or null where none was. Nothing the person's git or tools
+ * printed is recorded.
+ */
+export const ProjectSent = projectEvent(
+  'project.sent',
+  Type.Object(
+    {
+      remote: SendRemote,
+      branch: GitBranchName,
+      base_commit: Nullable(GitObjectId),
+      new_branch: GitBranchName,
+      commit: GitObjectId,
+      review_request_url: Nullable(ReviewRequestUrl),
+    },
+    strict,
+  ),
+);
+
+/**
+ * Before 2026-11-12 (a journal keeps it, and it is still read): the project's work was pushed to the
+ * person's own GitHub (ADR 0039, amended): `commit`, on top of
  * `base_commit` of `branch`, as `new_branch` of `repository`, and the pull request `gh` opened, or
  * null where none was. Nothing the person's git or gh printed is recorded.
  */
@@ -555,7 +583,7 @@ export const ProjectSentToGitHub = projectEvent(
       base_commit: Nullable(GitObjectId),
       new_branch: GitBranchName,
       commit: GitObjectId,
-      pull_request_url: Nullable(PullRequestUrl),
+      pull_request_url: Nullable(ReviewRequestUrl),
     },
     strict,
   ),
@@ -1212,6 +1240,7 @@ export const EVENT_VARIANTS = [
   ProjectMacPlayStopped,
   ProjectShareStarted,
   ProjectShareStopped,
+  ProjectSent,
   ProjectSentToGitHub,
   ProjectRepositoryMade,
   ProjectRepositoryMadePublic,

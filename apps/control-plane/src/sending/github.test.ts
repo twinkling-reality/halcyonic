@@ -118,7 +118,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     const reviewed = await sender().review(PROJECT, folder, [join(folder, 'inner')], 'Lanterns');
     assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
     const send = reviewed.send;
-    assert.equal(send.repository, 'owner/garden');
+    assert.deepEqual(send.remote, { host: 'github.com', path: 'owner/garden' });
     assert.equal(send.branch, 'main');
     assert.equal(send.base_commit, git(folder, 'rev-parse', 'HEAD'));
     assert.match(send.new_branch, /^halcyonic\/garden-[0-9a-f]{8}$/);
@@ -129,7 +129,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
       ],
       total: 2,
     });
-    assert.equal(send.pull_request, true);
+    assert.equal(send.review_request, true);
     assert.match(send.review, /^[0-9a-f]{64}$/);
     assert.equal(JSON.stringify(send).includes('example.test'), false, 'no address, no author');
     // The same folder reviews the same; a change makes another review.
@@ -153,7 +153,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     assert.equal(existsSync(ghLog) && readFileSync(ghLog, 'utf8').includes('pr create'), false);
     const sent = await sender().send(PROJECT, folder, [], 'Lanterns', reviewed.send.review);
     assert.ok(sent.ok, sent.ok ? '' : sent.message);
-    assert.equal(sent.pullRequestUrl, 'https://github.com/owner/garden/pull/7');
+    assert.equal(sent.reviewRequestUrl, 'https://github.com/owner/garden/pull/7');
     // On the stand-in GitHub: the new branch, one commit on top of main, with the file and no secret.
     const pushed = git(origin, 'rev-parse', `refs/heads/${reviewed.send.new_branch}`);
     assert.equal(pushed, sent.commit);
@@ -218,7 +218,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
     const reviewed = await sender({ gh: null }).review(PROJECT, folder, [], 'Lanterns');
     assert.ok(reviewed.ok);
-    assert.equal(reviewed.send.pull_request, false);
+    assert.equal(reviewed.send.review_request, false);
     const sent = await sender({ gh: null }).send(
       PROJECT,
       folder,
@@ -227,7 +227,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
       reviewed.send.review,
     );
     assert.ok(sent.ok);
-    assert.equal(sent.pullRequestUrl, null);
+    assert.equal(sent.reviewRequestUrl, null);
     assert.equal(git(origin, 'rev-parse', `refs/heads/${reviewed.send.new_branch}`), sent.commit);
   });
 
@@ -437,12 +437,12 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     writeFileSync(join(plain, '.env'), 'KEY=never\n');
     const reviewed = await sender().review(PROJECT, plain, [], 'Lanterns');
     assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
-    assert.equal(reviewed.send.repository, null);
+    assert.equal(reviewed.send.remote, null);
     assert.deepEqual(reviewed.send.creates, { name: 'lantern-game', visibility: 'private' });
     assert.equal(reviewed.send.base_commit, null);
     assert.equal(reviewed.send.new_branch, 'main');
     assert.equal(reviewed.send.title, 'Lanterns');
-    assert.equal(reviewed.send.pull_request, false);
+    assert.equal(reviewed.send.review_request, false);
     assert.deepEqual(
       reviewed.send.files.files.map((file) => [file.path, file.change]),
       [
@@ -464,10 +464,10 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
       onMade: (made) => recorded.push({ ...made }),
     });
     assert.ok(sent.ok, sent.ok ? '' : sent.message);
-    assert.equal(sent.send.repository, 'owner/lantern-game');
+    assert.deepEqual(sent.send.remote, { host: 'github.com', path: 'owner/lantern-game' });
     assert.deepEqual(recorded, [{ repository: 'owner/lantern-game', visibility: 'private' }]);
     assert.equal(sent.cloned, true);
-    assert.equal(sent.pullRequestUrl, null);
+    assert.equal(sent.reviewRequestUrl, null);
     const asked = readFileSync(ghLog, 'utf8');
     assert.match(asked, /^repo create --private -- lantern-game token:none:none$/m);
     assert.ok(
@@ -504,7 +504,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     const next = await sender().review(PROJECT, plain, [], 'More lanterns');
     assert.ok(next.ok, next.ok ? '' : next.message);
     assert.equal(next.send.creates, null);
-    assert.equal(next.send.repository, 'owner/lantern-game');
+    assert.deepEqual(next.send.remote, { host: 'github.com', path: 'owner/lantern-game' });
     assert.equal(next.send.base_commit, sent.commit);
     assert.deepEqual(
       next.send.files.files.map((file) => file.path),
@@ -547,7 +547,7 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     const again = await sender().review(PROJECT, plain, [], 'Lanterns', { made: recorded[0] });
     assert.ok(again.ok, again.ok ? '' : again.message);
     assert.equal(again.send.creates, null);
-    assert.equal(again.send.repository, 'owner/stopped-game');
+    assert.deepEqual(again.send.remote, { host: 'github.com', path: 'owner/stopped-game' });
     const sent = await sender().send(PROJECT, plain, [], 'Lanterns', again.send.review, {
       made: recorded[0],
       onMade: () => assert.fail('no second repository'),
@@ -672,6 +672,40 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     assert.equal(sendTitle('x'.repeat(300), project, []).length, 200);
   });
 
+  test("a folder whose origin is on another host is sent there with the person's git, with no review request, and is never published", async () => {
+    const other = join(root, 'gitlab', 'group', 'sub', 'garden.git');
+    git(root, 'init', '--bare', '-q', other);
+    git(
+      folder,
+      'config',
+      '--global',
+      `url.file://${join(root, 'gitlab')}/.insteadOf`,
+      'https://gitlab.example/',
+    );
+    git(
+      folder,
+      'remote',
+      'set-url',
+      'origin',
+      'https://someone:secret@gitlab.example/group/sub/garden.git',
+    );
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    const reviewed = await sender().review(PROJECT, folder, [], 'Lanterns');
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    // The host and path only: the user part is never kept or shown.
+    assert.deepEqual(reviewed.send.remote, { host: 'gitlab.example', path: 'group/sub/garden' });
+    assert.equal(reviewed.send.review_request, false, 'no tool is set up here for that host');
+    const sent = await sender().send(PROJECT, folder, [], 'Lanterns', reviewed.send.review);
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.equal(sent.reviewRequestUrl, null);
+    assert.equal(git(other, 'rev-parse', `refs/heads/${reviewed.send.new_branch}`), sent.commit);
+    assert.equal(existsSync(ghLog) && readFileSync(ghLog, 'utf8').includes('pr create'), false);
+    // An ssh form of another host reads the same way.
+    git(folder, 'remote', 'set-url', 'origin', 'git@gitlab.example:group/sub/garden.git');
+    const viaSsh = await sender().review(PROJECT, folder, [], 'Other');
+    assert.ok(viaSsh.ok || viaSsh.code === 'nothing_to_send');
+  });
+
   test('every refusal is said in words, and nothing is sent', async () => {
     const plain = join(root, 'projects', 'plain');
     mkdirSync(plain);
@@ -682,9 +716,16 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     const nothing = await sender().review(PROJECT, folder, [], 'Lanterns');
     assert.equal(nothing.ok ? null : nothing.code, 'nothing_to_send');
     writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
-    git(folder, 'remote', 'set-url', 'origin', 'https://gitlab.example/owner/garden.git');
-    const elsewhere = await sender().review(PROJECT, folder, [], 'Lanterns');
-    assert.equal(elsewhere.ok ? null : elsewhere.code, 'no_github_origin');
+    // An origin Halcyonic can't send to: a port, a user and password, a path that climbs.
+    for (const odd of [
+      'ssh://git@example.test:2222/owner/garden.git',
+      'https://example.test/../garden.git',
+      'file:///tmp/garden.git',
+    ]) {
+      git(folder, 'remote', 'set-url', 'origin', odd);
+      const elsewhere = await sender().review(PROJECT, folder, [], 'Lanterns');
+      assert.equal(elsewhere.ok ? null : elsewhere.code, 'no_origin', odd);
+    }
     git(folder, 'remote', 'set-url', 'origin', REMOTE);
     git(folder, 'checkout', '-q', '--detach');
     const detached = await sender().review(PROJECT, folder, [], 'Lanterns');

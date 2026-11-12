@@ -36,7 +36,7 @@ const PROJECT_ORDER: readonly Listed[] = [
   'project.preview.stop',
   'project.open_on_mac',
   'project.restore',
-  'project.send_to_github',
+  'project.send',
   'project.publish',
   'project.unpublish',
   'project.share.start',

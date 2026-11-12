@@ -219,7 +219,7 @@ function admit(
 
     case 'project.show_in_finder':
     case 'project.save_copy':
-    case 'project.send_to_github': {
+    case 'project.send': {
       // Keeping what was made (F3): the project's own folder, shown or saved by the host.
       const projectId = command.payload.project_id;
       const project = projection.project(projectId);

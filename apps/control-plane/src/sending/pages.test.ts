@@ -68,6 +68,19 @@ describe('Publish to GitHub Pages (ADR 0039, amended)', {
     assert.equal(noBuild.ok ? null : noBuild.code, 'no_built_copy');
   });
 
+  test('a game is published only where the host keeps a public page for it: another host is refused in words', async () => {
+    stand.git(
+      stand.folder,
+      'remote',
+      'set-url',
+      'origin',
+      'https://gitlab.example/group/garden.git',
+    );
+    const reviewed = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null);
+    assert.equal(reviewed.ok ? null : reviewed.code, 'no_pages_host');
+    assert.match(reviewed.ok ? '' : reviewed.message, /this project's is on gitlab\.example/);
+  });
+
   test('a link in the built copy that points outside it is never published, and the review lists it', async () => {
     symlinkSync('/etc', join(built, 'assets', 'escape'));
     const reviewed = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null);

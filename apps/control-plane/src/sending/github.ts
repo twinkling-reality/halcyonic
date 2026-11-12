@@ -4,14 +4,15 @@ import { basename, dirname, join, relative, sep } from 'node:path';
 import {
   type ChangedFiles,
   type CheckId,
-  type GitHubPublishReview,
-  type GitHubSendReview,
   PAGES_BRANCH,
   type ProjectId,
+  type PublishReview,
   type RepositoryVisibility,
+  type SendRemote,
+  type SendReview,
 } from '@halcyonic/contracts';
 import { secretShapedPath } from '@halcyonic/runtime-core';
-import { readGitHubOrigin } from '../catalog-match.ts';
+import { readOriginUrl } from '../catalog-match.ts';
 import { changedFileList, pathList } from '../checkpoints/checkpointer.ts';
 import { linkLeavesFolder } from '../checkpoints/links.ts';
 import { reviewDigest } from '../core/review.ts';
@@ -81,7 +82,7 @@ export interface PublishOptions {
 }
 
 interface Prepared {
-  readonly send: GitHubSendReview;
+  readonly send: SendReview;
   readonly ssh: boolean;
   readonly tree: string;
   readonly repository: string;
@@ -112,7 +113,7 @@ export class GitHubSender {
     otherFolders: readonly string[],
     title: string,
     options: SendOptions = {},
-  ): Promise<{ readonly ok: true; readonly send: GitHubSendReview } | SendFailure> {
+  ): Promise<{ readonly ok: true; readonly send: SendReview } | SendFailure> {
     const prepared = await this.#prepare(projectId, folder, otherFolders, title, options);
     return prepared.ok ? { ok: true, send: prepared.prepared.send } : prepared;
   }
@@ -132,9 +133,9 @@ export class GitHubSender {
   ): Promise<
     | {
         readonly ok: true;
-        readonly send: GitHubSendReview & { readonly repository: string };
+        readonly send: SendReview & { readonly remote: SendRemote };
         readonly commit: string;
-        readonly pullRequestUrl: string | null;
+        readonly reviewRequestUrl: string | null;
         /** False when the work is on GitHub but the folder could not be made its clone. */
         readonly cloned: boolean;
       }
@@ -160,7 +161,7 @@ export class GitHubSender {
         'no_author',
         'Git on this computer has no name and email to sign the commit with. Set them in git, then send again.',
       );
-    if (send.creates !== null || send.repository === null || send.base_commit === null)
+    if (send.creates !== null || send.remote === null || send.base_commit === null)
       return this.#sendNew(folder, prepared.prepared, title, options);
     const committed = await this.#run(this.#deps.git, [
       '--git-dir',
@@ -175,8 +176,8 @@ export class GitHubSender {
     const commit = committed.stdout.trim();
     if (committed.code !== 0 || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit))
       return refuse('send_failed', 'The commit could not be made, so nothing was sent.');
-    const remote = remoteOf(send.repository, ssh);
-    const sentTo = { ...send, repository: send.repository };
+    const remote = remoteOf(send.remote, ssh);
+    const sentTo = { ...send, remote: send.remote };
     const pushed = await this.#run(
       this.#deps.git,
       [
@@ -205,18 +206,19 @@ export class GitHubSender {
         );
       return refuse(
         'push_refused',
-        "GitHub didn't take the push, so nothing was sent. Check that this computer can push to the repository, then send again.",
+        `${send.remote.host} didn't take the push, so nothing was sent. Check that this computer can push to the repository, then send again.`,
       );
     }
-    let pullRequestUrl: string | null = null;
-    if (this.#deps.gh !== null) {
+    let reviewRequestUrl: string | null = null;
+    // A review request only where the host's tool is set up here (the review said so).
+    if (this.#deps.gh !== null && send.review_request) {
       const opened = await this.#run(
         this.#deps.gh,
         [
           'pr',
           'create',
           '--repo',
-          send.repository,
+          send.remote.path,
           '--head',
           send.new_branch,
           '--base',
@@ -228,9 +230,9 @@ export class GitHubSender {
         ],
         60_000,
       );
-      if (opened.code === 0) pullRequestUrl = PULL_REQUEST.exec(opened.stdout)?.[0] ?? null;
+      if (opened.code === 0) reviewRequestUrl = PULL_REQUEST.exec(opened.stdout)?.[0] ?? null;
     }
-    return { ok: true, send: sentTo, commit, pullRequestUrl, cloned: true };
+    return { ok: true, send: sentTo, commit, reviewRequestUrl, cloned: true };
   }
 
   /**
@@ -251,9 +253,9 @@ export class GitHubSender {
   ): Promise<
     | {
         readonly ok: true;
-        readonly send: GitHubSendReview & { readonly repository: string };
+        readonly send: SendReview & { readonly remote: SendRemote };
         readonly commit: string;
-        readonly pullRequestUrl: null;
+        readonly reviewRequestUrl: null;
         readonly cloned: boolean;
       }
     | SendFailure
@@ -270,7 +272,7 @@ export class GitHubSender {
         'gh_signed_out',
         "GitHub's command line tool on this computer isn't signed in, so nothing was sent.",
       );
-    let fullName: string;
+    let target: SendRemote;
     if (send.creates !== null) {
       const { name, visibility } = send.creates;
       const made = await this.#run(gh, ['repo', 'create', `--${visibility}`, '--', name], 60_000);
@@ -283,17 +285,18 @@ export class GitHubSender {
           ),
           effect: 'unknown',
         };
-      fullName = `${named[1]}/${named[2]}`;
-      options.onMade?.({ repository: fullName, visibility });
-    } else if (send.repository !== null) fullName = send.repository;
+      target = { host: MAKES_REPOSITORIES, path: `${named[1]}/${named[2]}` };
+      options.onMade?.({ repository: target.path, visibility });
+    } else if (send.remote !== null) target = send.remote;
     else return refuse('send_failed', 'Halcyonic could not prepare the send.');
     // The person's own choice of how their git reaches GitHub, as gh keeps it.
     const protocol = await this.#run(
       gh,
-      ['config', 'get', 'git_protocol', '-h', 'github.com'],
+      ['config', 'get', 'git_protocol', '-h', target.host],
       15_000,
     );
-    const remote = remoteOf(fullName, protocol.code === 0 && protocol.stdout.trim() === 'ssh');
+    const fullName = target.path;
+    const remote = remoteOf(target, protocol.code === 0 && protocol.stdout.trim() === 'ssh');
     const there = await this.#run(
       this.#deps.git,
       ['--git-dir', repository, 'ls-remote', '--heads', remote, 'refs/heads/main'],
@@ -386,9 +389,9 @@ export class GitHubSender {
     );
     return {
       ok: true,
-      send: { ...send, repository: fullName },
+      send: { ...send, remote: target },
       commit,
-      pullRequestUrl: null,
+      reviewRequestUrl: null,
       cloned,
     };
   }
@@ -481,7 +484,7 @@ export class GitHubSender {
     built: string | null,
     replaces: string | null,
     options: PublishOptions = {},
-  ): Promise<{ readonly ok: true; readonly publish: GitHubPublishReview } | SendFailure> {
+  ): Promise<{ readonly ok: true; readonly publish: PublishReview } | SendFailure> {
     const prepared = await this.#preparePublish(
       projectId,
       folder,
@@ -505,7 +508,7 @@ export class GitHubSender {
   ): Promise<
     | {
         readonly ok: true;
-        readonly publish: GitHubPublishReview;
+        readonly publish: PublishReview;
         readonly commit: string;
         readonly address: string | null;
       }
@@ -520,7 +523,7 @@ export class GitHubSender {
       options,
     );
     if (!prepared.ok) return prepared;
-    const { publish, repository, tree, ssh } = prepared;
+    const { publish, repository, tree, ssh, host } = prepared;
     if (publish.review !== review)
       return refuse(
         'review_stale',
@@ -580,7 +583,7 @@ export class GitHubSender {
         'core.hooksPath=/dev/null',
         'push',
         '--quiet',
-        remoteOf(publish.repository, ssh),
+        remoteOf({ host, path: publish.repository }, ssh),
         `${commit}:refs/heads/${PAGES_BRANCH}`,
       ],
       120_000,
@@ -624,7 +627,7 @@ export class GitHubSender {
           'push',
           '--quiet',
           `--force-with-lease=refs/heads/${PAGES_BRANCH}:${commit}`,
-          remoteOf(publish.repository, ssh),
+          remoteOf({ host, path: publish.repository }, ssh),
           `:refs/heads/${PAGES_BRANCH}`,
         ],
         120_000,
@@ -653,8 +656,12 @@ export class GitHubSender {
     folder: string,
     published: { readonly repository: string; readonly commit: string },
   ): Promise<{ readonly ok: true; readonly repository: string } | SendFailure> {
-    const origin = await readGitHubOrigin(folder);
-    if (origin?.fullName !== published.repository)
+    const origin = await readOrigin(folder);
+    if (
+      origin === null ||
+      HOST_TOOLS[origin.remote.host]?.pages !== true ||
+      origin.remote.path !== published.repository
+    )
       return refuse(
         'origin_changed',
         `The game was published to ${published.repository}, and this folder's origin is no longer it, so nothing was taken down. Point the origin back at ${published.repository}, then take it down.`,
@@ -662,7 +669,7 @@ export class GitHubSender {
     const repository = await this.#repository(projectId, await objectFormat(folder));
     if (repository === null)
       return refuse('publish_failed', 'Halcyonic could not prepare the change.');
-    const remote = remoteOf(published.repository, origin.ssh);
+    const remote = remoteOf(origin.remote, origin.ssh);
     const removed = await this.#run(
       this.#deps.git,
       [
@@ -706,16 +713,23 @@ export class GitHubSender {
   ): Promise<
     | {
         readonly ok: true;
-        readonly publish: GitHubPublishReview;
+        readonly publish: PublishReview;
         readonly repository: string;
         readonly tree: string;
         readonly ssh: boolean;
+        readonly host: string;
       }
     | SendFailure
   > {
-    const origin = await readGitHubOrigin(folder);
-    if (origin === null)
-      return refuse('no_github_origin', "The project's folder has no origin on GitHub.");
+    const read = await readOrigin(folder);
+    if (read === null) return refuse('no_origin', NO_ORIGIN);
+    // A public page only on a host whose tool keeps one here (github.com, with gh).
+    if (HOST_TOOLS[read.remote.host]?.pages !== true || read.remote.path.split('/').length !== 2)
+      return refuse(
+        'no_pages_host',
+        `A public page is set up here only for a repository on a host whose tool keeps one; this project's is on ${read.remote.host}.`,
+      );
+    const origin = { fullName: read.remote.path, ssh: read.ssh, host: read.remote.host };
     if (this.#deps.gh === null)
       return refuse(
         'no_gh',
@@ -762,7 +776,7 @@ export class GitHubSender {
       replaces,
       branch: PAGES_BRANCH,
     };
-    const publish: GitHubPublishReview = {
+    const publish: PublishReview = {
       project_id: projectId,
       repository: origin.fullName,
       check_id: checkId,
@@ -774,7 +788,7 @@ export class GitHubSender {
       address,
       review: reviewDigest('project.publish', { project_id: projectId }, facts),
     };
-    return { ok: true, publish, repository, tree: tree.tree, ssh: origin.ssh };
+    return { ok: true, publish, repository, tree: tree.tree, ssh: origin.ssh, host: origin.host };
   }
 
   async #prepare(
@@ -788,9 +802,8 @@ export class GitHubSender {
     if (git === null) return this.#prepareNew(projectId, folder, otherFolders, title, options);
     if (!git.isDirectory())
       return refuse('not_a_repository', "The project's folder isn't a git repository of its own.");
-    const origin = await readGitHubOrigin(folder);
-    if (origin === null)
-      return refuse('no_github_origin', "The project's folder has no origin on GitHub.");
+    const origin = await readOrigin(folder);
+    if (origin === null) return refuse('no_origin', NO_ORIGIN);
     const branch = await headBranch(folder);
     if (branch === null) return refuse('detached_head', "The project's folder isn't on a branch.");
     const format = await objectFormat(folder);
@@ -838,11 +851,11 @@ export class GitHubSender {
           : "Nothing in the project differs from its branch's last commit.",
       );
     const newBranch = `halcyonic/${slug(basename(folder))}-${tree.slice(0, 8)}`;
-    // Whether gh is set up on this Mac, never asked of GitHub: a review sends nothing anywhere (AUDIT3
-    // S2). Whether the person is signed in shows only at the press.
-    const pullRequest = this.#deps.gh !== null;
+    // A review request where the host's tool is set up on this Mac, never asked of the host: a review
+    // sends nothing anywhere (AUDIT3 S2). Whether the person is signed in shows only at the press.
+    const reviewRequest = this.#deps.gh !== null && HOST_TOOLS[origin.remote.host] !== undefined;
     const facts = {
-      repository: origin.fullName,
+      remote: origin.remote,
       branch,
       base_commit: base,
       tree,
@@ -851,9 +864,9 @@ export class GitHubSender {
       files,
       links_left_out: built.outside,
     };
-    const send: GitHubSendReview = {
+    const send: SendReview = {
       project_id: projectId,
-      repository: origin.fullName,
+      remote: origin.remote,
       creates: null,
       branch,
       base_commit: base,
@@ -861,8 +874,8 @@ export class GitHubSender {
       title,
       files,
       links_left_out: pathList(built.outside),
-      pull_request: pullRequest,
-      review: reviewDigest('project.send_to_github', { project_id: projectId }, facts),
+      review_request: reviewRequest,
+      review: reviewDigest('project.send', { project_id: projectId }, facts),
     };
     return { ok: true, prepared: { send, ssh: origin.ssh, tree, repository } };
   }
@@ -935,9 +948,9 @@ export class GitHubSender {
       files,
       links_left_out: built.outside,
     };
-    const send: GitHubSendReview = {
+    const send: SendReview = {
       project_id: projectId,
-      repository: made?.repository ?? null,
+      remote: made === undefined ? null : { host: MAKES_REPOSITORIES, path: made.repository },
       creates,
       branch: 'main',
       base_commit: null,
@@ -945,8 +958,8 @@ export class GitHubSender {
       title,
       files,
       links_left_out: pathList(built.outside),
-      pull_request: false,
-      review: reviewDigest('project.send_to_github', { project_id: projectId }, facts),
+      review_request: false,
+      review: reviewDigest('project.send', { project_id: projectId }, facts),
     };
     return {
       ok: true,
@@ -1228,9 +1241,58 @@ export class GitHubSender {
   }
 }
 
-/** The origin's address as the person's git reaches it, built from owner/name, never read out. */
-function remoteOf(fullName: string, ssh: boolean): string {
-  return ssh ? `git@github.com:${fullName}.git` : `https://github.com/${fullName}.git`;
+/**
+ * Each host whose tool is set up on this Mac, and what it does there: open a review request (a pull
+ * request), keep a public page, make a repository. Every other host is pushed to with the person's own
+ * git, and no more, as the review says (ADR 0039, amended): a new host is a line here and its tool.
+ */
+const HOST_TOOLS: Readonly<Record<string, { readonly tool: 'gh'; readonly pages: boolean }>> = {
+  'github.com': { tool: 'gh', pages: true },
+};
+
+/** The host whose tool makes a first send's repository in the person's own account. */
+const MAKES_REPOSITORIES = 'github.com';
+
+const NO_ORIGIN =
+  "The project's folder has no origin Halcyonic can send to: an https or ssh address of a host and a repository.";
+
+/**
+ * The folder's `origin` as host and path, from its `.git/config` read as a file (git is not run in
+ * it), in any of git's forms: `https://host/path`, `ssh://user@host/path`, `user@host:path`, with or
+ * without `.git`. A user part is dropped, never kept; a port, an odd host or a path that climbs is
+ * refused (null).
+ */
+async function readOrigin(
+  folder: string,
+): Promise<{ readonly remote: SendRemote; readonly ssh: boolean } | null> {
+  const url = await readOriginUrl(folder);
+  if (url === null) return null;
+  const forms: readonly [RegExp, boolean][] = [
+    [/^https:\/\/(?:[^@/]+@)?([^/:]+)\/(.+?)(?:\.git)?\/?$/i, false],
+    [/^ssh:\/\/(?:[^@/]+@)?([^/:]+)\/(.+?)(?:\.git)?\/?$/i, true],
+    [/^(?:[A-Za-z0-9._-]+@)?([^/:@]+):(?!\/)(.+?)(?:\.git)?\/?$/, true],
+  ];
+  for (const [form, ssh] of forms) {
+    const found = form.exec(url.trim());
+    if (found === null) continue;
+    const host = (found[1] ?? '').toLowerCase();
+    const path = found[2] ?? '';
+    if (!HOST_NAME.test(host) || !REMOTE_PATH.test(path)) return null;
+    return { remote: { host, path }, ssh };
+  }
+  return null;
+}
+
+const HOST_NAME =
+  /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)+$/;
+const REMOTE_PATH =
+  /^(?=.{1,240}$)(?!.*(?:^|\/)\.\.?(?:\/|$))[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
+
+/** The remote's address as the person's git reaches it, built from its host and path, never read out. */
+function remoteOf(remote: SendRemote, ssh: boolean): string {
+  return ssh
+    ? `git@${remote.host}:${remote.path}.git`
+    : `https://${remote.host}/${remote.path}.git`;
 }
 
 /**
