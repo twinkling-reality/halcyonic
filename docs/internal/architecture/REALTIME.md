@@ -204,6 +204,12 @@ client                                   server
     host's fills (`options: {}`); each need's value, a choice by its index in a list whose digest is still the one
     read (`choices_changed` otherwise); an id given for any other field is refused. A review field is left for the
     review. The command meets its own validator there, and the whole admission when submitted.
+  - One review (`buildReview` in core/reviews.ts) for every command whose `confirm` is `review`: `ActionReview`
+    `{command_type, digest, confirm_words, what_happens, facts (at most 4), items, items_total, warnings}`, every
+    word the host's, kinds from `ReviewKind`. One reader per command type: Send and Publish read through the same
+    functions their routes answer with, Restore through its preview, Add from the task's copy's reading, Change
+    Folder, Project Rules, Share and Choose Check from their own facts. The digest is the one the button's own
+    review gives (ADR 0051), so a command carrying it back is admitted exactly as from a button.
 - **A project's own rules** (ADR 0059). `GET /api/projects/:project_id/rules` reads the project's `AGENTS.md`,
   else its `CLAUDE.md`, at its folder's top: `file`, `state` (`none`, `off`, `on`, `changed`, `too_large`,
   `unreadable`), `size_bytes`, the `text` whole (at most 32 KB) and its `review`.
