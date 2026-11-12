@@ -25,6 +25,19 @@ public sealed class PairingColumnTests
     private static RoomBar Bar(PairingColumn column) => RoomBar.OfFrame(column.Frame!, VoiceStage.Idle)!;
 
     [Test]
+    public void ARefusalWithNoWordsOfItsOwnStillDrawsAndSaysItIsUnknown()
+    {
+        foreach (var code in new[] { "something_new", "error", null })
+        {
+            var (column, _) = Column();
+            column.Refused(code, null);
+            var bar = Bar(column);
+            Assert.That(bar.Card?.Status?.Title, Is.EqualTo("Reason Unknown"), code ?? "no code");
+            Assert.That(column.Frame!.Lines.Select(line => line.Words), Has.Some.EqualTo("Reason Unknown"), code ?? "no code");
+        }
+    }
+
+    [Test]
     public void OneComputerFoundWithANameOfItsOwnIsPickedForThePersonAndNoOtherIs()
     {
         Assert.That(PairingColumn.PickedForThePerson(new[] { Studio })?.Address, Is.EqualTo(Studio.Address), "nothing to pick: its code is asked at once");
