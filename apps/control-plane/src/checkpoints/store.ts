@@ -5,6 +5,8 @@ import { lstat, mkdir, open, readFile, readlink, realpath, rm, writeFile } from 
 import { basename, dirname, isAbsolute, join, sep } from 'node:path';
 import type { CheckpointFailureCode, FileChangeKind } from '@halcyonic/contracts';
 import { toolFoldersFor } from '@halcyonic/seatbelt';
+import { type HeldHit, heldInTree, heldMessage } from '../core/held-in-tree.ts';
+import type { HeldSecret } from '../core/redaction.ts';
 import { NO_LINK } from '../observer/file-observer.ts';
 import { ancestors, resolved, SANDBOX_EXEC, SYSTEM_READS, subpaths } from '../seatbelt.ts';
 import { linkLeavesFolder } from './links.ts';
@@ -487,6 +489,8 @@ export class CheckpointStore {
     projectId: string,
     folder: string,
     leaveOut: (path: string) => boolean,
+    /** Every secret the host holds: a copy that holds one, in any form `heldForms` states, is not made. */
+    held: Iterable<HeldSecret> = [],
   ): Promise<
     | { readonly ok: true; readonly file: string; readonly files: number }
     | { readonly ok: false; readonly code: string; readonly message: string }
@@ -534,6 +538,19 @@ export class CheckpointStore {
       const written = await this.#run(repository, null, index, ['write-tree']);
       const filtered = written.stdout.toString().trim();
       if (written.code !== 0 || !OBJECT_ID.test(filtered)) return failed;
+      // A copy is set aside where anyone with the file reads it: nothing the host keeps as a secret goes in.
+      let hit: HeldHit | null;
+      try {
+        hit = await heldInTree(
+          (args, input) => this.#run(repository, null, null, args, input),
+          filtered,
+          held,
+        );
+      } catch {
+        return failed;
+      }
+      if (hit !== null)
+        return { ok: false, code: 'holds_secret', message: heldMessage(hit, 'saved') };
       const zipped = await this.#run(repository, null, null, [
         'archive',
         '--format=zip',

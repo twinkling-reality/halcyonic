@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { copyFile, lstat, realpath, rename, rm, stat } from 'node:fs/promises';
 import { basename, join, relative, sep } from 'node:path';
 import { secretShapedPath } from '@halcyonic/runtime-core';
+import type { HeldSecret } from '../core/redaction.ts';
 import type { CheckpointStore } from './store.ts';
 
 /**
@@ -19,6 +20,8 @@ export interface ProjectKeepingOptions {
   readonly now: () => Date;
   /** Shows `path` selected in Finder; true when it did. `/usr/bin/open -R` by default. */
   readonly reveal?: (path: string) => Promise<boolean>;
+  /** Every secret the host holds: a copy holding one is refused, naming the file (the lead, 2026-11-12). */
+  readonly held?: () => Iterable<HeldSecret>;
 }
 
 export type KeepingFailure = {
@@ -75,6 +78,7 @@ export class ProjectKeeping {
       (path) =>
         secretShapedPath(path) ||
         inside.some((other) => path === other || path.startsWith(`${other}/`)),
+      this.#options.held?.() ?? [],
     );
     if (!made.ok) return made;
     try {

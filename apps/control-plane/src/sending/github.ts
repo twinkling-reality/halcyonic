@@ -15,6 +15,8 @@ import { secretShapedPath } from '@halcyonic/runtime-core';
 import { readOriginUrl } from '../catalog-match.ts';
 import { changedFileList, pathList } from '../checkpoints/checkpointer.ts';
 import { linkLeavesFolder } from '../checkpoints/links.ts';
+import { type HeldHit, heldInTree, heldMessage } from '../core/held-in-tree.ts';
+import type { HeldSecret } from '../core/redaction.ts';
 import { reviewDigest } from '../core/review.ts';
 
 /**
@@ -42,6 +44,11 @@ export interface GitHubSenderDeps {
   readonly dataDir: string;
   /** The environment git and gh run with; only the names in `PASSED` are taken from it. */
   readonly env: NodeJS.ProcessEnv;
+  /**
+   * Every secret the host holds, as redaction reads them: a tree that holds one, in any form
+   * `heldForms` states, is never sent or published (the lead, 2026-11-12). Absent, none is held.
+   */
+  readonly held?: () => Iterable<HeldSecret>;
 }
 
 /** A refusal in the product's words; `effect` says when something on GitHub may have changed anyway. */
@@ -50,6 +57,8 @@ export type SendFailure = {
   readonly code: string;
   readonly message: string;
   readonly effect?: 'unknown';
+  /** For `holds_secret`: the file and which secret, never its value. */
+  readonly hit?: HeldHit;
 };
 
 /** What this Mac's journal says of a repository a send of Halcyonic's made, which Publish reads. */
@@ -95,6 +104,9 @@ const PASSED = ['HOME', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TMPDIR', 'SSH_AUTH
 
 /** The most of a program's output read, which is never logged or kept but for its last line. */
 const OUTPUT_MAX = 1024 * 1024;
+
+/** The most of a tree's files read at once to look for held secrets: one batch, or one larger file. */
+const TREE_READ_MAX = 512 * 1024 * 1024;
 
 const PULL_REQUEST =
   /https:\/\/github\.com\/[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9._-]{1,100}\/pull\/[0-9]{1,10}/;
@@ -745,6 +757,8 @@ export class GitHubSender {
       return refuse('publish_failed', 'Halcyonic could not prepare the publish.');
     // A built copy has no commit to start from and no excludes of the person's.
     const tree = await this.#tree(repository, built, [], null, null);
+    if (!tree.ok && tree.code === 'holds_secret' && tree.hit !== undefined)
+      return refuse('holds_secret', heldMessage(tree.hit, 'published'));
     if (!tree.ok)
       return tree.code === 'uses_filters'
         ? refuse(
@@ -1149,17 +1163,28 @@ export class GitHubSender {
         bare,
       );
       const tree = written.stdout.trim();
-      return written.code === 0 && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(tree)
-        ? {
-            ok: true,
-            tree,
-            files: kept.length,
-            outside: [...outside].filter((path) => before.get(path) !== now.get(path)),
-            withheld: [...now.keys()].filter(
-              (path) => keep(path) && before.get(path) !== now.get(path),
-            ),
-          }
-        : unreadable;
+      if (written.code !== 0 || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(tree)) return unreadable;
+      // Nothing that holds a secret this Mac keeps leaves it: the whole tree, as it would go, is read.
+      let hit: HeldHit | null;
+      try {
+        hit = await heldInTree(
+          (args, input) => this.#bytes(['--git-dir', repository, ...args], input),
+          tree,
+          this.#deps.held?.() ?? [],
+        );
+      } catch {
+        return unreadable;
+      }
+      if (hit !== null) return { ...refuse('holds_secret', heldMessage(hit, 'sent')), hit };
+      return {
+        ok: true,
+        tree,
+        files: kept.length,
+        outside: [...outside].filter((path) => before.get(path) !== now.get(path)),
+        withheld: [...now.keys()].filter(
+          (path) => keep(path) && before.get(path) !== now.get(path),
+        ),
+      };
     } finally {
       await rm(index, { force: true });
     }
@@ -1206,6 +1231,44 @@ export class GitHubSender {
       if (text.code !== 0 || /(^|\s)filter=/m.test(text.stdout)) return true;
     }
     return false;
+  }
+
+  /**
+   * Git with no shell and none of the person's settings, its output as bytes (a file's content is read
+   * whole, never as text), the person's environment as `PASSED` names it.
+   */
+  #bytes(
+    args: readonly string[],
+    input?: Buffer,
+  ): Promise<{ readonly code: number; readonly stdout: Buffer }> {
+    const env: Record<string, string> = {
+      PATH: '/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin',
+      GIT_TERMINAL_PROMPT: '0',
+      GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_CONFIG_NOSYSTEM: '1',
+    };
+    for (const name of PASSED) {
+      const value = this.#deps.env[name];
+      if (value !== undefined) env[name] = value;
+    }
+    return new Promise((resolve) => {
+      const child = execFile(
+        this.#deps.git,
+        [...args],
+        {
+          env,
+          timeout: 120_000,
+          maxBuffer: TREE_READ_MAX,
+          encoding: 'buffer',
+          cwd: this.#deps.dataDir,
+        },
+        (error, stdout) => {
+          const code = error === null ? 0 : typeof error.code === 'number' ? error.code : 1;
+          resolve({ code, stdout: Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout) });
+        },
+      );
+      child.stdin?.end(input);
+    });
   }
 
   /** Runs a program with no shell, the person's environment as `PASSED` names it, and no prompt. */

@@ -117,3 +117,30 @@ describe("keeping a project's work (F3)", { skip: process.platform !== 'darwin' 
     assert.equal(gone.ok ? null : gone.code, 'location_missing');
   });
 });
+
+describe('a copy holding a secret the host keeps is never saved (the lead, 2026-11-12)', {
+  skip: process.platform !== 'darwin',
+}, () => {
+  test('Save a Copy refuses, naming the file and the secret, never the value, and writes nothing in Downloads', async () => {
+    const value = 'svc-held-value-0123456789abcdef';
+    const holding = new ProjectKeeping({
+      store: new CheckpointStore({ git: GIT, directory: join(root, 'data', 'checkpoints') }),
+      downloads,
+      now: () => new Date(2026, 10, 12, 15, 0),
+      reveal: async () => true,
+      held: () => [{ what: 'MY_SERVICE_KEY', value }],
+    });
+    write('index.html', '<title>Garden</title>\n');
+    write('notes/keys.md', `the key: ${encodeURIComponent(`${value}/`)}\n`);
+    const saved = await holding.save(PROJECT, folder, []);
+    assert.equal(saved.ok ? null : saved.code, 'holds_secret');
+    assert.equal(
+      saved.ok ? '' : saved.message,
+      'notes/keys.md holds a secret this Mac keeps (MY_SERVICE_KEY), so no copy was saved. Take it out of the file, then try again.',
+    );
+    assert.deepEqual(readdirSync(downloads), []);
+    write('notes/keys.md', 'no key here\n');
+    const clean = await holding.save(PROJECT, folder, []);
+    assert.ok(clean.ok, clean.ok ? '' : clean.message);
+  });
+});

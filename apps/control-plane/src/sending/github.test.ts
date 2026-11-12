@@ -43,14 +43,24 @@ function git(cwd: string, ...args: string[]): string {
     .trim();
 }
 
-function sender(options: { gh?: string | null; env?: NodeJS.ProcessEnv } = {}) {
+function sender(
+  options: {
+    gh?: string | null;
+    env?: NodeJS.ProcessEnv;
+    held?: readonly { what: string; value: string }[];
+  } = {},
+) {
   return new GitHubSender({
     git: GIT,
     gh: options.gh === undefined ? ghPath : options.gh,
     dataDir: join(root, 'data'),
     env: options.env ?? { HOME: home },
+    ...(options.held === undefined ? {} : { held: () => options.held ?? [] }),
   });
 }
+
+/** A made-up secret the host holds in these tests: never a real key. */
+const HELD = [{ what: 'MY_SERVICE_KEY', value: 'svc-held-value-0123456789abcdef' }];
 
 beforeEach(() => {
   root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-send-')));
@@ -738,5 +748,44 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
     const refused = await sender().send(PROJECT, folder, [], 'Lanterns', reviewed.send.review);
     assert.equal(refused.ok ? null : refused.code, 'push_refused');
     assert.equal(existsSync(ghLog) && readFileSync(ghLog, 'utf8').includes('pr create'), false);
+  });
+});
+
+describe('a tree holding a secret the host keeps is never sent (the lead, 2026-11-12)', {
+  skip: process.platform !== 'darwin',
+}, () => {
+  test('Send refuses, at the review and at the press, naming the file and the secret, never the value; nothing is pushed', async () => {
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    mkdirSync(join(folder, 'src'));
+    writeFileSync(join(folder, 'src', 'config.ts'), `export const key = "${HELD[0]?.value}";\n`);
+    const shown = await sender().review(PROJECT, folder, [], 'Lanterns');
+    assert.ok(shown.ok, 'with nothing held, the review is as before');
+    const reviewed = await sender({ held: HELD }).review(PROJECT, folder, [], 'Lanterns');
+    assert.equal(reviewed.ok ? null : reviewed.code, 'holds_secret');
+    assert.equal(
+      reviewed.ok ? '' : reviewed.message,
+      'src/config.ts holds a secret this Mac keeps (MY_SERVICE_KEY), so nothing was sent. Take it out of the file, then try again.',
+    );
+    const before = git(origin, 'for-each-ref', '--format=%(refname)');
+    const pressed = await sender({ held: HELD }).send(
+      PROJECT,
+      folder,
+      [],
+      'Lanterns',
+      shown.ok ? shown.send.review : '',
+    );
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.equal(
+      git(origin, 'for-each-ref', '--format=%(refname)'),
+      before,
+      'nothing reached the remote',
+    );
+    assert.equal(existsSync(ghLog) && readFileSync(ghLog, 'utf8').includes('pr create'), false);
+    // Base64 of it in a file a tool wrote is found too.
+    writeFileSync(join(folder, 'src', 'config.ts'), 'export {};\n');
+    writeFileSync(join(folder, 'blob.txt'), Buffer.from(`x${HELD[0]?.value}y`).toString('base64'));
+    const encoded = await sender({ held: HELD }).review(PROJECT, folder, [], 'Lanterns');
+    assert.equal(encoded.ok ? null : encoded.code, 'holds_secret');
+    assert.match(encoded.ok ? '' : encoded.message, /^blob\.txt holds/);
   });
 });
