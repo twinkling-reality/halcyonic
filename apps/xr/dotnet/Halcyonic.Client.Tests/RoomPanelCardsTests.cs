@@ -149,4 +149,30 @@ public sealed class RoomPanelCardsTests
         Assert.That(card.Gauges.Select(gauge => gauge.Note), Is.EqualTo(new[] { "Resets today at 18:40", "Resets Thursday at 09:00" }));
         Assert.That(RoomPanelCards.Usage(new UsageLeftRow[0]), Is.Null);
     }
+    [Test]
+    public void The_assistant_row_names_its_model_and_where_it_runs_and_presses_to_choose()
+    {
+        var frame = new MenuFrame("Usage", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)));
+        var choose = new KitControl(KitPlace.Choice, frame, "assistant.model.choose", null, "Use Model", null, available: true, reason: null, holds: false);
+        var rows = new[] { new UsageLeftRow(LineWords.Ours(UsageLeftPresenter.Weekly), "At most 38% left", 38, window: UsageLeftPresenter.Weekly) };
+
+        var here = RoomPanelCards.Usage(rows, RoomPanelCards.Assistant("glimmer-30b-q4", null, choose))!;
+        var row = here.List.Single();
+        Assert.That((row.Kind, row.Name.Text, row.Name.AllTheirs, row.Mono), Is.EqualTo((RoomKind.Agent, "glimmer-30b-q4", true, true)), "the model, as its maker names it");
+        Assert.That(row.Under!.Text, Is.EqualTo("Assistant on " + CaptureNames.Host), "what the row is, and where the model runs");
+        Assert.That(row.Press, Is.SameAs(choose), "the row presses to the host's Use Model");
+        Assert.That((here.Gauges.Count, here.More), Is.EqualTo((1, (LineWords?)null)));
+
+        var hosted = RoomPanelCards.Usage(rows, RoomPanelCards.Assistant("muse-wonder-1.0", "Meta", choose))!.List.Single();
+        Assert.That(hosted.Under!.Text, Is.EqualTo("Assistant on Meta"));
+        Assert.That((hosted.Under.Runs.First().Theirs, hosted.Under.Runs.Last().Theirs), Is.EqualTo((false, true)), "the provider's name is theirs, the row's word ours");
+
+        var reason = "Meta refused its key. Give it a new key on this computer.";
+        var refused = RoomPanelCards.Usage(new UsageLeftRow[0], RoomPanelCards.Assistant(null, null, choose), reason)!;
+        Assert.That((refused.List.Single().Name.Text, refused.List.Single().Note, refused.List.Single().Tone),
+            Is.EqualTo((RoomPanelCards.AssistantWords, RoomPanelCards.AssistantUnavailable, RoomTone.Bad)), "no model to name: it says it cannot run");
+        Assert.That(refused.More!.Text, Is.EqualTo(reason), "the host's own words why, as the card's foot");
+        Assert.That((refused.Gauges.Count, refused.Description), Is.EqualTo((0, (LineWords?)null)), "no reading, no line about one");
+        Assert.That(here.AnyDot || refused.AnyDot, Is.False);
+    }
 }

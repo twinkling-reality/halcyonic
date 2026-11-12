@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-unavailable", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -132,6 +132,13 @@ namespace Halcyonic.XR.Workspace.Editor
             string.Join(" ", Enumerable.Repeat("Make a kite that follows my hand, climbs when I raise it, and dips when I lower it.", 4))
             + " Use the wind from https://example.com/wind.json to pull it.", folder: "kite-run", neverAsk: false);
 
+        /// <summary>Two windows read, as the usage card's gauges take them.</summary>
+        private static IReadOnlyList<UsageLeftRow> CardUsage() => new[]
+        {
+            new UsageLeftRow(LineWords.Ours(UsageLeftPresenter.FiveHourWindow), "At most 62% left", 62, resets: "18:40", window: UsageLeftPresenter.FiveHourWindow),
+            new UsageLeftRow(LineWords.Ours(UsageLeftPresenter.Weekly), "At most 38% left", 38, resets: "Thursday", window: UsageLeftPresenter.Weekly),
+        };
+
         private static RoomCard CardOf(string state)
         {
             LineWords Theirs(string words) => LineWords.TheirName(words);
@@ -158,6 +165,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         FailedSteps = new List<Halcyonic.Contracts.AutoFixViewFailedStepsItem> { Halcyonic.Contracts.AutoFixViewFailedStepsItem.Build },
                     })!,
                 "47-card-usage" => new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge(Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
+                // The assistant's row under the gauges: on this computer, on a provider's hosted model with a long id, and unable to run.
+                "47-card-usage-here" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("glimmer-30b-q4", null, CardRowControl("use-model")))!,
+                "47-card-usage-hosted" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("muse-wonder-1.0-preview", "Meta", CardRowControl("use-model")))!,
+                "47-card-usage-unavailable" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant(null, null, CardRowControl("use-model")),
+                    "Meta refused its key. Give it a new key on this computer.")!,
                 "47-card-needs-you" => new RoomCard(Theirs("Tail"), Theirs("Should the tail stream left or right?"),
                     status: new RoomCardStatus("Needs You", "Waiting on your answer", RoomTone.Attention)),
                 "47-card-share" => new RoomCard(Theirs("Kite Run"), status: new RoomCardStatus("Shared", "Scan the code to play", RoomTone.Good),
