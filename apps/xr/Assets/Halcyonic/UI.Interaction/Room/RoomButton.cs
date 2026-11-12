@@ -401,7 +401,10 @@ namespace Halcyonic.XR.UI
             press.Resize(new Vector2(Mathf.Max(target, coreWidth), Mathf.Max(target, core.y)));
             // A mark holds no glyph but its check once chosen.
             if (mark != AnswerMark.None) Lay(chosen ? RoomGlyph.Check : (RoomGlyph?)null, MarkCheckDp * GlazeText.Scale);
-            else Lay(GlyphOf(text, icon), (size == RoomButtonSize.Home ? HomeGlyphDp : GlyphDp) * GlazeText.Scale);
+            // The one main action goes on: where it carries the pager's icon (a step forward written as Next), it draws the
+            // forward arrow, never the pager's down chevron (the critic, 2026-11-12); a pager is never the main action.
+            else Lay(isMain && icon == GlazeIcon.Next && RoomGlyphs.Named(text) == null ? RoomGlyph.Continue : GlyphOf(text, icon),
+                (size == RoomButtonSize.Home ? HomeGlyphDp : GlyphDp) * GlazeText.Scale);
             LockProgress = null;
             press.Available = available;
             // The core stands where it would alone; the chip beside it takes the room after it that the caller laid out.
