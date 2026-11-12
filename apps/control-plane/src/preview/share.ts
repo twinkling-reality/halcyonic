@@ -25,8 +25,10 @@ import type { Projection } from '@halcyonic/domain';
 import type { Clock } from '@halcyonic/runtime-core';
 import { WIFI_SHARE_PORT_FIRST, WIFI_SHARE_PORT_LAST } from '../config.ts';
 import { type Cause, controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
+import { heldInFolder, heldMessage } from '../core/held-in-tree.ts';
 import type { EventPublisher } from '../core/publisher.ts';
 import type { Recorder } from '../core/recorder.ts';
+import type { HeldSecret } from '../core/redaction.ts';
 import type { Logger } from '../logger.ts';
 import { SANDBOX_EXEC, subpaths } from '../seatbelt.ts';
 
@@ -54,8 +56,8 @@ const ADDRESS = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/;
 
 /** A share that cannot start here, with words for the person and a code for the command. */
 export class ShareRefused extends Error {
-  readonly code: 'unavailable' | 'no_network';
-  constructor(code: 'unavailable' | 'no_network', message: string) {
+  readonly code: 'unavailable' | 'no_network' | 'holds_secret';
+  constructor(code: 'unavailable' | 'no_network' | 'holds_secret', message: string) {
     super(message);
     this.code = code;
   }
@@ -98,6 +100,10 @@ export interface ProjectSharesDeps {
   readonly lanAddress?: () => string | null;
   /** For tests: the ports a share on the Wi-Fi may listen on. */
   readonly wifiPorts?: readonly [number, number];
+  /** The check's built copy the preview serves, by project and check, or null where it is not on disk. */
+  readonly builtCopy?: (projectId: ProjectId, checkId: CheckId) => string | null;
+  /** Every secret the host holds: a built copy holding one is never shared (the lead, 2026-11-12). */
+  readonly held?: () => Iterable<HeldSecret>;
 }
 
 interface Share {
@@ -153,8 +159,23 @@ export class ProjectShares {
     if (preview === undefined) throw new Error('no preview to share');
     if (way === 'link' && this.#deps.tunnel === null && this.#deps.spawnTunnel === undefined)
       throw new ShareRefused('unavailable', 'This computer has no program for a shared link.');
+    // Marked as starting before anything is awaited, so a second press waits for none of it (critic, 18:05Z).
     this.#starting.add(projectId);
     try {
+      // What anyone with the address can read holds nothing the host keeps as a secret, as Send and Publish.
+      const copy = this.#deps.builtCopy?.(projectId, preview.check_id) ?? null;
+      if (copy !== null && this.#deps.held !== undefined) {
+        let hit: Awaited<ReturnType<typeof heldInFolder>>;
+        try {
+          hit = await heldInFolder(copy, this.#deps.held());
+        } catch {
+          throw new ShareRefused(
+            'unavailable',
+            "The game's built files could not be read, so nothing was shared. Check the game again.",
+          );
+        }
+        if (hit !== null) throw new ShareRefused('holds_secret', heldMessage(hit, 'shared'));
+      }
       const { share, url, onEnd } =
         way === 'link'
           ? await this.#startLink(preview.port, preview.check_id)
