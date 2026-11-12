@@ -782,6 +782,8 @@ interface Turn {
   interruptRequested: boolean;
   /** Set when an assistant message of the turn says the API refused the key or the cloud credential. */
   credentialRefused: boolean;
+  /** Set when the adapter ended the turn at the first retry of a refused credential, rather than wait out the CLI's. */
+  cutForCredential: boolean;
   /** Settles when the runtime shows it has taken up the turn, or rejects when it never will. */
   readonly confirmation: PromiseWithResolvers<void>;
 }
@@ -796,6 +798,7 @@ function newTurn(key: string, id: string | null): Turn {
     confirmed: false,
     interruptRequested: false,
     credentialRefused: false,
+    cutForCredential: false,
     confirmation,
   };
 }
@@ -1226,6 +1229,19 @@ class ClaudeSession {
   #handle(message: SDKMessage): void {
     switch (message.type) {
       case 'system':
+        // A refused key is not retried into: the CLI retries an authentication failure for minutes
+        // (validation, 2026-11-12), so the first retry of one ends the turn, failed as refused.
+        if (
+          message.subtype === 'api_retry' &&
+          (message.error === 'authentication_failed' ||
+            message.error === 'cloud_credential_error') &&
+          this.#turn !== null &&
+          !this.#turn.cutForCredential
+        ) {
+          this.#turn.credentialRefused = true;
+          this.#turn.cutForCredential = true;
+          void this.#query?.interrupt().catch(() => {});
+        }
         if (message.subtype === 'status' && message.permissionMode !== undefined) {
           this.#modeWaiter?.(message.permissionMode);
         }
@@ -1397,7 +1413,21 @@ class ClaudeSession {
     const succeeded = result.subtype === 'success' && !result.is_error;
     const aborted =
       result.terminal_reason === 'aborted_streaming' || result.terminal_reason === 'aborted_tools';
-    if (turn.interruptRequested && (!succeeded || aborted)) {
+    if (turn.cutForCredential) {
+      // Ended by the adapter at the first refused retry: failed as refused, never as interrupted.
+      this.#emit(
+        'runtime.turn.failed',
+        {
+          turn_id: turn.id,
+          error: {
+            code: CREDENTIAL_REFUSED,
+            message: 'The provider refused the key this agent app holds.',
+          },
+        },
+        provenance,
+        result.uuid,
+      );
+    } else if (turn.interruptRequested && (!succeeded || aborted)) {
       this.#emit('runtime.turn.interrupted', { turn_id: turn.id }, provenance, result.uuid);
     } else if (succeeded) {
       this.#emit('runtime.turn.completed', { turn_id: turn.id }, provenance, result.uuid);

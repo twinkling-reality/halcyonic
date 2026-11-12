@@ -447,6 +447,12 @@ loopback that answers every request 401 with `{"type": "error", "error": {"type"
   `cloud_credential_error` as failed with `credential_refused` (`CREDENTIAL_REFUSED` in runtime-core), keeping the
   CLI's message. The synthetic error message is not the agent speaking, and the key appears in nothing reported.
 
-Not verified: what api.anthropic.com itself answers a revoked key, and how long the CLI retries against it; and
-whether a refused key could be told before a start without spending (a models listing).
+- The CLI reports each retry as a system message `api_retry` carrying the same `error` (`SDKAPIRetryMessage`,
+  `sdk.d.ts`). The adapter now ends the turn at the first retry of `authentication_failed` or
+  `cloud_credential_error`: it interrupts the query and reports the turn failed as `credential_refused` ("The
+  provider refused the key this agent app holds."), never as interrupted. Against the same refusing API the turn
+  ended in under a second (0.9 s for the whole test), instead of about 180 seconds.
+
+Not verified: what api.anthropic.com itself answers a revoked key; and whether a refused key could be told before a
+start without spending (a models listing).
 
