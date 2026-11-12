@@ -92,7 +92,7 @@ export const COMMAND_FIELDS: Readonly<
     project_id: project,
     name: need('choice', 'Secret', { list: 'secrets' }),
   },
-  'project.send_to_github': {
+  'project.send': {
     project_id: project,
     title: need('text', 'Title', optional),
     // No list of who can see it yet: a proposal cannot choose it, and private is the default.

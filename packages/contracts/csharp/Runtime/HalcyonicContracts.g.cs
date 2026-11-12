@@ -81,7 +81,7 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "project.save_copy")] ProjectSaveCopy,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.share.start")] ProjectShareStart,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.share.stop")] ProjectShareStop,
-        [global::System.Runtime.Serialization.EnumMember(Value = "project.send_to_github")] ProjectSendToGithub,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.send")] ProjectSend,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.publish")] ProjectPublish,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.unpublish")] ProjectUnpublish,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.secret.set")] ProjectSecretSet,
@@ -1213,20 +1213,29 @@ namespace Halcyonic.Contracts
         public OwnCheckNotFound? Reason { get; set; }
     }
 
+    public sealed class SendReviewRemote
+    {
+        [global::Newtonsoft.Json.JsonProperty("host", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Host { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
+    }
+
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
-    public enum GitHubSendReviewCreatesVisibility
+    public enum SendReviewCreatesVisibility
     {
         [global::System.Runtime.Serialization.EnumMember(Value = "private")] Private,
         [global::System.Runtime.Serialization.EnumMember(Value = "public")] Public,
     }
 
-    public sealed class GitHubSendReviewCreates
+    public sealed class SendReviewCreates
     {
         [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("visibility", Required = global::Newtonsoft.Json.Required.Always)]
-        public GitHubSendReviewCreatesVisibility Visibility { get; set; }
+        public SendReviewCreatesVisibility Visibility { get; set; }
     }
 
     public sealed class ChangedFile
@@ -1247,16 +1256,16 @@ namespace Halcyonic.Contracts
         public long Total { get; set; }
     }
 
-    public sealed class GitHubSendReview
+    public sealed class SendReview
     {
         [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
 
-        [global::Newtonsoft.Json.JsonProperty("repository", Required = global::Newtonsoft.Json.Required.AllowNull)]
-        public string? Repository { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("remote", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public SendReviewRemote? Remote { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("creates", Required = global::Newtonsoft.Json.Required.AllowNull)]
-        public GitHubSendReviewCreates? Creates { get; set; }
+        public SendReviewCreates? Creates { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("branch", Required = global::Newtonsoft.Json.Required.Always)]
         public string Branch { get; set; } = default!;
@@ -1276,15 +1285,15 @@ namespace Halcyonic.Contracts
         [global::Newtonsoft.Json.JsonProperty("links_left_out", Required = global::Newtonsoft.Json.Required.Always)]
         public PathList LinksLeftOut { get; set; } = default!;
 
-        [global::Newtonsoft.Json.JsonProperty("pull_request", Required = global::Newtonsoft.Json.Required.Always)]
-        public bool PullRequest { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("review_request", Required = global::Newtonsoft.Json.Required.Always)]
+        public bool ReviewRequest { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Always)]
         public string Review { get; set; } = default!;
     }
 
-    [global::Newtonsoft.Json.JsonConverter(typeof(GitHubSendReviewResponseConverter))]
-    public abstract class GitHubSendReviewResponse
+    [global::Newtonsoft.Json.JsonConverter(typeof(SendReviewResponseConverter))]
+    public abstract class SendReviewResponse
     {
         [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
         public string Availability => Discriminator;
@@ -1292,11 +1301,11 @@ namespace Halcyonic.Contracts
         protected abstract string Discriminator { get; }
     }
 
-    public sealed class GitHubSendReviewResponseConverter : JsonConverter
+    public sealed class SendReviewResponseConverter : JsonConverter
     {
         public override bool CanWrite => false;
 
-        public override bool CanConvert(Type objectType) => typeof(GitHubSendReviewResponse).IsAssignableFrom(objectType);
+        public override bool CanConvert(Type objectType) => typeof(SendReviewResponse).IsAssignableFrom(objectType);
 
         public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
         {
@@ -1304,13 +1313,13 @@ namespace Halcyonic.Contracts
             var item = JObject.Load(reader);
             var token = item["availability"];
             var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
-            GitHubSendReviewResponse value = tag switch
+            SendReviewResponse value = tag switch
             {
-                "available" => new AvailableGitHubSend(),
-                "unavailable" => new UnavailableGitHubSend(),
+                "available" => new AvailableSend(),
+                "unavailable" => new UnavailableSend(),
                 _ => throw new JsonSerializationException(tag == null
-                    ? "GitHubSendReviewResponse has no string availability."
-                    : "Unknown availability \"" + tag + "\" for GitHubSendReviewResponse."),
+                    ? "SendReviewResponse has no string availability."
+                    : "Unknown availability \"" + tag + "\" for SendReviewResponse."),
             };
             if (!objectType.IsInstanceOfType(value))
             {
@@ -1328,15 +1337,15 @@ namespace Halcyonic.Contracts
             throw new NotSupportedException("Variants serialize as themselves.");
     }
 
-    public sealed class AvailableGitHubSend : GitHubSendReviewResponse
+    public sealed class AvailableSend : SendReviewResponse
     {
         protected override string Discriminator => "available";
 
         [global::Newtonsoft.Json.JsonProperty("send", Required = global::Newtonsoft.Json.Required.Always)]
-        public GitHubSendReview Send { get; set; } = default!;
+        public SendReview Send { get; set; } = default!;
     }
 
-    public sealed class UnavailableGitHubSend : GitHubSendReviewResponse
+    public sealed class UnavailableSend : SendReviewResponse
     {
         protected override string Discriminator => "unavailable";
 
@@ -1345,14 +1354,14 @@ namespace Halcyonic.Contracts
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
-    public enum GitHubPublishReviewVisibility
+    public enum PublishReviewVisibility
     {
         [global::System.Runtime.Serialization.EnumMember(Value = "private")] Private,
         [global::System.Runtime.Serialization.EnumMember(Value = "public")] Public,
         [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
-    public sealed class GitHubPublishReview
+    public sealed class PublishReview
     {
         [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
@@ -1370,7 +1379,7 @@ namespace Halcyonic.Contracts
         public PathList LinksLeftOut { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("visibility", Required = global::Newtonsoft.Json.Required.Always)]
-        public GitHubPublishReviewVisibility Visibility { get; set; }
+        public PublishReviewVisibility Visibility { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("make_public", Required = global::Newtonsoft.Json.Required.Always)]
         public bool MakePublic { get; set; }
@@ -1385,8 +1394,8 @@ namespace Halcyonic.Contracts
         public string Review { get; set; } = default!;
     }
 
-    [global::Newtonsoft.Json.JsonConverter(typeof(GitHubPublishReviewResponseConverter))]
-    public abstract class GitHubPublishReviewResponse
+    [global::Newtonsoft.Json.JsonConverter(typeof(PublishReviewResponseConverter))]
+    public abstract class PublishReviewResponse
     {
         [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
         public string Availability => Discriminator;
@@ -1394,11 +1403,11 @@ namespace Halcyonic.Contracts
         protected abstract string Discriminator { get; }
     }
 
-    public sealed class GitHubPublishReviewResponseConverter : JsonConverter
+    public sealed class PublishReviewResponseConverter : JsonConverter
     {
         public override bool CanWrite => false;
 
-        public override bool CanConvert(Type objectType) => typeof(GitHubPublishReviewResponse).IsAssignableFrom(objectType);
+        public override bool CanConvert(Type objectType) => typeof(PublishReviewResponse).IsAssignableFrom(objectType);
 
         public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
         {
@@ -1406,13 +1415,13 @@ namespace Halcyonic.Contracts
             var item = JObject.Load(reader);
             var token = item["availability"];
             var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
-            GitHubPublishReviewResponse value = tag switch
+            PublishReviewResponse value = tag switch
             {
-                "available" => new AvailableGitHubPublish(),
-                "unavailable" => new UnavailableGitHubPublish(),
+                "available" => new AvailablePublish(),
+                "unavailable" => new UnavailablePublish(),
                 _ => throw new JsonSerializationException(tag == null
-                    ? "GitHubPublishReviewResponse has no string availability."
-                    : "Unknown availability \"" + tag + "\" for GitHubPublishReviewResponse."),
+                    ? "PublishReviewResponse has no string availability."
+                    : "Unknown availability \"" + tag + "\" for PublishReviewResponse."),
             };
             if (!objectType.IsInstanceOfType(value))
             {
@@ -1430,15 +1439,15 @@ namespace Halcyonic.Contracts
             throw new NotSupportedException("Variants serialize as themselves.");
     }
 
-    public sealed class AvailableGitHubPublish : GitHubPublishReviewResponse
+    public sealed class AvailablePublish : PublishReviewResponse
     {
         protected override string Discriminator => "available";
 
         [global::Newtonsoft.Json.JsonProperty("publish", Required = global::Newtonsoft.Json.Required.Always)]
-        public GitHubPublishReview Publish { get; set; } = default!;
+        public PublishReview Publish { get; set; } = default!;
     }
 
-    public sealed class UnavailableGitHubPublish : GitHubPublishReviewResponse
+    public sealed class UnavailablePublish : PublishReviewResponse
     {
         protected override string Discriminator => "unavailable";
 
@@ -3201,7 +3210,7 @@ namespace Halcyonic.Contracts
                 "project_saved" => new ProjectSavedResult(),
                 "share_started" => new ShareStartedResult(),
                 "published" => new PublishedResult(),
-                "sent_to_github" => new SentToGithubResult(),
+                "sent" => new SentResult(),
                 "workstream_added" => new WorkstreamAddedResult(),
                 "workstream_fitted" => new WorkstreamFittedResult(),
                 "project_checked" => new ProjectCheckedResult(),
@@ -3305,9 +3314,9 @@ namespace Halcyonic.Contracts
         public string? Address { get; set; }
     }
 
-    public sealed class SentToGithubResult : CommandResult
+    public sealed class SentResult : CommandResult
     {
-        protected override string Discriminator => "sent_to_github";
+        protected override string Discriminator => "sent";
 
         [global::Newtonsoft.Json.JsonProperty("new_branch", Required = global::Newtonsoft.Json.Required.Always)]
         public string NewBranch { get; set; } = default!;
@@ -3315,8 +3324,8 @@ namespace Halcyonic.Contracts
         [global::Newtonsoft.Json.JsonProperty("commit", Required = global::Newtonsoft.Json.Required.Always)]
         public string Commit { get; set; } = default!;
 
-        [global::Newtonsoft.Json.JsonProperty("pull_request_url", Required = global::Newtonsoft.Json.Required.AllowNull)]
-        public string? PullRequestUrl { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("review_request_url", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? ReviewRequestUrl { get; set; }
     }
 
     public sealed class WorkstreamAddedResult : CommandResult
@@ -3930,6 +3939,36 @@ namespace Halcyonic.Contracts
         public ShareStopReason Reason { get; set; }
     }
 
+    public sealed class ProjectSentPayloadRemote
+    {
+        [global::Newtonsoft.Json.JsonProperty("host", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Host { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
+    }
+
+    public sealed class ProjectSentPayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("remote", Required = global::Newtonsoft.Json.Required.Always)]
+        public ProjectSentPayloadRemote Remote { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("branch", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Branch { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("base_commit", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? BaseCommit { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("new_branch", Required = global::Newtonsoft.Json.Required.Always)]
+        public string NewBranch { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("commit", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Commit { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("review_request_url", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? ReviewRequestUrl { get; set; }
+    }
+
     public sealed class ProjectSentToGithubPayload
     {
         [global::Newtonsoft.Json.JsonProperty("repository", Required = global::Newtonsoft.Json.Required.Always)]
@@ -4527,13 +4566,13 @@ namespace Halcyonic.Contracts
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
-    public enum ProjectSendToGithubPayloadVisibility
+    public enum ProjectSendPayloadVisibility
     {
         [global::System.Runtime.Serialization.EnumMember(Value = "private")] Private,
         [global::System.Runtime.Serialization.EnumMember(Value = "public")] Public,
     }
 
-    public sealed class ProjectSendToGithubPayload
+    public sealed class ProjectSendPayload
     {
         [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
@@ -4542,7 +4581,7 @@ namespace Halcyonic.Contracts
         public string? Title { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("visibility", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
-        public ProjectSendToGithubPayloadVisibility? Visibility { get; set; }
+        public ProjectSendPayloadVisibility? Visibility { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("repository_name", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? RepositoryName { get; set; }
@@ -4826,7 +4865,7 @@ namespace Halcyonic.Contracts
                 "project.save_copy" => new ProjectSaveCopyCommand(),
                 "project.share.start" => new ProjectShareStartCommand(),
                 "project.share.stop" => new ProjectShareStopCommand(),
-                "project.send_to_github" => new ProjectSendToGithubCommand(),
+                "project.send" => new ProjectSendCommand(),
                 "project.publish" => new ProjectPublishCommand(),
                 "project.unpublish" => new ProjectUnpublishCommand(),
                 "project.secret.set" => new ProjectSecretSetCommand(),
@@ -4977,12 +5016,12 @@ namespace Halcyonic.Contracts
         public ProjectShareStopPayload Payload { get; set; } = default!;
     }
 
-    public sealed class ProjectSendToGithubCommand : CommandEnvelope
+    public sealed class ProjectSendCommand : CommandEnvelope
     {
-        protected override string Discriminator => "project.send_to_github";
+        protected override string Discriminator => "project.send";
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
-        public ProjectSendToGithubPayload Payload { get; set; } = default!;
+        public ProjectSendPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectPublishCommand : CommandEnvelope
@@ -5754,6 +5793,7 @@ namespace Halcyonic.Contracts
                 "project.mac_play.stopped" => new ProjectMacPlayStoppedEvent(),
                 "project.share.started" => new ProjectShareStartedEvent(),
                 "project.share.stopped" => new ProjectShareStoppedEvent(),
+                "project.sent" => new ProjectSentEvent(),
                 "project.sent_to_github" => new ProjectSentToGithubEvent(),
                 "project.repository_made" => new ProjectRepositoryMadeEvent(),
                 "project.repository_made_public" => new ProjectRepositoryMadePublicEvent(),
@@ -6010,6 +6050,14 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectShareStoppedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectSentEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.sent";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ProjectSentPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectSentToGithubEvent : EventEnvelope

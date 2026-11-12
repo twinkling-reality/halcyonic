@@ -1723,8 +1723,10 @@ export class Projection {
         if (this.#projects.has(event.project_id)) changes.projects.add(event.project_id);
         return;
       }
+      case 'project.sent':
       case 'project.sent_to_github':
-        // The journal's fact (ADR 0039, amended); the command's result carries the pull request.
+        // The journal's fact (ADR 0039, amended; the second as journals before 2026-11-12 hold it); the
+        // command's result carries the review request.
         return;
       case 'project.repository_made':
         // Who can see it, which Publish's review reads; a later first send of the folder goes into it.

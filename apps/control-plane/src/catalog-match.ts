@@ -99,7 +99,7 @@ export async function readGitHubOrigin(
   return { fullName, ssh: !/^https:\/\//i.test(url) };
 }
 
-async function readOriginUrl(folder: string): Promise<string | null> {
+export async function readOriginUrl(folder: string): Promise<string | null> {
   try {
     const git = await lstat(join(folder, '.git'));
     if (!git.isDirectory()) return null;

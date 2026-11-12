@@ -98,7 +98,7 @@ test('a review says whole the words given that go out with the command, by their
   const { controlPlane, commands } = createTestControlPlane({});
   const command = {
     ...commands.createProject('Words', null),
-    command_type: 'project.send_to_github',
+    command_type: 'project.send',
     payload: {
       project_id: '01920000-0000-7000-8000-00000000e001',
       title: 'Make the sky night',
@@ -221,7 +221,7 @@ test("a first Send's one review names the repository it makes and who can see it
   const send = (payload: Record<string, unknown>) =>
     ({
       ...commands.createProject('unused', null),
-      command_type: 'project.send_to_github',
+      command_type: 'project.send',
       payload: { project_id: projectId, review: '0'.repeat(64), ...payload },
     }) as never;
   const built = await buildReview(controlPlane, send({}));

@@ -145,6 +145,14 @@ The first real send to GitHub is the owner's own, with their press.
   `project.repository_made_public` turns it public, for that repository only; both survive a checkpoint. A
   publish that made it public and was then refused records it, says it is public now, and leaves no Pages branch.
 
+## Any host (2026-11-12, `sending/github.test.ts`, `pages.test.ts`)
+
+- An origin `https://someone:secret@gitlab.example/group/sub/garden.git` (the test's git settings send that host to
+  a local bare repository): the review names `{host: gitlab.example, path: group/sub/garden}`, never the user part,
+  and `review_request` false; the press pushes the branch there and asks gh for nothing. Its ssh form reads the same.
+- An origin with a port, a climbing path, or `file://`: refused `no_origin`, nothing sent.
+- Publish with an origin on gitlab.example: refused `no_pages_host`, in words naming the host.
+
 ## GitHub's own rule for pages (read 2026-11-12, working rule 2)
 
 - GitHub's plans (https://docs.github.com/en/get-started/learning-about-github/githubs-plans): GitHub Free for

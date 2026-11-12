@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, type TestContext, test } from 'node:test';
-import { compileValidator, GitHubSendReviewResponse, type ProjectId } from '@halcyonic/contracts';
+import { compileValidator, type ProjectId, SendReviewResponse } from '@halcyonic/contracts';
 import { createHostLocations } from '../locations.ts';
 import { standInGitHub } from '../testing/github-stand-in.ts';
 import { startTestServer } from '../testing/harness.ts';
@@ -13,7 +13,7 @@ import { startTestServer } from '../testing/harness.ts';
 
 const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-github-route-')));
 after(() => rmSync(base, { recursive: true, force: true }));
-const validReview = compileValidator(GitHubSendReviewResponse);
+const validReview = compileValidator(SendReviewResponse);
 
 async function serve(t: TestContext, name: string, withGitHub = true) {
   const root = join(base, name);
@@ -41,14 +41,14 @@ async function serve(t: TestContext, name: string, withGitHub = true) {
   const result = created.command?.result;
   const projectId = (result?.kind === 'project_created' ? result.project_id : '') as ProjectId;
   const review = async (asked: object = { title: 'Lanterns' }) => {
-    const response = await fetch(`${server.baseUrl}/api/projects/${projectId}/github-review`, {
+    const response = await fetch(`${server.baseUrl}/api/projects/${projectId}/send-review`, {
       method: 'POST',
       headers: { authorization: `Bearer ${server.token}`, 'content-type': 'application/json' },
       body: JSON.stringify(asked),
     });
     const body = (await response.json()) as unknown;
     assert.ok(validReview(body).ok, JSON.stringify(body));
-    return body as GitHubSendReviewResponse;
+    return body as SendReviewResponse;
   };
   return { server, stand, projectId, review };
 }
@@ -61,7 +61,7 @@ function send(projectId: ProjectId, review: string, title: string | null = 'Lant
     command_id: `01920000-0000-7000-8000-${String(next).padStart(12, '0')}` as never,
     issued_at: '2026-11-11T10:00:00.000Z' as never,
     client: { name: 'test', version: null, device_label: null },
-    command_type: 'project.send_to_github' as const,
+    command_type: 'project.send' as const,
     payload: { project_id: projectId, ...(title === null ? {} : { title }), review },
   };
 }
@@ -92,19 +92,16 @@ describe('Send to GitHub through the control plane (ADR 0039, amended)', {
     assert.equal(accepted.disposition, 'accepted');
     const done = await settled(server, accepted.command?.command_id ?? '');
     assert.equal(done.status, 'completed', JSON.stringify(done.failure));
+    assert.equal(done.result?.kind === 'sent' && done.result.new_branch, read.send.new_branch);
     assert.equal(
-      done.result?.kind === 'sent_to_github' && done.result.new_branch,
-      read.send.new_branch,
-    );
-    assert.equal(
-      done.result?.kind === 'sent_to_github' && done.result.pull_request_url,
+      done.result?.kind === 'sent' && done.result.review_request_url,
       'https://github.com/owner/garden/pull/7',
     );
     const recorded = [...server.controlPlane.journal.readAll()]
       .map((stored) => stored.event)
-      .find((event) => event.event_type === 'project.sent_to_github');
-    assert.ok(recorded?.event_type === 'project.sent_to_github');
-    assert.equal(recorded.payload.repository, 'owner/garden');
+      .find((event) => event.event_type === 'project.sent');
+    assert.ok(recorded?.event_type === 'project.sent');
+    assert.deepEqual(recorded.payload.remote, { host: 'github.com', path: 'owner/garden' });
     assert.equal(recorded.payload.branch, 'main');
     assert.equal(
       stand.git(stand.origin, 'rev-parse', `refs/heads/${read.send.new_branch}`),
@@ -134,7 +131,7 @@ describe('Send to GitHub through the control plane (ADR 0039, amended)', {
     );
     const done = await settled(server, accepted.command?.command_id ?? '');
     assert.equal(done.status, 'completed', JSON.stringify(done.failure));
-    const commit = done.result?.kind === 'sent_to_github' ? done.result.commit : '';
+    const commit = done.result?.kind === 'sent' ? done.result.commit : '';
     assert.equal(stand.git(stand.origin, 'log', '-1', '--format=%s', commit), 'Garden');
   });
 

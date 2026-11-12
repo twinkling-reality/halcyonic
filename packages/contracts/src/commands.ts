@@ -4,9 +4,9 @@ import { CheckpointId, GitObjectId, ReviewDigest } from './checkpoints.ts';
 import {
   GitBranchName,
   PagesAddress,
-  PullRequestUrl,
   RepositoryName,
   RepositoryVisibility,
+  ReviewRequestUrl,
 } from './github.ts';
 import { FolderName, HostPath, ProjectLocationChoice } from './locations.ts';
 import { OWN_CHECK_SCRIPT_NAMES, OwnCheckChoice } from './own-checks.ts';
@@ -204,9 +204,10 @@ export const ProjectShareStopCommand = defineCommand(
 );
 
 /**
- * Sends the project's work to the person's own GitHub (ADR 0039, amended): one commit of the
- * project's files on top of the branch its folder is on, pushed as a new branch with the person's
- * own git, and a pull request opened with the person's own `gh` where it is signed in. The person's
+ * Sends the project's work to the folder's own remote, on any host (ADR 0039, amended): one commit
+ * of the project's files on top of the branch its folder is on, pushed as a new branch with the
+ * person's own git, and a review request (a pull request) opened with the host's tool where one is
+ * set up and signed in (`gh` for github.com); on any other host the branch alone, as the review says. The person's
  * folder, branches and index are never changed. A folder that is no git repository and inside none
  * is sent once as a new repository of the person's own, made with their `gh` (`visibility`,
  * private unless they say public; `repository_name`, the folder's unless they name it), pushed as `main`; the folder then becomes that repository's
@@ -215,8 +216,8 @@ export const ProjectShareStopCommand = defineCommand(
  * shown in the review as it will be sent. `review` is the digest of the review the person read, over
  * every value the press sends (ADR 0051); a send whose review no longer matches sends nothing.
  */
-export const ProjectSendToGitHubCommand = defineCommand(
-  'project.send_to_github',
+export const ProjectSendCommand = defineCommand(
+  'project.send',
   Type.Object(
     {
       project_id: ProjectId,
@@ -489,7 +490,7 @@ export const COMMAND_VARIANTS = [
   ProjectSaveCopyCommand,
   ProjectShareStartCommand,
   ProjectShareStopCommand,
-  ProjectSendToGitHubCommand,
+  ProjectSendCommand,
   ProjectPublishCommand,
   ProjectUnpublishCommand,
   ProjectSecretSetCommand,
@@ -530,7 +531,7 @@ export const CommandType = Type.Union([
   Type.Literal('project.save_copy'),
   Type.Literal('project.share.start'),
   Type.Literal('project.share.stop'),
-  Type.Literal('project.send_to_github'),
+  Type.Literal('project.send'),
   Type.Literal('project.publish'),
   Type.Literal('project.unpublish'),
   Type.Literal('project.secret.set'),
@@ -668,10 +669,10 @@ export const CommandResult = Type.Union([
   ),
   Type.Object(
     {
-      kind: Type.Literal('sent_to_github'),
+      kind: Type.Literal('sent'),
       new_branch: GitBranchName,
       commit: GitObjectId,
-      pull_request_url: Nullable(PullRequestUrl),
+      review_request_url: Nullable(ReviewRequestUrl),
     },
     strict,
   ),

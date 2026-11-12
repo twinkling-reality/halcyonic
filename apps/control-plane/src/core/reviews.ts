@@ -4,13 +4,13 @@ import type {
   ChangedFiles,
   CheckpointId,
   CommandEnvelope,
-  GitHubPublishReviewRequest,
-  GitHubPublishReviewResponse,
-  GitHubSendReviewRequest,
-  GitHubSendReviewResponse,
   PathList,
   ProjectId,
+  PublishReviewRequest,
+  PublishReviewResponse,
   ReviewKind,
+  SendReviewRequest,
+  SendReviewResponse,
 } from '@halcyonic/contracts';
 import { COMMAND_FIELDS } from '@halcyonic/domain';
 import { sendTitle } from '../sending/github.ts';
@@ -27,9 +27,9 @@ import { locationReview, reviewDigest } from './review.ts';
 export async function sendReviewOf(
   controlPlane: ControlPlane,
   projectId: ProjectId,
-  values: GitHubSendReviewRequest = {},
-): Promise<GitHubSendReviewResponse> {
-  const unavailable = (code: string, message: string): GitHubSendReviewResponse => ({
+  values: SendReviewRequest = {},
+): Promise<SendReviewResponse> {
+  const unavailable = (code: string, message: string): SendReviewResponse => ({
     availability: 'unavailable',
     reason: { code, message },
   });
@@ -66,9 +66,9 @@ export async function sendReviewOf(
 export async function publishReviewOf(
   controlPlane: ControlPlane,
   projectId: ProjectId,
-  values: GitHubPublishReviewRequest = {},
-): Promise<GitHubPublishReviewResponse> {
-  const unavailable = (code: string, message: string): GitHubPublishReviewResponse => ({
+  values: PublishReviewRequest = {},
+): Promise<PublishReviewResponse> {
+  const unavailable = (code: string, message: string): PublishReviewResponse => ({
     availability: 'unavailable',
     reason: { code, message },
   });
@@ -165,7 +165,7 @@ export async function buildReview(
   });
   const { projection } = controlPlane;
   switch (command.command_type) {
-    case 'project.send_to_github': {
+    case 'project.send': {
       const { title, visibility, repository_name } = command.payload;
       const read = await sendReviewOf(controlPlane, command.payload.project_id, {
         ...(title === undefined ? {} : { title }),
@@ -201,16 +201,22 @@ export async function buildReview(
         confirm_words: `Send ${count(send.files.total, 'File', 'Files')}`,
         what_happens: "The project's work goes to its repository as a new branch",
         facts: [
-          ...(send.repository === null
+          ...(send.remote === null
             ? []
-            : [{ kind: 'repository' as const, value: send.repository, theirs: true }]),
+            : [
+                {
+                  kind: 'repository' as const,
+                  value: `${send.remote.host}/${send.remote.path}`,
+                  theirs: true,
+                },
+              ]),
           { kind: 'branch', value: send.new_branch, theirs: false },
           { kind: 'branch', value: send.branch, theirs: true },
           { kind: 'words', value: send.title, theirs: true },
         ],
         items: listed.items,
         items_total: listed.total,
-        warnings: send.pull_request
+        warnings: send.review_request
           ? []
           : [{ code: 'no_review_request', line: 'No review request is opened, only the branch' }],
       });

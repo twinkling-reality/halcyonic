@@ -65,7 +65,7 @@ decided it (lead 11-11b, from TASKS's ASK). This amends only what is said above 
 alternative was turned down for a read-only gallery, whose need is far below the person's write
 access. Here the person uses that access on purpose, each time, after reading what will go.
 
-- **A read, then the person's command.** `POST /api/projects/:id/github-review` says what would go: the
+- **A read, then the person's command.** `POST /api/projects/:id/send-review` says what would go: the
   repository by owner and name only (never its address, which can carry a user part), the branch the
   folder is on and its last commit, the new branch, the files with how each changed, the links left
   out (a link whose target leaves the folder never leaves the Mac: a starter project's `node_modules`
@@ -174,7 +174,7 @@ case) and the lead's decision of 2026-11-12 (one list, one review card, a confir
 - **The title is never required.** `title` is optional; absent, the host's own is used: the project's latest
   task's title (the person's words), else the project's name, made one line with control characters and
   runs of spaces as one space and clipped to 200 characters as a typed one is. The review takes the values
-  the press will send (`POST .../github-review {title?, visibility?}`) and shows the title exactly as it
+  the press will send (`POST .../send-review {title?, visibility?}`) and shows the title exactly as it
   goes; the digest covers it and who can see a repository it would make, so a press with other values is
   `review_stale`.
 - **Publish on a private repository.** GitHub serves pages from a public repository only on GitHub Free; a
@@ -194,6 +194,22 @@ case) and the lead's decision of 2026-11-12 (one list, one review card, a confir
   is recorded as published with no address.
 - **Take Down is one press.** It keeps the published commit it carries (`project.unpublish {commit}`), so a
   screen showing an older publish never takes down a newer one; no client adds a press of its own.
+
+## Amendment, 2026-11-12: Send goes to the folder's own remote, on any host
+
+The lead's choice of 06:17Z (R2: the tool for a review request or a public page is a declaration per host).
+- **The names say what they do.** The command is `project.send` (it was `project.send_to_github`), its review
+  `SendReview` at `POST /api/projects/:id/send-review`, its result `sent` with `review_request_url`, its event
+  `project.sent`. Publish's types lose "GitHub" too (`PublishReview`). A journal's earlier
+  `project.sent_to_github` events are still read as they are; none is rewritten.
+- **The folder's own remote.** `origin` is read from `.git/config` as a file in any of git's forms
+  (`https://host/path`, `ssh://user@host/path`, `user@host:path`) as `remote {host, path}`; a user part is dropped
+  and never shown; a port, an odd host or a path that climbs is refused (`no_origin`). The push goes to the
+  address rebuilt from host and path, with the person's git.
+- **A table of hosts with a tool.** `github.com` with gh: a review request (a pull request), a public page, and the
+  first Send's new repository. Any other host: the branch is pushed and the review says no review request can be
+  opened there (`review_request` false); Publish is refused in words (`no_pages_host`). A new host is a line in
+  that table and its tool.
 
 ## Alternatives considered
 
