@@ -1,4 +1,4 @@
-import { readFileSync, realpathSync, statSync } from 'node:fs';
+import { lstatSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import {
   CLAUDE_AGENT_READER,
@@ -36,6 +36,7 @@ import { SALIDIUM_CREDENTIAL_FILE } from './intelligence/understanding.ts';
 import { storedAt } from './keys/provider-keys.ts';
 import { NETWORK_KEY_FILE } from './network/certificate.ts';
 import { HostProviders } from './providers.ts';
+import { readKeyFile } from './workspace-agent/providers/keys.ts';
 
 /**
  * The file the held secrets read Anthropic's key from, as providers/anthropic/provider.json declares it (a test keeps
@@ -461,20 +462,18 @@ function withAnthropicKey(
   // A value of spaces alone is no key: the file's key is used instead, as the runtime's own check reads it.
   if ((environment.ANTHROPIC_API_KEY ?? '').trim() !== '') return environment;
   const path = join(dataDir, file);
-  let mode: number;
-  try {
-    mode = statSync(path).mode;
-  } catch {
-    return environment;
+  // Read the one way every key file is read (readKeyFile): a link is refused, as a file others can read is.
+  const state = readKeyFile(dataDir, file);
+  if (state.kind === 'stored') return { ...environment, ANTHROPIC_API_KEY: state.value };
+  if (state.kind === 'none') {
+    if (lstatSync(path, { throwIfNoEntry: false }) === undefined) return environment;
+    throw new ConfigError(`${path} is empty.`);
   }
-  if ((mode & 0o077) !== 0) {
+  if (state.code === 'key_file_open')
     throw new ConfigError(
       `${path} can be read by other users, so it is not used. Run chmod 600 on it.`,
     );
-  }
-  const key = readFileSync(path, 'utf8').trim();
-  if (key === '') throw new ConfigError(`${path} is empty.`);
-  return { ...environment, ANTHROPIC_API_KEY: key };
+  throw new ConfigError(`${path}: ${state.message}`);
 }
 
 /**
@@ -651,6 +650,8 @@ export function heldSecrets(
   dependencies: { readonly environment: NodeJS.ProcessEnv; readonly dataDir: string },
   accessToken: string,
   adapters: readonly RuntimeAdapter[],
+  /** The host's one list of declared providers, the instance main.ts builds (AUDIT3 M1): each key it declares is held. */
+  providers: Pick<HostProviders, 'list'>,
 ): () => HeldSecret[] {
   const agentValues = Object.entries(
     passThrough(config.agentEnvironment, dependencies.environment),
@@ -669,16 +670,26 @@ export function heldSecrets(
     ].map((held) => ({ what: name, value: held })),
   );
   return () => {
-    let anthropic: string | undefined;
-    try {
-      anthropic = withAnthropicKey(
-        dependencies.environment,
-        dependencies.dataDir,
-        ANTHROPIC_KEY_FILE,
-      ).ANTHROPIC_API_KEY;
-    } catch {
-      anthropic = dependencies.environment.ANTHROPIC_API_KEY;
-    }
+    // Every declared provider's key, by its declaration alone, from its variable in the plane's environment and
+    // from its file: a regular file whatever its mode (one others can read is refused for use, yet it is a key).
+    // No link is read, as no key reader uses one (readKeyFile). No vendor is named here.
+    const declared = providers.list().flatMap((provider) => {
+      const what = `${provider.name} key`;
+      const values = new Set<string>();
+      const set = dependencies.environment[provider.key.variable]?.trim();
+      if (set) values.add(set);
+      try {
+        const path = join(dependencies.dataDir, provider.key.file);
+        const stat = lstatSync(path);
+        if (stat.isFile() && stat.size <= 16_384) {
+          const kept = readFileSync(path, 'utf8').trim();
+          if (kept !== '') values.add(kept);
+        }
+      } catch {
+        // None kept: nothing more to hold.
+      }
+      return [...values].map((value) => ({ what, value }));
+    });
     const credentials = (
       [
         [SALIDIUM_CREDENTIAL_FILE, 'Salidium credential'],
@@ -705,7 +716,7 @@ export function heldSecrets(
     }
     return [
       { what: 'access token', value: accessToken },
-      ...(anthropic === undefined ? [] : [{ what: 'Anthropic key', value: anthropic }]),
+      ...declared,
       ...adapters.flatMap((adapter) =>
         adapter instanceof OpenCodeRuntimeAdapter
           ? adapter.secrets().map((value) => ({ what: 'OpenCode server password', value }))

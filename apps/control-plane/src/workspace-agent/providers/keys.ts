@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from 'node:fs';
+import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { KeyState, ProviderKey } from '@halcyonic/runtime-core';
 import type { KeyLookup } from './provider.ts';
@@ -14,14 +14,30 @@ const LONGEST_KEY = 4096;
  * returned only inside `stored` and never put in an error or a message.
  */
 export function declaredKeys(dataDir: string): KeyLookup {
-  return (key: ProviderKey): KeyState => {
-    const path = join(dataDir, key.file);
-    let mode: number;
+  return (key: ProviderKey): KeyState => readKeyFile(dataDir, key.file);
+}
+
+/**
+ * The one way a key file in the data folder is read (AUDIT3 M2, 1111-b110): a regular file of its own, never
+ * a link (lstat), that only the person can read, holding one key. A link is refused, so no key is used that the
+ * held secrets (which read regular files alone) do not hold.
+ */
+export function readKeyFile(dataDir: string, file: string): KeyState {
+  {
+    const path = join(dataDir, file);
+    let stat: ReturnType<typeof lstatSync>;
     try {
-      mode = statSync(path).mode;
+      stat = lstatSync(path);
     } catch {
       return { kind: 'none' };
     }
+    if (!stat.isFile())
+      return {
+        kind: 'unusable',
+        code: 'key_file_not_regular',
+        message: 'The stored key is not a file of its own, so it is not used.',
+      };
+    const mode = stat.mode;
     if ((mode & 0o077) !== 0)
       return {
         kind: 'unusable',
@@ -37,7 +53,7 @@ export function declaredKeys(dataDir: string): KeyLookup {
         message: 'The stored key could not be read.',
       };
     }
-  };
+  }
 }
 
 function checked(value: string): KeyState {
