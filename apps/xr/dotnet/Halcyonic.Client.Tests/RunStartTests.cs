@@ -43,8 +43,13 @@ public class RunStartTests
             RoomPanelCards.Result(new RoomResult(false, false, false, passed, null, null, start: start), LineWords.TheirName("Kite Run"))!;
         var ready = Card(RunStart.Of(Run(ExecutionStatus.Completed, plan: true), Planning)!.Value).Status!.Value;
         Assert.That((ready.Title, ready.Line, ready.Tone), Is.EqualTo((RunStart.PlanReady, RunStart.PlanReadyLine, RoomTone.Attention)));
-        var planning = Card(RunStart.Of(Run(ExecutionStatus.Failed, plan: true), Planning)!.Value).Status!.Value;
-        Assert.That((planning.Title, planning.Tone), Is.EqualTo((RunStart.Planning, RoomTone.Working)));
+        var planning = Card(RunStart.Of(Run(ExecutionStatus.Running, plan: true), Planning)!.Value).Status!.Value;
+        Assert.That((planning.Title, planning.Tone), Is.EqualTo((RunStart.Planning, RoomTone.Working)), "only a running plan says Planning");
+        // AUDIT's MUST 2 (2026-11-12): a plan whose run failed, was stopped or is unknown never reads Planning; the card says
+        // what is known of the run in its own words, and unknown stays unknown.
+        foreach (var ended in new[] { ExecutionStatus.Failed, ExecutionStatus.Interrupted, ExecutionStatus.Unknown })
+            Assert.That(Card(RunStart.Of(Run(ended, plan: true), Planning)!.Value).Status?.Title, Is.Not.EqualTo(RunStart.Planning).And.Not.EqualTo(RunStart.PlanReady),
+                ended + " is no plan at work and no plan ready");
         Assert.That(new RoomResult(false, false, false, null, null, null, start: RunStart.Of(Run(ExecutionStatus.Completed, plan: true, left: true))).Any, Is.False,
             "a plan carried out says nothing new");
 
