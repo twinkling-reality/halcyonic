@@ -3160,7 +3160,9 @@ public class NewProjectFlowTests
         Assert.That(ready.Select(starter => starter.StarterId), Is.EqualTo(new[] { "s1", "s3", "s4", "s5" }));
         var first = StarterChoice.Page(idea, ready, 0, startReached: false);
         Assert.That(first.Lines.Where(line => line.Action == StarterChoice.Choose).Select(line => line.Key), Is.EqualTo(new[] { "s1", "s3", "s4" }));
-        Assert.That(first.Lines.Single(line => line.Action == StarterChoice.NextChoices).Words, Is.EqualTo("Next Choices · 1 of 2"));
+        // The page's place stands apart from the action's words, never joined on a dot (AUDIT's MUST 4).
+        var next = first.Lines.Single(line => line.Action == StarterChoice.NextChoices);
+        Assert.That((next.Words, next.Fact), Is.EqualTo(("Next Choices", (string?)"1 of 2")));
         Assert.That(StarterChoice.Page(idea, ready, 1, startReached: false).Lines.Where(line => line.Action == StarterChoice.Choose).Select(line => line.Key), Is.EqualTo(new[] { "s5" }));
         Assert.That(StarterChoice.Pick(idea, ready, "s2"), Is.Null, "a starter not ready is never picked");
         Assert.That(StarterChoice.Pick(idea, ready, "s4")!.StarterId, Is.EqualTo("s4"));
@@ -3216,7 +3218,7 @@ public class NewProjectFlowTests
         Assert.That(flow.Frame!.Card!.Slots.Single(slot => slot.Kind == RoomKind.Level).Value.Text, Is.EqualTo(PlanStart.PlanFirst));
         Press(flow, NewProjectScreens.StartBuilding, null);
         Assert.That((flow.Review!.Plan, flow.Review.NeverAsk), Is.EqualTo((true, false)), "a plan always asks");
-        Assert.That(flow.Review.Items.Single(item => item.Label == "Model · ").Value, Does.EndWith(" · " + PlanStart.PlanFirst));
+        Assert.That(flow.Review.Items.Single(item => item.Kind == ReviewItemKind.Level).Value, Is.EqualTo(PlanStart.PlanFirst));
 
         // Back to the page of changes: Never Ask undoes the plan.
         Press(flow, NewProjectScreens.Cancel, null);

@@ -19,6 +19,9 @@ namespace Halcyonic.Client
         public static bool Offered(Halcyonic.Contracts.RuntimeDescriptor? runtime) => runtime != null && !runtime.Synthetic && runtime.OffersPlan == true;
 
         /// <summary>The level the start will use, in words: Plan First, else Never Ask or Ask First.</summary>
-        public static string LevelWords(NewWorkDraft draft) => draft.StartsPlan ? PlanFirst : AgentColumn.LevelWords(draft.StartsNeverAsk);
+        public static string LevelWords(NewWorkDraft draft) => LevelWords(draft.StartsPlan, draft.StartsNeverAsk);
+
+        /// <summary>The level as a review recorded it: Plan First, Never Ask or Ask First.</summary>
+        public static string LevelWords(bool plan, bool neverAsk) => plan ? PlanFirst : AgentColumn.LevelWords(neverAsk);
     }
 }

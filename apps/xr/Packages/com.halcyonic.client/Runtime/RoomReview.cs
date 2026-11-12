@@ -257,8 +257,11 @@ namespace Halcyonic.Client
             if (Value(ReviewItemKind.Folder) is LineWords folder) facts.Add(new ReviewFact(RoomKind.Folder, folder, mono: true, slot: true));
             if (model != null) facts.Add(new ReviewFact(RoomKind.Agent, model, mono: Value(ReviewItemKind.ModelId) != null, slot: true));
             else if (Value(ReviewItemKind.AgentApp) is LineWords agent) facts.Add(new ReviewFact(RoomKind.Agent, agent, slot: true));
-            facts.Add(new ReviewFact(RoomKind.Level, LineWords.Ours(AgentColumn.LevelWords(review.NeverAsk)), slot: true));
+            // The level as the review recorded it, Plan First included (SCREENS's PlanStart; AUDIT's MUST 4: never on the model's row).
+            facts.Add(new ReviewFact(RoomKind.Level, LineWords.Ours(PlanStart.LevelWords(review.Plan, review.NeverAsk)), slot: true));
             if (Value(ReviewItemKind.TaskName) is LineWords name) facts.Add(new ReviewFact(RoomKind.Task, name));
+            // What the new folder starts from, by its own name (SCREENS's Start From): nothing the start sends goes unshown.
+            if (Value(ReviewItemKind.Starter) is LineWords starter) facts.Add(new ReviewFact(RoomKind.Starter, starter));
             // The agent app stands as a row only where the model took its slot, so nothing sent goes unshown.
             if (model != null && Value(ReviewItemKind.AgentApp) is LineWords app) facts.Add(new ReviewFact(RoomKind.App, app));
             if (Value(ReviewItemKind.ModelLocation) is LineWords where) facts.Add(new ReviewFact(RoomKind.Computer, where));

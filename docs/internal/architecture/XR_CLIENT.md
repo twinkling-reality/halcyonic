@@ -4596,7 +4596,9 @@ presence, contextual moment cards and the on-demand project screen:
   own record (`ExecutionView.plan`, `plan_left`, `unconfined_reason`; `RunStart.Of`, with the run's runtime). The
   result's card (`RoomPanelCards.Result`) says, in FIELD's words, Plan Ready (the attention tone) over "Read it, then
   carry it out or change it." where the task is a plan and its run is at rest (completed), Planning (tone working) over
-  "It plans first, then waits for you to carry it out" for a plan whose run is not, and nothing new once the plan was
+  "It plans first, then waits for you to carry it out" only while its run is at work (`RunStart.Running`: starting,
+  running, verifying or waiting for the person; a run that failed, was stopped or is unknown is never said to plan, and
+  the card's own status speaks for it: AUDIT's MUST 2 on 1111-b100), and nothing new once the plan was
   carried out (`plan_left`); and a slot under the folder's mark, Not Kept to Folder, where the Mac gave a reason (the
   reason's own sentence is not shown: it names the mechanism; FIELD to word a line). Where the task is a plan at rest on
   a runtime that offers plans, Carry Out Plan leads the result's column as its main action
@@ -4635,11 +4637,13 @@ presence, contextual moment cards and the on-demand project screen:
   the page of changes after First Task only for a new project in a new folder (not one whose place is gone) and only
   where a starter is ready (`installed`; an action that cannot act is not drawn). Its page (`RecapPage.StartFrom`,
   `StarterChoice.Page`) holds its one line, Start From, in the panel, and the ready starters as answers with single
-  marks in the host's order, the chosen one marked, three a page with Next Choices for more, then Back to the page of
+  marks in the host's order, the chosen one marked, three a page with Next Choices for more (the page's place as the line's own fact, never on a dot), then Back to the page of
   changes. A pick is kept at once (`ProjectFolder.WithStarter`, only a starter the listing has ready) and the page
   leaves for the facts. The recap's card names the starter as a slot after the folder where the card has room
-  (`StarterChoice.WithStarter`; a full card of four keeps its level, and the review alone names the starter), the review names it before its Confirm ("Start From · {title}",
-  `ReviewItemKind.Starter`), and the start sends its id (`NewFromStarterChoice.starter_id`). Where the person chooses
+  (`StarterChoice.WithStarter`; a full card of four keeps its level, and the review alone names the starter), the review names it before its Confirm by its own name ("Starts From {title}",
+  `ReviewItemKind.Starter`; the redesign's review as a row under the starter's pin; one the computer no longer lists by
+  its id, so nothing goes out unnamed), while the folder's own line names no starter ("New Folder, {folder} in {place}":
+  AUDIT's MUSTs 3 and 4 on 1111-b100), and the start sends its id (`NewFromStarterChoice.starter_id`). Where the person chooses
   nothing the default (`ProjectFolder.DefaultStarterId`) stands. A starter the person picked is sent by the recap's one
   press only where the card shows it (`StarterChoice.Shown`); a full card of four leaves it to the review, which names it. The titles are the host's own starters' words,
   upright. Tests: the two `Start_From` tests in `NewProjectFlowTests`.
@@ -4647,8 +4651,9 @@ presence, contextual moment cards and the on-demand project screen:
   descriptor offers a plan (`offers_plan`, never a practice run), New Project's page of changes offers Plan First as a
   third answer after Ask First and Never Ask (single marks, kept at once; the answers stand where either Never Ask or a
   plan is offered). The draft keeps it (`NewWorkDraft.Plan`, `StartsPlan` only where the runtime offers it); a plan
-  always asks, so `StartsNeverAsk` is false while it plans. The recap's level slot and the review's Model row read Plan
-  First (`PlanStart.LevelWords`), the review records it (`NewWorkReview.Plan`), and a build confirms only a review made
+  always asks, so `StartsNeverAsk` is false while it plans. The recap's level (the how-it-runs row's own fact,
+  `NewProjectScreens.LevelFact`) and the review's level (its own item, `ReviewItemKind.Level`, and the redesign's level
+  slot) read Plan First (`PlanStart.LevelWords`), never joined to the model on a dot, the review records it (`NewWorkReview.Plan`), and a build confirms only a review made
   with the same plan (`BuildSequence`); the start then sends `plan: true` and no approval level
   (`CommandFactory.StartExecution(plan:)`). Not yet: the agent's moment at rest (a later run's start), and the task's
   Planning and Plan Ready statuses, which need the view's `plan` and `plan_left` (VRIFY's leave-a-plan contract). Tests:

@@ -142,7 +142,7 @@ public class ProjectFolderTests
         var starter = ProjectFolder.NewStarter(root, "VR Starter Project")!;
         Assert.That(starter, Is.Not.Null);
         Assert.That((starter.IsNew, starter.StarterId, starter.FolderName), Is.EqualTo((true, "iwsdk-vr", "vr-starter-project")));
-        Assert.That(starter.Describe(), Is.EqualTo("New VR Starter · vr-starter-project in Projects"));
+        Assert.That(starter.Describe(), Is.EqualTo("New Folder, vr-starter-project in Projects"), "the starter is named by the review's own row, never here (AUDIT's MUST 3)");
 
         var renamed = starter.WithFolderName("galaxy-vr")!;
         Assert.That(renamed, Is.Not.Null);
