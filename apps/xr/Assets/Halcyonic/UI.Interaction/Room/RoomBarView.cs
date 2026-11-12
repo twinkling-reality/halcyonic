@@ -67,7 +67,7 @@ namespace Halcyonic.XR.UI
         private GlazeShimmer aloneSweep = null!;
         private RoomSurface panel = null!;
 
-        /// <summary>The notice over everything the bar shows (RoomBar.Notice): a tag's plate the panel's width, its words whole.</summary>
+        /// <summary>The notice over everything the bar shows (RoomBar.Notice): the bar's own surface as wide as its words, at most the panel's, its words whole.</summary>
         private RoomSurface? notice;
         private TextMeshPro? noticeWords;
 
@@ -311,9 +311,9 @@ namespace Halcyonic.XR.UI
                 else if (bar.Working) LayWork(bar);
                 else if (bar.Row.Count > 0) LayRow(bar, 0f);
                 else LayAlone(bar);
-                // With no panel (at work, the row, the words alone) the notice stands over the bar's own top, the panel's width.
+                // With no panel (at work, the row, the words alone) the notice stands over the bar's own top, centred.
                 var noticeWidth = RoomType.Units(RoomGeometry.PanelDp);
-                LayNotice(bar, new Vector2(-noticeWidth / 2f, Size.y / 2f), noticeWidth);
+                LayNotice(bar, new Vector2(-noticeWidth / 2f, Size.y / 2f), noticeWidth, centred: true);
                 if (!bar.Working)
                 {
                     // With no pair the foot line is still DESIGN's, over the row's feet.
@@ -445,10 +445,11 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// The notice (RoomBar.Notice) above the panel, its left on the panel's, the panel's width: a tag's quiet plate and the
+        /// The notice (RoomBar.Notice) above the panel, its left on the panel's, at most the panel's width: the bar's surface and the
         /// product's line whole in the bar's one type size, wrapped at either text size and never cut; nothing to press, nothing that closes it.
         /// </summary>
-        private void LayNotice(RoomBar bar, Vector2 panelTopLeft, float width)
+        /// <param name="centred">With no panel the notice is centred over the bar; over a panel its left is the panel's.</param>
+        private void LayNotice(RoomBar bar, Vector2 panelTopLeft, float width, bool centred = false)
         {
             if (bar.Notice is not LineWords said)
             {
@@ -457,7 +458,8 @@ namespace Halcyonic.XR.UI
             }
             if (notice == null)
             {
-                notice = RoomSurface.Create(transform, "Notice", RoomSurfaceKind.Tag, KitType.Order.Plate);
+                // The bar's own surface and rounding, so the notice reads as the bar's, never a stray tag (the critic, 2026-11-12).
+                notice = RoomSurface.Create(transform, "Notice", RoomSurfaceKind.Bar, KitType.Order.Plate);
                 noticeWords = RoomType.Create(notice.transform, "Notice words", Color.white, KitType.Order.Words, TextAlignmentOptions.TopLeft);
             }
             notice.gameObject.SetActive(true);
@@ -466,12 +468,17 @@ namespace Halcyonic.XR.UI
             runs.Set(said);
             noticeWords!.textWrappingMode = TextWrappingModes.Normal;
             var laid = KitType.Lay(noticeWords, width - 2f * pad, 3);
+            // The plate as wide as its words laid, never wider than the panel: the same pad on either side (the critic, 2026-11-12).
+            noticeWords.ForceMeshUpdate(true);
+            var wordsWidth = Mathf.Min(width - 2f * pad, Mathf.Max(noticeWords.GetRenderedValues(true).x, 0f));
+            var plate = wordsWidth + 2f * pad;
             var tall = laid.Height + 2f * pad;
-            notice.Draw(new Vector2(width, tall));
-            notice.transform.localPosition = new Vector3(panelTopLeft.x + width / 2f, panelTopLeft.y + RoomType.Units(NoticeGapDp) + tall / 2f, 0f);
+            notice.Draw(new Vector2(plate, tall));
+            var left = centred ? panelTopLeft.x + (width - plate) / 2f : panelTopLeft.x;
+            notice.transform.localPosition = new Vector3(left + plate / 2f, panelTopLeft.y + RoomType.Units(NoticeGapDp) + tall / 2f, 0f);
             noticeWords.rectTransform.pivot = new Vector2(0f, 1f);
             noticeWords.rectTransform.sizeDelta = new Vector2(width - 2f * pad, laid.Height);
-            noticeWords.transform.localPosition = new Vector3(-width / 2f + pad, tall / 2f - pad, -RoomType.Units(0.5f));
+            noticeWords.transform.localPosition = new Vector3(-plate / 2f + pad, tall / 2f - pad, -RoomType.Units(0.5f));
         }
 
         private void Update()
