@@ -4629,7 +4629,7 @@ presence, contextual moment cards and the on-demand project screen:
   marks in the host's order, the chosen one marked, three a page with Next Choices for more, then Back to the page of
   changes. A pick is kept at once (`ProjectFolder.WithStarter`, only a starter the listing has ready) and the page
   leaves for the facts. The recap's card names the starter as a slot after the folder where the card has room
-  (`StarterChoice.WithStarter`; a full card of three keeps its level, and the review alone names the starter), the review names it before its Confirm ("Start From · {title}",
+  (`StarterChoice.WithStarter`; a full card of four keeps its level, and the review alone names the starter), the review names it before its Confirm ("Start From · {title}",
   `ReviewItemKind.Starter`), and the start sends its id (`NewFromStarterChoice.starter_id`). Where the person chooses
   nothing the default (`ProjectFolder.DefaultStarterId`) stands. A starter the person picked is sent by the recap's one
   press only where the card shows it (`StarterChoice.Shown`); a full card of four leaves it to the review, which names it. The titles are the host's own starters' words,

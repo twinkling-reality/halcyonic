@@ -91,8 +91,8 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The recap's card with the starter as a slot after the folder (its title as the value), where the card has room for
-        /// one more slot (<see cref="RoomCard.MostSlots"/>): a fact past it would push the level off the card, so until a card
-        /// holds four the starter is named by the review alone. A recap card carries no reading and no code.
+        /// one more slot (<see cref="RoomCard.MostSlots"/>): a fact past it would push the level off the card, so a full card
+        /// leaves the starter to the review alone. A recap card carries no reading and no code.
         /// </summary>
         public static RoomCard WithStarter(RoomCard card, StarterView? starter)
         {
