@@ -277,7 +277,10 @@ export function registerRoutes(
       workstream_id: query.value.workstream_id ?? null,
       execution_id: query.value.execution_id ?? null,
     };
-    const body: ChoicesResponse | null = controlPlane.commands.choices(scope, query.value.list);
+    const body: ChoicesResponse | null = await controlPlane.commands.choices(
+      scope,
+      query.value.list,
+    );
     if (body === null)
       return reply
         .code(404)

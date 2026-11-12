@@ -39,7 +39,7 @@ test('one preparation builds a command from values and indices, never from a pro
   const projectScope = { project_id: project.project_id, workstream_id: null, execution_id: null };
 
   // The person's press for New Task: words only; the project's id is the scope's.
-  const task = commands.prepare(given(projectScope, 'workstream.create', { title: 'Night' }));
+  const task = await commands.prepare(given(projectScope, 'workstream.create', { title: 'Night' }));
   assert.ok(task.ok, task.ok ? '' : task.message);
   assert.deepEqual(task.command.payload, {
     project_id: project.project_id,
@@ -53,9 +53,9 @@ test('one preparation builds a command from values and indices, never from a pro
   const taskScope = { ...projectScope, workstream_id: workstream.workstream_id };
 
   // A runtime by its place in the host's list, read with its digest.
-  const runtimes = commands.choices(taskScope, 'runtimes');
+  const runtimes = await commands.choices(taskScope, 'runtimes');
   assert.ok(runtimes !== null && runtimes.rows.length > 0);
-  const start = commands.prepare(
+  const start = await commands.prepare(
     given(
       taskScope,
       'execution.start',
@@ -72,7 +72,7 @@ test('one preparation builds a command from values and indices, never from a pro
   assert.deepEqual(payload.options, {}, 'the host fills the runtime options');
   assert.equal(payload.model_ref, null, 'a model not chosen is given as none');
   // A list read before it changed is refused.
-  const stale = commands.prepare(
+  const stale = await commands.prepare(
     given(
       taskScope,
       'execution.start',
@@ -90,11 +90,86 @@ test('one preparation builds a command from values and indices, never from a pro
   assert.equal(outcome.disposition, 'accepted');
   // An id offered for a field the scope fills is refused.
 
-  const smuggled = commands.prepare(
+  const smuggled = await commands.prepare(
     given(projectScope, 'workstream.create', { title: 'X', project_id: project.project_id }),
   );
   assert.ok(!smuggled.ok, 'an id is never a proposer’s to give');
   // A command this place does not offer is refused before anything is built.
-  const elsewhere = commands.prepare(given(projectScope, 'execution.interrupt', {}));
+  const elsewhere = await commands.prepare(given(projectScope, 'execution.interrupt', {}));
   assert.ok(!elsewhere.ok);
+});
+
+test('a picture is chosen by its place in the folder’s list and given as the reference an instruction takes (A4)', async (t) => {
+  const { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { crc32, deflateSync } = await import('node:zlib');
+  const { createHostLocations } = await import('../locations.ts');
+  const { createTestControlPlane } = await import('../testing/harness.ts');
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-prepare-pictures-')));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'game', 'art'), { recursive: true });
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([length, body, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(2, 0);
+  header.writeUInt32BE(2, 4);
+  header.set([8, 2, 0, 0, 0], 8);
+  const row = Buffer.from([0, 200, 40, 40, 200, 40, 40]);
+  writeFileSync(
+    join(root, 'game', 'art', 'red.png'),
+    Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk('IHDR', header),
+      chunk('IDAT', deflateSync(Buffer.concat([row, row]))),
+      chunk('IEND', Buffer.alloc(0)),
+    ]),
+  );
+  const { controlPlane, commands } = createTestControlPlane({
+    locations: createHostLocations([root]),
+  });
+  const project = controlPlane.commands.submit(
+    commands.createProject('Pictured', { kind: 'existing_folder', root, folder_name: 'game' }),
+    'internal',
+  );
+  const projectId =
+    project.command?.result?.kind === 'project_created' ? project.command.result.project_id : '';
+  const task = controlPlane.commands.submit(
+    commands.createWorkstream(projectId as never, { title: 'Paint', objective: null } as never),
+    'internal',
+  );
+  const workstreamId =
+    task.command?.result?.kind === 'workstream_created' ? task.command.result.workstream_id : '';
+  const scope = {
+    project_id: projectId,
+    workstream_id: workstreamId,
+    execution_id: null,
+  } as HereScope;
+  const pictures = await controlPlane.commands.choices(scope, 'pictures');
+  assert.ok(pictures !== null);
+  assert.deepEqual(
+    pictures.rows.map((r) => [r.index, r.kind, r.label]),
+    [[0, 'picture', 'art/red.png']],
+  );
+  const runtimes = await controlPlane.commands.choices(scope, 'runtimes');
+  assert.ok(runtimes !== null);
+  const prepared = await controlPlane.commands.prepare({
+    scope,
+    command_type: 'execution.start',
+    values: { runtime_id: 0, instruction: 'Paint the sky this colour.', attachments: [0] },
+    read: { runtimes: runtimes.digest, pictures: pictures.digest },
+    command_id: randomUUID() as CommandId,
+    issued_at: '2026-11-12T05:40:00.000Z',
+    client: TEST_CLIENT,
+  });
+  assert.ok(prepared.ok, prepared.ok ? '' : prepared.message);
+  assert.deepEqual((prepared.command.payload as { attachments?: unknown }).attachments, [
+    { path: 'art/red.png', kind: 'image' },
+  ]);
 });

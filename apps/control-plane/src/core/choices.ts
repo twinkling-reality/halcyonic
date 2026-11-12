@@ -5,6 +5,7 @@ import type {
   ChoiceRowKind,
   CommandType,
   HereScope,
+  ProjectPicture,
   RuntimeDescriptor,
 } from '@halcyonic/contracts';
 import type { Projection } from '@halcyonic/domain';
@@ -15,14 +16,16 @@ export const CHOICE_ROWS_SHOWN = 32;
 /** A row as the host holds it: what the person or the assistant sees, and the value its index stands for. */
 export interface HeldRow {
   readonly row: ChoiceRow;
-  /** The id or the word the payload takes for this row; never shown, never the model's. */
-  readonly value: string;
+  /** What the payload takes for this row (an id, a word, a picture's reference); never shown, never the model's. */
+  readonly value: unknown;
 }
 
 export interface ChoiceSources {
   readonly projection: Projection;
   /** The runtimes this host has, in its order. */
   readonly runtimes: () => readonly RuntimeDescriptor[];
+  /** The pictures of a project's folder an instruction may carry, as the pictures read finds them. */
+  readonly pictures: (folder: string) => Promise<readonly ProjectPicture[]>;
 }
 
 /** One line of the host's words or someone else's, clipped to fit, never with an ellipsis. */
@@ -35,7 +38,7 @@ function row(
   index: number,
   kind: ChoiceRowKind,
   label: string,
-  value: string,
+  value: unknown,
   options: { detail?: string | null; theirs?: boolean; actions?: readonly CommandType[] } = {},
 ): HeldRow {
   return {
@@ -65,11 +68,11 @@ const VERSION_WORDS = {
  * an age, or null when the list is not one this scope has, or one this host cannot read here yet.
  * The same rows serve the list card, `read_choices` and the preparation of a command from an index.
  */
-export function choiceRows(
+export async function choiceRows(
   list: ChoiceList,
   scope: HereScope,
   sources: ChoiceSources,
-): HeldRow[] | null {
+): Promise<HeldRow[] | null> {
   const { projection } = sources;
   const project = scope.project_id === null ? undefined : projection.project(scope.project_id);
   const facts =
@@ -155,10 +158,27 @@ export function choiceRows(
           { detail: question.prompts[0]?.text ?? null, theirs: true },
         ),
       );
-    // Read through the host's slower reads (a runtime's models, the folder's pictures, the roots, the
-    // catalog, the project's scripts): not offered by index yet.
+    case 'pictures': {
+      // By path, as the pictures read lists them, each given back as the reference an instruction takes.
+      const folder = project?.location?.path;
+      if (folder === undefined) return null;
+      return (await sources.pictures(folder)).map((picture, index) =>
+        row(
+          index,
+          'picture',
+          picture.path,
+          { path: picture.path, kind: 'image' },
+          {
+            detail: picture.modified_at,
+            theirs: true,
+            actions: ['execution.start', 'execution.send_instruction'],
+          },
+        ),
+      );
+    }
+    // Not offered by index yet: a runtime's models (which runtime is the start's own choice), where a new
+    // project goes (a folder and its name together), the catalog, and a project's own scripts.
     case 'models':
-    case 'pictures':
     case 'folders':
     case 'catalog':
     case 'own_check_scripts':
@@ -177,6 +197,8 @@ export function choiceRows(
 export function choicesDigest(list: ChoiceList, rows: readonly HeldRow[]): string {
   const hash = createHash('sha256').update(list);
   for (const held of rows)
-    hash.update(`\0${held.row.kind}\0${held.row.label}\0${held.row.detail ?? ''}\0${held.value}`);
+    hash.update(
+      `\0${held.row.kind}\0${held.row.label}\0${held.row.detail ?? ''}\0${JSON.stringify(held.value)}`,
+    );
   return hash.digest('hex');
 }

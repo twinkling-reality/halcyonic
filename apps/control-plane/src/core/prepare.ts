@@ -35,7 +35,7 @@ export type Prepared =
 
 export interface PrepareSources {
   /** The rows of a list for the scope, and its digest, as the host reads them now. */
-  readonly rows: (list: ChoiceList) => { rows: readonly HeldRow[]; digest: string } | null;
+  readonly rows: (list: ChoiceList) => Promise<{ rows: readonly HeldRow[]; digest: string } | null>;
 }
 
 /** The payload fields each command's schema requires, from its own definition. */
@@ -59,7 +59,10 @@ const refuse = (code: RejectionCode | 'choices_changed', message: string): Prepa
  * wrote. A review field is left for the review to fill. The command then meets its own validator here,
  * and the whole admission when it is submitted.
  */
-export function prepareCommand(given: Preparation, sources: PrepareSources): Prepared {
+export async function prepareCommand(
+  given: Preparation,
+  sources: PrepareSources,
+): Promise<Prepared> {
   const type = given.command_type;
   if (!(type in COMMAND_FIELDS))
     return refuse('invalid_state', 'That is not a command the list offers.');
@@ -99,7 +102,7 @@ export function prepareCommand(given: Preparation, sources: PrepareSources): Pre
       case 'choice':
       case 'choices': {
         const list = field.list;
-        const read = list === null ? null : sources.rows(list);
+        const read = list === null ? null : await sources.rows(list);
         if (list === null || read === null)
           return refuse('capability_unsupported', `${field.label} cannot be chosen here yet.`);
         if (given.read[list] !== read.digest)
@@ -112,7 +115,7 @@ export function prepareCommand(given: Preparation, sources: PrepareSources): Pre
           return refuse('invalid_state', `${field.label} is chosen by its place in the list.`);
         if (field.max !== null && indices.length > field.max)
           return refuse('invalid_state', `At most ${field.max} for ${field.label}.`);
-        const values: string[] = [];
+        const values: unknown[] = [];
         for (const index of indices) {
           const held = typeof index === 'number' ? read.rows[index] : undefined;
           if (held === undefined)
