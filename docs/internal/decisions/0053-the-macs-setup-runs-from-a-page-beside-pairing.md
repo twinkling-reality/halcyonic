@@ -41,7 +41,7 @@ by `pnpm mac-setup agent-apps` in a browser on a scratch page.
    first press says what it will run; only a second press of the same action and argument acts.
    No press sets the paid runtime's switches (`HALCYONIC_CLAUDE_AGENT`, its executable, the agent
    environment): the settings file refuses them anyway, and the page says Claude Agent is set up by
-   hand.
+   hand. (Amended 2026-11-12, below: a key the person adds on the page turns its agent app on.)
 4. **Downloads are presses too, one at a time.** Each download button says before the press what
    it fetches: name, pinned version, size, and from where. It runs exactly the pinned command the
    terminal prints: the npm installs with `--ignore-scripts`; the starter's `npm ci` with its
@@ -122,3 +122,42 @@ by `pnpm mac-setup agent-apps` in a browser on a scratch page.
 - Neither step can see whether the person ran the lines. A task's own answer says "not set up yet" until they
   have.
 
+
+## Amendment, 2026-11-12: an agent app's own key, added on the page
+
+This replaces decision 3's "the page says Claude Agent is set up by hand". The owner asked for one place to give a
+key, and for it to serve any agent app, not one vendor's.
+
+- **The adapter says it takes a key.** An integration package declares an `AgentKey` (`packages/runtime-core`): its
+  runtime id, the app's name, the variable the runtime reads, its file in the data folder, and the field's caption.
+  The control plane lists the declarations it hosts (`AGENT_KEYS` in `runtimes.ts`). The page draws one card for
+  each, in those words only. Its own code names no vendor, and a test checks that.
+- **One field, never echoed.** Under Agent apps, a card without a key shows a password field and Add Key. A key is one
+  run of printable characters, at most 4096. Anything else is refused in that app's card, in words that never repeat
+  it. The field is cleared before the key is sent. Add Key is quiet at rest and takes the accent only while its own
+  field holds text, so at rest the page keeps its one accent.
+- **Kept as the private file of today.** The key is written to its declared file (Claude Agent's is
+  `anthropic-api-key`), mode 0600, through a temporary file renamed into place. Nothing else keeps it: it is not in
+  the page's state, a log, the journal or an event.
+- **Shown afterwards as Key Stored, with when.** The when is the file's own time. Remove Key asks first, as a
+  secret's Remove does. Only the second press for the same app removes the file.
+- **A stored key turns its app on at the next start.** For Claude Agent, the file's presence registers the runtime
+  as `HALCYONIC_CLAUDE_AGENT=1` does. A kept, replaced or removed key counts as a change for Restart to Apply. The
+  settings file still refuses the switch, so paid use starts only from the person's own press or environment. Each
+  task on a hosted model still takes its second press on the headset (ADR 0016).
+- **The steps say what is on now, and what waits.** The page tells setup which keyed apps the running Halcyonic
+  started with (`startedWith`), so a key added since reads "turns on when Halcyonic starts again" and a key removed
+  since reads "turns off when Halcyonic starts again", never "is on" or "is off" before the restart makes it so. In
+  Terminal, which has no running start to ask, setup says "on from Halcyonic's next start", as its other start-time
+  settings do. A keyed app that is on counts as an agent app that can start work. A key in Halcyonic's own
+  environment takes the stored one's place, and the step says so.
+- **A key file placed by hand turns its app on too, only when the app would take it.** Before this, the runbook had a
+  person write `anthropic-api-key` by hand and also set `HALCYONIC_CLAUDE_AGENT=1`. A file kept with the switch off
+  now turns Claude Agent on at its next start. The step says so before that start ("turns on when Halcyonic starts
+  again", or in Terminal "is on from Halcyonic's next start"), and Remove Key takes it away. A file the app would
+  refuse (other users can read it, or it is empty) counts as no key: it turns nothing on, so on its own it never stops
+  a start. With `HALCYONIC_CLAUDE_AGENT=1` and no `ANTHROPIC_API_KEY` in the environment, the start still stops on
+  such a file, as before. Its card and step say so in each case, and Add Key replaces it. The owner had given no key when this was decided.
+- A second provider gets a field by declaring its `AgentKey` and being listed in `AGENT_KEYS`. Its runtime
+  registers when its key is stored, in its own branch of `createRuntimeAdapters`. The tests prove the page and the
+  keeping with a test adapter's declaration beside Claude Agent's. No second hosted runtime exists yet.

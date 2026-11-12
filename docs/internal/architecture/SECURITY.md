@@ -68,8 +68,15 @@ network" below). The threats it defends against now are:
 It is not a sandbox against other processes running as the same user; those can read the token,
 the network listener's key and the journal, as with Salidium.
 
-When the Claude Agent runtime is enabled, the Anthropic API key (from the environment, or else
-from `<data dir>/anthropic-api-key`, refused when other users can read it) or cloud provider
+The person's key for an agent app that declares one (`AgentKey`) is typed or pasted on the setup page, sent once
+over the page's session and origin checks, and written to its declared file in the data directory, mode 0600,
+through a temporary file renamed into place. It is never in the page's state, a log, the journal or an event; the
+page shows only Key Stored and when, and removes it on a second press. A stored key turns its runtime on at the
+next start; the settings file still cannot ([ADR 0053](../decisions/0053-the-macs-setup-runs-from-a-page-beside-pairing.md),
+amendment of 2026-11-12).
+
+When the Claude Agent runtime is enabled, by `HALCYONIC_CLAUDE_AGENT=1` or a stored key, the Anthropic API key
+(from the environment, or else from `<data dir>/anthropic-api-key`, refused when other users can read it) or cloud provider
 credentials reach each launched Claude Code process through an explicitly built environment: an allowlist of variables, plus the names listed in
 `HALCYONIC_AGENT_ENV`. Nothing else in the control plane's environment reaches an agent, and a
 claude.ai login is never used. Launched Claude Code sessions carry `SEORAK_LAUNCHER=halcyonic`, so

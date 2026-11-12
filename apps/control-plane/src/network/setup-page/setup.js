@@ -6,7 +6,9 @@
 // accent, on the page's one main action; each step a row that opens, one open at a time unless the
 // person opens more; a press's question stands right under the press. Below the steps, each
 // project's secrets by name with Remove, and a name and a hidden field to set one (ADR 0057): a
-// value is sent once and never drawn.
+// value is sent once and never drawn. Under Agent apps, each agent app whose adapter declares that it
+// takes a key, by the words it declares: one hidden field and Add Key, then only Key Stored with when,
+// and Remove Key that asks first. A key is sent once and never drawn.
 
 const CLOSED = 'This page has closed. Open pairing again on this computer.';
 const UNREACHABLE = "This computer's app isn't answering. Check that it is running.";
@@ -560,6 +562,152 @@ function secretProject(project) {
   return item;
 }
 
+/** The agent apps' key cards, kept across redraws of the steps and of other cards, so a key half typed stays. */
+const keyBlock = element('div', 'key-apps');
+/** Each app's card and its parts, by its runtime id, with the entry it was drawn from. */
+const keyParts = new Map();
+
+/**
+ * When a key was stored, in the person's own clock: today's by its time, an older one by its day. The time is its own
+ * part, kept whole, so a long day breaks before "at", never inside the time.
+ */
+function storedWhen(at) {
+  const when = new Date(at);
+  if (Number.isNaN(when.getTime())) return null;
+  const time = when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const day =
+    when.toDateString() === new Date().toDateString()
+      ? 'Today'
+      : when.toLocaleDateString([], { day: 'numeric', month: 'long' });
+  return { day, time };
+}
+
+function drawKeys() {
+  const keys = state.keys ?? null;
+  const apps = keys?.apps ?? [];
+  // A card is built again only when its own entry changes, so a press on one never clears a key typed in another.
+  const cards = apps.map((app) => {
+    const drawn = JSON.stringify(app);
+    const kept = keyParts.get(app.runtime_id);
+    if (kept?.drawn === drawn) return kept.item;
+    const parts = keyApp(app);
+    keyParts.set(app.runtime_id, { ...parts, drawn });
+    return parts.item;
+  });
+  for (const runtimeId of [...keyParts.keys()])
+    if (!apps.some((app) => app.runtime_id === runtimeId)) keyParts.delete(runtimeId);
+  if (
+    cards.some((card, at) => keyBlock.children[at] !== card) ||
+    keyBlock.children.length !== cards.length
+  )
+    keyBlock.replaceChildren(...cards);
+  // While a Remove Key asks, it is the one decision among the keys: every other card keeps its shape and waits.
+  const askingAny = keys?.confirm != null;
+  for (const [runtimeId, parts] of keyParts) {
+    const text = keys?.problem?.runtime_id === runtimeId ? keys.problem.text : null;
+    parts.status.hidden = text === null;
+    parts.status.textContent = text ?? '';
+    if (parts.form !== null) {
+      parts.value.disabled = askingAny;
+      parts.add.disabled = askingAny;
+      // A waiting card's Add Key gives up the accent to the question, whatever its field holds.
+      parts.add.className = askingAny || parts.value.value === '' ? 'rest' : 'main';
+    }
+    if (parts.panel === null) continue;
+    const asking = keys?.confirm?.runtime_id === runtimeId ? keys.confirm : null;
+    parts.panel.hidden = asking === null;
+    parts.line.textContent = asking?.text ?? '';
+    parts.remove.hidden = asking !== null;
+    parts.remove.disabled = askingAny;
+  }
+}
+
+/** One agent app's key: its name, then the field and Add Key, or Key Stored with when and Remove Key. */
+function keyApp(app) {
+  const item = element('div', 'key-app');
+  item.append(element('p', 'key-app-name', app.app));
+  const status = element('p', 'secret-status', '');
+  status.hidden = true;
+  status.setAttribute('role', 'status');
+  if (app.stored) {
+    const row = element('div', 'key-row');
+    const tile = element('span', 'key-tile');
+    tile.append(glyph('tick'));
+    const words = element('div', 'key-words');
+    words.append(element('p', 'key-stored', 'Key Stored'));
+    const when = storedWhen(app.stored_at);
+    if (when !== null) {
+      const line = element('p', 'key-when', `${when.day} at `);
+      line.append(element('span', 'whole', when.time));
+      words.append(line);
+    }
+    const remove = button(
+      'Remove Key',
+      () => void call('/setup/keys/remove', { runtime_id: app.runtime_id, confirmed: false }),
+      false,
+      'close',
+    );
+    remove.classList.add('secret-remove');
+    row.append(tile, words, remove);
+    // The question stands right under the press, as a secret's Remove does.
+    const panel = element('div', 'question');
+    panel.hidden = true;
+    const asked = element('div', 'question-words');
+    const line = element('p', 'question-line', '');
+    asked.append(element('p', 'question-title', 'Remove This Key?'), line);
+    const actions = element('div', 'question-actions');
+    const really = button(
+      'Yes, Remove',
+      () => void call('/setup/keys/remove', { runtime_id: app.runtime_id, confirmed: true }),
+      false,
+      'close',
+    );
+    really.dataset.armed = '';
+    actions.append(
+      really,
+      button('Cancel', () => void call('/setup/keys/cancel', {}), false),
+    );
+    panel.append(asked, actions);
+    item.append(row, panel, status);
+    return { item, status, panel, line, remove, form: null, value: null, add: null };
+  }
+  // The field under the caption its adapter declares; what is typed or pasted shows nothing.
+  const form = element('form', 'secret-form key-form');
+  const label = element('label', 'secret-field');
+  const value = element('input');
+  value.type = 'password';
+  value.autocomplete = 'new-password';
+  value.spellcheck = false;
+  label.append(element('span', 'secret-caption', app.field), value);
+  // Quiet at rest, so the page keeps its one accent; it takes the accent while its own field holds a key to add.
+  const add = button('Add Key', () => undefined, false, 'key');
+  add.type = 'submit';
+  const ready = () => {
+    add.className = value.value === '' || add.disabled ? 'rest' : 'main';
+  };
+  value.addEventListener('input', ready);
+  form.append(label, add);
+  // A file placed by hand that the app would refuse: said above the field that replaces it.
+  if (app.unusable)
+    item.append(
+      element(
+        'p',
+        'secret-status',
+        "Its key file can be read by other users or is empty, so it isn't used. Adding the key again replaces it.",
+      ),
+    );
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const typed = value.value;
+    // Cleared before it is sent, whatever the answer: the page never keeps a key.
+    value.value = '';
+    ready();
+    void call('/setup/keys/set', { runtime_id: app.runtime_id, value: typed });
+  });
+  item.append(form, status);
+  return { item, status, panel: null, line: null, remove: null, form, value, add };
+}
+
 function stepItem(step, running, main, open) {
   const [note, icon] = STATUS[step.status] ?? [step.status, 'question'];
   // Under the Optional heading, an optional step's note would only say it again.
@@ -588,6 +736,8 @@ function stepItem(step, running, main, open) {
   if (!open) return item;
   const body = element('div', 'step-body');
   for (const line of step.lines) body.append(breakable(element('p', 'step-line'), line));
+  // Under Agent apps, each agent app that takes a key, as its adapter declares it.
+  if (step.id === 'agent_apps' && (state.keys?.apps ?? []).length > 0) body.append(keyBlock);
   if ((step.next ?? []).length > 0) {
     // Commands for the person to run in Terminal, as setup prints them: text, never run from here.
     const label = element('p', 'panel-label step-next');
@@ -670,6 +820,7 @@ function draw() {
   $('said-lines').replaceChildren(...said(state.said));
   drawShared();
   drawSecrets();
+  drawKeys();
   // Optional holds the optional steps and Project Secrets: it stands while either does.
   $('optional-block').hidden =
     !state.steps.some((each) => each.status === 'optional') && $('secrets').hidden;

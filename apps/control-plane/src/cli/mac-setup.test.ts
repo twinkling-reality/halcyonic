@@ -20,10 +20,12 @@ import { describe, type TestContext, test } from 'node:test';
 import { FakeSalidium } from '@halcyonic/integration-salidium/testing';
 import { loadConfig } from '../config.ts';
 import { loopbackProof, PROOF_CHALLENGE_HEADER, PROOF_HEADER } from '../http/security.ts';
+import { AgentKeys } from '../keys/agent-keys.ts';
 import type { Pins } from '../pins.ts';
 import { audioOutputFor } from '../preview/audio-output.ts';
 import { launcherProblem } from '../preview/launcher.ts';
 import { BROWSER_FILES, browserManifest, manifestDigest } from '../preview/play.ts';
+import { AGENT_KEYS, keyStoredFor } from '../runtimes.ts';
 import {
   readHostSettings,
   SETTINGS_FILE,
@@ -137,6 +139,8 @@ interface Mac {
   proofsLeft: number;
   interactive: boolean;
   env: NodeJS.ProcessEnv;
+  /** The keyed agent apps the running Halcyonic started with, as its setup page passes them; absent in Terminal. */
+  startedWith?: string[];
   run(...args: string[]): Promise<number>;
   settings(): ReturnType<typeof readHostSettings>;
   install(file: keyof Pins, content?: string): string;
@@ -211,6 +215,7 @@ function mac(t: TestContext): Mac {
         which: (command) => (command === 'rg' && machine.rg ? '/opt/homebrew/bin/rg' : null),
         firewall: () => machine.firewall,
         pins: PINS,
+        ...(machine.startedWith === undefined ? {} : { startedWith: machine.startedWith }),
       };
       return runMacSetup(args, io);
     },
@@ -330,6 +335,135 @@ describe('pnpm mac-setup', () => {
     assert.match(output, /Start with “Folders agents may use”\./);
     assert.equal(machine.lines.filter((line) => line.includes('--ignore-scripts')).length, 2);
     assert.equal(existsSync(machine.dataDir), false, 'checking writes nothing');
+  });
+
+  test('an agent app on its own key is said as the running Halcyonic has it, and a key added or removed since waits for the next start', async (t) => {
+    const machine = mac(t);
+    mkdirSync(machine.dataDir, { recursive: true, mode: 0o700 });
+    const keys = new AgentKeys(machine.dataDir, AGENT_KEYS);
+    // In Terminal, with no key: what to do, and nothing on.
+    await machine.run();
+    let output = text(machine);
+    assert.match(
+      output,
+      /Claude Agent runs on your own key, .* Add its key under Agent Apps on the setup page\./,
+    );
+    assert.match(output, /Claude Agent is off\./);
+    assert.match(output, /No agent app is set up, so no task can start\./);
+    // A key file placed by hand that others can read, or an empty one, is not used, turns nothing on, and says so.
+    for (const [content, mode] of [
+      ['test-key-not-real\n', 0o644],
+      ['\n', 0o600],
+    ] as const) {
+      writeFileSync(join(machine.dataDir, 'anthropic-api-key'), content, { mode });
+      chmodSync(join(machine.dataDir, 'anthropic-api-key'), mode);
+      await machine.run();
+      output = text(machine);
+      assert.match(
+        output,
+        /~\/\.halcyonic\/anthropic-api-key can be read by other users or is empty, so Claude Agent doesn't use it\. If it holds the key, run chmod 600 on it; else adding its key again replaces it\./,
+      );
+      assert.equal(status(machine, 'Agent apps'), 'To do');
+      assert.match(output, /Claude Agent is off\./);
+      assert.equal(
+        loadConfig({}).claudeAgent || keyStoredFor(machine.dataDir, 'claude-agent'),
+        false,
+        'nor does the next start turn it on',
+      );
+    }
+    // With the switch on and no key in the environment, such a file stops the next start, and both steps say so.
+    for (const [content, mode] of [
+      ['test-key-not-real\n', 0o644],
+      ['\n', 0o600],
+    ] as const) {
+      writeFileSync(join(machine.dataDir, 'anthropic-api-key'), content, { mode });
+      chmodSync(join(machine.dataDir, 'anthropic-api-key'), mode);
+      machine.env = { ...machine.env, HALCYONIC_CLAUDE_AGENT: '1' };
+      await machine.run();
+      output = text(machine);
+      assert.match(
+        output,
+        /Claude Agent is switched on in Halcyonic's environment, but ~\/\.halcyonic\/anthropic-api-key can be read by other users or is empty, so Halcyonic won't start until it is fixed\. If it holds the key, run chmod 600 on it; else adding its key again replaces it\./,
+      );
+      assert.match(
+        output,
+        /Claude Agent is switched on, but its key file can't be used, so Halcyonic won't start until it is fixed\./,
+      );
+      assert.doesNotMatch(output, /Claude Agent is on/);
+      assert.equal(status(machine, 'Agent apps'), 'To do', 'it can start no work');
+      // A key in the environment is used instead, so the start does not stop on the file.
+      machine.env = { ...machine.env, ANTHROPIC_API_KEY: 'test-key-not-real-env' };
+      await machine.run();
+      output = text(machine);
+      assert.doesNotMatch(output, /won't start/);
+      assert.match(
+        output,
+        /Claude Agent is on from Halcyonic's next start\. Every task on it is paid for with the ANTHROPIC_API_KEY in Halcyonic's environment\./,
+      );
+      machine.env = { ...machine.env, HALCYONIC_CLAUDE_AGENT: '', ANTHROPIC_API_KEY: '' };
+    }
+    // In Terminal, with a key stored: on from the next start, whatever runs now, and counted as an agent app.
+    assert.equal(keys.store('claude-agent', 'test-key-not-real'), null);
+    await machine.run();
+    output = text(machine);
+    assert.match(
+      output,
+      /Claude Agent is on from Halcyonic's next start, with your key stored on this computer\. Every task on it is paid for with that key\./,
+    );
+    assert.match(
+      output,
+      /Claude Agent is on from Halcyonic's next start\. Its models run on a remote service/,
+    );
+    assert.doesNotMatch(output, /No agent app is set up/);
+    // On the page of a Halcyonic started without it: the key waits for the next start.
+    machine.startedWith = [];
+    await machine.run();
+    output = text(machine);
+    assert.match(
+      output,
+      /Claude Agent turns on when Halcyonic starts again, with your stored key\./,
+    );
+    assert.match(
+      output,
+      /Claude Agent turns on when Halcyonic starts again\. Its models run on a remote service/,
+    );
+    assert.match(
+      output,
+      /No agent app is set up, so no task can start\./,
+      'nothing runs on it yet',
+    );
+    // Started with it: on.
+    machine.startedWith = ['claude-agent'];
+    await machine.run();
+    assert.match(text(machine), /Claude Agent is on, with your key stored on this computer\./);
+    // A key in Halcyonic's own environment takes the stored one's place, and says so.
+    machine.env = { ...machine.env, ANTHROPIC_API_KEY: 'test-key-not-real-env' };
+    await machine.run();
+    output = text(machine);
+    assert.match(
+      output,
+      /Claude Agent is on\. Every task on it is paid for with the ANTHROPIC_API_KEY in Halcyonic's environment, not the stored key\./,
+    );
+    assert.doesNotMatch(output, /with your key stored on this computer/);
+    machine.env = { ...machine.env, ANTHROPIC_API_KEY: '' };
+    // Removed while it runs: off at the next start, and still on now.
+    assert.equal(keys.remove('claude-agent'), null);
+    await machine.run();
+    output = text(machine);
+    assert.match(
+      output,
+      /Claude Agent turns off when Halcyonic starts again, since its key was removed\./,
+    );
+    assert.match(output, /Claude Agent turns off when Halcyonic starts again\./);
+    assert.equal(
+      status(machine, 'Where work goes, and what it costs'),
+      'Look at this',
+      'still a paid service until the restart',
+    );
+    // Started without it, with no key: added below, on the page itself.
+    machine.startedWith = [];
+    await machine.run();
+    assert.match(text(machine), /Claude Agent runs on your own key, .* Add its key below\./);
   });
 
   test("says whether npm and pnpm are where Halcyonic looks for a project's own check", async (t) => {
@@ -1034,7 +1168,7 @@ describe('pnpm mac-setup', () => {
     assert.equal(status(machine, 'Where work goes, and what it costs'), 'Look at this');
     assert.match(
       text(machine),
-      /Claude Agent is on\. Its models run on a remote service, Anthropic's: nothing starts on one without its second press/,
+      /Claude Agent is on from Halcyonic's next start\. Its models run on a remote service, Anthropic's: nothing starts on one without its second press/,
     );
   });
 

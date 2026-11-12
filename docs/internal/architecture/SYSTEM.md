@@ -187,7 +187,7 @@ Environment variables, all optional:
 | `SALIDIUM_HOME` | `~/.salidium` | Where Salidium publishes its discovery file, as Salidium itself resolves it |
 | `OMNORIUM_HOME` | `~/.omnorium` | Where Omnorium publishes its discovery file, as Omnorium itself resolves it |
 | `HALCYONIC_PROJECT_ROOTS` | none | Directories agents may work in, with everything below them, separated by `:`. Clients bind projects to a root or a folder directly inside one, and the host may make new folders there ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)); with none, no real runtime can start |
-| `HALCYONIC_CLAUDE_AGENT` | `0` | `1` registers the Claude Agent runtime; it then needs `ANTHROPIC_API_KEY` or a cloud provider in the environment |
+| `HALCYONIC_CLAUDE_AGENT` | `0` | `1` registers the Claude Agent runtime; it then needs `ANTHROPIC_API_KEY`, a cloud provider in the environment, or `<data dir>/anthropic-api-key`. A key stored from the setup page registers it with no switch (ADR 0053, amendment of 2026-11-12) |
 | `HALCYONIC_CLAUDE_EXECUTABLE` | bundled | A Claude Code executable to use instead of the one the Agent SDK bundles |
 | `HALCYONIC_AGENT_ENV` | none | Names of variables, separated by commas, copied into every launched agent's environment (for example `SSH_AUTH_SOCK`) |
 | `HALCYONIC_OPENCODE_BIN` | none | Absolute path of the pinned OpenCode 2.0.18 binary; registers the OpenCode runtime |
@@ -206,7 +206,7 @@ Files in the data directory besides the journal and the access token, all option
 `salidium-credential`, the consumer credential the owner created for Halcyonic, and
 `omnorium-credential`, the consumer credential the owner created in Omnorium for Halcyonic, and
 `seorak-credential`, the integration credential the owner issued for Halcyonic, and
-`anthropic-api-key`, used by the Claude Agent runtime when `ANTHROPIC_API_KEY` is not set, and
+`anthropic-api-key`, used by the Claude Agent runtime when `ANTHROPIC_API_KEY` is not set, written by the setup page's Add Key and turning that runtime on when it holds a key only its owner can read, and
 `checkpoints/`, the store of Halcyonic's undo when it is set up, and `secrets/<project>/<name>`, each
 project secret's value the person typed on the setup page, mode 0600 in folders of 0700, never read by a
 check, a copy or a share (ADR 0057), and `starters/<id>/`, each

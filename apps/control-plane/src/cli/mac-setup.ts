@@ -44,6 +44,7 @@ import { delimiter, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 import type { DevicesResponse, LocationsResponse, Snapshot } from '@halcyonic/contracts';
+import { CLAUDE_AGENT_KEY } from '@halcyonic/integration-claude-code';
 import { OPENCODE_SANDBOX_FOLDER, sandboxedSessionStore } from '@halcyonic/integration-opencode';
 import {
   defaultSalidiumHome,
@@ -51,6 +52,7 @@ import {
   readsOtherToolsSources,
   SalidiumClient,
 } from '@halcyonic/integration-salidium';
+import type { AgentKey } from '@halcyonic/runtime-core';
 import { isCloudName } from '../companion/ollama.ts';
 import {
   ConfigError,
@@ -76,6 +78,7 @@ import { OMNORIUM_CREDENTIAL_FILE } from '../intelligence/catalog.ts';
 import { CODEX_CONFINED_FOLDER } from '../intelligence/codex-home.ts';
 import { SEORAK_CREDENTIAL_FILE } from '../intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from '../intelligence/understanding.ts';
+import { keyFile } from '../keys/agent-keys.ts';
 import { managersOn } from '../own-check/own-check.ts';
 import { type PinnedFile, type Pins, pinsForThisMac, sha256File } from '../pins.ts';
 import { AUDIO_OUTPUT, installAudioOutput } from '../preview/audio-output.ts';
@@ -87,7 +90,7 @@ import {
 } from '../preview/launcher.ts';
 import { browserProblem, installBrowser } from '../preview/play.ts';
 import { isPinnedTunnel, TUNNEL_PIN } from '../preview/share.ts';
-import { ANTHROPIC_KEY_FILE, CODEX_HOME_FOLDER } from '../runtimes.ts';
+import { AGENT_KEYS, ANTHROPIC_KEY_FILE, CODEX_HOME_FOLDER } from '../runtimes.ts';
 import {
   type HostSettings,
   readHostSettings,
@@ -165,6 +168,31 @@ export interface MacSetupIo {
   readonly firewall: () => Firewall | null;
   /** Null where Halcyonic has no checksums, as on an Intel Mac. */
   readonly pins: Pins | null;
+  /**
+   * The agent apps that run on the person's own key which the running Halcyonic started with, by runtime id. Set only
+   * where the running control plane asks (its setup page), so a key added or removed since can be said to wait for
+   * the next start; absent, as in Terminal, setup says what the next start does.
+   */
+  readonly startedWith?: readonly string[];
+}
+
+/** An agent app that runs on the person's own key, as setup sees it now and as the next start will have it. */
+interface KeyedApp {
+  readonly key: AgentKey;
+  readonly stored: boolean;
+  /** A file is where its key would be, but the app would refuse it (others can read it, or it is empty). */
+  readonly unusable: boolean;
+  /** On at the next start: by its stored key, or its own switch in the environment. */
+  readonly next: boolean;
+  /** On now, where setup knows what the running Halcyonic started with; else as `next`. */
+  readonly now: boolean;
+  /** The running Halcyonic is set to differ from it at the next start. */
+  readonly changes: boolean;
+  /**
+   * Its switch is on in the environment, no key is in the environment, and its key file can't be used, so the next start
+   * stops on it.
+   */
+  readonly stops: boolean;
 }
 
 type Status = 'ready' | 'todo' | 'optional' | 'look' | 'unknown';
@@ -522,15 +550,76 @@ class MacSetup {
         next.push('brew install ripgrep');
       }
     }
-    lines.push(
-      "Claude Agent is set up only by hand, because every task on it runs on a remote service, Anthropic's, paid for with your API key. See “Run real agents” in docs/internal/runbooks/LOCAL_DEVELOPMENT.md.",
-    );
+    // Each agent app that runs on the person's own key, as its package declares it (AgentKey): the setup page takes it.
+    // What the running Halcyonic started with is said as it is; a key added or removed since waits for the next start.
+    for (const keyed of this.#keyedApps(env)) {
+      const { key } = keyed;
+      // Said as of the next start where nothing tells setup what the running Halcyonic started with (Terminal).
+      const known = this.#io.startedWith !== undefined;
+      // In Terminal, an app whose key file will stop the start can start no work.
+      if (keyed.now && !(keyed.stops && !known)) ready += 1;
+      const onWords = known ? `${key.app} is on` : `${key.app} is on from Halcyonic's next start`;
+      const byEnvironment = present(env[key.variable]);
+      const paid = byEnvironment
+        ? `Every task on it is paid for with the ${key.variable} in Halcyonic's environment${keyed.stored ? ', not the stored key' : ''}.`
+        : keyed.stored
+          ? 'Every task on it is paid for with that key.'
+          : "Every task on it is paid for by the cloud provider set in Halcyonic's environment.";
+      if (keyed.stops) {
+        look = true;
+        lines.push(
+          `${key.app} is switched on in Halcyonic's environment, but ${this.#tilde(join(this.#dataDir, key.file))} can be read by other users or is empty, so Halcyonic won't start${known ? ' again' : ''} until it is fixed. If it holds the key, run chmod 600 on it; else adding its key again replaces it.`,
+        );
+        continue;
+      }
+      if (keyed.changes)
+        lines.push(
+          keyed.next
+            ? `${key.app} turns on when Halcyonic starts again${keyed.stored ? ', with your stored key' : ''}. ${paid}`
+            : `${key.app} turns off when Halcyonic starts again, since ${keyed.unusable ? "its key file can't be used" : 'its key was removed'}.`,
+        );
+      else if (keyed.now)
+        lines.push(
+          keyed.stored && !byEnvironment
+            ? `${onWords}, with your key stored on this computer. ${paid}`
+            : `${onWords}. ${paid}`,
+        );
+      else
+        lines.push(
+          `${key.app} runs on your own key, which pays for every task on it. ${
+            known ? 'Add its key below.' : 'Add its key under Agent Apps on the setup page.'
+          }`,
+        );
+      if (keyed.unusable) {
+        look = true;
+        lines.push(
+          `${this.#tilde(join(this.#dataDir, key.file))} can be read by other users or is empty, so ${key.app} doesn't use it. If it holds the key, run chmod 600 on it; else adding its key again replaces it.`,
+        );
+      }
+    }
     if (ready === 0) {
       lines.unshift(
         'No agent app is set up, so no task can start. The headset says “No agent app on your computer can start work right now.”',
       );
     }
     return { title, status: ready === 0 ? 'todo' : look ? 'look' : 'ready', lines, next };
+  }
+
+  /** Each declared keyed agent app: stored or not, on at the next start or not, and on now where that is known. */
+  #keyedApps(env: NodeJS.ProcessEnv): KeyedApp[] {
+    return AGENT_KEYS.map((key) => {
+      const file = keyFile(this.#dataDir, key);
+      const stored = file.state === 'stored';
+      // Claude Agent alone also has a switch of its own in the environment (HALCYONIC_CLAUDE_AGENT).
+      const byEnv =
+        key.runtimeId === CLAUDE_AGENT_KEY.runtimeId && env.HALCYONIC_CLAUDE_AGENT === '1';
+      const next = stored || byEnv;
+      const started = this.#io.startedWith;
+      const now = started === undefined ? next : started.includes(key.runtimeId);
+      const unusable = file.state === 'unusable';
+      const stops = byEnv && unusable && !present(env[key.variable]);
+      return { key, stored, unusable, next, now, changes: now !== next, stops };
+    });
   }
 
   async #agentApp(
@@ -665,10 +754,27 @@ class MacSetup {
         "Codex runs only on models this Mac serves, never on OpenAI's: the headset lists no remote model for it.",
       );
     }
-    if (this.#io.env.HALCYONIC_CLAUDE_AGENT === '1') {
+    const claude = this.#keyedApps(this.#io.env).find(
+      (keyed) => keyed.key.runtimeId === CLAUDE_AGENT_KEY.runtimeId,
+    );
+    if (claude?.stops === true) {
       hosted = true;
       lines.push(
-        "Claude Agent is on. Its models run on a remote service, Anthropic's: nothing starts on one without its second press, and a task on one is paid for with your API key.",
+        `Claude Agent is switched on, but its key file can't be used, so Halcyonic won't start${this.#io.startedWith === undefined ? '' : ' again'} until it is fixed.`,
+      );
+    } else if (claude?.changes === true && !claude.next) {
+      // Still on until the restart, so still a paid service to look at.
+      hosted = claude.now;
+      lines.push('Claude Agent turns off when Halcyonic starts again.');
+    } else if (claude?.now === true || claude?.next === true) {
+      hosted = true;
+      const on = claude.changes
+        ? 'Claude Agent turns on when Halcyonic starts again.'
+        : this.#io.startedWith === undefined
+          ? "Claude Agent is on from Halcyonic's next start."
+          : 'Claude Agent is on.';
+      lines.push(
+        `${on} Its models run on a remote service, Anthropic's: nothing starts on one without its second press, and a task on one is paid for with your API key.`,
       );
       const key = this.#fileState(ANTHROPIC_KEY_FILE);
       if (key === 'exposed')

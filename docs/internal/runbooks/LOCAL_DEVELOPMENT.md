@@ -269,20 +269,20 @@ it. The execution's `model_ref` then shows the model the runtime reports running
 ## Run real agents
 
 Real runtimes work only inside directories you list, and are off until enabled. The Claude Agent
-runtime needs an Anthropic API key: keep it in the data directory, readable only by you, rather than
-in your shell environment. Copy the key to the clipboard, then:
-
-```bash
-mkdir -p ~/.halcyonic && chmod 700 ~/.halcyonic
-(umask 077 && pbpaste > ~/.halcyonic/anthropic-api-key)
-```
+runtime needs an Anthropic API key. Add it on the setup page: open Agent apps, paste the key into
+Anthropic API Key, and press Add Key, then Restart to Apply. The page keeps it as
+`~/.halcyonic/anthropic-api-key`, readable only by you, shows it afterwards only as Key Stored, and a
+stored key turns Claude Agent on at the next start
+([ADR 0053](../decisions/0053-the-macs-setup-runs-from-a-page-beside-pairing.md), amendment of
+2026-11-12). Remove Key, pressed twice, takes it away. Every agent app whose package declares a key
+gets the same field.
 
 `ANTHROPIC_API_KEY` in the environment, or a cloud provider's variables, work too and take
-precedence over the file. Then:
+precedence over the file; with those, turn the runtime on yourself:
 
 ```bash
 export HALCYONIC_PROJECT_ROOTS="$HOME/dev"   # directories agents may work in, separated by :
-export HALCYONIC_CLAUDE_AGENT=1              # register the Claude Agent runtime
+export HALCYONIC_CLAUDE_AGENT=1              # register the Claude Agent runtime without a stored key
 pnpm dev
 ```
 

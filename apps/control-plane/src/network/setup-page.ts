@@ -22,6 +22,7 @@ import {
   type SetupStep,
   tunnelProgram,
 } from '../cli/mac-setup.ts';
+import { type KeyView, LONGEST_KEY } from '../keys/agent-keys.ts';
 import { matchesPin, type Pins } from '../pins.ts';
 import { plainLine } from '../preview/check-output.ts';
 import { isPinnedTunnel, TUNNEL_PIN } from '../preview/share.ts';
@@ -37,7 +38,8 @@ import type { PageRoutes } from './pairing-page.ts';
  * terminal runs it; downloads say first what they fetch, run one at a time with their progress and a
  * stop, and never start on their own. A changed setting takes effect at the next start, which the
  * page offers as Restart to Apply. It never sets the paid runtime switches, which the settings file
- * refuses anyway.
+ * refuses anyway; only the person's own key, added under Agent apps for an app that declares one, turns
+ * that app on at the next start (ADR 0053, amendment of 2026-11-12).
  */
 
 const TRACKED_STARTERS = fileURLToPath(new URL('../../../../starters', import.meta.url));
@@ -58,6 +60,9 @@ const STEPS_STAND_MS = 5 * 60 * 1000;
 const JOB_LINE_CHARS = 200;
 /** The most a secret's set may send: the longest value, escaped as JSON escapes it, and its names. */
 const SECRET_BODY_LIMIT = LONGEST_VALUE * 6 + 1024;
+
+/** A key's body: the longest key, escaped at worst, and its agent app's id. */
+const KEY_BODY_LIMIT = LONGEST_KEY * 6 + 1024;
 
 /** A download: what it fetches, said before the press, and how it runs. */
 export interface SetupDownload {
@@ -120,6 +125,17 @@ export interface SetupPageDeps {
   readonly stopShare?: (projectId: string) => 'stopped' | 'not_shared' | 'refused';
   /** Each project's secrets by name, with Set and Remove (ADR 0057); absent where none are kept. */
   readonly secrets?: PageSecrets;
+  /** The person's own keys for the agent apps whose adapters declare one (R2); absent where none is declared. */
+  readonly keys?: PageKeys;
+}
+
+/** The agent apps' keys as the page reaches them: whether each is stored and when, never a key (AgentKeys). */
+export interface PageKeys {
+  list(): readonly KeyView[];
+  /** The refusal's words, or null once kept. */
+  store(runtimeId: unknown, value: unknown): string | null;
+  /** The refusal's words, or null once removed. */
+  remove(runtimeId: unknown): string | null;
 }
 
 /** A project as the page's secrets section lists it: its name and its secrets' names, never a value. */
@@ -346,6 +362,17 @@ export interface SetupState {
       readonly name: string;
       readonly text: string;
     } | null;
+  } | null;
+  /**
+   * Each agent app whose adapter declares that it takes a key, in the declarations' words, with whether one is
+   * stored and since when; null where none is declared. A key is never in the page's state.
+   */
+  readonly keys: {
+    readonly apps: readonly KeyView[];
+    /** What this session's last add or remove was refused with, said in that app's card. */
+    readonly problem: { readonly runtime_id: string; readonly text: string } | null;
+    /** A Remove Key waiting for its second press: which app, and what it will do. */
+    readonly confirm: { readonly runtime_id: string; readonly text: string } | null;
   } | null;
 }
 
@@ -581,6 +608,10 @@ interface Press {
   secretProblem: { project_id: string; text: string } | null;
   /** A Remove asked once, acting only on a second press of the same secret. */
   secretConfirm: { project_id: string; name: string; text: string } | null;
+  /** The last refusal of a key's add or remove, said in its agent app's card. */
+  keyProblem: { runtime_id: string; text: string } | null;
+  /** A Remove Key asked once, acting only on a second press for the same app. */
+  keyConfirm: { runtime_id: string; text: string } | null;
 }
 
 /** The most sessions whose presses are kept; the pairing page keeps fewer sessions than this. */
@@ -622,7 +653,14 @@ export class SetupView {
   #press(session: string): Press {
     let press = this.#presses.get(session);
     if (press === undefined) {
-      press = { confirm: null, said: [], secretProblem: null, secretConfirm: null };
+      press = {
+        confirm: null,
+        said: [],
+        secretProblem: null,
+        secretConfirm: null,
+        keyProblem: null,
+        keyConfirm: null,
+      };
       this.#presses.set(session, press);
       while (this.#presses.size > MAX_PRESSES) {
         const oldest = this.#presses.keys().next().value;
@@ -685,7 +723,82 @@ export class SetupView {
               problem: here.secretProblem,
               confirm: here.secretConfirm,
             },
+      keys:
+        this.#deps.keys === undefined
+          ? null
+          : {
+              apps: this.#deps.keys.list(),
+              problem: here.keyProblem,
+              confirm: here.keyConfirm,
+            },
     };
+  }
+
+  /**
+   * Keeps the person's key for an agent app by their press: one press, the key typed or pasted for it, never
+   * returned. A refusal is said in that app's card. A kept key takes effect at the next start, which the page
+   * offers as Restart to Apply.
+   */
+  async setKey(
+    runtimeId: unknown,
+    value: unknown,
+    session: string = ONE_SESSION,
+  ): Promise<SetupState> {
+    const here = this.#press(session);
+    // One question stands at a time: a press here forgets any other asked first.
+    here.confirm = null;
+    here.secretConfirm = null;
+    here.keyConfirm = null;
+    const keys = this.#deps.keys;
+    const problem =
+      keys === undefined ? 'No agent app takes a key here.' : keys.store(runtimeId, value);
+    // The steps say whether a key is stored, so they are checked again at once.
+    if (problem === null) this.#steps = null;
+    here.keyProblem =
+      problem === null
+        ? null
+        : { runtime_id: typeof runtimeId === 'string' ? runtimeId : '', text: problem };
+    return this.state(session);
+  }
+
+  /**
+   * Removes an agent app's key on the second press for the same app, as a secret's Remove asks first: a removed
+   * key can never be seen or put back. The first press says what it will do.
+   */
+  async removeKey(
+    runtimeId: unknown,
+    confirmed: unknown,
+    session: string = ONE_SESSION,
+  ): Promise<SetupState> {
+    const here = this.#press(session);
+    // One question stands at a time: a press here forgets any other asked first.
+    here.confirm = null;
+    here.secretConfirm = null;
+    here.keyProblem = null;
+    const keys = this.#deps.keys;
+    const app = keys?.list().find((each) => each.runtime_id === runtimeId);
+    if (typeof runtimeId !== 'string' || keys === undefined || app === undefined) {
+      here.keyConfirm = null;
+      return this.state(session);
+    }
+    if (confirmed !== true || here.keyConfirm?.runtime_id !== runtimeId) {
+      here.keyConfirm = {
+        runtime_id: runtimeId,
+        text: `Halcyonic deletes its copy. ${app.app} needs a key again from the next start.`,
+      };
+      return this.state(session);
+    }
+    here.keyConfirm = null;
+    const problem = keys.remove(runtimeId);
+    if (problem === null) this.#steps = null;
+    here.keyProblem = problem === null ? null : { runtime_id: runtimeId, text: problem };
+    return this.state(session);
+  }
+
+  /** Forgets a Remove Key asked once, by the person's Cancel. */
+  async cancelKey(session: string = ONE_SESSION): Promise<SetupState> {
+    this.#press(session).keyConfirm = null;
+    return this.state(session);
   }
 
   /**
@@ -699,6 +812,7 @@ export class SetupView {
     session: string = ONE_SESSION,
   ): Promise<SetupState> {
     const here = this.#press(session);
+    here.keyConfirm = null;
     here.secretConfirm = null;
     const secrets = this.#deps.secrets;
     const problem =
@@ -723,6 +837,7 @@ export class SetupView {
     session: string = ONE_SESSION,
   ): Promise<SetupState> {
     const here = this.#press(session);
+    here.keyConfirm = null;
     here.secretProblem = null;
     const secrets = this.#deps.secrets;
     if (typeof projectId !== 'string' || typeof name !== 'string' || secrets === undefined) {
@@ -773,6 +888,7 @@ export class SetupView {
     session: string = ONE_SESSION,
   ): Promise<SetupState> {
     const here = this.#press(session);
+    here.keyConfirm = null;
     const given = typeof arg === 'string' ? arg : null;
     if (typeof action !== 'string')
       return this.#refused(here, session, 'That press is not one this page offers.');
@@ -929,8 +1045,8 @@ export class SetupView {
         arg: null,
         text:
           tasks.length === 0
-            ? 'Halcyonic closes and starts again, with the new settings. No task is running. Go On restarts it.'
-            : `Halcyonic closes and starts again, with the new settings. These tasks stop where they are and come back after the restart: ${tasks.join(', ')}. Go On restarts it.`,
+            ? 'Halcyonic closes and starts again, with your changes. No task is running. Go On restarts it.'
+            : `Halcyonic closes and starts again, with your changes. These tasks stop where they are and come back after the restart: ${tasks.join(', ')}. Go On restarts it.`,
       };
       return this.state(session);
     }
@@ -1005,6 +1121,19 @@ export function mountSetup(view: SetupView): (routes: PageRoutes) => void {
       return view.removeSecret(body.project_id, body.name, body.confirmed, session);
     });
     routes.post('/setup/secrets/cancel', (_request, session) => view.cancelSecret(session));
+    routes.post(
+      '/setup/keys/set',
+      (request, session) => {
+        const body = (request.body ?? {}) as { runtime_id?: unknown; value?: unknown };
+        return view.setKey(body.runtime_id, body.value, session);
+      },
+      { bodyLimit: KEY_BODY_LIMIT },
+    );
+    routes.post('/setup/keys/remove', (request, session) => {
+      const body = (request.body ?? {}) as { runtime_id?: unknown; confirmed?: unknown };
+      return view.removeKey(body.runtime_id, body.confirmed, session);
+    });
+    routes.post('/setup/keys/cancel', (_request, session) => view.cancelKey(session));
   };
 }
 
