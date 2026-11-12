@@ -32,7 +32,8 @@ namespace Halcyonic.XR.Workspace
         // them (RoomBar.Frames); otherwise the older single column drew them and the readers never ran (ON-1 census).
         private bool SeparateWorkspace => setup.SpatialWorkspace && placement == null && !ShelfYieldsChooserAtLarger
             && (navigator.Beside is FileColumn || navigator.Beside is TaskResultsColumn || navigator.Beside is WorkspaceRequestColumn
-                || RoomDesign.Enabled && (navigator.Beside is NewProjectFlow || navigator.Beside is AgentColumn)
+                // Pairing beside the menu too, where its reader (RoomBar.Pairing) draws it (the census of 2026-11-12).
+                || RoomDesign.Enabled && (navigator.Beside is NewProjectFlow || navigator.Beside is AgentColumn || navigator.Beside is PairingColumn)
                 || navigator.Beside == null && (navigator.Place == MenuPlace.Projects || navigator.Place == MenuPlace.Tasks
                     // The menu (A4) under the redesign, where its reader draws it (2026-11-12 census); a page it has no reader for
                     // still falls back to the older view in the workspace, as Projects' does.
