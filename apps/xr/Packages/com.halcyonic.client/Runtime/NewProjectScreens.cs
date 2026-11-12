@@ -629,7 +629,7 @@ namespace Halcyonic.Client
             var nothingChosen = idea.Folder == null && currentFolder == null;
             lines.Add(new PageLine(EntryText.FolderFactRuns(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true),
                 action: ChooseFact, key: FactKey(RecapFact.Folder), opens: true, chosen: chosen == RecapFact.Folder));
-            lines.Add(new PageLine(RunsWithLevel(draft, live),
+            lines.Add(new PageLine(Runs(draft, live), fact: LevelOf(draft),
                 action: ChooseFact, key: FactKey(RecapFact.HowItRuns), opens: true, chosen: chosen == RecapFact.HowItRuns));
             // Start over, the last row, chosen like a fact, so it always stands in one place: on the last page.
             lines.Add(new PageLine(EntryText.StartOver, icon: GlazeIcon.StartOver, action: ChooseFact, key: FactKey(RecapFact.StartOver), opens: true,
@@ -682,7 +682,7 @@ namespace Halcyonic.Client
             lines.Add(new PageLine(LineWords.Ours(NewWorkReview.FirstTaskLabel) + LineWords.TheirName(idea.FirstTask),
                 fact: idea.TaskSuggested ? LineWords.Ours(CompanionText.SuggestedShort) : null, rows: 2));
             lines.Add(new PageLine(EntryText.FolderFactRuns(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true)));
-            lines.Add(new PageLine(RunsWithLevel(draft, live)));
+            lines.Add(new PageLine(Runs(draft, live), fact: LevelOf(draft)));
             var footer = new Footer(Close(), rare: new Prompt(ChangeRecap, EntryText.Change, GlazeIcon.Change, safeInPlace: true),
                 farRight: new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true, available: problem == null, reason: problem,
                     safeInPlace: true));
@@ -732,13 +732,11 @@ namespace Halcyonic.Client
         /// choice alone; ADR 0043), after the agent app and model. A practice run asks nothing, so it names none, and
         /// nor does a recap with no agent app chosen yet.
         /// </summary>
-        public static LineWords RunsWithLevel(NewWorkDraft draft, bool live)
-        {
-            var runs = EntryText.RunsWithRuns(draft, live);
-            return draft.Runtime is RuntimeDescriptor runtime && !runtime.Synthetic
-                ? runs + LineWords.Ours(KitMomentWords.Dot + AgentColumn.LevelWords(draft.StartsNeverAsk))
-                : runs;
-        }
+        public static LineWords Runs(NewWorkDraft draft, bool live) => EntryText.RunsWithRuns(draft, live);
+
+        /// <summary>The level the start will use, as the row's own fact beside how it runs, never joined on a dot (AUDIT's MUST 4); none for a practice run.</summary>
+        public static LineWords? LevelOf(NewWorkDraft draft) =>
+            draft.Runtime is RuntimeDescriptor runtime && !runtime.Synthetic ? LineWords.Ours(AgentColumn.LevelWords(draft.StartsNeverAsk)) : (LineWords?)null;
 
         /// <summary>
         /// What the redesign's recap lets a person change, each an action that opens its own page as the recap's rows did:

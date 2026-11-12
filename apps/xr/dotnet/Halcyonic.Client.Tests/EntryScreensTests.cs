@@ -95,8 +95,10 @@ public class EntryScreensTests
             "Task Name · Add a search page.",
             "Agent App · Local\\u{200B} agent",
             // The level the start will use, after the model (a real runtime; this draft asks).
-            "Model · ollama/qwen · Ask First",
-            "Model Location · On Your Computer · Uses Tools",
+            "Model · ollama/qwen",
+            "Level · Ask First",
+            "Model Location · On Your Computer",
+            "Tool Use · Uses Tools",
             "Model ID · ollama/qwen",
             "First Task · Add a search page.",
         }), "every name spelled once, by the review");
