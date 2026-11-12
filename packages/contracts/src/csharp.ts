@@ -232,14 +232,17 @@ class CSharpGenerator {
         return value('bool');
       case 'array': {
         const item = this.#resolve(schema.items as Schema, `${context}Item`);
-        return reference(`List<${spell(item)}>`);
+        return reference(`global::System.Collections.Generic.List<${spell(item)}>`);
       }
       case 'object':
-        if (schema.patternProperties !== undefined) return reference('Dictionary<string, JToken>');
+        if (schema.patternProperties !== undefined)
+          return reference(
+            'global::System.Collections.Generic.Dictionary<string, global::Newtonsoft.Json.Linq.JToken>',
+          );
         this.#declareClass(name, schema, null);
         return reference(name);
       case undefined:
-        return reference('JToken');
+        return reference('global::Newtonsoft.Json.Linq.JToken');
       default:
         throw new Error(`${context}: unsupported schema type ${String(schema.type)}`);
     }
@@ -263,10 +266,13 @@ class CSharpGenerator {
     }
     this.#lines.push(
       '',
-      '    [JsonConverter(typeof(StringEnumConverter))]',
+      '    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]',
       `    public enum ${name}`,
       '    {',
-      ...members.map((member) => `        [EnumMember(Value = "${member.wire}")] ${member.name},`),
+      ...members.map(
+        (member) =>
+          `        [global::System.Runtime.Serialization.EnumMember(Value = "${member.wire}")] ${member.name},`,
+      ),
       '    }',
     );
   }
@@ -325,12 +331,12 @@ class CSharpGenerator {
     const inherited = new Set([naming.discriminator, ...shared.map((member) => member.wire)]);
     this.#lines.push(
       '',
-      `    [JsonConverter(typeof(${name}Converter))]`,
+      `    [global::Newtonsoft.Json.JsonConverter(typeof(${name}Converter))]`,
       `    public abstract class ${name}`,
       '    {',
       ...joinBlocks([
         [
-          `        [JsonProperty("${naming.discriminator}", Order = -2)]`,
+          `        [global::Newtonsoft.Json.JsonProperty("${naming.discriminator}", Order = -2)]`,
           `        public string ${discriminator} => Discriminator;`,
         ],
         ['        protected abstract string Discriminator { get; }'],
@@ -448,11 +454,13 @@ function converter(
 function renderMember(member: Member): string[] {
   if (member.optional) {
     return [
-      `        [JsonProperty("${member.wire}", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]`,
+      `        [global::Newtonsoft.Json.JsonProperty("${member.wire}", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]`,
       `        public ${spell(member.type)} ${member.name} { get; set; }`,
     ];
   }
-  const required = member.type.nullable ? 'Required.AllowNull' : 'Required.Always';
+  const required = member.type.nullable
+    ? 'global::Newtonsoft.Json.Required.AllowNull'
+    : 'global::Newtonsoft.Json.Required.Always';
   let initializer = '';
   if (member.constant !== undefined) {
     initializer = ` = ${JSON.stringify(member.constant)};`;
@@ -462,7 +470,7 @@ function renderMember(member: Member): string[] {
       : ' = default!;';
   }
   return [
-    `        [JsonProperty("${member.wire}", Required = ${required})]`,
+    `        [global::Newtonsoft.Json.JsonProperty("${member.wire}", Required = ${required})]`,
     `        public ${spell(member.type)} ${member.name} { get; set; }${initializer}`,
   ];
 }
