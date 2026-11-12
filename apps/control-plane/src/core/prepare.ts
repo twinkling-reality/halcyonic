@@ -79,6 +79,16 @@ const MAX_LENGTH = new Map<string, number>(
   ),
 );
 
+/** A name as a folder may be named: letters, digits, dots, dashes and underscores, at most 64, from a letter or digit. */
+export function folderNameOf(name: string): string {
+  return name
+    .normalize('NFKD')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/^[^A-Za-z0-9]+/, '')
+    .slice(0, 64)
+    .replace(/[-.]+$/, '');
+}
+
 /** The payload fields each command's schema requires, from its own definition. */
 const REQUIRED = new Map<string, ReadonlySet<string>>(
   COMMAND_VARIANTS.map((variant) => [
@@ -180,7 +190,21 @@ export async function prepareCommand(
             );
           values.push(held.value);
         }
-        payload[name] = field.need === 'choice' ? values[0] : values;
+        let chosen: unknown = field.need === 'choice' ? values[0] : values;
+        // A part the host completes from another need (a new folder's name from the project's).
+        if (field.completes !== undefined && typeof chosen === 'object' && chosen !== null) {
+          const completed: Record<string, unknown> = { ...(chosen as Record<string, unknown>) };
+          for (const [key, from] of Object.entries(field.completes)) {
+            if (completed[key] !== undefined) continue;
+            const source = given.values[from];
+            const folder = typeof source === 'string' ? folderNameOf(source) : '';
+            if (folder === '')
+              return refuse('invalid_state', `${field.label} needs a name to make a folder of.`);
+            completed[key] = folder;
+          }
+          chosen = completed;
+        }
+        payload[name] = chosen;
         break;
       }
       // Typed on its own, never given through this path, and never said (R6).

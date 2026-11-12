@@ -234,3 +234,62 @@ test('a project’s own commands are chosen by their places in the list, each wi
     { name: 'test', command_sha256: commandSha256('node --test') },
   ]);
 });
+
+test('a new project’s folder is chosen by its place in the list, a new one named from the project’s name, a used one never offered', async (t) => {
+  const { mkdirSync, mkdtempSync, realpathSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { createHostLocations } = await import('../locations.ts');
+  const { createTestControlPlane } = await import('../testing/harness.ts');
+  const { folderNameOf } = await import('./prepare.ts');
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-prepare-folders-')));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'taken'));
+  mkdirSync(join(root, 'free'));
+  const { controlPlane, commands } = createTestControlPlane({
+    locations: createHostLocations([root]),
+  });
+  controlPlane.commands.submit(
+    commands.createProject('Taken', { kind: 'existing_folder', root, folder_name: 'taken' }),
+    'internal',
+  );
+  const scope = { project_id: null, workstream_id: null, execution_id: null } as HereScope;
+  const folders = await controlPlane.commands.choices(scope, 'folders');
+  assert.ok(folders !== null);
+  assert.deepEqual(
+    folders.rows.map((r) => [r.index, r.kind, r.detail, r.actions.includes('project.create')]),
+    [
+      [0, 'folder', 'A new folder here', true],
+      [1, 'folder', folders.rows[1]?.detail ?? '', true],
+    ],
+  );
+  assert.equal(folders.rows[1]?.label, 'free', 'the folder a project uses is never offered');
+  const prepare = (values: Record<string, string | number>) =>
+    controlPlane.commands.prepare({
+      scope,
+      command_type: 'project.create',
+      values,
+      read: { folders: folders.digest },
+      command_id: randomUUID() as CommandId,
+      issued_at: '2026-11-12T08:40:00.000Z',
+      client: TEST_CLIENT,
+    });
+  const fresh = await prepare({ name: 'Night Sky: the game', location: 0 });
+  assert.ok(fresh.ok, fresh.ok ? '' : fresh.message);
+  assert.deepEqual((fresh.command.payload as { location?: unknown }).location, {
+    kind: 'new_folder',
+    root,
+    folder_name: 'Night-Sky-the-game',
+  });
+  const existing = await prepare({ name: 'Free', location: 1 });
+  assert.ok(existing.ok, existing.ok ? '' : existing.message);
+  assert.deepEqual((existing.command.payload as { location?: unknown }).location, {
+    kind: 'existing_folder',
+    root,
+    folder_name: 'free',
+  });
+  const nameless = await prepare({ name: '!!!', location: 0 });
+  assert.ok(!nameless.ok, 'a name with nothing a folder may hold makes no folder');
+  assert.equal(folderNameOf('  café au lait  '), 'cafe-au-lait');
+  assert.equal(folderNameOf('x'.repeat(80)).length, 64);
+});

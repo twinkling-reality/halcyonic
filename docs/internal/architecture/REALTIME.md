@@ -208,8 +208,11 @@ client                                   server
     as the pictures read finds them, each given to an instruction as `{path, kind: 'image'}`), and `models` (every
     model of every runtime that lists its own, each row's `detail` naming its runtime; the start's admission and
     the runtime check the pair against a fresh list), and `own_check_scripts` (each script by name with its command
-    as read now; the choice carries the command's digest). `folders` (a new project's place and name together)
-    and `catalog` answer 404 `read_unavailable` until they are read by index.
+    as read now; the choice carries the command's digest), and `folders` (first a new folder in each available root,
+    then the roots' folders no project uses, newest change first; a used folder is never offered, and New Project's
+    new folder takes its name from the project's, made folder-safe by the host as
+    the field's `completes` in `COMMAND_FIELDS` says). `catalog` answers 404 `read_unavailable` until it is read by
+    index.
   - One preparation (`CommandService.prepare`) builds a command from `{scope, command_type, values, read}` for a
     person's press and the assistant's proposal alike: only a command the scope offers now; the scope's ids and the
     host's fills (`options: {}`); each need's value, a choice by its index in a list whose digest is still the one

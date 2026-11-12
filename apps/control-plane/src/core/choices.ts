@@ -5,6 +5,7 @@ import type {
   ChoiceRowKind,
   CommandType,
   HereScope,
+  LocationsResponse,
   OwnCheckScript,
   ProjectPicture,
   RuntimeDescriptor,
@@ -30,6 +31,8 @@ export interface ChoiceSources {
   readonly pictures: (folder: string) => Promise<readonly ProjectPicture[]>;
   /** The models a runtime that lists them can use now, from its own list, or none when it cannot say. */
   readonly models: (runtime: RuntimeDescriptor) => Promise<readonly RuntimeModel[]>;
+  /** Where projects may live: the host's roots and the folders directly inside them, read now. */
+  readonly locations: () => LocationsResponse;
   /** The commands of a project's own that may be its check, as the own check's find reads them, or null. */
   readonly scripts: (projectId: string) => Promise<readonly OwnCheckScript[] | null>;
 }
@@ -226,8 +229,49 @@ export async function choiceRows(
         ),
       );
     }
-    // Not offered by index yet: where a new project goes (a folder and its name together), and the catalog.
-    case 'folders':
+    case 'folders': {
+      // A new folder in each root first (its name comes from the project's, completed by the host), then
+      // the roots' folders no project uses, newest change first. A used folder is never offered.
+      const rows: HeldRow[] = [];
+      const roots = sources.locations().roots.filter((root) => root.status === 'available');
+      for (const root of roots)
+        rows.push(
+          row(
+            rows.length,
+            'folder',
+            root.label ?? root.name,
+            { kind: 'new_folder', root: root.path },
+            {
+              detail: 'A new folder here',
+              theirs: true,
+              actions: ['project.create'],
+            },
+          ),
+        );
+      const free = roots
+        .flatMap((root) =>
+          root.folders
+            .filter((folder) => folder.used_by.length === 0)
+            .map((folder) => ({ root, folder })),
+        )
+        .sort((a, b) => ((a.folder.changed_at ?? '') < (b.folder.changed_at ?? '') ? 1 : -1));
+      for (const { root, folder } of free)
+        rows.push(
+          row(
+            rows.length,
+            'folder',
+            folder.name,
+            { kind: 'existing_folder', root: root.path, folder_name: folder.name },
+            {
+              detail: root.label ?? root.name,
+              theirs: true,
+              actions: ['project.create', 'project.set_location'],
+            },
+          ),
+        );
+      return rows;
+    }
+    // Not offered by index yet: the catalog.
     case 'catalog':
       return null;
     default: {
