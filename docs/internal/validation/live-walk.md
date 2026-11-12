@@ -10,7 +10,7 @@
   the Editor"). Each step it takes words where a keyboard is open, a control that asks for words where none were
   given, else the screen's main action, else a drawn control or row it has not tried; where the redesign draws
   nothing it says what the frame of record offers.
-- **Status:** One journey walked; the rest wait on it.
+- **Status:** Two journeys walked through what is drawn on the newcomer fix; seeing and keeping changes not reached.
 
 ## What it found (run live-5)
 
@@ -23,6 +23,22 @@ sentence and press Enter where a session already runs.
 
 The approval, the result, the changes and keeping them were not reached, so their counts are not measured yet. The
 mock works in no folder: seeing and keeping changes needs a folder runtime on the local model.
+
+## With the newcomer fix (run live-9, 2026-11-12)
+
+On XR's fd277f8ee and FIELD's d9c84c646 together, not yet on main (the one agent app taken for the person; the
+recap draws Start Building), the first full journey went through what is drawn, beside a desk's:
+
+| Journey | Headset | Desk |
+| --- | --- | --- |
+| Start a project | 6 presses and 1 typed sentence: New Project, Type Idea, the idea, the forward step, Start Building, Next Part, Confirm | 2 |
+| Answer an approval | 2: Approve, then Confirm behind its lock | 1 |
+| Read the result | 0: the task's file stands open | 0 |
+| See what changed | not reached: nothing drawn leads there, the walk opened it | 1 |
+| Keep it | not offered: the mock changes no folder | 0 to 1 |
+
+The review pages after Start Building (Next Part, Confirm) draw the older views beside the new ones, and the waiting
+approval is reached by nothing drawn: the walk opened it.
 
 ## Consequences
 
