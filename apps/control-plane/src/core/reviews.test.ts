@@ -249,3 +249,91 @@ test("a first Send's one review names the repository it makes and who can see it
     'what the press sends is in the digest',
   );
 });
+
+test('a version row offers only what it can do: one holding a task’s work never added starts no task (LOOP’s run)', async () => {
+  const { controlPlaneDraft: draft, NO_CAUSE } = await import('./drafts.ts');
+  mkdirSync(join(root, 'versions-app'), { recursive: true });
+  const { controlPlane, commands } = createTestControlPlane({
+    locations: createHostLocations([root]),
+  });
+  const made = controlPlane.commands.submit(
+    commands.createProject('Versions', {
+      kind: 'existing_folder',
+      root,
+      folder_name: 'versions-app',
+    }),
+    'internal',
+  );
+  const projectId = (
+    made.command?.result?.kind === 'project_created' ? made.command.result.project_id : ''
+  ) as ProjectId;
+  const task = controlPlane.commands.submit(
+    commands.createWorkstream(projectId, { title: 'Copy', objective: null } as never),
+    'internal',
+  );
+  const workstreamId =
+    task.command?.result?.kind === 'workstream_created' ? task.command.result.workstream_id : '';
+  const at = '2026-11-12T06:50:00.000Z' as never;
+  const taskScope = {
+    project_id: projectId,
+    workstream_id: workstreamId,
+    execution_id: null,
+  } as never;
+  const copy = join(root, 'copy-of-app');
+  controlPlane.recorder.record(
+    draft(
+      'workstream.copy_made',
+      taskScope,
+      { directory: copy, base_tree: 'a'.repeat(64), files: 1 },
+      at,
+      NO_CAUSE,
+    ),
+  );
+  const executionId = '01920000-0000-7000-8000-00000000c0de';
+  controlPlane.recorder.record(
+    draft(
+      'execution.created',
+      { project_id: projectId, workstream_id: workstreamId, execution_id: executionId } as never,
+      {
+        runtime: { runtime_id: 'mock', kind: 'mock', display_name: 'Mock', synthetic: true },
+        instruction: 'Work.',
+        directory: copy,
+      } as never,
+      at,
+      NO_CAUSE,
+    ),
+  );
+  controlPlane.recorder.record(
+    draft(
+      'project.checkpoint.recorded',
+      { project_id: projectId, workstream_id: null, execution_id: null },
+      {
+        checkpoint_id: '01920000-0000-7000-8000-00000000c0df',
+        reason: 'after_turn',
+        execution_id: executionId,
+        tree: 'b'.repeat(64),
+        files: 1,
+        project_head: null,
+      } as never,
+      at,
+      NO_CAUSE,
+    ),
+  );
+  const scope = { project_id: projectId, workstream_id: null, execution_id: null };
+  const versions = await controlPlane.commands.choices(scope, 'versions');
+  assert.ok(versions !== null && versions.rows.length === 1);
+  assert.ok(
+    !versions.rows[0]?.actions.includes('workstream.create'),
+    'no task starts from a version holding work never added',
+  );
+  const prepared = await controlPlane.commands.prepare({
+    scope,
+    command_type: 'workstream.create',
+    values: { title: 'From then', from_checkpoint: 0 } as never,
+    read: { versions: versions.digest },
+    command_id: randomUUID() as CommandId,
+    issued_at: '2026-11-12T06:50:00.000Z',
+    client: TEST_CLIENT,
+  });
+  assert.ok(!prepared.ok, 'and the preparation refuses that row for it');
+});

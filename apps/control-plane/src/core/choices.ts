@@ -117,8 +117,8 @@ export async function choiceRows(
         );
     case 'approval_levels':
       return [
-        row(0, 'approval_level', 'Ask First', 'ask'),
-        row(1, 'approval_level', 'Never Ask', 'never_ask'),
+        row(0, 'approval_level', 'Ask First', 'ask', { actions: ['execution.start'] }),
+        row(1, 'approval_level', 'Never Ask', 'never_ask', { actions: ['execution.start'] }),
       ];
     case 'share_ways':
       if (project === undefined) return null;
@@ -152,7 +152,10 @@ export async function choiceRows(
       );
     case 'decisions':
       if (facts === undefined) return null;
-      return [row(0, 'decision', 'Approve', 'approve'), row(1, 'decision', 'Deny', 'deny')];
+      return [
+        row(0, 'decision', 'Approve', 'approve', { actions: ['execution.respond_to_approval'] }),
+        row(1, 'decision', 'Deny', 'deny', { actions: ['execution.respond_to_approval'] }),
+      ];
     case 'questions':
       if (facts === undefined) return null;
       return facts.pendingQuestions.map((question, index) =>
@@ -161,7 +164,11 @@ export async function choiceRows(
           'question',
           question.prompts[0]?.header ?? question.prompts[0]?.text ?? 'Question',
           question.question_id,
-          { detail: question.prompts[0]?.text ?? null, theirs: true },
+          {
+            detail: question.prompts[0]?.text ?? null,
+            theirs: true,
+            actions: ['execution.answer_question'],
+          },
         ),
       );
     case 'pictures': {
