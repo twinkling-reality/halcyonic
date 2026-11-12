@@ -234,7 +234,11 @@ client                                   server
     word the host's, kinds from `ReviewKind`. One reader per command type: Send and Publish read through the same
     functions their routes answer with, Restore through its preview, Add from the task's copy's reading, Change
     Folder, Project Rules, Share and Choose Check from their own facts. The digest is the one the button's own
-    review gives (ADR 0051), so a command carrying it back is admitted exactly as from a button.
+    review gives (ADR 0051), so a command carrying it back is admitted exactly as from a button. Add's review warns
+    (`provider_declaration`) for each changed file that is a hosted provider's declaration the host would read
+    (ADR 0061): a new address its key goes to, a key kept or sent another way, a provider added or removed; where
+    more files changed than were listed, it says a provider among them is not looked for
+    (`provider_declaration_unread`).
   - Take Down is one press (R1): the preparation fills its `commit` from the host's own record of what it
     published, never from a proposer, and its admission refuses one published again since. Remove Secret is
     reviewed (`review_required`, confirm `review`), since its value cannot be brought back; Save a Copy is done on

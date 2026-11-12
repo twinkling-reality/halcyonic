@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type {
   ActionReview,
   ActionReviewItem,
+  ActionReviewWarning,
   ChangedFiles,
   CheckpointId,
   CommandEnvelope,
@@ -13,6 +16,8 @@ import type {
   SendReviewResponse,
 } from '@halcyonic/contracts';
 import { COMMAND_FIELDS } from '@halcyonic/domain';
+import type { HostedProvider } from '@halcyonic/runtime-core';
+import { declarationProblem } from '../providers.ts';
 import { sendTitle } from '../sending/github.ts';
 import type { ControlPlane } from './control-plane.ts';
 import { readRules, rulesReview } from './project-rules.ts';
@@ -129,6 +134,72 @@ const files = (changed: ChangedFiles): { items: ActionReviewItem[]; total: numbe
   })),
   total: changed.total,
 });
+
+/** A path that is a hosted provider's declaration, as the host reads them (ADR 0061). */
+const DECLARATION = /^(?:.*\/)?providers\/([a-z][a-z0-9_-]{0,31})\/provider\.json$/;
+
+/** A declaration's contents at `path`, or null where there is none or it is not one the host would read. */
+function declarationAt(path: string, id: string): HostedProvider | null {
+  try {
+    const raw: unknown = JSON.parse(readFileSync(path, 'utf8'));
+    return declarationProblem(id, raw) === null ? (raw as HostedProvider) : null;
+  } catch {
+    return null;
+  }
+}
+
+const hostOf = (upstream: string): string => {
+  try {
+    return new URL(upstream).host;
+  } catch {
+    return upstream;
+  }
+};
+
+/**
+ * What adding a task's files would do to where a stored key goes (AUDIT2 N1): each changed file that is a
+ * provider's declaration says so in plain words, above all a new address or a key kept or sent another way.
+ * A host that reads the project's folder as its own declarations sends keys by it at its next start.
+ */
+export function providerWarnings(
+  changed: ChangedFiles,
+  copy: string,
+  project: string | null,
+): ActionReviewWarning[] {
+  const warnings: ActionReviewWarning[] = [];
+  for (const file of changed.files) {
+    const id = DECLARATION.exec(file.path)?.[1];
+    if (id === undefined) continue;
+    const after = file.change === 'removed' ? null : declarationAt(join(copy, file.path), id);
+    const before = project === null ? null : declarationAt(join(project, file.path), id);
+    if (after === null && before === null) continue;
+    const line = (words: string) => ({
+      code: 'provider_declaration',
+      line: `${words} (${file.path})`.slice(0, 200),
+    });
+    if (before === null && after !== null)
+      warnings.push(line(`Adds where a key goes: ${after.name} at ${hostOf(after.upstream)}`));
+    else if (after === null && before !== null)
+      warnings.push(line(`Removes the ${before.name} provider`));
+    else if (before !== null && after !== null) {
+      if (after.upstream !== before.upstream)
+        warnings.push(
+          line(
+            `Sends the ${after.name} key to ${hostOf(after.upstream)}, not ${hostOf(before.upstream)}`,
+          ),
+        );
+      else if (JSON.stringify(after.key) !== JSON.stringify(before.key))
+        warnings.push(line(`Changes how the ${after.name} key is kept or sent`));
+      else warnings.push(line(`Changes the ${after.name} provider`));
+    }
+  }
+  if (changed.total > changed.files.length)
+    warnings.push({
+      code: 'provider_declaration_unread',
+      line: 'More files changed than were listed, so a provider among them is not looked for',
+    });
+  return warnings;
+}
 
 const paths = (list: PathList, kind: ReviewKind): ActionReviewItem[] =>
   list.paths.map((path) => ({ kind, name: path, note: null, theirs: true }));
@@ -362,7 +433,12 @@ export async function buildReview(
         facts: [],
         items: listed.items,
         items_total: listed.total,
-        warnings: [],
+        warnings: providerWarnings(
+          copy.to_add_files,
+          copy.directory,
+          projection.project(projection.workstream(command.payload.workstream_id)?.project_id ?? '')
+            ?.location?.path ?? null,
+        ),
       });
     }
     case 'project.share.start': {

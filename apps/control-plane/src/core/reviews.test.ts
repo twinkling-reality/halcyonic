@@ -337,3 +337,97 @@ test('a version row offers only what it can do: one holding a task’s work neve
   });
   assert.ok(!prepared.ok, 'and the preparation refuses that row for it');
 });
+
+test("Add to Project's review names a change to a provider's declaration, above all where its key goes (AUDIT2 N1)", async (t) => {
+  const { mkdirSync, mkdtempSync, rmSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { providerWarnings } = await import('./reviews.ts');
+  const base = mkdtempSync(join(tmpdir(), 'halcyonic-provider-review-'));
+  t.after(() => rmSync(base, { recursive: true, force: true }));
+  const declaration = (id: string, name: string, upstream: string, file = `${id}-key`) =>
+    JSON.stringify({
+      format: 1,
+      id,
+      name,
+      upstream,
+      speaks: ['chat_completions'],
+      key: {
+        file,
+        variable: 'K',
+        field: 'Key',
+        header: { name: 'Authorization', scheme: 'Bearer' },
+      },
+      models: ['m'],
+    });
+  const put = (root: string, path: string, body: string) => {
+    mkdirSync(join(root, path, '..'), { recursive: true });
+    writeFileSync(join(root, path), body);
+  };
+  const project = join(base, 'project');
+  const copy = join(base, 'copy');
+  put(
+    project,
+    'providers/alpha/provider.json',
+    declaration('alpha', 'Alpha', 'https://a.example/v1'),
+  );
+  put(
+    copy,
+    'providers/alpha/provider.json',
+    declaration('alpha', 'Alpha', 'https://elsewhere.example/v1'),
+  );
+  put(
+    project,
+    'providers/gamma/provider.json',
+    declaration('gamma', 'Gamma', 'https://g.example/v1'),
+  );
+  put(
+    project,
+    'providers/delta/provider.json',
+    declaration('delta', 'Delta', 'https://d.example/v1'),
+  );
+  put(
+    copy,
+    'providers/delta/provider.json',
+    declaration('delta', 'Delta', 'https://d.example/v1', 'other'),
+  );
+  put(copy, 'providers/beta/provider.json', declaration('beta', 'Beta', 'https://b.example/v1'));
+  put(copy, 'providers/notes/provider.json', '{"not": "a declaration"}');
+  put(copy, 'src/app.ts', 'export {};');
+  const warnings = providerWarnings(
+    {
+      files: [
+        { path: 'providers/alpha/provider.json', change: 'changed' },
+        { path: 'providers/beta/provider.json', change: 'added' },
+        { path: 'providers/gamma/provider.json', change: 'removed' },
+        { path: 'providers/delta/provider.json', change: 'changed' },
+        { path: 'providers/notes/provider.json', change: 'added' },
+        { path: 'src/app.ts', change: 'added' },
+      ],
+      total: 6,
+    } as never,
+    copy,
+    project,
+  );
+  assert.deepEqual(
+    warnings.map((warning) => warning.line),
+    [
+      'Sends the Alpha key to elsewhere.example, not a.example (providers/alpha/provider.json)',
+      'Adds where a key goes: Beta at b.example (providers/beta/provider.json)',
+      'Removes the Gamma provider (providers/gamma/provider.json)',
+      'Changes how the Delta key is kept or sent (providers/delta/provider.json)',
+    ],
+    'a file that is no declaration the host would read, and any other file, says nothing',
+  );
+  assert.ok(warnings.every((warning) => warning.code === 'provider_declaration'));
+  const truncated = providerWarnings(
+    { files: [{ path: 'src/app.ts', change: 'added' }], total: 900 } as never,
+    copy,
+    project,
+  );
+  assert.deepEqual(
+    truncated.map((warning) => warning.code),
+    ['provider_declaration_unread'],
+    'unknown stays unknown: more files changed than were listed',
+  );
+});

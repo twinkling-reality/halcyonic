@@ -69,4 +69,6 @@ four edits, and a third meant four more.
 - The vendor's words, its address and its key's names live only in its own folder.
 - Every key file is a held secret by declaration. A reader that reads a key at its start says so, and Add Key then
   asks for a restart. Add Key offers no card for a provider nothing here reads, since its key would do nothing.
+- A declaration is a file a task can change. Add to Project's review names each changed declaration and,
+  above all, a new address for its key (AUDIT2 N1, 2026-11-12), so it is never added unseen.
 - Revisit when a provider needs something a declaration cannot state, such as a sign-in that is not a key.
