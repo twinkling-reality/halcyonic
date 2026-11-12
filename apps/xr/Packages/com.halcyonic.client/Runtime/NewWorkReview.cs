@@ -24,6 +24,10 @@ namespace Halcyonic.Client
         FirstTask,
         /// <summary>A note beside the first task of what it names that the person should check (<see cref="TaskWarnings"/>).</summary>
         Warning,
+        /// <summary>The level the start will use, its own row (never joined to the model's name on a dot).</summary>
+        Level,
+        /// <summary>Whether the model says it can use tools, its own row (never joined to where it runs on a dot).</summary>
+        ModelTools,
     }
 
     /// <summary>One entry of the review: Halcyonic's own label, and the value it names, spelled in ASCII.</summary>
@@ -161,7 +165,8 @@ namespace Halcyonic.Client
         /// Halcyonic's; outside text, raw, spelled here and leaning.
         /// </summary>
         public NewWorkReview(string project, string title, LineWords runtime, LineWords model, LineWords modelFacts, LineWords modelRef, string objective,
-            LineWords? folder = null, LineWords? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null, bool neverAsk = false)
+            LineWords? folder = null, LineWords? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null, bool neverAsk = false,
+            LineWords? level = null, LineWords? tools = null)
         {
             NeverAsk = neverAsk;
             FolderChoice = folderChoice == null ? null : HalcyonicJson.Serialize(folderChoice);
@@ -175,7 +180,9 @@ namespace Halcyonic.Client
             items.Add(new ReviewItem("Task Name · ", LineWords.Shown(Safe(title) + (titleCut ? "…" : "")), ReviewItemKind.TaskName));
             Add("Agent App · ", runtime, ReviewItemKind.AgentApp);
             Add("Model · ", model, ReviewItemKind.Model);
+            if (level is LineWords asks) Add("Level · ", asks, ReviewItemKind.Level);
             Add("Model Location · ", modelFacts, ReviewItemKind.ModelLocation);
+            if (tools is LineWords uses) Add("Tool Use · ", uses, ReviewItemKind.ModelTools);
             Add(ModelIdLabel, modelRef, ReviewItemKind.ModelId);
             Add(FirstTaskLabel, objective, ReviewItemKind.FirstTask);
             // Beside the first task, before Yes: what it names that the person should check (TaskWarnings).

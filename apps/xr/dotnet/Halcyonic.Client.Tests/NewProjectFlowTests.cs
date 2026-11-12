@@ -2836,21 +2836,24 @@ public class NewProjectFlowTests
         return runtime;
     }
 
-    [TestCase(true, true, " · Never Ask")]
-    [TestCase(false, true, " · Ask First")]
-    [TestCase(true, false, " · Ask First")]
-    [TestCase(true, null, " · Ask First")]
+    [TestCase(true, true, "Never Ask")]
+    [TestCase(false, true, "Ask First")]
+    [TestCase(true, false, "Ask First")]
+    [TestCase(true, null, "Ask First")]
     public void The_recaps_row_and_the_reviews_Model_row_name_the_level_the_start_will_use(bool chosen, bool? offered, string level)
     {
         var draft = new NewWorkDraft(Commands);
         draft.Objective = "A page of race times for my running club";
         draft.ChooseRuntime(Offering(offered));
         draft.NeverAsk = chosen;
-        Assert.That(NewProjectScreens.RunsWithLevel(draft, live: true).Text, Does.EndWith(level), "the recap's row");
+        // AUDIT's MUST 4 (2026-11-12): label, value and kind apart, never facts joined on a dot: the level is its own fact.
+        Assert.That(NewProjectScreens.LevelOf(draft)?.Text, Is.EqualTo(level), "the recap's row names the level as its own fact");
+        Assert.That(NewProjectScreens.Runs(draft, live: true).Text, Does.Not.Contain(KitMomentWords.Dot.Trim()));
         var idea = new ProjectIdea();
         var review = EntryScreens.ReviewOf(idea, draft, null, live: true);
-        var model = review.Items.Single(item => item.Label == "Model · ");
-        Assert.That(model.Value, Does.EndWith(level), "the review's Model row");
+        Assert.That(review.Items.Single(item => item.Kind == ReviewItemKind.Level).Value, Is.EqualTo(level), "the review's own Level row");
+        Assert.That(review.Items.Where(item => item.Kind != ReviewItemKind.Warning).Select(item => item.Value), Has.None.Contains(KitMomentWords.Dot.Trim()),
+            "no review value joins facts on a dot");
         Assert.That(review.NeverAsk, Is.EqualTo(draft.StartsNeverAsk), "the row and the level the start is confirmed at are one");
     }
 
@@ -2861,7 +2864,7 @@ public class NewProjectFlowTests
         draft.Objective = "A page of race times for my running club";
         draft.ChooseRuntime(Samples.MockRuntime());
         draft.NeverAsk = true;
-        Assert.That(NewProjectScreens.RunsWithLevel(draft, live: true).Text, Does.Not.Contain("Ask"));
+        Assert.That(NewProjectScreens.LevelOf(draft), Is.Null);
         var model = EntryScreens.ReviewOf(new ProjectIdea(), draft, null, live: true).Items.Single(item => item.Label == "Model · ");
         Assert.That(model.Value, Does.Not.Contain("Ask"));
     }
@@ -2915,10 +2918,10 @@ public class NewProjectFlowTests
     {
         var host = new Host { VoiceOffered = false };
         var flow = OnOffering(host);
-        Assert.That(Words(flow).Any(words => words.EndsWith(" · Never Ask", StringComparison.Ordinal)), "the recap's row: " + string.Join(" | ", Words(flow)));
+        Assert.That(flow.Frame!.Lines.Any(line => line.Fact == "Never Ask"), "the recap's row: " + string.Join(" | ", Words(flow)));
         Press(flow, NewProjectScreens.StartBuilding, null);
         Assert.That(flow.Review!.NeverAsk, Is.True, "the review is made at the level the recap named");
-        Assert.That(flow.Review!.Items.Single(item => item.Label == "Model · ").Value, Does.EndWith(" · Never Ask"));
+        Assert.That(flow.Review!.Items.Single(item => item.Kind == ReviewItemKind.Level).Value, Is.EqualTo("Never Ask"));
         Assert.That(host.Sent, Is.Empty);
     });
 
@@ -2937,7 +2940,7 @@ public class NewProjectFlowTests
             Is.All.EqualTo(AnswerMark.Single), "the redesign draws them as answers with their marks");
         Press(flow, NewProjectScreens.ChooseLevel, AgentColumn.Ask);
         Assert.That(Actions(flow), Is.Empty, "kept at once: back on the facts");
-        Assert.That(Words(flow).Any(words => words.EndsWith(" · Ask First", StringComparison.Ordinal)), "the recap's row reads the new level");
+        Assert.That(flow.Frame!.Lines.Any(line => line.Fact == "Ask First"), "the recap's row reads the new level");
         Press(flow, NewProjectScreens.StartBuilding, null);
         Assert.That(flow.Review!.NeverAsk, Is.False);
         // Starting over forgets the choice: the default stands again.
@@ -2953,7 +2956,7 @@ public class NewProjectFlowTests
     {
         var host = new Host { VoiceOffered = false };
         var flow = OnOffering(host, offers: null);
-        Assert.That(Words(flow).Any(words => words.EndsWith(" · Ask First", StringComparison.Ordinal)));
+        Assert.That(flow.Frame!.Lines.Any(line => line.Fact == "Ask First"));
         Press(flow, NewProjectScreens.ChangeRecap, null);
         Assert.That(Actions(flow), Has.None.EqualTo(NewProjectScreens.ChooseLevel));
         Press(flow, NewProjectScreens.BackToRecap, null);
@@ -2977,7 +2980,7 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.Done, null);
         Press(flow, NewProjectScreens.StartBuilding, null);
         Assert.That(flow.Review!.NeverAsk, Is.False, "the older pages do not show the level as the default needs, so it asks");
-        Assert.That(flow.Review!.Items.Single(item => item.Label == "Model · ").Value, Does.EndWith(" · Ask First"), "and the review says so");
+        Assert.That(flow.Review!.Items.Single(item => item.Kind == ReviewItemKind.Level).Value, Is.EqualTo("Ask First"), "and the review says so");
     }
 
     [Test]
