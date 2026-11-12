@@ -329,6 +329,7 @@ namespace Halcyonic.Client
             }
             draft.ProjectId = idea!.ExistingProjectId;
             ChooseKeptRuntime();
+            PreselectRuntime();
             ReadCompanion();
             // A kept folder's place is read again before it shows, since labels change with the places.
             if (idea.Folder != null && locationsRead == null) ReadFolders();
@@ -1803,6 +1804,25 @@ namespace Halcyonic.Client
             keptRuntime = null;
             if (wanted == null || draft.Runtime != null) return;
             if (host.State?.Runtimes.FirstOrDefault(each => each.RuntimeId == wanted) is RuntimeDescriptor runtime) draft.ChooseRuntime(runtime);
+        }
+
+        /// <summary>
+        /// The agent app taken for the person where the rule says so (<see cref="Preselection"/>): the one the computer offers,
+        /// else the one last used in this project, else anywhere. Shown chosen on the recap and changeable there; its models
+        /// are read, as a choice reads them, without opening their page.
+        /// </summary>
+        private void PreselectRuntime()
+        {
+            if (draft.Runtime != null || host.State is not ClientProjection state) return;
+            var ready = EntryText.RuntimeChoices(state.Runtimes);
+            var runs = state.Workstreams.Values.Select(task => (task, run: state.CurrentExecution(task))).Where(each => each.run != null)
+                .OrderByDescending(each => each.run!.StartedAt ?? each.run.CreatedAt, StringComparer.Ordinal).ToList();
+            RuntimeDescriptor? Of(ExecutionView run) => ready.FirstOrDefault(runtime => runtime.RuntimeId == run.Runtime.RuntimeId);
+            var here = runs.Where(each => draft.ProjectId != null && each.task.ProjectId == draft.ProjectId).Select(each => Of(each.run!)).OfType<RuntimeDescriptor>();
+            var anywhere = runs.Select(each => Of(each.run!)).OfType<RuntimeDescriptor>();
+            if (Preselection.Pick(ready, here, anywhere) is not RuntimeDescriptor runtime) return;
+            draft.ChooseRuntime(runtime);
+            if (runtime.ModelChoice == ModelChoice.Listed) ReadModels(runtime);
         }
 
         /// <summary>A model kept with the draft, chosen again once the runtime lists it, and only if it runs on the computer.</summary>

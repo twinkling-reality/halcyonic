@@ -837,6 +837,34 @@ public class NewProjectFlowTests
     /// A read of the folders or of the models that gets no reply before the headset gives up says it
     /// didn't answer, never staying on Reading…; giving up is not the page's own cancel.
     /// </summary>
+    /// <summary>
+    /// JUDGE's live walk (2026-11-12): with exactly one agent app on offer, nothing about it is asked. It is taken when New Project
+    /// opens, shown chosen and changeable, so the recap's Start Building stands the moment the idea is in; with two and none
+    /// used before, the person is asked as before.
+    /// </summary>
+    [Test]
+    public void WithOneAgentAppTheRecapCanStartTheMomentTheIdeaIsIn()
+    {
+        var host = new Host { State = WithRuntimes(Runtime("only")) };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+        var start = flow.Frame!.Footer.All.Select(each => each.Prompt).Single(prompt => prompt.Id == NewProjectScreens.StartBuilding);
+        Assert.That((start.Available, start.Reason), Is.EqualTo((true, (string?)null)), "nothing left to choose: Start Building stands");
+
+        var two = new Host { State = WithRuntimes(Runtime("one"), Runtime("other")) };
+        var asked = Flow(two);
+        asked.Open(null, null);
+        two.Typed.Enqueue("A page of race times for my running club");
+        Press(asked, NewProjectScreens.TypeIdea, null);
+        Press(asked, NewProjectScreens.UseIdea, null);
+        var waiting = asked.Frame!.Footer.All.Select(each => each.Prompt).Single(prompt => prompt.Id == NewProjectScreens.StartBuilding);
+        Assert.That((waiting.Available, waiting.Reason), Is.EqualTo((false, (string?)EntryText.ChooseHowItRuns)), "two and none used before: asked");
+    }
+
     [Test]
     public async Task ARequestThatTimesOutSaysItDidntAnswer()
     {
