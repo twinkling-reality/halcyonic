@@ -34,7 +34,57 @@ namespace Halcyonic.XR.Workspace.Editor
             "62-result-plan-ready", "62-result-not-kept",
             // SCREENS's instructions waiting for the turn to end (WaitingInstructions).
             "63-waiting-list", "63-waiting-page", "63-not-sent",
+            // SCREENS's one review card (ReviewCard), any command's review from a stand-in of the host's shape.
+            "65-review-add", "65-review-send", "65-review-send-next", "65-review-publish", "65-review-said",
         };
+
+        /// <summary>The one review card for a review state, from a synthetic host review (<see cref="ActionReview"/>).</summary>
+        private static (RoomCard Card, ActionReview Review, int Page) ReviewOf(string state)
+        {
+            ActionReviewItem Entry(ReviewKind kind, string path, string note) => new ActionReviewItem { Kind = kind, Name = path, Note = note, Theirs = true };
+            ActionReviewFact Fact(ReviewKind kind, string value) => new ActionReviewFact { Kind = kind, Value = value, Theirs = true };
+            ActionReview Review(CommandType command, string confirm, string line, List<ActionReviewFact>? facts = null, List<ActionReviewItem>? items = null,
+                List<ActionReviewWarning>? warnings = null, List<ActionReviewSaid>? said = null) => new ActionReview
+            {
+                CommandType = command, Digest = "sha256:" + new string('0', 64), ConfirmWords = confirm, WhatHappens = line,
+                Facts = facts ?? new List<ActionReviewFact>(), Items = items ?? new List<ActionReviewItem>(), ItemsTotal = items?.Count ?? 0,
+                Warnings = warnings ?? new List<ActionReviewWarning>(), Said = said ?? new List<ActionReviewSaid>(),
+            };
+            switch (state)
+            {
+                case "65-review-add":
+                {
+                    var add = Review(CommandType.WorkstreamAddToProject, "Add 3 Files", "Its work goes into the project, and you can undo it",
+                        facts: new List<ActionReviewFact> { Fact(ReviewKind.Folder, "kite-run") },
+                        items: new List<ActionReviewItem> { Entry(ReviewKind.FileChanged, "src/game/kite.js", "Edited"), Entry(ReviewKind.FileAdded, "src/game/tail.js", "New"), Entry(ReviewKind.FileRemoved, "src/game/old-wind.js", "Removed") });
+                    return (ReviewCard.Card(add, "Add to Project"), add, 0);
+                }
+                case "65-review-said":
+                {
+                    // Words given long enough to take more than one part, shown whole before the list and the press.
+                    var words = "Make the kite's tail longer and let it ripple in the wind, then give it six segments that each sway a little later than the one before, "
+                        + "so the tail reads as cloth and not as a stick. Keep the colours as they are, and add a short note to the README saying how the tail moves.";
+                    var said = Review(CommandType.WorkstreamCreate, "Start Task", "A new task starts in the project with these words",
+                        facts: new List<ActionReviewFact> { Fact(ReviewKind.Folder, "kite-run") }, said: new List<ActionReviewSaid> { new ActionReviewSaid { Label = "First Task", Words = words } });
+                    return (ReviewCard.Card(said, "New Task", 0, saidPages: 2), said, 0);
+                }
+                case "65-review-publish":
+                {
+                    var publish = Review(CommandType.ProjectPublish, "Publish", "Your checked game goes online at a lasting address",
+                        warnings: new List<ActionReviewWarning> { new ActionReviewWarning { Code = "public", Line = "Anyone with its address can play it, even when its repository is private" } });
+                    return (ReviewCard.Card(publish, "Publish"), publish, 0);
+                }
+                default:
+                {
+                    var paths = new[] { "src/game/kite.js", "src/game/tail.js", "src/sky/clouds.js", "src/sky/wind.js", "assets/kite-paper.png", "README.md", "package.json" };
+                    var send = Review(CommandType.ProjectSend, "Send 7 Files", "Your files go to the project's repository as a new branch",
+                        facts: new List<ActionReviewFact> { Fact(ReviewKind.Repository, "glimmer/kite-run"), Fact(ReviewKind.Branch, "kite-tail-ripple") },
+                        items: paths.Select(path => Entry(ReviewKind.FileChanged, path, "Edited")).ToList());
+                    var page = state == "65-review-send-next" ? 1 : 0;
+                    return (ReviewCard.Card(send, "Send to Repository", page), send, page);
+                }
+            }
+        }
 
         /// <summary>The result's card for a run-start state (<see cref="RunStart"/>), as the room's result draws it.</summary>
         private static RoomCard RunStartCard(string state)
@@ -221,6 +271,21 @@ namespace Halcyonic.XR.Workspace.Editor
             var eyes = new Vector3(0f, EyeHeight, 0f);
             try
             {
+                if (state.StartsWith("65-", StringComparison.Ordinal))
+                {
+                    var (reviewCard, review, page) = ReviewOf(state);
+                    var reviewShot = CardShot(reviewCard, root.transform, eyes, name);
+                    var actions = ReviewCard.Actions(review, page, saidPages: 2);
+                    var mainId = CommandReview.Said(review).Count > 0 && page + 1 < ReviewCard.Parts(review, 2) ? ReviewCard.NextPart : ReviewCard.Confirm;
+                    if (actions.Count(action => action.Main) != 1 || actions[0].Id != mainId || (mainId == ReviewCard.Confirm && actions[0].Words != review.ConfirmWords))
+                        reviewShot.Failures.Add("the review's one main action is not its Confirm: " + string.Join(" / ", actions.Select(action => action.Words)));
+                    if (reviewCard.Words().Any(words => words.Contains(review.CommandType.ToString(), StringComparison.Ordinal)))
+                        reviewShot.Failures.Add("the card shows the command's type");
+                    failures.AddRange(reviewShot.Failures.Select(failure => name + ": " + failure));
+                    failures.AddRange(RenderShot(state, reviewShot, root, fixture, target, eyes, folder, name));
+                    Debug.Log("Halcyonic: file reading: " + name + " rendered: review, actions " + string.Join(" / ", actions.Select(action => action.Words + (action.Main ? "*" : ""))));
+                    return failures;
+                }
                 if (state.StartsWith("62-", StringComparison.Ordinal) || state.StartsWith("63-", StringComparison.Ordinal))
                 {
                     var started = RunStartCard(state);

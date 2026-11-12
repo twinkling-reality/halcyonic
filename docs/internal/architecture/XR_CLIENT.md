@@ -4604,6 +4604,21 @@ presence, contextual moment cards and the on-demand project screen:
   Not Kept to Folder, where the Mac gave a reason. Absent never reads as a plan nor as not kept; the reason's own sentence
   is not shown (it names the mechanism; FIELD to word a line). Plan Ready waits for the view's `plan_left`. Tests:
   `RunStartTests`; render check: `62-result-planning`, `62-result-not-kept` in `KitRender.FileChangeCheck`.
+- **The one review card (the lead's decision of 2026-11-12, R1; ADR 0060's review; SCREENS, `ReviewCard`)**: any command
+  whose confirm is a review is drawn by one card from the host's review (`ActionReview`, CORE's contract of ADR 0060: its digest, the one press's
+  words, a line of what happens, at most four facts, what it touches with the host's count of it all, and what to check
+  first), every word the host's. The card never reads which command it reviews: kinds map to the kit's marks through one
+  table (`ReviewKinds`, every member of `ReviewKind` listed; a kind with no glyph of its own has no mark, and a name a person types is set in mono). The entry's title
+  from the list of what can be done heads it, the line under it; "Check First" (attention) leads where the host warns;
+  the facts are slots; what it touches is the kit's list, five a part, with Next Part and Previous Part offered and never
+  on the way to the press; the last part counts what the host did not list ("And 2 More"). Where a model wrote what goes
+  out (`ActionReview.said`, the decision's 04:45Z amendment), those words come first and whole, each after the host's
+  label, leaning as outside text, in the kit's paged description, and Confirm stands on the last part only. What goes out
+  is shown exactly, character for character, never trimmed, unquoted or collapsed (the lead's 12:42Z): the words given and
+  every name of theirs are spelled by the start's review's own rule (`NewWorkReview.Safe`). The actions:
+  the host's Confirm (the main action, one press, carrying the digest), then Cancel. Where it is drawn (the proposed step's card, a
+  button's review) is XR's. Tests: `ReviewCardTests`; render check: `65-review-add`,
+  `65-review-send`, `65-review-send-next`, `65-review-publish`, `65-review-said` in `KitRender.FileChangeCheck`.
 - **Composer context selectors (`KitPresenter.ChipsOf`, `KitPresenter.EnvironmentOf`, `KitPresenter.AgentOf`, `KitSelectors`, `WorkspacePresentationState.CycleEnvironment`, `WorkspacePresentationState.EnvironmentCanChange`, `WorkspacePresentationState.NextAgent`, `WorkspacePresentationState.CycleAgent`, `WorkspacePresentationState.SetRuntimeModels`)**:
   the chips name the runtime the composer's Send reaches. While the task's run is active, Send instructs
   its existing execution (`WorkspaceSteering.SendInstruction`, which no chosen runtime reaches), so
