@@ -181,14 +181,8 @@ public class FileColumnTests
         Assert.That(host.Sent, Is.Empty);
         ReadInstructionDraft(host, column);
         column.Act(FileScreens.SendInstruction, null);
-        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct));
-        column.Drawn(column.ActivityContextFrame!, null);
-        host.Wait(1);
-        column.Act(FileScreens.Yes, null);
-        Assert.That(host.Sent, Is.Empty, "context drawing is not the frozen review drawing");
-        Draw(host, column);
-        column.Act(FileScreens.Yes, null);
-        Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Carry on carefully"));
+        // The draft read whole is its own review: its one Send sends it (the lead's R1, 2026-11-12).
+        Assert.That((column.Steering.Armed, ((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text), Is.EqualTo(((WorkspaceAction?)null, "Carry on carefully")));
     }
 
     [Test]
@@ -1893,7 +1887,7 @@ public class FileColumnTests
     }
 
     [Test]
-    public void HoldToTalkUnderTheQuestionDraftsAnAnswerAndForAnInstructionAsksBeforeSending()
+    public void HoldToTalkUnderTheQuestionDraftsAnAnswerAndAnInstructionThatItsOneSendSends()
     {
         var host = new FileMenuHost();
         var work = new AskingWork();
@@ -1916,8 +1910,8 @@ public class FileColumnTests
         Assert.That((column.Screen.Instruction.Words, column.Screen.Instruction.Spoken, column.Steering.Armed), Is.EqualTo(("Carry on", true, (WorkspaceAction?)null)), "transcription saves only a local protected draft");
         ReadInstructionDraft(host, column);
         column.Act(FileScreens.SendInstruction, null);
-        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct), "explicit Send of a heard instruction waits for Yes");
-        Assert.That(host.Sent, Is.Empty);
+        Assert.That((column.Steering.Armed, ((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text), Is.EqualTo(((WorkspaceAction?)null, "Carry on")),
+            "the heard draft read whole goes on its one Send (the lead's R1, 2026-11-12)");
     }
 
     /// <summary>A synthetic instruction long enough for more than two focused confirmation parts; a mishearing can be anywhere.</summary>
@@ -1988,7 +1982,7 @@ public class FileColumnTests
     }
 
     [Test]
-    public void AHeardInstructionLongerThanItsConfirmationIsReadInPartsAndSentOnlyAfterItsLast()
+    public void AHeardInstructionLongerThanItsDraftIsReadInPartsThenSentByItsOneSend()
     {
         var host = new FileMenuHost();
         var running = new WaitingWork();
@@ -2003,9 +1997,8 @@ public class FileColumnTests
         Assert.That((column.Screen.Instruction.Words, column.Steering.Armed, host.Sent.Count), Is.EqualTo((LongInstruction, (WorkspaceAction?)null, 0)));
         ReadInstructionDraft(host, column);
         column.Act(FileScreens.SendInstruction, null);
-        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct));
-        Assert.That(column.Frame!.Lines.Any(line => line.Words == EntryText.ReadToPart(column.Screen.RequestParts)), Is.True, "it asks to read to the last part first");
-        ReadsTheWordsThenSends(host, column, LongInstruction);
+        Assert.That((column.Steering.Armed, ((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text), Is.EqualTo(((WorkspaceAction?)null, LongInstruction)),
+            "read in parts in its draft, it goes on its one Send (the lead's R1, 2026-11-12)");
         Assert.That(column.Frame!.Lines.Any(line => line.Words == WorkspaceText.SendWordsAbove(heard: true)), Is.False, "sent, it asks nothing more");
     }
 
@@ -2034,7 +2027,7 @@ public class FileColumnTests
     /// the next, from its first part, and a Yes pressed on the frame laid at the old size sends nothing.
     /// </summary>
     [Test]
-    public void AHeardInstructionReadWholeLocksAgainAtANewTextSize()
+    public void AHeardDraftReadWholeLocksAgainAtANewTextSize()
     {
         var host = new FileMenuHost();
         var running = new WaitingWork();
@@ -2047,28 +2040,15 @@ public class FileColumnTests
         column.HoldStarted(FileScreens.HoldToTalk);
         column.Heard(LongInstruction);
         ReadInstructionDraft(host, column);
-        column.Act(FileScreens.SendInstruction, null);
-        void ReadAll()
-        {
-            for (var guard = 0; guard < 60 && !column.Steering.CanConfirm; guard++)
-            {
-                Draw(host, column);
-                if (!column.Steering.CanConfirm) column.Act(FileScreens.NextPart, FileScreens.RequestKey);
-            }
-        }
-        ReadAll();
-        Assert.That(column.Frame!.Footer[PromptSlot.Free]?.Id, Is.EqualTo(FileScreens.Yes), "read whole at the standard size");
+        Assert.That(column.Screen.Instruction.Read, Is.True, "read whole at the standard size");
 
         host.TextSize = TextSize.Larger;
-        column.Act(FileScreens.Yes, null);
-        Assert.That(host.Sent, Is.Empty, "a Yes on the frame laid at the old size sends nothing");
-        Assert.That((column.Steering.Armed, column.Steering.CanConfirm, column.Screen.RequestPart), Is.EqualTo(((WorkspaceAction?)WorkspaceAction.Instruct, false, 0)),
-            "still armed, locked again, from its first part");
-        Assert.That(column.Frame!.Footer[PromptSlot.Free], Is.Null);
         Draw(host, column);
-        Assert.That(column.Steering.CanConfirm, Is.False, "the first part at the new size alone does not unlock it");
-        ReadAll();
-        column.Act(FileScreens.Yes, null);
+        column.Act(FileScreens.SendInstruction, null);
+        Assert.That(host.Sent, Is.Empty, "a draft laid again at the new size sends nothing until it is read again");
+        Assert.That((column.Screen.Instruction.Read, column.Screen.Instruction.Part), Is.EqualTo((false, 0)), "locked again, from its first part");
+        ReadInstructionDraft(host, column);
+        column.Act(FileScreens.SendInstruction, null);
         Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo(LongInstruction));
     }
 
@@ -2116,7 +2096,7 @@ public class FileColumnTests
     }
 
     [Test]
-    public void AShortHeardInstructionShowsWholeAndItsYesWaitsOnlyForItsDrawing()
+    public void AShortHeardInstructionShowsWholeAndItsOneSendWaitsOnlyForItsDrawing()
     {
         var host = new FileMenuHost();
         var running = new WaitingWork();
@@ -2132,13 +2112,8 @@ public class FileColumnTests
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Your Instruction", "Carry on" }));
         ReadInstructionDraft(host, column);
         column.Act(FileScreens.SendInstruction, null);
-        Assert.That((column.Screen.RequestParts, column.Frame!.Footer[PromptSlot.Free]), Is.EqualTo((1, (Prompt?)null)), "one part, not drawn yet");
-        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Read to Part 1" }));
-        Draw(host, column);
-        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Send Heard Instruction?" }));
-        column.Act(FileScreens.Yes, null);
-        column.Act(FileScreens.Yes, null);
-        Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Carry on"), "the same confirmation sends exactly once");
+        column.Act(FileScreens.SendInstruction, null);
+        Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Carry on"), "its one Send sends exactly once");
     }
 
     [Test]

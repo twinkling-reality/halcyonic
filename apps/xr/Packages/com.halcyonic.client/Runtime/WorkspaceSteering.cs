@@ -273,7 +273,10 @@ namespace Halcyonic.Client
             if (!draft.Read) return SteeringOutcome.Explain(draft.Words.Length == 0 ? FileScreens.InstructionEmpty : FileScreens.InstructionNotRead);
             if (newRun != null && newRun.ModelRequired && newRun.ModelRef == null) return SteeringOutcome.Explain(ChooseAModel);
             StopTyping();
-            var result = draft.Spoken ? Spoken(draft.Words, workspace) : Typed(draft.Words, workspace, newRun);
+            // The draft shown whole is the review, heard or typed: Send is the one press, and only the command's own policy adds a
+            // confirmation (the lead's R1, 2026-11-12; ADR 0021 amended). A mishearing is still never sent unread: Read needs
+            // every part of the heard words shown.
+            var result = Typed(draft.Words, workspace, newRun);
             if (result.Step == SteeringStep.Confirm)
             {
                 instructionExecution = draft.ExecutionId;

@@ -2674,8 +2674,8 @@ in order, as before.
   Heard Instruction?, and its column holds Send Instruction once read, Talk Again (the frame's own held Hold to Talk,
   which records afresh and replaces the words; held it stays in its place, lit, reading Listening) and Cancel. The
   panel's body stands 28 dp in, 18 dp above the sentence bar, which stands 14 dp in with 14 by 12 dp of padding. An
-  instruction armed to send (a heard one
-  always is) is bound for the redesign alone (`KitFileBinding.Of(..., roomDesign: true)`, `KitWorkModel.Instruction`):
+  instruction armed to send (where the command's policy reviews it; since the lead's R1 of 2026-11-12 a heard draft read
+  whole goes on its one Send, as a typed one does, and is not armed) is bound for the redesign alone (`KitFileBinding.Of(..., roomDesign: true)`, `KitWorkModel.Instruction`):
   its words in the panel, part by part, eight of the panel's own lines a part: while the redesign draws the file, the
   file counts what a confirmation reads by the panel's lines (`MenuDirector.RowsOf` asks `RoomBarView.Lines`,
   `FileColumn.RequestPartRowsOf` gives eight), the panel wraps the same words (`RoomBar.Reading`) at the same width and
@@ -3690,7 +3690,9 @@ instruction; typing always stays:
   the first task, the name or a new folder's); heard words land where words are given, an idea
   saying "This is what your computer heard. Check it before you go on.", and nothing is sent until
   Start task and the review. In an open workspace, at the end of the action row when the work takes
-  instructions and the row has room; a heard instruction always asks "Your computer heard the words above. Send them?" under the words, once all its parts are read.
+  instructions and the row has room. A heard instruction's draft, marked as heard, is its own review: Send stands once
+  all its parts are read and is the one press (the lead's R1, 2026-11-12; ADR 0021 amended); only the command's own policy
+  adds a confirmation, as for typed words.
   Never in the recorded demonstration, and never for approve, deny, stop or any
   confirmation.
 - **Every build carries it** (ADR 0021, amended 2026-11-11). The microphone code compiles for every

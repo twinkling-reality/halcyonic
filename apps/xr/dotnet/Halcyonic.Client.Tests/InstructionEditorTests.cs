@@ -60,7 +60,7 @@ public class InstructionEditorTests
     }
 
     [Test]
-    public void SpokenDraftKeepsItsConfirmationProtectionAcrossUnchangedKeyboardEdit()
+    public void AnEditedHeardDraftGoesOnItsOneSendOnlyOnceReadAgain()
     {
         var (host, _, column) = Setup();
         column.HoldStarted(FileScreens.HoldToTalk);
@@ -70,11 +70,11 @@ public class InstructionEditorTests
         Draw(host, column);
         column.Act(FileScreens.EditInstruction, null);
         host.Keyboard!.Value.Done("Carry on");
+        column.Act(FileScreens.SendInstruction, null);
+        Assert.That(host.Sent.Count, Is.Zero, "the edit asks for a fresh read");
         Read(host, column);
         column.Act(FileScreens.SendInstruction, null);
-        Assert.That((host.Sent.Count, column.Steering.Armed, column.Steering.Heard), Is.EqualTo((0, (WorkspaceAction?)WorkspaceAction.Instruct, true)));
-        Confirm(host, column);
-        Assert.That(host.Sent.Count, Is.EqualTo(1));
+        Assert.That((host.Sent.Count, column.Steering.Armed), Is.EqualTo((1, (WorkspaceAction?)null)), "read again, its one Send sends it (the lead's R1, 2026-11-12)");
     }
 
     [Test]
@@ -341,7 +341,7 @@ public class InstructionEditorTests
         Assert.That(draft!.GetType().GetProperties().Select(property => property.Name), Is.EquivalentTo(new[] { "Text", "Spoken", "Part" }), "no question answer or read/armed field is exported");
         Read(restoredHost, restored);
         restored.Act(FileScreens.SendInstruction, null);
-        Assert.That((restoredHost.Sent.Count, restored.Steering.Armed), Is.EqualTo(spoken ? (0, (WorkspaceAction?)WorkspaceAction.Instruct) : (1, (WorkspaceAction?)null)), "only explicit current Send may send; spoken words still require reviewed Yes");
+        Assert.That((restoredHost.Sent.Count, restored.Steering.Armed), Is.EqualTo((1, (WorkspaceAction?)null)), "only an explicit current Send after a fresh read sends, heard or typed (the lead's R1, 2026-11-12)");
         record.ExecutionId = "other-execution";
         Assert.That(restored.RestoreContinuation(record), Is.False, "the draft never retargets another execution");
     }
