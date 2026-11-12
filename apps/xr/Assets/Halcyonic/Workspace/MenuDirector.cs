@@ -373,6 +373,47 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Closes the menu to its bar.</summary>
         public void CloseMenu() => MinimizeWorkspace();
 
+        private AskMenuColumn? talkingAnywhere;
+
+        /// <summary>
+        /// Talk from anywhere (the lead's decision of 2026-11-12, its yes of 05:40Z): one voice the director owns, not a column's
+        /// prompt. Held, it records for the assistant, bound to what is in view (the task whose page stands, else the project
+        /// whose tasks stand, else all work): the Ask card opens beside the menu, or the one standing takes it, and let go, what
+        /// was heard is its draft, shown before its one Send (R1). Nothing is sent by talking. A task's own Hold to Talk still
+        /// tells that task's agent. Only where voice is offered (a computer connected, no recording).
+        /// </summary>
+        public void TalkAnywhere(bool held)
+        {
+            if (!held)
+            {
+                if (talkingAnywhere is AskMenuColumn speaking) voice?.Ended(speaking, AskMenuColumn.Talk, letGo: true);
+                talkingAnywhere = null;
+                return;
+            }
+            if (!RoomDesign.Enabled || !VoiceOffered || voice == null || Away || plane.Repositioning || drag != null || placement != null) return;
+            if (setup.Presentation.Minimized) setup.Presentation.Restore();
+            if (navigator.Beside is not AskMenuColumn ask)
+            {
+                if (setup.Commands is not CommandFactory commands) return;
+                ask = new AskMenuColumn(Bound(), commands, ScopeInView());
+                navigator.ShowBeside(ask, null);
+                ViewsChanged();
+            }
+            if (voice.Hold(ask, AskMenuColumn.Talk)) talkingAnywhere = ask;
+            dirty = true;
+        }
+
+        /// <summary>What is in view, as the assistant's scope: the open task, else the chosen project, else all work.</summary>
+        private AskScope ScopeInView()
+        {
+            if (navigator.Beside is FileColumn file && file.Now is WorkspacePresentation now && now.Execution is ExecutionView run
+                && State?.Workstreams.TryGetValue(now.Character.WorkstreamId, out var task) == true)
+                return AskScope.Task(task.ProjectId, task.WorkstreamId, run.ExecutionId, task.Title);
+            if (memory.SelectedProjectId is string projectId && State?.Projects.TryGetValue(projectId, out var project) == true)
+                return AskScope.Project(projectId, project.Name);
+            return AskScope.AllWork();
+        }
+
         /// <summary>
         /// The menu from anywhere (the lead, 2026-11-12: a menu a person must walk back to Projects for is a step the desk does
         /// not have): under the redesign the menu button opens the menu (A4) over whatever stands, out of Compact too, and pressed
@@ -602,6 +643,9 @@ namespace Halcyonic.XR.Workspace
             // The controller's Menu button, and the left hand's palm-up pinch, which Meta gives the app as Start; the Meta button
             // and the dominant hand's gesture stay the system's (docs/internal/validation/xr-menu-input.md).
             if (OVRInput.GetDown(OVRInput.Button.Start)) MenuFromAnywhere();
+            // The right controller's B button, held, talks to the assistant from anywhere; let go, and the words are heard.
+            if (OVRInput.GetDown(OVRInput.RawButton.B)) TalkAnywhere(true);
+            if (OVRInput.GetUp(OVRInput.RawButton.B)) TalkAnywhere(false);
             navigator.Tick();
             memory.TickFiles(navigator.Beside);
             AdvanceHeadsetPlay();
@@ -934,6 +978,7 @@ namespace Halcyonic.XR.Workspace
 
         private void OnFocusLeft()
         {
+            talkingAnywhere = null;
             keyboardPending = false; keyboardGeneration++;
             ShareCharacterIdentity(null);
             EndDrag();
