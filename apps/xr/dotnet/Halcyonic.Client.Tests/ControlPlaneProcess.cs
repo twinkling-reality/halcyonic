@@ -96,6 +96,10 @@ internal sealed class ControlPlaneProcess : IDisposable
         };
         start.ArgumentList.Add("apps/control-plane/src/main.ts");
         start.Environment["HALCYONIC_DATA_DIR"] = dataDir;
+        // The plane's task copies beside its scratch data, never the account's own folder: its default is the account's
+        // ~/.halcyonic-tasks, and a plane sweeps there at start every copy its own journal does not hold (AUDIT3, 2026-11-12).
+        // A test that names its own folder in environment still wins.
+        start.Environment["HALCYONIC_TASKS_DIR"] = TasksDirFor(dataDir);
         start.Environment["HALCYONIC_PORT"] = port.ToString(CultureInfo.InvariantCulture);
         // At info the control plane logs the port it chose in its ready line, read below.
         start.Environment["HALCYONIC_LOG_LEVEL"] = port == 0 || networkPort == 0 ? "info" : "warn";
@@ -169,7 +173,12 @@ internal sealed class ControlPlaneProcess : IDisposable
         Kill();
         disposed = true;
         process.Dispose();
+        var tasks = TasksDirFor(DataDir);
+        if (Directory.Exists(tasks)) Directory.Delete(tasks, recursive: true);
     }
+
+    /// <summary>The scratch task copies' folder for <paramref name="dataDir"/>: beside it, as the control plane requires.</summary>
+    public static string TasksDirFor(string dataDir) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(dataDir)) + "-tasks";
 
     private async Task WaitUntilHealthyAsync()
     {
