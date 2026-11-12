@@ -171,6 +171,7 @@ public sealed class RoomPanelCardsTests
         var refused = RoomPanelCards.Usage(new UsageLeftRow[0], RoomPanelCards.Assistant(null, null, reason, choose))!;
         Assert.That((refused.List.Single().Name.Text, refused.List.Single().Note, refused.List.Single().Tone),
             Is.EqualTo((RoomPanelCards.AssistantUnavailable, (string?)null, RoomTone.Bad)), "no model to name: it says it cannot run");
+        Assert.That(refused.List.Single().Kind, Is.EqualTo(RoomKind.Failed), "the failure's mark, never the agent's");
         Assert.That((refused.List.Single().Under!.Text, refused.More), Is.EqualTo((reason, (LineWords?)null)), "the host's own words why, under the row they belong to");
         Assert.That((refused.Gauges.Count, refused.Description), Is.EqualTo((0, (LineWords?)null)), "no reading, no line about one");
         Assert.That(here.AnyDot || refused.AnyDot, Is.False);

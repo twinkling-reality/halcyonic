@@ -145,7 +145,7 @@ namespace Halcyonic.Client
         /// <summary>
         /// The assistant's row of the usage card (the lead, 2026-11-12): the model it runs on, as its maker names it, the row's
         /// main line; under it what the row is and where the model runs, this computer or the provider's own name, and the tile
-        /// says where too (the computer, or the link out to a host); the row's press is the host's Use Model, its chevron.
+        /// says where too (the computer, or the link out to a host; the failure mark where it cannot run); the row's press is the host's Use Model, its chevron.
         /// Where the assistant cannot run there is no model to name: the row says the assistant is unavailable, and the host's own
         /// words why stand under it across the row, whole (the critic, 2026-11-12: a foot apart read as the card's). Label, value and where are
         /// each their own words, never joined by a mark.
@@ -157,7 +157,7 @@ namespace Halcyonic.Client
         public static RoomListRow Assistant(string? model, string? provider, string? reason, KitControl? press)
         {
             if (string.IsNullOrWhiteSpace(model))
-                return new RoomListRow(RoomKind.Agent, LineWords.Ours(AssistantUnavailable), tone: RoomTone.Bad, press: press,
+                return new RoomListRow(RoomKind.Failed, LineWords.Ours(AssistantUnavailable), tone: RoomTone.Bad, press: press,
                     under: string.IsNullOrWhiteSpace(reason) ? null : LineWords.Ours(reason!.Trim()));
             var hosted = !string.IsNullOrWhiteSpace(provider);
             var where = hosted ? LineWords.Ours(AssistantWords + " Hosted by ") + LineWords.TheirName(provider!.Trim()) : LineWords.Ours(AssistantWords + " on " + CaptureNames.Host);
