@@ -2504,6 +2504,7 @@ public class NewProjectFlowTests
         Assert.That(page.Card.AnyDot, Is.False);
         Assert.That(page.Column.Any(action => action.Main), Is.False);
         Assert.That(Reads(page), Is.EqualTo(new[] { EntryText.StartOver, EntryText.Back }), "with no levels offered, the column is Start Over and Back");
+        Assert.That(page.Column.Any(action => action.Control.Action == Footer.NextPage), Is.False, "four things to change stand on one page");
         Press(flow, NewProjectScreens.StartOver, null);
         var armed = Bar(flow);
         Assert.That((armed.State, armed.Sentence, armed.Body.Text), Is.EqualTo((RoomBarState.Confirm, RoomBar.StartOverAsks, EntryText.StartOverClears(false))));
@@ -2674,6 +2675,35 @@ public class NewProjectFlowTests
         Assert.That(NewProjectScreens.RunsWithLevel(draft, live: true).Text, Does.Not.Contain("Ask"));
         var model = EntryScreens.ReviewOf(new ProjectIdea(), draft, null, live: true).Items.Single(item => item.Label == "Model · ");
         Assert.That(model.Value, Does.Not.Contain("Ask"));
+    }
+
+    [Test]
+    public void The_page_of_changes_pages_past_a_list_cards_five_and_keeps_its_levels_on_every_page()
+    {
+        var lines = new System.Collections.Generic.List<PageLine>
+        {
+            new PageLine("Ask First", action: "choose-level", key: "ask", choice: true, chosen: true),
+            new PageLine("Never Ask", action: "choose-level", key: "never", choice: true),
+        };
+        for (var index = 0; index < 6; index++) lines.Add(new PageLine("Thing " + index, action: "change-" + index, opens: true));
+        var footer = new Footer(new Prompt("close", "Close", GlazeIcon.Close, PromptKind.Close), farRight: new Prompt(NewProjectScreens.BackToRecap, EntryText.Back, GlazeIcon.Back));
+        var frame = new MenuFrame("Kite Run", footer, lines: lines);
+        var page = 0;
+        var first = NewProjectFlow.ChangesPage(frame, ref page);
+        Assert.That(first.Lines.Where(line => !line.Choice).Select(line => line.Words), Is.EqualTo(new[] { "Thing 0", "Thing 1", "Thing 2", "Thing 3", "Thing 4" }));
+        Assert.That(first.Lines.Count(line => line.Choice), Is.EqualTo(2), "the levels on the first page");
+        Assert.That(first.Footer.All.Single(each => each.Prompt.Id == Footer.NextPage).Prompt.Words, Is.EqualTo("Next Page"));
+        page = 1;
+        var second = NewProjectFlow.ChangesPage(frame, ref page);
+        Assert.That(second.Lines.Where(line => !line.Choice).Select(line => line.Words), Is.EqualTo(new[] { "Thing 5" }), "the sixth thing pages, never drops");
+        Assert.That(second.Lines.Count(line => line.Choice), Is.EqualTo(2), "the levels on the last page too");
+        Assert.That(second.Footer.All.Single(each => each.Prompt.Id == Footer.NextPage).Prompt.Words, Is.EqualTo("First Page"));
+        page = 2;
+        NewProjectFlow.ChangesPage(frame, ref page);
+        Assert.That(page, Is.EqualTo(0), "past the last page, the first again");
+        var few = new MenuFrame("Kite Run", footer, lines: lines.Take(6).ToList());
+        page = 0;
+        Assert.That(NewProjectFlow.ChangesPage(few, ref page), Is.SameAs(few), "four things to change: one page, as it was");
     }
 
     private static NewProjectFlow OnOffering(Host host, bool? offers = true)
