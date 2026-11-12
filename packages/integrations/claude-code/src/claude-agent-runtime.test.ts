@@ -626,7 +626,8 @@ describe('model choice', () => {
     assert.equal(run.delivered.length, 0);
     assert.equal(run.closed, true);
     assert.equal(typeof run.options.spawnClaudeCodeProcess, 'function');
-    assert.equal(run.options.sessionId, undefined);
+    // Its command line carries a session id of its own, by which the guard knows the process.
+    assert.match(String(run.options.sessionId), /^[0-9a-f-]{36}$/);
     assert.deepEqual(run.options.settingSources, ['user']);
   });
 

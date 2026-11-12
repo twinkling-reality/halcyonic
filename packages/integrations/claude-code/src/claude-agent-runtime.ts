@@ -278,6 +278,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
         options: {
           cwd: tmpdir(),
           env: { ...this.#environment },
+          // The guard knows a launched process by the session id its command line carries, so the
+          // listing's process carries its label as one.
+          sessionId: label,
           spawnClaudeCodeProcess: (options) => this.#guard.spawn(options, label),
           systemPrompt: { type: 'preset', preset: 'claude_code' },
           // As for a start: the temporary folder's own `.claude` settings, which anything may

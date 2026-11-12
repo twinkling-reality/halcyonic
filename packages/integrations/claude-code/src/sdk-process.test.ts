@@ -318,6 +318,23 @@ describe('the adapter through the real Agent SDK', () => {
     }
   });
 
+  test("listing the models launches a guarded process the guard can know by its session id, and answers with the runtime's list", async () => {
+    const directory = scratch('listing');
+    const adapter = adapterFor(directory);
+    try {
+      // The fake Claude Code names no models; before the fix the guard never saw the label it waited for.
+      assert.deepEqual(await adapter.listModels(), []);
+      const recorded = onlyRecord(directory);
+      assert.ok(
+        recorded.args.some((arg) => arg.startsWith('--session-id=')),
+        recorded.args.join(' '),
+      );
+      assert.equal(recorded.listed_before_input, true);
+    } finally {
+      await adapter.close();
+    }
+  });
+
   test('Claude Code is launched exactly as the SDK launches it itself', async () => {
     const guarded = scratch('guarded');
     const direct = scratch('direct');
