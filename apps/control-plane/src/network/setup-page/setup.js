@@ -6,9 +6,10 @@
 // accent, on the page's one main action; each step a row that opens, one open at a time unless the
 // person opens more; a press's question stands right under the press. Below the steps, each
 // project's secrets by name with Remove, and a name and a hidden field to set one (ADR 0057): a
-// value is sent once and never drawn. Under Agent apps, each agent app whose adapter declares that it
-// takes a key, by the words it declares: one hidden field and Add Key, then only Key Stored with when,
-// and Remove Key that asks first. A key is sent once and never drawn.
+// value is sent once and never drawn. Under Agent apps, each declared provider's key that something
+// here reads (ADR 0061), by the words its declaration says, with what reads it: one hidden field and
+// Add Key, then only Key Stored with when, and Remove Key that asks first. A key is sent once and
+// never drawn.
 
 const CLOSED = 'This page has closed. Open pairing again on this computer.';
 const UNREACHABLE = "This computer's app isn't answering. Check that it is running.";
@@ -562,7 +563,7 @@ function secretProject(project) {
   return item;
 }
 
-/** The agent apps' key cards, kept across redraws of the steps and of other cards, so a key half typed stays. */
+/** The key cards, kept across redraws of the steps and of other cards, so a key half typed stays. */
 const keyBlock = element('div', 'key-apps');
 /** Each app's card and its parts, by its runtime id, with the entry it was drawn from. */
 const keyParts = new Map();
@@ -588,14 +589,14 @@ function drawKeys() {
   // A card is built again only when its own entry changes, so a press on one never clears a key typed in another.
   const cards = apps.map((app) => {
     const drawn = JSON.stringify(app);
-    const kept = keyParts.get(app.runtime_id);
+    const kept = keyParts.get(app.id);
     if (kept?.drawn === drawn) return kept.item;
     const parts = keyApp(app);
-    keyParts.set(app.runtime_id, { ...parts, drawn });
+    keyParts.set(app.id, { ...parts, drawn });
     return parts.item;
   });
-  for (const runtimeId of [...keyParts.keys()])
-    if (!apps.some((app) => app.runtime_id === runtimeId)) keyParts.delete(runtimeId);
+  for (const keyId of [...keyParts.keys()])
+    if (!apps.some((app) => app.id === keyId)) keyParts.delete(keyId);
   if (
     cards.some((card, at) => keyBlock.children[at] !== card) ||
     keyBlock.children.length !== cards.length
@@ -603,8 +604,8 @@ function drawKeys() {
     keyBlock.replaceChildren(...cards);
   // While a Remove Key asks, it is the one decision among the keys: every other card keeps its shape and waits.
   const askingAny = keys?.confirm != null;
-  for (const [runtimeId, parts] of keyParts) {
-    const text = keys?.problem?.runtime_id === runtimeId ? keys.problem.text : null;
+  for (const [keyId, parts] of keyParts) {
+    const text = keys?.problem?.id === keyId ? keys.problem.text : null;
     parts.status.hidden = text === null;
     parts.status.textContent = text ?? '';
     if (parts.form !== null) {
@@ -614,7 +615,7 @@ function drawKeys() {
       parts.add.className = askingAny || parts.value.value === '' ? 'rest' : 'main';
     }
     if (parts.panel === null) continue;
-    const asking = keys?.confirm?.runtime_id === runtimeId ? keys.confirm : null;
+    const asking = keys?.confirm?.id === keyId ? keys.confirm : null;
     parts.panel.hidden = asking === null;
     parts.line.textContent = asking?.text ?? '';
     parts.remove.hidden = asking !== null;
@@ -622,10 +623,15 @@ function drawKeys() {
   }
 }
 
-/** One agent app's key: its name, then the field and Add Key, or Key Stored with when and Remove Key. */
+/** One provider's key: its name and what reads it, then the field and Add Key, or Key Stored with when and Remove Key. */
 function keyApp(app) {
   const item = element('div', 'key-app');
-  item.append(element('p', 'key-app-name', app.app));
+  item.append(element('p', 'key-app-name', app.name));
+  // What reads it, each by the name its own declaration says.
+  if (app.readers.length > 0)
+    item.append(
+      element('p', 'key-used', `Used by ${listed(app.readers.map((reader) => reader.name))}.`),
+    );
   const status = element('p', 'secret-status', '');
   status.hidden = true;
   status.setAttribute('role', 'status');
@@ -643,7 +649,7 @@ function keyApp(app) {
     }
     const remove = button(
       'Remove Key',
-      () => void call('/setup/keys/remove', { runtime_id: app.runtime_id, confirmed: false }),
+      () => void call('/setup/keys/remove', { id: app.id, confirmed: false }),
       false,
       'close',
     );
@@ -658,7 +664,7 @@ function keyApp(app) {
     const actions = element('div', 'question-actions');
     const really = button(
       'Yes, Remove',
-      () => void call('/setup/keys/remove', { runtime_id: app.runtime_id, confirmed: true }),
+      () => void call('/setup/keys/remove', { id: app.id, confirmed: true }),
       false,
       'close',
     );
@@ -702,7 +708,7 @@ function keyApp(app) {
     // Cleared before it is sent, whatever the answer: the page never keeps a key.
     value.value = '';
     ready();
-    void call('/setup/keys/set', { runtime_id: app.runtime_id, value: typed });
+    void call('/setup/keys/set', { id: app.id, value: typed });
   });
   item.append(form, status);
   return { item, status, panel: null, line: null, remove: null, form, value, add };
@@ -736,7 +742,7 @@ function stepItem(step, running, main, open) {
   if (!open) return item;
   const body = element('div', 'step-body');
   for (const line of step.lines) body.append(breakable(element('p', 'step-line'), line));
-  // Under Agent apps, each agent app that takes a key, as its adapter declares it.
+  // Under Agent apps, each declared provider's key that something here reads.
   if (step.id === 'agent_apps' && (state.keys?.apps ?? []).length > 0) body.append(keyBlock);
   if ((step.next ?? []).length > 0) {
     // Commands for the person to run in Terminal, as setup prints them: text, never run from here.

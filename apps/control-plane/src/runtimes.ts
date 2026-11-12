@@ -1,7 +1,8 @@
 import { readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import {
-  CLAUDE_AGENT_KEY,
+  CLAUDE_AGENT_READER,
+  CLAUDE_AGENT_RUNTIME_ID,
   ClaudeAgentRuntimeAdapter,
   type ClaudeConfinementOptions,
 } from '@halcyonic/integration-claude-code';
@@ -14,8 +15,8 @@ import {
 import type { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OPENCODE_KEY_READER, OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import {
-  type AgentKey,
   type DirectoryPolicy,
+  type HostedProvider,
   type KeyReader,
   type RuntimeAdapter,
   readerReaches,
@@ -32,22 +33,53 @@ import { OMNORIUM_CREDENTIAL_FILE } from './intelligence/catalog.ts';
 import { CODEX_HOME_FOLDER } from './intelligence/codex-home.ts';
 import { SEORAK_CREDENTIAL_FILE } from './intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from './intelligence/understanding.ts';
-import { storedAt } from './keys/agent-keys.ts';
+import { storedAt } from './keys/provider-keys.ts';
 import { NETWORK_KEY_FILE } from './network/certificate.ts';
-import type { HostProviders } from './providers.ts';
-
-/** The file in the data directory that may hold Claude Agent's key, as its package declares it (AgentKey). */
-export const ANTHROPIC_KEY_FILE = CLAUDE_AGENT_KEY.file;
+import { HostProviders } from './providers.ts';
 
 /**
- * Every agent app here that runs on the person's own key, as each package declares it: the Mac's setup page draws a
- * field for each, and a stored key turns its app on at the next start.
+ * The file the held secrets read Anthropic's key from, as providers/anthropic/provider.json declares it (a test keeps
+ * the two the same). Only the held secrets read it here, until they read every declared key file.
  */
-export const AGENT_KEYS: readonly AgentKey[] = [CLAUDE_AGENT_KEY];
+export const ANTHROPIC_KEY_FILE = 'anthropic-api-key';
 
-/** Whether the person stored a key for the agent app `runtimeId`, read by its declaration in AGENT_KEYS. */
-export function keyStoredFor(dataDir: string, runtimeId: string): boolean {
-  return AGENT_KEYS.some((key) => key.runtimeId === runtimeId && storedAt(dataDir, key) !== null);
+/**
+ * Every agent app here that reads a declared provider's key, by its runtime id, each as its own package declares
+ * itself as a reader (ADR 0061). The setup page offers a key for each provider they read, and a stored key turns on
+ * a reader that says it does, at the next start.
+ */
+export const KEYED_AGENT_APPS: readonly {
+  readonly runtimeId: string;
+  readonly reader: KeyReader;
+}[] = [{ runtimeId: CLAUDE_AGENT_RUNTIME_ID, reader: CLAUDE_AGENT_READER }];
+
+/** The agent apps' readers, for the host's one list of providers. */
+export const AGENT_KEY_READERS: readonly KeyReader[] = KEYED_AGENT_APPS.map((app) => app.reader);
+
+/** The declared providers whose key agent app `runtimeId` reads, in the host list's order. */
+export function providersReadBy(
+  providers: HostProviders,
+  runtimeId: string,
+): readonly HostedProvider[] {
+  const app = KEYED_AGENT_APPS.find((each) => each.runtimeId === runtimeId);
+  return app === undefined
+    ? []
+    : providers.list().filter((provider) => providers.readersOf(provider.id).includes(app.reader));
+}
+
+/** Whether a key the person stored turns agent app `runtimeId` on: its reader says so, and a usable key is kept. */
+export function turnedOnByKey(
+  providers: HostProviders,
+  dataDir: string,
+  runtimeId: string,
+): boolean {
+  const app = KEYED_AGENT_APPS.find((each) => each.runtimeId === runtimeId);
+  return (
+    app?.reader.turnsOn === true &&
+    providersReadBy(providers, runtimeId).some(
+      (provider) => storedAt(dataDir, provider.key) !== null,
+    )
+  );
 }
 
 /** The file in the data directory where the OpenCode server Halcyonic launched is recorded. */
@@ -63,7 +95,10 @@ export { CODEX_HOME_FOLDER } from './intelligence/codex-home.ts';
 
 export interface RuntimeDependencies {
   readonly mock: MockRuntimeAdapter;
-  /** The host's one list of declared hosted providers (ADR 0061): an agent app reaches those its reader reaches. */
+  /**
+   * The host's one list of declared hosted providers (ADR 0061), the one main.ts builds: an agent app reaches those its
+   * reader reaches. Absent, as in a test, the repository's own declarations with the agent apps' readers.
+   */
   readonly providers?: HostProviders;
   readonly directoryPolicy: DirectoryPolicy;
   /** The control plane's own environment, from which pass-through variables are copied. */
@@ -116,14 +151,25 @@ export function createRuntimeAdapters(
 ): RuntimeAdapter[] {
   const adapters: RuntimeAdapter[] = [dependencies.mock];
   const additions = passThrough(config.agentEnvironment, dependencies.environment);
+  const providers =
+    dependencies.providers ??
+    new HostProviders({ dataDir: dependencies.dataDir, readers: AGENT_KEY_READERS });
   // On by the person's own environment switch, or because they stored its key on the setup page (never by the
   // settings file, which refuses the switch: paid use starts only from the person's own act).
-  if (config.claudeAgent || keyStoredFor(dependencies.dataDir, CLAUDE_AGENT_KEY.runtimeId)) {
+  const claudeKey = providersReadBy(providers, CLAUDE_AGENT_RUNTIME_ID)[0]?.key;
+  if (
+    config.claudeAgent ||
+    turnedOnByKey(providers, dependencies.dataDir, CLAUDE_AGENT_RUNTIME_ID)
+  ) {
     adapters.push(
       new ClaudeAgentRuntimeAdapter({
         directoryPolicy: dependencies.directoryPolicy,
         processRecordFile: join(dependencies.dataDir, CLAUDE_AGENT_PROCESS_RECORD),
-        inheritedEnvironment: withAnthropicKey(dependencies.environment, dependencies.dataDir),
+        inheritedEnvironment: withAnthropicKey(
+          dependencies.environment,
+          dependencies.dataDir,
+          claudeKey?.file ?? ANTHROPIC_KEY_FILE,
+        ),
         environment: claudeAgentEnvironment(additions),
         ...(config.claudeExecutable !== null && {
           pathToClaudeCodeExecutable: config.claudeExecutable,
@@ -404,13 +450,17 @@ export async function stopStaleRuntimeServers(
 }
 
 /**
- * The environment with ANTHROPIC_API_KEY taken from `<data dir>/anthropic-api-key` when the
+ * The environment with ANTHROPIC_API_KEY taken from `<data dir>/<file>` (Anthropic's declared key file) when the
  * environment does not set it. A key file other users can read is refused, like the access token's.
  */
-function withAnthropicKey(environment: NodeJS.ProcessEnv, dataDir: string): NodeJS.ProcessEnv {
+function withAnthropicKey(
+  environment: NodeJS.ProcessEnv,
+  dataDir: string,
+  file: string,
+): NodeJS.ProcessEnv {
   // A value of spaces alone is no key: the file's key is used instead, as the runtime's own check reads it.
   if ((environment.ANTHROPIC_API_KEY ?? '').trim() !== '') return environment;
-  const path = join(dataDir, ANTHROPIC_KEY_FILE);
+  const path = join(dataDir, file);
   let mode: number;
   try {
     mode = statSync(path).mode;
@@ -624,6 +674,7 @@ export function heldSecrets(
       anthropic = withAnthropicKey(
         dependencies.environment,
         dependencies.dataDir,
+        ANTHROPIC_KEY_FILE,
       ).ANTHROPIC_API_KEY;
     } catch {
       anthropic = dependencies.environment.ANTHROPIC_API_KEY;

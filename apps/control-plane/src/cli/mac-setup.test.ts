@@ -18,14 +18,15 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { FakeSalidium } from '@halcyonic/integration-salidium/testing';
-import { loadConfig } from '../config.ts';
+import { ConfigError, loadConfig } from '../config.ts';
 import { loopbackProof, PROOF_CHALLENGE_HEADER, PROOF_HEADER } from '../http/security.ts';
-import { AgentKeys } from '../keys/agent-keys.ts';
+import { ProviderKeys } from '../keys/provider-keys.ts';
 import type { Pins } from '../pins.ts';
 import { audioOutputFor } from '../preview/audio-output.ts';
 import { launcherProblem } from '../preview/launcher.ts';
 import { BROWSER_FILES, browserManifest, manifestDigest } from '../preview/play.ts';
-import { AGENT_KEYS, keyStoredFor } from '../runtimes.ts';
+import { HostProviders } from '../providers.ts';
+import { AGENT_KEY_READERS, turnedOnByKey } from '../runtimes.ts';
 import {
   readHostSettings,
   SETTINGS_FILE,
@@ -141,6 +142,8 @@ interface Mac {
   env: NodeJS.ProcessEnv;
   /** The keyed agent apps the running Halcyonic started with, as its setup page passes them; absent in Terminal. */
   startedWith?: string[];
+  /** The host's list of declared providers, as the running control plane passes it; absent, the repository's own. */
+  providers?: () => HostProviders;
   run(...args: string[]): Promise<number>;
   settings(): ReturnType<typeof readHostSettings>;
   install(file: keyof Pins, content?: string): string;
@@ -216,6 +219,7 @@ function mac(t: TestContext): Mac {
         firewall: () => machine.firewall,
         pins: PINS,
         ...(machine.startedWith === undefined ? {} : { startedWith: machine.startedWith }),
+        ...(machine.providers === undefined ? {} : { providers: machine.providers }),
       };
       return runMacSetup(args, io);
     },
@@ -340,13 +344,14 @@ describe('pnpm mac-setup', () => {
   test('an agent app on its own key is said as the running Halcyonic has it, and a key added or removed since waits for the next start', async (t) => {
     const machine = mac(t);
     mkdirSync(machine.dataDir, { recursive: true, mode: 0o700 });
-    const keys = new AgentKeys(machine.dataDir, AGENT_KEYS);
+    const providers = new HostProviders({ dataDir: machine.dataDir, readers: AGENT_KEY_READERS });
+    const keys = new ProviderKeys(machine.dataDir, providers);
     // In Terminal, with no key: what to do, and nothing on.
     await machine.run();
     let output = text(machine);
     assert.match(
       output,
-      /Claude Agent runs on your own key, .* Add its key under Agent Apps on the setup page\./,
+      /Claude Agent runs on your own key, .* Add its Anthropic key under Agent Apps on the setup page\./,
     );
     assert.match(output, /Claude Agent is off\./);
     assert.match(output, /No agent app is set up, so no task can start\./);
@@ -366,7 +371,7 @@ describe('pnpm mac-setup', () => {
       assert.equal(status(machine, 'Agent apps'), 'To do');
       assert.match(output, /Claude Agent is off\./);
       assert.equal(
-        loadConfig({}).claudeAgent || keyStoredFor(machine.dataDir, 'claude-agent'),
+        loadConfig({}).claudeAgent || turnedOnByKey(providers, machine.dataDir, 'claude-agent'),
         false,
         'nor does the next start turn it on',
       );
@@ -383,7 +388,7 @@ describe('pnpm mac-setup', () => {
       output = text(machine);
       assert.match(
         output,
-        /Claude Agent is switched on in Halcyonic's environment, but ~\/\.halcyonic\/anthropic-api-key can be read by other users or is empty, so Halcyonic won't start until it is fixed\. If it holds the key, run chmod 600 on it\. Otherwise: Start Halcyonic once without HALCYONIC_CLAUDE_AGENT=1, then add its key under Agent Apps on the setup page\./,
+        /Claude Agent is switched on in Halcyonic's environment, but ~\/\.halcyonic\/anthropic-api-key can be read by other users or is empty, so Halcyonic won't start until it is fixed\. If it holds the key, run chmod 600 on it\. Otherwise, start Halcyonic once without HALCYONIC_CLAUDE_AGENT=1, then add its Anthropic key under Agent Apps on the setup page\./,
       );
       assert.match(
         output,
@@ -409,13 +414,21 @@ describe('pnpm mac-setup', () => {
     output = text(machine);
     assert.match(
       output,
-      /Claude Agent is switched on in Halcyonic's environment, but it has no key and no cloud provider, so Halcyonic won't start until it has one\. Start Halcyonic once without HALCYONIC_CLAUDE_AGENT=1, then add its key under Agent Apps on the setup page\./,
+      /Claude Agent is switched on in Halcyonic's environment, but it has no key and no cloud provider, so Halcyonic won't start until it has one\. Start Halcyonic once without HALCYONIC_CLAUDE_AGENT=1, then add its Anthropic key under Agent Apps on the setup page\./,
     );
     assert.match(
       output,
       /Claude Agent is switched on, but it has no key and no cloud provider, so Halcyonic won't start until it has one\./,
     );
     assert.equal(status(machine, 'Agent apps'), 'To do');
+    // A key of spaces alone in the environment is no key: the start still stops, and the steps say so.
+    machine.env = { ...machine.env, ANTHROPIC_API_KEY: '   ' };
+    await machine.run();
+    assert.match(
+      text(machine),
+      /it has no key and no cloud provider, so Halcyonic won't start until it has one\./,
+    );
+    machine.env = { ...machine.env, ANTHROPIC_API_KEY: '' };
     // With a cloud provider's switch it starts, paid through that account.
     machine.env = { ...machine.env, CLAUDE_CODE_USE_BEDROCK: '1' };
     await machine.run();
@@ -427,11 +440,11 @@ describe('pnpm mac-setup', () => {
     );
     assert.match(
       output,
-      /Its models run on a remote service, Amazon Bedrock: nothing starts on one without its second press, and a task on one is paid for through that account\./,
+      /Its models run on a remote service, Amazon Bedrock: nothing starts on one without its second press, and a task on one is paid for through your Amazon Bedrock account\./,
     );
     machine.env = { ...machine.env, HALCYONIC_CLAUDE_AGENT: '', CLAUDE_CODE_USE_BEDROCK: '' };
     // In Terminal, with a key stored: on from the next start, whatever runs now, and counted as an agent app.
-    assert.equal(keys.store('claude-agent', 'test-key-not-real'), null);
+    assert.equal(keys.store('anthropic', 'test-key-not-real'), null);
     await machine.run();
     output = text(machine);
     assert.match(
@@ -475,7 +488,7 @@ describe('pnpm mac-setup', () => {
     assert.doesNotMatch(output, /with your key stored on this computer/);
     machine.env = { ...machine.env, ANTHROPIC_API_KEY: '' };
     // Removed while it runs: off at the next start, and still on now.
-    assert.equal(keys.remove('claude-agent'), null);
+    assert.equal(keys.remove('anthropic'), null);
     await machine.run();
     output = text(machine);
     assert.match(
@@ -491,7 +504,24 @@ describe('pnpm mac-setup', () => {
     // Started without it, with no key: added below, on the page itself.
     machine.startedWith = [];
     await machine.run();
-    assert.match(text(machine), /Claude Agent runs on your own key, .* Add its key below\./);
+    assert.match(
+      text(machine),
+      /Claude Agent runs on your own key, .* Add its Anthropic key below\./,
+    );
+  });
+
+  test("a provider's declaration that does not hold is said in Agent apps, as the start would stop on it, and setup goes on", async (t) => {
+    const machine = mac(t);
+    machine.providers = () => {
+      throw new ConfigError('/somewhere/providers/broken/provider.json: format must be 1.');
+    };
+    await machine.run();
+    const output = text(machine);
+    assert.match(
+      output,
+      /A provider's declaration doesn't hold, so Halcyonic won't start until it is fixed: \/somewhere\/providers\/broken\/provider\.json: format must be 1\./,
+    );
+    assert.match(output, /Where work goes, and what it costs/, 'the other steps still run');
   });
 
   test("says whether npm and pnpm are where Halcyonic looks for a project's own check", async (t) => {

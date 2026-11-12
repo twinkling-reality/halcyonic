@@ -14,13 +14,15 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import type { AgentKey } from '@halcyonic/runtime-core';
+import { CLAUDE_AGENT_READER } from '@halcyonic/integration-claude-code';
+import type { KeyReader } from '@halcyonic/runtime-core';
 import { type MacSetupIo, tunnelProgram } from '../cli/mac-setup.ts';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
-import { AgentKeys, storedAt } from '../keys/agent-keys.ts';
+import { keysReadAtStart, ProviderKeys, storedAt } from '../keys/provider-keys.ts';
 import { APPLE_SILICON_PINS, type Pins } from '../pins.ts';
-import { AGENT_KEYS } from '../runtimes.ts';
+import { HostProviders } from '../providers.ts';
 import { readHostSettings, rememberNetworkListener, writeHostSettings } from '../settings.ts';
+import { providersFolder, TEST_ASSISTANT_READER } from '../testing/declared-providers.ts';
 import { capturingLogger, createTestControlPlane, startTestServer } from '../testing/harness.ts';
 import {
   type CommandRunner,
@@ -128,19 +130,26 @@ function setup(
     stopped?: string[];
     refuseStop?: boolean;
     secrets?: PageSecrets;
-    /** The agent keys declared here; main.ts passes the adapters' own. */
-    keys?: readonly AgentKey[];
+    /** A folder of provider declarations and the readers of their keys; main.ts passes the host's own list. */
+    providers?: { readonly dir: string; readonly readers: readonly KeyReader[] };
   } = {},
 ): Setup {
   const machine = mac(t, options.pins ?? null);
   const { run, runs } = fakeRunner();
   const restarts = { count: 0 };
-  const declared = options.keys ?? [];
-  // As main.ts counts them: a kept, replaced or removed key takes effect at the next start.
+  const providers =
+    options.providers === undefined
+      ? undefined
+      : new HostProviders({
+          dir: options.providers.dir,
+          dataDir: machine.dataDir,
+          readers: options.providers.readers,
+        });
+  // As main.ts counts them: a kept, replaced or removed key read at a start takes effect at the next one.
   const applied = () =>
-    `${settingsForRestart(readHostSettings(machine.dataDir))}\n${declared
-      .map((key) => `${key.runtimeId}=${storedAt(machine.dataDir, key) ?? ''}`)
-      .join('\n')}`;
+    `${settingsForRestart(readHostSettings(machine.dataDir))}\n${
+      providers === undefined ? '' : keysReadAtStart(machine.dataDir, providers)
+    }`;
   const view = new SetupView(
     {
       dataDir: machine.dataDir,
@@ -165,7 +174,7 @@ function setup(
         return 'stopped';
       },
       ...(options.secrets === undefined ? {} : { secrets: options.secrets }),
-      ...(options.keys === undefined ? {} : { keys: new AgentKeys(machine.dataDir, options.keys) }),
+      ...(providers === undefined ? {} : { keys: new ProviderKeys(machine.dataDir, providers) }),
     },
     setupDownloads(machine.dataDir, () => null, options.pins ?? null),
   );
@@ -936,16 +945,14 @@ describe('the setup view on the pairing page', () => {
     );
   });
 
-  test("an agent app's key is added and removed from the page only behind its session and origin, for every app that declares one, and is never sent back (R2)", async (t) => {
-    // A test adapter's declaration beside the real one, said to be one: no runtime stands behind it.
-    const testAgent: AgentKey = {
-      runtimeId: 'test-agent',
-      app: 'Test Agent',
-      variable: 'TEST_AGENT_KEY',
-      file: 'test-agent-key',
-      field: 'Test Agent Key',
-    };
-    const { view, mac: machine } = setup(t, { keys: [...AGENT_KEYS, testAgent] });
+  test("a declared provider's key is added and removed from the page only behind its session and origin, a third provider by its one declaration file, and never sent back (ADR 0061)", async (t) => {
+    // Anthropic's own declaration, read by Claude Agent at its start and a test assistant at each use; and a third
+    // provider, said to be a test's, as ONE declaration file and nothing else.
+    const declared = providersFolder(t);
+    declared.declare('thirdprovider', 'Thirdprovider');
+    const { view, mac: machine } = setup(t, {
+      providers: { dir: declared.dir, readers: [CLAUDE_AGENT_READER, TEST_ASSISTANT_READER] },
+    });
     const server = await startTestServer({ page: { ports: PORTS, mount: mountSetup(view) } });
     t.after(() => server.stop());
     const page = server.page;
@@ -966,17 +973,24 @@ describe('the setup view on the pairing page', () => {
     assert.deepEqual(before.keys, {
       apps: [
         {
-          runtime_id: 'claude-agent',
-          app: 'Claude Agent',
+          id: 'anthropic',
+          name: 'Anthropic',
           field: 'Anthropic API Key',
+          readers: [
+            { name: 'Claude Agent', reads: 'at_start' },
+            { name: 'Test Assistant', reads: 'at_each_use' },
+          ],
+          applies: 'next_start',
           stored: false,
           stored_at: null,
           unusable: false,
         },
         {
-          runtime_id: 'test-agent',
-          app: 'Test Agent',
-          field: 'Test Agent Key',
+          id: 'thirdprovider',
+          name: 'Thirdprovider',
+          field: 'Thirdprovider API Key',
+          readers: [{ name: 'Test Assistant', reads: 'at_each_use' }],
+          applies: 'at_once',
           stored: false,
           stored_at: null,
           unusable: false,
@@ -988,26 +1002,44 @@ describe('the setup view on the pairing page', () => {
     assert.equal(before.restart_needed, false);
     // A long test key, beyond the page's own 1 KiB, as some providers' keys are.
     const value = `test-key-not-real-${'x'.repeat(2000)}`;
-    const body = JSON.stringify({ runtime_id: 'test-agent', value });
+    const body = JSON.stringify({ id: 'thirdprovider', value });
     for (const forged of [
       { ...headers, cookie: 'page=forged' },
       { ...headers, 'sec-fetch-site': 'cross-site' },
     ]) {
       assert.equal((await call(port, 'POST', '/setup/keys/set', forged, body)).status, 403);
     }
-    assert.equal(storedAt(machine.dataDir, testAgent), null);
+    const thirdKey = { file: 'thirdprovider-api-key' };
+    assert.equal(storedAt(machine.dataDir, thirdKey), null);
     const done = await call(port, 'POST', '/setup/keys/set', headers, body);
     assert.equal(done.status, 200, done.body);
     assert.equal(done.body.includes('test-key-not-real'), false, 'the key is never sent back');
     const kept = JSON.parse(done.body) as SetupState;
     assert.equal(kept.keys?.apps[1]?.stored, true);
-    assert.equal(kept.keys?.apps[0]?.stored, false, 'only the app it was added for');
+    assert.equal(kept.keys?.apps[0]?.stored, false, 'only the key it was added for');
     assert.equal(kept.keys?.problem, null);
-    assert.equal(kept.restart_needed, true, 'a kept key asks for Restart to Apply');
-    assert.equal(readFileSync(join(machine.dataDir, 'test-agent-key'), 'utf8'), `${value}\n`);
+    assert.equal(kept.restart_needed, false, 'a key read at each use asks for no restart');
+    assert.equal(
+      readFileSync(join(machine.dataDir, 'thirdprovider-api-key'), 'utf8'),
+      `${value}\n`,
+    );
     const read = await call(port, 'GET', '/setup/state', { cookie });
     assert.equal(read.body.includes('test-key-not-real'), false);
-    // A paste that took more than the key is refused in that app's card, never in What Setup Said.
+    // A key one reader reads at its start asks for Restart to Apply.
+    const anthropic = JSON.parse(
+      (
+        await call(
+          port,
+          'POST',
+          '/setup/keys/set',
+          headers,
+          JSON.stringify({ id: 'anthropic', value: 'test-key-not-real-2' }),
+        )
+      ).body,
+    ) as SetupState;
+    assert.equal(anthropic.keys?.apps[0]?.stored, true);
+    assert.equal(anthropic.restart_needed, true, 'a key read at a start asks for Restart to Apply');
+    // A paste that took more than the key is refused in that key's card, never in What Setup Said.
     const refused = JSON.parse(
       (
         await call(
@@ -1015,37 +1047,35 @@ describe('the setup view on the pairing page', () => {
           'POST',
           '/setup/keys/set',
           headers,
-          JSON.stringify({ runtime_id: 'claude-agent', value: 'test key not real' }),
+          JSON.stringify({ id: 'anthropic', value: 'test key not real' }),
         )
       ).body,
     ) as SetupState;
     assert.deepEqual(refused.keys?.problem, {
-      runtime_id: 'claude-agent',
+      id: 'anthropic',
       text: 'That has spaces or line breaks in it. Paste the key alone.',
     });
     assert.deepEqual(refused.said, []);
-    assert.equal(storedAt(machine.dataDir, AGENT_KEYS[0] as AgentKey), null);
-    // Remove Key asks first; only a second press for the same app removes it.
-    const remove = (confirmed: boolean, runtimeId = 'test-agent') =>
-      call(
-        port,
-        'POST',
-        '/setup/keys/remove',
-        headers,
-        JSON.stringify({ runtime_id: runtimeId, confirmed }),
-      ).then((answer) => JSON.parse(answer.body) as SetupState);
+    // Remove Key asks first, saying what each reader does by its own timing; only a second press removes it.
+    const remove = (confirmed: boolean, id = 'thirdprovider') =>
+      call(port, 'POST', '/setup/keys/remove', headers, JSON.stringify({ id, confirmed })).then(
+        (answer) => JSON.parse(answer.body) as SetupState,
+      );
     const asked = await remove(false);
     assert.equal(asked.keys?.apps[1]?.stored, true, 'the first press removes nothing');
     assert.deepEqual(asked.keys?.confirm, {
-      runtime_id: 'test-agent',
-      text: 'Halcyonic deletes its copy. Test Agent needs a key again from the next start.',
+      id: 'thirdprovider',
+      text: 'Halcyonic deletes its copy. Test Assistant stops using it at once.',
     });
     assert.equal(asked.keys?.problem, null, 'a new press clears the last refusal');
-    const other = await remove(true, 'claude-agent');
-    assert.equal(
-      other.keys?.confirm?.runtime_id,
-      'claude-agent',
-      'a second press for another app asks again',
+    const other = await remove(true, 'anthropic');
+    assert.deepEqual(
+      other.keys?.confirm,
+      {
+        id: 'anthropic',
+        text: 'Halcyonic deletes its copy. Claude Agent needs a key again from the next start, and Test Assistant stops using it at once.',
+      },
+      'a second press for another key asks again',
     );
     const cancelled = JSON.parse(
       (await call(port, 'POST', '/setup/keys/cancel', headers, '{}')).body,
@@ -1055,29 +1085,40 @@ describe('the setup view on the pairing page', () => {
     const removed = await remove(true);
     assert.equal(removed.keys?.apps[1]?.stored, false);
     assert.equal(removed.keys?.confirm, null);
-    assert.equal(removed.restart_needed, false, 'back as it started');
-    assert.equal(existsSync(join(machine.dataDir, 'test-agent-key')), false);
+    assert.equal(existsSync(join(machine.dataDir, 'thirdprovider-api-key')), false);
     // The page draws whatever the declarations say: no vendor's name is in its own words or code.
     for (const file of ['setup.js', 'setup.html', 'setup.css']) {
       const text = readFileSync(new URL(`./setup-page/${file}`, import.meta.url), 'utf8');
-      assert.doesNotMatch(text, /claude|anthropic|openai|codex|opencode/i, file);
+      assert.doesNotMatch(text, /claude|anthropic|openai|codex|opencode|muse-/i, file);
+      // Meta by its name, not the HTML meta element.
+      assert.doesNotMatch(text, /\bMeta\b/, file);
     }
   });
 
   test("a key's Remove question and any other question never stand together", async (t) => {
-    const { view, mac: machine } = setup(t, { keys: AGENT_KEYS });
-    const keys = new AgentKeys(machine.dataDir, AGENT_KEYS);
-    assert.equal(keys.store('claude-agent', 'test-key-not-real'), null);
-    const asked = await view.removeKey('claude-agent', false);
-    assert.equal(asked.keys?.confirm?.runtime_id, 'claude-agent');
+    const declared = providersFolder(t);
+    const { view, mac: machine } = setup(t, {
+      providers: { dir: declared.dir, readers: [CLAUDE_AGENT_READER] },
+    });
+    const keys = new ProviderKeys(
+      machine.dataDir,
+      new HostProviders({
+        dir: declared.dir,
+        dataDir: machine.dataDir,
+        readers: [CLAUDE_AGENT_READER],
+      }),
+    );
+    assert.equal(keys.store('anthropic', 'test-key-not-real'), null);
+    const asked = await view.removeKey('anthropic', false);
+    assert.equal(asked.keys?.confirm?.id, 'anthropic');
     // A step's press that asks first takes its place.
     const step = await view.act('restart', null, false);
     assert.equal(step.keys?.confirm, null);
     assert.equal(step.confirm?.action, 'restart');
     // And a key's press forgets the step's question.
-    const again = await view.removeKey('claude-agent', false);
+    const again = await view.removeKey('anthropic', false);
     assert.equal(again.confirm, null);
-    assert.equal(again.keys?.confirm?.runtime_id, 'claude-agent');
+    assert.equal(again.keys?.confirm?.id, 'anthropic');
     // A secret's press forgets it too.
     assert.equal((await view.removeSecret('a-project', 'A_KEY', false)).keys?.confirm, null);
   });
@@ -1086,7 +1127,7 @@ describe('the setup view on the pairing page', () => {
     const { view } = setup(t);
     const state = await view.state();
     assert.equal(state.keys, null);
-    assert.equal((await view.setKey('test-agent', 'test-key-not-real')).keys, null);
+    assert.equal((await view.setKey('anthropic', 'test-key-not-real')).keys, null);
   });
 
   test('a mounted view may add nothing outside /setup', async () => {

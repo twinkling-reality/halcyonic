@@ -616,6 +616,13 @@
   color: var(--text);
   overflow-wrap: anywhere;
 }
+.key-used {
+  margin: 2px 0 0;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--secondary);
+  overflow-wrap: anywhere;
+}
 .key-form {
   grid-template-columns: minmax(0, 1fr) auto;
   margin-top: 8px;
@@ -631,7 +638,7 @@
   border-radius: 14px;
   font-size: 15px;
 }
-.key-form > button .glyph {
+.key-form .glyph {
   width: 18px;
   height: 18px;
 }

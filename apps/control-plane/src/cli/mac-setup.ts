@@ -44,7 +44,7 @@ import { delimiter, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 import type { DevicesResponse, LocationsResponse, Snapshot } from '@halcyonic/contracts';
-import { CLAUDE_AGENT_KEY, cloudProvider } from '@halcyonic/integration-claude-code';
+import { CLAUDE_AGENT_RUNTIME_ID, cloudProvider } from '@halcyonic/integration-claude-code';
 import { OPENCODE_SANDBOX_FOLDER, sandboxedSessionStore } from '@halcyonic/integration-opencode';
 import {
   defaultSalidiumHome,
@@ -52,7 +52,6 @@ import {
   readsOtherToolsSources,
   SalidiumClient,
 } from '@halcyonic/integration-salidium';
-import type { AgentKey } from '@halcyonic/runtime-core';
 import { isCloudName } from '../companion/ollama.ts';
 import {
   ConfigError,
@@ -78,7 +77,7 @@ import { OMNORIUM_CREDENTIAL_FILE } from '../intelligence/catalog.ts';
 import { CODEX_CONFINED_FOLDER } from '../intelligence/codex-home.ts';
 import { SEORAK_CREDENTIAL_FILE } from '../intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from '../intelligence/understanding.ts';
-import { keyFile } from '../keys/agent-keys.ts';
+import { keyFile } from '../keys/provider-keys.ts';
 import { managersOn } from '../own-check/own-check.ts';
 import { type PinnedFile, type Pins, pinsForThisMac, sha256File } from '../pins.ts';
 import { AUDIO_OUTPUT, installAudioOutput } from '../preview/audio-output.ts';
@@ -90,7 +89,13 @@ import {
 } from '../preview/launcher.ts';
 import { browserProblem, installBrowser } from '../preview/play.ts';
 import { isPinnedTunnel, TUNNEL_PIN } from '../preview/share.ts';
-import { AGENT_KEYS, ANTHROPIC_KEY_FILE, CODEX_HOME_FOLDER } from '../runtimes.ts';
+import { HostProviders } from '../providers.ts';
+import {
+  AGENT_KEY_READERS,
+  CODEX_HOME_FOLDER,
+  KEYED_AGENT_APPS,
+  providersReadBy,
+} from '../runtimes.ts';
 import {
   type HostSettings,
   readHostSettings,
@@ -174,6 +179,11 @@ export interface MacSetupIo {
    * the next start; absent, as in Terminal, setup says what the next start does.
    */
   readonly startedWith?: readonly string[];
+  /**
+   * The host's one list of declared providers, where the running control plane passes its own (ADR 0061); read when
+   * setup first needs it, so a declaration that does not hold is said as a step.
+   */
+  readonly providers?: () => HostProviders;
 }
 
 /** Whether `variable` holds a key in `env`: a value of spaces alone is none, as the start reads it. */
@@ -183,7 +193,14 @@ function keyIn(env: NodeJS.ProcessEnv, variable: string): boolean {
 
 /** An agent app that runs on the person's own key, as setup sees it now and as the next start will have it. */
 interface KeyedApp {
-  readonly key: AgentKey;
+  /** The agent app by its runtime id and name, and the declared provider key it reads, by that provider's name. */
+  readonly key: {
+    readonly runtimeId: string;
+    readonly app: string;
+    readonly declared: string;
+    readonly variable: string;
+    readonly file: string;
+  };
   readonly stored: boolean;
   /** A file is where its key would be, but the app would refuse it (others can read it, or it is empty). */
   readonly unusable: boolean;
@@ -557,8 +574,15 @@ class MacSetup {
         next.push('brew install ripgrep');
       }
     }
-    // Each agent app that runs on the person's own key, as its package declares it (AgentKey): the setup page takes it.
+    // Each agent app that reads a declared provider's key (ADR 0061), and so runs on the person's own key.
     // What the running Halcyonic started with is said as it is; a key added or removed since waits for the next start.
+    const declarations = this.#providerList().problem;
+    if (declarations !== null) {
+      look = true;
+      lines.push(
+        `A provider's declaration doesn't hold, so Halcyonic won't start until it is fixed: ${this.#tilde(declarations)}`,
+      );
+    }
     for (const keyed of this.#keyedApps(env)) {
       const { key } = keyed;
       // Said as of the next start where nothing tells setup what the running Halcyonic started with (Terminal).
@@ -572,24 +596,24 @@ class MacSetup {
         : keyed.stored
           ? 'Every task on it is paid for with that key.'
           : `Every task on it is paid for through your ${keyed.provider ?? 'cloud provider'} account, set in Halcyonic's environment.`;
-      const addIt = known
-        ? 'Add its key below.'
-        : 'Add its key under Agent Apps on the setup page.';
+      const its = `its ${key.declared} key`;
+      const addIt = known ? `Add ${its} below.` : `Add ${its} under Agent Apps on the setup page.`;
       // While the start stops, the setup page is not there: in Terminal, the way to it is a start without the switch.
       const fixIt = known
-        ? 'Adding its key below replaces it.'
-        : 'Start Halcyonic once without HALCYONIC_CLAUDE_AGENT=1, then add its key under Agent Apps on the setup page.';
+        ? `adding ${its} below replaces it.`
+        : `start Halcyonic once without HALCYONIC_CLAUDE_AGENT=1, then add ${its} under Agent Apps on the setup page.`;
+      const sentence = (words: string) => `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
       if (keyed.stops === 'unusable') {
         look = true;
         lines.push(
-          `${key.app} is switched on in Halcyonic's environment, but ${this.#tilde(join(this.#dataDir, key.file))} can be read by other users or is empty, so Halcyonic won't start${known ? ' again' : ''} until it is fixed. If it holds the key, run chmod 600 on it. Otherwise: ${fixIt}`,
+          `${key.app} is switched on in Halcyonic's environment, but ${this.#tilde(join(this.#dataDir, key.file))} can be read by other users or is empty, so Halcyonic won't start${known ? ' again' : ''} until it is fixed. If it holds the key, run chmod 600 on it. Otherwise, ${fixIt}`,
         );
         continue;
       }
       if (keyed.stops === 'no_credentials') {
         look = true;
         lines.push(
-          `${key.app} is switched on in Halcyonic's environment, but it has no key and no cloud provider, so Halcyonic won't start${known ? ' again' : ''} until it has one. ${known ? addIt : fixIt}`,
+          `${key.app} is switched on in Halcyonic's environment, but it has no key and no cloud provider, so Halcyonic won't start${known ? ' again' : ''} until it has one. ${known ? addIt : sentence(fixIt)}`,
         );
         continue;
       }
@@ -621,21 +645,56 @@ class MacSetup {
     return { title, status: ready === 0 ? 'todo' : look ? 'look' : 'ready', lines, next };
   }
 
+  #providers: { readonly providers: HostProviders | null; readonly problem: string | null } | null =
+    null;
+
+  /**
+   * The host's one list of declared providers: the running control plane's own where it passes it, else read once per
+   * run. A declaration that does not hold is said in the Agent apps step, as the start would stop on it, rather than
+   * ending setup.
+   */
+  #providerList(): { readonly providers: HostProviders | null; readonly problem: string | null } {
+    if (this.#providers === null) {
+      try {
+        this.#providers = {
+          providers:
+            this.#io.providers?.() ??
+            new HostProviders({ dataDir: this.#dataDir, readers: AGENT_KEY_READERS }),
+          problem: null,
+        };
+      } catch (error) {
+        if (!(error instanceof ConfigError)) throw error;
+        this.#providers = { providers: null, problem: error.message };
+      }
+    }
+    return this.#providers;
+  }
+
   /** Each declared keyed agent app: stored or not, on at the next start or not, and on now where that is known. */
   #keyedApps(env: NodeJS.ProcessEnv): KeyedApp[] {
-    return AGENT_KEYS.map((key) => {
+    const { providers } = this.#providerList();
+    if (providers === null) return [];
+    const declared = KEYED_AGENT_APPS.flatMap(({ runtimeId, reader }) =>
+      providersReadBy(providers, runtimeId).map((provider) => ({
+        runtimeId,
+        app: reader.name,
+        declared: provider.name,
+        variable: provider.key.variable,
+        file: provider.key.file,
+      })),
+    );
+    return declared.map((key) => {
       const file = keyFile(this.#dataDir, key);
       const stored = file.state === 'stored';
       // Claude Agent alone also has a switch of its own in the environment (HALCYONIC_CLAUDE_AGENT).
-      const byEnv =
-        key.runtimeId === CLAUDE_AGENT_KEY.runtimeId && env.HALCYONIC_CLAUDE_AGENT === '1';
+      const byEnv = key.runtimeId === CLAUDE_AGENT_RUNTIME_ID && env.HALCYONIC_CLAUDE_AGENT === '1';
       const next = stored || byEnv;
       const started = this.#io.startedWith;
       const now = started === undefined ? next : started.includes(key.runtimeId);
       const unusable = file.state === 'unusable';
       // As the start authenticates it: a key in the environment, else the stored key, else a cloud provider's switch.
       const provider =
-        key.runtimeId === CLAUDE_AGENT_KEY.runtimeId
+        key.runtimeId === CLAUDE_AGENT_RUNTIME_ID
           ? cloudProvider(env as Readonly<Record<string, string>>)
           : null;
       const stops =
@@ -783,7 +842,7 @@ class MacSetup {
       );
     }
     const claude = this.#keyedApps(this.#io.env).find(
-      (keyed) => keyed.key.runtimeId === CLAUDE_AGENT_KEY.runtimeId,
+      (keyed) => keyed.key.runtimeId === CLAUDE_AGENT_RUNTIME_ID,
     );
     const again = this.#io.startedWith === undefined ? '' : ' again';
     if (claude?.stops === 'unusable') {
@@ -812,12 +871,12 @@ class MacSetup {
       lines.push(
         keyed || claude.provider === null
           ? `${on} Its models run on a remote service, Anthropic's: nothing starts on one without its second press, and a task on one is paid for with your API key.`
-          : `${on} Its models run on a remote service, ${claude.provider}: nothing starts on one without its second press, and a task on one is paid for through that account.`,
+          : `${on} Its models run on a remote service, ${claude.provider}: nothing starts on one without its second press, and a task on one is paid for through your ${claude.provider} account.`,
       );
-      const key = this.#fileState(ANTHROPIC_KEY_FILE);
+      const key = this.#fileState(claude.key.file);
       if (key === 'exposed')
         lines.push(
-          `Other users can read ${this.#tilde(join(this.#dataDir, ANTHROPIC_KEY_FILE))}. Run chmod 600 on it.`,
+          `Other users can read ${this.#tilde(join(this.#dataDir, claude.key.file))}. Run chmod 600 on it.`,
         );
     } else {
       lines.push('Claude Agent is off.');
