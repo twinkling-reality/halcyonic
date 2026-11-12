@@ -216,7 +216,10 @@ namespace Halcyonic.Client
                     : roomDesign && prompt.Id == FileScreens.Cancel && prompt.Kind != PromptKind.Cancel && offering ? KitPlace.Back
                     : roomDesign ? RoomPlaceOf(prompt) ?? PlaceOf(slot, prompt) : PlaceOf(slot, prompt);
                 if (place == null || controls.Any(control => control.Place == place)) return null;
-                controls.Add(new KitControl(place.Value, frame, prompt.Id, null, prompt.Words, prompt.Icon, prompt.Available, prompt.Reason, prompt.Holds));
+                // An answer's control carries the approval it answers as its key: what the button does is that approval's, so a new
+                // approval drawn in its place is a new control, which settles again before it takes a press (AUDIT, 2026-11-12).
+                var answers = place is KitPlace.Approve or KitPlace.Deny ? workspace.ApprovalToAnswer?.ApprovalId : null;
+                controls.Add(new KitControl(place.Value, frame, prompt.Id, answers, prompt.Words, prompt.Icon, prompt.Available, prompt.Reason, prompt.Holds));
             }
             // The task's routes stand under Activity's log; Read results beside an open instruction is the composer's, which has no place for it.
             var composing = frame.Lines.Any(line => line.Action == FileScreens.EditInstruction);

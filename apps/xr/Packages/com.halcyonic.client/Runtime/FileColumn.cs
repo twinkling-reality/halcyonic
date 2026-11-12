@@ -538,6 +538,13 @@ namespace Halcyonic.Client
                 default:
                     if (WorkspaceScreens.ActionOf(id) is WorkspaceAction action && action != WorkspaceAction.Answer)
                     {
+                        // A press keyed by the approval its button answered answers that approval only: another drawn in its place since
+                        // takes no press meant for the one before (AUDIT, 2026-11-12).
+                        if (action is WorkspaceAction.Approve or WorkspaceAction.Deny && key != null && Now.ApprovalToAnswer?.ApprovalId != key)
+                        {
+                            Rebuild();
+                            return;
+                        }
                         Steer(Steering.Press(action, Now));
                         // One press only where the redesign's panel draws the request, for a person's press, and only for the approval and
                         // request the frame they pressed on showed (a fresh critic, 2026-11-12): a press that armed any other waits for its Confirm.
