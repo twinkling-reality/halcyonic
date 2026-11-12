@@ -393,9 +393,12 @@ namespace Halcyonic.XR.UI
             band.Hide();
             field.Hide();
             cursor.Hide();
+            // Compact clears the room (the addendum's A15): the redesign's pair goes with the rest, and under the redesign only
+            // the characters and their name tags stand, the way back being a character picked or the menu's own input.
+            bar.Hide();
             gameObject.SetActive(true);
             view.gameObject.SetActive(false);
-            presence.gameObject.SetActive(true);
+            presence.gameObject.SetActive(!RoomDesign.Enabled);
             var zoom = GlazeText.Scale;
             presence.transform.localScale = Vector3.one / zoom;
             presence.Show(model);
