@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type {
+  CatalogResponse,
   ChoiceList,
   ChoiceRow,
   ChoiceRowKind,
@@ -35,6 +36,8 @@ export interface ChoiceSources {
   readonly locations: () => LocationsResponse;
   /** The commands of a project's own that may be its check, as the own check's find reads them, or null. */
   readonly scripts: (projectId: string) => Promise<readonly OwnCheckScript[] | null>;
+  /** The person's catalog, read now; null where none is set up or it cannot be read by index. */
+  readonly catalog: () => Promise<CatalogResponse | null>;
 }
 
 /** One line of the host's words or someone else's, clipped to fit, never with an ellipsis. */
@@ -271,9 +274,31 @@ export async function choiceRows(
         );
       return rows;
     }
-    // Not offered by index yet: the catalog.
-    case 'catalog':
-      return null;
+    case 'catalog': {
+      // Every repository of the person's catalog as read now, each project's primary first, archived
+      // ones left out; a catalog that cannot be read is no list (404), never an empty one.
+      const read = await sources.catalog();
+      if (read === null || read.availability !== 'available') return null;
+      const rows: HeldRow[] = [];
+      for (const listed of read.projects)
+        for (const repository of listed.repositories) {
+          if (repository.archived) continue;
+          rows.push(
+            row(
+              rows.length,
+              'repository',
+              repository.full_name,
+              {
+                source: 'omnorium',
+                repository_id: repository.repository_id,
+                full_name: repository.full_name,
+              },
+              { detail: listed.name, theirs: true, actions: ['project.link_catalog'] },
+            ),
+          );
+        }
+      return rows;
+    }
     default: {
       const unhandled: never = list;
       throw new Error(`unhandled list ${String(unhandled)}`);

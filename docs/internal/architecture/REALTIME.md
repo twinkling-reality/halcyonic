@@ -203,10 +203,11 @@ client                                   server
     it again once the journal passes `position`.
   - `GET /api/actions/choices?list=&<the scope's ids>` answers `ChoicesResponse` `{scope, list, position, digest,
     rows, total}`: one of the host's lists, at most 32 rows, each `{index, kind, label, detail, theirs, actions}`,
-    and never the id a row stands for. A row of `versions`, `secrets`, `queued_instructions`, `approvals` or
-    `runtimes` names only the commands the whole admission takes it for, the host's checks included (an agent not
-    kept to one folder starts no task that works in its own copy); a refusal about another need, such as a model
-    still to choose, is not the row's. A row left with none says why in `detail`, the admission's words. Today: `tasks`, `versions`, `runtimes`, `approval_levels`, `share_ways`,
+    and never the id a row stands for. A row of `versions`, `secrets`, `queued_instructions`, `approvals`,
+    `runtimes` or `catalog` names only the commands the whole admission takes it for, the host's checks included
+    (an agent not kept to one folder starts no task that works in its own copy); a refusal about another need, such
+    as a model still to choose, is not the row's. A row left with none says why in `detail`, the admission's words.
+    Today: `tasks`, `versions`, `runtimes`, `approval_levels`, `share_ways`,
     `secrets`, `queued_instructions`, `approvals`, `decisions`, `questions`, and `pictures` (the folder's pictures
     as the pictures read finds them, each given to an instruction as `{path, kind: 'image'}`), and `models` (every
     model of every runtime that lists its own, each row's `detail` naming its runtime; the start's admission and
@@ -216,7 +217,9 @@ client                                   server
     new folder takes its name from the project's, made folder-safe by the host as
     the field's `completes` in `COMMAND_FIELDS` says; Make VR Version takes a new
     folder row's root, as its field's `takes` says, and an existing folder is no place for one).
-    `catalog` answers 404 `read_unavailable` until it is read by index.
+    `catalog` is every repository of the person's catalog as read now (archived ones left out, each row's detail
+    its project's name), for Link to Catalog; a sample's rows offer nothing and say why, and with no catalog set up,
+    or one that cannot be read, it answers 404 `read_unavailable`.
   - One preparation (`CommandService.prepare`) builds a command from `{scope, command_type, values, read}` for a
     person's press and the assistant's proposal alike: only a command the scope offers now; the scope's ids and the
     host's fills (`options: {}`); each need's value, a choice by its index in a list whose digest is still the one
