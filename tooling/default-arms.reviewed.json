@@ -1,0 +1,422 @@
+[
+  {
+    "file": "apps/xr/Assets/Halcyonic/Room/PassthroughView.cs",
+    "answer": "BoundaryAnswer.Failed",
+    "count": 1,
+    "why": "routing: Every OVRPlugin result other than Success, the suppression warning and the two unsupported failures becomes Failed, which the room only reads as not Done and so keeps the boundary on; right for every failure that reaches it."
+  },
+  {
+    "file": "apps/xr/Assets/Halcyonic/Room/RoomPlacement.cs",
+    "answer": "Vector3.zero",
+    "count": 1,
+    "why": "routing: TurnLeft, TurnRight and any unknown direction string move the preview by nothing, the turn applied separately; right for each."
+  },
+  {
+    "file": "apps/xr/Assets/Halcyonic/Scripts/CharacterView.cs",
+    "answer": "(0f, 0f)",
+    "count": 1,
+    "why": "style: Eye offsets for OnPerson and Open; a look only."
+  },
+  {
+    "file": "apps/xr/Assets/Halcyonic/UI.Interaction/Kit/KitButton.cs",
+    "answer": "PadDegrees",
+    "count": 1,
+    "why": "style: Button padding for Quiet, Round and Secondary; a size only."
+  },
+  {
+    "file": "apps/xr/Assets/Halcyonic/UI.Interaction/Kit/KitWorkView.cs",
+    "answer": "KitType.Text",
+    "count": 1,
+    "why": "style: Text colour for Good and Primary lines; a colour only."
+  },
+  {
+    "file": "apps/xr/Assets/Halcyonic/UI.Interaction/PanelFrame.cs",
+    "answer": "ButtonRole.Secondary",
+    "count": 1,
+    "why": "style: Button role for Back and Secondary actions; a look only."
+  },
+  {
+    "file": "apps/xr/Assets/Halcyonic/UI.Interaction/Room/RoomButton.cs",
+    "answer": "RoomGlyph.Continue",
+    "count": 1,
+    "why": "style: A glyph for every unlisted icon; a look only, though a Continue arrow on icons such as ChecksFailed may read oddly."
+  },
+  {
+    "file": "apps/xr/Assets/Halcyonic/UI.Interaction/Room/RoomCardView.cs",
+    "answer": "(Rgb(QuietFill), Color.white, RoomGlyph.Minus)",
+    "count": 1,
+    "why": "style: Ground, ink and glyph for Quiet and Skipped status tones; a look only."
+  },
+  {
+    "file": "apps/xr/Assets/Halcyonic/UI.Interaction/Room/RoomCardView.cs",
+    "answer": "(Rgb(QuietFill), Color.white, RoomGlyph.Wait, Color.clear)",
+    "count": 1,
+    "why": "style: Ground, ink and glyph for Attention and Quiet steps; a look only."
+  },
+  {
+    "file": "apps/xr/Assets/Halcyonic/UI.Interaction/Room/RoomCardView.cs",
+    "answer": "(RoomTone.Quiet, glyph)",
+    "count": 1,
+    "why": "style: The Quiet tone for neutral row kinds; a look only."
+  },
+  {
+    "file": "apps/xr/Assets/Halcyonic/UI.Interaction/Room/RoomCardView.cs",
+    "answer": "(White(RowTileAlpha), White(0.85f), White(NoteAlpha))",
+    "count": 1,
+    "why": "style: Tile and note colours for Quiet and Skipped rows; a look only."
+  },
+  {
+    "file": "apps/xr/Assets/Halcyonic/UI.Interaction/Room/RoomCardView.cs",
+    "answer": "Rgb(WorkingFill, 0.6f)",
+    "count": 1,
+    "why": "style: Pip colour for Quiet, Skipped and Working; a look only."
+  },
+  {
+    "file": "apps/xr/Assets/Halcyonic/UI/Kit/KitType.cs",
+    "answer": "SpatialKit.BodyDp",
+    "count": 1,
+    "why": "style: Text size for Body and Strong; a size only."
+  },
+  {
+    "file": "apps/xr/Assets/Halcyonic/Workspace/SectionView.cs",
+    "answer": "GlazeTokens.Text",
+    "count": 1,
+    "why": "style: Text colour for Claim and Normal sections; a colour only."
+  },
+  {
+    "file": "apps/xr/Assets/Halcyonic/Workspace/WorkspaceSections.cs",
+    "answer": "WorkspaceQuestion.Doing",
+    "count": 1,
+    "why": "routing: Activity and Waiting read the Doing question, which reads nothing extra, as the summary says those sections need; right for both."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/ActivityLog.cs",
+    "answer": "LineWords.TheirName(name)",
+    "count": 1,
+    "why": "true: Any tool name other than commandExecution and fileChange is shown as the agent's own name, marked as theirs, which is what it is."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/AppearanceColumn.cs",
+    "answer": "new[] { new PageLine(StateLanguage.WordOf(WorkState.FinishedThisRound), icon: GlazeIcon.FinishedThisRound, tone: LineTone.Good), new PageLine(LineWords.Ours(SectionLine.AgentChip + \" · \") + LineWords.Theirs(\"The example is ready.\")), }",
+    "count": 1,
+    "why": "true: Only page 4 of the five-page theme preview reaches it, and its lines are inert specimens under Preview and Examples; note it puts an Agent Reported chip on example words no agent said."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/CompanionExchange.cs",
+    "answer": "\"companion_failed\"",
+    "count": 1,
+    "why": "generic: Any exception not a coded control plane error, an unreachable request, a timeout or unreadable JSON gets the code companion_failed, a generic code that is true for all of them (the words it leads to are judged at CompanionText.cs:112)."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/CompanionText.cs",
+    "answer": "CouldNotAsk",
+    "count": 1,
+    "why": "KNOWN WRONG, owed: companion_failed needs words of its own. The Mac's own companion_failed, sent when the model was asked and then answered an HTTP error, stopped with an error or was cut off, reaches it, and so do this side's catch-all exceptions after sending, yet it says Companion Not Asked."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/ConnectText.cs",
+    "answer": "Ours(\"Connect Unconfirmed · \") + Named(connection.Folder.ProjectName) + Ours(\" · Check Projects\")",
+    "count": 1,
+    "why": "true: Only Unknown, Unexpected and Failed with an unknown effect reach it in practice (NotYet ends at Begin), and Connect Unconfirmed with Check Projects is true for each."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/ConnectionText.cs",
+    "answer": "\"Connection Ended · \" + TriesAgain",
+    "count": 1,
+    "why": "generic: Any fatal error code other than the four listed ends the session through Ending.Failed, which retries, so Connection Ended and Retrying hold for all of them."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/ConnectionText.cs",
+    "answer": "turnedAway",
+    "count": 1,
+    "why": "generic: Any non-401 upgrade refusal code other than host_not_allowed and too_many_requests shows the caller's Connection Refused and Retrying words, true for every refusal."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/DemonstrationTransport.cs",
+    "answer": "\"Not sent to any agent. The run goes on as it happened.\"",
+    "count": 1,
+    "why": "true: Answer, Instruct and Interrupt in a recorded run reach it, and Not sent to any agent with the run going on as it happened is true for each."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/EntryText.cs",
+    "answer": "ConnectionText.NotThePairedComputer",
+    "count": 1,
+    "why": "true: A guarded arm: only a CertificateMismatchException reaches it, and Unknown Host, Not Your Computer, Nothing Sent is true for it."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/EntryText.cs",
+    "answer": "ModelsUnreadable",
+    "count": 1,
+    "why": "generic: Any model listing code other than the unreachable family and runtime_version_unsupported says Models Unreadable with Choose Again, true and vague."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/EntryText.cs",
+    "answer": "NotSureItHappened",
+    "count": 1,
+    "why": "true: Only Unexpected reaches it (a completed record with a result the step did not expect), and Effect Unconfirmed is true for that."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/EntryText.cs",
+    "answer": "notSent.Outcome switch { LoopbackProofOutcome.Unproved => FoldersUnproved, LoopbackProofOutcome.Unreachable => FoldersUnanswered, _ => null, }",
+    "count": 1,
+    "why": "true: Only a TokenNotSentException reaches it; Unproved and Unreachable get their own words and NotLoopback or Proved give null, so nothing is claimed for them."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/FileScreens.cs",
+    "answer": "LineTone.Primary",
+    "count": 1,
+    "why": "style: Line tone for Claim and Normal; a look only."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/GalleryText.cs",
+    "answer": "\"Projects Unreadable · Refresh\"",
+    "count": 1,
+    "why": "generic: Unavailable catalogs with codes other than not_running, not_configured and not_ready reach it, and Projects Unreadable with Refresh is a true generic fallback."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/GalleryText.cs",
+    "answer": "(GallerySection.NeedsYou, NeedsALook)",
+    "count": 1,
+    "why": "generic: Any catalog state the source adds later says Needs a Look and is grouped under Needs You, a deliberate conservative fallback that claims no named state."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/GalleryText.cs",
+    "answer": "NotInThisRecording",
+    "count": 1,
+    "why": "true: A guarded arm: only a recorded answer that is not AvailableCatalog reaches it, and Not in Recording is true for it."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/IntelligencePresentation.cs",
+    "answer": "\"Host Unverified · Code Not Sent · Check App · Refresh\"",
+    "count": 1,
+    "why": "true: A guarded arm: only a TokenNotSentException with Unproved reaches it, and Host Unverified, Code Not Sent is true."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/IntelligencePresentation.cs",
+    "answer": "\"No Reason Given · Refresh\"",
+    "count": 1,
+    "why": "KNOWN WRONG, owed: own_sources_not_set_up needs words of its own. Every unlisted reason code reaches it, including own_sources_not_set_up, which the control plane sends for Salidium and Seorak not_found answers, so the headset says No Reason Given when a reason was given."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/IntelligencePresentation.cs",
+    "answer": "Client.Evidence.Measured",
+    "count": 1,
+    "why": "true: Every tag that is not a class word reaches it, and today those are only Checks, Cost and Outcome, the evaluation source's own parts; any new or misspelled tag would silently lose its chip as a measurement."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/IntelligencePresentation.cs",
+    "answer": "ConnectionText.NotThePairedComputer",
+    "count": 1,
+    "why": "true: A guarded arm: only CertificateMismatchException reaches it, and Not Your Computer, Nothing Sent is true."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/IntelligencePresentation.cs",
+    "answer": "ConnectionText.Unreadable",
+    "count": 1,
+    "why": "generic: A guarded arm: any JsonException in the chain says Message Unreadable with Install Same Version, true that it was unreadable though the version advice is a guess."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/IntelligencePresentation.cs",
+    "answer": "DidntAnswer",
+    "count": 1,
+    "why": "true: A guarded arm: only a TokenNotSentException with Unreachable reaches it, and No Answer is true."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/IntelligencePresentation.cs",
+    "answer": "IntelligenceText.Plural(landed.Value, \"Commit\") + \" Landed\"",
+    "count": 1,
+    "why": "true: Only a non-null, non-zero count of landed commits from the evaluation measure reaches it, and it states that count."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/IntelligencePresentation.cs",
+    "answer": "SomethingWentWrong",
+    "count": 2,
+    "why": "generic: A guarded arm: InvalidData, Format, Overflow and Handshake failures say Read Failed, true and vague, and never claim nothing answered."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/IntelligencePresentation.cs",
+    "answer": "unasked.Message",
+    "count": 1,
+    "why": "true: A guarded arm: only UnaskedReadException reaches it, whose messages are all Halcyonic's own (Not Connected, Still Being Read, Not Recorded, Nothing Recorded)."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/KitPillMaterial.cs",
+    "answer": "BlueStops",
+    "count": 1,
+    "why": "style: Gradient stops for Blue and None pills; a colour only."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/KitPillMaterial.cs",
+    "answer": "GlazeColor.Hex(0x083870)",
+    "count": 1,
+    "why": "style: Pill colour for Blue and None; a colour only."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/KitPillMaterial.cs",
+    "answer": "GlazeColor.Hex(0x0C488A)",
+    "count": 1,
+    "why": "style: Pill colour for Blue and None; a colour only."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/KitPillMaterial.cs",
+    "answer": "GlazeColor.Hex(0x6ED7FF)",
+    "count": 1,
+    "why": "style: Pill colour for Blue and None; a colour only."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/KitPresenter.cs",
+    "answer": "ConnectionText.Phase(connection)",
+    "count": 1,
+    "why": "true: Connecting, Synchronizing, Refused and Stopped reach it and get ConnectionText.Phase's own words for each phase."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/MicrophoneAsk.cs",
+    "answer": "MicrophoneAtHold.Ask",
+    "count": 1,
+    "why": "routing: NeverAsked and RefusedOnce make a hold ask for the microphone, right since the system may still ask in both."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/NewProjectFlow.cs",
+    "answer": "current.Rewrite(written)",
+    "count": 1,
+    "why": "routing: Only FirstTask reaches it (FolderName is taken earlier), and it rewrites the first task; right."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/NewProjectScreens.cs",
+    "answer": "LineTone.Secondary",
+    "count": 1,
+    "why": "style: Line tone for NotYet, Unexpected, Unknown and Waiting steps; a look only."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/NewProjectScreens.cs",
+    "answer": "new Prompt(UseIdea, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true)",
+    "count": 1,
+    "why": "routing: Only Typed reaches it, since None is replaced first and Typed implies words, so Make Recap on the idea is right."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/PairingCards.cs",
+    "answer": "(\"Pairing Refused\", \"Open pairing on your computer again, then try again.\")",
+    "count": 1,
+    "why": "KNOWN WRONG, owed: unreachable, invalid_code and error need words of their own. Pairing failures that were never refused reach it, unreachable (nothing answered), invalid_code (never sent) and error (any other exception), yet the card says Pairing Refused and to open pairing again."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/PairingClient.cs",
+    "answer": "Refused",
+    "count": 1,
+    "why": "true: Only real refusals reach it, a pair_refused message or an HTTP upgrade refusal with an unlisted or null code, and Pairing Refused is true for them."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/PreviewRelay.cs",
+    "answer": "\"The preview isn't answering. Try again.\"",
+    "count": 1,
+    "why": "KNOWN WRONG, owed: a status the relay passes through unnamed is said as not answering. A 409 or 502 the preview app itself sends is passed through by the computer's relay and reaches it with no known code, yet it says the preview is not answering when the preview did answer."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/ProjectIdea.cs",
+    "answer": "\"New project\"",
+    "count": 1,
+    "why": "true: Any kind answer other than website, app or tool gives the suggested name New project, a default name rather than a fact."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/RoomBar.Page.cs",
+    "answer": "KitPlace.Step",
+    "count": 1,
+    "why": "routing: Action and NextPage prompts go to the Step place; right for both."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/ShareColumn.cs",
+    "answer": "way == ShareWay.Wifi ? ShareText.NoWifiAnswer : ShareText.NoLinkAnswer",
+    "count": 1,
+    "why": "KNOWN WRONG, owed: a failure with no listed code is said as the way not answering. A share start pending at a control plane restart fails with control_plane_restarted and effect unknown, and reaches it, yet it says the game could not be shared because its address or link did not answer, which nobody observed."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/SoundCues.cs",
+    "answer": "6",
+    "count": 1,
+    "why": "style: Cue start order for the unlisted cues; a sound timing only."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/TaskResultsColumn.cs",
+    "answer": "\"Changed · \"",
+    "count": 1,
+    "why": "true: Only ToolResultFileKind.Update reaches it, and Changed is true for an updated file."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/TasksColumn.cs",
+    "answer": "\"Needs You · \" + count + \" Tasks\"",
+    "count": 1,
+    "why": "true: Only counts of two or more tasks in the Needs You tier reach it, and it states that count."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/TasksColumn.cs",
+    "answer": "LineTone.Primary",
+    "count": 1,
+    "why": "style: Line tone for Accent, Active, Neutral, Simulated and Unknown badges; a look only."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/UsageLeftPresentation.cs",
+    "answer": "Failure(\"Usage Unreadable · Retry Later\")",
+    "count": 1,
+    "why": "generic: Unavailable usage limits with codes other than the four listed say Usage Unreadable with Retry Later, a true generic failure."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/VoiceText.cs",
+    "answer": "\"Voice Failed · Type Instead\"",
+    "count": 1,
+    "why": "generic: Any clip refusal code not listed says Voice Failed with Type Instead, true and vague."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WorkAnswers.cs",
+    "answer": "\"To Do\"",
+    "count": 1,
+    "why": "true: Only Pending reaches it (Reported is excluded by the guard above), and To Do is true for it."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WorkAnswers.cs",
+    "answer": "5",
+    "count": 1,
+    "why": "style: A sort key for change kinds: Changed and the joined kinds sort last; no words shown."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WorkspacePresentation.cs",
+    "answer": "\"Confirmed\"",
+    "count": 1,
+    "why": "true: Only Completed commands reach it, and Confirmed is true since the control plane recorded completion, though it says nothing of the result."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WorkspacePresentation.cs",
+    "answer": "\"Sent · Awaiting Agent\"",
+    "count": 1,
+    "why": "KNOWN WRONG, owed: each command's pending words, from one table of the host's codes. Host commands no agent takes reach it, such as ProjectCreate, ProjectCheck, preview, share and ExecutionDropQueuedInstruction, yet it says Sent and Awaiting Agent."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WorkspacePresentationState.cs",
+    "answer": "KitSandbox.NotDeclared",
+    "count": 1,
+    "why": "true: Only a null ApprovalMayLeaveSandbox, or no runtime descriptor, reaches it, and Not Declared is true for both."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WorkspaceText.cs",
+    "answer": "\"Effect Unconfirmed · \" + CheckFirst",
+    "count": 1,
+    "why": "generic: Unknown-effect failures of host commands and ExecutionDropQueuedInstruction say Effect Unconfirmed with Check Activity, true for all though vague."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WorkspaceText.cs",
+    "answer": "\"Not Sendable Now\"",
+    "count": 1,
+    "why": "generic: A task with no actions in Failed, Idle, Interrupted, TurnFinished, Verifying, WaitingForHuman or Working says Not Sendable Now, true and vague."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WorkspaceText.cs",
+    "answer": "ApprovalWithoutTool",
+    "count": 1,
+    "why": "true: Only an approval whose subject is not a tool use reaches it in the need, or a just-resolved armed approval in steering, and Approval Requested holds for each."
+  },
+  {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WorkspaceText.cs",
+    "answer": "EntryText.FolderProblem(null, code)",
+    "count": 1,
+    "why": "true: Every other failure code goes to FolderProblem, which gives folder words only for the folder codes and null for the rest, so nothing is claimed."
+  }
+]
