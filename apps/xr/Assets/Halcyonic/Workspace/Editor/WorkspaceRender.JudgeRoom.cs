@@ -331,7 +331,15 @@ namespace Halcyonic.XR.Workspace.Editor
                         ways.Add(row);
                     }
                     var key = section?.ToString().ToLowerInvariant();
-                    if (Open() && !There() && key != null && !PressedButton("section", key) && !(section == FileSection.Checks && PressedButton("room-checks", null))
+                    // A result at rest offers its own Changes and Checks, which turn the result's page: a press of one reaches it.
+                    var resultPage = section == FileSection.Changes ? RoomResult.ShowChanges : section == FileSection.Checks ? RoomResult.ShowChecks : null;
+                    if (Open() && !There() && resultPage != null && Drawn("section", key) == null && PressedButton(resultPage, null))
+                    {
+                        reachedBy = string.Join(", then ", ways);
+                        Draw();
+                        return;
+                    }
+                    if (Open() && !There() && key != null && !PressedButton("section", key)
                         && PressRow(control => control.Key == key || control.Key == KitFileBinding.SectionRowKey + key) is string sectionRow)
                     {
                         Fresh();
