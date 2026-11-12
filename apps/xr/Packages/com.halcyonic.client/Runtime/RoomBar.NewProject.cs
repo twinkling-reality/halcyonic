@@ -10,7 +10,7 @@ namespace Halcyonic.Client
         public const string StartTaskAsks = "Start Task?";
         public const string StartOverAsks = "Start Over?";
 
-        /// <summary>The page of what can be changed, as a list card: its title.</summary>
+        /// <summary>The page of what can be changed, as a list card: its title where the page names no project.</summary>
         public const string ChangeTitle = "Change";
 
         /// <summary>
@@ -170,7 +170,7 @@ namespace Halcyonic.Client
                     if (Offered(NewProjectScreens.StartOver) is Prompt over) column.Add(Of(over, KitPlace.Route));
                     column.Add(Of(prompts.First(prompt => prompt.Id == NewProjectScreens.BackToRecap), KitPlace.Back));
                     var page = new RoomBar(RoomBarState.Choose, column: column, lines: changes.Select(line => line.Runs).ToList());
-                    page.Card = new RoomCard(LineWords.Ours(ChangeTitle), list: rows);
+                    page.Card = new RoomCard(frame.Card?.Title ?? LineWords.Ours(ChangeTitle), list: rows);
                     return page;
                 }
                 // A page that changes one fact: what it is in the panel, its choices and actions in the column, Done last.

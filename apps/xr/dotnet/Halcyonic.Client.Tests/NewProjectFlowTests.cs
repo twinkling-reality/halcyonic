@@ -2492,10 +2492,11 @@ public class NewProjectFlowTests
     {
         var host = new Host { VoiceOffered = false };
         var flow = RoomRecapped(host);
+        var named = Bar(flow).Card!.Title!.Text;
         Press(flow, NewProjectScreens.ChangeRecap, null);
         var page = Bar(flow);
         Assert.That((page.State, page.Wide), Is.EqualTo((RoomBarState.Choose, false)), "the changes stand as a list card in the panel");
-        Assert.That(page.Card!.Title!.Text, Is.EqualTo(RoomBar.ChangeTitle));
+        Assert.That(page.Card!.Title!.Text, Is.EqualTo(named), "the page names the project, as the recap does, never the verb");
         Assert.That(page.Card.List.Select(row => (row.Kind, row.Name.Text, row.Press!.Action)), Is.EqualTo(new[]
         {
             (RoomKind.Project, EntryText.ProjectName, NewProjectScreens.Rename), (RoomKind.Task, EntryText.FirstTask, NewProjectScreens.ChangeTask),
