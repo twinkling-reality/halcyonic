@@ -231,7 +231,7 @@ namespace Halcyonic.Contracts
         public bool Sayable { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("needs", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<HereNeed> Needs { get; set; } = default!;
+        public global::System.Collections.Generic.List<HereNeed> Needs { get; set; } = new global::System.Collections.Generic.List<HereNeed>();
     }
 
     public sealed class HereListAction : HereAction
@@ -251,7 +251,7 @@ namespace Halcyonic.Contracts
         public long Position { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("actions", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<HereAction> Actions { get; set; } = default!;
+        public global::System.Collections.Generic.List<HereAction> Actions { get; set; } = new global::System.Collections.Generic.List<HereAction>();
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -292,7 +292,7 @@ namespace Halcyonic.Contracts
         public bool Theirs { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("actions", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<CommandType> Actions { get; set; } = default!;
+        public global::System.Collections.Generic.List<CommandType> Actions { get; set; } = new global::System.Collections.Generic.List<CommandType>();
     }
 
     public sealed class ChoicesResponse
@@ -310,7 +310,7 @@ namespace Halcyonic.Contracts
         public string Digest { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("rows", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ChoiceRow> Rows { get; set; } = default!;
+        public global::System.Collections.Generic.List<ChoiceRow> Rows { get; set; } = new global::System.Collections.Generic.List<ChoiceRow>();
 
         [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
@@ -393,19 +393,19 @@ namespace Halcyonic.Contracts
         public string WhatHappens { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("facts", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ActionReviewFact> Facts { get; set; } = default!;
+        public global::System.Collections.Generic.List<ActionReviewFact> Facts { get; set; } = new global::System.Collections.Generic.List<ActionReviewFact>();
 
         [global::Newtonsoft.Json.JsonProperty("items", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ActionReviewItem> Items { get; set; } = default!;
+        public global::System.Collections.Generic.List<ActionReviewItem> Items { get; set; } = new global::System.Collections.Generic.List<ActionReviewItem>();
 
         [global::Newtonsoft.Json.JsonProperty("items_total", Required = global::Newtonsoft.Json.Required.Always)]
         public long ItemsTotal { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("warnings", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ActionReviewWarning> Warnings { get; set; } = default!;
+        public global::System.Collections.Generic.List<ActionReviewWarning> Warnings { get; set; } = new global::System.Collections.Generic.List<ActionReviewWarning>();
 
         [global::Newtonsoft.Json.JsonProperty("said", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ActionReviewSaid> Said { get; set; } = default!;
+        public global::System.Collections.Generic.List<ActionReviewSaid> Said { get; set; } = new global::System.Collections.Generic.List<ActionReviewSaid>();
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -714,7 +714,7 @@ namespace Halcyonic.Contracts
         protected override string Discriminator => "available";
 
         [global::Newtonsoft.Json.JsonProperty("entries", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<HistoryEntry> Entries { get; set; } = default!;
+        public global::System.Collections.Generic.List<HistoryEntry> Entries { get; set; } = new global::System.Collections.Generic.List<HistoryEntry>();
 
         [global::Newtonsoft.Json.JsonProperty("more", Required = global::Newtonsoft.Json.Required.Always)]
         public bool More { get; set; }
@@ -790,7 +790,7 @@ namespace Halcyonic.Contracts
         protected override string Discriminator => "available";
 
         [global::Newtonsoft.Json.JsonProperty("checkpoints", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<CheckpointView> Checkpoints { get; set; } = default!;
+        public global::System.Collections.Generic.List<CheckpointView> Checkpoints { get; set; } = new global::System.Collections.Generic.List<CheckpointView>();
     }
 
     public sealed class UnavailableCheckpoints : CheckpointsResult
@@ -813,7 +813,7 @@ namespace Halcyonic.Contracts
     public sealed class PathList
     {
         [global::Newtonsoft.Json.JsonProperty("paths", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> Paths { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> Paths { get; set; } = new global::System.Collections.Generic.List<string>();
 
         [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
@@ -948,7 +948,7 @@ namespace Halcyonic.Contracts
         public string? To { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ProjectChangedFile> Files { get; set; } = default!;
+        public global::System.Collections.Generic.List<ProjectChangedFile> Files { get; set; } = new global::System.Collections.Generic.List<ProjectChangedFile>();
 
         [global::Newtonsoft.Json.JsonProperty("files_total", Required = global::Newtonsoft.Json.Required.Always)]
         public long FilesTotal { get; set; }
@@ -1058,7 +1058,7 @@ namespace Halcyonic.Contracts
         public string ProjectId { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("pictures", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ProjectPicture> Pictures { get; set; } = default!;
+        public global::System.Collections.Generic.List<ProjectPicture> Pictures { get; set; } = new global::System.Collections.Generic.List<ProjectPicture>();
 
         [global::Newtonsoft.Json.JsonProperty("pictures_total", Required = global::Newtonsoft.Json.Required.Always)]
         public long PicturesTotal { get; set; }
@@ -1131,7 +1131,7 @@ namespace Halcyonic.Contracts
         public long? Exit { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("lines", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> Lines { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> Lines { get; set; } = new global::System.Collections.Generic.List<string>();
 
         [global::Newtonsoft.Json.JsonProperty("lines_total", Required = global::Newtonsoft.Json.Required.Always)]
         public long LinesTotal { get; set; }
@@ -1207,7 +1207,7 @@ namespace Halcyonic.Contracts
         public OwnCheckManager? Manager { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("scripts", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<OwnCheckScript> Scripts { get; set; } = default!;
+        public global::System.Collections.Generic.List<OwnCheckScript> Scripts { get; set; } = new global::System.Collections.Generic.List<OwnCheckScript>();
 
         [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public OwnCheckNotFound? Reason { get; set; }
@@ -1225,7 +1225,7 @@ namespace Halcyonic.Contracts
     public sealed class ChangedFiles
     {
         [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ChangedFile> Files { get; set; } = default!;
+        public global::System.Collections.Generic.List<ChangedFile> Files { get; set; } = new global::System.Collections.Generic.List<ChangedFile>();
 
         [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
@@ -1410,7 +1410,7 @@ namespace Halcyonic.Contracts
         public long Size { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("rows", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> Rows { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> Rows { get; set; } = new global::System.Collections.Generic.List<string>();
     }
 
     public sealed class PublishedCodeResponse
@@ -1578,7 +1578,7 @@ namespace Halcyonic.Contracts
         public long Earlier { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("results", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ToolResultSummary> Results { get; set; } = default!;
+        public global::System.Collections.Generic.List<ToolResultSummary> Results { get; set; } = new global::System.Collections.Generic.List<ToolResultSummary>();
     }
 
     public sealed class ToolResultRedaction
@@ -1743,7 +1743,7 @@ namespace Halcyonic.Contracts
         protected override string Discriminator => "file_changes";
 
         [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ToolResultFile> Files { get; set; } = default!;
+        public global::System.Collections.Generic.List<ToolResultFile> Files { get; set; } = new global::System.Collections.Generic.List<ToolResultFile>();
 
         [global::Newtonsoft.Json.JsonProperty("files_total", Required = global::Newtonsoft.Json.Required.Always)]
         public long FilesTotal { get; set; }
@@ -1856,7 +1856,7 @@ namespace Halcyonic.Contracts
     public sealed class CheckPage
     {
         [global::Newtonsoft.Json.JsonProperty("exceptions", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> Exceptions { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> Exceptions { get; set; } = new global::System.Collections.Generic.List<string>();
 
         [global::Newtonsoft.Json.JsonProperty("exception_count", Required = global::Newtonsoft.Json.Required.Always)]
         public long ExceptionCount { get; set; }
@@ -1880,7 +1880,7 @@ namespace Halcyonic.Contracts
         public CheckOwn? Own { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("pictures", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<CheckPagePicturesItem> Pictures { get; set; } = default!;
+        public global::System.Collections.Generic.List<CheckPagePicturesItem> Pictures { get; set; } = new global::System.Collections.Generic.List<CheckPagePicturesItem>();
     }
 
     public sealed class CheckLaptop
@@ -1946,7 +1946,7 @@ namespace Halcyonic.Contracts
         public global::Newtonsoft.Json.Linq.JToken Scanned { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("items", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<CheckNotesItemsItem> Items { get; set; } = default!;
+        public global::System.Collections.Generic.List<CheckNotesItemsItem> Items { get; set; } = new global::System.Collections.Generic.List<CheckNotesItemsItem>();
     }
 
     public sealed class CheckFindings
@@ -2056,7 +2056,7 @@ namespace Halcyonic.Contracts
         public long Deleted { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("paths", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> Paths { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> Paths { get; set; } = new global::System.Collections.Generic.List<string>();
     }
 
     public sealed class OwnCheckFindings
@@ -2068,7 +2068,7 @@ namespace Halcyonic.Contracts
         public OwnCheckManager Manager { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("runs", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<OwnCheckRun> Runs { get; set; } = default!;
+        public global::System.Collections.Generic.List<OwnCheckRun> Runs { get; set; } = new global::System.Collections.Generic.List<OwnCheckRun>();
 
         [global::Newtonsoft.Json.JsonProperty("passed", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Passed { get; set; }
@@ -2107,7 +2107,7 @@ namespace Halcyonic.Contracts
         public OwnCheckManager Manager { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("scripts", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<OwnCheckScript> Scripts { get; set; } = default!;
+        public global::System.Collections.Generic.List<OwnCheckScript> Scripts { get; set; } = new global::System.Collections.Generic.List<OwnCheckScript>();
 
         [global::Newtonsoft.Json.JsonProperty("chosen_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string ChosenAt { get; set; } = default!;
@@ -2320,7 +2320,7 @@ namespace Halcyonic.Contracts
         public WorldDescriptionWind Wind { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("places", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<WorldPlace> Places { get; set; } = default!;
+        public global::System.Collections.Generic.List<WorldPlace> Places { get; set; } = new global::System.Collections.Generic.List<WorldPlace>();
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -2528,7 +2528,7 @@ namespace Halcyonic.Contracts
         public AttentionLevel Level { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("reasons", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<AttentionReason> Reasons { get; set; } = default!;
+        public global::System.Collections.Generic.List<AttentionReason> Reasons { get; set; } = new global::System.Collections.Generic.List<AttentionReason>();
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -2552,7 +2552,7 @@ namespace Halcyonic.Contracts
     public sealed class ConflictedFiles
     {
         [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ConflictedFile> Files { get; set; } = default!;
+        public global::System.Collections.Generic.List<ConflictedFile> Files { get; set; } = new global::System.Collections.Generic.List<ConflictedFile>();
 
         [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
@@ -2686,7 +2686,7 @@ namespace Halcyonic.Contracts
         public string? CurrentExecutionId { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("execution_ids", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> ExecutionIds { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> ExecutionIds { get; set; } = new global::System.Collections.Generic.List<string>();
 
         [global::Newtonsoft.Json.JsonProperty("copy", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public WorkstreamCopy? Copy { get; set; }
@@ -2827,7 +2827,7 @@ namespace Halcyonic.Contracts
         public string Text { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("options", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<QuestionOption> Options { get; set; } = default!;
+        public global::System.Collections.Generic.List<QuestionOption> Options { get; set; } = new global::System.Collections.Generic.List<QuestionOption>();
 
         [global::Newtonsoft.Json.JsonProperty("multiple", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Multiple { get; set; }
@@ -2845,7 +2845,7 @@ namespace Halcyonic.Contracts
         public string QuestionId { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("prompts", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<QuestionPrompt> Prompts { get; set; } = default!;
+        public global::System.Collections.Generic.List<QuestionPrompt> Prompts { get; set; } = new global::System.Collections.Generic.List<QuestionPrompt>();
 
         [global::Newtonsoft.Json.JsonProperty("answerable", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Answerable { get; set; }
@@ -3028,13 +3028,13 @@ namespace Halcyonic.Contracts
         public ErrorInfo? StatusReason { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("pending_approvals", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ApprovalView> PendingApprovals { get; set; } = default!;
+        public global::System.Collections.Generic.List<ApprovalView> PendingApprovals { get; set; } = new global::System.Collections.Generic.List<ApprovalView>();
 
         [global::Newtonsoft.Json.JsonProperty("pending_questions", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<QuestionView> PendingQuestions { get; set; } = default!;
+        public global::System.Collections.Generic.List<QuestionView> PendingQuestions { get; set; } = new global::System.Collections.Generic.List<QuestionView>();
 
         [global::Newtonsoft.Json.JsonProperty("active_tools", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ToolActivityView> ActiveTools { get; set; } = default!;
+        public global::System.Collections.Generic.List<ToolActivityView> ActiveTools { get; set; } = new global::System.Collections.Generic.List<ToolActivityView>();
 
         [global::Newtonsoft.Json.JsonProperty("tool_activity", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionViewToolActivity ToolActivity { get; set; }
@@ -3445,19 +3445,19 @@ namespace Halcyonic.Contracts
         public long Position { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("projects", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ProjectView> Projects { get; set; } = default!;
+        public global::System.Collections.Generic.List<ProjectView> Projects { get; set; } = new global::System.Collections.Generic.List<ProjectView>();
 
         [global::Newtonsoft.Json.JsonProperty("workstreams", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<WorkstreamView> Workstreams { get; set; } = default!;
+        public global::System.Collections.Generic.List<WorkstreamView> Workstreams { get; set; } = new global::System.Collections.Generic.List<WorkstreamView>();
 
         [global::Newtonsoft.Json.JsonProperty("executions", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ExecutionView> Executions { get; set; } = default!;
+        public global::System.Collections.Generic.List<ExecutionView> Executions { get; set; } = new global::System.Collections.Generic.List<ExecutionView>();
 
         [global::Newtonsoft.Json.JsonProperty("commands", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<CommandView> Commands { get; set; } = default!;
+        public global::System.Collections.Generic.List<CommandView> Commands { get; set; } = new global::System.Collections.Generic.List<CommandView>();
 
         [global::Newtonsoft.Json.JsonProperty("runtimes", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<RuntimeDescriptor> Runtimes { get; set; } = default!;
+        public global::System.Collections.Generic.List<RuntimeDescriptor> Runtimes { get; set; } = new global::System.Collections.Generic.List<RuntimeDescriptor>();
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(ProvenanceConverter))]
@@ -3690,7 +3690,7 @@ namespace Halcyonic.Contracts
     public sealed class ProjectCheckpointsPrunedPayload
     {
         [global::Newtonsoft.Json.JsonProperty("checkpoint_ids", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> CheckpointIds { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> CheckpointIds { get; set; } = new global::System.Collections.Generic.List<string>();
 
         [global::Newtonsoft.Json.JsonProperty("kept", Required = global::Newtonsoft.Json.Required.Always)]
         public long Kept { get; set; }
@@ -3732,7 +3732,7 @@ namespace Halcyonic.Contracts
         public string CommandId { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("pictures", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<PictureRead> Pictures { get; set; } = default!;
+        public global::System.Collections.Generic.List<PictureRead> Pictures { get; set; } = new global::System.Collections.Generic.List<PictureRead>();
     }
 
     public sealed class ProjectRestoredPayload
@@ -3798,7 +3798,7 @@ namespace Halcyonic.Contracts
         public OwnCheckManager Manager { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("scripts", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<OwnCheckScript> Scripts { get; set; } = default!;
+        public global::System.Collections.Generic.List<OwnCheckScript> Scripts { get; set; } = new global::System.Collections.Generic.List<OwnCheckScript>();
     }
 
     public sealed class ProjectOwnCheckRecordedPayload
@@ -4107,7 +4107,7 @@ namespace Halcyonic.Contracts
     public sealed class FilesObservedCreated
     {
         [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<FileCreated> Files { get; set; } = default!;
+        public global::System.Collections.Generic.List<FileCreated> Files { get; set; } = new global::System.Collections.Generic.List<FileCreated>();
 
         [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
@@ -4131,7 +4131,7 @@ namespace Halcyonic.Contracts
     public sealed class FilesObservedChanged
     {
         [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<FileChanged> Files { get; set; } = default!;
+        public global::System.Collections.Generic.List<FileChanged> Files { get; set; } = new global::System.Collections.Generic.List<FileChanged>();
 
         [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
@@ -4149,7 +4149,7 @@ namespace Halcyonic.Contracts
     public sealed class FilesObservedDeleted
     {
         [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<FileDeleted> Files { get; set; } = default!;
+        public global::System.Collections.Generic.List<FileDeleted> Files { get; set; } = new global::System.Collections.Generic.List<FileDeleted>();
 
         [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
@@ -4201,7 +4201,7 @@ namespace Halcyonic.Contracts
         public string CheckId { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("parts", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<global::Newtonsoft.Json.Linq.JToken> Parts { get; set; } = default!;
+        public global::System.Collections.Generic.List<global::Newtonsoft.Json.Linq.JToken> Parts { get; set; } = new global::System.Collections.Generic.List<global::Newtonsoft.Json.Linq.JToken>();
 
         [global::Newtonsoft.Json.JsonProperty("lines", Required = global::Newtonsoft.Json.Required.Always)]
         public long Lines { get; set; }
@@ -4414,7 +4414,7 @@ namespace Halcyonic.Contracts
         public string ProjectId { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("scripts", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<OwnCheckChoice> Scripts { get; set; } = default!;
+        public global::System.Collections.Generic.List<OwnCheckChoice> Scripts { get; set; } = new global::System.Collections.Generic.List<OwnCheckChoice>();
     }
 
     public sealed class ProjectPreviewStartPayload
@@ -4576,7 +4576,7 @@ namespace Halcyonic.Contracts
         public string Instruction { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("options", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.Dictionary<string, global::Newtonsoft.Json.Linq.JToken> Options { get; set; } = default!;
+        public global::System.Collections.Generic.Dictionary<string, global::Newtonsoft.Json.Linq.JToken> Options { get; set; } = new global::System.Collections.Generic.Dictionary<string, global::Newtonsoft.Json.Linq.JToken>();
 
         [global::Newtonsoft.Json.JsonProperty("model_ref", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? ModelRef { get; set; }
@@ -4634,7 +4634,7 @@ namespace Halcyonic.Contracts
         public string Key { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("selected", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> Selected { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> Selected { get; set; } = new global::System.Collections.Generic.List<string>();
 
         [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Text { get; set; }
@@ -4649,7 +4649,7 @@ namespace Halcyonic.Contracts
         public string QuestionId { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("answers", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<QuestionAnswer> Answers { get; set; } = default!;
+        public global::System.Collections.Generic.List<QuestionAnswer> Answers { get; set; } = new global::System.Collections.Generic.List<QuestionAnswer>();
     }
 
     public sealed class ExecutionInterruptPayload
@@ -5360,7 +5360,7 @@ namespace Halcyonic.Contracts
         public WorkspaceRequestObserved? Observed { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("steps", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<WorkspaceRequestStep> Steps { get; set; } = default!;
+        public global::System.Collections.Generic.List<WorkspaceRequestStep> Steps { get; set; } = new global::System.Collections.Generic.List<WorkspaceRequestStep>();
 
         [global::Newtonsoft.Json.JsonProperty("earlier_steps", Required = global::Newtonsoft.Json.Required.Always)]
         public long EarlierSteps { get; set; }
@@ -5487,7 +5487,7 @@ namespace Halcyonic.Contracts
         public string QuestionId { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("prompts", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<QuestionPrompt> Prompts { get; set; } = default!;
+        public global::System.Collections.Generic.List<QuestionPrompt> Prompts { get; set; } = new global::System.Collections.Generic.List<QuestionPrompt>();
 
         [global::Newtonsoft.Json.JsonProperty("answerable", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Answerable { get; set; }
@@ -6349,16 +6349,16 @@ namespace Halcyonic.Contracts
     public sealed class EntityChanges
     {
         [global::Newtonsoft.Json.JsonProperty("projects", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ProjectView> Projects { get; set; } = default!;
+        public global::System.Collections.Generic.List<ProjectView> Projects { get; set; } = new global::System.Collections.Generic.List<ProjectView>();
 
         [global::Newtonsoft.Json.JsonProperty("workstreams", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<WorkstreamView> Workstreams { get; set; } = default!;
+        public global::System.Collections.Generic.List<WorkstreamView> Workstreams { get; set; } = new global::System.Collections.Generic.List<WorkstreamView>();
 
         [global::Newtonsoft.Json.JsonProperty("executions", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ExecutionView> Executions { get; set; } = default!;
+        public global::System.Collections.Generic.List<ExecutionView> Executions { get; set; } = new global::System.Collections.Generic.List<ExecutionView>();
 
         [global::Newtonsoft.Json.JsonProperty("commands", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<CommandView> Commands { get; set; } = default!;
+        public global::System.Collections.Generic.List<CommandView> Commands { get; set; } = new global::System.Collections.Generic.List<CommandView>();
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -6388,7 +6388,7 @@ namespace Halcyonic.Contracts
         public string Message { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("issues", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ValidationIssue> Issues { get; set; } = default!;
+        public global::System.Collections.Generic.List<ValidationIssue> Issues { get; set; } = new global::System.Collections.Generic.List<ValidationIssue>();
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(ServerMessageConverter))]
@@ -6460,7 +6460,7 @@ namespace Halcyonic.Contracts
         public string ServerTime { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("command_policies", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<CommandPolicy> CommandPolicies { get; set; } = default!;
+        public global::System.Collections.Generic.List<CommandPolicy> CommandPolicies { get; set; } = new global::System.Collections.Generic.List<CommandPolicy>();
     }
 
     public sealed class SnapshotMessage : ServerMessage
@@ -6618,7 +6618,7 @@ namespace Halcyonic.Contracts
         public long Position { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("projects", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<ProjectView> Projects { get; set; } = default!;
+        public global::System.Collections.Generic.List<ProjectView> Projects { get; set; } = new global::System.Collections.Generic.List<ProjectView>();
     }
 
     public sealed class WorkstreamsResponse
@@ -6630,13 +6630,13 @@ namespace Halcyonic.Contracts
         public long Position { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("workstreams", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<WorkstreamView> Workstreams { get; set; } = default!;
+        public global::System.Collections.Generic.List<WorkstreamView> Workstreams { get; set; } = new global::System.Collections.Generic.List<WorkstreamView>();
     }
 
     public sealed class RuntimesResponse
     {
         [global::Newtonsoft.Json.JsonProperty("runtimes", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<RuntimeDescriptor> Runtimes { get; set; } = default!;
+        public global::System.Collections.Generic.List<RuntimeDescriptor> Runtimes { get; set; } = new global::System.Collections.Generic.List<RuntimeDescriptor>();
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -6726,7 +6726,7 @@ namespace Halcyonic.Contracts
         protected override string Discriminator => "available";
 
         [global::Newtonsoft.Json.JsonProperty("models", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<RuntimeModel> Models { get; set; } = default!;
+        public global::System.Collections.Generic.List<RuntimeModel> Models { get; set; } = new global::System.Collections.Generic.List<RuntimeModel>();
     }
 
     public sealed class UnavailableModels : RuntimeModelsResult
@@ -6768,7 +6768,7 @@ namespace Halcyonic.Contracts
         public string? ChangedAt { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("used_by", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> UsedBy { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> UsedBy { get; set; } = new global::System.Collections.Generic.List<string>();
     }
 
     public sealed class LocationRoot
@@ -6792,10 +6792,10 @@ namespace Halcyonic.Contracts
         public string? ChangedAt { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("used_by", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> UsedBy { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> UsedBy { get; set; } = new global::System.Collections.Generic.List<string>();
 
         [global::Newtonsoft.Json.JsonProperty("folders", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<LocationFolder> Folders { get; set; } = default!;
+        public global::System.Collections.Generic.List<LocationFolder> Folders { get; set; } = new global::System.Collections.Generic.List<LocationFolder>();
 
         [global::Newtonsoft.Json.JsonProperty("folders_truncated", Required = global::Newtonsoft.Json.Required.Always)]
         public bool FoldersTruncated { get; set; }
@@ -6804,7 +6804,7 @@ namespace Halcyonic.Contracts
     public sealed class LocationsResponse
     {
         [global::Newtonsoft.Json.JsonProperty("roots", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<LocationRoot> Roots { get; set; } = default!;
+        public global::System.Collections.Generic.List<LocationRoot> Roots { get; set; } = new global::System.Collections.Generic.List<LocationRoot>();
     }
 
     public sealed class StarterView
@@ -6822,7 +6822,7 @@ namespace Halcyonic.Contracts
     public sealed class StartersResponse
     {
         [global::Newtonsoft.Json.JsonProperty("starters", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<StarterView> Starters { get; set; } = default!;
+        public global::System.Collections.Generic.List<StarterView> Starters { get; set; } = new global::System.Collections.Generic.List<StarterView>();
     }
 
     public sealed class StoredEvent
@@ -6843,7 +6843,7 @@ namespace Halcyonic.Contracts
         public long Head { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("events", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<StoredEvent> Events { get; set; } = default!;
+        public global::System.Collections.Generic.List<StoredEvent> Events { get; set; } = new global::System.Collections.Generic.List<StoredEvent>();
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -7054,7 +7054,7 @@ namespace Halcyonic.Contracts
         public bool? LinesRemovedExact { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("kinds", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<UnderstandingChangeKind> Kinds { get; set; } = default!;
+        public global::System.Collections.Generic.List<UnderstandingChangeKind> Kinds { get; set; } = new global::System.Collections.Generic.List<UnderstandingChangeKind>();
 
         [global::Newtonsoft.Json.JsonProperty("last_changed_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string LastChangedAt { get; set; } = default!;
@@ -7081,10 +7081,10 @@ namespace Halcyonic.Contracts
         public string Summary { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<UnderstandingChangedFile> Files { get; set; } = default!;
+        public global::System.Collections.Generic.List<UnderstandingChangedFile> Files { get; set; } = new global::System.Collections.Generic.List<UnderstandingChangedFile>();
 
         [global::Newtonsoft.Json.JsonProperty("commits", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<UnderstandingCommit> Commits { get; set; } = default!;
+        public global::System.Collections.Generic.List<UnderstandingCommit> Commits { get; set; } = new global::System.Collections.Generic.List<UnderstandingCommit>();
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -7174,7 +7174,7 @@ namespace Halcyonic.Contracts
         public UnderstandingVerificationRunExit Exit { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("caveats", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> Caveats { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> Caveats { get; set; } = new global::System.Collections.Generic.List<string>();
 
         [global::Newtonsoft.Json.JsonProperty("stale", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Stale { get; set; }
@@ -7192,13 +7192,13 @@ namespace Halcyonic.Contracts
         public string Summary { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("latest_by_method", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<UnderstandingVerificationRun> LatestByMethod { get; set; } = default!;
+        public global::System.Collections.Generic.List<UnderstandingVerificationRun> LatestByMethod { get; set; } = new global::System.Collections.Generic.List<UnderstandingVerificationRun>();
 
         [global::Newtonsoft.Json.JsonProperty("unverified_files", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> UnverifiedFiles { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> UnverifiedFiles { get; set; } = new global::System.Collections.Generic.List<string>();
 
         [global::Newtonsoft.Json.JsonProperty("statements", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<UnderstandingStatement> Statements { get; set; } = default!;
+        public global::System.Collections.Generic.List<UnderstandingStatement> Statements { get; set; } = new global::System.Collections.Generic.List<UnderstandingStatement>();
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -7246,7 +7246,7 @@ namespace Halcyonic.Contracts
         public string LatestAt { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("items", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<UnderstandingReviewItem> Items { get; set; } = default!;
+        public global::System.Collections.Generic.List<UnderstandingReviewItem> Items { get; set; } = new global::System.Collections.Generic.List<UnderstandingReviewItem>();
     }
 
     public sealed class UnderstandingReview
@@ -7261,7 +7261,7 @@ namespace Halcyonic.Contracts
         public long Resolved { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("groups", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<UnderstandingReviewGroup> Groups { get; set; } = default!;
+        public global::System.Collections.Generic.List<UnderstandingReviewGroup> Groups { get; set; } = new global::System.Collections.Generic.List<UnderstandingReviewGroup>();
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -7302,7 +7302,7 @@ namespace Halcyonic.Contracts
         public string Summary { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("items", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<UnderstandingRemainingItem> Items { get; set; } = default!;
+        public global::System.Collections.Generic.List<UnderstandingRemainingItem> Items { get; set; } = new global::System.Collections.Generic.List<UnderstandingRemainingItem>();
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -7331,7 +7331,7 @@ namespace Halcyonic.Contracts
         public string Title { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("steps", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> Steps { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> Steps { get; set; } = new global::System.Collections.Generic.List<string>();
     }
 
     public sealed class UnderstandingExplanationContentWhy
@@ -7340,10 +7340,10 @@ namespace Halcyonic.Contracts
         public string Summary { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("lanes", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<UnderstandingExplanationLane> Lanes { get; set; } = default!;
+        public global::System.Collections.Generic.List<UnderstandingExplanationLane> Lanes { get; set; } = new global::System.Collections.Generic.List<UnderstandingExplanationLane>();
 
         [global::Newtonsoft.Json.JsonProperty("chain", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> Chain { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> Chain { get; set; } = new global::System.Collections.Generic.List<string>();
     }
 
     public sealed class UnderstandingExplanationContentHow
@@ -7355,7 +7355,7 @@ namespace Halcyonic.Contracts
         public string? Root { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("steps", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> Steps { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> Steps { get; set; } = new global::System.Collections.Generic.List<string>();
     }
 
     public sealed class UnderstandingExplanationContentApproachChange
@@ -7364,7 +7364,7 @@ namespace Halcyonic.Contracts
         public string From { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("from_steps", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> FromSteps { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> FromSteps { get; set; } = new global::System.Collections.Generic.List<string>();
 
         [global::Newtonsoft.Json.JsonProperty("why", Required = global::Newtonsoft.Json.Required.Always)]
         public string Why { get; set; } = default!;
@@ -7373,7 +7373,7 @@ namespace Halcyonic.Contracts
         public string To { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("to_steps", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> ToSteps { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> ToSteps { get; set; } = new global::System.Collections.Generic.List<string>();
     }
 
     public sealed class UnderstandingExplanationContent
@@ -7624,7 +7624,7 @@ namespace Halcyonic.Contracts
         public bool Complete { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("omissions", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<EvaluationCoverageOmission> Omissions { get; set; } = default!;
+        public global::System.Collections.Generic.List<EvaluationCoverageOmission> Omissions { get; set; } = new global::System.Collections.Generic.List<EvaluationCoverageOmission>();
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -7806,7 +7806,7 @@ namespace Halcyonic.Contracts
     public sealed class EvaluationVerificationLens
     {
         [global::Newtonsoft.Json.JsonProperty("by_kind", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<EvaluationVerificationKind> ByKind { get; set; } = default!;
+        public global::System.Collections.Generic.List<EvaluationVerificationKind> ByKind { get; set; } = new global::System.Collections.Generic.List<EvaluationVerificationKind>();
 
         [global::Newtonsoft.Json.JsonProperty("empty_reason", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? EmptyReason { get; set; }
@@ -8047,7 +8047,7 @@ namespace Halcyonic.Contracts
         public bool Complete { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("readings", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<UsageLimit> Readings { get; set; } = default!;
+        public global::System.Collections.Generic.List<UsageLimit> Readings { get; set; } = new global::System.Collections.Generic.List<UsageLimit>();
     }
 
     public sealed class UnavailableUsageLimits : UsageLimitsResponse
@@ -8189,7 +8189,7 @@ namespace Halcyonic.Contracts
         public CatalogStateSessions Sessions { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("unknown", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> Unknown { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> Unknown { get; set; } = new global::System.Collections.Generic.List<string>();
     }
 
     public sealed class CatalogAttentionPullRequest
@@ -8238,10 +8238,10 @@ namespace Halcyonic.Contracts
     public sealed class CatalogLocal
     {
         [global::Newtonsoft.Json.JsonProperty("project_ids", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> ProjectIds { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> ProjectIds { get; set; } = new global::System.Collections.Generic.List<string>();
 
         [global::Newtonsoft.Json.JsonProperty("suggestions", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<CatalogLocalSuggestionsItem> Suggestions { get; set; } = default!;
+        public global::System.Collections.Generic.List<CatalogLocalSuggestionsItem> Suggestions { get; set; } = new global::System.Collections.Generic.List<CatalogLocalSuggestionsItem>();
     }
 
     public sealed class CatalogProject
@@ -8259,13 +8259,13 @@ namespace Halcyonic.Contracts
         public long? GroupOrder { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("repositories", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<CatalogRepository> Repositories { get; set; } = default!;
+        public global::System.Collections.Generic.List<CatalogRepository> Repositories { get; set; } = new global::System.Collections.Generic.List<CatalogRepository>();
 
         [global::Newtonsoft.Json.JsonProperty("state", Required = global::Newtonsoft.Json.Required.Always)]
         public CatalogState State { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("attention", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<CatalogAttention> Attention { get; set; } = default!;
+        public global::System.Collections.Generic.List<CatalogAttention> Attention { get; set; } = new global::System.Collections.Generic.List<CatalogAttention>();
 
         [global::Newtonsoft.Json.JsonProperty("local", Required = global::Newtonsoft.Json.Required.Always)]
         public CatalogLocal Local { get; set; } = default!;
@@ -8344,10 +8344,10 @@ namespace Halcyonic.Contracts
         public AvailableSync Sync { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("groups", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<CatalogGroup> Groups { get; set; } = default!;
+        public global::System.Collections.Generic.List<CatalogGroup> Groups { get; set; } = new global::System.Collections.Generic.List<CatalogGroup>();
 
         [global::Newtonsoft.Json.JsonProperty("projects", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<CatalogProject> Projects { get; set; } = default!;
+        public global::System.Collections.Generic.List<CatalogProject> Projects { get; set; } = new global::System.Collections.Generic.List<CatalogProject>();
 
         [global::Newtonsoft.Json.JsonProperty("truncated", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public AvailableTruncated? Truncated { get; set; }
@@ -8551,7 +8551,7 @@ namespace Halcyonic.Contracts
         public string Text { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("choices", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<string> Choices { get; set; } = default!;
+        public global::System.Collections.Generic.List<string> Choices { get; set; } = new global::System.Collections.Generic.List<string>();
     }
 
     public sealed class CompanionProposal
@@ -8700,7 +8700,7 @@ namespace Halcyonic.Contracts
         public CompanionWant Want { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("messages", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<CompanionExchangeTurn> Messages { get; set; } = default!;
+        public global::System.Collections.Generic.List<CompanionExchangeTurn> Messages { get; set; } = new global::System.Collections.Generic.List<CompanionExchangeTurn>();
     }
 
     public sealed class CompanionReplyResponse
@@ -8958,7 +8958,7 @@ namespace Halcyonic.Contracts
         public string? Selected { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("views", Required = global::Newtonsoft.Json.Required.Always)]
-        public global::System.Collections.Generic.List<WorkspaceContinuation> Views { get; set; } = default!;
+        public global::System.Collections.Generic.List<WorkspaceContinuation> Views { get; set; } = new global::System.Collections.Generic.List<WorkspaceContinuation>();
     }
 
     public sealed class WorkspaceRequestResponse
