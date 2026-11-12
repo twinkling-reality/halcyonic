@@ -142,7 +142,7 @@ public class ProjectFolderTests
         var starter = ProjectFolder.NewStarter(root, "VR Starter Project")!;
         Assert.That(starter, Is.Not.Null);
         Assert.That((starter.IsNew, starter.StarterId, starter.FolderName), Is.EqualTo((true, "iwsdk-vr", "vr-starter-project")));
-        Assert.That(starter.Describe(), Is.EqualTo("New Folder, vr-starter-project in Projects"), "the starter is named by the review's own row, never here (AUDIT's MUST 3)");
+        Assert.That(starter.Describe(), Is.EqualTo("New vr-starter-project in Projects"), "one phrase, ours around theirs; the starter is named by the review's own row, never here (AUDIT's MUST 3, FIELD's words 13:42Z)");
 
         var renamed = starter.WithFolderName("galaxy-vr")!;
         Assert.That(renamed, Is.Not.Null);
@@ -182,6 +182,18 @@ public class FolderRefusalTests
             Capabilities = new RuntimeCapabilities { StartExecution = true },
         });
         return draft;
+    }
+
+    /// <summary>FIELD's words (13:42Z): a new folder on the recap's card is one phrase, ours around theirs, never two facts on a comma.</summary>
+    [Test]
+    public void TheRecapNamesANewFolderAsOnePhrase()
+    {
+        var idea = new ProjectIdea();
+        idea.UseIdea("Plan the week's dinners.");
+        idea.ChooseFolder(ProjectFolder.New(new LocationRoot { Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false, Folders = new List<LocationFolder>() }, "kite-run")!);
+        var slot = NewProjectScreens.RecapCard(idea, Draft(), null, live: true, null).Slots.First(item => item.Kind == RoomKind.Folder);
+        Assert.That(slot.Value.Text, Is.EqualTo("New kite-run in Projects"));
+        Assert.That(slot.Value.Runs.Single(run => run.Theirs && run.Text.Contains("kite-run")).Text, Is.EqualTo("kite-run"), "the folder's name stays theirs");
     }
 
     private static ClientProjection With(CommandView command)

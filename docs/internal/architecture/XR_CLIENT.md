@@ -4642,7 +4642,7 @@ presence, contextual moment cards and the on-demand project screen:
   leaves for the facts. The recap's card names the starter as a slot after the folder where the card has room
   (`StarterChoice.WithStarter`; a full card of four keeps its level, and the review alone names the starter), the review names it before its Confirm by its own name ("Starts From {title}",
   `ReviewItemKind.Starter`; the redesign's review as a row under the starter's pin; one the computer no longer lists by
-  its id, so nothing goes out unnamed), while the folder's own line names no starter ("New Folder, {folder} in {place}":
+  its id, so nothing goes out unnamed), while the folder's own line names no starter ("New {folder} in {place}", one phrase, as the recap names a new folder:
   AUDIT's MUSTs 3 and 4 on 1111-b100), and the start sends its id (`NewFromStarterChoice.starter_id`). Where the person chooses
   nothing the default (`ProjectFolder.DefaultStarterId`) stands. A starter the person picked is sent by the recap's one
   press only where the card shows it (`StarterChoice.Shown`); a full card of four leaves it to the review, which names it. The titles are the host's own starters' words,
