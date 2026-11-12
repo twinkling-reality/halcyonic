@@ -326,7 +326,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 ("waiting-badge", parent => { var view = StateBadgeView.Create(parent, "Waiting", 0); view.Show(StateLanguage.BadgeOf(presentation)); return view.gameObject; }, false),
                 ("peek", parent => { var view = PeekCardView.Create(parent); view.Show(peek); view.Fade(0.43f); return view.gameObject; }, true),
                 // Simulated semantics deliberately have identical colors across these presets.
-                ("mark", parent => { var view = MarkTag.Create(parent, "Practice", 0); view.Show(new WorkMark("Practice", GlazeIcon.Practice)); view.Fade(0.43f); return view.gameObject; }, false),
+                ("mark", parent => { var view = MarkTag.Create(parent, "Practice", 0); view.Show(new WorkMark("Practice", GlazeIcon.Practice, WorkMarkKind.Practice)); view.Fade(0.43f); return view.gameObject; }, false),
                 ("banner", parent => { var view = StageBanner.Create(parent); view.Show("Connected to your computer", BannerKind.Live, "One task waits for you", stillOpen: LineWords.Ours("Open: ") + LineWords.Theirs("Example task")); return view.gameObject; }, true),
             })
             {
