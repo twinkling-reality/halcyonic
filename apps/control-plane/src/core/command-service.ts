@@ -573,6 +573,7 @@ export class CommandService {
     const listed = hereActions(scope, projection, {
       get: (runtimeId) => this.#deps.registry.get(runtimeId),
       queuesInstructions: this.#deps.queuesInstructions === true,
+      ...(this.#deps.starters ? { starters: this.#deps.starters } : {}),
     });
     return listed.actions.filter(
       (action) =>
@@ -766,6 +767,7 @@ export class CommandService {
     const admission = admitCommand(command, this.#deps.projection, {
       get: (runtimeId) => this.#deps.registry.get(runtimeId),
       queuesInstructions: this.#deps.queuesInstructions === true,
+      ...(this.#deps.starters ? { starters: this.#deps.starters } : {}),
     });
     if (!admission.admitted) return admission;
     const refuse = (code: RejectionCode, message: string): Admission => ({

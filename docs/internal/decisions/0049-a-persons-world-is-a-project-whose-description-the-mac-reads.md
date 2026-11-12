@@ -97,3 +97,13 @@ Read from the code and from current public documentation on 2026-11-10:
 - A person's edit of `world.json` between turns shows after the next turn the Mac observes, not before.
 - Worth revisiting if a second kind of world needs members this one's vocabulary cannot hold, or if places
   should be bound to projects by id rather than by name.
+
+## Amended 2026-11-12: what a world is, it says itself
+
+The world starter's own `starter.json` declares what makes it a world: `"check": "none"` (no build to check),
+`"versions": "none"`, `"copies": "none"` and `"describes": "world.json"`, beside `"packages": "none"`. The host reads
+each starter's declarations once (`HostStarters.declares`) and the rules ask them, as they ask a runtime's descriptor,
+never a starter's id (the lead's decision of 2026-11-12, R2). Done for the check and the check after a turn
+(`admission.ts`, `control-plane.ts`); a task from a version, a world's copies and its reading follow in their owners'
+units. A starter that declares nothing has a build, versions and copies, as every starter before.
+

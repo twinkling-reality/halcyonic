@@ -5,7 +5,6 @@ import {
   type ProjectId,
   type Snapshot,
   type Timestamp,
-  WORLD_STARTER_ID,
   type WorkstreamId,
 } from '@halcyonic/contracts';
 import { Projection } from '@halcyonic/domain';
@@ -487,7 +486,8 @@ export class ControlPlane {
     if (project === undefined || project.location === null) return false;
     if (project.starter === null)
       return this.ownChecks !== null && this.projection.ownCheck(projectId) !== undefined;
-    return this.previews !== null && project.starter !== WORLD_STARTER_ID;
+    // A starter that declares no build is not checked after a turn (R2), whatever its id.
+    return this.previews !== null && this.starters?.declares(project.starter).check !== 'none';
   }
 
   #scheduleAutoChecks(): void {

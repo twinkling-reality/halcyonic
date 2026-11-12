@@ -129,7 +129,18 @@ describe('checking a world', () => {
       command_type: 'project.check',
       payload: { project_id: projectId },
     }) as CommandEnvelope;
-  const catalog = { descriptor: () => undefined, descriptors: () => [] } as never;
+  // What the host reads from each starter's starter.json (R2): the world declares no build.
+  const catalog = {
+    get: () => undefined,
+    starters: {
+      declares: (id: string) => ({
+        check: id === 'world' ? ('none' as const) : ('build' as const),
+        versions: 'kept' as const,
+        copies: 'own' as const,
+        describes: null,
+      }),
+    },
+  };
 
   test('a world has no build, so its check is refused, while another starter project is still checked', () => {
     const world = made('world');

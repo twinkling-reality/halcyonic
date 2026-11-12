@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { describe, type TestContext, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
   type CommandEnvelope,
   type CommandId,
@@ -24,7 +25,7 @@ import {
   type ProjectId,
 } from '@halcyonic/contracts';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
-import { templateDigest } from '../starters.ts';
+import { HostStarters, templateDigest } from '../starters.ts';
 import { createTestControlPlane } from '../testing/harness.ts';
 import { type CheckOptions, type CheckResult, HOST_FILES, summarizeExceptions } from './check.ts';
 import { type ChromeRun, DevToolsPipe } from './chrome.ts';
@@ -159,6 +160,13 @@ function plane(
   const children: ChildProcess[] = [];
   const { controlPlane, journal } = createTestControlPlane({
     ...(secrets === undefined ? {} : { secrets }),
+    // What each starter declares, as the product reads it (R2): the repository's own starter files.
+    starters: new HostStarters({
+      trackedDir: fileURLToPath(new URL('../../../../starters', import.meta.url)),
+      installedDir: join(dataDir, 'installed-starters'),
+      dataDir,
+      home: join(dataDir, 'home'),
+    }),
     previews: {
       dataDir,
       home: '/Users/someone',
