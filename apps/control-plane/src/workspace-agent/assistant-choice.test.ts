@@ -4,12 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import type { CommandId, HereScope, WorkspaceAgentStatus } from '@halcyonic/contracts';
+import type { HostedProvider } from '@halcyonic/runtime-core';
 import { createUuidV7Generator } from '../ids.ts';
 import { createTestControlPlane } from '../testing/harness.ts';
 import type { Model } from './assistant-model.ts';
 import type { ToolTurnResult } from './ollama.ts';
 import { assistantModel } from './providers/assistant.ts';
-import { type HostedProvider, KEY_REFUSED, type Protocol } from './providers/provider.ts';
+import { KEY_REFUSED, type Protocol } from './providers/provider.ts';
 import { WorkspaceRequests } from './requests.ts';
 
 // The person's own choice of where the assistant runs, end to end in one plane (the lead's D1 and D2, 2026-11-12).
@@ -21,14 +22,14 @@ const provider: HostedProvider = {
   id: 'test-hosted',
   name: 'Test Hosted',
   upstream: 'https://hosted.invalid/v1',
-  protocol: 'test_protocol',
+  speaks: ['chat_completions'],
   key: {
     variable: 'TEST_HOSTED_KEY',
     file: 'test-hosted-key',
+    field: 'Test Hosted Key',
     header: { name: 'authorization', scheme: 'Bearer' },
   },
   models: ['test-model-1'],
-  effort: null,
 };
 const settle = async () => {
   for (let i = 0; i < 24; i++) await new Promise<void>((resolve) => setImmediate(resolve));
@@ -79,7 +80,7 @@ function plane(t: { after: (fn: () => unknown) => void }, refuse: boolean) {
     dataDir: dir,
     environment: {},
     providers: [provider],
-    protocols: new Map([['test_protocol', protocol]]),
+    protocols: new Map([['chat_completions', protocol]]),
     chosen: () => h.controlPlane.projection.assistantModel(),
   });
   h.controlPlane.commands.attachAssistantModels(() => assistant.options());
@@ -223,6 +224,10 @@ test('a refused key is said in words, never sent again, and this computer is one
   const offer = request?.steps.find((step) => step.tool_name === 'use_this_computer');
   assert.equal(offer?.status, 'waiting');
   assert.equal(offer?.proposal?.command_type, 'assistant.model.choose');
+  // The host's own offer (not the model's step), of this computer's model only, one press with no review (AUDIT2).
+  assert.equal(offer?.proposal?.confirm, 'none');
+  const held = p.h.controlPlane.projection.workspaceProposal(id, offer?.step_id as never);
+  assert.deepEqual(held?.command.payload, { model: null });
   assert.equal(p.counts().hosted, 1);
   // The refused key is not sent again: a status read and a new request spend nothing more.
   const status = await p.assistant.status();

@@ -2425,8 +2425,11 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       client: { name: 'workspace-agent', version: null, device_label: null },
     });
     if (!prepared.ok) return false;
+    // The host's own offer, never the model's: this computer's model only (row 0), and one press with no review, since
+    // nothing leaves the Mac on it (AUDIT2, 16:24Z). A hosted model is chosen only through the list, reviewed.
     const entry = commandEntry('assistant.model.choose');
-    const shown = await this.#shown(entry.confirm, prepared.command, entry.description);
+    if ((prepared.command.payload as { model?: unknown }).model !== null) return false;
+    const shown = await this.#shown('none', prepared.command, entry.description);
     if (!shown.ok) return false;
     const current = plane.projection.workspaceRequest(request.request_id);
     if (!current) return false;
@@ -2440,7 +2443,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       {
         proposal: {
           command_type: 'assistant.model.choose',
-          confirm: entry.confirm,
+          confirm: 'none',
           what_happens: fitted(shown.what_happens, 2000),
           review: shown.digest,
           said: shown.said,

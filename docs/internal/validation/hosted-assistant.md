@@ -93,7 +93,7 @@ stand-ins. The test provider needs nothing but its declaration. As amended for D
 ## Meta's Model API, the second real provider (2026-11-12)
 
 Meta's pages were read again that day ([meta-models.md](meta-models.md)). Its Chat Completions surface is the
-OpenAI-compatible shape the seam already has, so Meta is a declaration (`providers/meta/declaration.ts`), not code of
+OpenAI-compatible shape the seam already has, so Meta is a declaration (`providers/meta/provider.json`, ADR 0061), not code of
 its own:
 
 - **Protocol and key.** `openai_chat` at `https://api.meta.ai/v1`. The key is `META_API_KEY`, the variable Muse Code
@@ -106,7 +106,8 @@ its own:
 - **Which provider runs.** Whichever model the person chose with Use Model. Meta's models are listed first, since
   Meta is declared first.
 
-The seam gained a declared `effort`, which each protocol puts where its shape says, and a declared output field. Each
+The seam gained a declared `effort` and output field (`tuning` in the declaration, ADR 0061), each mapped by its
+protocol. Each
 protocol refuses an effort or field it does not document. After review, two changes avoid shapes Meta does not
 confirm:
 

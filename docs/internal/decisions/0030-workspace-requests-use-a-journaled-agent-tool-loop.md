@@ -231,9 +231,15 @@ What was read and seen is in [hosted-assistant.md](../validation/hosted-assistan
   - The choice is journaled (`assistant.model.chosen`) and kept in the projection, so it is remembered across
     restarts. Until the person chooses, the assistant runs on this computer's model.
   - The assistant may also propose Use Model, which waits for the press like any other proposal.
-- **A provider** is a declaration (`workspace-agent/providers/`): its protocol, its address, its key's variable, file and header, and
-  its models. The protocols are the host's, two from the start: Anthropic's Messages API and the OpenAI-compatible
-  Chat Completions shape. No code outside a provider's folder names a vendor.
+- **A provider is one declaration file,** `providers/<id>/provider.json`, read into the host's one list
+  (`HostProviders`, [ADR 0061](0061-a-hosted-provider-is-one-declaration-file-the-host-reads.md)). It gives the wire
+  shapes it serves, its address, its key's variable, file, field and header, its models and how hard they think.
+  - The assistant is one declared reader of every provider's key (`ASSISTANT_READER`): at each use, never turning
+    on by itself.
+  - It speaks two wire shapes, `chat_completions` and `messages`, each implemented once in
+    `workspace-agent/providers/`. Per provider it uses the first shape the provider lists that it speaks.
+  - No code outside those protocol files names a vendor. A third provider is one more declaration file, as
+    `hosted-model.test.ts` proves.
 - **A refused or missing key (D2).**
   - The choice is read at every status read and every turn.
   - When the chosen model's key is gone, unusable or refused, the assistant stays chosen and says so in words. It
