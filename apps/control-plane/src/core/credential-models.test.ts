@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import type { HereScope, WorkstreamId } from '@halcyonic/contracts';
+import type { HereScope, RuntimeModel, WorkstreamId } from '@halcyonic/contracts';
 import { MOCK_MODELS, MockRuntimeAdapter, parseScenario } from '@halcyonic/integration-mock';
 import { CREDENTIAL_REFUSED, createVirtualTime } from '@halcyonic/runtime-core';
 import { createTestControlPlane, SCENARIOS } from '../testing/harness.ts';
@@ -27,7 +27,7 @@ const REFUSED = parseScenario(
   'key_refused',
 );
 
-function plane(path: string, at: string) {
+function plane(path: string, at: string, models: readonly RuntimeModel[] = MOCK_MODELS) {
   const time = createVirtualTime(new Date(at));
   return createTestControlPlane({
     path,
@@ -35,7 +35,7 @@ function plane(path: string, at: string) {
     adapters: (clock) => [
       new MockRuntimeAdapter({
         scenarios: new Map([...SCENARIOS, ['key_refused', REFUSED]]),
-        models: MOCK_MODELS,
+        models,
         clock,
         scheduler: clock,
       }),
@@ -83,7 +83,7 @@ test('a model whose provider refused the key is shown, never offered as ready; a
     scenario: 'key_refused',
   } as never);
   controlPlane.commands.submit(
-    { ...start, payload: { ...start.payload, model_ref: 'mock/fast' as never } },
+    { ...start, payload: { ...start.payload, model_ref: 'mock/hosted' as never } },
     'internal',
   );
   await time.advance(1000);
@@ -123,4 +123,58 @@ test('a model whose provider refused the key is shown, never offered as ready; a
       'Mock runtime (development fixture): its key was refused before, and is not tried since.',
     );
   }
+});
+
+test("a refusal counts for the models of the same declared provider only: another provider's and this Mac's stay offered", async () => {
+  const hosted = (ref: string, provider: string): RuntimeModel => ({
+    model_ref: ref,
+    display_name: `Simulated ${ref} (development fixture)`,
+    served: 'remote',
+    tool_calling: 'declared',
+    context_tokens: null,
+    provider,
+  });
+  const models: RuntimeModel[] = [
+    hosted('alpha/one', 'alpha'),
+    hosted('alpha/two', 'alpha'),
+    hosted('beta/one', 'beta'),
+    { ...(MOCK_MODELS[0] as RuntimeModel) },
+  ];
+  const { controlPlane, commands, time } = plane(':memory:', '2026-11-12T15:00:00.000Z', models);
+  const made = controlPlane.commands.submit(commands.createProject('Two'), 'internal');
+  const projectId =
+    made.command?.result?.kind === 'project_created' ? made.command.result.project_id : '';
+  const workstream = { title: 'Try', objective: null, instruction: 'Hi.', scenario: 'key_refused' };
+  const task = controlPlane.commands.submit(
+    commands.createWorkstream(projectId as never, workstream as never),
+    'internal',
+  );
+  const workstreamId = (
+    task.command?.result?.kind === 'workstream_created' ? task.command.result.workstream_id : ''
+  ) as WorkstreamId;
+  const start = commands.startExecution(workstreamId, workstream as never);
+  controlPlane.commands.submit(
+    { ...start, payload: { ...start.payload, model_ref: 'alpha/one' as never } },
+    'internal',
+  );
+  await time.advance(1000);
+  const list = await controlPlane.commands.choices(
+    {
+      project_id: projectId,
+      workstream_id: workstreamId,
+      execution_id: controlPlane.projection.workstream(workstreamId)?.current_execution_id ?? null,
+    } as HereScope,
+    'models',
+  );
+  assert.ok(list !== null);
+  assert.deepEqual(
+    list.rows.map((row) => [row.label.split(' ')[1], row.actions.length]),
+    [
+      ['alpha/one', 0],
+      ['alpha/two', 0],
+      ['beta/one', 1],
+      ['fast', 1],
+    ],
+  );
+  await controlPlane.close();
 });

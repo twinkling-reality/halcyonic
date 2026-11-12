@@ -7112,6 +7112,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("picture_input", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ModelToolCalling? PictureInput { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("provider", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string? Provider { get; set; }
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(RuntimeModelsResultConverter))]

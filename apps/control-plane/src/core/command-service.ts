@@ -76,7 +76,13 @@ import { type ProjectShares, ShareRefused } from '../preview/share.ts';
 import { givenSecrets, type SecretStore } from '../secrets/store.ts';
 import { type GitHubSender, sendTitle } from '../sending/github.ts';
 import type { HostStarters } from '../starters.ts';
-import { CHOICE_ROWS_SHOWN, choiceRows, choicesDigest, type HeldRow } from './choices.ts';
+import {
+  CHOICE_ROWS_SHOWN,
+  choiceRows,
+  choicesDigest,
+  type HeldRow,
+  type ModelRun,
+} from './choices.ts';
 import {
   type Cause,
   causedBy,
@@ -266,20 +272,27 @@ export class CommandService {
   }
 
   /**
-   * Whether the provider refused the credential a runtime holds, from the journal: the runtime's
-   * latest execution failed with CREDENTIAL_REFUSED, since this host read its credentials or before.
+   * The latest run of each model on a runtime, from the journal, and whether it failed with
+   * CREDENTIAL_REFUSED, since this host read its credentials or before.
    */
-  #credential(runtimeId: string): 'refused' | 'refused_before' | null {
-    let latest: ExecutionView | undefined;
-    for (const execution of this.#deps.projection.executions())
-      if (
-        execution.runtime.runtime_id === runtimeId &&
-        (latest === undefined || execution.updated_at > latest.updated_at)
-      )
-        latest = execution;
-    if (latest?.status !== 'failed' || latest.status_reason?.code !== CREDENTIAL_REFUSED)
-      return null;
-    return latest.updated_at >= this.#credentialsReadAt ? 'refused' : 'refused_before';
+  #credential(runtimeId: string): ModelRun[] {
+    const latest = new Map<string | null, ExecutionView>();
+    for (const execution of this.#deps.projection.executions()) {
+      if (execution.runtime.runtime_id !== runtimeId) continue;
+      const seen = latest.get(execution.model_ref);
+      if (seen === undefined || execution.updated_at > seen.updated_at)
+        latest.set(execution.model_ref, execution);
+    }
+    return [...latest.values()].map((execution) => ({
+      model_ref: execution.model_ref,
+      at: execution.updated_at,
+      refused:
+        execution.status !== 'failed' || execution.status_reason?.code !== CREDENTIAL_REFUSED
+          ? null
+          : execution.updated_at >= this.#credentialsReadAt
+            ? 'refused'
+            : 'refused_before',
+    }));
   }
 
   /**

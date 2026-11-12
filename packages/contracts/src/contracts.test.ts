@@ -714,6 +714,7 @@ describe('the C# bindings', () => {
     'RuntimeExecutionStartedPayload.plan', // whether a start recorded its plan mode (PLAN)
     'RuntimeExecutionStartedPayload.unconfined_reason', // why a start that asked for the sandbox ran without it (BOX-4)
     'RuntimeModel.picture_input', // what the runtime's list says a model takes (A4)
+    'RuntimeModel.provider', // the declared provider a runtime reaches a model through, whose key it needs
     'RuntimeToolCompletedPayload.turn_id', // a completed tool's turn
     'VersionEntry.pruned_at', // when the host stopped keeping a version (ADR 0036)
     'WorkspaceRequestChangedPayload.observed', // what the computer saw, when no reply came

@@ -164,6 +164,12 @@ export const RuntimeModel = Type.Object(
      * means unknown.
      */
     picture_input: Type.Optional(ModelToolCalling),
+    /**
+     * The declared hosted provider the runtime reaches this model through, by its declaration's id,
+     * so the host can say whose key it needs and whether that key was refused. Absent where the
+     * runtime reaches the model on its own terms.
+     */
+    provider: Type.Optional(Type.String({ pattern: '^[a-z][a-z0-9_-]{0,31}$' })),
   },
   { additionalProperties: false },
 );

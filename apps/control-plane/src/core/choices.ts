@@ -17,6 +17,13 @@ import type { Projection } from '@halcyonic/domain';
 /** At most this many rows are shown of a list; `total` says how many there are. */
 export const CHOICE_ROWS_SHOWN = 32;
 
+/** A model's latest run on a runtime, as the credential source reads it from the journal. */
+export interface ModelRun {
+  readonly model_ref: string | null;
+  readonly at: string;
+  readonly refused: 'refused' | 'refused_before' | null;
+}
+
 /** A row as the host holds it: what the person or the assistant sees, and the value its index stands for. */
 export interface HeldRow {
   readonly row: ChoiceRow;
@@ -37,10 +44,11 @@ export interface ChoiceSources {
   /** The commands of a project's own that may be its check, as the own check's find reads them, or null. */
   readonly scripts: (projectId: string) => Promise<readonly OwnCheckScript[] | null>;
   /**
-   * Whether the provider refused the credential a runtime holds: `refused` since this host read it,
-   * `refused_before` when that was before (the key may have been replaced since: unknown), or null.
+   * The latest run of each model on a runtime, and whether its provider refused the credential then:
+   * `refused` since this host read its credentials, `refused_before` when that was before (the key may
+   * have been replaced since: unknown), or null when it was not refused.
    */
-  readonly credential: (runtimeId: string) => 'refused' | 'refused_before' | null;
+  readonly credential: (runtimeId: string) => readonly ModelRun[];
   /** The person's catalog, read now; null where none is set up or it cannot be read by index. */
   readonly catalog: () => Promise<CatalogResponse | null>;
 }
@@ -208,10 +216,21 @@ export async function choiceRows(
         if (runtime.model_choice !== 'listed' || !runtime.capabilities.start_execution) continue;
         // A hosted model whose provider refused the key is shown, never offered as ready; a refusal from
         // before this host read its key leaves it offered, saying so, since nobody knows yet. A key never
-        // serves a model on this Mac, so a runtime's own local models are offered whatever its key.
-        const credential = sources.credential(runtime.runtime_id);
-        for (const model of await sources.models(runtime)) {
-          const keyed = model.served === 'remote' ? credential : null;
+        // serves a model on this Mac. A refusal counts for the models of the same declared provider, or,
+        // where the runtime names none, for all its hosted models (one key per runtime).
+        const models = await sources.models(runtime);
+        const keyOf = (model: RuntimeModel | undefined) =>
+          model === undefined || model.served !== 'remote' ? null : (model.provider ?? '');
+        const latest = new Map<string, ModelRun>();
+        for (const run of sources.credential(runtime.runtime_id)) {
+          const key = keyOf(models.find((model) => model.model_ref === run.model_ref));
+          if (key === null) continue;
+          const seen = latest.get(key);
+          if (seen === undefined || run.at > seen.at) latest.set(key, run);
+        }
+        for (const model of models) {
+          const key = keyOf(model);
+          const keyed = key === null ? null : (latest.get(key)?.refused ?? null);
           rows.push(
             row(rows.length, 'model', model.display_name, model.model_ref, {
               detail:
