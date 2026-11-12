@@ -46,13 +46,8 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private sealed class PlacementPairing : IPairingStore
-        {
-            public readonly PairedControlPlane Value = new PairedControlPlane("127.0.0.1", 9, new string('1', 64), "render", PairingCrypto.CredentialPrefix + "render-only-no-network");
-            public PairedControlPlane Load() => Value;
-            public void Save(PairedControlPlane pairing) => throw new InvalidOperationException("The fixture cannot persist pairing.");
-            public void Forget() => throw new InvalidOperationException("The fixture cannot forget pairing.");
-        }
+        /// <summary>The check's own pairing, which reaches no network.</summary>
+        private static readonly PairedControlPlane PlacementPaired = new PairedControlPlane("127.0.0.1", 9, new string('1', 64), "render", PairingCrypto.CredentialPrefix + "render-only-no-network");
         private sealed class PlacementHistory : HttpMessageHandler
         {
             public JournalInfo Journal = null!;
@@ -85,8 +80,6 @@ namespace Halcyonic.XR.Workspace.Editor
             var intKeys = new[] { "Halcyonic.RoomAccessDeclined", "Halcyonic.WorkspaceOpened" };
             var strings = stringKeys.Select(key => (Key: key, Had: PlayerPrefs.HasKey(key), Value: PlayerPrefs.GetString(key, ""))).ToList();
             var integers = intKeys.Select(key => (Key: key, Had: PlayerPrefs.HasKey(key), Value: PlayerPrefs.GetInt(key, 0))).ToList();
-            var staticNames = new[] { "pairingStore", "tokenMigrated", "api", "apiTarget" };
-            var settings = staticNames.ToDictionary(name => name, name => PlacementField(typeof(ControlPlaneSettings), name).GetValue(null));
             var root = new GameObject("Actual task placement witness");
             var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
             RoomPlacement? placement = null;
@@ -94,7 +87,6 @@ namespace Halcyonic.XR.Workspace.Editor
             var client = new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" };
             using var session = new RealtimeSession(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "render", client));
             using var replacement = new RealtimeSession(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "render", client));
-            var pairing = new PlacementPairing();
             var work = Work.Running();
             var journal = new JournalInfo { JournalId = "render-journal", Origin = JournalOrigin.Live };
             using var handler = new PlacementHistory { Journal = journal };
@@ -104,10 +96,6 @@ namespace Halcyonic.XR.Workspace.Editor
                 foreach (var key in stringKeys) PlayerPrefs.DeleteKey(key);
                 foreach (var key in intKeys) PlayerPrefs.DeleteKey(key);
                 PlayerPrefs.SetInt("Halcyonic.WorkspaceOpened", 1);
-                PlacementField(typeof(ControlPlaneSettings), "pairingStore").SetValue(null, pairing);
-                PlacementField(typeof(ControlPlaneSettings), "tokenMigrated").SetValue(null, true);
-                PlacementField(typeof(ControlPlaneSettings), "api").SetValue(null, api);
-                PlacementField(typeof(ControlPlaneSettings), "apiTarget").SetValue(null, ControlPlaneTarget.Paired(pairing.Value));
                 var prior = HalcyonicJson.Deserialize<WorkstreamView>(HalcyonicJson.Serialize(work.Workstream));
                 prior.WorkstreamId = "render-prior"; prior.Title = "Previously shown task";
                 var priorExecution = HalcyonicJson.Deserialize<ExecutionView>(HalcyonicJson.Serialize(work.Execution));
@@ -125,6 +113,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 var workspace = host.AddComponent<WorkspaceDirector>(); workspace.enabled = false;
                 host.SetActive(true);
                 if (PlacementField(typeof(WorkspaceDirector), "connection").GetValue(workspace) == null) PlacementCall(workspace, "Awake");
+                // The director's reads of a file's history and sections reach this check's own witness, never the stored settings.
+                workspace.TargetOf = () => ControlPlaneTarget.Paired(PlacementPaired); workspace.ApiOf = () => api;
                 placement = host.AddComponent<RoomPlacement>(); placement.enabled = false;
                 if (PlacementField(typeof(RoomPlacement), "root").GetValue(placement) == null) PlacementCall(placement, "Awake");
                 roomRoot = (GameObject)PlacementField(typeof(RoomPlacement), "root").GetValue(placement)!;
@@ -139,7 +129,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var setup = new MenuDirector.Setup {
                     Presentation = workspace.Presentation, Commands = new CommandFactory(client), InitialPlacementReady = () => true,
                     State = () => connection.Session?.State, Session = () => connection.Session, Connected = () => connection.Session?.Status.IsLive == true,
-                    ConnectionTarget = () => ControlPlaneTarget.Paired(pairing.Value), Api = () => api,
+                    ConnectionTarget = () => ControlPlaneTarget.Paired(PlacementPaired), Api = () => api,
                     Comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard },
                     Overview = () => WorkOverview.Of(connection.Session!.State, new StageVisibility(), _ => true), Bar = place => TasksColumn.Bar(place, connection.Session?.State),
                     File = (bound, id) => file = (FileColumn?)PlacementCall(workspace, "FileFor", bound, id),
@@ -252,7 +242,6 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 finally
                 {
-                    foreach (var name in staticNames) PlacementField(typeof(ControlPlaneSettings), name).SetValue(null, settings[name]);
                     foreach (var item in strings) { if (item.Had) PlayerPrefs.SetString(item.Key, item.Value); else PlayerPrefs.DeleteKey(item.Key); }
                     foreach (var item in integers) { if (item.Had) PlayerPrefs.SetInt(item.Key, item.Value); else PlayerPrefs.DeleteKey(item.Key); }
                     PlayerPrefs.Save();

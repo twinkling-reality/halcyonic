@@ -367,6 +367,13 @@ Enter Play mode with the Meta XR Simulator active. The client reads the token fr
 connects to `ws://127.0.0.1:47800/realtime` (override with `HALCYONIC_ENDPOINT`). The banner under
 the characters' labels says whether the state is live.
 
+In batch mode, where every journey, render, walk and check runs, none of those fallbacks apply: the
+client reaches a control plane only when `HALCYONIC_ENDPOINT` and `HALCYONIC_TOKEN_FILE` are both
+set, for a scratch plane, and otherwise refuses with "An Editor check may not reach a real control
+plane". It never reads the pairing, Unity's persistent data path or `~/.halcyonic` there, so a check
+that reaches for the stored settings fails loudly instead of reaching your own computer. Checks hand
+the workspace stand-ins of their own (`WorkspaceDirector.TargetOf` and `ApiOf`).
+
 - **Keep the editor frontmost.** The editor submitted XR frames only while it was the active
   application; hidden or merely visible, the session stayed at READY and nothing rendered. Run In
   Background is on, but it did not change this.

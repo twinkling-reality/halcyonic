@@ -100,6 +100,15 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Pairing, Settings' Your computer, given by the pairing in every build; none until it is.</summary>
         public IPairingSettings? Pairing { get; set; }
 
+        /// <summary>
+        /// The computer this workspace reaches and its REST client: the device's stored settings, unless a check hands in
+        /// stand-ins of its own before Start, so its reads of a file's history and sections never leave the check.
+        /// </summary>
+        public Func<ControlPlaneTarget?> TargetOf { get; set; } = () => ControlPlaneSettings.Target();
+
+        /// <inheritdoc cref="TargetOf"/>
+        public Func<ControlPlaneApi?> ApiOf { get; set; } = () => ControlPlaneSettings.Api();
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         public static void EnsureWorkspace()
         {
@@ -132,7 +141,7 @@ namespace Halcyonic.XR.Workspace
             hint = OnboardingHint.Create(transform);
             // Hold to talk's one voice, in development builds; the menu tells the held column what it heard.
             voice = gameObject.AddComponent<HoldToTalk>();
-            voice.ApiOf = () => ControlPlaneSettings.Api();
+            voice.ApiOf = () => ApiOf();
         }
 
         private void OnEnable()
@@ -172,12 +181,12 @@ namespace Halcyonic.XR.Workspace
                 CharacterColours = characterColours,
                 CharacterSourceConnectionKey = () => connection.SourceConnectionKey,
                 SaveCharacterColours = appearance.KeepCharacterColours,
-                ConnectionTarget = () => ControlPlaneSettings.Target(),
+                ConnectionTarget = () => TargetOf(),
                 State = () => connection.Session?.State,
                 Connected = () => connection.Session?.Status.IsLive == true,
                 Session = () => connection.Session,
                 Submit = Submit,
-                Api = () => ControlPlaneSettings.Api(),
+                Api = () => ApiOf(),
                 Demonstration = () => connection.DemonstrationLine != null,
                 RecordedRun = () => connection.ShowingRecordedRun,
                 Keyboard = OpenKeyboard,
@@ -734,7 +743,7 @@ namespace Halcyonic.XR.Workspace
         private IIntelligenceReader? IntelligenceReader()
         {
             if (connection.DemonstrationReads is DemonstrationReads recorded) return recorded;
-            return ControlPlaneSettings.Api();
+            return ApiOf();
         }
 
         /// <summary>Each task's reads of its history, so one task's read never discards another's.</summary>
@@ -756,7 +765,7 @@ namespace Halcyonic.XR.Workspace
             }
             // The control plane configured now, over the pinned transport when paired (ADR 0017).
             var error = await histories.ReadAsync(workstreamId,
-                () => (ControlPlaneSettings.Api() ?? throw new ControlPlaneRequestException("no control plane is configured.")).ReadAllAsync(workstreamId, journal),
+                () => (ApiOf() ?? throw new ControlPlaneRequestException("no control plane is configured.")).ReadAllAsync(workstreamId, journal),
                 () => journal == journalId);
             if (error != null)
                 Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this, "Halcyonic: {0}", "earlier activity could not be read: " + error.GetType().Name);

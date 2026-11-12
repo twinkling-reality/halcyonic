@@ -14,6 +14,10 @@ namespace Halcyonic.XR
     /// private storage with `run-as` (docs/internal/runbooks/XR_DEVELOPMENT.md). A headset paired with a
     /// control plane over the network (ADR 0017) reaches that one instead, over pinned TLS. Without
     /// either no control plane is configured, and the stage shows the recorded demonstration instead.
+    /// A run with nobody at it, Unity's batch mode, where every journey, render, walk and check runs, takes a
+    /// control plane only from HALCYONIC_ENDPOINT and HALCYONIC_TOKEN_FILE set together for a scratch plane, and
+    /// otherwise refuses: it never reads the pairing, the persistent data path or the account's data folder
+    /// (<see cref="UnattendedReach"/>). Play mode on a developer's own Mac keeps every fallback.
     /// </summary>
     public static class ControlPlaneSettings
     {
@@ -30,10 +34,13 @@ namespace Halcyonic.XR
 
         /// <summary>
         /// The control plane to reach: the one this device paired with, else the one the access token
-        /// is for, else none.
+        /// is for, else none. In batch mode, only the scratch plane named on purpose.
         /// </summary>
+        /// <exception cref="UnattendedReachRefusedException">In batch mode, when nothing names a scratch plane.</exception>
         public static ControlPlaneTarget? Target()
         {
+            if (Application.isBatchMode)
+                return UnattendedReach.Target(Environment.GetEnvironmentVariable("HALCYONIC_ENDPOINT"), Environment.GetEnvironmentVariable("HALCYONIC_TOKEN_FILE"));
             // Before the pairing, which would otherwise leave a token on shared storage as long as it lasts.
             MigrateAccessToken();
             var pairing = ReadPairing();
@@ -59,9 +66,13 @@ namespace Halcyonic.XR
 
         /// <summary>
         /// Where the pairing and its credential are kept: app-internal storage on Android, which only
-        /// this app can read, and the persistent data directory elsewhere. Call it on the main thread.
+        /// this app can read, and the persistent data directory elsewhere. Call it on the main thread. Batch mode
+        /// refuses it, since the pairing found there would be the developer's own.
         /// </summary>
-        public static IPairingStore PairingStore => pairingStore ??= new FilePairingStore(PairingPath());
+        /// <exception cref="UnattendedReachRefusedException">In batch mode.</exception>
+        public static IPairingStore PairingStore => pairingStore ??= Application.isBatchMode
+            ? throw new UnattendedReachRefusedException(UnattendedReach.Refused)
+            : new FilePairingStore(PairingPath());
 
         /// <summary>The pairing, or null when there is none or it cannot be read.</summary>
         public static PairedControlPlane? ReadPairing()
@@ -78,8 +89,10 @@ namespace Halcyonic.XR
         }
 
         /// <summary>The first access token found, or null when none is provisioned. Call it on the main thread.</summary>
+        /// <exception cref="UnattendedReachRefusedException">In batch mode, which reads only the scratch plane's file, through <see cref="Target"/>.</exception>
         public static string? ReadAccessToken()
         {
+            if (Application.isBatchMode) throw new UnattendedReachRefusedException(UnattendedReach.Refused);
             MigrateAccessToken();
             return AccessTokenFile.Read(TokenPaths());
         }
