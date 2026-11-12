@@ -318,6 +318,12 @@
     "why": "style: Line tone for Accent, Active, Neutral, Simulated and Unknown badges; a look only."
   },
   {
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/TasksColumn.cs",
+    "answer": "RoomTone.Quiet",
+    "count": 1,
+    "why": "routing: The neutral and unknown badge tones draw quiet; the row's note says the state in words, so no state is told by colour alone."
+  },
+  {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/UsageLeftPresentation.cs",
     "answer": "Failure(Unreadable)",
     "count": 1,
