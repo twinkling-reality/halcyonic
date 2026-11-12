@@ -40,7 +40,8 @@ import type { IdGenerator } from '../ids.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
 import { type CommandEntry, sayable } from './actions.ts';
-import { checkOfTask, hostDetails, taskEvidence, turnStatus } from './evidence.ts';
+import { checkOfTask, hostDetails, taskEvidence } from './evidence.ts';
+import { checkWords, looksLikeRecords, statusWords, taskWords } from './fact-words.ts';
 import {
   TOOL_MODEL_BOUNDS,
   type ToolCall,
@@ -130,6 +131,9 @@ const LIST_TOOLS = new Set(['propose_command', 'read_choices', 'go_to']);
 const HOST_LIST_BYTES = 4096;
 const HOST_LISTS = new Set(['read_projects', 'read_project', 'read_project_at', 'read_task']);
 
+/** The host's words once, after an answer that read like the computer's records: say it again in sentences. */
+export const ANSWER_IN_WORDS =
+  "No tool is offered on this turn: your last answer read like the computer's records, with a field name, a bracketed list or a time stamp, and was not kept. Say it again to the person in a few plain sentences of your own.";
 /** The host's words once, after a reply that was a tool call written as text: no tool still, answer in sentences. */
 export const ANSWER_AGAIN =
   'No tool is offered on this turn: your last reply was a tool call written as text, which is not an answer and was not kept. Answer the person now in plain sentences from what you read; do not write a tool call.';
@@ -865,11 +869,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       content:
         QUOTED_PREFIX +
         JSON.stringify({
-          observed_by_the_mac: bound(request)
-            ? taskEvidence(this.#o.controlPlane, request.execution_id, (value, maximum) =>
-                this.#outside(value, maximum),
-              )
-            : null,
+          observed_by_the_mac: bound(request) ? this.#evidenceInWords(request.execution_id) : null,
           recent_runtime_reports: this.#recentReports(request),
         }),
     };
@@ -918,6 +918,9 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     // A reply that was a tool call written as text is asked again once a wake, offered no tool (2026-11-11).
     let askAgain = false;
     let askedAgain = false;
+    // An answer that read like records is asked for once more, in sentences.
+    let askPlain = false;
+    let askedPlain = false;
     while (true) {
       request = this.#current(id, controller);
       if (!request) return;
@@ -966,6 +969,8 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       const lastTurn = budget.turns >= MAX_TURNS - 1;
       const again = askAgain;
       askAgain = false;
+      const plain = askPlain;
+      askPlain = false;
       await this.#refreshHere(request);
       const all = this.#toolsFor(request);
       // A task request's first turn, where continue_task is offered, goes straight to the work (FIRST_TURN_TOOLS).
@@ -974,7 +979,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         request.steps.length === 0 &&
         all.some((tool) => tool.function.name === 'continue_task');
       const offered =
-        (outcomeIn && budget.turns === turnsAtWake + 1) || lastTurn || again
+        (outcomeIn && budget.turns === turnsAtWake + 1) || lastTurn || again || plain
           ? []
           : first
             ? all.filter((tool) => FIRST_TURN_TOOLS.has(tool.function.name))
@@ -989,7 +994,13 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       if (offered.length === 0)
         messages.push({
           role: 'system',
-          content: again ? ANSWER_AGAIN : lastTurn ? ANSWER_LAST : ANSWER_NOW,
+          content: plain
+            ? ANSWER_IN_WORDS
+            : again
+              ? ANSWER_AGAIN
+              : lastTurn
+                ? ANSWER_LAST
+                : ANSWER_NOW,
         });
       try {
         result = await this.#o.model.turn(
@@ -1017,6 +1028,26 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         );
         this.#changed(request, 'failed', request.reply);
         return;
+      }
+      // An answer that reads like the computer's records is asked for once more in sentences (the lead, 2026-11-12).
+      const records =
+        result.toolCalls.length === 0 &&
+        result.content.trim() &&
+        !askedPlain &&
+        !looksLikeToolCall(result.content)
+          ? looksLikeRecords(result.content, this.#heldWords(request))
+          : null;
+      if (records !== null && budget.turns < MAX_TURNS) {
+        askedPlain = true;
+        askPlain = true;
+        this.#step(
+          request,
+          'model',
+          'rejected',
+          `The answer read like the computer's records (a ${records}); it was asked once more to say it in sentences.`,
+        );
+        this.#changed(request, 'running', request.reply);
+        continue;
       }
       // A tool call written as text is not an answer, and is never shown as the assistant's reply.
       if (looksLikeToolCall(result.content)) {
@@ -1801,7 +1832,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       return {
         data: {
           project: { name: outside(project.name, 80) },
-          latest_check:
+          latest_check: checkWords(
             check === undefined
               ? { state: 'not_checked' }
               : {
@@ -1809,6 +1840,8 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
                   files_since_check: check.files,
                   recorded_at: check.recorded_at,
                 },
+            plane.clock.now(),
+          ),
           tasks_total: plane.projection.workstreams(projectId).length,
           tasks: tasks.map((task, index) => {
             const run =
@@ -1819,7 +1852,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
               index,
               title: outside(task.title, 100),
               bound_to_this_request: task.workstream_id === request.workstream_id,
-              status: run ? turnStatus(run.status) : 'not_started',
+              status: run ? statusWords(run.status) : 'not started',
               agent_app: run ? outside(run.runtime.display_name, 60) : null,
               turns: run?.turn_count ?? 0,
               waiting_for_person:
@@ -1860,12 +1893,57 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         index: args.index,
         title: outside(task.title, 100),
         objective: task.objective === null ? null : outside(task.objective, 200),
-        status: run ? turnStatus(run.status) : 'not_started',
+        status: run ? statusWords(run.status) : 'not started',
         agent_app: run ? outside(run.runtime.display_name, 60) : null,
         pending_approvals: run?.pending_approvals.length ?? 0,
         pending_questions: run?.pending_questions.length ?? 0,
-        evidence: run ? taskEvidence(plane, run.execution_id, outside) : null,
+        evidence: run ? this.#evidenceInWords(run.execution_id) : null,
       },
+    };
+  }
+  /** Words the request itself holds, which an answer may repeat as they are: the person's, and the names it is about. */
+  #heldWords(request: WorkspaceRequestView): string[] {
+    const plane = this.#o.controlPlane;
+    const project =
+      request.project_id === null ? undefined : plane.projection.project(request.project_id);
+    const task =
+      request.workstream_id === null
+        ? undefined
+        : plane.projection.workstream(request.workstream_id);
+    return [
+      request.original_text,
+      ...plane.projection.workspaceRequestDirections(request.request_id),
+      ...(project ? [project.name] : []),
+      ...(task ? [task.title] : []),
+      ...(request.project_id === null ? plane.projection.projects().map((p) => p.name) : []),
+    ];
+  }
+  /**
+   * What the Mac observed of a task, as the model reads it (the lead, 2026-11-12): the facts in sentences from one
+   * table of the host's codes to words, so there is no field name or code to repeat; the file paths and page errors,
+   * written by the agent, beside them as quoted data.
+   */
+  #evidenceInWords(executionId: string) {
+    const evidence = taskEvidence(this.#o.controlPlane, executionId, (value, maximum) =>
+      this.#outside(value, maximum),
+    );
+    if (evidence.availability !== undefined)
+      return { said_by: 'the Mac', in_words: ['The Mac cannot see this task.'] };
+    const check = evidence.check as {
+      page?: { first_errors: { text: string }[] } | null;
+      unknown?: { text: string } | null;
+    };
+    return {
+      said_by: 'the Mac, not the agent',
+      in_words: taskWords(evidence, this.#o.controlPlane.clock.now()),
+      files_newest_first: evidence.changes.files_newest_first.map((file) => ({
+        path: file.path.text,
+        how: file.how,
+      })),
+      ...(check.page?.first_errors.length
+        ? { page_errors: check.page.first_errors.map((line) => line.text) }
+        : {}),
+      ...(check.unknown ? { what_the_check_could_not_tell: check.unknown.text } : {}),
     };
   }
   /**
