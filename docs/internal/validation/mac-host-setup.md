@@ -229,9 +229,21 @@ Verified on the owner's Mac, 2026-11-12 04:58Z, with a scratch label
   which fits the 30 second throttle counted from the first start, and it answered its health check.
 - Off: `launchctl bootout` stopped it, the job was no longer loaded, the port was free and the file
   was gone. The plane's log, written by launchd to the scratch data folder, held no error line.
+- The runs above (04:58Z) gave the plane no tasks folder of its own, so it used the account's usual one
+  with a scratch journal; its log has no "task copies swept" line. Every run since has its own:
+- Again at 05:16Z with a scratch tasks folder (`--tasks-dir`, AUDIT3's finding that copies default to
+  `~/.halcyonic-tasks` whatever the data folder is): the file carried it, every step above repeated
+  (the restart seen within 32 seconds), and the log held no "task copies swept" line.
+- Again at 05:44Z on the final check, and a refused On at 05:49Z: a scratch data folder with the
+  account's usual tasks folder exited 2 with its reason, before any file, folder or launchctl call.
 - Unit tests (`login-agent.test.ts`, launchctl stood in, every data folder the test's own): the file
   read back by `plutil`, PATH's folders kept and dropped, the settings left out named, strict
-  arguments and ports (`abc` and 0) refused before anything is written, On refusing while launchd
+  arguments and ports (`abc` and 0) refused before anything is written; another data folder refused
+  while its tasks folder is the account's usual one or inside it (told by the device and inode of its
+  nearest existing folder, so a link, a link whose target climbs with `..`, the data volume's firmlink and
+  another case of its name are all caught; a link to nothing is refused), a tasks folder inside or around the data folder refused, the usual folders
+  judged by the account's own home whatever HOME says, relative folders written absolute, and a scratch data folder taking its tasks folder only from `--tasks-dir`, never
+  from the shell; On refusing while launchd
   has the agent or a plane answers, launchd's refusal said in its words with the file removed, no
   write through a link, Off.
 

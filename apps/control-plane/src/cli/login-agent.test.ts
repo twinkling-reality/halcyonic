@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -15,6 +17,8 @@ import { describe, type TestContext, test } from 'node:test';
 import {
   checkoutOf,
   EXIT_TIMEOUT_SECONDS,
+  folderIdentity,
+  foldersProblem,
   keptPath,
   LOGIN_AGENT_LABEL,
   type LoginAgent,
@@ -25,6 +29,7 @@ import {
   main,
   nodeFor,
   parseLoginArgs,
+  runLogin,
   THROTTLE_SECONDS,
   turnOff,
   turnOn,
@@ -38,16 +43,17 @@ function folder(t: TestContext): string {
   return made;
 }
 
-/** An agent whose data folder is the test's own, never the person's. */
+/** An agent whose data and tasks folders are the test's own, never the person's. */
 function agent(
   t: TestContext,
   env: NodeJS.ProcessEnv = { PATH: '/opt/homebrew/bin:/usr/bin:/bin' },
 ): LoginAgent {
+  const own = folder(t);
   return loginAgentFor({
     checkout,
     node: '/opt/homebrew/bin/node',
     env,
-    settings: { HALCYONIC_DATA_DIR: join(folder(t), 'data') },
+    settings: { HALCYONIC_DATA_DIR: join(own, 'data'), HALCYONIC_TASKS_DIR: join(own, 'tasks') },
   });
 }
 
@@ -118,6 +124,7 @@ describe('the login agent', () => {
     assert.deepEqual(plist.EnvironmentVariables, {
       PATH: '/opt/homebrew/bin:/usr/bin:/bin',
       HALCYONIC_DATA_DIR: made.dataDir,
+      HALCYONIC_TASKS_DIR: made.environment.HALCYONIC_TASKS_DIR,
     });
   });
 
@@ -126,12 +133,14 @@ describe('the login agent', () => {
       checkout,
       node: '/opt/homebrew/bin/node',
       env: {},
+      home: '/Users/someone',
       label: 'com.halcyonic.control-plane.scratch',
       settings: { HALCYONIC_PORT: '47841', HALCYONIC_DATA_DIR: '/tmp/scratch-data' },
     });
     assert.deepEqual(made.environment, {
       HALCYONIC_PORT: '47841',
       HALCYONIC_DATA_DIR: '/tmp/scratch-data',
+      HALCYONIC_TASKS_DIR: '/Users/someone/.halcyonic-tasks',
     });
     assert.equal(made.dataDir, '/tmp/scratch-data');
     assert.equal(made.logFile, '/tmp/scratch-data/control-plane.log');
@@ -159,7 +168,11 @@ describe('the login agent', () => {
       HALCYONIC_HOST: '',
       ANTHROPIC_API_KEY: 'y',
     });
-    assert.deepEqual(Object.keys(made.environment).sort(), ['HALCYONIC_DATA_DIR', 'PATH']);
+    assert.deepEqual(Object.keys(made.environment).sort(), [
+      'HALCYONIC_DATA_DIR',
+      'HALCYONIC_TASKS_DIR',
+      'PATH',
+    ]);
     assert.deepEqual(made.leftOut, ['HALCYONIC_PROJECT_ROOTS']);
     assert.throws(
       () => loginAgentPlist({ ...made, environment: { HALCYONIC_ACCESS_TOKEN: 'x' } }),
@@ -212,14 +225,329 @@ describe('the login agent', () => {
     const data = join(folder(t), 'data');
     const { io, calls } = mac();
     await assert.rejects(
-      main(['on', into, '--port', 'abc', '--data-dir', data], {}, io),
+      main(
+        ['on', into, '--port', 'abc', '--data-dir', data, '--tasks-dir', join(data, '..', 'tasks')],
+        {},
+        io,
+      ),
       /HALCYONIC_PORT/,
     );
-    assert.equal(await main(['on', into, '--port', '0', '--data-dir', data], {}, io), 2);
+    assert.equal(
+      await main(
+        ['on', into, '--port', '0', '--data-dir', data, '--tasks-dir', join(data, '..', 'tasks')],
+        {},
+        io,
+      ),
+      2,
+    );
     assert.equal(await main(['on'], {}, io), 2);
     assert.deepEqual(calls, []);
     assert.equal(existsSync(join(into, `${LOGIN_AGENT_LABEL}.plist`)), false);
     assert.equal(existsSync(data), false);
+  });
+
+  test('refuses a data folder of its own without a tasks folder of its own, before anything is written', async (t) => {
+    const into = folder(t);
+    const data = join(folder(t), 'data');
+    const made = loginAgentFor({
+      checkout,
+      node: '/opt/homebrew/bin/node',
+      env: {},
+      settings: { HALCYONIC_DATA_DIR: data },
+    });
+    const { io, calls, lines } = mac({ startsAfter: 1 });
+    assert.equal(await turnOn(made, 47841, into, io), 2);
+    assert.match(lines.join('\n'), /needs its own tasks folder.*would clear the task copies in/);
+    assert.deepEqual(calls, []);
+    assert.equal(existsSync(data), false);
+    assert.equal(existsSync(join(into, `${LOGIN_AGENT_LABEL}.plist`)), false);
+  });
+
+  test("judges the folders by the account's own home, whatever HOME says, and by which tasks folder, not whether one is set", () => {
+    const home = '/Users/someone';
+    const made = (settings: { HALCYONIC_DATA_DIR?: string; HALCYONIC_TASKS_DIR?: string }) =>
+      loginAgentFor({
+        checkout,
+        node: '/opt/homebrew/bin/node',
+        env: { HOME: '/tmp/s' },
+        settings,
+        home,
+      });
+    assert.equal(foldersProblem(made({})), null, 'the usual folders, together');
+    assert.equal(foldersProblem(made({ HALCYONIC_DATA_DIR: '/Users/someone/.halcyonic' })), null);
+    assert.match(
+      foldersProblem(made({ HALCYONIC_DATA_DIR: '/tmp/s/.halcyonic' })) ?? '',
+      /would clear the task copies in \/Users\/someone\/\.halcyonic-tasks/,
+    );
+    assert.match(
+      foldersProblem(
+        made({
+          HALCYONIC_DATA_DIR: '/tmp/s/data',
+          HALCYONIC_TASKS_DIR: '/Users/someone/.halcyonic-tasks',
+        }),
+      ) ?? '',
+      /needs its own tasks folder/,
+    );
+    assert.match(
+      foldersProblem(
+        made({ HALCYONIC_DATA_DIR: '/tmp/s/data', HALCYONIC_TASKS_DIR: '/tmp/s/data/tasks' }),
+      ) ?? '',
+      /beside the data folder/,
+    );
+    assert.equal(
+      foldersProblem(
+        made({ HALCYONIC_DATA_DIR: '/tmp/s/data', HALCYONIC_TASKS_DIR: '/tmp/s/tasks' }),
+      ),
+      null,
+    );
+  });
+
+  test('takes a scratch tasks folder only beside a scratch data folder on its own words, never from the shell', async (t) => {
+    const into = folder(t);
+    const own = folder(t);
+    const shell = { HALCYONIC_TASKS_DIR: '/Users/someone/.halcyonic-tasks' };
+    const refused = mac({ startsAfter: 1 });
+    assert.equal(
+      await main(
+        ['on', into, '--port', '47841', '--data-dir', join(own, 'data')],
+        shell,
+        refused.io,
+      ),
+      2,
+    );
+    assert.match(refused.lines.join('\n'), /--data-dir and --tasks-dir go together/);
+    assert.deepEqual(refused.calls, []);
+    const taken = mac({ startsAfter: 1 });
+    const args = [
+      'on',
+      into,
+      '--port',
+      '47841',
+      '--data-dir',
+      join(own, 'data'),
+      '--tasks-dir',
+      join(own, 'tasks'),
+    ];
+    assert.equal(await main(args, shell, taken.io), 0);
+    const plist = readFileSync(join(into, `${LOGIN_AGENT_LABEL}.plist`), 'utf8');
+    assert.match(
+      plist,
+      new RegExp(`<key>HALCYONIC_TASKS_DIR</key>\\n\\t\\t<string>${join(own, 'tasks')}</string>`),
+    );
+  });
+
+  test('knows the usual tasks folder by a link to it or another case of its name, and refuses either', (t) => {
+    const home = folder(t);
+    mkdirSync(join(home, '.halcyonic-tasks'));
+    const link = join(folder(t), 'tasks-link');
+    symlinkSync(join(home, '.halcyonic-tasks'), link);
+    const made = (tasks: string) =>
+      loginAgentFor({
+        checkout,
+        node: '/opt/homebrew/bin/node',
+        env: {},
+        home,
+        settings: { HALCYONIC_DATA_DIR: join(folder(t), 'data'), HALCYONIC_TASKS_DIR: tasks },
+      });
+    assert.equal(
+      (folderIdentity(link) as { folded: string }).folded,
+      (folderIdentity(join(home, '.halcyonic-tasks')) as { folded: string }).folded,
+    );
+    assert.match(foldersProblem(made(link)) ?? '', /needs its own tasks folder/);
+    assert.match(
+      foldersProblem(made(join(home, '.HALCYONIC-tasks'))) ?? '',
+      /needs its own tasks folder/,
+    );
+    assert.match(
+      foldersProblem(made(join(home, 'x', '..', '.halcyonic-tasks'))) ?? '',
+      /needs its own tasks folder/,
+    );
+    assert.equal(foldersProblem(made(join(folder(t), 'tasks'))), null);
+  });
+
+  test('knows the usual tasks folder before it exists: by a link to it, and by a path through a link to the home', (t) => {
+    const home = folder(t);
+    const usual = join(home, '.halcyonic-tasks');
+    const elsewhere = folder(t);
+    const dangling = join(elsewhere, 'tasks-link');
+    symlinkSync(usual, dangling);
+    const homeLink = join(elsewhere, 'home-link');
+    symlinkSync(home, homeLink);
+    const made = (tasks: string) =>
+      loginAgentFor({
+        checkout,
+        node: '/opt/homebrew/bin/node',
+        env: {},
+        home,
+        settings: { HALCYONIC_DATA_DIR: join(elsewhere, 'data'), HALCYONIC_TASKS_DIR: tasks },
+      });
+    assert.equal(
+      existsSync(usual),
+      false,
+      'a fresh account: the usual tasks folder is not there yet',
+    );
+    assert.equal(folderIdentity(dangling), 'dangling');
+    assert.equal(
+      (folderIdentity(join(homeLink, '.halcyonic-tasks')) as { folded: string }).folded,
+      (folderIdentity(usual) as { folded: string }).folded,
+    );
+    assert.match(foldersProblem(made(dangling)) ?? '', /a link to a folder that does not exist/);
+    assert.match(
+      foldersProblem(made(join(homeLink, '.halcyonic-tasks'))) ?? '',
+      /needs its own tasks folder/,
+    );
+    assert.equal(foldersProblem(made(join(homeLink, 'scratch-tasks'))), null);
+  });
+
+  test("refuses a link whose relative target climbs out of the link's real folder to the usual tasks folder", (t) => {
+    const home = folder(t);
+    mkdirSync(join(home, 'a'));
+    symlinkSync('../.halcyonic-tasks', join(home, 'a', 'dangling'));
+    const scratch = folder(t);
+    symlinkSync(join(home, 'a'), join(scratch, 'sub'));
+    const made = loginAgentFor({
+      checkout,
+      node: '/opt/homebrew/bin/node',
+      env: {},
+      home,
+      settings: {
+        HALCYONIC_DATA_DIR: join(scratch, 'data'),
+        HALCYONIC_TASKS_DIR: join(scratch, 'sub', 'dangling'),
+      },
+    });
+    assert.match(foldersProblem(made) ?? '', /a link to a folder that does not exist/);
+    mkdirSync(join(home, '.halcyonic-tasks'));
+    assert.match(
+      foldersProblem(made) ?? '',
+      /needs its own tasks folder/,
+      'once it exists, the kernel says where it leads',
+    );
+  });
+
+  test("knows the usual tasks folder through the data volume's firmlink, as the kernel does", (t) => {
+    const home = folder(t);
+    mkdirSync(join(home, '.halcyonic-tasks'));
+    const through = join('/System/Volumes/Data', realpathSync(home), '.halcyonic-tasks');
+    if (!existsSync(through)) return t.skip('no data volume firmlink on this machine');
+    const made = loginAgentFor({
+      checkout,
+      node: '/opt/homebrew/bin/node',
+      env: {},
+      home,
+      settings: { HALCYONIC_DATA_DIR: join(folder(t), 'data'), HALCYONIC_TASKS_DIR: through },
+    });
+    assert.match(foldersProblem(made) ?? '', /needs its own tasks folder/);
+  });
+
+  test('takes the data folder as the usual one only when the file system says so, and refuses a folder inside the usual tasks', (t) => {
+    const home = folder(t);
+    mkdirSync(join(home, '.halcyonic'));
+    mkdirSync(join(home, '.halcyonic-tasks'));
+    const made = (settings: { HALCYONIC_DATA_DIR?: string; HALCYONIC_TASKS_DIR?: string }) =>
+      loginAgentFor({ checkout, node: '/opt/homebrew/bin/node', env: {}, home, settings });
+    assert.equal(foldersProblem(made({ HALCYONIC_DATA_DIR: join(home, '.halcyonic') })), null);
+    assert.match(
+      foldersProblem(
+        made({
+          HALCYONIC_DATA_DIR: join(home, 'other'),
+          HALCYONIC_TASKS_DIR: join(home, '.halcyonic-tasks', 'p'),
+        }),
+      ) ?? '',
+      /needs its own tasks folder/,
+    );
+  });
+
+  test('always writes both folders as judged, even the usual ones, so nothing launchd holds can name others', () => {
+    const made = loginAgentFor({
+      checkout,
+      node: '/opt/homebrew/bin/node',
+      env: {},
+      home: '/Users/someone',
+    });
+    assert.equal(made.environment.HALCYONIC_DATA_DIR, '/Users/someone/.halcyonic');
+    assert.equal(made.environment.HALCYONIC_TASKS_DIR, '/Users/someone/.halcyonic-tasks');
+    assert.match(
+      loginAgentPlist(made),
+      /<key>HALCYONIC_DATA_DIR<\/key>\n\t\t<string>\/Users\/someone\/\.halcyonic<\/string>/,
+    );
+  });
+
+  test('takes another case of the usual data folder for another folder before it exists, so it is refused with the usual tasks', (t) => {
+    const home = folder(t);
+    const made = loginAgentFor({
+      checkout,
+      node: '/opt/homebrew/bin/node',
+      env: {},
+      home,
+      settings: { HALCYONIC_DATA_DIR: join(home, '.HALCYONIC') },
+    });
+    assert.equal(existsSync(join(home, '.halcyonic')), false);
+    assert.match(foldersProblem(made) ?? '', /needs its own tasks folder/);
+  });
+
+  test('refuses a tasks folder inside the usual one through the firmlink, and data and tasks differing only in case', (t) => {
+    const home = folder(t);
+    mkdirSync(join(home, '.halcyonic-tasks', 'P1'), { recursive: true });
+    const firm = join('/System/Volumes/Data', realpathSync(home), '.halcyonic-tasks');
+    const made = (settings: { HALCYONIC_DATA_DIR?: string; HALCYONIC_TASKS_DIR?: string }) =>
+      loginAgentFor({ checkout, node: '/opt/homebrew/bin/node', env: {}, home, settings });
+    const scratch = folder(t);
+    assert.match(
+      foldersProblem(
+        made({ HALCYONIC_DATA_DIR: join(scratch, 'DD'), HALCYONIC_TASKS_DIR: join(scratch, 'dd') }),
+      ) ?? '',
+      /beside the data folder/,
+    );
+    if (!existsSync(firm)) return t.skip('no data volume firmlink on this machine');
+    for (const child of ['P1', 'P2']) {
+      assert.match(
+        foldersProblem(
+          made({
+            HALCYONIC_DATA_DIR: join(scratch, 'data'),
+            HALCYONIC_TASKS_DIR: join(firm, child),
+          }),
+        ) ?? '',
+        /needs its own tasks folder/,
+        child,
+      );
+    }
+  });
+
+  test('writes its folders absolute, as it judged them, since the plane would resolve a relative one against the checkout', () => {
+    const made = loginAgentFor({
+      checkout,
+      node: '/opt/homebrew/bin/node',
+      env: {},
+      home: '/Users/someone',
+      settings: {
+        HALCYONIC_DATA_DIR: '.halcyonic',
+        HALCYONIC_TASKS_DIR: 'scratch/tasks',
+        HALCYONIC_PORT: '47841',
+      },
+    });
+    assert.equal(made.environment.HALCYONIC_DATA_DIR, join(process.cwd(), '.halcyonic'));
+    assert.equal(made.environment.HALCYONIC_TASKS_DIR, join(process.cwd(), 'scratch', 'tasks'));
+    assert.equal(made.environment.HALCYONIC_PORT, '47841');
+    assert.equal(made.dataDir, made.environment.HALCYONIC_DATA_DIR);
+  });
+
+  test('pnpm mac-setup login on: refuses a data folder of its own alone, carries both when both are set', async (t) => {
+    const home = folder(t);
+    const own = folder(t);
+    const alone = mac({ startsAfter: 1 });
+    assert.equal(
+      await runLogin('on', { HALCYONIC_DATA_DIR: join(own, 'data') }, home, alone.io),
+      2,
+    );
+    assert.deepEqual(alone.calls, []);
+    const both = mac({ startsAfter: 1 });
+    const env = { HALCYONIC_DATA_DIR: join(own, 'data'), HALCYONIC_TASKS_DIR: join(own, 'tasks') };
+    assert.equal(await runLogin('on', env, home, both.io), 0);
+    const plist = readFileSync(
+      join(home, 'Library', 'LaunchAgents', `${LOGIN_AGENT_LABEL}.plist`),
+      'utf8',
+    );
+    assert.ok(plist.includes(`<string>${join(own, 'tasks')}</string>`));
   });
 
   test('turns on: refuses while launchd has it already, and while a Halcyonic started by hand answers', async (t) => {

@@ -148,8 +148,10 @@ through re-attach. Only `Start Halcyonic.command` can start it again, so started
    `/opt/homebrew/bin/node`, a link Homebrew moves to the new version when it upgrades, not tried
    here; a version manager's per-shell or per-version folder may not last, and On prints the path it
    chose). It keeps your PATH without relative folders, folders inside the checkout or a
-   `node_modules/.bin`, and `HALCYONIC_PORT` and `HALCYONIC_DATA_DIR` if set, nothing else, so no
-   secret is in it; On names any other `HALCYONIC_` setting it leaves out (the settings file still
+   `node_modules/.bin`, `HALCYONIC_PORT` if set, and the data and tasks folders it judged, always
+   written (`HALCYONIC_DATA_DIR`, `HALCYONIC_TASKS_DIR`), nothing else, so no secret is in it (a data folder other than `~/.halcyonic` is refused without its own tasks
+   folder, since task copies otherwise go to `~/.halcyonic-tasks`, which a start clears of copies its own
+   journal does not hold); On names any other `HALCYONIC_` setting it leaves out (the settings file still
    applies). Its output goes to `control-plane.log` in the data folder, which is never trimmed.
    launchd starts it again after any exit that is not a success: Restart to Apply on the setup page,
    a crash, a close that failed, and a start Halcyonic refuses (its port taken, settings it can't
