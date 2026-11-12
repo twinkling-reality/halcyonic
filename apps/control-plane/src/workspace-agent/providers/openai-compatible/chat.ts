@@ -34,8 +34,10 @@ export const openAiChat: Protocol = {
     const response = await request(call, 'chat/completions', {
       model: call.model,
       messages: wire,
-      [call.provider.outputField ?? 'max_tokens']: call.outputTokens,
-      ...(call.provider.effort === null ? {} : { reasoning_effort: call.provider.effort }),
+      [call.provider.tuning?.outputField ?? 'max_tokens']: call.outputTokens,
+      ...(call.provider.tuning?.effort === undefined
+        ? {}
+        : { reasoning_effort: call.provider.tuning.effort }),
       ...(tools.length === 0 ? {} : { tools: tools as readonly ToolDefinition[] }),
     });
     if (!response.ok) return { kind: 'failed', code: response.code, message: response.message };
@@ -96,9 +98,10 @@ export const openAiChat: Protocol = {
 const EFFORTS = new Set(['minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 const OUTPUT_FIELDS = new Set(['max_tokens', 'max_completion_tokens']);
 function declarationProblem(call: ProtocolCall): string | null {
-  if (call.provider.effort !== null && !EFFORTS.has(call.provider.effort))
+  const { effort, outputField } = call.provider.tuning ?? {};
+  if (effort !== undefined && !EFFORTS.has(effort))
     return 'This protocol does not know that effort.';
-  if (call.provider.outputField !== undefined && !OUTPUT_FIELDS.has(call.provider.outputField))
+  if (outputField !== undefined && !OUTPUT_FIELDS.has(outputField))
     return 'This protocol does not know that output field.';
   return null;
 }

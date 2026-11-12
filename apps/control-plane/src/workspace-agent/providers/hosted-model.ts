@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { WorkspaceAgentStatus } from '@halcyonic/contracts';
+import { type HostedProvider, upstreamProblem } from '@halcyonic/runtime-core';
 import {
   TOOL_MODEL_BOUNDS,
   type ToolCall,
@@ -8,14 +9,7 @@ import {
   type ToolModelBounds,
   type ToolTurnResult,
 } from '../ollama.ts';
-import {
-  type HostedProvider,
-  KEY_REFUSED,
-  type KeyReader,
-  type Protocol,
-  type ProtocolCall,
-  upstreamProblem,
-} from './provider.ts';
+import { KEY_REFUSED, type KeyLookup, type Protocol, type ProtocolCall } from './provider.ts';
 
 /** A key's digest, kept in memory only, so a refused key is known again without holding it. */
 const digest = (key: string) => createHash('sha256').update(key).digest('hex');
@@ -53,7 +47,7 @@ const object = (value: unknown): value is Record<string, unknown> =>
 export class HostedWorkspaceModel {
   readonly provider: HostedProvider;
   readonly #protocol: Protocol;
-  readonly #keys: KeyReader;
+  readonly #keys: KeyLookup;
   readonly #upstream: string;
   readonly #bounds: ToolModelBounds;
   /**
@@ -65,7 +59,7 @@ export class HostedWorkspaceModel {
   constructor(options: {
     provider: HostedProvider;
     protocol: Protocol;
-    keys: KeyReader;
+    keys: KeyLookup;
     /** For proofs on this Mac only: `upstreamProblem` still refuses anything but https or loopback. */
     upstream?: string | null;
     bounds?: Partial<ToolModelBounds>;

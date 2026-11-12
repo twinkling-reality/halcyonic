@@ -38,7 +38,11 @@ four edits, and a third meant four more.
 5. **Every reader reads that one list:** the assistant, Add Key (one card per key file), the key gate (upstream,
    shape, header), the held secrets (every key file) and the model rows. On the rows, `RuntimeModel.provider` names
    the declaration a model is reached through, and a refused key counts per provider.
-6. **The deciding test:** a third provider written in a test as one file reaches every reader with no other file
+6. **The assistant** (LOOP, 2026-11-12) reads the list as the reader `ASSISTANT_READER`: every provider, through the
+   wire shapes it speaks (`chat_completions`, `messages`), at each use, never turned on by a stored key. A provider's
+   `tuning.effort` and `tuning.outputField` are mapped by each wire shape, which refuses a value it does not know.
+   Its list order (the declarations' folder names) is the order Use Model offers the models in.
+7. **The deciding test:** a third provider written in a test as one file reaches every reader with no other file
    changed. `tooling/architecture.test.ts` keeps vendors' names out of runtime-core and the core packages.
 
 ## Alternatives considered

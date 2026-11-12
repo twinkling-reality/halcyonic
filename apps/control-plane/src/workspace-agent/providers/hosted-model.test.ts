@@ -1,19 +1,23 @@
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { type TestContext, test } from 'node:test';
 import type { AssistantHostedModel } from '@halcyonic/contracts';
+import type { HostedProvider } from '@halcyonic/runtime-core';
+import { HostProviders } from '../../providers.ts';
 import type { Model } from '../assistant-model.ts';
 import type { ToolDefinition, ToolMessage } from '../ollama.ts';
-import { anthropicProvider } from './anthropic/declaration.ts';
 import { asRecord } from './anthropic/messages.ts';
 import { assistantModel } from './assistant.ts';
-import { metaProvider } from './meta/declaration.ts';
 import { asChat } from './openai-compatible/chat.ts';
-import type { HostedProvider } from './provider.ts';
+
+// The repository's own declarations, as the host reads them (providers/<id>/provider.json, ADR 0061).
+const DECLARED = new HostProviders({ dataDir: tmpdir() });
+const anthropicProvider = DECLARED.byId('anthropic') as HostedProvider;
+const metaProvider = DECLARED.byId('meta') as HostedProvider;
 
 // Fake keys only: no test, fixture or proof here ever holds a real key.
 const GOOD = 'fake-key-good-0001';
@@ -175,15 +179,15 @@ function declarations(anthropicUrl: string, otherUrl: string): HostedProvider[] 
     {
       id: 'test-hosted',
       name: 'Test Hosted',
-      protocol: 'openai_chat',
+      speaks: ['chat_completions'],
       upstream: `${otherUrl}/v1`,
       key: {
         variable: 'TEST_HOSTED_KEY',
         file: 'test-hosted-key',
+        field: 'Test Hosted Key',
         header: { name: 'authorization', scheme: 'Bearer' },
       },
       models: ['test-model-1'],
-      effort: null,
     },
   ];
 }
@@ -622,7 +626,7 @@ test('the declared providers declare no model that trains on the content', () =>
     assert.ok(provider.models.every((id) => !id.includes('contributor')));
 });
 
-test('as the product declares them, Meta is offered first, and runs once chosen', async (t) => {
+test('as the product declares them, both are offered in the host list order, and Meta runs once chosen', async (t) => {
   const b = await upstream(t, shapes.openai_chat(false));
   const dir = dataDir(t);
   store(dir, metaProvider.key.file, GOOD);
@@ -634,12 +638,12 @@ test('as the product declares them, Meta is offered first, and runs once chosen'
     dataDir: dir,
     environment: { HALCYONIC_ASSISTANT_UPSTREAM: `${b.url}/v1` },
     chosen: () => chosen,
+    providers: DECLARED.list(),
   });
   const labels = (await model.options()).map((option) => option.label);
   assert.deepEqual(labels, [
     "This Computer's Model",
-    ...metaProvider.models,
-    ...anthropicProvider.models,
+    ...DECLARED.list().flatMap((provider) => provider.models),
   ]);
   assert.deepEqual(await model.status(), await local.status());
   chosen = { provider_id: 'meta', model: 'muse-wonder-1.0' };
@@ -668,7 +672,7 @@ test('a declaration with an effort or output field its protocol does not know se
   const b = await upstream(t, shapes.openai_chat(false));
   const dir = dataDir(t);
   store(dir, metaProvider.key.file, GOOD);
-  for (const bad of [{ effort: 'none' }, { outputField: 'model' }]) {
+  for (const bad of [{ tuning: { effort: 'none' } }, { tuning: { outputField: 'model' } }]) {
     const model = hostedOn({
       local,
       dataDir: dir,
@@ -679,4 +683,51 @@ test('a declaration with an effort or output field its protocol does not know se
     assert.equal(turn.kind === 'failed' && turn.code, 'provider_declaration');
   }
   assert.equal(b.seen.filter((entry) => entry.method === 'POST').length, 0);
+});
+
+test('a third provider is one declaration file: offered, chosen and run by the assistant with nothing else', async (t) => {
+  const b = await upstream(t, shapes.openai_chat(false));
+  const dir = dataDir(t);
+  const declarations = mkdtempSync(join(tmpdir(), 'third-provider-'));
+  t.after(() => rmSync(declarations, { recursive: true, force: true }));
+  mkdirSync(join(declarations, 'third'));
+  // A provider this repository has never heard of: another key name, file and header, its own model.
+  writeFileSync(
+    join(declarations, 'third', 'provider.json'),
+    JSON.stringify({
+      format: 1,
+      id: 'third',
+      name: 'Third Hosted',
+      speaks: ['chat_completions'],
+      upstream: `${b.url}/v1`,
+      key: {
+        file: 'third-key',
+        variable: 'THIRD_KEY',
+        header: { name: 'authorization', scheme: 'Bearer' },
+        field: 'Third Key',
+      },
+      models: ['test-model-1'],
+    }),
+  );
+  const host = new HostProviders({ dir: declarations, dataDir: dir });
+  store(dir, 'third-key', GOOD);
+  let chosen: AssistantHostedModel | null = null;
+  const model = assistantModel({
+    local,
+    dataDir: dir,
+    environment: {},
+    providers: host.list(),
+    chosen: () => chosen,
+  });
+  assert.deepEqual(
+    (await model.options()).map((option) => [option.label, option.detail, option.usable]),
+    [
+      ["This Computer's Model", 'local-model:tag', true],
+      ['test-model-1', 'On Third Hosted', true],
+    ],
+  );
+  chosen = { provider_id: 'third', model: 'test-model-1' };
+  const turn = await model.turn(ask, tools);
+  assert.equal(turn.kind === 'answered' && turn.provider, 'Third Hosted');
+  assert.ok(b.seen.every((entry) => entry.headers.authorization === `Bearer ${GOOD}`));
 });

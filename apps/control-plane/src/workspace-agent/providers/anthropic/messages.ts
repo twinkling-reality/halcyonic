@@ -43,7 +43,9 @@ export const anthropicMessages: Protocol = {
         message: 'This protocol sends its key as x-api-key.',
       };
     const effort =
-      call.provider.effort === null ? null : EFFORTS.find((each) => each === call.provider.effort);
+      call.provider.tuning?.effort === undefined
+        ? null
+        : EFFORTS.find((each) => each === call.provider.tuning?.effort);
     if (effort === undefined)
       return {
         kind: 'failed',

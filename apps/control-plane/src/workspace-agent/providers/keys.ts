@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import type { KeyReader, KeyState, ProviderKey } from './provider.ts';
+import type { KeyState, ProviderKey } from '@halcyonic/runtime-core';
+import type { KeyLookup } from './provider.ts';
 
 const LONGEST_KEY = 4096;
 
@@ -12,7 +13,7 @@ const LONGEST_KEY = 4096;
  * would otherwise send every request to a paid provider unasked (review of f0371a2a2). The value is
  * returned only inside `stored` and never put in an error or a message.
  */
-export function declaredKeys(dataDir: string): KeyReader {
+export function declaredKeys(dataDir: string): KeyLookup {
   return (key: ProviderKey): KeyState => {
     const path = join(dataDir, key.file);
     let mode: number;

@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "id": "meta",
+  "name": "Meta",
+  "speaks": ["chat_completions", "responses"],
+  "upstream": "https://api.meta.ai/v1",
+  "key": {
+    "file": "meta-api-key",
+    "variable": "META_API_KEY",
+    "header": { "name": "authorization", "scheme": "Bearer" },
+    "field": "Meta API Key"
+  },
+  "models": ["muse-wonder-1.0", "muse-spark-1.3"],
+  "tuning": { "effort": "low", "outputField": "max_completion_tokens" }
+}
