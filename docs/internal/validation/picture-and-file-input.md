@@ -161,10 +161,26 @@ provider gets an `input_image` with exactly those bytes.
 - **What the Mac cannot take:** what the headset itself shows, the person's view or the room around them. That
   would be the headset's own capture.
 
+## The first local generation (2026-11-12, 09:52Z to 09:54Z)
+
+A scratch control plane with Halcyonic's own local model settings (`mac-setup local-model muse-glimmer:30b-mlx`),
+the pinned Codex 0.157.0 and OpenCode 2.0.18, and three 32 by 32 one-colour PNGs. One task each, the question "What
+colour is the square in the picture? Answer with one word. Do not use any tools.":
+- Codex with the folder's red square, OpenCode with the folder's blue square (OpenCode listed the model as
+  `declared`, from Halcyonic's own settings), and Codex with a green square given through `POST /api/pictures`.
+- All three turns completed (36 s, 24 s, 36 s), and each journaled `execution.instruction.pictures_read` with the
+  picture's digest; the given one with `path` null.
+- **All three answers were "unknown".** The bytes reach the runtimes, but this model, through these runtimes and
+  Ollama's OpenAI-compatible endpoints, did not report seeing the square. Codex warned that it had no metadata for
+  the model and used its defaults.
+
+So a picture's effect on a local model stays unknown. Whether the cause is the squares' size or the endpoints is
+not checked: the next step is the same model through Ollama's own chat API with no runtime, at 32 and 256 pixels.
+
 ## Not verified
 1. What Codex's `model/list` reports as image input under the Ollama provider. Codex sends a picture to any model.
 2. OpenCode inside Halcyonic's macOS sandbox, and its Ollama gate passing a picture to Ollama. OpenCode lists
    Ollama's models as text only, so through OpenCode an Ollama model is refused pictures today.
-3. Whether Ollama's own endpoints take a picture from Codex, and any model answering about one: the one local
-   generation has not run yet.
+3. Whether Ollama's own endpoints take a picture from Codex or OpenCode for this model: the one local generation
+   gave "unknown" for every picture (above), and the cause is not known.
 4. A JPEG or WebP whose structure is whole but whose pixels are broken: the host's check does not decode them.
