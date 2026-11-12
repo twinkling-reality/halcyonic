@@ -110,7 +110,7 @@ namespace Halcyonic.XR.UI.Editor
             AssetDatabase.CreateAsset(atlas, BuildingPath);
             AssetDatabase.AddObjectToAsset(atlas.atlasTexture, atlas);
             AssetDatabase.AddObjectToAsset(atlas.material, atlas);
-            AssetDatabase.SaveAssets();
+            FontAssetsKept.Save();
             if (AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath) == null)
             {
                 var error = AssetDatabase.MoveAsset(BuildingPath, AssetPath);

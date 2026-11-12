@@ -99,7 +99,7 @@ namespace Halcyonic.XR.UI.Editor
                 AssetDatabase.AddObjectToAsset(atlas.atlasTexture, existing);
                 AssetDatabase.AddObjectToAsset(atlas.material, existing);
                 EditorUtility.SetDirty(existing);
-                AssetDatabase.SaveAssets();
+                FontAssetsKept.Save();
                 existing.ReadFontAssetDefinition();
                 UnityEngine.Object.DestroyImmediate(atlas);
                 return;
@@ -109,7 +109,7 @@ namespace Halcyonic.XR.UI.Editor
             AssetDatabase.CreateAsset(atlas, building);
             AssetDatabase.AddObjectToAsset(atlas.atlasTexture, atlas);
             AssetDatabase.AddObjectToAsset(atlas.material, atlas);
-            AssetDatabase.SaveAssets();
+            FontAssetsKept.Save();
             var error = AssetDatabase.MoveAsset(building, path);
             if (!string.IsNullOrEmpty(error)) throw new IOException(error);
         }
