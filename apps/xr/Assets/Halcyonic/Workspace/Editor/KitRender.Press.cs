@@ -21,7 +21,8 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             var failures = GlazeChecks.AtEachTextSize(PressSettle);
             foreach (var failure in failures) Debug.LogError("Halcyonic: press settle: " + failure);
-            if (failures.Count == 0) Debug.Log("Halcyonic: press settle: a new request in an answered one's place settles again before a pinch counts.");
+            // The line the landing's gate counts, as every other journey ends.
+            if (failures.Count == 0) Debug.Log("Halcyonic: press settle: a new request in an answered one's place settles again before a pinch counts; every check passed.");
             EditorApplication.Exit(failures.Count > 0 ? 1 : 0);
         }
 
