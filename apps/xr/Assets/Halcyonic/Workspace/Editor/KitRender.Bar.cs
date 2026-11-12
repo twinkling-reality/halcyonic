@@ -707,7 +707,20 @@ namespace Halcyonic.XR.Workspace.Editor
                     // A draft and an instruction's confirmation hold the person's own words; Stop's confirmation holds the file's question.
                     Require(shown.State is not (RoomBarState.Draft or RoomBarState.Confirm) || state == "36-stop-confirm" || bar.Body.text.Length == 0
                         || bar.Body.text.Contains(BarDraft.Substring(0, 20)), "the panel does not hold the person's words");
-                    if (choosing)
+                    // At rest before Choose Instruction (35-choose-rest) the panel holds the finished run's card (the lead's decision of
+                    // 12:04Z: what the run made and what to do with it come first after a run). ASSERTED, never skipped: the card stands
+                    // whole, nothing is offered to pick yet, and the row's Hold to Talk and Choose Instruction both stand, Choose
+                    // Instruction raising the one control that opens the list (Tell It where no keyboard is offered: 35-choose).
+                    if (choosing && shown.State != RoomBarState.Choose)
+                    {
+                        Require(shown.Card != null && bar.Card != null && bar.Card.LaidWhole, "at rest the panel does not hold the finished run's card whole");
+                        Require(shown.Column.All(action => action.Mark == AnswerMark.None), "at rest an instruction is offered to pick before Choose Instruction");
+                        Require(shown.Row.Any(action => action.Place == KitPlace.Talk), "at rest Hold to Talk does not stand on the row");
+                        Require(shown.Row.Any(action => action.Place == KitPlace.Field && action.Words == RoomBar.ChooseInstruction && action.Control.Action == FileScreens.TellIt),
+                            "at rest Choose Instruction does not stand on the row, raising what opens the list");
+                    }
+                    // The offered instructions where the bar shows the list (35-choose, 35-choose-chosen), by what it draws, never a state's name.
+                    if (choosing && shown.State == RoomBarState.Choose)
                     {
                         // The product's own instructions by their short names, each with its mark, the chosen one checked; the way on only once one is chosen.
                         var names = shown.Column.Where(action => action.Mark != AnswerMark.None).Select(action => action.Words).ToList();
