@@ -66,6 +66,20 @@ namespace Halcyonic.XR.UI
         private RoomSurface alonePlate = null!;
         private GlazeShimmer aloneSweep = null!;
         private RoomSurface panel = null!;
+
+        /// <summary>The notice over everything the bar shows (RoomBar.Notice): a tag's plate the panel's width, its words whole.</summary>
+        private RoomSurface? notice;
+        private TextMeshPro? noticeWords;
+
+        /// <summary>The notice's plate as last laid, for the checks: null where none stands.</summary>
+        public RoomSurface? NoticePlate => notice != null && notice.gameObject.activeSelf ? notice : null;
+
+        /// <summary>The notice's words as last laid, for the checks.</summary>
+        public TextMeshPro? NoticeWords => NoticePlate != null ? noticeWords : null;
+
+        /// <summary>The room between the notice and the panel under it, and round its words.</summary>
+        public const float NoticeGapDp = 12f;
+        public const float NoticePadDp = 12f;
         private TextMeshPro body = null!;
         private TextMeshPro request = null!;
         private TextMeshPro measureBody = null!;
@@ -297,6 +311,9 @@ namespace Halcyonic.XR.UI
                 else if (bar.Working) LayWork(bar);
                 else if (bar.Row.Count > 0) LayRow(bar, 0f);
                 else LayAlone(bar);
+                // With no panel (at work, the row, the words alone) the notice stands over the bar's own top, the panel's width.
+                var noticeWidth = RoomType.Units(RoomGeometry.PanelDp);
+                LayNotice(bar, new Vector2(-noticeWidth / 2f, Size.y / 2f), noticeWidth);
                 if (!bar.Working)
                 {
                     // With no pair the foot line is still DESIGN's, over the row's feet.
@@ -425,6 +442,36 @@ namespace Halcyonic.XR.UI
                 locking.Lock(null);
             }
             else locking.Lock(Mathf.Max(0f, progress));
+        }
+
+        /// <summary>
+        /// The notice (RoomBar.Notice) above the panel, its left on the panel's, the panel's width: a tag's quiet plate and the
+        /// product's line whole, wrapped at either text size and never cut; nothing to press, nothing that closes it.
+        /// </summary>
+        private void LayNotice(RoomBar bar, Vector2 panelTopLeft, float width)
+        {
+            if (bar.Notice is not LineWords said)
+            {
+                if (notice != null) notice.gameObject.SetActive(false);
+                return;
+            }
+            if (notice == null)
+            {
+                notice = RoomSurface.Create(transform, "Notice", RoomSurfaceKind.Tag, KitType.Order.Plate);
+                noticeWords = KitType.Create(notice.transform, "Notice words", KitRole.Label, Color.white, KitType.Order.Words, TextAlignmentOptions.TopLeft, room: true);
+            }
+            notice.gameObject.SetActive(true);
+            var pad = RoomType.Units(NoticePadDp) * GlazeText.Scale;
+            var runs = GlazeRuns.Of(noticeWords!);
+            runs.Set(said);
+            noticeWords!.textWrappingMode = TextWrappingModes.Normal;
+            var laid = KitType.Lay(noticeWords, width - 2f * pad, 3);
+            var tall = laid.Height + 2f * pad;
+            notice.Draw(new Vector2(width, tall));
+            notice.transform.localPosition = new Vector3(panelTopLeft.x + width / 2f, panelTopLeft.y + RoomType.Units(NoticeGapDp) + tall / 2f, 0f);
+            noticeWords.rectTransform.pivot = new Vector2(0f, 1f);
+            noticeWords.rectTransform.sizeDelta = new Vector2(width - 2f * pad, laid.Height);
+            noticeWords.transform.localPosition = new Vector3(-width / 2f + pad, tall / 2f - pad, -RoomType.Units(0.5f));
         }
 
         private void Update()
@@ -695,6 +742,7 @@ namespace Halcyonic.XR.UI
 
             panel.InnerBar = barHeight > 0f ? ((panelHeight - inset - barHeight) / unit, barHeight / unit, inset / unit) : ((float, float, float)?)null;
             panel.transform.localPosition = new Vector3(left + panelWidth / 2f, foot + panelHeight / 2f, 0f);
+            LayNotice(bar, new Vector2(left, foot + panelHeight), panelWidth);
             // A card that is the way in rings its panel in its hue, on the panel's own corner.
             panel.Ring = card != null && card.gameObject.activeSelf ? card.PanelRing : null;
             if (!bar.Wide) panel.Draw(new Vector2(panelWidth, panelHeight));

@@ -13,6 +13,14 @@ namespace Halcyonic.Client
         /// </summary>
         public RoomCard? Card { get; private set; }
 
+        /// <summary>
+        /// What the person must know of everything this bar shows, standing over it on every screen and never dismissed: where
+        /// the work shown is recorded or a demonstration, the product's own line for it (DemonstrationFallback's first
+        /// sentence, word for word: "Recorded: real agent work, played back here. Nothing here is live."). Null for live work.
+        /// Set by the reader that knows the work is recorded (the lead's honesty rule, 2026-11-12).
+        /// </summary>
+        public LineWords? Notice { get; set; }
+
         /// <summary>The fixing card's title and its quieter line while a try is under way (the addendum's A7 and A17).</summary>
         public const string FixingTitle = "Fixing";
         public const string FixingLine = "The agent works on it by itself";

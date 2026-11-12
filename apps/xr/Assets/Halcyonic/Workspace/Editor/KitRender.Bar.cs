@@ -704,6 +704,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(look.FillTop.a < 1f && !look.Shadow && look.EdgeDp > 0f, "the panel is not DESIGN's translucent tonal layer with a hairline and no shadow");
                     Require(shown.Wide || Mathf.Abs(panel.Size.x - RoomType.Units(RoomGeometry.PanelDp)) < Tolerance, "the panel is not 440 dp wide");
                     Whole(bar.Body, "the panel's words");
+                    // Recorded or demonstration work says so over everything the bar shows, standing, its words whole (the lead's
+                    // honesty rule, 2026-11-12); live work carries no notice.
+                    Require((shown.Notice != null) == (bar.NoticePlate != null), shown.Notice != null ? "recorded work does not say it is recorded" : "a notice stands over live work");
+                    if (bar.NoticeWords is TMPro.TextMeshPro said)
+                    {
+                        Whole(said, "the notice's words");
+                        Require(said.GetParsedText().Replace("\n", " ").Contains("Nothing here is live"), "the notice does not say that nothing here is live");
+                        Require(bar.NoticePlate!.transform.localPosition.y > panel.transform.localPosition.y, "the notice does not stand over the panel");
+                    }
                     // A draft and an instruction's confirmation hold the person's own words; Stop's confirmation holds the file's question.
                     Require(shown.State is not (RoomBarState.Draft or RoomBarState.Confirm) || state == "36-stop-confirm" || bar.Body.text.Length == 0
                         || bar.Body.text.Contains(BarDraft.Substring(0, 20)), "the panel does not hold the person's words");
