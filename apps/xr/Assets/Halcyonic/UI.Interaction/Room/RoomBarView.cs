@@ -738,6 +738,9 @@ namespace Halcyonic.XR.UI
                     button.Hide();
                     continue;
                 }
+                // Every action in the column one width, the widest's, so the column reads as one menu with one right edge
+                // (the critic, 2026-11-12: content-sized buttons left a ragged edge, 63 dp of spread).
+                cores[index].x = widest;
                 var centre = new Vector2(columnLeft + cores[index].x / 2f, foot + rises[index]);
                 if (index >= count)
                 {
