@@ -195,6 +195,11 @@ case) and the lead's decision of 2026-11-12 (one list, one review card, a confir
   --accept-visibility-change-consequences` on that repository alone, as the journal names it, and records
   `project.repository_made_private {repository}` once gh said so; a later publish offers Make Public again. A
   gh that fails leaves effect `unknown` (`not_made_private`).
+- **A refused push says what git said.** Every `push_refused` (Send, Publish, Take Down) ends with git's own
+  most telling line, `Git said: "..."`: a `[rejected]` line first, else an `error:` or `fatal:` line or a GitHub
+  code (`GH013`), with the repository's owner, every address and every path on this Mac masked, one line of at
+  most 200 characters, nothing when git printed nothing. Publish blames a `halcyonic-pages` branch only where
+  git's words say a branch is in the way (run 2 was told so with none there).
 - **A site GitHub does not keep is no publish.** After turning pages on, the address is read back; where
   GitHub answers none, the Pages branch just pushed is deleted again (only while it holds that commit) and
   the publish is refused (`pages_refused`, naming Make Public where the repository is private), so nothing

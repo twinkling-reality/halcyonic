@@ -218,7 +218,7 @@ export class GitHubSender {
         );
       return refuse(
         'push_refused',
-        `${send.remote.host} didn't take the push, so nothing was sent. Check that this computer can push to the repository, then send again.`,
+        `${send.remote.host} didn't take the push, so nothing was sent. Check that this computer can push to the repository, then send again.${gitSaid(pushed.stderr, send.remote.path)}`,
       );
     }
     let reviewRequestUrl: string | null = null;
@@ -318,7 +318,7 @@ export class GitHubSender {
       return {
         ...refuse(
           'push_refused',
-          `GitHub has the repository ${fullName}, but this computer couldn't reach it, so nothing was pushed. Check that it can push there, then send again.`,
+          `GitHub has the repository ${fullName}, but this computer couldn't reach it, so nothing was pushed. Check that it can push there, then send again.${gitSaid(there.stderr, fullName)}`,
         ),
         effect: 'unknown',
       };
@@ -387,7 +387,7 @@ export class GitHubSender {
         return {
           ...refuse(
             'push_refused',
-            `GitHub has the repository ${fullName}, but didn't take the push. Check that this computer can push to it, then send again.`,
+            `GitHub has the repository ${fullName}, but didn't take the push. Check that this computer can push to it, then send again.${gitSaid(pushed.stderr, fullName)}`,
           ),
           effect: 'unknown',
         };
@@ -609,13 +609,16 @@ export class GitHubSender {
       ],
       120_000,
     );
-    if (pushed.code !== 0)
+    if (pushed.code !== 0) {
+      // The branch hint only where git says a branch is in the way (run 2: it was said with none there).
+      const inTheWay = /non-fast-forward|fetch first|\[rejected\]/.test(pushed.stderr);
       return after(
         refuse(
           'push_refused',
-          `GitHub didn't take the publish, so no page changed. If the repository has a ${PAGES_BRANCH} branch Halcyonic did not write, remove it first.`,
+          `GitHub didn't take the publish, so no page changed.${inTheWay ? ` The repository has a ${PAGES_BRANCH} branch Halcyonic did not write: remove it first.` : ''}${gitSaid(pushed.stderr, publish.repository)}`,
         ),
       );
+    }
     // Pages turned on for the branch (GitHub answers that it is on already, after the first time),
     // then its own address, as GitHub says it. A site GitHub does not keep is no publish: the branch
     // just pushed comes down again, only while it still holds that commit.
@@ -771,7 +774,7 @@ export class GitHubSender {
       );
     return refuse(
       'push_refused',
-      "GitHub didn't take the change, so the game is still published. Try again.",
+      `GitHub didn't take the change, so the game is still published. Try again.${gitSaid(removed.stderr, published.repository)}`,
     );
   }
 
@@ -1338,7 +1341,7 @@ export class GitHubSender {
     timeout = 30_000,
     extra: Readonly<Record<string, string>> = {},
     input?: string,
-  ): Promise<{ readonly code: number; readonly stdout: string }> {
+  ): Promise<{ readonly code: number; readonly stdout: string; readonly stderr: string }> {
     const env: Record<string, string> = {
       PATH: '/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin',
       GIT_TERMINAL_PROMPT: '0',
@@ -1355,9 +1358,9 @@ export class GitHubSender {
         file,
         [...args],
         { env, timeout, maxBuffer: OUTPUT_MAX, cwd: this.#deps.dataDir },
-        (error, stdout) => {
+        (error, stdout, stderr) => {
           const code = error === null ? 0 : typeof error.code === 'number' ? error.code : 1;
-          resolve({ code, stdout: String(stdout) });
+          resolve({ code, stdout: String(stdout), stderr: String(stderr) });
         },
       );
       if (input !== undefined) child.stdin?.end(input);
@@ -1487,6 +1490,37 @@ const PAGES_ADDRESS = /^https:\/\/[A-Za-z0-9-]{1,39}\.github\.io\/(?:[A-Za-z0-9.
 
 function refuse(code: string, message: string): SendFailure {
   return { ok: false, code, message };
+}
+
+/**
+ * Git's own first line of refusal, for a push it refused (run 2, 2026-11-12: nobody could say why
+ * GitHub refused one): the most telling line of what git printed, with the repository's owner, every
+ * address and every path on this Mac masked, one line of at most 200 characters, or nothing when git
+ * printed nothing. Git's words are the person's own tool's, never an agent's.
+ */
+export function gitSaid(stderr: string, repository: string): string {
+  const lines = stderr
+    .split(/\r?\n/)
+    .map((line) =>
+      Array.from(line, (ch) => (ch.charCodeAt(0) < 0x20 || ch.charCodeAt(0) === 0x7f ? ' ' : ch))
+        .join('')
+        .trim(),
+    )
+    .filter((line) => line !== '');
+  const telling =
+    lines.find((line) => /\[(?:remote )?rejected\]/.test(line)) ??
+    lines.find((line) => /^(?:remote: +)?(?:error|fatal)\b|GH\d{3}/i.test(line)) ??
+    lines.find((line) => !/^To /.test(line));
+  if (telling === undefined) return '';
+  const owner = repository.split('/')[0] ?? '';
+  let line = telling
+    .replace(/\b(?:https?|ssh|git|file):\/\/[^\s'"]+/gi, '<address>')
+    .replace(/\b[\w.-]+@[\w.-]+:[^\s'"]+/g, '<address>')
+    .replace(/(?:\/Users|\/private|\/var|\/tmp|\/home)\/[^\s'"]*/g, '<path>');
+  if (owner.length >= 1)
+    line = line.replace(new RegExp(owner.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '<owner>');
+  if (line.length > 200) line = `${line.slice(0, 199)}…`;
+  return ` Git said: "${line}"`;
 }
 
 /** The branch HEAD names, from `.git/HEAD` read as a file (git is not run in the folder), or null. */
