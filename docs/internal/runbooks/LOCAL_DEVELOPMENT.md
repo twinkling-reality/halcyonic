@@ -739,7 +739,8 @@ is off unless you turn it on ([ADR 0017](../decisions/0017-pair-a-headset-over-t
 ### The pairing page
 
 The control plane serves a page on this Mac for pairing, at `http://127.0.0.1:47802/` or the next
-free port up to 47809, which the `control plane ready` line names
+free port up to 47809 (on another `HALCYONIC_PORT`, that port plus 2 to plus 9), which the
+`control plane ready` line names
 ([ADR 0047](../decisions/0047-pairing-starts-from-a-page-on-the-mac.md)). It opens only by a link:
 `pnpm pair` asks the running control plane for one and opens it in your browser, and
 `Start Halcyonic.command` (or `pnpm start --open-pairing-page`) opens one once Halcyonic is ready. A

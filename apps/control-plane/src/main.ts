@@ -26,7 +26,7 @@ import { openSqliteJournal } from './journal/sqlite-journal.ts';
 import { createHostLocations } from './locations.ts';
 import { DeviceAccess } from './network/devices.ts';
 import { OPEN_LINK_KEEP_MS, openLinkPrivately, sweepOpenLinks } from './network/open-link.ts';
-import { PairingPage, pairingControls } from './network/pairing-page.ts';
+import { PairingPage, pairingControls, pairingPagePorts } from './network/pairing-page.ts';
 import { confinedPreviewTarget } from './network/preview-relay.ts';
 import {
   mountSetup,
@@ -433,6 +433,8 @@ async function main(): Promise<void> {
         remember: (on) => rememberNetworkListener(config.dataDir, on),
       }),
       {
+        // Its ports follow the control plane's own (ADR 0047), so a second plane never takes 47800's.
+        ports: pairingPagePorts(config.port),
         // The setup view beside pairing (ADR 0053): every step `pnpm mac-setup` checks, with its presses.
         mount: mountSetup(
           new SetupView(
