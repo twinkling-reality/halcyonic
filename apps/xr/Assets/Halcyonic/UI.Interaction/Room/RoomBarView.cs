@@ -446,7 +446,7 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// The notice (RoomBar.Notice) above the panel, its left on the panel's, the panel's width: a tag's quiet plate and the
-        /// product's line whole, wrapped at either text size and never cut; nothing to press, nothing that closes it.
+        /// product's line whole in the bar's one type size, wrapped at either text size and never cut; nothing to press, nothing that closes it.
         /// </summary>
         private void LayNotice(RoomBar bar, Vector2 panelTopLeft, float width)
         {
@@ -458,7 +458,7 @@ namespace Halcyonic.XR.UI
             if (notice == null)
             {
                 notice = RoomSurface.Create(transform, "Notice", RoomSurfaceKind.Tag, KitType.Order.Plate);
-                noticeWords = KitType.Create(notice.transform, "Notice words", KitRole.Label, Color.white, KitType.Order.Words, TextAlignmentOptions.TopLeft, room: true);
+                noticeWords = RoomType.Create(notice.transform, "Notice words", Color.white, KitType.Order.Words, TextAlignmentOptions.TopLeft);
             }
             notice.gameObject.SetActive(true);
             var pad = RoomType.Units(NoticePadDp) * GlazeText.Scale;
