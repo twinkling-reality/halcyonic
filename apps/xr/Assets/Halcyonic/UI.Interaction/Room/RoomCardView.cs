@@ -314,7 +314,11 @@ namespace Halcyonic.XR.UI
                     down = LayStatus(status, card, width, down);
                 }
             }
-            if (card.Description != null)
+            // A card never says the same words twice: a description that only repeats the title is not drawn (an idea that is
+            // also its name; the critic, 2026-11-12).
+            var description = card.Description != null && card.Title != null && string.Equals(card.Description.Text.Trim(), card.Title.Text.Trim(), System.StringComparison.Ordinal)
+                ? null : card.Description;
+            if (description != null)
             {
                 // Under a head or a status a block's gap, as every other block, so another's words never read as the status's
                 // line (the critic, 2026-11-11); under a title alone, its own small gap.
@@ -559,6 +563,9 @@ namespace Halcyonic.XR.UI
             foreach (var each in words)
             {
                 var (label, height) = Text(each.Role, each.Dp, each.LineDp, each.Colour, each.Words, left, 0f, column, each.Lines);
+                // A name of the person's own words past even four lines (an idea taken as its name) shows its lead cut at a
+                // word, the ellipsis theirs; Halcyonic's own names are never cut.
+                if (each.Words.AllTheirs) height = Excerpt(label, each.Words, column, each.Lines, each.LineDp);
                 laid.Add((label, height, S(each.Before)));
                 tall += S(each.Before) + height;
             }
@@ -728,6 +735,8 @@ namespace Halcyonic.XR.UI
                     place++;
                     values[index].Label.rectTransform.sizeDelta = new Vector2(tile - 2f * S(SlotPadDp), values[index].Label.rectTransform.sizeDelta.y);
                     Plate(new Vector2(tile, rowWell), S(TileCornerDp), White(WellAlpha), new Vector2(x + tile / 2f, -(top + rowWell / 2f)), "slot " + slot.Kind, under: true);
+                    // A slot that changes its fact in place takes a press across its whole well, as a row picked from does.
+                    if (slot.Press is KitControl change) RowTarget(change, new Vector2(x + tile / 2f, -(top + rowWell / 2f)), new Vector2(tile, rowWell));
                     // The glyph's drawn edge on the value's left edge: its box moved left by where its ink starts.
                     var glyphOf = slot.Kind == RoomKind.Level ? (RoomGlyph?)null : slot.Kind == RoomKind.Passed ? RoomGlyph.Check : slot.Kind == RoomKind.Failed ? RoomGlyph.Alert : GlyphOf(slot.Kind);
                     var ink = glyphOf is RoomGlyph drawn ? RoomGlyphs.InkLeft(drawn) / RoomGlyphs.Grid * S(SlotGlyphDp) : 0f;
@@ -781,6 +790,20 @@ namespace Halcyonic.XR.UI
             // each join runs the same inset (the critic, 2026-11-11).
             var widest = 0f;
             foreach (var each in widths) widest = Mathf.Max(widest, each);
+            // Where the columns would run past the card (four steps with a long name at larger text: "VR Offered" stood behind
+            // Back, XR's critic of 06:24Z), each column takes its share of the card and its name wraps to two lines, centred.
+            var least = (steps.Count - 1) * (S(10f) + 2f * S(StepJoinGapDp));
+            if (widest * steps.Count + least > width + 1e-4f)
+            {
+                widest = Mathf.Max(S(StepDp), (width - least) / steps.Count);
+                tallest = 0f;
+                foreach (var label in labels)
+                {
+                    label.textWrappingMode = TextWrappingModes.Normal;
+                    var wrapped = KitType.Lay(label, widest, 2);
+                    tallest = Mathf.Max(tallest, Mathf.Max(wrapped.Lines, 1) * S(StepNameLineDp));
+                }
+            }
             for (var index = 0; index < widths.Length; index++) widths[index] = widest;
             var sum = widest * widths.Length;
             var joins = steps.Count - 1;
@@ -853,11 +876,13 @@ namespace Halcyonic.XR.UI
                 var nameLeft = S(RowTileDp + RowGapDp);
                 var nameWidth = width - nameLeft - chevronRoom - (noteWidth > 0f ? noteWidth + S(RowGapDp) : 0f);
                 // A name is never cut: a path or a moment's name takes a second line where one is not enough (a long path at larger text).
+                // A name of the person's own words (a task's title) takes a third line before anything is cut (XR's critic, 06:33Z).
+                var nameLines = row.Name.AllTheirs && !row.Mono ? 3 : 2;
                 var (nameLabel, nameTall) = row.Mono
-                    ? Text(KitRole.Mono, RowNameDp - 3f, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, 2)
-                    : Text(KitRole.Body, RowNameDp, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, 2);
+                    ? Text(KitRole.Mono, RowNameDp - 3f, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, nameLines)
+                    : Text(KitRole.Body, RowNameDp, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, nameLines);
                 // The person's own words of any length, on a row that opens them whole: their lead, cut at a word.
-                if (row.Excerpt) nameTall = Excerpt(nameLabel, row.Name, nameWidth, 2, RowNameLineDp);
+                if (row.Excerpt) nameTall = Excerpt(nameLabel, row.Name, nameWidth, nameLines, RowNameLineDp);
                 // What the row belongs to, a quieter line under its name.
                 TextMeshPro? underLabel = null;
                 var underTall = 0f;

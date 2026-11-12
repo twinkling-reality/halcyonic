@@ -121,12 +121,20 @@ namespace Halcyonic.Client
     public readonly struct RoomSlot
     {
         /// <param name="mono">The value is a name to type (a folder's name, a model's exact id), set in the mono face.</param>
-        public RoomSlot(RoomKind kind, LineWords value, bool mono = false)
+        /// <param name="press">
+        /// The control the slot raises where its fact is changed in place (a recap's folder opens where it is chosen): the
+        /// whole well takes the press, one press to its change, as the Change page's row for it would raise.
+        /// </param>
+        public RoomSlot(RoomKind kind, LineWords value, bool mono = false, KitControl? press = null)
         {
             Kind = kind;
             Value = value;
             Mono = mono;
+            Press = press;
         }
+
+        /// <summary>What a press on the slot raises; null where the slot only says its fact.</summary>
+        public KitControl? Press { get; }
 
         public bool Mono { get; }
 
