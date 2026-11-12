@@ -54,13 +54,14 @@ import { isCloudName } from '../companion/ollama.ts';
 import {
   ConfigError,
   companionOllamaAddress,
-  DEFAULT_NETWORK_PORT,
+  DEFAULT_PORT,
   defaultDataDir,
   isLocalOllamaModel,
   loadConfig,
   loopbackListener,
   OPENCODE_SETTINGS_PATH,
   type OpenCodeSettings,
+  portFamily,
   readOpenCodeSettings,
 } from '../config.ts';
 import { assessFolder, type FolderContext, realOrSelf } from '../folder-safety.ts';
@@ -1812,7 +1813,11 @@ class MacSetup {
     if (settings === null) return 1;
     const next: Record<string, string | undefined> = { ...settings };
     if (state === 'on') {
-      const port = io.env.HALCYONIC_NETWORK_PORT ?? String(DEFAULT_NETWORK_PORT);
+      // The listener's port follows the control plane's own (ADR 0047, amended): 47801 beside 47800.
+      const own = Number.parseInt(io.env.HALCYONIC_PORT ?? '', 10);
+      const port =
+        io.env.HALCYONIC_NETWORK_PORT ??
+        String(portFamily(Number.isInteger(own) && own > 0 ? own : DEFAULT_PORT).network);
       io.print('Pairing over Wi-Fi is your choice. Turning it on:');
       const firewall = io.firewall();
       for (const line of [

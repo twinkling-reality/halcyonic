@@ -68,6 +68,8 @@ export interface HostPreviewsDeps {
   readonly starters: { readonly trackedDir: string; readonly installedDir: string };
   /** Whether this host confines a starter project's Codex to its folder (ADR 0041). */
   readonly confinesCodex: boolean;
+  /** The ports a check or a preview may take, the control plane's own family's (ADR 0047, amended). */
+  readonly ports?: readonly [number, number];
   /** Playing a checked game on this Mac (P-A): its timings and, for tests, its browser's start. */
   readonly play?: Pick<
     HostPlaysDeps,
@@ -625,7 +627,8 @@ export class HostPreviews {
    * records a preview only once its own server answers there.
    */
   async #takePort(): Promise<number> {
-    for (let port = PREVIEW_PORT_FIRST; port <= PREVIEW_PORT_LAST; port += 1) {
+    const [first, last] = this.#deps.ports ?? [PREVIEW_PORT_FIRST, PREVIEW_PORT_LAST];
+    for (let port = first; port <= last; port += 1) {
       if (this.#ports.has(port)) continue;
       this.#ports.add(port);
       if (await listenable(port)) return port;

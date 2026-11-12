@@ -22,7 +22,11 @@ one call on `Pairing` in the same process.
   port 47802 or the next free one up to 47809 (47800 the control plane, 47801 the network listener);
   the ready log names it. (Amended 2026-11-12: the range follows the control plane's own port, its port
   plus 2 to plus 9, so a second control plane, such as a test's or a scratch one, never takes a port of
-  47800's; a control plane on port 0 gets a free port for its page as well.) Like the play viewer's: it holds no access token and no device credential;
+  47800's; a control plane on port 0 gets a free port for its page as well. The same holds for the whole
+  family, `portFamily` in config.ts: the network listener's default is the plane's port plus 1; previews,
+  play viewers and shares on this Wi-Fi keep 47800's layout (plus 130, 140 and 170) moved to the plane's
+  port and 1000 higher, so they never fall in 47800's family, which spans the lanes' and tests' ports,
+  and stay below the system's own (49152 up); a plane on port 0 lays them out from 47800's, 1000 higher.) Like the play viewer's: it holds no access token and no device credential;
   a link carries a one-time code (60 seconds) that becomes an HttpOnly, SameSite=Strict cookie for its
   port; every request must name `127.0.0.1:<its port>` as Host and come from no page or its own origin;
   every press is a POST from its own origin; a strict Content-Security-Policy; at most 8 browsers

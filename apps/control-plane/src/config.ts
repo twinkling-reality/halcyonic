@@ -14,6 +14,7 @@ import { isIP } from 'node:net';
 import { homedir, userInfo } from 'node:os';
 import { delimiter, isAbsolute, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PREVIEW_PORT_FIRST, PREVIEW_PORT_LAST } from '@halcyonic/contracts';
 import { isCloudName } from './companion/ollama.ts';
 import { assessFolder, type FolderContext } from './folder-safety.ts';
 import { OwnWordsError } from './logger.ts';
@@ -148,6 +149,62 @@ export class ConfigError extends OwnWordsError {
 export const DEFAULT_PORT = 47800;
 export const DEFAULT_NETWORK_PORT = 47801;
 
+/** The 47800 family's play viewers: one per play, apart from the control plane's and the previews'. */
+export const VIEWER_PORT_FIRST = 47940;
+export const VIEWER_PORT_LAST = 47949;
+
+/** The 47800 family's shares on this Wi-Fi, apart from the previews' and the viewers'. */
+export const WIFI_SHARE_PORT_FIRST = 47970;
+export const WIFI_SHARE_PORT_LAST = 47979;
+
+/** The 47800 family's wide ranges (ADR 0037, ADR 0054); every other family is laid out the same. */
+const FAMILY_PREVIEWS: readonly [number, number] = [PREVIEW_PORT_FIRST, PREVIEW_PORT_LAST];
+const FAMILY_VIEWERS: readonly [number, number] = [VIEWER_PORT_FIRST, VIEWER_PORT_LAST];
+const FAMILY_SHARES: readonly [number, number] = [WIFI_SHARE_PORT_FIRST, WIFI_SHARE_PORT_LAST];
+
+/**
+ * How far above its own port every other plane's wide ranges sit: 47800's family spans 47800 to
+ * 47979, where the lanes' and tests' planes run, so another plane's previews, viewers and shares go
+ * 1000 higher, never into 47800's, and stay below 49152, where the system hands out its own ports.
+ */
+const AWAY = 1000;
+
+/**
+ * The ports beside a control plane on `port` (ADR 0047, amended 2026-11-12). On 47800, as always:
+ * the network listener 47801, the pairing page 47802 to 47809, previews 47930 to 47939, play viewers
+ * 47940 to 47949 and shares on this Wi-Fi 47970 to 47979. Any other plane has the same layout moved
+ * to its own port, its wide ranges `AWAY` higher, so no second plane (a test's, a scratch one) takes
+ * one of 47800's: on 47900, 47901, 47902 to 47909, 49030 to 49039, 49040 to 49049 and 49070 to 49079.
+ * Each port is still found free in its range and recorded where a client reads it (the ready line,
+ * the preview's event), never assumed. A plane on port 0 asks the system for its listener's and its
+ * page's ports, and lays its wide ranges out from 47800's, `AWAY` higher.
+ */
+export interface PortFamily {
+  readonly network: number;
+  readonly pairingPage: readonly [number, number];
+  readonly previews: readonly [number, number];
+  readonly viewers: readonly [number, number];
+  readonly shares: readonly [number, number];
+}
+
+export function portFamily(port: number): PortFamily {
+  const top = FAMILY_SHARES[1] - DEFAULT_PORT + AWAY;
+  const own = port !== 0 && port + top <= 65535;
+  const base = own ? port : DEFAULT_PORT;
+  const away = base === DEFAULT_PORT && port === DEFAULT_PORT ? 0 : AWAY;
+  const moved = ([first, last]: readonly [number, number]): readonly [number, number] => [
+    first - DEFAULT_PORT + base + away,
+    last - DEFAULT_PORT + base + away,
+  ];
+  return {
+    network: own ? port + (DEFAULT_NETWORK_PORT - DEFAULT_PORT) : 0,
+    pairingPage: own ? [port + 2, port + 9] : [0, 0],
+    previews: moved(FAMILY_PREVIEWS),
+    viewers: moved(FAMILY_VIEWERS),
+    shares: moved(FAMILY_SHARES),
+  };
+}
+
 export function defaultDataDir(env: NodeJS.ProcessEnv = process.env): string {
   return resolve(env.HALCYONIC_DATA_DIR ?? join(homedir(), '.halcyonic'));
 }
@@ -243,7 +300,7 @@ export function parseNetwork(
   const port = parseInteger(
     'HALCYONIC_NETWORK_PORT',
     env.HALCYONIC_NETWORK_PORT,
-    DEFAULT_NETWORK_PORT,
+    portFamily(loopbackPort).network,
     0,
     65535,
   );
