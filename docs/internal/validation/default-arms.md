@@ -50,3 +50,7 @@ removes its entry:
 
 Each of these is a host code with no words of its own on the headset. One table that turns the host's codes into
 words, with unknown said as unknown, is what removes them.
+
+Later the same night five of the six got words of their own, each unknown code said as unknown: the pending words,
+the reason a source gave, the companion that was asked and failed, the pairing refusals and the preview relay. Their
+entries left the list; the failed share with no listed code is the one still owed.
