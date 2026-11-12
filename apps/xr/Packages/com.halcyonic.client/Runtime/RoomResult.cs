@@ -109,9 +109,10 @@ namespace Halcyonic.Client
         public RoomResult(bool isVr, bool canMakeVr, bool canTry, bool? passed, ObservedTurn? observed, IReadOnlyList<CheckStepOutcome>? steps,
             RoomResultPage page = RoomResultPage.Result, int part = 0, Halcyonic.Client.PlayInHeadset? play = null, RoomAdd? add = null, string? addReview = null,
             HistoryColumn? history = null, ShareColumn? share = null, bool canShare = false, IReadOnlyList<ProjectPlace>? places = null, FileChangeColumn? file = null, RunStart? start = null, WaitingInstructions? waiting = null,
-            bool readsFiles = false)
+            bool readsFiles = false, ChangesAccount? account = null)
         {
             ReadsFiles = readsFiles;
+            Account = page == RoomResultPage.Changes && account is { Parts: > 0 } ? account : null;
             Waiting = waiting;
             Start = start;
             File = page == RoomResultPage.File ? file : null;
@@ -140,6 +141,15 @@ namespace Halcyonic.Client
         /// demonstration, whose recording holds no file contents (AUDIT's F1, 2026-11-12: an action that cannot act is not drawn).
         /// </summary>
         public bool ReadsFiles { get; }
+
+        /// <summary>
+        /// SCREENS's understanding's account on the Changes page: its parts follow the files' (<see cref="FileParts"/>), so a
+        /// part past them is the account's (<see cref="ChangesAccount.Card"/>); null off that page or where no answer has a line.
+        /// </summary>
+        public ChangesAccount? Account { get; }
+
+        /// <summary>The Changes page's parts that are its files, five a page; one where the page is a status alone.</summary>
+        public int FileParts => ListPages(Changes.Count);
 
         /// <summary>Whether the project is made from a starter, a VR project already.</summary>
         public bool IsVr { get; }
@@ -220,7 +230,7 @@ namespace Halcyonic.Client
         public IReadOnlyList<RoomRow> Shown => RoomRows.Page(Rows, Part);
 
         /// <summary>How many pages the page shown turns through: Changes by the card's list, five a page (FIELD's A17); the rest by rows.</summary>
-        public int Parts => Page == RoomResultPage.Changes ? ListPages(Changes.Count)
+        public int Parts => Page == RoomResultPage.Changes ? FileParts + (Account?.Parts ?? 0)
             : Page == RoomResultPage.Add ? ListPages(Add?.Paths.Count ?? 0)
             : RoomRows.Pages(Rows.Count);
 
@@ -291,7 +301,7 @@ namespace Halcyonic.Client
         public static RoomResult? Of(ProjectView? project, ClientProjection? state, ObservedTurn? observed,
             RoomResultPage page = RoomResultPage.Result, int part = 0, (ControlPlaneTarget? Target, bool Demonstration)? way = null, WorkstreamView? task = null,
             HistoryColumn? history = null, ShareColumn? share = null, bool canSend = false, bool relays = false, bool relayBuilt = true,
-            FileChangeColumn? file = null, RunStart? start = null, WaitingInstructions? waiting = null)
+            FileChangeColumn? file = null, RunStart? start = null, WaitingInstructions? waiting = null, ChangesAccount? account = null)
         {
             if (project == null || state == null) return null;
             var screen = WorkspacePresentationState.ScreenOf(project, state, barOpen: true);
@@ -307,7 +317,7 @@ namespace Halcyonic.Client
                 // MUST 1), and where the host would admit it (TASKS's conditions) or a share stands to stop.
                 canShare: canSend && (way?.Demonstration != true) && (project.Share != null || ShareColumn.Reason(project) == null),
                 places: way is { } at ? ProjectPlaces.Of(project, at.Target, at.Demonstration, relays: relays, relayBuilt: relayBuilt) : Array.Empty<ProjectPlace>(), file: file, start: start, waiting: waiting,
-                readsFiles: way is { Target: not null, Demonstration: false });
+                readsFiles: way is { Target: not null, Demonstration: false }, account: account);
         }
     }
 

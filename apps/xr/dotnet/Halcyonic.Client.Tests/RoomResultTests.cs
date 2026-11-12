@@ -639,4 +639,64 @@ public class RoomResultTests
         Assert.That(rest.Card!.Status!.Value.Title, Is.EqualTo(WaitingText.NotSent));
         Assert.That(rest.Column.Where(NotClose).Select(action => (action.Control.Action, action.Main)).First(), Is.EqualTo((RoomResult.WaitingAgain, true)), Show(rest));
     }
+
+    /// <summary>
+    /// SCREENS's understanding's account on the one Changes page (the lead's 1115Z and 1256Z): after the files, a part an
+    /// answer, what changed, why and how it was built: its lead line whole as the description, the agent's words alone with
+    /// a slot saying they are the agent's, the rest as rows each with its kind and how it is known as its note, never on a dot; Next Page
+    /// the main action to the last part, History, Checks and Back where they were; an answer with no lines is no part, and
+    /// the source's own provenance, which names the provider's product, never stands: only FIELD's source words where given.
+    /// </summary>
+    [Test]
+    public void TheUnderstandingsAccountFollowsTheFilesOnChangesAPartAnAnswer()
+    {
+        SectionPresentation Brief(params SectionLine[] lines) =>
+            new SectionPresentation(SectionKind.Understanding, "From Salidium 0.6.1 · 09:00", SectionTone.Secondary, lines, simulated: false,
+                provenanceRuns: LineWords.Ours("From Salidium ") + LineWords.Theirs("0.6.1"));
+        SectionLine Line(string tag, string words) => new SectionLine(tag, words, SectionTone.Normal);
+        var what = Brief(Line("observed", "3 files changed: 1 new, 2 edited"), Line("inferred", "All checked after the last change"));
+        var why = Brief(new[] { new SectionLine("reported", "I split the tail.", SectionTone.Claim, rows: 2, said: LineWords.Theirs("I split the tail.")) }
+            .Concat(Enumerable.Range(1, 6).Select(index => Line("reported", "Reason " + index))).ToArray());
+        var none = Brief();
+        var source = LineWords.Ours("From Its Records");
+        var account = new ChangesAccount(what, why, none, source);
+        Assert.That((account.Parts, account.Prompts), Is.EqualTo((3, new[] { UnderstandPrompt.WhatChanged, UnderstandPrompt.WhyChanged })),
+            "what changed one part, why two (its lead and six rows, five a part), how it was built none: it said nothing");
+
+        var files = new RoomResult(false, true, false, null, Turn(Observed), null, RoomResultPage.Changes, account: account);
+        Assert.That((files.FileParts, files.Parts), Is.EqualTo((1, 4)));
+        var first = Bar(files);
+        Assert.That(first.Card!.Title!.Text, Is.EqualTo(RoomPanelCards.ChangesTitle), "the files stay first");
+        Assert.That((first.Column[0].Control.Action, first.Column[0].Main), Is.EqualTo((RoomResult.NextPage, true)), "Next Page leads on to the account");
+
+        RoomCard Part(int part) => Bar(new RoomResult(false, true, false, null, Turn(Observed), null, RoomResultPage.Changes, part: part, account: account)).Card!;
+        var whatPart = Part(1);
+        Assert.That((whatPart.Title!.Text, whatPart.Description!.Text), Is.EqualTo((ChangesAccount.WhatChangedTitle, "3 files changed: 1 new, 2 edited")), "the lead whole, as observed");
+        Assert.That(whatPart.List.Select(row => (row.Kind, row.Name.Text, row.Note)), Is.EqualTo(new[] { (RoomKind.None, "All checked after the last change", (string?)ChangesAccount.Inferred) }));
+        Assert.That(whatPart.More!.Text, Is.EqualTo("From Its Records"), "FIELD's source words at the foot");
+
+        var whyPart = Part(2);
+        Assert.That(whyPart.Description!.Text, Is.EqualTo("I split the tail."), "the agent's words alone, whole, never run into ours");
+        Assert.That(whyPart.Description.Runs.All(run => run.Theirs), Is.True, "they lean as theirs");
+        Assert.That(whyPart.Slots.Select(slot => (slot.Kind, slot.Value.Text)), Is.EqualTo(new[] { (RoomKind.Agent, ChangesAccount.AgentSays) }), "a slot says whose they are");
+        Assert.That(whatPart.Slots, Is.Empty, "what was observed needs no one's name");
+        Assert.That((whyPart.List.Count, whyPart.List[0].Kind, whyPart.List[0].Note), Is.EqualTo((RoomCard.ListAPage, RoomKind.Agent, (string?)ChangesAccount.AgentSays)));
+        var last = Bar(new RoomResult(false, true, false, null, Turn(Observed), null, RoomResultPage.Changes, part: 3, account: account));
+        Assert.That((last.Card!.Title!.Text, last.Card.Description, last.Card.List.Single().Name.Text), Is.EqualTo((ChangesAccount.WhyTitle, (LineWords?)null, "Reason 6")),
+            "a later part carries on with its rows alone");
+        Assert.That(last.Column.Where(NotClose).Select(action => action.Control.Action), Has.None.EqualTo(RoomResult.NextPage), "the last part pages no further");
+        Assert.That(last.Column.Where(NotClose).Select(action => action.Control.Action), Does.Contain(RoomResult.ShowHistory).And.Contain(RoomResult.Back));
+        foreach (var card in new[] { whatPart, whyPart, last.Card })
+        {
+            Assert.That(card.Words().Concat(card.List.Select(row => row.Name.Text)), Has.None.Contains("Salidium"), "never the provider's product on a person's screen");
+            Assert.That(card.AnyDot, Is.False, "no fact on a dot: the product's chips are never drawn here");
+        }
+
+        // An inferred lead stays a row with its note; no source words given: nothing at the foot; no answer with a line: no part.
+        var guessed = new ChangesAccount(Brief(Line("inferred", "Probably a style change")), null, null);
+        Assert.That((guessed.Card(0).Description, guessed.Card(0).List.Single().Note, guessed.Card(0).More), Is.EqualTo(((LineWords?)null, (string?)ChangesAccount.Inferred, (LineWords?)null)));
+        var silent = new RoomResult(false, true, false, null, Turn(Observed), null, RoomResultPage.Changes, account: new ChangesAccount(none, null, none, source));
+        Assert.That((silent.Account, silent.Parts), Is.EqualTo(((ChangesAccount?)null, 1)));
+        Assert.That(new RoomResult(false, true, false, null, Turn(Observed), null, RoomResultPage.Checks, account: account).Account, Is.Null, "the account is Changes' alone");
+    }
 }
