@@ -23,6 +23,9 @@ namespace Halcyonic.Client
         public const string ChecksFailed = "Checks Failed";
         public const string NotSeen = "Not Seen";
         public const string NotSeenLine = "The computer could not say what changed";
+
+        /// <summary>Changes where the computer saw the task change no file: said, so an empty list never reads as a failed read.</summary>
+        public const string NothingChanged = "Nothing Changed";
         public const string NewNote = "New";
         public const string EditedNote = "Edited";
         public const string RemovedNote = "Removed";
@@ -40,7 +43,8 @@ namespace Halcyonic.Client
         /// </summary>
         /// <param name="task">The task's name, theirs.</param>
         /// <param name="toAdd">The files waiting to be added (<see cref="RoomAdd.Slot"/>), which stands in the count's place.</param>
-        public static RoomCard? Result(RoomResult result, LineWords task, AutoFixView? fix = null, RoomSlot? toAdd = null)
+        /// <param name="changes">The control that opens Changes: the files' slot takes it, so what changed is one press from the result.</param>
+        public static RoomCard? Result(RoomResult result, LineWords task, AutoFixView? fix = null, RoomSlot? toAdd = null, KitControl? changes = null)
         {
             var ended = RoomBar.FixedCard(fix);
             // "All Passing" is the computer's check speaking for these files: it stands only while the result has that check
@@ -49,8 +53,8 @@ namespace Halcyonic.Client
             if (!result.Any && ended == null) return null;
             var slots = new List<RoomSlot>();
             if (result.Passed is bool passed) slots.Add(new RoomSlot(passed ? RoomKind.Passed : RoomKind.Failed, LineWords.Ours(passed ? Passed : Failed)));
-            if (toAdd is RoomSlot waiting) slots.Add(waiting);
-            else if (result.FilesChanged is long count) slots.Add(new RoomSlot(RoomKind.ToAdd, LineWords.Ours(RoomAdd.Files(count))));
+            if (toAdd is RoomSlot waiting) slots.Add(new RoomSlot(waiting.Kind, waiting.Value, waiting.Mono, waiting.Press ?? changes));
+            else if (result.FilesChanged is long count) slots.Add(new RoomSlot(RoomKind.ToAdd, LineWords.Ours(RoomAdd.Files(count)), press: changes));
             // SCREENS's run start (FIELD's 1424Z words): a run the Mac says is not kept to its folder, and a task that is a plan.
             if (result.Start is { NotConfined: true }) slots.Add(new RoomSlot(RoomKind.Folder, LineWords.Ours(RunStart.NotKeptToFolder)));
             // A plan whose run ended waits for the person (Plan Ready, the attention tone); while its run is at work it plans. A plan
@@ -73,6 +77,8 @@ namespace Halcyonic.Client
         public static RoomCard Changes(RoomResult result, LineWords task, Func<RoomChange, KitControl?>? press = null)
         {
             if (result.NotObserved) return new RoomCard(LineWords.Ours(ChangesTitle), status: new RoomCardStatus(NotSeen, NotSeenLine, RoomTone.Quiet));
+            // Seen, and nothing changed: said as the desk says it, never an empty list (SCREENS's seam, 2026-11-12).
+            if (result.Changes.Count == 0) return new RoomCard(LineWords.Ours(ChangesTitle), status: new RoomCardStatus(NothingChanged, null, RoomTone.Quiet));
             var rows = result.Changes.Select(change => new RoomListRow(
                 change.Kind == RoomChangeKind.Made ? RoomKind.Added : change.Kind == RoomChangeKind.Removed ? RoomKind.Removed : RoomKind.Changed,
                 LineWords.Theirs(change.Path),

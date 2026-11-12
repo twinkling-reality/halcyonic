@@ -99,6 +99,21 @@ public sealed class RoomPanelCardsTests
     }
 
     [Test]
+    public void Changes_are_one_press_from_the_results_files_slot_and_none_is_said_as_nothing_changed()
+    {
+        var frame = new MenuFrame("Golden Balloon", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)));
+        var open = new KitControl(KitPlace.Route, frame, RoomResult.ShowChanges, null, RoomResult.ChangesWords, GlazeIcon.Next, available: true, reason: null, holds: false);
+        var card = RoomPanelCards.Result(new RoomResult(false, true, false, true, Turn(Observed), Steps()), Task, changes: open)!;
+        Assert.That(card.Slots.Single(slot => slot.Kind == RoomKind.ToAdd).Press, Is.SameAs(open), "the files' slot opens Changes");
+        Assert.That(card.Slots.Where(slot => slot.Kind != RoomKind.ToAdd).All(slot => slot.Press == null), "the check's slot only says");
+        var waiting = RoomPanelCards.Result(new RoomResult(false, true, false, true, Turn(Observed), Steps()), Task, toAdd: new RoomSlot(RoomKind.ToAdd, LineWords.Ours("4 Files")), changes: open)!;
+        Assert.That(waiting.Slots.Single(slot => slot.Kind == RoomKind.ToAdd).Press, Is.SameAs(open));
+        const string none = "{\"turn_id\":\"t3\",\"created\":{\"files\":[],\"total\":0},\"changed\":{\"files\":[],\"total\":0},\"deleted\":{\"files\":[],\"total\":0},\"not_read\":0,\"skipped\":null}";
+        var empty = RoomPanelCards.Changes(new RoomResult(false, true, false, true, Turn(none), Steps()), Task);
+        Assert.That((empty.Status!.Value.Title, empty.List.Count), Is.EqualTo((RoomPanelCards.NothingChanged, 0)), "said, never an empty list");
+    }
+
+    [Test]
     public void Checks_name_the_outcome_and_lay_the_steps_dim_once_the_run_ended()
     {
         var passing = RoomPanelCards.Checks(new RoomResult(false, true, false, true, Turn(Observed), Steps()));
