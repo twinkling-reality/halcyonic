@@ -440,6 +440,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
 
                 var handled = new HashSet<string>();
+                // The tasks the walk has answered, approved or instructed: their results are what a person meets.
+                var engaged = new HashSet<string>();
                 var decisions = 0;
                 var results = 0;
                 // The recorded walk tries Cancel once on a confirmation; the live walk counts only a person's own presses, so it does not.
@@ -815,6 +817,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         idleSince = DateTime.UtcNow;
                         continue;
                     }
+                    // A result a person meets: of a task the walk answered or has open; another task finishing out of view is
+                    // marked seen and not opened, as a person would not open it.
+                    foreach (var (_, aside) in runsNow.Where(pair => pair.Run.Status == ExecutionStatus.Completed && !handled.Contains(ResultKey(pair.Run))
+                        && !engaged.Contains(pair.Task.WorkstreamId) && Opened()?.Now?.Character.WorkstreamId != pair.Task.WorkstreamId).ToList())
+                        handled.Add(ResultKey(aside));
                     var ended = runsNow.FirstOrDefault(pair => pair.Run.Status == ExecutionStatus.Completed && !handled.Contains(ResultKey(pair.Run)));
                     if (ended.Run != null)
                     {
@@ -851,6 +858,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         }
                         else continue;
                         decisions++;
+                        engaged.Add(task.WorkstreamId);
                         acted = true;
                         atWork = false;
                         break;
