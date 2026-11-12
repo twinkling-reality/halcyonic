@@ -129,6 +129,7 @@ namespace Halcyonic.XR.UI
             composer.status.rectTransform.pivot = new Vector2(1f, 0.5f);
             composer.status.textWrappingMode = TextWrappingModes.NoWrap;
             composer.talk = KitButton.Create(go.transform, "Hold to talk", KitButtonRole.Secondary);
+            composer.talk.Press.ActsOnPinch = true;
             composer.send = KitButton.Create(go.transform, "Send instruction", KitButtonRole.Primary);
             composer.send.Pressed += () => composer.SendPressed?.Invoke();
             composer.close = KitButton.Create(go.transform, "Close", KitButtonRole.Secondary);

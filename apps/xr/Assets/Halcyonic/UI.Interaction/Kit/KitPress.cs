@@ -6,17 +6,20 @@ using UnityEngine;
 namespace Halcyonic.XR.UI
 {
     /// <summary>
-    /// How a kit control takes a press, by <see cref="GlazeButton"/>'s rules: one whole hand target on the plane
-    /// (<see cref="PointerTarget"/>, ray and poke); a press counts only once the control has shown its current words,
-    /// role, place and availability for <see cref="GlazeButton.SettleSeconds"/>, only while its host accepts presses
-    /// and only while the app has input focus; an unavailable control refuses the press instead of acting. A press is
-    /// a request to the control's owner, never a state change by itself.
+    /// How a kit control takes a press: ONE press (the lead's decision R1, FIELD's design of 2026-11-12), one whole hand
+    /// target on the plane (<see cref="PointerTarget"/>, ray and poke). The press acts on its RELEASE over the control, by
+    /// <see cref="PressGuard"/>: it counts only where the pinch began after the control arrived (its current words, role,
+    /// place and availability) and, for a ray, after the ray rested on it; a pinch that slides off or drags does nothing.
+    /// Only while its host accepts presses and the app has input focus; an unavailable control refuses the press instead
+    /// of acting. A press is a request to the control's owner, never a state change by itself.
     /// </summary>
     public sealed class KitPress : MonoBehaviour
     {
         private PointerTarget target = null!;
         private Vector2 size;
-        private float shownAt;
+        private PressGuard guard = null!;
+        private bool byRay;
+        private bool counted;
         private bool available = true;
         private float flash;
 
@@ -26,6 +29,12 @@ namespace Halcyonic.XR.UI
         /// <summary>A press of an unavailable control while presses are otherwise taken.</summary>
         public event Action? Refused;
 
+        /// <summary>
+        /// A control that is held (Hold to Talk) acts at its counted pinch, not its release, and its release ends the hold;
+        /// the same guard decides whether the pinch counts.
+        /// </summary>
+        public bool ActsOnPinch { get; set; }
+
         /// <summary>Presses are ignored while false, as while the instrument moves or a view opens.</summary>
         public Func<bool> Accepting { get; set; } = () => true;
 
@@ -34,10 +43,11 @@ namespace Halcyonic.XR.UI
         /// <summary>The target's size, in its parent's units.</summary>
         public Vector2 Size => size;
 
-        public bool Hovered => target.Hovered;
+        /// <summary>Lit means it will take: hovered, and a pinch made now would count (<see cref="PressGuard.Lit"/>).</summary>
+        public bool Hovered => target.Hovered && guard.Lit(Time.unscaledTime, target.RayHovered);
 
-        /// <summary>A press shows, for its short flash.</summary>
-        public bool Pressing => flash > 0f;
+        /// <summary>A press shows: a counted pinch held, then its short flash once it acted.</summary>
+        public bool Pressing => (counted && guard.Armed) || flash > 0f;
 
         public bool Available
         {
@@ -56,8 +66,11 @@ namespace Halcyonic.XR.UI
             var press = host.AddComponent<KitPress>();
             press.size = size;
             press.target = PointerTarget.Rectangle(host, size, ray: true, poke: true);
-            press.target.Selected += press.OnSelected;
-            press.shownAt = Time.unscaledTime;
+            press.guard = new PressGuard(Time.unscaledTime);
+            press.target.SelectedBy += press.OnDown;
+            press.target.PressMoved += press.OnMoved;
+            press.target.Released += press.OnUp;
+            press.target.HoverChanged += press.OnHover;
             return press;
         }
 
@@ -69,10 +82,14 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>The control took new words, a new role or a new place: a press already under way is not one of it.</summary>
-        public void Unsettle() => shownAt = Time.unscaledTime;
+        public void Unsettle()
+        {
+            guard.Arrive(Time.unscaledTime);
+            counted = false;
+        }
 
         /// <summary>For renders: advances the settling clock only; focus, availability and the host's acceptance still decide.</summary>
-        public void SettleForRender() => shownAt = float.NegativeInfinity;
+        public void SettleForRender() => guard.SettleForRender();
 
         /// <summary>For renders, which have no hands: a finger's press and release at the target's centre, as the SDK raises them.</summary>
         public void PressForRender(int pointer)
@@ -81,9 +98,41 @@ namespace Halcyonic.XR.UI
             target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Unselect, transform.position);
         }
 
-        private void OnSelected()
+        private void OnHover()
         {
-            if (!Accepting() || FocusGuard.InputSuspended || Time.unscaledTime - shownAt < GlazeButton.SettleSeconds) return;
+            if (target.RayHovered) guard.RayOn(Time.unscaledTime);
+            else guard.RayOff(Time.unscaledTime);
+        }
+
+        private void OnDown(bool ray)
+        {
+            byRay = ray;
+            // A refused pinch sinks nothing: only a counted one shows its press.
+            counted = Accepting() && !FocusGuard.InputSuspended && guard.Down(Time.unscaledTime, ray);
+            if (counted && ActsOnPinch) Act();
+        }
+
+        private void OnMoved(float degrees, float metres, bool rayMeets)
+        {
+            guard.Moved(degrees, metres);
+            // While a ray holds its pinch the interactor keeps its hover, so whether it still meets the control is read here.
+            if (!byRay) return;
+            if (rayMeets) guard.RayOn(Time.unscaledTime);
+            else guard.RayOff(Time.unscaledTime);
+        }
+
+        private void OnUp(bool cancelled)
+        {
+            // The guard hears every release, so no pinch stays armed past its own.
+            var released = guard.Up(Time.unscaledTime, byRay, cancelled);
+            var acts = counted && released && Accepting() && !FocusGuard.InputSuspended && !ActsOnPinch;
+            counted = false;
+            if (!target.RayHovered) guard.RayOff(Time.unscaledTime);
+            if (acts) Act();
+        }
+
+        private void Act()
+        {
             if (!available)
             {
                 Refused?.Invoke();

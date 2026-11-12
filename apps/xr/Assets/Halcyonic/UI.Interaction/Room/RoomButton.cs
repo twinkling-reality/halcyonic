@@ -265,7 +265,8 @@ namespace Halcyonic.XR.UI
             var height = RoomType.Units(HeightDp);
             button.press = KitPress.Create(go, new Vector2(height, height));
             button.press.Pressed += () => button.Pressed?.Invoke();
-            button.press.Target.Selected += () => button.held = true;
+            // Held shows only a pinch the press counted (the one press: a refused pinch sinks nothing).
+            button.press.Target.Selected += () => button.held = button.press.Pressing;
             button.press.Target.Released += _ => button.held = false;
             go.SetActive(false);
             return button;

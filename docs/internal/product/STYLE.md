@@ -145,6 +145,15 @@ capsule carries its word or glyph in n7 (`28 dp` in at either side on the primar
 pressed, `-12` percent toward black at `97` percent scale). A locked answer keeps a 2 dp n4 ring round its n5 word, its
 reason being its word. Every button the kit draws is that one capsule: a quiet one (the screen bar's doors, a section tab, a composer chip) is the same capsule outlined, never a squarer box. The screen bar lays every button at one scale, the most any of them needs to hold the floor where it stands, so its words stand at one size; its lead actions and its doors share one row only where that row fits inside the bar's padding at that scale, else the lead actions stand above the doors.
 
+**The one press.** Every action in the headset is one pinch on one button, acting on its release over the button, and the
+guard against a stray pinch lives inside that press (`PressGuard`, `KitPress`; the lead's decision R1 of 2026-11-12). A press
+counts only where the pinch began after the button arrived (its command, words, place or visibility last changed) and, for a
+ray, after the ray rested on it 0.35 s; a button lights its hover only once it will take a press, and a refused pinch sinks
+nothing. A ray off the button for under 0.1 s keeps its rest and its press; a pinch that slides off before it is let go, or
+drags past 4 degrees of a ray's turn or 2 cm of a finger's travel, does nothing. A held control (Hold to Talk) acts at its
+counted pinch and ends on release. No action takes a hold, and no screen adds a second press: where a command's policy asks
+for a review, the review card's one Confirm is that press.
+
 **The decision bar.** An approval waits in the slate's footer, in the composer's place (`KitDecisionBar`), in two fixed
 places: equal halves of the slate's width 12 mm apart, as the composer's own footer below the same slate is laid. The left
 half is the way back and the right half the way on, in every stage: asked, Deny left and Approve right; once either is
