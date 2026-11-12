@@ -1,4 +1,5 @@
 import {
+  type ChoiceList,
   COMMAND_VARIANTS,
   type CommandEnvelope,
   type CommandId,
@@ -8,6 +9,7 @@ import {
   type ExecutionId,
   ExecutionSendInstructionCommand,
   type ExecutionView,
+  type HereScope,
   type Principal,
   type ProjectId,
   WORKSPACE_TOOL_ARGUMENTS,
@@ -31,18 +33,13 @@ import type { WorkspaceRequestCommand, WorkspaceRequestHandler } from '../core/c
 import type { ControlPlane } from '../core/control-plane.ts';
 import { causedBy, controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { fitted } from '../core/redaction.ts';
+import { reviewDigest } from '../core/review.ts';
+import { buildReview } from '../core/reviews.ts';
 import { ToolResults } from '../core/tool-results.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
-import {
-  type ActionScope,
-  type ActionsHere,
-  buildProposed,
-  CHOICES_LISTED,
-  listDigest,
-  sayable,
-} from './actions.ts';
+import { type CommandEntry, sayable } from './actions.ts';
 import { checkOfTask, hostDetails, taskEvidence, turnStatus } from './evidence.ts';
 import {
   TOOL_MODEL_BOUNDS,
@@ -69,8 +66,6 @@ interface Options {
   evaluation: EvaluationSource;
   /** Wakes a request whose wait for the Mac's reading of a turn ran out; the system's by default. */
   scheduler?: Scheduler;
-  /** What can be done where a request stands (ADR 0060), the host's; absent, nothing can be proposed. */
-  actions?: ActionsHere | null;
 }
 /**
  * The head of the host's quoted data block: the Mac's evidence and the agent's reported words, in a
@@ -121,7 +116,7 @@ const FIRST_TURN_TOOLS = new Set([
  * so a request without one carries none of it.
  */
 export const LIST_GUIDE =
-  "In any scope: when the person asks for something can_be_done_here lists, call propose_command with its command_type and the values its needs name; for a need with a list, call read_choices first and give the row's index. The computer prepares it and the person confirms it with one press, so never say it was done: say what will happen once they confirm. To go to one of the places listed, call go_to with its index.";
+  "can_be_done_here is what the computer can do here. To do one, call propose_command with its command_type and the values of its needs (a row of a list by its index, after read_choices). It waits for the person's one press: say what will happen, never that it was done. To go to a place, call go_to.";
 /** The tools of what can be done here (ADR 0060), offered in every scope where the list holds something. */
 const LIST_TOOLS = new Set(['propose_command', 'read_choices', 'go_to']);
 
@@ -202,10 +197,9 @@ const descriptions: Record<keyof typeof WORKSPACE_TOOL_ARGUMENTS, string> = {
   read_project_at:
     'Read one project of the read_projects list, by its index, as read_project does.',
   propose_command:
-    'Propose one entry of can_be_done_here, by its command_type, with the values its needs name: words, true or false, a number, or the index of a row read_choices listed. The computer prepares it; nothing happens until the person presses once on the card it shows.',
-  read_choices:
-    'Read one list the computer holds, by the name in lists_here or in a need of can_be_done_here: its rows by index, in its own words.',
-  go_to: 'Take the person to one of the places listed in places, by its index.',
+    "Propose one entry of can_be_done_here: its command_type, and its needs' values by name. Nothing happens until the person presses once.",
+  read_choices: 'Read one list the computer holds, by its name: its rows by index.',
+  go_to: 'Take the person to one of the places, by its index.',
 };
 /** A request bound to a task and its current execution; a whole-project request binds neither. */
 type TaskRequest = WorkspaceRequestView & {
@@ -255,6 +249,10 @@ export const DIRECTION_VIEW_BYTES = 1024;
  * a request takes any number of continuations, so a bound per message alone still let a body pass the transport's.
  */
 export const PERSON_WORDS_BYTES = WORDS_VIEW_BYTES + DIRECTION_VIEW_BYTES;
+/** The least all the person's words are given, however full the rest of the first turn is. */
+const LEAST_WORDS_BYTES = 1024;
+/** Room a first turn keeps beside its head for the turn's own calls and results. */
+const FIRST_TURN_ROOM = 1536;
 /** The least a continuation is given before it is left out: its marked gap and some of its words. */
 const LEAST_VIEW_BYTES = 320;
 /** Room kept for the one line that says how many earlier continuations were left out. */
@@ -291,11 +289,15 @@ export interface PersonWords {
  * one marked line says how many and how many characters, so the body stays within the transport's bound however many
  * continuations a request takes. Every word still goes to the task whole with `continue_task`.
  */
-export function personWords(original: string, directions: readonly string[]): PersonWords {
+export function personWords(
+  original: string,
+  directions: readonly string[],
+  total = PERSON_WORDS_BYTES,
+): PersonWords {
   const bytes = (text: string) => Buffer.byteLength(JSON.stringify(text)) - 2;
-  const requestRoom = Math.min(bytes(original), WORDS_VIEW_BYTES);
+  const requestRoom = Math.min(bytes(original), WORDS_VIEW_BYTES, total - LEFT_OUT_BYTES);
   const forRequest = Math.min(requestRoom, LEAST_VIEW_BYTES);
-  let room = PERSON_WORDS_BYTES - LEFT_OUT_BYTES - forRequest;
+  let room = total - LEFT_OUT_BYTES - forRequest;
   const kept: WordsView[] = [];
   let dropped = 0;
   for (let at = directions.length - 1; at >= 0; at--) {
@@ -378,6 +380,17 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
   readonly #chosen = new Map<string, ProjectId>();
   /** The digest of each host list this request read, by its name, for a proposal's indices; transient. */
   readonly #listReads = new Map<string, Map<string, string>>();
+  /** The bytes each request's words were given on its last first turn, for the reply's note; transient. */
+  readonly #wordsRoom = new Map<string, number>();
+  /** What can be done where each request stands, as the host's list last said it (ADR 0060); read at every turn. */
+  readonly #heres = new Map<
+    string,
+    {
+      entries: CommandEntry[];
+      lists: Set<string>;
+      looks: { list: string; title: string; description: string }[];
+    }
+  >();
   readonly #unsubscribe: () => void;
   #closed = false;
   /** Ends the wake-up timers of requests waiting for the Mac's reading of a turn. */
@@ -472,7 +485,10 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       );
       // The person's own press on an entry: prepared as the assistant's proposal is, and no model is asked (ADR 0060).
       if (command.payload.act) {
-        this.#act(view, command.payload.act, principal);
+        void this.#act(view, command.payload.act, principal).catch(() => {
+          this.#step(view, 'act', 'rejected', 'The press could not be prepared; nothing was done.');
+          this.#changed(view, 'failed', null);
+        });
         return { kind: 'workspace_request_created', request_id: view.request_id };
       }
       this.#budgets.set(view.request_id, { turns: 0, calls: 0, activeMs: 0 });
@@ -775,6 +791,10 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       );
       return;
     }
+    // What can be done here, as the host says it now (ADR 0060): read before the messages and before every turn.
+    await this.#refreshHere(request);
+    request = this.#current(id, controller);
+    if (!request) return;
     const budget = this.#budgets.get(id) ?? { turns: 0, calls: 0, activeMs: 0 };
     this.#budgets.set(id, budget);
     const directions = this.#o.controlPlane.projection.workspaceRequestDirections(id);
@@ -863,6 +883,36 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       if (at >= 0) messages[at] = message;
       else messages.push(message);
     }
+    // The person's words share what the first turn's body leaves (AUDIT2, 2026-11-12): beside the instructions, the
+    // host context, the list of what can be done here, the quoted evidence and every tool, so a long request with
+    // many continuations never makes a body the transport refuses.
+    if (!this.#conversations.has(id)) {
+      const tools = this.#toolsFor(request);
+      const size = Buffer.byteLength(JSON.stringify({ messages, tools }));
+      const over = size - (TOOL_MODEL_BOUNDS.maxInputBytes - 1024 - FIRST_TURN_ROOM);
+      const room = Math.max(LEAST_WORDS_BYTES, PERSON_WORDS_BYTES - Math.max(0, over));
+      this.#wordsRoom.set(id, room);
+      if (room < PERSON_WORDS_BYTES) {
+        const words = personWords(request.original_text, directions, room);
+        const first = messages.findIndex((message) => message.role === 'user');
+        let end = first;
+        while (
+          end < messages.length &&
+          messages[end]?.role === 'user' &&
+          !messages[end]?.content.startsWith(QUOTED_PREFIX)
+        )
+          end++;
+        messages.splice(
+          first,
+          end - first,
+          { role: 'user', content: words.request.text },
+          ...(words.leftOutLine === null
+            ? []
+            : [{ role: 'user' as const, content: words.leftOutLine }]),
+          ...words.continuations.map((view) => ({ role: 'user' as const, content: view.text })),
+        );
+      }
+    }
     this.#changed(request, 'running', request.reply);
     const turnsAtWake = budget.turns;
     // A reply that was a tool call written as text is asked again once a wake, offered no tool (2026-11-11).
@@ -916,6 +966,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       const lastTurn = budget.turns >= MAX_TURNS - 1;
       const again = askAgain;
       askAgain = false;
+      await this.#refreshHere(request);
       const all = this.#toolsFor(request);
       // A task request's first turn, where continue_task is offered, goes straight to the work (FIRST_TURN_TOOLS).
       const first =
@@ -1436,11 +1487,11 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     }
   }
   /**
-   * The tools of what can be done here (ADR 0060). read_choices reads one host list by name. propose_command builds
-   * the command an entry names from the binding, the model's values and the rows it read (never an id from the
-   * model), and goes by the rule of origin: a model's proposal never acts without the person's one press, except an
-   * undo-kind command in the same scope; the person's own words to the bound task stay continue_task's. go_to picks
-   * one of the client's places; a place is not a command, so the client goes at once.
+   * The tools of what can be done here (ADR 0060). read_choices reads one host list by its name; propose_command
+   * has the host prepare the command an entry names from the model's values and the rows it read (never an id from
+   * the model, CORE's one preparation), and goes by the rule of origin: a model's proposal never acts without the
+   * person's one press, except an undo-kind command in the same scope; the person's own words to the bound task stay
+   * continue_task's. go_to picks one of the client's places; a place is not a command, so the client goes at once.
    */
   async #listTool(
     request: WorkspaceRequestView,
@@ -1448,9 +1499,8 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     args: Record<string, unknown>,
     controller: AbortController,
   ): Promise<{ data: unknown; pause?: WorkspaceRequestStatus }> {
-    const source = this.#o.actions;
+    const plane = this.#o.controlPlane;
     const scope = this.#actionScope(request);
-    const here = this.#here(request);
     if (name === 'go_to') {
       const index = args.index as number;
       const label = request.places?.[index];
@@ -1463,29 +1513,31 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       });
       return { data: { availability: 'going', place: index } };
     }
-    if (!source) return { data: { availability: 'unavailable', reason: 'nothing_listed_here' } };
+    const here = await this.#refreshHere(request);
     if (name === 'read_choices') {
       const list = args.list as string;
-      if (!here.lists.has(list)) {
+      const read = here.lists.has(list)
+        ? await plane.commands.choices(scope, list as ChoiceList)
+        : null;
+      if (read === null) {
         this.#step(request, name, 'rejected', 'That list is not one of those here.');
         return { data: { availability: 'unavailable', reason: 'no_such_list' } };
       }
-      const rows = source.list(scope, list);
       const reads = this.#listReads.get(request.request_id) ?? new Map<string, string>();
-      reads.set(list, listDigest(rows));
+      reads.set(list, read.digest);
       this.#listReads.set(request.request_id, reads);
       this.#step(
         request,
         name,
         'confirmed',
-        `The host's list ${list} was read: ${rows.length} rows.`,
+        `The host's list ${list} was read: ${read.total} rows.`,
       );
       return {
         data: {
           list,
-          rows_total: rows.length,
-          rows: rows.slice(0, CHOICES_LISTED).map((row, index) => ({
-            index,
+          rows_total: read.total,
+          rows: read.rows.map((row) => ({
+            index: row.index,
             kind: row.kind,
             label: row.theirs ? this.#outside(row.label, 120).text : row.label,
             detail: row.detail === null ? null : this.#outside(row.detail, 200).text,
@@ -1504,58 +1556,29 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       );
       return { data: { availability: 'unavailable', reason: 'not_here' } };
     }
-    const values = (args.values ?? {}) as Record<string, unknown>;
-    // Indices name rows of the list as it was read: never a list unread, and never one that changed since.
+    const values = (args.values ?? {}) as Record<string, string | boolean | number | number[]>;
+    // Indices name rows of the list as this request read it: never a list unread.
+    const read: Record<string, string> = {};
     for (const need of entry.needs) {
-      if (need.list === undefined || values[need.name] === undefined) continue;
-      const read = this.#listReads.get(request.request_id)?.get(need.list);
-      const reason =
-        read === undefined
-          ? 'list_not_read'
-          : read !== listDigest(source.list(scope, need.list))
-            ? 'list_changed'
-            : null;
-      if (reason !== null) {
+      if (need.list === null || values[need.name] === undefined) continue;
+      const digest = this.#listReads.get(request.request_id)?.get(need.list);
+      if (digest === undefined) {
         this.#step(
           request,
           name,
           'rejected',
-          `Read the list ${need.list} again before choosing from it.`,
+          `Read the list ${need.list} first, then choose from it.`,
         );
-        return { data: { availability: 'unavailable', reason, list: need.list } };
+        return { data: { availability: 'unavailable', reason: 'list_not_read', list: need.list } };
       }
+      read[need.list] = digest;
     }
-    const personWords = [
-      request.original_text,
-      ...this.#o.controlPlane.projection.workspaceRequestDirections(request.request_id),
-    ].join('\n\n');
-    const built = buildProposed(entry, scope, values, (list) => source.list(scope, list), {
-      command_id: this.#o.ids.next() as CommandId,
-      issued_at: this.#now(),
-      person_words: personWords,
-    });
-    if (!built.ok) {
-      this.#step(request, name, 'rejected', `Nothing was prepared: ${built.reason}.`);
-      return {
-        data: { availability: 'unavailable', reason: built.reason, field: built.field ?? null },
-      };
+    const prepared = await this.#prepare(request, entry, values, read);
+    if (!prepared.ok) {
+      this.#step(request, name, 'rejected', `Nothing was prepared: ${prepared.message}`);
+      return { data: { availability: 'unavailable', reason: prepared.code } };
     }
-    const review = source.review(built.command);
-    if (review === null) {
-      this.#step(
-        request,
-        name,
-        'rejected',
-        'The computer cannot say what this would do, so nothing was prepared.',
-      );
-      return { data: { availability: 'unavailable', reason: 'no_review' } };
-    }
-    const proposal: WorkspaceRequestProposal = {
-      command_type: entry.command_type,
-      confirm: entry.confirm,
-      what_happens: fitted(review.what_happens, 2000),
-      review: review.digest,
-    };
+    const { command, proposal } = prepared;
     if (entry.confirm !== 'undo') {
       this.#step(
         request,
@@ -1564,7 +1587,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         'Prepared; it waits for the person to confirm it with one press.',
         null,
         null,
-        { proposal, proposed: built.command },
+        { proposal, proposed: command },
       );
       return {
         data: { availability: 'waiting_for_person', what_happens: proposal.what_happens },
@@ -1579,22 +1602,24 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       'Prepared; it is done at once and can be undone.',
       null,
       null,
-      { proposal, proposed: built.command },
+      {
+        proposal,
+        proposed: command,
+      },
     );
     if (!this.#current(request.request_id, controller))
       return {
         data: { availability: 'unavailable', reason: 'authority_expired' },
         pause: 'interrupted',
       };
-    const owner = this.#o.controlPlane.projection.workspaceRequestOwner(request.request_id);
+    const owner = plane.projection.workspaceRequestOwner(request.request_id);
     if (!owner)
       return {
         data: { availability: 'unavailable', reason: 'principal_missing' },
         pause: 'interrupted',
       };
-    const submitted = this.#o.controlPlane.commands.submit(built.command, 'internal', owner);
-    const status =
-      this.#o.controlPlane.projection.command(built.command.command_id)?.status ?? null;
+    const submitted = plane.commands.submit(command, 'internal', owner);
+    const status = plane.projection.command(command.command_id)?.status ?? null;
     this.#recordStep(
       request,
       {
@@ -1605,7 +1630,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       },
       null,
       null,
-      built.command,
+      command,
     );
     return {
       data: {
@@ -1614,6 +1639,63 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         what_happens: proposal.what_happens,
       },
     };
+  }
+  /**
+   * The one preparation (ADR 0060, CORE's `CommandService.prepare`), and what the person will be shown: for a
+   * reviewed command the host's review and its digest (`buildReview`); for any other, the entry's own description and
+   * the digest of exactly what will be sent, so the press sends what was shown.
+   */
+  async #prepare(
+    request: WorkspaceRequestView,
+    entry: CommandEntry,
+    values: Record<string, string | boolean | number | number[]>,
+    read: Record<string, string>,
+  ): Promise<
+    | { ok: true; command: CommandEnvelope; proposal: WorkspaceRequestProposal }
+    | { ok: false; code: string; message: string }
+  > {
+    const plane = this.#o.controlPlane;
+    const prepared = await plane.commands.prepare({
+      scope: this.#actionScope(request),
+      command_type: entry.command_type,
+      values,
+      read: read as Partial<Record<ChoiceList, string>>,
+      command_id: this.#o.ids.next() as CommandId,
+      issued_at: this.#now(),
+      client: { name: 'workspace-agent', version: null, device_label: null },
+    });
+    if (!prepared.ok) return { ok: false, code: prepared.code, message: prepared.message };
+    const shown = await this.#shown(entry.confirm, prepared.command, entry.description);
+    if (!shown.ok) return shown;
+    return {
+      ok: true,
+      command: prepared.command,
+      proposal: {
+        command_type: entry.command_type,
+        confirm: entry.confirm,
+        what_happens: fitted(shown.what_happens, 2000),
+        review: shown.digest,
+      },
+    };
+  }
+  /** What the person is shown for a prepared command, and its digest, as at the proposal so again at the press. */
+  async #shown(
+    confirm: CommandEntry['confirm'],
+    command: CommandEnvelope,
+    description: string,
+  ): Promise<
+    | { ok: true; what_happens: string; digest: string }
+    | { ok: false; code: string; message: string }
+  > {
+    if (confirm !== 'review')
+      return {
+        ok: true,
+        what_happens: description,
+        digest: reviewDigest(command.command_type, command.payload, {}),
+      };
+    const built = await buildReview(this.#o.controlPlane, command);
+    if (!built.ok) return { ok: false, code: built.code, message: built.message };
+    return { ok: true, what_happens: built.review.what_happens, digest: built.review.digest };
   }
   /**
    * read_project and read_task: the bound project's tasks, read-only, by the index of the host's own
@@ -2027,71 +2109,41 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
   }
   /**
    * The person's own press on an entry of what can be done here (ADR 0060, section 2): one preparation for both
-   * proposers. The entry must be in the host's list for the request's scope now; ids come from the binding and from the
-   * rows of lists whose digest is the one the client read; an entry that needs a secret is never reached this way,
-   * since the request is journaled whole (AUDIT2's C3). Then the command's own confirm decides: done at once, or the
-   * one review card. The person's own words are theirs here, so a `person_words` need takes the value they gave.
+   * proposers, CORE's. The entry must be in the host's list for the request's scope now, and every list a value chose
+   * from must still read as the client read it; an entry that needs a secret is never reached this way, since the
+   * request is journaled whole (AUDIT2's C3). Then the command's own confirm decides: done at once, or the one review
+   * card.
    */
-  #act(
+  async #act(
     request: WorkspaceRequestView,
     act: NonNullable<CommandOf<'workspace.request.submit'>['payload']['act']>,
     principal: Principal,
-  ): void {
+  ): Promise<void> {
     const refuse = (summary: string) => {
       this.#step(request, 'act', 'rejected', summary);
       this.#changed(request, 'failed', null);
     };
-    const source = this.#o.actions;
-    if (!source) {
-      refuse('Nothing can be done here through the list yet.');
-      return;
-    }
-    const scope = this.#actionScope(request);
-    const listed = source
-      .actions(scope)
-      .find((candidate) => candidate.command_type === act.command_type);
-    if (!listed) {
+    const here = await this.#refreshHere(request, false);
+    const entry = here.entries.find((candidate) => candidate.command_type === act.command_type);
+    if (!entry) {
       refuse('That is not one of the things that can be done here now.');
       return;
     }
-    if (listed.needs.some((need) => need.kind === 'secret')) {
+    if (entry.needs.some((need) => need.kind === 'secret')) {
       refuse('A secret is given in its own field, never through a request.');
       return;
     }
-    for (const need of listed.needs) {
-      if (need.list === undefined || act.values[need.name] === undefined) continue;
-      const read = act.lists[need.list];
-      if (read === undefined || read !== listDigest(source.list(scope, need.list))) {
-        refuse(`The list ${need.list} changed since it was shown; nothing was done.`);
-        return;
-      }
-    }
-    // The person's words are theirs: what they typed or said for an instruction goes as they gave it.
-    const entry = {
-      ...listed,
-      needs: listed.needs.map((need) =>
-        need.kind === 'person_words' ? { ...need, kind: 'text' as const } : need,
-      ),
-    };
-    const built = buildProposed(entry, scope, act.values, (list) => source.list(scope, list), {
-      command_id: this.#o.ids.next() as CommandId,
-      issued_at: this.#now(),
-    });
-    if (!built.ok) {
-      refuse(`Nothing was done: ${built.reason}.`);
+    const prepared = await this.#prepare(
+      request,
+      entry,
+      act.values as Record<string, string | boolean | number | number[]>,
+      act.lists,
+    );
+    if (!prepared.ok) {
+      refuse(`Nothing was done: ${prepared.message}`);
       return;
     }
-    const review = source.review(built.command);
-    if (review === null) {
-      refuse('The computer cannot say what this would do, so nothing was done.');
-      return;
-    }
-    const proposal: WorkspaceRequestProposal = {
-      command_type: entry.command_type,
-      confirm: entry.confirm,
-      what_happens: fitted(review.what_happens, 2000),
-      review: review.digest,
-    };
+    const { command, proposal } = prepared;
     if (entry.confirm === 'review') {
       this.#step(
         request,
@@ -2100,10 +2152,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         'Prepared; it waits for the person to confirm the review with one press.',
         null,
         null,
-        {
-          proposal,
-          proposed: built.command,
-        },
+        { proposal, proposed: command },
       );
       this.#changed(request, 'waiting_for_human', null);
       return;
@@ -2117,12 +2166,11 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       null,
       {
         proposal,
-        proposed: built.command,
+        proposed: command,
       },
     );
-    const submitted = this.#o.controlPlane.commands.submit(built.command, 'internal', principal);
-    const status =
-      this.#o.controlPlane.projection.command(built.command.command_id)?.status ?? null;
+    const submitted = this.#o.controlPlane.commands.submit(command, 'internal', principal);
+    const status = this.#o.controlPlane.projection.command(command.command_id)?.status ?? null;
     this.#recordStep(
       request,
       {
@@ -2141,16 +2189,16 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       },
       null,
       null,
-      built.command,
+      command,
     );
     this.#changed(request, submitted.disposition === 'rejected' ? 'failed' : 'responded', null);
   }
   /**
    * The person's one press on a waiting proposal (ADR 0060): `workspace.request.resume` with `confirm`, admitted only
-   * from the request's own owner (the command service checks it, AUDIT2's N1). The step must still wait, the digest
-   * must be the one the person was shown, and what the host holds must still give that digest now (`review_stale`
-   * otherwise); then the host submits the command it holds, under the confirming person's principal. A model's request
-   * then goes on to say what happened; a press ends.
+   * from the request's own owner (the command service checks it, AUDIT2's N1). The step must still wait and the digest
+   * must be the one the person was shown; then, before anything is submitted, what the host holds must still give that
+   * digest now (`review_stale` otherwise). The host submits the command it holds, under the confirming person's
+   * principal. A model's request then goes on to say what happened; a press ends.
    */
   #confirm(
     request: WorkspaceRequestView,
@@ -2164,80 +2212,127 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     const step = request.steps.find((candidate) => candidate.step_id === confirm.step_id);
     if (!held || !step?.proposal || step.status !== 'waiting')
       throw new RuntimeActionError('invalid_state', 'Nothing waits for a press on that step.');
-    const fresh = this.#o.actions?.review(held.command)?.digest;
-    if (step.proposal.review !== confirm.review || fresh !== confirm.review)
+    if (step.proposal.review !== confirm.review)
       throw new RuntimeActionError(
         'review_stale',
         'What would be done has changed since it was shown. Look again before confirming.',
       );
-    // A command that carries its review back (ADR 0051) carries the digest the person confirmed.
-    const command = (
-      'review' in
-      (COMMAND_VARIANTS.find(
-        (variant) =>
-          (variant.properties.command_type as { const?: string }).const ===
-          held.command.command_type,
-      )?.properties.payload.properties ?? {})
-        ? { ...held.command, payload: { ...held.command.payload, review: confirm.review } }
-        : held.command
-    ) as CommandEnvelope;
-    const submitted = this.#o.controlPlane.commands.submit(command, 'internal', principal);
-    const status = this.#o.controlPlane.projection.command(command.command_id)?.status ?? null;
-    this.#recordStep(
-      request,
-      {
-        ...step,
-        status:
-          submitted.disposition === 'rejected'
-            ? 'rejected'
-            : status === 'completed'
-              ? 'confirmed'
-              : 'running',
-        command_status: status,
-        summary:
-          submitted.disposition === 'rejected'
-            ? 'Confirmed, then refused when it was submitted; nothing was done.'
-            : "Confirmed by the person and submitted under their own principal; its outcome is the command's own.",
-      },
-      null,
-      null,
-      // The step keeps the command as it was prepared; the digest it carried back is the command's own record.
-      held.command,
-    );
-    if (step.tool_name === 'act') {
-      this.#changed(
-        request,
-        submitted.disposition === 'rejected' ? 'failed' : 'responded',
-        request.reply,
+    const proposal = step.proposal;
+    const entry = { confirm: proposal.confirm } as const;
+    void this.#shown(entry.confirm, held.command, proposal.what_happens).then((shown) => {
+      const current = this.#o.controlPlane.projection.workspaceRequest(request.request_id);
+      const now = current?.steps.find((candidate) => candidate.step_id === step.step_id);
+      if (!current || now?.status !== 'waiting') return;
+      if (!shown.ok || shown.digest !== confirm.review) {
+        this.#recordStep(
+          current,
+          {
+            ...now,
+            status: 'rejected',
+            summary:
+              'What would be done changed after it was shown, so it was not done. Look again.',
+          },
+          null,
+          null,
+          held.command,
+        );
+        this.#changed(current, step.tool_name === 'act' ? 'failed' : 'running', current.reply);
+        if (step.tool_name !== 'act') this.#resumeModel(current);
+        return;
+      }
+      // A command that carries its review back (ADR 0051) carries the digest the person confirmed.
+      const command = (
+        'review' in
+        (COMMAND_VARIANTS.find(
+          (variant) =>
+            (variant.properties.command_type as { const?: string }).const ===
+            held.command.command_type,
+        )?.properties.payload.properties ?? {})
+          ? { ...held.command, payload: { ...held.command.payload, review: confirm.review } }
+          : held.command
+      ) as CommandEnvelope;
+      const submitted = this.#o.controlPlane.commands.submit(command, 'internal', principal);
+      const status = this.#o.controlPlane.projection.command(command.command_id)?.status ?? null;
+      this.#recordStep(
+        current,
+        {
+          ...now,
+          status:
+            submitted.disposition === 'rejected'
+              ? 'rejected'
+              : status === 'completed'
+                ? 'confirmed'
+                : 'running',
+          command_status: status,
+          summary:
+            submitted.disposition === 'rejected'
+              ? 'Confirmed, then refused when it was submitted; nothing was done.'
+              : "Confirmed by the person and submitted under their own principal; its outcome is the command's own.",
+        },
+        null,
+        null,
+        // The step keeps the command as it was prepared; the digest it carried back is the command's own record.
+        held.command,
       );
-      return;
-    }
-    // The model's request goes on, with fresh evidence, to tell the person what happened.
+      if (step.tool_name === 'act') {
+        this.#changed(
+          current,
+          submitted.disposition === 'rejected' ? 'failed' : 'responded',
+          current.reply,
+        );
+        return;
+      }
+      this.#resumeModel(current);
+    });
+  }
+  /** A model's request goes on, with fresh evidence, to tell the person what happened. */
+  #resumeModel(request: WorkspaceRequestView): void {
     this.#conversations.delete(request.request_id);
     this.#changed(request, 'running', request.reply);
     this.#budgets.set(request.request_id, { turns: 0, calls: 0, activeMs: 0 });
     this.#schedule(request.request_id);
   }
   /** Where a request stands, as the host's list of what can be done there reads it. */
-  #actionScope(request: WorkspaceRequestView): ActionScope {
+  #actionScope(request: WorkspaceRequestView): HereScope {
     return {
       project_id: request.project_id,
       workstream_id: request.workstream_id,
       execution_id: request.execution_id,
     };
   }
-  /** What this request may propose now and the lists it may read (ADR 0060): the host's list, never the model's. */
-  #here(request: WorkspaceRequestView) {
-    const source = this.#o.actions;
-    if (!source) return { entries: [], looks: [], lists: new Set<string>() };
-    const scope = this.#actionScope(request);
-    const entries = sayable(source.actions(scope));
-    const looks = source.looks(scope);
-    const lists = new Set([
-      ...looks.map((look) => look.opens),
+  /**
+   * Reads what can be done where the request stands from the host (CORE's `CommandService.here`), keeps it for this
+   * request's turn, and gives it: what the model may propose (`sayable`) or, for the person's own press, every command
+   * entry, and the lists it may read.
+   */
+  async #refreshHere(request: WorkspaceRequestView, forModel = true) {
+    const listed = await this.#o.controlPlane.commands.here(this.#actionScope(request));
+    const commands = listed.filter((entry): entry is CommandEntry => entry.kind === 'command');
+    const looks = listed.flatMap((entry) =>
+      entry.kind === 'list'
+        ? [{ list: entry.list, title: entry.title, description: entry.description }]
+        : [],
+    );
+    // The bound task's own instruction is continue_task's, which sends the person's words whole (ADR 0060, section 7).
+    const entries = forModel
+      ? sayable(commands).filter(
+          (entry) =>
+            !(request.execution_id !== null && entry.command_type === 'execution.send_instruction'),
+        )
+      : commands;
+    const lists = new Set<string>([
+      ...looks.map((look) => look.list),
       ...entries.flatMap((entry) => entry.needs.flatMap((need) => (need.list ? [need.list] : []))),
     ]);
-    return { entries, looks, lists };
+    const here = { entries, lists, looks };
+    if (forModel) this.#heres.set(request.request_id, here);
+    return here;
+  }
+  /** What this request may propose now and the lists it may read, as last read at this turn. */
+  #here(request: WorkspaceRequestView) {
+    return (
+      this.#heres.get(request.request_id) ?? { entries: [], lists: new Set<string>(), looks: [] }
+    );
   }
   /**
    * The list tools as offered now: propose_command only with something to propose, its command_type one of those
@@ -2270,31 +2365,23 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     return {
       ...(here.entries.length > 0
         ? {
+            // One line per need, so the list stays small beside the person's words (12 KiB in all).
             can_be_done_here: here.entries.map((entry) => ({
               command_type: entry.command_type,
               title: entry.title,
-              description: entry.description,
-              // The person's own words are the host's to fill, never the model's: it is not told of them.
+              does: entry.description,
               needs: entry.needs
-                .filter((need) => need.kind !== 'person_words')
-                .map((need) => ({
-                  name: need.name,
-                  kind: need.kind,
-                  label: need.label,
-                  required: need.required,
-                  ...(need.list ? { list: need.list } : {}),
-                  ...(need.most ? { most: need.most } : {}),
-                })),
+                .map(
+                  (need) =>
+                    `${need.name}: ${need.list ? `${need.kind === 'choices' ? `up to ${need.max ?? 1} rows` : 'a row'} of ${need.list}` : need.kind}${need.required ? ', required' : ''}`,
+                )
+                .join('; '),
             })),
           }
         : {}),
       ...(here.looks.length > 0
         ? {
-            lists_here: here.looks.map((look) => ({
-              list: look.opens,
-              title: look.title,
-              description: look.description,
-            })),
+            lists_here: here.looks.map((look) => look.list),
           }
         : {}),
       ...(request.places?.length
@@ -2320,6 +2407,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     const words = personWords(
       request.original_text,
       this.#o.controlPlane.projection.workspaceRequestDirections(request.request_id),
+      this.#wordsRoom.get(request.request_id) ?? PERSON_WORDS_BYTES,
     );
     const views = [words.request, ...words.continuations];
     const cut = views.filter((view) => view.head < view.total);
@@ -2498,7 +2586,18 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     // transport bound, keep it and fail by that named bound rather than invent or omit its result.
     if (!kept.length && batches.length) {
       const latest = batches.at(-1);
-      if (latest) kept.push(latest);
+      if (latest) {
+        // Its tool calls and results stay whole; the model's own words beside them are shortened to fit, so a long
+        // reply in the history never makes a body the transport refuses.
+        const [said, ...rest] = latest;
+        if (said?.role === 'assistant' && said.content) {
+          const over =
+            Buffer.byteLength(JSON.stringify({ messages: [...head, ...latest], tools: offered })) -
+            budget;
+          const room = Math.max(0, Buffer.byteLength(said.content) - over - 64);
+          kept.push([{ ...said, content: fitted(said.content, Math.floor(room / 2)) }, ...rest]);
+        } else kept.push(latest);
+      }
     }
     return [...head, ...kept.flat()];
   }

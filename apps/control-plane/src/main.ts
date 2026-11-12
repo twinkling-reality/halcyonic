@@ -72,7 +72,6 @@ import { spokenNames } from './speech/tidy.ts';
 import { Transcriptions } from './speech/transcriptions.ts';
 import { WhisperEngine } from './speech/whisper.ts';
 import { HostStarters, originalFolderOf, originalRefusal } from './starters.ts';
-import { hostActions } from './workspace-agent/host-actions.ts';
 import { OllamaWorkspaceModel } from './workspace-agent/ollama.ts';
 import { WorkspaceRequests } from './workspace-agent/requests.ts';
 
@@ -382,8 +381,6 @@ async function main(): Promise<void> {
     model: new OllamaWorkspaceModel({ config: config.assistant }),
     understanding,
     evaluation,
-    // What can be done here (ADR 0060), as the host can say it before CORE's declarations replace the table.
-    actions: hostActions(controlPlane),
   });
   const sources = {
     understanding,

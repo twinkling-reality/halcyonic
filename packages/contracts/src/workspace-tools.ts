@@ -1,4 +1,5 @@
 import Type from 'typebox';
+import { ChoiceList } from './actions.ts';
 import { ActionValues } from './commands.ts';
 import { EventId, Position, Text } from './primitives.ts';
 
@@ -32,7 +33,7 @@ export const WORKSPACE_TOOL_ARGUMENTS = {
    * Reads one list the host holds, by the name an entry opens or a need's choices name (ADR 0060): rows by index, in
    * the host's words.
    */
-  read_choices: Type.Object({ list: Text(128) }, strict),
+  read_choices: Type.Object({ list: ChoiceList }, strict),
   /** Picks one of the places the client said it can go, by index; the client goes there (ADR 0060). */
   go_to: Type.Object({ index: Type.Integer({ minimum: 0, maximum: 15 }) }, strict),
   read_result: Type.Object(
