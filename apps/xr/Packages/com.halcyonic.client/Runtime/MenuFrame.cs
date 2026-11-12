@@ -252,6 +252,36 @@ namespace Halcyonic.Client
         /// <summary>A known project's state apart, for a card (A17): its word, how many tasks it counts, and whether it waits on the person.</summary>
         public ProjectState? ProjectState { get; private set; }
 
+        /// <summary>The line heads the rows under it (as "Folders" does), so a card may take it as its title (R3: by kind, never by its words).</summary>
+        public bool Heading { get; private set; }
+
+        /// <summary>A row's own quiet note for a card, where it has one ("Connecting"); null for none.</summary>
+        public string? RowNote { get; private set; }
+
+        /// <summary>What the line says as a card's status, where it stands for one (a problem that replaces a list); null otherwise.</summary>
+        public RoomCardStatus? CardStatus { get; private set; }
+
+        /// <summary>This line, marked as a heading.</summary>
+        public PageLine AsHeading()
+        {
+            Heading = true;
+            return this;
+        }
+
+        /// <summary>This row, with <paramref name="note"/> as its note on a card.</summary>
+        public PageLine WithRowNote(string? note)
+        {
+            RowNote = note;
+            return this;
+        }
+
+        /// <summary>This line, with <paramref name="status"/> for a card.</summary>
+        public PageLine WithCardStatus(RoomCardStatus status)
+        {
+            CardStatus = status;
+            return this;
+        }
+
         /// <summary>A known task's state apart, for a card (R3): its state's word and tone, and the mark a practice or recorded task carries.</summary>
         public TaskRowState? TaskState { get; private set; }
 

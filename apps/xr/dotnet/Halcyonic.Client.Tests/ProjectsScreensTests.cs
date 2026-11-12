@@ -107,6 +107,42 @@ public class ProjectsScreensTests
         Assert.That(frame.Lines.First().Words, Is.EqualTo(ProjectsText.FoldersHeading), "no projects yet: the folders answer it");
     }
 
+    /// <summary>
+    /// A new person's first page under the redesign (C; FIELD's card, 2026-11-12): one list card titled "Folders", each folder
+    /// a row with the folder's mark, its name in mono, its press the frame's own; New Project the main action. A problem with
+    /// the folders is the card's status with Try Again the main action in the column, with no side panel. Known by kinds.
+    /// </summary>
+    [Test]
+    public void WithNoProjectsTheRedesignDrawsTheFoldersCard()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var none = WorkOverview.Of(new ClientProjection(), new StageVisibility(), _ => false);
+            var state = State(listing: Listing(Root("Projects", Folder("shop"), Folder("kite"))), overview: none);
+            state.FoldersOpen = false;
+            var bar = RoomBar.OfFrame(ProjectsScreens.Projects(state), VoiceStage.Idle)!;
+            Assert.That(bar, Is.Not.Null, "the redesign draws a new person's first page");
+            Assert.That(bar.Card!.Title!.Text, Is.EqualTo(ProjectsText.FoldersHeading));
+            Assert.That(bar.Card.List.Select(row => (row.Kind, row.Name.Text, row.Mono, row.Press!.Action)), Is.EquivalentTo(new[]
+            {
+                (RoomKind.Folder, "shop", true, ProjectsScreens.ChooseFolder), (RoomKind.Folder, "kite", true, ProjectsScreens.ChooseFolder),
+            }));
+            Assert.That((bar.Column[0].Control.Action, bar.Column[0].Main, bar.Column.Last().Control.Place), Is.EqualTo((ProjectsScreens.NewProject, true, KitPlace.Close)));
+            Assert.That(bar.Card.AnyDot, Is.False);
+
+            var empty = State(listing: Listing(), overview: none);
+            empty.FoldersOpen = false;
+            var problem = RoomBar.OfFrame(ProjectsScreens.Projects(empty), VoiceStage.Idle)!;
+            var status = problem.Card!.Status!.Value;
+            Assert.That((status.Title, status.Line, status.Tone), Is.EqualTo((ProjectsText.NoFolders, ProjectsText.NoFoldersLine, RoomTone.Attention)));
+            Assert.That((problem.Column[0].Control.Action, problem.Column[0].Main), Is.EqualTo((ProjectsScreens.ReadAgain, true)), "Try Again leads, no side panel first");
+            Assert.That(problem.Column.Count(action => action.Main), Is.EqualTo(1));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
     [Test]
     public void AChosenProjectSlidesOutItsWorkAndTheFooterCarriesItsActions()
     {

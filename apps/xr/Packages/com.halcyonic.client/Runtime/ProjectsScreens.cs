@@ -257,9 +257,14 @@ namespace Halcyonic.Client
             }
             else
             {
+                // Under the redesign a problem with the folders is the card's status, and Try Again stands in its column as the
+                // main action, with no side panel to open first (FIELD, 2026-11-12); the older view keeps its row and panel.
+                var tryAgain = RoomDesign.Enabled && projects.Count == 0 && problem != null && FoldersVisible(state);
                 footer = new Footer(close,
                     rare: projects.Count > 0 && !state.Demonstration ? new Prompt(FolderNavigation, state.FoldersOpen ? "Back to Projects" : "Connect Folder", GlazeIcon.ConnectProjects) : null,
-                    farRight: new Prompt(NewProject, ProjectsText.NewProject, GlazeIcon.CreateProject, main: true));
+                    secondary: tryAgain ? new Prompt(NewProject, ProjectsText.NewProject, GlazeIcon.CreateProject) : null,
+                    farRight: tryAgain ? new Prompt(ReadAgain, EntryText.TryAgain, GlazeIcon.Refresh, main: true)
+                        : new Prompt(NewProject, ProjectsText.NewProject, GlazeIcon.CreateProject, main: true));
             }
             // One prompt pages: Next page, which on the last page reads First page and starts again, at the
             // far right where nothing is the main action, else beside it. It waits while a row is chosen:
@@ -297,7 +302,7 @@ namespace Halcyonic.Client
             }
             // The demonstration connects nothing, so it lists no folders.
             if (state.Demonstration || !FoldersVisible(state)) return lines;
-            lines.Add(Say(ProjectsText.FoldersHeading));
+            lines.Add(Say(ProjectsText.FoldersHeading).AsHeading());
             if (!state.Live)
             {
                 lines.Add(Say(ConnectText.NotConnectedYet, rows: 2));
@@ -306,7 +311,10 @@ namespace Halcyonic.Client
             if (FoldersProblem(state) is string problem)
             {
                 lines.Add(new PageLine(problem, tone: state.Listing == null ? LineTone.Problem : LineTone.Secondary,
-                    action: ChooseProblem, key: ProblemKey, opens: true, chosen: problemChosen));
+                    action: ChooseProblem, key: ProblemKey, opens: true, chosen: problemChosen)
+                    .WithCardStatus(state.Listing == null
+                        ? new RoomCardStatus(problem, ProjectsText.FoldersUnreadLine, RoomTone.Bad)
+                        : new RoomCardStatus(problem, ProjectsText.NoFoldersLine, RoomTone.Attention)));
                 return lines;
             }
             var listing = state.Listing;
@@ -323,8 +331,10 @@ namespace Halcyonic.Client
             var manyPlaces = offers.Select(offer => offer.Root.Path).Distinct(StringComparer.Ordinal).Count() > 1;
             foreach (var offer in offers)
             {
+                var connecting = state.Connection is { } connection && connection.Folder.Key == offer.Key && connection.Step.Status == BuildStepStatus.Waiting;
                 lines.Add(new PageLine(LineWords.TheirName(offer.Name), fact: ProjectsText.FolderFactRuns(offer, state.Now, state.Zone, manyPlaces),
-                    action: ChooseFolder, key: offer.Key, opens: true, chosen: offer.Key == chosenFolder?.Key));
+                    action: ChooseFolder, key: offer.Key, opens: true, chosen: offer.Key == chosenFolder?.Key)
+                    .WithRowNote(connecting ? ProjectsText.Connecting : null));
             }
             if (FolderConnect.AnyCut(listing)) lines.Add(Say(EntryText.FoldersCut, rows: 2));
             return lines;
@@ -368,7 +378,7 @@ namespace Halcyonic.Client
             for (var index = 0; index < lines.Count; index++)
             {
                 var line = lines[index];
-                var heading = line.Words == ProjectsText.FoldersHeading && line.Action == null && index + 1 < lines.Count;
+                var heading = line.Heading && line.Action == null && index + 1 < lines.Count;
                 var needs = costs[index] + (heading ? costs[index + 1] : 0);
                 if (physical && needs > limit) return null;
                 if (used > 0 && used + needs > limit)
