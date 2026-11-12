@@ -333,6 +333,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     var key = section?.ToString().ToLowerInvariant();
                     // A result at rest offers its own Changes and Checks, which turn the result's page: a press of one reaches it.
                     var resultPage = section == FileSection.Changes ? RoomResult.ShowChanges : section == FileSection.Checks ? RoomResult.ShowChecks : null;
+                    // Where the result offers only its other page (Changes, then Checks from it), that page first, as a person goes.
+                    var otherPage = resultPage == RoomResult.ShowChecks ? RoomResult.ShowChanges : resultPage == RoomResult.ShowChanges ? RoomResult.ShowChecks : null;
+                    if (Open() && !There() && resultPage != null && Drawn("section", key) == null && Drawn(resultPage, null) == null && otherPage != null
+                        && PressedButton(otherPage, null) && plane.KitShows)
+                        ways.Add("its page drew " + string.Join(" ", plane.Kit.Bar.Column.Where(each => each.gameObject.activeInHierarchy)
+                            .Select(each => plane.Kit.Bar.ControlOf(each) is KitControl control ? control.Action : "?")));
                     if (Open() && !There() && resultPage != null && Drawn("section", key) == null && PressedButton(resultPage, null))
                     {
                         reachedBy = string.Join(", then ", ways);
