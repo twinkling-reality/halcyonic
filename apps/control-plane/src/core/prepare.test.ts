@@ -293,3 +293,68 @@ test('a new project’s folder is chosen by its place in the list, a new one nam
   assert.equal(folderNameOf('  café au lait  '), 'cafe-au-lait');
   assert.equal(folderNameOf('x'.repeat(80)).length, 64);
 });
+
+test('a VR version’s place is chosen from the same folders list: a new folder row gives its root, an existing folder is no place for one', async (t) => {
+  const { createHash } = await import('node:crypto');
+  const { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } =
+    await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const { createHostLocations } = await import('../locations.ts');
+  const { HostStarters } = await import('../starters.ts');
+  const { createTestControlPlane } = await import('../testing/harness.ts');
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-prepare-vr-')));
+  t.after(() => rmSync(base, { recursive: true, force: true }));
+  const root = join(base, 'projects');
+  const installedDir = join(base, 'starters-installed');
+  mkdirSync(join(root, 'chimes', 'src'), { recursive: true });
+  writeFileSync(join(root, 'chimes', 'package.json'), '{"name":"chimes","version":"1.0.0"}\n');
+  mkdirSync(join(root, 'spare'));
+  const trackedDir = fileURLToPath(new URL('../../../../starters', import.meta.url));
+  const lock = readFileSync(join(trackedDir, 'iwsdk-vr', 'package-lock.json'));
+  mkdirSync(join(installedDir, 'iwsdk-vr', 'node_modules'), { recursive: true });
+  writeFileSync(
+    join(installedDir, 'iwsdk-vr', 'installed.json'),
+    JSON.stringify({ format: 1, lockfile: createHash('sha256').update(lock).digest('hex') }),
+  );
+  const { controlPlane, commands } = createTestControlPlane({
+    locations: createHostLocations([root]),
+    starters: new HostStarters({ trackedDir, installedDir, dataDir: join(base, 'data') }),
+  });
+  const made = controlPlane.commands.submit(
+    commands.createProject('Chimes', { kind: 'existing_folder', root, folder_name: 'chimes' }),
+    'internal',
+  );
+  const projectId =
+    made.command?.result?.kind === 'project_created' ? made.command.result.project_id : '';
+  const scope = { project_id: projectId, workstream_id: null, execution_id: null } as HereScope;
+  const folders = await controlPlane.commands.choices(scope, 'folders');
+  assert.ok(folders !== null);
+  assert.deepEqual(
+    folders.rows.map((r) => [r.label, r.actions.includes('project.make_vr_version')]),
+    [
+      [folders.rows[0]?.label, true],
+      ['spare', false],
+    ],
+  );
+  const prepare = (location: number) =>
+    controlPlane.commands.prepare({
+      scope,
+      command_type: 'project.make_vr_version',
+      values: { root: location, folder_name: 'chimes-vr' },
+      read: { folders: folders.digest },
+      command_id: randomUUID() as CommandId,
+      issued_at: '2026-11-12T12:40:00.000Z',
+      client: TEST_CLIENT,
+    });
+  const fresh = await prepare(0);
+  assert.ok(fresh.ok, fresh.ok ? '' : fresh.message);
+  assert.deepEqual(fresh.command.payload, {
+    original_project_id: projectId,
+    root,
+    folder_name: 'chimes-vr',
+  });
+  const existing = await prepare(1);
+  assert.ok(!existing.ok, 'a folder already there is no place to make a new version in');
+});

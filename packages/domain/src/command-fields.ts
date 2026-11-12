@@ -28,6 +28,8 @@ export type FieldSource =
        * a new folder in a root takes its name from the project's (`{ folder_name: 'name' }`).
        */
       readonly completes?: Readonly<Record<string, string>>;
+      /** The one part of the chosen row's value the field takes: a VR version's place is a root's path. */
+      readonly takes?: string;
     };
 
 const project = { from: 'project' } as const;
@@ -43,6 +45,7 @@ const need = (
     list?: ChoiceList;
     max?: number;
     completes?: Readonly<Record<string, string>>;
+    takes?: string;
   } = {},
 ): FieldSource => ({
   from: 'person',
@@ -52,6 +55,7 @@ const need = (
   list: options.list ?? null,
   max: options.max ?? null,
   ...(options.completes === undefined ? {} : { completes: options.completes }),
+  ...(options.takes === undefined ? {} : { takes: options.takes }),
 });
 const optional = { required: false } as const;
 
@@ -72,7 +76,7 @@ export const COMMAND_FIELDS: Readonly<
   },
   'project.make_vr_version': {
     original_project_id: project,
-    root: need('choice', 'Where', { list: 'folders' }),
+    root: need('choice', 'Where', { list: 'folders', takes: 'root' }),
     folder_name: need('text', 'Folder Name'),
   },
   'project.set_location': {

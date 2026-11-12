@@ -244,7 +244,7 @@ export async function choiceRows(
             {
               detail: 'A new folder here',
               theirs: true,
-              actions: ['project.create'],
+              actions: ['project.create', 'project.make_vr_version'],
             },
           ),
         );

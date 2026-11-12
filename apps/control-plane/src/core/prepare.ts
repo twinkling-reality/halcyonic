@@ -205,6 +205,16 @@ export async function prepareCommand(
           }
           chosen = completed;
         }
+        // A field that takes one part of the row's value (a root's path from a new folder's row).
+        if (field.takes !== undefined) {
+          const part =
+            typeof chosen === 'object' && chosen !== null
+              ? (chosen as Record<string, unknown>)[field.takes]
+              : undefined;
+          if (typeof part !== 'string')
+            return refuse('invalid_state', `${field.label} has no ${field.takes} to give.`);
+          chosen = part;
+        }
         payload[name] = chosen;
         break;
       }
