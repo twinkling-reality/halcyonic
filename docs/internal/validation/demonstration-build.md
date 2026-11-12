@@ -183,6 +183,17 @@ words band, an answer chosen, Review Answers and Send Answer, and the one answer
 redesign's own press. Those frames pass every check but the glyphs' contrast again (Send Answer's
 and Back's glyphs reach 2.0 to 4.2:1).
 
+Since 2026-11-12 the walk reaches a task's pages as a judge would: a row of the redesign's card naming the task or its
+project, then the drawn section control (the result's Checks for Checks), each press given the file's half-second
+refresh to land; where none gets there the walk opens the page itself. The moment list's "reached by" says which, at
+every moment, and a result is shot once the task's file has read it. What it showed on main 60a0d8830 with that change
+(JUDGE, 2026-11-12, run 19, the same at both sizes; every check passed, 24 moments): Projects offers the project's row,
+and pressing it opens the project's tasks in the older views, with no row a press can take, so the walk opened the
+recorded task's file itself; the walk also opened the demonstration's waiting task, and the Changes and Checks pages
+after a result, because nothing drawn reached them (Checks from Changes was pressed, and the file did not stand on
+Checks after it). Inside a task's file every decision a judge makes is pressed through the redesign's own controls.
+The walk draws no shelf, so a character picked there, the other way to a task, is not checked here.
+
 ## Gaps against today's product
 
 | Area | Today in the judge build | Evidence | Who closes it |
