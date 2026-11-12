@@ -591,11 +591,17 @@ class MacSetup {
       if (keyed.now && !(keyed.stops !== null && !known)) ready += 1;
       const onWords = known ? `${key.app} is on` : `${key.app} is on from Halcyonic's next start`;
       const byEnvironment = keyIn(env, key.variable);
+      // Until a Claude Agent task here runs on Halcyonic's settings alone, the person's own Claude Code settings may
+      // sign it in another way (AUDIT3's settings-gap verdict): every line that says what pays says so.
+      const unless =
+        key.runtimeId === CLAUDE_AGENT_RUNTIME_ID
+          ? ', unless your own Claude Code settings sign it in another way'
+          : '';
       const paid = byEnvironment
-        ? `Every task on it is paid for with the ${key.variable} in Halcyonic's environment${keyed.stored ? ', not the stored key' : ''}.`
+        ? `Every task on it is paid for with the ${key.variable} in Halcyonic's environment${keyed.stored ? ', not the stored key' : ''}${unless}.`
         : keyed.stored
-          ? 'Every task on it is paid for with that key.'
-          : `Every task on it is paid for through your ${keyed.provider ?? 'cloud provider'} account, set in Halcyonic's environment.`;
+          ? `Every task on it is paid for with that key${unless}.`
+          : `Every task on it is paid for through your ${keyed.provider ?? 'cloud provider'} account, set in Halcyonic's environment${unless}.`;
       const its = `its ${key.declared} key`;
       const addIt = known ? `Add ${its} below.` : `Add ${its} under Agent Apps on the setup page.`;
       // While the start stops, the setup page is not there: in Terminal, the way to it is a start without the switch.
@@ -629,7 +635,10 @@ class MacSetup {
             ? `${onWords}, with your key stored on this computer. ${paid}`
             : `${onWords}. ${paid}`,
         );
-      else lines.push(`${key.app} runs on your own key, which pays for every task on it. ${addIt}`);
+      else
+        lines.push(
+          `${key.app} runs on your own key, which pays for every task on it${unless}. ${addIt}`,
+        );
       if (keyed.unusable) {
         look = true;
         lines.push(
@@ -870,8 +879,8 @@ class MacSetup {
       const keyed = claude.stored || keyIn(this.#io.env, claude.key.variable);
       lines.push(
         keyed || claude.provider === null
-          ? `${on} Its models run on a remote service, Anthropic's: nothing starts on one without its second press, and a task on one is paid for with your API key.`
-          : `${on} Its models run on a remote service, ${claude.provider}: nothing starts on one without its second press, and a task on one is paid for through your ${claude.provider} account.`,
+          ? `${on} Its models run on a remote service, Anthropic's: nothing starts on one without its second press, and a task on one is paid for with your API key, unless your own Claude Code settings sign it in another way.`
+          : `${on} Its models run on a remote service, ${claude.provider}: nothing starts on one without its second press, and a task on one is paid for through your ${claude.provider} account, unless your own Claude Code settings sign it in another way.`,
       );
       const key = this.#fileState(claude.key.file);
       if (key === 'exposed')

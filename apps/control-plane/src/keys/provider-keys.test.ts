@@ -66,6 +66,7 @@ describe('provider keys', () => {
           { name: 'Test Assistant', reads: 'at_each_use' },
         ],
         applies: 'next_start',
+        held_outside: [],
         stored: false,
         stored_at: null,
         unusable: false,
@@ -76,6 +77,7 @@ describe('provider keys', () => {
         field: 'Testprovider API Key',
         readers: [{ name: 'Test Assistant', reads: 'at_each_use' }],
         applies: 'at_once',
+        held_outside: [],
         stored: false,
         stored_at: null,
         unusable: false,
@@ -90,6 +92,30 @@ describe('provider keys', () => {
       listed[1]?.stored_at !== null && !Number.isNaN(Date.parse(listed[1]?.stored_at ?? '')),
     );
     assert.equal(JSON.stringify(listed).includes('test-key-not-real'), false);
+  });
+
+  test("a reader whose agent app runs outside the sandbox and holds the key in its run is named on that key's card, as declared now", (t) => {
+    const dataDir = folder(t);
+    const declared = providersFolder(t);
+    declared.declare('testprovider', 'Testprovider');
+    const providers = new HostProviders({
+      dir: declared.dir,
+      dataDir,
+      readers: [CLAUDE_AGENT_READER, TEST_ASSISTANT_READER],
+    });
+    let outside: readonly string[] = ['Claude Agent'];
+    const keys = new ProviderKeys(dataDir, providers, () => outside);
+    const cards = () => keys.list().map((card) => [card.id, card.held_outside]);
+    assert.deepEqual(cards(), [
+      ['anthropic', ['Claude Agent']],
+      ['testprovider', []],
+    ]);
+    // Read at each ask: when the adapter says it runs confined, the card says nothing more.
+    outside = [];
+    assert.deepEqual(cards(), [
+      ['anthropic', []],
+      ['testprovider', []],
+    ]);
   });
 
   test('only the keys a reader reads at its start count toward Restart to Apply', (t) => {

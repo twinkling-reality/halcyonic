@@ -632,6 +632,18 @@ function keyApp(app) {
     item.append(
       element('p', 'key-used', `Used by ${listed(app.readers.map((reader) => reader.name))}.`),
     );
+  // An agent app that runs outside the sandbox on a connected folder holds the key in its own run: said plainly.
+  const outside = app.held_outside ?? [];
+  if (outside.length > 0) {
+    const one = outside.length === 1;
+    item.append(
+      element(
+        'p',
+        'key-held',
+        `On a folder you connected, ${listed(outside)} ${one ? 'runs' : 'run'} with your own access, and a task there can read and keep a copy of this key. Apps made here are held to their own copy and hold no key, unless a cloud provider is switched on in Halcyonic's environment.`,
+      ),
+    );
+  }
   const status = element('p', 'secret-status', '');
   status.hidden = true;
   status.setAttribute('role', 'status');

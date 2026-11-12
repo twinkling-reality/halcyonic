@@ -52,7 +52,15 @@ export const ANTHROPIC_KEY_FILE = 'anthropic-api-key';
 export const KEYED_AGENT_APPS: readonly {
   readonly runtimeId: string;
   readonly reader: KeyReader;
-}[] = [{ runtimeId: CLAUDE_AGENT_RUNTIME_ID, reader: CLAUDE_AGENT_READER }];
+  /** Whether its runs can go outside Halcyonic's sandbox, as its adapter's class declares, whether or not it runs now. */
+  readonly runsOutsideSandbox: () => boolean;
+}[] = [
+  {
+    runtimeId: CLAUDE_AGENT_RUNTIME_ID,
+    reader: CLAUDE_AGENT_READER,
+    runsOutsideSandbox: () => ClaudeAgentRuntimeAdapter.runsOutsideSandbox(),
+  },
+];
 
 /** The agent apps' readers, for the host's one list of providers. */
 export const AGENT_KEY_READERS: readonly KeyReader[] = KEYED_AGENT_APPS.map((app) => app.reader);

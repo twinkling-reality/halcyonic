@@ -25,6 +25,11 @@ export interface KeyView {
   }[];
   /** Whether a change waits for the next start (a reader reads it at its start) or takes effect at once. */
   readonly applies: 'next_start' | 'at_once';
+  /**
+   * The readers whose agent app, as its adapter declares, runs outside Halcyonic's sandbox on a folder the person
+   * connected, with the person's own access, and holds this key in its run while a task runs; by name.
+   */
+  readonly held_outside: readonly string[];
   readonly stored: boolean;
   /** When the stored key was written, or null where none is stored. */
   readonly stored_at: string | null;
@@ -56,10 +61,20 @@ export function keyProblem(value: unknown): string | null {
 export class ProviderKeys {
   readonly #dataDir: string;
   readonly #providers: HostProviders;
+  readonly #holdsOutside: () => readonly string[];
 
-  constructor(dataDir: string, providers: HostProviders) {
+  /**
+   * `holdsOutside` names the readers whose agent app runs outside the sandbox on a connected folder and holds the key
+   * it reads in its run, as the adapters declare now; none where absent.
+   */
+  constructor(
+    dataDir: string,
+    providers: HostProviders,
+    holdsOutside: () => readonly string[] = () => [],
+  ) {
     this.#dataDir = dataDir;
     this.#providers = providers;
+    this.#holdsOutside = holdsOutside;
   }
 
   /** Every declared provider something here reads, in the host list's order. */
@@ -73,6 +88,9 @@ export class ProviderKeys {
         field: provider.key.field,
         readers: readers.map((reader) => ({ name: reader.name, reads: reader.reads })),
         applies: readers.some((reader) => reader.reads === 'at_start') ? 'next_start' : 'at_once',
+        held_outside: readers
+          .map((reader) => reader.name)
+          .filter((name) => this.#holdsOutside().includes(name)),
         stored: file.state === 'stored',
         stored_at: file.state === 'stored' ? file.at : null,
         unusable: file.state === 'unusable',
