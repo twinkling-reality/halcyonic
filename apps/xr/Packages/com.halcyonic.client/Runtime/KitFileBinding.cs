@@ -361,7 +361,8 @@ namespace Halcyonic.Client
                 runNeverAsk: workspace.Execution?.ApprovalLevel is Halcyonic.Contracts.ApprovalLevel level ? level == Halcyonic.Contracts.ApprovalLevel.NeverAsk : (bool?)null,
                 result: roomDesign && KitPresenter.AtRest(workspace) ? result : null,
                 autoFix: roomDesign ? workspace.Execution?.AutoFix : null,
-                standing: roomDesign && KitPresenter.AtRest(workspace) ? RoomStanding.Card(workspace.Execution, LineWords.TheirName(work.TaskTitle)) : null);
+                standing: roomDesign && KitPresenter.AtRest(workspace)
+                    ? RoomStanding.Card(workspace.Execution, LineWords.TheirName(work.TaskTitle), KitPresenter.TurnReportOf(work.Report, work.Trail)?.Words) : null);
             // Every line the frame shows is words the kit shows too; a line it would leave out, as an attention note,
             // a pointer to Waiting, why nothing can be sent or a notice, keeps the frame on the file's own drawing.
             var shown = ShownWords(model, workspace);

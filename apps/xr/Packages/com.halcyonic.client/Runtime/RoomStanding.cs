@@ -43,13 +43,16 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The card for a task at rest whose result says nothing: the task's name, its status, and where the run failed with a
-        /// message, the message whole as the card's description, theirs. Null where <see cref="Of"/> is.
+        /// message, the message whole as the card's description, theirs; where a turn finished, the agent's own last report as the
+        /// description, reported and theirs, so the card says what was made beside what was checked (the lead's first journey,
+        /// 2026-11-12: never Turn Finished alone). Null where <see cref="Of"/> is.
         /// </summary>
-        public static RoomCard? Card(ExecutionView? execution, LineWords task)
+        public static RoomCard? Card(ExecutionView? execution, LineWords task, LineWords? report = null)
         {
             if (Of(execution) is not RoomCardStatus status) return null;
             var message = execution!.Status == ExecutionStatus.Failed && !string.IsNullOrWhiteSpace(execution.StatusReason?.Message)
-                ? LineWords.Theirs(execution.StatusReason!.Message) : (LineWords?)null;
+                ? LineWords.Theirs(execution.StatusReason!.Message)
+                : execution.Status == ExecutionStatus.Completed && report is LineWords said && !said.IsEmpty ? said : (LineWords?)null;
             return new RoomCard(task, message, RoomCardHead.Picture, status: status);
         }
     }

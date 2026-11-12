@@ -29,6 +29,29 @@ public sealed class RoomStandingTests
         Assert.That((said.Title + (said.Line ?? "")).Contains('·'), Is.False, "no facts joined on dots");
     }
 
+    /// <summary>The lead's first journey (2026-11-12): a finished turn says what was made, in the agent's own reported words, beside what was checked.</summary>
+    [Test]
+    public void AFinishedTurnCarriesTheAgentsOwnReportBesideWhatWasChecked()
+    {
+        var report = LineWords.Theirs("Made a page that says hello and counts the clicks.");
+        var card = RoomStanding.Card(Run(ExecutionStatus.Completed), LineWords.TheirName("Hello page"), report)!;
+        Assert.That(card.Description, Is.EqualTo(report));
+        Assert.That((card.Status!.Value.Title, card.Status.Value.Line), Is.EqualTo((RoomStanding.Finished, RoomStanding.FinishedLine)), "never a passed check");
+        Assert.That(RoomStanding.Card(Run(ExecutionStatus.Completed), LineWords.TheirName("Hello page"))!.Description, Is.Null, "no report, no words of ours in its place");
+        Assert.That(RoomStanding.Card(Run(ExecutionStatus.Interrupted), LineWords.TheirName("Hello page"), report)!.Description, Is.Null, "a stopped turn is not said to have made anything");
+    }
+
+    /// <summary>Only the latest turn's words say what it made: a second turn that said nothing shows no earlier turn's report.</summary>
+    [Test]
+    public void ATurnsReportIsItsOwnNeverAnEarlierTurns()
+    {
+        static KitTrailEntry Round(long at) => new(new ActivityEntry(at, "2026-11-12T10:00:00Z", ActivityKind.Turn, ActivityLog.RoundStarted, reported: false), GlazeIcon.Next);
+        var said = new ActivityEntry(5, "2026-11-12T10:00:05Z", ActivityKind.Message, "Made the page.", reported: true);
+        Assert.That(KitPresenter.TurnReportOf(said, new[] { Round(1) }), Is.SameAs(said), "said in this turn");
+        Assert.That(KitPresenter.TurnReportOf(said, new[] { Round(1), Round(9) }), Is.Null, "the turn after said nothing");
+        Assert.That(KitPresenter.TurnReportOf(new ActivityEntry(5, "2026-11-12T10:00:05Z", ActivityKind.Message, "Ours.", reported: false), new[] { Round(1) }), Is.Null, "never words that are not the agent's report");
+    }
+
     [Test]
     public void AFailedRunShowsItsMessageWholeAsTheirsUnderItsStatusAndARunningOneSaysNothing()
     {

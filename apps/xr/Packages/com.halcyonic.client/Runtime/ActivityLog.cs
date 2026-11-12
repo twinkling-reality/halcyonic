@@ -62,6 +62,9 @@ namespace Halcyonic.Client
     /// </summary>
     public sealed class ActivityLog
     {
+        /// <summary>The entry a turn's start makes: where one turn's words begin (<see cref="KitPresenter.TurnReportOf"/>).</summary>
+        public const string RoundStarted = "Round Started";
+
         private readonly int capacity;
         private readonly int keptWhole;
         private readonly int tail;
@@ -230,7 +233,7 @@ namespace Halcyonic.Client
                     // Why, by its code alone, as the character says it: the message is a diagnostic.
                     return Entry(ActivityKind.Connection, StateLanguage.CantTell(StateLanguage.CantTellWhy(StateUnknownCodeOf(unknown.Payload.Code))));
                 case RuntimeTurnStartedEvent _:
-                    return Entry(ActivityKind.Turn, "Round Started");
+                    return Entry(ActivityKind.Turn, RoundStarted);
                 case RuntimeTurnCompletedEvent _:
                     return Entry(ActivityKind.Turn, "Round Ended");
                 case RuntimeTurnFailedEvent _:
