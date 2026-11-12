@@ -175,7 +175,10 @@ namespace Halcyonic.Client
                     if (result.Observed != null) column.Add(Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next));
                     if (result.Steps.Count > 0) column.Add(Own(RoomResult.ShowChecks, RoomResult.ChecksWords, main: false, GlazeIcon.Next));
                     // The agent's words stand on the band beside its result, never beside how a run stands (B): nothing extra.
-                    band = card != null && ReferenceEquals(card, binding.Model.Standing) ? null : binding.Model.Report?.Text;
+                    // Beside how a run stands, only that turn's own words, on the band, read by parts and never cut (the card stays whole).
+                    band = card != null && ReferenceEquals(card, binding.Model.Standing)
+                        ? KitPresenter.TurnReportOf(binding.Model.Report, binding.Model.Trail)?.Text
+                        : binding.Model.Report?.Text;
                     break;
             }
             if (facts != null)
